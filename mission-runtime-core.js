@@ -1072,6 +1072,7 @@ function _aptArrivalPointForRuntime() {
     const contract = md?.missionContract || window.activeMissionContract || {};
     const truth = md?.missionTruth || contract?.missionTruth || null;
     const plan = md?.aptArrivalPlan || contract?.aptArrivalPlan || truth?.arrivalScene || null;
+    if (plan?.snapStatus?.spawnAllowed === false) return null;
     const lat = Number(plan?.lat);
     const lon = Number(plan?.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;

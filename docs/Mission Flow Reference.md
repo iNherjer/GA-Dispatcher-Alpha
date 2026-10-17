@@ -296,6 +296,11 @@ so darf der zentrale Pickup-Klick die sichtbare Person in die bestehende
 `mission_scene_boarding`-Animation uebernehmen. Normale Empfangskontakte
 bleiben `arrival_person_*` und koennen nicht versehentlich einsteigen.
 
+Die Ankunftsplatzierung wird durch den bestehenden APT-/Bush-Composer gewählt
+und nach dessen finalen Offsets geprüft: [Ankunftsszenen](Arrival%20Scene%20Placement.md).
+Explizit zugewiesene Medien-Empfangspersonen können gemeinsam mit dem PAX im
+Abholfahrzeug abfahren; sie bleiben Szenenrollen und zählen nicht zum Manifest.
+
 Cargo-Pickup verwendet denselben Ablauf ohne PAX-Boarding. Die Fracht bleibt
 bis zum Home-Unload Pflichtladung.
 

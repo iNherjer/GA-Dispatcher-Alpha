@@ -44,7 +44,7 @@ test('partial restores, rejected missions and missing identity proof still canno
 });
 test('idle-check early returns release the single-flight guard after the cooldown', async () => {
     const timers = [];
-    const ctx = {window:{},getSyncId:()=> 'PILOT',_syncMissionRestoreBlocked:()=>false,
+    const ctx = {window:{},document:{hidden:false},getSyncId:()=> 'PILOT',_syncMissionRestoreBlocked:()=>false,
         _syncActiveMissionPayload:()=>null,updateSyncStatus(){},alert(){},
         _syncReadProfileResponse:async()=>({status:401}),setTimeout:fn=>timers.push(fn)};
     vm.createContext(ctx);

@@ -198,6 +198,56 @@ function beginBoarding(fixture, suffix = 'test') {
   return executeCurrent(fixture, 'start_boarding', `start-boarding-${suffix}`);
 }
 
+test('optional onboard cargo unloads and reloads at arrival without becoming required or bypassing home/pickup contracts', t => {
+  const bundle = aptResumeBundle();
+  for (const [id, extra] of [['optional-kit', {}], ['home-kit', { deliverAtHome: true }],
+    ['required-kit', { required: true }], ['pickup-kit', { pickupLocation: 'target' }]]) {
+    bundle.runtime.cargoManifest.items.push({ id, itemType: 'cargo', status: 'loaded',
+      required: false, deliverAtDestination: false, weightLbs: 2, ...extra });
+  }
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+  const f = createCommittedFixture(t, { bundle });
+  assert.equal(executeCurrent(f, 'prepare_mission', 'prepare-optional').ok, true);
+  beginBoarding(f, 'optional');
+  assert.equal(executeCurrent(f, 'set_manifest_item', 'load-required', { itemId: 'medical-box', action: 'load' }).ok, true);
+  assert.equal(executeCurrent(f, 'sign_manifest', 'sign-optional').ok, true);
+  assert.equal(executeCurrent(f, 'confirm_load', 'load-optional').ok, true);
+  acknowledgePayloadCurrent(f, 'optional');
+  acknowledgeBoardingCurrent(f, 'optional');
+  assert.equal(executeCurrent(f, 'start_mission', 'start-optional').ok, true);
+  f.adapter.observeTelemetry({ observedAt: 10000, lat: 48.1, lon: 8.2, onGround: false, gsKts: 60 });
+  f.adapter.observeTelemetry({ observedAt: 12000, lat: 48.1, lon: 8.2, onGround: false, gsKts: 65 });
+  f.adapter.observeTelemetry({ observedAt: 13000, lat: 48.3001, lon: 8.5001, onGround: true, gsKts: 20 });
+  f.adapter.observeTelemetry({ observedAt: 14000, lat: 48.3001, lon: 8.5001, onGround: true, gsKts: 0 });
+  const stopped = f.adapter.observeTelemetry({ observedAt: 17000, lat: 48.3001, lon: 8.5001, onGround: true, gsKts: 0 });
+  assert.equal(stopped.view.phase, 'end_unloading');
+  for (const id of ['home-kit', 'required-kit', 'pickup-kit']) {
+    assert.equal(executeCurrent(f, 'set_manifest_item', `deny-${id}`, { itemId: id, action: 'unload' }).error,
+      'mission_manifest_unload_not_allowed');
+  }
+  const unloaded = executeCurrent(f, 'set_manifest_item', 'unload-optional', { itemId: 'optional-kit', action: 'unload' });
+  assert.equal(unloaded.ok, true, JSON.stringify(unloaded));
+  let item = f.manager.getExecutionSnapshot().state.manifest.items.find(i => i.id === 'optional-kit');
+  assert.equal(item.status, 'unloaded'); assert.equal(item.required, false); assert.equal(item.deliverAtDestination, false);
+  assert.equal(executeCurrent(f, 'set_manifest_item', 'reload-optional', { itemId: 'optional-kit', action: 'load' }).ok, true);
+  item = f.manager.getExecutionSnapshot().state.manifest.items.find(i => i.id === 'optional-kit');
+  assert.equal(item.status, 'loaded');
+  // Restart/replay retains the authoritative transition and its unchanged delivery contract.
+  const restored = createMissionAuthorityManager(f.managerOptions).getExecutionSnapshot().state.manifest.items.find(i => i.id === 'optional-kit');
+  assert.equal(restored.status, 'loaded'); assert.equal(restored.required, false);
+});
+
+test('an unverified representative arrival anchor cannot override the actual destination airport', t => {
+  const bundle = aptResumeBundle();
+  bundle.missionState.currentMissionData.aptArrivalPlan = { lat: 49, lon: 9, snapStatus: { spawnAllowed: false } };
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+  const f = createCommittedFixture(t, { bundle });
+  assert.equal(f.manager.getExecutionSnapshot().location.arrivalPoint, null);
+  assert.deepEqual(f.manager.getExecutionSnapshot().location.missionTarget, { lat: 48.3, lon: 8.5 });
+});
+
 test('internal execution snapshot is normalized and contains no resume or owner payload', (t) => {
   const fixture = createCommittedFixture(t);
   const snapshot = fixture.manager.getExecutionSnapshot();

@@ -105,13 +105,15 @@ test('river centerlines are not obstacles for boats inside a mapped water polygo
 });
 
 test('failed shared scene composition keeps the draft; neither random fallback nor acceptance runs',async()=>{
+ const {declaration}=await import('./gemini-migration-harness.mjs');
  const source=fs.readFileSync('app.js','utf8'),start=source.indexOf('window.acceptMissionDraft = async function()'),end=source.indexOf('\n};',start)+3;
  for(const failure of ['invalid-layout','throw']){
   let saves=0;
   const md={isPOI:true,missionType:'poi',sceneAccepted:false,missionContract:{taskDomain:'inspection_infra'}};
-  const env=vm.createContext({window:{MissionReporterSceneCore:core},currentMissionData:md,document:{getElementById:()=>({})},updateMissionAcceptanceUi:()=>{},fetchMissionTargetGeoContext:async()=>({reporterPlacement:geo}),buildMissionTruth:()=>({}),
+  const env=vm.createContext({window:{MissionReporterSceneCore:core},missionDraftSession:()=>({active:()=>false}),currentMissionData:md,document:{getElementById:()=>({})},updateMissionAcceptanceUi:()=>{},fetchMissionTargetGeoContext:async()=>({reporterPlacement:geo}),buildMissionTruth:()=>({}),
    composeMissionTargetSceneWithGemini:async()=>{if(failure==='throw')throw Error('failure');return {debug:{error:failure}};},
    applyMissionTargetSceneComposition:()=>{throw Error('must not accept');},deriveMissionTargetSceneFromIntent:()=>{throw Error('must not substitute random objects');},saveMissionState:()=>saves++});
+  vm.runInContext(declaration(source,'prepareMissionDraftScene'),env);
   vm.runInContext(source.slice(start,end),env);assert.equal(await env.window.acceptMissionDraft(),false);assert.equal(md.sceneAccepted,false);assert.equal(md.sceneCompositionStatus,'draft');assert.equal(saves,1);
  }
 });

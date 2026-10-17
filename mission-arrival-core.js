@@ -33,6 +33,7 @@ function buildAptArrivalSceneItems(role = {}) {
         out.push(
             {
                 kind: 'arrival_person_editor',
+                departWithPickupVehicle: true,
                 label: 'Redaktionsteam',
                 role: personRole,
                 objectTitle: 'Redaktionsteam',
@@ -42,6 +43,7 @@ function buildAptArrivalSceneItems(role = {}) {
             },
             {
                 kind: 'arrival_person_camera',
+                departWithPickupVehicle: true,
                 label: 'Kamerateam',
                 role: personRole,
                 objectTitle: 'Kamerateam',
@@ -182,6 +184,7 @@ function buildAptArrivalPlan({ isPOI = false, dest = null, mission = null, passe
         lon: anchor.lon,
         airportLat: lat,
         airportLon: lon,
+        runwayReference: window.MissionAirportInformationCore?.ownAirport(dest || {}) || null,
         representativeOffsetM: anchor.offset,
         footprintRadiusM: isBushStripRole ? 34 : 55,
         altFt,
@@ -199,6 +202,7 @@ function buildAptArrivalPlan({ isPOI = false, dest = null, mission = null, passe
             avoid: ['occupied', 'runway', 'taxiway', 'building', 'water'],
             liveResolver: 'simconnect_facility_or_osm_apron'
         },
+        snapStatus: { status: 'pending', spawnAllowed: isBushStripRole, reason: 'awaiting_placement_resolution' },
         bushProfileId: bush?.profileId || '',
         debug: isBushStripRole
             ? 'Bush-Strip-Fallback seitlich der Bahnmitte, bis ein Live-Snap auf OSM-Parking/Apron verfuegbar ist.'
@@ -208,7 +212,7 @@ function buildAptArrivalPlan({ isPOI = false, dest = null, mission = null, passe
 
 const APT_ARRIVAL_GEO_CONTEXT_RADIUS_M = 1400;
 const APT_ARRIVAL_GEO_CONTEXT_TTL_MS = 12 * 60 * 60 * 1000;
-const APT_ARRIVAL_GEO_CONTEXT_CACHE_PREFIX = 'ga_apt_arrival_geo_context_v1_';
+const APT_ARRIVAL_GEO_CONTEXT_CACHE_PREFIX = 'ga_apt_arrival_geo_context_v2_';
 const APT_ARRIVAL_GEO_CONTEXT_SESSION_MAX_ENTRIES = 8;
 const aptArrivalGeoContextInflight = new Map();
 
@@ -306,7 +310,11 @@ function aptArrivalGeoCategory(tags = {}) {
     if (aeroway === 'apron') return 'apron';
     if (aeroway === 'runway') return 'runway';
     if (aeroway === 'taxiway') return 'taxiway';
+    if (aeroway === 'aerodrome') return 'airport_boundary';
     if (aeroway === 'hangar' || tags.building) return 'building';
+    if (tags.amenity === 'parking') return 'parking_area';
+    if (['grass', 'meadow'].includes(String(tags.landuse || '')) || tags.natural === 'grassland') return 'grass_area';
+    if (tags.highway && tags.tunnel !== 'yes') return 'road';
     if (tags.waterway || tags.water || /water|reservoir|basin/.test(String(tags.natural || tags.landuse || '').toLowerCase())) return 'water';
     return '';
 }
@@ -392,30 +400,29 @@ function aptArrivalPointInPolygon(point = null, polygon = []) {
     return inside;
 }
 
+const aptArrivalMetricLines = new WeakMap();
 function aptArrivalPointLineDistanceM(point = null, line = []) {
-    const p = aptArrivalRoundPoint(point);
-    const pts = (Array.isArray(line) ? line : []).map(aptArrivalRoundPoint).filter(Boolean);
-    if (!p || pts.length < 2) return Infinity;
-    const latScale = 111320;
-    const lonScale = Math.max(1, latScale * Math.cos(p.lat * Math.PI / 180));
-    const toXY = q => ({ x: (q.lon - p.lon) * lonScale, y: (q.lat - p.lat) * latScale });
-    let best = Infinity;
-    for (let i = 0; i < pts.length - 1; i++) {
-        const a = toXY(pts[i]);
-        const b = toXY(pts[i + 1]);
-        const vx = b.x - a.x;
-        const vy = b.y - a.y;
-        const len2 = vx * vx + vy * vy;
-        const t = len2 > 0 ? Math.max(0, Math.min(1, (-(a.x) * vx + -(a.y) * vy) / len2)) : 0;
-        const x = a.x + vx * t;
-        const y = a.y + vy * t;
-        best = Math.min(best, Math.hypot(x, y));
+    if (!point || !Number.isFinite(Number(point.lat)) || !Number.isFinite(Number(point.lon)) || line.length < 2) return Infinity;
+    let metric = aptArrivalMetricLines.get(line);
+    if (!metric) {
+        const origin = line[0], scale = 111320 * Math.cos(Number(origin.lat) * Math.PI / 180);
+        metric = { origin, scale, points: line.map(q => ({ x:(q.lon-origin.lon)*scale, y:(q.lat-origin.lat)*111320 })) };
+        aptArrivalMetricLines.set(line,metric);
     }
-    return best;
+    const px=(point.lon-metric.origin.lon)*metric.scale, py=(point.lat-metric.origin.lat)*111320;
+    let best2=Infinity;
+    for(let i=1;i<metric.points.length;i++) {
+        const a=metric.points[i-1],b=metric.points[i],dx=b.x-a.x,dy=b.y-a.y;
+        const len2=dx*dx+dy*dy,t=len2?Math.max(0,Math.min(1,((px-a.x)*dx+(py-a.y)*dy)/len2)):0;
+        const x=a.x+dx*t-px,y=a.y+dy*t-py;
+        best2=Math.min(best2,x*x+y*y);
+    }
+    return Math.sqrt(best2);
 }
 
 function aptArrivalGeoZone(el = {}, category = '', airportLat = null, airportLon = null) {
     const tags = el?.tags || {};
+    const widthM = Number.isFinite(Number(tags.width)) ? Math.max(0,Number(tags.width)) : 0;
     const center = aptArrivalGeoElementPoint(el);
     if (!center) return null;
     const ring = aptArrivalGeoRing(el?.geometry || []);
@@ -428,6 +435,8 @@ function aptArrivalGeoZone(el = {}, category = '', airportLat = null, airportLon
     });
     return {
         type: category,
+        id: `${el.type || 'el'}/${el.id || ''}`,
+        buildingType: tags.aeroway === 'hangar' ? 'hangar' : (tags.building || ''),
         name: String(tags.name || tags.ref || tags.aeroway || tags.building || tags.natural || tags.landuse || '').slice(0, 80),
         center: aptArrivalRoundPoint(center),
         radiusM: Math.round(radiusM),
@@ -435,17 +444,20 @@ function aptArrivalGeoZone(el = {}, category = '', airportLat = null, airportLon
         bearingDeg: Number.isFinite(Number(nav?.bearingDeg)) ? Math.round(Number(nav.bearingDeg)) : null,
         polygon: ring,
         line,
-        bufferM: category === 'runway' ? 45 : (category === 'taxiway' ? 18 : 6)
+        bufferM: category === 'runway' ? Math.max(45, widthM / 2 + 15)
+            : (category === 'taxiway' ? 18 : (category === 'road' ? Math.max(3, widthM / 2 + 1) : 6))
     };
 }
 
-function normalizeAptArrivalGeoContext(raw = null, airportLat = null, airportLon = null, radiusM = APT_ARRIVAL_GEO_CONTEXT_RADIUS_M) {
+function normalizeAptArrivalGeoContext(raw = null, airportLat = null, airportLon = null, radiusM = APT_ARRIVAL_GEO_CONTEXT_RADIUS_M, options = {}) {
     const lat = Number(airportLat);
     const lon = Number(airportLon);
-    if (!raw || !Array.isArray(raw.elements) || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+    if (!raw || raw.remark || !Array.isArray(raw.elements) || !Number.isFinite(lat) || !Number.isFinite(lon)) return null;
     const parkingPositions = [];
     const aprons = [];
     const avoidZones = [];
+    const surfaces = [];
+    const airportBoundaries = [];
     raw.elements.forEach(el => {
         const tags = el?.tags || {};
         const category = aptArrivalGeoCategory(tags);
@@ -467,6 +479,7 @@ function normalizeAptArrivalGeoContext(raw = null, airportLat = null, airportLon
                 operator: tags.operator || '',
                 service: tags.service || '',
                 access: tags.access || '',
+                surface: tags.surface || '',
                 parking: tags.parking || '',
                 summary: aptArrivalTagSummary(tags)
             }
@@ -480,7 +493,15 @@ function normalizeAptArrivalGeoContext(raw = null, airportLat = null, airportLon
             if (polygon.length >= 4) aprons.push({ ...common, polygon, center: { lat: common.lat, lon: common.lon } });
             return;
         }
-        if (['building', 'runway', 'taxiway', 'water'].includes(category)) {
+        if (['parking_area', 'grass_area', 'airport_boundary'].includes(category)) {
+            const polygon = aptArrivalGeoRing(el?.geometry || []);
+            if (polygon.length >= 4) {
+                const surface = { ...common, type: category, polygon, center: { lat: common.lat, lon: common.lon } };
+                (category === 'airport_boundary' ? airportBoundaries : surfaces).push(surface);
+            }
+            return;
+        }
+        if (['building', 'runway', 'taxiway', 'water', 'road'].includes(category)) {
             const zone = aptArrivalGeoZone(el, category, lat, lon);
             if (zone && ((zone.polygon && zone.polygon.length >= 4) || (zone.line && zone.line.length >= 2))) avoidZones.push(zone);
         }
@@ -488,14 +509,34 @@ function normalizeAptArrivalGeoContext(raw = null, airportLat = null, airportLon
     parkingPositions.sort((a, b) => Number(a.distM ?? 999999) - Number(b.distM ?? 999999));
     aprons.sort((a, b) => Number(a.distM ?? 999999) - Number(b.distM ?? 999999));
     avoidZones.sort((a, b) => Number(a.distM ?? 999999) - Number(b.distM ?? 999999));
+    const boundaries = airportBoundaries.filter(a => aptArrivalPointInPolygon({lat,lon},a.polygon));
+    const hangars = avoidZones.filter(z => z.type === 'building' && z.buildingType === 'hangar');
+    const eligibleSurfaces = surfaces.filter(a => a.tags.access !== 'no'
+        && (boundaries.some(b => [a.center,...a.polygon].some(p => aptArrivalPointInPolygon(p,b.polygon)))
+            || hangars.some(h => aptArrivalPointLineDistanceM(a.center,h.polygon) <= 120)
+            || (options.stripHandoff === true && (aptArrivalPointInPolygon({lat,lon},a.polygon)
+                || (a.distM <= 350 && avoidZones.some(z=>z.type==='building'&&aptArrivalPointLineDistanceM(a.center,z.polygon)<=120))))));
+    const regions = [...aprons, ...eligibleSurfaces].map(a => ({ center:a.center,
+        radiusM:Math.max(...a.polygon.map(p=>aptArrivalNavM(a.center.lat,a.center.lon,p.lat,p.lon)?.distM || 0)) }));
+    avoidZones.filter(z=>z.type==='runway').forEach(z=>regions.push({center:z.center,radiusM:z.radiusM}));
+    parkingPositions.slice(0,80).forEach(p=>regions.push({center:p,radiusM:0}));
+    // Keep every blocker near any usable site, including whole runways crossing
+    // the region. Distant town geometry is not carried into each mission copy.
+    const relevantBlockers = avoidZones.filter(z => regions.some(r =>
+        aptArrivalNavM(r.center.lat,r.center.lon,z.center.lat,z.center.lon)?.distM <= r.radiusM+z.radiusM+100));
     return {
+        schema: 'apt-arrival-geometry.v2',
+        stripHandoff: options.stripHandoff === true,
         source: 'overpass',
         radiusM: Math.round(Number(radiusM) || APT_ARRIVAL_GEO_CONTEXT_RADIUS_M),
         center: { lat: Math.round(lat * 100000) / 100000, lon: Math.round(lon * 100000) / 100000 },
         parkingPositions: parkingPositions.slice(0, 80),
         aprons: aprons.slice(0, 30),
-        avoidZones: avoidZones.slice(0, 96),
-        summary: `${parkingPositions.length} parking_position, ${aprons.length} apron, ${avoidZones.length} avoid`,
+        surfaces: eligibleSurfaces.sort((a, b) => Number(a.distM) - Number(b.distM)).slice(0, 40),
+        airportBoundaries: boundaries,
+        // Keep all blockers: truncation could silently remove a runway/building.
+        avoidZones: relevantBlockers,
+        summary: `${parkingPositions.length} parking_position, ${aprons.length} apron, ${surfaces.length} surface, ${avoidZones.length} avoid`,
         fetchedAt: Date.now()
     };
 }
@@ -505,7 +546,9 @@ async function fetchAptArrivalGeoContext(plan = null) {
     const airportLon = Number(plan?.airportLon ?? plan?.targetLon);
     if (!Number.isFinite(airportLat) || !Number.isFinite(airportLon)) return null;
     const radiusM = APT_ARRIVAL_GEO_CONTEXT_RADIUS_M;
-    const key = aptArrivalGeoContextCacheKey(plan?.icao || plan?.airportIcao || '', airportLat, airportLon, radiusM);
+    const stripHandoff = /^bush_strip_/.test(String(plan?.role || ''));
+    const key = aptArrivalGeoContextCacheKey(plan?.icao || plan?.airportIcao || '', airportLat, airportLon, radiusM)
+        + (stripHandoff ? '_strip' : '_airport');
     const readCache = (store) => {
         try {
             const raw = store?.getItem?.(key);
@@ -537,8 +580,13 @@ async function fetchAptArrivalGeoContext(plan = null) {
   relation(around:${radiusM},${airportLat},${airportLon})["building"];
   way(around:${radiusM},${airportLat},${airportLon})["natural"~"water"];
   relation(around:${radiusM},${airportLat},${airportLon})["natural"~"water"];
+  way(around:${radiusM},${airportLat},${airportLon})["aeroway"~"aerodrome|hangar"];
+  way(around:${radiusM},${airportLat},${airportLon})["amenity"="parking"];
+  way(around:${radiusM},${airportLat},${airportLon})["landuse"~"^(grass|meadow)$"];
+  way(around:${radiusM},${airportLat},${airportLon})["natural"="grassland"];
+  way(around:${radiusM},${airportLat},${airportLon})["highway"];
 );
-out tags center geom 240;`;
+out tags center geom;`;
     const promise = (async () => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 9500);
@@ -551,15 +599,35 @@ out tags center geom 240;`;
             });
             if (!res.ok) throw new Error(`overpass_http_${res.status}`);
             const raw = await res.json();
-            const normalized = normalizeAptArrivalGeoContext(raw, airportLat, airportLon, radiusM);
+            const normalized = normalizeAptArrivalGeoContext(raw, airportLat, airportLon, radiusM, {stripHandoff});
             if (normalized) {
                 try { sessionStorage.setItem(key, JSON.stringify(normalized)); } catch (_) {}
                 aptArrivalPruneSessionGeoContextCache(key);
             }
+            if (!normalized) throw new Error('overpass_geometry_incomplete');
             return normalized;
         } catch (err) {
             console.warn('[APT ARRIVAL GEO] Overpass context unavailable', err);
-            return null;
+            // Public OSM map fallback includes all ways/nodes in the airport
+            // area. It is independent of an overloaded Overpass interpreter.
+            const mapController = new AbortController();
+            const mapTimeout = setTimeout(()=>mapController.abort(),12000);
+            try {
+                const dy=radiusM/111320, dx=dy/Math.max(0.1,Math.cos(airportLat*Math.PI/180));
+                const bbox=[airportLon-dx,airportLat-dy,airportLon+dx,airportLat+dy].join(',');
+                const response=await fetch(`https://api.openstreetmap.org/api/0.6/map?bbox=${bbox}`,{signal:mapController.signal});
+                if(!response.ok) throw new Error(`osm_map_http_${response.status}`);
+                const raw=aptArrivalParseOsmMapXml(await response.text());
+                const normalized=normalizeAptArrivalGeoContext(raw,airportLat,airportLon,radiusM,{stripHandoff});
+                if(!normalized) throw new Error('osm_map_geometry_incomplete');
+                normalized.source='osm-map';
+                try { sessionStorage.setItem(key,JSON.stringify(normalized)); } catch (_) {}
+                aptArrivalPruneSessionGeoContextCache(key);
+                return normalized;
+            } catch (error) {
+                console.warn('[APT ARRIVAL GEO] OSM map fallback unavailable',error);
+                return null;
+            } finally { clearTimeout(mapTimeout); }
         } finally {
             clearTimeout(timeoutId);
             aptArrivalGeoContextInflight.delete(key);
@@ -569,15 +637,167 @@ out tags center geom 240;`;
     return promise;
 }
 
-function aptArrivalBlockedZone(ctx = null, point = null) {
+function aptArrivalParseOsmMapXml(xml) {
+    const doc=new DOMParser().parseFromString(xml,'application/xml');
+    if(doc.getElementsByTagName('parsererror').length) throw new Error('osm_map_xml_invalid');
+    const nodes=new Map(), elements=[];
+    const tagsOf=el=>Object.fromEntries(Array.from(el.getElementsByTagName('tag'),t=>[t.getAttribute('k'),t.getAttribute('v')]));
+    for(const node of Array.from(doc.getElementsByTagName('node'))) {
+        const lat=Number(node.getAttribute('lat')),lon=Number(node.getAttribute('lon'));
+        if(!Number.isFinite(lat)||!Number.isFinite(lon)) throw new Error('osm_map_coordinate_invalid');
+        nodes.set(node.getAttribute('id'),{lat,lon});
+        const tags=tagsOf(node);
+        if(tags.aeroway==='parking_position') elements.push({type:'node',id:node.getAttribute('id'),lat,lon,tags});
+    }
+    for(const way of Array.from(doc.getElementsByTagName('way'))) {
+        const tags=tagsOf(way);
+        if(!aptArrivalGeoCategory(tags)) continue;
+        const geometry=Array.from(way.getElementsByTagName('nd'),nd=>nodes.get(nd.getAttribute('ref')));
+        if(geometry.some(p=>!p)) throw new Error('osm_map_geometry_incomplete');
+        elements.push({type:'way',id:way.getAttribute('id'),tags,geometry});
+    }
+    return {elements};
+}
+
+function aptArrivalBlockedZone(ctx = null, point = null, clearanceM = 0) {
     const p = aptArrivalRoundPoint(point);
     if (!ctx || !p) return null;
     const zones = Array.isArray(ctx.avoidZones) ? ctx.avoidZones : [];
+    const eastScale = 111320*Math.cos(p.lat*Math.PI/180);
     for (const zone of zones) {
+        if (zone.center && Number.isFinite(zone.radiusM)) {
+            const d = Math.hypot((zone.center.lat-p.lat)*111320,(zone.center.lon-p.lon)*eastScale);
+            if (d > zone.radiusM + Number(zone.bufferM || 8) + clearanceM + 2) continue;
+        }
         if (Array.isArray(zone?.polygon) && zone.polygon.length >= 4 && aptArrivalPointInPolygon(p, zone.polygon)) return zone;
-        if (Array.isArray(zone?.line) && zone.line.length >= 2 && aptArrivalPointLineDistanceM(p, zone.line) <= Number(zone.bufferM || 8)) return zone;
+        if (Array.isArray(zone?.polygon) && zone.polygon.length >= 4
+            && aptArrivalPointLineDistanceM(p, zone.polygon) <= Number(zone.bufferM || 6) + clearanceM) return zone;
+        if (Array.isArray(zone?.line) && zone.line.length >= 2 && aptArrivalPointLineDistanceM(p, zone.line) <= Number(zone.bufferM || 8) + clearanceM) return zone;
     }
     return null;
+}
+
+function aptArrivalScenePoints(point, plan = {}, heading = plan.hdg) {
+    return [{ point, radiusM: 2 }].concat((plan.items || []).map(item => ({
+        point: offsetAptArrivalLatLon(point.lat, point.lon, heading, Number(item.forwardM || 0), Number(item.rightM || 0)),
+        radiusM: /^vehicle\./.test(item.role || '') || /vehicle/.test(item.kind || '') ? 5
+            : (/^person\./.test(item.role || '') || /person/.test(item.kind || '') ? 1.5 : 3)
+    })));
+}
+
+function aptArrivalSceneFits(ctx, point, plan = {}, apron = null) {
+    if (!point) return false;
+    return aptArrivalScenePoints(point, plan).every(({ point: p, radiusM }) => p
+        && !aptArrivalBlockedZone(ctx, p, radiusM)
+        && (!apron || (aptArrivalPointInPolygon(p, apron.polygon)
+            && aptArrivalPointLineDistanceM(p, apron.polygon) > radiusM)));
+}
+
+function aptArrivalSurfaceCandidates(ctx = {}, plan = {}) {
+    const buildings = (ctx.avoidZones || []).filter(zone => zone.type === 'building');
+    const surfaces = [...(ctx.aprons || []).map(a => ({ ...a, type: 'apron' })), ...(ctx.surfaces || [])];
+    const out = [];
+    for (const surface of surfaces) {
+        if (surface.tags?.access === 'no') continue;
+        const source = `osm_${surface.type}`;
+        for (const point of aptArrivalApronCandidatePoints(surface)) {
+            const inAirport = (ctx.airportBoundaries || []).some(a => aptArrivalPointInPolygon(point, a.polygon));
+            let nearby = null;
+            const eastScale = 111320*Math.cos(point.lat*Math.PI/180);
+            for (const building of buildings) {
+                if (building.center && Math.hypot((building.center.lat-point.lat)*111320,
+                    (building.center.lon-point.lon)*eastScale) > Number(building.radiusM || 0)+150) continue;
+                const distanceM=aptArrivalPointLineDistanceM(point,building.polygon || building.line || []);
+                if(!nearby || distanceM<nearby.distanceM) nearby={building,distanceM};
+            }
+            // An arbitrary town meadow/parking lot is not an airport handoff site.
+            if (surface.type !== 'apron' && !inAirport
+                && !(nearby?.building.buildingType === 'hangar' && nearby.distanceM <= 120)
+                && !ctx.stripHandoff) continue;
+            if (!aptArrivalSceneFits(ctx, point, plan, surface)) continue;
+            out.push({ lat: point.lat, lon: point.lon, source, sourceId: surface.id,
+                name: surface.name || surface.type,
+                surface: surface.tags?.surface || 'unknown',
+                nearBuilding: nearby && nearby.distanceM <= 150 ? {
+                    id: nearby.building.id, name: nearby.building.name, type: nearby.building.buildingType,
+                    distanceM: Math.round(nearby.distanceM) } : null,
+                score: Number(aptArrivalNavM(plan.airportLat, plan.airportLon, point.lat, point.lon)?.distM || 0)
+                    + (surface.type === 'apron' ? 0 : 100)
+                    + Math.min(150, nearby?.distanceM ?? 150) });
+        }
+    }
+    return out.sort((a,b) => a.score - b.score);
+}
+
+function aptArrivalPlacementSurface(ctx, candidate) {
+    return [...(ctx?.aprons || []), ...(ctx?.surfaces || [])].find(a => a.id === candidate?.sourceId)
+        || (candidate?.source === 'osm_parking_position' ? aptArrivalContainingApron(ctx,candidate) : null);
+}
+
+function aptArrivalComposerGeometry(ctx = {}, plan = {}) {
+    const local = p => ({ eastM: Math.round((p.lon-Number(plan.airportLon))*111320*Math.cos(Number(plan.airportLat)*Math.PI/180)),
+        northM: Math.round((p.lat-Number(plan.airportLat))*111320) });
+    const candidates = plan.placementCandidates || {};
+    const points = [...(candidates.parking || []), ...(candidates.apron || []), ...(candidates.surface || [])];
+    const ids = new Set(points.map(p => p.sourceId));
+    return { schema: 'apt-arrival-composer.v2', source: ctx.source || '', summary: ctx.summary || '',
+        origin: { lat: plan.airportLat, lon: plan.airportLon },
+        axes: 'eastM/northM ab Flughafenbezug; bei headingDeg=0 gilt forwardM=northM, rightM=eastM',
+        areas: [...(ctx.aprons || []).map(a=>({...a,type:'apron'})), ...(ctx.surfaces || [])]
+            .filter(a=>ids.has(a.id)).map(a=>({ id:a.id, type:a.type, name:a.name,
+                surface:a.tags?.surface || 'unknown', polygonMeters:a.polygon.map(local) })),
+        blockers: (ctx.avoidZones || []).filter(z=>points.some(p=>
+            !z.center || aptArrivalNavM(p.lat,p.lon,z.center.lat,z.center.lon)?.distM <= Number(z.radiusM || 0)+Number(z.bufferM || 8)+90))
+            .slice(0,48).map(z=>({ id:z.id, type:z.type, name:z.name, bufferM:z.bufferM,
+                polygonMeters:(z.polygon || []).map(local), lineMeters:(z.line || []).map(local) })),
+        note: 'Kartierte Nutzung und Gebaeude belegen keine freie Belegung oder befahrbare Zufahrt. Der finale Plan wird gegen die vollstaendige gespeicherte Geometrie geprueft.' };
+}
+
+function aptArrivalFinalPlacementIssues(plan = null) {
+    if (!plan?.placementGeometry) return [];
+    if (!Number.isFinite(Number(plan.lat)) || !Number.isFinite(Number(plan.lon))) return ['ungueltiger Anker'];
+    const ctx = plan.placementGeometry;
+    const selected = { lat:plan.lat,lon:plan.lon,source:plan.source,sourceId: plan.osmPlacement?.sourceId || plan.snapStatus?.sourceId };
+    const surface = aptArrivalPlacementSurface(ctx, selected);
+    if (!['osm_parking_position','osm_runway_side'].includes(plan.source) && !surface) return ['gewaehlte Stellflaeche fehlt'];
+    const issues = [];
+    for (const [i, entry] of aptArrivalScenePoints({ lat: plan.lat, lon: plan.lon }, plan).entries()) {
+        const blocked = aptArrivalBlockedZone(ctx, entry.point, entry.radiusM);
+        if (blocked) issues.push(`${i ? plan.items[i-1].kind : 'Anker'}: Abstand zu ${blocked.type} (${blocked.name || blocked.id || ''}) zu klein`);
+        if (surface && (!aptArrivalPointInPolygon(entry.point, surface.polygon)
+            || aptArrivalPointLineDistanceM(entry.point, surface.polygon) <= entry.radiusM)) {
+            issues.push(`${i ? plan.items[i-1].kind : 'Anker'}: ausserhalb der gewaehlten Stellflaeche`);
+        }
+    }
+    const items=plan.items || [],vehicle=items.find(i=>i.kind==='arrival_vehicle');
+    for(let i=0;i<items.length;i++) {
+        for(let j=0;j<i;j++) if(Math.hypot(Number(items[i].forwardM||0)-Number(items[j].forwardM||0),
+            Number(items[i].rightM||0)-Number(items[j].rightM||0))<1) issues.push(`${items[i].kind}: Aufstellpunkt mit ${items[j].kind} ueberlagert`);
+        if(vehicle && items[i].departWithPickupVehicle && Math.hypot(Number(items[i].forwardM||0)-Number(vehicle.forwardM||0),
+            Number(items[i].rightM||0)-Number(vehicle.rightM||0))>45) issues.push(`${items[i].kind}: Gehweg zum Abholfahrzeug ist zu lang`);
+    }
+    return issues;
+}
+
+function finalizeAptArrivalComposerPlan(plan) {
+    if (!plan?.placementGeometry) return plan;
+    const issues = aptArrivalFinalPlacementIssues(plan);
+    if (issues.length) throw new Error(`apt_arrival_scene_invalid: ${issues.join('; ')}`);
+    const candidates = plan.placementCandidates || {};
+    const ctx = plan.placementGeometry;
+    const fits = c => aptArrivalSceneFits(ctx, c, plan, aptArrivalPlacementSurface(ctx,c));
+    const selected = { lat: plan.lat, lon: plan.lon, source: plan.source,
+        sourceId: plan.osmPlacement?.sourceId || plan.snapStatus?.sourceId || '', name: plan.snapStatus?.name || '' };
+    return { ...plan,
+        placementCandidates: {
+            selected: [selected],
+            parking: (candidates.parking || []).filter(fits),
+            apron: (candidates.apron || []).filter(fits),
+            surface: (candidates.surface || []).filter(fits)
+        },
+        snapStatus: { ...(plan.snapStatus || {}), status: 'resolved', spawnAllowed: true,
+            finalLayoutValidated: true, validatedAt: Date.now() }
+    };
 }
 
 function aptArrivalRunwayAxis(zone = null) {
@@ -631,23 +851,21 @@ function pickAptArrivalBushRunwaySidePlacement(ctx = null, plan = null) {
         const clearanceM = Math.max(
             52,
             Math.min(110, Number(zone?.bufferM || 45) + 12),
-            Math.min(110, Number(axis.halfWidthM || 0) + 14)
+            Number(axis.halfWidthM || 0) + Number(zone?.bufferM || 45) + 16
         );
-        [1, -1].forEach(side => {
-            const point = offsetAptArrivalLatLon(axis.center.lat, axis.center.lon, axis.hdg, 0, side * clearanceM);
+        // Stay abeam a threshold, slightly inside the runway length, never
+        // on its extended centreline. Try both ends and both lateral sides.
+        const endInsetM = Math.min(60, axis.lengthM * 0.2);
+        [1, -1].forEach(end => [1, -1].forEach(side => {
+            const alongM = end * (axis.lengthM / 2 - endInsetM);
+            const point = offsetAptArrivalLatLon(axis.center.lat, axis.center.lon, axis.hdg, alongM, side * clearanceM);
             if (!point) return;
             const items = (Array.isArray(plan.items) ? plan.items : []).map(item => ({
                 ...item,
                 rightM: side * Math.abs(Number.isFinite(Number(item?.rightM)) ? Number(item.rightM) : 0)
             }));
-            const scenePoints = [point].concat(items.map(item => offsetAptArrivalLatLon(
-                point.lat,
-                point.lon,
-                axis.hdg,
-                Number(item.forwardM || 0),
-                Number(item.rightM || 0)
-            )).filter(Boolean));
-            const blocked = scenePoints.map(candidate => aptArrivalBlockedZone(ctx, candidate)).find(Boolean) || null;
+            const blocked = aptArrivalScenePoints(point, { ...plan, hdg: axis.hdg, items })
+                .map(entry => aptArrivalBlockedZone(ctx, entry.point, entry.radiusM)).find(Boolean) || null;
             if (blocked) return;
             const originalDistanceM = aptArrivalNavM(point.lat, point.lon, Number(plan.lat), Number(plan.lon))?.distM;
             candidates.push({
@@ -658,9 +876,11 @@ function pickAptArrivalBushRunwaySidePlacement(ctx = null, plan = null) {
                 clearanceM: Math.round(clearanceM),
                 runwayName: String(zone?.name || ''),
                 runwayLengthM: Math.round(axis.lengthM),
+                end,
+                endInsetM,
                 score: Number.isFinite(originalDistanceM) ? originalDistanceM : candidates.length
             });
-        });
+        }));
     });
     candidates.sort((a, b) => a.score - b.score);
     if (!candidates.length) return null;
@@ -672,7 +892,7 @@ function pickAptArrivalBushRunwaySidePlacement(ctx = null, plan = null) {
         hdg: best.hdg,
         items: best.items,
         confidence: 0.68,
-        reason: 'bush_strip_runway_axis_side_clearance',
+        reason: 'bush_strip_runway_axis_side_clearance_near_end',
         sourceId: best.runwayName || '',
         name: best.runwayName || 'Runway side',
         contextMatch: ['runway_axis', `clearance_${best.clearanceM}m`],
@@ -688,6 +908,8 @@ function pickAptArrivalBushRunwaySidePlacement(ctx = null, plan = null) {
                 source: 'osm_runway_side',
                 runwayName: candidate.runwayName,
                 clearanceM: candidate.clearanceM,
+                runwayEnd: candidate.end,
+                endInsetM: candidate.endInsetM,
                 side: candidate.side
             }))
         }
@@ -714,6 +936,17 @@ function aptArrivalApronCandidatePoints(apron = null) {
             lat: centroid.lat + (Number(v.lat) - centroid.lat) * 0.35,
             lon: centroid.lon + (Number(v.lon) - centroid.lon) * 0.35
         });
+    }
+    // Centroids alone miss concave or large aprons. Offer real interior points.
+    if (vertices.length) {
+        const lats = vertices.map(p => p.lat), lons = vertices.map(p => p.lon);
+        const minLat = Math.min(...lats), maxLat = Math.max(...lats), minLon = Math.min(...lons), maxLon = Math.max(...lons);
+        const rows = Math.max(1, Math.min(20, Math.ceil((maxLat-minLat)*111320/12)));
+        const cols = Math.max(1, Math.min(20, Math.ceil((maxLon-minLon)*111320*Math.cos(minLat*Math.PI/180)/12)));
+        for (let row=0; row<rows; row++) for (let col=0; col<cols; col++) {
+            const p = { lat: minLat+(maxLat-minLat)*(row+0.5)/rows, lon: minLon+(maxLon-minLon)*(col+0.5)/cols };
+            if (aptArrivalPointInPolygon(p, polygon)) out.push(p);
+        }
     }
     return out.map(aptArrivalRoundPoint).filter(Boolean);
 }
@@ -784,8 +1017,8 @@ function pickAptArrivalOsmPlacement(ctx = null, plan = null) {
     const apronCount = Array.isArray(ctx.aprons) ? ctx.aprons.length : 0;
     const parkingCandidates = parking.map(p => {
         const point = aptArrivalRoundPoint(p);
-        const blocked = aptArrivalBlockedZone(ctx, point);
         const apron = aptArrivalContainingApron(ctx, point);
+        const blocked = !aptArrivalSceneFits(ctx, point, plan, apron);
         const distM = aptArrivalNavM(airportLat, airportLon, point?.lat, point?.lon)?.distM;
         const narrative = aptArrivalNarrativeScore(plan, p, 'osm_parking_position');
         return {
@@ -803,8 +1036,7 @@ function pickAptArrivalOsmPlacement(ctx = null, plan = null) {
     (Array.isArray(ctx.aprons) ? ctx.aprons : []).forEach(apron => {
         aptArrivalApronCandidatePoints(apron).forEach(point => {
             if (!aptArrivalPointInPolygon(point, apron.polygon)) return;
-            const blocked = aptArrivalBlockedZone(ctx, point);
-            if (blocked) return;
+            if (!aptArrivalSceneFits(ctx, point, plan, apron)) return;
             const distM = aptArrivalNavM(airportLat, airportLon, point.lat, point.lon)?.distM;
             const narrative = aptArrivalNarrativeScore(plan, apron, 'osm_apron');
             apronCandidates.push({
@@ -836,6 +1068,20 @@ function pickAptArrivalOsmPlacement(ctx = null, plan = null) {
             contextMatch: Array.isArray(c.contextMatch) ? c.contextMatch : []
         }))
     };
+    const surfaceCandidates = aptArrivalSurfaceCandidates({ ...ctx, aprons: [] }, plan);
+    const perSurface = new Map();
+    alternates.surface = surfaceCandidates.filter(c => {
+        if (c.source === 'osm_apron') return false;
+        const count = perSurface.get(c.sourceId) || 0;
+        perSurface.set(c.sourceId,count+1);
+        return count < 6;
+    }).slice(0, 24);
+    if (!parkingCandidates.length && !apronCandidates.length && surfaceCandidates.length) {
+        const best = surfaceCandidates[0];
+        return { source: best.source, anchorType: best.source, point: { lat: best.lat, lon: best.lon },
+            hdg: baseHdg, confidence: 0.7, reason: 'mapped_airport_handoff_surface',
+            sourceId: best.sourceId, name: best.name, contextMatch: [], alternates };
+    }
     if (parkingCandidates.length) {
         const best = parkingCandidates[0];
         return {
@@ -873,7 +1119,21 @@ function pickAptArrivalOsmPlacement(ctx = null, plan = null) {
 
 async function resolveAptArrivalPlanPlacement(plan = null) {
     if (!plan || typeof plan !== 'object') return plan || null;
-    const ctx = await fetchAptArrivalGeoContext(plan);
+    let ctx = await fetchAptArrivalGeoContext(plan);
+    // Sparse strips may have no OSM runway. Reuse normalized airport runway
+    // dimensions; the airport reference is only an estimated runway centre.
+    if (/^bush_strip_/.test(String(plan.role || '')) && !(ctx?.avoidZones || []).some(z => z.type === 'runway')) {
+        const reference = plan.runwayReference;
+        const zones = (reference?.runways || []).filter(r => Number.isFinite(r.trueHeadingDeg)
+            && Number.isFinite(r.lengthM) && r.lengthM >= 40).map(r => {
+            const center = {lat:plan.airportLat,lon:plan.airportLon};
+            return { type:'runway', id:'airport-runway/' + r.designator, name:r.designator,
+                center, line:[-1,1].map(sign=>offsetAptArrivalLatLon(center.lat,center.lon,r.trueHeadingDeg,sign*r.lengthM/2,0)),
+                polygon:[], bufferM:Math.max(45,Number(r.widthM || 0)/2+20), distM:0 };
+        });
+        if (zones.length) ctx = {...(ctx || {}), source:ctx?.source || 'airport-runway-reference',
+            runwayCenterEstimated:true, avoidZones:[...(ctx?.avoidZones || []),...zones]};
+    }
     const placement = pickAptArrivalOsmPlacement(ctx, plan)
         || pickAptArrivalBushRunwaySidePlacement(ctx, plan);
     if (!placement?.point) {
@@ -881,8 +1141,12 @@ async function resolveAptArrivalPlanPlacement(plan = null) {
             ...plan,
             snapStatus: {
                 status: ctx ? 'fallback' : 'unavailable',
+                spawnAllowed: /^bush_strip_/.test(String(plan.role || '')),
                 source: plan.source || 'airport-representative-offset',
-                reason: ctx ? 'no_safe_osm_parking_or_apron_candidate' : 'overpass_unavailable',
+                reason: /^bush_strip_/.test(String(plan.role || ''))
+                    ? 'runway_end_unresolved_representative_side_only'
+                    : (ctx ? 'no_safe_osm_parking_or_apron_candidate' : 'overpass_unavailable'),
+                runwayEndResolved: false,
                 osmContextSummary: ctx?.summary || '',
                 resolvedAt: Date.now()
             }
@@ -890,6 +1154,7 @@ async function resolveAptArrivalPlanPlacement(plan = null) {
     }
     const snapStatus = {
         status: 'resolved',
+        spawnAllowed: true,
         source: placement.source,
         reason: placement.reason,
         sourceId: placement.sourceId || '',
@@ -898,6 +1163,8 @@ async function resolveAptArrivalPlanPlacement(plan = null) {
         counts: placement.counts || null,
         liveOccupancy: 'pending_tracker_or_simconnect',
         osmContextSummary: ctx?.summary || '',
+        runwayCenterEstimated: ctx?.runwayCenterEstimated === true,
+        runwayEndResolved: placement.source === 'osm_runway_side',
         resolvedAt: Date.now()
     };
     return {
@@ -922,6 +1189,7 @@ async function resolveAptArrivalPlanPlacement(plan = null) {
             contextMatch: Array.isArray(placement.contextMatch) ? placement.contextMatch : []
         },
         placementCandidates: placement.alternates || null,
+        placementGeometry: ctx,
         snapStatus,
         snapPolicy: {
             ...(plan.snapPolicy || {}),

@@ -434,6 +434,10 @@ function createTrackerMissionSimulatorEffects(options = {}) {
     if (!plan) return effectType === 'scene.compliance_visit'
       ? { ok: true, status: 'completed', sideEffect: false, commandId, logicalFallback: true }
       : errorResult('mission_apt_effect_plan_missing');
+    if (effectType === 'scene.arrival' && plan.effects?.[effectType]?.none === true
+        && plan.effects[effectType].reason === 'no_safe_arrival_placement') {
+      return { ok: true, status: 'completed', sideEffect: false, commandId, sceneStatus: 'no_safe_arrival_placement' };
+    }
     if (plan.recipe === 'poi' && plan.effects?.[effectType]?.none === true
         && ['scene.prepare', 'scene.boarding', 'scene.deboarding'].includes(effectType)) {
       return { ok: true, status: 'completed', sideEffect: false, commandId, sceneStatus: 'explicit_empty_scene' };

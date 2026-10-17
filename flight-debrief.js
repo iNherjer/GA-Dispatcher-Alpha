@@ -48,7 +48,8 @@ function ensureDebriefOverlay() {
             if (currentDebriefRecord !== displayedRecord) return;
             if (!cleaned) {
                 finishBtn.disabled = false;
-                finishBtn.textContent = 'Debrief schließen & Mission aufräumen';
+                finishBtn.textContent = 'Schließen fehlgeschlagen – erneut versuchen';
+                finishBtn.title = 'Tracker-Verbindung und aktuellen Missionsstand prüfen.';
                 return;
             }
             currentDebriefAwaitingCleanup = false;

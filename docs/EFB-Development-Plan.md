@@ -1,3 +1,35 @@
+## Flugtest-Reparaturen vom 17.10.2026 – Tracker v557 vorbereitet
+
+Quest-Web-App quittiert das terminale Debrief über den vorhandenen authentifizierten
+Missionsrelay. EFB/Toolbar behalten ihren lokalen Cockpit-Intent. Lokales Aufräumen
+ist je Run idempotent; ein neuer aktiver Lauf bleibt geschützt. Ein gespeicherter
+Abschlussmarker sichert den expliziten Cloud-Clear mit Profil- und Missions-CAS,
+bis dessen Upload bestätigt ist. Hintergrundansichten führen keinen automatischen
+Profil-Push/Pull und keine Konfliktabfrage aus; Revisionsquittungen gelten je Ansicht.
+
+Optionales, am Start mitgeführtes Nicht-PAX-Cargo darf an der freigegebenen
+Ankunftsstation ent-/wiederbeladen werden. Pflichtlieferung, Home- und Target-Pickup-
+Verträge sowie Signatur-/Stillstands-/Compliance-Gates bleiben erhalten.
+
+APT-Platzierung prüft alle Szenenobjekte mit Abstand, nicht nur den Anker.
+Auf Nutzerkorrektur erweitert: Der vorhandene APT-/Bush-Composer wählt aus
+kartierten Vorfeldern, Park-/Grasflächen mit Gebäudebezug und schreibt den
+endgültigen Standort samt Heading/Offsets. Finale Geometrieprüfung nach dem
+Composer und vor Annahme; Live-Alternativen respektieren diese Aufstellung
+und bevorzugen den gewählten Punkt. OSM-Map-Fallback bei Overpass-Ausfall.
+Reale Freiburg-Daten und Browserweg geprüft, keine pauschale Flughafen-
+Verschiebung als Erfolg. Details: [Ankunftsplatzierung](Arrival%20Scene%20Placement.md).
+Neue ungeprüfte repräsentative Standard-APT-Punkte erzeugen keine statische Szene;
+der Effekt wird explizit ohne Sim-Wirkung abgeschlossen. Bush-Strip-Fallbacks
+bleiben gesondert erhalten. Medien-Empfangspersonen verwenden bewegliche Tarmac-
+Modelle und steigen vor der Fahrzeugabfahrt sichtbar zu; sie bleiben Szenenrollen
+und erhöhen weder PAX-Manifest noch Payload.
+
+Tracker v557 / EFB-Assetrevision 55701 lokal gebaut. Kein Community-Paket- oder
+Desktop-Installerwechsel. Alpha-/Stable-Kanäle noch unverändert; Veröffentlichung
+steht aus. Nachweise und verbleibende Simulatorgrenzen:
+[Flugtest-Reparaturen](Flight%20Test%20Repairs%202026-10-17.md).
+
 ## v552-Funktionsstand als Tracker v555 Alpha (16.10.2026)
 
 Auf Nutzerauftrag wird der v552-Quellstand als neue Version v555 gebaut, damit

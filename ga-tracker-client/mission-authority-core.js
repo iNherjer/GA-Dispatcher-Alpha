@@ -240,7 +240,7 @@ function executionLocationProjection(resumeBundle = null) {
   const contract = safeObject(missionState.activeMissionContract);
   const arrivalCandidates = [missionData.aptArrivalPlan, contract.aptArrivalPlan];
   const arrivalPoint = arrivalCandidates
-    .map(candidate => locationCore.normalizePoint(candidate))
+    .map(candidate => candidate?.snapStatus?.spawnAllowed === false ? null : locationCore.normalizePoint(candidate))
     .find(Boolean) || null;
   const routeCandidates = [
     missionData.routeWaypoints,

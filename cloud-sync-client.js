@@ -89,7 +89,7 @@
                 return { missionControl: saved.missionControl || null, revision: saved.revision, rawBytes: packed.bytes, transferredBytes: transferred, uploadedChunks: missing.length, reusedChunks: ids.length - missing.length };
             } finally { uploading = false; }
         }
-        return { read, write, acknowledge: revision => setRevision(revision) };
+        return { read, write, acknowledge: revision => setRevision(revision), knownRevision: () => getRevision() };
     }
     return { create };
 });

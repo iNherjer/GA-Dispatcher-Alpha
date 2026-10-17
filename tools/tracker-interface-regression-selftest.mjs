@@ -396,7 +396,8 @@ const cleanupContext = {
   _activeMissionRuntimeId: () => 'finished', _completionText: value => value,
   _clearMissionAuthorityState: () => cleanupCalls.push(['authority-local']),
   _resetMissionRuntime: () => cleanupCalls.push(['runtime-local']),
-  localStorage: { removeItem: key => cleanupCalls.push(['storage', key]) },
+  getSyncId: () => 'PILOT', TRACKER_ACK_SUCCESS: new Set(['ok', 'noop']),
+  localStorage: { setItem() {}, removeItem: key => cleanupCalls.push(['storage', key]) },
   triggerCloudSave() {}, MISSION_DEBRIEF_PENDING_KEY: 'pending'
 };
 vm.createContext(cleanupContext);
@@ -432,6 +433,9 @@ assert.equal(submittedClose.expectedRevision, 17);
 cleanupContext.window.gaCockpitSessionClient.submitIntent = async () => ({ ok: true });
 assert.equal(await cleanupContext.window.completeMissionCloseCleanup(terminalRecord), true);
 assert.equal(cleanupCalls.some(call => call[0] === 'remote-reset'), false);
+const callsAfterClose = cleanupCalls.length;
+assert.equal(await cleanupContext.window.completeMissionCloseCleanup(terminalRecord), true);
+assert.equal(cleanupCalls.length, callsAfterClose, 'late ACK/snapshot cannot repeat cleanup for the completed run');
 cleanupCalls.length = 0;
 cleanupContext.window.gaTrackerExecutionControl = debriefClosedControl;
 cleanupContext.window.lastTrackerMissionAuthority.debrief.closedAt = 100;

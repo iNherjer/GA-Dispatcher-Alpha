@@ -94,7 +94,8 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               break;
             }
             finishBtn.disabled = false;
-            finishBtn.textContent = 'Debrief schließen & Mission aufräumen';
+            finishBtn.textContent = 'Schließen fehlgeschlagen – erneut versuchen';
+            finishBtn.title = 'Tracker-Verbindung und aktuellen Missionsstand prüfen.';
             return _context.a(2);
           case 8:
             currentDebriefAwaitingCleanup = false;

@@ -129,6 +129,7 @@ UMGEBUNGSMODELL (optionale datierte Daten): ${JSON.stringify(environmentContext)
   if(hasAnchor?distance(airport,anchor)>1:!planIds.some(id=>ids.includes(id)))return '';
   const contact=text(plan.expectedBy,160),vehicle=(Array.isArray(plan.items)?plan.items:[]).find(i=>i?.kind==='arrival_vehicle');
   const parts=[contact&&'Empfang durch '+contact,vehicle?.label&&'Fahrzeug: '+text(vehicle.label,120)].filter(Boolean);
+  if(plan.snapStatus?.spawnAllowed===false)parts.push('Sichere Szenenposition noch nicht bestimmt; keine statische Empfangsszene');
   const place=plan.snapStatus?.status==='resolved'?text(plan.osmPlacement?.name||plan.snapStatus.name,180):'';
   if(place)parts.push('Treffpunkt bei '+place);
   return parts.length?'Geplante Ankunft: '+parts.join('; ')+'.':'';

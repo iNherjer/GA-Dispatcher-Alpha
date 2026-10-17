@@ -1,4 +1,5 @@
 const precipitationCore = require('../mission-precipitation-core.js');
+const { planPickupReception } = require('./tracker-arrival-reception-core.js');
 if (process.argv.includes('--mission-worker') && typeof process.send === 'function') {
   require('./tracker-mission-worker.js').runMissionWorker();
 } else {
@@ -102,8 +103,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v556';
-const TRACKER_VERSION_CODE = 556;
+const TRACKER_VERSION = 'v557';
+const TRACKER_VERSION_CODE = 557;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -2099,12 +2100,16 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const candidates = command?.placementCandidates && typeof command.placementCandidates === 'object' ? command.placementCandidates : null;
     const parking = (Array.isArray(candidates?.parking) ? candidates.parking : []).map(aptArrivalCandidatePoint).filter(Boolean);
     const apron = (Array.isArray(candidates?.apron) ? candidates.apron : []).map(aptArrivalCandidatePoint).filter(Boolean);
-    if (!parking.length && !apron.length) return command;
+    const selected = (candidates?.selected || []).map(aptArrivalCandidatePoint).filter(Boolean);
+    const surface = (candidates?.surface || []).map(aptArrivalCandidatePoint).filter(Boolean);
+    if (!parking.length && !apron.length && !surface.length && !selected.length) return command;
     const traffic = aptArrivalLiveTraffic();
     if (!traffic.length) return command;
     const ordered = [
+      ...selected.map(p=>({...p,liveSource:command.snapStatus?.source || 'composer_selected',radiusM:35})),
       ...parking.map(p => ({ ...p, liveSource: 'osm_parking_position', radiusM: 35 })),
-      ...apron.map(p => ({ ...p, liveSource: 'osm_apron', radiusM: 45 }))
+      ...apron.map(p => ({ ...p, liveSource: 'osm_apron', radiusM: 45 })),
+      ...surface.map(p => ({...p,liveSource:'osm_surface',radiusM:35}))
     ];
     const picked = ordered.find(p => !aptArrivalPointOccupied(p, traffic, p.radiusM));
     if (!picked) {
@@ -2157,6 +2162,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
 
   const buildScenePlan = (command) => {
     command = resolveAptArrivalLivePlacement(command);
+    if (command?.targetSceneKind === 'apt_arrival' && command?.snapStatus?.spawnAllowed === false) return [];
     const lastGps = typeof getLastGpsMsg === 'function' ? getLastGpsMsg() : null;
     const base = {
       lat: toFiniteNumber(command?.lat, toFiniteNumber(command?.aircraftLat, toFiniteNumber(lastGps?.lat, null))),
@@ -2194,6 +2200,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         itemId: item?.itemId || item?.cargoItemId || '',
         cargoItemId: item?.cargoItemId || item?.itemId || '',
         cargoSceneKind: item?.cargoSceneKind || item?.sceneKind || item?.kind || '',
+        departWithPickupVehicle: item?.departWithPickupVehicle === true,
         objectKey: String(item?.objectKey || command?.objectKey || '').trim(),
         objectRevision: Math.max(0, Math.round(toFiniteNumber(item?.objectRevision ?? command?.objectRevision, 0) || 0)),
         northM: Math.round(rel.northM * 10) / 10,
@@ -2974,7 +2981,18 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       ? Math.max(0, (requestedBoarders - 1) * groupPlan.boardingStaggerMs)
       : 0;
     debugLog(`SCENE_DEBOARDING_WALK scene=${sceneId} people=${people.length} routeSent=${routeSentCount}/${people.length} walkMs=${walkMs} path=${pathSource} pickupBound=${pickupRoutePoint ? 1 : 0} walkOff=${walkOffRoute.length}`);
-    await sleep(walkMs);
+    const reception = planPickupReception(pickupSceneRec, stagedPickupVehicle, walkSpeedKts)
+      .map(plan => ({ ...plan, sent: sendWaypointRoute(plan.person.objectId, [plan.target], walkSpeedKts) }));
+    const receptionWalkMs = Math.min(36000, Math.max(0, ...reception.map(plan => plan.walkMs)));
+    await sleep(Math.max(walkMs, receptionWalkMs));
+    // A scene replacement/abort while walking must never remove newer actors.
+    for (const plan of reception) {
+      if (plan.sent && scenes.get(pickupSceneRec.sceneId) === pickupSceneRec
+          && pickupSceneRec.objects.includes(plan.person)) {
+        removeSceneObject(pickupSceneRec, plan.person, 'arrival-reception-vehicle-boarded');
+      }
+    }
+    if (reception.length) debugLog(`SCENE_RECEPTION_BOARDING scene=${pickupSceneRec.sceneId} people=${reception.length} routeSent=${reception.filter(plan => plan.sent).length}`);
     const boardedPickup = !!pickupRoutePoint || !!vehicleArrivalEnabled;
     const groupCompletion = evaluateGroupSequenceCompletion({
       expectedPassengerCount: requestedBoarders,
@@ -3006,7 +3024,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     }
     let pickupVehicleDeparture = false;
     let pickupVehicleDepartureMs = 0;
-    if (boardedPickup && (!groupPlan.enabled || allPersonRoutesSent)) {
+    if (boardedPickup && (!groupPlan.enabled || allPersonRoutesSent) && reception.every(plan => plan.sent)) {
       const departRoute = buildRelativeSceneRoute(command, rec, command?.vehicleDeparturePath, defaultVehicleDeparturePath(command));
       const departVehicle = (vehicleRec, vehicle, startPoint, reason) => {
         if (!vehicleRec || !vehicle?.objectId || departRoute.length < 2) return 0;

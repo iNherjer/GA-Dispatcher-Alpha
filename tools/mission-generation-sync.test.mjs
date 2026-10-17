@@ -94,3 +94,45 @@ test('an upload delayed by local full-snapshot resolution stops when opening clo
  const result=f.context.triggerCloudSave(true,{skipHomebase:true});f.env.window.gaCloudOpeningPending=true;release({missionId:'old'});
  assert.equal((await result).reason,'mission-changed-during-upload');assert.equal(writes,0);
 });
+
+test('completed Tracker clear reads the latest Cloud revision, preserves profile data and merges completion logs',async()=>{
+ const f=fixture();f.setMission(null);f.env._syncTrackerMissionSeedPayload=()=>null;
+ f.env._missionLogbookForSync=()=>[{completionId:'local-finished',durationSec:120}];
+ const marker={missionId:'finished',runId:'finished-run'};
+ f.values.set('ga_completed_mission_clear_v1:TEST',JSON.stringify(marker));
+ let payload,options;
+ f.env._syncProfileClient=()=>({read:async()=>({migrated:true,revision:24,missionControl:{revision:6},
+  profile:{activeMission:{missionId:'finished'},activeMissionTrackerSeed:{missionId:'finished'},groupName:'remote-group',
+   logbook:[{completionId:'remote-flight'}, {legacy:'preserve-me'}],followUpRequests:[{id:'remote-followup'}]}}),
+  write:async(p,o)=>{payload=p;options=o;return{revision:25};}});
+ assert.equal((await f.context.triggerCloudSave(true,{skipHomebase:true})).ok,true);
+ assert.equal(payload.activeMission,null);assert.equal(payload.activeMissionTrackerSeed,null);
+ assert.equal(payload.groupName,'remote-group');assert.equal(payload.followUpRequests[0].id,'remote-followup');
+ assert.equal(payload.logbook.length,3);assert.ok(payload.logbook.some(e=>e.completionId==='local-finished'));
+ assert.equal(options.expectedRevision,24);assert.equal(options.force,false);
+ assert.equal(options.missionChange.action,'clear');assert.equal(options.missionChange.expectedMissionRevision,6);
+ assert.equal(options.missionChange.operationId,'completed:finished-run');
+ assert.equal(f.values.has('ga_completed_mission_clear_v1:TEST'),false);
+});
+test('completed clear retains its durable marker on CAS conflict and never deletes a replacement mission',async()=>{
+ for(const replacement of [false,true]){
+  const f=fixture();f.setMission(null);f.env._syncTrackerMissionSeedPayload=()=>null;
+  f.values.set('ga_completed_mission_clear_v1:TEST',JSON.stringify({missionId:'finished',runId:'finished-run'}));
+  let writes=0;
+  f.env._syncProfileClient=()=>({read:async()=>({migrated:true,revision:24,profile:{activeMission:{missionId:replacement?'new':'finished'}}}),
+   write:async()=>{writes++;throw Error('Cloud-Konflikt');}});
+  const result=await f.context.triggerCloudSave(true,{skipHomebase:true});
+  assert.equal(result.ok,false);assert.equal(writes,replacement?0:1);
+  assert.equal(f.values.has('ga_completed_mission_clear_v1:TEST'),true);
+ }
+});
+test('overlapping Cloud saves queue changes without starting a second write',async()=>{
+ const f=fixture();let release,writes=0;
+ f.env._syncProfileClient=()=>({write:async()=>{writes++;await new Promise(r=>release=r);return{revision:2};}});
+ const first=f.context.triggerCloudSave(true,{skipHomebase:true});
+ await Promise.resolve();await Promise.resolve();
+ const second=await f.context.triggerCloudSave(true,{skipHomebase:true});
+ assert.equal(second.reason,'upload-queued');assert.equal(writes,1);
+ release();assert.equal((await first).ok,true);
+ assert.ok(f.values.has('pending'),'newer edits remain pending for the next queued save');
+});

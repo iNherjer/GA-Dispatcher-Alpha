@@ -542,6 +542,24 @@ test('arrival scene uses the planned destination, not the current aircraft posit
   assert.equal(acks.length, 1);
 });
 
+test('an explicitly unavailable arrival scene completes without a simulator spawn or a phantom pickup vehicle', async () => {
+  const run = runWithPlan();
+  run.resumeBundle.executionEffectPlan.effects['scene.arrival'] = { none: true, reason: 'no_safe_arrival_placement' };
+  const commands = [];
+  const bridge = createTrackerMissionSimulatorEffects({
+    authorityManager: { getActiveRun: () => run, getExecutionSnapshot: () => ({ state: { effects: [{ type: 'scene.arrival', status: 'completed' }] } }) },
+    getLivePosition: () => ({ lat: 48.3, lon: 8.5, alt: 800, hdg: 0 }),
+    dispatchCommand: command => { commands.push(command); return { ok: true }; }
+  });
+  const request = { missionId: run.missionId, runId: run.runId, commandId: 'safe-arrival', effect: { type: 'scene.arrival' } };
+  const result = await bridge.handlers['scene.arrival'](request);
+  assert.equal(result.ok, true); assert.equal(result.status, 'completed'); assert.equal(result.sideEffect, false);
+  assert.equal(commands.length, 0);
+  await bridge.handlers['scene.deboarding']({ ...request, commandId: 'normal-deboard', effect: { type: 'scene.deboarding' } });
+  assert.equal(commands.length, 1); assert.equal(commands[0].deboardingPickupSceneId, undefined);
+  bridge.cancelPending();
+});
+
 test('deboarding binds the confirmed nearby arrival scene and retains fallback away from it', async () => {
   const run = runWithPlan();
   run.resumeBundle.executionEffectPlan.effects['scene.arrival'] = { command: {

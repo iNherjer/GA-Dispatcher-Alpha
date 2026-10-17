@@ -523,6 +523,10 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     const departureItem = item.pickupLocation !== 'target';
     const arrivalItem = item.deliverAtDestination !== false || snapshot.bushRecipe?.kind === 'pickup_return' && item.deliverAtHome === true;
     const equipmentItem = item.persistentEquipment === true;
+    // Delivery flags describe success requirements, not whether an optional
+    // onboard item may be handled at the authorized arrival station.
+    const optionalArrivalItem = item.required !== true && item.itemType !== 'passenger'
+      && item.deliverAtHome !== true && item.pickupLocation !== 'target';
     const airborneDrop = !load
       && snapshot.state.flags.active === true
       && snapshot.state.flags.onGround === false
@@ -531,7 +535,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       && item.itemType !== 'passenger';
     const mutableHere = (departurePhase && departureItem)
       || (pickupPhase && item.pickupLocation === 'target')
-      || (arrivalPhase && (arrivalItem || equipmentItem))
+      || (arrivalPhase && (arrivalItem || equipmentItem || optionalArrivalItem))
       || airborneDrop
       || (manualPassenger && snapshot.state.flags.groundStill && snapshot.state.flags.active);
     if (!mutableHere) {

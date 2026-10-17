@@ -142,6 +142,13 @@ async function syncPendingUploadThenLoad(reason = 'sync-resume') {
         if (window.gaCloudOpeningPromise === operation) {
             window.gaCloudOpeningPromise = null;
             window.gaCloudOpeningPending = false;
+            // A completed run may have been cleaned up while this view was hidden.
+            // Its explicit clear must be retried after the opening read, never
+            // replaced by the older mission presentation in that read.
+            if (document.hidden !== true && !window.gaCloudRestoreIncomplete
+                && localStorage.getItem('ga_completed_mission_clear_v1:' + openingPilot.toUpperCase())) {
+                queueActiveMissionCloudSave('completed-mission-clear-resume', { delayMs: 0 });
+            }
         }
     }
 }
@@ -6017,6 +6024,7 @@ function _missionAptArrivalPreviewItems(plan = {}) {
         objectTitle: item?.objectTitle || item?.title || item?.label || '',
         titleCandidates: Array.isArray(item?.titleCandidates) ? item.titleCandidates.slice(0, 5) : [],
         role: item?.role || '',
+        departWithPickupVehicle: item?.departWithPickupVehicle === true,
         forwardM: Number.isFinite(Number(item?.forwardM)) ? Number(item.forwardM) : 0,
         rightM: Number.isFinite(Number(item?.rightM)) ? Number(item.rightM) : 0,
         hdgOffsetDeg: Number.isFinite(Number(item?.hdgOffsetDeg)) ? Number(item.hdgOffsetDeg) : 0,
@@ -6027,6 +6035,7 @@ function _missionAptArrivalPreviewItems(plan = {}) {
 function _missionAptArrivalPickupPoint(plan = null) {
     const src = plan || _missionAptArrivalPlan();
     if (!src || typeof src !== 'object') return null;
+    if (src.snapStatus?.spawnAllowed === false) return null;
     const items = _missionAptArrivalPreviewItems(src);
     const vehicle = items.find(item => {
         const text = `${item.kind || ''} ${item.label || ''} ${item.role || ''} ${item.objectTitle || ''}`.toLowerCase();
@@ -6222,7 +6231,7 @@ function _missionAptArrivalSceneItems(plan = {}) {
     return items.map((item, index) => {
         const isMovingPickupPerson = index === movingPickupPersonIndex;
         const asset = _missionAptArrivalAssetForItem(item, index, {
-            movingPerson: isMovingPickupPerson
+            movingPerson: isMovingPickupPerson || item.departWithPickupVehicle === true
         });
         if (!asset.title) return null;
         const isPickupCargoVisual = pickupCargoItem
@@ -6252,6 +6261,7 @@ function _missionAptArrivalSceneItems(plan = {}) {
 
 function _missionAptArrivalBuildEffectCommand(reason, plan = _missionAptArrivalPlan(), resolvedItems = null) {
     if (!plan) return null;
+    if (plan.snapStatus?.spawnAllowed === false) return null;
     const sceneId = _missionAptArrivalSceneId();
     const items = resolvedItems || _missionAptArrivalSceneItems(plan);
     if (!items.length) return null;
@@ -6279,6 +6289,11 @@ window.missionAptArrivalEnsureSpawned = function(reason = 'apt-arrival-prestage'
     if (window.simModeActive || !window.liveTrackerConnected) return false;
     const plan = _missionAptArrivalPlan();
     if (!plan) return false;
+    if (plan.snapStatus?.spawnAllowed === false) {
+        window.missionAptArrivalSceneStatus = { ...(window.missionAptArrivalSceneStatus || {}),
+            lifecycleBlockReason: 'no_safe_arrival_placement' };
+        return false;
+    }
     const sceneId = _missionAptArrivalSceneId();
     const status = window.missionAptArrivalSceneStatus || {};
     const clearPending = status.clearRequested
@@ -7743,7 +7758,9 @@ function _buildMissionAptExecutionEffectPlan(recipe = 'apt') {
         manualPassengerCommands: window.missionCargoBuildManualPassengerEffectPlan?.() || [],
         effects: {
             'scene.prepare': { command: stripLivePosition(spawn.command) },
-            ...(arrival ? { 'scene.arrival': { command: _safeCloneJson(arrival, null) } } : {}),
+            ...(arrival ? { 'scene.arrival': { command: _safeCloneJson(arrival, null) } }
+                : (recipe === 'apt' && _missionAptArrivalPlan()?.snapStatus?.spawnAllowed === false
+                    ? { 'scene.arrival': { none: true, reason: 'no_safe_arrival_placement' } } : {})),
             'scene.boarding': { command: stripLivePosition(boarding) },
             ...(boardingVoice ? { 'voice.boarding': { recipe: _safeCloneJson(boardingVoice, null) } } : {}),
             ...(approachContext ? { 'voice.approach': { context: _safeCloneJson(approachContext, null) } } : {}),
@@ -14809,6 +14826,7 @@ function _completeMissionCloseCleanupLocal(record = null, reason = 'debrief-clos
     const pending = record && typeof record === 'object' ? record : (_readPendingMissionDebrief() || missionRuntime.completionRecord);
     if (!pending) return false;
     if (pending.runId && window.lastTrackerMissionAuthority?.activeRun) return false;
+    if (pending.runId && window.gaTrackerDebriefCleanedRunId === pending.runId) return true;
     const trackerControl = window.gaTrackerExecutionControl || window.lastTrackerMissionAuthority?.lastExecution;
     const trackerCompleted = trackerControl?.executionAuthority === 'tracker'
         && trackerControl.phase === 'closed' && trackerControl.flags?.closed === true
@@ -14822,6 +14840,11 @@ function _completeMissionCloseCleanupLocal(record = null, reason = 'debrief-clos
         // An old debrief must never clear a newly attached mission.
         if (activeRun || (localMissionId && localMissionId !== pending.missionId)) return false;
         if (typeof window.clearAppMissionState !== 'function') return false;
+        // Persist the authorized clear until its Cloud CAS succeeds.
+        try {
+            localStorage.setItem('ga_completed_mission_clear_v1:' + getSyncId().toUpperCase(),
+                JSON.stringify({ missionId: pending.missionId, runId: pending.runId }));
+        } catch (_) { return false; }
         const cleared = window.clearAppMissionState({ skipRuntimeReset: true, abortDispatch: false,
             complianceReleased: true, nextStart: _completionText(pending.dest || pending.arrLabel || '', 64), reason });
         if (cleared === false) return false;
@@ -14830,6 +14853,7 @@ function _completeMissionCloseCleanupLocal(record = null, reason = 'debrief-clos
         window.lastTrackerMissionStatus = null;
         _clearMissionAuthorityState(reason);
         _resetMissionRuntime();
+        window.gaTrackerDebriefCleanedRunId = pending.runId;
         try { localStorage.removeItem(MISSION_DEBRIEF_PENDING_KEY); } catch (_) {}
         try { triggerCloudSave(true); } catch (_) {}
         return true;
@@ -14881,14 +14905,20 @@ window.completeMissionCloseCleanup = function(record = null, reason = 'debrief-c
     const pending = record || _readPendingMissionDebrief() || missionRuntime.completionRecord;
     const debrief = window.lastTrackerMissionAuthority?.debrief;
     if (debrief && pending?.missionId === debrief.missionId && pending?.runId === debrief.runId && !debrief.closedAt) {
-        const client = window.gaCockpitSessionClient;
-        if (!client?.submitIntent) return false;
-        return client.submitIntent({
+        const request = {
             commandId: `debrief-close-${Date.now()}-${Math.random().toString(36).slice(2)}`,
             intent: 'close_debrief', missionId: debrief.missionId, runId: debrief.runId,
             expectedRevision: debrief.revision, payload: {}
-        }).then(result => {
-            if (!result?.ok) return false;
+        };
+        // A remote browser cannot reach the PC's loopback HTTP endpoint.
+        // Terminal runs use the same authenticated relay as live mission intents.
+        const submitted = window.liveTrackerConnected && typeof window.sendTrackerCommand === 'function'
+            ? _sendMissionAuthorityRequest({ ...request, type: 'mission_execution_intent',
+                clientId: _missionAuthorityClientId(), appVersion: 'origin' }, 15000)
+            : window.gaCockpitSessionClient?.submitIntent?.(request);
+        if (!submitted) return false;
+        return Promise.resolve(submitted).then(result => {
+            if (result?.ok !== true && !TRACKER_ACK_SUCCESS.has(String(result?.status || '').toLowerCase())) return false;
             debrief.closedAt = Date.now();
             return _completeMissionCloseCleanupLocal(pending, reason);
         });
@@ -15706,6 +15736,9 @@ function _syncProfileClient() {
     const identity = JSON.stringify([id, pin]);
     if (_profileSyncSession?.identity === identity) return _profileSyncSession.client;
     const key = 'ga_sync_revision_v2:' + id.toUpperCase();
+    // Another tab's acknowledgement is not proof that this tab loaded its data.
+    const storedRevision = localStorage.getItem(key);
+    let acknowledgedRevision = storedRevision === null ? null : Number(storedRevision);
     const client = window.GACloudSyncClient.create({
         baseUrl: SYNC_URL.replace('/api/sync/', '/api/sync-v2/'), pilotId: id, pin,
         request: async (url, options) => {
@@ -15717,8 +15750,8 @@ function _syncProfileClient() {
                 return { ok: response.ok, status: response.status, json: async () => JSON.parse(body) };
             } finally { clearTimeout(timer); }
         },
-        getRevision: () => { if (window.gaCloudRestoreIncomplete) return -1; const value = localStorage.getItem(key); return value === null ? null : Number(value); },
-        setRevision: value => localStorage.setItem(key, String(value))
+        getRevision: () => window.gaCloudRestoreIncomplete ? -1 : acknowledgedRevision,
+        setRevision: value => { acknowledgedRevision = value; localStorage.setItem(key, String(value)); }
     });
     _profileSyncSession = { identity, client };
     return client;
@@ -15732,7 +15765,9 @@ async function _syncReadProfileResponse() {
 }
 function _syncProfileIsNewer(data) {
     if (Number.isSafeInteger(data?._syncRevision)) {
-        const known = localStorage.getItem('ga_sync_revision_v2:' + getSyncId().toUpperCase());
+        const client = _syncProfileClient();
+        const known = typeof client.knownRevision === 'function' ? client.knownRevision()
+            : localStorage.getItem('ga_sync_revision_v2:' + getSyncId().toUpperCase());
         return known === null || data._syncRevision > Number(known);
     }
     return !!(data.lastModified && data.lastModified > localSyncTime);
@@ -16135,6 +16170,18 @@ function _syncRecordCloudMissionPullOutcome(status, details = {}) {
 
 async function _syncApplyActiveMissionFromCloud(activeMission = null, options = {}) {
     if (_syncMissionRestoreBlocked(null, activeMission)) return false;
+    const terminal = window.lastTrackerMissionAuthority;
+    let pendingClear = null;
+    try { pendingClear = JSON.parse(localStorage.getItem('ga_completed_mission_clear_v1:' + getSyncId().toUpperCase()) || 'null'); } catch (_) {}
+    const completed = !terminal?.activeRun && (terminal?.debrief || pendingClear);
+    if (activeMission && completed && _syncMissionStatesShareIdentity(activeMission, completed)) {
+        // A cloud presentation can lag behind the Tracker's completed run.
+        // Keep the completion/debrief instead of restoring that mission as planned.
+        _syncRecordCloudMissionPullOutcome('tracker-observer-current', {
+            source: options.source || 'cloud-pull', trackerMissionId: completed.missionId,
+            cloudMatchesTracker: true, terminal: true });
+        return true;
+    }
     const briefing = document.getElementById("briefingBox");
     let localMission = null;
     window.gaLastCloudMissionPullOutcome = null;
@@ -16457,6 +16504,14 @@ window.gaReloadAcceptedMissionAfterDraft = async function() {
 };
 
 async function triggerCloudSave(immediate = false, options = {}) {
+    if (immediate !== 'manual' && document.hidden === true) {
+        return { ok: false, skipped: true, reason: 'background-view' };
+    }
+    if (triggerCloudSave.inFlight) {
+        _syncMarkPendingUpload(options.reason || 'changes-during-upload');
+        return { ok: false, skipped: true, pending: true, reason: 'upload-queued' };
+    }
+    const operation = (async () => {
     if (window.gaCloudOpeningPending) return { ok: false, skipped: true, reason: 'opening-cloud-read-pending' };
     if (window.gaMissionDraftActive?.() || window.gaIsDispatchBusy?.()) return { ok: false, skipped: true, reason: 'local-mission-draft' };
     const id = getSyncId();
@@ -16528,7 +16583,30 @@ async function triggerCloudSave(immediate = false, options = {}) {
         const client = _syncProfileClient();
         let uploadPayload = { ...payloadToCompare, lastModified: uploadSyncTime };
         let expectedRevision;
-        if (immediate !== 'manual' && _syncLocalMissionChoice()?.missionOnly === true) {
+        let missionChange = null;
+        const completedClearKey = 'ga_completed_mission_clear_v1:' + id.toUpperCase();
+        let completedClear = null;
+        try { completedClear = JSON.parse(localStorage.getItem(completedClearKey) || 'null'); } catch (_) {}
+        if (immediate !== 'manual' && completedClear && !activeMission) {
+            const cloud = await client.read();
+            if (getSyncId() !== id || _syncMissionRestoreBlocked(uploadEpoch)
+                || _syncActiveMissionPayload()) return { ok: false, skipped: true, reason: 'mission-changed-during-upload' };
+            if (!cloud.migrated || !cloud.profile) throw new Error('Cloud-Abschluss: Cloud-Stand nicht vollständig lesbar.');
+            if (cloud.profile.activeMission && !_syncMissionStatesShareIdentity(cloud.profile.activeMission, completedClear)) {
+                return { ok: false, skipped: true, reason: 'cloud-mission-replaced' };
+            }
+            // Preserve remote profile edits; only add local completion records.
+            const logs = new Map();
+            for (const entry of [...(cloud.profile.logbook || []), ...payloadToCompare.logbook]) {
+                const key = entry?.completionId || entry?.id || `legacy:${JSON.stringify(entry)}`;
+                logs.set(key, entry);
+            }
+            uploadPayload = { ...cloud.profile, logbook: Array.from(logs.values()),
+                activeMission: null, activeMissionTrackerSeed: null, lastModified: uploadSyncTime };
+            expectedRevision = cloud.revision;
+            missionChange = { action: 'clear', expectedMissionRevision: cloud.missionControl?.revision || 0,
+                operationId: `completed:${completedClear.runId}` };
+        } else if (immediate !== 'manual' && _syncLocalMissionChoice()?.missionOnly === true) {
             const uploadEpoch = window.gaDispatchGeneration?.();
             const cloud = await client.read();
             if (getSyncId() !== id || _syncMissionRestoreBlocked(uploadEpoch) || JSON.stringify(_syncActiveMissionPayload()) !== JSON.stringify(activeMission)) return { ok: false, skipped: true, reason: 'mission-changed-during-upload' };
@@ -16543,7 +16621,9 @@ async function triggerCloudSave(immediate = false, options = {}) {
             expectedRevision = cloud.revision;
         }
         if (getSyncId() !== id || window.gaCloudOpeningPending || _syncMissionRestoreBlocked(uploadEpoch)) return { ok: false, skipped: true, reason: 'mission-changed-during-upload' };
-        const transfer = await client.write(uploadPayload, { force: immediate === 'manual', expectedRevision, legacyTime: localSyncTime, ...(immediate === 'manual' ? { missionChange: { action: activeMission ? 'activate' : 'clear' } } : {}) });
+        const transfer = await client.write(uploadPayload, { force: immediate === 'manual', expectedRevision, legacyTime: localSyncTime,
+            ...(immediate === 'manual' ? { missionChange: { action: activeMission ? 'activate' : 'clear' } } : missionChange ? { missionChange } : {}) });
+        if (missionChange && localStorage.getItem(completedClearKey) === JSON.stringify(completedClear)) localStorage.removeItem(completedClearKey);
         if (immediate === 'manual') _syncSetLocalMissionChoice(null);
         if (getSyncId() !== id) throw new Error('Pilot während Upload gewechselt; lokaler Stand bleibt unverändert.');
         window.gaCloudRestoreIncomplete = false;
@@ -16597,6 +16677,10 @@ async function triggerCloudSave(immediate = false, options = {}) {
         reason: profileSaved ? 'saved' : 'save-failed',
         error: profileError ? String(profileError?.message || profileError) : null
     };
+    })();
+    triggerCloudSave.inFlight = operation;
+    try { return await operation; }
+    finally { if (triggerCloudSave.inFlight === operation) triggerCloudSave.inFlight = null; }
 }
 async function forceSyncLoad() {
     if (window.gaIsDispatchBusy?.()) { updateSyncStatus('Mission wird generiert; Cloud-Laden bitte danach erneut versuchen.'); return; }
@@ -16698,6 +16782,7 @@ async function forceSyncLoad() {
     }
 }
 async function silentSyncLoad(options = {}) {
+    if (document.hidden === true) return false;
     if (window.gaIsDispatchBusy?.() === true) return;
     if (!options.authoritativeOpening && _syncMissionRestoreBlocked(null, _syncActiveMissionPayload())) return;
     const restoreEpoch = window.gaDispatchGeneration?.() || 0;
@@ -16717,6 +16802,7 @@ async function silentSyncLoad(options = {}) {
         }
         if (!res.ok) return;
         const data = await res.json();
+        if (document.hidden === true) return false;
         if (getSyncId() !== id || restoreEpoch !== (window.gaDispatchGeneration?.() || 0) || window.gaIsDispatchBusy?.()) return false;
         if (window.gaMissionDraftActive?.()) {
             _syncDraftCloudNotice(data);
@@ -16894,6 +16980,7 @@ let syncLastFetchTime = Date.now();
 let syncIsSleeping = false;
 let idleCheckInProgress = false;
 async function checkCloudAfterIdle() {
+    if (document.hidden === true) return;
     if (idleCheckInProgress) return;
     if (window.gaIsDispatchBusy?.() === true) return;
     if (window.gaMissionDraftActive?.()) return syncPendingUploadThenLoad('draft-cloud-check');
@@ -16917,6 +17004,7 @@ async function checkCloudAfterIdle() {
         }
         if (!res.ok) throw await _syncFetchError(res);
         const data = await res.json();
+        if (document.hidden === true) return;
         if (_syncMissionRestoreBlocked(restoreEpoch, data.activeMission)) return;
         if (_syncProfileIsNewer(data)) {
             const trackerObserver = _syncActiveTrackerRunForCloudPull()?.executionAuthority === 'tracker';
@@ -16941,6 +17029,7 @@ async function checkCloudAfterIdle() {
             };
             const currentPayloadStr = JSON.stringify(payloadToCompare);
             let hasLocalUnsavedChanges = (currentPayloadStr !== lastSyncedPayloadStr);
+            let applyWithoutPrompt = false;
             if (trackerObserver) {
                 // Only mission copies lose authority here. Preserve the usual
                 // conflict handling for independently edited profile/logbook data.
@@ -16950,6 +17039,9 @@ async function checkCloudAfterIdle() {
                 hasLocalUnsavedChanges = profileKeys.some(key => JSON.stringify(payloadToCompare[key]) !== JSON.stringify(previous[key]));
                 const cloudProfileChanged = profileKeys.some(key => Object.prototype.hasOwnProperty.call(data, key)
                     && JSON.stringify(data[key]) !== JSON.stringify(previous[key]));
+                const differsFromCloud = profileKeys.some(key => Object.prototype.hasOwnProperty.call(data, key)
+                    && JSON.stringify(data[key]) !== JSON.stringify(payloadToCompare[key]));
+                applyWithoutPrompt = !hasLocalUnsavedChanges || !differsFromCloud;
                 if (!hasLocalUnsavedChanges && !cloudProfileChanged) {
                     localSyncTime = data.lastModified;
                     localStorage.setItem('ga_sync_time', localSyncTime);
@@ -16962,7 +17054,11 @@ async function checkCloudAfterIdle() {
             if (hasLocalUnsavedChanges) {
                 msg = "⚠️ CLOUD KONFLIKT\n\nEin anderes Gerät hat in der Zwischenzeit neue Daten gespeichert. Du hast hier aber UNGESPEICHERTE lokale Änderungen!\n\nMöchtest du die Cloud-Daten laden? (Deine lokalen Änderungen hier gehen dann verloren!)";
             }
-            if (confirm(msg)) {
+            if (!applyWithoutPrompt && checkCloudAfterIdle.dismissedHead === `${id}:${data._syncRevision ?? data.lastModified}`) {
+                updateSyncStatus('Cloud-Update wartet auf manuelles Laden', true);
+                return;
+            }
+            if (applyWithoutPrompt || confirm(msg)) {
                 // User will laden -> Daten anwenden
                 window.gaCloudRestoreIncomplete = false;
                 localSyncTime = data.lastModified;
@@ -16994,10 +17090,9 @@ async function checkCloudAfterIdle() {
                         : "Cloud-Update geladen ✅"));
                 flashSyncIndicator('down');
             } else {
-                // User lehnt ab -> Behalte lokale Daten.
-                // Wir setzen die Sync-Zeit künstlich hoch, damit der lokale Stand als der "neueste" gilt und beim Schließen gepusht wird.
-                localSyncTime = Date.now();
-                localStorage.setItem('ga_sync_time', localSyncTime);
+                // Declining a read must not grant write authority or repeatedly
+                // ask about the same revision during this browser session.
+                checkCloudAfterIdle.dismissedHead = `${id}:${data._syncRevision ?? data.lastModified}`;
                 updateSyncStatus("Lokaler Stand behalten");
             }
         } else {
