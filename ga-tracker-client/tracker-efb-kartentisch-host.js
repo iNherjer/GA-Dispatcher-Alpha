@@ -1702,7 +1702,7 @@
     // would be clipped after collapse, so anchor it to the map content instead.
     var toolbarTab = byId('mapToolbarToggleRow');
     var scrollArea = overlay && overlay.querySelector('.pinboard-scroll-area');
-    if (toolbarTab && scrollArea) scrollArea.appendChild(toolbarTab);
+    if (toolbarTab && scrollArea) overlay.insertBefore(toolbarTab, scrollArea);
     setText('navStationLabel', 'NAV STATION (KARTENTISCH) | HOST 0.7.8');
 
     var toolbarRow = byId('mapToolbarInner');

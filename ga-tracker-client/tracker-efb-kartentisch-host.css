@@ -941,13 +941,47 @@ body.ga-efb-tracker-host #mapToolbarToggle {
   transition: none !important;
 }
 body.ga-efb-tracker-host #mapToolbarToggleRow {
+  position: relative;
+  flex: 0 0 0;
+  height: 0;
+  left: auto;
   top: 0;
   bottom: auto;
-  transform: translate(-50%, 0);
+  transform: none;
+  z-index: 150000;
 }
 body.ga-efb-tracker-host.route-progress-visible #mapToolbarToggleRow {
   top: var(--route-progress-height, 34px);
-  transform: translate(-50%, 0);
+  transform: none;
+}
+body.ga-efb-tracker-host #mapToolbarToggle {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #202a33;
+  color: #fff;
+}
+body.ga-efb-tracker-host #mapTableOverlay > .pinboard-scroll-area { z-index: 0; }
+
+/* Bound Modern's glass transparency on the simulator's bright map surface. */
+body.ga-efb-tracker-host:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) {
+  --glass-surface: #17212b;
+  --card: #17212b;
+  --glass-surface-strong: #202e3c;
+  --drawer-panel-bg: #17212b;
+  --drawer-surface: #223241;
+  --drawer-surface-strong: #2b3f50;
+}
+body.ga-efb-tracker-host:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .telemetry-box,
+body.ga-efb-tracker-host:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .map-draw-menu,
+body.ga-efb-tracker-host:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) #vpSettingsMenu,
+body.ga-efb-tracker-host:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) #mapVoiceMenu,
+body.ga-efb-tracker-host:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .leaflet-popup-content-wrapper {
+  background: #17212b !important;
+  color: #eef5ff;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 body.ga-efb-tracker-host #map img.ga-efb-map-tile {

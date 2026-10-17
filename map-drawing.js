@@ -723,6 +723,12 @@ function clampMapDrawValue(value, min, max) {
 
 function getMapDrawSafeBounds(area, railWidth = 46, railHeight = 46) {
     const areaRect = mapDrawLayoutRect(area);
+    // The EFB map area already excludes header/profile. Do not reserve those
+    // again or let the small toolbar tab block an entire horizontal edge.
+    if (document.body.classList.contains('ga-efb-tracker-host')) return {
+        areaRect, left: 6, right: Math.max(6, areaRect.width - 6),
+        top: 6, bottom: Math.max(6, areaRect.height - 6)
+    };
     const edgeMargin = 10;
     const blockerGap = 8;
     let left = edgeMargin;
@@ -788,7 +794,7 @@ function getMapDrawClampedFloatingPosition(rawLeft, rawTop, railWidth, railHeigh
     let maxTop = bounds.bottom - railHeight;
     let flipDown = false;
 
-    if (mapDrawState.panelOpen && stack) {
+    if (mapDrawState.panelOpen && stack && !document.body.classList.contains('ga-efb-tracker-host')) {
         const stackHeight = getMapDrawToolStackHeight(stack);
         flipDown = getMapDrawToolStackDirection(rawTop, bounds, railHeight, stackHeight);
         if (flipDown) {
@@ -825,7 +831,12 @@ function positionMapDrawToolStack() {
     const stackHeight = getMapDrawToolStackHeight(stack);
     const bounds = getMapDrawSafeBounds(area, rail.offsetWidth || 46, railHeight);
     const rawTop = Number.isFinite(parseFloat(rail.style.top)) ? parseFloat(rail.style.top) : (railRect.top - areaRect.top);
-    stack.classList.toggle('flip-down', getMapDrawToolStackDirection(rawTop, bounds, railHeight, stackHeight));
+    const flipDown = getMapDrawToolStackDirection(rawTop, bounds, railHeight, Math.max(stackHeight, stack.scrollHeight));
+    stack.classList.toggle('flip-down', flipDown);
+    if (document.body.classList.contains('ga-efb-tracker-host')) {
+        stack.style.maxHeight = `${Math.max(1, flipDown ? bounds.bottom - rawTop - railHeight - 8 : rawTop - bounds.top - 8)}px`;
+        stack.style.overflowY = 'auto';
+    }
 }
 
 function positionMapDrawMenuNearButton() {
@@ -904,6 +915,7 @@ function applyMapDrawFloatingButtonPosition(rail, left, top) {
     rail.style.bottom = 'auto';
 }
 
+let mapDrawFloatingAreaSize = null;
 function clampMapDrawFloatingButtonPosition(rawPosition) {
     const rail = document.getElementById('mapDrawRail');
     const button = document.getElementById('mapDrawFloatingBtn');
@@ -922,8 +934,16 @@ function clampMapDrawFloatingButtonPosition(rawPosition) {
     const fallback = getMapDrawFloatingDefaultPosition(areaRect, railWidth, railHeight, bounds);
     const styleLeft = parseFloat(rail.style.left);
     const styleTop = parseFloat(rail.style.top);
-    const rawLeft = rawPosition && Number.isFinite(rawPosition.left) ? rawPosition.left : (Number.isFinite(styleLeft) ? styleLeft : fallback.left);
-    const rawTop = rawPosition && Number.isFinite(rawPosition.top) ? rawPosition.top : (Number.isFinite(styleTop) ? styleTop : fallback.top);
+    let rawLeft = rawPosition && Number.isFinite(rawPosition.left) ? rawPosition.left : (Number.isFinite(styleLeft) ? styleLeft : fallback.left);
+    let rawTop = rawPosition && Number.isFinite(rawPosition.top) ? rawPosition.top : (Number.isFinite(styleTop) ? styleTop : fallback.top);
+    if (document.body.classList.contains('ga-efb-tracker-host')) {
+        if (!(rawPosition && Number.isFinite(rawPosition.left) && Number.isFinite(rawPosition.top)) && mapDrawFloatingAreaSize) {
+            const old = mapDrawFloatingAreaSize;
+            rawLeft = bounds.left + (rawLeft - bounds.left) * Math.max(0, bounds.right - bounds.left - railWidth) / Math.max(1, old.width - bounds.left - 6 - railWidth);
+            rawTop = bounds.top + (rawTop - bounds.top) * Math.max(0, bounds.bottom - bounds.top - railHeight) / Math.max(1, old.height - bounds.top - 6 - railHeight);
+        }
+        mapDrawFloatingAreaSize = { width: areaRect.width, height: areaRect.height };
+    }
     const clamped = getMapDrawClampedFloatingPosition(rawLeft, rawTop, railWidth, railHeight, bounds, stack);
     if (stack) stack.classList.toggle('flip-down', clamped.flipDown);
     applyMapDrawFloatingButtonPosition(rail, clamped.left, clamped.top);
@@ -954,6 +974,9 @@ function initMapDrawFloatingButton() {
         try { return JSON.parse(localStorage.getItem('ga_map_draw_button_pos') || 'null'); } catch (e) { return null; }
     })();
     if (saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)) {
+        if (saved.areaWidth > 0 && saved.areaHeight > 0 && document.body.classList.contains('ga-efb-tracker-host')) {
+            mapDrawFloatingAreaSize = { width: saved.areaWidth, height: saved.areaHeight };
+        }
         applyMapDrawFloatingButtonPosition(rail, saved.left, saved.top);
         requestAnimationFrame(() => {
             clampMapDrawFloatingButtonPosition();
@@ -1013,7 +1036,9 @@ function initMapDrawFloatingButton() {
         const left = parseFloat(rail.style.left);
         const top = parseFloat(rail.style.top);
         if (Number.isFinite(left) && Number.isFinite(top)) {
-            localStorage.setItem('ga_map_draw_button_pos', JSON.stringify({ left, top }));
+            const areaSize = mapDrawFloatingAreaSize;
+            localStorage.setItem('ga_map_draw_button_pos', JSON.stringify({ left, top,
+                ...(areaSize ? { areaWidth: areaSize.width, areaHeight: areaSize.height } : {}) }));
         }
         if (drag.moved) {
             mapDrawState.suppressButtonClickUntil = Date.now() + 350;

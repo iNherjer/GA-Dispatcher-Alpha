@@ -90,14 +90,7 @@
     });
   }
   function clampRail(area) {
-    var rail = byId('mapDrawRail'), button = byId('mapDrawFloatingBtn');
-    if (!rail || !button) return;
-    var margin = 6, width = area.clientWidth, height = area.clientHeight;
-    set(rail, 'max-width', Math.max(1, width - margin * 2) + 'px');
-    var x = Math.max(margin, Math.min(rail.offsetLeft, width - rail.offsetWidth - margin));
-    var y = Math.max(margin, Math.min(rail.offsetTop, height - button.offsetHeight - margin));
-    set(rail, 'left', x + 'px'); set(rail, 'top', y + 'px');
-    set(rail, 'right', 'auto'); set(rail, 'bottom', 'auto');
+    if (typeof root.clampMapDrawFloatingButtonPosition === 'function') root.clampMapDrawFloatingButtonPosition();
   }
   function positionPax(area) {
     var widget = byId('paxVoiceWidget');

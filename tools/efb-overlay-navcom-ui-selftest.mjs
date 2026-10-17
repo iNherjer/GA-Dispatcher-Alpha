@@ -53,10 +53,31 @@ try {
     assert.equal(await page.evaluate(()=>document.body.classList.contains('toolbar-collapsed')),true);
     const tab=page.locator('#mapToolbarToggle');const rect=await tab.boundingBox();
     assert.ok(rect&&rect.y>=0&&rect.y+rect.height<=883);
+    for (const fraction of [.1,.9]) assert.equal(await page.evaluate(({rect,fraction})=>document.elementFromPoint(rect.x+rect.width/2,rect.y+rect.height*fraction)?.closest('button')?.id,{rect,fraction}),'mapToolbarToggle','whole handle stays in front of the map');
     await tab.click();await page.waitForTimeout(320);
     assert.equal(await page.evaluate(()=>document.body.classList.contains('toolbar-collapsed')),false);
+    await page.evaluate(()=>{mapDrawState.panelOpen=false;syncMapDrawUi();const area=document.getElementById('mapArea'),rail=document.getElementById('mapDrawRail');clampMapDrawFloatingButtonPosition({left:6,top:area.clientHeight-rail.offsetHeight-6});});
+    const pen=page.locator('#mapDrawFloatingBtn');
+    const before=await pen.boundingBox();
+    await pen.click();await page.waitForTimeout(100);
+    const after=await pen.boundingBox();assert.ok(Math.abs(before.y-after.y)<1,'opening tools never pushes the pen away from the edge');
+    await page.evaluate(()=>{mapDrawState.panelOpen=false;syncMapDrawUi();});
+    const area=await page.locator('#mapArea').boundingBox(),button=await pen.boundingBox();
+    await page.mouse.move(button.x+button.width/2,button.y+button.height/2);await page.mouse.down();
+    await page.mouse.move(area.x+button.width/2,area.y+button.height/2,{steps:8});await page.mouse.up();
+    const dragged=await pen.boundingBox();assert.ok(dragged.x-area.x<=6*scale+1&&dragged.y-area.y<=6*scale+1,'pen can be dragged to the top/left edge');
+    await page.evaluate(()=>{const a=document.getElementById('mapArea'),r=document.getElementById('mapDrawRail');clampMapDrawFloatingButtonPosition({left:6,top:a.clientHeight-r.offsetHeight-6});});
+    await page.evaluate(scale=>__overlayTest.scale(scale),scale===3?1:3);await page.waitForTimeout(120);
+    const resizedArea=await page.locator('#mapArea').boundingBox(),resizedPen=await pen.boundingBox();
+    const factor=await page.evaluate(()=>GAEfbUiScale.state().effective);
+    assert.ok(Math.abs(resizedArea.y+resizedArea.height-resizedPen.y-resizedPen.height-6*factor)<2,'bottom position survives scale changes');
+    await page.evaluate(scale=>__overlayTest.scale(scale),scale);await page.waitForTimeout(100);
   }
   await page.evaluate(()=>{__overlayTest.mode(false,'physical');__overlayTest.scale(1);gaSetNavcomMode('select');});
+  for(const selector of ['.telemetry-box','.map-draw-menu','#vpSettingsMenu','#mapVoiceMenu']) {
+    const backgrounds=await page.locator(selector).evaluateAll(nodes=>nodes.map(e=>getComputedStyle(e).backgroundColor));
+    assert.ok(backgrounds.length);for(const background of backgrounds)assert.equal(background,'rgb(23, 33, 43)','Modern panels use opaque EFB surfaces');
+  }
   await page.waitForFunction(()=>document.body.dataset.navcomMode==='select');
   await page.waitForTimeout(100);assert.equal(mode,'select');
   await page.locator('#mapToolbarToggle').click();
@@ -78,5 +99,5 @@ try {
   await second.locator('.leaflet-control-layers-toggle').click();
   await second.screenshot({path:'/tmp/ga-efb-overlay-navcom.png'});
   await fresh.close();assert.deepEqual(errors,[]);
-  console.log(`PASS ${cases} menu/follow cycles, 9 collapse/reopen scale/surface cases and NAVCOM across fresh storage`);
+  console.log(`PASS ${cases} menu/follow cycles; 9 full-handle, pen drag/open/scale cases; opaque Modern panels; collapsed restart and NAVCOM across fresh storage`);
 } finally {await browser.close();}

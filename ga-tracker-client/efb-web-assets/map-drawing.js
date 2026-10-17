@@ -711,6 +711,15 @@ function getMapDrawSafeBounds(area) {
   var railWidth = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 46;
   var railHeight = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 46;
   var areaRect = mapDrawLayoutRect(area);
+  // The EFB map area already excludes header/profile. Do not reserve those
+  // again or let the small toolbar tab block an entire horizontal edge.
+  if (document.body.classList.contains('ga-efb-tracker-host')) return {
+    areaRect,
+    left: 6,
+    right: Math.max(6, areaRect.width - 6),
+    top: 6,
+    bottom: Math.max(6, areaRect.height - 6)
+  };
   var edgeMargin = 10;
   var blockerGap = 8;
   var left = edgeMargin;
@@ -791,7 +800,7 @@ function getMapDrawClampedFloatingPosition(rawLeft, rawTop, railWidth, railHeigh
   var minTop = bounds.top;
   var maxTop = bounds.bottom - railHeight;
   var flipDown = false;
-  if (mapDrawState.panelOpen && stack) {
+  if (mapDrawState.panelOpen && stack && !document.body.classList.contains('ga-efb-tracker-host')) {
     var stackHeight = getMapDrawToolStackHeight(stack);
     flipDown = getMapDrawToolStackDirection(rawTop, bounds, railHeight, stackHeight);
     if (flipDown) {
@@ -826,7 +835,12 @@ function positionMapDrawToolStack() {
   var stackHeight = getMapDrawToolStackHeight(stack);
   var bounds = getMapDrawSafeBounds(area, rail.offsetWidth || 46, railHeight);
   var rawTop = Number.isFinite(parseFloat(rail.style.top)) ? parseFloat(rail.style.top) : railRect.top - areaRect.top;
-  stack.classList.toggle('flip-down', getMapDrawToolStackDirection(rawTop, bounds, railHeight, stackHeight));
+  var flipDown = getMapDrawToolStackDirection(rawTop, bounds, railHeight, Math.max(stackHeight, stack.scrollHeight));
+  stack.classList.toggle('flip-down', flipDown);
+  if (document.body.classList.contains('ga-efb-tracker-host')) {
+    stack.style.maxHeight = `${Math.max(1, flipDown ? bounds.bottom - rawTop - railHeight - 8 : rawTop - bounds.top - 8)}px`;
+    stack.style.overflowY = 'auto';
+  }
 }
 function positionMapDrawMenuNearButton() {
   var button = document.getElementById('mapDrawFloatingBtn');
@@ -900,6 +914,7 @@ function applyMapDrawFloatingButtonPosition(rail, left, top) {
   rail.style.right = 'auto';
   rail.style.bottom = 'auto';
 }
+var mapDrawFloatingAreaSize = null;
 function clampMapDrawFloatingButtonPosition(rawPosition) {
   var rail = document.getElementById('mapDrawRail');
   var button = document.getElementById('mapDrawFloatingBtn');
@@ -920,6 +935,17 @@ function clampMapDrawFloatingButtonPosition(rawPosition) {
   var styleTop = parseFloat(rail.style.top);
   var rawLeft = rawPosition && Number.isFinite(rawPosition.left) ? rawPosition.left : Number.isFinite(styleLeft) ? styleLeft : fallback.left;
   var rawTop = rawPosition && Number.isFinite(rawPosition.top) ? rawPosition.top : Number.isFinite(styleTop) ? styleTop : fallback.top;
+  if (document.body.classList.contains('ga-efb-tracker-host')) {
+    if (!(rawPosition && Number.isFinite(rawPosition.left) && Number.isFinite(rawPosition.top)) && mapDrawFloatingAreaSize) {
+      var old = mapDrawFloatingAreaSize;
+      rawLeft = bounds.left + (rawLeft - bounds.left) * Math.max(0, bounds.right - bounds.left - railWidth) / Math.max(1, old.width - bounds.left - 6 - railWidth);
+      rawTop = bounds.top + (rawTop - bounds.top) * Math.max(0, bounds.bottom - bounds.top - railHeight) / Math.max(1, old.height - bounds.top - 6 - railHeight);
+    }
+    mapDrawFloatingAreaSize = {
+      width: areaRect.width,
+      height: areaRect.height
+    };
+  }
   var clamped = getMapDrawClampedFloatingPosition(rawLeft, rawTop, railWidth, railHeight, bounds, stack);
   if (stack) stack.classList.toggle('flip-down', clamped.flipDown);
   applyMapDrawFloatingButtonPosition(rail, clamped.left, clamped.top);
@@ -952,6 +978,12 @@ function initMapDrawFloatingButton() {
     }
   })();
   if (saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)) {
+    if (saved.areaWidth > 0 && saved.areaHeight > 0 && document.body.classList.contains('ga-efb-tracker-host')) {
+      mapDrawFloatingAreaSize = {
+        width: saved.areaWidth,
+        height: saved.areaHeight
+      };
+    }
     applyMapDrawFloatingButtonPosition(rail, saved.left, saved.top);
     requestAnimationFrame(() => {
       clampMapDrawFloatingButtonPosition();
@@ -1008,10 +1040,14 @@ function initMapDrawFloatingButton() {
     var left = parseFloat(rail.style.left);
     var top = parseFloat(rail.style.top);
     if (Number.isFinite(left) && Number.isFinite(top)) {
-      localStorage.setItem('ga_map_draw_button_pos', JSON.stringify({
+      var areaSize = mapDrawFloatingAreaSize;
+      localStorage.setItem('ga_map_draw_button_pos', JSON.stringify(_objectSpread({
         left,
         top
-      }));
+      }, areaSize ? {
+        areaWidth: areaSize.width,
+        areaHeight: areaSize.height
+      } : {})));
     }
     if (drag.moved) {
       mapDrawState.suppressButtonClickUntil = Date.now() + 350;

@@ -1,3 +1,27 @@
+## Handle-Vordergrund, Modern-Kontrast und Stiftposition – v560 (17.10.2026)
+
+Feldtest v559: Kartencontrols bleiben sichtbar, der obere Menü-Handle wird
+jedoch noch von der Karte beschnitten. Er liegt nun als eigener Knoten vor
+dem Karten-Scrollbereich mit eigener Vordergrundebene, unabhängig von dessen
+Clipping/Compositing. Browser-Hit-Tests prüfen obere und untere Handle-Hälfte.
+
+Modern verwendet im EFB deckende dunkle Glass-/Card-/Drawer-Flächen; Telemetrie,
+Zeichenmenü, Profil-/Audio-Menü und Leaflet-Popups erhalten feste Hintergründe.
+Web-App und andere Themes behalten ihre bisherige Gestaltung.
+
+Die Zeichenposition besitzt im EFB nur noch eine Begrenzung im tatsächlichen
+Kartenbereich. Header/Profil werden nicht nochmals als Hindernisse abgezogen.
+Öffnen/Scrollen der Werkzeugleiste verschiebt den Stift nicht; die Leiste klappt
+zur verfügbaren Seite und scrollt dort. Die relative Buttonposition bleibt bei
+Größen-/Skalierungswechseln erhalten; gespeicherte Dragpositionen enthalten
+zusätzlich die zugehörigen Kartenmaße. Alte Positionswerte bleiben lesbar.
+Die separate Floating-Layout-Begrenzung entfällt.
+
+39 betroffene Quell-/Asset-/Skalierungsprüfungen bestehen. Erweiterte
+Browserprüfung deckt echte Drags bei 100/150/300 Prozent auf physischem EFB,
+Popout und Toolbar sowie Neustart, Handle-Hitflächen und Modern-Flächen ab.
+Assetrevision 56001. Reale MSFS-/VR-Abnahme bleibt nach Installation erforderlich.
+
 ## Kartenmenü, Toolbar-Handle und NAVCOM – Tracker v559 Alpha (17.10.2026)
 
 Das EFB-Kartenmenü bleibt ab Initialisierung als fester Geschwisterknoten der

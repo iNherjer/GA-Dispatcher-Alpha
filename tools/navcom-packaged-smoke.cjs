@@ -26,6 +26,6 @@ const {createNavcomPreferences} = require('../ga-tracker-client/tracker-navcom-p
   assert.equal(profile.navcomMode,'select');assert.equal(profile.activeMission.missionId,'keep');assert.equal(profile.lastModified,42);
   const asset=efb.getTrackerEfbWebClientAsset('/efb/v1/assets/navcom-preferences-client.js');
   assert.ok(asset.body.length>1000);new (require('node:vm').Script)(asset.body.toString());
-  assert.ok(efb.createTrackerEfbWebClientPage().includes('navcom-preferences-client.js?v=55901'));
+  assert.ok(efb.createTrackerEfbWebClientPage().includes('navcom-preferences-client.js?v='+efb.EFB_WEB_ASSET_REVISION));
   console.log('NAVCOM_PACKAGED_SMOKE_OK packaged='+!!process.pkg);
 })().catch(error=>{console.error(error);process.exitCode=1;});
