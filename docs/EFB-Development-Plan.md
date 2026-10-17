@@ -17,8 +17,10 @@ Fotofall-Test mit FIS GND–FL100 und Delta FL75–FL100, 4 Breiten-/Skalierungs
 und deaktiviertem Grid/inset/color-mix bestanden. Geprüft sind nichtleere
 Zeichenfläche, sichtbare Bandgeometrie/-farbe, Auswahl per echtem Klick sowie
 kompakte Fenstermaße. Screenshot visuell geprüft; 28 Daten-/Assettests bestehen.
-Assetrevision 56201, Web-Cache v2142. Windows-x64-Kandidat gebaut und bestehender
-Popup-Browsertest bestanden; reale MSFS-/VR-Abnahme bleibt erforderlich.
+Assetrevision 56201, Web-Cache v2143. Windows-x64-Build und Popup-Browsertest
+bestanden. Release v562 veröffentlicht und öffentlicher Download größen- und
+SHA-256-gleich bestätigt; Alpha aktiviert, Stable unverändert. Reale MSFS-/VR-
+Abnahme bleibt erforderlich.
 Siehe [Tracker-v562-Release](Tracker-v562-Release.md) und
 [EFB-Coherent-Testing](EFB-Coherent-Testing.md) für Testgrenzen.
 

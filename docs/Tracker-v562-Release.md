@@ -21,5 +21,6 @@ Testgrenzen: [EFB-Coherent-Testing](EFB-Coherent-Testing.md).
 Windows-x64-EXE mit pkg/Node18 ohne Bytecode gebaut, PE-Architektur geprüft.
 174009894 Bytes, SHA-256
 `ae590fb1719135aa8db7723516a3c168b6fd1cd5e50058a306ea640d4e1ea643`.
-Assetrevision 56201, Web-Cache v2142. Kein Community-Paket-/Worker-Update nötig.
-Veröffentlichung und Alpha-Aktivierung stehen noch aus.
+Assetrevision 56201, Web-Cache v2143. Kein Community-Paket-/Worker-Update nötig.
+Release v562 veröffentlicht; öffentlicher Download größen- und SHA-256-gleich
+verifiziert. Alpha auf v562 aktiviert; Stable unverändert.
