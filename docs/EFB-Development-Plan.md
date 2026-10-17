@@ -1,4 +1,4 @@
-## Flugtest-Reparaturen vom 17.10.2026 – Tracker v557 vorbereitet
+## Flugtest-Reparaturen vom 17.10.2026 – Tracker v557 Alpha
 
 Quest-Web-App quittiert das terminale Debrief über den vorhandenen authentifizierten
 Missionsrelay. EFB/Toolbar behalten ihren lokalen Cockpit-Intent. Lokales Aufräumen
@@ -25,9 +25,9 @@ bleiben gesondert erhalten. Medien-Empfangspersonen verwenden bewegliche Tarmac-
 Modelle und steigen vor der Fahrzeugabfahrt sichtbar zu; sie bleiben Szenenrollen
 und erhöhen weder PAX-Manifest noch Payload.
 
-Tracker v557 / EFB-Assetrevision 55701 lokal gebaut. Kein Community-Paket- oder
-Desktop-Installerwechsel. Alpha-/Stable-Kanäle noch unverändert; Veröffentlichung
-steht aus. Nachweise und verbleibende Simulatorgrenzen:
+Tracker v557 / EFB-Assetrevision 55701 veröffentlicht; öffentlicher EXE-Download
+ist größen- und SHA-256-gleich geprüft. Alpha aktiviert mit Web-Cache v2133.
+Kein Community-Paket- oder Desktop-Installerwechsel; Stable unverändert. Nachweise und verbleibende Simulatorgrenzen:
 [Flugtest-Reparaturen](Flight%20Test%20Repairs%202026-10-17.md).
 
 ## v552-Funktionsstand als Tracker v555 Alpha (16.10.2026)

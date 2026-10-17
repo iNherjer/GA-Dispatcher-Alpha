@@ -100,7 +100,10 @@ MSFS/Quest ist weiterhin erforderlich. Rollout nach Nutzerfreigabe auf Origin/Al
 Arbeitsbasis zum Rollout: Origin-Pinnwand-Commit `78d9bbe51` wurde per
 Fast-Forward übernommen. board.js/index.html waren vorab bytegleich mit Origin.
 Die gemischten Änderungen wurden vorher als Patch gesichert; fremde AGENTS.md-
-und Analyseentwürfe bleiben lokal. Web-Cache v2132; Tracker v557 wird als
-unveränderlicher Release veröffentlicht und erst nach Downloadprüfung im
-Alpha-Kanal aktiviert. Kein neuer EFB-SDK-Build nötig: die Änderung betrifft
+und Analyseentwürfe bleiben lokal. Web-Cache v2133; Tracker v557 ist als
+unveränderlicher Release veröffentlicht, öffentlich größen-/SHA-256-gleich
+heruntergeladen und im Alpha-Kanal aktiviert. Kein neuer EFB-SDK-Build nötig: die Änderung betrifft
 den vom Tracker ausgelieferten Web-Host. Simulator-/Quest-Feldtest bleibt offen.
+
+Gepackter Release-Smoke auf Apple ARM64: MISSION_PACKAGED_PROCESS_SMOKE_OK,
+MISSION_PACKAGED_INDEPENDENT_READINESS_OK und Worker-Exit 0.

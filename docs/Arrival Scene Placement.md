@@ -1,6 +1,6 @@
 # Ankunftsszenen: Composer-Platzierung
 
-Stand 17.10.2026, lokal vorbereitet für Tracker v557. Gilt für Flughafen-
+Stand 17.10.2026, ausgerollt mit Tracker v557 Alpha / Web-Cache v2133. Gilt für Flughafen-
 und Bush-Strip-Ankunftsszenen. Der gemeinsame räumliche POI-Vertrag bleibt
 eigenständig; neue Missionstypen, Erfolgsbedingungen oder Runtime-Phasen
 werden nicht eingeführt.
