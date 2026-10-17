@@ -20,7 +20,10 @@ Die separate Floating-Layout-Begrenzung entfällt.
 39 betroffene Quell-/Asset-/Skalierungsprüfungen bestehen. Erweiterte
 Browserprüfung deckt echte Drags bei 100/150/300 Prozent auf physischem EFB,
 Popout und Toolbar sowie Neustart, Handle-Hitflächen und Modern-Flächen ab.
-Assetrevision 56001. Reale MSFS-/VR-Abnahme bleibt nach Installation erforderlich.
+Assetrevision 56001, Web-Cache v2139. Release v560 veröffentlicht und öffentlicher
+Download mit exakter Größe und SHA-256 bestätigt; Alpha aktiviert, Stable unverändert.
+Siehe [Tracker-v560-Release](Tracker-v560-Release.md). Reale MSFS-/VR-Abnahme bleibt
+nach Installation erforderlich.
 
 ## Kartenmenü, Toolbar-Handle und NAVCOM – Tracker v559 Alpha (17.10.2026)
 

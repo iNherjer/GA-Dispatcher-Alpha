@@ -24,4 +24,5 @@ Windows-x64-Artefakt mit pkg/Node18 ohne Bytecode gebaut und PE-Architektur
 geprüft. Größe: 174002820 Bytes. SHA-256:
 `bf725aecc85e1d8a20cdabcadb098af7bf5f469824148ca6277ac64866564be7`.
 EFB-Assetrevision 56001. Kein Community-Paket-/Worker-Update erforderlich.
-Alpha-Aktivierung nach Prüfung des öffentlichen Downloads.
+Release v560 veröffentlicht; öffentlicher Download größen- und SHA-256-gleich
+verifiziert. Alpha auf v560 aktiviert, Web-Cache v2139; Stable unverändert.
