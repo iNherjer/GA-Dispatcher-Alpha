@@ -11,6 +11,11 @@ kein Shell-/Community-Protokollwechsel. Reale MSFS-/VR-Abnahme bleibt offen.
 38 EFB-Quell-/Assettests und Audio-Browserprüfung bestanden. Windows-x64-Build
 mit pkg/Node18 ohne Bytecode (x64-Fabricator auf diesem Mac nicht ausführbar).
 
+Release v558 veröffentlicht; öffentlicher Download mit 173975142 Bytes und
+SHA-256 `92dd18416b7977f051ed102fd2f4509930dfd2f02b0b5fdcf2eafd893447129b`
+verifiziert. Alpha aktiviert, Web-SW v2135; Stable unverändert. Kein neues
+Community-Paket oder Desktop-Installer erforderlich.
+
 ## Flugtest-Reparaturen vom 17.10.2026 – Tracker v557 Alpha
 
 Quest-Web-App quittiert das terminale Debrief über den vorhandenen authentifizierten
