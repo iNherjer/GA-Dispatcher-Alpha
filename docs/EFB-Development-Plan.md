@@ -1,4 +1,4 @@
-## Kartenmenü, Toolbar-Handle und NAVCOM – v559 Kandidat (17.10.2026)
+## Kartenmenü, Toolbar-Handle und NAVCOM – Tracker v559 Alpha (17.10.2026)
 
 Das EFB-Kartenmenü bleibt ab Initialisierung als fester Geschwisterknoten der
 Karte im mapArea. Öffnen/Schließen verschiebt keine bestehenden Controls mehr
@@ -27,10 +27,10 @@ Konfiguration. Fehler bleiben pending und werden beim nächsten sichtbaren
 Abruf/Neustart wiederholt. Sichtbare Ansichten gleichen alle 15 Sekunden sowie
 beim Öffnen/Wiederanzeigen ab. Unveränderte Modi schließen keinen offenen
 Frequenzdialog. Ein Radio-/Darstellungsfehler erfordert keinen Missionsreset.
-Assetrevision 55901, Web-Cache v2136. Kein Community-Paketwechsel erforderlich.
+Assetrevision 55901, Web-Cache v2137. Kein Community-Paketwechsel erforderlich.
 110 API-/Radio-/Asset-/Cloud-Tests und ein gepackter Node18-Smoke bestehen.
 Windows-x64-Artefakt gebaut; Nachweise und Abnahmegrenzen:
-[Tracker-v559-Release](Tracker-v559-Release.md). Alpha-Veröffentlichung folgt.
+[Tracker-v559-Release](Tracker-v559-Release.md). Release v559 veröffentlicht; öffentlicher EXE-Download größen- und SHA-256-gleich geprüft. Alpha auf v559 aktiviert; Stable unverändert.
 
 ## Helligkeitsregler und Audio-Menü – Tracker v558 Alpha (17.10.2026)
 

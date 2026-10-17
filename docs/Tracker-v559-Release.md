@@ -39,7 +39,8 @@ der reale MSFS-/VR-Feldtest bleibt nach Installation erforderlich.
 
 ## Artefakt
 
-Tracker v559, EFB-Assetrevision 55901, Web-Service-Worker v2136.
+Tracker v559, EFB-Assetrevision 55901, Web-Service-Worker v2137.
 Windows-Artefakt: 174000073 Bytes, SHA-256
 `8e3df2d1d234f62328f86d0f60def50bdaa9495c2cdbb1cf9c213730264d1526`.
-Veröffentlichung und öffentlicher Download werden vor Aktivierung geprüft.
+Release v559 veröffentlicht; öffentlicher Download mit exakter Größe und SHA-256
+verifiziert. Alpha-Kanal auf dieses Artefakt aktiviert; Stable unverändert.
