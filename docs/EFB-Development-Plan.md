@@ -8681,3 +8681,10 @@ vollständige eingebettete UI-Assets bytegenau geprüft. Details und Abnahmegren
 [Tracker v563](Tracker-v563-Release.md). Nutzer hat den Alpha-Rollout beauftragt;
 Aktivierung nach öffentlicher Downloadverifikation. Stable und Community-Paket
 unverändert; echte Coherent-/MSFS-/VR-Abnahme weiterhin offen.
+
+
+Rollout v563: Release unveränderlich veröffentlicht und öffentliche EXE erneut
+heruntergeladen: 174023633 Bytes, SHA-256
+`eecd0d935bb0f2c14cf7e5fbadc23fed05721f3495ee208434f726d98b3fc616`.
+Alpha-Zeiger auf dieses Artefakt gesetzt, Aktivierungs-Cache v2149. Stable und
+Community-Paket unverändert. Simulator-/Coherent-/VR-Feldtest bleibt offen.

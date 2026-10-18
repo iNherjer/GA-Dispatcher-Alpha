@@ -27,5 +27,6 @@ Abnahme bleibt Alpha-Feldtest; Browsernachweise ersetzen sie nicht.
 Windows-x64-EXE mit pkg/Node18 ohne Bytecode gebaut, PE-Architektur und fünf
 vollständige eingebettete EFB-Assets bytegenau geprüft. Größe 174023633 Bytes,
 SHA-256 `eecd0d935bb0f2c14cf7e5fbadc23fed05721f3495ee208434f726d98b3fc616`.
-Assetrevision 56301, Web-Cache v2148. Veröffentlichung und Alpha-Aktivierung
-folgen nach öffentlicher Download-/Hash-Prüfung; Stable bleibt unverändert.
+Assetrevision 56301, Web-Cache v2148 beim Quellrelease, v2149 bei Aktivierung.
+Release v563 veröffentlicht; öffentlicher Download größen- und SHA-256-gleich
+verifiziert. Alpha auf v563 aktiviert; Stable bleibt unverändert.
