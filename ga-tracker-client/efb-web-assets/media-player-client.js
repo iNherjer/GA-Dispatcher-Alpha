@@ -12,7 +12,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     if (!host || !menu || !root.GAMediaPlayerUI) return;
     var container = document.createElement('div');
     container.className = 'ga-media-settings';
-    container.innerHTML = '<label><input type="checkbox" class="ga-media-enable"> Mediensteuerung</label><label>Skin <select class="ga-media-skin" aria-label="Medien-Skin"><option value="winamp">Winamp</option><option value="ipod">iPod</option></select></label><label class="ga-media-player-choice" hidden>Musik-App <select class="ga-media-select" aria-label="Windows-Medienplayer"><option value="">Keine Musik-App aktiv</option></select></label><label><input type="checkbox" class="ga-media-duck" checked> Bei Ansagen leiser</label><label>Restlautstärke <select class="ga-media-factor"><option value="0.1">10 %</option><option value="0.2">20 %</option><option value="0.35">35 %</option><option value="0.5">50 %</option></select></label><div class="ga-media-message" role="status"></div>';
+    container.innerHTML = '<label><input type="checkbox" class="ga-media-enable"> Mediensteuerung</label><label>Skin <select class="ga-media-skin" aria-label="Medien-Skin"><option value="winamp">Winamp</option><option value="ipod">iPod</option><option value="watch">Watch</option></select></label><label class="ga-media-player-choice" hidden>Musik-App <select class="ga-media-select" aria-label="Windows-Medienplayer"><option value="">Keine Musik-App aktiv</option></select></label><label><input type="checkbox" class="ga-media-duck" checked> Bei Ansagen leiser</label><label>Restlautstärke <select class="ga-media-factor"><option value="0.1">10 %</option><option value="0.2">20 %</option><option value="0.35">35 %</option><option value="0.5">50 %</option></select></label><div class="ga-media-message" role="status"></div>';
     menu.insertBefore(container, menu.firstChild);
     var check = container.querySelector('.ga-media-enable'),
       select = container.querySelector('.ga-media-select'),
@@ -38,7 +38,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     try {
       var saved = JSON.parse(localStorage.getItem('ga.media.web.v1') || '{}');
       enabled = saved.enabled === true;
-      skin = saved.skin === 'ipod' ? 'ipod' : 'winamp';
+      skin = ['ipod', 'watch'].indexOf(saved.skin) >= 0 ? saved.skin : 'winamp';
     } catch (_) {}
     check.checked = enabled;
     container.querySelector('.ga-media-skin').value = skin;
@@ -263,7 +263,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     };
     container.querySelector('.ga-media-skin').onchange = function () {
       var reopen = open;
-      skin = this.value === 'ipod' ? 'ipod' : 'winamp';
+      skin = ['ipod', 'watch'].indexOf(this.value) >= 0 ? this.value : 'winamp';
       savePreferences();
       epoch++;
       clearTimeout(watchTimer);

@@ -37,10 +37,10 @@ try {
  await page.waitForFunction(()=>window.gaMediaPlayerClient&&window.gaCockpitSessionClient&&window.gaCockpitSessionClient.session);
  assert.equal(await page.evaluate(()=>gaCockpitSessionClient.role),role);
  await page.evaluate(()=>toggleMapVoiceMenu());
- await page.locator('#gaMediaEnabledCheckToggle').click();
- const before=local.length;
+ await page.locator('label').filter({has:page.locator('#gaMediaEnabledCheck')}).click();
+ const before=local.filter(c=>c.payload.action!=='duck').length;
  await page.waitForTimeout(150);
- assert.equal(local.length,before,'collapsed media sends no requests');
+ assert.equal(local.filter(c=>c.payload.action!=='duck').length,before,'collapsed media sends no status requests');
  assert.equal(await page.locator('.ga-media-skin').inputValue(),'winamp');
  await page.getByRole('button',{name:'Mediensteuerung öffnen',exact:true}).click();
  await page.waitForFunction(()=>document.querySelector('.ga-media-source').textContent==='Spotify');
@@ -88,6 +88,22 @@ try {
   const box=await page.locator('.ga-ipod-center').boundingBox();assert.ok(box.width>30&&box.width<100,'theme must not resize clickwheel center');
  }
  const heldMenu=await page.getByRole('button',{name:'Gerätemenü',exact:true}).boundingBox();await page.mouse.move(heldMenu.x+heldMenu.width/2,heldMenu.y+heldMenu.height/2);await page.mouse.down();await page.waitForTimeout(800);assert.ok(await page.getByRole('region',{name:'iPod Mediensteuerung'}).isHidden());await page.mouse.up();await page.waitForTimeout(550);await page.getByRole('button',{name:'Mediensteuerung öffnen',exact:true}).press('Enter');assert.ok(await page.getByRole('region',{name:'iPod Mediensteuerung'}).isVisible());
+ await page.evaluate(()=>toggleMapVoiceMenu());
+ await page.locator('.ga-efb-media-choices[aria-label="Medien-Skin"] [data-value=watch]').click();
+ await page.evaluate(()=>toggleMapVoiceMenu());
+ await page.getByRole('region',{name:'Watch Mediensteuerung'}).waitFor({state:'visible'});
+ const volumeBefore=state.volume;
+ await page.getByRole('slider',{name:'Musiklautstärke per Krone'}).press('ArrowUp');
+ await page.waitForFunction(expected=>document.querySelector('.ga-watch-crown').getAttribute('aria-valuenow')===String(expected),Math.round((volumeBefore+.02)*100));
+ await page.waitForTimeout(200);assert.ok(Math.abs(state.volume-volumeBefore-.02)<.001);
+ for(const theme of ['theme-retro','theme-win95','theme-ops1940']){
+  await page.evaluate(t=>document.body.className='map-is-fullscreen ga-efb-tracker-host '+t,theme);
+  const box=await page.locator('.ga-watch-crown').boundingBox();assert.ok(box.height>20&&box.height<100,'theme preserves crown size');
+ }
+ await page.getByRole('button',{name:'Musik-App auswählen',exact:true}).click();
+ await page.locator('.ga-watch-sheet-row').filter({hasText:'Browser'}).click();
+ await page.waitForFunction(()=>document.querySelector('.ga-media-select').value==='Browser.exe');
+ await page.screenshot({path:'/tmp/ga-'+role+'-watch.png'});
  await page.evaluate(()=>toggleMapVoiceMenu());
  await page.locator('.ga-efb-media-choices[aria-label="Medien-Skin"] [data-value=winamp]').click();
  await page.getByRole('button',{name:'Mediensteuerung schließen',exact:true}).click();

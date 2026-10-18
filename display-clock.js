@@ -34,6 +34,16 @@
             : date.getHours() * 3600 + date.getMinutes() * 60 + date.getSeconds();
         return { source: 'device', zone, fallback, seconds };
     }
+    // Prefer the flight region; without valid simulator data use device local time.
+    function resolveRegional(settings, sample, now = Date.now()) {
+        const choice = normalize(settings);
+        const simulator = resolve({ source: 'simulator', zone: 'local' }, sample, now);
+        if (simulator.fallback) return { ...resolve({ source: 'device', zone: 'local' }, null, now), fallback: true };
+        if (choice.source === 'simulator') return { ...simulator, zone: 'regional' };
+        const utc = resolve({ source: 'device', zone: 'utc' }, null, now);
+        return { source: 'device', zone: 'regional', fallback: false,
+            seconds: wrap(utc.seconds + sample.flight.simLocalTimeSeconds - wrap(sample.flight.simAbsoluteTimeSeconds)) };
+    }
     function format(clock, minutes = 0, withSeconds = false) {
         if (!clock || !finite(clock.seconds) || !finite(minutes)) return '--:--';
         const seconds = Math.floor(wrap(clock.seconds + Math.max(0, minutes) * 60));
@@ -80,6 +90,7 @@
             // paused/missing sample with wall time or simulation rate.
             observe: (flight, receivedAt = Date.now()) => { sample = flight ? { flight: { ...flight }, receivedAt } : null; refresh(); },
             clear: () => { sample = null; refresh(); },
+            regional: () => resolveRegional(settings, sample),
             current, eta: minutes => format(current(), minutes), refresh, refreshClocks
         };
         if (win.document.readyState === 'loading') win.document.addEventListener('DOMContentLoaded', refresh);
@@ -91,5 +102,5 @@
             refresh();
         });
     }
-    return { normalize, resolve, format, install, MAX_AGE_MS };
+    return { normalize, resolve, resolveRegional, format, install, MAX_AGE_MS };
 });

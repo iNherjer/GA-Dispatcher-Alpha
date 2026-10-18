@@ -16,11 +16,12 @@ body {background:radial-gradient(ellipse at 50% 35%,#3d4452 0,#242d38 45%,#141b2
 <div class="preview-toolbar"><button id="audioMenuButton">Audio</button><small>Designvorschau · Beispieldaten</small></div>
 <div class="preview-menu" id="audioMenu" hidden><label><input type="checkbox" id="mediaEnabled" checked>Mediensteuerung anzeigen</label></div>
 <script src="../../media-player-ipod.js"></script>
+<script src="../../media-player-watch.js"></script>
 <script src="../../media-player-ui.js"></script>
 <script>
 var sample={controls:{seek:true},connected:true,player:'SPOTIFY',artist:'Orbital',title:'Halcyon and On and On',playing:true,positionSeconds:98,durationSeconds:567,volume:0.65,volumeAvailable:true,source:'Spotify.exe',players:[{source:'Spotify.exe',name:'SPOTIFY'},{source:'Chrome.exe',name:'CHROME'}]};
 window.commands=[];
-window.player=GAMediaPlayerUI.create({x:160,y:130,skin:new URLSearchParams(location.search).get('skin')||'winamp',state:sample,onCommand:function(command){commands.push(command);if(command.action==='play')sample.playing=true;if(command.action==='pause')sample.playing=false;if(command.action==='seek')sample.positionSeconds=command.positionSeconds;if(command.action==='volume')sample.volume=command.volume;if(command.action==='settings'){sample.duckEnabled=command.enabled;sample.duckFactor=command.factor;}if(command.action==='select'){sample.source=command.source;sample.player=sample.players.filter(function(p){return p.source===sample.source;})[0].name;}player.update(sample);}});
+window.player=GAMediaPlayerUI.create({x:160,y:130,skin:new URLSearchParams(location.search).get('skin')||'winamp',state:sample,getClock:function(){return {seconds:36540,source:'simulator'};},onCommand:function(command){commands.push(command);if(command.action==='play')sample.playing=true;if(command.action==='pause')sample.playing=false;if(command.action==='seek')sample.positionSeconds=command.positionSeconds;if(command.action==='volume')sample.volume=command.volume;if(command.action==='settings'){sample.duckEnabled=command.enabled;sample.duckFactor=command.factor;}if(command.action==='select'){sample.source=command.source;sample.player=sample.players.filter(function(p){return p.source===sample.source;})[0].name;}player.update(sample);}});
 player.open();
 document.getElementById('audioMenuButton').onclick=function(){document.getElementById('audioMenu').hidden=!document.getElementById('audioMenu').hidden;};
 document.getElementById('mediaEnabled').onchange=function(){player.setEnabled(this.checked);};

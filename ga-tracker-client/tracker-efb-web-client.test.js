@@ -18,15 +18,15 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   const page = createTrackerEfbWebClientPage();
   assert.equal(EFB_WEB_CLIENT_PATH, '/efb/v1/');
   assert.equal(EFB_WEB_CLIENT_PROBE_PATH, '/efb/v1/probe/');
-  assert.equal(EFB_WEB_ASSET_REVISION, '56301');
+  assert.equal(EFB_WEB_ASSET_REVISION, '56401');
   assert.match(page, /data-efb-view-version="9"/);
-  assert.match(page, /app-styles\.css\?v=56301/);
-  assert.match(page, /host\.css\?v=56301/);
-  assert.match(page, /map-shell-core\.js\?v=56301/);
-  assert.match(page, /map-utility-tools\.js\?v=56301/);
-  assert.match(page, /mission-control-ui-core\.js\?v=56301/);
-  assert.match(page, /cockpit-session-client\.js\?v=56301/);
-  assert.match(page, /host\.js\?v=56301/);
+  assert.match(page, /app-styles\.css\?v=56401/);
+  assert.match(page, /host\.css\?v=56401/);
+  assert.match(page, /map-shell-core\.js\?v=56401/);
+  assert.match(page, /map-utility-tools\.js\?v=56401/);
+  assert.match(page, /mission-control-ui-core\.js\?v=56401/);
+  assert.match(page, /cockpit-session-client\.js\?v=56401/);
+  assert.match(page, /host\.js\?v=56401/);
   assert.match(page, /id="mapTableOverlay"/);
   assert.match(page, /id="mapProfileStrip"/);
   assert.match(page, /id="mapStopwatchDevice"/);
@@ -35,21 +35,21 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   assert.match(page, /id="mapMissionToggleBtn"/);
   assert.match(page, /id="mapGroundCargoBtn"/);
   assert.match(page, /id="mapMissionResetBtn"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=56301"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/mission-control-ui-core\.js\?v=56301"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=56301"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=56301"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=56401"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/mission-control-ui-core\.js\?v=56401"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=56401"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=56401"/);
   assert.match(page, /id="gaEfbBootStatus"/);
   assert.match(page, /window\.toggleMapTable = function/);
   assert.doesNotMatch(page, /<script defer/);
   const scriptOrder = [
     '/efb/v1/assets/leaflet.js',
-    '/efb/v1/assets/map-shell-core.js?v=56301',
-    '/efb/v1/assets/map-utility-tools.js?v=56301',
-    '/efb/v1/assets/mission-control-ui-core.js?v=56301',
-    '/efb/v1/assets/cockpit-session-client.js?v=56301',
-    '/efb/v1/assets/map-zoom-control.js?v=56301',
-    '/efb/v1/assets/host.js?v=56301'
+    '/efb/v1/assets/map-shell-core.js?v=56401',
+    '/efb/v1/assets/map-utility-tools.js?v=56401',
+    '/efb/v1/assets/mission-control-ui-core.js?v=56401',
+    '/efb/v1/assets/cockpit-session-client.js?v=56401',
+    '/efb/v1/assets/map-zoom-control.js?v=56401',
+    '/efb/v1/assets/host.js?v=56401'
   ].map((asset) => page.indexOf(`<script src="${asset}"`));
   assert.deepEqual(scriptOrder, [...scriptOrder].sort((a, b) => a - b));
   assert.equal(scriptOrder.every((index) => index > 0), true);
@@ -152,6 +152,7 @@ test('all Coherent-facing scripts avoid syntax rejected by the simulator engine'
     '/efb/v1/assets/emoji-text.js',
     '/efb/v1/assets/map-zoom-control.js',
     '/efb/v1/assets/map-autozoom.js',
+    '/efb/v1/assets/media-player-watch.js',
     '/efb/v1/assets/symbols.js',
     '/efb/v1/assets/checklists.js',
     '/efb/v1/assets/ui-scale.js',
@@ -625,3 +626,12 @@ test('floating layout is loaded after scale and before host, packaged, with logi
   assert.match(css, /--ga-efb-dvh/);
   assert.match(css, /calc\(var\(--ga-efb-dvh, 1dvh\) \* 100\)/);
 });
+
+ test('Watch renderer is packaged and loaded before the media factory', () => {
+  const page=createTrackerEfbWebClientPage();
+  const watch=page.indexOf('src="/efb/v1/assets/media-player-watch.js?');
+  assert.ok(watch>0&&watch<page.indexOf('src="/efb/v1/assets/media-player-ui.js?'));
+  assert.ok(trackerPackage.pkg.assets.includes('efb-web-assets/media-player-watch.js'));
+  assert.ok(getTrackerEfbWebClientAsset('/efb/v1/assets/media-player-watch.js').body.length>10000);
+  assert.equal(fs.readFileSync(path.join(__dirname,'efb-media-source/media-player-watch.js'),'utf8'),fs.readFileSync(path.join(__dirname,'../media-player-watch.js'),'utf8'));
+ });

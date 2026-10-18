@@ -66,6 +66,7 @@ writeKartentischFragment();
 copy('styles.css');
 copy('media-player.css');
 compileShared('media-player-ipod.js');
+compileShared('media-player-watch.js');
 compileShared('media-player-ui.js');
 compileShared('media-player-client.js');
 copy('mission-training-guidance-ui.js', 'mission-training-guidance-ui.js');

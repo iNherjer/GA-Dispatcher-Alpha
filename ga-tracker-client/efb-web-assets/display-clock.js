@@ -54,6 +54,34 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
       seconds
     };
   }
+  // Prefer the flight region; without valid simulator data use device local time.
+  function resolveRegional(settings, sample) {
+    var now = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : Date.now();
+    var choice = normalize(settings);
+    var simulator = resolve({
+      source: 'simulator',
+      zone: 'local'
+    }, sample, now);
+    if (simulator.fallback) return _objectSpread(_objectSpread({}, resolve({
+      source: 'device',
+      zone: 'local'
+    }, null, now)), {}, {
+      fallback: true
+    });
+    if (choice.source === 'simulator') return _objectSpread(_objectSpread({}, simulator), {}, {
+      zone: 'regional'
+    });
+    var utc = resolve({
+      source: 'device',
+      zone: 'utc'
+    }, null, now);
+    return {
+      source: 'device',
+      zone: 'regional',
+      fallback: false,
+      seconds: wrap(utc.seconds + sample.flight.simLocalTimeSeconds - wrap(sample.flight.simAbsoluteTimeSeconds))
+    };
+  }
   function format(clock) {
     var minutes = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
     var withSeconds = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
@@ -124,6 +152,7 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
         sample = null;
         refresh();
       },
+      regional: () => resolveRegional(_settings, sample),
       current,
       eta: minutes => format(current(), minutes),
       refresh,
@@ -143,6 +172,7 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
   return {
     normalize,
     resolve,
+    resolveRegional,
     format,
     install,
     MAX_AGE_MS

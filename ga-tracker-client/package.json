@@ -35,6 +35,7 @@
       "efb-web-assets/styles.css",
       "efb-web-assets/media-player.css",
       "efb-web-assets/media-player-ipod.js",
+      "efb-web-assets/media-player-watch.js",
       "efb-web-assets/media-player-ui.js",
       "efb-web-assets/media-player-client.js",
       "tracker-efb-media-client.js",

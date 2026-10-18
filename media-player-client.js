@@ -4,11 +4,11 @@
   var host=document.getElementById('mapTableOverlay'),menu=document.getElementById('mapVoiceMenu');
   if(!host||!menu||!root.GAMediaPlayerUI)return;
   var container=document.createElement('div');container.className='ga-media-settings';
-  container.innerHTML='<label><input type="checkbox" class="ga-media-enable"> Mediensteuerung</label><label>Skin <select class="ga-media-skin" aria-label="Medien-Skin"><option value="winamp">Winamp</option><option value="ipod">iPod</option></select></label><label class="ga-media-player-choice" hidden>Musik-App <select class="ga-media-select" aria-label="Windows-Medienplayer"><option value="">Keine Musik-App aktiv</option></select></label><label><input type="checkbox" class="ga-media-duck" checked> Bei Ansagen leiser</label><label>Restlautstärke <select class="ga-media-factor"><option value="0.1">10 %</option><option value="0.2">20 %</option><option value="0.35">35 %</option><option value="0.5">50 %</option></select></label><div class="ga-media-message" role="status"></div>';
+  container.innerHTML='<label><input type="checkbox" class="ga-media-enable"> Mediensteuerung</label><label>Skin <select class="ga-media-skin" aria-label="Medien-Skin"><option value="winamp">Winamp</option><option value="ipod">iPod</option><option value="watch">Watch</option></select></label><label class="ga-media-player-choice" hidden>Musik-App <select class="ga-media-select" aria-label="Windows-Medienplayer"><option value="">Keine Musik-App aktiv</option></select></label><label><input type="checkbox" class="ga-media-duck" checked> Bei Ansagen leiser</label><label>Restlautstärke <select class="ga-media-factor"><option value="0.1">10 %</option><option value="0.2">20 %</option><option value="0.35">35 %</option><option value="0.5">50 %</option></select></label><div class="ga-media-message" role="status"></div>';
   menu.insertBefore(container,menu.firstChild);
   var check=container.querySelector('.ga-media-enable'),select=container.querySelector('.ga-media-select'),duck=container.querySelector('.ga-media-duck'),factor=container.querySelector('.ga-media-factor'),message=container.querySelector('.ga-media-message');
   var enabled=false,open=false,watching=false,epoch=0,state=null,revision=-1,lastReceived=0,lastReachable=0,pendingAction=false,pendingVolume=null,pendingSeek=null,skin='winamp',audible=new Set(),closed=false,nextWatchAt=0,watchTimer=null;
-  try{var saved=JSON.parse(localStorage.getItem('ga.media.web.v1')||'{}');enabled=saved.enabled===true;skin=saved.skin==='ipod'?'ipod':'winamp';}catch(_){}
+  try{var saved=JSON.parse(localStorage.getItem('ga.media.web.v1')||'{}');enabled=saved.enabled===true;skin=['ipod','watch'].indexOf(saved.skin)>=0?saved.skin:'winamp';}catch(_){}
   check.checked=enabled;container.querySelector('.ga-media-skin').value=skin;
   var errors={tracker_not_connected:'Tracker nicht verbunden.',media_desktop_unavailable:'Mediensteuerung benötigt die vorbereitete Windows-Tracker-App und Runtime.',authority_timeout:'Keine Tracker-Bestätigung.',media_rate_limited:'Mediensteuerung kurz ausgelastet.'};
   function hasMediaControl(){return typeof root.gaMediaControlAvailable==='function'?root.gaMediaControlAvailable():(root.liveTrackerCapabilities||[]).includes('media.control.v1');}
@@ -54,7 +54,7 @@
   var ui=createSkin();
   ui.setEnabled(enabled);
   check.onchange=function(){enabled=check.checked;savePreferences();ui.setEnabled(enabled);};
-  container.querySelector('.ga-media-skin').onchange=function(){var reopen=open;skin=this.value==='ipod'?'ipod':'winamp';savePreferences();epoch++;clearTimeout(watchTimer);ui.destroy();open=false;ui=createSkin();ui.setEnabled(enabled);if(reopen&&enabled)ui.open();render();if(root.gaMediaPlayerClient)root.gaMediaPlayerClient.ui=ui;};
+  container.querySelector('.ga-media-skin').onchange=function(){var reopen=open;skin=['ipod','watch'].indexOf(this.value)>=0?this.value:'winamp';savePreferences();epoch++;clearTimeout(watchTimer);ui.destroy();open=false;ui=createSkin();ui.setEnabled(enabled);if(reopen&&enabled)ui.open();render();if(root.gaMediaPlayerClient)root.gaMediaPlayerClient.ui=ui;};
   select.onchange=function(){action({action:'select',source:select.value});};
   function settings(){action({action:'settings',enabled:duck.checked,factor:Number(factor.value)});}
   duck.onchange=settings;factor.onchange=settings;

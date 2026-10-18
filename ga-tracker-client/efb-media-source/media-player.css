@@ -107,3 +107,49 @@
 .ga-media-layer .ga-media-device:not(.ga-media-ipod) .ga-media-seek-row input.ga-media-seek[type="range"]::-moz-range-thumb { width:53px; height:18px; border:0; border-radius:0; background:transparent; }
 .ga-media-device .ga-media-seek-row input.ga-media-seek:disabled { cursor:default; }
 .ga-media-seek-row:focus-within { outline:2px solid #d9cf91; outline-offset:2px; }
+
+/* Watch: independent metal case, black glass and a relative vertical crown. */
+.ga-media-device.ga-media-watch { width:300px; height:350px; padding:0; border:0; border-radius:0; background:transparent; box-shadow:none; color:#fff; font:15px Arial,sans-serif; overflow:visible; }
+.ga-watch-case { cursor:grab; touch-action:none; position:absolute; left:4px; right:20px; top:3px; bottom:3px; padding:8px; border:2px solid #696c70; border-radius:61px; background:linear-gradient(120deg,#2a2b2e,#e6e8e8 7%,#606469 12%,#fafafa 19%,#3d4044 32%,#d9dcdc 85%,#292c30); box-shadow:inset 0 0 0 2px #e0e3e4,inset 0 0 0 5px #242629,0 9px 18px rgba(0,0,0,.53); }
+.ga-watch-screen { cursor:grab; position:relative; height:100%; padding:16px 17px 13px; box-sizing:border-box; border:3px solid #111214; border-radius:49px; overflow:hidden; background:radial-gradient(ellipse at 52% 65%,#271e0e,#050606 56%,#000 80%); box-shadow:inset 0 3px 7px rgba(155,160,164,.4); }
+.ga-media-layer .ga-media-device.ga-media-watch button.ga-watch-button { display:flex; align-items:center; justify-content:center; min-width:0; min-height:0; padding:0; margin:0; border:0; border-radius:50%; appearance:none; -webkit-appearance:none; background:transparent; box-shadow:none; color:#fff; font:inherit; text-shadow:none; letter-spacing:0; line-height:1; cursor:pointer; touch-action:none; }
+.ga-media-layer .ga-media-device.ga-media-watch button.ga-watch-button:disabled { opacity:.3; cursor:default; }
+.ga-media-layer .ga-media-device.ga-media-watch button.ga-watch-button:focus-visible,.ga-watch-crown:focus-visible { outline:2px solid #f50859; outline-offset:2px; }
+.ga-watch-button svg { width:28px; height:28px; fill:currentColor; }
+.ga-watch-back svg { fill:none; stroke:currentColor; stroke-width:2; width:20px; height:20px; }
+.ga-watch-header { display:flex; align-items:center; justify-content:space-between; height:28px; cursor:grab; }
+.ga-watch-clock { font-size:22px; font-weight:600; font-variant-numeric:tabular-nums; }
+.ga-watch-source { margin-top:10px; height:20px; text-align:center; color:#929699; font-weight:bold; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.ga-watch-title,.ga-watch-artist { overflow:hidden; text-align:center; white-space:nowrap; height:29px; line-height:29px; }
+.ga-watch-title { font-size:23px; font-weight:600; }
+.ga-watch-artist { color:#aaaeb1; font-size:18px; }
+.ga-watch-title span,.ga-watch-artist span { display:inline-block; min-width:100%; }
+.ga-watch-title.is-overflow span,.ga-watch-artist.is-overflow span { padding-right:35px; animation:ga-watch-scroll 14s linear infinite alternate; }
+@keyframes ga-watch-scroll { 0%,15% { transform:translateX(0); } 85%,100% { transform:translateX(calc(-100% + 180px)); } }
+.ga-watch-transport { display:flex; justify-content:space-between; align-items:center; height:91px; }
+.ga-media-layer .ga-media-device.ga-media-watch .ga-watch-transport button { width:49px; height:65px; }
+.ga-watch-transport svg { width:42px; height:42px; }
+.ga-watch-transport .ga-watch-toggle svg { width:53px; height:53px; }
+.ga-watch-footer { display:flex; justify-content:space-between; align-items:center; height:71px; }
+.ga-media-layer .ga-media-device.ga-media-watch button.ga-watch-small { width:33px; height:33px; background:#343536; }
+.ga-watch-small svg { width:23px; height:23px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; }
+.ga-watch-small[data-watch="more"] svg { stroke-width:4; }
+.ga-watch-volume { position:relative; width:74px; height:74px; }
+.ga-watch-volume>svg { width:100%; height:100%; transform:rotate(-90deg); }
+.ga-watch-ring-base,.ga-watch-ring { fill:none; stroke:#44413b; stroke-width:4; }
+.ga-watch-ring { stroke:#fa0756; stroke-dasharray:175.93; stroke-linecap:round; }
+.ga-watch-volume span { position:absolute; top:20px; left:20px; width:34px; height:34px; }
+.ga-watch-volume span svg { width:34px; height:34px; fill:#fff; stroke:#fff; stroke-width:1.7; stroke-linejoin:round; }
+.ga-watch-volume output { position:absolute; bottom:-9px; left:0; width:100%; text-align:center; font:10px Arial,sans-serif; color:#aaa; }
+.ga-watch-crown { position:absolute; right:4px; top:82px; width:20px; height:56px; border:2px solid #555b60; border-radius:8px; background:repeating-linear-gradient(0deg,#81888d 0 2px,#e0e4e5 2px 3px,#4b5156 3px 4px); box-shadow:inset 3px 0 4px #f5f6f7,inset -3px 0 3px #202327,2px 1px 3px rgba(0,0,0,.47); cursor:ns-resize; touch-action:none; }
+.ga-watch-crown[aria-disabled="true"] { opacity:.55; cursor:default; }
+.ga-watch-side { position:absolute; right:16px; top:183px; width:5px; height:61px; border:1px solid #73777a; border-radius:4px; background:linear-gradient(90deg,#eee,#484c4f); }
+.ga-watch-sheet { cursor:default; position:absolute; top:48px; left:5px; right:5px; bottom:5px; z-index:5; padding:12px; border-radius:12px 12px 36px 36px; background:#101214; overflow:auto; text-align:center; }
+.ga-watch-sheet[hidden] { display:none; }
+.ga-watch-sheet strong { display:block; margin-bottom:12px; font-size:17px; }
+.ga-media-layer .ga-media-device.ga-media-watch button.ga-watch-sheet-row { width:100%; min-height:38px; padding:8px; margin:5px 0; border-radius:12px; background:#292b2e; line-height:1.2; }
+@media (prefers-reduced-motion:reduce) { .ga-watch-title.is-overflow span,.ga-watch-artist.is-overflow span { animation:none; } }
+
+.ga-watch-size-sheet { display:flex; flex-direction:column; padding:8px; }
+.ga-watch-size-sheet strong { flex:0 0 auto; margin:0 0 6px; font:16px Arial,sans-serif; }
+.ga-media-layer .ga-media-device.ga-media-watch .ga-watch-size-sheet button.ga-watch-sheet-row { flex:1 1 0; min-height:0; margin:3px 0; padding:0; font:64px/1 Arial,sans-serif; border-radius:18px; }

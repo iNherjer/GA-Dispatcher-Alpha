@@ -1,3 +1,29 @@
+## Watch-Medienskin – Tracker v564 Alpha (18.10.2026)
+
+Dritter, unabhängig vom Designpreset wählbarer Medienskin: kompaktes Metallgehäuse,
+Quelle/Titel/Interpret, SVG-Transporttasten, Quellenliste und Größenwahl. Die Krone
+regelt die Lautstärke relativ per vertikalem Maus-/Touch-Drag; der Ring zeigt den
+Wert. Die Größenwahl bietet zwei große Minus-/Plus-Flächen und den Prozentwert;
+der Zurück-Pfeil schließt das Untermenü. Alle Flächen außer Tasten, Krone und
+Menü sind Dragflächen. Gleicher Medienclient/Transport für Webapp und lokales
+EFB/Toolbar; Uhr und Animation erzeugen keine weiteren Relay-Statusabfragen.
+
+Die Uhr nutzt die gewählte Geräte-/Simulatorzeitquelle, aber den regionalen
+Offset aus gültigen Simulator-UTC-/Lokalzeitdaten auch bei allgemeiner UTC-Anzeige.
+Ohne gültige Simulatorzeitdaten erscheint die lokale Gerätezeit; keine unabhängige
+geografische Zeitzonenbestimmung. Bestehende allgemeine Uhren bleiben unverändert.
+
+Shared Renderer, gepinnte EFB-Medienquellen, Chrome-49-Assets und Paket-Allowlist.
+RGBA statt achtstelliger Hexfarben für Coherent; Legacy-Maus-/Touch-Pfade der
+bestehenden Hostintegration inklusive werfendem Pointer-Capture geprüft.
+Vier Browserfälle (EFB/Toolbar, 440/1000 Pixel, 100/150 Prozent) prüfen Drag,
+relative Krone, große Zoomflächen, Quellen, Transportisolation und Gerätezeit.
+Web-/EFB-Gesamtintegration und Uhr-/Assettests bestehen. Windows-x64-EXE gebaut;
+Assetrevision 56401, Web-Cache v2150. Kein Community-Paket-/Desktop-Update nötig.
+Release und Downloadprüfung siehe [Tracker-v564-Release](Tracker-v564-Release.md).
+Reale MSFS-/Coherent-/VR-Abnahme bleibt erforderlich; Browser-Fallbacktests
+ersetzen keinen Engine-Nachweis.
+
 ## EFB-Höhenband und kompakte Kontextbreite – v562 Kandidat (17.10.2026)
 
 Feldtest v561 zeigt Lufträume in der Liste, aber ein leeres Höhenband. Vergleich

@@ -36,10 +36,10 @@ const server=http.createServer(async(req,res)=>{
  if(address.pathname==='/'){
   const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
   res.setHeader('Content-Type','text/html; charset=utf-8');
-  res.end('<!doctype html><link rel="stylesheet" href="/media-player.css"><style>body{margin:0;background:#303743;color:white;font:14px Arial}#mapTableOverlay{position:fixed;inset:0}#mapVoiceMenu{position:absolute;left:20px;top:20px;display:block;width:260px;background:#121212;padding:10px;z-index:140000}</style><div id="mapTableOverlay"><script>document.write(new DOMParser().parseFromString('+JSON.stringify(html).replaceAll('</script','<\\/script')+',"text/html").getElementById("mapVoiceMenu").outerHTML);document.getElementById("mapVoiceMenu").style.cssText="display:block;position:absolute;left:20px;top:20px;width:260px;max-height:80vh;overflow:auto;background:#121212;padding:10px;z-index:140000";</script></div><script>window.liveTrackerCapabilities=["media.control.v1"];var seq=0;window.gaMediaRequest=function(payload){return fetch("/relay",{method:"POST",body:JSON.stringify({pin:"1234",clientId:"browser-test",commandId:"cmd-"+(++seq),payload:payload})}).then(function(r){return r.json()});};</script><script src="/media-player-ipod.js"></script><script src="/media-player-ui.js"></script><script src="/media-player-client.js"></script>');return;
+  res.end('<!doctype html><link rel="stylesheet" href="/media-player.css"><style>body{margin:0;background:#303743;color:white;font:14px Arial}#mapTableOverlay{position:fixed;inset:0}#mapVoiceMenu{position:absolute;left:20px;top:20px;display:block;width:260px;background:#121212;padding:10px;z-index:140000}</style><div id="mapTableOverlay"><script>document.write(new DOMParser().parseFromString('+JSON.stringify(html).replaceAll('</script','<\\/script')+',"text/html").getElementById("mapVoiceMenu").outerHTML);document.getElementById("mapVoiceMenu").style.cssText="display:block;position:absolute;left:20px;top:20px;width:260px;max-height:80vh;overflow:auto;background:#121212;padding:10px;z-index:140000";</script></div><script>window.liveTrackerCapabilities=["media.control.v1"];var seq=0;window.gaMediaRequest=function(payload){return fetch("/relay",{method:"POST",body:JSON.stringify({pin:"1234",clientId:"browser-test",commandId:"cmd-"+(++seq),payload:payload})}).then(function(r){return r.json()});};</script><script src="/media-player-ipod.js"></script><script src="/media-player-watch.js"></script><script src="/media-player-ui.js"></script><script src="/media-player-client.js"></script>');return;
  }
  const file=address.pathname.slice(1);
- if(!['media-player.css','media-player-ipod.js','media-player-ui.js','media-player-client.js'].includes(file)){res.writeHead(404);res.end();return;}
+ if(!['media-player.css','media-player-ipod.js','media-player-watch.js','media-player-ui.js','media-player-client.js'].includes(file)){res.writeHead(404);res.end();return;}
  res.setHeader('Content-Type',file.endsWith('.css')?'text/css':'text/javascript');res.end(fs.readFileSync(path.join(root,file)));
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
@@ -95,6 +95,14 @@ try{
  assert.equal(mediaState.duckEnabled,false);assert.equal(mediaState.duckFactor,.35);
  await page.getByRole('button',{name:'Absenkung einschalten',exact:true}).click();
  await page.waitForFunction(()=>document.querySelector('.ga-media-duck').checked);
+ await page.selectOption('.ga-media-skin','watch');
+ await page.locator('#mapVoiceMenu').evaluate(el=>el.style.display='none');
+ await page.getByRole('region',{name:'Watch Mediensteuerung'}).waitFor({state:'visible'});
+ await page.getByRole('slider',{name:'Musiklautstärke per Krone'}).press('ArrowDown');
+ await page.waitForFunction(()=>document.querySelector('.ga-watch-crown').getAttribute('aria-valuenow')==='58');
+ await page.getByRole('button',{name:'Musik-App auswählen',exact:true}).click();
+ await page.locator('.ga-watch-sheet-row').filter({hasText:'Spotify'}).click();
+ await page.locator('#mapVoiceMenu').evaluate(el=>el.style.display='block');
  await page.selectOption('.ga-media-skin','winamp');
  await page.getByRole('region',{name:'Winamp Mediensteuerung'}).waitFor({state:'visible'});
  assert.match(await page.locator('.ga-media-source').textContent(),/Spotify/);
@@ -108,8 +116,8 @@ try{
  assert.deepEqual(errors,[]);
  assert.ok(requests.filter(c=>c.payload.action==='watch').length<requests.filter(c=>!['watch','snapshot','duck'].includes(c.payload.action)).length+8,'watch requests must not form a rapid polling loop');
  await page.locator('#mapVoiceMenu').evaluate(el=>el.style.display='block');
- await page.selectOption('.ga-media-skin','ipod');
- await page.reload();assert.equal(await page.locator('.ga-media-skin').inputValue(),'ipod');
+ await page.selectOption('.ga-media-skin','watch');
+ await page.reload();assert.equal(await page.locator('.ga-media-skin').inputValue(),'watch');
  assert.ok(await page.getByRole('button',{name:'Mediensteuerung öffnen',exact:true}).isVisible(),'reload keeps skin but starts collapsed');
  console.log('WEB_MEDIA_INTEGRATION_OK: real UI → validated relay → authenticated private bridge → simulated Windows player; controls, selection, duck signals, no closed polling');
 }finally{await browser.close();await privateServer.close();await new Promise(resolve=>server.close(resolve));}

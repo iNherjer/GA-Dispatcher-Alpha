@@ -17,6 +17,7 @@
   }
   function create(options) {
     options = options || {};
+    if(options.skin === 'watch') return root.GAMediaWatchUI.create(options);
     if(options.skin === 'ipod') return root.GAMediaIPodUI.create(options);
     var host = options.host || document.body;
     var layer = document.createElement('div'); layer.className='ga-media-layer';
