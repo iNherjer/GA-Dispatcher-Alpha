@@ -96,3 +96,17 @@ test('clock selection is presentation-only, persisted and shared across EFB view
   const restored=createDisplaySettingsControl({readConfig:()=>config,writeConfig:()=>false});
   assert.equal(restored.snapshot().ui.clockZone,'local');
 });
+
+
+test('drag zoom preference persists across controller restart and concurrent view patches', () => {
+  let config = { efbDisplay: { ui: { autoZoom: true, compass: false } } };
+  const options = { readConfig: () => config, writeConfig: value => { config = value; return true; } };
+  const control = createDisplaySettingsControl(options);
+  assert.equal(control.update({ ui: { zoomControl: true } }).ok, true);
+  control.update({ ui: { telemetry: false } });
+  const restored = createDisplaySettingsControl(options);
+  assert.deepEqual(restored.snapshot().ui, { autoZoom: true, compass: false, zoomControl: true, telemetry: false });
+  assert.equal(restored.update({ ui: { zoomControl: 'true' } }).ok, false);
+  assert.equal(restored.update({ ui: { zoomControl: false } }).ok, true);
+  assert.equal(config.efbDisplay.ui.zoomControl, false);
+});

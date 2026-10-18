@@ -377,7 +377,7 @@
     });
   }
 
-  var uiPreferenceKeys = ['telemetry','currentInfo','nextLeg','routeProgress','compass','lowFps','autoZoom','terrainAvoid','magentaLine'];
+  var uiPreferenceKeys = ['telemetry','currentInfo','nextLeg','routeProgress','compass','lowFps','autoZoom','zoomControl','terrainAvoid','magentaLine'];
   var uiPending = {}, uiSaving = false, uiRetry = null, uiLoading = false, uiRevision = -1;
   function applyUiPreferences(display) {
     var ui = display && display.ui;
@@ -1643,7 +1643,7 @@
     });
     window.gaMapDisplayAdapter = {
       supports: function(key) {
-        return ['magentaLine', 'telemetry', 'currentInfo', 'nextLeg', 'routeProgress', 'compass', 'lowFps', 'autoZoom', 'terrainAvoid'].indexOf(key) >= 0;
+        return ['magentaLine', 'telemetry', 'currentInfo', 'nextLeg', 'routeProgress', 'compass', 'lowFps', 'autoZoom', 'zoomControl', 'terrainAvoid'].indexOf(key) >= 0;
       },
       apply: function(key) {
         if (['telemetry', 'currentInfo', 'nextLeg'].indexOf(key) >= 0) {
@@ -1690,7 +1690,7 @@
     loadMapHintSettings();
     loadTerrainAvoidSettings();
     initPlaneIconSettingsUi();
-    ['telemetry', 'currentInfo', 'nextLeg', 'routeProgress', 'compass', 'lowFps', 'autoZoom', 'terrainAvoid'].forEach(window.gaMapDisplayAdapter.apply);
+    ['telemetry', 'currentInfo', 'nextLeg', 'routeProgress', 'compass', 'lowFps', 'autoZoom', 'zoomControl', 'terrainAvoid'].forEach(window.gaMapDisplayAdapter.apply);
     refreshMapHintMenuUi();
   }
 
@@ -1897,6 +1897,8 @@
       zoomAnimation: true,
       markerZoomAnimation: true
     });
+
+    installMapDragZoomControl(map);
 
     // Coherent has no browser back button: credits must never navigate the EFB.
     if (map.attributionControl) {

@@ -8408,6 +8408,7 @@ function initMapBase() {
 
     topoMap.setOpacity(0.5);
     map = L.map('map', { layers: [topoMap], attributionControl: true, maxZoom: 18, tapHold: false }).setView([51.1657, 10.4515], 6);
+    installMapDragZoomControl(map);
     ensureGaMapOverlayPanes(map);
     setAirportTooltipLayerVisible(
         isOpenAipOverlayEnabled()

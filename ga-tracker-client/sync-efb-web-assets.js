@@ -99,6 +99,7 @@ compileShared('map-route-edit-core.js');
 compileShared('map-layer-controls.js');
 compileShared('map-tool-focus.js');
 compileShared('map-autozoom.js');
+compileShared('map-zoom-control.js');
 compileShared('map-terrain-avoid.js');
 copy('vendor/leaflet/leaflet.css');
 copy('vendor/leaflet/leaflet.js');

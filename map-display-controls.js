@@ -44,6 +44,7 @@ const MAP_HINT_DEFAULTS = {
     terrainAvoid: false,
     traffic: true,
     autoZoom: false,
+    zoomControl: false,
     telemetry: true,
     currentInfo: true,
     nextLeg: true,
@@ -163,6 +164,7 @@ window.toggleMapHintSubmenu = function(key, evt) {
 };
 
 function refreshMapHintMenuUi() {
+    document.body.classList.toggle('map-drag-zoom-enabled', window.mapHints.zoomControl === true);
     const labels = {
         magentaLine: '🟣 Direkt-Linie',
         weather: '🌤️ Wetter',
@@ -172,6 +174,7 @@ function refreshMapHintMenuUi() {
         terrainAvoid: '🏔️ Terrain Avoid',
         traffic: '✈️ Traffic',
         autoZoom: '🔍 Autozoom',
+        zoomControl: '🔎 Zoomsteuerung',
         telemetry: '📟 Telemetrie',
         currentInfo: '📍 Aktuell',
         nextLeg: '🧭 Wegpunkt-Info',
@@ -188,6 +191,7 @@ function refreshMapHintMenuUi() {
         terrainAvoid: 'hintToggleTerrainAvoid',
         traffic: 'hintToggleTraffic',
         autoZoom: 'hintToggleAutoZoom',
+        zoomControl: 'hintToggleZoomControl',
         telemetry: 'hintToggleTelemetry',
         currentInfo: 'hintToggleCurrentInfo',
         nextLeg: 'hintToggleNextLeg',
@@ -235,6 +239,7 @@ window.toggleMapHint = function(key) {
     if (window.gaMapDisplayAdapter && !window.gaMapDisplayAdapter.supports(key)) return;
     window.mapHints[key] = !(window.mapHints[key] !== false);
     saveMapHintSetting(key);
+    if (key === 'zoomControl') window.dispatchEvent(new Event('ga-map-zoom-control-changed'));
     if (window.gaMapDisplayAdapter) window.gaMapDisplayAdapter.apply(key);
     else applyMapHintEffects(key);
     refreshMapHintMenuUi();

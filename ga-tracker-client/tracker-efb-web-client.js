@@ -6,7 +6,7 @@ const { fontDeclarations, htmlFontDeclarations, clientFontSource } = require('./
 
 const EFB_WEB_CLIENT_PATH = '/efb/v1/';
 const EFB_WEB_CLIENT_PROBE_PATH = '/efb/v1/probe/';
-const EFB_WEB_ASSET_REVISION = '56201';
+const EFB_WEB_ASSET_REVISION = '56301';
 const fileCache = new Map();
 
 const STATIC_ASSETS = Object.freeze({
@@ -56,6 +56,7 @@ const STATIC_ASSETS = Object.freeze({
   '/efb/v1/assets/airport-radio.js': [path.join(__dirname, 'efb-web-assets', 'airport-radio.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/map-layer-controls.js': [path.join(__dirname, 'efb-web-assets', 'map-layer-controls.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/map-tool-focus.js': [path.join(__dirname, 'efb-web-assets', 'map-tool-focus.js'), 'text/javascript; charset=utf-8'],
+  '/efb/v1/assets/map-zoom-control.js': [path.join(__dirname, 'efb-web-assets', 'map-zoom-control.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/map-autozoom.js': [path.join(__dirname, 'efb-web-assets', 'map-autozoom.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/map-terrain-avoid.js': [path.join(__dirname, 'efb-web-assets', 'map-terrain-avoid.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/profile.js': [path.join(__dirname, 'efb-web-assets', 'profile.js'), 'text/javascript; charset=utf-8'],
@@ -176,6 +177,7 @@ ${extractKartentischMarkup()}
 <script src="/efb/v1/assets/map-layer-controls.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/map-tool-focus.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/map-autozoom.js?v=${EFB_WEB_ASSET_REVISION}"></script>
+<script src="/efb/v1/assets/map-zoom-control.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/map-terrain-avoid.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/airport-weather.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/map-airport-popup.js?v=${EFB_WEB_ASSET_REVISION}"></script>

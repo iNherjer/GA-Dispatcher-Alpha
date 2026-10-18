@@ -1006,6 +1006,7 @@ function toggleAutoFollow(forceState = null) {
         btn.style.background = isAutoFollow ? 'var(--blue)' : '#666';
         btn.innerHTML = isAutoFollow ? '🎯' : '📍';
     }
+    window.dispatchEvent(new Event('ga-map-follow-changed'));
     if (typeof window.gaMapFollowChanged === 'function') window.gaMapFollowChanged(isAutoFollow);
     if (isAutoFollow) applyAutoFollowViewNow({ forceZoom: true });
     if (typeof window.refreshMapAutoZoomUi === 'function') window.refreshMapAutoZoomUi();

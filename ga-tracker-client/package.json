@@ -93,6 +93,7 @@
       "efb-web-assets/map-layer-controls.js",
       "efb-web-assets/map-tool-focus.js",
       "efb-web-assets/map-autozoom.js",
+      "efb-web-assets/map-zoom-control.js",
       "efb-web-assets/map-terrain-avoid.js",
       "efb-web-assets/airport-details.js",
       "efb-web-assets/airport-aip.js",

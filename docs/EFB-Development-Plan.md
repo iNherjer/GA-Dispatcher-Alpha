@@ -8608,3 +8608,76 @@ Rollout v551: öffentliche EXE vollständig heruntergeladen und gegen den Build
 verifiziert (173956773 Bytes, SHA-256
 `a9bf5f564f818a070ece36e122b5b635826bfd6d3964b01248138c304819c0e1`).
 Alpha aktiviert; Webapp-SW-Cache v2117. Desktop und Stable unverändert.
+
+
+## Lokaler Kandidat: Zieh-Zoom am linken Kartenrand (18.10.2026)
+
+Dezente halbtransparente Lupe mit Auf-/Ab-Pfeilen, 20 Layoutpixel Ruhezone.
+Vertikaler Abstand steuert die Zoomgeschwindigkeit; Loslassen, Pointer-Abbruch,
+Fokusverlust oder ausgeblendetes Dokument stoppen den Zoom. Kurzes Antippen
+schaltet Follow aus bzw. mit aktivierter Autozoom-Einstellung ein. Ein Drag
+schaltet Follow nicht um. EFB-Skalierung wird bei der Abstandsmessung beachtet.
+Der Zieh-Zoom verwendet Leaflets internen Pinch-Pfad (`_moveStart`, `_move`,
+`_moveEnd`), damit geladene Tile-Ebenen während der Bewegung erhalten bleiben.
+Bei Leaflet-Upgrades diesen Pfad mitprüfen. Syntax und isolierte Bedienlogik
+geprüft; Sichtprüfung auf iPhone und im Simulator steht aus. Nicht veröffentlicht.
+
+Die neue Zoomsteuerung ist im Anzeige-Menü optional (Standard: Aus) und wird
+als `ga_map_hint_zoomControl` lokal gespeichert. Aktiviert ersetzt sie die
+bisherigen Plus-/Minus-Tasten und den Follow-Button; deaktiviert kehren diese
+zurück. Die Umschaltung verändert den aktuellen Follow-/Autozoom-Status nicht.
+
+
+## Lokaler EFB-Kandidat: optionale Zieh-Zoomsteuerung (18.10.2026)
+
+Web und EFB laden das gemeinsame `map-zoom-control.js`; EFB kompiliert es für
+Coherent/Chrome 49. Installation im bestehenden Leaflet-Container ohne
+Reparenting, Filter, neue Compositing-Flächen oder neue Shell-Nachrichten.
+Der Anzeige-Schalter `zoomControl` verwendet die bestehende revisionsgeführte
+`/api/v1/display/settings`-UI-Persistenz gemeinsam für EFB und Toolbar.
+Assetrevision 56202; Community-Package-/iframe-Protokoll bleibt unverändert.
+
+Pointer, Maus und Touch sind getrennt identifiziert. Window-Listener übernehmen
+Move/Release auch ohne Pointer-Capture; synthetische Mausfolgen werden unterdrückt.
+Abstände werden aus dem tatsächlichen Control-Rechteck in Layoutpixel umgerechnet.
+Loslassen, Cancel, Capture-Verlust, Blur, Pagehide, Hidden und Deaktivieren stoppen
+den Zoom und stellen vorher aktives Kartendragging wieder her. Leaflets Pinch-Pfad
+behält geladene Tiles während der Bewegung; Abschluss gibt Tile-Pruning wieder frei.
+
+Lokaler Browsernachweis mit kompilierten Assets bei 100/150/300 Prozent umfasst
+alle drei Eingabearten, 20-Pixel-Ruhezone, beide Zoomrichtungen, Geschwindigkeit,
+Tile-Erhalt, stabiles Zentrum, Tap/Drag-Trennung, Follow/Autozoom, Ersatz der alten
+Controls, Abbrüche und Wiederherstellung nach Reload. Settings-Tests prüfen
+zusätzlich Controller-Neustart und konkurrierende UI-Patches. Echte Coherent-/MSFS-
+und VR-Abnahme bleibt offen; keine EXE gebaut, keine Veröffentlichung/Installation.
+
+
+Web-Nachtrag vor weiterer EFB-Übernahme: Der Beginn eines Zieh-Zooms verwendet
+Leaflets `_stop()` statt `stop()`, da `stop()` einen fractional Zoom nachträglich
+über `zoomSnap` rundet. Die Web-Lupe zeigt bei aktivem Follow einen Standortpfeil
+mit `aria-pressed`; der bestehende Follow-Umschalter meldet Zustandsänderungen
+auch an dieses Control. Web-Regression prüft exakten Zoom nach erneutem Berühren
+und Antippen sowie Indikatorwechsel bei externen Follow-Änderungen. EFB-Assets
+für diesen Nachtrag bewusst noch nicht neu generiert (Nutzerwunsch: Web zuerst).
+
+Web-Folgekorrektur: Ein tatsächlicher Zieh-Zoom außerhalb der Ruhezone schaltet
+Autozoom explizit über den vorhandenen Anzeige-Schalter aus und beendet offene
+Smooth-Continuation-Timer sowie laufende Leaflet-Zoomanimationen. Follow bleibt
+aktiv. Fractional Zoom bleibt auch bei nachfolgenden Follow-Pans exakt erhalten;
+Deaktivieren der Zoomsteuerung stellt den vorherigen zoomSnap wieder her.
+Berühren/Tappen und Bewegung innerhalb der Ruhezone deaktivieren Autozoom nicht.
+Browserregression prüft Timer-Abbruch, gesperrte Autozoom-Anwendung auch mit force
+und den unveränderten manuellen Zoom nach einem Follow-Pan. Weiterhin Web zuerst.
+
+
+## Tracker v563: finaler gemeinsamer Alpha-Kandidat (18.10.2026)
+
+Die oben zunächst zurückgestellten Web-Nachträge sind auf Nutzerauftrag jetzt
+in den EFB-Kandidaten übernommen: exakter Zoom beim Berühren, Follow-Standortpfeil
+und explizite Autozoom-Abschaltung beim Ziehen. Neu kompilierte Assets, Revision
+56301, Web-Cache v2148. 30 betroffene Node-Tests plus Web-Browserregression und
+EFB-Matrix bei 100/150/300 Prozent bestehen. Windows-x64-EXE gebaut und fünf
+vollständige eingebettete UI-Assets bytegenau geprüft. Details und Abnahmegrenzen:
+[Tracker v563](Tracker-v563-Release.md). Nutzer hat den Alpha-Rollout beauftragt;
+Aktivierung nach öffentlicher Downloadverifikation. Stable und Community-Paket
+unverändert; echte Coherent-/MSFS-/VR-Abnahme weiterhin offen.

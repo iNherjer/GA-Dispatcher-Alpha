@@ -21395,3 +21395,63 @@ body.theme-win95 .ga-radio-dialog { background: #c0c0c0; color: #000; border: 3p
     color: #fff;
     font: 12px/1.4 sans-serif;
 }
+
+
+/* Hold-and-drag map zoom: quiet at rest, clear while operating. */
+.map-drag-zoom {
+    position: absolute;
+    z-index: 800;
+    left: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 68px;
+    padding: 8px 10px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 22px;
+    background: rgba(30, 35, 39, 0.18);
+    color: rgba(255, 255, 255, 0.55);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    cursor: ns-resize;
+}
+.map-drag-zoom svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.7;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    pointer-events: none;
+}
+.map-drag-zoom.is-active,
+.map-drag-zoom:focus-visible {
+    background: rgba(30, 35, 39, 0.4);
+    color: #fff;
+    outline: 2px solid rgba(255, 255, 255, 0.65);
+    outline-offset: 2px;
+}
+
+/* The optional drag control replaces the legacy zoom and follow controls. */
+body:not(.map-drag-zoom-enabled) .map-drag-zoom,
+body.map-drag-zoom-enabled #map .leaflet-control-zoom,
+body.map-drag-zoom-enabled #autoFollowBtn {
+    display: none !important;
+}
+
+.map-drag-zoom .map-drag-zoom-location,
+.map-drag-zoom.is-following .map-drag-zoom-magnifier {
+    display: none;
+}
+.map-drag-zoom.is-following .map-drag-zoom-location {
+    display: block;
+    fill: currentColor;
+}
+.map-drag-zoom.is-following {
+    color: rgba(100, 210, 255, 0.9);
+}

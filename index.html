@@ -127,13 +127,13 @@
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="stylesheet" href="vendor/maplibre/maplibre-gl.css">
-    <link rel="preload" href="styles.css?v=notes-subtle-stack-20261014-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=drag-zoom-control-20261018-04" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="stylesheet" href="homebase-integration.css?v=homebase-foreground-20261014-01">
     <link rel="stylesheet" href="media-player.css">
     <link rel="stylesheet" href="settings-toolroll.css?v=toolroll-settings-tidy-20261014-01">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=notes-subtle-stack-20261014-01">
+        <link rel="stylesheet" href="styles.css?v=drag-zoom-control-20261018-04">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -1352,6 +1352,7 @@
                         <div id="terrainAvoidStatus" style="font-size:10px; color:#9a9a9a;">Live-Layer aus</div>
                     </div>
                     <button id="hintToggleTraffic" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('traffic')">✈️ Traffic (An)</button>
+                    <button id="hintToggleZoomControl" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('zoomControl')">🔎 Zoomsteuerung (Aus)</button>
                     <button id="hintToggleAutoZoom" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('autoZoom')">🔍 Autozoom (Aus)</button>
                     <div id="mapAutoZoomMenuBlock" style="box-sizing:border-box; width:100%; max-width:100%; min-width:0; overflow:hidden; margin:0 0 6px 0; border:1px solid #2f2f2f; border-radius:6px; padding:6px; background:#0d0d0d;">
                         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:3px;">
@@ -2898,7 +2899,8 @@
 <script defer src="mission-training-guidance-ui.js?v=tracker-training-guidance-20260923-01"></script>
 <script defer src="checklists.js?v=ground-cargo-entry-20260729-01"></script>
 <script defer src="profile.js?v=tracker-mission-ui-20260907-01"></script>
-<script defer src="map.js?v=map-tool-toggle-20260817-01"></script>
+<script defer src="map-zoom-control.js?v=drag-zoom-control-20261018-04"></script>
+<script defer src="map.js?v=drag-zoom-control-20261018-01"></script>
 <script defer src="map-utility-tools.js?v=map-tool-toggle-20260817-01"></script>
 <script defer src="aircraft-mission-capability-core.js?v=aircraft-mission-party-20260817-01"></script>
 <script defer src="aircraft-mission-profile-core.js?v=aircraft-mission-capability-20260817-01"></script>
@@ -2922,7 +2924,7 @@
 <script defer src="tutorial.js?v=mission-airport-types-20260728-01"></script>
 <script src="map-profile-controls.js"></script>
 <script src="display-clock.js"></script>
-<script src="map-display-controls.js"></script>
+<script src="map-display-controls.js?v=drag-zoom-control-20261018-01"></script>
 <script src="radio-tuning-core.js"></script>
 <script src="radio-tuning-ui.js"></script>
 <script src="navcom-preferences-core.js"></script>
@@ -2940,7 +2942,7 @@
 <script src="map-navigation-client.js"></script>
 <script src="map-layer-controls.js"></script>
 <script src="map-tool-focus.js"></script>
-<script src="map-autozoom.js"></script>
+<script src="map-autozoom.js?v=drag-zoom-control-20261018-04"></script>
 <script src="map-terrain-avoid.js"></script>
 <script>
 
