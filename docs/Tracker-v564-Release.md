@@ -15,4 +15,6 @@ Reale MSFS-/Coherent-/VR-Abnahme offen; siehe [EFB-Coherent-Testing](EFB-Coheren
 Windows-x64-EXE mit pkg/Node18 ohne Bytecode, PE-Architektur und enthaltene
 Versions-/Watch-Quellen geprüft: 174047982 Bytes, SHA-256
 `89fad4ca138ad49c780647fb919bd61e366e6bf18798c50ea5d534c87940bda1`.
-Assetrevision 56401, Web-Cache v2150. Ausschließlich Alpha vorgesehen.
+Assetrevision 56401, Web-Cache v2150 (Rollout), v2151 (Kanalaktivierung). Release v564 veröffentlicht;
+öffentlicher EXE-Download größen- und SHA-256-gleich verifiziert. Alpha aktiviert,
+Stable unverändert. Quellstand `edadaa21d`.

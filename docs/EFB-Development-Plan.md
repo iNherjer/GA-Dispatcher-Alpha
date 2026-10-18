@@ -19,7 +19,8 @@ bestehenden Hostintegration inklusive werfendem Pointer-Capture geprüft.
 Vier Browserfälle (EFB/Toolbar, 440/1000 Pixel, 100/150 Prozent) prüfen Drag,
 relative Krone, große Zoomflächen, Quellen, Transportisolation und Gerätezeit.
 Web-/EFB-Gesamtintegration und Uhr-/Assettests bestehen. Windows-x64-EXE gebaut;
-Assetrevision 56401, Web-Cache v2150. Kein Community-Paket-/Desktop-Update nötig.
+Assetrevision 56401, Web-Cache v2150/v2151. Release veröffentlicht und öffentlicher
+EXE-Download größen-/hashgleich bestätigt; Alpha aktiviert, Stable unverändert. Kein Community-Paket-/Desktop-Update nötig.
 Release und Downloadprüfung siehe [Tracker-v564-Release](Tracker-v564-Release.md).
 Reale MSFS-/Coherent-/VR-Abnahme bleibt erforderlich; Browser-Fallbacktests
 ersetzen keinen Engine-Nachweis.
