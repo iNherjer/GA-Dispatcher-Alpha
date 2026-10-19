@@ -726,6 +726,8 @@ async function startApplication() {
         : (phase === 'downloading' ? 'Desktop-App wird geladen und geprüft … 46 %' : 'Desktop-App v1.6.1 ist verfügbar.')
     });
   }
+  windowsMedia.restoreSettings(configStore.publicSettings().mediaDuck);
+  windowsMedia.onSettings = (settings) => configStore.setMediaDuck(settings);
   radioHoldLogPath = path.join(configStore.dataDirectory, 'funk-pause-log.txt');
   radioHoldLog(`START desktop=${app.getVersion()} platform=${process.platform} ${require('node:os').release()}`);
   configureRadioHold(configStore.publicSettings().radioHold);

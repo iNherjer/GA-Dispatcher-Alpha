@@ -71,3 +71,15 @@ test('seek serializes a source-bound target and rejects invalid positions before
  assert.equal(f.commands.length,0);await f.media.request({action:'seek',source:'Chrome',positionSeconds:123.5});
  assert.equal(f.commands[0].positionSeconds,123.5);assert.equal(f.commands[0].source,'Chrome');await f.media.close();
 });
+test('ducking settings are owned by the app: changes persist once and restore into a restarted helper', async () => {
+  const f = fixture(); const saved = [];
+  f.media.onSettings = settings => saved.push(settings);
+  f.media.restoreSettings({ enabled: true, factor: 0.35 });
+  await f.media.request({ action: 'snapshot' });
+  assert.deepEqual({ action: f.commands[0].action, factor: f.commands[0].factor, id: f.commands[0].id }, { action: 'settings', factor: 0.35, id: 0 },
+    'a fresh helper first receives the stored value');
+  await f.media.request({ action: 'settings', enabled: true, factor: 0.5 });
+  await f.media.request({ action: 'settings', enabled: true, factor: 0.5 });
+  assert.deepEqual(saved, [{ enabled: true, factor: 0.5 }], 'unchanged repeats are not persisted again');
+  await f.media.close();
+});

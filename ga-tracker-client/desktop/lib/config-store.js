@@ -119,6 +119,10 @@ class TrackerConfigStore {
       hasPin: Boolean(String(desktop.encryptedPin || '').trim()) && this.encryptionAvailable(),
       audioOutputDeviceId: String(desktop.audioOutputDeviceId || ''),
       radioHold: normalizeRadioHoldSettings(desktop.radioHold),
+      mediaDuck: {
+        enabled: desktop.mediaDuck?.enabled !== false,
+        factor: [0.1, 0.2, 0.35, 0.5].includes(desktop.mediaDuck?.factor) ? desktop.mediaDuck.factor : 0.2
+      },
       voiceProvider: normalizeVoiceProvider(desktop.voice?.provider),
       hasVoiceApiKey: Boolean(String(desktop.voice?.encryptedApiKey || '').trim()) && this.encryptionAvailable(),
       runtimeChannel: normalizeRuntimeChannel(preferences.runtimeChannel),
@@ -231,6 +235,11 @@ class TrackerConfigStore {
   setAudioOutputDeviceId(value) {
     const id = String(value || '').slice(0, 256);
     return this.writeDesktop({ ...this.readDesktop(), audioOutputDeviceId: id });
+  }
+
+  setMediaDuck(value) {
+    const factor = [0.1, 0.2, 0.35, 0.5].includes(value?.factor) ? value.factor : 0.2;
+    return this.writeDesktop({ ...this.readDesktop(), mediaDuck: { enabled: value?.enabled !== false, factor } });
   }
 
   setRadioHold(value) {

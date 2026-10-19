@@ -7,7 +7,7 @@ const { createMediaTimeline } = require('./media-timeline');
 // A single helper owns Windows media sessions and their volume restoration.
 // JSON over stdin only; user input never becomes executable PowerShell text.
 class WindowsMedia {
-  constructor({ platform = process.platform, spawnProcess = spawn } = {}) {
+  constructor({ platform = process.platform, spawnProcess = spawn, onSettings = null } = {}) {
     this.platform = platform;
     this.spawnProcess = spawnProcess;
     this.child = null;
@@ -22,6 +22,16 @@ class WindowsMedia {
     this.holdFactor = null;
     this.holdTimer = null;
     this.timeline = createMediaTimeline();
+    // Announcement ducking is owned here: every client (desktop, web, EFB) only
+    // requests changes, the value is persisted by the app and re-applied when
+    // the helper restarts. Clients never re-assert their own copy.
+    this.duckSettings = null;
+    this.onSettings = onSettings;
+  }
+  restoreSettings(value) {
+    const factor = [0.1, 0.2, 0.35, 0.5].includes(value?.factor) ? value.factor : 0.2;
+    this.duckSettings = { enabled: value?.enabled !== false, factor };
+    if (this.child) this.child.stdin.write(JSON.stringify({ action: 'settings', ...this.duckSettings, id: 0 }) + '\n');
   }
   start() {
     if (this.child) return;
@@ -29,6 +39,7 @@ class WindowsMedia {
       '-ExecutionPolicy', 'Bypass', '-File', path.join(__dirname, 'windows-media.ps1').replace(/app\.asar([\\/])/, 'app.asar.unpacked$1')],
     { windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
     this.child = child;
+    if (this.duckSettings) child.stdin.write(JSON.stringify({ action: 'settings', ...this.duckSettings, id: 0 }) + '\n');
     const lines = readline.createInterface({ input: child.stdout });
     lines.on('line', line => {
       let result;
@@ -69,7 +80,12 @@ class WindowsMedia {
       const value = payload.action === 'volume' ? payload.volume : payload.factor;
       if (!Number.isFinite(value) || value < 0 || value > 1) return Promise.resolve({ ok: false, error: 'Ungültige Lautstärke.' });
       if (payload.action === 'volume') command.volume = value;
-      else { command.factor = value; command.enabled = payload.enabled === true; }
+      else {
+        command.factor = value; command.enabled = payload.enabled === true;
+        const changed = !this.duckSettings || this.duckSettings.enabled !== command.enabled || this.duckSettings.factor !== value;
+        this.duckSettings = { enabled: command.enabled, factor: value };
+        if (changed && typeof this.onSettings === 'function') { try { this.onSettings({ ...this.duckSettings }); } catch (_) {} }
+      }
     }
     if (payload.action === 'duck') {
       const clientId = String(payload.clientId || 'desktop');

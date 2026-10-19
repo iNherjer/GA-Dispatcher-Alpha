@@ -2,7 +2,7 @@
 const { EventEmitter } = require('node:events');
 const { normalizeBindings } = require('./windows-input');
 
-const RESUME_SECONDS = Object.freeze([10, 20, 30, 40, 60, 90, 0]);
+const RESUME_SECONDS = Object.freeze([1, 10, 20, 30, 40, 60, 90, 0]);
 const DIM_PERCENT = Object.freeze([0, 10, 20, 35, 50]);
 const SHORT_PRESS_MS = 600;
 const DEFAULTS = Object.freeze({

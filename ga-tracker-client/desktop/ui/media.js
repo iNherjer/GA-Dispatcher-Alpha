@@ -6,15 +6,13 @@
   const $ = id => document.getElementById(id);
   const audible = new Set();
   let stopped = false, busy = false, state = null, available = false;
-  let enabled = true, factor = 0.2;
-  // Independent media preferences; never inherit the app's display preset.
+  // Ducking preferences live in the app (shared with web and EFB); this view only displays and requests changes.
+  // One-time migration of the former per-window preference (up to 1.6.24).
+  let legacy = null;
   try {
-    const saved = JSON.parse(localStorage.getItem('ga.media.preferences.v1') || '{}');
-    enabled = saved.duckEnabled !== false;
-    if ([0.1, 0.2, 0.35, 0.5].includes(saved.duckFactor)) factor = saved.duckFactor;
+    const saved = JSON.parse(localStorage.getItem('ga.media.preferences.v1') || 'null');
+    if (saved && [0.1, 0.2, 0.35, 0.5].includes(saved.duckFactor)) legacy = { enabled: saved.duckEnabled !== false, factor: saved.duckFactor };
   } catch (_) {}
-  $('mediaDuckEnabled').checked = enabled;
-  $('mediaDuckFactor').value = factor;
   function render(result) {
     if (!result.ok) {
       available = false;
@@ -23,6 +21,8 @@
       return;
     }
     available = true; state = result;
+    if (typeof result.duckEnabled === 'boolean' && document.activeElement !== $('mediaDuckEnabled')) $('mediaDuckEnabled').checked = result.duckEnabled;
+    if ([0.1, 0.2, 0.35, 0.5].includes(result.duckFactor) && document.activeElement !== $('mediaDuckFactor')) $('mediaDuckFactor').value = String(result.duckFactor);
     const select = $('mediaPlayer');
     const players = result.players || [];
     const existing = Array.from(select.options).map(option => option.value).join('\n');
@@ -56,9 +56,7 @@
   $('mediaVolume').oninput = () => { $('mediaVolumeValue').textContent = $('mediaVolume').value + ' %'; };
   $('mediaVolume').onchange = () => command({ action: 'volume', volume: Number($('mediaVolume').value) / 100 });
   async function settings() {
-    enabled = $('mediaDuckEnabled').checked; factor = Number($('mediaDuckFactor').value);
-    try { localStorage.setItem('ga.media.preferences.v1', JSON.stringify({ duckEnabled: enabled, duckFactor: factor, skin: 'minimal' })); } catch (_) {}
-    await command({ action: 'settings', enabled, factor });
+    await command({ action: 'settings', enabled: $('mediaDuckEnabled').checked, factor: Number($('mediaDuckFactor').value) });
   }
   $('mediaDuckEnabled').onchange = settings;
   $('mediaDuckFactor').onchange = settings;
@@ -73,7 +71,11 @@
       if (!busy) {
         const result = await request({ action: 'snapshot' });
         if (!stopped && !busy) render(result);
-        if (result.ok && (result.duckEnabled !== enabled || result.duckFactor !== factor)) await request({ action: 'settings', enabled, factor });
+        if (legacy && result.ok) {
+          const migrate = legacy; legacy = null;
+          try { localStorage.removeItem('ga.media.preferences.v1'); } catch (_) {}
+          if (result.duckEnabled !== migrate.enabled || result.duckFactor !== migrate.factor) await request({ action: 'settings', ...migrate });
+        }
       }
       if (available && audible.size) await request({ action: 'duck', active: true });
     } catch (_) { render({ ok: false, error: 'Windows-Mediensteuerung nicht erreichbar.' }); }
