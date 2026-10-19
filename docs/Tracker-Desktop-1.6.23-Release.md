@@ -37,3 +37,8 @@ Tastendrücke werden nur während „Button lernen“ ausgewertet; danach nur di
 - 116 Desktop-Tests (113 bestanden, 3 Windows-only übersprungen), 20 Player-/Asset-Tests.
 - Nicht auf Windows vorgeprüft: Kompilierung des C#-Helfers und reale Joystick-Erkennung.
   Abnahme erfolgt im Live-Test über `funk-pause-log.txt`.
+
+## Aktivierung (19.10.2026)
+
+Öffentlicher Download geprüft (100279140 Bytes, SHA-512 wie `latest.yml`, Blockmap identisch).
+`latest.yml` und `alpha.yml` aktiviert.
