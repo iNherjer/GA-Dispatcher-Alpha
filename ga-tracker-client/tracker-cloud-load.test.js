@@ -56,6 +56,20 @@ for(const authority of ['tracker','web']) {
     assert.equal(result.ok,false);assert.equal(f.run().runId,'old-run');assert.ok(!f.calls.includes('acquire'));
   });
 }
+for(const [label,state,expectOffline] of [
+ ['MSFS menu',{simulatorAttached:true,startReadiness:{worldReady:false,ready:false,reason:'simulator_not_ready',cameraState:12}},true],
+ ['no simulator',{simulatorAttached:false},true],
+ ['paused flight',{simulatorAttached:true,startReadiness:{worldReady:false,ready:false,reason:'simulator_not_ready',cameraState:2}},false],
+ ['stale telemetry',{simulatorAttached:true,startReadiness:{worldReady:false,ready:false,reason:'telemetry_stale',cameraState:12}},false]
+])test(`newer cloud mission outside a loaded flight: ${label}`,async()=>{
+ const f=fixture();f.run().phase='cruise';f.run().effects=[{type:'voice.greeting',effectId:'g'},{type:'scene.prepare',effectId:'s'}];
+ const cancelled=[];f.context.trackerVoiceService.cancel=id=>cancelled.push(id);
+ f.context.missionExecutionRuntime.publicState=()=>state;
+ const result=await f.context.activateInternal(f.request,{candidate:f.context._cloudMissionCandidate});
+ if(expectOffline){assert.equal(result.ok,true);assert.equal(f.run().missionId,'new-mission');
+  assert.ok(f.calls.includes('release'));assert.ok(!f.calls.includes('abort_mission'));assert.deepEqual(cancelled,['g']);}
+ else{assert.equal(result.error,'mission_simulator_not_ready');assert.equal(f.run().runId,'old-run');}
+});
 test('a changed cloud seed cannot release the confirmed run',async()=>{
   const f=fixture({seedChanged:true});const result=await f.context.activate(f.request);
   assert.equal(result.error,'cloud_mission_revision_conflict');assert.deepEqual(f.calls,['fetch']);
@@ -171,7 +185,7 @@ test('replacement cancels old queued Voice after confirmed runtime abort',async(
   assert.deepEqual(cancelled,['greeting-old']);
 });
 for(const authority of ['tracker','web'])test(`${authority} cloud replacement waits for loaded simulator before payload restore and cleanup`,async()=>{
- const f=fixture({authority});f.context.missionExecutionRuntime.publicState=()=>({simulatorAttached:true,startReadiness:{worldReady:false,ready:false}});
+ const f=fixture({authority});f.context.missionExecutionRuntime.publicState=()=>({simulatorAttached:true,startReadiness:{worldReady:false,ready:false,reason:'simulator_not_ready',cameraState:2}});
  const result=await f.context.activate(f.request);assert.equal(result.error,'mission_simulator_not_ready');
  assert.equal(f.run().runId,'old-run');assert.deepEqual(f.calls,['fetch']);
  f.context.missionExecutionRuntime.publicState=()=>({simulatorAttached:true,startReadiness:{worldReady:true,ready:false}});

@@ -103,8 +103,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v564';
-const TRACKER_VERSION_CODE = 564;
+const TRACKER_VERSION = 'v565';
+const TRACKER_VERSION_CODE = 565;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -5111,9 +5111,31 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
   };
   let cleanupLegacyCloudRun = null;
   let _cloudMissionReplacementCleanupInProgress = false;
+  // Outside a loaded flight (MSFS menu/world map or no simulator at all) every
+  // spawned object is already gone, and the next mission start writes its own
+  // payload from the retained baseline of the released run. A paused flight
+  // with a live cockpit camera or stale telemetry still waits for cleanup.
+  const simulatorOutsideFlight = () => {
+    const state = missionExecutionRuntime.publicState();
+    if (!state.simulatorAttached) return true;
+    const readiness = state.startReadiness;
+    if (!readiness || readiness.worldReady || readiness.reason === 'telemetry_stale') return false;
+    const camera = readiness.cameraState;
+    return !Number.isInteger(camera) || camera < 2 || camera > 8;
+  };
   const abortCloudReplacementRun = async (request, previousRun) => {
     if (_cloudMissionReplacementCleanupInProgress) return { ok: false, status: 'pending', error: 'cloud_mission_activation_pending', sideEffect: false };
     const readiness = missionExecutionRuntime.publicState().startReadiness;
+    if (simulatorOutsideFlight()) {
+      const voiceIds = (missionAuthorityManager.getActiveRun({ includeEffects: true })?.effects || [])
+        .filter(effect => /^voice\./.test(effect.type || '')).map(effect => effect.effectId || effect.commandId).filter(Boolean);
+      const released = await missionAuthorityManager.release({ missionId: previousRun.missionId, runId: previousRun.runId,
+        clientId: previousRun.ownerClientId, commandId: `${request.commandId}:offline-release`,
+        reason: request.payload?.reason || 'cloud-mission-replacement-offline' });
+      debugLog(`MISSION_CLOUD_REPLACE_OFFLINE mission=${previousRun.missionId} run=${previousRun.runId} status=${released?.ok ? 'released' : (released?.error || 'error')}`);
+      if (released?.ok) for (const id of voiceIds) { try { trackerVoiceService.cancel?.(id, 'cloud-mission-replacement'); } catch (_) {} }
+      return released;
+    }
     if (readiness && !readiness.worldReady) return { ok: false, status: 'pending', error: 'mission_simulator_not_ready', sideEffect: false };
     _cloudMissionReplacementCleanupInProgress = true;
     try {
