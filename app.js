@@ -6150,14 +6150,91 @@ function setAirportAutocompleteActive(menu, index) {
     menu.dataset.activeIndex = String(nextIndex);
 }
 
-function renderAirportAutocomplete(input, classicId, results) {
+function airportFavoritesApi() {
+    return window.GAFavoriteAirports || null;
+}
+
+function airportResultIsFavorite(result) {
+    const favorites = airportFavoritesApi();
+    return !!(favorites && result?.code && favorites.has(result.code));
+}
+
+// Favorites first, otherwise the search order stays untouched.
+function sortAirportResultsByFavorite(results = []) {
+    if (!airportFavoritesApi()) return results;
+    return results
+        .map((result, index) => ({ result, index, favorite: airportResultIsFavorite(result) }))
+        .sort((a, b) => (Number(b.favorite) - Number(a.favorite)) || (a.index - b.index))
+        .map(entry => entry.result);
+}
+
+function favoriteAirportSearchResults(query = '') {
+    const favorites = airportFavoritesApi();
+    if (!favorites) return [];
+    const needle = normalizeAirportSearchText(query);
+    return favorites.list()
+        .map(item => {
+            const record = getAirportFieldRecord(item.code, item.apt || null)
+                || item.apt
+                || { icao: item.code, name: item.name, lat: item.lat, lon: item.lon };
+            const result = buildAirportSearchRecord(item.code, { ...record, lat: record.lat ?? item.lat, lon: record.lon ?? item.lon });
+            if (item.displayCode) result.displayCode = item.displayCode;
+            return result;
+        })
+        .filter(result => !needle || result.haystack.split(' ').some(word => word.startsWith(needle)));
+}
+
+function showAirportAutocompleteNotice(menu, text) {
+    if (!menu) return;
+    let notice = menu.querySelector('.airport-autocomplete-notice');
+    if (!notice) {
+        notice = document.createElement('div');
+        notice.className = 'airport-autocomplete-notice';
+        notice.setAttribute('role', 'status');
+        menu.insertBefore(notice, menu.firstChild);
+    }
+    notice.textContent = text;
+    clearTimeout(notice._gaTimer);
+    notice._gaTimer = setTimeout(() => notice.remove(), 2600);
+}
+
+function toggleAirportResultFavorite(input, classicId, result) {
+    const favorites = airportFavoritesApi();
+    if (!favorites || !result?.code) return;
+    let compact = null;
+    try { compact = compactAirportLookupRecord(result.apt || {}) || null; } catch (_) {}
+    const lat = Number(compact?.lat ?? result.apt?.lat);
+    const lon = Number(compact?.lon ?? result.apt?.lon);
+    const outcome = favorites.toggle({
+        code: result.code,
+        displayCode: result.displayCode || result.code,
+        name: result.name || result.code,
+        lat,
+        lon,
+        apt: compact || undefined
+    });
+    const menu = ensureAirportAutocompleteMenu(input, classicId);
+    if (!outcome.ok) {
+        showAirportAutocompleteNotice(menu, outcome.error === 'limit_reached'
+            ? `Maximal ${favorites.MAX} Favoriten – erst einen entfernen.`
+            : 'Für diesen Platz fehlen Koordinaten.');
+        return;
+    }
+    const activeIndex = Number(menu?.dataset.activeIndex ?? 0);
+    const results = airportAutocompleteResults.get(input) || [];
+    renderAirportAutocomplete(input, classicId, results, { keepOrder: true, activeIndex, favoritesOnly: menu?.dataset.favoritesOnly === '1' });
+}
+
+function renderAirportAutocomplete(input, classicId, results, options = {}) {
     const menu = ensureAirportAutocompleteMenu(input, classicId);
     if (!menu) return;
+    if (!options.keepOrder) results = sortAirportResultsByFavorite(results);
     airportAutocompleteResults.set(input, results);
     menu.innerHTML = '';
+    menu.dataset.favoritesOnly = options.favoritesOnly ? '1' : '';
     if (!results.length) {
         hideAirportAutocomplete(input);
-        setAirportFieldState(classicId, input.value.trim() ? 'invalid' : '');
+        if (!options.favoritesOnly) setAirportFieldState(classicId, input.value.trim() ? 'invalid' : '');
         return;
     }
     results.forEach((result, index) => {
@@ -6183,7 +6260,24 @@ function renderAirportAutocomplete(input, classicId, results) {
             .filter(Boolean)
             .join(' · ');
 
+        const isFavorite = airportResultIsFavorite(result);
+        const star = document.createElement('span');
+        star.className = 'airport-result-favorite' + (isFavorite ? ' is-favorite' : '');
+        star.setAttribute('role', 'button');
+        star.setAttribute('aria-pressed', isFavorite ? 'true' : 'false');
+        star.title = isFavorite ? 'Aus Favoriten entfernen' : 'Als Favorit merken';
+        star.setAttribute('aria-label', star.title);
+        star.textContent = isFavorite ? '★' : '☆';
+        star.addEventListener('mousedown', event => {
+            // Keep input focus and do not select the airport.
+            event.preventDefault();
+            event.stopPropagation();
+            toggleAirportResultFavorite(input, classicId, result);
+        });
+
+        if (isFavorite) button.classList.add('is-favorite');
         button.append(code, name, meta);
+        if (airportFavoritesApi()) button.append(star);
         button.addEventListener('mousedown', event => {
             event.preventDefault();
             selectAirportAutocompleteResult(input, classicId, result);
@@ -6191,8 +6285,20 @@ function renderAirportAutocomplete(input, classicId, results) {
         menu.appendChild(button);
     });
     menu.hidden = false;
-    setAirportAutocompleteActive(menu, 0);
-    setAirportFieldState(classicId, 'pending');
+    // A favorites list opened on focus has no preselection: Enter keeps the typed value.
+    if (Number.isFinite(options.activeIndex) && options.activeIndex >= 0) setAirportAutocompleteActive(menu, options.activeIndex);
+    else if (options.favoritesOnly) menu.dataset.activeIndex = '-1';
+    else setAirportAutocompleteActive(menu, 0);
+    if (!options.favoritesOnly) setAirportFieldState(classicId, 'pending');
+}
+
+// Opening an airport field lists the favorites right away (empty or already resolved field).
+function showFavoriteAirportAutocomplete(input, classicId, query = '') {
+    if (document.activeElement !== input) return false;
+    const results = favoriteAirportSearchResults(query);
+    if (!results.length) return false;
+    renderAirportAutocomplete(input, classicId, results, { favoritesOnly: true });
+    return true;
 }
 
 function airportAutocompleteResultsForQuery(results = [], query = '') {
@@ -6217,10 +6323,10 @@ function airportAutocompleteResultsForQuery(results = [], query = '') {
     return exactMatches.length ? exactMatches.slice(0, 1) : uniqueResults;
 }
 
-function queueAirportAutocomplete(input, classicId) {
+function queueAirportAutocomplete(input, classicId, options = {}) {
     if (!input) return;
     if (airportInputResolvedCode(input)) {
-        hideAirportAutocomplete(input);
+        if (!(options.showFavorites && showFavoriteAirportAutocomplete(input, classicId))) hideAirportAutocomplete(input);
         setAirportFieldState(classicId, 'valid');
         return;
     }
@@ -6230,7 +6336,7 @@ function queueAirportAutocomplete(input, classicId) {
     const requestId = (airportAutocompleteRequestIds.get(input) || 0) + 1;
     airportAutocompleteRequestIds.set(input, requestId);
     if (!raw || raw.length < 2) {
-        hideAirportAutocomplete(input);
+        if (!showFavoriteAirportAutocomplete(input, classicId, raw)) hideAirportAutocomplete(input);
         setAirportFieldState(classicId, '');
         return;
     }
@@ -6241,7 +6347,9 @@ function queueAirportAutocomplete(input, classicId) {
             exact: isAirportCodeLike(raw)
         });
         if (airportAutocompleteRequestIds.get(input) !== requestId || String(input.value || '').trim() !== raw) return;
-        renderAirportAutocomplete(input, classicId, airportAutocompleteResultsForQuery(results, raw));
+        // Matching favorites always appear, even when the catalog ranks them out.
+        const merged = favoriteAirportSearchResults(raw).concat(results).slice(0, 8 + (airportFavoritesApi()?.MAX || 0));
+        renderAirportAutocomplete(input, classicId, airportAutocompleteResultsForQuery(merged, raw).slice(0, 8));
     }, 260);
     airportAutocompleteTimers.set(input, timer);
 }
@@ -6308,7 +6416,7 @@ function handleAirportAutocompleteKeydown(event, input, classicId) {
     const visible = menu && !menu.hidden;
     if (!visible && event.key !== 'Enter') return;
     const options = visible ? Array.from(menu.querySelectorAll('.airport-autocomplete-option')) : [];
-    const activeIndex = Number(menu?.dataset.activeIndex || 0);
+    const activeIndex = Number(menu?.dataset.activeIndex ?? 0);
     if (event.key === 'ArrowDown' && options.length) {
         event.preventDefault();
         setAirportAutocompleteActive(menu, activeIndex + 1);
@@ -6316,7 +6424,7 @@ function handleAirportAutocompleteKeydown(event, input, classicId) {
         event.preventDefault();
         setAirportAutocompleteActive(menu, activeIndex - 1);
     } else if (event.key === 'Enter') {
-        const active = visible ? options[Math.max(0, activeIndex)] : null;
+        const active = visible && activeIndex >= 0 ? options[activeIndex] : null;
         if (active) {
             event.preventDefault();
             const results = airportAutocompleteResults.get(input) || [];
@@ -6346,7 +6454,7 @@ function initAirportAutocompleteFields() {
                 queueAirportAutocomplete(input, classicId);
             });
             input.addEventListener('focus', () => {
-                queueAirportAutocomplete(input, classicId);
+                queueAirportAutocomplete(input, classicId, { showFavorites: true });
             });
             input.addEventListener('keydown', event => handleAirportAutocompleteKeydown(event, input, classicId));
             input.addEventListener('blur', () => {

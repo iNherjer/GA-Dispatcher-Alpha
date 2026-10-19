@@ -73,4 +73,4 @@ function createNavcomPreferences({ pilotId, pin, readConfig, writeConfig, reques
   }
   return { state, refresh, update };
 }
-module.exports = { createNavcomPreferences };
+module.exports = { createNavcomPreferences, requestJson };

@@ -269,6 +269,7 @@ function createTrackerEfbHttpServer(options = {}) {
   const audioControl = options.audioControl || null;
   const displayControl = options.displayControl || null;
   const navcomPreferences = options.navcomPreferences || null;
+  const favoriteAirports = options.favoriteAirports || null;
   const audioAssets = options.audioAssets || null;
   const cockpitControl = options.cockpitControl && typeof options.cockpitControl === 'object' ? options.cockpitControl : null;
   const desktopControlToken = String(options.desktopControlToken || '').trim();
@@ -334,6 +335,17 @@ function createTrackerEfbHttpServer(options = {}) {
         const result = await options.mediaControl({ clientId: 'local:' + auth.session.sessionId, commandId: command.commandId, payload: command.payload });
         jsonResponse(response, 200, result);
       } catch (error) { jsonResponse(response, 400, { ok: false, error: error.code || error.message || 'media_command_invalid' }); }
+      return;
+    }
+    if (pathname === '/api/v1/favorite-airports') {
+      // Read-only presentation data for the loopback-hosted EFB view.
+      const origin = String(request.headers.origin || '').trim();
+      const trusted = !origin || /^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(?::\d+)?$/.test(origin);
+      request.resume();
+      if (!favoriteAirports || !trusted) { jsonResponse(response, trusted ? 503 : 403, { error: 'favorite_airports_unavailable' }); return; }
+      if (request.method !== 'GET') { jsonResponse(response, 405, { error: 'method_not_allowed' }); return; }
+      void favoriteAirports.refresh();
+      jsonResponse(response, 200, favoriteAirports.state());
       return;
     }
     if (pathname === '/api/v1/navcom/settings') {

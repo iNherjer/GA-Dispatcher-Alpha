@@ -15724,6 +15724,16 @@ function _syncApplyOnboardEquipmentFromCloud(data = null) {
     try { return window.missionCargoApplyOnboardEquipmentFromSync(data.onboardEquipment); } catch (_) { return false; }
 }
 
+function _syncFavoriteAirportsPayload() {
+    if (!window.GAFavoriteAirports) return null;
+    try { return window.GAFavoriteAirports.forSync(); } catch (_) { return null; }
+}
+
+function _syncApplyFavoriteAirportsFromCloud(data = null) {
+    if (!data || !Array.isArray(data.favoriteAirports) || !window.GAFavoriteAirports) return false;
+    try { return window.GAFavoriteAirports.replace(data.favoriteAirports, 'cloud'); } catch (_) { return false; }
+}
+
 // Kept as a diagnostic helper; personal sync never drops fields to fit a request.
 function _syncBuildUploadPayload(basePayload, localSyncTs, pin) {
     const payload = { ...basePayload, lastModified: localSyncTs };
@@ -16347,6 +16357,7 @@ function setLastSyncedPayload(cloudData = null) {
         newBadges: JSON.parse(localStorage.getItem('ga_group_new') || '[]'),
         aircraftPresets: getAircraftPresetsForSync(),
         onboardEquipment: _syncOnboardEquipmentPayload(),
+        favoriteAirports: _syncFavoriteAirportsPayload(),
         followUpRequests: _syncFollowupPayload()
     };
     lastSyncedPayloadStr = JSON.stringify(payloadToCompare);
@@ -16558,6 +16569,7 @@ async function triggerCloudSave(immediate = false, options = {}) {
         newBadges: JSON.parse(localStorage.getItem('ga_group_new') || '[]'),
         aircraftPresets: getAircraftPresetsForSync(),
         onboardEquipment: _syncOnboardEquipmentPayload(),
+        favoriteAirports: _syncFavoriteAirportsPayload(),
         followUpRequests: _syncFollowupPayload()
     };
 
@@ -16729,6 +16741,7 @@ async function forceSyncLoad() {
         });
         const missionPullOutcome = window.gaLastCloudMissionPullOutcome || null;
         _syncApplyOnboardEquipmentFromCloud(data);
+        _syncApplyFavoriteAirportsFromCloud(data);
         if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
         if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
         if (data.aircraftPresets) applyAircraftPresetsFromSync(data.aircraftPresets);
@@ -16826,6 +16839,7 @@ async function silentSyncLoad(options = {}) {
                 _syncClearPendingUpload();
             }
             _syncApplyOnboardEquipmentFromCloud(data);
+            _syncApplyFavoriteAirportsFromCloud(data);
             if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
             if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
             if (data.aircraftPresets) applyAircraftPresetsFromSync(data.aircraftPresets);
@@ -17025,6 +17039,7 @@ async function checkCloudAfterIdle() {
                 newBadges: JSON.parse(localStorage.getItem('ga_group_new') || '[]'),
                 aircraftPresets: getAircraftPresetsForSync(),
                 onboardEquipment: _syncOnboardEquipmentPayload(),
+                favoriteAirports: _syncFavoriteAirportsPayload(),
                 followUpRequests: _syncFollowupPayload()
             };
             const currentPayloadStr = JSON.stringify(payloadToCompare);
@@ -17071,6 +17086,7 @@ async function checkCloudAfterIdle() {
                 });
                 const missionPullOutcome = window.gaLastCloudMissionPullOutcome || null;
                 _syncApplyOnboardEquipmentFromCloud(data);
+                _syncApplyFavoriteAirportsFromCloud(data);
                 if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
                 if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
                 if (data.aircraftPresets) applyAircraftPresetsFromSync(data.aircraftPresets);

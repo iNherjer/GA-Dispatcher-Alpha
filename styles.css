@@ -431,10 +431,10 @@ select {
     width: 100%;
     min-height: 42px;
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: auto minmax(0, 1fr) auto;
     grid-template-areas:
-        "code name"
-        "code meta";
+        "code name fav"
+        "code meta fav";
     column-gap: 9px;
     row-gap: 1px;
     align-items: center;
@@ -483,6 +483,78 @@ select {
     line-height: 1.1;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* Favorite airports: star in the autocomplete row */
+.airport-result-favorite {
+    grid-area: fav;
+    align-self: center;
+    min-width: 30px;
+    padding: 2px 4px;
+    font-size: 19px;
+    line-height: 1;
+    text-align: center;
+    color: inherit;
+    opacity: 0.42;
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.airport-result-favorite:hover {
+    opacity: 0.9;
+}
+
+.airport-result-favorite.is-favorite {
+    color: #f2c12e;
+    opacity: 1;
+    text-shadow: 0 0 4px rgba(0, 0, 0, 0.6);
+}
+
+.airport-autocomplete-notice {
+    padding: 5px 8px;
+    border-radius: 5px;
+    background: rgba(242, 193, 46, 0.16);
+    color: #f6dc8a;
+    font-size: 11px;
+    line-height: 1.2;
+}
+
+/* Favorite airports: discreet map star beside (not on) the airport */
+.ga-fav-airport-icon {
+    pointer-events: none !important;
+}
+
+.ga-fav-airport-star {
+    position: absolute;
+    left: 7px;
+    top: -21px;
+    display: block;
+    width: 14px;
+    height: 14px;
+    line-height: 0;
+    opacity: 0.82;
+    pointer-events: none;
+    -webkit-transition: -webkit-transform 0.18s ease-out, opacity 0.18s ease-out;
+    transition: transform 0.18s ease-out, opacity 0.18s ease-out;
+}
+
+.is-dodging .ga-fav-airport-star,
+.ga-fav-airport-icon.is-dodging .ga-fav-airport-star {
+    -webkit-transform: translate(16px, -14px);
+    transform: translate(16px, -14px);
+    opacity: 0.22;
+}
+
+.ga-fav-airport-star svg {
+    display: block;
+    width: 14px;
+    height: 14px;
+}
+
+body.low-fps-mode .ga-fav-airport-star {
+    -webkit-transition: none;
+    transition: none;
 }
 
 input.airport-input-valid,

@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v2156';
+const CACHE = 'ga-dispatcher-v2157';
 
 const STATIC = [
     './',
@@ -38,6 +38,7 @@ const STATIC = [
     './navcom-preferences-client.js',
     './display-clock.js',
     './map-display-controls.js',
+    './map-favorite-airports.js',
     './radio-tuning-core.js',
     './radio-tuning-ui.js',
     './airport-radio.js',

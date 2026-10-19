@@ -6,7 +6,7 @@ const { fontDeclarations, htmlFontDeclarations, clientFontSource } = require('./
 
 const EFB_WEB_CLIENT_PATH = '/efb/v1/';
 const EFB_WEB_CLIENT_PROBE_PATH = '/efb/v1/probe/';
-const EFB_WEB_ASSET_REVISION = '56601';
+const EFB_WEB_ASSET_REVISION = '56701';
 const fileCache = new Map();
 
 const STATIC_ASSETS = Object.freeze({
@@ -42,6 +42,7 @@ const STATIC_ASSETS = Object.freeze({
   '/efb/v1/assets/navigation-warning-core.js': [path.join(__dirname, 'efb-web-assets', 'navigation-warning-core.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/display-clock.js': [path.join(__dirname, 'efb-web-assets', 'display-clock.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/map-display-controls.js': [path.join(__dirname, 'efb-web-assets', 'map-display-controls.js'), 'text/javascript; charset=utf-8'],
+  '/efb/v1/assets/map-favorite-airports.js': [path.join(__dirname, 'efb-web-assets', 'map-favorite-airports.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/airport-details.js': [path.join(__dirname, 'efb-web-assets', 'airport-details.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/airport-aip.js': [path.join(__dirname, 'efb-web-assets', 'airport-aip.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/map-route-edit-core.js': [path.join(__dirname, 'efb-web-assets', 'map-route-edit-core.js'), 'text/javascript; charset=utf-8'],
@@ -169,6 +170,7 @@ ${extractKartentischMarkup()}
 <script src="/efb/v1/assets/map-prediction.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/map-profile-controls.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/map-display-controls.js?v=${EFB_WEB_ASSET_REVISION}"></script>
+<script src="/efb/v1/assets/map-favorite-airports.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/airport-radio.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/airport-details.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/airport-aip.js?v=${EFB_WEB_ASSET_REVISION}"></script>

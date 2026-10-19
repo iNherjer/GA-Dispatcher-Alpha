@@ -377,7 +377,7 @@
     });
   }
 
-  var uiPreferenceKeys = ['telemetry','currentInfo','nextLeg','routeProgress','compass','lowFps','autoZoom','zoomControl','terrainAvoid','magentaLine'];
+  var uiPreferenceKeys = ['telemetry','currentInfo','nextLeg','routeProgress','compass','lowFps','autoZoom','zoomControl','terrainAvoid','magentaLine','favoriteAirports'];
   var uiPending = {}, uiSaving = false, uiRetry = null, uiLoading = false, uiRevision = -1;
   function applyUiPreferences(display) {
     var ui = display && display.ui;
@@ -1643,7 +1643,7 @@
     });
     window.gaMapDisplayAdapter = {
       supports: function(key) {
-        return ['magentaLine', 'telemetry', 'currentInfo', 'nextLeg', 'routeProgress', 'compass', 'lowFps', 'autoZoom', 'zoomControl', 'terrainAvoid'].indexOf(key) >= 0;
+        return ['magentaLine', 'telemetry', 'currentInfo', 'nextLeg', 'routeProgress', 'compass', 'lowFps', 'autoZoom', 'zoomControl', 'terrainAvoid', 'favoriteAirports'].indexOf(key) >= 0;
       },
       apply: function(key) {
         if (['telemetry', 'currentInfo', 'nextLeg'].indexOf(key) >= 0) {
@@ -1658,6 +1658,7 @@
           if (map) map.invalidateSize(false);
         }
         if (key === 'magentaLine') renderProgress();
+        if (key === 'favoriteAirports' && window.gaRenderFavoriteAirportStars) window.gaRenderFavoriteAirportStars();
         if (key === 'autoZoom') {
           window.resetMapAutoZoomState();
           window.refreshMapAutoZoomUi();

@@ -43,6 +43,7 @@ const MAP_HINT_DEFAULTS = {
     vfrIndex: false,
     terrainAvoid: false,
     traffic: true,
+    favoriteAirports: true,
     autoZoom: false,
     zoomControl: false,
     telemetry: true,
@@ -173,6 +174,7 @@ function refreshMapHintMenuUi() {
         vfrIndex: '🧭 VFR-Index',
         terrainAvoid: '🏔️ Terrain Avoid',
         traffic: '✈️ Traffic',
+        favoriteAirports: '⭐ Favoriten',
         autoZoom: '🔍 Autozoom',
         zoomControl: '🔎 Zoomsteuerung',
         telemetry: '📟 Telemetrie',
@@ -190,6 +192,7 @@ function refreshMapHintMenuUi() {
         vfrIndex: 'hintToggleVfrIndex',
         terrainAvoid: 'hintToggleTerrainAvoid',
         traffic: 'hintToggleTraffic',
+        favoriteAirports: 'hintToggleFavoriteAirports',
         autoZoom: 'hintToggleAutoZoom',
         zoomControl: 'hintToggleZoomControl',
         telemetry: 'hintToggleTelemetry',
@@ -240,6 +243,7 @@ window.toggleMapHint = function(key) {
     window.mapHints[key] = !(window.mapHints[key] !== false);
     saveMapHintSetting(key);
     if (key === 'zoomControl') window.dispatchEvent(new Event('ga-map-zoom-control-changed'));
+    if (key === 'favoriteAirports' && typeof window.gaRenderFavoriteAirportStars === 'function') window.gaRenderFavoriteAirportStars();
     if (window.gaMapDisplayAdapter) window.gaMapDisplayAdapter.apply(key);
     else applyMapHintEffects(key);
     refreshMapHintMenuUi();

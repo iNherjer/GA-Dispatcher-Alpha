@@ -85,6 +85,7 @@
       "efb-web-assets/map-profile-controls.js",
       "efb-web-assets/display-clock.js",
       "efb-web-assets/map-display-controls.js",
+      "efb-web-assets/map-favorite-airports.js",
       "efb-web-assets/radio-tuning-core.js",
       "efb-web-assets/radio-tuning-ui.js",
       "efb-web-assets/navcom-preferences-client.js",

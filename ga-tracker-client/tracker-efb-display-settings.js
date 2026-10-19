@@ -4,7 +4,7 @@ function validScale(value) {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0.5 && value <= 3;
 }
 
-const UI_BOOLEAN_KEYS = ['telemetry', 'currentInfo', 'nextLeg', 'routeProgress', 'compass', 'lowFps', 'autoZoom', 'zoomControl', 'terrainAvoid', 'magentaLine', 'profileVisible', 'toolbarCollapsed'];
+const UI_BOOLEAN_KEYS = ['telemetry', 'currentInfo', 'nextLeg', 'routeProgress', 'compass', 'lowFps', 'autoZoom', 'zoomControl', 'terrainAvoid', 'magentaLine', 'favoriteAirports', 'profileVisible', 'toolbarCollapsed'];
 function normalizeUi(value) {
   const result = {};
   if (!value || typeof value !== 'object' || Array.isArray(value)) return result;
