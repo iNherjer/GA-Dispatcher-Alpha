@@ -1,13 +1,13 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-10-18T18:00:42.740Z",
-  "version": "v564",
-  "versionCode": 564,
-  "releaseTag": "v564",
+  "publishedAt": "2026-10-19T06:31:43.000Z",
+  "version": "v565",
+  "versionCode": 565,
+  "releaseTag": "v565",
   "asset": {
     "name": "VFR-Multitool-Tracker.exe",
-    "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/v564/VFR-Multitool-Tracker.exe",
-    "size": 174047982,
-    "sha256": "89fad4ca138ad49c780647fb919bd61e366e6bf18798c50ea5d534c87940bda1"
+    "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/v565/VFR-Multitool-Tracker.exe",
+    "size": 174049609,
+    "sha256": "cb1be0adafa504f467d68b1b905264c3b5b3969dbc3c8cdc2d323a669e6f5e44"
   }
 }
