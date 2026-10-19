@@ -33,3 +33,8 @@ beenden. Beim Start fragte Windows jedes Mal per UAC nach.
 - Oberfläche im Browser mit dem echten UI geprüft.
 - Offen: Windows-Feldtest mit SayIntentions (UAC-Einmalabfrage, Schließen über
   Aufgabe) und echter SimConnect-Stufe.
+
+## Aktivierung (19.10.2026)
+
+Öffentlicher Download geprüft (100268963 Bytes, SHA-512 wie `latest.yml`, Blockmap identisch).
+`latest.yml` und `alpha.yml` aktiviert. Windows-Feldtest steht noch aus.
