@@ -398,6 +398,7 @@ const autostartResultLabels = { started: 'Gestartet', skipped: 'Lief bereits', f
 let autostartEntries = [];
 let autostartListSignature = '';
 let autostartDragId = '';
+let autostartRenderDeferred = false;
 let autostartLaunchPending = false;
 let autostartDetectPending = false;
 
@@ -436,11 +437,14 @@ function autostartItem(entry, index, run) {
   if (!entry.enabled) item.classList.add('disabled');
   if (run.phase === 'running' && run.currentId === entry.id) item.classList.add('current');
   item.dataset.id = entry.id;
+  // Der ganze Eintrag ist ziehbar; Schalter, Felder und Pfeile behalten ihre Bedienung.
+  item.draggable = true;
+  item.title = 'Ziehen zum Sortieren';
+  let pressTarget = null;
+  item.addEventListener('mousedown', (event) => { pressTarget = event.target; });
 
   const handle = document.createElement('span');
   handle.className = 'autostart-handle';
-  handle.title = 'Ziehen zum Sortieren';
-  handle.draggable = true;
   const up = document.createElement('button');
   up.type = 'button';
   up.textContent = '▲';
@@ -456,22 +460,29 @@ function autostartItem(entry, index, run) {
   down.disabled = index === autostartEntries.length - 1;
   down.addEventListener('click', () => moveAutostartEntry(entry.id, index + 1));
   handle.append(up, grip, down);
-  handle.addEventListener('dragstart', (event) => {
+  item.addEventListener('dragstart', (event) => {
+    if (pressTarget?.closest?.('input, select, button, textarea')) {
+      event.preventDefault();
+      return;
+    }
     autostartDragId = entry.id;
     item.classList.add('dragging');
     event.dataTransfer.effectAllowed = 'move';
     event.dataTransfer.setData('text/plain', entry.id);
   });
-  handle.addEventListener('dragend', () => {
+  item.addEventListener('dragend', () => {
     autostartDragId = '';
     item.classList.remove('dragging');
+    if (autostartRenderDeferred) renderAutostart(latestState?.autostart);
   });
   item.addEventListener('dragover', (event) => {
     if (!autostartDragId) return;
     event.preventDefault();
     item.classList.add('drop-target');
   });
-  item.addEventListener('dragleave', () => item.classList.remove('drop-target'));
+  item.addEventListener('dragleave', (event) => {
+    if (!item.contains(event.relatedTarget)) item.classList.remove('drop-target');
+  });
   item.addEventListener('drop', (event) => {
     if (!autostartDragId) return;
     event.preventDefault();
@@ -616,6 +627,9 @@ function renderAutostart(autostart) {
 
   const signature = JSON.stringify([entries, run.phase, run.currentId, run.results]);
   if (signature === autostartListSignature) return;
+  // Ein Neuaufbau mitten im Ziehen wuerde den Vorgang abbrechen.
+  autostartRenderDeferred = Boolean(autostartDragId);
+  if (autostartRenderDeferred) return;
   if (elements.autostartList.contains(document.activeElement) && document.activeElement.tagName === 'SELECT') return;
   autostartListSignature = signature;
   autostartEntries = entries;

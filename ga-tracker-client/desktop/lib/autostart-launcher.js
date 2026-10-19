@@ -11,6 +11,10 @@ const MAX_DELAY_SECONDS = 120;
 const DEFAULT_DELAY_SECONDS = 3;
 const ALLOWED_EXTENSIONS = new Set(['.exe', '.lnk', '.bat', '.cmd']);
 const CLOSE_GRACE_MS = 5000;
+const SIM_POLL_MS = 15000;
+// Steam/Store brauchen teils Minuten bis der Sim-Prozess erscheint.
+const SIM_APPEAR_POLLS = 60;
+const SIM_GONE_POLLS = 2;
 
 // Bekannte Simulatoren. Steam-App-ID, Store-Paketname und Prozessname dienen
 // nur der Erkennung und dem Start; geschlossen wird ein Simulator nie automatisch.
@@ -156,6 +160,7 @@ class AutostartLauncher extends EventEmitter {
     this.createId = createId;
     this.icons = new Map();
     this.ownedImageNames = new Set();
+    this.simWatchToken = 0;
     this.simCandidates = null;
     this.run = { phase: 'idle', currentId: '', results: {}, message: '' };
   }
@@ -257,7 +262,7 @@ class AutostartLauncher extends EventEmitter {
         delaySeconds: DEFAULT_DELAY_SECONDS
       });
     }
-    this.save({ ...settings, entries: settings.entries.concat(added) });
+    this.save({ ...settings, entries: added.concat(settings.entries) });
     if (added.length) void this.loadIcons();
     return { ok: true, added: added.length, rejected };
   }
@@ -424,6 +429,8 @@ class AutostartLauncher extends EventEmitter {
       }
       if (index < entries.length - 1 && entry.delaySeconds > 0) await this.sleep(entry.delaySeconds * 1000);
     }
+    const simEntry = entries.find((entry) => entry.kind === 'sim' && entry.imageName);
+    if (simEntry && this.run.results[simEntry.id] !== 'failed') void this.watchSimulator(simEntry.imageName);
     const message = failed
       ? `${failed} Programm${failed === 1 ? '' : 'e'} konnte${failed === 1 ? '' : 'n'} nicht gestartet werden.`
       : 'Alle Programme wurden gestartet.';
@@ -431,9 +438,44 @@ class AutostartLauncher extends EventEmitter {
     return { ok: failed === 0, message };
   }
 
+  // Beobachtet den Sim nach dem Autostart. Sobald er lief und danach zweimal
+  // in Folge fehlt, gilt er als beendet und die eigenen Programme werden
+  // geschlossen. Ein Sim, der nie erscheint, beendet nur die Beobachtung.
+  async watchSimulator(imageName) {
+    const token = ++this.simWatchToken;
+    const name = imageName.toLowerCase();
+    let seen = false;
+    let gone = 0;
+    for (let poll = 0; this.simWatchToken === token; poll += 1) {
+      await this.sleep(SIM_POLL_MS);
+      if (this.simWatchToken !== token) return;
+      const running = await this.runningImageNames();
+      if (running.size === 0) continue; // tasklist fehlgeschlagen, nicht als Ende werten
+      if (running.has(name)) {
+        seen = true;
+        gone = 0;
+        continue;
+      }
+      if (!seen) {
+        if (poll + 1 >= SIM_APPEAR_POLLS) return;
+        continue;
+      }
+      gone += 1;
+      if (gone < SIM_GONE_POLLS) continue;
+      await this.shutdownOwned();
+      return;
+    }
+  }
+
+  stopSimulatorWatch() {
+    this.simWatchToken += 1;
+  }
+
   // Schliesst nur Programme, die in dieser Sitzung vom Autostart gestartet
-  // wurden und vorher nicht liefen. Der Simulator wird nie geschlossen.
+  // wurden und vorher nicht liefen; ausgeloest durch Sim-Ende oder App-Ende.
+  // Der Simulator wird nie geschlossen.
   async shutdownOwned() {
+    this.stopSimulatorWatch();
     if (this.platform !== 'win32' || !this.settings().closeOnExit || !this.ownedImageNames.size) return;
     const names = [...this.ownedImageNames];
     this.ownedImageNames.clear();

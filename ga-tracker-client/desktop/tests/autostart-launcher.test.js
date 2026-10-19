@@ -180,3 +180,52 @@ test('launch is refused while disabled and close is skipped without the option',
   await instance.shutdownOwned();
   assert.equal(calls.length, 0);
 });
+
+test('new programs are listed first and the simulator stays at the end', () => {
+  const store = memoryStore({ enabled: true, entries: [
+    { id: 'old', kind: 'program', name: 'old', path: 'C:\\old.exe' },
+    { id: 's', kind: 'sim', simId: 'msfs2024', source: 'steam', launchTarget: 'steam://rungameid/2537590' }
+  ] });
+  const instance = launcher({ store, files: ['C:\\new.exe'] });
+  assert.equal(instance.addPaths(['C:\\new.exe']).added, 1);
+  assert.deepEqual(instance.settings().entries.map((entry) => entry.name), ['new', 'old', 'MSFS 2024']);
+});
+
+function simWatchFixture(sequence) {
+  const calls = [];
+  let poll = 0;
+  const instance = launcher({
+    calls,
+    store: memoryStore({ enabled: true, closeOnExit: true, entries: [] }),
+    handlers: {
+      'tasklist.exe': () => {
+        const state = sequence[Math.min(poll, sequence.length - 1)];
+        poll += 1;
+        if (poll >= sequence.length + 3) instance.stopSimulatorWatch();
+        if (state === 'error') throw new Error('tasklist failed');
+        return ['"explorer.exe","1"', ...(state === 'sim' ? ['"FlightSimulator2024.exe","2"'] : [])].join('\r\n');
+      }
+    }
+  });
+  instance.ownedImageNames.add('navmap.exe');
+  const kills = () => calls.filter((call) => call.command === 'taskkill.exe').map((call) => call.args[1]);
+  return { instance, kills };
+}
+
+test('owned programs close after the simulator was running and then ends', async () => {
+  const { instance, kills } = simWatchFixture(['none', 'sim', 'sim', 'error', 'none', 'none']);
+  await instance.watchSimulator('FlightSimulator2024.exe');
+  assert.ok(kills().includes('navmap.exe'));
+  assert.equal(instance.ownedImageNames.size, 0);
+});
+
+test('a single missed poll or a simulator that never starts closes nothing', async () => {
+  const blip = simWatchFixture(['sim', 'none', 'sim']);
+  await blip.instance.watchSimulator('FlightSimulator2024.exe');
+  assert.deepEqual(blip.kills(), []);
+
+  const never = simWatchFixture(['none']);
+  await never.instance.watchSimulator('FlightSimulator2024.exe');
+  assert.deepEqual(never.kills(), []);
+  assert.equal(never.instance.ownedImageNames.size, 1);
+});

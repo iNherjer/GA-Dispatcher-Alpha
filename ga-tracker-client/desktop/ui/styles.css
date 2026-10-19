@@ -945,6 +945,7 @@ dialog::backdrop {
   border-radius: 10px;
   padding: 8px 9px;
   background: rgba(7, 17, 29, 0.48);
+  cursor: grab;
 }
 
 .autostart-item.dragging {
