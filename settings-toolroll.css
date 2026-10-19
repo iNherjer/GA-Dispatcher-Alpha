@@ -1,5 +1,5 @@
 /* Separate leather head and repeatable backing: content determines roll length. */
-body .settings-shell.settings-toolroll {
+body:not(.theme-win95) .settings-shell.settings-toolroll {
     --roll-ink: #f2dfbd;
     --roll-muted: #d4ba94;
     --roll-brass: #ddbd77;
@@ -11,7 +11,7 @@ body .settings-shell.settings-toolroll {
     box-shadow: none !important;
     font-family: 'Courier New', Courier, monospace;
 }
-body .settings-toolroll #settingsToggleBtn {
+body:not(.theme-win95) .settings-toolroll #settingsToggleBtn {
     position: relative;
     display: block;
     width: 100%;
@@ -30,7 +30,7 @@ body .settings-toolroll #settingsToggleBtn {
     filter: drop-shadow(3px 8px 6px #0008);
 }
 .settings-roll-head { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-body .settings-toolroll .settings-toggle-label {
+body:not(.theme-win95) .settings-toolroll .settings-toggle-label {
     position: absolute;
     top: 43%; left: 23%; width: 54%;
     transform: translateY(-50%);
@@ -40,12 +40,12 @@ body .settings-toolroll .settings-toggle-label {
     text-align: center;
     text-transform: none;
 }
-body .settings-toolroll .settings-toggle-chevron {
+body:not(.theme-win95) .settings-toolroll .settings-toggle-chevron {
     position: absolute; top: 60%; left: 47%; width: 6%;
     font-size: 13px; text-align: center; color: #e4c88c !important;
 }
-body .settings-toolroll #settingsToggleBtn:focus-visible { outline: 2px dashed #e4c88c; outline-offset: 2px; }
-body .settings-toolroll #settingsPanel {
+body:not(.theme-win95) .settings-toolroll #settingsToggleBtn:focus-visible { outline: 2px dashed #e4c88c; outline-offset: 2px; }
+body:not(.theme-win95) .settings-toolroll #settingsPanel {
     display: block;
     height: 0;
     overflow: hidden;
@@ -56,9 +56,9 @@ body .settings-toolroll #settingsPanel {
     visibility: hidden;
     transition: none;
 }
-body .settings-toolroll.is-open #settingsPanel { height: auto; margin-top: -26px; visibility: visible; }
+body:not(.theme-win95) .settings-toolroll.is-open #settingsPanel { height: auto; margin-top: -26px; visibility: visible; }
 .settings-roll-body { min-height: 0; overflow: hidden; }
-body .settings-toolroll .settings-panel-inner {
+body:not(.theme-win95) .settings-toolroll .settings-panel-inner {
     display: grid;
     gap: 18px;
     margin: 0 2%;
@@ -70,8 +70,8 @@ body .settings-toolroll .settings-panel-inner {
     transform: translateY(-100%);
     transition: none;
 }
-body .settings-toolroll.is-open .settings-panel-inner { transform: translateY(0); }
-body .settings-shell.settings-toolroll .settings-section {
+body:not(.theme-win95) .settings-toolroll.is-open .settings-panel-inner { transform: translateY(0); }
+body:not(.theme-win95) .settings-shell.settings-toolroll .settings-section {
     position: relative;
     min-width: 0;
     padding: 16px 12px !important;
@@ -84,16 +84,16 @@ body .settings-shell.settings-toolroll .settings-section {
     color: var(--roll-ink);
     font-family: inherit;
 }
-body .settings-shell.settings-toolroll .settings-section-title { color: var(--roll-ink) !important; font: 700 13px 'Courier New', Courier, monospace; text-shadow: 0 1px 1px #311d16; }
-body .settings-shell.settings-toolroll .settings-section-kicker { color: var(--roll-muted) !important; }
-body .settings-shell.settings-toolroll .api-hint,
-body .settings-shell.settings-toolroll .settings-section label,
-body .settings-shell.settings-toolroll .aircraft-preset-settings-field span,
-body .settings-shell.settings-toolroll .ui-scale-label { color: var(--roll-muted) !important; }
-body .settings-toolroll a { color: var(--roll-brass); }
-body .settings-shell.settings-toolroll button:not(#settingsToggleBtn):not(.win95-window-close-btn):not(.win95-window-minimize-btn),
-body .settings-shell.settings-toolroll select,
-body .settings-shell.settings-toolroll input:not([type=range]):not([type=checkbox]) {
+body:not(.theme-win95) .settings-shell.settings-toolroll .settings-section-title { color: var(--roll-ink) !important; font: 700 13px 'Courier New', Courier, monospace; text-shadow: 0 1px 1px #311d16; }
+body:not(.theme-win95) .settings-shell.settings-toolroll .settings-section-kicker { color: var(--roll-muted) !important; }
+body:not(.theme-win95) .settings-shell.settings-toolroll .api-hint,
+body:not(.theme-win95) .settings-shell.settings-toolroll .settings-section label,
+body:not(.theme-win95) .settings-shell.settings-toolroll .aircraft-preset-settings-field span,
+body:not(.theme-win95) .settings-shell.settings-toolroll .ui-scale-label { color: var(--roll-muted) !important; }
+body:not(.theme-win95) .settings-toolroll a { color: var(--roll-brass); }
+body:not(.theme-win95) .settings-shell.settings-toolroll button:not(#settingsToggleBtn):not(.win95-window-close-btn):not(.win95-window-minimize-btn),
+body:not(.theme-win95) .settings-shell.settings-toolroll select,
+body:not(.theme-win95) .settings-shell.settings-toolroll input:not([type=range]):not([type=checkbox]) {
     min-width: 0;
     max-width: 100%;
     box-sizing: border-box;
@@ -105,58 +105,80 @@ body .settings-shell.settings-toolroll input:not([type=range]):not([type=checkbo
     font-family: 'Courier New', Courier, monospace !important;
     text-shadow: none !important;
 }
-body .settings-shell.settings-toolroll select option { color: #f4dfb9; background: #302218; }
-body .settings-toolroll input::placeholder { color: #c1a989 !important; opacity: .8; }
-body .settings-shell.settings-toolroll button:not(#settingsToggleBtn):hover { filter: brightness(1.12); }
-body .settings-toolroll input[type=range] { accent-color: #d5b67c; }
-body .settings-toolroll .slider { background: #38271c; border-color: #b28a5c; }
-body .settings-toolroll input:checked + .slider { background: #a9864c; }
-body .settings-toolroll .boarding-route-editor,
-body .settings-toolroll .ui-scale-control { background: #301e164f; border-color: #b28a5c; color: var(--roll-ink); }
-body .settings-toolroll .settings-help-popover { color: #f4dfb9; background: #302218; border-color: #b28a5c; }
+body:not(.theme-win95) .settings-shell.settings-toolroll select option { color: #f4dfb9; background: #302218; }
+body:not(.theme-win95) .settings-toolroll input::placeholder { color: #c1a989 !important; opacity: .8; }
+body:not(.theme-win95) .settings-shell.settings-toolroll button:not(#settingsToggleBtn):hover { filter: brightness(1.12); }
+body:not(.theme-win95) .settings-toolroll input[type=range] { accent-color: #d5b67c; }
+body:not(.theme-win95) .settings-toolroll .slider { background: #38271c; border-color: #b28a5c; }
+body:not(.theme-win95) .settings-toolroll input:checked + .slider { background: #a9864c; }
+body:not(.theme-win95) .settings-toolroll .boarding-route-editor,
+body:not(.theme-win95) .settings-toolroll .ui-scale-control { background: #301e164f; border-color: #b28a5c; color: var(--roll-ink); }
+body:not(.theme-win95) .settings-toolroll .settings-help-popover { color: #f4dfb9; background: #302218; border-color: #b28a5c; }
 @media (prefers-reduced-motion: reduce) {
-    body .settings-toolroll #settingsPanel,
-    body .settings-toolroll .settings-panel-inner { transition: none; }
+    body:not(.theme-win95) .settings-toolroll #settingsPanel,
+    body:not(.theme-win95) .settings-toolroll .settings-panel-inner { transition: none; }
 }
-/* Retain the existing draggable/closable Win95 window and its scroll viewport. */
-body.theme-win95.win95-settings-window-open .settings-toolroll #settingsPanel {
-    max-height: calc(100dvh - 220px);
-    height: auto;
-    overflow-y: auto;
-    scrollbar-color: #a07a51 #3b281d;
-}
-body .settings-shell.settings-toolroll .settings-section-head { flex-wrap: wrap; align-items: center; gap: 10px; }
-body .settings-shell.settings-toolroll .settings-section-head > div:first-child { flex: 1 1 135px; min-width: 135px; }
-body .settings-shell.settings-toolroll .settings-section-title { overflow-wrap: normal; word-break: normal; }
+body:not(.theme-win95) .settings-shell.settings-toolroll .settings-section-head { flex-wrap: wrap; align-items: center; gap: 10px; }
+body:not(.theme-win95) .settings-shell.settings-toolroll .settings-section-head > div:first-child { flex: 1 1 135px; min-width: 135px; }
+body:not(.theme-win95) .settings-shell.settings-toolroll .settings-section-title { overflow-wrap: normal; word-break: normal; }
 /* Directional depth from the same upper-left light as the book and blueprint. */
-body .settings-toolroll #settingsPanel { filter: drop-shadow(4px 10px 7px #0008); }
+body:not(.theme-win95) .settings-toolroll #settingsPanel { filter: drop-shadow(4px 10px 7px #0008); }
 
-body .settings-toolroll.is-unrolling #settingsPanel { visibility: visible; }
+body:not(.theme-win95) .settings-toolroll.is-unrolling #settingsPanel { visibility: visible; }
 /* Clear section titles and a compact provider row. */
-body .settings-shell.settings-toolroll .settings-section-head { display: flex; flex-direction: column; align-items: center; padding: 0 28px; }
-body .settings-shell.settings-toolroll .settings-section-head > div:first-child { flex: none; width: 100%; text-align: center; }
-body .settings-shell.settings-toolroll .settings-section-title { display: block; font-size: 20px; line-height: 1.25; text-align: center; }
-body .settings-toolroll .settings-section-head .settings-help-btn { position: absolute; right: 0; top: 0; }
-body .settings-toolroll .settings-section-status { justify-content: center; flex-wrap: wrap; }
-body .settings-toolroll #loginIndicator { justify-content: center; margin: 8px 0 0 !important; }
-body .settings-toolroll .ai-provider-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 58px; gap: 8px; align-items: end; }
-body .settings-toolroll .ai-enable-field { display: flex; flex-direction: column; align-items: center; font-size: 10px; color: var(--roll-muted); gap: 6px; }
-body .settings-toolroll .ai-enable-field .switch { transform: scale(.65) !important; height: 34px; }
-body .settings-toolroll .ai-provider-key[hidden], body .settings-toolroll #aircraftPresetSlot[hidden] { display: none !important; }
-body .settings-toolroll .settings-mission-status { display: flex; flex-direction: column; gap: 8px; margin: 16px 0 12px; padding: 12px; background: #20170ed9; border: 1px solid #b28a5c; border-radius: 6px; }
-body .settings-toolroll .settings-mission-status-lines { display: flex; flex-direction: column; gap: 6px; }
-body .settings-toolroll #missionRuntimeStatus { color: #fff3d5 !important; font-size: 12px !important; font-weight: bold; }
-body .settings-toolroll #missionRuntimeDetail, body .settings-toolroll #missionRuntimeNextStep { color: #ebd6b0 !important; max-width: none !important; text-align: left !important; line-height: 1.4; }
-body .settings-toolroll .settings-preset-list { display: grid; gap: 8px; }
-body .settings-toolroll .settings-preset-list button { padding: 11px; text-align: center; font-size: 14px; }
-body .settings-toolroll .settings-preset-list button[aria-expanded=true] { border-color: #f2d39b !important; background: #8b6538 !important; }
-body .settings-toolroll .settings-preset-editor { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 280ms ease; }
-body .settings-toolroll .settings-preset-editor.is-open { grid-template-rows: 1fr; }
-body .settings-toolroll .settings-preset-editor-body { min-height: 0; overflow: hidden; }
-body .settings-toolroll .settings-preset-editor-body > .settings-form-row:first-of-type { margin-top: 14px; }
-@media (prefers-reduced-motion: reduce) { body .settings-toolroll .settings-preset-editor { transition: none; } }
-body .settings-toolroll .settings-toggle-label.settings-roll-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-body .settings-toolroll .settings-toggle-chevron { left: 75%; top: 46%; }
-body .settings-shell.settings-toolroll .settings-section-title { font: 700 20px/1.25 'Courier New', Courier, monospace !important; }
-body .settings-toolroll .ai-provider-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 48px; gap: 6px; }
-body .settings-toolroll #aiProviderSelect, body .settings-toolroll #aiModelProfileSelect { font-size: 12px !important; padding: 8px 3px !important; }
+body:not(.theme-win95) .settings-shell.settings-toolroll .settings-section-head { display: flex; flex-direction: column; align-items: center; padding: 0 28px; }
+body:not(.theme-win95) .settings-shell.settings-toolroll .settings-section-head > div:first-child { flex: none; width: 100%; text-align: center; }
+body:not(.theme-win95) .settings-shell.settings-toolroll .settings-section-title { display: block; font-size: 20px; line-height: 1.25; text-align: center; }
+body:not(.theme-win95) .settings-toolroll .settings-section-head .settings-help-btn { position: absolute; right: 0; top: 0; }
+body:not(.theme-win95) .settings-toolroll .settings-section-status { justify-content: center; flex-wrap: wrap; }
+body:not(.theme-win95) .settings-toolroll #loginIndicator { justify-content: center; margin: 8px 0 0 !important; }
+body:not(.theme-win95) .settings-toolroll .ai-provider-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 58px; gap: 8px; align-items: end; }
+body:not(.theme-win95) .settings-toolroll .ai-enable-field { display: flex; flex-direction: column; align-items: center; font-size: 10px; color: var(--roll-muted); gap: 6px; }
+body:not(.theme-win95) .settings-toolroll .ai-enable-field .switch { transform: scale(.65) !important; height: 34px; }
+body:not(.theme-win95) .settings-toolroll .ai-provider-key[hidden], body:not(.theme-win95) .settings-toolroll #aircraftPresetSlot[hidden] { display: none !important; }
+body:not(.theme-win95) .settings-toolroll .settings-mission-status { display: flex; flex-direction: column; gap: 8px; margin: 16px 0 12px; padding: 12px; background: #20170ed9; border: 1px solid #b28a5c; border-radius: 6px; }
+body:not(.theme-win95) .settings-toolroll .settings-mission-status-lines { display: flex; flex-direction: column; gap: 6px; }
+body:not(.theme-win95) .settings-toolroll #missionRuntimeStatus { color: #fff3d5 !important; font-size: 12px !important; font-weight: bold; }
+body:not(.theme-win95) .settings-toolroll #missionRuntimeDetail, body:not(.theme-win95) .settings-toolroll #missionRuntimeNextStep { color: #ebd6b0 !important; max-width: none !important; text-align: left !important; line-height: 1.4; }
+body:not(.theme-win95) .settings-toolroll .settings-preset-list { display: grid; gap: 8px; }
+body:not(.theme-win95) .settings-toolroll .settings-preset-list button { padding: 11px; text-align: center; font-size: 14px; }
+body:not(.theme-win95) .settings-toolroll .settings-preset-list button[aria-expanded=true] { border-color: #f2d39b !important; background: #8b6538 !important; }
+body:not(.theme-win95) .settings-toolroll .settings-preset-editor { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 280ms ease; }
+body:not(.theme-win95) .settings-toolroll .settings-preset-editor.is-open { grid-template-rows: 1fr; }
+body:not(.theme-win95) .settings-toolroll .settings-preset-editor-body { min-height: 0; overflow: hidden; }
+body:not(.theme-win95) .settings-toolroll .settings-preset-editor-body > .settings-form-row:first-of-type { margin-top: 14px; }
+@media (prefers-reduced-motion: reduce) { body:not(.theme-win95) .settings-toolroll .settings-preset-editor { transition: none; } }
+body:not(.theme-win95) .settings-toolroll .settings-toggle-label.settings-roll-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+body:not(.theme-win95) .settings-toolroll .settings-toggle-chevron { left: 75%; top: 46%; }
+body:not(.theme-win95) .settings-shell.settings-toolroll .settings-section-title { font: 700 20px/1.25 'Courier New', Courier, monospace !important; }
+body:not(.theme-win95) .settings-toolroll .ai-provider-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 48px; gap: 6px; }
+body:not(.theme-win95) .settings-toolroll #aiProviderSelect, body:not(.theme-win95) .settings-toolroll #aiModelProfileSelect { font-size: 12px !important; padding: 8px 3px !important; }
+
+/* The Win95 settings surface is a window, not the leather disclosure. */
+body.theme-win95 .settings-roll-head { display:none; }
+body.theme-win95 .settings-toggle-label.settings-roll-sr {
+    position:static; width:auto; height:auto; overflow:visible; clip:auto;
+    clip-path:none; transform:none; text-align:left;
+}
+body.theme-win95 .settings-roll-body { overflow:visible; }
+body.theme-win95 .settings-panel-inner { padding:0; margin:0; transform:none; }
+body.theme-win95 .settings-section-head { flex-wrap:wrap; gap:8px; padding:8px; }
+body.theme-win95 .settings-section-head > div:first-child { min-width:0; }
+body.theme-win95 .settings-section-title { display:block; white-space:normal; }
+body.theme-win95 .settings-section-status { flex-wrap:wrap; }
+body.theme-win95 .settings-preset-list { display:flex; flex-direction:column; gap:6px; margin-top:8px; }
+body.theme-win95 .settings-preset-editor { display:none; }
+body.theme-win95 .settings-preset-editor.is-open { display:block; }
+body.theme-win95 .settings-mission-status { padding:8px; border:1px solid #808080; background:#dfdfdf; }
+body.theme-win95 .settings-mission-status-lines { display:flex; flex-direction:column; gap:6px; }
+body.theme-win95 #missionRuntimeStatus,
+body.theme-win95 #missionRuntimeDetail,
+body.theme-win95 #missionRuntimeNextStep { color:#202020 !important; max-width:100% !important; }
+body.theme-win95 .ai-provider-key[hidden],
+body.theme-win95 #aircraftPresetSlot[hidden] { display:none !important; }
+
+body.theme-win95 .settings-shell .ai-provider-grid { grid-template-columns:minmax(0,1fr) minmax(0,1fr) 62px; align-items:end; }
+body.theme-win95 .settings-shell .ai-enable-field { display:flex; flex-direction:column; align-items:center; gap:5px; font-size:11px; }
+body.theme-win95 .settings-shell .switch { display:inline-flex; width:18px; height:18px; min-width:18px; margin:0; transform:none; }
+body.theme-win95 .settings-shell .switch input { position:static; opacity:1; width:16px; height:16px; min-height:0; padding:0; margin:0; cursor:pointer; }
+body.theme-win95 .settings-shell .switch .slider { display:none; }

@@ -1812,7 +1812,7 @@ body.theme-retro h3.theme-title-text {
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8), 0 0 2px rgba(0, 0, 0, 0.9);
 }
 
-body.theme-retro label {
+body.theme-retro label:not(.ga-skin-control) {
     background: #111;
     color: #ddd;
     border: 1px solid #000;
@@ -1861,8 +1861,8 @@ body.theme-retro:not(.theme-navcom):not(.theme-ops1940) .analog-proposal-mode-la
     transform: translateY(1px);
 }
 
-body.theme-retro input,
-body.theme-retro select {
+body.theme-retro input:not(.ga-skin-control),
+body.theme-retro select:not(.ga-skin-control) {
     background-color: #f0eada;
     border: 1px solid #c2bba8;
     border-right: none;
@@ -1918,8 +1918,8 @@ body.theme-retro #maxSeats {
     border-left: 6px solid #f2c12e;
 }
 
-body.theme-retro input:focus,
-body.theme-retro select:focus {
+body.theme-retro input:not(.ga-skin-control):focus,
+body.theme-retro select:not(.ga-skin-control):focus {
     outline: none;
     transform: scale(1.02) rotate(0deg) !important;
     box-shadow: 4px 4px 12px rgba(0, 0, 0, 0.5);
@@ -1950,7 +1950,7 @@ body.theme-retro .slider-container {
     margin-top: 15px;
 }
 
-body.theme-retro input[type=range] {
+body.theme-retro input:not(.ga-skin-control)[type=range] {
     height: 8px;
     background: #111;
     border: 2px inset #444;
@@ -1959,7 +1959,7 @@ body.theme-retro input[type=range] {
     box-shadow: none;
 }
 
-body.theme-retro input[type=range]::-webkit-slider-thumb {
+body.theme-retro input:not(.ga-skin-control)[type=range]::-webkit-slider-thumb {
     height: 24px;
     width: 12px;
     border-radius: 2px;
@@ -6050,7 +6050,7 @@ body.map-is-fullscreen #mapTableOverlay {
         background: #c0c0c0;
         color: #000;
         box-shadow: 1px 1px 0 #000;
-        font-family: "MS Sans Serif", Tahoma, Arial, sans-serif;
+        font-family: "MS Sans Serif", Tahoma, Arial, "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols 2", "Segoe UI Emoji", "Apple Color Emoji", sans-serif;
         font-size: 18px;
         font-weight: 700;
         line-height: 1;
@@ -13660,7 +13660,7 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) 
     gap: 10px;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) label {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) label:not(.ga-skin-control) {
     color: rgba(228, 241, 250, 0.72);
     margin: 0 0 6px;
     font-size: 10px;
@@ -13668,8 +13668,8 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) 
     letter-spacing: 0;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) input,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) select {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) input:not(.ga-skin-control),
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) select:not(.ga-skin-control) {
     min-height: 48px;
     margin-bottom: 0;
     padding: 12px 13px;
@@ -13685,16 +13685,16 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) 
     outline: none;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) select {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) select:not(.ga-skin-control) {
     color-scheme: dark;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) input::placeholder {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) input:not(.ga-skin-control)::placeholder {
     color: rgba(238, 246, 255, 0.46);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) input:focus,
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) select:focus {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) input:not(.ga-skin-control):focus,
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) select:not(.ga-skin-control):focus {
     border-color: rgba(126, 199, 255, 0.72);
     box-shadow:
         inset 0 1px 0 rgba(255, 255, 255, 0.16),
@@ -13856,7 +13856,7 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) 
     box-shadow: 0 6px 18px rgba(126, 199, 255, 0.28);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) input[type=range] {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) input:not(.ga-skin-control)[type=range] {
     height: 26px;
     margin: 8px 0 1px;
     padding: 0;
@@ -13866,21 +13866,21 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) 
     appearance: none;
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) input[type=range]::-webkit-slider-runnable-track {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) input:not(.ga-skin-control)[type=range]::-webkit-slider-runnable-track {
     height: 20px;
     border-radius: 999px;
     background: linear-gradient(90deg, rgba(126, 199, 255, 0.95), rgba(104, 242, 160, 0.86));
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.24);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) input[type=range]::-moz-range-track {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) input:not(.ga-skin-control)[type=range]::-moz-range-track {
     height: 20px;
     border-radius: 999px;
     background: linear-gradient(90deg, rgba(126, 199, 255, 0.95), rgba(104, 242, 160, 0.86));
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.24);
 }
 
-body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) input[type=range]::-webkit-slider-thumb {
+body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) input:not(.ga-skin-control)[type=range]::-webkit-slider-thumb {
     width: 13px;
     height: 13px;
     margin-top: 3.5px;
@@ -15136,7 +15136,7 @@ body.theme-ops1940 .ops-dir-random.active {
     text-shadow: 0 0 7px rgba(255, 150, 126, 0.45), 0 1px 0 rgba(0, 0, 0, 0.95);
 }
 
-body.theme-ops1940 label {
+body.theme-ops1940 label:not(.ga-skin-control) {
     display: inline-block;
     position: relative;
     z-index: 2;
@@ -15158,8 +15158,8 @@ body.theme-ops1940 label {
     opacity: 1;
 }
 
-body.theme-ops1940 input,
-body.theme-ops1940 select {
+body.theme-ops1940 input:not(.ga-skin-control),
+body.theme-ops1940 select:not(.ga-skin-control) {
     min-height: 44px;
     margin-bottom: 0;
     padding: 10px 12px;
@@ -15184,12 +15184,12 @@ body.theme-ops1940 select {
     text-shadow: 0 1px 0 rgba(255, 255, 245, 0.35);
 }
 
-body.theme-ops1940 input::placeholder {
+body.theme-ops1940 input:not(.ga-skin-control)::placeholder {
     color: rgba(50, 33, 17, 0.52);
 }
 
-body.theme-ops1940 input:focus,
-body.theme-ops1940 select:focus {
+body.theme-ops1940 input:not(.ga-skin-control):focus,
+body.theme-ops1940 select:not(.ga-skin-control):focus {
     outline: 2px solid rgba(242, 202, 103, 0.7);
     outline-offset: 1px;
     box-shadow: inset 0 2px 7px rgba(50, 28, 9, 0.34), 0 0 0 4px rgba(184, 137, 53, 0.18), 0 5px 12px rgba(0, 0, 0, 0.6);
@@ -15489,7 +15489,7 @@ body.theme-ops1940 .drum-readout-container {
     letter-spacing: 0;
 }
 
-body.theme-ops1940 input[type=range] {
+body.theme-ops1940 input:not(.ga-skin-control)[type=range] {
     height: 20px;
     min-height: 20px;
     padding: 0;
@@ -15503,7 +15503,7 @@ body.theme-ops1940 input[type=range] {
     box-shadow: inset 0 3px 7px rgba(0, 0, 0, 0.92), 0 1px 0 rgba(255, 235, 176, 0.08);
 }
 
-body.theme-ops1940 input[type=range]::-webkit-slider-thumb {
+body.theme-ops1940 input:not(.ga-skin-control)[type=range]::-webkit-slider-thumb {
     width: 42px;
     height: 42px;
     margin-top: -13px;
@@ -16654,8 +16654,8 @@ body.theme-ops1940 .container[class*="ops1940-olive-"] .preset-row .btn-preset {
         grid-column: 1 / -1;
     }
 
-    body.theme-ops1940 input,
-    body.theme-ops1940 select {
+    body.theme-ops1940 input:not(.ga-skin-control),
+    body.theme-ops1940 select:not(.ga-skin-control) {
         min-height: 42px;
         font-size: 14px;
         padding: 9px 10px;
@@ -18653,7 +18653,7 @@ body.theme-win95 {
     --navlog-data: #800000;
     --navlog-freq: #000080;
     --navlog-border: #808080;
-    --drawer-font: "MS Sans Serif", Tahoma, Arial, sans-serif;
+    --drawer-font: "MS Sans Serif", Tahoma, Arial, "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols 2", "Segoe UI Emoji", "Apple Color Emoji", sans-serif;
     --drawer-font-mono: "Courier New", Courier, monospace;
     --drawer-panel-bg: #c0c0c0;
     --drawer-text: #000;
@@ -18671,7 +18671,7 @@ body.theme-win95 {
     --drawer-danger: #800000;
     --drawer-back-bg: #800000;
     --drawer-back-border: #400000;
-    font-family: "MS Sans Serif", Tahoma, Arial, sans-serif;
+    font-family: "MS Sans Serif", Tahoma, Arial, "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols 2", "Segoe UI Emoji", "Apple Color Emoji", sans-serif;
     background-color: #008080;
     color: #000;
     transition: none;
@@ -18842,7 +18842,7 @@ body.theme-win95 .win95-window-minimize-btn {
     border: 2px solid !important;
     border-color: #fff #404040 #404040 #fff !important;
     box-shadow: none !important;
-    font-family: "MS Sans Serif", Tahoma, Arial, sans-serif !important;
+    font-family: "MS Sans Serif", Tahoma, Arial, "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols 2", "Segoe UI Emoji", "Apple Color Emoji", sans-serif !important;
     font-size: 10px !important;
     font-weight: 700 !important;
     line-height: 1;
@@ -18978,7 +18978,7 @@ body.theme-win95 .pinboard-overlay {
     transform: none !important;
     transition: none !important;
     z-index: 100070;
-    font-family: "MS Sans Serif", Tahoma, Arial, sans-serif;
+    font-family: "MS Sans Serif", Tahoma, Arial, "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols 2", "Segoe UI Emoji", "Apple Color Emoji", sans-serif;
 }
 
 body.theme-win95 #mapTableOverlay {
@@ -19295,7 +19295,7 @@ body.theme-win95 .help-icon {
 }
 
 body.theme-win95 #searchIndicator,
-body.theme-win95 label,
+body.theme-win95 label:not(.ga-skin-control),
 body.theme-win95 .slider-label,
 body.theme-win95 .settings-section-kicker,
 body.theme-win95 .settings-section-title,
@@ -19306,10 +19306,10 @@ body.theme-win95 .rwy-info,
 body.theme-win95 .story,
 body.theme-win95 .wiki-info-note {
     color: #000;
-    font-family: "MS Sans Serif", Tahoma, Arial, sans-serif;
+    font-family: "MS Sans Serif", Tahoma, Arial, "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols 2", "Segoe UI Emoji", "Apple Color Emoji", sans-serif;
 }
 
-body.theme-win95 label,
+body.theme-win95 label:not(.ga-skin-control),
 body.theme-win95 .settings-section-kicker,
 body.theme-win95 .slider-label {
     font-size: 11px;
@@ -19317,9 +19317,9 @@ body.theme-win95 .slider-label {
     text-transform: none;
 }
 
-body.theme-win95 input,
-body.theme-win95 select,
-body.theme-win95 textarea {
+body.theme-win95 input:not(.ga-skin-control),
+body.theme-win95 select:not(.ga-skin-control),
+body.theme-win95 textarea:not(.ga-skin-control) {
     background: #fff;
     color: #000;
     border-radius: 0;
@@ -19327,29 +19327,29 @@ body.theme-win95 textarea {
     border-color: #404040 #fff #fff #404040;
     box-shadow: none;
     padding: 8px;
-    font-family: "MS Sans Serif", Tahoma, Arial, sans-serif;
+    font-family: "MS Sans Serif", Tahoma, Arial, "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols 2", "Segoe UI Emoji", "Apple Color Emoji", sans-serif;
     transition: none;
 }
 
-body.theme-win95 input:focus,
-body.theme-win95 select:focus,
-body.theme-win95 textarea:focus {
+body.theme-win95 input:not(.ga-skin-control):focus,
+body.theme-win95 select:not(.ga-skin-control):focus,
+body.theme-win95 textarea:not(.ga-skin-control):focus {
     outline: 1px dotted #000;
     outline-offset: -4px;
     border-color: #000 #fff #fff #000;
     box-shadow: none;
 }
 
-body.theme-win95 input::placeholder {
+body.theme-win95 input:not(.ga-skin-control)::placeholder {
     color: #606060;
 }
 
-body.theme-win95 select option {
+body.theme-win95 select:not(.ga-skin-control) option {
     background: #fff;
     color: #000;
 }
 
-body.theme-win95 button,
+body.theme-win95 button:not(.ga-skin-control),
 body.theme-win95 .btn-main,
 body.theme-win95 .btn-log,
 body.theme-win95 .btn-menu,
@@ -19368,13 +19368,13 @@ body.theme-win95 .map-mission-btn {
     border: 2px solid !important;
     border-color: #fff #404040 #404040 #fff !important;
     box-shadow: none !important;
-    font-family: "MS Sans Serif", Tahoma, Arial, sans-serif !important;
+    font-family: "MS Sans Serif", Tahoma, Arial, "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols 2", "Segoe UI Emoji", "Apple Color Emoji", sans-serif !important;
     font-weight: 700;
     letter-spacing: 0;
     transition: none !important;
 }
 
-body.theme-win95 button:hover,
+body.theme-win95 button:not(.ga-skin-control):hover,
 body.theme-win95 .btn-main:hover,
 body.theme-win95 .btn-log:hover,
 body.theme-win95 .btn-menu:hover,
@@ -19384,7 +19384,7 @@ body.theme-win95 .pb-tab:hover {
     background: #dfdfdf !important;
 }
 
-body.theme-win95 button:active,
+body.theme-win95 button:not(.ga-skin-control):active,
 body.theme-win95 .btn-main:active,
 body.theme-win95 .btn-main.active,
 body.theme-win95 .btn-log:active,
@@ -19454,7 +19454,7 @@ body.theme-win95 .theme-switch-wrapper span {
 }
 
 body.theme-win95 #themeSlider,
-body.theme-win95 input[type=range] {
+body.theme-win95 input:not(.ga-skin-control)[type=range] {
     appearance: none;
     -webkit-appearance: none;
     height: 18px;
@@ -19470,17 +19470,17 @@ body.theme-win95 #themeSlider {
     width: min(290px, 100%) !important;
 }
 
-body.theme-win95 input[type=range]::-webkit-slider-runnable-track {
+body.theme-win95 input:not(.ga-skin-control)[type=range]::-webkit-slider-runnable-track {
     height: 14px;
     background: repeating-linear-gradient(90deg, #808080 0 1px, transparent 1px 18px), #c0c0c0;
 }
 
-body.theme-win95 input[type=range]::-moz-range-track {
+body.theme-win95 input:not(.ga-skin-control)[type=range]::-moz-range-track {
     height: 14px;
     background: repeating-linear-gradient(90deg, #808080 0 1px, transparent 1px 18px), #c0c0c0;
 }
 
-body.theme-win95 input[type=range]::-webkit-slider-thumb {
+body.theme-win95 input:not(.ga-skin-control)[type=range]::-webkit-slider-thumb {
     -webkit-appearance: none;
     width: 16px;
     height: 22px;
@@ -19492,7 +19492,7 @@ body.theme-win95 input[type=range]::-webkit-slider-thumb {
     box-shadow: none;
 }
 
-body.theme-win95 input[type=range]::-moz-range-thumb {
+body.theme-win95 input:not(.ga-skin-control)[type=range]::-moz-range-thumb {
     width: 16px;
     height: 22px;
     background: #c0c0c0;
@@ -19611,7 +19611,7 @@ body.theme-win95 .ui-scale-control {
         z-index: 10040;
         pointer-events: none;
         color: #fff;
-        font-family: "MS Sans Serif", Tahoma, Arial, sans-serif;
+        font-family: "MS Sans Serif", Tahoma, Arial, "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols 2", "Segoe UI Emoji", "Apple Color Emoji", sans-serif;
         font-size: 11px;
         line-height: 1.15;
     }
@@ -19962,7 +19962,7 @@ body.theme-win95 .ui-scale-control {
         z-index: 10040;
         pointer-events: none;
         color: #fff;
-        font-family: "MS Sans Serif", Tahoma, Arial, sans-serif;
+        font-family: "MS Sans Serif", Tahoma, Arial, "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols 2", "Segoe UI Emoji", "Apple Color Emoji", sans-serif;
         font-size: 10px;
         line-height: 1.1;
     }
@@ -21527,3 +21527,23 @@ body.map-drag-zoom-enabled #autoFollowBtn {
 .map-drag-zoom.is-following {
     color: rgba(100, 210, 255, 0.9);
 }
+
+/* Detached Kartentisch menus need the Win95 palette too. */
+body.theme-win95 #mapHintsMenu,
+body.theme-win95 #mapVoiceMenu,
+body.theme-win95 #mapHintsMenu [id$="MenuBlock"] {
+    color:#000; background:#c0c0c0 !important;
+    border:2px solid !important; border-color:#fff #404040 #404040 #fff !important;
+    border-radius:0 !important; box-shadow:3px 3px 0 rgba(0,0,0,.35) !important;
+}
+body.theme-win95 #mapHintsMenu label,
+body.theme-win95 #mapHintsMenu span,
+body.theme-win95 #mapHintsMenu div,
+body.theme-win95 #mapVoiceMenu label,
+body.theme-win95 #mapVoiceMenu span,
+body.theme-win95 #mapVoiceMenu div { color:#202020 !important; }
+body.theme-win95 #mapHintsMenu select,
+body.theme-win95 #mapVoiceMenu select { color:#000 !important; background:#fff !important; }
+body.theme-win95 #mapHintsMenu input[type="checkbox"],
+body.theme-win95 #mapHintsMenu input[type="radio"] { padding:0; width:14px; height:14px; min-height:14px; }
+body.theme-win95 #mapVoiceMenu .ga-media-message { color:#333 !important; }

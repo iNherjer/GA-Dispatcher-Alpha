@@ -2476,6 +2476,7 @@ function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {l
     }
 
     function initMapUtilityTools() {
+        document.querySelectorAll('#mapStopwatchDevice button,#mapStopwatchDevice input').forEach(function(control){control.classList.add('ga-skin-control');});
         bindButtons();
         ensureE6BInputSurface();
         bindDrag('stopwatch');

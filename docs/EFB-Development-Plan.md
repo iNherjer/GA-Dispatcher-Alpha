@@ -1,3 +1,39 @@
+## Win95-Korrekturen – Alpha-Rollout Tracker v570 / Web v2163 (19.10.2026)
+
+Nutzer autorisiert den Rollout des geprüften Win95-Kandidaten. Tracker v570,
+Host-Assetrevision 57001, Web-Cache v2163. Klassisches Einstellungsfenster statt
+Lederrolle bei Win95; lesbare Anzeige-/Audiomenüs, unabhängige Player-/Uhr-Skins,
+Unicode-Fallbacks und echte zusätzliche Pixelzeichen. Bestehendes EFB-/Toolbar-
+Community-Paket und Desktop-Installer unverändert. Nur Alpha-Runtime umstellen,
+Stable unverändert. Sechs Win95-Browserfälle, Player- und EFB-Fallbackregressionen
+bestanden; echte MSFS-/Coherent-Abnahme bleibt offen.
+
+## Win95-Menüs und unabhängige Skins – lokaler Kandidat (19.10.2026)
+
+Basis origin/main 40f7444da (Tracker v569). Globale Formularregeln der Presets
+überschrieben Media-Buttons, Launcher, Lautstärke und Stoppuhr-Krone; Win95-
+Menüs hatten teilweise schwarze Texte auf dunklen Flächen. Neue explizite
+Klasse ga-skin-control grenzt selbst gestaltete Instrument-/Mediencontrols
+von generischen Formularregeln ab, auch für dynamische Watch-/iPod-Menüzeilen.
+Rootquellen, gepinnte Medienquellen und kompilierte EFB-Assets sind synchron.
+
+Anzeige/Audio erhalten eine deckende Win95-Palette. Die EFB-Hostregel für ein
+zwangsweise dunkles Anzeige-Menü nimmt Win95 aus; aktive Skin-/Uhr-Optionen
+sind blau hinterlegt. Die Leder-Einstellungsrolle gilt nur außerhalb Win95:
+Win95 behält die vorhandene Fensterlogik, Titelzeile, Minimize/Close und den
+Scrollbereich, ergänzt um klassische Checkboxen und zugängliche Preset-Editoren.
+Web-Symbol-Fallbacks ergänzt; EFB behält seine lokalen Fonts/SVG-Glyphen.
+Pixeldisplay unterstützt nun ä/ö/ü, Großumlaute, ß und ·; NFC-/NFD-Umlaute
+werden gleich gezeichnet, weitere Akzente nutzen den bisherigen Fallback.
+
+Prüfung: tools/win95-ui-selftest.mjs mit realem DOM/Styles, App-Fensterfunktionen
+und tatsächlichen EFB-/Toolbar-Assets. Sechs Fälle Web/EFB/Toolbar × 440/1000 px:
+Fenster öffnen/minimieren/schließen und scrollen, Menüpalette, Skin-Stilvergleich,
+Launcher, gemeinsame Stoppuhr sowie Bitmapvergleich der Sonderzeichen.
+Screenshots analysis/win95-ui-2026-10-19/. Bestehende iPod-, Winamp-, Watch- und
+vier EFB-Capability-Regressionen bestanden; 35 Node-Tests und Asset-Sync grün.
+Browserprüfungen, keine echte Coherent-/MSFS-Abnahme. Noch kein Build/Release.
+
 ## Watch-Uhr – Alpha-Rollout Tracker v569 / Web v2162 (19.10.2026)
 
 Nutzer beauftragt die Veröffentlichung des geprüften lokalen Watch-Standes.

@@ -1326,7 +1326,7 @@ body.ga-efb-tracker-host #awmFreqBanner {
 }
 
 /* Coherent popouts: opaque controls without filter/compositing dependencies. */
-body.ga-efb-tracker-host #mapHintsMenu {
+body.ga-efb-tracker-host:not(.theme-win95) #mapHintsMenu {
   background: #17212b !important;
   color: #eef5ff !important;
 }
@@ -1338,7 +1338,7 @@ body.ga-efb-tracker-host #mapHintsMenu * {
   transition: none !important;
   animation: none !important;
 }
-body.ga-efb-tracker-host #mapHintsMenu button {
+body.ga-efb-tracker-host:not(.theme-win95) #mapHintsMenu button {
   color: #eef5ff !important;
   opacity: 1;
 }
@@ -1656,3 +1656,14 @@ body.ga-efb-tracker-host .ga-map-context-height-airspace:focus,
 body.ga-efb-tracker-host .ga-map-context-height-airspace.is-selected { background:var(--ga-efb-band-selected, rgba(77,166,255,.88)); }
 body.ga-efb-tracker-host .ga-map-context-height-class-letter.is-ctr { font-size:18px; }
 body.ga-efb-tracker-host .ga-map-context-airport-full .ga-weather-layout-responsive { flex-direction:column !important; }
+
+/* Win95 choices retain a visible selected state instead of the global bevel. */
+body.ga-efb-tracker-host.theme-win95 .ga-efb-media-choices button[aria-pressed="true"],
+body.ga-efb-tracker-host.theme-win95 .ga-efb-font-buttons button[aria-pressed="true"],
+body.ga-efb-tracker-host.theme-win95 [aria-label="Uhrenskin"] button[aria-pressed="true"] {
+  color:#fff !important; background:#000080 !important;
+  border-color:#404040 #fff #fff #404040 !important;
+}
+body.ga-efb-tracker-host.theme-win95 #mapVoiceMenu .ga-audio-checkbox {
+  background:#fff !important; border-color:#404040 #fff #fff #404040 !important;
+}

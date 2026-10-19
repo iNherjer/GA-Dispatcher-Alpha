@@ -4,6 +4,14 @@
 
   // Small bitmap glyphs keep the LCD independent of installed fonts and themes.
   var glyphs = {
+    'ä': '01010/00000/01110/00001/01111/10001/01111',
+    'ö': '01010/00000/01110/10001/10001/10001/01110',
+    'ü': '01010/00000/10001/10001/10001/10011/01101',
+    'Ä': '01010/01110/10001/11111/10001/10001/10001',
+    'Ö': '01010/01110/10001/10001/10001/10001/01110',
+    'Ü': '01010/10001/10001/10001/10001/10001/01110',
+    'ß': '01100/10010/10010/10100/10010/10010/10100',
+    '·': '00000/00000/00000/00100/00000/00000/00000',
     ' ': '00000000000000000000000000000000000',
     '?': '01110100010000100010001000000000100',
     A: '01110/10001/10001/11111/10001/10001/10001',
@@ -196,6 +204,9 @@
       layer = document.createElement('div');
     layer.className = 'ga-media-layer';
     layer.innerHTML = '<button type="button" class="ga-media-launcher" aria-label="Mediensteuerung öffnen"><svg class="ga-media-clef" viewBox="0 0 24 44" aria-hidden="true" focusable="false"><path d="M12.5 39c0 3.5-5 3.7-5.4.7-.3-2.2 2.6-3 3.7-1.3M11.4 40.5L14.2 5.6c.2-3.4 4.4-3 3.6 1.4-.8 4.6-10.6 9.4-11.2 17-.5 6.2 6.2 8.6 10.2 5.6 3.4-2.6 2.2-8.6-2.6-8.4-4 .2-5 5.4-1.6 6.6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button><section class="ga-media-device ga-media-ipod" role="region" aria-label="iPod Mediensteuerung" hidden><div class="ga-ipod-drag" title="iPod verschieben"><span>HOLD</span><i></i></div><div class="ga-ipod-lcd"><canvas width="240" height="180" role="img" aria-label="Musikdisplay"></canvas><button type="button" class="ga-ipod-button ga-ipod-zoom ga-ipod-minus" data-zoom="-1" aria-label="Gerät verkleinern">−</button><button type="button" class="ga-ipod-button ga-ipod-zoom ga-ipod-plus" data-zoom="1" aria-label="Gerät vergrößern">+</button><div class="ga-ipod-screen-menu" role="group" aria-label="Musik-App auswählen" hidden></div><span class="ga-ipod-readable" aria-live="polite"></span><output class="ga-ipod-readable ga-ipod-zoom-value" aria-label="Gerätegröße"></output></div><div class="ga-ipod-wheel" role="slider" tabindex="0" aria-label="Musiklautstärke per Clickwheel" aria-valuemin="0" aria-valuemax="100"><button type="button" class="ga-ipod-button ga-ipod-menu" data-ipod-action="menu" aria-label="Gerätemenü" title="MENU: Zurück · Gedrückt halten: Schließen" aria-expanded="false">MENU</button><button type="button" class="ga-ipod-button ga-ipod-previous" data-ipod-action="previous" aria-label="Vorheriger Titel"><svg viewBox="0 0 28 24" aria-hidden="true" focusable="false"><path d="M4 4h2v16H4z M15 4v16L6 12z M24 4v16l-9-8z"/></svg></button><button type="button" class="ga-ipod-button ga-ipod-next" data-ipod-action="next" aria-label="Nächster Titel"><svg viewBox="0 0 28 24" aria-hidden="true" focusable="false"><path d="M22 4h2v16h-2z M13 4l9 8-9 8z M4 4l9 8-9 8z"/></svg></button><button type="button" class="ga-ipod-button ga-ipod-toggle" data-ipod-action="toggle" aria-label="Abspielen oder pausieren"><svg viewBox="0 0 28 24" aria-hidden="true" focusable="false"><path d="M3 4l11 8-11 8z M17 4h3v16h-3z M23 4h3v16h-3z"/></svg></button><button type="button" class="ga-ipod-button ga-ipod-center" data-ipod-action="source" aria-label="Nächste Musik-App" title="Musik-App wechseln"></button></div></section>';
+    layer.querySelectorAll('button,input,select,textarea,label').forEach(function (control) {
+      control.classList.add('ga-skin-control');
+    });
     host.appendChild(layer);
     var device = layer.querySelector('.ga-media-device'),
       launcher = layer.querySelector('.ga-media-launcher'),
@@ -255,8 +266,10 @@
       if (Number.isFinite(saved.scale)) scale = Math.max(.5, Math.min(1.6, saved.scale));
     } catch (_) {}
     function text(value, px, py, size, maxWidth, center) {
-      value = String(value || '').replace(/[äÄ]/g, 'a').replace(/[öÖ]/g, 'o').replace(/[üÜ]/g, 'u').replace(/ß/g, 'ss').replace(/[’‘]/g, "'").replace(/[—–]/g, '-');
-      if (value.normalize) value = value.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      value = String(value || '').replace(/[’‘]/g, "'").replace(/[—–]/g, '-');
+      if (value.normalize) value = value.normalize('NFC').split('').map(function (c) {
+        return glyphs[c] ? c : c.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      }).join('');
       ctx.save();
       ctx.beginPath();
       ctx.rect(px, py, maxWidth || 240, 8 * size);
@@ -638,7 +651,7 @@
       menuRows.forEach(function (row, i) {
         var button = document.createElement('button');
         button.type = 'button';
-        button.className = 'ga-ipod-menu-row';
+        button.className = 'ga-ipod-menu-row ga-skin-control';
         button.style.top = 26 + i * 29 + 'px';
         button.style.height = '28px';
         button.setAttribute('aria-label', row.aria);
