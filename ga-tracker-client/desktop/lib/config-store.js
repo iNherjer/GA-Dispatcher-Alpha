@@ -236,7 +236,8 @@ class TrackerConfigStore {
   setRadioHold(value) {
     const current = normalizeRadioHoldSettings(this.readDesktop().radioHold);
     const next = normalizeRadioHoldSettings({ ...current, ...(value && typeof value === 'object' ? value : {}) });
-    this.writeDesktop({ ...this.readDesktop(), radioHold: next });
+    const { radioHold: _previous, ...desktop } = this.readDesktop();
+    this.writeDesktop({ ...desktop, radioHold: next });
     return next;
   }
 

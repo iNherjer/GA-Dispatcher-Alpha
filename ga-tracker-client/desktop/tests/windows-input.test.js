@@ -30,6 +30,8 @@ test('bindings are validated and serialized as numbers only', () => {
   const stick = normalizeBinding({ type: 'joystick', device: 1, mid: 1103, pid: 46629, button: 0, name: 'T.16000M\n' });
   assert.equal(stick.label, 'T.16000M · Button 1');
   assert.equal(watchLine(stick), 'watch joy 1103 46629 1 0');
+  assert.equal(watchLine([stick, { type: 'key', vk: 0x4E }, { type: 'key', vk: 2 }]), 'watch joy 1103 46629 1 0;key 78');
+  assert.equal(watchLine([]), 'idle');
   assert.equal(normalizeBinding({ type: 'key', vk: 0x70 }).label, 'Taste F1');
 });
 
@@ -46,7 +48,7 @@ test('down/up events are forwarded once and a lost helper releases the button', 
 
 test('learning resolves the binding and restores the previous watch', async () => {
   const f = fixture();
-  f.input.watch({ type: 'key', vk: 0x70 });
+  f.input.watch([{ type: 'key', vk: 0x70 }]);
   const learned = f.input.learn();
   f.emit({ event: 'learn', ok: true, binding: { type: 'joystick', device: 0, mid: 1, pid: 2, button: 3, name: 'Stick' } });
   const result = await learned;

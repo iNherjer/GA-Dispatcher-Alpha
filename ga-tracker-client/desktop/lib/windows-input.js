@@ -33,10 +33,25 @@ function normalizeBinding(value) {
   }
   return null;
 }
-function watchLine(binding) {
-  if (!binding) return 'idle';
-  return binding.type === 'key' ? 'watch key ' + binding.vk
-    : ['watch joy', binding.mid, binding.pid, binding.device, binding.button].join(' ');
+const MAX_BINDINGS = 8;
+function bindingKey(binding) {
+  return binding.type === 'key' ? 'key ' + binding.vk : ['joy', binding.mid, binding.pid, binding.button].join(' ');
+}
+function normalizeBindings(value) {
+  const list = [], seen = new Set();
+  for (const entry of Array.isArray(value) ? value : []) {
+    const binding = normalizeBinding(entry);
+    if (!binding || seen.has(bindingKey(binding))) continue;
+    seen.add(bindingKey(binding)); list.push(binding);
+    if (list.length >= MAX_BINDINGS) break;
+  }
+  return list;
+}
+function watchLine(bindings) {
+  const list = normalizeBindings(Array.isArray(bindings) ? bindings : bindings ? [bindings] : []);
+  if (!list.length) return 'idle';
+  return 'watch ' + list.map(binding => binding.type === 'key' ? 'key ' + binding.vk
+    : ['joy', binding.mid, binding.pid, binding.device, binding.button].join(' ')).join(';');
 }
 
 // Owns the native read-only input helper. Emits 'down', 'up' and 'device'.
@@ -46,7 +61,7 @@ class WindowsInput extends EventEmitter {
     this.log = line => { try { log('INPUT ' + line); } catch (_) {} };
     this.pressedAt = 0;
     this.platform = platform; this.spawnProcess = spawnProcess; this.restartDelayMs = restartDelayMs;
-    this.child = null; this.binding = null; this.learning = null; this.closed = false;
+    this.child = null; this.bindings = []; this.learning = null; this.closed = false;
     this.restartTimer = null; this.down = false; this.connected = null;
   }
   get supported() { return this.platform === 'win32'; }
@@ -67,8 +82,8 @@ class WindowsInput extends EventEmitter {
       this.child = null;
       this.release();
       this.settleLearn({ ok: false, error: 'Eingabe-Helfer ist nicht verfügbar.' });
-      if (!this.closed && this.binding && !this.restartTimer) {
-        this.restartTimer = setTimeout(() => { this.restartTimer = null; this.start(); this.send(watchLine(this.binding)); }, this.restartDelayMs);
+      if (!this.closed && this.bindings.length && !this.restartTimer) {
+        this.restartTimer = setTimeout(() => { this.restartTimer = null; this.start(); this.send(watchLine(this.bindings)); }, this.restartDelayMs);
         this.restartTimer.unref?.();
       }
     };
@@ -99,16 +114,16 @@ class WindowsInput extends EventEmitter {
     const learning = this.learning;
     if (!learning) return;
     this.learning = null; clearTimeout(learning.timer); learning.resolve(result);
-    // Learning replaces the watch loop inside the helper; resume the previous binding.
-    if (this.child) this.send(watchLine(this.binding));
+    // Learning replaces the watch loop inside the helper; resume the previous bindings.
+    if (this.child) this.send(watchLine(this.bindings));
   }
   send(line) { if (line !== 'idle' || this.child) this.log('command ' + line); try { this.child?.stdin.write(line + '\n'); } catch (_) {} }
-  watch(binding) {
-    this.binding = normalizeBinding(binding);
+  watch(bindings) {
+    this.bindings = normalizeBindings(Array.isArray(bindings) ? bindings : bindings ? [bindings] : []);
     this.release(); this.connected = null;
     if (!this.supported || this.closed) return;
-    if (!this.binding && !this.child) return;
-    this.start(); this.send(watchLine(this.binding));
+    if (!this.bindings.length && !this.child) return;
+    this.start(); this.send(watchLine(this.bindings));
   }
   learn() {
     if (!this.supported) return Promise.resolve({ ok: false, unsupported: true, error: 'Button-Erkennung benötigt Windows.' });
@@ -136,4 +151,4 @@ class WindowsInput extends EventEmitter {
     });
   }
 }
-module.exports = { WindowsInput, normalizeBinding, keyName, watchLine };
+module.exports = { WindowsInput, normalizeBinding, normalizeBindings, bindingKey, keyName, watchLine, MAX_BINDINGS };

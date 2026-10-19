@@ -99,7 +99,7 @@ gestartet werden.
 
 ## Funk-Pause (PTT)
 
-Im Audio-Panel lässt sich ein Joystick-Button oder eine Taste als Funk-Button lernen. Die Erkennung läuft über den nativen Lese-Helfer `lib/windows-input.ps1`/`.cs` (winmm-Joystick-Buttons 1–32, `GetAsyncKeyState`); Eingaben werden nur beobachtet, nie abgefangen, der Button bleibt PTT für MSFS, SayIntentions oder Discord. Tasten werden ausschließlich während „Button lernen“ gemeldet, danach nur die belegte Eingabe.
+Im Audio-Panel lassen sich bis zu 8 Joystick-Buttons und Tasten als Funk-Buttons hinzufügen („+ Button hinzufügen“, ✕ zum Entfernen); alle werden parallel überwacht, die Pause gilt, solange eine davon gedrückt ist. Eine einzelne Belegung aus 1.6.23 wird übernommen. Die Erkennung läuft über den nativen Lese-Helfer `lib/windows-input.ps1`/`.cs` (winmm-Joystick-Buttons 1–32, `GetAsyncKeyState`); Eingaben werden nur beobachtet, nie abgefangen, der Button bleibt PTT für MSFS, SayIntentions oder Discord. Tasten werden ausschließlich während „Button lernen“ gemeldet, danach nur die belegte Eingabe.
 
 - Jeder Druck hält Stimmen **und** Warnungen an (Pause oder Dimmen) und senkt die Musik ab (Dimmen, Pause oder unverändert).
 - Loslassen setzt nicht fort, sondern startet den Auto-Resume-Timer (10/20/30/40/60/90 s oder aus, Standard 30 s); jeder weitere Druck startet ihn neu.

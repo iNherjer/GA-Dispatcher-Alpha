@@ -188,10 +188,10 @@ test('radio hold settings merge, persist and keep credentials untouched', () => 
   const store = createStore();
   store.saveCredentials('Radio-Pilot', '1234');
   const before = store.readDesktop();
-  store.setRadioHold({ enabled: true, binding: { type: 'key', vk: 0x70 } });
+  store.setRadioHold({ enabled: true, bindings: [{ type: 'key', vk: 0x70 }] });
   const saved = store.setRadioHold({ resumeSeconds: 60, musicMode: 'pause', voiceMode: 'nonsense' });
   assert.equal(saved.enabled, true);
-  assert.equal(saved.binding.vk, 0x70);
+  assert.equal(saved.bindings[0].vk, 0x70);
   assert.equal(saved.resumeSeconds, 60);
   assert.equal(saved.musicMode, 'pause');
   assert.equal(saved.voiceMode, 'pause');

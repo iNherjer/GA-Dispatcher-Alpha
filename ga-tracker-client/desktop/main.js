@@ -34,7 +34,7 @@ const windowsMedia = new WindowsMedia();
 const { createMediaServer } = require('./lib/media-server');
 const mediaServer = createMediaServer(windowsMedia);
 let mediaEndpoint = null;
-const { WindowsInput } = require('./lib/windows-input');
+const { WindowsInput, bindingKey, MAX_BINDINGS } = require('./lib/windows-input');
 const { RadioHold, createMusicHold } = require('./lib/radio-hold');
 // Diagnose-Log der Funk-Pause im Tracker-Datenordner; wird ab 512 KB neu begonnen.
 let radioHoldLogPath = '';
@@ -306,10 +306,10 @@ function broadcastRadioHold(state) {
 }
 
 function configureRadioHold(settings) {
-  radioHoldLog(`SETTINGS enabled=${settings.enabled} binding=${settings.binding ? settings.binding.label : 'none'} voice=${settings.voiceMode}/${settings.voiceDimPercent}% `
+  radioHoldLog(`SETTINGS enabled=${settings.enabled} inputs=${settings.bindings.length ? settings.bindings.map(binding => binding.label).join(' | ') : 'none'} voice=${settings.voiceMode}/${settings.voiceDimPercent}% `
     + `music=${settings.musicMode}/${settings.musicDimPercent}% resume=${settings.resumeSeconds || 'off'}s shortPress=${settings.shortPressResumes}`);
   radioHold.configure(settings);
-  windowsInput.watch(settings.enabled ? settings.binding : null);
+  windowsInput.watch(settings.enabled ? settings.bindings : []);
 }
 
 function broadcastState() {
@@ -475,7 +475,20 @@ function registerIpc() {
   ipcMain.handle('radio-hold:learn', async () => {
     const result = await windowsInput.learn();
     if (!result.ok) return result;
-    const settings = configStore.setRadioHold({ binding: result.binding, enabled: true });
+    const current = configStore.publicSettings().radioHold;
+    if (current.bindings.some(binding => bindingKey(binding) === bindingKey(result.binding))) {
+      return { ok: false, duplicate: true, error: result.binding.label + ' ist bereits belegt.', settings: current };
+    }
+    if (current.bindings.length >= MAX_BINDINGS) return { ok: false, error: 'Höchstens ' + MAX_BINDINGS + ' Eingaben.', settings: current };
+    const settings = configStore.setRadioHold({ bindings: [...current.bindings, result.binding], enabled: true });
+    configureRadioHold(settings); broadcastState();
+    return { ok: true, settings, added: result.binding };
+  });
+  ipcMain.handle('radio-hold:remove', (_event, index) => {
+    const current = configStore.publicSettings().radioHold;
+    if (!Number.isInteger(index) || index < 0 || index >= current.bindings.length) return { ok: false, settings: current };
+    radioHoldLog('REMOVE ' + current.bindings[index].label);
+    const settings = configStore.setRadioHold({ bindings: current.bindings.filter((_binding, position) => position !== index) });
     configureRadioHold(settings); broadcastState();
     return { ok: true, settings };
   });

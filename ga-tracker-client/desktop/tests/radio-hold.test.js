@@ -6,7 +6,7 @@ const { RadioHold, createMusicHold, normalizeRadioHoldSettings } = require('../l
 const binding = { type: 'joystick', device: 0, mid: 1103, pid: 46629, button: 4, name: 'Stick' };
 function fixture(settings = {}) {
   let time = 1000; const timers = new Map(); let next = 1; const states = [];
-  const hold = new RadioHold({ settings: { enabled: true, binding, ...settings }, now: () => time,
+  const hold = new RadioHold({ settings: { enabled: true, bindings: [binding], ...settings }, now: () => time,
     setTimer: (fn, ms) => { const id = next++; timers.set(id, { fn, at: time + ms }); return id; },
     clearTimer: id => timers.delete(id) });
   hold.on('state', state => states.push(state));
@@ -23,9 +23,17 @@ test('settings fall back to safe defaults; 30 s and dimmed music are the default
   assert.equal(settings.voiceMode, 'pause');
   assert.equal(settings.musicMode, 'dim');
   assert.equal(settings.musicDimPercent, 20);
-  assert.equal(settings.binding, null, 'mouse buttons are not bindable');
+  assert.deepEqual(settings.bindings, [], 'mouse buttons are not bindable');
   assert.equal(settings.shortPressResumes, true);
   assert.equal(normalizeRadioHoldSettings({ resumeSeconds: 0 }).resumeSeconds, 0);
+});
+
+test('1.6.23 single binding migrates; duplicates collapse and the list is capped at 8', () => {
+  assert.equal(normalizeRadioHoldSettings({ binding: { type: 'key', vk: 0x4E } }).bindings[0].label, 'Taste N');
+  const keys = Array.from({ length: 12 }, (_, index) => ({ type: 'key', vk: 0x41 + index }));
+  const settings = normalizeRadioHoldSettings({ bindings: [binding, { ...binding, device: 3 }, ...keys] });
+  assert.equal(settings.bindings.length, 8);
+  assert.equal(settings.bindings.filter(entry => entry.type === 'joystick').length, 1, 'same stick button on another id is a duplicate');
 });
 
 test('a press holds immediately; release starts the timer instead of resuming', () => {
@@ -74,7 +82,7 @@ test('disabling releases an active hold; music and voice modes are reported', ()
   hold.press();
   assert.deepEqual(hold.publicState().voice, { mode: 'dim', factor: 0.35 });
   assert.equal(hold.publicState().music.mode, 'pause');
-  hold.configure({ enabled: false, binding });
+  hold.configure({ enabled: false, bindings: [binding] });
   assert.equal(hold.publicState().held, false);
   hold.press(); assert.equal(hold.publicState().held, false);
 });

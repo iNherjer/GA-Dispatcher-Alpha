@@ -139,37 +139,70 @@ namespace GAInput {
    }
   }
 
+  sealed class Watched { public bool Joystick; public ushort Mid, Pid; public int Fallback = -1, Button, Vk, Id = -1; public bool Down; }
+
+  static Watched ParseWatched(string spec) {
+   // joy <mid> <pid> <device> <button> | key <vk>
+   string[] p = spec.Trim().Split(' ');
+   var w = new Watched();
+   if (p.Length == 5 && p[0] == "joy") {
+    w.Joystick = true; w.Mid = UInt16.Parse(p[1]); w.Pid = UInt16.Parse(p[2]); w.Fallback = Int32.Parse(p[3]); w.Button = Int32.Parse(p[4]);
+    if (w.Button < 0 || w.Button > 31) return null;
+   } else if (p.Length == 2 && p[0] == "key") {
+    w.Vk = Int32.Parse(p[1]);
+    if (!LearnableKey(w.Vk)) return null;
+   } else return null;
+   return w;
+  }
+
+  // All bound inputs are observed in parallel; the hold is pressed while any of them is down.
   static void Watch(string current) {
-   // watch joy <mid> <pid> <device> <button> | watch key <vk>
-   string[] p = current.Substring(0, current.LastIndexOf(" #")).Split(' ');
-   bool joystick = p.Length == 6 && p[1] == "joy", key = p.Length == 3 && p[1] == "key";
-   if (!joystick && !key) { Write("{\"event\":\"error\",\"error\":\"binding_invalid\"}"); command = "idle"; return; }
-   ushort mid = 0, pid = 0; int fallback = -1, button = 0, vk = 0;
+   string body = current.Substring(0, current.LastIndexOf(" #"));
+   var list = new List<Watched>();
    try {
-    if (joystick) { mid = UInt16.Parse(p[2]); pid = UInt16.Parse(p[3]); fallback = Int32.Parse(p[4]); button = Int32.Parse(p[5]); }
-    else vk = Int32.Parse(p[2]);
+    foreach (string spec in body.Substring("watch ".Length).Split(';')) {
+     if (spec.Trim().Length == 0) continue;
+     var w = ParseWatched(spec);
+     if (w == null) throw new FormatException(spec);
+     list.Add(w);
+    }
    } catch (Exception) { Write("{\"event\":\"error\",\"error\":\"binding_invalid\"}"); command = "idle"; return; }
-   if (button < 0 || button > 31 || (key && !LearnableKey(vk))) { Write("{\"event\":\"error\",\"error\":\"binding_invalid\"}"); command = "idle"; return; }
-   int id = joystick ? Locate(mid, pid, fallback) : -1;
-   if (joystick) Log(String.Format("watch joystick vid={0:X4} pid={1:X4} storedId={2} button={3} locatedId={4}", mid, pid, fallback, button + 1, id));
-   else Log("watch key vk=" + vk);
-   if (joystick && id < 0) LogDevices();
-   bool connected = !joystick || id >= 0, down = false;
+   bool missing = false;
+   foreach (var w in list) {
+    if (w.Joystick) {
+     w.Id = Locate(w.Mid, w.Pid, w.Fallback);
+     Log(String.Format("watch joystick vid={0:X4} pid={1:X4} storedId={2} button={3} locatedId={4}", w.Mid, w.Pid, w.Fallback, w.Button + 1, w.Id));
+     if (w.Id < 0) missing = true;
+    } else Log("watch key vk=" + w.Vk);
+   }
+   Log("watch inputs=" + list.Count);
+   if (missing) LogDevices();
+   bool connected = !missing, down = false;
    Write("{\"event\":\"device\",\"connected\":" + (connected ? "true" : "false") + "}");
    DateTime retry = DateTime.UtcNow.AddSeconds(3);
    while (command == current && !inputClosed) {
-    bool now = false;
-    if (key) now = KeyDown(vk);
-    else if (id >= 0) {
-     int buttons;
-     if (ReadButtons(id, out buttons)) now = (buttons & (1 << button)) != 0;
-     else { Log("joystick read failed id=" + id); id = -1; connected = false; Write("{\"event\":\"device\",\"connected\":false}"); }
-    } else if (DateTime.UtcNow > retry) {
-     // Probing unplugged winmm ids is slow; keep it rare.
-     id = Locate(mid, pid, fallback); retry = DateTime.UtcNow.AddSeconds(3);
-     if (id >= 0) { Log("joystick reconnected id=" + id); connected = true; Write("{\"event\":\"device\",\"connected\":true}"); }
+    bool any = false, lost = false, probe = DateTime.UtcNow > retry;
+    var buttonCache = new Dictionary<int, int>();
+    foreach (var w in list) {
+     if (!w.Joystick) w.Down = KeyDown(w.Vk);
+     else if (w.Id >= 0) {
+      int buttons;
+      if (!buttonCache.TryGetValue(w.Id, out buttons)) {
+       if (ReadButtons(w.Id, out buttons)) buttonCache[w.Id] = buttons;
+       else { Log("joystick read failed id=" + w.Id); w.Id = -1; w.Down = false; lost = true; continue; }
+      }
+      w.Down = (buttons & (1 << w.Button)) != 0;
+     } else {
+      w.Down = false; lost = true;
+      // Probing unplugged winmm ids is slow; keep it rare.
+      if (probe) { w.Id = Locate(w.Mid, w.Pid, w.Fallback); if (w.Id >= 0) Log("joystick reconnected id=" + w.Id); }
+     }
+     if (w.Down) any = true;
     }
-    if (now != down) { down = now; Write("{\"event\":\"" + (down ? "down" : "up") + "\"}"); }
+    if (probe) retry = DateTime.UtcNow.AddSeconds(3);
+    bool nowConnected = !lost;
+    if (nowConnected != connected) { connected = nowConnected; Write("{\"event\":\"device\",\"connected\":" + (connected ? "true" : "false") + "}"); }
+    if (any != down) { down = any; Write("{\"event\":\"" + (down ? "down" : "up") + "\"}"); }
     Thread.Sleep(10);
    }
    if (down) Write("{\"event\":\"up\"}");

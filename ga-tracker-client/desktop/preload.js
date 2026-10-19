@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('trackerDesktop', {
   resumeRadioHold: () => ipcRenderer.invoke('radio-hold:resume'),
   logRadioHold: line => ipcRenderer.invoke('radio-hold:log', String(line || '').slice(0, 400)),
   learnRadioHoldButton: () => ipcRenderer.invoke('radio-hold:learn'),
+  removeRadioHoldButton: index => ipcRenderer.invoke('radio-hold:remove', index),
   setRadioHold: settings => ipcRenderer.invoke('settings:set-radio-hold', settings),
   onRadioHoldChanged: (callback) => {
     if (typeof callback !== 'function') return () => {};

@@ -1,13 +1,13 @@
 'use strict';
 const { EventEmitter } = require('node:events');
-const { normalizeBinding } = require('./windows-input');
+const { normalizeBindings } = require('./windows-input');
 
 const RESUME_SECONDS = Object.freeze([10, 20, 30, 40, 60, 90, 0]);
 const DIM_PERCENT = Object.freeze([0, 10, 20, 35, 50]);
 const SHORT_PRESS_MS = 600;
 const DEFAULTS = Object.freeze({
   enabled: false,
-  binding: null,
+  bindings: [],
   voiceMode: 'pause',
   voiceDimPercent: 20,
   musicMode: 'dim',
@@ -21,7 +21,8 @@ function normalizeRadioHoldSettings(value = {}) {
   const pick = (key, allowed) => allowed.includes(source[key]) ? source[key] : DEFAULTS[key];
   return {
     enabled: source.enabled === true,
-    binding: normalizeBinding(source.binding),
+    // Single-binding settings from 1.6.23 migrate into the list.
+    bindings: normalizeBindings(Array.isArray(source.bindings) ? source.bindings : source.binding ? [source.binding] : []),
     voiceMode: pick('voiceMode', ['pause', 'dim']),
     voiceDimPercent: pick('voiceDimPercent', DIM_PERCENT),
     musicMode: pick('musicMode', ['pause', 'dim', 'none']),
@@ -45,7 +46,7 @@ class RadioHold extends EventEmitter {
   }
   configure(settings) {
     this.settings = normalizeRadioHoldSettings(settings);
-    if (!this.settings.enabled || !this.settings.binding) { this.pressed = false; this.resume('disabled'); return; }
+    if (!this.settings.enabled || !this.settings.bindings.length) { this.pressed = false; this.resume('disabled'); return; }
     if (this.held && !this.pressed) this.arm();
     else this.emitState();
   }
