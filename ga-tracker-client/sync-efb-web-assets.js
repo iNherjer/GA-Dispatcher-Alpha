@@ -10,6 +10,14 @@ const MEDIA_ROOT = path.join(TRACKER_ROOT, 'efb-media-source');
 function sourceRoot(name) { return name.startsWith('media-player') && fs.existsSync(path.join(MEDIA_ROOT,name)) ? MEDIA_ROOT : PROJECT_ROOT; }
 const OUTPUT_ROOT = path.join(TRACKER_ROOT, 'efb-web-assets');
 const { canvasFontPlugin } = require('./tracker-efb-fonts');
+// --check compares instead of writing, so a source edited without a sync fails tests.
+const CHECK = process.argv.includes('--check');
+const drift = [];
+function emit(target, content) {
+  if (!CHECK) { ensureParent(target); fs.writeFileSync(target, content); return; }
+  const current = fs.existsSync(target) ? fs.readFileSync(target) : null;
+  if (!current || !current.equals(Buffer.isBuffer(content) ? content : Buffer.from(content))) drift.push(path.relative(TRACKER_ROOT, target));
+}
 
 function ensureParent(filename) {
   fs.mkdirSync(path.dirname(filename), { recursive: true });
@@ -18,8 +26,7 @@ function ensureParent(filename) {
 function copy(relativeSource, relativeTarget = relativeSource) {
   const source = path.join(sourceRoot(relativeSource), relativeSource);
   const target = path.join(OUTPUT_ROOT, relativeTarget);
-  ensureParent(target);
-  fs.copyFileSync(source, target);
+  emit(target, fs.readFileSync(source));
 }
 
 
@@ -36,8 +43,7 @@ function compileShared(relativeSource) {
       include: ['@babel/plugin-transform-spread', '@babel/plugin-transform-parameters']
     }]]
   });
-  ensureParent(target);
-  fs.writeFileSync(target, '// Generated from ' + relativeSource + ' by sync-efb-web-assets.js. Do not edit.\n' + result.code + '\n');
+  emit(target, '// Generated from ' + relativeSource + ' by sync-efb-web-assets.js. Do not edit.\n' + result.code + '\n');
 }
 
 function requireEfbFork(relativeTarget, marker) {
@@ -58,8 +64,7 @@ function writeKartentischFragment() {
   const fragment = html.slice(start, end)
     .replace('src="e6b/e6b-flight-computer.html?embedded=1&amp;', 'src="/efb/v1/e6b/e6b-flight-computer.html?embedded=1&amp;coherent=1&amp;');
   const target = path.join(OUTPUT_ROOT, 'kartentisch-fragment.html');
-  ensureParent(target);
-  fs.writeFileSync(target, fragment, 'utf8');
+  emit(target, fragment);
 }
 
 writeKartentischFragment();
@@ -121,6 +126,10 @@ requireEfbFork(path.join('e6b', 'e6b-flight-computer.html'), 'ga-e6b-diagnostic'
 requireEfbFork(path.join('e6b', 'e6b-flight-computer.css'), 'body.e6b-coherent');
 requireEfbFork(path.join('e6b', 'e6b-flight-computer.js'), 'ga-e6b-wind-dot-set');
 
-process.stdout.write('EFB_WEB_ASSETS_SYNCED\n');
+emit(path.join(TRACKER_ROOT, 'desktop', 'ui', 'tracker-audio-player.js'), fs.readFileSync(path.join(TRACKER_ROOT, 'tracker-audio-player.js')));
 
-fs.copyFileSync(path.join(TRACKER_ROOT, 'tracker-audio-player.js'), path.join(TRACKER_ROOT, 'desktop', 'ui', 'tracker-audio-player.js'));
+if (CHECK && drift.length) {
+  process.stderr.write('EFB_WEB_ASSETS_DRIFT ' + drift.join(' ') + '\nAusfuehren: node sync-efb-web-assets.js\n');
+  process.exit(1);
+}
+process.stdout.write(CHECK ? 'EFB_WEB_ASSETS_IN_SYNC\n' : 'EFB_WEB_ASSETS_SYNCED\n');

@@ -1,5 +1,5 @@
 // Generated from profile.js by sync-efb-web-assets.js. Do not edit.
-var _ref37, _localStorage$getItem, _ref38, _localStorage$getItem2, _ref39, _localStorage$getItem3;
+var _ref39, _localStorage$getItem, _ref40, _localStorage$getItem2, _ref41, _localStorage$getItem3;
 function _regeneratorValues(e) { if (null != e) { var t = e["function" == typeof Symbol && Symbol.iterator || "@@iterator"], r = 0; if (t) return t.call(e); if ("function" == typeof e.next) return e; if (!isNaN(e.length)) return { next: function next() { return e && r >= e.length && (e = void 0), { value: e && e[r++], done: !e }; } }; } throw new TypeError(typeof e + " is not iterable"); }
 function _regeneratorKeys(e) { var n = Object(e), r = []; for (var t in n) r.unshift(t); return function e() { for (; r.length;) if ((t = r.pop()) in n) return e.value = t, e.done = !1, e; return e.done = !0, e; }; }
 function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i.return) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
@@ -234,77 +234,77 @@ function loadGlobalCities() {
 }
 function _loadGlobalCities() {
   _loadGlobalCities = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
-    return _regenerator().w(function (_context10) {
-      while (1) switch (_context10.p = _context10.n) {
+    return _regenerator().w(function (_context11) {
+      while (1) switch (_context11.p = _context11.n) {
         case 0:
           if (!Array.isArray(globalCities)) {
-            _context10.n = 1;
+            _context11.n = 1;
             break;
           }
-          return _context10.a(2);
+          return _context11.a(2);
         case 1:
           if (!globalCitiesLoadPromise) {
-            _context10.n = 3;
+            _context11.n = 3;
             break;
           }
-          _context10.n = 2;
+          _context11.n = 2;
           return globalCitiesLoadPromise;
         case 2:
-          return _context10.a(2);
+          return _context11.a(2);
         case 3:
           globalCitiesLoadPromise = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1() {
             var res, parsed, _t1;
-            return _regenerator().w(function (_context1) {
-              while (1) switch (_context1.p = _context1.n) {
+            return _regenerator().w(function (_context10) {
+              while (1) switch (_context10.p = _context10.n) {
                 case 0:
                   if (!Array.isArray(window.GLOBAL_CITIES_DATA)) {
-                    _context1.n = 1;
+                    _context10.n = 1;
                     break;
                   }
                   globalCities = window.GLOBAL_CITIES_DATA;
-                  return _context1.a(2);
+                  return _context10.a(2);
                 case 1:
-                  _context1.p = 1;
-                  _context1.n = 2;
+                  _context10.p = 1;
+                  _context10.n = 2;
                   return vpFetchResource('./cities.json', {
                     cache: 'default'
                   });
                 case 2:
-                  res = _context1.v;
+                  res = _context10.v;
                   if (!res.ok) {
-                    _context1.n = 4;
+                    _context10.n = 4;
                     break;
                   }
-                  _context1.n = 3;
+                  _context10.n = 3;
                   return res.json();
                 case 3:
-                  parsed = _context1.v;
+                  parsed = _context10.v;
                   globalCities = Array.isArray(parsed) ? parsed : [];
-                  _context1.n = 5;
+                  _context10.n = 5;
                   break;
                 case 4:
                   globalCities = [];
                 case 5:
-                  _context1.n = 7;
+                  _context10.n = 7;
                   break;
                 case 6:
-                  _context1.p = 6;
-                  _t1 = _context1.v;
+                  _context10.p = 6;
+                  _t1 = _context10.v;
                   globalCities = [];
                 case 7:
-                  return _context1.a(2);
+                  return _context10.a(2);
               }
             }, _callee1, null, [[1, 6]]);
           }))();
-          _context10.p = 4;
-          _context10.n = 5;
+          _context11.p = 4;
+          _context11.n = 5;
           return globalCitiesLoadPromise;
         case 5:
-          _context10.p = 5;
+          _context11.p = 5;
           globalCitiesLoadPromise = null;
-          return _context10.f(5);
+          return _context11.f(5);
         case 6:
-          return _context10.a(2);
+          return _context11.a(2);
       }
     }, _callee10, null, [[4,, 5, 6]]);
   }));
@@ -449,14 +449,14 @@ function fetchProfileLandmarks(_x) {
 function _fetchProfileLandmarks() {
   _fetchProfileLandmarks = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11(elevData) {
     var minL, maxL, minLo, maxLo, landmarks, _loop9, k, _t10, _t11;
-    return _regenerator().w(function (_context12) {
-      while (1) switch (_context12.n) {
+    return _regenerator().w(function (_context13) {
+      while (1) switch (_context13.n) {
         case 0:
           if (!(!elevData || elevData.length < 2)) {
-            _context12.n = 1;
+            _context13.n = 1;
             break;
           }
-          return _context12.a(2, []);
+          return _context13.a(2, []);
         case 1:
           minL = 90, maxL = -90, minLo = 180, maxLo = -180;
           elevData.forEach(p => {
@@ -470,13 +470,13 @@ function _fetchProfileLandmarks() {
           minLo -= 0.15;
           maxLo += 0.15;
           landmarks = [];
-          _context12.n = 2;
+          _context13.n = 2;
           return loadGlobalAirports();
         case 2:
           _loop9 = /*#__PURE__*/_regenerator().m(function _loop9() {
             var a, bestD, bestDistNM;
-            return _regenerator().w(function (_context11) {
-              while (1) switch (_context11.n) {
+            return _regenerator().w(function (_context12) {
+              while (1) switch (_context12.n) {
                 case 0:
                   a = globalAirports[k];
                   if (a.lat > minL && a.lat < maxL && a.lon > minLo && a.lon < maxLo) {
@@ -496,23 +496,23 @@ function _fetchProfileLandmarks() {
                     });
                   }
                 case 1:
-                  return _context11.a(2);
+                  return _context12.a(2);
               }
             }, _loop9);
           });
           _t10 = _regeneratorKeys(globalAirports);
         case 3:
           if ((_t11 = _t10()).done) {
-            _context12.n = 5;
+            _context13.n = 5;
             break;
           }
           k = _t11.value;
-          return _context12.d(_regeneratorValues(_loop9()), 4);
+          return _context13.d(_regeneratorValues(_loop9()), 4);
         case 4:
-          _context12.n = 3;
+          _context13.n = 3;
           break;
         case 5:
-          _context12.n = 6;
+          _context13.n = 6;
           return loadGlobalCities();
         case 6:
           if (globalCities && globalCities.length > 0) {
@@ -539,7 +539,7 @@ function _fetchProfileLandmarks() {
               }
             });
           }
-          return _context12.a(2, landmarks.sort((a, b) => b.pop - a.pop));
+          return _context13.a(2, landmarks.sort((a, b) => b.pop - a.pop));
       }
     }, _callee11);
   }));
@@ -551,13 +551,13 @@ function updateGpsCities(_x2, _x3) {
 function _updateGpsCities() {
   _updateGpsCities = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12(lat, lon) {
     var landmarks, k, a, nav;
-    return _regenerator().w(function (_context13) {
-      while (1) switch (_context13.n) {
+    return _regenerator().w(function (_context14) {
+      while (1) switch (_context14.n) {
         case 0:
-          _context13.n = 1;
+          _context14.n = 1;
           return loadGlobalCities();
         case 1:
-          _context13.n = 2;
+          _context14.n = 2;
           return loadGlobalAirports();
         case 2:
           landmarks = [];
@@ -590,7 +590,7 @@ function _updateGpsCities() {
           window.vpBgNeedsUpdate = true;
           if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
         case 3:
-          return _context13.a(2);
+          return _context14.a(2);
       }
     }, _callee12);
   }));
@@ -2197,14 +2197,14 @@ function vpFetchHostedObstacleTile(_x4, _x5) {
 function _vpFetchHostedObstacleTile() {
   _vpFetchHostedObstacleTile = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13(tileKey, signal) {
     var b, _String$split$map, _String$split$map2, latI, lonI, dbg, endpoints, timeoutMs, _iterator76, _step76, _loop0, _ret3, _t13;
-    return _regenerator().w(function (_context15) {
-      while (1) switch (_context15.p = _context15.n) {
+    return _regenerator().w(function (_context16) {
+      while (1) switch (_context16.p = _context16.n) {
         case 0:
           if (VP_OBS_HOSTED_ENABLED) {
-            _context15.n = 1;
+            _context16.n = 1;
             break;
           }
-          return _context15.a(2, {
+          return _context16.a(2, {
             ok: false,
             status: 0,
             src: '',
@@ -2212,10 +2212,10 @@ function _vpFetchHostedObstacleTile() {
           });
         case 1:
           if (!(vpGetHostedMissRemainingMs(tileKey) > 0)) {
-            _context15.n = 2;
+            _context16.n = 2;
             break;
           }
-          return _context15.a(2, {
+          return _context16.a(2, {
             ok: false,
             status: 0,
             src: 'hosted-miss-cache',
@@ -2224,10 +2224,10 @@ function _vpFetchHostedObstacleTile() {
         case 2:
           b = vpObsTileBoundsFromKey(tileKey);
           if (b) {
-            _context15.n = 3;
+            _context16.n = 3;
             break;
           }
-          return _context15.a(2, {
+          return _context16.a(2, {
             ok: false,
             status: 0,
             src: ''
@@ -2238,15 +2238,15 @@ function _vpFetchHostedObstacleTile() {
           endpoints = VP_OBS_HOSTED_ENDPOINTS.slice();
           timeoutMs = VP_OBS_HOSTED_TIMEOUT_MS;
           _iterator76 = _createForOfIteratorHelper(endpoints);
-          _context15.p = 4;
+          _context16.p = 4;
           _loop0 = /*#__PURE__*/_regenerator().m(function _loop0() {
             var endpoint, ctrl, timer, onAbort, isLocalStaticEndpoint, url, u, res, payload, ds, sourceKind, features, obsCount, linCount, src, host, _t12;
-            return _regenerator().w(function (_context14) {
-              while (1) switch (_context14.p = _context14.n) {
+            return _regenerator().w(function (_context15) {
+              while (1) switch (_context15.p = _context15.n) {
                 case 0:
                   endpoint = _step76.value;
                   if (!(signal && signal.aborted)) {
-                    _context14.n = 1;
+                    _context15.n = 1;
                     break;
                   }
                   throw new DOMException('Aborted', 'AbortError');
@@ -2254,7 +2254,7 @@ function _vpFetchHostedObstacleTile() {
                   ctrl = null;
                   timer = null;
                   onAbort = null;
-                  _context14.p = 2;
+                  _context15.p = 2;
                   isLocalStaticEndpoint = endpoint.includes('./obstacles/core-tiles/') || endpoint.includes('./obstacles/tiles/');
                   ctrl = vpCreateAbortController();
                   if (signal) {
@@ -2281,25 +2281,25 @@ function _vpFetchHostedObstacleTile() {
                     url = u.toString();
                   }
                   if (dbg) dbg.hostedTileRequests = Number(dbg.hostedTileRequests || 0) + 1;
-                  _context14.n = 3;
+                  _context15.n = 3;
                   return vpFetchResource(url, {
                     signal: ctrl.signal
                   });
                 case 3:
-                  res = _context14.v;
+                  res = _context15.v;
                   if (!(res.status === 404 || res.status === 204)) {
-                    _context14.n = 5;
+                    _context15.n = 5;
                     break;
                   }
                   if (dbg) dbg.hostedTileMisses = Number(dbg.hostedTileMisses || 0) + 1;
                   if (!isLocalStaticEndpoint) {
-                    _context14.n = 4;
+                    _context15.n = 4;
                     break;
                   }
-                  return _context14.a(2, 0);
+                  return _context15.a(2, 0);
                 case 4:
                   vpMarkHostedMiss(tileKey, res.status);
-                  return _context14.a(2, {
+                  return _context15.a(2, {
                     v: {
                       ok: false,
                       status: res.status,
@@ -2309,48 +2309,48 @@ function _vpFetchHostedObstacleTile() {
                   });
                 case 5:
                   if (res.ok) {
-                    _context14.n = 6;
+                    _context15.n = 6;
                     break;
                   }
                   if (res.status === 400 || res.status === 403) vpMarkHostedMiss(tileKey, res.status, 5 * 60 * 1000);
                   if (dbg) dbg.hostedTileErrors = Number(dbg.hostedTileErrors || 0) + 1;
-                  return _context14.a(2, 0);
+                  return _context15.a(2, 0);
                 case 6:
                   if (!(url.endsWith('.gz') && !window.gaProfileDataProvider)) {
-                    _context14.n = 8;
+                    _context15.n = 8;
                     break;
                   }
                   ds = new DecompressionStream('gzip');
-                  _context14.n = 7;
+                  _context15.n = 7;
                   return new Response(res.body.pipeThrough(ds)).json();
                 case 7:
-                  payload = _context14.v;
-                  _context14.n = 10;
+                  payload = _context15.v;
+                  _context15.n = 10;
                   break;
                 case 8:
-                  _context14.n = 9;
+                  _context15.n = 9;
                   return res.json();
                 case 9:
-                  payload = _context14.v;
+                  payload = _context15.v;
                 case 10:
                   sourceKind = String(payload && payload.sourceKind || '').toLowerCase();
                   features = vpParseHostedObstaclePayload(payload);
                   if (features) {
-                    _context14.n = 11;
+                    _context15.n = 11;
                     break;
                   }
                   if (dbg) dbg.hostedTileErrors = Number(dbg.hostedTileErrors || 0) + 1;
-                  return _context14.a(2, 0);
+                  return _context15.a(2, 0);
                 case 11:
                   obsCount = Array.isArray(features.obs) ? features.obs.length : 0;
                   linCount = Array.isArray(features.lin) ? features.lin.length : 0; // Lokale Split-Tiles koennen vereinzelt als leere Platzhalter vorliegen.
                   // Diese nicht als "ok" akzeptieren, damit Worker/Overpass nachgeladen wird.
                   if (!(isLocalStaticEndpoint && obsCount + linCount === 0)) {
-                    _context14.n = 12;
+                    _context15.n = 12;
                     break;
                   }
                   if (dbg) dbg.hostedTileMisses = Number(dbg.hostedTileMisses || 0) + 1;
-                  return _context14.a(2, 0);
+                  return _context15.a(2, 0);
                 case 12:
                   vpClearHostedMiss(tileKey);
                   if (dbg) {
@@ -2362,7 +2362,7 @@ function _vpFetchHostedObstacleTile() {
                     host = new URL(endpoint).host;
                     src = `${host}:hosted${sourceKind === 'legacy' ? ':legacy' : ':split'}`;
                   } catch (_) {}
-                  return _context14.a(2, {
+                  return _context15.a(2, {
                     v: {
                       ok: true,
                       features,
@@ -2371,65 +2371,65 @@ function _vpFetchHostedObstacleTile() {
                     }
                   });
                 case 13:
-                  _context14.p = 13;
-                  _t12 = _context14.v;
+                  _context15.p = 13;
+                  _t12 = _context15.v;
                   if (!(_t12 && _t12.name === 'AbortError')) {
-                    _context14.n = 14;
+                    _context15.n = 14;
                     break;
                   }
                   if (!(signal && signal.aborted)) {
-                    _context14.n = 14;
+                    _context15.n = 14;
                     break;
                   }
                   throw _t12;
                 case 14:
                   if (dbg) dbg.hostedTileErrors = Number(dbg.hostedTileErrors || 0) + 1;
                 case 15:
-                  _context14.p = 15;
+                  _context15.p = 15;
                   if (timer) clearTimeout(timer);
                   if (signal && onAbort) signal.removeEventListener('abort', onAbort);
-                  return _context14.f(15);
+                  return _context15.f(15);
                 case 16:
-                  return _context14.a(2);
+                  return _context15.a(2);
               }
             }, _loop0, null, [[2, 13, 15, 16]]);
           });
           _iterator76.s();
         case 5:
           if ((_step76 = _iterator76.n()).done) {
-            _context15.n = 9;
+            _context16.n = 9;
             break;
           }
-          return _context15.d(_regeneratorValues(_loop0()), 6);
+          return _context16.d(_regeneratorValues(_loop0()), 6);
         case 6:
-          _ret3 = _context15.v;
+          _ret3 = _context16.v;
           if (!(_ret3 === 0)) {
-            _context15.n = 7;
+            _context16.n = 7;
             break;
           }
-          return _context15.a(3, 8);
+          return _context16.a(3, 8);
         case 7:
           if (!_ret3) {
-            _context15.n = 8;
+            _context16.n = 8;
             break;
           }
-          return _context15.a(2, _ret3.v);
+          return _context16.a(2, _ret3.v);
         case 8:
-          _context15.n = 5;
+          _context16.n = 5;
           break;
         case 9:
-          _context15.n = 11;
+          _context16.n = 11;
           break;
         case 10:
-          _context15.p = 10;
-          _t13 = _context15.v;
+          _context16.p = 10;
+          _t13 = _context16.v;
           _iterator76.e(_t13);
         case 11:
-          _context15.p = 11;
+          _context16.p = 11;
           _iterator76.f();
-          return _context15.f(11);
+          return _context16.f(11);
         case 12:
-          return _context15.a(2, {
+          return _context16.a(2, {
             ok: false,
             status: 0,
             src: '',
@@ -2450,30 +2450,30 @@ function _vpFetchObstacleTile() {
       preferOverpass,
       hosted,
       _args16 = arguments;
-    return _regenerator().w(function (_context16) {
-      while (1) switch (_context16.n) {
+    return _regenerator().w(function (_context17) {
+      while (1) switch (_context17.n) {
         case 0:
           tileIndex = _args16.length > 2 && _args16[2] !== undefined ? _args16[2] : 0;
           options = _args16.length > 3 && _args16[3] !== undefined ? _args16[3] : {};
           preferOverpass = !!(options && options.preferOverpass);
           if (preferOverpass) {
-            _context16.n = 2;
+            _context17.n = 2;
             break;
           }
-          _context16.n = 1;
+          _context17.n = 1;
           return vpFetchHostedObstacleTile(tileKey, signal);
         case 1:
-          hosted = _context16.v;
+          hosted = _context17.v;
           if (!(hosted && hosted.ok)) {
-            _context16.n = 2;
+            _context17.n = 2;
             break;
           }
-          return _context16.a(2, hosted);
+          return _context17.a(2, hosted);
         case 2:
-          _context16.n = 3;
+          _context17.n = 3;
           return vpFetchOverpassTile(tileKey, signal, tileIndex);
         case 3:
-          return _context16.a(2, _context16.v);
+          return _context17.a(2, _context17.v);
       }
     }, _callee14);
   }));
@@ -2494,32 +2494,32 @@ function _vpFetchHostedTilesParallel() {
       workerCount,
       i,
       _args18 = arguments;
-    return _regenerator().w(function (_context18) {
-      while (1) switch (_context18.n) {
+    return _regenerator().w(function (_context19) {
+      while (1) switch (_context19.n) {
         case 0:
           options = _args18.length > 2 && _args18[2] !== undefined ? _args18[2] : {};
           keys = Array.from(new Set((Array.isArray(tileKeys) ? tileKeys : []).filter(Boolean)));
           if (keys.length) {
-            _context18.n = 1;
+            _context19.n = 1;
             break;
           }
-          return _context18.a(2, new Map());
+          return _context19.a(2, new Map());
         case 1:
           concurrency = Math.max(1, Math.min(12, Number(options && options.concurrency || VP_OBS_HOSTED_PARALLELISM)));
           results = new Map();
           cursor = 0;
           worker = /*#__PURE__*/function () {
-            var _ref44 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15() {
+            var _ref46 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15() {
               var idx, tileKey, res, _t14;
-              return _regenerator().w(function (_context17) {
-                while (1) switch (_context17.p = _context17.n) {
+              return _regenerator().w(function (_context18) {
+                while (1) switch (_context18.p = _context18.n) {
                   case 0:
                     if (!(cursor < keys.length)) {
-                      _context17.n = 9;
+                      _context18.n = 9;
                       break;
                     }
                     if (!(signal && signal.aborted)) {
-                      _context17.n = 1;
+                      _context18.n = 1;
                       break;
                     }
                     throw new DOMException('Aborted', 'AbortError');
@@ -2527,30 +2527,30 @@ function _vpFetchHostedTilesParallel() {
                     idx = cursor++;
                     tileKey = keys[idx];
                     if (tileKey) {
-                      _context17.n = 2;
+                      _context18.n = 2;
                       break;
                     }
-                    return _context17.a(3, 0);
+                    return _context18.a(3, 0);
                   case 2:
                     if (window.vpSetObsTileLoading) window.vpSetObsTileLoading(tileKey, true);
                     if (window.vpSetObsTileDeferred) window.vpSetObsTileDeferred(tileKey, false);
-                    _context17.p = 3;
-                    _context17.n = 4;
+                    _context18.p = 3;
+                    _context18.n = 4;
                     return vpFetchHostedObstacleTile(tileKey, signal);
                   case 4:
-                    res = _context17.v;
+                    res = _context18.v;
                     results.set(tileKey, res || {
                       ok: false,
                       status: 0,
                       src: ''
                     });
-                    _context17.n = 7;
+                    _context18.n = 7;
                     break;
                   case 5:
-                    _context17.p = 5;
-                    _t14 = _context17.v;
+                    _context18.p = 5;
+                    _t14 = _context18.v;
                     if (!(_t14 && _t14.name === 'AbortError')) {
-                      _context17.n = 6;
+                      _context18.n = 6;
                       break;
                     }
                     throw _t14;
@@ -2561,28 +2561,28 @@ function _vpFetchHostedTilesParallel() {
                       src: ''
                     });
                   case 7:
-                    _context17.p = 7;
+                    _context18.p = 7;
                     if (window.vpSetObsTileLoading) window.vpSetObsTileLoading(tileKey, false);
-                    return _context17.f(7);
+                    return _context18.f(7);
                   case 8:
-                    _context17.n = 0;
+                    _context18.n = 0;
                     break;
                   case 9:
-                    return _context17.a(2);
+                    return _context18.a(2);
                 }
               }, _callee15, null, [[3, 5, 7, 8]]);
             }));
             return function worker() {
-              return _ref44.apply(this, arguments);
+              return _ref46.apply(this, arguments);
             };
           }();
           workers = [];
           workerCount = Math.min(concurrency, keys.length);
           for (i = 0; i < workerCount; i++) workers.push(worker());
-          _context18.n = 2;
+          _context19.n = 2;
           return Promise.all(workers);
         case 2:
-          return _context18.a(2, results);
+          return _context19.a(2, results);
       }
     }, _callee16);
   }));
@@ -2608,16 +2608,16 @@ function _vpFetchOverpassTile() {
       src,
       _args19 = arguments,
       _t15;
-    return _regenerator().w(function (_context19) {
-      while (1) switch (_context19.p = _context19.n) {
+    return _regenerator().w(function (_context20) {
+      while (1) switch (_context20.p = _context20.n) {
         case 0:
           tileIndex = _args19.length > 2 && _args19[2] !== undefined ? _args19[2] : 0;
           b = vpObsTileBoundsFromKey(tileKey);
           if (b) {
-            _context19.n = 1;
+            _context20.n = 1;
             break;
           }
-          return _context19.a(2, {
+          return _context20.a(2, {
             ok: false,
             cooldown: false
           });
@@ -2628,14 +2628,14 @@ function _vpFetchOverpassTile() {
           query = `[out:json][timeout:45][bbox:${bbox}];(node["generator:source"="wind"];node["man_made"~"mast|tower"]["height"];node["power"~"tower|pole"];way["highway"~"motorway|motorway_link|trunk|trunk_link|primary|primary_link"];way["waterway"~"river|canal"];way["power"~"line|minor_line|cable"];);out geom qt;`;
           retries = 1;
           attempt = 0;
-          _context19.p = 2;
+          _context20.p = 2;
         case 3:
           if (!(retries > 0)) {
-            _context19.n = 16;
+            _context20.n = 16;
             break;
           }
           if (!(signal && signal.aborted)) {
-            _context19.n = 4;
+            _context20.n = 4;
             break;
           }
           throw new DOMException('Aborted', 'AbortError');
@@ -2643,8 +2643,8 @@ function _vpFetchOverpassTile() {
           window.vpServerOffset = (window.vpServerOffset || 0) + 1;
           serverUrl = VP_OVERPASS_SERVERS[(tileIndex + attempt + window.vpServerOffset) % VP_OVERPASS_SERVERS.length];
           attempt++;
-          _context19.p = 5;
-          _context19.n = 6;
+          _context20.p = 5;
+          _context20.n = 6;
           return vpFetchResource(serverUrl, {
             method: 'POST',
             headers: {
@@ -2654,16 +2654,16 @@ function _vpFetchOverpassTile() {
             signal
           });
         case 6:
-          res = _context19.v;
+          res = _context20.v;
           if (!(res.status === 429)) {
-            _context19.n = 7;
+            _context20.n = 7;
             break;
           }
           if (window.vpWeatherDebug) window.vpWeatherDebug.overpass429Count += 1;
           retryAfter = Number(res.headers.get('retry-after') || 0);
           cooldownMs = vpApplyOverpassBackoff(429, retryAfter);
           console.warn(`[Overpass] Tile ${tileKey}: 429. Cooldown ${(cooldownMs / 60000).toFixed(1)} min.`);
-          return _context19.a(2, {
+          return _context20.a(2, {
             ok: false,
             cooldown: true,
             status: 429,
@@ -2671,12 +2671,12 @@ function _vpFetchOverpassTile() {
           });
         case 7:
           if (!(res.status === 504)) {
-            _context19.n = 8;
+            _context20.n = 8;
             break;
           }
           if (window.vpWeatherDebug) window.vpWeatherDebug.overpass504Count += 1;
           console.warn(`[Overpass] Tile ${tileKey}: 504 (tile-lokales Backoff).`);
-          return _context19.a(2, {
+          return _context20.a(2, {
             ok: false,
             cooldown: false,
             status: 504,
@@ -2685,25 +2685,25 @@ function _vpFetchOverpassTile() {
           });
         case 8:
           if (res.ok) {
-            _context19.n = 10;
+            _context20.n = 10;
             break;
           }
           retries--;
-          _context19.n = 9;
+          _context20.n = 9;
           return new Promise(r => setTimeout(r, 1500));
         case 9:
-          return _context19.a(3, 3);
+          return _context20.a(3, 3);
         case 10:
-          _context19.n = 11;
+          _context20.n = 11;
           return res.json();
         case 11:
-          json = _context19.v;
+          json = _context20.v;
           if (!(!json || !Array.isArray(json.elements))) {
-            _context19.n = 12;
+            _context20.n = 12;
             break;
           }
           console.warn(`[Overpass] Tile ${tileKey}: Antwort unvollständig (kein elements[]).`);
-          return _context19.a(2, {
+          return _context20.a(2, {
             ok: false,
             cooldown: false,
             status: 520,
@@ -2715,43 +2715,43 @@ function _vpFetchOverpassTile() {
           try {
             src = new URL(serverUrl).host;
           } catch (_) {}
-          return _context19.a(2, {
+          return _context20.a(2, {
             ok: true,
             features,
             src
           });
         case 13:
-          _context19.p = 13;
-          _t15 = _context19.v;
+          _context20.p = 13;
+          _t15 = _context20.v;
           if (!(_t15 && _t15.name === 'AbortError')) {
-            _context19.n = 14;
+            _context20.n = 14;
             break;
           }
           throw _t15;
         case 14:
           retries--;
           if (!(retries > 0)) {
-            _context19.n = 15;
+            _context20.n = 15;
             break;
           }
-          _context19.n = 15;
+          _context20.n = 15;
           return new Promise(r => setTimeout(r, 1200));
         case 15:
-          _context19.n = 3;
+          _context20.n = 3;
           break;
         case 16:
-          return _context19.a(2, {
+          return _context20.a(2, {
             ok: false,
             cooldown: false,
             status: 0,
             src: ''
           });
         case 17:
-          _context19.p = 17;
+          _context20.p = 17;
           if (window.vpSetObsTileLoading) window.vpSetObsTileLoading(tileKey, false);
-          return _context19.f(17);
+          return _context20.f(17);
         case 18:
-          return _context19.a(2);
+          return _context20.a(2);
       }
     }, _callee17, null, [[5, 13], [2,, 17, 18]]);
   }));
@@ -2806,19 +2806,19 @@ function _fetchProfileObstacles() {
       sourceLabel,
       _args22 = arguments,
       _t16;
-    return _regenerator().w(function (_context22) {
-      while (1) switch (_context22.p = _context22.n) {
+    return _regenerator().w(function (_context23) {
+      while (1) switch (_context23.p = _context23.n) {
         case 0:
           routeCacheKey = _args22.length > 2 && _args22[2] !== undefined ? _args22[2] : '';
           forceNetwork = _args22.length > 3 && _args22[3] !== undefined ? _args22[3] : false;
           if (!(!elevData || elevData.length < 2)) {
-            _context22.n = 1;
+            _context23.n = 1;
             break;
           }
-          return _context22.a(2, null);
+          return _context23.a(2, null);
         case 1:
           if (!(!forceNetwork && vpIsOverpassCoolingDown())) {
-            _context22.n = 2;
+            _context23.n = 2;
             break;
           }
           remainingMs = vpGetOverpassCooldownRemainingMs();
@@ -2826,7 +2826,7 @@ function _fetchProfileObstacles() {
           if (window.vpWeatherDebug) window.vpWeatherDebug.overpassCooldownSkips += 1;
           console.warn(`[Overpass] Cooldown aktiv (${remainingMin} min). Nutze Cache/Bestand, kein Netz-Request.`);
           seededCd = vpProjectObsPoolToRoute(elevData);
-          return _context22.a(2, {
+          return _context23.a(2, {
             obs: seededCd.obs || [],
             lin: seededCd.lin || [],
             source: 'cooldown-cache',
@@ -2855,31 +2855,31 @@ function _fetchProfileObstacles() {
           obsPoolProjectionDirty = true; // Phase 1: Hosted-Tiles parallel laden (schnell), Overpass erst danach.
           overpassCandidates = readyKeys.slice();
           if (!(readyKeys.length > 0)) {
-            _context22.n = 11;
+            _context23.n = 11;
             break;
           }
           hostedBatchSize = Math.min(VP_OBS_HOSTED_MAX_PER_PASS, readyKeys.length);
           hostedKeys = readyKeys.slice(0, hostedBatchSize);
           hostedAttemptCount = hostedKeys.length;
           if (!(hostedKeys.length > 0)) {
-            _context22.n = 11;
+            _context23.n = 11;
             break;
           }
-          _context22.n = 3;
+          _context23.n = 3;
           return vpFetchHostedTilesParallel(hostedKeys, signal, {
             concurrency: VP_OBS_HOSTED_PARALLELISM
           });
         case 3:
-          hostedResMap = _context22.v;
+          hostedResMap = _context23.v;
           hostedMissKeys = [];
           hostedObsBatch = [];
           hostedLinBatch = [];
           _iterator77 = _createForOfIteratorHelper(hostedKeys);
-          _context22.p = 4;
+          _context23.p = 4;
           _loop1 = /*#__PURE__*/_regenerator().m(function _loop1() {
             var key, res;
-            return _regenerator().w(function (_context20) {
-              while (1) switch (_context20.n) {
+            return _regenerator().w(function (_context21) {
+              while (1) switch (_context21.n) {
                 case 0:
                   key = _step77.value;
                   res = hostedResMap.get(key);
@@ -2902,31 +2902,31 @@ function _fetchProfileObstacles() {
                     hostedMissKeys.push(key);
                   }
                 case 1:
-                  return _context20.a(2);
+                  return _context21.a(2);
               }
             }, _loop1);
           });
           _iterator77.s();
         case 5:
           if ((_step77 = _iterator77.n()).done) {
-            _context22.n = 7;
+            _context23.n = 7;
             break;
           }
-          return _context22.d(_regeneratorValues(_loop1()), 6);
+          return _context23.d(_regeneratorValues(_loop1()), 6);
         case 6:
-          _context22.n = 5;
+          _context23.n = 5;
           break;
         case 7:
-          _context22.n = 9;
+          _context23.n = 9;
           break;
         case 8:
-          _context22.p = 8;
-          _t16 = _context22.v;
+          _context23.p = 8;
+          _t16 = _context23.v;
           _iterator77.e(_t16);
         case 9:
-          _context22.p = 9;
+          _context23.p = 9;
           _iterator77.f();
-          return _context22.f(9);
+          return _context23.f(9);
         case 10:
           if (hostedObsBatch.length || hostedLinBatch.length) {
             vpRememberObstacleData(hostedObsBatch, hostedLinBatch);
@@ -2962,12 +2962,12 @@ function _fetchProfileObstacles() {
             if (deferredTileKeys.length > 0) window.vpSetObsTileDeferred(deferredTileKeys, true);
           }
           if (toLoad.length) {
-            _context22.n = 12;
+            _context23.n = 12;
             break;
           }
           seeded = !obsPoolProjectionDirty && latestSeededProjection ? latestSeededProjection : vpProjectObsPoolToRoute(elevData);
           sourceLabelNoOp = usedServers.size > 0 ? Array.from(usedServers).join(',') : 'tile-cache';
-          return _context22.a(2, {
+          return _context23.a(2, {
             obs: seeded.obs || [],
             lin: seeded.lin || [],
             source: sourceLabelNoOp,
@@ -2980,33 +2980,33 @@ function _fetchProfileObstacles() {
           console.log(`[Overpass] Tile-Modus: hosted ${hostedLoadedCount}/${hostedAttemptCount} ok, overpass ${toLoad.length}/${overpassCandidates.length} jetzt laden, ${deferredTileKeys.length} defer${routeCacheKey ? ` [${routeCacheKey.slice(0, 24)}]` : ''}.`);
           _loop10 = /*#__PURE__*/_regenerator().m(function _loop10() {
             var remainSec, tileKey, res, waitMs, j, seededLive;
-            return _regenerator().w(function (_context21) {
-              while (1) switch (_context21.n) {
+            return _regenerator().w(function (_context22) {
+              while (1) switch (_context22.n) {
                 case 0:
                   if (!(signal && signal.aborted)) {
-                    _context21.n = 1;
+                    _context22.n = 1;
                     break;
                   }
                   throw new DOMException('Aborted', 'AbortError');
                 case 1:
                   if (!(!forceNetwork && vpIsOverpassCoolingDown())) {
-                    _context21.n = 2;
+                    _context22.n = 2;
                     break;
                   }
                   remainSec = Math.ceil(vpGetOverpassCooldownRemainingMs() / 1000);
                   console.warn(`[Overpass] Tile-Queue pausiert (Cooldown ${remainSec}s).`);
                   failedTileKeys.push.apply(failedTileKeys, _toConsumableArray(toLoad.slice(i)));
-                  return _context21.a(2, 0);
+                  return _context22.a(2, 0);
                 case 2:
                   tileKey = toLoad[i];
-                  _context21.n = 3;
+                  _context22.n = 3;
                   return vpFetchObstacleTile(tileKey, signal, i, {
                     preferOverpass: !!forceNetwork
                   });
                 case 3:
-                  res = _context21.v;
+                  res = _context22.v;
                   if (!(!res || !res.ok)) {
-                    _context21.n = 5;
+                    _context22.n = 5;
                     break;
                   }
                   vpMarkTileFailed(tileKey, Number(res && res.status || 0), String(res && res.src || ''));
@@ -3017,14 +3017,14 @@ function _fetchProfileObstacles() {
                   if (window.vpSetObsTileDeferred) window.vpSetObsTileDeferred(tileKey, false);
                   failedTileKeys.push(tileKey);
                   if (!(res && res.cooldown)) {
-                    _context21.n = 4;
+                    _context22.n = 4;
                     break;
                   }
                   failedTileKeys.push.apply(failedTileKeys, _toConsumableArray(toLoad.slice(i + 1)));
                   for (j = i + 1; j < toLoad.length; j++) vpMarkTileFailed(toLoad[j], Number(res && res.status || 0), String(res && res.src || ''));
-                  return _context21.a(2, 0);
+                  return _context22.a(2, 0);
                 case 4:
-                  return _context21.a(2, 1);
+                  return _context22.a(2, 1);
                 case 5:
                   vpClearTileFailed(tileKey);
                   vpClearTileBackoff(tileKey);
@@ -3050,39 +3050,39 @@ function _fetchProfileObstacles() {
                     });
                   }
                   if (!(i < toLoad.length - 1)) {
-                    _context21.n = 6;
+                    _context22.n = 6;
                     break;
                   }
-                  _context21.n = 6;
+                  _context22.n = 6;
                   return new Promise(r => setTimeout(r, interDelayMs));
                 case 6:
-                  return _context21.a(2);
+                  return _context22.a(2);
               }
             }, _loop10);
           });
           i = 0;
         case 13:
           if (!(i < toLoad.length)) {
-            _context22.n = 17;
+            _context23.n = 17;
             break;
           }
-          return _context22.d(_regeneratorValues(_loop10()), 14);
+          return _context23.d(_regeneratorValues(_loop10()), 14);
         case 14:
-          _ret4 = _context22.v;
+          _ret4 = _context23.v;
           if (!(_ret4 === 0)) {
-            _context22.n = 15;
+            _context23.n = 15;
             break;
           }
-          return _context22.a(3, 17);
+          return _context23.a(3, 17);
         case 15:
           if (!(_ret4 === 1)) {
-            _context22.n = 16;
+            _context23.n = 16;
             break;
           }
-          return _context22.a(3, 16);
+          return _context23.a(3, 16);
         case 16:
           i++;
-          _context22.n = 13;
+          _context23.n = 13;
           break;
         case 17:
           if (failedTileKeys.length > 0) {
@@ -3099,7 +3099,7 @@ function _fetchProfileObstacles() {
           sourceLabel = usedServers.size > 0 ? Array.from(usedServers).join(',') : 'tile-cache';
           window.vpLastObsTileSource = sourceLabel;
           console.log(`[Overpass] Tile-Queue fertig. geladen=${loadedTileKeys.length}, failed=${failedTileKeys.length}, deferred=${deferredTileKeys.length}`);
-          return _context22.a(2, {
+          return _context23.a(2, {
             obs: vpObstacles,
             lin: vpLinearFeatures,
             source: sourceLabel,
@@ -3118,9 +3118,9 @@ function fetchGpsObstacles(_x12, _x13) {
 }
 function _fetchGpsObstacles() {
   _fetchGpsObstacles = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19(lat, lon) {
-    var centerKey, _centerKey$split$map, _centerKey$split$map2, latI, lonI, tileKeys, dy, dx, probe, missing, hostedBatchSize, hostedKeys, hostedResults, hostedOk, _iterator78, _step78, key, _res, _res$features5, _res$features6, restHosted, overpassKeys, i, tileKey, res, _res$features3, _res$features4, rawObs, _iterator79, _step79, item, nav, buckets, finalObs, _i34, _Object$keys, k, group, rep, _t17, _t18;
-    return _regenerator().w(function (_context23) {
-      while (1) switch (_context23.p = _context23.n) {
+    var centerKey, _centerKey$split$map, _centerKey$split$map2, latI, lonI, tileKeys, dy, dx, probe, missing, hostedBatchSize, hostedKeys, hostedResults, hostedOk, _iterator78, _step78, key, _res, _res$features5, _res$features6, restHosted, overpassKeys, i, tileKey, res, _res$features3, _res$features4, rawObs, _iterator79, _step79, item, nav, buckets, finalObs, _i35, _Object$keys, k, group, rep, _t17, _t18;
+    return _regenerator().w(function (_context24) {
+      while (1) switch (_context24.p = _context24.n) {
         case 0:
           centerKey = vpObsTileKey(lat, lon);
           _centerKey$split$map = centerKey.split('|').map(Number), _centerKey$split$map2 = _slicedToArray(_centerKey$split$map, 2), latI = _centerKey$split$map2[0], lonI = _centerKey$split$map2[1];
@@ -3139,17 +3139,17 @@ function _fetchGpsObstacles() {
           }).filter(Boolean));
           missing = probe.missing || [];
           if (!(!vpIsOverpassCoolingDown() && missing.length > 0)) {
-            _context23.n = 11;
+            _context24.n = 11;
             break;
           }
           hostedBatchSize = Math.min(VP_OBS_HOSTED_MAX_PER_PASS, missing.length);
           hostedKeys = missing.slice(0, hostedBatchSize);
-          _context23.n = 1;
+          _context24.n = 1;
           return vpFetchHostedTilesParallel(hostedKeys, null, {
             concurrency: VP_OBS_HOSTED_PARALLELISM
           });
         case 1:
-          hostedResults = _context23.v;
+          hostedResults = _context24.v;
           hostedOk = new Set();
           _iterator78 = _createForOfIteratorHelper(hostedKeys);
           try {
@@ -3174,17 +3174,17 @@ function _fetchGpsObstacles() {
           i = 0;
         case 2:
           if (!(i < overpassKeys.length)) {
-            _context23.n = 11;
+            _context24.n = 11;
             break;
           }
           tileKey = overpassKeys[i];
-          _context23.p = 3;
-          _context23.n = 4;
+          _context24.p = 3;
+          _context24.n = 4;
           return vpFetchOverpassTile(tileKey, null, i);
         case 4:
-          res = _context23.v;
+          res = _context24.v;
           if (!(res && res.ok)) {
-            _context23.n = 5;
+            _context24.n = 5;
             break;
           }
           vpClearTileFailed(tileKey);
@@ -3192,61 +3192,61 @@ function _fetchGpsObstacles() {
           vpRememberObstacleData(((_res$features3 = res.features) === null || _res$features3 === void 0 ? void 0 : _res$features3.obs) || [], ((_res$features4 = res.features) === null || _res$features4 === void 0 ? void 0 : _res$features4.lin) || [], tileKey);
           vpMarkTileKeysCovered([tileKey], res.src || 'gps-overpass');
           vpMarkOverpassSuccess();
-          _context23.n = 7;
+          _context24.n = 7;
           break;
         case 5:
           if (!(res && res.cooldown)) {
-            _context23.n = 6;
+            _context24.n = 6;
             break;
           }
           vpMarkTileFailed(tileKey, Number(res.status || 0), String(res.src || ''));
-          return _context23.a(3, 11);
+          return _context24.a(3, 11);
         case 6:
           vpMarkTileFailed(tileKey, Number(res && res.status || 0), String(res && res.src || ''));
           if (res && res.tileBackoff) vpMarkTileBackoff(tileKey);
         case 7:
-          _context23.n = 9;
+          _context24.n = 9;
           break;
         case 8:
-          _context23.p = 8;
-          _t17 = _context23.v;
+          _context24.p = 8;
+          _t17 = _context24.v;
           vpMarkTileFailed(tileKey, 0, '');
           console.warn('[GPS-Obs] Tile-Fehler:', _t17);
         case 9:
           if (!(i < overpassKeys.length - 1)) {
-            _context23.n = 10;
+            _context24.n = 10;
             break;
           }
-          _context23.n = 10;
+          _context24.n = 10;
           return new Promise(r => setTimeout(r, VP_OBS_TILE_INTER_REQUEST_MS));
         case 10:
           i++;
-          _context23.n = 2;
+          _context24.n = 2;
           break;
         case 11:
           vpHydrateObsPool();
           rawObs = [];
           _iterator79 = _createForOfIteratorHelper(vpObsPool.obs.values());
-          _context23.p = 12;
+          _context24.p = 12;
           _iterator79.s();
         case 13:
           if ((_step79 = _iterator79.n()).done) {
-            _context23.n = 17;
+            _context24.n = 17;
             break;
           }
           item = _step79.value;
           if (!(!item || !Number.isFinite(item.lat) || !Number.isFinite(item.lon))) {
-            _context23.n = 14;
+            _context24.n = 14;
             break;
           }
-          return _context23.a(3, 16);
+          return _context24.a(3, 16);
         case 14:
           nav = calcNav(lat, lon, item.lat, item.lon);
           if (!(!Number.isFinite(nav.dist) || nav.dist > 22)) {
-            _context23.n = 15;
+            _context24.n = 15;
             break;
           }
-          return _context23.a(3, 16);
+          return _context24.a(3, 16);
         case 15:
           rawObs.push({
             type: item.type || 'mast',
@@ -3258,19 +3258,19 @@ function _fetchGpsObstacles() {
             lon: Number(item.lon)
           });
         case 16:
-          _context23.n = 13;
+          _context24.n = 13;
           break;
         case 17:
-          _context23.n = 19;
+          _context24.n = 19;
           break;
         case 18:
-          _context23.p = 18;
-          _t18 = _context23.v;
+          _context24.p = 18;
+          _t18 = _context24.v;
           _iterator79.e(_t18);
         case 19:
-          _context23.p = 19;
+          _context24.p = 19;
           _iterator79.f();
-          return _context23.f(19);
+          return _context24.f(19);
         case 20:
           buckets = {};
           rawObs.forEach(obs => {
@@ -3279,8 +3279,8 @@ function _fetchGpsObstacles() {
             buckets[bIdx].push(obs);
           });
           finalObs = [];
-          for (_i34 = 0, _Object$keys = Object.keys(buckets); _i34 < _Object$keys.length; _i34++) {
-            k = _Object$keys[_i34];
+          for (_i35 = 0, _Object$keys = Object.keys(buckets); _i35 < _Object$keys.length; _i35++) {
+            k = _Object$keys[_i35];
             group = buckets[k].sort((a, b) => b.hFt - a.hFt);
             rep = group[0];
             rep.count = group.length;
@@ -3291,7 +3291,7 @@ function _fetchGpsObstacles() {
           if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
           console.log(`[GPS-Obs] ${finalObs.length} Hindernisse aus Tile-Cache/Netz (${missing.length} fehlende Tiles geprüft).`);
         case 21:
-          return _context23.a(2);
+          return _context24.a(2);
       }
     }, _callee19, null, [[12, 18, 19, 20], [3, 8]]);
   }));
@@ -3969,101 +3969,101 @@ function fetchRouteElevation(_x14, _x15) {
 function _fetchRouteElevation() {
   _fetchRouteElevation = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20(routePts, signal) {
     var cacheKey, coarseKey, coarseMemKey, exactStored, coarseCached, _vpBuildInterpolatedR, interpolated, samplePts, approxProfile, terrariumData, lats, lons, res, data, finalData, _t19, _t20;
-    return _regenerator().w(function (_context24) {
-      while (1) switch (_context24.p = _context24.n) {
+    return _regenerator().w(function (_context25) {
+      while (1) switch (_context25.p = _context25.n) {
         case 0:
           if (!(!routePts || routePts.length < 2)) {
-            _context24.n = 1;
+            _context25.n = 1;
             break;
           }
-          return _context24.a(2, []);
+          return _context25.a(2, []);
         case 1:
           cacheKey = vpBuildElevationRouteKey(routePts, 4);
           coarseKey = vpBuildElevationRouteKey(routePts, 3);
           coarseMemKey = 'q3|' + coarseKey;
           if (!vpElevationCache[cacheKey]) {
-            _context24.n = 2;
+            _context25.n = 2;
             break;
           }
           window.vpElevationFallbackActive = false;
           window.vpTerrainElevationSource = 'terrarium-cache';
-          return _context24.a(2, vpElevationCache[cacheKey]);
+          return _context25.a(2, vpElevationCache[cacheKey]);
         case 2:
           exactStored = vpGetStoredElevationCache(cacheKey, false);
           if (!exactStored) {
-            _context24.n = 3;
+            _context25.n = 3;
             break;
           }
           vpElevationCache[cacheKey] = exactStored;
           window.vpElevationFallbackActive = false;
           window.vpTerrainElevationSource = 'terrarium-cache';
-          return _context24.a(2, exactStored);
+          return _context25.a(2, exactStored);
         case 3:
           coarseCached = vpElevationCache[coarseMemKey] || vpGetStoredElevationCache(coarseKey, true);
           if (!coarseCached) {
-            _context24.n = 4;
+            _context25.n = 4;
             break;
           }
           vpElevationCache[coarseMemKey] = coarseCached;
           vpRecordElevationFallback('coarse route cache');
-          return _context24.a(2, coarseCached);
+          return _context25.a(2, coarseCached);
         case 4:
           _vpBuildInterpolatedR = vpBuildInterpolatedRoutePoints(routePts), interpolated = _vpBuildInterpolatedR.interpolated, samplePts = _vpBuildInterpolatedR.samplePts;
           approxProfile = vpBuildApproxElevationProfile(interpolated);
-          _context24.p = 5;
-          _context24.n = 6;
+          _context25.p = 5;
+          _context25.n = 6;
           return vpFetchElevationFromTerrarium(samplePts, signal);
         case 6:
-          terrariumData = _context24.v;
+          terrariumData = _context25.v;
           if (!(terrariumData && terrariumData.length === samplePts.length)) {
-            _context24.n = 7;
+            _context25.n = 7;
             break;
           }
-          return _context24.a(2, vpPersistElevationResult(cacheKey, coarseKey, terrariumData, 'terrarium'));
+          return _context25.a(2, vpPersistElevationResult(cacheKey, coarseKey, terrariumData, 'terrarium'));
         case 7:
-          _context24.n = 10;
+          _context25.n = 10;
           break;
         case 8:
-          _context24.p = 8;
-          _t19 = _context24.v;
+          _context25.p = 8;
+          _t19 = _context25.v;
           if (!(_t19 && _t19.name === 'AbortError')) {
-            _context24.n = 9;
+            _context25.n = 9;
             break;
           }
-          return _context24.a(2, null);
+          return _context25.a(2, null);
         case 9:
           vpWeatherDebugSetError(_t19, 'terrarium elevation');
         case 10:
           if (!vpIsElevationCoolingDown()) {
-            _context24.n = 11;
+            _context25.n = 11;
             break;
           }
           vpRecordElevationFallback('terrarium unavailable + openmeteo cooldown');
-          return _context24.a(2, approxProfile);
+          return _context25.a(2, approxProfile);
         case 11:
           lats = samplePts.map(p => p.lat.toFixed(4)).join(',');
           lons = samplePts.map(p => p.lon.toFixed(4)).join(',');
-          _context24.p = 12;
+          _context25.p = 12;
           if (window.vpWeatherDebug) window.vpWeatherDebug.elevationNetworkRequests += 1;
-          _context24.n = 13;
+          _context25.n = 13;
           return vpFetchResource('https://api.open-meteo.com/v1/elevation?latitude=' + lats + '&longitude=' + lons, {
             signal
           });
         case 13:
-          res = _context24.v;
+          res = _context25.v;
           if (res.ok) {
-            _context24.n = 14;
+            _context25.n = 14;
             break;
           }
           if (res.status === 429) vpRecordElevation429();
           throw new Error('Elevation API error: ' + res.status);
         case 14:
-          _context24.n = 15;
+          _context25.n = 15;
           return res.json();
         case 15:
-          data = _context24.v;
+          data = _context25.v;
           if (!(!data.elevation || data.elevation.length !== samplePts.length)) {
-            _context24.n = 16;
+            _context25.n = 16;
             break;
           }
           throw new Error('Invalid elevation response');
@@ -4076,19 +4076,19 @@ function _fetchRouteElevation() {
           }));
           vpPersistElevationResult(cacheKey, coarseKey, finalData, 'openmeteo');
           if (window.vpWeatherDebug) window.vpWeatherDebug.lastElevationSuccessAt = Date.now();
-          return _context24.a(2, finalData);
+          return _context25.a(2, finalData);
         case 17:
-          _context24.p = 17;
-          _t20 = _context24.v;
+          _context25.p = 17;
+          _t20 = _context25.v;
           if (!(_t20 && _t20.name === 'AbortError')) {
-            _context24.n = 18;
+            _context25.n = 18;
             break;
           }
-          return _context24.a(2, null);
+          return _context25.a(2, null);
         case 18:
           vpWeatherDebugSetError(_t20, 'elevation');
           vpRecordElevationFallback(_t20 && _t20.message ? _t20.message : 'elevation fetch failed');
-          return _context24.a(2, approxProfile);
+          return _context25.a(2, approxProfile);
       }
     }, _callee20, null, [[12, 17], [5, 8]]);
   }));
@@ -4149,8 +4149,8 @@ function _fetchRouteWeatherMetar() {
       _loop12,
       targetDist,
       _args32 = arguments;
-    return _regenerator().w(function (_context32) {
-      while (1) switch (_context32.n) {
+    return _regenerator().w(function (_context33) {
+      while (1) switch (_context33.n) {
         case 0:
           _safeFetchMetarJson = function _safeFetchMetarJson3() {
             _safeFetchMetarJson = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee25(urlObj) {
@@ -4167,13 +4167,13 @@ function _fetchRouteWeatherMetar() {
                 proxy,
                 pr,
                 ptxt,
-                _arr3,
+                _arr4,
                 _args29 = arguments,
                 _t23,
                 _t24,
                 _t25;
-              return _regenerator().w(function (_context29) {
-                while (1) switch (_context29.p = _context29.n) {
+              return _regenerator().w(function (_context30) {
+                while (1) switch (_context30.p = _context30.n) {
                   case 0:
                     retryCount = _args29.length > 1 && _args29[1] !== undefined ? _args29[1] : retries;
                     proxyDefs = [{
@@ -4187,143 +4187,143 @@ function _fetchRouteWeatherMetar() {
                     i = 0;
                   case 1:
                     if (!(i < retryCount)) {
-                      _context29.n = 27;
+                      _context30.n = 27;
                       break;
                     }
                     if (!(signal && signal.aborted)) {
-                      _context29.n = 2;
+                      _context30.n = 2;
                       break;
                     }
                     throw new DOMException('Aborted', 'AbortError');
                   case 2:
                     if (skipDirectMetarFetch) {
-                      _context29.n = 9;
+                      _context30.n = 9;
                       break;
                     }
-                    _context29.p = 3;
-                    _context29.n = 4;
+                    _context30.p = 3;
+                    _context30.n = 4;
                     return fetchWithTimeout(urlObj);
                   case 4:
-                    r = _context29.v;
+                    r = _context30.v;
                     if (!(r.ok && r.status !== 204)) {
-                      _context29.n = 6;
+                      _context30.n = 6;
                       break;
                     }
-                    _context29.n = 5;
+                    _context30.n = 5;
                     return r.text();
                   case 5:
-                    txt = _context29.v;
+                    txt = _context30.v;
                     arr = parseMetarJsonText(txt);
                     if (!arr) {
-                      _context29.n = 6;
+                      _context30.n = 6;
                       break;
                     }
-                    return _context29.a(2, arr);
+                    return _context30.a(2, arr);
                   case 6:
                     if (![400, 401, 403, 404].includes(r.status)) {
-                      _context29.n = 7;
+                      _context30.n = 7;
                       break;
                     }
-                    return _context29.a(3, 27);
+                    return _context30.a(3, 27);
                   case 7:
-                    _context29.n = 9;
+                    _context30.n = 9;
                     break;
                   case 8:
-                    _context29.p = 8;
-                    _t23 = _context29.v;
+                    _context30.p = 8;
+                    _t23 = _context30.v;
                   case 9:
                     activeProxies = proxyDefs.filter(p => !vpProxyIsCoolingDown(p.key));
                     if (!(activeProxies.length === 0)) {
-                      _context29.n = 11;
+                      _context30.n = 11;
                       break;
                     }
                     window.vpMetarLastInfraBlockAt = Date.now();
                     infraBlocked = true;
                     vpWeatherDebugEvent('METAR proxies in cooldown -> skip network');
                     if (!(i < retryCount - 1)) {
-                      _context29.n = 10;
+                      _context30.n = 10;
                       break;
                     }
-                    _context29.n = 10;
+                    _context30.n = 10;
                     return new Promise(res => setTimeout(res, fastFail ? 120 : 300));
                   case 10:
-                    return _context29.a(3, 26);
+                    return _context30.a(3, 26);
                   case 11:
                     _iterator84 = _createForOfIteratorHelper(activeProxies);
-                    _context29.p = 12;
+                    _context30.p = 12;
                     _iterator84.s();
                   case 13:
                     if ((_step84 = _iterator84.n()).done) {
-                      _context29.n = 22;
+                      _context30.n = 22;
                       break;
                     }
                     proxy = _step84.value;
-                    _context29.p = 14;
-                    _context29.n = 15;
+                    _context30.p = 14;
+                    _context30.n = 15;
                     return fetchWithTimeout(proxy.mk(urlObj));
                   case 15:
-                    pr = _context29.v;
+                    pr = _context30.v;
                     if (!(!pr.ok || pr.status === 204)) {
-                      _context29.n = 16;
+                      _context30.n = 16;
                       break;
                     }
                     if ([400, 401, 403, 404, 408, 429].includes(pr.status) || pr.status >= 500) {
                       vpProxyMarkFailed(proxy.key);
                     }
-                    return _context29.a(3, 21);
+                    return _context30.a(3, 21);
                   case 16:
-                    _context29.n = 17;
+                    _context30.n = 17;
                     return pr.text();
                   case 17:
-                    ptxt = _context29.v;
-                    _arr3 = parseMetarJsonText(ptxt);
-                    if (!_arr3) {
-                      _context29.n = 18;
+                    ptxt = _context30.v;
+                    _arr4 = parseMetarJsonText(ptxt);
+                    if (!_arr4) {
+                      _context30.n = 18;
                       break;
                     }
                     vpProxyMarkOk(proxy.key);
-                    return _context29.a(2, _arr3);
+                    return _context30.a(2, _arr4);
                   case 18:
                     vpProxyMarkFailed(proxy.key);
                     if (![400, 401, 403, 404].includes(pr.status)) {
-                      _context29.n = 19;
+                      _context30.n = 19;
                       break;
                     }
-                    return _context29.a(3, 21);
+                    return _context30.a(3, 21);
                   case 19:
-                    _context29.n = 21;
+                    _context30.n = 21;
                     break;
                   case 20:
-                    _context29.p = 20;
-                    _t24 = _context29.v;
+                    _context30.p = 20;
+                    _t24 = _context30.v;
                     vpProxyMarkFailed(proxy.key);
                   case 21:
-                    _context29.n = 13;
+                    _context30.n = 13;
                     break;
                   case 22:
-                    _context29.n = 24;
+                    _context30.n = 24;
                     break;
                   case 23:
-                    _context29.p = 23;
-                    _t25 = _context29.v;
+                    _context30.p = 23;
+                    _t25 = _context30.v;
                     _iterator84.e(_t25);
                   case 24:
-                    _context29.p = 24;
+                    _context30.p = 24;
                     _iterator84.f();
-                    return _context29.f(24);
+                    return _context30.f(24);
                   case 25:
                     if (!(i < retryCount - 1)) {
-                      _context29.n = 26;
+                      _context30.n = 26;
                       break;
                     }
-                    _context29.n = 26;
+                    _context30.n = 26;
                     return new Promise(res => setTimeout(res, fastFail ? 250 : 600));
                   case 26:
                     i++;
-                    _context29.n = 1;
+                    _context30.n = 1;
                     break;
                   case 27:
-                    return _context29.a(2, infraBlocked ? null : []);
+                    return _context30.a(2, infraBlocked ? null : []);
                 }
               }, _callee25, null, [[14, 20], [12, 23, 24, 25], [3, 8]]);
             }));
@@ -4351,8 +4351,8 @@ function _fetchRouteWeatherMetar() {
           _fetchWithTimeout = function _fetchWithTimeout3() {
             _fetchWithTimeout = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee24(urlObj) {
               var ctrl, timer, onAbort;
-              return _regenerator().w(function (_context28) {
-                while (1) switch (_context28.p = _context28.n) {
+              return _regenerator().w(function (_context29) {
+                while (1) switch (_context29.p = _context29.n) {
                   case 0:
                     ctrl = vpCreateAbortController();
                     timer = null;
@@ -4364,20 +4364,20 @@ function _fetchRouteWeatherMetar() {
                       });
                     }
                     timer = setTimeout(() => ctrl.abort(), perRequestTimeoutMs);
-                    _context28.p = 1;
-                    _context28.n = 2;
+                    _context29.p = 1;
+                    _context29.n = 2;
                     return vpFetchResource(urlObj, {
                       signal: ctrl.signal
                     });
                   case 2:
-                    return _context28.a(2, _context28.v);
+                    return _context29.a(2, _context29.v);
                   case 3:
-                    _context28.p = 3;
+                    _context29.p = 3;
                     if (timer) clearTimeout(timer);
                     if (signal && onAbort) signal.removeEventListener('abort', onAbort);
-                    return _context28.f(3);
+                    return _context29.f(3);
                   case 4:
-                    return _context28.a(2);
+                    return _context29.a(2);
                 }
               }, _callee24, null, [[1,, 3, 4]]);
             }));
@@ -4499,10 +4499,10 @@ function _fetchRouteWeatherMetar() {
           };
           options = _args32.length > 3 && _args32[3] !== undefined ? _args32[3] : {};
           if (!(!routePts || routePts.length < 2 || !elevData || elevData.length < 2)) {
-            _context32.n = 1;
+            _context33.n = 1;
             break;
           }
-          return _context32.a(2, null);
+          return _context33.a(2, null);
         case 1:
           fastFail = !!(options && options.fastFail);
           perRequestTimeoutMs = fastFail ? 3200 : 6500;
@@ -4514,8 +4514,8 @@ function _fetchRouteWeatherMetar() {
           chunkDefs = [];
           _loop11 = /*#__PURE__*/_regenerator().m(function _loop11(d) {
             var cMinLat, cMaxLat, cMinLon, cMaxLon;
-            return _regenerator().w(function (_context30) {
-              while (1) switch (_context30.n) {
+            return _regenerator().w(function (_context31) {
+              while (1) switch (_context31.n) {
                 case 0:
                   cMinLat = 90, cMaxLat = -90, cMinLon = 180, cMaxLon = -180;
                   elevData.forEach(p => {
@@ -4527,10 +4527,10 @@ function _fetchRouteWeatherMetar() {
                     }
                   });
                   if (!(cMinLat === 90)) {
-                    _context30.n = 1;
+                    _context31.n = 1;
                     break;
                   }
-                  return _context30.a(2, 1);
+                  return _context31.a(2, 1);
                 case 1:
                   // Puffer hinzufügen (ca. 45 NM)
                   cMinLat -= 0.8;
@@ -4545,31 +4545,31 @@ function _fetchRouteWeatherMetar() {
                     key: vpBuildMetarChunkKey(cMinLat, cMinLon, cMaxLat, cMaxLon)
                   });
                 case 2:
-                  return _context30.a(2);
+                  return _context31.a(2);
               }
             }, _loop11);
           });
           d = 0;
         case 2:
           if (!(d < totalDist)) {
-            _context32.n = 5;
+            _context33.n = 5;
             break;
           }
-          return _context32.d(_regeneratorValues(_loop11(d)), 3);
+          return _context33.d(_regeneratorValues(_loop11(d)), 3);
         case 3:
-          if (!_context32.v) {
-            _context32.n = 4;
+          if (!_context33.v) {
+            _context33.n = 4;
             break;
           }
-          return _context32.a(3, 4);
+          return _context33.a(3, 4);
         case 4:
           d += CHUNK_NM;
-          _context32.n = 2;
+          _context33.n = 2;
           break;
         case 5:
           nowTs = Date.now();
           fetchChunkData = /*#__PURE__*/function () {
-            var _ref45 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21(chunk) {
+            var _ref47 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21(chunk) {
               var bypassCache,
                 cached,
                 url,
@@ -4578,89 +4578,14 @@ function _fetchRouteWeatherMetar() {
                 safeArr,
                 stale,
                 _args25 = arguments;
-              return _regenerator().w(function (_context25) {
-                while (1) switch (_context25.n) {
-                  case 0:
-                    bypassCache = _args25.length > 1 && _args25[1] !== undefined ? _args25[1] : false;
-                    if (bypassCache) {
-                      _context25.n = 1;
-                      break;
-                    }
-                    cached = vpGetMetarChunkCache(chunk.key, nowTs);
-                    if (!Array.isArray(cached)) {
-                      _context25.n = 1;
-                      break;
-                    }
-                    return _context25.a(2, {
-                      arr: cached,
-                      fromCache: true
-                    });
-                  case 1:
-                    url = `https://aviationweather.gov/api/data/metar?bbox=${chunk.minLat},${chunk.minLon},${chunk.maxLat},${chunk.maxLon}&format=json`;
-                    _context25.n = 2;
-                    return safeFetchMetarJson(url, retries);
-                  case 2:
-                    arr = _context25.v;
-                    if (!(arr === null)) {
-                      _context25.n = 4;
-                      break;
-                    }
-                    _stale = vpGetMetarChunkCache(chunk.key, nowTs, true);
-                    if (!(Array.isArray(_stale) && _stale.length > 0)) {
-                      _context25.n = 3;
-                      break;
-                    }
-                    return _context25.a(2, {
-                      arr: _stale,
-                      fromCache: true,
-                      staleFallback: true
-                    });
-                  case 3:
-                    return _context25.a(2, {
-                      arr: [],
-                      fromCache: false,
-                      infraBlocked: true
-                    });
-                  case 4:
-                    safeArr = Array.isArray(arr) ? arr : [];
-                    vpSetMetarChunkCache(chunk.key, safeArr, Date.now());
-                    if (!(safeArr.length > 0)) {
-                      _context25.n = 5;
-                      break;
-                    }
-                    return _context25.a(2, {
-                      arr: safeArr,
-                      fromCache: false
-                    });
-                  case 5:
-                    stale = vpGetMetarChunkCache(chunk.key, nowTs, true);
-                    if (!(Array.isArray(stale) && stale.length > 0)) {
-                      _context25.n = 6;
-                      break;
-                    }
-                    return _context25.a(2, {
-                      arr: stale,
-                      fromCache: true,
-                      staleFallback: true
-                    });
-                  case 6:
-                    return _context25.a(2, {
-                      arr: safeArr,
-                      fromCache: false
-                    });
-                }
-              }, _callee21);
-            }));
-            return function fetchChunkData(_x59) {
-              return _ref45.apply(this, arguments);
-            };
-          }();
-          promises = chunkDefs.map(/*#__PURE__*/function () {
-            var _ref46 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22(chunk) {
-              var cached;
               return _regenerator().w(function (_context26) {
                 while (1) switch (_context26.n) {
                   case 0:
+                    bypassCache = _args25.length > 1 && _args25[1] !== undefined ? _args25[1] : false;
+                    if (bypassCache) {
+                      _context26.n = 1;
+                      break;
+                    }
                     cached = vpGetMetarChunkCache(chunk.key, nowTs);
                     if (!Array.isArray(cached)) {
                       _context26.n = 1;
@@ -4671,22 +4596,97 @@ function _fetchRouteWeatherMetar() {
                       fromCache: true
                     });
                   case 1:
-                    return _context26.a(2, fetchChunkData(chunk, false));
+                    url = `https://aviationweather.gov/api/data/metar?bbox=${chunk.minLat},${chunk.minLon},${chunk.maxLat},${chunk.maxLon}&format=json`;
+                    _context26.n = 2;
+                    return safeFetchMetarJson(url, retries);
+                  case 2:
+                    arr = _context26.v;
+                    if (!(arr === null)) {
+                      _context26.n = 4;
+                      break;
+                    }
+                    _stale = vpGetMetarChunkCache(chunk.key, nowTs, true);
+                    if (!(Array.isArray(_stale) && _stale.length > 0)) {
+                      _context26.n = 3;
+                      break;
+                    }
+                    return _context26.a(2, {
+                      arr: _stale,
+                      fromCache: true,
+                      staleFallback: true
+                    });
+                  case 3:
+                    return _context26.a(2, {
+                      arr: [],
+                      fromCache: false,
+                      infraBlocked: true
+                    });
+                  case 4:
+                    safeArr = Array.isArray(arr) ? arr : [];
+                    vpSetMetarChunkCache(chunk.key, safeArr, Date.now());
+                    if (!(safeArr.length > 0)) {
+                      _context26.n = 5;
+                      break;
+                    }
+                    return _context26.a(2, {
+                      arr: safeArr,
+                      fromCache: false
+                    });
+                  case 5:
+                    stale = vpGetMetarChunkCache(chunk.key, nowTs, true);
+                    if (!(Array.isArray(stale) && stale.length > 0)) {
+                      _context26.n = 6;
+                      break;
+                    }
+                    return _context26.a(2, {
+                      arr: stale,
+                      fromCache: true,
+                      staleFallback: true
+                    });
+                  case 6:
+                    return _context26.a(2, {
+                      arr: safeArr,
+                      fromCache: false
+                    });
+                }
+              }, _callee21);
+            }));
+            return function fetchChunkData(_x59) {
+              return _ref47.apply(this, arguments);
+            };
+          }();
+          promises = chunkDefs.map(/*#__PURE__*/function () {
+            var _ref48 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22(chunk) {
+              var cached;
+              return _regenerator().w(function (_context27) {
+                while (1) switch (_context27.n) {
+                  case 0:
+                    cached = vpGetMetarChunkCache(chunk.key, nowTs);
+                    if (!Array.isArray(cached)) {
+                      _context27.n = 1;
+                      break;
+                    }
+                    return _context27.a(2, {
+                      arr: cached,
+                      fromCache: true
+                    });
+                  case 1:
+                    return _context27.a(2, fetchChunkData(chunk, false));
                 }
               }, _callee22);
             }));
             return function (_x60) {
-              return _ref46.apply(this, arguments);
+              return _ref48.apply(this, arguments);
             };
           }());
-          _context32.n = 6;
+          _context33.n = 6;
           return Promise.all(promises);
         case 6:
-          results = _context32.v;
+          results = _context33.v;
           allEmpty = results.length > 0 && results.every(item => !item || !Array.isArray(item.arr) || item.arr.length === 0);
           allFromCache = results.length > 0 && results.every(item => !!(item && item.fromCache));
           if (!(allEmpty && allFromCache)) {
-            _context32.n = 8;
+            _context33.n = 8;
             break;
           }
           vpWeatherDebugEvent('METAR cache-only empty result -> force refresh');
@@ -4701,13 +4701,13 @@ function _fetchRouteWeatherMetar() {
           } finally {
             _iterator82.f();
           }
-          _context32.n = 7;
+          _context33.n = 7;
           return Promise.all(chunkDefs.map(c => fetchChunkData(c, true)));
         case 7:
-          results = _context32.v;
+          results = _context33.v;
         case 8:
           if (!(signal && signal.aborted)) {
-            _context32.n = 9;
+            _context33.n = 9;
             break;
           }
           throw new DOMException('Aborted', 'AbortError');
@@ -4727,82 +4727,82 @@ function _fetchRouteWeatherMetar() {
               prefetchDefs = farDefs.filter(d => !primaryKeys.has(d.key)).filter(d => !Array.isArray(vpGetMetarChunkCache(d.key, nowPrefetch))).filter(d => !vpMetarPrefetchInFlight.has(d.key)).slice(0, VP_METAR_PREFETCH_MAX_CHUNKS);
               if (prefetchDefs.length > 0) {
                 runPrefetch = /*#__PURE__*/function () {
-                  var _ref47 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23() {
+                  var _ref49 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23() {
                     var _iterator83, _step83, _d3, url, arr, safeArr, _t21, _t22;
-                    return _regenerator().w(function (_context27) {
-                      while (1) switch (_context27.p = _context27.n) {
+                    return _regenerator().w(function (_context28) {
+                      while (1) switch (_context28.p = _context28.n) {
                         case 0:
                           _iterator83 = _createForOfIteratorHelper(prefetchDefs);
-                          _context27.p = 1;
+                          _context28.p = 1;
                           _iterator83.s();
                         case 2:
                           if ((_step83 = _iterator83.n()).done) {
-                            _context27.n = 12;
+                            _context28.n = 12;
                             break;
                           }
                           _d3 = _step83.value;
                           if (!(signal && signal.aborted)) {
-                            _context27.n = 3;
+                            _context28.n = 3;
                             break;
                           }
-                          return _context27.a(2);
+                          return _context28.a(2);
                         case 3:
                           if (!vpMetarPrefetchInFlight.has(_d3.key)) {
-                            _context27.n = 4;
+                            _context28.n = 4;
                             break;
                           }
-                          return _context27.a(3, 11);
+                          return _context28.a(3, 11);
                         case 4:
                           vpMetarPrefetchInFlight.add(_d3.key);
-                          _context27.p = 5;
+                          _context28.p = 5;
                           url = `https://aviationweather.gov/api/data/metar?bbox=${_d3.minLat},${_d3.minLon},${_d3.maxLat},${_d3.maxLon}&format=json`;
-                          _context27.n = 6;
+                          _context28.n = 6;
                           return safeFetchMetarJson(url, 1);
                         case 6:
-                          arr = _context27.v;
+                          arr = _context28.v;
                           if (!(arr === null)) {
-                            _context27.n = 7;
+                            _context28.n = 7;
                             break;
                           }
-                          return _context27.a(3, 11);
+                          return _context28.a(3, 11);
                         case 7:
                           safeArr = Array.isArray(arr) ? arr : [];
                           vpSetMetarChunkCache(_d3.key, safeArr, Date.now());
-                          _context27.n = 9;
+                          _context28.n = 9;
                           break;
                         case 8:
-                          _context27.p = 8;
-                          _t21 = _context27.v;
+                          _context28.p = 8;
+                          _t21 = _context28.v;
                         case 9:
-                          _context27.p = 9;
+                          _context28.p = 9;
                           vpMetarPrefetchInFlight.delete(_d3.key);
-                          return _context27.f(9);
+                          return _context28.f(9);
                         case 10:
-                          _context27.n = 11;
+                          _context28.n = 11;
                           return new Promise(r => setTimeout(r, 500));
                         case 11:
-                          _context27.n = 2;
+                          _context28.n = 2;
                           break;
                         case 12:
-                          _context27.n = 14;
+                          _context28.n = 14;
                           break;
                         case 13:
-                          _context27.p = 13;
-                          _t22 = _context27.v;
+                          _context28.p = 13;
+                          _t22 = _context28.v;
                           _iterator83.e(_t22);
                         case 14:
-                          _context27.p = 14;
+                          _context28.p = 14;
                           _iterator83.f();
-                          return _context27.f(14);
+                          return _context28.f(14);
                         case 15:
                           vpWeatherDebugEvent(`METAR prefetch near/far queued: near=${nearDefs.length} far=${prefetchDefs.length}`);
                         case 16:
-                          return _context27.a(2);
+                          return _context28.a(2);
                       }
                     }, _callee23, null, [[5, 8, 9, 10], [1, 13, 14, 15]]);
                   }));
                   return function runPrefetch() {
-                    return _ref47.apply(this, arguments);
+                    return _ref49.apply(this, arguments);
                   };
                 }();
                 setTimeout(() => {
@@ -4842,17 +4842,17 @@ function _fetchRouteWeatherMetar() {
           });
           console.log(`[Wetter] Gesamt nach Duplikat-Filterung: ${activeMetars.length} einzigartige Stationen für dieses Flugprofil.`);
           if (!(!activeMetars || activeMetars.length === 0)) {
-            _context32.n = 10;
+            _context33.n = 10;
             break;
           }
-          return _context32.a(2, null);
+          return _context33.a(2, null);
         case 10:
           stepNM = 15;
           zones = [];
           _loop12 = /*#__PURE__*/_regenerator().m(function _loop12() {
-            var bestPt, minDiff, _iterator85, _step85, pt, diff, closestMetar, minMetarDist, _ref48, _closestMetar$mslp, clouds, raw, stnElevFt, cloudRegex, match, lowestBase, agl, msl, hasRain, hasSnow, hasTS, metarFltCat, estimatedCloud, mslPressureRaw, mslPressureHpa, pressureProfile, pressureAnomalyFt, base1000, wkt, wdir, visuals, _c, _d4, f;
-            return _regenerator().w(function (_context31) {
-              while (1) switch (_context31.n) {
+            var bestPt, minDiff, _iterator85, _step85, pt, diff, closestMetar, minMetarDist, _ref50, _closestMetar$mslp, clouds, raw, stnElevFt, cloudRegex, match, lowestBase, agl, msl, hasRain, hasSnow, hasTS, metarFltCat, estimatedCloud, mslPressureRaw, mslPressureHpa, pressureProfile, pressureAnomalyFt, base1000, wkt, wdir, visuals, _c, _d4, f;
+            return _regenerator().w(function (_context32) {
+              while (1) switch (_context32.n) {
                 case 0:
                   bestPt = elevData[0];
                   minDiff = Infinity;
@@ -4916,7 +4916,7 @@ function _fetchRouteWeatherMetar() {
                         lowestBase = estimatedCloud.baseMsl;
                       }
                     }
-                    mslPressureRaw = Number((_ref48 = (_closestMetar$mslp = closestMetar.mslp) !== null && _closestMetar$mslp !== void 0 ? _closestMetar$mslp : closestMetar.slp) !== null && _ref48 !== void 0 ? _ref48 : closestMetar.altim);
+                    mslPressureRaw = Number((_ref50 = (_closestMetar$mslp = closestMetar.mslp) !== null && _closestMetar$mslp !== void 0 ? _closestMetar$mslp : closestMetar.slp) !== null && _ref50 !== void 0 ? _ref50 : closestMetar.altim);
                     mslPressureHpa = Number.isFinite(mslPressureRaw) && mslPressureRaw >= 850 && mslPressureRaw <= 1100 ? mslPressureRaw : null;
                     pressureProfile = [];
                     if (Number.isFinite(mslPressureHpa)) {
@@ -4983,23 +4983,23 @@ function _fetchRouteWeatherMetar() {
                     });
                   }
                 case 1:
-                  return _context31.a(2);
+                  return _context32.a(2);
               }
             }, _loop12);
           });
           targetDist = 0;
         case 11:
           if (!(targetDist <= totalDist)) {
-            _context32.n = 13;
+            _context33.n = 13;
             break;
           }
-          return _context32.d(_regeneratorValues(_loop12()), 12);
+          return _context33.d(_regeneratorValues(_loop12()), 12);
         case 12:
           targetDist += stepNM;
-          _context32.n = 11;
+          _context33.n = 11;
           break;
         case 13:
-          return _context32.a(2, zones.length > 0 ? zones : null);
+          return _context33.a(2, zones.length > 0 ? zones : null);
       }
     }, _callee26);
   }));
@@ -5218,40 +5218,40 @@ function vpFetchElevationFromTerrarium(_x19, _x20) {
 function _vpFetchElevationFromTerrarium() {
   _vpFetchElevationFromTerrarium = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee27(samplePts, signal) {
     var zoom, tileMap, _iterator86, _step86, p, _tawsLatLonToPixel2, tile, key, loads, result, _iterator87, _step87, _tileMap$get, _p4, _tawsLatLonToPixel3, _tile, px, py, _key6, imageData, _t26, _t27;
-    return _regenerator().w(function (_context33) {
-      while (1) switch (_context33.p = _context33.n) {
+    return _regenerator().w(function (_context34) {
+      while (1) switch (_context34.p = _context34.n) {
         case 0:
           if (!(!Array.isArray(samplePts) || samplePts.length < 2)) {
-            _context33.n = 1;
+            _context34.n = 1;
             break;
           }
-          return _context33.a(2, null);
+          return _context34.a(2, null);
         case 1:
           if (!window.gaProfileDataProvider) {
-            _context33.n = 2;
+            _context34.n = 2;
             break;
           }
-          return _context33.a(2, window.gaProfileDataProvider.terrain(samplePts, signal, 'ROUTE'));
+          return _context34.a(2, window.gaProfileDataProvider.terrain(samplePts, signal, 'ROUTE'));
         case 2:
           if (!(typeof _tawsLatLonToPixel !== 'function' || typeof _tawsLoadTile !== 'function')) {
-            _context33.n = 3;
+            _context34.n = 3;
             break;
           }
-          return _context33.a(2, null);
+          return _context34.a(2, null);
         case 3:
           zoom = vpGetTerrariumZoom();
           tileMap = new Map();
           _iterator86 = _createForOfIteratorHelper(samplePts);
-          _context33.p = 4;
+          _context34.p = 4;
           _iterator86.s();
         case 5:
           if ((_step86 = _iterator86.n()).done) {
-            _context33.n = 8;
+            _context34.n = 8;
             break;
           }
           p = _step86.value;
           if (!(signal && signal.aborted)) {
-            _context33.n = 6;
+            _context34.n = 6;
             break;
           }
           throw new DOMException('Aborted', 'AbortError');
@@ -5263,19 +5263,19 @@ function _vpFetchElevationFromTerrarium() {
             y: tile.y
           });
         case 7:
-          _context33.n = 5;
+          _context34.n = 5;
           break;
         case 8:
-          _context33.n = 10;
+          _context34.n = 10;
           break;
         case 9:
-          _context33.p = 9;
-          _t26 = _context33.v;
+          _context34.p = 9;
+          _t26 = _context34.v;
           _iterator86.e(_t26);
         case 10:
-          _context33.p = 10;
+          _context34.p = 10;
           _iterator86.f();
-          return _context33.f(10);
+          return _context34.f(10);
         case 11:
           loads = [];
           tileMap.forEach((tile, key) => {
@@ -5289,22 +5289,22 @@ function _vpFetchElevationFromTerrarium() {
               }));
             }));
           });
-          _context33.n = 12;
+          _context34.n = 12;
           return Promise.all(loads);
         case 12:
           if (!(signal && signal.aborted)) {
-            _context33.n = 13;
+            _context34.n = 13;
             break;
           }
           throw new DOMException('Aborted', 'AbortError');
         case 13:
           result = [];
           _iterator87 = _createForOfIteratorHelper(samplePts);
-          _context33.p = 14;
+          _context34.p = 14;
           _iterator87.s();
         case 15:
           if ((_step87 = _iterator87.n()).done) {
-            _context33.n = 18;
+            _context34.n = 18;
             break;
           }
           _p4 = _step87.value;
@@ -5312,10 +5312,10 @@ function _vpFetchElevationFromTerrarium() {
           _key6 = `${zoom}/${_tile.x}/${_tile.y}`;
           imageData = ((_tileMap$get = tileMap.get(_key6)) === null || _tileMap$get === void 0 ? void 0 : _tileMap$get.imageData) || null;
           if (imageData) {
-            _context33.n = 16;
+            _context34.n = 16;
             break;
           }
-          return _context33.a(2, null);
+          return _context34.a(2, null);
         case 16:
           result.push({
             distNM: _p4.distNM,
@@ -5324,21 +5324,21 @@ function _vpFetchElevationFromTerrarium() {
             lon: _p4.lon
           });
         case 17:
-          _context33.n = 15;
+          _context34.n = 15;
           break;
         case 18:
-          _context33.n = 20;
+          _context34.n = 20;
           break;
         case 19:
-          _context33.p = 19;
-          _t27 = _context33.v;
+          _context34.p = 19;
+          _t27 = _context34.v;
           _iterator87.e(_t27);
         case 20:
-          _context33.p = 20;
+          _context34.p = 20;
           _iterator87.f();
-          return _context33.f(20);
+          return _context34.f(20);
         case 21:
-          return _context33.a(2, result);
+          return _context34.a(2, result);
       }
     }, _callee27, null, [[14, 19, 20, 21], [4, 9, 10, 11]]);
   }));
@@ -5594,33 +5594,33 @@ function vpProbeMetarRecovery(_x22, _x23, _x24) {
 function _vpProbeMetarRecovery() {
   _vpProbeMetarRecovery = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee28(routePts, elevData, signal) {
     var metar, _t28;
-    return _regenerator().w(function (_context34) {
-      while (1) switch (_context34.p = _context34.n) {
+    return _regenerator().w(function (_context35) {
+      while (1) switch (_context35.p = _context35.n) {
         case 0:
           if (!(!routePts || routePts.length < 2 || !elevData || elevData.length < 2)) {
-            _context34.n = 1;
+            _context35.n = 1;
             break;
           }
-          return _context34.a(2, false);
+          return _context35.a(2, false);
         case 1:
-          _context34.p = 1;
-          _context34.n = 2;
+          _context35.p = 1;
+          _context35.n = 2;
           return fetchRouteWeatherMetar(routePts, elevData, signal, {
             fastFail: true
           });
         case 2:
-          metar = _context34.v;
-          return _context34.a(2, !!(Array.isArray(metar) && metar.length > 0));
+          metar = _context35.v;
+          return _context35.a(2, !!(Array.isArray(metar) && metar.length > 0));
         case 3:
-          _context34.p = 3;
-          _t28 = _context34.v;
+          _context35.p = 3;
+          _t28 = _context35.v;
           if (!(_t28 && _t28.name === 'AbortError')) {
-            _context34.n = 4;
+            _context35.n = 4;
             break;
           }
           throw _t28;
         case 4:
-          return _context34.a(2, false);
+          return _context35.a(2, false);
       }
     }, _callee28, null, [[1, 3]]);
   }));
@@ -5963,7 +5963,7 @@ window.vpBuildDisplayDiagnosticsReport = function () {
   return vpBuildDisplayDiagnosticsLines().join('\n');
 };
 window.vpBuildWeatherDebugReport = function () {
-  var _missionSnap, _missionSnap2, _missionSnap3, _missionSnap4, _missionSnap5, _sceneDbg$lastTargetS, _window$missionAptArr, _window$missionTarget, _window$missionSceneS, _ref27, _ref28, _activeSceneMission$s, _missionSnap6, _missionSnap7, _cargoManifest, _runtimeSnapshot$runt, _runtimeSnapshot$runt2, _runtimeSnapshot$runt3, _window$GAMissionCont, _window$missionSceneS2, _window$missionSceneS3, _window$missionSceneS4, _window$missionSceneS5, _window$missionSceneS6, _window$missionSceneS7, _window$missionSceneS8, _window$missionSceneS9, _window$missionSceneS0, _window$missionSceneS1, _window$missionSceneS10, _window$missionSceneS11, _window$missionSceneS12, _window$missionSceneS13, _window$missionSceneS14, _window$missionSceneS15, _window$missionSceneS16;
+  var _missionSnap, _missionSnap2, _missionSnap3, _missionSnap4, _missionSnap5, _sceneDbg$lastTargetS, _window$missionAptArr, _window$missionTarget, _window$missionSceneS, _ref29, _ref30, _activeSceneMission$s, _missionSnap6, _missionSnap7, _cargoManifest, _runtimeSnapshot$runt, _runtimeSnapshot$runt2, _runtimeSnapshot$runt3, _window$GAMissionCont, _window$missionSceneS2, _window$missionSceneS3, _window$missionSceneS4, _window$missionSceneS5, _window$missionSceneS6, _window$missionSceneS7, _window$missionSceneS8, _window$missionSceneS9, _window$missionSceneS0, _window$missionSceneS1, _window$missionSceneS10, _window$missionSceneS11, _window$missionSceneS12, _window$missionSceneS13, _window$missionSceneS14, _window$missionSceneS15, _window$missionSceneS16;
   vpHydrateObsTileCoverage();
   vpHydrateObsTileFailed();
   var dbg = window.vpWeatherDebug || {};
@@ -6133,27 +6133,47 @@ window.vpBuildWeatherDebugReport = function () {
     var _missionSnap$contract, _missionSnap$contract2, _window$isMissionPipe, _window, _missionSnap$storyDeb, _window$currentMissio, _missionSnap$contract3, _missionSnap$contract4, _missionSnap$contract5, _missionSnap$contract6, _missionSnap$contract7, _missionSnap$contract8, _missionSnap$contract9, _missionSnap$targetSc, _missionSnap$contract0;
     var p = missionSnap.passenger || {};
     var bushData = window.currentMissionData;
+    if (['apt', 'poi'].includes(bushData === null || bushData === void 0 ? void 0 : bushData.missionType)) {
+      var _bushData$poiInformat;
+      for (var _i5 = 0, _arr2 = [['Start', bushData.departureAirportInfoContext, bushData.departureAirportInformation, 'departureInfo', 'wikiDepImageContainer'], ['Ziel', bushData.airportInfoContext, bushData.airportInformation, 'destinationInfo', 'wikiDestImageContainer']]; _i5 < _arr2.length; _i5++) {
+        var _info$textKey, _document$getElementB4;
+        var _arr2$_i = _slicedToArray(_arr2[_i5], 5),
+          label = _arr2$_i[0],
+          context = _arr2$_i[1],
+          info = _arr2$_i[2],
+          textKey = _arr2$_i[3],
+          imageId = _arr2$_i[4];
+        lines.push(`- Briefingseite ${label}: Text=${info !== null && info !== void 0 && info.generated ? 'KI' : info ? 'Basisdaten-Fallback' : 'fehlt'} | ${(info === null || info === void 0 || (_info$textKey = info[textKey]) === null || _info$textKey === void 0 ? void 0 : _info$textKey.length) || 0} Zeichen | Bildcontainer=${((_document$getElementB4 = document.getElementById(imageId)) === null || _document$getElementB4 === void 0 ? void 0 : _document$getElementB4.style.display) || 'nicht gesetzt'}`);
+        if (context !== null && context !== void 0 && context.retrieval) lines.push(`- Briefingquellen ${label}: ${Object.entries(context.retrieval.sources || {}).map(_ref19 => {
+          var _ref20 = _slicedToArray(_ref19, 2),
+            key = _ref20[0],
+            value = _ref20[1];
+          return `${key}=${value.status}`;
+        }).join(', ')} | ${context.retrieval.elapsedMs} ms`);
+      }
+      if (bushData.poiInformation) lines.push(`- POI-Zielseite: Text=${bushData.poiInformation.generated ? 'KI' : 'Lagebericht-Fallback'} | ${((_bushData$poiInformat = bushData.poiInformation.text) === null || _bushData$poiInformat === void 0 ? void 0 : _bushData$poiInformat.length) || 0} Zeichen`);
+    }
     if ((bushData === null || bushData === void 0 ? void 0 : bushData.missionType) === 'bush') {
       var _airportContext$airpo, _info$flightBriefing, _info$destinationInfo, _departureContext$air, _departureInfo$depart, _environment$start, _environment$target, _bushData$bushNarrati, _chapters$events, _chapters$events2;
       lines.push(`- Bush-Bausteine geladen: Wetter=${!!window.MissionEnvironmentBrowser}, Platz=${!!window.MissionAirportInformationBrowser}, Erzählung=${!!window.MissionBushNarrativeBrowser}`);
       var airportContext = bushData.airportInfoContext;
-      var info = bushData.airportInformation;
-      lines.push(`- Bush-Platztext: ${airportContext ? ((_airportContext$airpo = airportContext.airport) === null || _airportContext$airpo === void 0 ? void 0 : _airportContext$airpo.ident) || 'ohne Kennung' : 'kein Kontext'} | Text=${info !== null && info !== void 0 && info.generated ? 'KI' : info ? 'Basisdaten' : 'fehlt'} | Flughinweise=${(info === null || info === void 0 || (_info$flightBriefing = info.flightBriefing) === null || _info$flightBriefing === void 0 ? void 0 : _info$flightBriefing.length) || 0} Zeichen | Zielseite=${(info === null || info === void 0 || (_info$destinationInfo = info.destinationInfo) === null || _info$destinationInfo === void 0 ? void 0 : _info$destinationInfo.length) || 0} Zeichen`);
-      if (airportContext !== null && airportContext !== void 0 && airportContext.retrieval) lines.push(`- Bush-Platzquellen: ${Object.entries(airportContext.retrieval.sources || {}).map(_ref19 => {
-        var _ref20 = _slicedToArray(_ref19, 2),
-          key = _ref20[0],
-          value = _ref20[1];
+      var _info = bushData.airportInformation;
+      lines.push(`- Bush-Platztext: ${airportContext ? ((_airportContext$airpo = airportContext.airport) === null || _airportContext$airpo === void 0 ? void 0 : _airportContext$airpo.ident) || 'ohne Kennung' : 'kein Kontext'} | Text=${_info !== null && _info !== void 0 && _info.generated ? 'KI' : _info ? 'Basisdaten' : 'fehlt'} | Flughinweise=${(_info === null || _info === void 0 || (_info$flightBriefing = _info.flightBriefing) === null || _info$flightBriefing === void 0 ? void 0 : _info$flightBriefing.length) || 0} Zeichen | Zielseite=${(_info === null || _info === void 0 || (_info$destinationInfo = _info.destinationInfo) === null || _info$destinationInfo === void 0 ? void 0 : _info$destinationInfo.length) || 0} Zeichen`);
+      if (airportContext !== null && airportContext !== void 0 && airportContext.retrieval) lines.push(`- Bush-Platzquellen: ${Object.entries(airportContext.retrieval.sources || {}).map(_ref21 => {
+        var _ref22 = _slicedToArray(_ref21, 2),
+          key = _ref22[0],
+          value = _ref22[1];
         return `${key}=${value.status}`;
       }).join(', ')} | ${airportContext.retrieval.elapsedMs} ms`);
       var departureContext = bushData.departureAirportInfoContext,
         departureInfo = bushData.departureAirportInformation;
       lines.push(`- Bush-Starttext: ${(departureContext === null || departureContext === void 0 || (_departureContext$air = departureContext.airport) === null || _departureContext$air === void 0 ? void 0 : _departureContext$air.ident) || 'kein Kontext'} | Text=${departureInfo !== null && departureInfo !== void 0 && departureInfo.generated ? 'KI' : departureInfo ? 'Basisdaten' : 'fehlt'} | Startseite=${(departureInfo === null || departureInfo === void 0 || (_departureInfo$depart = departureInfo.departureInfo) === null || _departureInfo$depart === void 0 ? void 0 : _departureInfo$depart.length) || 0} Zeichen`);
-      for (var _i5 = 0, _arr2 = [['Start', departureContext], ['Ziel', airportContext]]; _i5 < _arr2.length; _i5++) {
-        var _context$retrieval$re, _context$retrieval$re2, _context$retrieval$re3, _context$retrieval$re4;
-        var _arr2$_i = _slicedToArray(_arr2[_i5], 2),
-          label = _arr2$_i[0],
-          context = _arr2$_i[1];
-        if (context !== null && context !== void 0 && context.retrieval) lines.push(`- Bush-Platzabrufe ${label}: Wiki=${(_context$retrieval$re = (_context$retrieval$re2 = context.retrieval.requests) === null || _context$retrieval$re2 === void 0 ? void 0 : _context$retrieval$re2.wikipedia) !== null && _context$retrieval$re !== void 0 ? _context$retrieval$re : '?'} | FAA=${(_context$retrieval$re3 = (_context$retrieval$re4 = context.retrieval.requests) === null || _context$retrieval$re4 === void 0 ? void 0 : _context$retrieval$re4.faa) !== null && _context$retrieval$re3 !== void 0 ? _context$retrieval$re3 : '?'} | ${context.retrieval.elapsedMs} ms`);
+      for (var _i6 = 0, _arr3 = [['Start', departureContext], ['Ziel', airportContext]]; _i6 < _arr3.length; _i6++) {
+        var _context6$retrieval$r, _context6$retrieval$r2, _context6$retrieval$r3, _context6$retrieval$r4;
+        var _arr3$_i = _slicedToArray(_arr3[_i6], 2),
+          _label = _arr3$_i[0],
+          _context6 = _arr3$_i[1];
+        if (_context6 !== null && _context6 !== void 0 && _context6.retrieval) lines.push(`- Bush-Platzabrufe ${_label}: Wiki=${(_context6$retrieval$r = (_context6$retrieval$r2 = _context6.retrieval.requests) === null || _context6$retrieval$r2 === void 0 ? void 0 : _context6$retrieval$r2.wikipedia) !== null && _context6$retrieval$r !== void 0 ? _context6$retrieval$r : '?'} | FAA=${(_context6$retrieval$r3 = (_context6$retrieval$r4 = _context6.retrieval.requests) === null || _context6$retrieval$r4 === void 0 ? void 0 : _context6$retrieval$r4.faa) !== null && _context6$retrieval$r3 !== void 0 ? _context6$retrieval$r3 : '?'} | ${_context6.retrieval.elapsedMs} ms`);
       }
       var environment = bushData.environmentContext;
       lines.push(`- Bush-Wetterkontext: ${environment ? `Start=${((_environment$start = environment.start) === null || _environment$start === void 0 ? void 0 : _environment$start.status) || '?'}, Ziel=${((_environment$target = environment.target) === null || _environment$target === void 0 ? void 0 : _environment$target.status) || '?'}` : 'fehlt'}`);
@@ -6196,10 +6216,10 @@ window.vpBuildWeatherDebugReport = function () {
       var totalTokens = Number(aiUsage.totalTokens || 0);
       var tokenBits = [`calls=${Number(aiUsage.calls)}`, Number(aiUsage.openaiTextCalls || 0) ? `openai=${Number(aiUsage.openaiTextCalls)}` : '', totalTokens ? `tokens=${totalTokens}` : '', promptTokens || completionTokens ? `in/out=${promptTokens}/${completionTokens}` : '', Number(aiUsage.cachedTokens || 0) ? `cached=${Number(aiUsage.cachedTokens)}` : '', Number(aiUsage.reasoningTokens || 0) ? `reasoning=${Number(aiUsage.reasoningTokens)}` : ''].filter(Boolean);
       lines.push(`- AI Usage: ${tokenBits.join(' | ')} | Kosten: Tokenbasis, kein Rechnungsbetrag in API-Antwort`);
-      var modelBits = Object.entries(aiUsage.models || {}).map(_ref21 => {
-        var _ref22 = _slicedToArray(_ref21, 2),
-          model = _ref22[0],
-          count = _ref22[1];
+      var modelBits = Object.entries(aiUsage.models || {}).map(_ref23 => {
+        var _ref24 = _slicedToArray(_ref23, 2),
+          model = _ref24[0],
+          count = _ref24[1];
         return `${flattenText(model, 36)}×${count}`;
       }).slice(0, 6);
       if (modelBits.length) lines.push(`- AI Usage Modelle: ${modelBits.join(' | ')}`);
@@ -6459,17 +6479,17 @@ window.vpBuildWeatherDebugReport = function () {
       if (Array.isArray(geoCtx.visualLandmarks) && geoCtx.visualLandmarks.length) geoBits.push(`landmarks=${geoCtx.visualLandmarks.slice(0, 4).map(x => (x === null || x === void 0 ? void 0 : x.name) || (x === null || x === void 0 ? void 0 : x.kind) || x).join(',')}`);
       if (geoBits.length) lines.push(`- TargetGeoContext: ${geoBits.join(' | ')}`);
       if (geoCtx.anchors && typeof geoCtx.anchors === 'object') {
-        var anchorSummary = Object.entries(geoCtx.anchors).filter(_ref23 => {
-          var _ref24 = _slicedToArray(_ref23, 2),
-            a = _ref24[1];
+        var anchorSummary = Object.entries(geoCtx.anchors).filter(_ref25 => {
+          var _ref26 = _slicedToArray(_ref25, 2),
+            a = _ref26[1];
           return a === null || a === void 0 ? void 0 : a.present;
         }).sort((a, b) => {
           var _a$, _b$;
           return Number(((_a$ = a[1]) === null || _a$ === void 0 ? void 0 : _a$.distM) || 999999) - Number(((_b$ = b[1]) === null || _b$ === void 0 ? void 0 : _b$.distM) || 999999);
-        }).slice(0, 8).map(_ref25 => {
-          var _ref26 = _slicedToArray(_ref25, 2),
-            k = _ref26[0],
-            a = _ref26[1];
+        }).slice(0, 8).map(_ref27 => {
+          var _ref28 = _slicedToArray(_ref27, 2),
+            k = _ref28[0],
+            a = _ref28[1];
           return `${k}:${Math.round(Number(a.distM) || 0)}m/${Math.round(Number(a.bearingDeg) || 0)}deg${a.name ? `:${flattenText(a.name, 34)}` : ''}`;
         }).join(' | ');
         if (anchorSummary) lines.push(`- TargetGeoContext Anchors: ${anchorSummary}`);
@@ -6503,7 +6523,7 @@ window.vpBuildWeatherDebugReport = function () {
   var lastEndCommand = sceneDbg.lastEndSceneCommand || null;
   var lastSmokeCommand = sceneDbg.lastSmokeCommand || null;
   var lastAck = sceneDbg.lastAck || ((_window$missionAptArr = window.missionAptArrivalSceneStatus) === null || _window$missionAptArr === void 0 ? void 0 : _window$missionAptArr.lastAck) || ((_window$missionTarget = window.missionTargetSceneStatus) === null || _window$missionTarget === void 0 ? void 0 : _window$missionTarget.lastAck) || ((_window$missionSceneS = window.missionSceneStatus) === null || _window$missionSceneS === void 0 ? void 0 : _window$missionSceneS.lastAck) || null;
-  var sceneAccepted = (_ref27 = (_ref28 = (_activeSceneMission$s = activeSceneMission === null || activeSceneMission === void 0 ? void 0 : activeSceneMission.sceneAccepted) !== null && _activeSceneMission$s !== void 0 ? _activeSceneMission$s : sceneDbg.sceneAccepted) !== null && _ref28 !== void 0 ? _ref28 : (_missionSnap6 = missionSnap) === null || _missionSnap6 === void 0 ? void 0 : _missionSnap6.sceneAccepted) !== null && _ref27 !== void 0 ? _ref27 : null;
+  var sceneAccepted = (_ref29 = (_ref30 = (_activeSceneMission$s = activeSceneMission === null || activeSceneMission === void 0 ? void 0 : activeSceneMission.sceneAccepted) !== null && _activeSceneMission$s !== void 0 ? _activeSceneMission$s : sceneDbg.sceneAccepted) !== null && _ref30 !== void 0 ? _ref30 : (_missionSnap6 = missionSnap) === null || _missionSnap6 === void 0 ? void 0 : _missionSnap6.sceneAccepted) !== null && _ref29 !== void 0 ? _ref29 : null;
   var sceneStatus = (activeSceneMission === null || activeSceneMission === void 0 ? void 0 : activeSceneMission.sceneCompositionStatus) || sceneDbg.sceneCompositionStatus || ((_missionSnap7 = missionSnap) === null || _missionSnap7 === void 0 ? void 0 : _missionSnap7.sceneCompositionStatus) || '-';
   lines.push(`- Plan/Sim Status: accepted=${sceneAccepted === null ? '-' : sceneAccepted ? 'ja' : 'nein'} | composition=${sceneStatus} | targetCommand=${lastTargetCommand ? 'ja' : 'nein'} | ack=${lastAck ? 'ja' : 'nein'}${!lastTargetCommand ? ' | Modus=Plan/Preview' : ''}`);
   if (sceneComposer && typeof sceneComposer === 'object') {
@@ -6783,31 +6803,31 @@ window.vpRefreshWeatherDebugReport = function () {
   }
 };
 window.vpCopyWeatherDebugReport = /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
-  var btn, oldText, text, _document$getElementB4, body, ta, ok, _t4;
-  return _regenerator().w(function (_context6) {
-    while (1) switch (_context6.p = _context6.n) {
+  var btn, oldText, text, _document$getElementB5, body, ta, ok, _t4;
+  return _regenerator().w(function (_context7) {
+    while (1) switch (_context7.p = _context7.n) {
       case 0:
         btn = document.getElementById('btnCopyWeatherDebug');
         oldText = btn ? btn.textContent : '';
         text = '';
-        _context6.p = 1;
-        text = window.vpBuildWeatherDebugReport ? window.vpBuildWeatherDebugReport() : ((_document$getElementB4 = document.getElementById('weatherDebugBody')) === null || _document$getElementB4 === void 0 ? void 0 : _document$getElementB4.textContent) || '';
+        _context7.p = 1;
+        text = window.vpBuildWeatherDebugReport ? window.vpBuildWeatherDebugReport() : ((_document$getElementB5 = document.getElementById('weatherDebugBody')) === null || _document$getElementB5 === void 0 ? void 0 : _document$getElementB5.textContent) || '';
         body = document.getElementById('weatherDebugBody');
         if (body && text) body.textContent = text;
         if (text.trim()) {
-          _context6.n = 2;
+          _context7.n = 2;
           break;
         }
         throw new Error('empty_debug_report');
       case 2:
         if (!(navigator.clipboard && typeof navigator.clipboard.writeText === 'function')) {
-          _context6.n = 4;
+          _context7.n = 4;
           break;
         }
-        _context6.n = 3;
+        _context7.n = 3;
         return navigator.clipboard.writeText(text);
       case 3:
-        _context6.n = 5;
+        _context7.n = 5;
         break;
       case 4:
         ta = document.createElement('textarea');
@@ -6820,7 +6840,7 @@ window.vpCopyWeatherDebugReport = /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_r
         ok = document.execCommand && document.execCommand('copy');
         ta.remove();
         if (ok) {
-          _context6.n = 5;
+          _context7.n = 5;
           break;
         }
         throw new Error('clipboard_unavailable');
@@ -6831,11 +6851,11 @@ window.vpCopyWeatherDebugReport = /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_r
             btn.textContent = oldText || 'Kopieren';
           }, 1200);
         }
-        _context6.n = 7;
+        _context7.n = 7;
         break;
       case 6:
-        _context6.p = 6;
-        _t4 = _context6.v;
+        _context7.p = 6;
+        _t4 = _context7.v;
         if (btn) {
           btn.textContent = 'Fehler';
           setTimeout(() => {
@@ -6845,7 +6865,7 @@ window.vpCopyWeatherDebugReport = /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_r
         console.warn('[Debug] Copy failed:', _t4);
         alert(`Debug-Log konnte nicht kopiert werden: ${(_t4 === null || _t4 === void 0 ? void 0 : _t4.message) || _t4}`);
       case 7:
-        return _context6.a(2);
+        return _context7.a(2);
     }
   }, _callee6, null, [[1, 6]]);
 }));
@@ -7008,27 +7028,27 @@ window.vpBuildMissionPhaseDebugReport = function () {
 };
 window.vpCopyMissionPhaseDebugReport = /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
   var btn, oldText, text, ta, ok, _t5;
-  return _regenerator().w(function (_context7) {
-    while (1) switch (_context7.p = _context7.n) {
+  return _regenerator().w(function (_context8) {
+    while (1) switch (_context8.p = _context8.n) {
       case 0:
         btn = document.getElementById('btnCopyMissionPhaseDebug');
         oldText = btn ? btn.textContent : '';
-        _context7.p = 1;
+        _context8.p = 1;
         text = window.vpBuildMissionPhaseDebugReport ? window.vpBuildMissionPhaseDebugReport() : '';
         if (text.trim()) {
-          _context7.n = 2;
+          _context8.n = 2;
           break;
         }
         throw new Error('empty_phase_debug_report');
       case 2:
         if (!(navigator.clipboard && typeof navigator.clipboard.writeText === 'function')) {
-          _context7.n = 4;
+          _context8.n = 4;
           break;
         }
-        _context7.n = 3;
+        _context8.n = 3;
         return navigator.clipboard.writeText(text);
       case 3:
-        _context7.n = 5;
+        _context8.n = 5;
         break;
       case 4:
         ta = document.createElement('textarea');
@@ -7041,7 +7061,7 @@ window.vpCopyMissionPhaseDebugReport = /*#__PURE__*/_asyncToGenerator(/*#__PURE_
         ok = document.execCommand && document.execCommand('copy');
         ta.remove();
         if (ok) {
-          _context7.n = 5;
+          _context8.n = 5;
           break;
         }
         throw new Error('clipboard_unavailable');
@@ -7052,11 +7072,11 @@ window.vpCopyMissionPhaseDebugReport = /*#__PURE__*/_asyncToGenerator(/*#__PURE_
             btn.textContent = oldText || 'Phasen-Log';
           }, 1400);
         }
-        _context7.n = 7;
+        _context8.n = 7;
         break;
       case 6:
-        _context7.p = 6;
-        _t5 = _context7.v;
+        _context8.p = 6;
+        _t5 = _context8.v;
         if (btn) {
           btn.textContent = 'Fehler';
           setTimeout(() => {
@@ -7065,7 +7085,7 @@ window.vpCopyMissionPhaseDebugReport = /*#__PURE__*/_asyncToGenerator(/*#__PURE_
         }
         throw _t5;
       case 7:
-        return _context7.a(2);
+        return _context8.a(2);
     }
   }, _callee7, null, [[1, 6]]);
 }));
@@ -7315,10 +7335,10 @@ function vpSchedulePersistOpenMeteoCache() {
     vpOmCachePersistTimer = null;
     try {
       vpPruneOpenMeteoCache();
-      var entries = Array.from(vpOpenMeteoPointCache.entries()).slice(-VP_OM_CACHE_MAX_ENTRIES).map(_ref31 => {
-        var _ref32 = _slicedToArray(_ref31, 2),
-          key = _ref32[0],
-          v = _ref32[1];
+      var entries = Array.from(vpOpenMeteoPointCache.entries()).slice(-VP_OM_CACHE_MAX_ENTRIES).map(_ref33 => {
+        var _ref34 = _slicedToArray(_ref33, 2),
+          key = _ref34[0],
+          v = _ref34[1];
         return {
           key,
           ts: v.ts,
@@ -7365,9 +7385,9 @@ function vpFetchOpenMeteoPoint(_x25, _x26) {
 }
 function _vpFetchOpenMeteoPoint() {
   _vpFetchOpenMeteoPoint = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee30(lat, lon) {
-    var _ref49,
+    var _ref51,
       signal,
-      _ref49$includePressur,
+      _ref51$includePressur,
       includePressure,
       cacheKey,
       keyParts,
@@ -7378,15 +7398,15 @@ function _vpFetchOpenMeteoPoint() {
       inFlight,
       loadPromise,
       _args36 = arguments;
-    return _regenerator().w(function (_context36) {
-      while (1) switch (_context36.p = _context36.n) {
+    return _regenerator().w(function (_context37) {
+      while (1) switch (_context37.p = _context37.n) {
         case 0:
-          _ref49 = _args36.length > 2 && _args36[2] !== undefined ? _args36[2] : {}, signal = _ref49.signal, _ref49$includePressur = _ref49.includePressure, includePressure = _ref49$includePressur === void 0 ? false : _ref49$includePressur;
+          _ref51 = _args36.length > 2 && _args36[2] !== undefined ? _args36[2] : {}, signal = _ref51.signal, _ref51$includePressur = _ref51.includePressure, includePressure = _ref51$includePressur === void 0 ? false : _ref51$includePressur;
           if (!(!Number.isFinite(lat) || !Number.isFinite(lon))) {
-            _context36.n = 1;
+            _context37.n = 1;
             break;
           }
-          return _context36.a(2, null);
+          return _context37.a(2, null);
         case 1:
           vpHydrateOpenMeteoCache();
           cacheKey = vpBuildOpenMeteoCacheKey(includePressure, lat, lon);
@@ -7397,43 +7417,43 @@ function _vpFetchOpenMeteoPoint() {
           vpPruneOpenMeteoCache(now);
           cached = vpOpenMeteoPointCache.get(cacheKey);
           if (!(cached && now - cached.ts < VP_OM_CACHE_TTL_MS)) {
-            _context36.n = 2;
+            _context37.n = 2;
             break;
           }
           if (window.vpWeatherDebug) window.vpWeatherDebug.openMeteoCacheHits += 1;
-          return _context36.a(2, cached.data);
+          return _context37.a(2, cached.data);
         case 2:
           if (!vpIsOpenMeteoCoolingDown(now)) {
-            _context36.n = 4;
+            _context37.n = 4;
             break;
           }
           if (!(cached && now - cached.ts < VP_OM_STALE_CACHE_TTL_MS)) {
-            _context36.n = 3;
+            _context37.n = 3;
             break;
           }
           if (window.vpWeatherDebug) {
             window.vpWeatherDebug.openMeteoCacheHits += 1;
             window.vpWeatherDebug.openMeteoStaleCacheHits += 1;
           }
-          return _context36.a(2, cached.data);
+          return _context37.a(2, cached.data);
         case 3:
           if (window.vpWeatherDebug) window.vpWeatherDebug.openMeteoCooldownSkips += 1;
-          return _context36.a(2, null);
+          return _context37.a(2, null);
         case 4:
           if (window.vpWeatherDebug) window.vpWeatherDebug.openMeteoCacheMisses += 1;
           inFlight = vpOpenMeteoPointInFlight.get(cacheKey);
           if (!inFlight) {
-            _context36.n = 5;
+            _context37.n = 5;
             break;
           }
           if (window.vpWeatherDebug) window.vpWeatherDebug.openMeteoCacheHits += 1;
-          return _context36.a(2, inFlight);
+          return _context37.a(2, inFlight);
         case 5:
           loadPromise = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee29() {
             var _vpGetHourlyAt, _vpGetHourlyAt2, _vpGetHourlyAt3, _vpGetHourlyAt4, _vpGetHourlyAt7, _vpGetHourlyAt8, _vpGetHourlyAt9, _vpGetHourlyAt0, _vpGetHourlyAt1;
             var hourlyVars, url, res, _window$vpRecordOpenM, _window3, data, idx, lowPct, midPct, highPct, totalCloudPct, mslPressureHpa, pressureAnomalyFt, pressureProfile, _iterator88, _step88, _vpGetHourlyAt5, _vpGetHourlyAt6, level, geoM, cloudLevel, wsLevel, wdLevel, mslEstimatedFt, geopotentialFt, sample;
-            return _regenerator().w(function (_context35) {
-              while (1) switch (_context35.n) {
+            return _regenerator().w(function (_context36) {
+              while (1) switch (_context36.n) {
                 case 0:
                   hourlyVars = ['pressure_msl', 'cloud_cover', 'cloud_cover_low', 'cloud_cover_mid', 'cloud_cover_high', 'precipitation', 'rain', 'snowfall', 'wind_speed_10m', 'wind_direction_10m', 'temperature_2m', 'dew_point_2m', 'relative_humidity_2m', 'visibility', 'weather_code'];
                   if (includePressure) {
@@ -7446,31 +7466,31 @@ function _vpFetchOpenMeteoPoint() {
                   }
                   url = `https://api.open-meteo.com/v1/forecast?latitude=${latQ}&longitude=${lonQ}&hourly=${encodeURIComponent(hourlyVars.join(','))}&forecast_hours=6&models=best_match&wind_speed_unit=kn&timeformat=unixtime&timezone=UTC`;
                   if (window.vpWeatherDebug) window.vpWeatherDebug.openMeteoNetworkRequests += 1;
-                  _context35.n = 1;
+                  _context36.n = 1;
                   return vpFetchResource(url, {
                     signal
                   });
                 case 1:
-                  res = _context35.v;
+                  res = _context36.v;
                   if (res.ok) {
-                    _context35.n = 3;
+                    _context36.n = 3;
                     break;
                   }
                   if (!(res.status === 429)) {
-                    _context35.n = 2;
+                    _context36.n = 2;
                     break;
                   }
-                  _context35.n = 2;
+                  _context36.n = 2;
                   return (_window$vpRecordOpenM = (_window3 = window).vpRecordOpenMeteo429FromResponse) === null || _window$vpRecordOpenM === void 0 ? void 0 : _window$vpRecordOpenM.call(_window3, res, 'point forecast');
                 case 2:
                   throw new Error(`Open-Meteo HTTP ${res.status}`);
                 case 3:
-                  _context35.n = 4;
+                  _context36.n = 4;
                   return res.json();
                 case 4:
-                  data = _context35.v;
+                  data = _context36.v;
                   if (!(!data || !data.hourly || !Array.isArray(data.hourly.time))) {
-                    _context35.n = 5;
+                    _context36.n = 5;
                     break;
                   }
                   throw new Error('Open-Meteo hourly fehlt');
@@ -7543,34 +7563,34 @@ function _vpFetchOpenMeteoPoint() {
                   });
                   vpSchedulePersistOpenMeteoCache();
                   if (window.vpWeatherDebug) window.vpWeatherDebug.lastSuccessAt = Date.now();
-                  return _context35.a(2, sample);
+                  return _context36.a(2, sample);
               }
             }, _callee29);
           }))();
           vpOpenMeteoPointInFlight.set(cacheKey, loadPromise);
-          _context36.p = 6;
-          _context36.n = 7;
+          _context37.p = 6;
+          _context37.n = 7;
           return loadPromise;
         case 7:
-          return _context36.a(2, _context36.v);
+          return _context37.a(2, _context37.v);
         case 8:
-          _context36.p = 8;
+          _context37.p = 8;
           vpOpenMeteoPointInFlight.delete(cacheKey);
-          return _context36.f(8);
+          return _context37.f(8);
         case 9:
-          return _context36.a(2);
+          return _context37.a(2);
       }
     }, _callee30, null, [[6,, 8, 9]]);
   }));
   return _vpFetchOpenMeteoPoint.apply(this, arguments);
 }
 window.fetchOpenMeteoWeatherPoints = /*#__PURE__*/function () {
-  var _ref33 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(points) {
-    var _ref34,
+  var _ref35 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(points) {
+    var _ref36,
       signal,
-      _ref34$includePressur,
+      _ref36$includePressur,
       includePressure,
-      _ref34$maxConcurrency,
+      _ref36$maxConcurrency,
       maxConcurrency,
       out,
       cursor,
@@ -7578,15 +7598,15 @@ window.fetchOpenMeteoWeatherPoints = /*#__PURE__*/function () {
       limit,
       w,
       _args9 = arguments;
-    return _regenerator().w(function (_context9) {
-      while (1) switch (_context9.n) {
+    return _regenerator().w(function (_context0) {
+      while (1) switch (_context0.n) {
         case 0:
-          _ref34 = _args9.length > 1 && _args9[1] !== undefined ? _args9[1] : {}, signal = _ref34.signal, _ref34$includePressur = _ref34.includePressure, includePressure = _ref34$includePressur === void 0 ? false : _ref34$includePressur, _ref34$maxConcurrency = _ref34.maxConcurrency, maxConcurrency = _ref34$maxConcurrency === void 0 ? 6 : _ref34$maxConcurrency;
+          _ref36 = _args9.length > 1 && _args9[1] !== undefined ? _args9[1] : {}, signal = _ref36.signal, _ref36$includePressur = _ref36.includePressure, includePressure = _ref36$includePressur === void 0 ? false : _ref36$includePressur, _ref36$maxConcurrency = _ref36.maxConcurrency, maxConcurrency = _ref36$maxConcurrency === void 0 ? 6 : _ref36$maxConcurrency;
           if (!(!Array.isArray(points) || points.length === 0)) {
-            _context9.n = 1;
+            _context0.n = 1;
             break;
           }
-          return _context9.a(2, []);
+          return _context0.a(2, []);
         case 1:
           if (window.vpWeatherDebug) {
             window.vpWeatherDebug.openMeteoBatchCalls += 1;
@@ -7599,42 +7619,42 @@ window.fetchOpenMeteoWeatherPoints = /*#__PURE__*/function () {
           for (w = 0; w < limit; w++) {
             workers.push(_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
               var i, p, _t6;
-              return _regenerator().w(function (_context8) {
-                while (1) switch (_context8.p = _context8.n) {
+              return _regenerator().w(function (_context9) {
+                while (1) switch (_context9.p = _context9.n) {
                   case 0:
                     if (!true) {
-                      _context8.n = 7;
+                      _context9.n = 7;
                       break;
                     }
                     i = cursor++;
                     if (!(i >= points.length)) {
-                      _context8.n = 1;
+                      _context9.n = 1;
                       break;
                     }
-                    return _context8.a(3, 7);
+                    return _context9.a(3, 7);
                   case 1:
                     if (!(signal && signal.aborted)) {
-                      _context8.n = 2;
+                      _context9.n = 2;
                       break;
                     }
                     throw new DOMException('Aborted', 'AbortError');
                   case 2:
-                    _context8.p = 2;
+                    _context9.p = 2;
                     p = points[i];
-                    _context8.n = 3;
+                    _context9.n = 3;
                     return vpFetchOpenMeteoPoint(p.lat, p.lon, {
                       signal,
                       includePressure
                     });
                   case 3:
-                    out[i] = _context8.v;
-                    _context8.n = 6;
+                    out[i] = _context9.v;
+                    _context9.n = 6;
                     break;
                   case 4:
-                    _context8.p = 4;
-                    _t6 = _context8.v;
+                    _context9.p = 4;
+                    _t6 = _context9.v;
                     if (!(_t6 && _t6.name === 'AbortError')) {
-                      _context8.n = 5;
+                      _context9.n = 5;
                       break;
                     }
                     throw _t6;
@@ -7642,23 +7662,23 @@ window.fetchOpenMeteoWeatherPoints = /*#__PURE__*/function () {
                     vpWeatherDebugSetError(_t6, 'point fetch');
                     out[i] = null;
                   case 6:
-                    _context8.n = 0;
+                    _context9.n = 0;
                     break;
                   case 7:
-                    return _context8.a(2);
+                    return _context9.a(2);
                 }
               }, _callee8, null, [[2, 4]]);
             }))());
           }
-          _context9.n = 2;
+          _context0.n = 2;
           return Promise.all(workers);
         case 2:
-          return _context9.a(2, out);
+          return _context0.a(2, out);
       }
     }, _callee9);
   }));
   return function (_x27) {
-    return _ref33.apply(this, arguments);
+    return _ref35.apply(this, arguments);
   };
 }();
 function vpDeriveCloudLayersFromPressureProfile(pressureProfile) {
@@ -7719,33 +7739,33 @@ function fetchRouteWeatherOpenMeteo(_x28, _x29, _x30) {
 function _fetchRouteWeatherOpenMeteo() {
   _fetchRouteWeatherOpenMeteo = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee31(routePts, elevData, signal) {
     var sampled, samples, zones, _loop13, i;
-    return _regenerator().w(function (_context38) {
-      while (1) switch (_context38.n) {
+    return _regenerator().w(function (_context39) {
+      while (1) switch (_context39.n) {
         case 0:
           if (!(!routePts || routePts.length < 2 || !elevData || elevData.length < 2)) {
-            _context38.n = 1;
+            _context39.n = 1;
             break;
           }
-          return _context38.a(2, null);
+          return _context39.a(2, null);
         case 1:
           if (window.vpWeatherDebug) window.vpWeatherDebug.profileRouteFetches += 1;
           sampled = vpSampleRouteWeatherPoints(elevData, 5);
           if (!(!sampled || sampled.length < 3)) {
-            _context38.n = 2;
+            _context39.n = 2;
             break;
           }
-          return _context38.a(2, null);
+          return _context39.a(2, null);
         case 2:
-          _context38.n = 3;
+          _context39.n = 3;
           return window.fetchOpenMeteoWeatherPoints(sampled, {
             signal,
             includePressure: true,
             maxConcurrency: 6
           });
         case 3:
-          samples = _context38.v;
+          samples = _context39.v;
           if (!(signal && signal.aborted)) {
-            _context38.n = 4;
+            _context39.n = 4;
             break;
           }
           throw new DOMException('Aborted', 'AbortError');
@@ -7753,16 +7773,16 @@ function _fetchRouteWeatherOpenMeteo() {
           zones = [];
           _loop13 = /*#__PURE__*/_regenerator().m(function _loop13() {
             var pt, sample, pressureProfile, clouds, lowestBase, hasRain, hasSnow, hasTS, estimatedCloud, visuals, c, d, cloudRef, fltCat;
-            return _regenerator().w(function (_context37) {
-              while (1) switch (_context37.n) {
+            return _regenerator().w(function (_context38) {
+              while (1) switch (_context38.n) {
                 case 0:
                   pt = sampled[i];
                   sample = samples[i];
                   if (sample) {
-                    _context37.n = 1;
+                    _context38.n = 1;
                     break;
                   }
-                  return _context37.a(2, 1);
+                  return _context38.a(2, 1);
                 case 1:
                   pressureProfile = Array.isArray(sample.pressureProfile) ? sample.pressureProfile : [];
                   clouds = vpDeriveCloudLayersFromPressureProfile(pressureProfile, pt.elevFt || 0);
@@ -7831,35 +7851,35 @@ function _fetchRouteWeatherOpenMeteo() {
                     wxSource: 'openmeteo'
                   });
                 case 2:
-                  return _context37.a(2);
+                  return _context38.a(2);
               }
             }, _loop13);
           });
           i = 0;
         case 5:
           if (!(i < sampled.length)) {
-            _context38.n = 8;
+            _context39.n = 8;
             break;
           }
-          return _context38.d(_regeneratorValues(_loop13()), 6);
+          return _context39.d(_regeneratorValues(_loop13()), 6);
         case 6:
-          if (!_context38.v) {
-            _context38.n = 7;
+          if (!_context39.v) {
+            _context39.n = 7;
             break;
           }
-          return _context38.a(3, 7);
+          return _context39.a(3, 7);
         case 7:
           i++;
-          _context38.n = 5;
+          _context39.n = 5;
           break;
         case 8:
           if (!(zones.length < 3)) {
-            _context38.n = 9;
+            _context39.n = 9;
             break;
           }
-          return _context38.a(2, null);
+          return _context39.a(2, null);
         case 9:
-          return _context38.a(2, zones);
+          return _context39.a(2, zones);
       }
     }, _callee31);
   }));
@@ -7895,8 +7915,8 @@ function _fetchRouteWeather() {
       _t31,
       _t32,
       _t33;
-    return _regenerator().w(function (_context39) {
-      while (1) switch (_context39.p = _context39.n) {
+    return _regenerator().w(function (_context40) {
+      while (1) switch (_context40.p = _context40.n) {
         case 0:
           options = _args39.length > 3 && _args39[3] !== undefined ? _args39[3] : {};
           vpWeatherDebugEvent('fetchRouteWeather dispatch');
@@ -7904,42 +7924,42 @@ function _fetchRouteWeather() {
           autoFallback = typeof options.autoFallback === 'boolean' ? options.autoFallback : vpIsWeatherAutoFallbackEnabled();
           metarRouteKey = vpBuildMetarRouteCacheKey(routePts, elevData);
           if (!(source === 'openmeteo')) {
-            _context39.n = 10;
+            _context40.n = 10;
             break;
           }
           if (!vpIsOpenMeteoCoolingDown()) {
-            _context39.n = 2;
+            _context40.n = 2;
             break;
           }
           vpSetWeatherFallbackMode('openmeteo_to_metar', (_window$vpIsOpenMeteo = (_window4 = window).vpIsOpenMeteoDailyLimited) !== null && _window$vpIsOpenMeteo !== void 0 && _window$vpIsOpenMeteo.call(_window4) ? 'openmeteo daily limit' : 'openmeteo cooldown after 429');
-          _context39.n = 1;
+          _context40.n = 1;
           return fetchRouteWeatherMetar(routePts, elevData, signal, {
             fastFail: false
           });
         case 1:
-          _metar = _context39.v;
+          _metar = _context40.v;
           if (Array.isArray(_metar) && _metar.length > 0) vpSetMetarRouteCache(metarRouteKey, _metar);
-          return _context39.a(2, _metar);
+          return _context40.a(2, _metar);
         case 2:
-          _context39.p = 2;
-          _context39.n = 3;
+          _context40.p = 2;
+          _context40.n = 3;
           return fetchRouteWeatherOpenMeteo(routePts, elevData, signal);
         case 3:
-          om = _context39.v;
+          om = _context40.v;
           if (!vpHasUsableOpenMeteoRouteData(om)) {
-            _context39.n = 4;
+            _context40.n = 4;
             break;
           }
           vpSetWeatherFallbackMode('none');
-          return _context39.a(2, om);
+          return _context40.a(2, om);
         case 4:
-          _context39.n = 7;
+          _context40.n = 7;
           break;
         case 5:
-          _context39.p = 5;
-          _t29 = _context39.v;
+          _context40.p = 5;
+          _t29 = _context40.v;
           if (!(_t29 && _t29.name === 'AbortError')) {
-            _context39.n = 6;
+            _context40.n = 6;
             break;
           }
           throw _t29;
@@ -7948,101 +7968,101 @@ function _fetchRouteWeather() {
           vpWeatherDebugSetError(_t29, 'openmeteo route');
         case 7:
           if (!(!autoFallback && !((_window$vpIsOpenMeteo2 = (_window5 = window).vpIsOpenMeteoDailyLimited) !== null && _window$vpIsOpenMeteo2 !== void 0 && _window$vpIsOpenMeteo2.call(_window5)))) {
-            _context39.n = 8;
+            _context40.n = 8;
             break;
           }
           vpSetWeatherFallbackMode('none', 'auto fallback disabled');
           vpWeatherDebugEvent('OM failed/incomplete, no METAR fallback (auto fallback disabled)');
-          return _context39.a(2, null);
+          return _context40.a(2, null);
         case 8:
           vpSetWeatherFallbackMode('openmeteo_to_metar', 'openmeteo failed/incomplete');
-          _context39.n = 9;
+          _context40.n = 9;
           return fetchRouteWeatherMetar(routePts, elevData, signal, {
             fastFail: false
           });
         case 9:
-          metar = _context39.v;
+          metar = _context40.v;
           if (Array.isArray(metar) && metar.length > 0) vpSetMetarRouteCache(metarRouteKey, metar);
-          return _context39.a(2, metar);
+          return _context40.a(2, metar);
         case 10:
           now = Date.now();
           cachedMetar = vpGetMetarRouteCache(metarRouteKey, now);
           if (!(Array.isArray(cachedMetar) && cachedMetar.length > 0)) {
-            _context39.n = 11;
+            _context40.n = 11;
             break;
           }
           vpSetWeatherFallbackMode('none');
-          return _context39.a(2, cachedMetar);
+          return _context40.a(2, cachedMetar);
         case 11:
           if (!vpIsMetarCoolingDown(now)) {
-            _context39.n = 25;
+            _context40.n = 25;
             break;
           }
           if (autoFallback) {
-            _context39.n = 12;
+            _context40.n = 12;
             break;
           }
           vpSetWeatherFallbackMode('none', 'auto fallback disabled');
           vpWeatherDebugEvent('METAR cooldown, no OM fallback (auto fallback disabled)');
-          return _context39.a(2, null);
+          return _context40.a(2, null);
         case 12:
           probeDue = now - Number(window.vpMetarRecoveryProbeAt || 0) >= VP_METAR_RECOVERY_PROBE_MS;
           if (!probeDue) {
-            _context39.n = 18;
+            _context40.n = 18;
             break;
           }
           window.vpMetarRecoveryProbeAt = now;
-          _context39.p = 13;
-          _context39.n = 14;
+          _context40.p = 13;
+          _context40.n = 14;
           return vpProbeMetarRecovery(routePts, elevData, signal);
         case 14:
-          recovered = _context39.v;
+          recovered = _context40.v;
           if (recovered) {
             vpClearMetarFailure();
             vpSetWeatherFallbackMode('none', 'metar recovered');
           } else {
             vpSetWeatherFallbackMode('metar_to_openmeteo', 'metar cooldown active');
           }
-          _context39.n = 17;
+          _context40.n = 17;
           break;
         case 15:
-          _context39.p = 15;
-          _t30 = _context39.v;
+          _context40.p = 15;
+          _t30 = _context40.v;
           if (!(_t30 && _t30.name === 'AbortError')) {
-            _context39.n = 16;
+            _context40.n = 16;
             break;
           }
           throw _t30;
         case 16:
           vpSetWeatherFallbackMode('metar_to_openmeteo', 'metar cooldown active');
         case 17:
-          _context39.n = 19;
+          _context40.n = 19;
           break;
         case 18:
           vpSetWeatherFallbackMode('metar_to_openmeteo', 'metar cooldown active');
         case 19:
           if (vpIsOpenMeteoCoolingDown(now)) {
-            _context39.n = 25;
+            _context40.n = 25;
             break;
           }
-          _context39.p = 20;
-          _context39.n = 21;
+          _context40.p = 20;
+          _context40.n = 21;
           return fetchRouteWeatherOpenMeteo(routePts, elevData, signal);
         case 21:
-          omCd = _context39.v;
+          omCd = _context40.v;
           if (!vpHasUsableOpenMeteoRouteData(omCd)) {
-            _context39.n = 22;
+            _context40.n = 22;
             break;
           }
-          return _context39.a(2, omCd);
+          return _context40.a(2, omCd);
         case 22:
-          _context39.n = 25;
+          _context40.n = 25;
           break;
         case 23:
-          _context39.p = 23;
-          _t31 = _context39.v;
+          _context40.p = 23;
+          _t31 = _context40.v;
           if (!(_t31 && _t31.name === 'AbortError')) {
-            _context39.n = 24;
+            _context40.n = 24;
             break;
           }
           throw _t31;
@@ -8050,20 +8070,20 @@ function _fetchRouteWeather() {
           vpWeatherDebugSetError(_t31, 'metar cooldown openmeteo fallback');
         case 25:
           metarData = null;
-          _context39.p = 26;
-          _context39.n = 27;
+          _context40.p = 26;
+          _context40.n = 27;
           return fetchRouteWeatherMetar(routePts, elevData, signal, {
             fastFail: true
           });
         case 27:
-          metarData = _context39.v;
-          _context39.n = 30;
+          metarData = _context40.v;
+          _context40.n = 30;
           break;
         case 28:
-          _context39.p = 28;
-          _t32 = _context39.v;
+          _context40.p = 28;
+          _t32 = _context40.v;
           if (!(_t32 && _t32.name === 'AbortError')) {
-            _context39.n = 29;
+            _context40.n = 29;
             break;
           }
           throw _t32;
@@ -8071,22 +8091,22 @@ function _fetchRouteWeather() {
           vpWeatherDebugSetError(_t32, 'metar route');
         case 30:
           if (!(Array.isArray(metarData) && metarData.length > 0)) {
-            _context39.n = 31;
+            _context40.n = 31;
             break;
           }
           if (window.vpWeatherAutoFallbackFrom === 'metar') window.vpWeatherAutoFallbackFrom = null;
           vpClearMetarFailure();
           vpSetMetarRouteCache(metarRouteKey, metarData);
           vpSetWeatherFallbackMode('none');
-          return _context39.a(2, metarData);
+          return _context40.a(2, metarData);
         case 31:
           if (autoFallback) {
-            _context39.n = 32;
+            _context40.n = 32;
             break;
           }
           vpSetWeatherFallbackMode('none', 'auto fallback disabled');
           vpWeatherDebugEvent('METAR failed, no OM fallback (auto fallback disabled)');
-          return _context39.a(2, metarData);
+          return _context40.a(2, metarData);
         case 32:
           metarInfraBlockedRecently = Date.now() - Number(window.vpMetarLastInfraBlockAt || 0) < 20 * 1000;
           vpMarkMetarFailure(metarInfraBlockedRecently ? 'metar infra blocked' : 'metar unavailable', metarInfraBlockedRecently ? VP_METAR_FAIL_COOLDOWN_SOFT_MS : VP_METAR_FAIL_COOLDOWN_MS);
@@ -8095,44 +8115,44 @@ function _fetchRouteWeather() {
             console.warn('[Wetter] METAR fehlgeschlagen, versuche Open-Meteo Fallback...');
           } catch (_) {}
           if (vpIsOpenMeteoCoolingDown()) {
-            _context39.n = 39;
+            _context40.n = 39;
             break;
           }
-          _context39.p = 33;
-          _context39.n = 34;
+          _context40.p = 33;
+          _context40.n = 34;
           return fetchRouteWeatherOpenMeteo(routePts, elevData, signal);
         case 34:
-          _om = _context39.v;
+          _om = _context40.v;
           if (!vpHasUsableOpenMeteoRouteData(_om)) {
-            _context39.n = 35;
+            _context40.n = 35;
             break;
           }
           window.vpWeatherAutoFallbackFrom = 'metar';
           vpSetWeatherFallbackMode('metar_to_openmeteo', 'metar unavailable');
           vpWeatherDebugEvent('METAR -> OPEN-METEO auto fallback aktiv');
-          return _context39.a(2, _om);
+          return _context40.a(2, _om);
         case 35:
           vpWeatherDebugEvent('Open-Meteo Fallback lieferte keine verwertbaren Zonen');
-          _context39.n = 38;
+          _context40.n = 38;
           break;
         case 36:
-          _context39.p = 36;
-          _t33 = _context39.v;
+          _context40.p = 36;
+          _t33 = _context40.v;
           if (!(_t33 && _t33.name === 'AbortError')) {
-            _context39.n = 37;
+            _context40.n = 37;
             break;
           }
           throw _t33;
         case 37:
           vpWeatherDebugSetError(_t33, 'metar fallback openmeteo route');
         case 38:
-          _context39.n = 40;
+          _context40.n = 40;
           break;
         case 39:
           vpWeatherDebugEvent('Open-Meteo Fallback wegen Cooldown/Tageslimit uebersprungen');
         case 40:
           vpSetWeatherFallbackMode('metar_to_openmeteo', 'metar unavailable');
-          return _context39.a(2, metarData);
+          return _context40.a(2, metarData);
       }
     }, _callee32, null, [[33, 36], [26, 28], [20, 23], [13, 15], [2, 5]]);
   }));
@@ -8281,10 +8301,10 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
   if ((vpShowRoads || vpShowRivers || vpShowPowerInfra) && _linSrc.length > 0) {
     var _window$lastLiveGpsPo;
     var getElevY = dNM => {
-      for (var _i6 = 0; _i6 < elevData.length - 1; _i6++) {
-        if (dNM >= elevData[_i6].distNM && dNM <= elevData[_i6 + 1].distNM) {
-          var _f2 = (dNM - elevData[_i6].distNM) / (elevData[_i6 + 1].distNM - elevData[_i6].distNM);
-          return yOf(elevData[_i6].elevFt + _f2 * (elevData[_i6 + 1].elevFt - elevData[_i6].elevFt));
+      for (var _i7 = 0; _i7 < elevData.length - 1; _i7++) {
+        if (dNM >= elevData[_i7].distNM && dNM <= elevData[_i7 + 1].distNM) {
+          var _f2 = (dNM - elevData[_i7].distNM) / (elevData[_i7 + 1].distNM - elevData[_i7].distNM);
+          return yOf(elevData[_i7].elevFt + _f2 * (elevData[_i7 + 1].elevFt - elevData[_i7].elevFt));
         }
       }
       return yOf(elevData[elevData.length - 1].elevFt);
@@ -8300,8 +8320,8 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
       prio: Number(prio || 0)
     });
     var collidesWithHigher = (box, prio) => {
-      for (var _i7 = 0, _occupied = occupied; _i7 < _occupied.length; _i7++) {
-        var occ = _occupied[_i7];
+      for (var _i8 = 0, _occupied = occupied; _i8 < _occupied.length; _i8++) {
+        var occ = _occupied[_i8];
         if (occ.prio >= prio && vpBoxesOverlap(box, occ, VP_DECLUTTER_COLLISION_PAD_PX)) return true;
       }
       return false;
@@ -8464,8 +8484,8 @@ function vpDrawTerrainCover(ctx, xOf, yOf, elevData, viewMinX, viewMaxX, zoomFac
     }
 
     // NUR NOCH ZEICHNEN (mit weichem Culling)
-    for (var _i8 = 0, _linRender2 = _linRender; _i8 < _linRender2.length; _i8++) {
-      var _feat = _linRender2[_i8];
+    for (var _i9 = 0, _linRender2 = _linRender; _i9 < _linRender2.length; _i9++) {
+      var _feat = _linRender2[_i9];
       if (!_feat._render) continue;
 
       // FIX: X und Y live berechnen, damit Schilder mit der Bodenlinie wandern
@@ -9027,8 +9047,8 @@ function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData) {
   rawLabels.sort((a, b) => a.x - b.x);
   var clusters = [];
   var MIN_LABEL_DIST = 16;
-  for (var _i9 = 0, _rawLabels = rawLabels; _i9 < _rawLabels.length; _i9++) {
-    var lbl = _rawLabels[_i9];
+  for (var _i0 = 0, _rawLabels = rawLabels; _i0 < _rawLabels.length; _i0++) {
+    var lbl = _rawLabels[_i0];
     if (clusters.length === 0) {
       clusters.push({
         sumX: lbl.x,
@@ -9060,8 +9080,8 @@ function vpDrawObstacles(ctx, xOf, yOf, totalDist, zoomFactor, elevData) {
   ctx.font = gaEfbProfileFont(vpCanvasFont(ctx, 'bold 8px Arial'));
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  for (var _i0 = 0, _clusters = clusters; _i0 < _clusters.length; _i0++) {
-    var cl = _clusters[_i0];
+  for (var _i1 = 0, _clusters = clusters; _i1 < _clusters.length; _i1++) {
+    var cl = _clusters[_i1];
     if (cl.count <= 1) continue;
     var px = cl.sumX / cl.items;
     var pyBase = cl.sumY / cl.items;
@@ -9228,10 +9248,10 @@ function vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, isDarkTheme, elev
   // METAR STATIONEN & GRENZEN BEI 16000 FT (Dezentes Debugging-Overlay)
   var lastIcao = null;
   var lastDist = 0;
-  for (var _i1 = 0; _i1 < vpWeatherData.length; _i1++) {
-    var zone = vpWeatherData[_i1];
+  for (var _i10 = 0; _i10 < vpWeatherData.length; _i10++) {
+    var zone = vpWeatherData[_i10];
     if (zone.icao !== lastIcao) {
-      var bDist = _i1 === 0 ? 0 : (lastDist + zone.distNM) / 2;
+      var bDist = _i10 === 0 ? 0 : (lastDist + zone.distNM) / 2;
       var bx = xOf(bDist);
       if (bx >= viewMinX - 100 && bx <= viewMaxX + 100) {
         ctx.beginPath();
@@ -9973,13 +9993,13 @@ function vpDrawWindComponentsOnIsobars(ctx, xOf, yOf, elevData, viewMinX, viewMa
       }
       if (points.length < 2) return 1; // continue
       var lastLabelX = -Infinity;
-      for (var _i10 = 0; _i10 < points.length; _i10++) {
-        var pt = points[_i10];
+      for (var _i11 = 0; _i11 < points.length; _i11++) {
+        var pt = points[_i11];
         if (pt.x - lastLabelX < minLabelDxPx) continue;
         var c = Math.round(pt.comp);
         if (Math.abs(c) < minShownComponentKt) continue;
-        var prev = points[Math.max(0, _i10 - 1)];
-        var next = points[Math.min(points.length - 1, _i10 + 1)];
+        var prev = points[Math.max(0, _i11 - 1)];
+        var next = points[Math.min(points.length - 1, _i11 + 1)];
         var dx = next.x - prev.x;
         var dy = next.y - prev.y;
         var l = Math.max(1, Math.hypot(dx, dy));
@@ -10080,16 +10100,16 @@ function getCachedAirspaceIntersections(elevData, totalDist) {
       }
       if (polys.length === 0) return 0; // continue
       var pointInsideAnyPoly = pt => {
-        for (var _i11 = 0, _polys = polys; _i11 < _polys.length; _i11++) {
-          var poly = _polys[_i11];
+        for (var _i12 = 0, _polys = polys; _i12 < _polys.length; _i12++) {
+          var poly = _polys[_i12];
           if (vpPointInPoly(pt, poly)) return true;
         }
         return false;
       };
       var segmentCrossFractions = (ptA, ptB) => {
         var vals = [];
-        for (var _i12 = 0, _polys2 = polys; _i12 < _polys2.length; _i12++) {
-          var poly = _polys2[_i12];
+        for (var _i13 = 0, _polys2 = polys; _i13 < _polys2.length; _i13++) {
+          var poly = _polys2[_i13];
           for (var ei = 0, ej = poly.length - 1; ei < poly.length; ej = ei++) {
             var ax = poly[ej][0],
               ay = poly[ej][1],
@@ -10108,8 +10128,8 @@ function getCachedAirspaceIntersections(elevData, totalDist) {
         }
         vals.sort((a, b) => a - b);
         var unique = [];
-        for (var _i13 = 0, _vals = vals; _i13 < _vals.length; _i13++) {
-          var _t0 = _vals[_i13];
+        for (var _i14 = 0, _vals = vals; _i14 < _vals.length; _i14++) {
+          var _t0 = _vals[_i14];
           if (!unique.length || Math.abs(_t0 - unique[unique.length - 1]) > 1e-5) unique.push(_t0);
         }
         return unique;
@@ -10228,7 +10248,7 @@ function getCachedAirspaceIntersections(elevData, totalDist) {
   return items;
 }
 function renderVerticalProfile(canvasId) {
-  var _document$getElementB5, _document$getElementB6;
+  var _document$getElementB6, _document$getElementB7;
   var canvas = document.getElementById(canvasId);
   if (!canvas || !vpElevationData || vpElevationData.length < 2) return;
   var container = canvas.parentElement;
@@ -10255,7 +10275,7 @@ function renderVerticalProfile(canvasId) {
     padBottom = 30;
   var plotW = displayWidth - padLeft - padRight;
   var plotH = displayHeight - padTop - padBottom;
-  var cruiseAlt = parseInt(((_document$getElementB5 = document.getElementById('altMapInput')) === null || _document$getElementB5 === void 0 ? void 0 : _document$getElementB5.textContent) || ((_document$getElementB6 = document.getElementById('altSlider')) === null || _document$getElementB6 === void 0 ? void 0 : _document$getElementB6.value) || 4500);
+  var cruiseAlt = parseInt(((_document$getElementB6 = document.getElementById('altMapInput')) === null || _document$getElementB6 === void 0 ? void 0 : _document$getElementB6.textContent) || ((_document$getElementB7 = document.getElementById('altSlider')) === null || _document$getElementB7 === void 0 ? void 0 : _document$getElementB7.value) || 4500);
   var tas = vpGetProfileTas();
   var totalDist = vpElevationData[vpElevationData.length - 1].distNM;
   var maxTerrain = Math.max.apply(Math, _toConsumableArray(vpElevationData.map(p => p.elevFt)));
@@ -10334,8 +10354,8 @@ function renderVerticalProfile(canvasId) {
             var y = yOf(Math.min(realUpper, maxAlt));
             if (i === 0) ctx.moveTo(xOf(p.distNM), y);else ctx.lineTo(xOf(p.distNM), y);
           }
-          for (var _i14 = relevantPts.length - 1; _i14 >= 0; _i14--) {
-            var _p = relevantPts[_i14];
+          for (var _i15 = relevantPts.length - 1; _i15 >= 0; _i15--) {
+            var _p = relevantPts[_i15];
             var realLower = isLowerAgl ? _p.elevFt + lowerFt : lowerFt;
             ctx.lineTo(xOf(_p.distNM), yOf(Math.max(realLower, minAlt)));
           }
@@ -10411,7 +10431,7 @@ function renderVerticalProfile(canvasId) {
   // Terrain polygon
   ctx.beginPath();
   ctx.moveTo(xOf(0), yOf(0));
-  for (var _i15 = 0; _i15 < vpElevationData.length; _i15++) ctx.lineTo(xOf(vpElevationData[_i15].distNM), yOf(vpElevationData[_i15].elevFt));
+  for (var _i16 = 0; _i16 < vpElevationData.length; _i16++) ctx.lineTo(xOf(vpElevationData[_i16].distNM), yOf(vpElevationData[_i16].elevFt));
   ctx.lineTo(xOf(totalDist), yOf(0));
   ctx.closePath();
   var terrainGrad = ctx.createLinearGradient(0, yOf(maxTerrain), 0, yOf(0));
@@ -10422,10 +10442,10 @@ function renderVerticalProfile(canvasId) {
   ctx.fillStyle = terrainGrad;
   ctx.fill();
   ctx.beginPath();
-  for (var _i16 = 0; _i16 < vpElevationData.length; _i16++) {
-    var _x36 = xOf(vpElevationData[_i16].distNM),
-      _y2 = yOf(vpElevationData[_i16].elevFt);
-    if (_i16 === 0) ctx.moveTo(_x36, _y2);else ctx.lineTo(_x36, _y2);
+  for (var _i17 = 0; _i17 < vpElevationData.length; _i17++) {
+    var _x36 = xOf(vpElevationData[_i17].distNM),
+      _y2 = yOf(vpElevationData[_i17].elevFt);
+    if (_i17 === 0) ctx.moveTo(_x36, _y2);else ctx.lineTo(_x36, _y2);
   }
   ctx.strokeStyle = '#3a5a20';
   ctx.lineWidth = 1.5;
@@ -10436,19 +10456,19 @@ function renderVerticalProfile(canvasId) {
   // Flight profile
   if (fpResult && fpResult.profile) {
     ctx.beginPath();
-    for (var _i17 = 0; _i17 < fpResult.profile.length; _i17++) {
-      var _x37 = xOf(fpResult.profile[_i17].distNM),
-        _y3 = yOf(fpResult.profile[_i17].altFt) + 2;
-      if (_i17 === 0) ctx.moveTo(_x37, _y3);else ctx.lineTo(_x37, _y3);
+    for (var _i18 = 0; _i18 < fpResult.profile.length; _i18++) {
+      var _x37 = xOf(fpResult.profile[_i18].distNM),
+        _y3 = yOf(fpResult.profile[_i18].altFt) + 2;
+      if (_i18 === 0) ctx.moveTo(_x37, _y3);else ctx.lineTo(_x37, _y3);
     }
     ctx.strokeStyle = 'rgba(0,0,0,0.2)';
     ctx.lineWidth = 4;
     ctx.stroke();
     ctx.beginPath();
-    for (var _i18 = 0; _i18 < fpResult.profile.length; _i18++) {
-      var _x38 = xOf(fpResult.profile[_i18].distNM),
-        _y4 = yOf(fpResult.profile[_i18].altFt);
-      if (_i18 === 0) ctx.moveTo(_x38, _y4);else ctx.lineTo(_x38, _y4);
+    for (var _i19 = 0; _i19 < fpResult.profile.length; _i19++) {
+      var _x38 = xOf(fpResult.profile[_i19].distNM),
+        _y4 = yOf(fpResult.profile[_i19].altFt);
+      if (_i19 === 0) ctx.moveTo(_x38, _y4);else ctx.lineTo(_x38, _y4);
     }
     ctx.strokeStyle = '#d93829';
     ctx.lineWidth = 2.5;
@@ -10476,10 +10496,10 @@ function renderVerticalProfile(canvasId) {
 
   // Waypoint markers
   var wpCumDist = 0;
-  for (var _i19 = 0; _i19 < routeWaypoints.length; _i19++) {
-    if (_i19 > 0) {
-      var prev = routeWaypoints[_i19 - 1],
-        curr = routeWaypoints[_i19];
+  for (var _i20 = 0; _i20 < routeWaypoints.length; _i20++) {
+    if (_i20 > 0) {
+      var prev = routeWaypoints[_i20 - 1],
+        curr = routeWaypoints[_i20];
       wpCumDist += calcNav(prev.lat, prev.lng || prev.lon, curr.lat, curr.lng || curr.lon).dist;
     }
     var _x39 = xOf(wpCumDist);
@@ -10491,7 +10511,7 @@ function renderVerticalProfile(canvasId) {
     ctx.lineTo(_x39, padTop + plotH);
     ctx.stroke();
     ctx.setLineDash([]);
-    var wpLabel = typeof vpRouteWaypointLabel === 'function' ? vpRouteWaypointLabel(_i19, routeWaypoints[_i19]) : _i19 === 0 ? currentStartICAO || 'DEP' : routeWaypoints[_i19].name || 'WP' + _i19;
+    var wpLabel = typeof vpRouteWaypointLabel === 'function' ? vpRouteWaypointLabel(_i20, routeWaypoints[_i20]) : _i20 === 0 ? currentStartICAO || 'DEP' : routeWaypoints[_i20].name || 'WP' + _i20;
     if (wpLabel.length > 8) wpLabel = wpLabel.substring(0, 7) + '…';
     ctx.save();
     ctx.translate(_x39, padTop + plotH + 4);
@@ -10503,7 +10523,7 @@ function renderVerticalProfile(canvasId) {
     ctx.restore();
     ctx.beginPath();
     ctx.arc(_x39, padTop + 3, 2.5, 0, Math.PI * 2);
-    ctx.fillStyle = _i19 === 0 ? '#44ff44' : _i19 === routeWaypoints.length - 1 ? '#ff4444' : '#fdfd86';
+    ctx.fillStyle = _i20 === 0 ? '#44ff44' : _i20 === routeWaypoints.length - 1 ? '#ff4444' : '#fdfd86';
     ctx.fill();
     ctx.strokeStyle = '#333';
     ctx.lineWidth = 1;
@@ -10635,8 +10655,8 @@ function isPointInsideAirspace(as, lat, lon) {
   if (!(as !== null && as !== void 0 && as.geometry)) return false;
   var polys = [];
   if (as.geometry.type === 'Polygon') polys.push(as.geometry.coordinates[0]);else if (as.geometry.type === 'MultiPolygon') as.geometry.coordinates.forEach(mc => polys.push(mc[0]));
-  for (var _i20 = 0, _polys3 = polys; _i20 < _polys3.length; _i20++) {
-    var poly = _polys3[_i20];
+  for (var _i21 = 0, _polys3 = polys; _i21 < _polys3.length; _i21++) {
+    var poly = _polys3[_i21];
     if (vpPointInPoly({
       lat,
       lon
@@ -10786,15 +10806,15 @@ function fetchHighResElevation() {
 }
 function _fetchHighResElevation() {
   _fetchHighResElevation = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee33() {
-    var routeKey, requestedRoute, isCurrent, interpolated, cumulativeDist, i, p1, p2, lat1, lon1, lat2, lon2, segDist, steps, j, f, samplePts, _i35, idx, lats, lons, terrariumData, res, data, _t34;
-    return _regenerator().w(function (_context40) {
-      while (1) switch (_context40.p = _context40.n) {
+    var routeKey, requestedRoute, isCurrent, interpolated, cumulativeDist, i, p1, p2, lat1, lon1, lat2, lon2, segDist, steps, j, f, samplePts, _i36, idx, lats, lons, terrariumData, res, data, _t34;
+    return _regenerator().w(function (_context41) {
+      while (1) switch (_context41.p = _context41.n) {
         case 0:
           if (!(!routeWaypoints || routeWaypoints.length < 2)) {
-            _context40.n = 1;
+            _context41.n = 1;
             break;
           }
-          return _context40.a(2);
+          return _context41.a(2);
         case 1:
           routeKey = () => routeWaypoints.map(p => {
             var _p$lng2;
@@ -10807,7 +10827,7 @@ function _fetchHighResElevation() {
           i = 0;
         case 2:
           if (!(i < routeWaypoints.length - 1)) {
-            _context40.n = 8;
+            _context41.n = 8;
             break;
           }
           p1 = routeWaypoints[i], p2 = routeWaypoints[i + 1];
@@ -10818,14 +10838,14 @@ function _fetchHighResElevation() {
           j = 0;
         case 3:
           if (!(j <= steps)) {
-            _context40.n = 6;
+            _context41.n = 6;
             break;
           }
           if (!(i > 0 && j === 0)) {
-            _context40.n = 4;
+            _context41.n = 4;
             break;
           }
-          return _context40.a(3, 5);
+          return _context41.a(3, 5);
         case 4:
           f = j / steps;
           interpolated.push({
@@ -10835,84 +10855,84 @@ function _fetchHighResElevation() {
           });
         case 5:
           j++;
-          _context40.n = 3;
+          _context41.n = 3;
           break;
         case 6:
           cumulativeDist += segDist;
         case 7:
           i++;
-          _context40.n = 2;
+          _context41.n = 2;
           break;
         case 8:
           // Resample to max 100 points
           samplePts = interpolated;
           if (interpolated.length > 100) {
             samplePts = [];
-            for (_i35 = 0; _i35 < 100; _i35++) {
-              idx = Math.round(_i35 * (interpolated.length - 1) / 99);
+            for (_i36 = 0; _i36 < 100; _i36++) {
+              idx = Math.round(_i36 * (interpolated.length - 1) / 99);
               samplePts.push(interpolated[idx]);
             }
           }
           lats = samplePts.map(p => p.lat.toFixed(5)).join(',');
           lons = samplePts.map(p => p.lon.toFixed(5)).join(',');
-          _context40.p = 9;
-          _context40.n = 10;
+          _context41.p = 9;
+          _context41.n = 10;
           return vpFetchElevationFromTerrarium(samplePts);
         case 10:
-          terrariumData = _context40.v;
+          terrariumData = _context41.v;
           if (isCurrent()) {
-            _context40.n = 11;
+            _context41.n = 11;
             break;
           }
-          return _context40.a(2);
+          return _context41.a(2);
         case 11:
           if (!(terrariumData && terrariumData.length === samplePts.length)) {
-            _context40.n = 12;
+            _context41.n = 12;
             break;
           }
           vpHighResData = terrariumData;
           window.vpTerrainElevationSource = 'terrarium';
-          return _context40.a(2);
+          return _context41.a(2);
         case 12:
           if (!vpIsElevationCoolingDown()) {
-            _context40.n = 13;
+            _context41.n = 13;
             break;
           }
-          return _context40.a(2);
+          return _context41.a(2);
         case 13:
           if (window.vpWeatherDebug) window.vpWeatherDebug.elevationNetworkRequests += 1;
-          _context40.n = 14;
+          _context41.n = 14;
           return vpFetchResource('https://api.open-meteo.com/v1/elevation?latitude=' + lats + '&longitude=' + lons);
         case 14:
-          res = _context40.v;
+          res = _context41.v;
           if (!(res.status === 429)) {
-            _context40.n = 15;
+            _context41.n = 15;
             break;
           }
           vpRecordElevation429();
-          return _context40.a(2);
+          return _context41.a(2);
         case 15:
           if (res.ok) {
-            _context40.n = 16;
+            _context41.n = 16;
             break;
           }
-          return _context40.a(2);
+          return _context41.a(2);
         case 16:
-          _context40.n = 17;
+          _context41.n = 17;
           return res.json();
         case 17:
-          data = _context40.v;
+          data = _context41.v;
           if (isCurrent()) {
-            _context40.n = 18;
+            _context41.n = 18;
             break;
           }
-          return _context40.a(2);
+          return _context41.a(2);
         case 18:
           if (!(!data.elevation || data.elevation.length !== samplePts.length)) {
-            _context40.n = 19;
+            _context41.n = 19;
             break;
           }
-          return _context40.a(2);
+          return _context41.a(2);
         case 19:
           vpHighResData = samplePts.map((p, i) => ({
             distNM: p.distNM,
@@ -10921,14 +10941,14 @@ function _fetchHighResElevation() {
             lon: p.lon
           }));
           window.vpTerrainElevationSource = 'openmeteo';
-          _context40.n = 21;
+          _context41.n = 21;
           break;
         case 20:
-          _context40.p = 20;
-          _t34 = _context40.v;
+          _context41.p = 20;
+          _t34 = _context41.v;
           console.error('High-res elevation fetch error:', _t34);
         case 21:
-          return _context40.a(2);
+          return _context41.a(2);
       }
     }, _callee33, null, [[9, 20]]);
   }));
@@ -11075,11 +11095,11 @@ function vpProjectTrafficOnHeading() {
 
 // ─── TRAFFIC IM VERTIKALPROFIL ZEICHNEN ──────────────────────────────────────
 function vpDrawTrafficInProfile(fgCtx, xOf, yOf, elevData, isHdgMode, viewMinX, viewMaxX) {
-  var _ref36, _window$lastLiveGpsPo4, _window$lastLiveGpsPo5;
+  var _ref38, _window$lastLiveGpsPo4, _window$lastLiveGpsPo5;
   if (!window.vpTrafficProfileVisible) return;
   var traffic = isHdgMode ? vpProjectTrafficOnHeading() : vpProjectTrafficOnRoute(elevData);
   if (!traffic.length) return;
-  var ownAlt = (_ref36 = (_window$lastLiveGpsPo4 = (_window$lastLiveGpsPo5 = window.lastLiveGpsPos) === null || _window$lastLiveGpsPo5 === void 0 ? void 0 : _window$lastLiveGpsPo5.alt) !== null && _window$lastLiveGpsPo4 !== void 0 ? _window$lastLiveGpsPo4 : vpLiveAltFt) !== null && _ref36 !== void 0 ? _ref36 : 0;
+  var ownAlt = (_ref38 = (_window$lastLiveGpsPo4 = (_window$lastLiveGpsPo5 = window.lastLiveGpsPos) === null || _window$lastLiveGpsPo5 === void 0 ? void 0 : _window$lastLiveGpsPo5.alt) !== null && _window$lastLiveGpsPo4 !== void 0 ? _window$lastLiveGpsPo4 : vpLiveAltFt) !== null && _ref38 !== void 0 ? _ref38 : 0;
   var _iterator62 = _createForOfIteratorHelper(traffic),
     _step62;
   try {
@@ -11149,7 +11169,7 @@ window.vpToggleTrafficProfile = function () {
   updateTrafficProfileBtn();
 };
 function renderMapProfileFrames(timeMs) {
-  var _document$getElementB7, _document$getElementB8, _window$vpLiveRouteDi;
+  var _document$getElementB8, _document$getElementB9, _window$vpLiveRouteDi;
   var frameT0 = performance && performance.now ? performance.now() : Date.now();
   if (!vpCanRunVisibleMapProfileWork()) {
     vpStopMapProfileFrameLoop();
@@ -11211,7 +11231,7 @@ function renderMapProfileFrames(timeMs) {
     padBottom = _vpMapProfilePadding.padBottom;
   var plotW = virtualWidth - padLeft - padRight;
   var plotH = containerHeight - padTop - padBottom;
-  var cruiseAlt = parseInt(((_document$getElementB7 = document.getElementById('altMapInput')) === null || _document$getElementB7 === void 0 ? void 0 : _document$getElementB7.textContent) || ((_document$getElementB8 = document.getElementById('altSlider')) === null || _document$getElementB8 === void 0 ? void 0 : _document$getElementB8.value) || 4500);
+  var cruiseAlt = parseInt(((_document$getElementB8 = document.getElementById('altMapInput')) === null || _document$getElementB8 === void 0 ? void 0 : _document$getElementB8.textContent) || ((_document$getElementB9 = document.getElementById('altSlider')) === null || _document$getElementB9 === void 0 ? void 0 : _document$getElementB9.value) || 4500);
   var tas = vpGetProfileTas();
   var totalDist = elevData[elevData.length - 1].distNM;
   var maxTerrain = Math.max.apply(Math, _toConsumableArray(elevData.map(p => p.elevFt)));
@@ -11298,8 +11318,8 @@ function renderMapProfileFrames(timeMs) {
               var y = yOf(Math.min(realUpper, maxAlt));
               if (i === 0) targetCtx.moveTo(xOf(p.distNM), y);else targetCtx.lineTo(xOf(p.distNM), y);
             }
-            for (var _i21 = relevantPts.length - 1; _i21 >= 0; _i21--) {
-              var _p2 = relevantPts[_i21];
+            for (var _i22 = relevantPts.length - 1; _i22 >= 0; _i22--) {
+              var _p2 = relevantPts[_i22];
               var realLower = isLowerAgl ? _p2.elevFt + lowerFt : lowerFt;
               targetCtx.lineTo(xOf(_p2.distNM), yOf(Math.max(realLower, minAlt)));
             }
@@ -11421,7 +11441,7 @@ function renderMapProfileFrames(timeMs) {
     bgCtx.setLineDash([]);
     bgCtx.beginPath();
     bgCtx.moveTo(xOf(0), yOf(0));
-    for (var _i22 = 0; _i22 < elevData.length; _i22++) bgCtx.lineTo(xOf(elevData[_i22].distNM), yOf(elevData[_i22].elevFt));
+    for (var _i23 = 0; _i23 < elevData.length; _i23++) bgCtx.lineTo(xOf(elevData[_i23].distNM), yOf(elevData[_i23].elevFt));
     bgCtx.lineTo(xOf(totalDist), yOf(0));
     bgCtx.closePath();
     var terrainGrad = bgCtx.createLinearGradient(0, yOf(maxTerrain), 0, yOf(0));
@@ -11432,10 +11452,10 @@ function renderMapProfileFrames(timeMs) {
     bgCtx.fillStyle = terrainGrad;
     bgCtx.fill();
     bgCtx.beginPath();
-    for (var _i23 = 0; _i23 < elevData.length; _i23++) {
-      var _x40 = xOf(elevData[_i23].distNM),
-        _y6 = yOf(elevData[_i23].elevFt);
-      if (_i23 === 0) bgCtx.moveTo(_x40, _y6);else bgCtx.lineTo(_x40, _y6);
+    for (var _i24 = 0; _i24 < elevData.length; _i24++) {
+      var _x40 = xOf(elevData[_i24].distNM),
+        _y6 = yOf(elevData[_i24].elevFt);
+      if (_i24 === 0) bgCtx.moveTo(_x40, _y6);else bgCtx.lineTo(_x40, _y6);
     }
     bgCtx.strokeStyle = '#4a7a30';
     bgCtx.lineWidth = 1.5;
@@ -11622,11 +11642,11 @@ function renderMapProfileFrames(timeMs) {
     if (fpResult && fpResult.profile) {
       fgCtx.beginPath();
       var shStarted = false;
-      for (var _i24 = 0; _i24 < fpResult.profile.length; _i24++) {
-        var _x43 = xOf(fpResult.profile[_i24].distNM);
-        if (_x43 < viewMinX - 100 && _i24 < fpResult.profile.length - 1 && xOf(fpResult.profile[_i24 + 1].distNM) < viewMinX) continue;
-        if (_x43 > viewMaxX + 100 && _i24 > 0 && xOf(fpResult.profile[_i24 - 1].distNM) > viewMaxX) continue;
-        var _y9 = yOf(fpResult.profile[_i24].altFt) + 1;
+      for (var _i25 = 0; _i25 < fpResult.profile.length; _i25++) {
+        var _x43 = xOf(fpResult.profile[_i25].distNM);
+        if (_x43 < viewMinX - 100 && _i25 < fpResult.profile.length - 1 && xOf(fpResult.profile[_i25 + 1].distNM) < viewMinX) continue;
+        if (_x43 > viewMaxX + 100 && _i25 > 0 && xOf(fpResult.profile[_i25 - 1].distNM) > viewMaxX) continue;
+        var _y9 = yOf(fpResult.profile[_i25].altFt) + 1;
         if (!shStarted) {
           fgCtx.moveTo(_x43, _y9);
           shStarted = true;
@@ -11639,11 +11659,11 @@ function renderMapProfileFrames(timeMs) {
       fgCtx.stroke();
       fgCtx.beginPath();
       var rdStarted = false;
-      for (var _i25 = 0; _i25 < fpResult.profile.length; _i25++) {
-        var _x44 = xOf(fpResult.profile[_i25].distNM);
-        if (_x44 < viewMinX - 100 && _i25 < fpResult.profile.length - 1 && xOf(fpResult.profile[_i25 + 1].distNM) < viewMinX) continue;
-        if (_x44 > viewMaxX + 100 && _i25 > 0 && xOf(fpResult.profile[_i25 - 1].distNM) > viewMaxX) continue;
-        var _y0 = yOf(fpResult.profile[_i25].altFt);
+      for (var _i26 = 0; _i26 < fpResult.profile.length; _i26++) {
+        var _x44 = xOf(fpResult.profile[_i26].distNM);
+        if (_x44 < viewMinX - 100 && _i26 < fpResult.profile.length - 1 && xOf(fpResult.profile[_i26 + 1].distNM) < viewMinX) continue;
+        if (_x44 > viewMaxX + 100 && _i26 > 0 && xOf(fpResult.profile[_i26 - 1].distNM) > viewMaxX) continue;
+        var _y0 = yOf(fpResult.profile[_i26].altFt);
         if (!rdStarted) {
           fgCtx.moveTo(_x44, _y0);
           rdStarted = true;
@@ -11693,8 +11713,8 @@ function renderMapProfileFrames(timeMs) {
   // Route-Waypoint-Marker nur im RTE-Modus (Positionen in NM, im HDG unbrauchbar)
   if (!isHdgMode) {
     var wpCumDist = 0;
-    for (var _i26 = 0; _i26 < routeWaypoints.length; _i26++) {
-      if (_i26 > 0) wpCumDist += calcNav(routeWaypoints[_i26 - 1].lat, routeWaypoints[_i26 - 1].lng || routeWaypoints[_i26 - 1].lon, routeWaypoints[_i26].lat, routeWaypoints[_i26].lng || routeWaypoints[_i26].lon).dist;
+    for (var _i27 = 0; _i27 < routeWaypoints.length; _i27++) {
+      if (_i27 > 0) wpCumDist += calcNav(routeWaypoints[_i27 - 1].lat, routeWaypoints[_i27 - 1].lng || routeWaypoints[_i27 - 1].lon, routeWaypoints[_i27].lat, routeWaypoints[_i27].lng || routeWaypoints[_i27].lon).dist;
       var _x45 = xOf(wpCumDist);
       if (_x45 < viewMinX - 40 || _x45 > viewMaxX + 40) continue;
       fgCtx.beginPath();
@@ -11705,7 +11725,7 @@ function renderMapProfileFrames(timeMs) {
       fgCtx.lineTo(_x45, padTop + plotH);
       fgCtx.stroke();
       fgCtx.setLineDash([]);
-      var wpLabel = typeof vpRouteWaypointLabel === 'function' ? vpRouteWaypointLabel(_i26, routeWaypoints[_i26]) : _i26 === 0 ? currentStartICAO || 'DEP' : routeWaypoints[_i26].name || 'WP' + _i26;
+      var wpLabel = typeof vpRouteWaypointLabel === 'function' ? vpRouteWaypointLabel(_i27, routeWaypoints[_i27]) : _i27 === 0 ? currentStartICAO || 'DEP' : routeWaypoints[_i27].name || 'WP' + _i27;
       if (!zoomFactor || zoomFactor < 2) {
         if (wpLabel.length > 6) wpLabel = wpLabel.substring(0, 5) + '…';
       } else {
@@ -11713,7 +11733,7 @@ function renderMapProfileFrames(timeMs) {
       }
       fgCtx.beginPath();
       fgCtx.arc(_x45, padTop + plotH + 3, 3, 0, Math.PI * 2);
-      fgCtx.fillStyle = _i26 === 0 ? '#44ff44' : _i26 === routeWaypoints.length - 1 ? '#ff4444' : '#ffcc00';
+      fgCtx.fillStyle = _i27 === 0 ? '#44ff44' : _i27 === routeWaypoints.length - 1 ? '#ff4444' : '#ffcc00';
       fgCtx.fill();
       fgCtx.fillStyle = '#bbb';
       fgCtx.font = gaEfbProfileFont(vpCanvasFont(fgCtx, zoomFactor >= 2 ? 'bold 11px Arial' : 'bold 9px Arial'));
@@ -11878,8 +11898,8 @@ function renderMapProfileFrames(timeMs) {
 
   // Altitude-Waypoint-Diamanten nur im RTE-Modus (distNM = Route-NM, im HDG unbrauchbar)
   if (!isHdgMode && vpAltWaypoints.length > 0) {
-    for (var _i27 = 0; _i27 < vpAltWaypoints.length; _i27++) {
-      var wp = vpAltWaypoints[_i27],
+    for (var _i28 = 0; _i28 < vpAltWaypoints.length; _i28++) {
+      var wp = vpAltWaypoints[_i28],
         wx = xOf(wp.distNM),
         wy = yOf(wp.altFt);
       if (wx < viewMinX - 20 || wx > viewMaxX + 20) continue;
@@ -11944,14 +11964,14 @@ function renderMapProfileFrames(timeMs) {
         fgCtx.lineTo(x2, ry2);
         fgCtx.lineTo(x1, ry2);
       } else {
-        for (var _i28 = 0; _i28 < relevantPts.length; _i28++) {
-          var p = relevantPts[_i28];
+        for (var _i29 = 0; _i29 < relevantPts.length; _i29++) {
+          var p = relevantPts[_i29];
           var realUpper = isUpperAgl ? p.elevFt + upperFt : upperFt;
           var _y1 = yOf(Math.min(realUpper, maxAlt));
-          if (_i28 === 0) fgCtx.moveTo(xOf(p.distNM), _y1);else fgCtx.lineTo(xOf(p.distNM), _y1);
+          if (_i29 === 0) fgCtx.moveTo(xOf(p.distNM), _y1);else fgCtx.lineTo(xOf(p.distNM), _y1);
         }
-        for (var _i29 = relevantPts.length - 1; _i29 >= 0; _i29--) {
-          var _p3 = relevantPts[_i29];
+        for (var _i30 = relevantPts.length - 1; _i30 >= 0; _i30--) {
+          var _p3 = relevantPts[_i30];
           var realLower = isLowerAgl ? _p3.elevFt + lowerFt : lowerFt;
           fgCtx.lineTo(xOf(_p3.distNM), yOf(Math.max(realLower, minAlt)));
         }
@@ -12134,7 +12154,7 @@ function initAltWaypoints() {
 
   // === SHARED HELPERS for mouse & touch ===
   function vpGetCanvasMetrics() {
-    var _document$getElementB9, _document$getElementB0;
+    var _document$getElementB0, _document$getElementB1;
     var elevData = vpZoomLevel < 100 && vpHighResData ? vpHighResData : vpElevationData;
     if (!elevData || elevData.length < 2) return null;
     var rect = canvas.getBoundingClientRect();
@@ -12150,7 +12170,7 @@ function initAltWaypoints() {
     var zoomFactor = 100 / vpZoomLevel;
     var virtualWidth = Math.round(baseWidth * zoomFactor);
     var totalDist = elevData[elevData.length - 1].distNM;
-    var cruiseAlt = parseInt(((_document$getElementB9 = document.getElementById('altMapInput')) === null || _document$getElementB9 === void 0 ? void 0 : _document$getElementB9.textContent) || ((_document$getElementB0 = document.getElementById('altSlider')) === null || _document$getElementB0 === void 0 ? void 0 : _document$getElementB0.value) || 4500);
+    var cruiseAlt = parseInt(((_document$getElementB0 = document.getElementById('altMapInput')) === null || _document$getElementB0 === void 0 ? void 0 : _document$getElementB0.textContent) || ((_document$getElementB1 = document.getElementById('altSlider')) === null || _document$getElementB1 === void 0 ? void 0 : _document$getElementB1.value) || 4500);
     var maxTerrain = Math.max.apply(Math, _toConsumableArray(elevData.map(p => p.elevFt)));
     var autoMaxAlt = Math.max(cruiseAlt + 2500, maxTerrain + 1000);
     var maxAlt = vpMaxAltOverride > 0 ? vpMaxAltOverride : autoMaxAlt;
@@ -12777,9 +12797,9 @@ var vpWeatherLastAutoRefreshAt = 0;
 var vpShowLandmarks = localStorage.getItem('ga_show_landmarks') !== 'false';
 var vpShowObstacles = localStorage.getItem('ga_show_obstacles') !== 'false';
 var _legacyShowLinear = localStorage.getItem('ga_show_linear');
-var vpShowRoads = ((_ref37 = (_localStorage$getItem = localStorage.getItem('ga_show_roads')) !== null && _localStorage$getItem !== void 0 ? _localStorage$getItem : _legacyShowLinear) !== null && _ref37 !== void 0 ? _ref37 : 'true') !== 'false';
-var vpShowRivers = ((_ref38 = (_localStorage$getItem2 = localStorage.getItem('ga_show_rivers')) !== null && _localStorage$getItem2 !== void 0 ? _localStorage$getItem2 : _legacyShowLinear) !== null && _ref38 !== void 0 ? _ref38 : 'true') !== 'false';
-var vpShowPowerInfra = ((_ref39 = (_localStorage$getItem3 = localStorage.getItem('ga_show_power')) !== null && _localStorage$getItem3 !== void 0 ? _localStorage$getItem3 : _legacyShowLinear) !== null && _ref39 !== void 0 ? _ref39 : 'true') !== 'false';
+var vpShowRoads = ((_ref39 = (_localStorage$getItem = localStorage.getItem('ga_show_roads')) !== null && _localStorage$getItem !== void 0 ? _localStorage$getItem : _legacyShowLinear) !== null && _ref39 !== void 0 ? _ref39 : 'true') !== 'false';
+var vpShowRivers = ((_ref40 = (_localStorage$getItem2 = localStorage.getItem('ga_show_rivers')) !== null && _localStorage$getItem2 !== void 0 ? _localStorage$getItem2 : _legacyShowLinear) !== null && _ref40 !== void 0 ? _ref40 : 'true') !== 'false';
+var vpShowPowerInfra = ((_ref41 = (_localStorage$getItem3 = localStorage.getItem('ga_show_power')) !== null && _localStorage$getItem3 !== void 0 ? _localStorage$getItem3 : _legacyShowLinear) !== null && _ref41 !== void 0 ? _ref41 : 'true') !== 'false';
 var vpShowLinear = vpShowRoads || vpShowRivers || vpShowPowerInfra;
 var vpAirspaceMode = parseInt(localStorage.getItem('ga_show_airspaces') || '1'); // 0=Off, 1=Bg, 2=Fg
 
@@ -12804,8 +12824,8 @@ function updateLinearButtons() {
 }
 function vpSetLinearLoadingPulse(on) {
   var ids = ['btnToggleLinear', 'btnToggleRoads', 'btnToggleRivers', 'btnTogglePower'];
-  for (var _i30 = 0, _ids = ids; _i30 < _ids.length; _i30++) {
-    var id = _ids[_i30];
+  for (var _i31 = 0, _ids = ids; _i31 < _ids.length; _i31++) {
+    var id = _ids[_i31];
     var el = document.getElementById(id);
     if (!el) continue;
     if (on) el.classList.add('vp-loading-pulse');else el.classList.remove('vp-loading-pulse');
@@ -12943,10 +12963,10 @@ function syncRateFromInput(val) {
 function vpChangeYAxis(delta) {
   window.activateFastRender();
   if (vpMaxAltOverride === 0) {
-    var _document$getElementB1;
+    var _document$getElementB10;
     var _elevData = vpGetMapProfileElevationData(typeof vpMode !== 'undefined' && vpMode === 'HDG');
     if (!_elevData) return;
-    var cruiseAlt = parseInt(((_document$getElementB1 = document.getElementById('altMapInput')) === null || _document$getElementB1 === void 0 ? void 0 : _document$getElementB1.textContent) || 4500);
+    var cruiseAlt = parseInt(((_document$getElementB10 = document.getElementById('altMapInput')) === null || _document$getElementB10 === void 0 ? void 0 : _document$getElementB10.textContent) || 4500);
     var maxTerrain = Math.max.apply(Math, _toConsumableArray(_elevData.map(p => p.elevFt)));
     vpMaxAltOverride = Math.max(cruiseAlt + 2500, maxTerrain + 1000);
     vpMaxAltOverride = Math.ceil(vpMaxAltOverride / 1000) * 1000;
@@ -13107,8 +13127,8 @@ function vpToggleAirspaces() {
 // === PROMPT-EINGABE für ALT / V/S (V57) ===
 window.retryFailedOverpassChunks = /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
   var chunks, fromStore, remainingMin, btnOb, tileKeys, failedAgain, i, tileKey, res, _res$features, _res$features2, k, seeded;
-  return _regenerator().w(function (_context0) {
-    while (1) switch (_context0.n) {
+  return _regenerator().w(function (_context1) {
+    while (1) switch (_context1.n) {
       case 0:
         vpHydrateObsTileFailed();
         chunks = window.vpFailedOverpassChunks;
@@ -13119,25 +13139,25 @@ window.retryFailedOverpassChunks = /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_
           chunks = fromStore;
         }
         if (!(!chunks || chunks.length === 0)) {
-          _context0.n = 1;
+          _context1.n = 1;
           break;
         }
-        return _context0.a(2);
+        return _context1.a(2);
       case 1:
         if (!(window.vpOverpassGlobalInFlight && window.vpOverpassGlobalInFlight.promise)) {
-          _context0.n = 2;
+          _context1.n = 2;
           break;
         }
         console.warn('[Overpass] Retry blockiert: Es läuft bereits ein Overpass-Request.');
-        return _context0.a(2);
+        return _context1.a(2);
       case 2:
         if (!vpIsOverpassCoolingDown()) {
-          _context0.n = 3;
+          _context1.n = 3;
           break;
         }
         remainingMin = Math.max(1, Math.ceil(vpGetOverpassCooldownRemainingMs() / 60000));
         console.warn(`[Overpass] Retry blockiert: Cooldown noch ${remainingMin} min aktiv.`);
-        return _context0.a(2);
+        return _context1.a(2);
       case 3:
         console.log(`[Overpass] Starte manuellen Retry für ${chunks.length} fehlgeschlagene Tiles...`);
         window.vpFailedOverpassChunks = [];
@@ -13149,25 +13169,25 @@ window.retryFailedOverpassChunks = /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_
         i = 0;
       case 4:
         if (!(i < tileKeys.length)) {
-          _context0.n = 9;
+          _context1.n = 9;
           break;
         }
         tileKey = tileKeys[i];
-        _context0.n = 5;
+        _context1.n = 5;
         return vpFetchObstacleTile(tileKey, null, i, {
           preferOverpass: true
         });
       case 5:
-        res = _context0.v;
+        res = _context1.v;
         if (!(res && res.ok)) {
-          _context0.n = 6;
+          _context1.n = 6;
           break;
         }
         vpRememberObstacleData(((_res$features = res.features) === null || _res$features === void 0 ? void 0 : _res$features.obs) || [], ((_res$features2 = res.features) === null || _res$features2 === void 0 ? void 0 : _res$features2.lin) || [], tileKey);
         vpMarkTileKeysCovered([tileKey], res.src || 'overpass-retry');
         vpClearTileFailed(tileKey);
         vpMarkOverpassSuccess();
-        _context0.n = 7;
+        _context1.n = 7;
         break;
       case 6:
         vpMarkTileFailed(tileKey, Number(res && res.status || 0), String(res && res.src || ''));
@@ -13175,23 +13195,23 @@ window.retryFailedOverpassChunks = /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_
           tileKey
         });
         if (!(res && res.cooldown)) {
-          _context0.n = 7;
+          _context1.n = 7;
           break;
         }
         for (k = i + 1; k < tileKeys.length; k++) failedAgain.push({
           tileKey: tileKeys[k]
         });
-        return _context0.a(3, 9);
+        return _context1.a(3, 9);
       case 7:
         if (!(i < tileKeys.length - 1)) {
-          _context0.n = 8;
+          _context1.n = 8;
           break;
         }
-        _context0.n = 8;
+        _context1.n = 8;
         return new Promise(r => setTimeout(r, VP_OBS_TILE_INTER_REQUEST_MS));
       case 8:
         i++;
-        _context0.n = 4;
+        _context1.n = 4;
         break;
       case 9:
         window.vpFailedOverpassChunks = failedAgain;
@@ -13205,7 +13225,7 @@ window.retryFailedOverpassChunks = /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_
         if (btnOb) btnOb.classList.remove('vp-loading-pulse');
         if (typeof window.updateOverpassErrorUI === 'function') window.updateOverpassErrorUI();
       case 10:
-        return _context0.a(2);
+        return _context1.a(2);
     }
   }, _callee0);
 }));
@@ -13235,7 +13255,7 @@ window.promptForRate = function () {
    2D SIMULATOR EXPORT (Vollständige Welt)
    ========================================================= */
 window.exportFor2DSim = function () {
-  var _document$getElementB10;
+  var _document$getElementB11;
   if (!vpElevationData || vpElevationData.length < 2) {
     alert("Bitte generiere zuerst eine Route im Dispatcher!");
     return;
@@ -13271,7 +13291,7 @@ window.exportFor2DSim = function () {
   });
 
   // 3b. Höhenprofil berechnen und zu jedem Wegpunkt hinzufügen
-  var _exportCruiseAlt = parseInt(((_document$getElementB10 = document.getElementById('altMapInput')) === null || _document$getElementB10 === void 0 ? void 0 : _document$getElementB10.textContent) || 4500);
+  var _exportCruiseAlt = parseInt(((_document$getElementB11 = document.getElementById('altMapInput')) === null || _document$getElementB11 === void 0 ? void 0 : _document$getElementB11.textContent) || 4500);
   var _exportTas = vpGetProfileTas();
   var _exportProf = typeof computeFlightProfile === 'function' ? computeFlightProfile(vpElevationData, _exportCruiseAlt, vpClimbRate, vpDescentRate, _exportTas) : null;
   if (_exportProf && _exportProf.profile && _exportProf.profile.length > 0) {
@@ -13576,8 +13596,8 @@ function vpBuildCoverageKeyFromPoints(points) {
   if (!Array.isArray(points) || points.length === 0) return '';
   var picks = [0, Math.floor(points.length * 0.25), Math.floor(points.length * 0.5), Math.floor(points.length * 0.75), points.length - 1];
   var chunks = [];
-  for (var _i31 = 0, _picks = picks; _i31 < _picks.length; _i31++) {
-    var idx = _picks[_i31];
+  for (var _i32 = 0, _picks = picks; _i32 < _picks.length; _i32++) {
+    var idx = _picks[_i32];
     var p = points[Math.max(0, Math.min(points.length - 1, idx))];
     if (!p || !Number.isFinite(p.lat) || !Number.isFinite(p.lon)) continue;
     var latQ = vpQuantizeCoord(p.lat, stepDeg);
@@ -13685,9 +13705,9 @@ function vpSetHdgWeatherChunkCache(key, zones) {
   });
   if (vpHdgWeatherChunkCache.size <= VP_HDG_WEATHER_CHUNK_CACHE_MAX) return;
   var stale = Array.from(vpHdgWeatherChunkCache.entries()).sort((a, b) => Number(a[1] && a[1].ts || 0) - Number(b[1] && b[1].ts || 0)).slice(0, Math.max(1, vpHdgWeatherChunkCache.size - VP_HDG_WEATHER_CHUNK_CACHE_MAX));
-  stale.forEach(_ref41 => {
-    var _ref42 = _slicedToArray(_ref41, 1),
-      k = _ref42[0];
+  stale.forEach(_ref43 => {
+    var _ref44 = _slicedToArray(_ref43, 1),
+      k = _ref44[0];
     return vpHdgWeatherChunkCache.delete(k);
   });
 }
@@ -13697,33 +13717,33 @@ function vpUpdateHdgWeather(_x46, _x47, _x48, _x49, _x50, _x51) {
 function _vpUpdateHdgWeather() {
   _vpUpdateHdgWeather = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee34(lat, lon, hdg, gs, dHdg, dPos) {
     var weatherNeeded, now, dtSec, dTurn, highTurn, mediumTurn, signature, sigHeadingDelta, k, elevNm, routePts, coverageKey, hdgChunkKey, cachedZonesNm, zonesMin, blendAlpha, areaChanged, refreshDue, minFetchIntervalMs, signal, zonesNm, _zonesMin, _blendAlpha, _t35;
-    return _regenerator().w(function (_context41) {
-      while (1) switch (_context41.p = _context41.n) {
+    return _regenerator().w(function (_context42) {
+      while (1) switch (_context42.p = _context42.n) {
         case 0:
           if (vpCanRunVisibleMapProfileWork()) {
-            _context41.n = 1;
+            _context42.n = 1;
             break;
           }
-          return _context41.a(2);
+          return _context42.a(2);
         case 1:
           weatherNeeded = vpShowClouds || vpShowIsobars || vpShowWindComponents;
           if (!(!weatherNeeded || !Array.isArray(vpHdgElevData) || vpHdgElevData.length < 2)) {
-            _context41.n = 2;
+            _context42.n = 2;
             break;
           }
-          return _context41.a(2);
+          return _context42.a(2);
         case 2:
           if (!vpHdgWeatherInFlight) {
-            _context41.n = 3;
+            _context42.n = 3;
             break;
           }
-          return _context41.a(2);
+          return _context42.a(2);
         case 3:
           if (!(!Number.isFinite(gs) || gs < 20)) {
-            _context41.n = 4;
+            _context42.n = 4;
             break;
           }
-          return _context41.a(2);
+          return _context42.a(2);
         case 4:
           now = Date.now();
           dtSec = vpHdgLastTurnSample.ts > 0 ? (now - vpHdgLastTurnSample.ts) / 1000 : 1;
@@ -13738,10 +13758,10 @@ function _vpUpdateHdgWeather() {
           signature = [(lat || 0).toFixed(3), (lon || 0).toFixed(3), Math.round(hdg || 0), Math.round(gs || 0), vpWeatherSource].join('|');
           sigHeadingDelta = vpHdgWeatherLastSignature ? vpHdgAngleDelta(Math.round(hdg || 0), Number(vpHdgWeatherLastSignature.split('|')[2] || 0)) : 999;
           if (!(signature === vpHdgWeatherLastSignature && dPos < 0.0015 && sigHeadingDelta < 2)) {
-            _context41.n = 5;
+            _context42.n = 5;
             break;
           }
-          return _context41.a(2);
+          return _context42.a(2);
         case 5:
           k = gs / 60;
           elevNm = vpHdgElevData.map(p => ({
@@ -13756,16 +13776,16 @@ function _vpUpdateHdgWeather() {
             lng: p.lon
           }));
           if (!(routePts.length < 2)) {
-            _context41.n = 6;
+            _context42.n = 6;
             break;
           }
-          return _context41.a(2);
+          return _context42.a(2);
         case 6:
           coverageKey = vpBuildCoverageKeyFromPoints(routePts, VP_HDG_WEATHER_COVERAGE_STEP_DEG);
           hdgChunkKey = `${window.vpWeatherSource || vpWeatherSource || 'metar'}:${coverageKey || 'none'}`;
           cachedZonesNm = vpGetHdgWeatherChunkCache(hdgChunkKey, now);
           if (!cachedZonesNm) {
-            _context41.n = 7;
+            _context42.n = 7;
             break;
           }
           zonesMin = vpConvertHdgWeatherZonesToMinutes(cachedZonesNm, gs);
@@ -13775,54 +13795,54 @@ function _vpUpdateHdgWeather() {
           vpHdgWeatherCoverageKey = coverageKey;
           vpHdgWeatherLastHardRefreshTs = now;
           window.vpBgNeedsUpdate = true;
-          return _context41.a(2);
+          return _context42.a(2);
         case 7:
           areaChanged = !!coverageKey && coverageKey !== vpHdgWeatherCoverageKey;
           refreshDue = now - vpHdgWeatherLastHardRefreshTs >= VP_OM_CACHE_TTL_MS;
           if (!(!areaChanged && !refreshDue)) {
-            _context41.n = 8;
+            _context42.n = 8;
             break;
           }
           if (window.vpWeatherDebug) window.vpWeatherDebug.hdgSkippedNoAreaChange += 1;
-          return _context41.a(2);
+          return _context42.a(2);
         case 8:
           minFetchIntervalMs = areaChanged ? highTurn ? 3500 : 2400 : VP_OM_CACHE_TTL_MS;
           if (!(now - vpHdgWeatherFetchTs < minFetchIntervalMs)) {
-            _context41.n = 9;
+            _context42.n = 9;
             break;
           }
           if (window.vpWeatherDebug) window.vpWeatherDebug.hdgSkippedNoAreaChange += 1;
-          return _context41.a(2);
+          return _context42.a(2);
         case 9:
           if (!(!areaChanged && highTurn && dHdg < 5 && dPos < 0.0035)) {
-            _context41.n = 10;
+            _context42.n = 10;
             break;
           }
           if (window.vpWeatherDebug) window.vpWeatherDebug.hdgSkippedNoAreaChange += 1;
-          return _context41.a(2);
+          return _context42.a(2);
         case 10:
           if (vpHdgWeatherAbortController) vpHdgWeatherAbortController.abort();
           vpHdgWeatherAbortController = vpCreateAbortController();
           signal = vpHdgWeatherAbortController.signal;
           vpHdgWeatherInFlight = true;
           vpHdgWeatherFetchTs = now;
-          _context41.p = 11;
+          _context42.p = 11;
           if (window.vpWeatherDebug) window.vpWeatherDebug.hdgFetches += 1;
-          _context41.n = 12;
+          _context42.n = 12;
           return fetchRouteWeather(routePts, elevNm, signal);
         case 12:
-          zonesNm = _context41.v;
+          zonesNm = _context42.v;
           if (!(signal.aborted || vpMode !== 'HDG' || !vpCanRunVisibleMapProfileWork())) {
-            _context41.n = 13;
+            _context42.n = 13;
             break;
           }
-          return _context41.a(2);
+          return _context42.a(2);
         case 13:
           if (!(!Array.isArray(zonesNm) || zonesNm.length === 0)) {
-            _context41.n = 14;
+            _context42.n = 14;
             break;
           }
-          return _context41.a(2);
+          return _context42.a(2);
         case 14:
           vpSetHdgWeatherChunkCache(hdgChunkKey, zonesNm, now);
           _zonesMin = vpConvertHdgWeatherZonesToMinutes(zonesNm, gs);
@@ -13832,25 +13852,25 @@ function _vpUpdateHdgWeather() {
           vpHdgWeatherCoverageKey = coverageKey;
           vpHdgWeatherLastHardRefreshTs = now;
           window.vpBgNeedsUpdate = true;
-          _context41.n = 17;
+          _context42.n = 17;
           break;
         case 15:
-          _context41.p = 15;
-          _t35 = _context41.v;
+          _context42.p = 15;
+          _t35 = _context42.v;
           if (!(_t35 && _t35.name === 'AbortError')) {
-            _context41.n = 16;
+            _context42.n = 16;
             break;
           }
-          return _context41.a(2);
+          return _context42.a(2);
         case 16:
           console.warn('[HDG] Wetter-Update fehlgeschlagen:', _t35);
           vpWeatherDebugSetError(_t35, 'hdg update');
         case 17:
-          _context41.p = 17;
+          _context42.p = 17;
           vpHdgWeatherInFlight = false;
-          return _context41.f(17);
+          return _context42.f(17);
         case 18:
-          return _context41.a(2);
+          return _context42.a(2);
       }
     }, _callee34, null, [[11, 15, 17, 18]]);
   }));
@@ -13909,62 +13929,62 @@ function _updateHdgProfile() {
       nextElevData,
       pendingReason,
       _args42 = arguments;
-    return _regenerator().w(function (_context42) {
-      while (1) switch (_context42.p = _context42.n) {
+    return _regenerator().w(function (_context43) {
+      while (1) switch (_context43.p = _context43.n) {
         case 0:
           options = _args42.length > 0 && _args42[0] !== undefined ? _args42[0] : {};
           force = options.force === true;
           if (!(vpMode !== 'HDG' || !vpCanRunVisibleMapProfileWork())) {
-            _context42.n = 1;
+            _context43.n = 1;
             break;
           }
           if (force) vpHdgRefreshPending = true;
-          return _context42.a(2);
+          return _context43.a(2);
         case 1:
           if (window.lastLiveGpsPos) {
-            _context42.n = 2;
+            _context43.n = 2;
             break;
           }
-          return _context42.a(2);
+          return _context43.a(2);
         case 2:
           runGeneration = vpHdgCycleGeneration;
           vpHdgUpdateInFlight = true;
-          _context42.p = 3;
+          _context43.p = 3;
           _window$lastLiveGpsPo1 = window.lastLiveGpsPos, lat = _window$lastLiveGpsPo1.lat, lon = _window$lastLiveGpsPo1.lon, hdg = _window$lastLiveGpsPo1.hdg, alt = _window$lastLiveGpsPo1.alt;
           gs = typeof smoothedGS !== 'undefined' && smoothedGS > 20 ? smoothedGS : 80; // Change-Detection: nur updaten wenn Kurs/Position sich nennenswert geändert hat.
           // Sichtbarwerden und explizite Refreshes dürfen diese Schwelle einmalig umgehen.
           dHdg = Math.abs((hdg - vpHdgLastUpdate.hdg + 540) % 360 - 180);
           dPos = Math.abs(lat - vpHdgLastUpdate.lat) + Math.abs(lon - vpHdgLastUpdate.lon);
           if (!(!force && vpHdgElevData && dHdg < 2 && dPos < 0.003)) {
-            _context42.n = 4;
+            _context43.n = 4;
             break;
           }
-          return _context42.a(2);
+          return _context43.a(2);
         case 4:
           vpHdgLastUpdate = {
             lat,
             lon,
             hdg
           };
-          _context42.n = 5;
+          _context43.n = 5;
           return generateHdgProfile(lat, lon, hdg, alt, gs);
         case 5:
-          nextElevData = _context42.v;
+          nextElevData = _context43.v;
           if (!(runGeneration !== vpHdgCycleGeneration || vpMode !== 'HDG' || !vpCanRunVisibleMapProfileWork())) {
-            _context42.n = 6;
+            _context43.n = 6;
             break;
           }
-          return _context42.a(2);
+          return _context43.a(2);
         case 6:
           if (Array.isArray(nextElevData) && nextElevData.length >= 2) vpHdgElevData = nextElevData;
-          _context42.n = 7;
+          _context43.n = 7;
           return vpUpdateHdgWeather(lat, lon, hdg, gs, dHdg, dPos);
         case 7:
           if (!(runGeneration !== vpHdgCycleGeneration || vpMode !== 'HDG' || !vpCanRunVisibleMapProfileWork())) {
-            _context42.n = 8;
+            _context43.n = 8;
             break;
           }
-          return _context42.a(2);
+          return _context43.a(2);
         case 8:
           computeHdgLandmarks(lat, lon, hdg, gs);
           computeHdgObstacles(lat, lon, hdg, gs);
@@ -13972,7 +13992,7 @@ function _updateHdgProfile() {
           window.vpBgNeedsUpdate = true;
           vpRequestMapProfileFrameNow();
         case 9:
-          _context42.p = 9;
+          _context43.p = 9;
           vpHdgUpdateInFlight = false;
           if (vpHdgRefreshPending && vpMode === 'HDG' && vpCanRunVisibleMapProfileWork()) {
             pendingReason = vpHdgPendingReason || 'hdg-pending';
@@ -13983,9 +14003,9 @@ function _updateHdgProfile() {
               reason: pendingReason
             });
           }
-          return _context42.f(9);
+          return _context43.f(9);
         case 10:
-          return _context42.a(2);
+          return _context43.a(2);
       }
     }, _callee35, null, [[3,, 9, 10]]);
   }));
@@ -13996,21 +14016,21 @@ function generateHdgProfile(_x52, _x53, _x54, _x55, _x56) {
 } // ── Landmarks (Städte & Airports) entlang Heading ────────
 function _generateHdgProfile() {
   _generateHdgProfile = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee36(lat, lon, hdg, alt, gs) {
-    var totalMin, totalNM, stepNM, backNM, points, i, ahead, bearing, dist, pt, timeMin, tileSet, tilePromises, _i36, _points, p, z, n, tx, latRad, ty, key, result, _i37, _points2, _p5, elevFt, _t36;
-    return _regenerator().w(function (_context43) {
-      while (1) switch (_context43.p = _context43.n) {
+    var totalMin, totalNM, stepNM, backNM, points, i, ahead, bearing, dist, pt, timeMin, tileSet, tilePromises, _i37, _points, p, z, n, tx, latRad, ty, key, result, _i38, _points2, _p5, elevFt, _t36;
+    return _regenerator().w(function (_context44) {
+      while (1) switch (_context44.p = _context44.n) {
         case 0:
           if (!(!window.gaProfileDataProvider && typeof sampleTerrainElevation !== 'function')) {
-            _context43.n = 1;
+            _context44.n = 1;
             break;
           }
-          return _context43.a(2, null);
+          return _context44.a(2, null);
         case 1:
           if (!(vpMode !== 'HDG' || !vpCanRunVisibleMapProfileWork())) {
-            _context43.n = 2;
+            _context44.n = 2;
             break;
           }
-          return _context43.a(2, null);
+          return _context44.a(2, null);
         case 2:
           totalMin = VP_HDG_LOOKBACK_MIN + VP_HDG_LOOKAHEAD_MIN;
           totalNM = gs * (totalMin / 60);
@@ -14033,16 +14053,16 @@ function _generateHdgProfile() {
             });
           }
           if (!window.gaProfileDataProvider) {
-            _context43.n = 3;
+            _context44.n = 3;
             break;
           }
-          return _context43.a(2, window.gaProfileDataProvider.terrain(points, undefined, 'HDG'));
+          return _context44.a(2, window.gaProfileDataProvider.terrain(points, undefined, 'HDG'));
         case 3:
           // Tiles parallel vorladen (normalerweise 1-3 Tiles)
           tileSet = new Set();
           tilePromises = [];
-          for (_i36 = 0, _points = points; _i36 < _points.length; _i36++) {
-            p = _points[_i36];
+          for (_i37 = 0, _points = points; _i37 < _points.length; _i37++) {
+            p = _points[_i37];
             z = 10;
             n = Math.pow(2, z);
             tx = Math.floor((p.lon + 180) / 360 * n);
@@ -14055,49 +14075,49 @@ function _generateHdgProfile() {
             }
           }
           if (!tilePromises.length) {
-            _context43.n = 4;
+            _context44.n = 4;
             break;
           }
-          _context43.n = 4;
+          _context44.n = 4;
           return Promise.all(tilePromises);
         case 4:
           if (!(vpMode !== 'HDG' || !vpCanRunVisibleMapProfileWork())) {
-            _context43.n = 5;
+            _context44.n = 5;
             break;
           }
-          return _context43.a(2, null);
+          return _context44.a(2, null);
         case 5:
           // Höhen sampeln (synchron aus Cache)
           result = [];
-          _i37 = 0, _points2 = points;
+          _i38 = 0, _points2 = points;
         case 6:
-          if (!(_i37 < _points2.length)) {
-            _context43.n = 11;
+          if (!(_i38 < _points2.length)) {
+            _context44.n = 11;
             break;
           }
-          _p5 = _points2[_i37];
+          _p5 = _points2[_i38];
           if (!(result.length % 8 === 0 && (vpMode !== 'HDG' || !vpCanRunVisibleMapProfileWork()))) {
-            _context43.n = 7;
+            _context44.n = 7;
             break;
           }
-          return _context43.a(2, null);
+          return _context44.a(2, null);
         case 7:
-          _context43.p = 7;
-          _context43.n = 8;
+          _context44.p = 7;
+          _context44.n = 8;
           return sampleTerrainElevation(_p5.lat, _p5.lon);
         case 8:
-          elevFt = _context43.v;
+          elevFt = _context44.v;
           result.push({
             distNM: _p5.distNM,
             elevFt: Math.max(0, elevFt),
             lat: _p5.lat,
             lon: _p5.lon
           });
-          _context43.n = 10;
+          _context44.n = 10;
           break;
         case 9:
-          _context43.p = 9;
-          _t36 = _context43.v;
+          _context44.p = 9;
+          _t36 = _context44.v;
           result.push({
             distNM: _p5.distNM,
             elevFt: 0,
@@ -14105,11 +14125,11 @@ function _generateHdgProfile() {
             lon: _p5.lon
           });
         case 10:
-          _i37++;
-          _context43.n = 6;
+          _i38++;
+          _context44.n = 6;
           break;
         case 11:
-          return _context43.a(2, result);
+          return _context44.a(2, result);
       }
     }, _callee36, null, [[7, 9]]);
   }));
@@ -14369,12 +14389,12 @@ function vpUpdateLiveProfilePosition(lat, lon, alt, hdg, liveMapVisualActive) {
     var bestIdx = searchLo;
     var bestScore = Infinity;
     var bestDistNm = Infinity;
-    for (var _i32 = searchLo; _i32 <= searchHi; _i32++) {
-      var s = _profileIdxScore(ed, _i32, lat, lon, hdg);
+    for (var _i33 = searchLo; _i33 <= searchHi; _i33++) {
+      var s = _profileIdxScore(ed, _i33, lat, lon, hdg);
       if (s.score < bestScore) {
         bestScore = s.score;
         bestDistNm = s.distNm;
-        bestIdx = _i32;
+        bestIdx = _i33;
       }
     }
 
@@ -14383,12 +14403,12 @@ function vpUpdateLiveProfilePosition(lat, lon, alt, hdg, liveMapVisualActive) {
       var globalBestIdx = 0;
       var globalBestScore = Infinity;
       var globalBestDistNm = Infinity;
-      for (var _i33 = 0; _i33 < ed.length; _i33 += 1) {
-        var _s3 = _profileIdxScore(ed, _i33, lat, lon, hdg);
+      for (var _i34 = 0; _i34 < ed.length; _i34 += 1) {
+        var _s3 = _profileIdxScore(ed, _i34, lat, lon, hdg);
         if (_s3.score < globalBestScore) {
           globalBestScore = _s3.score;
           globalBestDistNm = _s3.distNm;
-          globalBestIdx = _i33;
+          globalBestIdx = _i34;
         }
       }
       bestIdx = globalBestIdx;
