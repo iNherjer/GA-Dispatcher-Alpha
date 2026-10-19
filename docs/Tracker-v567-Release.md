@@ -28,4 +28,9 @@ Schalter); EFB-Kartentisch lokal mit Testdaten geprüft. Themes NavCom/OPS 1940/
 Win95 sowie reale MSFS-/Coherent-/VR-Abnahme offen.
 
 Windows-x64-EXE mit pkg/Node18 ohne Bytecode, PE-Architektur und enthaltene
-Favoriten-/Versionsquellen geprüft. Assetrevision 56701, Web-Cache v2157.
+Favoriten-/Versionsquellen geprüft: 174081830 Bytes, SHA-256
+`94552f39cb3923976ccc7b285682313e6d00be4c7d6188e2ab63c5cd8a99be8f`.
+Assetrevision 56701, Web-Cache v2157 (Rollout), v2158 (Kanalaktivierung).
+Release v567 veröffentlicht; öffentlicher EXE-Download größen- und SHA-256-gleich
+verifiziert. Alpha aktiviert, Stable unverändert. Kein Community-Paket- oder
+Desktop-Update nötig. Quellstand `9e1f473bf`.
