@@ -1378,6 +1378,8 @@
                         <button id="btnToggleClockMenu" class="pb-btn" onclick="window.toggleMapHintSubmenu && toggleMapHintSubmenu('clockMenu', event)" title="Zeit-Optionen" aria-expanded="false" style="display:block; flex:0 0 42px; margin:0; text-align:center; border-top-left-radius:0; border-bottom-left-radius:0;">▸</button>
                     </div>
                     <div id="clockMenuBlock" style="display:none; box-sizing:border-box; width:100%; max-width:100%; min-width:0; overflow:hidden; margin:0 0 6px 0; border:1px solid #2f2f2f; border-radius:6px; padding:6px; background:#0d0d0d;">
+                        <label for="mapClockSkin" style="display:block; font-size:11px; margin-bottom:3px;">Uhr</label>
+                        <select id="mapClockSkin" class="pb-btn" style="width:100%; margin:0 0 6px;"><option value="stopwatch">Stoppuhr</option><option value="watch">A Watch</option></select>
                         <label for="mapClockSource" style="display:block; font-size:11px; margin-bottom:3px;">Zeitquelle</label>
                         <select id="mapClockSource" class="pb-btn" style="width:100%; margin:0 0 6px;" onchange="GADisplayClock.set({source:this.value})"><option value="simulator">Simulator</option><option value="device">Gerät</option></select>
                         <label for="mapClockZone" style="display:block; font-size:11px; margin-bottom:3px;">Zeitanzeige</label>
@@ -2920,9 +2922,12 @@
 <script defer src="passenger-voice.js?v=pax-menu-speed-20261005-01"></script>
 <script defer src="ga-tracker-client/tracker-audio-client.js"></script>
 <script defer src="media-player-ipod.js"></script>
+<script defer src="vendor/suncalc/suncalc.js"></script>
+<script defer src="media-player-watch-face.js"></script>
 <script defer src="media-player-watch.js"></script>
 <script defer src="media-player-ui.js"></script>
 <script defer src="media-player-client.js"></script>
+<script defer src="clock-skins.js"></script>
 <script defer src="tutorial.js?v=mission-airport-types-20260728-01"></script>
 <script src="map-profile-controls.js"></script>
 <script src="display-clock.js"></script>

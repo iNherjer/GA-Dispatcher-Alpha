@@ -13,6 +13,7 @@ function normalizeUi(value) {
   if (['AUTO', 'ROUTE', 'HDG'].includes(value.profileMode)) result.profileMode = value.profileMode;
   if (['device', 'simulator'].includes(value.clockSource)) result.clockSource = value.clockSource;
   if (['utc', 'local'].includes(value.clockZone)) result.clockZone = value.clockZone;
+  if (['stopwatch', 'watch'].includes(value.clockSkin)) result.clockSkin = value.clockSkin;
   return result;
 }
 function normalizeDisplaySettings(value) {

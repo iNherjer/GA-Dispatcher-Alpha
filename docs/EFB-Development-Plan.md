@@ -1,3 +1,104 @@
+## Watch-Uhr – Alpha-Rollout Tracker v569 / Web v2161 (19.10.2026)
+
+Nutzer beauftragt die Veröffentlichung des geprüften lokalen Watch-Standes.
+Tracker v569 liefert Host-Assetrevision 56901; die Webapp Cache v2161.
+Uhransicht, Skin-Registry, gemeinsame Zeitmessung, Sekunden-Krone und Longpress-
+Schließen werden gemeinsam ausgeliefert. Das bestehende EFB-/Toolbar-Community-
+Paket lädt die neuen Oberflächen aus dem Tracker; kein neuer SDK-Paketbau nötig.
+Desktop-Installer bleibt unverändert; Alpha-Runtime-Kanal wird nach geprüftem
+EXE-Release aktualisiert. Stable bleibt unverändert. Browser-Fallbackprüfungen
+bestanden; echte Coherent-/MSFS-/VR-Feldabnahme steht weiterhin aus.
+
+## Watch EFB-/Toolbar-Prüfung – lokaler Kandidat (19.10.2026)
+
+Watch-Uhr, Uhrauswahl, gemeinsame Stoppuhr/Timer, Sekunden-Krone und 700-ms-
+Zurück-Halten sind auch in den kompilierten EFB-Assets und im Paketmanifest
+enthalten. SVG-Zifferblatt benötigt kein Canvas-Pixel-Readback. Watch-Buttons
+schirmen ihre Farben, Rahmen und Schrift gegen globale Designregeln ab;
+die visuelle Prüfung fand zuvor Win95-Buttons innerhalb des Watch-Skins.
+
+`tools/watch-efb-coherent-selftest.mjs` prüft die tatsächlichen lokalen EFB- und
+Toolbar-Seiten mit privater Medienbridge und simuliertem Windows-Player:
+440/1000 px, 100/150 % Skalierung, vier Design-Presets; CSS ohne Grid, Gap,
+inset und color-mix; Pointer-Capture und Canvas-getImageData werfen absichtlich.
+Legacy-Maus/Touch für Drag und Krone, Quellen, Transport, große Zoomflächen,
+Wetter/SR/SS, gemeinsame Zeitmessung, mindestens acht verschiedene Zehntelwerte
+pro 1050 ms, Vollbild-Timer ohne Komplikationen sowie Longpress-Schließen auf
+allen Zurückwegen. Keine Relay-/WebSocket-Verbindung im Test. Screenshots unter
+`analysis/watch-efb-2026-10-19/`; weitere Uhrauswahl- und Medienregressionen separat.
+
+Dies sind gezielte Browser-Fallbacktests, keine echte Coherent-GT-Emulation.
+MSFS/Coherent-GT-Debugger und VR stehen hier nicht zur Verfügung; Darstellung,
+GPU-Paint und Eingaben im realen Simulator bleiben als Feldabnahme offen.
+Kein EXE-Build oder Release mit dieser lokalen Prüfung.
+
+## Uhrenauswahl / Skin-Registry – lokaler Kandidat (19.10.2026)
+
+Anzeige → Zeit enthält „Uhr“ mit Stoppuhr und A Watch. Der bestehende Stoppuhr-
+Werkzeugbutton öffnet/toggelt den gewählten Skin; A Watch landet direkt auf dem
+Zifferblatt. Auswahl unabhängig von Musik-Skin und aktivierter Mediensteuerung.
+Ein temporärer Einstieg im vorhandenen Mediencontroller nutzt dieselbe Watch,
+keinen zweiten Player; nach Schließen gelten wieder die vorherigen Medienprefs.
+Die reine Uhransicht führt keine Medien-Watch-/Snapshot-Abfragen aus. Wechsel
+zur Musik nutzt den bestehenden Transport, zurück bleibt derselbe Controller.
+
+clock-skins.js registriert Präsentationsprovider mit label/open/close/isOpen.
+Weitere Uhren werden über GAClockSkins.register ergänzt; Zeitmessung bleibt
+GAUtilityTime. Anzeigeauswahl lokal gespeichert; EFB/Toolbar teilen clockSkin
+zusätzlich über den bestehenden, validierten DisplaySettings-Vertrag. Der
+Coherent-Host zeigt native Auswahlbuttons statt eines Select-Popups. Bei neuen
+trackerpersistierten Skins auch die DisplaySettings-Whitelist ergänzen.
+
+Browserprüfungen decken echten Werkzeugbutton, klassische Uhr, A Watch, Musik-
+Übergang, einen Watch-Controller, unveränderte Musikprefs, Neuladen, gemeinsamen
+Timer und Provider-Erweiterung ab. EFB/Toolbar lokal geprüft; kein Build/Release.
+
+## Watch-Zurück-Halten und flüssige Stoppuhr – lokal (19.10.2026)
+
+Alle Watch-Zurückwege (Musik, Quellen-/Größenmenü, Uhr und Zeitmessung) schließen
+bei 700 ms Halten das Gerät. Bewegung >10 Bildschirmpixel, Loslassen, Abbruch,
+Blur und Destroy bereinigen den Hold. Capture-Suppression verhindert nach
+Longpress den folgenden Navigationsklick; native Maus/Touch plus Pointerpfad.
+Die Zeitmessung läuft beim Schließen weiter.
+
+Die reine Zeitanzeige liest GAUtilityTime im requestAnimationFrame-Takt und
+schreibt nur bei geänderter Zehntelsekunde. Wetter, Menü und Medien bleiben im
+vorhandenen langsameren Takt; keine zusätzlichen Medien-/Relay-Anfragen.
+Animationsloop nur bei sichtbarer aktiver Zeitmessung, Pause/Schließen/Tab-
+Ausblenden und Destroy beenden ihn. Uhr-Zeitbasis bleibt unverändert.
+
+## Watch-Uhransicht – lokaler Kandidat (19.10.2026)
+
+Musik-Zurückpfeil öffnet ein analoges SVG-Zifferblatt. Temperatur oben rechts
+und QNH unten links stehen gerade; hPa steht unter dem QNH-Wert. Ursprüngliche
+Gehäusehöhe 350 Pixel für Uhr und Musik bleibt erhalten.
+24-Stunden-Außenring:
+Rot SR–SS, Blau SS–SR, lokale Zeiten zur Flugposition und zum gewählten
+Simulator-/Gerätedatum; Polartag/-nacht ausdrücklich statt erfundener Zeiten.
+SunCalc v1.9.0 lokal mit BSD-Lizenz eingebunden (vendor/suncalc), kein Netzabruf
+für astronomische Daten. Ohne gültige Flugposition neutraler Ring / Striche.
+Regionale Uhr basiert weiter auf GADisplayClock, Fallback lokale Gerätezeit.
+
+QNH (Modell-Meeresspiegeldruck) und Bodentemperatur aus bestehendem
+vpFetchOpenMeteoPoint mit dessen Cache/Cooldown/Deduplizierung. Watch-Abruf
+frühestens nach 60 Sekunden, regulär nach fünf Minuten; alte/entfernte Werte
+werden ausgeblendet. Kein eigenes Wetter-/Relay-Protokoll.
+
+GAUtilityTime ist eine schmale Fassade der vorhandenen dedizierten Stoppuhr:
+Watch und Werkzeug lesen dieselben Werte und bedienen dieselben Start/Pause/
+Reset-/Daueraktionen, einschließlich des vorhandenen Timeralarms. Keine zweite
+Zeitmessung oder abweichende Simulatorgeschwindigkeitslogik. Host-spezifischer
+Utility-Fork gezielt ergänzt, nicht durch die Webquelle ersetzt.
+
+Stoppuhr/Timer ersetzen das gesamte Display ohne Zifferblatt-/Wetter-/Musik-
+Komplikationen. Die Krone stellt bei pausiertem Timer die gemeinsame Dauer in
+Sekunden ein (relativer Drag, acht logische Pixel je Sekunde; Tastatur ±1 s).
+Während laufendem Timer gesperrt, bei Stoppuhr ohne Funktion; kein Medienbefehl.
+Zur Uhr führt zurück zum Zifferblatt, von dort unten rechts zur Musik; Zeitmessung läuft weiter. Größenwahl und Schließen
+bleiben auf der Uhr erreichbar. Shared Renderer, gepinnte Medienquellen und
+Chrome-49-Assets lokal vorbereitet. Kein Build-/Versionsbump oder Rollout;
+reale MSFS-/Coherent-Abnahme bleibt offen.
+
 ## Watch-Medienskin – Tracker v564 Alpha (18.10.2026)
 
 Dritter, unabhängig vom Designpreset wählbarer Medienskin: kompaktes Metallgehäuse,

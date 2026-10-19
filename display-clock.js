@@ -91,6 +91,20 @@
             observe: (flight, receivedAt = Date.now()) => { sample = flight ? { flight: { ...flight }, receivedAt } : null; refresh(); },
             clear: () => { sample = null; refresh(); },
             regional: () => resolveRegional(settings, sample),
+            context: () => {
+                const time = resolveRegional(settings, sample);
+                const fresh = sample && Date.now() >= sample.receivedAt && Date.now() - sample.receivedAt <= MAX_AGE_MS;
+                const flight = fresh && sample.flight && sample.flight.simRunning !== 0 && sample.flight.inMenuOrMap !== true ? sample.flight : null;
+                const utc = resolve({ source: 'simulator', zone: 'utc' }, sample);
+                const instantMs = time.source === 'simulator' && flight
+                    ? flight.simAbsoluteTimeSeconds * 1000 - 62135596800000 : Date.now();
+                let offsetSeconds = time.zone === 'regional' && flight && !utc.fallback
+                    ? flight.simLocalTimeSeconds - ((flight.simAbsoluteTimeSeconds % 86400 + 86400) % 86400)
+                    : -new Date().getTimezoneOffset() * 60;
+                if (offsetSeconds < -43200) offsetSeconds += 86400;
+                if (offsetSeconds > 50400) offsetSeconds -= 86400;
+                return { time, instantMs, offsetSeconds, flight };
+            },
             current, eta: minutes => format(current(), minutes), refresh, refreshClocks
         };
         if (win.document.readyState === 'loading') win.document.addEventListener('DOMContentLoaded', refresh);

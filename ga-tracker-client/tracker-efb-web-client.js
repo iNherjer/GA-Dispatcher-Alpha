@@ -6,11 +6,13 @@ const { fontDeclarations, htmlFontDeclarations, clientFontSource } = require('./
 
 const EFB_WEB_CLIENT_PATH = '/efb/v1/';
 const EFB_WEB_CLIENT_PROBE_PATH = '/efb/v1/probe/';
-const EFB_WEB_ASSET_REVISION = '56801';
+const EFB_WEB_ASSET_REVISION = '56901';
 const fileCache = new Map();
 
 const STATIC_ASSETS = Object.freeze({
   '/efb/v1/assets/media-efb-ui.js': [path.join(__dirname, 'tracker-efb-media-ui.js'), 'text/javascript; charset=utf-8'],
+  '/efb/v1/assets/suncalc.js': [path.join(__dirname, 'efb-web-assets', 'vendor/suncalc/suncalc.js'), 'text/javascript; charset=utf-8'],
+  '/efb/v1/assets/media-player-watch-face.js': [path.join(__dirname, 'efb-web-assets', 'media-player-watch-face.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/media-player-watch.js': [path.join(__dirname, 'efb-web-assets', 'media-player-watch.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/media-player-ipod.js': [path.join(__dirname, 'efb-web-assets', 'media-player-ipod.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/media-player.css': [path.join(__dirname, 'efb-web-assets', 'media-player.css'), 'text/css; charset=utf-8'],
@@ -40,6 +42,7 @@ const STATIC_ASSETS = Object.freeze({
   '/efb/v1/assets/map-profile-controls.js': [path.join(__dirname, 'efb-web-assets', 'map-profile-controls.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/map-prediction.js': [path.join(__dirname, 'efb-web-assets', 'map-prediction.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/navigation-warning-core.js': [path.join(__dirname, 'efb-web-assets', 'navigation-warning-core.js'), 'text/javascript; charset=utf-8'],
+  '/efb/v1/assets/clock-skins.js': [path.join(__dirname, 'efb-web-assets', 'clock-skins.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/display-clock.js': [path.join(__dirname, 'efb-web-assets', 'display-clock.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/map-display-controls.js': [path.join(__dirname, 'efb-web-assets', 'map-display-controls.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/map-favorite-airports.js': [path.join(__dirname, 'efb-web-assets', 'map-favorite-airports.js'), 'text/javascript; charset=utf-8'],
@@ -200,11 +203,14 @@ ${extractKartentischMarkup()}
 <script src="/efb/v1/assets/floating-layout.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/flight-debrief.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/media-player-ipod.js?v=${EFB_WEB_ASSET_REVISION}"></script>
+<script src="/efb/v1/assets/suncalc.js?v=${EFB_WEB_ASSET_REVISION}"></script>
+<script src="/efb/v1/assets/media-player-watch-face.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/media-player-watch.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/media-player-ui.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/media-efb-ui.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/media-local-client.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/media-player-client.js?v=${EFB_WEB_ASSET_REVISION}"></script>
+<script src="/efb/v1/assets/clock-skins.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/host.js?v=${EFB_WEB_ASSET_REVISION}" onload="__gaEfbScriptLoaded('host.js')" onerror="__gaEfbScriptError('host.js')"></script>
 </body>
 </html>`;

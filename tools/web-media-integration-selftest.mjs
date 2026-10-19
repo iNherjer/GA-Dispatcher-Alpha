@@ -35,11 +35,13 @@ const server=http.createServer(async(req,res)=>{
  }
  if(address.pathname==='/'){
   const html=fs.readFileSync(path.join(root,'index.html'),'utf8');
+  const clockStart=html.indexOf('<div id="clockMenuBlock"'),clockEnd=html.indexOf('<button id="routeLegLabelModeBtn"',clockStart);
+  const clockMarkup=html.slice(clockStart,clockEnd).replace('display:none','display:block');
   res.setHeader('Content-Type','text/html; charset=utf-8');
-  res.end('<!doctype html><link rel="stylesheet" href="/media-player.css"><style>body{margin:0;background:#303743;color:white;font:14px Arial}#mapTableOverlay{position:fixed;inset:0}#mapVoiceMenu{position:absolute;left:20px;top:20px;display:block;width:260px;background:#121212;padding:10px;z-index:140000}</style><div id="mapTableOverlay"><script>document.write(new DOMParser().parseFromString('+JSON.stringify(html).replaceAll('</script','<\\/script')+',"text/html").getElementById("mapVoiceMenu").outerHTML);document.getElementById("mapVoiceMenu").style.cssText="display:block;position:absolute;left:20px;top:20px;width:260px;max-height:80vh;overflow:auto;background:#121212;padding:10px;z-index:140000";</script></div><script>window.liveTrackerCapabilities=["media.control.v1"];var seq=0;window.gaMediaRequest=function(payload){return fetch("/relay",{method:"POST",body:JSON.stringify({pin:"1234",clientId:"browser-test",commandId:"cmd-"+(++seq),payload:payload})}).then(function(r){return r.json()});};</script><script src="/media-player-ipod.js"></script><script src="/media-player-watch.js"></script><script src="/media-player-ui.js"></script><script src="/media-player-client.js"></script>');return;
+  res.end('<!doctype html>'+clockMarkup+'<link rel="stylesheet" href="/media-player.css"><style>body{margin:0;background:#303743;color:white;font:14px Arial}#mapTableOverlay{position:fixed;inset:0}#mapVoiceMenu{position:absolute;left:20px;top:20px;display:block;width:260px;background:#121212;padding:10px;z-index:140000}</style><div id="mapTableOverlay"><script>document.write(new DOMParser().parseFromString('+JSON.stringify(html).replaceAll('</script','<\\/script')+',"text/html").getElementById("mapVoiceMenu").outerHTML);document.getElementById("mapVoiceMenu").style.cssText="display:block;position:absolute;left:20px;top:20px;width:260px;max-height:80vh;overflow:auto;background:#121212;padding:10px;z-index:140000";</script></div><script>window.liveTrackerCapabilities=["media.control.v1"];var seq=0;window.gaMediaRequest=function(payload){return fetch("/relay",{method:"POST",body:JSON.stringify({pin:"1234",clientId:"browser-test",commandId:"cmd-"+(++seq),payload:payload})}).then(function(r){return r.json()});};</script><script src="/media-player-ipod.js"></script><script src="/vendor/suncalc/suncalc.js"></script><script src="/media-player-watch-face.js"></script><script src="/media-player-watch.js"></script><script src="/media-player-ui.js"></script><script src="/display-clock.js"></script><script src="/map-utility-tools.js"></script><script src="/media-player-client.js"></script><script src="/clock-skins.js"></script>');return;
  }
  const file=address.pathname.slice(1);
- if(!['media-player.css','media-player-ipod.js','media-player-watch.js','media-player-ui.js','media-player-client.js'].includes(file)){res.writeHead(404);res.end();return;}
+ if(!['media-player.css','media-player-ipod.js','media-player-watch.js','media-player-watch-face.js','vendor/suncalc/suncalc.js','clock-skins.js','map-utility-tools.js','display-clock.js','media-player-ui.js','media-player-client.js'].includes(file)){res.writeHead(404);res.end();return;}
  res.setHeader('Content-Type',file.endsWith('.css')?'text/css':'text/javascript');res.end(fs.readFileSync(path.join(root,file)));
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
@@ -119,5 +121,15 @@ try{
  await page.selectOption('.ga-media-skin','watch');
  await page.reload();assert.equal(await page.locator('.ga-media-skin').inputValue(),'watch');
  assert.ok(await page.getByRole('button',{name:'Mediensteuerung öffnen',exact:true}).isVisible(),'reload keeps skin but starts collapsed');
+ await page.selectOption('.ga-media-skin','winamp');
+ const mediaPreferences=await page.evaluate(()=>localStorage.getItem('ga.media.web.v1'));
+ await page.selectOption('#mapClockSkin','watch');assert.equal(await page.evaluate(()=>GAClockSkins.selected()),'watch');
+ await page.locator('#mapVoiceMenu').evaluate(el=>el.style.display='none');
+ const mediaQueries=requests.filter(c=>['watch','snapshot'].includes(c.payload.action)).length;
+ await page.evaluate(()=>toggleMapUtilityTool('stopwatch'));await page.locator('.ga-watch-face').waitFor({state:'visible'});await page.waitForTimeout(1200);
+ assert.equal(requests.filter(c=>['watch','snapshot'].includes(c.payload.action)).length,mediaQueries,'web clock does not poll media');
+ assert.equal(await page.evaluate(()=>localStorage.getItem('ga.media.web.v1')),mediaPreferences);
+ await page.getByRole('button',{name:'Mediensteuerung schließen',exact:true}).click();await page.waitForTimeout(100);assert.equal(await page.locator('.ga-media-skin').inputValue(),'winamp');
+ await page.reload();assert.equal(await page.locator('#mapClockSkin').inputValue(),'watch');assert.deepEqual(errors,[]);
  console.log('WEB_MEDIA_INTEGRATION_OK: real UI → validated relay → authenticated private bridge → simulated Windows player; controls, selection, duck signals, no closed polling');
 }finally{await browser.close();await privateServer.close();await new Promise(resolve=>server.close(resolve));}

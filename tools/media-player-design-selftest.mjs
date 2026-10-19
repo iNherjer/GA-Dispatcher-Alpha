@@ -8,7 +8,7 @@ const {chromium}=require(process.env.GA_PLAYWRIGHT_MODULE||'/Users/jofaist/.cach
 const root=path.resolve(import.meta.dirname,'..');
 const output=path.join(root,'analysis/media-player-design-2026-10-14');
 fs.mkdirSync(output,{recursive:true});
-const files={'/':'tools/previews/media-player.html','/media-player.css':'media-player.css','/media-player-ui.js':'media-player-ui.js','/media-player-ipod.js':'media-player-ipod.js','/media-player-watch.js':'media-player-watch.js'};
+const files={'/':'tools/previews/media-player.html','/media-player.css':'media-player.css','/media-player-ui.js':'media-player-ui.js','/media-player-ipod.js':'media-player-ipod.js','/media-player-watch.js':'media-player-watch.js','/media-player-watch-face.js':'media-player-watch-face.js','/vendor/suncalc/suncalc.js':'vendor/suncalc/suncalc.js','/map-utility-tools.js':'map-utility-tools.js'};
 const server=http.createServer((request,response)=>{
   const file=files[new URL(request.url,'http://localhost').pathname];
   if(!file){response.writeHead(404);response.end();return;}

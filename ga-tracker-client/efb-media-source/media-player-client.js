@@ -42,20 +42,30 @@
    if(pendingAction){if(payload.action==='volume')pendingVolume=payload;if(payload.action==='seek')pendingSeek=payload;return;}pendingAction=true;
    try{receive(await send(payload));}catch(_){receive({ok:false,error:'tracker_not_connected'});}finally{pendingAction=false;if(pendingSeek){var seek=pendingSeek;pendingSeek=null;action(seek);}else if(pendingVolume){var next=pendingVolume;pendingVolume=null;action(next);}}
   }
-  function visible(){return !closed&&enabled&&open&&!document.hidden&&root.getComputedStyle(host).visibility!=='hidden'&&host.getBoundingClientRect().width>0&&host.getBoundingClientRect().height>0;}
+  var clockEntry=null,replacing=false;
+  function visible(){return !closed&&(enabled||!!clockEntry)&&open&&!document.hidden&&root.getComputedStyle(host).visibility!=='hidden'&&host.getBoundingClientRect().width>0&&host.getBoundingClientRect().height>0;}
+  function needsMedia(){return visible()&&!(ui.isClockView&&ui.isClockView());}
   async function watch(){
-   if(watching||!visible()||Date.now()<nextWatchAt)return;watching=true;var current=epoch;
-   try{var result=await send({action:'watch',after:revision});if(current===epoch&&visible())receive(result);}
+   if(watching||!needsMedia()||Date.now()<nextWatchAt)return;watching=true;var current=epoch;
+   try{var result=await send({action:'watch',after:revision});if(current===epoch&&needsMedia())receive(result);}
    catch(_){if(current===epoch)receive({ok:false,error:'tracker_not_connected'});}
-   finally{watching=false;clearTimeout(watchTimer);var delay=state&&state.ok?50:5000;nextWatchAt=Date.now()+delay;if(visible())watchTimer=setTimeout(watch,delay);}
+   finally{watching=false;clearTimeout(watchTimer);var delay=state&&state.ok?50:5000;nextWatchAt=Date.now()+delay;if(needsMedia())watchTimer=setTimeout(watch,delay);}
   }
   function savePreferences(){try{localStorage.setItem('ga.media.web.v1',JSON.stringify({enabled:enabled,skin:skin}));}catch(_){}}
-  function createSkin(){return root.GAMediaPlayerUI.create({host:host,skin:skin,storageKey:'ga.media.'+skin+'.layout.v1',state:{connected:false,volumeAvailable:false},onCommand:action,
-    onVisibilityChange:function(value){open=value;epoch++;clearTimeout(watchTimer);nextWatchAt=0;if(value)watch();}});}
+  function createSkin(requestedSkin){var viewSkin=requestedSkin||skin;return root.GAMediaPlayerUI.create({host:host,skin:viewSkin,storageKey:'ga.media.'+viewSkin+'.layout.v1',state:{connected:false,volumeAvailable:false},onCommand:action,
+    onViewChange:function(){if(root.GAClockSkins)root.GAClockSkins.refresh();},onVisibilityChange:function(value){open=value;epoch++;clearTimeout(watchTimer);nextWatchAt=0;if(value)watch();if(!value&&clockEntry&&!replacing){var entry=clockEntry;setTimeout(function(){if(clockEntry===entry)restoreClock();},0);}if(root.GAClockSkins)root.GAClockSkins.refresh();}});}
   var ui=createSkin();
   ui.setEnabled(enabled);
   check.onchange=function(){enabled=check.checked;savePreferences();ui.setEnabled(enabled);if(root.gaEfbRefreshMediaSettings)root.gaEfbRefreshMediaSettings();};
-  container.querySelector('.ga-media-skin').onchange=function(){var reopen=open;skin=['ipod','watch'].indexOf(this.value)>=0?this.value:'winamp';savePreferences();epoch++;clearTimeout(watchTimer);ui.destroy();open=false;ui=createSkin();ui.setEnabled(enabled);if(reopen&&enabled)ui.open();render();if(root.gaMediaPlayerClient)root.gaMediaPlayerClient.ui=ui;};
+  container.querySelector('.ga-media-skin').onchange=function(){clockEntry=null;replacing=true;var reopen=open;skin=['ipod','watch'].indexOf(this.value)>=0?this.value:'winamp';savePreferences();epoch++;clearTimeout(watchTimer);ui.destroy();open=false;ui=createSkin();ui.setEnabled(enabled);replacing=false;if(reopen&&enabled)ui.open();render();if(root.gaMediaPlayerClient)root.gaMediaPlayerClient.ui=ui;};
+  function publishUi(){if(root.gaMediaPlayerClient)root.gaMediaPlayerClient.ui=ui;}
+  function restoreClock(){
+   if(!clockEntry)return;var resume=clockEntry.reopen;clockEntry=null;replacing=true;epoch++;clearTimeout(watchTimer);ui.destroy();open=false;ui=createSkin();ui.setEnabled(enabled);replacing=false;if(resume&&enabled)ui.open();render();publishUi();if(root.GAClockSkins)root.GAClockSkins.refresh();
+  }
+  function openClock(){
+   if(clockEntry){ui.openClock();return;}
+   var entry={reopen:open};replacing=true;epoch++;clearTimeout(watchTimer);ui.destroy();open=false;clockEntry=entry;ui=createSkin('watch');ui.setEnabled(true);replacing=false;publishUi();ui.openClock();render();
+  }
   select.onchange=function(){action({action:'select',source:select.value});};
   function settings(){action({action:'settings',enabled:duck.checked,factor:Number(factor.value)});}
   duck.onchange=settings;factor.onchange=settings;
@@ -68,7 +78,7 @@
   },1000);
   root.addEventListener('visibilitychange',function(){epoch++;if(!document.hidden)watch();});
   root.addEventListener('pagehide',function(){closed=true;clearInterval(timer);clearTimeout(watchTimer);if(audible.size)send({action:'duck',active:false}).catch(function(){});audible.clear();});
-  root.gaMediaPlayerClient={receive:receive,ui:ui};
+  root.gaMediaPlayerClient={receive:receive,ui:ui,openClock:openClock,closeClock:function(){if(clockEntry)ui.close();},isClockOpen:function(){return !!clockEntry&&open&&!!(ui.isClockView&&ui.isClockView());}};
   if(root.gaEfbMediaSettings)root.gaEfbMediaSettings(container);
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();

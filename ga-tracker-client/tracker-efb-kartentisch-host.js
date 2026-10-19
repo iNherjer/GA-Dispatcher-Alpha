@@ -392,6 +392,7 @@
       try { localStorage.setItem('ga_map_hint_' + key, String(ui[key])); } catch (_) {}
       window.gaMapDisplayAdapter.apply(key); changed = true;
     });
+    if (typeof ui.clockSkin === 'string' && !Object.prototype.hasOwnProperty.call(uiPending,'clockSkin') && window.GAClockSkins) window.GAClockSkins.select(ui.clockSkin, false);
     [['clockSource','source'],['clockZone','zone']].forEach(function(item) {
       if (typeof ui[item[0]] !== 'string' || Object.prototype.hasOwnProperty.call(uiPending,item[0])) return;
       if (window.GADisplayClock.settings()[item[1]] === ui[item[0]]) return;
@@ -449,6 +450,7 @@
     uiPreferenceKeys.forEach(function(key) { seed[key] = window.isMapHintEnabled(key); });
     var clockSettings = window.GADisplayClock.settings();
     seed.clockSource = clockSettings.source; seed.clockZone = clockSettings.zone;
+    if (window.GAClockSkins) seed.clockSkin = window.GAClockSkins.selected();
     uiLoading = true;
     displaySettingsRequest({initializeUi: seed}).then(function(display) {
       applyUiPreferences(display); uiLoading = false; flushUiPreferences();

@@ -110,3 +110,12 @@ test('drag zoom preference persists across controller restart and concurrent vie
   assert.equal(restored.update({ ui: { zoomControl: false } }).ok, true);
   assert.equal(config.efbDisplay.ui.zoomControl, false);
 });
+
+test('clock skin choice is additive, validated and persisted across views',()=>{
+ let config={efbDisplay:{ui:{clockSource:'device',clockZone:'utc'}}};
+ const control=createDisplaySettingsControl({readConfig:()=>config,writeConfig:value=>{config=value;return true;}});
+ assert.equal(control.update({ui:{clockSkin:'watch'}}).ok,true);
+ assert.equal(control.snapshot().ui.clockSkin,'watch');assert.equal(control.snapshot().ui.clockZone,'utc');
+ assert.equal(control.update({ui:{clockSkin:'invalid'}}).ok,false);
+ assert.equal(createDisplaySettingsControl({readConfig:()=>config,writeConfig:()=>false}).snapshot().ui.clockSkin,'watch');
+});

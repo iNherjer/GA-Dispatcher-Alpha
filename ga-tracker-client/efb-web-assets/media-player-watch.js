@@ -21,7 +21,7 @@
     var host = options.host || document.body,
       layer = document.createElement('div');
     layer.className = 'ga-media-layer';
-    layer.innerHTML = '<button type="button" class="ga-media-launcher" aria-label="Mediensteuerung öffnen"><svg class="ga-media-clef" viewBox="0 0 24 44" aria-hidden="true" focusable="false"><path d="M12.5 39c0 3.5-5 3.7-5.4.7-.3-2.2 2.6-3 3.7-1.3M11.4 40.5L14.2 5.6c.2-3.4 4.4-3 3.6 1.4-.8 4.6-10.6 9.4-11.2 17-.5 6.2 6.2 8.6 10.2 5.6 3.4-2.6 2.2-8.6-2.6-8.4-4 .2-5 5.4-1.6 6.6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button><section class="ga-media-device ga-media-watch" role="region" aria-label="Watch Mediensteuerung" hidden><div class="ga-watch-case"><div class="ga-watch-screen"><header class="ga-watch-header"><button class="ga-watch-button ga-watch-back" type="button" data-watch="close" aria-label="Mediensteuerung schließen">' + icon('close') + '</button><time class="ga-watch-clock" aria-label="Regionale Uhrzeit">--:--</time></header><div class="ga-watch-source">Windows</div><div class="ga-watch-title"><span></span></div><div class="ga-watch-artist"><span></span></div><div class="ga-watch-transport"><button class="ga-watch-button" type="button" data-watch="previous" aria-label="Vorheriger Titel">' + icon('previous') + '</button><button class="ga-watch-button ga-watch-toggle" type="button" data-watch="toggle" aria-label="Abspielen oder pausieren">' + icon('play') + '</button><button class="ga-watch-button" type="button" data-watch="next" aria-label="Nächster Titel">' + icon('next') + '</button></div><footer class="ga-watch-footer"><button class="ga-watch-button ga-watch-small" type="button" data-watch="sources" aria-label="Musik-App auswählen" aria-expanded="false">' + icon('source') + '</button><div class="ga-watch-volume" role="img" aria-label="Lautstärke"><svg viewBox="0 0 68 68" aria-hidden="true"><circle class="ga-watch-ring-base" cx="34" cy="34" r="28"/><circle class="ga-watch-ring" cx="34" cy="34" r="28"/></svg><span>' + icon('speaker') + '</span><output>0%</output></div><button class="ga-watch-button ga-watch-small" type="button" data-watch="more" aria-label="Gerätegröße einstellen" aria-expanded="false">' + icon('more') + '</button></footer><div class="ga-watch-sheet" hidden></div></div></div><div class="ga-watch-crown" role="slider" tabindex="0" aria-label="Musiklautstärke per Krone" aria-valuemin="0" aria-valuemax="100" title="Nach oben ziehen: lauter · Nach unten: leiser"></div><i class="ga-watch-side" aria-hidden="true"></i></section>';
+    layer.innerHTML = '<button type="button" class="ga-media-launcher" aria-label="Mediensteuerung öffnen"><svg class="ga-media-clef" viewBox="0 0 24 44" aria-hidden="true" focusable="false"><path d="M12.5 39c0 3.5-5 3.7-5.4.7-.3-2.2 2.6-3 3.7-1.3M11.4 40.5L14.2 5.6c.2-3.4 4.4-3 3.6 1.4-.8 4.6-10.6 9.4-11.2 17-.5 6.2 6.2 8.6 10.2 5.6 3.4-2.6 2.2-8.6-2.6-8.4-4 .2-5 5.4-1.6 6.6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button><section class="ga-media-device ga-media-watch" role="region" aria-label="Watch Mediensteuerung" hidden><div class="ga-watch-case"><div class="ga-watch-screen"><header class="ga-watch-header"><button class="ga-watch-button ga-watch-back" type="button" data-watch="face" aria-label="Uhr anzeigen">' + icon('close') + '</button><time class="ga-watch-clock" aria-label="Regionale Uhrzeit">--:--</time></header><div class="ga-watch-source">Windows</div><div class="ga-watch-title"><span></span></div><div class="ga-watch-artist"><span></span></div><div class="ga-watch-transport"><button class="ga-watch-button" type="button" data-watch="previous" aria-label="Vorheriger Titel">' + icon('previous') + '</button><button class="ga-watch-button ga-watch-toggle" type="button" data-watch="toggle" aria-label="Abspielen oder pausieren">' + icon('play') + '</button><button class="ga-watch-button" type="button" data-watch="next" aria-label="Nächster Titel">' + icon('next') + '</button></div><footer class="ga-watch-footer"><button class="ga-watch-button ga-watch-small" type="button" data-watch="sources" aria-label="Musik-App auswählen" aria-expanded="false">' + icon('source') + '</button><div class="ga-watch-volume" role="img" aria-label="Lautstärke"><svg viewBox="0 0 68 68" aria-hidden="true"><circle class="ga-watch-ring-base" cx="34" cy="34" r="28"/><circle class="ga-watch-ring" cx="34" cy="34" r="28"/></svg><span>' + icon('speaker') + '</span><output>0%</output></div><button class="ga-watch-button ga-watch-small" type="button" data-watch="more" aria-label="Gerätegröße einstellen" aria-expanded="false">' + icon('more') + '</button></footer><div class="ga-watch-sheet" hidden></div></div></div><div class="ga-watch-crown" role="slider" tabindex="0" aria-label="Musiklautstärke per Krone" aria-valuemin="0" aria-valuemax="100" title="Nach oben ziehen: lauter · Nach unten: leiser"></div><i class="ga-watch-side" aria-hidden="true"></i></section>';
     host.appendChild(layer);
     var device = layer.querySelector('.ga-media-device'),
       launcher = layer.querySelector('.ga-media-launcher'),
@@ -44,6 +44,10 @@
       destroyed = false,
       sheetView = '',
       sheetKey = '';
+    var face = root.GAMediaWatchFace ? root.GAMediaWatchFace.create(device.querySelector('.ga-watch-screen'), options) : null;
+    device.querySelectorAll('[data-watch="face"],[data-watch="clock-back"],[data-watch="music"]').forEach(function (button) {
+      button.title = 'Kurz: zurück · Gedrückt halten: Watch schließen';
+    });
     if (options.storageKey) try {
       var saved = JSON.parse(localStorage.getItem(options.storageKey) || '{}');
       if (Number.isFinite(saved.x)) x = saved.x;
@@ -79,6 +83,8 @@
     }
     function show(value) {
       open = value;
+      clearHold();
+      if (face && face.setActive) face.setActive(enabled && open);
       if (!value) {
         gesture = null;
         sheetView = '';
@@ -133,8 +139,20 @@
       }, 1400);
       if (final || Date.now() - lastSend >= 150) flush();else if (!sendTimer) sendTimer = setTimeout(flush, 150);
     }
+    function refreshCrown() {
+      var c = face && face.crownState();
+      crown.setAttribute('aria-label', c ? c.kind === 'timer' ? 'Timerdauer in Sekunden per Krone' : 'Krone bei Stoppuhr ohne Funktion' : 'Musiklautstärke per Krone');
+      crown.setAttribute('aria-valuemin', String(c ? c.min : 0));
+      crown.setAttribute('aria-valuemax', String(c ? c.max : 100));
+      crown.setAttribute('aria-valuenow', String(c ? c.value : Math.round(volume() * 100)));
+      crown.setAttribute('aria-valuetext', c ? c.value + ' Sekunden' : Math.round(volume() * 100) + ' Prozent');
+      crown.setAttribute('aria-disabled', String(c ? !c.enabled : !available()));
+      crown.title = c ? 'Nach oben ziehen: mehr Sekunden · Nach unten: weniger Sekunden' : 'Nach oben ziehen: lauter · Nach unten: leiser';
+    }
     function clock() {
       if (destroyed || !open || !enabled) return;
+      if (face) face.update();
+      refreshCrown();
       var value = options.getClock ? options.getClock() : root.GADisplayClock && root.GADisplayClock.regional ? root.GADisplayClock.regional() : null;
       if (!value || !Number.isFinite(value.seconds)) {
         var date = new Date();
@@ -153,6 +171,8 @@
       node.title = known ? (value.source === 'simulator' ? 'Simulator' : 'Gerätezeit') + (value.fallback ? ' · lokale Gerätezeit' : ' · Ortszeit an der Flugposition') : 'Regionale Uhrzeit: gültige Simulator-Zeitdaten fehlen';
     }
     function renderSheet() {
+      device.querySelector('.ga-watch-screen').classList.toggle('ga-watch-has-sheet', !!sheetView);
+      device.querySelector('.ga-watch-back').setAttribute('aria-label', sheetView ? 'Zurück' : 'Uhr anzeigen');
       sheet.hidden = !sheetView;
       sheet.classList.toggle('ga-watch-size-sheet', sheetView === 'more');
       device.querySelector('[data-watch="sources"]').setAttribute('aria-expanded', String(sheetView === 'sources'));
@@ -169,6 +189,10 @@
         var button = document.createElement('button');
         button.className = 'ga-watch-button ga-watch-sheet-row';
         button.type = 'button';
+        if (label === 'Zurück') {
+          button.setAttribute('data-watch-back', '');
+          button.title = 'Gedrückt halten: Watch schließen';
+        }
         button.textContent = sheetView === 'more' ? label.charAt(0) === '−' ? '−' : '+' : label;
         button.setAttribute('aria-label', label);
         button.disabled = !!disabled;
@@ -211,11 +235,83 @@
         renderSheet();
       });
     }
+    var hold = null,
+      holdTimer = null,
+      ignoreClickUntil = 0;
+    function backButton(target) {
+      return target && target.closest && target.closest('[data-watch="face"],[data-watch="clock-back"],[data-watch="music"],[data-watch-back]');
+    }
+    function clearHold() {
+      clearTimeout(holdTimer);
+      holdTimer = null;
+      hold = null;
+    }
+    function holdPoint(e) {
+      return e.touches && e.touches[0] || e.changedTouches && e.changedTouches[0] || e;
+    }
+    function beginHold(e) {
+      var button = backButton(e.target);
+      if (!button || button.disabled || e.button !== undefined && e.button !== 0) return;
+      if (e.touches && e.touches.length > 1) {
+        clearHold();
+        return;
+      }
+      if (hold && hold.button === button) return;
+      clearHold();
+      var p = holdPoint(e);
+      hold = {
+        button: button,
+        x: p.clientX,
+        y: p.clientY
+      };
+      button.title = 'Gedrückt halten: Watch schließen';
+      holdTimer = setTimeout(function () {
+        var target = hold && hold.button;
+        if (!target || !device.contains(target) || !open || !enabled || destroyed) return;
+        ignoreClickUntil = Date.now() + 900;
+        clearHold();
+        show(false);
+      }, 700);
+    }
+    function moveHold(e) {
+      if (!hold) return;
+      var p = holdPoint(e);
+      if (e.touches && e.touches.length > 1 || Math.abs(p.clientX - hold.x) + Math.abs(p.clientY - hold.y) > 10) clearHold();
+    }
+    ['pointerdown', 'mousedown', 'touchstart'].forEach(function (type) {
+      layer.addEventListener(type, beginHold, true);
+    });
+    ['pointermove', 'mousemove', 'touchmove'].forEach(function (type) {
+      root.addEventListener(type, moveHold, true);
+    });
+    ['pointerup', 'mouseup', 'touchend', 'pointercancel', 'touchcancel'].forEach(function (type) {
+      root.addEventListener(type, clearHold, true);
+    });
+    root.addEventListener('blur', clearHold, false);
+    layer.addEventListener('click', function (e) {
+      if (Date.now() < ignoreClickUntil) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+      }
+    }, true);
     layer.addEventListener('click', function (e) {
       var button = e.target.closest('[data-watch]');
       if (!button || button.disabled) return;
       var action = button.dataset.watch;
-      if (action === 'close') {
+      if (face && face.action(action)) {
+        refreshCrown();
+        if (options.onViewChange) options.onViewChange();
+        return;
+      }
+      if (action === 'face') {
+        if (sheetView) {
+          sheetView = '';
+          renderSheet();
+        } else if (face) {
+          face.show(true);
+          if (options.onViewChange) options.onViewChange();
+        }
+      } else if (action === 'close') {
         if (sheetView) {
           sheetView = '';
           renderSheet();
@@ -231,11 +327,13 @@
       if (Date.now() > suppressed) show(true);
     });
     crown.addEventListener('pointerdown', function (e) {
-      if (e.button !== 0 || !available()) return;
+      var c = face && face.crownState();
+      if (e.button !== 0 || (c ? !c.enabled : !available())) return;
       gesture = {
         id: e.pointerId,
         y: e.clientY,
-        start: volume(),
+        start: c ? c.value : volume(),
+        kind: c ? 'timer' : 'volume',
         height: crown.getBoundingClientRect().height / 56
       };
       if (crown.setPointerCapture) try {
@@ -245,7 +343,10 @@
     });
     crown.addEventListener('pointermove', function (e) {
       if (!gesture || gesture.id !== e.pointerId) return;
-      if (available()) setVolume(gesture.start + (gesture.y - e.clientY) / (140 * gesture.height), false);
+      if (gesture.kind === 'timer') {
+        face.setSeconds(gesture.start + Math.round((gesture.y - e.clientY) / (8 * gesture.height)));
+        refreshCrown();
+      } else if (available()) setVolume(gesture.start + (gesture.y - e.clientY) / (140 * gesture.height), false);
       e.preventDefault();
     });
     function crownEnd(e) {
@@ -257,6 +358,17 @@
       crown.addEventListener(type, crownEnd);
     });
     crown.addEventListener('keydown', function (e) {
+      var c = face && face.crownState();
+      if (c) {
+        if (!c.enabled) return;
+        var next = c.value;
+        if (e.key === 'ArrowUp' || e.key === 'ArrowRight') next++;else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') next--;else if (e.key === 'Home') next = c.min;else if (e.key === 'End') next = c.max;else return;
+        face.setSeconds(next);
+        refreshCrown();
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       if (!available()) return;
       var value = volume();
       if (e.key === 'ArrowUp' || e.key === 'ArrowRight') value += .02;else if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') value -= .02;else if (e.key === 'Home') value = 0;else if (e.key === 'End') value = 1;else return;
@@ -317,7 +429,7 @@
     });
     function update(value) {
       if (state.source !== (value || {}).source || (value || {}).connected === false || (value || {}).volumeAvailable === false) {
-        gesture = null;
+        if (!gesture || gesture.kind !== 'timer') gesture = null;
         preview = null;
         pending = null;
         clearTimeout(sendTimer);
@@ -344,7 +456,7 @@
     }
     var timer = setInterval(function () {
       if (open && enabled && !document.hidden) clock();
-    }, 1000);
+    }, 250);
     function resize() {
       layout();
       save();
@@ -355,6 +467,15 @@
     return {
       element: device,
       launcher: launcher,
+      isClockView: function isClockView() {
+        return !!(face && face.isVisible());
+      },
+      openClock: function openClock() {
+        if (face) face.show(true);
+        show(true);
+        update(state);
+        if (options.onViewChange) options.onViewChange();
+      },
       open: function open() {
         show(true);
         update(state);
@@ -369,12 +490,23 @@
       },
       setEnabled: function setEnabled(value) {
         enabled = !!value;
+        if (face && face.setActive) face.setActive(enabled && open);
+        if (!enabled) clearHold();
         if (!enabled) gesture = null;
         layout();
         if (options.onVisibilityChange) options.onVisibilityChange(enabled && open);
       },
       destroy: function destroy() {
         destroyed = true;
+        clearHold();
+        ['pointermove', 'mousemove', 'touchmove'].forEach(function (type) {
+          root.removeEventListener(type, moveHold, true);
+        });
+        ['pointerup', 'mouseup', 'touchend', 'pointercancel', 'touchcancel'].forEach(function (type) {
+          root.removeEventListener(type, clearHold, true);
+        });
+        root.removeEventListener('blur', clearHold, false);
+        if (face) face.destroy();
         flush();
         clearInterval(timer);
         clearTimeout(sendTimer);

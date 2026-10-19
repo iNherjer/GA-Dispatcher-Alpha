@@ -122,6 +122,8 @@
                         <button id="btnToggleClockMenu" class="pb-btn" onclick="window.toggleMapHintSubmenu && toggleMapHintSubmenu('clockMenu', event)" title="Zeit-Optionen" aria-expanded="false" style="display:block; flex:0 0 42px; margin:0; text-align:center; border-top-left-radius:0; border-bottom-left-radius:0;">▸</button>
                     </div>
                     <div id="clockMenuBlock" style="display:none; box-sizing:border-box; width:100%; max-width:100%; min-width:0; overflow:hidden; margin:0 0 6px 0; border:1px solid #2f2f2f; border-radius:6px; padding:6px; background:#0d0d0d;">
+                        <label for="mapClockSkin" style="display:block; font-size:11px; margin-bottom:3px;">Uhr</label>
+                        <select id="mapClockSkin" class="pb-btn" style="width:100%; margin:0 0 6px;"><option value="stopwatch">Stoppuhr</option><option value="watch">A Watch</option></select>
                         <label for="mapClockSource" style="display:block; font-size:11px; margin-bottom:3px;">Zeitquelle</label>
                         <select id="mapClockSource" class="pb-btn" style="width:100%; margin:0 0 6px;" onchange="GADisplayClock.set({source:this.value})"><option value="simulator">Simulator</option><option value="device">Gerät</option></select>
                         <label for="mapClockZone" style="display:block; font-size:11px; margin-bottom:3px;">Zeitanzeige</label>

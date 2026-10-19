@@ -249,6 +249,7 @@ function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {l
             if (btn) btn.classList.toggle('active', !!panel && panel.style.display !== 'none');
         });
         syncTimerAlarmUi();
+        if (window.GAClockSkins) window.GAClockSkins.refresh();
     }
 
     function syncTimerAlarmUi() {
@@ -2535,6 +2536,18 @@ function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {l
         window.addEventListener('resize', refreshUtilityLayout);
         window.addEventListener('ga-efb-layout-change', () => requestAnimationFrame(refreshUtilityLayout));
     }
+
+    // Shared stopwatch/timer controls for the Watch face; no second timekeeper.
+    window.GAUtilityTime = {
+        snapshot: function() { return { elapsedMs: getStopwatchElapsedMs(), running: stopwatchState.running,
+            remainingMs: getTimerRemainingMs(), durationMs: stopwatchState.timer.durationMs,
+            timerRunning: stopwatchState.timer.running, alarm: stopwatchState.timer.alarm }; },
+        toggleStopwatch: toggleStopwatch,
+        resetStopwatch: resetStopwatch,
+        toggleTimer: function() { setTimerPickerOpen(false); toggleTimerFromDial(); },
+        resetTimer: resetTimerFromPicker,
+        setDuration: function(ms) { setTimerPickerDraft(ms, true); }
+    };
 
     window.openMapUtilityTool = openMapUtilityTool;
     window.closeMapUtilityTool = closeMapUtilityTool;

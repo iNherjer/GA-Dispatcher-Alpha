@@ -153,6 +153,25 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
         refresh();
       },
       regional: () => resolveRegional(_settings, sample),
+      context: () => {
+        var time = resolveRegional(_settings, sample);
+        var fresh = sample && Date.now() >= sample.receivedAt && Date.now() - sample.receivedAt <= MAX_AGE_MS;
+        var flight = fresh && sample.flight && sample.flight.simRunning !== 0 && sample.flight.inMenuOrMap !== true ? sample.flight : null;
+        var utc = resolve({
+          source: 'simulator',
+          zone: 'utc'
+        }, sample);
+        var instantMs = time.source === 'simulator' && flight ? flight.simAbsoluteTimeSeconds * 1000 - 62135596800000 : Date.now();
+        var offsetSeconds = time.zone === 'regional' && flight && !utc.fallback ? flight.simLocalTimeSeconds - (flight.simAbsoluteTimeSeconds % 86400 + 86400) % 86400 : -new Date().getTimezoneOffset() * 60;
+        if (offsetSeconds < -43200) offsetSeconds += 86400;
+        if (offsetSeconds > 50400) offsetSeconds -= 86400;
+        return {
+          time,
+          instantMs,
+          offsetSeconds,
+          flight
+        };
+      },
       current,
       eta: minutes => format(current(), minutes),
       refresh,

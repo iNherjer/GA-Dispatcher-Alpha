@@ -173,8 +173,13 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       }));
       return _action.apply(this, arguments);
     }
+    var clockEntry = null,
+      replacing = false;
     function visible() {
-      return !closed && enabled && open && !document.hidden && root.getComputedStyle(host).visibility !== 'hidden' && host.getBoundingClientRect().width > 0 && host.getBoundingClientRect().height > 0;
+      return !closed && (enabled || !!clockEntry) && open && !document.hidden && root.getComputedStyle(host).visibility !== 'hidden' && host.getBoundingClientRect().width > 0 && host.getBoundingClientRect().height > 0;
+    }
+    function needsMedia() {
+      return visible() && !(ui.isClockView && ui.isClockView());
     }
     function watch() {
       return _watch.apply(this, arguments);
@@ -185,7 +190,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         return _regenerator().w(function (_context2) {
           while (1) switch (_context2.p = _context2.n) {
             case 0:
-              if (!(watching || !visible() || Date.now() < nextWatchAt)) {
+              if (!(watching || !needsMedia() || Date.now() < nextWatchAt)) {
                 _context2.n = 1;
                 break;
               }
@@ -201,7 +206,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               });
             case 3:
               result = _context2.v;
-              if (current === epoch && visible()) receive(result);
+              if (current === epoch && needsMedia()) receive(result);
               _context2.n = 5;
               break;
             case 4:
@@ -217,7 +222,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               clearTimeout(watchTimer);
               delay = state && state.ok ? 50 : 5000;
               nextWatchAt = Date.now() + delay;
-              if (visible()) watchTimer = setTimeout(watch, delay);
+              if (needsMedia()) watchTimer = setTimeout(watch, delay);
               return _context2.f(5);
             case 6:
               return _context2.a(2);
@@ -234,22 +239,33 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         }));
       } catch (_) {}
     }
-    function createSkin() {
+    function createSkin(requestedSkin) {
+      var viewSkin = requestedSkin || skin;
       return root.GAMediaPlayerUI.create({
         host: host,
-        skin: skin,
-        storageKey: 'ga.media.' + skin + '.layout.v1',
+        skin: viewSkin,
+        storageKey: 'ga.media.' + viewSkin + '.layout.v1',
         state: {
           connected: false,
           volumeAvailable: false
         },
         onCommand: action,
+        onViewChange: function onViewChange() {
+          if (root.GAClockSkins) root.GAClockSkins.refresh();
+        },
         onVisibilityChange: function onVisibilityChange(value) {
           open = value;
           epoch++;
           clearTimeout(watchTimer);
           nextWatchAt = 0;
           if (value) watch();
+          if (!value && clockEntry && !replacing) {
+            var entry = clockEntry;
+            setTimeout(function () {
+              if (clockEntry === entry) restoreClock();
+            }, 0);
+          }
+          if (root.GAClockSkins) root.GAClockSkins.refresh();
         }
       });
     }
@@ -262,6 +278,8 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       if (root.gaEfbRefreshMediaSettings) root.gaEfbRefreshMediaSettings();
     };
     container.querySelector('.ga-media-skin').onchange = function () {
+      clockEntry = null;
+      replacing = true;
       var reopen = open;
       skin = ['ipod', 'watch'].indexOf(this.value) >= 0 ? this.value : 'winamp';
       savePreferences();
@@ -271,10 +289,52 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       open = false;
       ui = createSkin();
       ui.setEnabled(enabled);
+      replacing = false;
       if (reopen && enabled) ui.open();
       render();
       if (root.gaMediaPlayerClient) root.gaMediaPlayerClient.ui = ui;
     };
+    function publishUi() {
+      if (root.gaMediaPlayerClient) root.gaMediaPlayerClient.ui = ui;
+    }
+    function restoreClock() {
+      if (!clockEntry) return;
+      var resume = clockEntry.reopen;
+      clockEntry = null;
+      replacing = true;
+      epoch++;
+      clearTimeout(watchTimer);
+      ui.destroy();
+      open = false;
+      ui = createSkin();
+      ui.setEnabled(enabled);
+      replacing = false;
+      if (resume && enabled) ui.open();
+      render();
+      publishUi();
+      if (root.GAClockSkins) root.GAClockSkins.refresh();
+    }
+    function openClock() {
+      if (clockEntry) {
+        ui.openClock();
+        return;
+      }
+      var entry = {
+        reopen: open
+      };
+      replacing = true;
+      epoch++;
+      clearTimeout(watchTimer);
+      ui.destroy();
+      open = false;
+      clockEntry = entry;
+      ui = createSkin('watch');
+      ui.setEnabled(true);
+      replacing = false;
+      publishUi();
+      ui.openClock();
+      render();
+    }
     select.onchange = function () {
       action({
         action: 'select',
@@ -332,7 +392,14 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     });
     root.gaMediaPlayerClient = {
       receive: receive,
-      ui: ui
+      ui: ui,
+      openClock: openClock,
+      closeClock: function closeClock() {
+        if (clockEntry) ui.close();
+      },
+      isClockOpen: function isClockOpen() {
+        return !!clockEntry && open && !!(ui.isClockView && ui.isClockView());
+      }
     };
     if (root.gaEfbMediaSettings) root.gaEfbMediaSettings(container);
   }
