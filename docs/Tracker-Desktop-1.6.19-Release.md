@@ -24,3 +24,8 @@ nur über das kleine Nummernfeld.
 - Desktop-Tests bestanden, inklusive Sim-Ende, kurzem Aussetzer, nie gestartetem Sim
   und Einfügereihenfolge.
 - Offen: Windows-Feldtest mit echtem MSFS-Ende und Ziehen im Explorer-Fenster.
+
+## Aktivierung (19.10.2026)
+
+Öffentlicher Download geprüft (100262686 Bytes, SHA-512 wie `latest.yml`, Blockmap identisch).
+`latest.yml` und `alpha.yml` aktiviert. Windows-Feldtest steht noch aus.
