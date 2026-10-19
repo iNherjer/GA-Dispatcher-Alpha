@@ -28,3 +28,8 @@ Pfade ermittelt und es kam auch keine Fehlermeldung.
 
 Wie bei 1.6.17: Das Modul ist opt-in. Die Installer für 1.6.16 und 1.6.17 bleiben
 unverändert auf GitHub.
+
+## Aktivierung (19.10.2026)
+
+Öffentlicher Download geprüft (100262310 Bytes, SHA-512 wie `latest.yml`, Blockmap identisch).
+`latest.yml` und `alpha.yml` aktiviert. Windows-Feldtest steht noch aus.
