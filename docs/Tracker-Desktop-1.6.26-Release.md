@@ -12,3 +12,8 @@ Basis: Desktop 1.6.25 (`origin/main`). Tracker-Runtime unverändert.
 ## Prüfung
 
 - 120 Desktop-Tests (117 bestanden, 3 Windows-only übersprungen).
+
+## Aktivierung (19.10.2026)
+
+Öffentlicher Download geprüft (100280750 Bytes, SHA-512 wie `latest.yml`, Blockmap identisch).
+`latest.yml` und `alpha.yml` aktiviert.
