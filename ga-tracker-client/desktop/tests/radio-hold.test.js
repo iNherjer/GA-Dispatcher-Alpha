@@ -103,6 +103,7 @@ test('music hold restarts only music it paused itself', async () => {
 });
 test('a 1 s auto-resume is available for quick radio calls', () => {
   assert.equal(normalizeRadioHoldSettings({ resumeSeconds: 1 }).resumeSeconds, 1);
+  for (const seconds of [2, 5]) assert.equal(normalizeRadioHoldSettings({ resumeSeconds: seconds }).resumeSeconds, seconds);
   const { hold, advance } = fixture({ resumeSeconds: 1 });
   hold.press(); advance(2000); hold.releasePress();
   advance(999); assert.equal(hold.publicState().held, true);

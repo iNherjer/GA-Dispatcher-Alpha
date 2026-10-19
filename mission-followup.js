@@ -2446,16 +2446,6 @@
         return item;
     }
 
-    function markAnnounced(ids = []) {
-        const bucket = new Date().toISOString().slice(0, 10);
-        const idSet = new Set(ids);
-        saveMutated(list => list.map(req => (
-            idSet.has(req.id)
-                ? { ...req, announcedBucket: bucket, lastDeferredAt: nowMs(), updatedAt: nowMs() }
-                : req
-        )), { cloud: true });
-    }
-
     function dismissRequest(id) {
         const now = nowMs();
         saveMutated(list => list.map(req => (
