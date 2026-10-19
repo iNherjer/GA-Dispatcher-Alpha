@@ -35,8 +35,10 @@ contextBridge.exposeInMainWorld('trackerDesktop', {
   installEfbPackage: (repair = false) => ipcRenderer.invoke('efb:install', { confirmed: true, repair }),
   uninstallEfbPackage: () => ipcRenderer.invoke('efb:uninstall', { confirmed: true }),
   setAutostartOptions: (options) => ipcRenderer.invoke('autostart:set-options', options),
+  // Der Renderer uebergibt ein echtes Array: eine FileList kommt ueber die
+  // contextBridge nur als leeres Objekt an.
   addAutostartFiles: (files) => ipcRenderer.invoke('autostart:add-paths', {
-    paths: Array.from(files || []).map((file) => {
+    paths: (Array.isArray(files) ? files : []).map((file) => {
       try { return webUtils.getPathForFile(file); } catch (_) { return ''; }
     }).filter(Boolean)
   }),

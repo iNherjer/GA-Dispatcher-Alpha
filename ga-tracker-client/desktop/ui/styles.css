@@ -901,14 +901,15 @@ dialog::backdrop {
 }
 
 .autostart-drop-zone {
-  display: grid;
-  gap: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   margin-top: 10px;
   border: 1px dashed var(--line-strong);
   border-radius: 12px;
   padding: 16px 12px;
-  text-align: center;
-  cursor: pointer;
+  text-align: left;
   background: rgba(7, 17, 29, 0.48);
   transition: border-color 120ms ease, background 120ms ease;
 }
@@ -922,10 +923,7 @@ dialog::backdrop {
   font-size: 10px;
 }
 
-.autostart-drop-zone:hover,
-.autostart-drop-zone:focus-visible,
 .autostart-drop-zone.drag-over {
-  outline: none;
   border-color: var(--blue);
   background: rgba(84, 184, 255, 0.08);
 }
@@ -1079,4 +1077,23 @@ dialog::backdrop {
 
 .autostart-remove:hover {
   color: var(--red);
+}
+
+.autostart-import-button {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 7px;
+}
+
+.autostart-drop-text {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.autostart-import-button span {
+  color: var(--blue);
+  font-size: 16px;
+  line-height: 1;
 }

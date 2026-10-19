@@ -83,3 +83,13 @@ test('autostart launch button sits at the top and is hidden until the option is 
   assert.ok(html.indexOf('id="autostartLaunchButton"') < html.indexOf('data-module-panel'));
   assert.match(renderer, /elements\.autostartLaunchButton\.hidden = !enabled;/);
 });
+
+test('dropped files reach the preload bridge as an array with an import fallback', () => {
+  const html = fs.readFileSync(path.join(desktopRoot, 'ui', 'index.html'), 'utf8');
+  const renderer = fs.readFileSync(path.join(desktopRoot, 'ui', 'renderer.js'), 'utf8');
+  const preload = fs.readFileSync(path.join(desktopRoot, 'preload.js'), 'utf8');
+  // Eine FileList kommt ueber die contextBridge nur als leeres Objekt an.
+  assert.match(renderer, /addAutostartFiles\(Array\.from\(event\.dataTransfer\.files\)\)/);
+  assert.match(preload, /Array\.isArray\(files\)/);
+  assert.match(html, /id="autostartDropZone"[^>]*>[\s\S]*?id="autostartImportButton"[\s\S]*?<\/button>\s*<\/div>/);
+});

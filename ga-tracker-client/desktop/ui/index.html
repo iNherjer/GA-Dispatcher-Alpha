@@ -203,13 +203,16 @@
           <section class="settings-group">
             <p class="eyebrow">REIHENFOLGE</p>
             <h2>Startliste</h2>
-            <div id="autostartDropZone" class="autostart-drop-zone" tabindex="0" role="button" aria-label="Programme hierher ziehen oder klicken zum Auswählen">
-              <strong>Programme hierher ziehen</strong>
-              <small>.exe, Verknüpfungen (.lnk) oder .bat · oder klicken zum Auswählen</small>
+            <div id="autostartDropZone" class="autostart-drop-zone" aria-label="Ablagefläche für Programme">
+              <span class="autostart-drop-text">
+                <strong>Programme hierher ziehen</strong>
+                <small>.exe, Verknüpfungen (.lnk), .bat oder .cmd</small>
+              </span>
+              <button id="autostartImportButton" class="secondary-button compact-button autostart-import-button" type="button"><span aria-hidden="true">+</span> Importieren</button>
             </div>
             <ol id="autostartList" class="autostart-list" aria-label="Autostart-Reihenfolge"></ol>
             <p id="autostartListMessage" class="form-message" role="status"></p>
-            <p class="asset-note">Reihenfolge per Ziehen am Griff oder mit den Pfeilen ändern. „Danach warten“ legt die Pause bis zum nächsten Eintrag fest. Läuft ein Programm bereits, wird es übersprungen. Als Admin gestartete Programme lösen eine Windows-Bestätigung aus.</p>
+            <p class="asset-note">Programme ins Feld ziehen oder über „Importieren“ auswählen. Reihenfolge per Ziehen am Griff oder mit den Pfeilen ändern. „Danach warten“ legt die Pause bis zum nächsten Eintrag fest. Läuft ein Programm bereits, wird es übersprungen. Als Admin gestartete Programme lösen eine Windows-Bestätigung aus.</p>
           </section>
         </div>
       </details>

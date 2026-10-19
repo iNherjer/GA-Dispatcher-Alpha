@@ -90,6 +90,7 @@ const elements = {
   autostartSimChoices: document.getElementById('autostartSimChoices'),
   autostartDetectSimButton: document.getElementById('autostartDetectSimButton'),
   autostartDropZone: document.getElementById('autostartDropZone'),
+  autostartImportButton: document.getElementById('autostartImportButton'),
   autostartList: document.getElementById('autostartList'),
   autostartListMessage: document.getElementById('autostartListMessage'),
   startButton: document.getElementById('startButton'),
@@ -833,12 +834,14 @@ elements.startButton.addEventListener('click', async () => {
 
 elements.stopButton.addEventListener('click', () => window.trackerDesktop.stopTracker());
 
-function showAutostartAddResult(result) {
+function showAutostartAddResult(result, droppedCount = 0) {
   const rejected = Array.isArray(result?.rejected) ? result.rejected : [];
-  elements.autostartListMessage.className = `form-message ${rejected.length ? 'error' : ''}`.trim();
-  elements.autostartListMessage.textContent = rejected.length
-    ? `Nicht übernommen: ${rejected.join(', ')} (nur .exe, .lnk, .bat oder .cmd).`
-    : '';
+  const added = Number(result?.added) || 0;
+  let message = '';
+  if (rejected.length) message = `Nicht übernommen: ${rejected.join(', ')} (nur .exe, .lnk, .bat oder .cmd).`;
+  else if (droppedCount > 0 && added === 0) message = 'Die Datei konnte nicht übernommen werden oder steht bereits in der Liste. Alternativ über „Importieren“ auswählen.';
+  elements.autostartListMessage.className = `form-message ${message ? 'error' : ''}`.trim();
+  elements.autostartListMessage.textContent = message;
 }
 
 elements.autostartEnabledCheckbox.addEventListener('change', () => window.trackerDesktop.setAutostartOptions({ enabled: elements.autostartEnabledCheckbox.checked }));
@@ -854,24 +857,26 @@ elements.autostartDetectSimButton.addEventListener('click', async () => {
     renderAutostart(latestState?.autostart);
   }
 });
-elements.autostartDropZone.addEventListener('click', async () => showAutostartAddResult(await window.trackerDesktop.browseAutostartPrograms()));
-elements.autostartDropZone.addEventListener('keydown', (event) => {
-  if (event.key !== 'Enter' && event.key !== ' ') return;
-  event.preventDefault();
-  elements.autostartDropZone.click();
-});
+async function importAutostartPrograms() {
+  showAutostartAddResult(await window.trackerDesktop.browseAutostartPrograms());
+}
+elements.autostartImportButton.addEventListener('click', importAutostartPrograms);
 elements.autostartDropZone.addEventListener('dragover', (event) => {
   if (!event.dataTransfer?.types?.includes('Files')) return;
   event.preventDefault();
   event.dataTransfer.dropEffect = 'copy';
   elements.autostartDropZone.classList.add('drag-over');
 });
-elements.autostartDropZone.addEventListener('dragleave', () => elements.autostartDropZone.classList.remove('drag-over'));
+elements.autostartDropZone.addEventListener('dragleave', (event) => {
+  // Wechsel auf den Button im Feld zählt nicht als Verlassen.
+  if (elements.autostartDropZone.contains(event.relatedTarget)) return;
+  elements.autostartDropZone.classList.remove('drag-over');
+});
 elements.autostartDropZone.addEventListener('drop', async (event) => {
   event.preventDefault();
   elements.autostartDropZone.classList.remove('drag-over');
   if (!event.dataTransfer?.files?.length) return;
-  showAutostartAddResult(await window.trackerDesktop.addAutostartFiles(event.dataTransfer.files));
+  showAutostartAddResult(await window.trackerDesktop.addAutostartFiles(Array.from(event.dataTransfer.files)), event.dataTransfer.files.length);
 });
 // Dateien ausserhalb der Ablagefläche dürfen das Fenster nicht navigieren.
 document.addEventListener('dragover', (event) => event.preventDefault());
