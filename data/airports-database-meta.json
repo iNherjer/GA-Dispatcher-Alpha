@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
-  "datasetVersion": "snapshot-2026-07-28",
+  "datasetVersion": "snapshot-2026-10-16",
+  "openAipDatasetVersion": "snapshot-2026-07-28",
   "sourceGeneratedAt": "2026-07-28T08:44:28.006Z",
   "source": {
     "name": "OpenAIP",
@@ -13,7 +14,32 @@
   "legacyCount": 29303,
   "legacySha256": "b2657af3cbe3413e870fbe3da968144469b063b9f188218fc1d724de5de609a1",
   "openAipCount": 46607,
-  "totalCount": 59927,
-  "databaseBytes": 12591174,
-  "databaseSha256": "a4b249313afc4f7851a9af03a7fb98a558c729d88c5057f1f00e34c01e6747c3"
+  "ourAirports": {
+    "name": "OurAirports",
+    "url": "https://ourairports.com/data/",
+    "license": "Public Domain",
+    "licenseUrl": "https://ourairports.com/data/",
+    "commit": "b529623d2a0b09a9be78d37fc7a7a5e1e16e3451",
+    "sourceDate": "2026-10-16",
+    "sourceUrl": "https://raw.githubusercontent.com/davidmegginson/ourairports-data/b529623d2a0b09a9be78d37fc7a7a5e1e16e3451/airports.csv",
+    "snapshot": "ourairports-2026-10-16.csv.gz",
+    "sha256": "0499dbd88de2fc735ac5c09f59796ccc3af544e17ffda807f793c0c6fe6c3d75",
+    "bytes": 12748669,
+    "includedTypes": [
+      "small_airport",
+      "medium_airport",
+      "large_airport",
+      "seaplane_base"
+    ],
+    "eligibleCount": 49373,
+    "matchedCount": 23611,
+    "addedCount": 14196,
+    "aliasesAdded": 24591,
+    "conflictCount": 11566,
+    "aliasConflictCount": 5457,
+    "fieldDifferenceCount": 432
+  },
+  "totalCount": 74123,
+  "databaseBytes": 18644330,
+  "databaseSha256": "a9aee5e903ccde92def369ea3b3083623dd3376acb6a92ad28bfe50bbc244677"
 }

@@ -39,6 +39,21 @@ assert.equal(
 );
 assert.ok(Object.keys(database).length > Object.keys(backup).length + 25_000);
 assert.ok(Object.keys(database).filter(key => key.startsWith('OA-')).length >= 27_000);
+const base = JSON.parse(await fs.readFile(path.join(rootDir, 'data/airport-sources/openaip-base.json'), 'utf8'));
+const { gunzipSync } = await import('node:zlib');
+const previous = JSON.parse(gunzipSync(await fs.readFile(path.join(rootDir, 'data/airport-sources', base.snapshot))));
+for (const [key, record] of Object.entries(previous)) {
+  for (const field of ['name', 'lat', 'lon', 'elevation', 'country', 'type', 'ppr', 'private', 'winchOnly']) {
+    assert.deepEqual(database[key]?.[field], record[field], `${key}: existing ${field} changed during supplementation`);
+  }
+}
+assert.equal(metadata.ourAirports.addedCount, Object.keys(database).length - Object.keys(previous).length);
+assert.ok(metadata.ourAirports.addedCount > 10_000);
+assert.ok(metadata.ourAirports.aliasesAdded > 20_000);
+const importReport = JSON.parse(await fs.readFile(path.join(rootDir, 'data/airports-import-report.json'), 'utf8'));
+assert.equal(importReport.eligibleCount,
+  importReport.matchedCount + importReport.addedCount + importReport.conflicts.length);
+assert.equal(importReport.totalCount, metadata.totalCount);
 
 for (const key of Object.keys(backup)) {
   assert.ok(database[key], `Legacy-Platz ${key} fehlt in der erweiterten Datenbank`);
@@ -63,7 +78,7 @@ assert.match(appSource, /async function searchAirportCatalogCandidates\(/);
 assert.match(appSource, /const packedRecords = await loadAirportSearchPack\(query\);/);
 assert.match(appSource, /return searchAirportCandidates\(query, limit, \{ \.\.\.options, classicId \}\);/);
 assert.match(appSource, /const AIRPORT_DATABASE_MIN_RECORDS = 50_000;/);
-assert.match(appSource, /const AIRPORT_SEARCH_PACK_VERSION = 'snapshot-2026-07-28-v3';/);
+assert.match(appSource, /const AIRPORT_SEARCH_PACK_VERSION = 'snapshot-2026-10-16-v4';/);
 assert.match(appSource, /\.\/airports\.json\?v=\$\{AIRPORT_DATABASE_VERSION\}/);
 assert.match(appSource, /const gliderSample = parsed\['OA-09445F82'\];/);
 assert.doesNotMatch(appSource, /function preloadGlobalAirportsOnIntent\(/);
@@ -199,6 +214,13 @@ assert.equal(searchApi.searchAirportCandidates('Euskirchen', 5, { classicId: 'de
 airportTypes.setSelected(['heli'], { persist: false, emit: false });
 assert.equal(searchApi.searchAirportCandidates('Euskirchen', 5, { classicId: 'startLoc' })[0]?.code, 'OA-094453D2');
 assert.equal(searchApi.searchAirportCandidates('Euskirchen', 5, { classicId: 'destLoc' })[0]?.code, 'OA-094453D2');
+airportTypes.setSelected(['traffic', 'ga'], { persist: false, emit: false });
+assert.equal(searchApi.searchAirportCandidates('FBHU', 5, { classicId: 'startLoc' })[0]?.code, 'OUR-317575');
+assert.equal(searchApi.searchAirportCandidates('Hunda', 5, { classicId: 'destLoc' })[0]?.code, 'OUR-317575');
+assert.equal(searchApi.searchAirportCandidates('BW-0069', 5, { classicId: 'startLoc' })[0]?.code, 'OUR-595499');
+assert.equal(airportFieldDisplay('OUR-317575', database['OUR-317575']), 'FBHU');
+assert.equal(airportFieldDisplay('OUR-595499', database['OUR-595499']), 'MOPIRI AIRSTRIP');
+assert.ok(!database['OUR-317575'].icaoCode, 'GPS code must not be stored as an official ICAO');
 
 const fuzzyFunctions = [
   'airportSearchQueryToken',
@@ -225,6 +247,6 @@ assert.equal(scoreKirchzartenFuzzy('Zarrten')?.distance, 1, 'Tippfehler im Teilw
 assert.equal(scoreKirchzartenFuzzy('Kir') ?? null, null, 'zu kurze Eingaben dürfen nicht fuzzy werden');
 
 console.log(
-  `Airports database ok: ${Object.keys(backup).length} legacy + OpenAIP = `
+  `Airports database ok: legacy + OpenAIP + OurAirports = `
   + `${Object.keys(database).length} self-hosted records`
 );

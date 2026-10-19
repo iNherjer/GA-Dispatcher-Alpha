@@ -13,7 +13,7 @@ const manifest = JSON.parse(await fs.readFile(path.join(searchRoot, 'manifest.js
 const packDir = path.join(searchRoot, manifest.packVersion);
 
 assert.equal(manifest.schemaVersion, 2);
-assert.equal(manifest.packVersion, 'snapshot-2026-07-28-v3');
+assert.equal(manifest.packVersion, 'snapshot-2026-10-16-v4');
 assert.ok(manifest.recordCount >= 65_000, 'FAA-Ergänzungen fehlen in den Suchpaketen');
 assert.equal(manifest.bundleCount, 192);
 assert.equal(manifest.bundleFileCount, manifest.bundleCount);
@@ -81,6 +81,15 @@ const faaPack = await readPack('00');
 const faaLocal = faaPack.find(tuple => tuple[0] === '00C');
 assert.ok(faaLocal, 'FAA-Lokalplatz 00C fehlt');
 assert.equal(faaLocal[12], 'K00C');
+const botswanaPack = await readPack('fb');
+const hunda = botswanaPack.find(tuple => tuple[0] === 'OUR-317575');
+assert.ok(hunda, 'new Botswana airport missing from code-prefix bundle');
+assert.equal(hunda[1], 'Hunda Airport');
+assert.equal(hunda[4], 'BW');
+assert.ok(hunda[15]?.includes('FBHU'), 'GPS alias missing from compact search tuple');
+assert.ok(!hunda[12], 'GPS alias must not become an official ICAO code');
+const mopiriPack = await readPack('mo');
+assert.ok(mopiriPack.some(tuple => tuple[0] === 'OUR-595499'), 'new no-ICAO airport missing from name-prefix bundle');
 
 function bundleIndex(value) {
   let hash = 2166136261;

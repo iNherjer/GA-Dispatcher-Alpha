@@ -12,7 +12,7 @@ const databasePath = path.join(rootDir, 'airports.json');
 const supplementPath = path.join(rootDir, 'data', 'faa-local-airports.json');
 const databaseMetaPath = path.join(rootDir, 'data', 'airports-database-meta.json');
 const searchRoot = path.join(rootDir, 'data', 'airport-search');
-const GENERATION_VERSION = 3;
+const GENERATION_VERSION = 4;
 const BUNDLE_COUNT = 192;
 const STOP_WORDS = new Set([
   'aerodrome',

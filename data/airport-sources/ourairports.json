@@ -1,0 +1,18 @@
+{
+  "name": "OurAirports",
+  "url": "https://ourairports.com/data/",
+  "license": "Public Domain",
+  "licenseUrl": "https://ourairports.com/data/",
+  "commit": "b529623d2a0b09a9be78d37fc7a7a5e1e16e3451",
+  "sourceDate": "2026-10-16",
+  "sourceUrl": "https://raw.githubusercontent.com/davidmegginson/ourairports-data/b529623d2a0b09a9be78d37fc7a7a5e1e16e3451/airports.csv",
+  "snapshot": "ourairports-2026-10-16.csv.gz",
+  "sha256": "0499dbd88de2fc735ac5c09f59796ccc3af544e17ffda807f793c0c6fe6c3d75",
+  "bytes": 12748669,
+  "includedTypes": [
+    "small_airport",
+    "medium_airport",
+    "large_airport",
+    "seaplane_base"
+  ]
+}

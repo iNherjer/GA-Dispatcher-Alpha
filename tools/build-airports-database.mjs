@@ -4,6 +4,8 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
+import { gunzipSync } from 'node:zlib';
+import { readOurAirportsSnapshot, mergeOurAirports } from './ourairports-import.mjs';
 
 const DEFAULT_SOURCE_BASE = 'https://inherjer.github.io/GA-Dispatcher-Aviation-Data/';
 const DEFAULT_DATABASE = 'airports.json';
@@ -184,67 +186,87 @@ async function buildDatabase({ sourceBase, databasePath, backupPath, metadataPat
   }
   const legacyCount = Object.keys(database).length;
 
-  const normalizedSourceBase = `${String(sourceBase || DEFAULT_SOURCE_BASE).replace(/\/+$/, '')}/`;
-  const latest = await fetchVerifiedJson(new URL('latest.json', normalizedSourceBase), {
-    label: 'latest.json'
-  });
-  if (
-    Number(latest?.schemaVersion) !== 1
-    || !/^cycles\/[^/]+\/manifest\.json$/.test(String(latest?.manifest || ''))
-    || !/^[a-f0-9]{64}$/i.test(String(latest?.manifestSha256 || ''))
-  ) throw new Error('latest.json: ungültiges Format');
-
-  const manifestUrl = new URL(latest.manifest, normalizedSourceBase);
-  const manifest = await fetchVerifiedJson(manifestUrl, {
-    label: 'Aviation-Manifest',
-    bytes: latest.manifestBytes,
-    sha256: latest.manifestSha256
-  });
-  const collection = manifest?.collections?.airports;
-  if (
-    Number(manifest?.schemaVersion) !== 1
-    || String(manifest?.datasetVersion || '') !== String(latest.datasetVersion || '')
-    || manifest?.source?.name !== 'OpenAIP'
-    || !Array.isArray(collection?.packs)
-    || collection.packs.length !== Number(collection.packCount)
-  ) throw new Error('Aviation-Manifest: ungültige Airport-Sammlung');
-
-  const cycleBaseUrl = new URL('./', manifestUrl);
-  const seenOpenAipIds = new Set();
-  let processedPacks = 0;
-  let sourceRecords = 0;
-  let validRecords = 0;
-  await mapWithConcurrency(collection.packs, FETCH_CONCURRENCY, async (entry) => {
-    const packUrl = new URL(String(entry.url || ''), cycleBaseUrl);
-    if (!packUrl.href.startsWith(cycleBaseUrl.href)) throw new Error(`Unsicherer Packpfad: ${entry.url}`);
-    const pack = await fetchVerifiedJson(packUrl, {
-      label: entry.url,
-      bytes: entry.bytes,
-      sha256: entry.sha256
+  let manifest, validRecords;
+  if (!sourceBase) {
+    // Freeze the exact shipped base. Its historical upstream cycle has been removed.
+    const directory = new URL('../data/airport-sources/', import.meta.url);
+    const base = JSON.parse(await fs.readFile(new URL('openaip-base.json', directory), 'utf8'));
+    if (path.basename(base.snapshot) !== base.snapshot) throw new Error('Ungültiger Basis-Snapshot');
+    const raw = gunzipSync(await fs.readFile(new URL(base.snapshot, directory)));
+    if (raw.length !== base.databaseBytes || sha256(raw) !== base.databaseSha256) {
+      throw new Error('OpenAIP-Basis-Snapshot: Prüfsumme stimmt nicht');
+    }
+    Object.assign(database, JSON.parse(raw.toString('utf8')));
+    if (Object.keys(database).length !== base.totalCount) throw new Error('OpenAIP-Basis unvollständig');
+    manifest = { datasetVersion: base.datasetVersion, generatedAt: base.sourceGeneratedAt, source: base.source };
+    validRecords = base.openAipCount;
+  } else {
+    const normalizedSourceBase = `${String(sourceBase || DEFAULT_SOURCE_BASE).replace(/\/+$/, '')}/`;
+    const latest = await fetchVerifiedJson(new URL('latest.json', normalizedSourceBase), {
+      label: 'latest.json'
     });
     if (
-      Number(pack?.schemaVersion) !== 1
-      || pack?.collection !== 'airports'
-      || String(pack?.datasetVersion || '') !== String(manifest.datasetVersion)
-      || !Array.isArray(pack?.items)
-      || pack.items.length !== Number(entry.count)
-    ) throw new Error(`${entry.url}: ungültiges Airport-Pack`);
-    for (const item of pack.items) {
-      sourceRecords += 1;
-      const sourceId = String(item?.id || '').trim();
-      if (!sourceId || seenOpenAipIds.has(sourceId)) continue;
-      seenOpenAipIds.add(sourceId);
-      if (mergeOpenAipAirport(database, item)) validRecords += 1;
-    }
-    processedPacks += 1;
-    if (processedPacks % 100 === 0 || processedPacks === collection.packs.length) {
-      console.log(`Airport-Packs ${processedPacks}/${collection.packs.length}`);
-    }
-  });
+      Number(latest?.schemaVersion) !== 1
+      || !/^cycles\/[^/]+\/manifest\.json$/.test(String(latest?.manifest || ''))
+      || !/^[a-f0-9]{64}$/i.test(String(latest?.manifestSha256 || ''))
+    ) throw new Error('latest.json: ungültiges Format');
 
-  if (sourceRecords !== Number(collection.count) || validRecords < 40_000) {
-    throw new Error(`OpenAIP-Bilanz stimmt nicht (${validRecords}/${sourceRecords}/${collection.count})`);
+    const manifestUrl = new URL(latest.manifest, normalizedSourceBase);
+    manifest = await fetchVerifiedJson(manifestUrl, {
+      label: 'Aviation-Manifest',
+      bytes: latest.manifestBytes,
+      sha256: latest.manifestSha256
+    });
+    const collection = manifest?.collections?.airports;
+    if (
+      Number(manifest?.schemaVersion) !== 1
+      || String(manifest?.datasetVersion || '') !== String(latest.datasetVersion || '')
+      || manifest?.source?.name !== 'OpenAIP'
+      || !Array.isArray(collection?.packs)
+      || collection.packs.length !== Number(collection.packCount)
+    ) throw new Error('Aviation-Manifest: ungültige Airport-Sammlung');
+
+    const cycleBaseUrl = new URL('./', manifestUrl);
+    const seenOpenAipIds = new Set();
+    let processedPacks = 0;
+    let sourceRecords = 0;
+    validRecords = 0;
+    await mapWithConcurrency(collection.packs, FETCH_CONCURRENCY, async (entry) => {
+      const packUrl = new URL(String(entry.url || ''), cycleBaseUrl);
+      if (!packUrl.href.startsWith(cycleBaseUrl.href)) throw new Error(`Unsicherer Packpfad: ${entry.url}`);
+      const pack = await fetchVerifiedJson(packUrl, {
+        label: entry.url,
+        bytes: entry.bytes,
+        sha256: entry.sha256
+      });
+      if (
+        Number(pack?.schemaVersion) !== 1
+        || pack?.collection !== 'airports'
+        || String(pack?.datasetVersion || '') !== String(manifest.datasetVersion)
+        || !Array.isArray(pack?.items)
+        || pack.items.length !== Number(entry.count)
+      ) throw new Error(`${entry.url}: ungültiges Airport-Pack`);
+      for (const item of pack.items) {
+        sourceRecords += 1;
+        const sourceId = String(item?.id || '').trim();
+        if (!sourceId || seenOpenAipIds.has(sourceId)) continue;
+        seenOpenAipIds.add(sourceId);
+        if (mergeOpenAipAirport(database, item)) validRecords += 1;
+      }
+      processedPacks += 1;
+      if (processedPacks % 100 === 0 || processedPacks === collection.packs.length) {
+        console.log(`Airport-Packs ${processedPacks}/${collection.packs.length}`);
+      }
+    });
+
+    if (sourceRecords !== Number(collection.count) || validRecords < 40_000) {
+      throw new Error(`OpenAIP-Bilanz stimmt nicht (${validRecords}/${sourceRecords}/${collection.count})`);
+    }
   }
+  const { source: ourAirportsSource, rows: ourAirportsRows } = await readOurAirportsSnapshot();
+  const faaSupplement = JSON.parse(await fs.readFile(new URL('../data/faa-local-airports.json', import.meta.url), 'utf8'));
+  const importReport = mergeOurAirports(database, ourAirportsRows, ourAirportsSource, faaSupplement);
+  const datasetVersion = `snapshot-${ourAirportsSource.sourceDate}`;
   const sorted = Object.fromEntries(Object.entries(database).sort(([a], [b]) => a.localeCompare(b)));
   const totalCount = Object.keys(sorted).length;
   if (totalCount < 50_000 || !sorted.EDDF || !sorted.EDDM) {
@@ -263,19 +285,32 @@ async function buildDatabase({ sourceBase, databasePath, backupPath, metadataPat
   }
   await fs.writeFile(resolvedMetadataPath, `${JSON.stringify({
     schemaVersion: 1,
-    datasetVersion: manifest.datasetVersion,
+    datasetVersion,
+    openAipDatasetVersion: manifest.datasetVersion,
     sourceGeneratedAt: manifest.generatedAt,
     source: manifest.source,
     legacyBackup: path.relative(process.cwd(), resolvedBackupPath),
     legacyCount,
     legacySha256: sha256(backupRaw),
     openAipCount: validRecords,
+    ourAirports: {
+      ...ourAirportsSource,
+      eligibleCount: importReport.eligibleCount,
+      matchedCount: importReport.matchedCount,
+      addedCount: importReport.addedCount,
+      aliasesAdded: importReport.aliasesAdded,
+      conflictCount: importReport.conflicts.length,
+      aliasConflictCount: importReport.aliasConflicts.length,
+      fieldDifferenceCount: importReport.fieldDifferences.length
+    },
     totalCount,
     databaseBytes: Buffer.byteLength(content),
     databaseSha256
   }, null, 2)}\n`, 'utf8');
+  await fs.writeFile(path.join(path.dirname(resolvedMetadataPath), 'airports-import-report.json'),
+    `${JSON.stringify(importReport, null, 2)}\n`, 'utf8');
   console.log(JSON.stringify({
-    datasetVersion: manifest.datasetVersion,
+    datasetVersion,
     legacyCount,
     openAipCount: validRecords,
     totalCount,
@@ -289,7 +324,7 @@ async function buildDatabase({ sourceBase, databasePath, backupPath, metadataPat
 
 const args = parseArgs(process.argv.slice(2));
 buildDatabase({
-  sourceBase: args['source-base'] || DEFAULT_SOURCE_BASE,
+  sourceBase: args['source-base'],
   databasePath: args.output || DEFAULT_DATABASE,
   backupPath: args.backup || DEFAULT_BACKUP,
   metadataPath: args.metadata
