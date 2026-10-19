@@ -43,10 +43,11 @@ test('desktop exposes a confirmed, local-only tracker mission recovery control',
 test('status controls stay visible while modules are closed and ordered', () => {
   const html = fs.readFileSync(path.join(desktopRoot, 'ui', 'index.html'), 'utf8');
   const modules = Array.from(html.matchAll(/<details class="module-panel" data-module-panel>/g));
-  assert.equal(modules.length, 7);
+  assert.equal(modules.length, 8);
   assert.doesNotMatch(html, /<details class="module-panel"[^>]*\sopen(?:\s|>)/);
   const start = html.indexOf('id="startButton"');
   const tracker = html.indexOf('<strong>Tracker</strong>');
+  const autostart = html.indexOf('<strong>Autostart</strong>');
   const account = html.indexOf('<strong>Konto</strong>');
   const audio = html.indexOf('<strong>Audio</strong>');
   const appUpdate = html.indexOf('<strong>App-Update</strong>');
@@ -54,7 +55,7 @@ test('status controls stay visible while modules are closed and ordered', () => 
   const efb = html.indexOf('<strong>VFR Multitool EFB</strong>');
   const bridge = html.indexOf('<strong>AccuSim Telemetry Bridge</strong>');
   assert.ok(start >= 0 && start < tracker);
-  assert.ok(tracker < account && account < audio && audio < appUpdate && appUpdate < homebase && homebase < efb && efb < bridge);
+  assert.ok(tracker < autostart && autostart < account && account < audio && audio < appUpdate && appUpdate < homebase && homebase < efb && efb < bridge);
 });
 
 test('desktop window and Windows build use the dedicated tracker icon', () => {
@@ -72,4 +73,13 @@ test('Windows build packages the desktop self-updater and immutable channel', ()
   assert.match(packageJson.build.publish[0].url, /ga-tracker-client\/channel\/desktop\/$/);
   assert.match(main, /require\('electron-updater'\)/);
   assert.match(main, /desktopUpdateController\.checkAtStartup\(\)/);
+});
+
+test('autostart launch button sits at the top and is hidden until the option is enabled', () => {
+  const html = fs.readFileSync(path.join(desktopRoot, 'ui', 'index.html'), 'utf8');
+  const renderer = fs.readFileSync(path.join(desktopRoot, 'ui', 'renderer.js'), 'utf8');
+  const button = html.match(/<button id="autostartLaunchButton"[^>]*>/)?.[0] || '';
+  assert.match(button, /\shidden(?:\s|>)/);
+  assert.ok(html.indexOf('id="autostartLaunchButton"') < html.indexOf('data-module-panel'));
+  assert.match(renderer, /elements\.autostartLaunchButton\.hidden = !enabled;/);
 });

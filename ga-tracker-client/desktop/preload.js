@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 const EVENTS = new Set(['state:changed']);
 
@@ -34,6 +34,17 @@ contextBridge.exposeInMainWorld('trackerDesktop', {
   refreshEfbPackage: () => ipcRenderer.invoke('efb:refresh'),
   installEfbPackage: (repair = false) => ipcRenderer.invoke('efb:install', { confirmed: true, repair }),
   uninstallEfbPackage: () => ipcRenderer.invoke('efb:uninstall', { confirmed: true }),
+  setAutostartOptions: (options) => ipcRenderer.invoke('autostart:set-options', options),
+  addAutostartFiles: (files) => ipcRenderer.invoke('autostart:add-paths', {
+    paths: Array.from(files || []).map((file) => {
+      try { return webUtils.getPathForFile(file); } catch (_) { return ''; }
+    }).filter(Boolean)
+  }),
+  browseAutostartPrograms: () => ipcRenderer.invoke('autostart:browse'),
+  updateAutostartEntries: (entries) => ipcRenderer.invoke('autostart:update-entries', { entries }),
+  detectSimulators: () => ipcRenderer.invoke('autostart:detect-sims'),
+  chooseSimulator: (key) => ipcRenderer.invoke('autostart:choose-sim', { key }),
+  launchAutostart: () => ipcRenderer.invoke('autostart:launch-all'),
   openDataFolder: () => ipcRenderer.invoke('system:open-data-folder'),
   showAptTestLog: () => ipcRenderer.invoke('system:show-apt-test-log'),
   onStateChanged: (callback) => {

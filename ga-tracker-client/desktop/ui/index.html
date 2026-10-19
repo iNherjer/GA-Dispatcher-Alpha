@@ -45,6 +45,8 @@
       </div>
 
       <p id="detailStatus" class="overview-detail">Tracker ist nicht gestartet.</p>
+      <button id="autostartLaunchButton" class="primary-button autostart-launch-button" type="button" hidden>Tracker &amp; Sim starten</button>
+      <p id="autostartLaunchMessage" class="form-message autostart-launch-message" role="status" hidden></p>
       <div class="action-row overview-actions">
         <button id="startButton" class="primary-button" type="button">Tracker starten</button>
         <button id="stopButton" class="secondary-button" type="button">Stoppen</button>
@@ -149,6 +151,66 @@
             </summary>
             <pre id="logOutput">Noch keine Tracker-Ereignisse.</pre>
           </details>
+        </div>
+      </details>
+
+      <details class="module-panel" data-module-panel>
+        <summary>
+          <span class="module-heading">
+            <span class="module-kicker">START · OPTIONAL</span>
+            <strong>Autostart</strong>
+            <small id="autostartModuleSummary">Ausgeschaltet</small>
+          </span>
+          <span class="summary-side">
+            <span id="autostartBadge" class="mini-badge">Aus</span>
+            <span class="chevron" aria-hidden="true"></span>
+          </span>
+        </summary>
+        <div class="module-content">
+          <section class="settings-group">
+            <p class="eyebrow">PROGRAMMSTART</p>
+            <h2>Tools mit dem Sim starten</h2>
+            <label class="toggle-row">
+              <span>
+                <strong>Autostart aktivieren</strong>
+                <small>Zeigt oben „Tracker &amp; Sim starten“. Startet den Tracker und danach alle Einträge in der gewählten Reihenfolge.</small>
+              </span>
+              <span class="toggle-control">
+                <input id="autostartEnabledCheckbox" type="checkbox">
+                <span class="toggle-track" aria-hidden="true"></span>
+              </span>
+            </label>
+            <label class="toggle-row">
+              <span>
+                <strong>Beim Beenden schließen</strong>
+                <small>Schließt beim Beenden der Tracker-App nur Programme, die der Autostart selbst gestartet hat. Der Sim bleibt offen.</small>
+              </span>
+              <span class="toggle-control">
+                <input id="autostartCloseOnExitCheckbox" type="checkbox">
+                <span class="toggle-track" aria-hidden="true"></span>
+              </span>
+            </label>
+          </section>
+
+          <section class="settings-group">
+            <p class="eyebrow">SIMULATOR</p>
+            <h2>Sim-Version</h2>
+            <p id="autostartSimMessage" class="subtle">Erkennt installierte MSFS-Versionen über Steam und den Microsoft Store.</p>
+            <div id="autostartSimChoices" class="autostart-sim-choices" hidden></div>
+            <button id="autostartDetectSimButton" class="secondary-button compact-button" type="button">Sim erkennen</button>
+          </section>
+
+          <section class="settings-group">
+            <p class="eyebrow">REIHENFOLGE</p>
+            <h2>Startliste</h2>
+            <div id="autostartDropZone" class="autostart-drop-zone" tabindex="0" role="button" aria-label="Programme hierher ziehen oder klicken zum Auswählen">
+              <strong>Programme hierher ziehen</strong>
+              <small>.exe, Verknüpfungen (.lnk) oder .bat · oder klicken zum Auswählen</small>
+            </div>
+            <ol id="autostartList" class="autostart-list" aria-label="Autostart-Reihenfolge"></ol>
+            <p id="autostartListMessage" class="form-message" role="status"></p>
+            <p class="asset-note">Reihenfolge per Ziehen am Griff oder mit den Pfeilen ändern. „Danach warten“ legt die Pause bis zum nächsten Eintrag fest. Läuft ein Programm bereits, wird es übersprungen. Als Admin gestartete Programme lösen eine Windows-Bestätigung aus.</p>
+          </section>
         </div>
       </details>
 

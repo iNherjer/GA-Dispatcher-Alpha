@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   Menu,
   nativeImage,
@@ -21,6 +22,7 @@ const {
 } = require('./lib/runtime-channel');
 const { startupDecision } = require('./lib/startup-policy');
 const { verifyCredentials } = require('./lib/auth-client');
+const { AutostartLauncher } = require('./lib/autostart-launcher');
 const { BridgeManager } = require('./lib/bridge-manager');
 const { EfbPackageManager } = require('./lib/efb-package-manager');
 const { HomebaseAssetManager } = require('./lib/homebase-manager');
@@ -44,6 +46,7 @@ let desktopUpdateController = null;
 let homebaseManager = null;
 let efbPackageManager = null;
 let bridgeManager = null;
+let autostartLauncher = null;
 let trackerStartupAllowed = false;
 let finalQuitReady = false;
 let bridgeShutdownInProgress = false;
@@ -89,7 +92,8 @@ function currentState() {
     update: runtimeManager?.publicState() || null,
     homebaseAssets: homebaseManager?.publicState() || null,
     efbPackage: efbPackageManager?.publicState() || null,
-    bridge: bridgeManager?.publicState() || null
+    bridge: bridgeManager?.publicState() || null,
+    autostart: autostartLauncher?.publicState() || null
   };
 }
 
@@ -433,6 +437,32 @@ function registerIpc() {
   ipcMain.handle('bridge:start', () => bridgeAction(() => bridgeManager.start()));
   ipcMain.handle('bridge:stop', () => bridgeAction(() => bridgeManager.stop()));
   ipcMain.handle('bridge:show-settings', () => bridgeAction(() => bridgeManager.showSettings()));
+  ipcMain.handle('autostart:set-options', (_event, payload) => {
+    autostartLauncher.setOptions({
+      enabled: typeof payload?.enabled === 'boolean' ? payload.enabled : undefined,
+      closeOnExit: typeof payload?.closeOnExit === 'boolean' ? payload.closeOnExit : undefined
+    });
+    return { ok: true };
+  });
+  ipcMain.handle('autostart:add-paths', (_event, payload) => autostartLauncher.addPaths(payload?.paths));
+  ipcMain.handle('autostart:browse', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: 'Programme für den Autostart wählen',
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: 'Programme und Verknüpfungen', extensions: ['exe', 'lnk', 'bat', 'cmd'] }]
+    });
+    if (result.canceled) return { ok: true, added: 0, rejected: [] };
+    return autostartLauncher.addPaths(result.filePaths);
+  });
+  ipcMain.handle('autostart:update-entries', (_event, payload) => autostartLauncher.updateEntries(payload?.entries));
+  ipcMain.handle('autostart:detect-sims', () => autostartLauncher.detectSimulators());
+  ipcMain.handle('autostart:choose-sim', (_event, payload) => autostartLauncher.chooseSimulator(String(payload?.key || '')));
+  ipcMain.handle('autostart:launch-all', async () => {
+    trackerStartupAllowed = true;
+    const tracker = await startTrackerIfReady();
+    const programs = await autostartLauncher.launchAll();
+    return { ...programs, tracker };
+  });
   ipcMain.handle('settings:save-credentials', async (_event, payload) => {
     const pilotId = String(payload?.pilotId || '').trim();
     const pin = String(payload?.pin || '').trim();
@@ -704,6 +734,21 @@ async function startApplication() {
   homebaseManager.on('state', (state) => broadcastManagedModuleState('homebase', state));
   efbPackageManager.on('state', (state) => broadcastManagedModuleState('efb', state));
   bridgeManager.on('state', (state) => broadcastManagedModuleState('bridge', state));
+  autostartLauncher = new AutostartLauncher({
+    configStore,
+    openExternal: (url) => shell.openExternal(url),
+    resolveShortcut: (file) => {
+      try {
+        const link = shell.readShortcutLink(file);
+        return { target: link.target, args: link.args, cwd: link.cwd };
+      } catch (_) {
+        return null;
+      }
+    },
+    getFileIcon: async (file) => (await app.getFileIcon(file, { size: 'normal' })).toDataURL()
+  });
+  autostartLauncher.on('state', broadcastState);
+  void autostartLauncher.loadIcons();
 
   registerIpc();
   const launchDecision = startupDecision(configStore.publicSettings(), configStore.hasCredentials());
@@ -755,7 +800,12 @@ if (!singleInstanceLock) {
     event.preventDefault();
     if (bridgeShutdownInProgress) return;
     bridgeShutdownInProgress = true;
-    Promise.allSettled([windowsMedia.close(), mediaServer.close(), shouldStopBridge && bridgeManager ? bridgeManager.shutdownOwned() : Promise.resolve()]).finally(() => {
+    Promise.allSettled([
+      windowsMedia.close(),
+      mediaServer.close(),
+      shouldStopBridge && bridgeManager ? bridgeManager.shutdownOwned() : Promise.resolve(),
+      autostartLauncher ? autostartLauncher.shutdownOwned() : Promise.resolve()
+    ]).finally(() => {
       finalQuitReady = true;
       app.quit();
     });

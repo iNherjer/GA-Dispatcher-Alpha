@@ -874,3 +874,209 @@ dialog::backdrop {
   accent-color: #73b5ff;
 }
 .audio-output-menu .toggle-row + .toggle-row { margin-top: 0; }
+
+.autostart-launch-button {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.autostart-launch-button[hidden],
+.autostart-launch-message[hidden],
+.autostart-sim-choices[hidden] {
+  display: none;
+}
+
+.autostart-launch-message {
+  margin: 6px 2px 0;
+}
+
+.autostart-sim-choices {
+  display: grid;
+  gap: 7px;
+  margin: 9px 0;
+}
+
+.autostart-sim-choices .secondary-button {
+  text-align: left;
+}
+
+.autostart-drop-zone {
+  display: grid;
+  gap: 4px;
+  margin-top: 10px;
+  border: 1px dashed var(--line-strong);
+  border-radius: 12px;
+  padding: 16px 12px;
+  text-align: center;
+  cursor: pointer;
+  background: rgba(7, 17, 29, 0.48);
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.autostart-drop-zone strong {
+  font-size: 12px;
+}
+
+.autostart-drop-zone small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.autostart-drop-zone:hover,
+.autostart-drop-zone:focus-visible,
+.autostart-drop-zone.drag-over {
+  outline: none;
+  border-color: var(--blue);
+  background: rgba(84, 184, 255, 0.08);
+}
+
+.autostart-list {
+  display: grid;
+  gap: 7px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.autostart-item {
+  display: grid;
+  grid-template-columns: auto 28px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 9px;
+  background: rgba(7, 17, 29, 0.48);
+}
+
+.autostart-item.dragging {
+  opacity: 0.45;
+}
+
+.autostart-item.drop-target {
+  border-color: var(--blue);
+}
+
+.autostart-item.disabled .autostart-name {
+  color: var(--muted);
+}
+
+.autostart-item.current {
+  border-color: var(--amber);
+}
+
+.autostart-handle {
+  display: grid;
+  gap: 2px;
+  justify-items: center;
+  color: var(--muted);
+  cursor: grab;
+}
+
+.autostart-handle button {
+  border: 0;
+  padding: 0 4px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 9px;
+  line-height: 1.2;
+}
+
+.autostart-handle button:disabled {
+  opacity: 0.25;
+}
+
+.autostart-icon {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  color: var(--blue);
+  background: rgba(84, 184, 255, 0.1);
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.autostart-icon img {
+  width: 24px;
+  height: 24px;
+}
+
+.autostart-body {
+  min-width: 0;
+}
+
+.autostart-name {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.autostart-name span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.autostart-detail {
+  overflow: hidden;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.autostart-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.autostart-options label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.autostart-options input[type="checkbox"] {
+  accent-color: var(--blue);
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  padding: 0;
+}
+
+.autostart-options select {
+  width: auto;
+  min-width: 0;
+  height: 22px;
+  border-radius: 6px;
+  padding: 0 4px;
+  font-size: 10px;
+}
+
+.autostart-side {
+  display: grid;
+  gap: 4px;
+  justify-items: end;
+}
+
+.autostart-remove {
+  border: 0;
+  padding: 2px 4px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.autostart-remove:hover {
+  color: var(--red);
+}

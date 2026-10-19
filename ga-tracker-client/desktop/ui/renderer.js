@@ -80,6 +80,18 @@ const elements = {
   startMinimizedCheckbox: document.getElementById('startMinimizedCheckbox'),
   autoStartBridgeCheckbox: document.getElementById('autoStartBridgeCheckbox'),
   stopBridgeWithTrackerCheckbox: document.getElementById('stopBridgeWithTrackerCheckbox'),
+  autostartLaunchButton: document.getElementById('autostartLaunchButton'),
+  autostartLaunchMessage: document.getElementById('autostartLaunchMessage'),
+  autostartModuleSummary: document.getElementById('autostartModuleSummary'),
+  autostartBadge: document.getElementById('autostartBadge'),
+  autostartEnabledCheckbox: document.getElementById('autostartEnabledCheckbox'),
+  autostartCloseOnExitCheckbox: document.getElementById('autostartCloseOnExitCheckbox'),
+  autostartSimMessage: document.getElementById('autostartSimMessage'),
+  autostartSimChoices: document.getElementById('autostartSimChoices'),
+  autostartDetectSimButton: document.getElementById('autostartDetectSimButton'),
+  autostartDropZone: document.getElementById('autostartDropZone'),
+  autostartList: document.getElementById('autostartList'),
+  autostartListMessage: document.getElementById('autostartListMessage'),
   startButton: document.getElementById('startButton'),
   stopButton: document.getElementById('stopButton'),
   aptTestLogButton: document.getElementById('aptTestLogButton'),
@@ -380,6 +392,235 @@ function renderDesktopInstallDialog(state) {
   elements.desktopInstallDialog.showModal();
 }
 
+const AUTOSTART_DELAYS = [0, 2, 3, 5, 10, 15, 20, 30, 45, 60, 90, 120];
+const autostartResultLabels = { started: 'Gestartet', skipped: 'Lief bereits', failed: 'Fehler' };
+let autostartEntries = [];
+let autostartListSignature = '';
+let autostartDragId = '';
+let autostartLaunchPending = false;
+let autostartDetectPending = false;
+
+function autostartPayload(entries) {
+  return entries.map((entry) => ({ id: entry.id, enabled: entry.enabled, admin: entry.admin, delaySeconds: entry.delaySeconds }));
+}
+
+function saveAutostartEntries(entries) {
+  autostartEntries = entries;
+  autostartListSignature = '';
+  return window.trackerDesktop.updateAutostartEntries(autostartPayload(entries));
+}
+
+function moveAutostartEntry(id, targetIndex) {
+  const index = autostartEntries.findIndex((entry) => entry.id === id);
+  if (index < 0 || targetIndex < 0 || targetIndex >= autostartEntries.length || index === targetIndex) return;
+  const next = autostartEntries.slice();
+  const [moved] = next.splice(index, 1);
+  next.splice(targetIndex, 0, moved);
+  void saveAutostartEntries(next);
+}
+
+function patchAutostartEntry(id, patch) {
+  void saveAutostartEntries(autostartEntries.map((entry) => (entry.id === id ? { ...entry, ...patch } : entry)));
+}
+
+function autostartOption(labelText, control) {
+  const label = document.createElement('label');
+  label.append(control, document.createTextNode(labelText));
+  return label;
+}
+
+function autostartItem(entry, index, run) {
+  const item = document.createElement('li');
+  item.className = 'autostart-item';
+  if (!entry.enabled) item.classList.add('disabled');
+  if (run.phase === 'running' && run.currentId === entry.id) item.classList.add('current');
+  item.dataset.id = entry.id;
+
+  const handle = document.createElement('span');
+  handle.className = 'autostart-handle';
+  handle.title = 'Ziehen zum Sortieren';
+  handle.draggable = true;
+  const up = document.createElement('button');
+  up.type = 'button';
+  up.textContent = '▲';
+  up.setAttribute('aria-label', `${entry.name} nach oben`);
+  up.disabled = index === 0;
+  up.addEventListener('click', () => moveAutostartEntry(entry.id, index - 1));
+  const grip = document.createElement('span');
+  grip.textContent = String(index + 1);
+  const down = document.createElement('button');
+  down.type = 'button';
+  down.textContent = '▼';
+  down.setAttribute('aria-label', `${entry.name} nach unten`);
+  down.disabled = index === autostartEntries.length - 1;
+  down.addEventListener('click', () => moveAutostartEntry(entry.id, index + 1));
+  handle.append(up, grip, down);
+  handle.addEventListener('dragstart', (event) => {
+    autostartDragId = entry.id;
+    item.classList.add('dragging');
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', entry.id);
+  });
+  handle.addEventListener('dragend', () => {
+    autostartDragId = '';
+    item.classList.remove('dragging');
+  });
+  item.addEventListener('dragover', (event) => {
+    if (!autostartDragId) return;
+    event.preventDefault();
+    item.classList.add('drop-target');
+  });
+  item.addEventListener('dragleave', () => item.classList.remove('drop-target'));
+  item.addEventListener('drop', (event) => {
+    if (!autostartDragId) return;
+    event.preventDefault();
+    event.stopPropagation();
+    item.classList.remove('drop-target');
+    moveAutostartEntry(autostartDragId, index);
+  });
+
+  const icon = document.createElement('span');
+  icon.className = 'autostart-icon';
+  if (entry.icon) {
+    const image = document.createElement('img');
+    image.src = entry.icon;
+    image.alt = '';
+    icon.append(image);
+  } else {
+    icon.textContent = entry.kind === 'sim' ? 'SIM' : 'EXE';
+  }
+
+  const body = document.createElement('div');
+  body.className = 'autostart-body';
+  const name = document.createElement('div');
+  name.className = 'autostart-name';
+  const nameText = document.createElement('span');
+  nameText.textContent = entry.name;
+  name.append(nameText);
+  const result = run.results?.[entry.id];
+  if (result) {
+    const badge = document.createElement('span');
+    badge.className = `mini-badge ${result === 'failed' ? 'error' : (result === 'started' ? 'current' : '')}`.trim();
+    badge.textContent = autostartResultLabels[result] || result;
+    name.append(badge);
+  } else if (run.phase === 'running' && run.currentId === entry.id) {
+    const badge = document.createElement('span');
+    badge.className = 'mini-badge starting';
+    badge.textContent = 'Startet';
+    name.append(badge);
+  }
+  const detail = document.createElement('div');
+  detail.className = 'autostart-detail';
+  detail.textContent = entry.detail;
+  detail.title = entry.detail;
+
+  const options = document.createElement('div');
+  options.className = 'autostart-options';
+  const enabled = document.createElement('input');
+  enabled.type = 'checkbox';
+  enabled.checked = entry.enabled;
+  enabled.addEventListener('change', () => patchAutostartEntry(entry.id, { enabled: enabled.checked }));
+  options.append(autostartOption('Aktiv', enabled));
+  if (entry.kind === 'program') {
+    const admin = document.createElement('input');
+    admin.type = 'checkbox';
+    admin.checked = entry.admin;
+    admin.addEventListener('change', () => patchAutostartEntry(entry.id, { admin: admin.checked }));
+    options.append(autostartOption('Als Admin', admin));
+  }
+  const delay = document.createElement('select');
+  const delays = AUTOSTART_DELAYS.includes(entry.delaySeconds) ? AUTOSTART_DELAYS : AUTOSTART_DELAYS.concat(entry.delaySeconds).sort((a, b) => a - b);
+  for (const seconds of delays) {
+    const option = document.createElement('option');
+    option.value = String(seconds);
+    option.textContent = `${seconds} s`;
+    delay.append(option);
+  }
+  delay.value = String(entry.delaySeconds);
+  delay.addEventListener('change', () => patchAutostartEntry(entry.id, { delaySeconds: Number(delay.value) }));
+  const delayLabel = document.createElement('label');
+  delayLabel.append(document.createTextNode('Danach warten'), delay);
+  options.append(delayLabel);
+  body.append(name, detail, options);
+
+  const side = document.createElement('span');
+  side.className = 'autostart-side';
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.className = 'autostart-remove';
+  remove.textContent = '✕';
+  remove.title = 'Entfernen';
+  remove.setAttribute('aria-label', `${entry.name} entfernen`);
+  remove.addEventListener('click', () => saveAutostartEntries(autostartEntries.filter((other) => other.id !== entry.id)));
+  side.append(remove);
+
+  item.append(handle, icon, body, side);
+  return item;
+}
+
+function renderAutostartSimChoices(candidates) {
+  elements.autostartSimChoices.replaceChildren();
+  if (!Array.isArray(candidates) || candidates.length < 2) {
+    elements.autostartSimChoices.hidden = true;
+    return;
+  }
+  for (const candidate of candidates) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'secondary-button';
+    button.textContent = candidate.label;
+    button.addEventListener('click', () => window.trackerDesktop.chooseSimulator(candidate.key));
+    elements.autostartSimChoices.append(button);
+  }
+  elements.autostartSimChoices.hidden = false;
+}
+
+function renderAutostart(autostart) {
+  const data = autostart || {};
+  const entries = Array.isArray(data.entries) ? data.entries : [];
+  const run = data.run || {};
+  const enabled = data.enabled === true;
+  const active = entries.filter((entry) => entry.enabled).length;
+  const sim = entries.find((entry) => entry.kind === 'sim');
+
+  setChecked(elements.autostartEnabledCheckbox, enabled);
+  setChecked(elements.autostartCloseOnExitCheckbox, data.closeOnExit === true);
+  elements.autostartEnabledCheckbox.disabled = data.supported === false;
+  elements.autostartBadge.textContent = !enabled ? 'Aus' : (run.phase === 'running' ? 'Startet' : `${active} aktiv`);
+  setClass(elements.autostartBadge, 'mini-badge', !enabled ? '' : (run.phase === 'running' ? 'starting' : 'current'));
+  elements.autostartModuleSummary.textContent = data.supported === false
+    ? 'Nur unter Windows verfügbar'
+    : (enabled ? `${entries.length} Einträge${sim ? ` · ${sim.name}` : ''}` : 'Ausgeschaltet');
+
+  elements.autostartLaunchButton.hidden = !enabled;
+  elements.autostartLaunchButton.disabled = autostartLaunchPending || run.phase === 'running';
+  elements.autostartLaunchButton.textContent = run.phase === 'running' ? 'Programme werden gestartet …' : (sim ? 'Tracker & Sim starten' : 'Tracker & Programme starten');
+  if (!enabled) elements.autostartLaunchMessage.hidden = true;
+  else if (run.phase === 'done' && run.message) {
+    elements.autostartLaunchMessage.hidden = false;
+    elements.autostartLaunchMessage.className = `form-message autostart-launch-message ${Object.values(run.results || {}).includes('failed') ? 'error' : 'success'}`;
+    elements.autostartLaunchMessage.textContent = run.message;
+  }
+
+  if (!autostartDetectPending) {
+    const candidates = data.simCandidates;
+    if (Array.isArray(candidates) && candidates.length === 0) elements.autostartSimMessage.textContent = 'Kein MSFS über Steam oder den Microsoft Store gefunden. Du kannst die Sim-Verknüpfung auch in die Startliste ziehen.';
+    else if (Array.isArray(candidates) && candidates.length > 1) elements.autostartSimMessage.textContent = 'Mehrere Versionen gefunden. Bitte wählen:';
+    else if (sim) elements.autostartSimMessage.textContent = `Gewählt: ${sim.name} · ${sim.detail}`;
+    else elements.autostartSimMessage.textContent = 'Erkennt installierte MSFS-Versionen über Steam und den Microsoft Store.';
+  }
+  renderAutostartSimChoices(data.simCandidates);
+  elements.autostartDetectSimButton.disabled = autostartDetectPending || data.supported === false;
+  elements.autostartDetectSimButton.textContent = autostartDetectPending ? 'Suche …' : (sim ? 'Sim neu erkennen' : 'Sim erkennen');
+
+  const signature = JSON.stringify([entries, run.phase, run.currentId, run.results]);
+  if (signature === autostartListSignature) return;
+  if (elements.autostartList.contains(document.activeElement) && document.activeElement.tagName === 'SELECT') return;
+  autostartListSignature = signature;
+  autostartEntries = entries;
+  elements.autostartList.replaceChildren(...entries.map((entry, index) => autostartItem(entry, index, run)));
+}
+
 function render(state) {
   latestState = state;
   const tracker = state?.tracker || {};
@@ -442,6 +683,7 @@ function render(state) {
   renderHomebaseAssets(state?.homebaseAssets);
   renderEfbPackage(state?.efbPackage, runtimeChannel);
   renderBridge(state?.bridge);
+  renderAutostart(state?.autostart);
   renderAutomaticUpdateBanner(state, settings);
   renderUpdateDialog(state);
   renderDesktopInstallDialog(state);
@@ -590,6 +832,65 @@ elements.startButton.addEventListener('click', async () => {
 });
 
 elements.stopButton.addEventListener('click', () => window.trackerDesktop.stopTracker());
+
+function showAutostartAddResult(result) {
+  const rejected = Array.isArray(result?.rejected) ? result.rejected : [];
+  elements.autostartListMessage.className = `form-message ${rejected.length ? 'error' : ''}`.trim();
+  elements.autostartListMessage.textContent = rejected.length
+    ? `Nicht übernommen: ${rejected.join(', ')} (nur .exe, .lnk, .bat oder .cmd).`
+    : '';
+}
+
+elements.autostartEnabledCheckbox.addEventListener('change', () => window.trackerDesktop.setAutostartOptions({ enabled: elements.autostartEnabledCheckbox.checked }));
+elements.autostartCloseOnExitCheckbox.addEventListener('change', () => window.trackerDesktop.setAutostartOptions({ closeOnExit: elements.autostartCloseOnExitCheckbox.checked }));
+elements.autostartDetectSimButton.addEventListener('click', async () => {
+  autostartDetectPending = true;
+  renderAutostart(latestState?.autostart);
+  try {
+    const result = await window.trackerDesktop.detectSimulators();
+    if (result?.candidates?.length === 1) await window.trackerDesktop.chooseSimulator(result.candidates[0].key);
+  } finally {
+    autostartDetectPending = false;
+    renderAutostart(latestState?.autostart);
+  }
+});
+elements.autostartDropZone.addEventListener('click', async () => showAutostartAddResult(await window.trackerDesktop.browseAutostartPrograms()));
+elements.autostartDropZone.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  event.preventDefault();
+  elements.autostartDropZone.click();
+});
+elements.autostartDropZone.addEventListener('dragover', (event) => {
+  if (!event.dataTransfer?.types?.includes('Files')) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'copy';
+  elements.autostartDropZone.classList.add('drag-over');
+});
+elements.autostartDropZone.addEventListener('dragleave', () => elements.autostartDropZone.classList.remove('drag-over'));
+elements.autostartDropZone.addEventListener('drop', async (event) => {
+  event.preventDefault();
+  elements.autostartDropZone.classList.remove('drag-over');
+  if (!event.dataTransfer?.files?.length) return;
+  showAutostartAddResult(await window.trackerDesktop.addAutostartFiles(event.dataTransfer.files));
+});
+// Dateien ausserhalb der Ablagefläche dürfen das Fenster nicht navigieren.
+document.addEventListener('dragover', (event) => event.preventDefault());
+document.addEventListener('drop', (event) => event.preventDefault());
+elements.autostartLaunchButton.addEventListener('click', async () => {
+  autostartLaunchPending = true;
+  elements.autostartLaunchButton.disabled = true;
+  elements.autostartLaunchMessage.hidden = true;
+  try {
+    const result = await window.trackerDesktop.launchAutostart();
+    if (result?.tracker?.needsCredentials) {
+      elements.formMessage.className = 'form-message error';
+      elements.formMessage.textContent = 'Bitte zuerst Pilot-ID und PIN speichern. Die Programme wurden trotzdem gestartet.';
+    }
+  } finally {
+    autostartLaunchPending = false;
+    renderAutostart(latestState?.autostart);
+  }
+});
 elements.aptTestLogButton.addEventListener('click', async () => {
   const result = await window.trackerDesktop.showAptTestLog();
   if (result?.missing) {

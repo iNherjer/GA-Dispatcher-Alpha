@@ -1,0 +1,182 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const test = require('node:test');
+const {
+  AutostartLauncher,
+  normalizeAutostartSettings,
+  parseSteamLibraryPaths,
+  parseTasklistImageNames,
+  startProcessCommand
+} = require('../lib/autostart-launcher');
+
+function memoryStore(initial = {}) {
+  let autostart = initial;
+  return {
+    readAutostart: () => autostart,
+    writeAutostart: (next) => { autostart = JSON.parse(JSON.stringify(next)); return autostart; }
+  };
+}
+
+function fakeExec(handlers, calls) {
+  return (command, args, _options, callback) => {
+    calls.push({ command, args });
+    const handler = handlers[command];
+    if (!handler) return callback(null, '', '');
+    try {
+      const output = handler(args);
+      callback(null, output, '');
+    } catch (error) {
+      callback(error, '', '');
+    }
+  };
+}
+
+function launcher({ store = memoryStore(), files = [], handlers = {}, calls = [], ...rest } = {}) {
+  let counter = 0;
+  const existing = new Set(files.map((file) => file.toLowerCase()));
+  return new AutostartLauncher({
+    configStore: store,
+    platform: 'win32',
+    execFileImpl: fakeExec(handlers, calls),
+    fsModule: {
+      existsSync: (file) => existing.has(String(file).toLowerCase()),
+      readFileSync: () => { throw new Error('missing'); }
+    },
+    sleep: async () => {},
+    createId: () => `id-${++counter}`,
+    ...rest
+  });
+}
+
+test('settings are normalized and unknown or invalid entries are dropped', () => {
+  const settings = normalizeAutostartSettings({
+    enabled: true,
+    entries: [
+      { id: 'a', kind: 'program', path: 'C:\\Tools\\a.exe', delaySeconds: 999, admin: true },
+      { id: 'b', kind: 'program', path: 'relative.exe' },
+      { id: 'a', kind: 'program', path: 'C:\\Tools\\dup.exe' },
+      { id: 's1', kind: 'sim', simId: 'msfs2024', source: 'steam', launchTarget: 'steam://rungameid/2537590' },
+      { id: 's2', kind: 'sim', simId: 'msfs2020', source: 'store', launchTarget: 'x_y!App' }
+    ]
+  });
+  assert.equal(settings.enabled, true);
+  assert.equal(settings.closeOnExit, false);
+  assert.deepEqual(settings.entries.map((entry) => entry.id), ['a', 's1']);
+  assert.equal(settings.entries[0].delaySeconds, 120);
+  assert.equal(settings.entries[0].imageName, 'a.exe');
+  assert.equal(settings.entries[1].imageName, 'FlightSimulator2024.exe');
+});
+
+test('start commands quote paths and request elevation only for admin entries', () => {
+  assert.equal(
+    startProcessCommand({ file: "C:\\Tom's Tools\\a.exe", args: '-x', cwd: 'C:\\Tools' }),
+    "$ErrorActionPreference='Stop'; Start-Process -FilePath 'C:\\Tom''s Tools\\a.exe' -ArgumentList '-x' -WorkingDirectory 'C:\\Tools'"
+  );
+  assert.match(startProcessCommand({ file: 'C:\\a.exe', admin: true }), /-Verb RunAs$/);
+  assert.doesNotMatch(startProcessCommand({ file: 'C:\\a.exe' }), /ArgumentList|RunAs/);
+});
+
+test('steam library and tasklist output are parsed', () => {
+  assert.deepEqual(parseSteamLibraryPaths('"0"\n{\n\t"path"\t\t"C:\\\\Steam"\n}\n"1"\n{\n\t"path"\t\t"D:\\\\SteamLibrary"\n}'), ['C:\\Steam', 'D:\\SteamLibrary']);
+  assert.deepEqual([...parseTasklistImageNames('"Code.exe","1","Console","1","10 K"\r\n"FlightSimulator2024.exe","2","Console","1","10 K"')], ['code.exe', 'flightsimulator2024.exe']);
+});
+
+test('dropped files are validated, shortcuts resolved and duplicates ignored', () => {
+  const instance = launcher({
+    files: ['C:\\Tools\\Little Navmap.exe', 'C:\\Users\\me\\Desktop\\Navigraph.lnk', 'C:\\notes.txt'],
+    resolveShortcut: () => ({ target: 'C:\\Navigraph\\Charts.exe', args: '--minimized', cwd: 'C:\\Navigraph' })
+  });
+  const result = instance.addPaths([
+    'C:\\Tools\\Little Navmap.exe',
+    'C:\\Users\\me\\Desktop\\Navigraph.lnk',
+    'C:\\notes.txt',
+    'C:\\missing.exe',
+    'C:\\Tools\\Little Navmap.exe'
+  ]);
+  assert.equal(result.added, 2);
+  assert.deepEqual(result.rejected, ['notes.txt', 'missing.exe']);
+  const entries = instance.publicState().entries;
+  assert.deepEqual(entries.map((entry) => entry.name), ['Little Navmap', 'Navigraph']);
+  assert.equal(entries[1].detail, 'C:\\Navigraph\\Charts.exe');
+});
+
+test('entry updates only reorder and toggle known entries', () => {
+  const store = memoryStore({ enabled: true, entries: [
+    { id: 'a', kind: 'program', path: 'C:\\a.exe' },
+    { id: 'b', kind: 'program', path: 'C:\\b.exe' },
+    { id: 'c', kind: 'program', path: 'C:\\c.exe' }
+  ] });
+  const instance = launcher({ store });
+  instance.updateEntries([
+    { id: 'c', admin: true, delaySeconds: 10 },
+    { id: 'evil', path: 'C:\\evil.exe' },
+    { id: 'a', enabled: false }
+  ]);
+  const entries = instance.settings().entries;
+  assert.deepEqual(entries.map((entry) => entry.id), ['c', 'a']);
+  assert.equal(entries[0].admin, true);
+  assert.equal(entries[0].delaySeconds, 10);
+  assert.equal(entries[1].enabled, false);
+});
+
+test('simulator detection offers steam and store installs and stores the chosen one', async () => {
+  const instance = launcher({
+    files: ['D:\\SteamLibrary\\steamapps\\appmanifest_2537590.acf'],
+    handlers: {
+      'reg.exe': () => '    SteamPath    REG_SZ    c:/program files (x86)/steam\r\n',
+      'powershell.exe': () => 'Microsoft.Limitless|Microsoft.Limitless_8wekyb3d8bbwe!App\r\n'
+    }
+  });
+  instance.fs.readFileSync = () => '"path"\t\t"D:\\\\SteamLibrary"';
+  const result = await instance.detectSimulators();
+  assert.deepEqual(result.candidates.map((candidate) => candidate.key), ['msfs2024:steam', 'msfs2024:store']);
+  assert.equal(instance.chooseSimulator('msfs2024:store').ok, true);
+  const sim = instance.settings().entries.find((entry) => entry.kind === 'sim');
+  assert.equal(sim.source, 'store');
+  assert.equal(sim.launchTarget, 'Microsoft.Limitless_8wekyb3d8bbwe!App');
+  assert.equal(instance.publicState().simCandidates, null);
+});
+
+test('launch runs entries in order, skips running programs and only closes owned ones', async () => {
+  const calls = [];
+  const opened = [];
+  const running = new Set(['b.exe']);
+  const store = memoryStore({ enabled: true, closeOnExit: true, entries: [
+    { id: 'a', kind: 'program', path: 'C:\\a.exe', admin: true, delaySeconds: 2 },
+    { id: 'b', kind: 'program', path: 'C:\\b.exe' },
+    { id: 'x', kind: 'program', path: 'C:\\x.exe', enabled: false },
+    { id: 's', kind: 'sim', simId: 'msfs2024', source: 'steam', launchTarget: 'steam://rungameid/2537590' }
+  ] });
+  const instance = launcher({
+    store,
+    calls,
+    files: ['C:\\a.exe', 'C:\\b.exe', 'C:\\x.exe'],
+    openExternal: async (url) => opened.push(url),
+    handlers: {
+      'tasklist.exe': () => [...running].map((name) => `"${name}","1"`).join('\r\n'),
+      'powershell.exe': (args) => { if (/a\.exe/.test(args.at(-1))) running.add('a.exe'); return ''; }
+    }
+  });
+  const result = await instance.launchAll();
+  assert.equal(result.ok, true);
+  assert.deepEqual(instance.run.results, { a: 'started', b: 'skipped', s: 'started' });
+  const starts = calls.filter((call) => call.command === 'powershell.exe');
+  assert.equal(starts.length, 1);
+  assert.match(starts[0].args.at(-1), /-Verb RunAs/);
+  assert.deepEqual(opened, ['steam://rungameid/2537590']);
+
+  calls.length = 0;
+  await instance.shutdownOwned();
+  const kills = calls.filter((call) => call.command === 'taskkill.exe');
+  assert.deepEqual(kills.map((call) => call.args), [['/IM', 'a.exe', '/T'], ['/IM', 'a.exe', '/T', '/F']]);
+});
+
+test('launch is refused while disabled and close is skipped without the option', async () => {
+  const calls = [];
+  const instance = launcher({ calls, store: memoryStore({ enabled: false, entries: [] }) });
+  assert.equal((await instance.launchAll()).ok, false);
+  instance.ownedImageNames.add('a.exe');
+  await instance.shutdownOwned();
+  assert.equal(calls.length, 0);
+});

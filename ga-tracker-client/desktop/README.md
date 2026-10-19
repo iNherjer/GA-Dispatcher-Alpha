@@ -41,6 +41,16 @@ zwischen `Stable` und `Alpha` gewechselt werden.
   Release installieren und im Hintergrund starten/stoppen
 - vollständige Bridge-Einstellungen aus dem Tracker öffnen, ohne eine zweite
   Telemetrieinstanz oder einen zweiten UDP-Sender zu erzeugen
+- optionales Modul `Autostart` (standardmäßig aus): Programme (.exe, .lnk,
+  .bat, .cmd) per Drag & Drop oder Dateiauswahl sammeln, sortieren, einzeln
+  aktivieren, mit Wartezeit und optional als Admin (UAC) starten. Die
+  Sim-Erkennung findet MSFS 2024/2020 über Steam (`appmanifest_*.acf` in allen
+  Steam-Bibliotheken) und den Microsoft Store (`Get-AppxPackage`); bei mehreren
+  Funden wird gewählt. Ist das Modul an, erscheint oben `Tracker & Sim starten`:
+  erst Tracker, dann die Liste in Reihenfolge; bereits laufende Programme
+  werden übersprungen. Optional schließt die App beim Beenden nur Programme,
+  die der Autostart in dieser Sitzung selbst gestartet hat; der Sim wird nie
+  geschlossen. Einstellungen liegen in `desktop-settings.json` unter `autostart`.
 
 Persoenliche Tracker-/Homebase-Daten bleiben unter
 `Dokumente/VFR Multitool/Tracker`. Programmzustand, geladene Tracker-Versionen und

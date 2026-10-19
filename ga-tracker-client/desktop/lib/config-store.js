@@ -296,6 +296,14 @@ class TrackerConfigStore {
     });
   }
 
+  readAutostart() {
+    return safeObject(this.readDesktop().autostart);
+  }
+
+  writeAutostart(autostart) {
+    return this.writeDesktop({ ...this.readDesktop(), autostart: safeObject(autostart) });
+  }
+
   migrateLegacyPreferences() {
     const tracker = this.read();
     const legacy = safeObject(tracker.trackerDesktop);
