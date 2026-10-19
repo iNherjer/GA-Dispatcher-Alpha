@@ -21,7 +21,7 @@
     if(options.skin === 'ipod') return root.GAMediaIPodUI.create(options);
     var host = options.host || document.body;
     var layer = document.createElement('div'); layer.className='ga-media-layer';
-    layer.innerHTML='<button class="ga-media-launcher" type="button" aria-label="Mediensteuerung öffnen" title="Mediensteuerung öffnen">𝄞</button>'+
+    layer.innerHTML='<button class="ga-media-launcher" type="button" aria-label="Mediensteuerung öffnen" title="Mediensteuerung öffnen"><svg class="ga-media-clef" viewBox="0 0 24 44" aria-hidden="true" focusable="false"><path d="M12.5 39c0 3.5-5 3.7-5.4.7-.3-2.2 2.6-3 3.7-1.3M11.4 40.5L14.2 5.6c.2-3.4 4.4-3 3.6 1.4-.8 4.6-10.6 9.4-11.2 17-.5 6.2 6.2 8.6 10.2 5.6 3.4-2.6 2.2-8.6-2.6-8.4-4 .2-5 5.4-1.6 6.6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'+
       '<section class="ga-media-device" role="region" aria-label="Winamp Mediensteuerung" hidden>'+
       '<header class="ga-media-header"><span class="ga-media-bolt" aria-hidden="true">ϟ</span><span class="ga-media-header-line"></span><span class="ga-media-brand">WINAMP</span><span class="ga-media-header-line"></span><button class="ga-media-close" type="button" aria-label="Mediensteuerung schließen">×</button></header>'+
       '<div class="ga-media-main"><div class="ga-media-display ga-media-clock"><div class="ga-media-clock-top"><svg class="ga-media-state-icon" viewBox="0 0 24 24" aria-hidden="true"></svg><svg class="ga-media-digits" viewBox="0 0 138 48" role="img" aria-label="Abspielzeit"></svg></div><div class="ga-media-signal"><span>PC AUDIO</span><div class="ga-media-leds" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div>'+

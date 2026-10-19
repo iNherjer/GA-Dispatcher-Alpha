@@ -58,6 +58,7 @@
 .ga-media-zoom-label output { color:#e2e2d1; font-size:11px; }
 .ga-media-footer-mark { font-size:30px; color:#efc66e; line-height:1; text-shadow:2px 1px #7a6232,-1px -1px #fff3bc; padding-right:5px; }
 .ga-media-launcher { width:58px; height:58px; border-radius:50%; background:linear-gradient(145deg,#514b65,#262135); color:#f3d985; border:2px solid #a4a0b6; box-shadow:inset 1px 1px #d2cfda66,inset -2px -2px #07080e,0 5px 12px #0007; font:36px/1 'Segoe UI Symbol','Apple Symbols',serif; cursor:grab; padding:0; }
+.ga-media-launcher .ga-media-clef { display:block; width:26px; height:46px; margin:0 auto; pointer-events:none; }
 .ga-media-device :focus-visible, .ga-media-launcher:focus-visible { outline:2px solid #f8dd84; outline-offset:3px; }
 .ga-media-settings { padding:8px 2px 12px; margin-bottom:10px; border-bottom:1px solid #555; color:#ddd; font:12px/1.4 Arial,sans-serif; }
 #mapVoiceMenu .ga-media-settings label { display:flex; align-items:center; flex-wrap:wrap; gap:7px; width:auto; min-width:0; margin:6px 0; box-sizing:border-box; }
