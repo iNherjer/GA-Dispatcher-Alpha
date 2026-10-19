@@ -37,6 +37,8 @@ vm.createContext(context);
     'escapeMSFSXml',
     'normalizeMSFSIdent',
     'isMSFSAirportIdent',
+    'resolveMSFSExportAirportIdent',
+    'getMSFSExportAirportRecord',
     'sanitizeMSFSWaypointId',
     'allocateMSFSUniqueIdent',
     '_msfsDms',
@@ -151,4 +153,55 @@ assert.deepEqual(tags(returnXml, 'ICAOIdent'), ['EDMA', 'EDNY', 'EDMA']);
 assert.deepEqual(tags(returnXml, 'DestinationName'), ['Augsburg']);
 assert.match(tags(returnXml, 'DestinationLLA')[0], /\+001515\.00$/);
 
-console.log('MSFS PLN export self-test passed (A-B, POI round trip, A-B-A return).');
+const database = JSON.parse(fs.readFileSync(new URL('../airports.json', import.meta.url), 'utf8'));
+context.getAirportFieldRecord = code => database[code] || null;
+assert.equal(context.resolveMSFSExportAirportIdent('OUR-317575', database['OUR-317575']), 'FBHU');
+assert.equal(context.resolveMSFSExportAirportIdent('OA-FFACA5FF', database['OA-FFACA5FF']), '', 'Pom Pom must not invent FBNO from its name');
+assert.equal(context.resolveMSFSExportAirportIdent('OUR-1'), '', 'short internal keys must not be sanitized into fake ICAOs');
+assert.equal(context.resolveMSFSExportAirportIdent('BW-0006'), '');
+assert.equal(context.resolveMSFSExportAirportIdent('OUR-1', { iata: 'MUB', aliases: ['FBNO'] }), '', 'IATA/arbitrary aliases are not simulator identity evidence');
+assert.equal(context.resolveMSFSExportAirportIdent('OUR-1', { msfsIdent: 'FBNO', icaoCode: 'FBNN' }), 'FBNO');
+
+let download;
+Object.assign(context, {
+    window: {}, Blob, alert: message => { throw Error(message); },
+    document: { getElementById: () => ({ value: '4500' }), createElement: () => ({ click() {} }) },
+    URL: { createObjectURL: blob => { download = blob; return 'blob:test'; }, revokeObjectURL() {} },
+    setTimeout: callback => callback(), closeTransferModal() {},
+    missionMSFSUsesSarHeliCustomDestination: () => false,
+    currentMissionData: { mission: 'Test Hunda', departureAirport: { ident: 'OUR-317575', altIdentifier: 'FBHU' } },
+    currentStartICAO: 'OUR-317575', currentDestICAO: 'FBMN', currentDepElev: 3150, currentDestElev: 3093,
+    currentSName: 'Hunda Airport', currentDName: 'Maun',
+    routeWaypoints: [
+        { lat: -19.4, lng: 22.7, name: 'Hunda', icao: 'OUR-317575' },
+        { lat: -19.5, lng: 22.8, name: 'Hunda pickup', icao: 'OUR-317575' },
+        { lat: -19.97, lng: 23.43, name: 'Maun', icao: 'FBMN' }
+    ]
+});
+const exportStart = boardSource.indexOf('window.exportMSFS = function()');
+const exportEnd = boardSource.indexOf('\n};', exportStart) + 3;
+vm.runInContext(boardSource.slice(exportStart, exportEnd), context);
+context.window.exportMSFS();
+const gpsXml = await download.text();
+assertValidXml(gpsXml, 'GPS alias export');
+assert.deepEqual(tags(gpsXml, 'DepartureID'), ['FBHU']);
+assert.deepEqual(tags(gpsXml, 'ICAOIdent'), ['FBHU', 'FBHU', 'FBMN']);
+assert.deepEqual(tags(gpsXml, 'ATCWaypointType'), ['Airport', 'Airport', 'Airport']);
+assert.equal(context.currentStartICAO, 'OUR-317575', 'export must not mutate mission identity');
+
+context.getAirportFieldRecord = () => null;
+context.window.exportMSFS();
+assert.deepEqual(tags(await download.text(), 'DepartureID'), ['FBHU'], 'restored mission metadata must resolve without loaded catalog');
+context.currentMissionData.departureAirport = null;
+context.currentStartICAO = 'OA-FFACA5FF';
+context.window.exportMSFS();
+const customXml = await download.text();
+assertValidXml(customXml, 'unknown simulator ident');
+assert.equal(tags(customXml, 'ATCWaypointType')[0], 'User');
+assert.match(tags(customXml, 'DepartureLLA')[0], /^S19/);
+assert.ok(!tags(customXml, 'ICAOIdent').includes('FBNO'));
+context.missionMSFSUsesSarHeliCustomDestination = () => true;
+context.window.exportMSFS();
+assert.equal(tags(await download.text(), 'ATCWaypointType').at(-1), 'User', 'SAR heli custom endpoint must remain a coordinate waypoint');
+
+console.log('MSFS PLN export self-test passed (A-B, POI, A-B-A, real GPS aliases, restored metadata, unknown IDs and SAR heli).');

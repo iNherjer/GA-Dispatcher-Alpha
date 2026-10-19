@@ -110,3 +110,57 @@ funktionieren; Cloud-Nutzungsrechte für aus dem Simulator gewonnene Daten sind
 nicht geklärt. Simulator-spezifische Aliase wie `FBNO` werden hier nicht erfunden
 oder aus Simulator-Daten importiert. Pom Pom bleibt vorhanden; die bekannte
 abweichende Höhe wird zur Prüfung protokolliert.
+
+## Gemeinsamer Missionspool und PLN-Export (19.10.2026)
+
+`collectMissionAirportPool()` führt den Gesamtkatalog und gehostete OpenAIP-
+Treffer für `findGithubAirport()`, `findBushAirport()` und
+`collectMissionProposalAirportCandidates()` zusammen. Die FAA-Ergänzung wird
+abgewartet. Das Vorhandensein gehosteter Kandidaten verhindert nicht mehr die
+Teilnahme lokaler Ergänzungen. Filter und die vorhandenen Bush-/Vorschlags-
+Gewichtungen bleiben bestehen. OurAirports liefert gröbere Typen als OpenAIP;
+etwa `small_airport` fällt in GA, nicht automatisch in den OpenAIP-Typ Strip.
+Fehlende Pistendaten sind keine Bestätigung der Flugzeugeignung.
+
+Die Zusammenführung bevorzugt die stabilen Schlüssel und Daten des lokalen
+Katalogs. Gleiche Quell-IDs oder gemeinsame Kennungen innerhalb einer NM im
+gleichen Land werden nur einmal aufgenommen; die zusätzlichen Kennungen bleiben
+als Aliase am Kandidaten erhalten, auch für den Startplatzausschluss. Es gibt
+keinen allgemeinen räumlichen Merge unterschiedlich benannter Nachbarplätze.
+Bei Ausfall einer Quelle arbeitet die andere weiter.
+
+Der Datei-Export in `board.js` löst interne IDs über vorhandene ICAO-, GPS- oder
+Lokalkennungen auf. Ein explizites `msfsIdent` hätte Vorrang. Das gilt für Start,
+Ziel und Zwischenlandeplätze und funktioniert an Endpunkten auch mit gespeicherten
+Missions-Metadaten ohne geladenen Gesamtkatalog. Interne IDs, Namen, IATA und
+beliebige Such-Aliase werden nicht zu Simulator-Kennungen umgedeutet. Ohne
+passende Kennung bleibt ein User-Wegpunkt mit Koordinaten erhalten. Interne
+Missions-IDs und SAR-Heli-Sonderziele werden nicht verändert.
+
+Dies betrifft den `.pln`-Dateiexport. Der separate native EFB-/Tracker-
+Flugplantransfer ist hier nicht verändert oder als verbessert abgenommen.
+Eine GPS-/Lokalkennung garantiert nicht, dass derselbe Platz in jeder Simulator-
+Installation vorhanden ist. Für Pom Pom fehlt weiterhin die separate
+Simulator-Kennung `FBNO`; sie wird durch diese Auflösung nicht erfunden.
+
+Prüfung:
+
+```sh
+node tools/mission-airport-pool-selftest.mjs
+node tools/msfs-pln-export-selftest.mjs
+node --test tools/mission-airport-pool-browser.test.cjs
+```
+
+Die Tests prüfen echte App-Funktionen einschließlich Online-Kandidaten neben
+lokalen Ergänzungen, Typ-/Entfernungs-/Richtungs-/Startfilter, Dubletten,
+Quellenausfälle, FAA-Ladefolge und den tatsächlichen Botswana-Katalog. Der
+Browsertest lädt die vollständige App und prüft zusätzliche Vorschlagskandidaten
+sowie den echten Downloadpfad mit `FBHU`, ohne die interne Hunda-ID zu ändern.
+Der XML-Test deckt A-B, POI-Rückkehr, Zwischenlandung, gespeicherte Metadaten,
+unbekannte Kennungen und SAR-Heli ab. Kein Live-KI- oder Simulatornachweis.
+
+Der ältere `mission-pipeline-dryrun.mjs` scheitert bereits im unveränderten
+Ausgangsstand am fehlenden Draft-Modul (`missionDraftSession`, `create`). Der
+bestehende Bush-Writer-Browsertest scheitert mit derselben `false !== true`-
+Assertion an Zeile 107 auch gegen den unveränderten Ausgangsstand. Beide
+Altfehler wurden abgegrenzt; sie werden durch diese Änderung nicht behoben.

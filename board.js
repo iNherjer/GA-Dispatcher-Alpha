@@ -2151,6 +2151,24 @@ function isMSFSAirportIdent(value) {
     return /^[A-Z0-9]{3,6}$/.test(ident) && !['GPS', 'POI', 'START', 'DEST', 'USER', 'CUSTOM'].includes(ident);
 }
 
+function resolveMSFSExportAirportIdent(value, record = null) {
+    const candidates = [record?.msfsIdent, record?.icaoCode, record?.icao_code,
+        record?.gpsCode, record?.gps_code, record?.altIdentifier,
+        record?.localCode, record?.local_code, record?.faa, value];
+    // Never guess a simulator identifier from an internal key, a name, or an arbitrary alias/IATA code.
+    return candidates.map(candidate => String(candidate || '').trim().toUpperCase())
+        .find(candidate => /^[A-Z0-9]{3,6}$/.test(candidate) && isMSFSAirportIdent(candidate)) || '';
+}
+
+function getMSFSExportAirportRecord(value) {
+    const code = String(value || '').trim().toUpperCase();
+    const mission = typeof currentMissionData !== 'undefined' ? currentMissionData : null;
+    const snapshot = [mission?.departureAirport, mission?.destinationAirport]
+        .find(record => String(record?.ident || record?.icao || '').trim().toUpperCase() === code);
+    const catalog = typeof getAirportFieldRecord === 'function' ? getAirportFieldRecord(code) : null;
+    return catalog ? { ...snapshot, ...catalog } : (snapshot || null);
+}
+
 function sanitizeMSFSWaypointId(value, fallback) {
     const cleaned = String(value || '')
         .normalize('NFKD')
@@ -2274,7 +2292,9 @@ function buildMSFSFlightPlanXml(options = {}) {
     waypoints.forEach((wp, i) => {
         const isFirst = i === 0;
         const isLast = i === waypoints.length - 1;
-        const explicitAirportIdent = normalizeMSFSIdent(wp?.icao || wp?.ident || wp?.airportIdent);
+        const rawAirportIdent = wp?.icao || wp?.ident || wp?.airportIdent;
+        const explicitAirportIdent = resolveMSFSExportAirportIdent(rawAirportIdent,
+            getMSFSExportAirportRecord(rawAirportIdent));
         const intermediateAirportIdent = !isFirst && !isLast && isMSFSAirportIdent(explicitAirportIdent)
             ? explicitAirportIdent
             : '';
@@ -2312,10 +2332,12 @@ window.exportMSFS = function() {
     const firstWp = routeWaypoints[0];
     const lastWp = routeWaypoints[routeWaypoints.length - 1];
     const sarHeliCustomDestination = missionMSFSUsesSarHeliCustomDestination(lastWp);
-    const departureAirport = isMSFSAirportIdent(currentStartICAO);
-    const destinationAirport = isMSFSAirportIdent(currentDestICAO) && !sarHeliCustomDestination;
-    const departureId = departureAirport ? normalizeMSFSIdent(currentStartICAO) : sanitizeMSFSWaypointId(firstWp?.name, 'START');
-    const destinationId = destinationAirport ? normalizeMSFSIdent(currentDestICAO) : sanitizeMSFSWaypointId(lastWp?.name, 'DEST');
+    const resolvedDepartureId = resolveMSFSExportAirportIdent(currentStartICAO, getMSFSExportAirportRecord(currentStartICAO));
+    const resolvedDestinationId = resolveMSFSExportAirportIdent(currentDestICAO, getMSFSExportAirportRecord(currentDestICAO));
+    const departureAirport = !!resolvedDepartureId;
+    const destinationAirport = !!resolvedDestinationId && !sarHeliCustomDestination;
+    const departureId = departureAirport ? resolvedDepartureId : sanitizeMSFSWaypointId(firstWp?.name, 'START');
+    const destinationId = destinationAirport ? resolvedDestinationId : sanitizeMSFSWaypointId(lastWp?.name, 'DEST');
     const depElevRaw = typeof currentDepElev !== 'undefined' ? currentDepElev : 0;
     const destElevRaw = typeof currentDestElev !== 'undefined' ? currentDestElev : 0;
     const depElevation = Number.isFinite(Number(depElevRaw)) ? Number(depElevRaw) : 0;

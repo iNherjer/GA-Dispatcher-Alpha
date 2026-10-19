@@ -160,6 +160,18 @@ Verantwortlichkeiten:
 | Verlade-Manager | Items, Signatur und Bestaetigung als Gates ausfuehren | Erfolg ohne Core-Gates freigeben |
 | Scene / Voice | sichtbaren und erzaehlerischen Ablauf darstellen | fachlichen Missionserfolg setzen |
 
+### Gemeinsamer Flugplatzpool (19.10.2026)
+
+Flugplatzauswahl ab 19.10.2026: normale APT-Ziele, Bush-Ziele und KI-Vorschläge
+verwenden denselben Pool aus Gesamtkatalog inklusive OurAirports/FAA und
+zusätzlichen gehosteten OpenAIP-Treffern. Die lokale Ergänzung wird auch bei
+gefülltem OpenAIP-Pool berücksichtigt. Typ, Entfernung, Richtung, Region und
+Startplatzausschluss bleiben verpflichtend; Bush-Scoring und Vorschlagsranking
+werden danach unverändert angewendet. Quell-ID beziehungsweise nahe eindeutige
+Kennungen verhindern Mehrfachgewichtung desselben Platzes; entfernte
+Kennungskollisionen werden nicht zusammengeführt. Details und Tests:
+[Airport Data Import](Airport%20Data%20Import.md).
+
 ### 1.1 Private Generierung vor dem Missionsstart (V6.3)
 
 Release dieser Erweiterung: App-Cache `ga-dispatcher-v1760`, Tracker Alpha v404.

@@ -11262,6 +11262,8 @@ function buildAirportDispatchRecord(icao, apt = {}) {
         icaoCode: airportRealIcao({ ...apt, icao: code }),
         altIdentifier: apt?.altIdentifier || apt?.designator || '',
         sourceId: apt?.sourceId || apt?.id || apt?._id || '',
+        ourAirportsId: apt?.ourAirportsId || '',
+        ourAirportsIdent: apt?.ourAirportsIdent || '',
         aliasOf: apt?.aliasOf || '',
         aliases,
         type: apt?.type ?? '',
@@ -11360,28 +11362,56 @@ async function getAirportData(icao) {
 }
 window.getAirportData = getAirportData;
 
+async function collectMissionAirportPool(lat, lon, maxNM, regionPref = 'any') {
+    const [hostedAirports] = await Promise.all([
+        fetchOpenAipDispatchAirports(lat, lon, maxNM, regionPref).catch(() => []),
+        loadGlobalAirports().catch(() => {})
+    ]);
+    // FAA entries are also part of the catalog, not a later source-specific fallback.
+    if (faaLocalAirportsSupplementPromise) await faaLocalAirportsSupplementPromise.catch(() => {});
+    const pool = [];
+    const sources = new Map();
+    const identifiers = new Map();
+    const append = (apt, fallbackCode = '') => {
+        if (!apt || apt.aliasOf) return;
+        const code = normalizeAirportIdent(fallbackCode || apt.icao || openAipAirportStableIdent(apt));
+        const pointLat = Number(apt.lat), pointLon = Number(apt.lon);
+        if (!code || apt.lat == null || apt.lon == null || !Number.isFinite(pointLat) || !Number.isFinite(pointLon)) return;
+        if (Math.abs(pointLat) > 90 || Math.abs(pointLon) > 180) return;
+        const nav = calcNav(lat, lon, pointLat, pointLon);
+        if (!Number.isFinite(nav.dist) || nav.dist > maxNM) return;
+        const sourceKeys = [apt.sourceId ? `openaip:${apt.sourceId}` : '',
+            apt.ourAirportsId ? `ourairports:${apt.ourAirportsId}` : ''].filter(Boolean);
+        const codes = Array.from(new Set([code, apt.icaoCode, apt.icao_code, apt.gpsCode, apt.gps_code,
+            apt.localCode, apt.local_code, apt.faa, apt.altIdentifier, ...(apt.aliases || [])]
+            .map(normalizeAirportIdent).filter(Boolean)));
+        // Sources can share codes. A code alone must not merge geographically distinct places.
+        const duplicate = sourceKeys.map(key => sources.get(key)).find(Boolean) || codes.flatMap(key => (
+            identifiers.get(key) || []
+        )).find(existing => (
+                (!apt.country || !existing.country || apt.country === existing.country)
+                && calcNav(pointLat, pointLon, existing.lat, existing.lon).dist <= 1
+        ));
+        const record = duplicate || buildAirportDispatchRecord(code, apt);
+        if (duplicate) record.aliases = Array.from(new Set([...record.aliases, ...codes]));
+        else pool.push(record);
+        sourceKeys.forEach(key => sources.set(key, record));
+        codes.forEach(key => {
+            if (!identifiers.has(key)) identifiers.set(key, []);
+            identifiers.get(key).push(record);
+        });
+    };
+    // The shipped catalog keeps its stable keys, classifications and known aliases.
+    for (const [key, apt] of Object.entries(globalAirports || {})) append(apt, key);
+    hostedAirports.forEach(apt => append(apt));
+    return pool;
+}
+
 async function findGithubAirport(lat, lon, minNM, maxNM, dirPref, regionPref) {
     const selectedTypes = getSelectedMissionAirportTypeIds();
-    const hostedAirports = await fetchOpenAipDispatchAirports(lat, lon, maxNM, regionPref);
-    const hostedCandidates = [];
-    for (const apt of hostedAirports) {
-        if (!apt || airportIdentMatches(apt, currentStartICAO)) continue;
-        if (!missionAirportMatchesTypeFilter(apt, selectedTypes)) continue;
-        const navCalc = calcNav(lat, lon, apt.lat, apt.lon);
-        if (navCalc.dist >= minNM && navCalc.dist <= maxNM && checkBearing(navCalc.brng, dirPref)) {
-            hostedCandidates.push(buildAirportDispatchRecord(apt.icao, apt));
-        }
-    }
-    if (hostedCandidates.length > 0) {
-        return hostedCandidates[Math.floor(Math.random() * hostedCandidates.length)];
-    }
-
-    await loadGlobalAirports();
-    if (!globalAirports || Object.keys(globalAirports).length === 0) return null;
-
+    const airports = await collectMissionAirportPool(lat, lon, maxNM, regionPref);
     let validAirports = [];
-    for (const key in globalAirports) {
-        const apt = globalAirports[key];
+    for (const apt of airports) {
         if (!apt || apt.aliasOf || airportIdentMatches(apt, currentStartICAO)) continue;
         if (!_airportMatchesRegionPref(apt, regionPref)) continue;
         if (!missionAirportMatchesTypeFilter(apt, selectedTypes)) continue;
@@ -11411,15 +11441,8 @@ async function findBushAirport(lat, lon, minNM, maxNM, dirPref, regionPref) {
         });
     };
 
-    const hostedAirports = await fetchOpenAipDispatchAirports(lat, lon, maxNM, regionPref);
-    hostedAirports.forEach(appendBushCandidate);
-
-    if (!rawCandidates.length) {
-        await loadGlobalAirports();
-        for (const key in (globalAirports || {})) {
-            appendBushCandidate(globalAirports[key]);
-        }
-    }
+    const airports = await collectMissionAirportPool(lat, lon, maxNM, regionPref);
+    airports.forEach(appendBushCandidate);
     if (!rawCandidates.length) return null;
     const preferred = rawCandidates.filter(c => c.bushScore >= 2);
     const source = preferred.length ? preferred : rawCandidates;
@@ -42679,20 +42702,13 @@ async function collectMissionProposalAirportCandidates({ start, minNM, maxNM, di
         out.push(record);
     };
 
-    const hostedAirports = await fetchOpenAipDispatchAirports(
+    const airports = await collectMissionAirportPool(
         Number(start.lat),
         Number(start.lon),
         Math.max(Number(maxNM) || 0, 90),
         regionPref
     );
-    hostedAirports.forEach(apt => appendCandidate(apt));
-
-    if (out.length < Math.max(3, Number(limit) || 16)) {
-        await loadGlobalAirports();
-        for (const [icao, apt] of Object.entries(globalAirports || {})) {
-            appendCandidate(apt, icao);
-        }
-    }
+    airports.forEach(apt => appendCandidate(apt));
     return out
         .sort((a, b) => b._proposalScore - a._proposalScore)
         .slice(0, Math.max(0, Number(limit) || 16));
