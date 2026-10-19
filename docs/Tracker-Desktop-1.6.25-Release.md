@@ -21,3 +21,8 @@ der Medien-Helfer einen anderen Wert meldete.
 
 - 120 Desktop-Tests (117 bestanden, 3 Windows-only übersprungen), neu: Speicherung
   und Wiederherstellung der Restlautstärke, 1-s-Fortsetzen.
+
+## Aktivierung (19.10.2026)
+
+Öffentlicher Download geprüft (100280752 Bytes, SHA-512 wie `latest.yml`, Blockmap identisch).
+`latest.yml` und `alpha.yml` aktiviert.
