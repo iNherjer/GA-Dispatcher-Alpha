@@ -1,7 +1,7 @@
-## Watch-Uhr – Alpha-Rollout Tracker v569 / Web v2161 (19.10.2026)
+## Watch-Uhr – Alpha-Rollout Tracker v569 / Web v2162 (19.10.2026)
 
 Nutzer beauftragt die Veröffentlichung des geprüften lokalen Watch-Standes.
-Tracker v569 liefert Host-Assetrevision 56901; die Webapp Cache v2161.
+Tracker v569 liefert Host-Assetrevision 56901; die Webapp Cache v2162 (Aktivierungs-Push).
 Uhransicht, Skin-Registry, gemeinsame Zeitmessung, Sekunden-Krone und Longpress-
 Schließen werden gemeinsam ausgeliefert. Das bestehende EFB-/Toolbar-Community-
 Paket lädt die neuen Oberflächen aus dem Tracker; kein neuer SDK-Paketbau nötig.

@@ -1,4 +1,4 @@
-# Tracker v569 Alpha / Web v2161 – Watch-Uhr
+# Tracker v569 Alpha / Web v2162 – Watch-Uhr
 
 Watch mit analogem Zifferblatt, regionaler Uhrzeit, Tages-/Nachtring,
 Wettertemperatur und Luftdruck. Anzeige → Zeit → Uhr wählt klassische Stoppuhr
@@ -7,7 +7,7 @@ bestehenden dedizierten Uhr; Vollbild-Zeitmessung, Sekunden per Krone,
 flüssige Zehntelsekunden und 700-ms-Zurück-Halten zum Schließen.
 Watch-Buttons behalten ihr Design auch unter Win95.
 
-Tracker v569, EFB-Assetrevision 56901, Web-Cache v2161. Bestehendes SDK-
+Tracker v569, EFB-Assetrevision 56901, Web-Cache v2162. Bestehendes SDK-
 Community-Paket und Desktop-Installer unverändert. Nur Tracker-Alpha umstellen.
 
 Validierung: 45 Node-Tests und 2 lokale Medienprotokolltests; Watch-/Webapp-,
@@ -22,3 +22,6 @@ exakte eingebettete Watch-/Uhr-/Utility-/SunCalc-Assets geprüft; Asset-Sync gr�
 Keine Windows-Ausführung auf diesem Mac.
 
 EXE: 174136913 Bytes; SHA-256 `2e1509369efea7258fde5e368419661c05751c7862b74b7a33839f097bc83a33`.
+
+Release-Asset öffentlich erneut heruntergeladen: Größe und SHA-256 stimmen
+exakt überein. Alpha wird auf v569 aktiviert; Aktivierungs-Push mit Cache v2162.
