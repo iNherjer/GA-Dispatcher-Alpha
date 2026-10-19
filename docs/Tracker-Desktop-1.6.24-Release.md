@@ -20,3 +20,8 @@ Kein Joystick am Testsystem (`joysticks found=0` korrekt).
 ## Prüfung
 
 - 118 Desktop-Tests (115 bestanden, 3 Windows-only übersprungen).
+
+## Aktivierung (19.10.2026)
+
+Öffentlicher Download geprüft (100280314 Bytes, SHA-512 wie `latest.yml`, Blockmap identisch).
+`latest.yml` und `alpha.yml` aktiviert.
