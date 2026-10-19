@@ -25,4 +25,8 @@ Weltkarten-Zustand, echten Open-Meteo-Daten und FIS/TMA-D-Band geprüft. Reale
 MSFS-/Coherent-/VR-Abnahme (insbesondere Wolkendarstellung) offen.
 
 Windows-x64-EXE mit pkg/Node18 ohne Bytecode aus sauberem Release-Worktree
-gebaut. Assetrevision 56801, Web-Cache v2160.
+gebaut: 174088744 Bytes, SHA-256
+`24655e12e5e12f2da83316eb7730273fe800975984eb68e7d7b00fe15769f420`.
+Assetrevision 56801, Web-Cache v2160. Release v568 veröffentlicht; öffentlicher
+EXE-Download größen- und SHA-256-gleich verifiziert. Alpha aktiviert, Stable
+unverändert. Kein Community-Paket- oder Desktop-Update nötig. Quellstand `4e054926f`.
