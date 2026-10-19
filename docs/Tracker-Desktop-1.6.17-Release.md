@@ -38,3 +38,10 @@ Basis: `origin/main` `9fb245791`. Tracker-Runtime unverändert (`tracker.js` nic
   `channel/desktop/latest.yml` stoppt nur die weitere Verteilung von 1.6.17, stuft
   bereits aktualisierte Installationen aber nicht automatisch herunter. Für einen
   automatischen Rückweg wäre eine neue Version (1.6.18 mit dem Stand von 1.6.16) nötig.
+
+## Aktivierung (19.10.2026)
+
+Release `tracker-desktop-v1.6.17` veröffentlicht; öffentlicher Download geprüft
+(100262066 Bytes, SHA-512 wie `latest.yml`, Blockmap identisch). `latest.yml` und
+`alpha.yml` auf Nutzerwunsch aktiviert. Windows-Installations- und Feldtest stehen
+noch aus.
