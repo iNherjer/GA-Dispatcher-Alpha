@@ -28,3 +28,8 @@ nur der Dateiname der gestarteten EXE bekannt war.
   Argumenten und Steam-URL.
 - Kontextmenü im Browser mit dem echten UI geprüft (Öffnen, Position, Schließen).
 - Offen: Windows-Feldtest mit echtem Launcher und Steam-Argumenten.
+
+## Aktivierung (19.10.2026)
+
+Öffentlicher Download geprüft (100264808 Bytes, SHA-512 wie `latest.yml`, Blockmap identisch).
+`latest.yml` und `alpha.yml` aktiviert. Windows-Feldtest steht noch aus.
