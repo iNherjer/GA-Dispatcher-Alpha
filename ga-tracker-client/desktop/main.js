@@ -734,8 +734,17 @@ async function startApplication() {
   homebaseManager.on('state', (state) => broadcastManagedModuleState('homebase', state));
   efbPackageManager.on('state', (state) => broadcastManagedModuleState('efb', state));
   bridgeManager.on('state', (state) => broadcastManagedModuleState('bridge', state));
+  // Eigenes Autostart-Log neben dem Tracker-Log; wird ab 512 KB neu begonnen.
+  const autostartLogPath = path.join(configStore.dataDirectory, 'autostart-log.txt');
   autostartLauncher = new AutostartLauncher({
     configStore,
+    getSimConnectState: () => trackerProcess?.status || null,
+    log: (line) => {
+      try {
+        if (fs.existsSync(autostartLogPath) && fs.statSync(autostartLogPath).size > 512 * 1024) fs.writeFileSync(autostartLogPath, '');
+        fs.appendFileSync(autostartLogPath, `[${new Date().toISOString()}] ${line}\n`);
+      } catch (_) {}
+    },
     openExternal: (url) => shell.openExternal(url),
     resolveShortcut: (file) => {
       try {

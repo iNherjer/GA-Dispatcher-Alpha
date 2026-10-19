@@ -15,6 +15,10 @@ const SIM_POLL_MS = 15000;
 // Steam/Store brauchen teils Minuten bis der Sim-Prozess erscheint.
 const SIM_APPEAR_POLLS = 60;
 const SIM_GONE_POLLS = 2;
+// Zweite Stufe: startet erst, wenn SimConnect verbunden ist und Daten liefert.
+const SIMCONNECT_POLL_MS = 2000;
+const SIMCONNECT_STABLE_POLLS = 5;
+const SIMCONNECT_MAX_POLLS = 900;
 
 // Bekannte Simulatoren. Steam-App-ID, Store-Paketname und Prozessname dienen
 // nur der Erkennung und dem Start; geschlossen wird ein Simulator nie automatisch.
@@ -61,7 +65,7 @@ function normalizeEntry(raw) {
     if (!simulator || !source || !launchTarget) return null;
     // Startargumente gibt es nur ueber Steam; der Store-Start nimmt keine an.
     const args = source === 'steam' ? cleanText(entry.args, 512) : '';
-    return { ...base, name: cleanText(entry.name, 120) || simulator.label, simId: simulator.id, source, launchTarget, args, imageName: simulator.imageName, admin: false };
+    return { ...base, name: cleanText(entry.name, 120) || simulator.label, simId: simulator.id, source, launchTarget, args, imageName: simulator.imageName, admin: false, stage: 'start' };
   }
   const target = cleanText(entry.path, 1024);
   if (!target || !path.win32.isAbsolute(target)) return null;
@@ -71,7 +75,9 @@ function normalizeEntry(raw) {
     args: cleanText(entry.args, 2048),
     cwd: cleanText(entry.cwd, 1024),
     imageName: imageNameFor(target),
-    admin: entry.admin === true
+    admin: entry.admin === true,
+    minimized: entry.minimized === true,
+    stage: entry.stage === 'simconnect' ? 'simconnect' : 'start'
   };
 }
 
@@ -99,14 +105,63 @@ function psQuote(value) {
   return `'${String(value).replace(/'/g, "''")}'`;
 }
 
-function startProcessCommand({ file, args = '', cwd = '', admin = false }) {
+function startProcessParts({ file, args = '', cwd = '', minimized = false }) {
   const parts = [`Start-Process -FilePath ${psQuote(file)}`];
   if (args) parts.push(`-ArgumentList ${psQuote(args)}`);
   if (cwd) parts.push(`-WorkingDirectory ${psQuote(cwd)}`);
+  if (minimized) parts.push('-WindowStyle Minimized');
+  return parts;
+}
+
+function startProcessCommand({ file, args = '', cwd = '', admin = false, minimized = false }) {
+  const parts = startProcessParts({ file, args, cwd, minimized });
   if (admin) parts.push('-Verb RunAs');
   // -PassThru liefert die Prozess-ID, damit auch Kindprozesse eines Launchers
   // spaeter zugeordnet werden koennen.
   return `$ErrorActionPreference='Stop'; $p = ${parts.join(' ')} -PassThru; if ($p) { $p.Id }`;
+}
+
+// Admin-Programme laufen ueber je zwei feste Windows-Aufgaben (Start/Stop) mit
+// hoechsten Rechten, einmalig mit UAC angelegt. Die Aktion ist beim Anlegen fest
+// eingetragen; zur Laufzeit wird nichts uebergeben, daher reichen die Aufgaben
+// keine Rechte an beliebige Befehle weiter.
+const TASK_PATH = '\\VFR Multitool\\';
+
+function encodedPowerShell(command) {
+  return Buffer.from(command, 'utf16le').toString('base64');
+}
+
+function adminTaskSpec(entry) {
+  const folder = ownedFolderFor(entry.path);
+  const start = startProcessParts({ file: entry.path, args: entry.args, cwd: entry.cwd, minimized: entry.minimized }).join(' ');
+  const match = `$_.ExecutablePath -and ($_.ExecutablePath -ieq ${psQuote(entry.path)}${folder ? ` -or $_.ExecutablePath.StartsWith(${psQuote(folder)}, [StringComparison]::OrdinalIgnoreCase)` : ''})`;
+  const stop = `$ids = @(Get-CimInstance Win32_Process | Where-Object { ${match} } | ForEach-Object { $_.ProcessId }); `
+    + 'foreach ($id in $ids) { taskkill.exe /PID $id /T | Out-Null }; Start-Sleep -Seconds 5; '
+    + 'foreach ($id in $ids) { if (Get-Process -Id $id -ErrorAction SilentlyContinue) { taskkill.exe /PID $id /T /F | Out-Null } }';
+  const signature = 'vfr-autostart:' + crypto.createHash('sha256').update(start + '\n' + stop).digest('hex').slice(0, 24);
+  return { id: entry.id, startName: `Autostart-${entry.id}-start`, stopName: `Autostart-${entry.id}-stop`, start, stop, signature };
+}
+
+function adminTaskSetupScript(specs, staleNames = []) {
+  const lines = [
+    "$ErrorActionPreference = 'Stop'",
+    '$principal = New-ScheduledTaskPrincipal -UserId ([Security.Principal.WindowsIdentity]::GetCurrent().Name) -LogonType Interactive -RunLevel Highest',
+    '$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit 0 -MultipleInstances IgnoreNew'
+  ];
+  for (const name of staleNames) {
+    lines.push(`Unregister-ScheduledTask -TaskPath ${psQuote(TASK_PATH)} -TaskName ${psQuote(name)} -Confirm:$false -ErrorAction SilentlyContinue`);
+  }
+  for (const spec of specs) {
+    for (const [name, command] of [[spec.startName, spec.start], [spec.stopName, spec.stop]]) {
+      const action = `New-ScheduledTaskAction -Execute 'powershell.exe' -Argument ${psQuote(`-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand ${encodedPowerShell(command)}`)}`;
+      lines.push(`Register-ScheduledTask -TaskPath ${psQuote(TASK_PATH)} -TaskName ${psQuote(name)} -Action (${action}) -Principal $principal -Settings $settings -Description ${psQuote(spec.signature)} -Force | Out-Null`);
+    }
+  }
+  return lines.join('; ');
+}
+
+function isAccessDenied(error) {
+  return /access is denied|zugriff verweigert|accès refusé|acceso denegado/i.test(`${error?.stderr || ''} ${error?.message || ''}`);
 }
 
 const PROCESS_SNAPSHOT_COMMAND = "Get-CimInstance Win32_Process | ForEach-Object { '{0}|{1}|{2}' -f $_.ProcessId,$_.ParentProcessId,$_.ExecutablePath }";
@@ -194,7 +249,9 @@ class AutostartLauncher extends EventEmitter {
     resolveShortcut = () => null,
     getFileIcon = async () => '',
     sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-    createId = () => crypto.randomUUID()
+    createId = () => crypto.randomUUID(),
+    log = () => {},
+    getSimConnectState = () => null
   } = {}) {
     super();
     if (!configStore) throw new Error('configStore fehlt.');
@@ -207,6 +264,11 @@ class AutostartLauncher extends EventEmitter {
     this.getFileIcon = getFileIcon;
     this.sleep = sleep;
     this.createId = createId;
+    this.log = (line) => { try { log(line); } catch (_) {} };
+    this.adminLaunched = new Set();
+    this.getSimConnectState = getSimConnectState;
+    this.stageToken = 0;
+    this.adminTasksReady = new Set();
     this.icons = new Map();
     this.ownedImageNames = new Set();
     this.ownedRoots = new Set();
@@ -246,6 +308,8 @@ class AutostartLauncher extends EventEmitter {
         enabled: entry.enabled,
         admin: entry.admin,
         args: entry.args || '',
+        minimized: entry.minimized === true,
+        stage: entry.stage,
         argsSupported: entry.kind === 'program' || entry.source === 'steam',
         delaySeconds: entry.delaySeconds,
         icon: this.icons.get(entry.id) || ''
@@ -313,6 +377,7 @@ class AutostartLauncher extends EventEmitter {
         cwd,
         enabled: true,
         admin: false,
+        stage: 'start',
         delaySeconds: DEFAULT_DELAY_SECONDS
       });
     }
@@ -335,6 +400,8 @@ class AutostartLauncher extends EventEmitter {
         ...existing,
         enabled: typeof item.enabled === 'boolean' ? item.enabled : existing.enabled,
         admin: existing.kind === 'program' && typeof item.admin === 'boolean' ? item.admin : existing.admin,
+        minimized: existing.kind === 'program' && typeof item.minimized === 'boolean' ? item.minimized : existing.minimized,
+        stage: existing.kind === 'program' && (item.stage === 'simconnect' || item.stage === 'start') ? item.stage : existing.stage,
         args: typeof item.args === 'string' && (existing.kind === 'program' || existing.source === 'steam')
           ? cleanText(item.args, existing.kind === 'program' ? 2048 : 512) : existing.args,
         delaySeconds: item.delaySeconds === undefined ? existing.delaySeconds : clampDelay(item.delaySeconds)
@@ -423,6 +490,61 @@ class AutostartLauncher extends EventEmitter {
     return { ok: true };
   }
 
+  async readAdminTasks() {
+    try {
+      const text = await execFileText(this.execFileImpl, 'powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+        `Get-ScheduledTask -TaskPath ${psQuote(TASK_PATH)} -ErrorAction SilentlyContinue | ForEach-Object { $_.TaskName + '|' + $_.Description }`], 20000);
+      const tasks = new Map();
+      for (const line of text.split(/\r?\n/)) {
+        const [name, description = ''] = line.trim().split('|');
+        if (name) tasks.set(name, description);
+      }
+      return tasks;
+    } catch (_) {
+      return new Map();
+    }
+  }
+
+  // Legt fehlende oder veraltete Aufgaben mit einer einzigen UAC-Abfrage an und
+  // entfernt dabei Aufgaben geloeschter Eintraege. Abgelehnt: Start mit RunAs.
+  async ensureAdminTasks(entries) {
+    const specs = entries.filter((entry) => entry.kind === 'program' && entry.admin).map(adminTaskSpec);
+    this.adminTasksReady = new Set();
+    let tasks = await this.readAdminTasks();
+    const known = new Set(this.settings().entries.filter((entry) => entry.admin).map((entry) => entry.id));
+    const stale = [...tasks.keys()].filter((name) => {
+      const match = name.match(/^Autostart-(.+)-(start|stop)$/);
+      return match && !known.has(match[1]);
+    });
+    const outdated = specs.filter((spec) => tasks.get(spec.startName) !== spec.signature || tasks.get(spec.stopName) !== spec.signature);
+    if (outdated.length) {
+      this.log(`AUTOSTART_TASK_SETUP create=${outdated.length} remove=${stale.length}`);
+      // Windows begrenzt die Kommandozeile auf 32767 Zeichen; sehr viele
+      // Admin-Eintraege werden daher auf mehrere Abfragen verteilt.
+      const batches = [];
+      for (const spec of outdated) {
+        const last = batches[batches.length - 1];
+        if (last && encodedPowerShell(adminTaskSetupScript(last.concat(spec), stale)).length < 26000) last.push(spec);
+        else batches.push([spec]);
+      }
+      for (const [index, batch] of batches.entries()) {
+        const script = encodedPowerShell(adminTaskSetupScript(batch, index === 0 ? stale : []));
+        try {
+          await execFileText(this.execFileImpl, 'powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+            `$p = Start-Process -FilePath 'powershell.exe' -Verb RunAs -Wait -PassThru -WindowStyle Hidden -ArgumentList '-NoProfile','-NonInteractive','-EncodedCommand','${script}'; exit $p.ExitCode`], 180000);
+        } catch (error) {
+          this.log(`AUTOSTART_TASK_SETUP_FAILED error=${cleanText(error?.message, 200)}`);
+          break;
+        }
+      }
+      tasks = await this.readAdminTasks();
+    }
+    for (const spec of specs) {
+      if (tasks.get(spec.startName) === spec.signature && tasks.get(spec.stopName) === spec.signature) this.adminTasksReady.add(spec.id);
+    }
+    this.log(`AUTOSTART_TASK_READY ready=${this.adminTasksReady.size} admin=${specs.length}`);
+  }
+
   async processSnapshot() {
     try {
       const snapshot = parseProcessSnapshot(await execFileText(this.execFileImpl, 'powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', PROCESS_SNAPSHOT_COMMAND], 20000));
@@ -456,9 +578,14 @@ class AutostartLauncher extends EventEmitter {
       return;
     }
     if (!this.fs.existsSync(entry.path)) throw new Error('Datei nicht gefunden.');
+    if (entry.admin && this.adminTasksReady.has(entry.id)) {
+      await execFileText(this.execFileImpl, 'schtasks.exe', ['/Run', '/TN', `${TASK_PATH}${adminTaskSpec(entry).startName}`]);
+      this.adminLaunched.add(entry.id);
+      return 0;
+    }
     const output = await execFileText(this.execFileImpl, 'powershell.exe', [
       '-NoProfile', '-NonInteractive', '-Command',
-      startProcessCommand({ file: entry.path, args: entry.args, cwd: entry.cwd, admin: entry.admin })
+      startProcessCommand({ file: entry.path, args: entry.args, cwd: entry.cwd, admin: entry.admin, minimized: entry.minimized })
     ], 60000);
     const pid = Number(String(output).trim().split(/\s+/).pop());
     return Number.isInteger(pid) && pid > 0 ? pid : 0;
@@ -474,48 +601,109 @@ class AutostartLauncher extends EventEmitter {
     this.emitState();
   }
 
+  async launchOne(entry) {
+    this.setRun({ currentId: entry.id });
+    const running = entry.imageName ? await this.runningImageNames() : new Set();
+    if (entry.imageName && running.has(entry.imageName.toLowerCase())) {
+      this.setResult(entry.id, 'skipped');
+      this.log(`AUTOSTART_SKIPPED entry=${entry.name} reason=already-running`);
+      return true;
+    }
+    try {
+      const pid = await this.launchEntry(entry);
+      if (entry.kind === 'program') {
+        if (entry.imageName) this.ownedImageNames.add(entry.imageName);
+        if (pid) this.ownedRoots.add(pid);
+        this.log(`AUTOSTART_STARTED entry=${entry.name} pid=${pid || (this.adminLaunched.has(entry.id) ? 'task' : 'unknown')} admin=${entry.admin ? 1 : 0} minimized=${entry.minimized ? 1 : 0} stage=${entry.stage}`);
+        const folder = ownedFolderFor(entry.path);
+        if (folder) this.ownedFolders.add(folder);
+      }
+      this.setResult(entry.id, 'started');
+      return true;
+    } catch (error) {
+      this.setResult(entry.id, 'failed');
+      this.log(`AUTOSTART_FAILED entry=${entry.name} error=${cleanText(error?.message, 200)}`);
+      return false;
+    }
+  }
+
+  async launchSequence(entries) {
+    let failed = 0;
+    for (let index = 0; index < entries.length; index += 1) {
+      if (!(await this.launchOne(entries[index]))) failed += 1;
+      if (index < entries.length - 1 && entries[index].delaySeconds > 0) await this.sleep(entries[index].delaySeconds * 1000);
+    }
+    return failed;
+  }
+
+  static failureMessage(failed) {
+    return failed
+      ? `${failed} Programm${failed === 1 ? '' : 'e'} konnte${failed === 1 ? '' : 'n'} nicht gestartet werden.`
+      : 'Alle Programme wurden gestartet.';
+  }
+
   async launchAll() {
     if (this.platform !== 'win32') return { ok: false, message: 'Autostart ist nur unter Windows verfügbar.' };
     if (this.run.phase === 'running') return { ok: false, message: 'Der Autostart läuft bereits.' };
+    if (this.run.phase === 'waiting') return { ok: false, message: 'Der Autostart wartet noch auf SimConnect.' };
     const settings = this.settings();
     if (!settings.enabled) return { ok: false, message: 'Autostart ist ausgeschaltet.' };
     const entries = settings.entries.filter((entry) => entry.enabled);
+    const first = entries.filter((entry) => entry.stage !== 'simconnect');
+    const later = entries.filter((entry) => entry.stage === 'simconnect');
     this.setRun({ phase: 'running', currentId: '', results: {}, message: '' });
-    let failed = 0;
+    this.log(`AUTOSTART_LAUNCH entries=${first.map((entry) => entry.name).join(', ')} simconnect=${later.map((entry) => entry.name).join(', ') || 'none'}`);
+    if (entries.some((entry) => entry.kind === 'program' && entry.admin)) await this.ensureAdminTasks(entries);
     if (!this.baselinePids && entries.some((entry) => entry.kind === 'program')) {
       const snapshot = await this.processSnapshot();
       if (snapshot) this.baselinePids = new Set(snapshot.keys());
     }
-    for (let index = 0; index < entries.length; index += 1) {
-      const entry = entries[index];
-      this.setRun({ currentId: entry.id });
-      const running = entry.imageName ? await this.runningImageNames() : new Set();
-      if (entry.imageName && running.has(entry.imageName.toLowerCase())) {
-        this.setResult(entry.id, 'skipped');
-        continue;
-      }
-      try {
-        const pid = await this.launchEntry(entry);
-        if (entry.kind === 'program') {
-          if (entry.imageName) this.ownedImageNames.add(entry.imageName);
-          if (pid) this.ownedRoots.add(pid);
-          const folder = ownedFolderFor(entry.path);
-          if (folder) this.ownedFolders.add(folder);
-        }
-        this.setResult(entry.id, 'started');
-      } catch (_) {
-        failed += 1;
-        this.setResult(entry.id, 'failed');
-      }
-      if (index < entries.length - 1 && entry.delaySeconds > 0) await this.sleep(entry.delaySeconds * 1000);
-    }
-    const simEntry = entries.find((entry) => entry.kind === 'sim' && entry.imageName);
+    const failed = await this.launchSequence(first);
+    const simEntry = first.find((entry) => entry.kind === 'sim' && entry.imageName);
     if (simEntry && this.run.results[simEntry.id] !== 'failed') void this.watchSimulator(simEntry.imageName);
-    const message = failed
-      ? `${failed} Programm${failed === 1 ? '' : 'e'} konnte${failed === 1 ? '' : 'n'} nicht gestartet werden.`
-      : 'Alle Programme wurden gestartet.';
+    const message = AutostartLauncher.failureMessage(failed);
+    if (later.length) {
+      this.setRun({ phase: 'waiting', currentId: '', message: 'Wartet auf SimConnect …' });
+      void this.launchAfterSimConnect(later, failed);
+      return { ok: failed === 0, message, waiting: later.length };
+    }
     this.setRun({ phase: 'done', currentId: '', message });
     return { ok: failed === 0, message };
+  }
+
+  // SimConnect gilt als bereit, wenn der Tracker verbunden ist und Daten
+  // liefert (live oder Ruhemodus), und zwar ueber mehrere Abfragen stabil.
+  simConnectReady() {
+    const state = this.getSimConnectState() || {};
+    return state.simulator === 'connected' && ['live', 'hibernate'].includes(state.telemetry);
+  }
+
+  async launchAfterSimConnect(entries, failedBefore = 0) {
+    const token = ++this.stageToken;
+    let stable = 0;
+    for (let poll = 0; poll < SIMCONNECT_MAX_POLLS; poll += 1) {
+      if (this.stageToken !== token) return;
+      stable = this.simConnectReady() ? stable + 1 : 0;
+      if (stable >= SIMCONNECT_STABLE_POLLS) break;
+      await this.sleep(SIMCONNECT_POLL_MS);
+    }
+    if (this.stageToken !== token) return;
+    if (stable < SIMCONNECT_STABLE_POLLS) {
+      for (const entry of entries) this.setResult(entry.id, 'skipped');
+      this.log('AUTOSTART_SIMCONNECT_TIMEOUT');
+      this.setRun({ phase: 'done', currentId: '', message: 'SimConnect wurde nicht bereit, die wartenden Programme wurden nicht gestartet.' });
+      return;
+    }
+    this.log('AUTOSTART_SIMCONNECT_READY');
+    this.setRun({ phase: 'running', message: '' });
+    const failed = failedBefore + await this.launchSequence(entries);
+    this.setRun({ phase: 'done', currentId: '', message: AutostartLauncher.failureMessage(failed) });
+  }
+
+  cancelWaitingStage() {
+    if (this.run.phase !== 'waiting') return;
+    this.stageToken += 1;
+    this.setRun({ phase: 'done', currentId: '', message: 'Wartende Programme wurden nicht gestartet.' });
   }
 
   // Beobachtet den Sim nach dem Autostart. Sobald er lief und danach zweimal
@@ -532,17 +720,22 @@ class AutostartLauncher extends EventEmitter {
       const running = await this.runningImageNames();
       if (running.size === 0) continue; // tasklist fehlgeschlagen, nicht als Ende werten
       if (running.has(name)) {
+        if (!seen) this.log(`AUTOSTART_SIM_SEEN image=${imageName}`);
         seen = true;
         gone = 0;
         continue;
       }
       if (!seen) {
-        if (poll + 1 >= SIM_APPEAR_POLLS) return;
+        if (poll + 1 >= SIM_APPEAR_POLLS) {
+          this.log(`AUTOSTART_SIM_NOT_SEEN image=${imageName}`);
+          return;
+        }
         continue;
       }
       gone += 1;
       if (gone < SIM_GONE_POLLS) continue;
-      await this.shutdownOwned();
+      this.log(`AUTOSTART_SIM_ENDED image=${imageName}`);
+      await this.shutdownOwned('sim-ended');
       return;
     }
   }
@@ -554,9 +747,10 @@ class AutostartLauncher extends EventEmitter {
   // Schliesst nur Programme, die in dieser Sitzung vom Autostart gestartet
   // wurden und vorher nicht liefen; ausgeloest durch Sim-Ende oder App-Ende.
   // Der Simulator wird nie geschlossen.
-  async shutdownOwned() {
+  async shutdownOwned(reason = 'app-exit') {
     this.stopSimulatorWatch();
-    const hasOwned = this.ownedImageNames.size || this.ownedRoots.size || this.ownedFolders.size;
+    this.cancelWaitingStage();
+    const hasOwned = this.ownedImageNames.size || this.ownedRoots.size || this.ownedFolders.size || this.adminLaunched.size;
     if (this.platform !== 'win32' || !this.settings().closeOnExit || !hasOwned) return;
     const names = [...this.ownedImageNames];
     const tracked = { baseline: this.baselinePids, roots: new Set(this.ownedRoots), folders: new Set(this.ownedFolders) };
@@ -564,22 +758,40 @@ class AutostartLauncher extends EventEmitter {
     this.ownedRoots.clear();
     this.ownedFolders.clear();
     this.baselinePids = null;
+    const adminIds = [...this.adminLaunched];
+    this.adminLaunched.clear();
+    this.log(`AUTOSTART_CLOSE reason=${reason} tasks=${adminIds.length}`);
+    const byId = new Map(this.settings().entries.map((entry) => [entry.id, entry]));
+    for (const id of adminIds) {
+      const entry = byId.get(id);
+      if (!entry) continue;
+      await execFileText(this.execFileImpl, 'schtasks.exe', ['/Run', '/TN', `${TASK_PATH}${adminTaskSpec(entry).stopName}`])
+        .then(() => this.log(`AUTOSTART_TASK_STOP entry=${entry.name}`))
+        .catch((error) => this.log(`AUTOSTART_TASK_STOP_FAILED entry=${entry.name} error=${cleanText(error?.message, 200)}`));
+    }
     const snapshot = tracked.baseline ? await this.processSnapshot() : null;
     if (snapshot) {
       const excludePaths = SIMULATORS.map((simulator) => simulator.imageName).concat(this.excludeProcessPaths || []);
       const pids = [...ownedProcessIds(snapshot, { ...tracked, excludePaths })];
+      this.log(`AUTOSTART_CLOSE_PIDS ${pids.map((pid) => `${pid}:${path.win32.basename(snapshot.get(pid)?.path || '?') || '?'}`).join(' ') || 'none'}`);
       for (const pid of pids) {
         await execFileText(this.execFileImpl, 'taskkill.exe', ['/PID', String(pid), '/T']).catch(() => {});
       }
       await this.sleep(CLOSE_GRACE_MS);
       const after = await this.processSnapshot();
+      const denied = [];
       for (const pid of pids) {
         if (after && !after.has(pid)) continue;
-        await execFileText(this.execFileImpl, 'taskkill.exe', ['/PID', String(pid), '/T', '/F']).catch(() => {});
+        await execFileText(this.execFileImpl, 'taskkill.exe', ['/PID', String(pid), '/T', '/F']).catch((error) => {
+          this.log(`AUTOSTART_KILL_FAILED pid=${pid} error=${cleanText(error?.stderr || error?.message, 200)}`);
+          if (isAccessDenied(error)) denied.push(pid);
+        });
       }
+      await this.closeElevated(denied);
       return;
     }
     // Ohne Prozessliste bleibt nur der Abgleich ueber den Dateinamen.
+    this.log(`AUTOSTART_CLOSE_BY_NAME ${names.join(' ') || 'none'}`);
     for (const name of names) {
       await execFileText(this.execFileImpl, 'taskkill.exe', ['/IM', name, '/T']).catch(() => {});
     }
@@ -590,11 +802,24 @@ class AutostartLauncher extends EventEmitter {
       await execFileText(this.execFileImpl, 'taskkill.exe', ['/IM', name, '/T', '/F']).catch(() => {});
     }
   }
+
+  // Prozesse mit Adminrechten lassen sich ohne Adminrechte nicht beenden:
+  // dann einmal mit UAC-Abfrage hart beenden.
+  async closeElevated(pids) {
+    if (!pids.length) return;
+    const list = pids.map((pid) => `'/PID','${Number(pid)}'`).join(',');
+    this.log(`AUTOSTART_CLOSE_ELEVATED pids=${pids.join(',')}`);
+    await execFileText(this.execFileImpl, 'powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+      `Start-Process -FilePath 'taskkill.exe' -Verb RunAs -WindowStyle Hidden -Wait -ArgumentList '/T','/F',${list}`], 120000)
+      .catch((error) => this.log(`AUTOSTART_CLOSE_ELEVATED_FAILED error=${cleanText(error?.message, 200)}`));
+  }
 }
 
 module.exports = {
   AutostartLauncher,
   SIMULATORS,
+  adminTaskSetupScript,
+  adminTaskSpec,
   normalizeAutostartSettings,
   ownedFolderFor,
   ownedProcessIds,

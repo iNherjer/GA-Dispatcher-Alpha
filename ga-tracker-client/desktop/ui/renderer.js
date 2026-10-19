@@ -92,6 +92,8 @@ const elements = {
   autostartDropZone: document.getElementById('autostartDropZone'),
   autostartImportButton: document.getElementById('autostartImportButton'),
   autostartList: document.getElementById('autostartList'),
+  autostartWaitList: document.getElementById('autostartWaitList'),
+  autostartDivider: document.getElementById('autostartDivider'),
   autostartListMessage: document.getElementById('autostartListMessage'),
   startButton: document.getElementById('startButton'),
   stopButton: document.getElementById('stopButton'),
@@ -404,7 +406,7 @@ let autostartLaunchPending = false;
 let autostartDetectPending = false;
 
 function autostartPayload(entries) {
-  return entries.map((entry) => ({ id: entry.id, enabled: entry.enabled, admin: entry.admin, args: entry.args, delaySeconds: entry.delaySeconds }));
+  return entries.map((entry) => ({ id: entry.id, enabled: entry.enabled, admin: entry.admin, args: entry.args, minimized: entry.minimized, stage: entry.stage, delaySeconds: entry.delaySeconds }));
 }
 
 function saveAutostartEntries(entries) {
@@ -413,13 +415,60 @@ function saveAutostartEntries(entries) {
   return window.trackerDesktop.updateAutostartEntries(autostartPayload(entries));
 }
 
-function moveAutostartEntry(id, targetIndex) {
-  const index = autostartEntries.findIndex((entry) => entry.id === id);
-  if (index < 0 || targetIndex < 0 || targetIndex >= autostartEntries.length || index === targetIndex) return;
-  const next = autostartEntries.slice();
-  const [moved] = next.splice(index, 1);
-  next.splice(targetIndex, 0, moved);
+function autostartStage(entry) {
+  return entry.stage === 'simconnect' ? 'simconnect' : 'start';
+}
+
+// Verschiebt einen Eintrag vor targetId bzw. ans Ende der Zielliste. Der Sim
+// bleibt immer in der oberen Startliste.
+function moveAutostartEntryTo(id, targetId, stage) {
+  const moved = autostartEntries.find((entry) => entry.id === id);
+  if (!moved || id === targetId || (moved.kind === 'sim' && stage === 'simconnect')) return;
+  const next = autostartEntries.filter((entry) => entry.id !== id);
+  const updated = { ...moved, stage };
+  let index = targetId ? next.findIndex((entry) => entry.id === targetId) : -1;
+  if (index < 0) {
+    const lastInStage = next.map(autostartStage).lastIndexOf(stage);
+    index = lastInStage + 1 || next.length;
+  }
+  next.splice(index, 0, updated);
   void saveAutostartEntries(next);
+}
+
+function moveAutostartWithin(id, delta) {
+  const entry = autostartEntries.find((item) => item.id === id);
+  if (!entry) return;
+  const group = autostartEntries.filter((item) => autostartStage(item) === autostartStage(entry));
+  const position = group.indexOf(entry) + delta;
+  if (position < 0 || position >= group.length) return;
+  const next = autostartEntries.slice();
+  const a = next.indexOf(entry);
+  const b = next.indexOf(group[position]);
+  [next[a], next[b]] = [next[b], next[a]];
+  void saveAutostartEntries(next);
+}
+
+function autostartItems() {
+  return [...elements.autostartList.children, ...elements.autostartWaitList.children];
+}
+
+function setupAutostartListDrop(list, stage, targetId = () => null) {
+  list.addEventListener('dragover', (event) => {
+    if (!autostartDragId) return;
+    const moved = autostartEntries.find((entry) => entry.id === autostartDragId);
+    if (moved?.kind === 'sim' && stage === 'simconnect') return;
+    event.preventDefault();
+    list.classList.add('drop-target');
+  });
+  list.addEventListener('dragleave', (event) => {
+    if (!list.contains(event.relatedTarget)) list.classList.remove('drop-target');
+  });
+  list.addEventListener('drop', (event) => {
+    list.classList.remove('drop-target');
+    if (!autostartDragId) return;
+    event.preventDefault();
+    moveAutostartEntryTo(autostartDragId, targetId(), stage);
+  });
 }
 
 function patchAutostartEntry(id, patch) {
@@ -452,6 +501,11 @@ function autostartMenu(entry) {
     admin.checked = entry.admin;
     admin.addEventListener('change', () => patchAutostartEntry(entry.id, { admin: admin.checked }));
     panel.append(autostartOption('Als Admin starten', admin));
+    const minimized = document.createElement('input');
+    minimized.type = 'checkbox';
+    minimized.checked = entry.minimized === true;
+    minimized.addEventListener('change', () => patchAutostartEntry(entry.id, { minimized: minimized.checked }));
+    panel.append(autostartOption('Minimiert starten', minimized));
   }
   if (entry.argsSupported) {
     const label = document.createElement('label');
@@ -481,7 +535,7 @@ function autostartMenu(entry) {
 }
 
 function syncAutostartMenus() {
-  for (const item of elements.autostartList.children) {
+  for (const item of autostartItems()) {
     const open = item.dataset.id === autostartMenuId;
     const panel = item.querySelector('.autostart-menu');
     if (panel) panel.hidden = !open;
@@ -493,7 +547,7 @@ function syncAutostartMenus() {
 function openAutostartMenu(id) {
   autostartMenuId = id;
   syncAutostartMenus();
-  elements.autostartList.querySelector(`[data-id="${CSS.escape(id)}"] .autostart-menu input[type="text"]`)?.focus();
+  autostartItems().find((item) => item.dataset.id === id)?.querySelector('.autostart-menu input[type="text"]')?.focus();
 }
 
 function closeAutostartMenu() {
@@ -505,9 +559,10 @@ function closeAutostartMenu() {
 document.addEventListener('click', closeAutostartMenu);
 document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeAutostartMenu(); });
 
-function autostartItem(entry, index, run) {
+function autostartItem(entry, index, run, group, numberOffset = 0) {
   const item = document.createElement('li');
   item.className = 'autostart-item';
+  if (entry.kind === 'sim') item.classList.add('is-sim');
   if (!entry.enabled) item.classList.add('disabled');
   if (run.phase === 'running' && run.currentId === entry.id) item.classList.add('current');
   if (autostartMenuId === entry.id) item.classList.add('menu-open');
@@ -525,15 +580,15 @@ function autostartItem(entry, index, run) {
   up.textContent = '▲';
   up.setAttribute('aria-label', `${entry.name} nach oben`);
   up.disabled = index === 0;
-  up.addEventListener('click', () => moveAutostartEntry(entry.id, index - 1));
+  up.addEventListener('click', () => moveAutostartWithin(entry.id, -1));
   const grip = document.createElement('span');
-  grip.textContent = String(index + 1);
+  grip.textContent = String(numberOffset + index + 1);
   const down = document.createElement('button');
   down.type = 'button';
   down.textContent = '▼';
   down.setAttribute('aria-label', `${entry.name} nach unten`);
-  down.disabled = index === autostartEntries.length - 1;
-  down.addEventListener('click', () => moveAutostartEntry(entry.id, index + 1));
+  down.disabled = index === group.length - 1;
+  down.addEventListener('click', () => moveAutostartWithin(entry.id, 1));
   handle.append(up, grip, down);
   item.addEventListener('dragstart', (event) => {
     if (pressTarget?.closest?.('input, select, button, textarea, .autostart-menu')) {
@@ -552,6 +607,8 @@ function autostartItem(entry, index, run) {
   });
   item.addEventListener('dragover', (event) => {
     if (!autostartDragId) return;
+    const moved = autostartEntries.find((other) => other.id === autostartDragId);
+    if (moved?.kind === 'sim' && autostartStage(entry) === 'simconnect') return;
     event.preventDefault();
     item.classList.add('drop-target');
   });
@@ -563,7 +620,8 @@ function autostartItem(entry, index, run) {
     event.preventDefault();
     event.stopPropagation();
     item.classList.remove('drop-target');
-    moveAutostartEntry(autostartDragId, index);
+    item.parentElement?.classList.remove('drop-target');
+    moveAutostartEntryTo(autostartDragId, entry.id, autostartStage(entry));
   });
 
   const icon = document.createElement('span');
@@ -574,7 +632,11 @@ function autostartItem(entry, index, run) {
     image.alt = '';
     icon.append(image);
   } else {
-    icon.textContent = entry.kind === 'sim' ? 'SIM' : 'EXE';
+    if (entry.kind === 'sim') {
+      icon.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg>';
+    } else {
+      icon.textContent = 'EXE';
+    }
   }
 
   const body = document.createElement('div');
@@ -584,6 +646,12 @@ function autostartItem(entry, index, run) {
   const nameText = document.createElement('span');
   nameText.textContent = entry.name;
   name.append(nameText);
+  if (entry.kind === 'sim') {
+    const tag = document.createElement('span');
+    tag.className = 'autostart-sim-tag';
+    tag.textContent = 'Simulator';
+    name.append(tag);
+  }
   const result = run.results?.[entry.id];
   if (result) {
     const badge = document.createElement('span');
@@ -669,17 +737,19 @@ function renderAutostart(autostart) {
   setChecked(elements.autostartEnabledCheckbox, enabled);
   setChecked(elements.autostartCloseOnExitCheckbox, data.closeOnExit === true);
   elements.autostartEnabledCheckbox.disabled = data.supported === false;
-  elements.autostartBadge.textContent = !enabled ? 'Aus' : (run.phase === 'running' ? 'Startet' : `${active} aktiv`);
-  setClass(elements.autostartBadge, 'mini-badge', !enabled ? '' : (run.phase === 'running' ? 'starting' : 'current'));
+  const busy = run.phase === 'running' || run.phase === 'waiting';
+  elements.autostartBadge.textContent = !enabled ? 'Aus' : (run.phase === 'running' ? 'Startet' : (run.phase === 'waiting' ? 'Wartet' : `${active} aktiv`));
+  setClass(elements.autostartBadge, 'mini-badge', !enabled ? '' : (busy ? 'starting' : 'current'));
   elements.autostartModuleSummary.textContent = data.supported === false
     ? 'Nur unter Windows verfügbar'
     : (enabled ? `${entries.length} Einträge${sim ? ` · ${sim.name}` : ''}` : 'Ausgeschaltet');
 
   elements.autostartLaunchButton.hidden = !enabled;
-  elements.autostartLaunchButton.disabled = autostartLaunchPending || run.phase === 'running';
-  elements.autostartLaunchButton.textContent = run.phase === 'running' ? 'Programme werden gestartet …' : (sim ? 'Tracker & Sim starten' : 'Tracker & Programme starten');
+  elements.autostartLaunchButton.disabled = autostartLaunchPending || busy;
+  elements.autostartLaunchButton.textContent = run.phase === 'running' ? 'Programme werden gestartet …'
+    : (run.phase === 'waiting' ? 'Wartet auf SimConnect …' : (sim ? 'Tracker & Sim starten' : 'Tracker & Programme starten'));
   if (!enabled) elements.autostartLaunchMessage.hidden = true;
-  else if (run.phase === 'done' && run.message) {
+  else if ((run.phase === 'done' || run.phase === 'waiting') && run.message) {
     elements.autostartLaunchMessage.hidden = false;
     elements.autostartLaunchMessage.className = `form-message autostart-launch-message ${Object.values(run.results || {}).includes('failed') ? 'error' : 'success'}`;
     elements.autostartLaunchMessage.textContent = run.message;
@@ -701,10 +771,13 @@ function renderAutostart(autostart) {
   // Ein Neuaufbau mitten im Ziehen wuerde den Vorgang abbrechen.
   autostartRenderDeferred = Boolean(autostartDragId);
   if (autostartRenderDeferred) return;
-  if (elements.autostartList.contains(document.activeElement) && ['SELECT', 'INPUT'].includes(document.activeElement.tagName) && document.activeElement.type !== 'checkbox') return;
+  if (autostartItems().some((item) => item.contains(document.activeElement)) && ['SELECT', 'INPUT'].includes(document.activeElement.tagName) && document.activeElement.type !== 'checkbox') return;
   autostartListSignature = signature;
   autostartEntries = entries;
-  elements.autostartList.replaceChildren(...entries.map((entry, index) => autostartItem(entry, index, run)));
+  const first = entries.filter((entry) => autostartStage(entry) === 'start');
+  const later = entries.filter((entry) => autostartStage(entry) === 'simconnect');
+  elements.autostartList.replaceChildren(...first.map((entry, index) => autostartItem(entry, index, run, first)));
+  elements.autostartWaitList.replaceChildren(...later.map((entry, index) => autostartItem(entry, index, run, later, first.length)));
 }
 
 function render(state) {
@@ -942,6 +1015,10 @@ elements.autostartDetectSimButton.addEventListener('click', async () => {
     renderAutostart(latestState?.autostart);
   }
 });
+setupAutostartListDrop(elements.autostartList, 'start');
+setupAutostartListDrop(elements.autostartWaitList, 'simconnect');
+// Ablegen auf der Trennlinie setzt den Eintrag direkt darunter.
+setupAutostartListDrop(elements.autostartDivider, 'simconnect', () => autostartEntries.find((entry) => autostartStage(entry) === 'simconnect')?.id || null);
 async function importAutostartPrograms() {
   showAutostartAddResult(await window.trackerDesktop.browseAutostartPrograms());
 }

@@ -4,6 +4,8 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const {
   AutostartLauncher,
+  adminTaskSetupScript,
+  adminTaskSpec,
   normalizeAutostartSettings,
   parseSteamLibraryPaths,
   parseTasklistImageNames,
@@ -27,7 +29,7 @@ function fakeExec(handlers, calls) {
       const output = handler(args);
       callback(null, output, '');
     } catch (error) {
-      callback(error, '', '');
+      callback(error, '', error.stderr || '');
     }
   };
 }
@@ -161,7 +163,7 @@ test('launch runs entries in order, skips running programs and only closes owned
   const result = await instance.launchAll();
   assert.equal(result.ok, true);
   assert.deepEqual(instance.run.results, { a: 'started', b: 'skipped', s: 'started' });
-  const starts = calls.filter((call) => call.command === 'powershell.exe' && /Start-Process/.test(call.args.at(-1)));
+  const starts = calls.filter((call) => call.command === 'powershell.exe' && /Start-Process -FilePath 'C:/.test(call.args.at(-1)));
   assert.equal(starts.length, 1);
   assert.match(starts[0].args.at(-1), /-Verb RunAs/);
   assert.deepEqual(opened, ['steam://rungameid/2537590']);
@@ -285,4 +287,159 @@ test('start arguments are editable for programs and Steam, not for the Store', a
   ] }) });
   storeSim.updateEntries([{ id: 'x', args: '-FastLaunch' }]);
   assert.deepEqual(storeSim.publicState().entries.map((entry) => [entry.args, entry.argsSupported]), [['', false]]);
+});
+
+test('minimized programs start with a minimized window and the option is stored', async () => {
+  const calls = [];
+  const store = memoryStore({ enabled: true, entries: [{ id: 'p', kind: 'program', path: 'C:\\Tools\\Nav\\nav.exe' }] });
+  const instance = launcher({ store, calls, files: ['C:\\Tools\\Nav\\nav.exe'] });
+  instance.updateEntries([{ id: 'p', minimized: true }]);
+  assert.equal(instance.publicState().entries[0].minimized, true);
+  await instance.launchAll();
+  const start = calls.find((call) => call.command === 'powershell.exe' && /Start-Process/.test(call.args.at(-1)));
+  assert.match(start.args.at(-1), /-WindowStyle Minimized/);
+});
+
+test('access denied on close falls back to one elevated taskkill and everything is logged', async () => {
+  const calls = [];
+  const lines = [];
+  let table = [[100, 1, 'C:\\Windows\\explorer.exe']];
+  const store = memoryStore({ enabled: true, closeOnExit: true, entries: [{ id: 'p', kind: 'program', name: 'Say', path: 'D:\\Apps\\Say\\Say.exe' }] });
+  const instance = launcher({
+    store, calls, files: ['D:\\Apps\\Say\\Say.exe'], log: (line) => lines.push(line),
+    handlers: {
+      'powershell.exe': (args) => {
+        if (/Start-Process -FilePath 'D/.test(args.at(-1))) { table = table.concat([[500, 100, '']]); return '500'; }
+        if (/Start-Process -FilePath 'taskkill/.test(args.at(-1))) return '';
+        return table.map((row) => row.join('|')).join('\r\n');
+      },
+      'taskkill.exe': (args) => {
+        if (args.includes('/F')) { const error = new Error('Command failed'); error.stderr = 'FEHLER: Zugriff verweigert'; throw error; }
+        return '';
+      }
+    }
+  });
+  await instance.launchAll();
+  await instance.shutdownOwned();
+  const elevated = calls.filter((call) => call.command === 'powershell.exe' && /taskkill\.exe' -Verb RunAs/.test(call.args.at(-1)));
+  assert.equal(elevated.length, 1);
+  assert.match(elevated[0].args.at(-1), /'\/PID','500'/);
+  for (const marker of ['AUTOSTART_LAUNCH', 'AUTOSTART_STARTED entry=Say pid=500', 'AUTOSTART_CLOSE reason=app-exit', 'AUTOSTART_KILL_FAILED pid=500', 'AUTOSTART_CLOSE_ELEVATED pids=500']) {
+    assert.ok(lines.some((line) => line.startsWith(marker)), marker);
+  }
+});
+
+test('admin programs run through fixed scheduled tasks created with one elevation', async () => {
+  const calls = [];
+  const lines = [];
+  let registered = new Map();
+  const entry = { id: 'say', kind: 'program', name: 'SayIntentions', path: 'D:\\Apps\\SayIntentions\\SayIntentionsAI.exe', args: '--quiet', admin: true, minimized: true };
+  const spec = adminTaskSpec(entry);
+  const store = memoryStore({ enabled: true, closeOnExit: true, entries: [entry] });
+  const instance = launcher({
+    store, calls, files: [entry.path], log: (line) => lines.push(line),
+    handlers: {
+      'powershell.exe': (args) => {
+        const command = args.at(-1);
+        if (/Get-ScheduledTask/.test(command)) return [...registered].map(([name, sig]) => `${name}|${sig}`).join('\r\n');
+        if (/-Verb RunAs -Wait/.test(command)) { registered = new Map([[spec.startName, spec.signature], [spec.stopName, spec.signature], ['Autostart-gone-start', 'x']]); return ''; }
+        return '';
+      }
+    }
+  });
+  await instance.launchAll();
+  instance.stopSimulatorWatch();
+  assert.deepEqual(calls.filter((call) => call.command === 'schtasks.exe').map((call) => call.args), [['/Run', '/TN', '\\VFR Multitool\\Autostart-say-start']]);
+  assert.equal(calls.filter((call) => /-Verb RunAs -Wait/.test(call.args.at(-1) || '')).length, 1);
+  assert.ok(!calls.some((call) => /Start-Process -FilePath 'D:/.test(call.args.at(-1) || '')), 'no direct RunAs start');
+
+  // Zweiter Start: Aufgaben sind aktuell, keine weitere UAC-Abfrage.
+  calls.length = 0;
+  instance.run.phase = 'done';
+  await instance.launchAll();
+  instance.stopSimulatorWatch();
+  assert.equal(calls.filter((call) => /-Verb RunAs -Wait/.test(call.args.at(-1) || '')).length, 0);
+
+  calls.length = 0;
+  await instance.shutdownOwned('sim-ended');
+  assert.deepEqual(calls.filter((call) => call.command === 'schtasks.exe').map((call) => call.args), [['/Run', '/TN', '\\VFR Multitool\\Autostart-say-stop']]);
+  assert.ok(lines.some((line) => line.startsWith('AUTOSTART_TASK_READY ready=1')));
+  assert.ok(lines.some((line) => line.startsWith('AUTOSTART_STARTED entry=SayIntentions pid=task')));
+
+  // Die Aufgaben enthalten feste Befehle: Pfad, Argumente, Minimiert und Ordnerabgleich.
+  const decode = (text) => Buffer.from(text, 'base64').toString('utf16le');
+  const script = adminTaskSetupScript([spec], ['Autostart-gone-start']);
+  assert.match(script, /Unregister-ScheduledTask .*'Autostart-gone-start'/);
+  assert.match(script, /-RunLevel Highest/);
+  const encoded = [...script.matchAll(/-EncodedCommand ([A-Za-z0-9+/=]+)/g)].map((match) => decode(match[1]));
+  assert.match(encoded[0], /Start-Process -FilePath 'D:\\Apps\\SayIntentions\\SayIntentionsAI\.exe' -ArgumentList '--quiet' -WindowStyle Minimized/);
+  assert.match(encoded[1], /StartsWith\('d:\\apps\\sayintentions\\'/);
+});
+
+test('declined elevation falls back to a direct RunAs start', async () => {
+  const calls = [];
+  const entry = { id: 'say', kind: 'program', name: 'Say', path: 'D:\\Apps\\Say\\Say.exe', admin: true };
+  const instance = launcher({
+    store: memoryStore({ enabled: true, entries: [entry] }), calls, files: [entry.path],
+    handlers: { 'powershell.exe': (args) => { if (/-Verb RunAs -Wait/.test(args.at(-1))) throw new Error('declined'); return ''; } }
+  });
+  await instance.launchAll();
+  assert.equal(calls.filter((call) => call.command === 'schtasks.exe').length, 0);
+  assert.ok(calls.some((call) => /Start-Process -FilePath 'D:.*-Verb RunAs/.test(call.args.at(-1) || '')));
+});
+
+test('programs in the SimConnect stage start only after a stable SimConnect data link', async () => {
+  const calls = [];
+  const lines = [];
+  let polls = 0;
+  const states = [];
+  const store = memoryStore({ enabled: true, entries: [
+    { id: 'early', kind: 'program', name: 'Early', path: 'C:\\Tools\\Early\\early.exe' },
+    { id: 's', kind: 'sim', simId: 'msfs2024', source: 'steam', launchTarget: 'steam://rungameid/2537590', stage: 'simconnect' },
+    { id: 'late', kind: 'program', name: 'Late', path: 'C:\\Tools\\Late\\late.exe', stage: 'simconnect' }
+  ] });
+  const instance = launcher({
+    store, calls, files: ['C:\\Tools\\Early\\early.exe', 'C:\\Tools\\Late\\late.exe'], log: (line) => lines.push(line),
+    handlers: { 'tasklist.exe': () => '"explorer.exe","1"' },
+    getSimConnectState: () => {
+      polls += 1;
+      // verbunden ohne Daten, kurzer Abbruch, dann stabil live
+      const state = polls < 3 ? { simulator: 'connected', telemetry: 'link' }
+        : (polls === 5 ? { simulator: 'waiting', telemetry: 'link' } : { simulator: 'connected', telemetry: 'live' });
+      states.push(state.telemetry);
+      return state;
+    }
+  });
+  assert.equal(instance.settings().entries.find((entry) => entry.id === 's').stage, 'start', 'sim never waits');
+  const started = () => calls.filter((call) => /Start-Process -FilePath 'C:/.test(call.args.at(-1) || '')).map((call) => call.args.at(-1).match(/Tools\\(\w+)/)[1]);
+  const result = await instance.launchAll();
+  assert.equal(result.waiting, 1);
+  await new Promise((resolve) => setImmediate(resolve));
+  for (let i = 0; i < 50 && instance.run.phase !== 'done'; i += 1) await new Promise((resolve) => setImmediate(resolve));
+  instance.stopSimulatorWatch();
+  assert.deepEqual(started(), ['Early', 'Late']);
+  assert.ok(polls >= 10, `stable polls required, got ${polls}`);
+  assert.equal(instance.run.phase, 'done');
+  assert.ok(lines.includes('AUTOSTART_SIMCONNECT_READY'));
+  instance.updateEntries([{ id: 's', stage: 'simconnect' }]);
+  assert.equal(instance.settings().entries.find((entry) => entry.id === 's').stage, 'start');
+});
+
+test('closing cancels programs still waiting for SimConnect', async () => {
+  const calls = [];
+  const instance = launcher({
+    calls, files: ['C:\\Tools\\Late\\late.exe'],
+    store: memoryStore({ enabled: true, entries: [{ id: 'late', kind: 'program', path: 'C:\\Tools\\Late\\late.exe', stage: 'simconnect' }] }),
+    getSimConnectState: () => ({ simulator: 'waiting', telemetry: 'off' })
+  });
+  let release;
+  instance.sleep = () => new Promise((resolve) => { release = resolve; });
+  await instance.launchAll();
+  assert.equal(instance.run.phase, 'waiting');
+  assert.equal((await instance.launchAll()).ok, false);
+  instance.cancelWaitingStage();
+  release();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(instance.run.phase, 'done');
+  assert.ok(!calls.some((call) => /late\.exe/.test(call.args.at(-1) || '')));
 });
