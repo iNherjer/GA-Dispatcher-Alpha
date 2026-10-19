@@ -34,6 +34,32 @@ const windowsMedia = new WindowsMedia();
 const { createMediaServer } = require('./lib/media-server');
 const mediaServer = createMediaServer(windowsMedia);
 let mediaEndpoint = null;
+const { WindowsInput } = require('./lib/windows-input');
+const { RadioHold, createMusicHold } = require('./lib/radio-hold');
+// Diagnose-Log der Funk-Pause im Tracker-Datenordner; wird ab 512 KB neu begonnen.
+let radioHoldLogPath = '';
+function radioHoldLog(line) {
+  if (!radioHoldLogPath) return;
+  try {
+    if (fs.existsSync(radioHoldLogPath) && fs.statSync(radioHoldLogPath).size > 512 * 1024) fs.writeFileSync(radioHoldLogPath, '');
+    fs.appendFileSync(radioHoldLogPath, `[${new Date().toISOString()}] ${String(line).replace(/[\r\n]+/g, ' ').slice(0, 600)}\n`);
+  } catch (_) {}
+}
+const windowsInput = new WindowsInput({ log: radioHoldLog });
+const radioHold = new RadioHold();
+const applyMusicHold = createMusicHold(windowsMedia, radioHoldLog);
+windowsInput.on('down', () => radioHold.press());
+windowsInput.on('up', () => radioHold.releasePress());
+windowsInput.on('device', () => broadcastRadioHold());
+radioHold.on('state', state => {
+  if (state.reason) {
+    radioHoldLog(`HOLD ${state.reason} held=${state.held} pressed=${state.pressed}`
+      + (state.resumeAt ? ` resumeIn=${Math.round((state.resumeAt - Date.now()) / 1000)}s` : '')
+      + (state.voice ? ` voice=${state.voice.mode}${state.voice.mode === 'dim' ? ':' + state.voice.factor : ''}` : '')
+      + (state.music ? ` music=${state.music.mode}${state.music.mode === 'dim' ? ':' + state.music.factor : ''}` : ''));
+  }
+  applyMusicHold(state.music); broadcastRadioHold(state);
+});
 
 const singleInstanceLock = app.requestSingleInstanceLock();
 
@@ -270,6 +296,22 @@ async function setAptMissionExecutionEnabled(rawEnabled) {
   return { ok: true, enabled, settings: configStore.publicSettings() };
 }
 
+function radioHoldState(state = radioHold.publicState()) {
+  return { ...state, input: windowsInput.publicState() };
+}
+
+function broadcastRadioHold(state) {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send('radio-hold:changed', radioHoldState(state));
+}
+
+function configureRadioHold(settings) {
+  radioHoldLog(`SETTINGS enabled=${settings.enabled} binding=${settings.binding ? settings.binding.label : 'none'} voice=${settings.voiceMode}/${settings.voiceDimPercent}% `
+    + `music=${settings.musicMode}/${settings.musicDimPercent}% resume=${settings.resumeSeconds || 'off'}s shortPress=${settings.shortPressResumes}`);
+  radioHold.configure(settings);
+  windowsInput.watch(settings.enabled ? settings.binding : null);
+}
+
 function broadcastState() {
   if (!mainWindow || mainWindow.isDestroyed()) return;
   mainWindow.webContents.send('state:changed', currentState());
@@ -427,6 +469,21 @@ function registerIpc() {
   ipcMain.handle('tracker:audio', (_event, kind, payload) => trackerProcess.audioRequest(kind, payload));
   ipcMain.handle('tracker:media', (_event, payload) => windowsMedia.request(payload));
   ipcMain.handle('settings:audio-output', (_event, id) => { configStore.setAudioOutputDeviceId(id); broadcastState(); return { ok: true }; });
+  ipcMain.handle('radio-hold:get', () => radioHoldState());
+  ipcMain.handle('radio-hold:log', (_event, line) => { radioHoldLog('VOICE ' + String(line || '').slice(0, 400)); return { ok: true }; });
+  ipcMain.handle('radio-hold:resume', () => { radioHold.resume('manual'); return radioHoldState(); });
+  ipcMain.handle('radio-hold:learn', async () => {
+    const result = await windowsInput.learn();
+    if (!result.ok) return result;
+    const settings = configStore.setRadioHold({ binding: result.binding, enabled: true });
+    configureRadioHold(settings); broadcastState();
+    return { ok: true, settings };
+  });
+  ipcMain.handle('settings:set-radio-hold', (_event, payload) => {
+    const settings = configStore.setRadioHold(payload);
+    configureRadioHold(settings); broadcastState();
+    return { ok: true, settings };
+  });
   ipcMain.handle('tracker:hard-reset-mission', async () => {
     const result = await trackerProcess.hardResetMission();
     broadcastState();
@@ -629,6 +686,7 @@ async function startApplication() {
     savePolicy: (policy) => configStore.setModuleUpdatePolicy('desktop', policy),
     beforeInstall: async () => {
       app.isQuitting = true;
+      await windowsInput.close();
       await windowsMedia.close();
       await mediaServer.close();
       trackerProcess?.stop();
@@ -655,6 +713,9 @@ async function startApplication() {
         : (phase === 'downloading' ? 'Desktop-App wird geladen und geprüft … 46 %' : 'Desktop-App v1.6.1 ist verfügbar.')
     });
   }
+  radioHoldLogPath = path.join(configStore.dataDirectory, 'funk-pause-log.txt');
+  radioHoldLog(`START desktop=${app.getVersion()} platform=${process.platform} ${require('node:os').release()}`);
+  configureRadioHold(configStore.publicSettings().radioHold);
   runtimeManager = createRuntimeManager(configStore.publicSettings().runtimeChannel);
   if (process.env.VFR_TRACKER_PREVIEW_UPDATE === '1') {
     runtimeManager.setState({
@@ -810,6 +871,7 @@ if (!singleInstanceLock) {
     if (bridgeShutdownInProgress) return;
     bridgeShutdownInProgress = true;
     Promise.allSettled([
+      windowsInput.close(),
       windowsMedia.close(),
       mediaServer.close(),
       shouldStopBridge && bridgeManager ? bridgeManager.shutdownOwned() : Promise.resolve(),

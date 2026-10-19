@@ -59,6 +59,7 @@ function SeekTarget($timeline, $info, $request, $at = [DateTime]::UtcNow) {
 $manager = Await ($managerType::RequestAsync()) $managerType
 $volume = New-Object GAMedia.SessionVolume
 $source = ''; $enabled = $true; $factor = 0.2; $duckUntil = [DateTime]::MinValue; $releaseAt = [DateTime]::MinValue
+$holdUntil = [DateTime]::MinValue; $holdFactor = 0.2
 $reader = New-Object System.IO.StreamReader([Console]::OpenStandardInput(), [System.Text.Encoding]::UTF8)
 $read = $reader.ReadLineAsync()
 try {
@@ -67,6 +68,8 @@ try {
         $now = [DateTime]::UtcNow
         $effective = 1.0
         if ($enabled -and ($now -lt $duckUntil -or $now -lt $releaseAt)) { $effective = $factor }
+        # Radio hold has its own lease and level, independent of the announcement ducking switch.
+        if ($now -lt $holdUntil -and $holdFactor -lt $effective) { $effective = $holdFactor }
         # Mixer access must not terminate the independent transport/metadata helper.
         try { $volume.Tick([single]$effective, [single]-1) } catch { $volume.Restore() }
         if (-not $read.IsCompleted) { Start-Sleep -Milliseconds 100; continue }
@@ -114,11 +117,15 @@ try {
                     if ($request.active -eq $true) { $duckUntil = $now.AddSeconds(5); $releaseAt = [DateTime]::MinValue }
                     else { $duckUntil = [DateTime]::MinValue; $releaseAt = $now.AddMilliseconds(350) }
                 }
+                'hold' {
+                    if ($request.active -eq $true) { $holdUntil = $now.AddSeconds(5); $holdFactor = [double]$request.factor }
+                    else { $holdUntil = [DateTime]::MinValue }
+                }
                 'snapshot' { }
                 default { throw 'Ungültiger Medienbefehl.' }
             }
             # Heartbeats must not wait for metadata or obstruct urgent release.
-            if ($request.action -eq 'duck') {
+            if ($request.action -eq 'duck' -or $request.action -eq 'hold') {
                 [Console]::WriteLine((@{ id=$request.id; ok=$true } | ConvertTo-Json -Compress))
                 continue
             }

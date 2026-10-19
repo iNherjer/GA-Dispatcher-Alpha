@@ -4,6 +4,7 @@ const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
 const { TrackerConfigStore, normalizeUpdatePolicy } = require('../lib/config-store');
+const { DEFAULTS } = require('../lib/radio-hold');
 
 const secureStorage = {
   isEncryptionAvailable: () => true,
@@ -56,6 +57,7 @@ test('credentials are encrypted in app data while personal tracker config is pre
     pilotId: 'Foxtrot-Mike-764',
     hasPin: true,
     audioOutputDeviceId: '',
+    radioHold: DEFAULTS,
     voiceProvider: 'gemini',
     hasVoiceApiKey: false,
     runtimeChannel: 'alpha',
@@ -103,6 +105,7 @@ test('startup preferences default to automatic tracker start and visible window'
     pilotId: '',
     hasPin: false,
     audioOutputDeviceId: '',
+    radioHold: DEFAULTS,
     voiceProvider: 'gemini',
     hasVoiceApiKey: false,
     runtimeChannel: 'stable',
@@ -179,6 +182,21 @@ test('physical audio output is stored locally without changing pilot or voice cr
   assert.equal(store.readDesktop().encryptedPin, before.encryptedPin);
   store.setAudioOutputDeviceId('');
   assert.equal(store.publicSettings().audioOutputDeviceId, '');
+});
+
+test('radio hold settings merge, persist and keep credentials untouched', () => {
+  const store = createStore();
+  store.saveCredentials('Radio-Pilot', '1234');
+  const before = store.readDesktop();
+  store.setRadioHold({ enabled: true, binding: { type: 'key', vk: 0x70 } });
+  const saved = store.setRadioHold({ resumeSeconds: 60, musicMode: 'pause', voiceMode: 'nonsense' });
+  assert.equal(saved.enabled, true);
+  assert.equal(saved.binding.vk, 0x70);
+  assert.equal(saved.resumeSeconds, 60);
+  assert.equal(saved.musicMode, 'pause');
+  assert.equal(saved.voiceMode, 'pause');
+  assert.deepEqual(store.publicSettings().radioHold, saved);
+  assert.equal(store.readDesktop().encryptedPin, before.encryptedPin);
 });
 
 

@@ -1,12 +1,23 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
-const EVENTS = new Set(['state:changed']);
+const EVENTS = new Set(['state:changed', 'radio-hold:changed']);
 
 contextBridge.exposeInMainWorld('trackerDesktop', {
   getState: () => ipcRenderer.invoke('app:get-state'),
   audioRequest: (kind, payload) => ipcRenderer.invoke('tracker:audio', kind, payload),
   mediaRequest: payload => ipcRenderer.invoke('tracker:media', payload),
   setAudioOutputDeviceId: id => ipcRenderer.invoke('settings:audio-output', id),
+  getRadioHold: () => ipcRenderer.invoke('radio-hold:get'),
+  resumeRadioHold: () => ipcRenderer.invoke('radio-hold:resume'),
+  logRadioHold: line => ipcRenderer.invoke('radio-hold:log', String(line || '').slice(0, 400)),
+  learnRadioHoldButton: () => ipcRenderer.invoke('radio-hold:learn'),
+  setRadioHold: settings => ipcRenderer.invoke('settings:set-radio-hold', settings),
+  onRadioHoldChanged: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const listener = (_event, state) => callback(state);
+    ipcRenderer.on('radio-hold:changed', listener);
+    return () => ipcRenderer.removeListener('radio-hold:changed', listener);
+  },
   startTracker: () => ipcRenderer.invoke('tracker:start'),
   stopTracker: () => ipcRenderer.invoke('tracker:stop'),
   hardResetMission: () => ipcRenderer.invoke('tracker:hard-reset-mission'),

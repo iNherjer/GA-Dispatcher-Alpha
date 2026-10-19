@@ -21,7 +21,8 @@
     onAudible: (active, job, stage) => {
       if (window.GAMediaAudioActivity) window.GAMediaAudioActivity(active && audio?.settings?.volume > 0, job, stage);
     },
-    onError: error => { lastError = error; $('audioPlaybackStatus').textContent = error; }
+    onError: error => { lastError = error; $('audioPlaybackStatus').textContent = error; },
+    onDiagnostic: line => { if (api.logRadioHold) api.logRadioHold(line).catch(() => {}); }
   });
   function render() {
     if (!audio) return;
@@ -90,6 +91,19 @@
     if (!stopped) setTimeout(tick, 1000);
   }
   api.getState().then(state => { outputId = state.settings.audioOutputDeviceId || ''; return devices(); }).catch(() => {});
+  // Radio hold from the PTT button (main process): pause or dim voices and warnings.
+  let lastHold = '';
+  const applyHold = state => {
+    const voice = state && state.held ? state.voice : null;
+    // Only real changes reach the player; repeated broadcasts (countdown, transmit) are no-ops.
+    const key = JSON.stringify(voice);
+    if (key === lastHold) return;
+    lastHold = key;
+    if (voice && audio && audio.target && audio.target.mode !== 'pc' && api.logRadioHold) api.logRadioHold('warning target=' + audio.target.mode + ' (Funk-Pause wirkt nur auf PC-Ausgabe)').catch(() => {});
+    player.setHold(voice);
+  };
+  if (api.onRadioHoldChanged) api.onRadioHoldChanged(applyHold);
+  if (api.getRadioHold) api.getRadioHold().then(applyHold).catch(() => {});
   window.addEventListener('pagehide', () => { stopped = true; player.stop(); });
   tick();
 })();

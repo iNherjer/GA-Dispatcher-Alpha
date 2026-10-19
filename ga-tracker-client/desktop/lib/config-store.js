@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { normalizeRuntimeChannel } = require('./runtime-channel');
+const { normalizeRadioHoldSettings } = require('./radio-hold');
 const {
   PILOT_PIN_REQUIREMENT,
   isValidPilotPin,
@@ -117,6 +118,7 @@ class TrackerConfigStore {
       pilotId: String(desktop.pilotId || tracker.syncId || '').trim(),
       hasPin: Boolean(String(desktop.encryptedPin || '').trim()) && this.encryptionAvailable(),
       audioOutputDeviceId: String(desktop.audioOutputDeviceId || ''),
+      radioHold: normalizeRadioHoldSettings(desktop.radioHold),
       voiceProvider: normalizeVoiceProvider(desktop.voice?.provider),
       hasVoiceApiKey: Boolean(String(desktop.voice?.encryptedApiKey || '').trim()) && this.encryptionAvailable(),
       runtimeChannel: normalizeRuntimeChannel(preferences.runtimeChannel),
@@ -229,6 +231,13 @@ class TrackerConfigStore {
   setAudioOutputDeviceId(value) {
     const id = String(value || '').slice(0, 256);
     return this.writeDesktop({ ...this.readDesktop(), audioOutputDeviceId: id });
+  }
+
+  setRadioHold(value) {
+    const current = normalizeRadioHoldSettings(this.readDesktop().radioHold);
+    const next = normalizeRadioHoldSettings({ ...current, ...(value && typeof value === 'object' ? value : {}) });
+    this.writeDesktop({ ...this.readDesktop(), radioHold: next });
+    return next;
   }
 
   setUpdatePolicy(policy) {

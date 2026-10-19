@@ -19,6 +19,8 @@ class WindowsMedia {
     this.duckClients = new Map();
     this.duckTimer = null;
     this.duckBusy = false;
+    this.holdFactor = null;
+    this.holdTimer = null;
     this.timeline = createMediaTimeline();
   }
   start() {
@@ -50,7 +52,7 @@ class WindowsMedia {
     child.stderr.on('data', () => {});
   }
   request(payload = {}) {
-    const allowed = ['snapshot', 'select', 'play', 'pause', 'playPause', 'next', 'previous', 'seek', 'volume', 'duck', 'settings'];
+    const allowed = ['snapshot', 'select', 'play', 'pause', 'playPause', 'next', 'previous', 'seek', 'volume', 'duck', 'hold', 'settings'];
     if (!payload || typeof payload !== 'object' || !allowed.includes(payload.action)) return Promise.resolve({ ok: false, error: 'Ungültiger Medienbefehl.' });
     if (this.platform !== 'win32') return Promise.resolve({ ok: false, unsupported: true, error: 'Mediensteuerung benötigt den Windows-Tracker.' });
     if (this.closed) return Promise.resolve({ ok: false, error: 'Mediensteuerung wurde beendet.' });
@@ -87,6 +89,21 @@ class WindowsMedia {
       }, 1000);
       this.duckTimer?.unref();
     }
+    if (payload.action === 'hold') {
+      if (payload.active === true && (!Number.isFinite(payload.factor) || payload.factor < 0 || payload.factor > 1)) return Promise.resolve({ ok: false, error: 'Ungültige Lautstärke.' });
+      this.holdFactor = payload.active === true ? payload.factor : null;
+      command.active = this.holdFactor !== null; if (command.active) command.factor = this.holdFactor;
+      clearInterval(this.holdTimer); this.holdTimer = null;
+      // Heartbeat keeps the helper's five-second lease; a frozen app restores the music.
+      if (command.active) {
+        this.holdTimer = setInterval(() => {
+          if (this.closed || this.holdFactor === null) return;
+          const beat = () => this.send({ action: 'hold', active: true, factor: this.holdFactor });
+          this.queue = this.queue.then(beat, beat).catch(() => {});
+        }, 1000);
+        this.holdTimer.unref?.();
+      }
+    }
     const operation = async () => this.timeline(await this.send(command), command.action);
     const result = this.queue.then(operation, operation);
     this.queue = result.catch(() => {});
@@ -115,6 +132,7 @@ class WindowsMedia {
   async close() {
     this.closed = true;
     clearInterval(this.duckTimer); this.duckClients.clear();
+    clearInterval(this.holdTimer); this.holdFactor = null;
     const child = this.child;
     if (!child) return;
     await new Promise(resolve => {

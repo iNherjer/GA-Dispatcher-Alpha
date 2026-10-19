@@ -7,6 +7,9 @@
   function createPlayer(options) {
     var context = null, active = null, state = null, fetching = false, stopped = false;
     var deviceId = options.deviceId, clientId = options.clientId, lastNotice = '', retryTimer = null;
+    // Radio hold: { mode: 'pause' } returns the job to the tracker queue, { mode: 'dim', factor } attenuates.
+    var hold = null;
+    function holdFactor() { return hold && hold.mode === 'dim' ? hold.factor : 1; }
     var request = function (payload) { return bounded(Promise.resolve().then(function () {
       return options.request(Object.assign({}, payload, { deviceId: deviceId, clientId: clientId }));
     }), 'audio_control_timeout', null, options.controlTimeoutMs || 2500); };
@@ -63,6 +66,10 @@
       if (current.done) return;
       current.done = true;
       var cursor = position(current);
+      if (current.holdPaused) {
+        // Resume speech slightly earlier for context; a warning segment restarts from its beginning.
+        cursor = { stage: cursor.stage, offset: cursor.stage === 'audio' ? Math.max(0, cursor.offset - 1.5) : /^warning:/.test(cursor.stage) ? 0 : cursor.offset };
+      }
       silence(current);
       try { await request({ action: 'release', effectId: current.job.effectId, completed: completed,
         retryable: !completed && !!deviceSwitch, deviceSwitch: !!deviceSwitch, position: cursor, error: current.error || '' }); } catch (_) {}
@@ -147,7 +154,7 @@
         ? audioStyle.buildIntercomChain(ctx, volume, buffer.duration - current.offset, { noise: style === 'intercom_noise' }) : null;
       current.noise = chain && chain.noise;
       source.connect(chain ? chain.input : volume);
-      volume.gain.value = state.settings.volume * gain;
+      volume.gain.value = state.settings.volume * gain * holdFactor();
       current.startedAt = ctx.currentTime;
       await new Promise(function (resolve, reject) {
         var done = false;
@@ -183,21 +190,24 @@
       if (!current.done) { current.source = null; current.offset = 0; }
     }
     async function pump() {
-      if (stopped || fetching || active || !state || !state.target || state.target.deviceId !== deviceId || !state.settings.enabled) return;
+      if (stopped || fetching || active || (hold && hold.mode === 'pause') || !state || !state.target || state.target.deviceId !== deviceId || !state.settings.enabled) return;
       clearTimeout(retryTimer); retryTimer = null;
       fetching = true;
       var ownsFetch = true;
       try {
         var next = await request({ action: 'next' });
-        if (!next.job || stopped || !selected(next.job)) return;
+        if (!next.job || stopped || !selected(next.job) || (hold && hold.mode === 'pause')) return;
         if (!(await unlock())) { if (options.onError) options.onError('Audio bitte durch Antippen aktivieren.'); return; }
         var started = Date.now();
         var claim = await request({ action: 'claim', effectId: next.job.effectId });
         if (!claim.claimed) return;
         var cursor = claim.job && claim.job.playback && claim.job.playback.position || { stage: 'cue', offset: 0 };
+        if (typeof options.onDiagnostic === 'function' && (cursor.offset > 0 || cursor.stage !== 'cue')) {
+          try { options.onDiagnostic('claim ' + next.job.effectId + ' kind=' + next.job.kind + ' resume stage=' + cursor.stage + ' offset=' + Number(cursor.offset).toFixed(2)); } catch (_) {}
+        }
         var current = { job: next.job, stage: cursor.stage, offset: cursor.offset, startedAt: 0, done: false };
         active = current;
-        if (stopped || !selected(next.job) || Date.now() - started > 3000) { await finish(current, false, true); return; }
+        if (stopped || !selected(next.job) || (hold && hold.mode === 'pause') || Date.now() - started > 3000) { current.holdPaused = !!hold; await finish(current, false, true); return; }
         armLease(current, started); current.renewTimer = setTimeout(function () { renew(current); }, 1000);
         current.watchdog = setTimeout(function () { finish(current, false, false); }, 180000);
         if (options.onPlayback) options.onPlayback(next.job);
@@ -280,15 +290,34 @@
         if (active.resolveClip) active.resolveClip();
       }
       if (active && state && !state.settings.effectsEnabled && active.delayResolve) active.delayResolve();
-      if (active && active.gain && state) active.gain.gain.value = state.settings.volume * active.clipGain;
+      if (active && active.gain && state) active.gain.gain.value = state.settings.volume * active.clipGain * holdFactor();
       var notice = state ? state.revision + ':' + (state.playback && state.playback.notification || '') : '';
       if (notice !== lastNotice) {
         lastNotice = notice;
         if (state && state.playback && state.playback.playbackAvailable) pump();
       }
     }
+    function setHold(value) {
+      var next = value && value.mode === 'pause' ? { mode: 'pause' }
+        : value && value.mode === 'dim' ? { mode: 'dim', factor: Math.max(0, Math.min(1, Number(value.factor) || 0)) } : null;
+      var wasPaused = hold && hold.mode === 'pause';
+      hold = next;
+      if (typeof options.onDiagnostic === 'function') {
+        var cursor = active && !active.done ? position(active) : null;
+        try { options.onDiagnostic('hold ' + (next ? next.mode + (next.mode === 'dim' ? ':' + next.factor : '') : 'off')
+          + (cursor ? ' active=' + active.job.effectId + ' kind=' + active.job.kind + ' stage=' + cursor.stage + ' offset=' + cursor.offset.toFixed(2) : ' active=none')
+          + (wasPaused && !next ? ' resume=queue' : '')); } catch (_) {}
+      }
+      if (next && next.mode === 'pause') {
+        clearTimeout(retryTimer); retryTimer = null;
+        if (active && !active.done) { active.holdPaused = true; finish(active, false, true); }
+        return;
+      }
+      if (active && active.gain && state) active.gain.gain.value = state.settings.volume * active.clipGain * holdFactor();
+      if (wasPaused && !stopped) pump();
+    }
     async function stop() { stopped = true; clearTimeout(retryTimer); if (active) await finish(active, false, true); if (context) await context.close(); }
-    return { update: update, pump: pump, unlock: unlock, stop: stop,
+    return { update: update, pump: pump, unlock: unlock, stop: stop, setHold: setHold,
       setOutputDevice: async function (id) { var ctx = getContext(); if (typeof ctx.setSinkId !== 'function') throw new Error('Ausgangswahl wird auf diesem Gerät nicht unterstützt.'); await ctx.setSinkId(id || ''); },
       get active() { return !!active; } };
   }

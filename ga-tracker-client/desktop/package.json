@@ -1,6 +1,6 @@
 {
   "name": "vfr-multitool-tracker-desktop",
-  "version": "1.6.22",
+  "version": "1.6.23",
   "private": true,
   "description": "Desktop UI and updater for the VFR Multitool MSFS tracker",
   "author": "VFR Multitool",
@@ -32,7 +32,9 @@
     "asar": true,
     "asarUnpack": [
       "lib/windows-media.ps1",
-      "lib/windows-media-volume.cs"
+      "lib/windows-media-volume.cs",
+      "lib/windows-input.ps1",
+      "lib/windows-input.cs"
     ],
     "directories": {
       "output": "dist"

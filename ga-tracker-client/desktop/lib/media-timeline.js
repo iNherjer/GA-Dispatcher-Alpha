@@ -5,7 +5,7 @@ function createMediaTimeline(now = () => performance.now(), wallNow = Date.now) 
   return function update(value, action = 'snapshot') {
     const { timeline, album, trackNumber, ...result } = value;
     if (!value.ok) { previous = null; return result; }
-    if (action === 'duck') return result;
+    if (action === 'duck' || action === 'hold') return result;
     const at = now();
     if (!value.source || !(value.players || []).some(p => p.source === value.source)) {
       previous = null;

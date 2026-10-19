@@ -359,3 +359,48 @@ test('warning playback keeps its stage and fractional cursor unchanged', async t
   assert.deepEqual(seen, ['warning:0']);
   assert.equal(fake.starts[0], 0.25);
 });
+test('radio hold pauses into the tracker queue at its position and resumes the same effect', async t => {
+  const audioControl = createAudioControl();
+  const service = createTrackerVoiceService({ audioControl });
+  service.request({ effectId: 'cargo:hold', kind: 'cargo', cue: { id: 'cargo_load' } });
+  const fake = fakeAudio();
+  const pc = createPlayer({ deviceId: 'pc', clientId: 'pc-session', AudioContext: fake.Context,
+    request: async command => handleVoiceRelay(service, command, audioControl), fetchClip: async () => new ArrayBuffer(1) });
+  t.after(async () => { await pc.stop(); audioControl.close(); });
+  const snapshot = () => ({ ...audioControl.snapshot(), playback: service.publicState() });
+  pc.update(snapshot()); await wait(80);
+  assert.equal(fake.running.size, 1);
+  pc.setHold({ mode: 'pause' }); await wait(20);
+  assert.equal(fake.running.size, 0);
+  const record = service.get('cargo:hold');
+  assert.equal(record.playback.status, 'available');
+  assert.ok(record.playback.position.offset > 0, 'the cursor is kept for the resume');
+  pc.update(snapshot()); await wait(60);
+  assert.equal(fake.running.size, 0, 'a held player must not claim new work');
+  pc.setHold(null); await wait(60);
+  assert.equal(fake.running.size, 1);
+  assert.equal(fake.starts.length, 2);
+  assert.ok(fake.starts[1] > 0, 'resume continues from the stored offset');
+});
+test('radio hold dimming scales the active gain and restores it', async t => {
+  const gains = [];
+  const fake = fakeAudio();
+  class Context extends fake.Context { createGain() { const node = super.createGain(); gains.push(node); return node; } }
+  let offered = false;
+  const player = createPlayer({ deviceId: 'pc', clientId: 'pc-session', AudioContext: Context,
+    request: async command => {
+      if (command.action === 'next') { if (offered) return {}; offered = true; return { job: { effectId: 'voice', kind: 'boarding', audioAvailable: true } }; }
+      if (command.action === 'claim') return { claimed: true };
+      if (command.action === 'renew') return { continued: true };
+      return {};
+    }, fetchClip: async () => new ArrayBuffer(1) });
+  t.after(() => player.stop());
+  player.update({ revision: 1, target: { deviceId: 'pc' }, settings: { audioStyle: 'clear', enabled: true, paxEnabled: true, volume: 0.8 }, playback: { playbackAvailable: true } });
+  await wait(40);
+  const gain = gains[gains.length - 1].gain;
+  assert.equal(gain.value, 0.8);
+  player.setHold({ mode: 'dim', factor: 0.25 });
+  assert.equal(gain.value, 0.2);
+  player.setHold(null);
+  assert.equal(gain.value, 0.8);
+});
