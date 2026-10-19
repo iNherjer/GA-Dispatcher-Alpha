@@ -399,11 +399,12 @@ let autostartEntries = [];
 let autostartListSignature = '';
 let autostartDragId = '';
 let autostartRenderDeferred = false;
+let autostartMenuId = '';
 let autostartLaunchPending = false;
 let autostartDetectPending = false;
 
 function autostartPayload(entries) {
-  return entries.map((entry) => ({ id: entry.id, enabled: entry.enabled, admin: entry.admin, delaySeconds: entry.delaySeconds }));
+  return entries.map((entry) => ({ id: entry.id, enabled: entry.enabled, admin: entry.admin, args: entry.args, delaySeconds: entry.delaySeconds }));
 }
 
 function saveAutostartEntries(entries) {
@@ -431,11 +432,85 @@ function autostartOption(labelText, control) {
   return label;
 }
 
+// Kontextmenue hinter dem Drei-Punkte-Kreis: seltene Einstellungen eines Eintrags.
+function autostartMenu(entry) {
+  if (entry.kind !== 'program' && !entry.argsSupported) return null;
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'autostart-more';
+  button.textContent = '⋯';
+  button.title = 'Weitere Einstellungen';
+  button.setAttribute('aria-label', `Weitere Einstellungen für ${entry.name}`);
+  button.setAttribute('aria-haspopup', 'true');
+  const panel = document.createElement('div');
+  panel.className = 'autostart-menu';
+  panel.hidden = autostartMenuId !== entry.id;
+  button.setAttribute('aria-expanded', String(!panel.hidden));
+  if (entry.kind === 'program') {
+    const admin = document.createElement('input');
+    admin.type = 'checkbox';
+    admin.checked = entry.admin;
+    admin.addEventListener('change', () => patchAutostartEntry(entry.id, { admin: admin.checked }));
+    panel.append(autostartOption('Als Admin starten', admin));
+  }
+  if (entry.argsSupported) {
+    const label = document.createElement('label');
+    label.className = 'autostart-menu-field';
+    const caption = document.createElement('span');
+    caption.textContent = 'Startargumente';
+    const args = document.createElement('input');
+    args.type = 'text';
+    args.value = entry.args || '';
+    args.placeholder = entry.kind === 'sim' ? 'z. B. -FastLaunch' : 'optional';
+    args.spellcheck = false;
+    args.addEventListener('change', () => patchAutostartEntry(entry.id, { args: args.value.trim() }));
+    args.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') args.blur();
+      if (event.key === 'Escape') closeAutostartMenu();
+    });
+    label.append(caption, args);
+    panel.append(label);
+  }
+  button.addEventListener('click', (event) => {
+    event.stopPropagation();
+    if (autostartMenuId === entry.id) closeAutostartMenu();
+    else openAutostartMenu(entry.id);
+  });
+  panel.addEventListener('click', (event) => event.stopPropagation());
+  return { button, panel };
+}
+
+function syncAutostartMenus() {
+  for (const item of elements.autostartList.children) {
+    const open = item.dataset.id === autostartMenuId;
+    const panel = item.querySelector('.autostart-menu');
+    if (panel) panel.hidden = !open;
+    item.classList.toggle('menu-open', open);
+    item.querySelector('.autostart-more')?.setAttribute('aria-expanded', String(open));
+  }
+}
+
+function openAutostartMenu(id) {
+  autostartMenuId = id;
+  syncAutostartMenus();
+  elements.autostartList.querySelector(`[data-id="${CSS.escape(id)}"] .autostart-menu input[type="text"]`)?.focus();
+}
+
+function closeAutostartMenu() {
+  if (!autostartMenuId) return;
+  autostartMenuId = '';
+  syncAutostartMenus();
+}
+
+document.addEventListener('click', closeAutostartMenu);
+document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeAutostartMenu(); });
+
 function autostartItem(entry, index, run) {
   const item = document.createElement('li');
   item.className = 'autostart-item';
   if (!entry.enabled) item.classList.add('disabled');
   if (run.phase === 'running' && run.currentId === entry.id) item.classList.add('current');
+  if (autostartMenuId === entry.id) item.classList.add('menu-open');
   item.dataset.id = entry.id;
   // Der ganze Eintrag ist ziehbar; Schalter, Felder und Pfeile behalten ihre Bedienung.
   item.draggable = true;
@@ -461,7 +536,7 @@ function autostartItem(entry, index, run) {
   down.addEventListener('click', () => moveAutostartEntry(entry.id, index + 1));
   handle.append(up, grip, down);
   item.addEventListener('dragstart', (event) => {
-    if (pressTarget?.closest?.('input, select, button, textarea')) {
+    if (pressTarget?.closest?.('input, select, button, textarea, .autostart-menu')) {
       event.preventDefault();
       return;
     }
@@ -533,13 +608,6 @@ function autostartItem(entry, index, run) {
   enabled.checked = entry.enabled;
   enabled.addEventListener('change', () => patchAutostartEntry(entry.id, { enabled: enabled.checked }));
   options.append(autostartOption('Aktiv', enabled));
-  if (entry.kind === 'program') {
-    const admin = document.createElement('input');
-    admin.type = 'checkbox';
-    admin.checked = entry.admin;
-    admin.addEventListener('change', () => patchAutostartEntry(entry.id, { admin: admin.checked }));
-    options.append(autostartOption('Als Admin', admin));
-  }
   const delay = document.createElement('select');
   const delays = AUTOSTART_DELAYS.includes(entry.delaySeconds) ? AUTOSTART_DELAYS : AUTOSTART_DELAYS.concat(entry.delaySeconds).sort((a, b) => a - b);
   for (const seconds of delays) {
@@ -564,7 +632,10 @@ function autostartItem(entry, index, run) {
   remove.title = 'Entfernen';
   remove.setAttribute('aria-label', `${entry.name} entfernen`);
   remove.addEventListener('click', () => saveAutostartEntries(autostartEntries.filter((other) => other.id !== entry.id)));
+  const menu = autostartMenu(entry);
+  if (menu) side.append(menu.button);
   side.append(remove);
+  if (menu) item.append(menu.panel);
 
   item.append(handle, icon, body, side);
   return item;
@@ -630,7 +701,7 @@ function renderAutostart(autostart) {
   // Ein Neuaufbau mitten im Ziehen wuerde den Vorgang abbrechen.
   autostartRenderDeferred = Boolean(autostartDragId);
   if (autostartRenderDeferred) return;
-  if (elements.autostartList.contains(document.activeElement) && document.activeElement.tagName === 'SELECT') return;
+  if (elements.autostartList.contains(document.activeElement) && ['SELECT', 'INPUT'].includes(document.activeElement.tagName) && document.activeElement.type !== 'checkbox') return;
   autostartListSignature = signature;
   autostartEntries = entries;
   elements.autostartList.replaceChildren(...entries.map((entry, index) => autostartItem(entry, index, run)));

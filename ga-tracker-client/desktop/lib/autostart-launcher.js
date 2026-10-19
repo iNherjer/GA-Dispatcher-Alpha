@@ -59,7 +59,9 @@ function normalizeEntry(raw) {
     const source = entry.source === 'store' ? 'store' : (entry.source === 'steam' ? 'steam' : '');
     const launchTarget = cleanText(entry.launchTarget, 512);
     if (!simulator || !source || !launchTarget) return null;
-    return { ...base, name: cleanText(entry.name, 120) || simulator.label, simId: simulator.id, source, launchTarget, imageName: simulator.imageName, admin: false };
+    // Startargumente gibt es nur ueber Steam; der Store-Start nimmt keine an.
+    const args = source === 'steam' ? cleanText(entry.args, 512) : '';
+    return { ...base, name: cleanText(entry.name, 120) || simulator.label, simId: simulator.id, source, launchTarget, args, imageName: simulator.imageName, admin: false };
   }
   const target = cleanText(entry.path, 1024);
   if (!target || !path.win32.isAbsolute(target)) return null;
@@ -102,7 +104,54 @@ function startProcessCommand({ file, args = '', cwd = '', admin = false }) {
   if (args) parts.push(`-ArgumentList ${psQuote(args)}`);
   if (cwd) parts.push(`-WorkingDirectory ${psQuote(cwd)}`);
   if (admin) parts.push('-Verb RunAs');
-  return `$ErrorActionPreference='Stop'; ${parts.join(' ')}`;
+  // -PassThru liefert die Prozess-ID, damit auch Kindprozesse eines Launchers
+  // spaeter zugeordnet werden koennen.
+  return `$ErrorActionPreference='Stop'; $p = ${parts.join(' ')} -PassThru; if ($p) { $p.Id }`;
+}
+
+const PROCESS_SNAPSHOT_COMMAND = "Get-CimInstance Win32_Process | ForEach-Object { '{0}|{1}|{2}' -f $_.ProcessId,$_.ParentProcessId,$_.ExecutablePath }";
+
+function parseProcessSnapshot(text) {
+  const processes = new Map();
+  for (const line of String(text || '').split(/\r?\n/)) {
+    const match = line.match(/^(\d+)\|(\d+)\|(.*)$/);
+    if (match) processes.set(Number(match[1]), { parentPid: Number(match[2]), path: match[3].trim().toLowerCase() });
+  }
+  return processes;
+}
+
+// Programmordner, deren Unterprozesse dem Eintrag zugerechnet werden. Zu
+// allgemeine Ordner (Laufwerk, erste Ebene, Windows) scheiden aus.
+function ownedFolderFor(target) {
+  const folder = path.win32.dirname(target).toLowerCase();
+  const parts = folder.split('\\').filter(Boolean);
+  if (parts.length < 3 && !/^[a-z]:\\program files( \(x86\))?\\[^\\]+$/.test(folder)) return '';
+  if (/^[a-z]:\\windows(\\|$)/.test(folder)) return '';
+  if (/\\(desktop|downloads|documents|onedrive[^\\]*)$/.test(folder)) return '';
+  return folder + '\\';
+}
+
+// Neue Prozesse seit dem Autostart, die von einem gestarteten Prozess abstammen
+// oder aus dem Ordner eines gestarteten Programms kommen.
+function ownedProcessIds(snapshot, { baseline, roots, folders, excludePaths = [] }) {
+  const owned = new Set();
+  const excluded = new Set(excludePaths.map((item) => item.toLowerCase()));
+  const descends = (pid) => {
+    const seen = new Set();
+    for (let current = pid; current && !seen.has(current); current = snapshot.get(current)?.parentPid) {
+      seen.add(current);
+      if (roots.has(current)) return true;
+      const parent = snapshot.get(current)?.parentPid;
+      if (roots.has(parent)) return true;
+      if (baseline.has(parent)) return false;
+    }
+    return false;
+  };
+  for (const [pid, info] of snapshot) {
+    if (baseline.has(pid) || excluded.has(info.path) || excluded.has(path.win32.basename(info.path))) continue;
+    if (descends(pid) || [...folders].some((folder) => info.path.startsWith(folder))) owned.add(pid);
+  }
+  return owned;
 }
 
 function parseSteamLibraryPaths(vdfText) {
@@ -160,6 +209,9 @@ class AutostartLauncher extends EventEmitter {
     this.createId = createId;
     this.icons = new Map();
     this.ownedImageNames = new Set();
+    this.ownedRoots = new Set();
+    this.ownedFolders = new Set();
+    this.baselinePids = null;
     this.simWatchToken = 0;
     this.simCandidates = null;
     this.run = { phase: 'idle', currentId: '', results: {}, message: '' };
@@ -193,6 +245,8 @@ class AutostartLauncher extends EventEmitter {
         detail: entry.kind === 'sim' ? (entry.source === 'steam' ? 'Steam' : 'Microsoft Store') : entry.path,
         enabled: entry.enabled,
         admin: entry.admin,
+        args: entry.args || '',
+        argsSupported: entry.kind === 'program' || entry.source === 'steam',
         delaySeconds: entry.delaySeconds,
         icon: this.icons.get(entry.id) || ''
       })),
@@ -281,6 +335,8 @@ class AutostartLauncher extends EventEmitter {
         ...existing,
         enabled: typeof item.enabled === 'boolean' ? item.enabled : existing.enabled,
         admin: existing.kind === 'program' && typeof item.admin === 'boolean' ? item.admin : existing.admin,
+        args: typeof item.args === 'string' && (existing.kind === 'program' || existing.source === 'steam')
+          ? cleanText(item.args, existing.kind === 'program' ? 2048 : 512) : existing.args,
         delaySeconds: item.delaySeconds === undefined ? existing.delaySeconds : clampDelay(item.delaySeconds)
       });
     }
@@ -355,6 +411,7 @@ class AutostartLauncher extends EventEmitter {
       simId: candidate.simId,
       source: candidate.source,
       launchTarget: candidate.launchTarget,
+      args: existing?.args || '',
       enabled: true,
       delaySeconds: existing ? existing.delaySeconds : 0
     };
@@ -364,6 +421,15 @@ class AutostartLauncher extends EventEmitter {
     this.simCandidates = null;
     this.save({ ...settings, entries });
     return { ok: true };
+  }
+
+  async processSnapshot() {
+    try {
+      const snapshot = parseProcessSnapshot(await execFileText(this.execFileImpl, 'powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', PROCESS_SNAPSHOT_COMMAND], 20000));
+      return snapshot.size ? snapshot : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   async runningImageNames() {
@@ -377,7 +443,10 @@ class AutostartLauncher extends EventEmitter {
   async launchEntry(entry) {
     if (entry.kind === 'sim') {
       if (entry.source === 'steam') {
-        await this.openExternal(entry.launchTarget);
+        const simulator = SIMULATORS.find((item) => item.id === entry.simId);
+        await this.openExternal(entry.args && simulator
+          ? `steam://run/${simulator.steamAppId}//${encodeURIComponent(entry.args)}/`
+          : entry.launchTarget);
       } else {
         await execFileText(this.execFileImpl, 'explorer.exe', [`shell:AppsFolder\\${entry.launchTarget}`]).catch((error) => {
           // explorer.exe meldet auch bei erfolgreichem Start oft Exitcode 1.
@@ -387,10 +456,12 @@ class AutostartLauncher extends EventEmitter {
       return;
     }
     if (!this.fs.existsSync(entry.path)) throw new Error('Datei nicht gefunden.');
-    await execFileText(this.execFileImpl, 'powershell.exe', [
+    const output = await execFileText(this.execFileImpl, 'powershell.exe', [
       '-NoProfile', '-NonInteractive', '-Command',
       startProcessCommand({ file: entry.path, args: entry.args, cwd: entry.cwd, admin: entry.admin })
     ], 60000);
+    const pid = Number(String(output).trim().split(/\s+/).pop());
+    return Number.isInteger(pid) && pid > 0 ? pid : 0;
   }
 
   setRun(patch) {
@@ -411,6 +482,10 @@ class AutostartLauncher extends EventEmitter {
     const entries = settings.entries.filter((entry) => entry.enabled);
     this.setRun({ phase: 'running', currentId: '', results: {}, message: '' });
     let failed = 0;
+    if (!this.baselinePids && entries.some((entry) => entry.kind === 'program')) {
+      const snapshot = await this.processSnapshot();
+      if (snapshot) this.baselinePids = new Set(snapshot.keys());
+    }
     for (let index = 0; index < entries.length; index += 1) {
       const entry = entries[index];
       this.setRun({ currentId: entry.id });
@@ -420,8 +495,13 @@ class AutostartLauncher extends EventEmitter {
         continue;
       }
       try {
-        await this.launchEntry(entry);
-        if (entry.kind === 'program' && entry.imageName) this.ownedImageNames.add(entry.imageName);
+        const pid = await this.launchEntry(entry);
+        if (entry.kind === 'program') {
+          if (entry.imageName) this.ownedImageNames.add(entry.imageName);
+          if (pid) this.ownedRoots.add(pid);
+          const folder = ownedFolderFor(entry.path);
+          if (folder) this.ownedFolders.add(folder);
+        }
         this.setResult(entry.id, 'started');
       } catch (_) {
         failed += 1;
@@ -476,9 +556,30 @@ class AutostartLauncher extends EventEmitter {
   // Der Simulator wird nie geschlossen.
   async shutdownOwned() {
     this.stopSimulatorWatch();
-    if (this.platform !== 'win32' || !this.settings().closeOnExit || !this.ownedImageNames.size) return;
+    const hasOwned = this.ownedImageNames.size || this.ownedRoots.size || this.ownedFolders.size;
+    if (this.platform !== 'win32' || !this.settings().closeOnExit || !hasOwned) return;
     const names = [...this.ownedImageNames];
+    const tracked = { baseline: this.baselinePids, roots: new Set(this.ownedRoots), folders: new Set(this.ownedFolders) };
     this.ownedImageNames.clear();
+    this.ownedRoots.clear();
+    this.ownedFolders.clear();
+    this.baselinePids = null;
+    const snapshot = tracked.baseline ? await this.processSnapshot() : null;
+    if (snapshot) {
+      const excludePaths = SIMULATORS.map((simulator) => simulator.imageName).concat(this.excludeProcessPaths || []);
+      const pids = [...ownedProcessIds(snapshot, { ...tracked, excludePaths })];
+      for (const pid of pids) {
+        await execFileText(this.execFileImpl, 'taskkill.exe', ['/PID', String(pid), '/T']).catch(() => {});
+      }
+      await this.sleep(CLOSE_GRACE_MS);
+      const after = await this.processSnapshot();
+      for (const pid of pids) {
+        if (after && !after.has(pid)) continue;
+        await execFileText(this.execFileImpl, 'taskkill.exe', ['/PID', String(pid), '/T', '/F']).catch(() => {});
+      }
+      return;
+    }
+    // Ohne Prozessliste bleibt nur der Abgleich ueber den Dateinamen.
     for (const name of names) {
       await execFileText(this.execFileImpl, 'taskkill.exe', ['/IM', name, '/T']).catch(() => {});
     }
@@ -495,6 +596,9 @@ module.exports = {
   AutostartLauncher,
   SIMULATORS,
   normalizeAutostartSettings,
+  ownedFolderFor,
+  ownedProcessIds,
+  parseProcessSnapshot,
   parseSteamLibraryPaths,
   parseTasklistImageNames,
   startProcessCommand

@@ -71,9 +71,9 @@ test('settings are normalized and unknown or invalid entries are dropped', () =>
 test('start commands quote paths and request elevation only for admin entries', () => {
   assert.equal(
     startProcessCommand({ file: "C:\\Tom's Tools\\a.exe", args: '-x', cwd: 'C:\\Tools' }),
-    "$ErrorActionPreference='Stop'; Start-Process -FilePath 'C:\\Tom''s Tools\\a.exe' -ArgumentList '-x' -WorkingDirectory 'C:\\Tools'"
+    "$ErrorActionPreference='Stop'; $p = Start-Process -FilePath 'C:\\Tom''s Tools\\a.exe' -ArgumentList '-x' -WorkingDirectory 'C:\\Tools' -PassThru; if ($p) { $p.Id }"
   );
-  assert.match(startProcessCommand({ file: 'C:\\a.exe', admin: true }), /-Verb RunAs$/);
+  assert.match(startProcessCommand({ file: 'C:\\a.exe', admin: true }), /-Verb RunAs -PassThru/);
   assert.doesNotMatch(startProcessCommand({ file: 'C:\\a.exe' }), /ArgumentList|RunAs/);
 });
 
@@ -161,7 +161,7 @@ test('launch runs entries in order, skips running programs and only closes owned
   const result = await instance.launchAll();
   assert.equal(result.ok, true);
   assert.deepEqual(instance.run.results, { a: 'started', b: 'skipped', s: 'started' });
-  const starts = calls.filter((call) => call.command === 'powershell.exe');
+  const starts = calls.filter((call) => call.command === 'powershell.exe' && /Start-Process/.test(call.args.at(-1)));
   assert.equal(starts.length, 1);
   assert.match(starts[0].args.at(-1), /-Verb RunAs/);
   assert.deepEqual(opened, ['steam://rungameid/2537590']);
@@ -228,4 +228,61 @@ test('a single missed poll or a simulator that never starts closes nothing', asy
   await never.instance.watchSimulator('FlightSimulator2024.exe');
   assert.deepEqual(never.kills(), []);
   assert.equal(never.instance.ownedImageNames.size, 1);
+});
+
+test('processes started by a launcher are closed via PID tree and program folder', async () => {
+  const calls = [];
+  // 100/101 liefen vorher; der Launcher (500) startet 501 und beendet sich.
+  let table = [[100, 1, 'C:\\Windows\\explorer.exe'], [101, 100, 'C:\\Other\\Tool\\keep.exe']];
+  const store = memoryStore({ enabled: true, closeOnExit: true, entries: [
+    { id: 'l', kind: 'program', path: 'D:\\Apps\\Charts\\Launcher.exe' }
+  ] });
+  const instance = launcher({
+    store, calls, files: ['D:\\Apps\\Charts\\Launcher.exe'],
+    handlers: {
+      'tasklist.exe': () => '"explorer.exe","100"',
+      'powershell.exe': (args) => {
+        const command = args.at(-1);
+        if (/Start-Process/.test(command)) {
+          table = table.concat([[500, 100, 'D:\\Apps\\Charts\\Launcher.exe']]);
+          return '500\r\n';
+        }
+        return table.map((row) => row.join('|')).join('\r\n');
+      }
+    }
+  });
+  await instance.launchAll();
+  instance.stopSimulatorWatch();
+  // Launcher beendet, eigentliches Programm aus Unterordner, dessen Kind, ein fremder neuer Prozess.
+  table = [[100, 1, 'C:\\Windows\\explorer.exe'], [101, 100, 'C:\\Other\\Tool\\keep.exe'],
+    [501, 500, 'D:\\Apps\\Charts\\app-2.1\\Charts.exe'], [502, 501, 'C:\\Windows\\System32\\conhost.exe'],
+    [600, 100, 'D:\\Apps\\Charts\\Updater.exe'], [700, 100, 'C:\\Other\\Unrelated.exe']];
+  calls.length = 0;
+  await instance.shutdownOwned();
+  const killed = calls.filter((call) => call.command === 'taskkill.exe').map((call) => call.args[1]);
+  assert.deepEqual([...new Set(killed)].sort(), ['501', '502', '600']);
+});
+
+test('start arguments are editable for programs and Steam, not for the Store', async () => {
+  const opened = [];
+  const calls = [];
+  const store = memoryStore({ enabled: true, entries: [
+    { id: 'p', kind: 'program', path: 'C:\\Tools\\Nav\\nav.exe' },
+    { id: 's', kind: 'sim', simId: 'msfs2024', source: 'steam', launchTarget: 'steam://rungameid/2537590' }
+  ] });
+  const instance = launcher({ store, calls, files: ['C:\\Tools\\Nav\\nav.exe'], openExternal: async (url) => opened.push(url) });
+  instance.updateEntries([{ id: 'p', args: '--profile "VFR One"' }, { id: 's', args: '-FastLaunch' }]);
+  const state = instance.publicState().entries;
+  assert.deepEqual(state.map((entry) => [entry.args, entry.argsSupported]), [['--profile "VFR One"', true], ['-FastLaunch', true]]);
+  await instance.launchAll();
+  instance.stopSimulatorWatch();
+  const start = calls.find((call) => call.command === 'powershell.exe' && /Start-Process/.test(call.args.at(-1)));
+  assert.match(start.args.at(-1), /-ArgumentList '--profile "VFR One"'/);
+  assert.deepEqual(opened, ['steam://run/2537590//-FastLaunch/']);
+
+  const storeSim = launcher({ store: memoryStore({ enabled: true, entries: [
+    { id: 'x', kind: 'sim', simId: 'msfs2024', source: 'store', launchTarget: 'Microsoft.Limitless_8wekyb3d8bbwe!App' }
+  ] }) });
+  storeSim.updateEntries([{ id: 'x', args: '-FastLaunch' }]);
+  assert.deepEqual(storeSim.publicState().entries.map((entry) => [entry.args, entry.argsSupported]), [['', false]]);
 });
