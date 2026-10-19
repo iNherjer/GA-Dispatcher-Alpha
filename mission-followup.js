@@ -2350,27 +2350,64 @@
             return;
         }
         root.hidden = false;
-        const bucket = new Date().toISOString().slice(0, 10);
-        const hasUnannounced = due.some(req => req.announcedBucket !== bucket);
-        root.classList.toggle('is-new', hasUnannounced);
+        const seen = readSeenIds();
+        const unseen = due.filter(req => !seen.has(req.id));
+        const isOpen = readBannerOpen();
+        if (isOpen && unseen.length) {
+            unseen.forEach(req => seen.add(req.id));
+            writeSeenIds(seen);
+        }
+        const badgeCount = isOpen ? 0 : unseen.length;
+        root.classList.toggle('is-new', badgeCount > 0);
+        root.classList.toggle('is-open', isOpen);
         root.innerHTML = '';
-        const header = document.createElement('div');
-        header.className = 'followup-banner-header';
-        const title = document.createElement('div');
+        const header = document.createElement('button');
+        header.type = 'button';
+        header.className = 'followup-banner-header followup-banner-toggle';
+        header.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+        header.title = isOpen ? 'Missionsanfragen einklappen' : 'Missionsanfragen anzeigen';
+        const chev = document.createElement('span');
+        chev.className = 'followup-banner-chevron';
+        chev.textContent = '▸';
+        const title = document.createElement('span');
         title.className = 'followup-banner-title';
-        title.textContent = due.length === 1 ? 'Neue Folgeanfrage' : `${due.length} offene Folgeanfragen`;
-        const laterBtn = document.createElement('button');
-        laterBtn.type = 'button';
-        laterBtn.className = 'followup-banner-later';
-        laterBtn.textContent = 'Später';
-        laterBtn.title = 'Hinweis für heute ausblenden, Anfrage bleibt in der Liste';
-        laterBtn.addEventListener('click', () => markAnnounced(due.map(req => req.id)));
-        header.append(title, laterBtn);
+        title.textContent = `Missionsanfragen (${due.length})`;
+        header.append(chev, title);
+        if (badgeCount > 0) {
+            const badge = document.createElement('span');
+            badge.className = 'followup-banner-badge';
+            badge.textContent = String(badgeCount);
+            badge.title = badgeCount === 1 ? '1 neue Anfrage' : `${badgeCount} neue Anfragen`;
+            header.appendChild(badge);
+        }
+        header.addEventListener('click', () => {
+            writeBannerOpen(!readBannerOpen());
+            render();
+        });
         root.appendChild(header);
+        if (!isOpen) return;
         const list = document.createElement('div');
         list.className = 'followup-request-list';
         due.forEach(req => list.appendChild(renderRequestItem(req)));
         root.appendChild(list);
+    }
+
+    const SEEN_KEY = 'gaFollowupSeenRequestIds';
+    const OPEN_KEY = 'gaFollowupBannerOpen';
+    function readSeenIds() {
+        try { return new Set(JSON.parse(localStorage.getItem(SEEN_KEY) || '[]')); } catch (_) { return new Set(); }
+    }
+    function writeSeenIds(set) {
+        try {
+            const live = new Set(getRequests().map(req => req.id));
+            localStorage.setItem(SEEN_KEY, JSON.stringify([...set].filter(id => live.has(id))));
+        } catch (_) {}
+    }
+    function readBannerOpen() {
+        try { return localStorage.getItem(OPEN_KEY) === '1'; } catch (_) { return false; }
+    }
+    function writeBannerOpen(open) {
+        try { localStorage.setItem(OPEN_KEY, open ? '1' : '0'); } catch (_) {}
     }
 
     function renderRequestItem(req) {
