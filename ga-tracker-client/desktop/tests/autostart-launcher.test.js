@@ -324,7 +324,7 @@ test('access denied on close falls back to one elevated taskkill and everything 
   const elevated = calls.filter((call) => call.command === 'powershell.exe' && /taskkill\.exe' -Verb RunAs/.test(call.args.at(-1)));
   assert.equal(elevated.length, 1);
   assert.match(elevated[0].args.at(-1), /'\/PID','500'/);
-  for (const marker of ['AUTOSTART_LAUNCH', 'AUTOSTART_STARTED entry=Say pid=500', 'AUTOSTART_CLOSE reason=app-exit', 'AUTOSTART_KILL_FAILED pid=500', 'AUTOSTART_CLOSE_ELEVATED pids=500']) {
+  for (const marker of ['AUTOSTART_LAUNCH', 'AUTOSTART_STARTED entry=Say pid=500', 'AUTOSTART_CLOSE reason=app-exit', 'AUTOSTART_KILL_DENIED pid=500', 'AUTOSTART_CLOSE_ELEVATED pids=500']) {
     assert.ok(lines.some((line) => line.startsWith(marker)), marker);
   }
 });
@@ -442,4 +442,31 @@ test('closing cancels programs still waiting for SimConnect', async () => {
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(instance.run.phase, 'done');
   assert.ok(!calls.some((call) => /late\.exe/.test(call.args.at(-1) || '')));
+});
+
+test('status shows the sim as running, then ended, and closed programs as closed', async () => {
+  let simRunning = false;
+  let polls = 0;
+  const store = memoryStore({ enabled: true, closeOnExit: true, entries: [
+    { id: 'p', kind: 'program', path: 'C:\\Tools\\Nav\\nav.exe' },
+    { id: 's', kind: 'sim', simId: 'msfs2024', source: 'steam', launchTarget: 'steam://rungameid/2537590' }
+  ] });
+  const seen = [];
+  const instance = launcher({
+    store, files: ['C:\\Tools\\Nav\\nav.exe'],
+    handlers: {
+      'tasklist.exe': () => {
+        polls += 1;
+        simRunning = polls >= 2 && polls < 5;
+        return ['"explorer.exe","1"', ...(simRunning ? ['"FlightSimulator2024.exe","2"'] : [])].join('\r\n');
+      }
+    }
+  });
+  instance.on('state', () => seen.push(instance.run.results.s));
+  await instance.launchAll();
+  for (let i = 0; i < 100 && instance.run.results.s !== 'ended'; i += 1) await new Promise((resolve) => setImmediate(resolve));
+  for (let i = 0; i < 20; i += 1) await new Promise((resolve) => setImmediate(resolve));
+  assert.ok(seen.includes('running'));
+  assert.equal(instance.run.results.s, 'ended');
+  assert.equal(instance.run.results.p, 'closed');
 });

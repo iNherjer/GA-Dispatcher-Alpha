@@ -660,7 +660,7 @@ class AutostartLauncher extends EventEmitter {
     }
     const failed = await this.launchSequence(first);
     const simEntry = first.find((entry) => entry.kind === 'sim' && entry.imageName);
-    if (simEntry && this.run.results[simEntry.id] !== 'failed') void this.watchSimulator(simEntry.imageName);
+    if (simEntry && this.run.results[simEntry.id] !== 'failed') void this.watchSimulator(simEntry.imageName, simEntry.id);
     const message = AutostartLauncher.failureMessage(failed);
     if (later.length) {
       this.setRun({ phase: 'waiting', currentId: '', message: 'Wartet auf SimConnect …' });
@@ -709,7 +709,7 @@ class AutostartLauncher extends EventEmitter {
   // Beobachtet den Sim nach dem Autostart. Sobald er lief und danach zweimal
   // in Folge fehlt, gilt er als beendet und die eigenen Programme werden
   // geschlossen. Ein Sim, der nie erscheint, beendet nur die Beobachtung.
-  async watchSimulator(imageName) {
+  async watchSimulator(imageName, simId = '') {
     const token = ++this.simWatchToken;
     const name = imageName.toLowerCase();
     let seen = false;
@@ -720,7 +720,10 @@ class AutostartLauncher extends EventEmitter {
       const running = await this.runningImageNames();
       if (running.size === 0) continue; // tasklist fehlgeschlagen, nicht als Ende werten
       if (running.has(name)) {
-        if (!seen) this.log(`AUTOSTART_SIM_SEEN image=${imageName}`);
+        if (!seen) {
+          this.log(`AUTOSTART_SIM_SEEN image=${imageName}`);
+          if (simId) this.setResult(simId, 'running');
+        }
         seen = true;
         gone = 0;
         continue;
@@ -735,6 +738,7 @@ class AutostartLauncher extends EventEmitter {
       gone += 1;
       if (gone < SIM_GONE_POLLS) continue;
       this.log(`AUTOSTART_SIM_ENDED image=${imageName}`);
+      if (simId) this.setResult(simId, 'ended');
       await this.shutdownOwned('sim-ended');
       return;
     }
@@ -761,6 +765,17 @@ class AutostartLauncher extends EventEmitter {
     const adminIds = [...this.adminLaunched];
     this.adminLaunched.clear();
     this.log(`AUTOSTART_CLOSE reason=${reason} tasks=${adminIds.length}`);
+    await this.closeOwnedProcesses({ names, tracked, adminIds });
+    // Gestartete Programme gelten danach als beendet (Statusanzeige).
+    const results = { ...this.run.results };
+    for (const entry of this.settings().entries) {
+      if (entry.kind === 'program' && results[entry.id] === 'started') results[entry.id] = 'closed';
+    }
+    this.run = { ...this.run, results };
+    this.emitState();
+  }
+
+  async closeOwnedProcesses({ names, tracked, adminIds }) {
     const byId = new Map(this.settings().entries.map((entry) => [entry.id, entry]));
     for (const id of adminIds) {
       const entry = byId.get(id);
@@ -782,12 +797,18 @@ class AutostartLauncher extends EventEmitter {
       const denied = [];
       for (const pid of pids) {
         if (after && !after.has(pid)) continue;
+        // Ein Baum-Kill beendet oft schon die Kindprozesse; "nicht gefunden" ist dann kein Fehler.
         await execFileText(this.execFileImpl, 'taskkill.exe', ['/PID', String(pid), '/T', '/F']).catch((error) => {
-          this.log(`AUTOSTART_KILL_FAILED pid=${pid} error=${cleanText(error?.stderr || error?.message, 200)}`);
-          if (isAccessDenied(error)) denied.push(pid);
+          if (!isAccessDenied(error)) return;
+          denied.push(pid);
+          this.log(`AUTOSTART_KILL_DENIED pid=${pid}`);
         });
       }
       await this.closeElevated(denied);
+      const remaining = after ? pids.filter((pid) => after.has(pid)) : pids;
+      const final = remaining.length ? await this.processSnapshot() : null;
+      const left = final ? remaining.filter((pid) => final.has(pid)) : [];
+      this.log(left.length ? `AUTOSTART_CLOSE_REMAINING ${left.join(' ')}` : 'AUTOSTART_CLOSE_DONE');
       return;
     }
     // Ohne Prozessliste bleibt nur der Abgleich ueber den Dateinamen.

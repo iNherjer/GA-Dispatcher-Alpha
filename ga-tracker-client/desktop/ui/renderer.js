@@ -396,7 +396,7 @@ function renderDesktopInstallDialog(state) {
 }
 
 const AUTOSTART_DELAYS = [0, 2, 3, 5, 10, 15, 20, 30, 45, 60, 90, 120];
-const autostartResultLabels = { started: 'Gestartet', skipped: 'Lief bereits', failed: 'Fehler' };
+const autostartResultLabels = { started: 'Gestartet', running: 'Läuft', skipped: 'Lief bereits', failed: 'Fehler', closed: 'Beendet', ended: 'Beendet' };
 let autostartEntries = [];
 let autostartListSignature = '';
 let autostartDragId = '';
@@ -655,7 +655,7 @@ function autostartItem(entry, index, run, group, numberOffset = 0) {
   const result = run.results?.[entry.id];
   if (result) {
     const badge = document.createElement('span');
-    badge.className = `mini-badge ${result === 'failed' ? 'error' : (result === 'started' ? 'current' : '')}`.trim();
+    badge.className = `mini-badge ${result === 'failed' ? 'error' : (['started', 'running'].includes(result) ? 'current' : '')}`.trim();
     badge.textContent = autostartResultLabels[result] || result;
     name.append(badge);
   } else if (run.phase === 'running' && run.currentId === entry.id) {
