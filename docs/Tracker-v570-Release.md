@@ -26,3 +26,6 @@ Windows-x64 mit pkg 6.18.1 / Node18 gebaut, dokumentierter ARM-Cross-Build
 57001 und exakte eingebettete Player-/Style-/Utility-/Host-Dateien geprüft.
 
 EXE: 174141891 Bytes; SHA-256 `05c997eeab98e622b793149ad92743e287be84f0fe4236215d26e5295c9b9ba0`.
+
+Release-Upload verifiziert und EXE öffentlich erneut heruntergeladen: Größe
+und SHA-256 stimmen exakt überein. Alpha wird auf v570 aktiviert.
