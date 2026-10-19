@@ -1621,7 +1621,35 @@ body.ga-efb-tracker-host .ga-map-context-height-sky { top:0; right:0; bottom:0; 
 body.ga-efb-tracker-host .ga-map-context-height-scale { top:5px; right:auto; bottom:5px; left:2px; }
 body.ga-efb-tracker-host .ga-map-context-height-stack,
 body.ga-efb-tracker-host .ga-map-context-height-atmosphere { top:5px; right:3px; bottom:5px; left:30px; }
-body.ga-efb-tracker-host .ga-map-context-height-band { flex:0 0 72px; width:72px; box-sizing:border-box; }
+body.ga-efb-tracker-host .ga-map-context-height-band { flex:0 0 104px; width:104px; box-sizing:border-box; }
+
+/* Coherent-safe clouds: no filter/blur, no elliptical radii, no isolation or animation.
+   Kept as a quiet background layer: light, translucent, behind airspace bands (z 1 < 2),
+   scale and labels. Solid RGBA first, so an unsupported var() gradient still renders. */
+body.ga-efb-tracker-host .ga-map-context-height-cloud { isolation:auto; overflow:visible; opacity:0.5; }
+body.ga-efb-tracker-host .ga-map-context-height-cloud.has-thunderstorm { opacity:0.62; }
+body.ga-efb-tracker-host .ga-map-context-height-cloud-mass { top:0; right:0; bottom:0; left:0; filter:none; }
+body.ga-efb-tracker-host .ga-map-context-height-cloud-core,
+body.ga-efb-tracker-host .ga-map-context-height-cloud-lobe { animation:none; filter:none; box-shadow:none; transform:none; }
+body.ga-efb-tracker-host .ga-map-context-height-cloud-core {
+  top:6px; right:5px; bottom:1px; left:5px; width:auto; border-radius:10px;
+  background:rgba(232,236,240,0.78);
+  background:linear-gradient(to bottom, rgba(246,248,250,0.82), rgba(198,204,212,0.8));
+}
+body.ga-efb-tracker-host .ga-map-context-height-cloud.has-thunderstorm .ga-map-context-height-cloud-core {
+  background:rgba(150,156,166,0.82);
+  background:linear-gradient(to bottom, rgba(210,214,220,0.84), rgba(118,124,136,0.86));
+}
+body.ga-efb-tracker-host .ga-map-context-height-cloud-lobe { display:none; }
+body.ga-efb-tracker-host .ga-map-context-height-cloud-lobe.is-top.is-a,
+body.ga-efb-tracker-host .ga-map-context-height-cloud-lobe.is-top.is-b,
+body.ga-efb-tracker-host .ga-map-context-height-cloud-lobe.is-top.is-c {
+  display:block; bottom:auto; height:14px; border-radius:7px;
+  background:rgba(246,248,250,0.82);
+}
+body.ga-efb-tracker-host .ga-map-context-height-cloud-lobe.is-top.is-a { left:10%; width:34%; top:2px; }
+body.ga-efb-tracker-host .ga-map-context-height-cloud-lobe.is-top.is-b { left:32%; width:40%; top:-2px; }
+body.ga-efb-tracker-host .ga-map-context-height-cloud-lobe.is-top.is-c { left:60%; width:30%; top:3px; }
 body.ga-efb-tracker-host .ga-map-context-height-airspace { background:var(--ga-efb-band-fill, rgba(77,166,255,.38)); }
 body.ga-efb-tracker-host .ga-map-context-height-airspace:hover,
 body.ga-efb-tracker-host .ga-map-context-height-airspace:focus,

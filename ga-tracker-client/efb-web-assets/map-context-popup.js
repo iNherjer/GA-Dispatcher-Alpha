@@ -1439,7 +1439,7 @@ function renderMapContextInfoPopup(state) {
       width: innerWidth,
       height: innerHeight
     };
-    var width = Math.max(100, Math.min(320, area.clientWidth - 40, viewport.width - 40));
+    var width = Math.max(100, Math.min(344, area.clientWidth - 40, viewport.width - 40));
     var height = Math.max(40, Math.min(560, area.clientHeight - 90, viewport.height - 140));
     mapContextPopupLayer._container.style.setProperty('--ga-efb-context-width', width + 'px');
     state.content.style.setProperty('--ga-efb-context-height', height + 'px');

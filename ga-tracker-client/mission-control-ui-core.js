@@ -7,7 +7,7 @@
 }(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this), function () {
   'use strict';
 
-  var BUILD_ID = 'tracker-mission-ui-20260907-01';
+  var BUILD_ID = 'tracker-mission-ui-20261019-01';
 
   var ACTION_LABELS = Object.freeze({
     activate_cloud_mission: 'Mission aus der Cloud beginnen',
@@ -23,6 +23,18 @@
     'start_mission',
     'request_close'
   ]);
+
+  // Cargo needs a loaded aircraft. MSFS main menu, World Map, hangar and loading
+  // screens report worldReady=false; without readiness data (no sim view) stay as before.
+  function cargoWorldAvailable(control) {
+    var readiness = control && control.startReadiness;
+    if (!readiness || typeof readiness !== 'object') return true;
+    if (readiness.worldReady === true) return true;
+    if (['simulator_not_ready', 'cockpit_not_loaded', 'position_not_ready'].indexOf(readiness.reason) >= 0) return false;
+    // A briefly stale sample in a live camera view (2..8) is not a menu.
+    var camera = readiness.cameraState;
+    return readiness.reason === 'telemetry_stale' && typeof camera === 'number' && camera >= 2 && camera <= 8;
+  }
 
   function escapeHtml(value) {
     return String(value == null ? '' : value)
@@ -139,7 +151,7 @@
     }
     var activeRun = !!(missionId && runId && allowed.indexOf('abort_mission') >= 0);
     var flags = control.flags && typeof control.flags === 'object' ? control.flags : {};
-    var cargoVisible = activeRun && (
+    var cargoVisible = activeRun && cargoWorldAvailable(control) && (
       /^(planned|prepare|boarding|boarded|end_unloading|end_ready)$/.test(phase)
       || (flags.groundStill === true && /^(active|on_task)$/.test(phase))
     );
@@ -413,6 +425,7 @@
     renderEmpty: renderEmpty,
     projectLiveFields: projectLiveFields,
     missionToolbarModel: missionToolbarModel,
+    cargoWorldAvailable: cargoWorldAvailable,
     formatIntentResult: formatIntentResult,
     abortConfirmation: abortConfirmation
   });

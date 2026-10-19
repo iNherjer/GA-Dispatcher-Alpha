@@ -141,6 +141,21 @@ test('tracker cargo controls disappear in flight and return for ground handling'
   assert.match(core.render(sampleView(), { control: arrived }), /mission-control-open-cargo/);
 });
 
+test('cargo stays closed in the MSFS main menu and World Map, open in the loaded aircraft', () => {
+  const planned = {
+    missionId: 'mission-world', runId: 'run-world', executionAuthority: 'tracker', phase: 'planned',
+    allowedActions: ['set_manifest_item', 'abort_mission']
+  };
+  const withReadiness = readiness => ({ ...planned, startReadiness: { observedAt: Date.now(), ...readiness } });
+  assert.equal(core.missionToolbarModel(planned).cargo.visible, true, 'no readiness data keeps the previous behavior');
+  assert.equal(core.missionToolbarModel(withReadiness({ worldReady: false, reason: 'cockpit_not_loaded', cameraState: 12 })).cargo.visible, false, 'World Map');
+  assert.equal(core.missionToolbarModel(withReadiness({ worldReady: false, reason: 'simulator_not_ready', cameraState: 32 })).cargo.visible, false, 'main menu');
+  assert.equal(core.missionToolbarModel(withReadiness({ worldReady: false, reason: 'telemetry_stale', cameraState: null })).cargo.visible, false, 'no live view yet');
+  assert.equal(core.missionToolbarModel(withReadiness({ worldReady: false, reason: 'telemetry_stale', cameraState: 2 })).cargo.visible, true, 'brief stale sample in cockpit');
+  assert.equal(core.missionToolbarModel(withReadiness({ worldReady: true, reason: 'ground_stabilizing', cameraState: 2 })).cargo.visible, true, 'loaded aircraft');
+  assert.doesNotMatch(core.render(sampleView(), { control: withReadiness({ worldReady: false, reason: 'cockpit_not_loaded', cameraState: 12 }) }), /mission-control-open-cargo/);
+});
+
 test('App and EFB wire the shared renderer while the legacy App path stays gated', () => {
   const projectRoot = path.resolve(__dirname, '..');
   const appSource = fs.readFileSync(path.join(projectRoot, 'checklists.js'), 'utf8');

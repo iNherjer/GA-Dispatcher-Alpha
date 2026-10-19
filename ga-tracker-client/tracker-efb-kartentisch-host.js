@@ -183,7 +183,8 @@
     return {key:'preflight-plan:' + control.runId, missionId:control.missionId, kind:available ? 'flightplan' : 'wait', target:'atc',
       kicker:'Flugplanung', text:available ? 'Route an die Simulator-Flugplanung übertragen. Die Mission beginnt erst im geladenen Cockpit.'
         : 'Warte auf aktuelle Simulatordaten und die Verbindung zur Flugplanung.',
-      button:available ? 'Flugplan an Flugsicherung senden' : 'Bitte warten...', closeHidden:true,
+      // Dismissible on the World Map; the toolbar recall button reopens it for route changes.
+      button:available ? 'Flugplan an Flugsicherung senden' : 'Bitte warten...', closeHidden:false, recallable:true,
       disabled:!available || flightPlanRequestPending || Object.keys(flightPlanJobs).length > 0};
   }
   function flightPlanTransferMarkup() {
@@ -1356,6 +1357,12 @@
   }
 
   function openCargoManager(fromTracker) {
+    var worldControl = missionSnapshot && missionSnapshot.control;
+    if (window.GAMissionControlUiCore && window.GAMissionControlUiCore.cargoWorldAvailable
+      && !window.GAMissionControlUiCore.cargoWorldAvailable(worldControl)) {
+      report('info', 'cargo-manager', 'blocked', 'Verlade-Manager im Sim-Menü/auf der Weltkarte gesperrt', String(worldControl && worldControl.startReadiness && worldControl.startReadiness.reason || ''));
+      return;
+    }
     var overlay = ensureCargoManager();
     if (!overlay) return;
     cargoManagerOpen = true;
@@ -2585,6 +2592,7 @@
       var model = banner._gaMissionActionModel;
       missionBannerDismissedKey = model ? model.key : '';
       banner.style.display = 'none';
+      if (model && model.recallable) syncFlightPlanRecallButton(model);
       report('info', 'mission-action-banner', 'dismiss', 'Missionsbanner ausgeblendet', model ? model.key : '');
       return false;
     };
@@ -2770,6 +2778,29 @@
     }
   }
 
+  // Toolbar entry for a dismissed World-Map planning banner. Only exists while the
+  // preflight planning model does, so it never appears in the loaded cockpit.
+  function syncFlightPlanRecallButton(planning) {
+    var anchor = byId('mapGroundCargoBtn');
+    var button = byId('gaEfbFlightPlanRecallBtn');
+    if (!button && anchor && anchor.parentNode) {
+      button = document.createElement('button'); button.id = 'gaEfbFlightPlanRecallBtn'; button.type = 'button';
+      button.className = anchor.className;
+      button.textContent = '🗺️ Flugplan';
+      button.title = 'Flugplanungs-Banner wieder einblenden, um die Route an die Simulator-Flugplanung zu senden';
+      button.onclick = function(event) {
+        event.stopPropagation();
+        missionBannerDismissedKey = '';
+        report('info', 'mission-action-banner', 'recall', 'Flugplanungs-Banner über die Toolbar eingeblendet', '');
+        renderMissionActionBanner(missionSnapshot);
+      };
+      anchor.parentNode.insertBefore(button, anchor);
+    }
+    if (!button) return;
+    var show = !!(planning && planning.recallable && planning.key === missionBannerDismissedKey);
+    button.style.display = show ? 'inline-flex' : 'none';
+  }
+
   function renderMissionActionBanner(payload) {
     var banner = setupMissionActionBanner();
     if (!banner) return;
@@ -2780,7 +2811,9 @@
         report('warn', 'flightplan-export', 'cancel', 'Missionslauf gewechselt; weitere Übertragungsschritte verwerfen', jobId);
       }
     });
-    var model = preflightPlanningModel(payload, true) || missionActionBannerModel(payload);
+    var planning = preflightPlanningModel(payload, true);
+    var model = planning || missionActionBannerModel(payload);
+    syncFlightPlanRecallButton(planning);
     var readiness = payload && payload.control && payload.control.startReadiness;
     if (model && ['prepare_mission', 'start_boarding', 'confirm_load', 'start_mission'].indexOf(model.intent) >= 0
       && readiness && (!Number.isFinite(readiness.observedAt) || Date.now() - readiness.observedAt < 0 || Date.now() - readiness.observedAt > 2500)) {

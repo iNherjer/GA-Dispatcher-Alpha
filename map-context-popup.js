@@ -1412,7 +1412,7 @@ function renderMapContextInfoPopup(state, options = {}) {
     if (document.body.classList.contains('ga-efb-tracker-host') && mapContextPopupLayer?._container) {
         const area = map.getContainer();
         const viewport = window.GAEfbUiScale ? window.GAEfbUiScale.viewport() : { width: innerWidth, height: innerHeight };
-        const width = Math.max(100, Math.min(320, area.clientWidth - 40, viewport.width - 40));
+        const width = Math.max(100, Math.min(344, area.clientWidth - 40, viewport.width - 40));
         const height = Math.max(40, Math.min(560, area.clientHeight - 90, viewport.height - 140));
         mapContextPopupLayer._container.style.setProperty('--ga-efb-context-width', width + 'px');
         state.content.style.setProperty('--ga-efb-context-height', height + 'px');
