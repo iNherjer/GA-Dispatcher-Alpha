@@ -22,3 +22,8 @@ MobiFlight samt WebView-Unterprozessen geschlossen. Die `KILL_FAILED`-Meldungen
 
 - 101 Desktop-Tests bestanden, inklusive Statusfolge Läuft → Beendet.
 - Statusanzeige im Browser mit dem echten UI geprüft.
+
+## Aktivierung (19.10.2026)
+
+Öffentlicher Download geprüft (100269337 Bytes, SHA-512 wie `latest.yml`, Blockmap identisch).
+`latest.yml` und `alpha.yml` aktiviert.
