@@ -1256,8 +1256,12 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       lon: sample.lon != null ? sample.lon : sample.lng
     });
     if (onGround == null) return errorResult('mission_telemetry_on_ground_required', { view: snapshot.view });
+    // After a resumed interruption (teleport, air start, reload) the aircraft
+    // settles for a moment: no comfort or cargo stress from that ride.
+    const stressGrace = observedAt < (observations.stressGraceUntil || 0);
+    const stressSample = stressGrace ? { ...sample, bankDeg: null, gForce: null, touchdownFpm: null } : sample;
     // Persist with the existing runtime checkpoint; do not create per-sample events.
-    if (sample.simPaused !== true && sample.inMenuOrMap !== true
+    if (!stressGrace && sample.simPaused !== true && sample.inMenuOrMap !== true
         && !snapshot.state.flags.closingPending && !snapshot.state.flags.farewellStarted
         && observedAt > (observations.comfort?.observedAt || 0)) {
       const context = observations.comfortContext;
@@ -1268,9 +1272,9 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     }
     const recorderBefore = observations.flightRecorder;
     const recorded = flightRecorderCore.observe(recorderBefore, {
-      ...sample,
+      ...stressSample,
       gsKts: finite(sample.gsKts, 0),
-      vsFpm: smoothedVsFpm,
+      vsFpm: stressGrace ? 0 : smoothedVsFpm,
       distanceToTargetNm: destination.hasAptArrival ? destination.dArrivalNm : destination.dMissionNm
     });
     observations.flightRecorder = recorded.state;
@@ -1311,7 +1315,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       // Arrival geometry is the home anchor; permission to finish comes from the
       // original POI policy and may also permit an intermediate/away landing.
       destination = { ...destination, poiCanEndHere: lifecycle.canEndHere };
-      const stressed = poiLifecycleCore.applyStress(snapshot.state.manifest, recorded.state, sample, null,
+      const stressed = poiLifecycleCore.applyStress(snapshot.state.manifest, recorded.state, stressSample, null,
         poiRecipe.voiceContext?.motionProtectionEnabled === true);
       if (executionCore.hashValue(stressed) !== executionCore.hashValue(snapshot.state.manifest)) {
         const result = submitEvent(snapshot, 'CARGO_STATE_CHANGED', { manifest: stressed },
@@ -1330,10 +1334,10 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       hdg: finite(sample.hdg),
       gsKts: finite(sample.gsKts),
       onGround,
-      bankDeg: finite(sample.bankDeg),
-      gForce: finite(sample.gForce),
-      vsFpm: finite(sample.vsFpm != null ? sample.vsFpm : sample.vs),
-      touchdownFpm: finite(sample.touchdownFpm),
+      bankDeg: finite(stressSample.bankDeg),
+      gForce: finite(stressSample.gForce),
+      vsFpm: stressGrace ? 0 : finite(sample.vsFpm != null ? sample.vsFpm : sample.vs),
+      touchdownFpm: finite(stressSample.touchdownFpm),
       windKts: finite(sample.windKts),
       windDeg: finite(sample.windDeg),
       windGustKts: finite(sample.windGustKts),
@@ -1514,10 +1518,12 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     },
     // A resumed simulator interruption must not count the gap, the restart
     // position jump or ground time as flown time, distance or a landing.
-    markTelemetryDiscontinuity() {
+    markTelemetryDiscontinuity(options = {}) {
       const snapshot = current();
       if (!snapshot) return { ok: true, status: 'ignored' };
       resetObservationIfNeeded(snapshot);
+      const graceMs = Math.max(0, Math.min(120000, finite(options.stressGraceMs, 0)));
+      observations.stressGraceUntil = graceMs > 0 ? now() + graceMs : 0;
       observations.bushTelemetry = null;
       observations.groundTelemetry = { observedAt: NaN };
       observations.airborneCandidateAt = null;

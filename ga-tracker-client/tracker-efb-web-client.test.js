@@ -18,15 +18,15 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   const page = createTrackerEfbWebClientPage();
   assert.equal(EFB_WEB_CLIENT_PATH, '/efb/v1/');
   assert.equal(EFB_WEB_CLIENT_PROBE_PATH, '/efb/v1/probe/');
-  assert.equal(EFB_WEB_ASSET_REVISION, '57501');
+  assert.equal(EFB_WEB_ASSET_REVISION, '57601');
   assert.match(page, /data-efb-view-version="9"/);
-  assert.match(page, /app-styles\.css\?v=57501/);
-  assert.match(page, /host\.css\?v=57501/);
-  assert.match(page, /map-shell-core\.js\?v=57501/);
-  assert.match(page, /map-utility-tools\.js\?v=57501/);
-  assert.match(page, /mission-control-ui-core\.js\?v=57501/);
-  assert.match(page, /cockpit-session-client\.js\?v=57501/);
-  assert.match(page, /host\.js\?v=57501/);
+  assert.match(page, /app-styles\.css\?v=57601/);
+  assert.match(page, /host\.css\?v=57601/);
+  assert.match(page, /map-shell-core\.js\?v=57601/);
+  assert.match(page, /map-utility-tools\.js\?v=57601/);
+  assert.match(page, /mission-control-ui-core\.js\?v=57601/);
+  assert.match(page, /cockpit-session-client\.js\?v=57601/);
+  assert.match(page, /host\.js\?v=57601/);
   assert.match(page, /id="mapTableOverlay"/);
   assert.match(page, /id="mapProfileStrip"/);
   assert.match(page, /id="mapStopwatchDevice"/);
@@ -35,21 +35,21 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   assert.match(page, /id="mapMissionToggleBtn"/);
   assert.match(page, /id="mapGroundCargoBtn"/);
   assert.match(page, /id="mapMissionResetBtn"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=57501"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/mission-control-ui-core\.js\?v=57501"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=57501"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=57501"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=57601"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/mission-control-ui-core\.js\?v=57601"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=57601"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=57601"/);
   assert.match(page, /id="gaEfbBootStatus"/);
   assert.match(page, /window\.toggleMapTable = function/);
   assert.doesNotMatch(page, /<script defer/);
   const scriptOrder = [
     '/efb/v1/assets/leaflet.js',
-    '/efb/v1/assets/map-shell-core.js?v=57501',
-    '/efb/v1/assets/map-utility-tools.js?v=57501',
-    '/efb/v1/assets/mission-control-ui-core.js?v=57501',
-    '/efb/v1/assets/cockpit-session-client.js?v=57501',
-    '/efb/v1/assets/map-zoom-control.js?v=57501',
-    '/efb/v1/assets/host.js?v=57501'
+    '/efb/v1/assets/map-shell-core.js?v=57601',
+    '/efb/v1/assets/map-utility-tools.js?v=57601',
+    '/efb/v1/assets/mission-control-ui-core.js?v=57601',
+    '/efb/v1/assets/cockpit-session-client.js?v=57601',
+    '/efb/v1/assets/map-zoom-control.js?v=57601',
+    '/efb/v1/assets/host.js?v=57601'
   ].map((asset) => page.indexOf(`<script src="${asset}"`));
   assert.deepEqual(scriptOrder, [...scriptOrder].sort((a, b) => a - b));
   assert.equal(scriptOrder.every((index) => index > 0), true);
@@ -640,3 +640,12 @@ test('floating layout is loaded after scale and before host, packaged, with logi
   assert.ok(getTrackerEfbWebClientAsset('/efb/v1/assets/media-player-watch.js').body.length>10000);
   assert.equal(fs.readFileSync(path.join(__dirname,'efb-media-source/media-player-watch.js'),'utf8'),fs.readFileSync(path.join(__dirname,'../media-player-watch.js'),'utf8'));
  });
+
+test('every served EFB web asset is packaged into the tracker EXE', () => {
+  const pkg = require('./package.json');
+  const source = require('node:fs').readFileSync(require('node:path').join(__dirname, 'tracker-efb-web-client.js'), 'utf8');
+  const files = [...source.matchAll(/path\.join\(__dirname, 'efb-web-assets', '([^']+)'\)/g)].map(match => `efb-web-assets/${match[1]}`);
+  assert.ok(files.includes('efb-web-assets/mission-resume-zone-map.js'));
+  const pattern = asset => new RegExp(`^${asset.replace(/[.]/g, '\\.').replace(/\*\*/g, '.*').replace(/(?<!\.)\*/g, '[^/]*')}$`);
+  assert.deepEqual(files.filter(file => !pkg.pkg.assets.some(asset => pattern(asset).test(file))), []);
+});

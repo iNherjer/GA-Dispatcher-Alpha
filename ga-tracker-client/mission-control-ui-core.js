@@ -7,7 +7,7 @@
 }(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this), function () {
   'use strict';
 
-  var BUILD_ID = 'tracker-mission-ui-20261020-01';
+  var BUILD_ID = 'tracker-mission-ui-20261020-02';
 
   var ACTION_LABELS = Object.freeze({
     activate_cloud_mission: 'Mission aus der Cloud beginnen',
@@ -151,9 +151,9 @@
     };
     if (status === 'awaiting_decision') {
       model.text = settings.simulatorConnected === false
-        ? 'Der Simulator ist getrennt. Zum Fortsetzen MSFS starten und einen Flug laden – dann „Mission fortsetzen“ wählen. Alternativ die Mission zurücksetzen.'
+        ? 'Der Simulator ist getrennt. Zum Fortsetzen MSFS starten und einen Flug laden – dann „Mission fortsetzen“ wählen. Alternativ die Mission neu starten oder abbrechen.'
         : 'Der Simulator wurde neu gestartet. „Mission fortsetzen“ baut Szenen und Zuladung im laufenden Cockpit neu auf'
-          + (model.zone && model.zone.airborne ? '; danach geht es in der markierten Zone weiter.' : '.') + ' Alternativ die Mission zurücksetzen.';
+          + (model.zone && model.zone.airborne ? '; danach geht es in der markierten Zone weiter.' : '.') + ' Alternativ die Mission neu starten oder abbrechen.';
       if (allowed.indexOf('resume_mission') >= 0) model.primary = { intent: 'resume_mission', label: 'Mission fortsetzen' };
     } else if (status === 'resuming') {
       model.kicker = 'Fortsetzen vorgemerkt';
@@ -297,7 +297,7 @@
       : '';
     var toolbar = missionToolbarModel(control, { banner: settings.banner || null, interrupted: interrupted, interruption: interruption });
     var interruptedText = interruption ? interruption.kicker + ': ' + interruption.text
-      : 'Simulator getrennt: Die Mission ist unterbrochen. Zum Fortsetzen MSFS starten und einen Flug laden – die Mission geht dann an derselben Stelle weiter. Alternativ die Mission zurücksetzen oder abbrechen.';
+      : 'Simulator getrennt: Die Mission ist unterbrochen. Zum Fortsetzen MSFS starten und einen Flug laden – die Mission geht dann an derselben Stelle weiter. Alternativ die Mission neu starten oder abbrechen.';
     var interruptedHtml = interrupted
       ? '<div class="mission-control-actions is-interrupted"><p>' + escapeHtml(interruptedText) + '</p>'
         + (interruption && interruption.primary ? '<button type="button" data-action="mission-control-intent" data-efb-drawer-action="mission-intent" data-mission-intent="'

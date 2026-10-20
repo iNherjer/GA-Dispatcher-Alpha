@@ -64,3 +64,22 @@ test('resume export starts at the interruption point and keeps only the remainin
   assert.equal(normal.points.length, 4);
   assert.equal(normal.resumeFrom, undefined);
 });
+
+test('World Map air start adds a lead-in so MSFS starts at the interruption point', () => {
+  const { createFlightPlanExport } = require('./tracker-flightplan-export.js');
+  const points = [
+    { lat: 48.0, lon: 7.8, name: 'EDTF', icao: 'EDTF' }, { lat: 48.1, lon: 8.0, name: 'WP1', icao: '' },
+    { lat: 48.2, lon: 8.2, name: 'WP2', icao: '' }, { lat: 48.28, lon: 8.43, name: 'EDTW', icao: 'EDTW' }
+  ];
+  const run = { missionId: 'm', runId: 'r', navigationRoute: { revision: 3, points }, resumeBundle: { missionState: {} } };
+  const plan = createFlightPlanExport(run, { missionId: 'm', runId: 'r', startAt: { lat: 48.15, lon: 8.1 }, airStart: true });
+  assert.deepEqual(plan.points.map(point => point.name), ['VORLAUF', 'UNTERBRECHUNG', 'WP2', 'EDTW']);
+  assert.equal(plan.airStartLeadInNm, 3);
+  const [lead, start, next] = plan.points;
+  const nm = (a, b) => Math.hypot((b.lon - a.lon) * Math.cos(a.lat * Math.PI / 180), b.lat - a.lat) * 60;
+  assert.ok(Math.abs(nm(lead, start) - 3) < 0.01, 'lead-in 3 NM behind the point');
+  assert.ok(Math.abs(nm(lead, next) - (nm(start, next) + 3)) < 0.05, 'on the inbound course of the next leg');
+  // Without airStart (avionics) and without a resume point nothing is added.
+  assert.equal(createFlightPlanExport(run, { missionId: 'm', runId: 'r', startAt: { lat: 48.15, lon: 8.1 } }).points[0].name, 'UNTERBRECHUNG');
+  assert.equal(createFlightPlanExport(run, { missionId: 'm', runId: 'r', airStart: true }).points[0].name, 'EDTF');
+});

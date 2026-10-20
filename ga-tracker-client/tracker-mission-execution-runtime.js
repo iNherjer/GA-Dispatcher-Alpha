@@ -96,6 +96,9 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   let poiPaused = false;
   let trainingGateDiagnostic = { runId: null, signature: '', loggedAt: 0 };
   const motionBuffer = createFlightMotionBuffer();
+  const RESUME_STRESS_GRACE_MS = 20000;
+  let motionGraceUntil = 0;
+  const clockNow = typeof options.now === 'function' ? options.now : () => Date.now();
   let motionInputConnected = false;
   const dispatchSimulatorEffect = request => {
     if (!simulatorEffects) {
@@ -703,7 +706,11 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     setAircraftPosition: target => simulatorSetAircraftPosition ? simulatorSetAircraftPosition(target) : { ok: false, error: 'mission_simulator_not_connected' },
     onResumed: (mode, record) => {
       if (mode === 'ground' && record?.zone && !record.zone.airborne) restoreAircraftRelative();
-      const marked = adapter.markTelemetryDiscontinuity();
+      // Comfort and cargo stress pause while the aircraft settles after the
+      // resume (teleport/air start/reload); flying continues to count.
+      motionGraceUntil = clockNow() + RESUME_STRESS_GRACE_MS;
+      motionBuffer.clear();
+      const marked = adapter.markTelemetryDiscontinuity({ stressGraceMs: RESUME_STRESS_GRACE_MS });
       if (marked?.ok === false) log(`MISSION_INTERRUPTION_DISCONTINUITY_ERROR error=${marked.error || 'unknown'}`);
       // A drain started while the run was still interrupted may be running;
       // join it, then drain again with the effects released.
@@ -980,7 +987,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     },
     observeMotionTelemetry: sample => {
       motionInputConnected = true;
-      if (interruption.record()) return;
+      if (interruption.record() || clockNow() < motionGraceUntil) return;
       motionBuffer.observe(sample, authorityManager.getActiveRun()?.runId);
     },
     observeTelemetry: sample => {

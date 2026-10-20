@@ -238,6 +238,8 @@
     report('info', 'flightplan-export', 'request', trigger === 'manual' ? 'Manuelle Flugplanübertragung' : 'Flugplanauftrag nach bestätigtem Missionsstart', JSON.stringify({jobId: jobId, missionId: missionId, runId: runId, target: target, host: flightPlanBridgeHost}));
     var exportPayload = {missionId: missionId, runId: runId, navigationRevision: navigationRevision};
     if (startAt) exportPayload.startAt = {lat: startAt.lat, lon: startAt.lon};
+    // World Map air start: the tracker adds a lead-in so MSFS starts at the interruption point.
+    if (startAt && target === 'atc') exportPayload.airStart = true;
     return client.submitTool({ commandId: jobId, intent: 'flightplan_export', payload: exportPayload }).then(function(result) {
       var current = missionSnapshot && missionSnapshot.control;
       if (!result || !result.ok || !result.plan) throw new Error(result && result.error || 'flightplan_export_unavailable');
@@ -2934,7 +2936,9 @@
       // the simulator flight planning ("Flugsicherung"), before and after the
       // decision. Avionics only in the running cockpit.
       var interruptionReadiness = payload && payload.control && payload.control.startReadiness;
-      var cockpitRunning = !!(interruptionReadiness && interruptionReadiness.worldReady === true);
+      // The published readiness can lag; live flight (airborne, moving) is the cockpit too.
+      var liveFlying = !!(flight && Date.now() - flight.capturedAt <= 5000 && flight.onGround === false && flight.gsKts >= 40);
+      var cockpitRunning = !!(interruptionReadiness && interruptionReadiness.worldReady === true) || liveFlying;
       if (!arrivalZone && cockpitRunning && interruptionModel.status !== 'awaiting_decision' && Date.now() < flightPlanBridgeReadyUntil) {
         interruptionButtons.push({ id: 'avionics', label: airborneZone ? 'Restroute an Avionik senden' : 'Flugplan an Avionik senden',
           run: function () { return transferResumeFlightPlan('avionics'); } });

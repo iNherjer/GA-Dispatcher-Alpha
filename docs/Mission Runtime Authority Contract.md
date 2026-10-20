@@ -173,6 +173,23 @@ Nachbesserung Tracker v575 (Feldtest Flug-Unterbrechung):
   Stelle; vor der Entscheidung lautet sie „Mission fortsetzen und … an
   Flugsicherung senden“ und sendet erst nach bestaetigtem `resume_mission`.
 
+Nachbesserung Tracker v576 (Feldtest Luftstart/Teleport 20.10.2026):
+
+- MSFS setzt einen Weltkarten-Luftstart ohne Abflugplatz an den zweiten
+  Planpunkt. Der Export fuer die Flugsicherung (`airStart: true`) stellt
+  deshalb einen Vorlaufpunkt `VORLAUF` 3 NM hinter den Unterbrechungspunkt
+  (Gegenkurs zum naechsten Leg). Avionik-Restroute ohne Vorlauf.
+- Nach jeder Wiederaufnahme 20 s Schonfrist: keine Komfort-Bewertung, keine
+  Bank/G/Sinkraten/Aufsetz-Werte fuer Ladungs-/Pax-Stress, Bewegungspuffer
+  fuer Pax-Kommentare pausiert (Einschwingen nach Teleport/Luftstart).
+- EFB: „an Flugsicherung senden“ verschwindet auch bei verzoegerter
+  Readiness-Projektion, sobald Live-Daten Flug zeigen (in der Luft, >= 40 kt).
+- Web-App: Unterbrechungsbanner wie EFB mit „Mission neustarten“ und
+  „Mission abbrechen“ (beide mit Rueckfrage); „Warte auf Tracker“ ist
+  wegklickbar.
+- `efb-web-assets/mission-resume-zone-map.js` ist jetzt im EXE enthalten
+  (v573–v575 lieferten es nicht aus; die EFB-Zone fehlte dort).
+
 Offen / PC-Pruefung:
 
 - Ob MSFS 2024 eine Route ohne Abflugplatz aus dem EFB fuer einen

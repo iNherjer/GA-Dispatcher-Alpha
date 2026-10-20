@@ -329,7 +329,7 @@ test('interruption model presents decision, waiting and zone states for every vi
     { now, simulatorConnected: false });
   assert.equal(decision.visible, true);
   assert.match(decision.text, /MSFS starten und einen Flug laden/);
-  assert.match(decision.text, /Alternativ die Mission zurücksetzen/);
+  assert.match(decision.text, /Alternativ die Mission neu starten oder abbrechen/);
   assert.deepEqual(decision.primary, { intent: 'resume_mission', label: 'Mission fortsetzen' });
   assert.equal(decision.resetAvailable, true);
   const restarted = core.interruptionModel(control({ status: 'awaiting_decision', since: now - 20000, zone }, ['abort_mission', 'resume_mission']),

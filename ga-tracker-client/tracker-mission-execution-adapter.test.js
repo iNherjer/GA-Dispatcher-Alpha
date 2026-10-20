@@ -576,6 +576,63 @@ test('tracker preserves airborne evidence and uses immediate standalone ground r
   assert.equal(authority.lastExecution.flags.closed, true);
 });
 
+test('a resumed interruption gives a short grace without comfort or cargo stress from the settling ride', (t) => {
+  const bundle = aptResumeBundle();
+  bundle.missionState.currentMissionData.paxText = '0 PAX';
+  bundle.missionState.currentMissionData.cargoText = 'Medizin';
+  bundle.executionEffectPlan = {
+    schema: 'ga.mission-apt-effect-plan.v1',
+    recipe: 'apt',
+    missionId: bundle.missionId,
+    effects: {
+      'voice.farewell': {
+        recipe: farewellVoiceCore.createRecipe({
+          missionId: bundle.missionId,
+          prompt: 'Veralteter Prompt aus dem Handoff.',
+          speaker: { name: 'Mara', role: 'Fotografin', gender: 'female' }
+        }),
+        context: farewellVoiceCore.createContext({
+          missionId: bundle.missionId,
+          missionAudioKey: `farewell:${bundle.missionId}`,
+          key: `farewell:${bundle.missionId}`,
+          mode: 'passenger',
+          baseContext: 'ROLLE: Mara (Fotografin)\nAUSGABE: Nur gesprochener Text.',
+          taskDomain: 'charter',
+          speaker: { name: 'Mara', role: 'Fotografin', gender: 'female', taskDomain: 'charter' },
+          passenger: { role: 'Fotografin', gTolerance: 'niedrig', bankTolerance: 'niedrig' },
+          flight: { depLabel: 'EDTW', arrLabel: 'EDTL' }
+        })
+      }
+    }
+  };
+  const fixture = createCommittedFixture(t, { bundle });
+  executeCurrent(fixture, 'prepare_mission', 'prepare-grace-record');
+  beginBoarding(fixture, 'grace-record');
+  executeCurrent(fixture, 'set_manifest_item', 'load-grace-record', { itemId: 'medical-box', action: 'load' });
+  executeCurrent(fixture, 'sign_manifest', 'sign-grace-record');
+  executeCurrent(fixture, 'confirm_load', 'confirm-grace-record');
+  acknowledgePayloadCurrent(fixture, 'grace-record');
+  acknowledgeBoardingCurrent(fixture, 'grace-record');
+  executeCurrent(fixture, 'start_mission', 'start-grace-record');
+
+  const sample = over => fixture.adapter.observeTelemetry({ lat: 48.05, lon: 8.1, altFt: 3200, aglFt: 1900,
+    onGround: false, gsKts: 105, bankDeg: 5, gForce: 1.05, vsFpm: 0, ...over });
+  fixture.adapter.observeTelemetry({ observedAt: 7000, lat: 48, lon: 8, altFt: 1200, aglFt: 0, onGround: true, gsKts: 10, bankDeg: 0, gForce: 1, vsFpm: 0 });
+  sample({ observedAt: 10000, bankDeg: 12, gForce: 1.1 });
+  // Teleport / air start: the aircraft settles hard right after the resume.
+  fixture.setClock(11000);
+  assert.equal(fixture.adapter.markTelemetryDiscontinuity({ stressGraceMs: 20000 }).ok, true);
+  sample({ observedAt: 12000, bankDeg: 60, gForce: 2.6, vsFpm: -3500, touchdownFpm: -900 });
+  sample({ observedAt: 20000, bankDeg: 45, gForce: 2.1, vsFpm: -2500 });
+  // After the grace, flying counts again.
+  sample({ observedAt: 32000, bankDeg: 20, gForce: 1.2 });
+  const dynamic = fixture.adapter.getFarewellDynamicContext();
+  assert.equal(dynamic.record.maxBankDeg, 20);
+  assert.equal(dynamic.record.maxGForce, 1.2);
+  assert.ok(dynamic.record.maxDescentFpm > -1000, String(dynamic.record.maxDescentFpm));
+  assert.equal(dynamic.cargoOutcome.stressDamagePct, 0);
+});
+
 test('tracker records the App flight facts privately and restores the Farewell context after restart', (t) => {
   const bundle = aptResumeBundle();
   bundle.missionState.currentMissionData.paxText = '0 PAX';

@@ -127,10 +127,11 @@ test('banner offers resume with reset as the alternative, then waiting and zone 
   assert.equal(decision.kind, 'intent');
   assert.equal(decision.intent, 'resume_mission');
   assert.equal(decision.button, 'Mission fortsetzen');
-  assert.deepEqual(JSON.parse(JSON.stringify(decision.secondary)), { action: 'reset', label: 'Mission zurücksetzen' });
+  assert.deepEqual(JSON.parse(JSON.stringify(decision.secondary)), { action: 'reset', label: 'Mission neustarten' });
+  assert.deepEqual(JSON.parse(JSON.stringify(decision.tertiary)), { action: 'abort', label: 'Mission abbrechen' });
   assert.equal(decision.className, 'is-interrupted');
   assert.match(decision.text, /MSFS starten und einen Flug laden/);
-  assert.match(decision.text, /Alternativ die Mission zurücksetzen/);
+  assert.match(decision.text, /Alternativ die Mission neu starten oder abbrechen/);
 
   const fresh = c.api._trackerMissionBannerModel(boardingControl(record('awaiting_decision', 1000)));
   assert.equal(fresh, null, 'short gaps stay silent');
@@ -251,4 +252,14 @@ test('outside the simulator mode a mission never starts locally', () => {
   assert.match(source, /if \(_missionLocalExecutionBlocked\('prepare'\)\) return false;/);
   const cargo = fs.readFileSync(path.join(__dirname, '..', 'mission-cargo-core.js'), 'utf8');
   assert.match(cargo, /window\.openMissionCargoDialog = function\(mode = 'load', options = \{\}\) \{\n\s*\/\/[^\n]*\n\s*if \(window\.gaMissionAwaitsTrackerProjection\?\.\(\)\) return false;/);
+});
+
+test('web "Warte auf Tracker" is dismissible and the interruption offers restart and abort like the EFB', () => {
+  const source = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'sync.js'), 'utf8');
+  const awaiting = source.slice(source.indexOf("banner._gaMissionActionKey = 'awaiting-tracker';"), source.indexOf("banner._gaMissionActionKey = 'legacy';"));
+  assert.match(awaiting, /if \(_missionStartBannerDismissed\('awaiting-tracker'\)\) \{\s*banner\.style\.display = 'none';/);
+  const secondary = source.slice(source.indexOf('window.handleMissionStartBannerSecondaryAction = async function'), source.indexOf('window.handleMissionStartBannerAction = async function'));
+  assert.match(secondary, /action\.action === 'abort'[\s\S]*?gaAbortTrackerMission\?\.\(\{ reason: 'mission-abort-interrupted', confirmAction: 'abort' \}\)/);
+  const html = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
+  assert.match(html, /id="missionStartBannerTertiaryBtn"[^>]*handleMissionStartBannerSecondaryAction\('tertiary'\)">Mission abbrechen</);
 });

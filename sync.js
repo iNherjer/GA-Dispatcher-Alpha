@@ -2132,7 +2132,7 @@ function _trackerInterruptionView(control = window.gaTrackerExecutionControl) {
         const age = Date.now() - (Number(window.liveTrackerTelemetrySince) || Date.now());
         return { key: `${key}:simulator_disconnected`, status: 'simulator_disconnected', visible: age >= debounceMs,
             recheckInMs: Math.max(0, debounceMs - age), kicker: 'Mission unterbrochen',
-            text: 'Der Simulator ist getrennt. Zum Fortsetzen MSFS starten und einen Flug laden – die Mission geht dann an derselben Stelle weiter. Alternativ die Mission zurücksetzen.',
+            text: 'Der Simulator ist getrennt. Zum Fortsetzen MSFS starten und einen Flug laden – die Mission geht dann an derselben Stelle weiter. Alternativ die Mission neu starten oder abbrechen.',
             primary: null, zone: null, resetAvailable: allowed.includes('abort_mission'), abortAvailable: allowed.includes('abort_mission') };
     }
     return null;
@@ -12837,7 +12837,9 @@ function _trackerMissionBannerModel(control = null) {
             text: interruption.text,
             button: interruption.primary?.label || '',
             buttonHidden: !interruption.primary,
-            secondary: interruption.resetAvailable ? { action: 'reset', label: 'Mission zurücksetzen' } : null,
+            // Same choices as the EFB: restart (back to planned) or abort.
+            secondary: interruption.resetAvailable ? { action: 'reset', label: 'Mission neustarten' } : null,
+            tertiary: interruption.resetAvailable ? { action: 'abort', label: 'Mission abbrechen' } : null,
             className: 'is-interrupted',
             key: interruption.key
         };
@@ -12915,6 +12917,12 @@ function _renderTrackerMissionBanner(banner, control, elements = {}) {
         secondary.style.display = model?.secondary ? '' : 'none';
         secondary.textContent = model?.secondary?.label || 'Mission zurücksetzen';
         secondary.disabled = !!missionExecutionIntentPromise;
+    }
+    const tertiary = document.getElementById('missionStartBannerTertiaryBtn');
+    if (tertiary) {
+        tertiary.style.display = model?.tertiary ? '' : 'none';
+        tertiary.textContent = model?.tertiary?.label || 'Mission abbrechen';
+        tertiary.disabled = !!missionExecutionIntentPromise;
     }
     if (!model || _missionStartBannerDismissed(model.key)) {
         banner.style.display = 'none';
@@ -13001,8 +13009,15 @@ function _updateMissionStartBanner() {
     if (_missionAwaitsTrackerProjection()) {
         banner._gaMissionActionKey = 'awaiting-tracker';
         banner.classList.remove('is-interrupted', 'is-resumed', 'is-end-ready', 'is-begin-action', 'is-final-action');
-        const awaitingSecondary = document.getElementById('missionStartBannerSecondaryBtn');
-        if (awaitingSecondary) awaitingSecondary.style.display = 'none';
+        for (const id of ['missionStartBannerSecondaryBtn', 'missionStartBannerTertiaryBtn']) {
+            const extra = document.getElementById(id);
+            if (extra) extra.style.display = 'none';
+        }
+        // Information only: dismissible, e.g. while the tracker is not running.
+        if (_missionStartBannerDismissed('awaiting-tracker')) {
+            banner.style.display = 'none';
+            return;
+        }
         banner.style.display = 'flex';
         if (kickerEl) kickerEl.textContent = 'Warte auf Tracker';
         if (textEl) textEl.textContent = 'Diese Mission wird vom Tracker geführt. Der aktuelle Missionsstand erscheint, sobald der Tracker verbunden ist.';
@@ -13013,8 +13028,10 @@ function _updateMissionStartBanner() {
     if (btn) btn.style.display = '';
     banner._gaMissionActionKey = 'legacy';
     banner.classList.remove('is-interrupted', 'is-resumed');
-    const legacySecondary = document.getElementById('missionStartBannerSecondaryBtn');
-    if (legacySecondary) legacySecondary.style.display = 'none';
+    for (const id of ['missionStartBannerSecondaryBtn', 'missionStartBannerTertiaryBtn']) {
+        const extra = document.getElementById(id);
+        if (extra) extra.style.display = 'none';
+    }
     const valid = _hasValidMissionForStart();
     const trackerConnected = !!window.liveTrackerConnected;
     const simMode = !!window.simModeActive;
@@ -15234,11 +15251,16 @@ function _tryStartMissionEndScene(reason = 'mission-end', options = {}) {
     return !!window.missionSceneDeboarding(reason);
 }
 
-window.handleMissionStartBannerSecondaryAction = async function() {
-    const action = document.getElementById('missionStartBanner')?._gaTrackerAction?.secondary || null;
+window.handleMissionStartBannerSecondaryAction = async function(slot = 'secondary') {
+    const action = document.getElementById('missionStartBanner')?._gaTrackerAction?.[slot === 'tertiary' ? 'tertiary' : 'secondary'] || null;
     if (!action || missionExecutionIntentPromise) return false;
     if (action.action === 'reset') {
         return (await window.requestMissionRuntimeReset?.({ reason: 'mission-reset-interrupted' })) !== false;
+    }
+    if (action.action === 'abort') {
+        // Keeps the critical-action confirmation of the abort path.
+        const result = await window.gaAbortTrackerMission?.({ reason: 'mission-abort-interrupted', confirmAction: 'abort' });
+        return result?.ok === true;
     }
     return false;
 };

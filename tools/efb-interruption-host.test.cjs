@@ -125,7 +125,10 @@ test('reset and abort from the interruption banner always ask first', () => {
 
 test('the World Map keeps the flight planning ("Flugsicherung") before and after the decision; avionics only in the cockpit', () => {
   const banner = between('  function renderMissionActionBanner(payload) {', '  function updateMissionLiveFields(');
-  assert.match(banner, /var cockpitRunning = !!\(interruptionReadiness && interruptionReadiness\.worldReady === true\);/);
+  assert.match(banner, /var cockpitRunning = !!\(interruptionReadiness && interruptionReadiness\.worldReady === true\) \|\| liveFlying;/);
+  assert.match(banner, /var liveFlying = !!\(flight && Date\.now\(\) - flight\.capturedAt <= 5000 && flight\.onGround === false && flight\.gsKts >= 40\);/,
+    'a lagging readiness projection does not keep the World Map send in the flying cockpit');
+  assert.match(host, /if \(startAt && target === 'atc'\) exportPayload\.airStart = true;/);
   assert.match(banner, /if \(!arrivalZone && !cockpitRunning && Date\.now\(\) < flightPlanAtcReadyUntil\) \{/, 'no decision-status gate');
   assert.match(banner, /if \(!arrivalZone && cockpitRunning && interruptionModel\.status !== 'awaiting_decision'/);
   assert.ok(banner.includes("'Flugplan an Flugsicherung senden'"));
