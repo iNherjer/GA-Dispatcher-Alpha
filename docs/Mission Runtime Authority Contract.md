@@ -163,6 +163,16 @@ Nachbesserung Tracker v574 (Flugplatz-Bezug am Boden):
 - UI/Karte nennen „Startplatz EDTF“ bzw. „Zielplatz …“; am Zielplatz wird
   kein Flugplan angeboten.
 
+Nachbesserung Tracker v575 (Feldtest Flug-Unterbrechung):
+
+- Ohne laufendes Cockpit (Weltkarte/Menue) bietet das EFB vor und nach
+  „Fortsetzen“ „Restroute/Flugplan an Flugsicherung senden“ an (Simulator-
+  Flugplanung wie im regulaeren Planungsbetrieb); „an Avionik senden“ nur im
+  laufenden Cockpit nach der Entscheidung.
+- Die Flugsicherungs-Aktion steht direkt im Fortsetzen-Banner an erster
+  Stelle; vor der Entscheidung lautet sie „Mission fortsetzen und … an
+  Flugsicherung senden“ und sendet erst nach bestaetigtem `resume_mission`.
+
 Offen / PC-Pruefung:
 
 - Ob MSFS 2024 eine Route ohne Abflugplatz aus dem EFB fuer einen

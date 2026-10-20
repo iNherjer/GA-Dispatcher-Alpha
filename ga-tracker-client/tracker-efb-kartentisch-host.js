@@ -148,7 +148,9 @@
         flightPlanStatus('Die Route wurde inzwischen geändert. Aktuellen Flugplan bitte erneut übertragen.', {ok:false, jobId:result.jobId, error:'flightplan_route_changed'}); return;
       }
       if (result.atc === 'confirmed') {
-        flightPlanStatus('Flugplan an die Flugsicherung übertragen und zurückgelesen. Mission wurde nicht begonnen.', result); return;
+        flightPlanStatus(pending.trigger === 'interruption-resume'
+          ? 'Flugplan an die Flugsicherung übertragen und zurückgelesen. Flug jetzt laden; die Mission wird im Cockpit fortgesetzt.'
+          : 'Flugplan an die Flugsicherung übertragen und zurückgelesen. Mission wurde nicht begonnen.', result); return;
       }
       if (result.atc && result.atc !== 'not_requested') {
         flightPlanStatus('Übernahme in die Simulator-Flugplanung nicht bestätigt. Mission wurde nicht begonnen.', result); return;
@@ -212,10 +214,12 @@
   // point. 'atc' prepares the World Map (air start is chosen there by the pilot).
   // An airborne interruption sends the remaining route from its point; a ground
   // interruption (or one without a known point) sends the mission route.
-  function transferResumeFlightPlan(target) {
+  function transferResumeFlightPlan(target, afterResume) {
     var control = missionSnapshot && missionSnapshot.control;
     var view = interruptionView(missionSnapshot);
-    if (!control || !view || missionIntentPending || ['avionics', 'atc'].indexOf(target) < 0) return Promise.resolve(false);
+    // afterResume: chained right after the confirmed resume intent, whose
+    // queue bookkeeping may still be settling.
+    if (!control || !view || (missionIntentPending && afterResume !== true) || ['avionics', 'atc'].indexOf(target) < 0) return Promise.resolve(false);
     if (target === 'atc' && Date.now() >= flightPlanAtcReadyUntil) return Promise.resolve(false);
     var revision = mapSnapshot && mapSnapshot.missionId === control.missionId && mapSnapshot.routeEdit ? mapSnapshot.routeEdit.revision : null;
     var startAt = view.zone && view.zone.airborne ? { lat: view.zone.lat, lon: view.zone.lon } : null;
@@ -245,7 +249,7 @@
         delete flightPlanJobs[jobId]; flightPlanBridgeReadyUntil = 0; requestSideDrawerRefresh();
         flightPlanStatus('Flugplanübertragung nicht bestätigt. Mission läuft unabhängig weiter.', {ok:false, jobId:jobId, routeHash:result.plan.routeHash, error:'flightplan_timeout'});
       }, 65000);
-      flightPlanJobs[jobId] = {timer:timer, routeHash:result.plan.routeHash, missionId:missionId, runId:runId, navigationRevision:result.plan.navigationRevision};
+      flightPlanJobs[jobId] = {timer:timer, routeHash:result.plan.routeHash, missionId:missionId, runId:runId, navigationRevision:result.plan.navigationRevision, trigger:trigger};
       flightPlanMessage('ga-flightplan-send', {job:{jobId:jobId, target:target, plan:result.plan}});
       return true;
     }).catch(function(error) { flightPlanStatus('Flugplanübertragung fehlgeschlagen. Mission läuft unabhängig weiter.', {ok:false, jobId:jobId, error:String(error.message || error)}); return false; })
@@ -2926,14 +2930,28 @@
     if (interruptionModel) {
       var airborneZone = !!(interruptionModel.zone && interruptionModel.zone.airborne);
       var arrivalZone = !!(interruptionModel.zone && interruptionModel.zone.kind === 'destination');
-      if (!arrivalZone && interruptionModel.status !== 'awaiting_decision' && Date.now() < flightPlanBridgeReadyUntil) {
+      // World Map / menu (no running cockpit): the flight is prepared through
+      // the simulator flight planning ("Flugsicherung"), before and after the
+      // decision. Avionics only in the running cockpit.
+      var interruptionReadiness = payload && payload.control && payload.control.startReadiness;
+      var cockpitRunning = !!(interruptionReadiness && interruptionReadiness.worldReady === true);
+      if (!arrivalZone && cockpitRunning && interruptionModel.status !== 'awaiting_decision' && Date.now() < flightPlanBridgeReadyUntil) {
         interruptionButtons.push({ id: 'avionics', label: airborneZone ? 'Restroute an Avionik senden' : 'Flugplan an Avionik senden',
           run: function () { return transferResumeFlightPlan('avionics'); } });
       }
-      // World Map: prepare the flight before loading it (air start or departure stand).
-      if (!arrivalZone && interruptionModel.status === 'awaiting_decision' && Date.now() < flightPlanAtcReadyUntil) {
-        interruptionButtons.push({ id: 'atc', label: airborneZone ? 'Restroute an Weltkarte senden (Luftstart dort wählen, experimentell)' : 'Flugplan an Weltkarte senden',
-          run: function () { return transferResumeFlightPlan('atc'); } });
+      // World Map: prepare the flight before loading it (air start or departure
+      // stand). Shown first in the resume prompt; before the decision it also
+      // continues the mission, then sends the route to the flight planning.
+      if (!arrivalZone && !cockpitRunning && Date.now() < flightPlanAtcReadyUntil) {
+        var decide = interruptionModel.status === 'awaiting_decision';
+        interruptionButtons.push({ id: decide ? 'atc-resume' : 'atc', primary: true,
+          label: (decide ? 'Mission fortsetzen und ' : '') + (airborneZone ? 'Restroute an Flugsicherung senden (Luftstart in der Weltkarte wählen, experimentell)' : 'Flugplan an Flugsicherung senden'),
+          run: function () {
+            if (!decide) return transferResumeFlightPlan('atc');
+            return Promise.resolve(submitMissionIntent('resume_mission', { reason: 'efb-interruption-resume-atc' })).then(function (result) {
+              return result === true ? transferResumeFlightPlan('atc', true) : false;
+            });
+          } });
       }
       if (interruptionModel.resetAvailable) {
         interruptionButtons.push({ id: 'restart', label: 'Mission neustarten', run: function () { return window.requestMissionRuntimeReset({ reason: 'efb-interruption-restart' }); } });
@@ -2943,12 +2961,13 @@
         } });
       }
     }
+    interruptionButtons.sort(function (a, b) { return (b.primary ? 1 : 0) - (a.primary ? 1 : 0); });
     var interruptionSignature = interruptionButtons.map(function (entry) { return entry.id; }).join('|');
     if (interruptionActions.getAttribute('data-actions') !== interruptionSignature) {
       interruptionActions.innerHTML = '';
       interruptionButtons.forEach(function (entry) {
         var action = document.createElement('button'); action.type = 'button';
-        action.className = 'mission-start-banner-btn is-secondary';
+        action.className = entry.primary ? 'mission-start-banner-btn' : 'mission-start-banner-btn is-secondary';
         action.setAttribute('data-interruption-action', entry.id);
         action.style.cssText = 'white-space:normal;text-align:center;flex:1 1 140px;min-width:0;height:auto;min-height:40px;padding:6px 8px;line-height:1.25;';
         action.textContent = entry.label;

@@ -122,3 +122,17 @@ test('reset and abort from the interruption banner always ask first', () => {
   const abort = web.slice(web.indexOf('window.gaAbortTrackerMission = '), web.indexOf('window.requestMissionRuntimeReset = async function'));
   assert.match(abort, /options\.skipConfirm !== true && !_confirmMissionCriticalAction\(options\.confirmAction \|\| 'abort', options\)/);
 });
+
+test('the World Map keeps the flight planning ("Flugsicherung") before and after the decision; avionics only in the cockpit', () => {
+  const banner = between('  function renderMissionActionBanner(payload) {', '  function updateMissionLiveFields(');
+  assert.match(banner, /var cockpitRunning = !!\(interruptionReadiness && interruptionReadiness\.worldReady === true\);/);
+  assert.match(banner, /if \(!arrivalZone && !cockpitRunning && Date\.now\(\) < flightPlanAtcReadyUntil\) \{/, 'no decision-status gate');
+  assert.match(banner, /if \(!arrivalZone && cockpitRunning && interruptionModel\.status !== 'awaiting_decision'/);
+  assert.ok(banner.includes("'Flugplan an Flugsicherung senden'"));
+  // Directly in the resume prompt: first, primary, and it resumes before sending.
+  assert.match(banner, /label: \(decide \? 'Mission fortsetzen und ' : ''\)/);
+  assert.match(banner, /submitMissionIntent\('resume_mission', \{ reason: 'efb-interruption-resume-atc' \}\)\)\.then\(function \(result\) \{\s*return result === true \? transferResumeFlightPlan\('atc', true\) : false;/);
+  assert.match(banner, /interruptionButtons\.sort\(/);
+  assert.match(banner, /entry\.primary \? 'mission-start-banner-btn' : 'mission-start-banner-btn is-secondary'/);
+  assert.match(host, /pending\.trigger === 'interruption-resume'[\s\S]{0,200}die Mission wird im Cockpit fortgesetzt/);
+});
