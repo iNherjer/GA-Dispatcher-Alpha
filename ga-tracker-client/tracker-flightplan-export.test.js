@@ -65,3 +65,20 @@ test('resume export starts at the interruption point and keeps only the remainin
   assert.equal(normal.resumeFrom, undefined);
 });
 
+
+test('World Map air start puts a substitute first point on the departure field so MSFS spawns at the interruption point', () => {
+  const { createFlightPlanExport } = require('./tracker-flightplan-export.js');
+  const points = [
+    { lat: 48.0, lon: 7.8, name: 'EDTF', icao: 'EDTF' }, { lat: 48.1, lon: 8.0, name: 'WP1', icao: '' },
+    { lat: 48.2, lon: 8.2, name: 'WP2', icao: '' }, { lat: 48.28, lon: 8.43, name: 'EDTW', icao: 'EDTW' }
+  ];
+  const run = { missionId: 'm', runId: 'r', navigationRoute: { revision: 3, points }, resumeBundle: { missionState: { currentStartICAO: 'EDTF' } } };
+  const plan = createFlightPlanExport(run, { missionId: 'm', runId: 'r', startAt: { lat: 48.15, lon: 8.1 }, airStart: true });
+  assert.deepEqual(plan.points.map(point => point.name), ['ABFLUG', 'UNTERBRECHUNG', 'WP2', 'EDTW']);
+  assert.deepEqual({ lat: plan.points[0].lat, lon: plan.points[0].lon, icao: plan.points[0].icao }, { lat: 48.0, lon: 7.8, icao: '' }, 'coordinates only, not the airport');
+  assert.equal(plan.departureIcao, '', 'no airport departure, so the bridge sends it as a coordinate');
+  assert.equal(plan.airStart, 'substitute-departure');
+  // Avionics (no airStart) and normal exports stay unchanged.
+  assert.equal(createFlightPlanExport(run, { missionId: 'm', runId: 'r', startAt: { lat: 48.15, lon: 8.1 } }).points[0].name, 'UNTERBRECHUNG');
+  assert.equal(createFlightPlanExport(run, { missionId: 'm', runId: 'r', airStart: true }).points[0].name, 'EDTF');
+});

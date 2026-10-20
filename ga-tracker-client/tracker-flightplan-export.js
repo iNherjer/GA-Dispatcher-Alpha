@@ -33,6 +33,16 @@ function remainingRoute(points, start) {
   return [{ lat: start.lat, lon: start.lon, name: 'UNTERBRECHUNG', icao: '' }, ...points.slice(best + 1)];
 }
 
+// World Map air start (field test): MSFS uses the first coordinate of a plan
+// without departure airport as a runway-type departure and spawns in the air
+// at the next waypoint. A substitute first point on the mission's departure
+// field (coordinates only, no airport) makes the interruption point that next
+// waypoint.
+function withAirStartSubstitute(points, departure) {
+  if (!departure || points.length < 2) return points;
+  return [{ lat: departure.lat, lon: departure.lon, name: 'ABFLUG', icao: '' }, ...points];
+}
+
 function missionRouteSource(run) {
   const bundle = run?.resumeBundle || {}, state = bundle.missionState || {};
   const mission = state.currentMissionData || state.activeMissionContract || state;
@@ -76,7 +86,9 @@ function createFlightPlanExport(run, request = {}) {
       icao: String(point.icao || point.airportIdent || '').trim().toUpperCase().slice(0, 12) };
   });
   const resume = resumeStart(request.startAt);
+  const departurePoint = points[0];
   if (resume) points = remainingRoute(points, resume);
+  if (resume && request.airStart === true) points = withAirStartSubstitute(points, departurePoint);
   const context = bundle.mapProfile?.context || {};
   const altitude = [context.profileCruiseFt, mission.cruiseAltitudeFt, mission.cruiseAltFt, mission.cruiseAltitude,
     contract.cruiseAltitudeFt, contract.cruiseAltFt, state.cruiseAltitudeFt, state.cruiseAltFt, state.altMapInput]
@@ -86,7 +98,8 @@ function createFlightPlanExport(run, request = {}) {
     departureIcao: resume ? '' : String(context.departureIcao || state.currentStartICAO || state.mDepICAO || points[0].icao || '').toUpperCase(),
     destinationIcao: String(context.destinationIcao || state.currentDestICAO || state.mDestICAO || points[points.length - 1].icao || '').toUpperCase(),
     cruiseAltitudeFt: altitude == null ? null : Number(altitude), isVfr: true, points,
-    ...(resume ? { resumeFrom: { lat: resume.lat, lon: resume.lon } } : {}) };
+    ...(resume ? { resumeFrom: { lat: resume.lat, lon: resume.lon } } : {}),
+    ...(resume && request.airStart === true ? { airStart: 'substitute-departure' } : {}) };
   return { ...plan, routeHash: crypto.createHash('sha256').update(JSON.stringify(plan)).digest('hex') };
 }
 module.exports = { createFlightPlanExport, remainingRoute, missionRouteEnds };

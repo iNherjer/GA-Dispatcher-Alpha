@@ -148,10 +148,11 @@
         flightPlanStatus('Die Route wurde inzwischen geändert. Aktuellen Flugplan bitte erneut übertragen.', {ok:false, jobId:result.jobId, error:'flightplan_route_changed'}); return;
       }
       if (result.atc === 'confirmed') {
+        // The World Map send is done until the route (or the run) changes.
+        if (pending.trigger === 'interruption-resume' && pending.resumeKey) { resumeTransferredKey = pending.resumeKey; renderMissionActionBanner(missionSnapshot); }
         flightPlanStatus(pending.trigger === 'interruption-resume'
-          ? (pending.airStart
-            ? 'Restroute an die Flugsicherung übertragen. In der Weltkarte beim Abflug „UNTERBRECHUNG“ die Startart „In der Luft“ wählen (MSFS setzt sonst „Start-/Landebahn“), dann Flug starten.'
-            : 'Flugplan an die Flugsicherung übertragen und zurückgelesen. Flug jetzt laden; die Mission wird im Cockpit fortgesetzt.')
+          ? (pending.airStart ? 'Restroute übertragen. Flug in der Weltkarte starten; die Mission geht im Cockpit weiter.'
+            : 'Flugplan übertragen. Flug in der Weltkarte starten; die Mission geht im Cockpit weiter.')
           : 'Flugplan an die Flugsicherung übertragen und zurückgelesen. Mission wurde nicht begonnen.', result); return;
       }
       if (result.atc && result.atc !== 'not_requested') {
@@ -216,6 +217,12 @@
   // point. 'atc' prepares the World Map (air start is chosen there by the pilot).
   // An airborne interruption sends the remaining route from its point; a ground
   // interruption (or one without a known point) sends the mission route.
+  var resumeTransferredKey = '';
+  function resumeTransferKey(control, view) {
+    var revision = mapSnapshot && control && mapSnapshot.missionId === control.missionId && mapSnapshot.routeEdit ? mapSnapshot.routeEdit.revision : '';
+    var zone = view && view.zone;
+    return control && view ? [control.missionId, control.runId, revision, zone && zone.airborne ? zone.lat + ',' + zone.lon : 'route'].join('|') : '';
+  }
   function transferResumeFlightPlan(target, afterResume) {
     var control = missionSnapshot && missionSnapshot.control;
     var view = interruptionView(missionSnapshot);
@@ -225,9 +232,9 @@
     if (target === 'atc' && Date.now() >= flightPlanAtcReadyUntil) return Promise.resolve(false);
     var revision = mapSnapshot && mapSnapshot.missionId === control.missionId && mapSnapshot.routeEdit ? mapSnapshot.routeEdit.revision : null;
     var startAt = view.zone && view.zone.airborne ? { lat: view.zone.lat, lon: view.zone.lon } : null;
-    return transferStartedFlightPlan(target, control.missionId, revision, 'interruption-resume', startAt);
+    return transferStartedFlightPlan(target, control.missionId, revision, 'interruption-resume', startAt, resumeTransferKey(control, view));
   }
-  function transferStartedFlightPlan(target, missionId, navigationRevision, trigger, startAt) {
+  function transferStartedFlightPlan(target, missionId, navigationRevision, trigger, startAt, resumeKey) {
     var control = missionSnapshot && missionSnapshot.control;
     var client = window.gaCockpitSessionClient;
     var jobId = 'flightplan-' + Date.now() + '-' + Math.random().toString(36).slice(2);
@@ -240,6 +247,8 @@
     report('info', 'flightplan-export', 'request', trigger === 'manual' ? 'Manuelle Flugplanübertragung' : 'Flugplanauftrag nach bestätigtem Missionsstart', JSON.stringify({jobId: jobId, missionId: missionId, runId: runId, target: target, host: flightPlanBridgeHost}));
     var exportPayload = {missionId: missionId, runId: runId, navigationRevision: navigationRevision};
     if (startAt) exportPayload.startAt = {lat: startAt.lat, lon: startAt.lon};
+    // World Map air start: the tracker puts a substitute first point on the departure field.
+    if (startAt && target === 'atc') exportPayload.airStart = true;
     return client.submitTool({ commandId: jobId, intent: 'flightplan_export', payload: exportPayload }).then(function(result) {
       var current = missionSnapshot && missionSnapshot.control;
       if (!result || !result.ok || !result.plan) throw new Error(result && result.error || 'flightplan_export_unavailable');
@@ -251,7 +260,7 @@
         delete flightPlanJobs[jobId]; flightPlanBridgeReadyUntil = 0; requestSideDrawerRefresh();
         flightPlanStatus('Flugplanübertragung nicht bestätigt. Mission läuft unabhängig weiter.', {ok:false, jobId:jobId, routeHash:result.plan.routeHash, error:'flightplan_timeout'});
       }, 65000);
-      flightPlanJobs[jobId] = {timer:timer, routeHash:result.plan.routeHash, missionId:missionId, runId:runId, navigationRevision:result.plan.navigationRevision, trigger:trigger, airStart:!!(startAt && target === 'atc')};
+      flightPlanJobs[jobId] = {timer:timer, routeHash:result.plan.routeHash, missionId:missionId, runId:runId, navigationRevision:result.plan.navigationRevision, trigger:trigger, airStart:!!(startAt && target === 'atc'), resumeKey:target === 'atc' ? resumeKey || '' : ''};
       flightPlanMessage('ga-flightplan-send', {job:{jobId:jobId, target:target, plan:result.plan}});
       return true;
     }).catch(function(error) { flightPlanStatus('Flugplanübertragung fehlgeschlagen. Mission läuft unabhängig weiter.', {ok:false, jobId:jobId, error:String(error.message || error)}); return false; })
@@ -2940,16 +2949,18 @@
       var liveFlying = !!(flight && Date.now() - flight.capturedAt <= 5000 && flight.onGround === false && flight.gsKts >= 40);
       var cockpitRunning = !!(interruptionReadiness && interruptionReadiness.worldReady === true) || liveFlying;
       if (!arrivalZone && cockpitRunning && interruptionModel.status !== 'awaiting_decision' && Date.now() < flightPlanBridgeReadyUntil) {
-        interruptionButtons.push({ id: 'avionics', label: airborneZone ? 'Restroute an Avionik senden' : 'Flugplan an Avionik senden',
+        interruptionButtons.push({ id: 'avionics', label: airborneZone ? 'Restroute an Avionik' : 'Flugplan an Avionik',
           run: function () { return transferResumeFlightPlan('avionics'); } });
       }
       // World Map: prepare the flight before loading it (air start or departure
       // stand). Shown first in the resume prompt; before the decision it also
       // continues the mission, then sends the route to the flight planning.
-      if (!arrivalZone && !cockpitRunning && Date.now() < flightPlanAtcReadyUntil) {
+      // Hidden once transferred; a route change (new revision) brings it back.
+      var transferred = resumeTransferredKey && resumeTransferredKey === resumeTransferKey(payload && payload.control, interruptionModel);
+      if (!arrivalZone && !cockpitRunning && !transferred && Date.now() < flightPlanAtcReadyUntil) {
         var decide = interruptionModel.status === 'awaiting_decision';
         interruptionButtons.push({ id: decide ? 'atc-resume' : 'atc', primary: true,
-          label: (decide ? 'Mission fortsetzen und ' : '') + (airborneZone ? 'Restroute an Flugsicherung senden (danach beim Abflug „In der Luft“ wählen)' : 'Flugplan an Flugsicherung senden'),
+          label: airborneZone ? 'Restroute übertragen' : 'Flugplan übertragen',
           run: function () {
             if (!decide) return transferResumeFlightPlan('atc');
             return Promise.resolve(submitMissionIntent('resume_mission', { reason: 'efb-interruption-resume-atc' })).then(function (result) {

@@ -198,6 +198,18 @@ Nachbesserung Tracker v577 (Weltkarten-Luftstart):
   Rueckmeldung sagen, in der Weltkarte beim Abflug „In der Luft“ zu waehlen.
   Rueckfall bleibt „An Unterbrechungspunkt versetzen“ im Cockpit.
 
+Nachbesserung Tracker v578 (Feldtest v577, Workaround Luftstart):
+
+- „In der Luft“ ist fuer einen per Flugplan gesetzten Abflugpunkt nicht
+  waehlbar (nur fuer per Klick gesetzte Punkte). MSFS spawnt aber in der
+  Luft am naechsten Wegpunkt nach dem Abflug. Der Export fuer die
+  Flugsicherung (`airStart: true`) setzt deshalb einen Ersatzpunkt `ABFLUG`
+  auf die Koordinate des Missions-Startplatzes (kein Flugplatz-Abflug),
+  danach `UNTERBRECHUNG` als regulaeren Wegpunkt. Avionik ohne Ersatzpunkt.
+- Banner-Texte gekuerzt („Restroute uebertragen“, „Restroute an Avionik“).
+- Nach bestaetigter Uebertragung in der Weltkarte verschwindet der Knopf,
+  bis sich Route (Revision) oder Lauf aendern.
+
 Offen / PC-Pruefung:
 
 - Ob MSFS 2024 eine Route ohne Abflugplatz aus dem EFB fuer einen
