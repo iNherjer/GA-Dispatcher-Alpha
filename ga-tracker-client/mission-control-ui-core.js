@@ -7,7 +7,7 @@
 }(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this), function () {
   'use strict';
 
-  var BUILD_ID = 'tracker-mission-ui-20261020-04';
+  var BUILD_ID = 'tracker-mission-ui-20261020-05';
 
   var ACTION_LABELS = Object.freeze({
     activate_cloud_mission: 'Mission aus der Cloud beginnen',
@@ -152,11 +152,12 @@
     // Continuing is the default: the running cockpit resumes on its own. Only
     // restart/abort are choices; there is no "continue" button any more.
     if (status === 'awaiting_decision' || status === 'resuming') {
+      model.kicker = 'Mission wieder aufnehmen';
+      // The EFB offers "Speicherstand laden"; other views continue by flying.
       model.text = settings.simulatorConnected === false
-        ? 'Der Simulator ist getrennt. Zum Fortsetzen MSFS starten und einen Flug laden. Alternativ die Mission neu starten oder abbrechen.'
-        : 'Im laufenden Cockpit werden Szenen und Zuladung neu aufgebaut, dann geht es am Speicherpunkt weiter'
-          + (model.zone && model.zone.airborne ? ' („Speicherstand laden“ startet dich dort in der Luft).' : '.')
-          + ' Alternativ die Mission neu starten oder abbrechen.';
+        ? 'Die laufende Mission wurde gespeichert. Zum Fortfahren MSFS starten und einen Flug laden.'
+        : (settings.canLoadSave === true ? 'Die laufende Mission wurde gespeichert. Möchtest du fortfahren?'
+          : 'Die laufende Mission wurde gespeichert. Zum Fortfahren den Flug im Simulator starten.');
     } else if (status === 'awaiting_zone') {
       var insideZone = !!(model.zone && navigation && navigation.distanceNm <= model.zone.radiusNm);
       model.kicker = 'Zum Speicherpunkt';

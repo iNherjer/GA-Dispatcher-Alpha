@@ -130,7 +130,7 @@ test('banner offers restart and abort (no continue button), then waiting and zon
   assert.deepEqual(JSON.parse(JSON.stringify(decision.tertiary)), { action: 'abort', label: 'Mission abbrechen' });
   assert.equal(decision.className, 'is-interrupted');
   assert.match(decision.text, /MSFS starten und einen Flug laden/);
-  assert.match(decision.text, /Alternativ die Mission neu starten oder abbrechen/);
+  assert.equal(decision.kicker, 'Mission wieder aufnehmen');
 
   const fresh = c.api._trackerMissionBannerModel(boardingControl(record('awaiting_decision', 1000)));
   assert.equal(fresh, null, 'short gaps stay silent');
@@ -140,7 +140,7 @@ test('banner offers restart and abort (no continue button), then waiting and zon
   const waiting = c.api._trackerMissionBannerModel(boardingControl(record('resuming', 60000), { allowedActions: ['abort_mission'] }));
   assert.equal(waiting.kind, 'interruption');
   assert.equal(waiting.buttonHidden, true);
-  assert.match(waiting.text, /Im laufenden Cockpit werden Szenen und Zuladung neu aufgebaut/);
+  assert.equal(waiting.text, 'Die laufende Mission wurde gespeichert. Zum Fortfahren den Flug im Simulator starten.');
 
   c.lastLiveGpsPos = { lat: 49.2, lon: 8.4 };
   const zone = c.api._trackerMissionBannerModel(boardingControl(record('awaiting_zone', 90000,

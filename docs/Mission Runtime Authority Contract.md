@@ -243,6 +243,19 @@ Nachbesserung Tracker v580 (Feldtest v579, Luftstart bestaetigt):
   Startplatz, 1,5 NM), zeigt der Banner keinen „Zurueck“-Hinweis, nur
   „Mission laeuft gleich weiter“.
 
+Nachbesserung Tracker v581 (Feldtest v580):
+
+- Texte: „Mission wieder aufnehmen – Die laufende Mission wurde gespeichert.
+  Moechtest du fortfahren?“ (EFB, `canLoadSave`); App/Toolbar: „… Zum
+  Fortfahren den Flug im Simulator starten.“ Nach „Speicherstand laden“:
+  „Speicherstand geladen – Flug jetzt starten.“; nach „Fliegen“ bis zum
+  Neuaufbau: „Speicherstand wird geladen“.
+- Die Bestaetigung „Speicherstand geladen“ schliesst sich, sobald „Flugplan
+  laden“ den Plan an die Avionik gesendet hat.
+- Debug-Log: `SIM_CAMERA_STATE from=… to=…` bei jedem Wechsel der
+  Kameraansicht (z. B. `12=world_map`, `11=waiting`, `2=cockpit`) und
+  `camera=…` an `MISSION_INTERRUPTION_DECISION` (aus der Release-Warteschlange).
+
 - Grenze: Ohne aufloesbares Ziel-ICAO waere der Zielpunkt selbst der letzte
   Wegpunkt; dann spawnt MSFS dort.
 

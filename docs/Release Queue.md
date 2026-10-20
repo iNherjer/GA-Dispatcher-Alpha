@@ -27,7 +27,11 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-### 2026-10-20 · Kameraansicht im Debug-Log
+(keine offenen Eintraege)
+
+## Ausgeliefert
+
+### 2026-10-20 · Kameraansicht im Debug-Log — ausgeliefert in Tracker v581 (20.10.2026)
 - **Artefakt:** Tracker-EXE
 - **Dateien:** `ga-tracker-client/tracker-camera-telemetry.js`,
   `ga-tracker-client/tracker-mission-interruption-controller.js` (+ Tests)
@@ -43,10 +47,6 @@ liefert alles Offene mit aus.
   (Unterbrechung, Abschnitt der neuen Tracker-Version).
 - **Pruefen im Feld:** Welche Kameraansicht MSFS 2024 im „Bereit zum
   Fliegen“-Bildschirm meldet.
-
-## Ausgeliefert
-
-(noch keine Eintraege)
 
 ## Vorlage
 

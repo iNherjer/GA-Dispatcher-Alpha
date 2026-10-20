@@ -157,6 +157,8 @@
       if (result.atc && result.atc !== 'not_requested') {
         flightPlanStatus('Übernahme in die Simulator-Flugplanung nicht bestätigt. Mission wurde nicht begonnen.', result); return;
       }
+      // The "Speicherstand geladen" confirmation is done once the plan is in the avionics.
+      if (pending.trigger === 'resumed' && result.ok && result.avionics === 'sent') { resumedNoticeUntil = 0; renderMissionActionBanner(missionSnapshot); }
       flightPlanStatus(result.ok ? (result.avionics === 'sent' ? 'Flugplan an MSFS übertragen und an Avionik gesendet.' : 'Flugplan an MSFS übertragen.')
         : ['flightplan_timeout', 'flightplan_readback_mismatch'].indexOf(result.error) >= 0 ? 'Flugplanübertragung nicht bestätigt. Mission läuft unabhängig weiter.'
           : result.msfs === 'confirmed' ? 'Flugplan an MSFS übertragen; Senden an Avionik fehlgeschlagen. Mission läuft weiter.'
@@ -215,12 +217,6 @@
   // After a simulator interruption. 'atc' prepares the World Map: an airborne
   // interruption sends the air start plan (save point + destination), a ground
   // one the complete mission plan. 'avionics' always gets the complete plan.
-  var resumeTransferredKey = '';
-  function resumeTransferKey(control, view) {
-    var revision = mapSnapshot && control && mapSnapshot.missionId === control.missionId && mapSnapshot.routeEdit ? mapSnapshot.routeEdit.revision : '';
-    var zone = view && view.zone;
-    return control && view ? [control.missionId, control.runId, revision, zone && zone.airborne ? zone.lat + ',' + zone.lon : 'route'].join('|') : '';
-  }
   function transferResumeFlightPlan(target, afterResume) {
     var control = missionSnapshot && missionSnapshot.control;
     var view = interruptionView(missionSnapshot);
@@ -2445,12 +2441,25 @@
   var interruptionPreviousRun = '';
   var resumedNoticeUntil = 0;
   var resumedNoticeKey = '';
+  // The World Map send of the save state, remembered until route or run change.
+  var resumeTransferredKey = '';
+  function resumeTransferKey(control, view) {
+    var revision = typeof mapSnapshot !== 'undefined' && mapSnapshot && control && mapSnapshot.missionId === control.missionId && mapSnapshot.routeEdit ? mapSnapshot.routeEdit.revision : '';
+    var zone = view && view.zone;
+    return control && view ? [control.missionId, control.runId, revision, zone && zone.airborne ? zone.lat + ',' + zone.lon : 'route'].join('|') : '';
+  }
+  // Running cockpit: published readiness, or live flight when that lags.
+  function interruptionCockpitRunning(payload) {
+    var readiness = payload && payload.control && payload.control.startReadiness;
+    var liveFlying = !!(flight && Date.now() - flight.capturedAt <= 5000 && flight.onGround === false && flight.gsKts >= 40);
+    return !!(readiness && readiness.worldReady === true) || liveFlying;
+  }
   function interruptionView(payload) {
     var control = payload && payload.control;
     var core = window.GAMissionControlUiCore;
     if (!control || !core || typeof core.interruptionModel !== 'function') return null;
-    // The EFB only runs inside a running simulator.
-    return core.interruptionModel(control, { now: Date.now(), simulatorConnected: true,
+    // The EFB only runs inside a running simulator and offers "Speicherstand laden".
+    return core.interruptionModel(control, { now: Date.now(), simulatorConnected: true, canLoadSave: true,
       livePosition: flight && isFinite(flight.lat) && isFinite(flight.lon) ? { lat: flight.lat, lon: flight.lon } : null });
   }
   function scheduleInterruptionRecheck(delayMs) {
@@ -2540,8 +2549,15 @@
     var interruption = interruptionView(payload);
     if (interruption) {
       if (interruption.visible === false) { scheduleInterruptionRecheck(interruption.recheckInMs); return null; }
+      var kicker = interruption.kicker, text = interruption.text;
+      if (interruption.status === 'awaiting_decision' || interruption.status === 'resuming') {
+        if (interruptionCockpitRunning(payload)) { kicker = 'Speicherstand wird geladen'; text = 'Szenen und Zuladung werden neu aufgebaut.'; }
+        else if (resumeTransferredKey && resumeTransferredKey === resumeTransferKey(payload.control, interruption)) {
+          kicker = 'Speicherstand geladen'; text = 'Flug jetzt starten.';
+        }
+      }
       return { key: interruption.key, missionId: String(payload.missionId || payload.control.missionId || ''),
-        kicker: interruption.kicker, text: interruption.text,
+        kicker: kicker, text: text,
         button: interruption.primary ? interruption.primary.label : '', buttonHidden: !interruption.primary,
         kind: interruption.primary ? 'intent' : 'interruption', intent: interruption.primary ? interruption.primary.intent : '',
         interruption: interruption, className: 'is-interrupted' };
@@ -2942,10 +2958,7 @@
       // World Map / menu (no running cockpit): the flight is prepared through
       // the simulator flight planning ("Flugsicherung"), before and after the
       // decision. Avionics only in the running cockpit.
-      var interruptionReadiness = payload && payload.control && payload.control.startReadiness;
-      // The published readiness can lag; live flight (airborne, moving) is the cockpit too.
-      var liveFlying = !!(flight && Date.now() - flight.capturedAt <= 5000 && flight.onGround === false && flight.gsKts >= 40);
-      var cockpitRunning = !!(interruptionReadiness && interruptionReadiness.worldReady === true) || liveFlying;
+      var cockpitRunning = interruptionCockpitRunning(payload);
       // Cockpit: the complete mission plan to the avionics.
       if (!arrivalZone && cockpitRunning && Date.now() < flightPlanBridgeReadyUntil) {
         interruptionButtons.push({ id: 'avionics', label: 'Flugplan laden',

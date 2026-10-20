@@ -48,12 +48,29 @@ test('EFB banner shows the interruption choice and blocks a cloud mission replac
   assert.equal(model.kind, 'interruption');
   assert.equal(model.buttonHidden, true, 'no continue button; continuing is the default');
   assert.equal(model.className, 'is-interrupted');
-  assert.match(model.text, /Im laufenden Cockpit werden Szenen und Zuladung neu aufgebaut/, 'the EFB runs inside the simulator');
+  assert.equal(model.kicker, 'Mission wieder aufnehmen');
+  assert.equal(model.text, 'Die laufende Mission wurde gespeichert. Möchtest du fortfahren?', 'the EFB offers "Speicherstand laden"');
   assert.equal(model.interruption.resetAvailable, true);
   assert.equal(c.window.gaTrackerMissionInterrupted(), false, 'helpers read the current snapshot');
   c.missionSnapshot = interrupted;
   assert.equal(c.window.gaTrackerMissionInterrupted(), true);
   assert.equal(c.window.gaTrackerInterruptionModel().status, 'awaiting_decision');
+});
+
+test('EFB prompt says "Flug jetzt starten" after the save state was loaded, then "wird geladen" in the cockpit', () => {
+  const c = sandbox();
+  const resuming = payload(control({ status: 'resuming', since: Date.now() - 30000, zone }, ['abort_mission']));
+  c.resumeTransferredKey = c.resumeTransferKey(resuming.control, c.api.interruptionView(resuming));
+  let model = c.api.missionActionBannerModel(resuming);
+  assert.equal(model.kicker, 'Speicherstand geladen');
+  assert.equal(model.text, 'Flug jetzt starten.');
+  // After "Fliegen" (running cockpit) until the tracker rebuilt scenes and payload.
+  resuming.control.startReadiness = { worldReady: true };
+  model = c.api.missionActionBannerModel(resuming);
+  assert.equal(model.kicker, 'Speicherstand wird geladen');
+  // Another run does not inherit the transfer.
+  const other = payload({ ...control({ status: 'awaiting_decision', since: Date.now() - 30000, zone }, ['abort_mission']), runId: 'r2' });
+  assert.equal(c.api.missionActionBannerModel(other).text, 'Die laufende Mission wurde gespeichert. Möchtest du fortfahren?');
 });
 
 test('EFB stays silent during the display delay and re-checks afterwards', () => {
@@ -124,16 +141,18 @@ test('reset and abort from the interruption banner always ask first', () => {
 
 test('the World Map keeps the flight planning ("Flugsicherung") before and after the decision; avionics only in the cockpit', () => {
   const banner = between('  function renderMissionActionBanner(payload) {', '  function updateMissionLiveFields(');
-  assert.match(banner, /var cockpitRunning = !!\(interruptionReadiness && interruptionReadiness\.worldReady === true\) \|\| liveFlying;/);
-  assert.match(banner, /var liveFlying = !!\(flight && Date\.now\(\) - flight\.capturedAt <= 5000 && flight\.onGround === false && flight\.gsKts >= 40\);/,
+  assert.match(banner, /var cockpitRunning = interruptionCockpitRunning\(payload\);/);
+  assert.match(host, /var liveFlying = !!\(flight && Date\.now\(\) - flight\.capturedAt <= 5000 && flight\.onGround === false && flight\.gsKts >= 40\);/,
     'a lagging readiness projection does not keep the World Map send in the flying cockpit');
+  // The confirmation closes itself once the plan is in the avionics.
+  assert.match(host, /if \(pending\.trigger === 'resumed' && result\.ok && result\.avionics === 'sent'\) \{ resumedNoticeUntil = 0;/);
   assert.match(host, /if \(startAt && target === 'atc'\) exportPayload\.airStart = true;/);
   // Only the World Map air start uses the save point; avionics gets the complete plan.
   assert.match(host, /var startAt = target === 'atc' && view\.zone && view\.zone\.airborne \?/);
   // Hidden after a confirmed World Map transfer until the route or run changes.
   assert.match(host, /if \(pending\.trigger === 'interruption-resume' && pending\.resumeKey\) \{ resumeTransferredKey = pending\.resumeKey;/);
   assert.match(banner, /if \(!arrivalZone && !cockpitRunning && !transferred && Date\.now\(\) < flightPlanAtcReadyUntil\)/);
-  const key = between('  function resumeTransferKey(control, view) {', '  function transferResumeFlightPlan(');
+  const key = between('  function resumeTransferKey(control, view) {', '  function interruptionCockpitRunning(payload) {');
   assert.match(key, /mapSnapshot\.routeEdit\.revision/, 'a route edit changes the key');
   assert.match(banner, /if \(!arrivalZone && cockpitRunning && Date\.now\(\) < flightPlanBridgeReadyUntil\) \{\s*interruptionButtons\.push\(\{ id: 'avionics', label: 'Flugplan laden',/);
   // The resume confirmation offers the complete plan for the avionics.

@@ -329,17 +329,19 @@ test('interruption model presents decision, waiting and zone states for every vi
     { now, simulatorConnected: false });
   assert.equal(decision.visible, true);
   assert.match(decision.text, /MSFS starten und einen Flug laden/);
-  assert.match(decision.text, /Alternativ die Mission neu starten oder abbrechen/);
+  assert.equal(decision.kicker, 'Mission wieder aufnehmen');
   assert.equal(decision.primary, null, 'continuing is the default; no continue button');
   assert.equal(decision.resetAvailable, true);
   const restarted = core.interruptionModel(control({ status: 'awaiting_decision', since: now - 20000, zone }, ['abort_mission', 'resume_mission']),
     { now, simulatorConnected: true });
-  assert.match(restarted.text, /Im laufenden Cockpit werden Szenen und Zuladung neu aufgebaut/);
-  assert.match(restarted.text, /„Speicherstand laden“ startet dich dort in der Luft/);
+  assert.equal(restarted.text, 'Die laufende Mission wurde gespeichert. Zum Fortfahren den Flug im Simulator starten.');
+  const efb = core.interruptionModel(control({ status: 'awaiting_decision', since: now - 20000, zone }, ['abort_mission', 'resume_mission']),
+    { now, simulatorConnected: true, canLoadSave: true });
+  assert.equal(efb.text, 'Die laufende Mission wurde gespeichert. Möchtest du fortfahren?');
 
   const waiting = core.interruptionModel(control({ status: 'resuming', since: now - 60000, zone }, ['abort_mission']), { now, simulatorConnected: true });
   assert.equal(waiting.primary, null);
-  assert.equal(waiting.kicker, 'Mission unterbrochen');
+  assert.equal(waiting.kicker, 'Mission wieder aufnehmen');
 
   const air = core.interruptionModel(control({ status: 'awaiting_zone', since: now - 90000, zone }, ['abort_mission', 'resume_teleport']),
     { now, livePosition: { lat: 49.1, lon: 8.1 } });
@@ -368,7 +370,7 @@ test('interruption model presents decision, waiting and zone states for every vi
   const markup = core.render(sampleView(), { control: control({ status: 'awaiting_decision', since: now - 20000, zone }, ['abort_mission', 'resume_mission']), interruption: decision });
   assert.doesNotMatch(markup, /data-mission-intent="resume_mission"/);
   assert.match(markup, /data-mission-intent="abort_mission"/);
-  assert.match(markup, /Mission unterbrochen: Der Simulator ist getrennt/);
+  assert.match(markup, /Mission wieder aufnehmen: Die laufende Mission wurde gespeichert/);
   assert.match(core.RESUMED_NOTICE_TEXT, /Speicherstand erfolgreich geladen/);
 });
 
