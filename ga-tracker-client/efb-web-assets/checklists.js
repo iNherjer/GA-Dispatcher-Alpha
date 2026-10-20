@@ -1554,10 +1554,12 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     if ((_window$gaChecklistHo8 = window.gaChecklistHost) !== null && _window$gaChecklistHo8 !== void 0 && _window$gaChecklistHo8.missionView && window.GAMissionControlUiCore) {
       var view = window.gaChecklistHost.missionView();
       if (view) {
-        var _window$gaMissionCont, _window$gaMissionCont2;
+        var _window$gaTrackerMiss, _window2, _window$gaTrackerInte, _window3, _window$gaMissionCont, _window$gaMissionCont2;
         bodyEl.innerHTML = toolTopline('mission') + window.GAMissionControlUiCore.render(view, {
           storyExpanded: state.missionStoryExpanded,
           control: window.gaTrackerExecutionControl,
+          interrupted: ((_window$gaTrackerMiss = (_window2 = window).gaTrackerMissionInterrupted) === null || _window$gaTrackerMiss === void 0 ? void 0 : _window$gaTrackerMiss.call(_window2)) === true,
+          interruption: ((_window$gaTrackerInte = (_window3 = window).gaTrackerInterruptionModel) === null || _window$gaTrackerInte === void 0 ? void 0 : _window$gaTrackerInte.call(_window3)) || null,
           intentPending: window.gaMissionControlIntentPending === true,
           intentStatus: ((_window$gaMissionCont = window.gaMissionControlIntentStatus) === null || _window$gaMissionCont === void 0 ? void 0 : _window$gaMissionCont.text) || '',
           intentTone: ((_window$gaMissionCont2 = window.gaMissionControlIntentStatus) === null || _window$gaMissionCont2 === void 0 ? void 0 : _window$gaMissionCont2.tone) || ''
@@ -1578,10 +1580,12 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     }
     var sharedView = typeof window.gaGetEfbMissionViewSnapshot === 'function' ? window.gaGetEfbMissionViewSnapshot() : null;
     if (sharedView && ((_window$gaTrackerExec = window.gaTrackerExecutionControl) === null || _window$gaTrackerExec === void 0 ? void 0 : _window$gaTrackerExec.executionAuthority) === 'tracker' && typeof ((_window$GAMissionCont = window.GAMissionControlUiCore) === null || _window$GAMissionCont === void 0 ? void 0 : _window$GAMissionCont.render) === 'function') {
-      var _window$gaMissionCont3, _window$gaMissionCont4;
+      var _window$gaTrackerMiss2, _window4, _window$gaTrackerInte2, _window5, _window$gaMissionCont3, _window$gaMissionCont4;
       bodyEl.innerHTML = `${toolTopline('mission')}${window.GAMissionControlUiCore.render(sharedView, {
         storyExpanded: state.missionStoryExpanded,
         control: window.gaTrackerExecutionControl || null,
+        interrupted: ((_window$gaTrackerMiss2 = (_window4 = window).gaTrackerMissionInterrupted) === null || _window$gaTrackerMiss2 === void 0 ? void 0 : _window$gaTrackerMiss2.call(_window4)) === true,
+        interruption: ((_window$gaTrackerInte2 = (_window5 = window).gaTrackerInterruptionModel) === null || _window$gaTrackerInte2 === void 0 ? void 0 : _window$gaTrackerInte2.call(_window5)) || null,
         intentPending: window.gaMissionControlIntentPending === true,
         intentStatus: ((_window$gaMissionCont3 = window.gaMissionControlIntentStatus) === null || _window$gaMissionCont3 === void 0 ? void 0 : _window$gaMissionCont3.text) || '',
         intentTone: ((_window$gaMissionCont4 = window.gaMissionControlIntentStatus) === null || _window$gaMissionCont4 === void 0 ? void 0 : _window$gaMissionCont4.tone) || ''
@@ -1904,7 +1908,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     return !!(status.boardingPreparing || status.boardingRequested || status.boardingActive || status.deboardingRequested || status.deboardingActive || status.manualPaxRequested || status.manualPaxActive);
   }
   function cargoDetailHtml(item) {
-    var _item$healthPct, _window$missionCompli, _window2, _window$missionCompli2, _window3, _window$missionCompli4, _window5, _window$missionCompli5, _window6;
+    var _item$healthPct, _window$missionCompli, _window6, _window$missionCompli2, _window7, _window$missionCompli4, _window9, _window$missionCompli5, _window0;
     var health = Math.max(0, Math.min(100, Math.round(Number((_item$healthPct = item.healthPct) !== null && _item$healthPct !== void 0 ? _item$healthPct : 100))));
     var tone = cargoHealthTone(health);
     var isBoardBook = /bordbuch/i.test(`${item.id || ''} ${item.label || ''} ${item.storyName || ''}`);
@@ -1912,21 +1916,21 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     var passengerBusy = isPassenger && cargoPassengerSceneBusy();
     var airborne = cargoIsAirborne();
     var isUnloaded = item.status === 'unloaded';
-    var canComplianceLoad = ((_window$missionCompli = (_window2 = window).missionComplianceCanMutateCargo) === null || _window$missionCompli === void 0 ? void 0 : _window$missionCompli.call(_window2, item.id, 'load')) !== false;
-    var canComplianceUnload = ((_window$missionCompli2 = (_window3 = window).missionComplianceCanMutateCargo) === null || _window$missionCompli2 === void 0 ? void 0 : _window$missionCompli2.call(_window3, item.id, 'unload')) !== false;
+    var canComplianceLoad = ((_window$missionCompli = (_window6 = window).missionComplianceCanMutateCargo) === null || _window$missionCompli === void 0 ? void 0 : _window$missionCompli.call(_window6, item.id, 'load')) !== false;
+    var canComplianceUnload = ((_window$missionCompli2 = (_window7 = window).missionComplianceCanMutateCargo) === null || _window$missionCompli2 === void 0 ? void 0 : _window$missionCompli2.call(_window7, item.id, 'unload')) !== false;
     var canLoad = canComplianceLoad && !passengerBusy && !airborne && (item.status === 'pending' || isUnloaded) && typeof window.missionCargoLoadItem === 'function';
     var canUnload = canComplianceUnload && !passengerBusy && item.status === 'loaded' && typeof window.missionCargoUnloadItem === 'function';
     var dropMode = canUnload && airborne;
     var expiry = '';
     if (isUnloaded && item.equipmentType === 'expiry') {
-      var _window$missionCompli3, _window4;
+      var _window$missionCompli3, _window8;
       var match = String(item.expiresAt || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
       var expiryDay = match ? Math.floor(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) / 86400000) : NaN;
       var now = new Date();
       var todayDay = Math.floor(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86400000);
       var daysRemaining = Number.isFinite(expiryDay) ? expiryDay - todayDay : NaN;
       var replaceEligible = !Number.isFinite(daysRemaining) || daysRemaining < 5;
-      var replaceLocked = ((_window$missionCompli3 = (_window4 = window).missionComplianceReplacementLocked) === null || _window$missionCompli3 === void 0 ? void 0 : _window$missionCompli3.call(_window4)) === true;
+      var replaceLocked = ((_window$missionCompli3 = (_window8 = window).missionComplianceReplacementLocked) === null || _window$missionCompli3 === void 0 ? void 0 : _window$missionCompli3.call(_window8)) === true;
       var relative = Number.isFinite(daysRemaining) ? daysRemaining < 0 ? `seit ${Math.abs(daysRemaining)} ${Math.abs(daysRemaining) === 1 ? 'Tag' : 'Tagen'} abgelaufen` : `noch ${daysRemaining} ${daysRemaining === 1 ? 'Tag' : 'Tage'} gültig` : 'Datum fehlt';
       expiry = `
                 <div class="cargo-detail-line">Ablaufdatum: <b>${escapeHtml(item.expiresAt || '--')}</b> · ${escapeHtml(relative)}</div>
@@ -1934,10 +1938,10 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
             `;
     }
     var log = item.log || {};
-    var startAllowed = ((_window$missionCompli4 = (_window5 = window).missionComplianceBoardBookWriteAllowed) === null || _window$missionCompli4 === void 0 ? void 0 : _window$missionCompli4.call(_window5, 'start', {
+    var startAllowed = ((_window$missionCompli4 = (_window9 = window).missionComplianceBoardBookWriteAllowed) === null || _window$missionCompli4 === void 0 ? void 0 : _window$missionCompli4.call(_window9, 'start', {
       source: 'side-menu'
     })) !== false;
-    var landingAllowed = ((_window$missionCompli5 = (_window6 = window).missionComplianceBoardBookWriteAllowed) === null || _window$missionCompli5 === void 0 ? void 0 : _window$missionCompli5.call(_window6, 'landing', {
+    var landingAllowed = ((_window$missionCompli5 = (_window0 = window).missionComplianceBoardBookWriteAllowed) === null || _window$missionCompli5 === void 0 ? void 0 : _window$missionCompli5.call(_window0, 'landing', {
       source: 'side-menu'
     })) !== false;
     var boardBook = isBoardBook && isUnloaded ? `
@@ -3460,8 +3464,8 @@ ${routeLines}`;
             airports.forEach(a => {
               if (typeof fetchAirportFreq === 'function' && radioAirportNeedsFrequencyLoad(a.icao)) {
                 loadRadioAirportFrequencies(a.icao).then(() => {
-                  var _window$gaChecklistRe, _window9;
-                  if (state.view === 'radio') (_window$gaChecklistRe = (_window9 = window).gaChecklistRefresh) === null || _window$gaChecklistRe === void 0 || _window$gaChecklistRe.call(_window9);
+                  var _window$gaChecklistRe, _window11;
+                  if (state.view === 'radio') (_window$gaChecklistRe = (_window11 = window).gaChecklistRefresh) === null || _window$gaChecklistRe === void 0 || _window$gaChecklistRe.call(_window11);
                 });
               }
             });
@@ -4155,8 +4159,8 @@ ${routeLines}`;
       if (Date.now() - (nextAirportRequests.get(key) || 0) < TOOL_CACHE_TTL_MS) return;
       nextAirportRequests.set(key, Date.now());
       Promise.resolve().then(load).catch(() => null).then(() => {
-        var _window7;
-        if (nextAirportSelection) (_window7 = window).gaUpdateNextWaypointAirportInfo.apply(_window7, _toConsumableArray(nextAirportSelection));
+        var _window1;
+        if (nextAirportSelection) (_window1 = window).gaUpdateNextWaypointAirportInfo.apply(_window1, _toConsumableArray(nextAirportSelection));
       });
     };
     if (!airportDisplayFrequencies(apt).length && typeof fetchAirportFreq === 'function') {
@@ -5455,7 +5459,7 @@ ${routeLines}`;
       var force,
         now,
         _window$gaRunWhenAwak,
-        _window0,
+        _window12,
         res,
         data,
         nextMeta,
@@ -5489,7 +5493,7 @@ ${routeLines}`;
               _context20.n = 4;
               break;
             }
-            (_window$gaRunWhenAwak = (_window0 = window).gaRunWhenAwake) === null || _window$gaRunWhenAwak === void 0 || _window$gaRunWhenAwak.call(_window0, 'checklists-community', () => maybePullCommunity(true));
+            (_window$gaRunWhenAwak = (_window12 = window).gaRunWhenAwake) === null || _window$gaRunWhenAwak === void 0 || _window$gaRunWhenAwak.call(_window12, 'checklists-community', () => maybePullCommunity(true));
             return _context20.a(2);
           case 4:
             if (!(!force && now - lastCommunityPullAt < COMMUNITY_POLL_INTERVAL_MS)) {
@@ -6096,7 +6100,7 @@ ${routeLines}`;
       var cargoMode = phase === 'on_task' ? 'pickup' : /^(arrival|end_unloading|end_ready|closing)$/.test(phase) ? 'unload' : 'load';
       if (typeof window.openMissionCargoDialog === 'function') window.openMissionCargoDialog(cargoMode);
     } else if (action === 'mission-control-intent') {
-      var _window$gaTrackerExec3, _window8;
+      var _window$gaTrackerExec3, _window10;
       var intent = String(button.dataset.missionIntent || '');
       if (!intent || window.gaMissionControlIntentPending === true) return;
       var confirmed = true;
@@ -6113,7 +6117,7 @@ ${routeLines}`;
       var submit = intent === 'abort_mission' && typeof window.gaAbortTrackerMission === 'function' ? window.gaAbortTrackerMission({
         skipConfirm: true,
         reason: 'mission-control'
-      }) : (_window$gaTrackerExec3 = (_window8 = window).gaTrackerExecutionSubmitIntent) === null || _window$gaTrackerExec3 === void 0 ? void 0 : _window$gaTrackerExec3.call(_window8, intent);
+      }) : (_window$gaTrackerExec3 = (_window10 = window).gaTrackerExecutionSubmitIntent) === null || _window$gaTrackerExec3 === void 0 ? void 0 : _window$gaTrackerExec3.call(_window10, intent);
       Promise.resolve(submit).finally(() => {
         if (state.view === 'mission') render();
       });

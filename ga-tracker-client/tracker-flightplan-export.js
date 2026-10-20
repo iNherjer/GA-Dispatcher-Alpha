@@ -1,6 +1,38 @@
 'use strict';
 const crypto = require('node:crypto');
 
+function resumeStart(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const lat = Number(raw.lat), lon = Number(raw.lon);
+  if (raw.lat == null || raw.lon == null || !Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+    throw new Error('flightplan_resume_point_invalid');
+  }
+  return { lat, lon };
+}
+
+// Distance (NM, local equirectangular) from a point to a route segment.
+function segmentDistanceNm(point, a, b) {
+  const scale = Math.cos(point.lat * Math.PI / 180);
+  const ax = (a.lon - point.lon) * scale, ay = a.lat - point.lat;
+  const bx = (b.lon - point.lon) * scale, by = b.lat - point.lat;
+  const dx = bx - ax, dy = by - ay;
+  const length = dx * dx + dy * dy;
+  const t = length > 0 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / length)) : 0;
+  return Math.hypot(ax + t * dx, ay + t * dy) * 60;
+}
+
+// Remaining route after a simulator interruption: the interruption point, then
+// every waypoint after the route segment closest to it.
+function remainingRoute(points, start) {
+  let best = 0;
+  let bestDistance = Infinity;
+  for (let index = 0; index < points.length - 1; index++) {
+    const distance = segmentDistanceNm(start, points[index], points[index + 1]);
+    if (distance < bestDistance) { bestDistance = distance; best = index; }
+  }
+  return [{ lat: start.lat, lon: start.lon, name: 'UNTERBRECHUNG', icao: '' }, ...points.slice(best + 1)];
+}
+
 // Read the private, complete route. Never export the bounded map projection.
 function createFlightPlanExport(run, request = {}) {
   if (!run || run.missionId !== request.missionId || run.runId !== request.runId) throw new Error('flightplan_run_changed');
@@ -13,7 +45,7 @@ function createFlightPlanExport(run, request = {}) {
     state.routeWaypoints, state.missionRouteWaypoints, contract.routeWaypoints, contract.missionRouteWaypoints]
     .find(value => Array.isArray(value) && value.length >= 2);
   if (!raw || raw.length > 512) throw new Error('flightplan_route_invalid');
-  const points = raw.map((point, index) => {
+  let points = raw.map((point, index) => {
     const latValue = point.lat ?? point.latitude, lonValue = point.lon ?? point.lng ?? point.longitude;
     const lat = Number(latValue), lon = Number(lonValue);
     if (latValue == null || lonValue == null || latValue === '' || lonValue === ''
@@ -21,14 +53,18 @@ function createFlightPlanExport(run, request = {}) {
     return { lat, lon, name: String(point.name || point.label || point.icao || `WP${index + 1}`).slice(0, 100),
       icao: String(point.icao || point.airportIdent || '').trim().toUpperCase().slice(0, 12) };
   });
+  const resume = resumeStart(request.startAt);
+  if (resume) points = remainingRoute(points, resume);
   const context = bundle.mapProfile?.context || {};
   const altitude = [context.profileCruiseFt, mission.cruiseAltitudeFt, mission.cruiseAltFt, mission.cruiseAltitude,
     contract.cruiseAltitudeFt, contract.cruiseAltFt, state.cruiseAltitudeFt, state.cruiseAltFt, state.altMapInput]
     .find(value => value != null && value !== '' && Number.isFinite(Number(value)) && Number(value) > 0);
   const plan = { schema: 'ga.flightplan-export.v1', missionId: run.missionId, runId: run.runId, navigationRevision,
-    departureIcao: String(context.departureIcao || state.currentStartICAO || state.mDepICAO || points[0].icao || '').toUpperCase(),
+    // A resume route starts in the air at the interruption point, not at an airport.
+    departureIcao: resume ? '' : String(context.departureIcao || state.currentStartICAO || state.mDepICAO || points[0].icao || '').toUpperCase(),
     destinationIcao: String(context.destinationIcao || state.currentDestICAO || state.mDestICAO || points[points.length - 1].icao || '').toUpperCase(),
-    cruiseAltitudeFt: altitude == null ? null : Number(altitude), isVfr: true, points };
+    cruiseAltitudeFt: altitude == null ? null : Number(altitude), isVfr: true, points,
+    ...(resume ? { resumeFrom: { lat: resume.lat, lon: resume.lon } } : {}) };
   return { ...plan, routeHash: crypto.createHash('sha256').update(JSON.stringify(plan)).digest('hex') };
 }
-module.exports = { createFlightPlanExport };
+module.exports = { createFlightPlanExport, remainingRoute };

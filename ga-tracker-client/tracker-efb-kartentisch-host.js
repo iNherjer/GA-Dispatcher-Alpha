@@ -189,6 +189,8 @@
   }
   function flightPlanTransferMarkup() {
     var control = missionSnapshot && missionSnapshot.control;
+    // An interrupted run offers only its own resume route in the banner.
+    if (interruptionView(missionSnapshot)) return '';
     if (!control || !control.runId || !control.missionId || control.phase === 'closed' || missionSnapshot.cloudPending
       || Date.now() >= flightPlanBridgeReadyUntil || !window.gaCockpitSessionClient || !window.gaCockpitSessionClient.submitTool) return '';
     var disabled = flightPlanRequestPending || Object.keys(flightPlanJobs).length > 0 || missionIntentPending;
@@ -206,7 +208,17 @@
     var revision = mapSnapshot && mapSnapshot.missionId === control.missionId && mapSnapshot.routeEdit ? mapSnapshot.routeEdit.revision : null;
     return transferStartedFlightPlan(target, control.missionId, revision, 'manual');
   }
-  function transferStartedFlightPlan(target, missionId, navigationRevision, trigger) {
+  // After a simulator interruption: the remaining route from the interruption
+  // point. 'atc' prepares the World Map (air start is chosen there by the pilot).
+  function transferResumeFlightPlan(target) {
+    var control = missionSnapshot && missionSnapshot.control;
+    var view = interruptionView(missionSnapshot);
+    if (!control || !view || !view.zone || missionIntentPending || ['avionics', 'atc'].indexOf(target) < 0) return Promise.resolve(false);
+    if (target === 'atc' && Date.now() >= flightPlanAtcReadyUntil) return Promise.resolve(false);
+    var revision = mapSnapshot && mapSnapshot.missionId === control.missionId && mapSnapshot.routeEdit ? mapSnapshot.routeEdit.revision : null;
+    return transferStartedFlightPlan(target, control.missionId, revision, 'interruption-resume', { lat: view.zone.lat, lon: view.zone.lon });
+  }
+  function transferStartedFlightPlan(target, missionId, navigationRevision, trigger, startAt) {
     var control = missionSnapshot && missionSnapshot.control;
     var client = window.gaCockpitSessionClient;
     var jobId = 'flightplan-' + Date.now() + '-' + Math.random().toString(36).slice(2);
@@ -217,13 +229,15 @@
     flightPlanRequestPending = true; requestSideDrawerRefresh();
     var runId = control.runId;
     report('info', 'flightplan-export', 'request', trigger === 'manual' ? 'Manuelle Flugplanübertragung' : 'Flugplanauftrag nach bestätigtem Missionsstart', JSON.stringify({jobId: jobId, missionId: missionId, runId: runId, target: target, host: flightPlanBridgeHost}));
-    return client.submitTool({ commandId: jobId, intent: 'flightplan_export', payload: {missionId: missionId, runId: runId, navigationRevision: navigationRevision} }).then(function(result) {
+    var exportPayload = {missionId: missionId, runId: runId, navigationRevision: navigationRevision};
+    if (startAt) exportPayload.startAt = {lat: startAt.lat, lon: startAt.lon};
+    return client.submitTool({ commandId: jobId, intent: 'flightplan_export', payload: exportPayload }).then(function(result) {
       var current = missionSnapshot && missionSnapshot.control;
       if (!result || !result.ok || !result.plan) throw new Error(result && result.error || 'flightplan_export_unavailable');
       if (!current || current.runId !== runId || current.missionId !== missionId) throw new Error('flightplan_run_changed');
       if (mapSnapshot && mapSnapshot.missionId === missionId && mapSnapshot.routeEdit && mapSnapshot.routeEdit.revision !== result.plan.navigationRevision) throw new Error('flightplan_route_changed');
       if (Date.now() >= flightPlanBridgeReadyUntil) throw new Error('flightplan_host_unavailable');
-      if (target === 'atc' && !preflightPlanningModel(missionSnapshot)) throw new Error('flightplan_planning_state_changed');
+      if (target === 'atc' && !startAt && !preflightPlanningModel(missionSnapshot)) throw new Error('flightplan_planning_state_changed');
       var timer = setTimeout(function() {
         delete flightPlanJobs[jobId]; flightPlanBridgeReadyUntil = 0; requestSideDrawerRefresh();
         flightPlanStatus('Flugplanübertragung nicht bestätigt. Mission läuft unabhängig weiter.', {ok:false, jobId:jobId, routeHash:result.plan.routeHash, error:'flightplan_timeout'});
@@ -2410,6 +2424,49 @@
     }
   }
 
+  var interruptionRecheckTimer = null;
+  var interruptionPreviousStatus = '';
+  var interruptionPreviousRun = '';
+  var resumedNoticeUntil = 0;
+  var resumedNoticeKey = '';
+  function interruptionView(payload) {
+    var control = payload && payload.control;
+    var core = window.GAMissionControlUiCore;
+    if (!control || !core || typeof core.interruptionModel !== 'function') return null;
+    // The EFB only runs inside a running simulator.
+    return core.interruptionModel(control, { now: Date.now(), simulatorConnected: true,
+      livePosition: flight && isFinite(flight.lat) && isFinite(flight.lon) ? { lat: flight.lat, lon: flight.lon } : null });
+  }
+  function scheduleInterruptionRecheck(delayMs) {
+    if (interruptionRecheckTimer || !(delayMs > 0)) return;
+    interruptionRecheckTimer = setTimeout(function () {
+      interruptionRecheckTimer = null;
+      missionPresentationSignature = '';
+      renderMissionPayload(missionSnapshot);
+    }, Math.min(60000, delayMs + 50));
+  }
+  window.gaTrackerMissionInterrupted = function () { return !!interruptionView(missionSnapshot); };
+  window.gaTrackerInterruptionModel = function () {
+    var view = interruptionView(missionSnapshot);
+    return view && view.visible !== false ? view : null;
+  };
+  function trackInterruptionResume(payload) {
+    var control = payload && payload.control;
+    var view = interruptionView(payload);
+    var run = control && control.runId ? control.missionId + ':' + control.runId : '';
+    var open = control && control.phase !== 'closed' && !(control.flags && control.flags.closed);
+    if (!view && run && run === interruptionPreviousRun && open
+        && ['awaiting_decision', 'resuming', 'awaiting_zone'].indexOf(interruptionPreviousStatus) >= 0) {
+      resumedNoticeUntil = Date.now() + 8000;
+      resumedNoticeKey = run + ':resumed:' + resumedNoticeUntil;
+      setTimeout(function () { missionPresentationSignature = ''; renderMissionPayload(missionSnapshot); }, 8100);
+      report('info', 'mission-interruption', 'resumed', 'Mission nach Simulator-Unterbrechung wieder aufgenommen', run);
+    }
+    interruptionPreviousStatus = view ? view.status : '';
+    interruptionPreviousRun = run;
+    return view;
+  }
+
   function missionRenderSignature(payload) {
     if (!payload) return 'none';
     var view = payload.view && typeof payload.view === 'object' ? payload.view : {};
@@ -2455,6 +2512,7 @@
         voice: payload.control.voice || null,
         blockingReasons: payload.control.blockingReasons || [],
         allowedActions: payload.control.allowedActions || [],
+        interruption: payload.control.interruption || null,
         trainingGuidance: payload.control.trainingTask && payload.control.trainingTask.guidance || payload.control.poiTask && payload.control.poiTask.trainingGuidance || null
       } : null,
       trackerLive: flightView.trackerLive === true
@@ -2462,6 +2520,20 @@
   }
 
   function missionActionBannerModel(payload) {
+    var interruption = interruptionView(payload);
+    if (interruption) {
+      if (interruption.visible === false) { scheduleInterruptionRecheck(interruption.recheckInMs); return null; }
+      return { key: interruption.key, missionId: String(payload.missionId || payload.control.missionId || ''),
+        kicker: interruption.kicker, text: interruption.text,
+        button: interruption.primary ? interruption.primary.label : '', buttonHidden: !interruption.primary,
+        kind: interruption.primary ? 'intent' : 'interruption', intent: interruption.primary ? interruption.primary.intent : '',
+        interruption: interruption, className: 'is-interrupted' };
+    }
+    if (resumedNoticeUntil > Date.now() && payload && payload.control) {
+      return { key: resumedNoticeKey, missionId: String(payload.missionId || payload.control.missionId || ''),
+        kicker: 'Mission wieder aufgenommen', text: window.GAMissionControlUiCore.RESUMED_NOTICE_TEXT,
+        button: '', buttonHidden: true, kind: 'notice', intent: '', className: 'is-resumed' };
+    }
     var pending = payload && payload.authoritySnapshot && payload.authoritySnapshot.pendingCloudMission;
     if (pending) return { key: 'cloud-replacement:' + pending.missionId, missionId: pending.missionId,
       kicker: 'Neue Cloud-Mission erkannt', text: '„' + (pending.title || pending.missionId) + '“ ist zum Laden bereit.',
@@ -2570,6 +2642,7 @@
     window.handleMissionStartBannerAction = function () {
       var model = banner._gaMissionActionModel;
       if (!model || missionIntentPending) return false;
+      if (model.kind === 'interruption' || model.kind === 'notice') return false;
       if (model.kind === 'cloud-replacement') offerCloudMissionReplacement(missionSnapshot, true);
       else if (model.kind === 'flightplan') return transferCurrentMissionFlightPlan(model.target);
       else if (model.kind === 'cargo') openCargoManager();
@@ -2603,8 +2676,10 @@
 
   function missionToolbarProjection(payload) {
     var banner = missionActionBannerModel(payload);
+    var interruption = interruptionView(payload);
     if (window.GAMissionControlUiCore && typeof window.GAMissionControlUiCore.missionToolbarModel === 'function') {
-      return window.GAMissionControlUiCore.missionToolbarModel(payload, { banner: banner });
+      return window.GAMissionControlUiCore.missionToolbarModel(payload, { banner: banner, interrupted: !!interruption,
+        interruption: interruption && interruption.visible !== false ? interruption : null });
     }
     if (!payload || !payload.control || payload.control.executionAuthority !== 'tracker') return null;
     var allowed = Array.isArray(payload.control.allowedActions) ? payload.control.allowedActions : [];
@@ -2813,7 +2888,8 @@
         report('warn', 'flightplan-export', 'cancel', 'Missionslauf gewechselt; weitere Übertragungsschritte verwerfen', jobId);
       }
     });
-    var planning = preflightPlanningModel(payload, true);
+    var interrupted = interruptionView(payload);
+    var planning = interrupted ? null : preflightPlanningModel(payload, true);
     var model = planning || missionActionBannerModel(payload);
     syncFlightPlanRecallButton(planning);
     var readiness = payload && payload.control && payload.control.startReadiness;
@@ -2836,6 +2912,46 @@
       });
       banner.appendChild(exportActions);
     }
+    var interruptionActions = byId('gaInterruptionActions');
+    if (!interruptionActions) {
+      interruptionActions = document.createElement('div'); interruptionActions.id = 'gaInterruptionActions';
+      interruptionActions.style.cssText = 'display:none;flex-wrap:wrap;gap:6px;flex:1 1 100%;';
+      banner.appendChild(interruptionActions);
+    }
+    var interruptionButtons = [];
+    var interruptionModel = model && model.interruption;
+    if (interruptionModel) {
+      if (interruptionModel.status !== 'awaiting_decision' && interruptionModel.zone && Date.now() < flightPlanBridgeReadyUntil) {
+        interruptionButtons.push({ id: 'avionics', label: 'Restroute an Avionik senden', run: function () { return transferResumeFlightPlan('avionics'); } });
+      }
+      if (interruptionModel.status === 'awaiting_decision' && interruptionModel.zone && interruptionModel.zone.airborne && Date.now() < flightPlanAtcReadyUntil) {
+        interruptionButtons.push({ id: 'atc', label: 'Restroute an Weltkarte senden (Luftstart dort wählen, experimentell)', run: function () { return transferResumeFlightPlan('atc'); } });
+      }
+      if (interruptionModel.resetAvailable) {
+        interruptionButtons.push({ id: 'restart', label: 'Mission neustarten', run: function () { return window.requestMissionRuntimeReset({ reason: 'efb-interruption-restart' }); } });
+        interruptionButtons.push({ id: 'abort', label: 'Mission abbrechen', run: function () {
+          if (!window.confirm(window.GAMissionControlUiCore.abortConfirmation())) return false;
+          return submitMissionIntent('abort_mission', { reason: 'efb-interruption-abort' });
+        } });
+      }
+    }
+    var interruptionSignature = interruptionButtons.map(function (entry) { return entry.id; }).join('|');
+    if (interruptionActions.getAttribute('data-actions') !== interruptionSignature) {
+      interruptionActions.innerHTML = '';
+      interruptionButtons.forEach(function (entry) {
+        var action = document.createElement('button'); action.type = 'button';
+        action.className = 'mission-start-banner-btn is-secondary';
+        action.setAttribute('data-interruption-action', entry.id);
+        action.style.cssText = 'white-space:normal;text-align:center;flex:1 1 140px;min-width:0;height:auto;min-height:40px;padding:6px 8px;line-height:1.25;';
+        action.textContent = entry.label;
+        action.onclick = function (event) { event.stopPropagation(); entry.run(); return false; };
+        interruptionActions.appendChild(action);
+      });
+      interruptionActions.setAttribute('data-actions', interruptionSignature);
+    }
+    interruptionActions.style.display = interruptionButtons.length ? 'flex' : 'none';
+    Array.from(interruptionActions.children).forEach(function (action) { action.disabled = missionIntentPending || flightPlanRequestPending; });
+    if (interruptionButtons.length) banner.style.flexWrap = 'wrap';
     var showExport = !!(model && ['activate_cloud_mission', 'prepare_mission'].indexOf(model.intent) >= 0 && Date.now() < flightPlanBridgeReadyUntil);
     exportActions.style.display = showExport ? 'flex' : 'none';
     if (showExport) banner.style.flexWrap = 'wrap';
@@ -2843,6 +2959,8 @@
     banner.classList.remove('is-begin-action');
     banner.classList.remove('is-end-ready');
     banner.classList.remove('is-final-action');
+    banner.classList.remove('is-interrupted');
+    banner.classList.remove('is-resumed');
     if (!model || model.key === missionBannerDismissedKey) {
       banner.style.display = 'none';
       return;
@@ -2850,6 +2968,8 @@
     if (model.begin === true || model.className === 'is-begin-action') banner.classList.add('is-begin-action');
     if (model.endReady === true || model.className === 'is-end-ready') banner.classList.add('is-end-ready');
     if (model.final === true || model.className === 'is-final-action') banner.classList.add('is-final-action');
+    if (model.className === 'is-interrupted') banner.classList.add('is-interrupted');
+    if (model.className === 'is-resumed') banner.classList.add('is-resumed');
     banner.style.display = 'flex';
     banner.setAttribute('data-mission-id', model.missionId);
     banner.setAttribute('aria-label', model.kicker + ': ' + model.text + '. ' + model.button);
@@ -2857,7 +2977,10 @@
     setText('missionStartBannerText', missionIntentTone === 'danger' && missionIntentStatus ? missionIntentStatus : model.text);
     setText('missionStartBannerBtn', model.button);
     var button = byId('missionStartBannerBtn');
-    if (button) button.disabled = missionIntentPending || model.disabled === true;
+    if (button) {
+      button.disabled = missionIntentPending || model.disabled === true;
+      button.style.display = model.buttonHidden === true ? 'none' : '';
+    }
     var close = banner.querySelector ? banner.querySelector('.mission-start-banner-close') : null;
     if (close) close.style.display = model.closeHidden === true ? 'none' : '';
   }
@@ -2901,6 +3024,8 @@
   var cloudMissionOfferKey = '';
   var cloudMissionOfferPending = false;
   function offerCloudMissionReplacement(payload, force) {
+    // No new mission while a run waits for its interruption decision.
+    if (interruptionView(payload)) return;
     var authority = payload && payload.authoritySnapshot;
     var candidate = authority && authority.pendingCloudMission;
     var run = authority && authority.activeRun;
@@ -2980,11 +3105,14 @@
     if (previousControl && nextControl && previousControl.runId === nextControl.runId
         && previousControl.missionId === nextControl.missionId
         && Number(nextControl.authorityRevision) < Number(previousControl.authorityRevision)) return;
-    var openBoardingDialog = nextControl && !nextControl.cargoWindowCloseId && nextControl.executionAuthority === 'tracker' && nextControl.phase === 'boarding'
+    var interruptionNow = trackInterruptionResume(next);
+    var openBoardingDialog = !interruptionNow && nextControl && !nextControl.cargoWindowCloseId && nextControl.executionAuthority === 'tracker' && nextControl.phase === 'boarding'
       && (!previousControl || previousControl.phase !== 'boarding' || previousControl.runId !== nextControl.runId);
     var signature = missionRenderSignature(next);
     var presentationSignature = JSON.stringify({
       mission: signature,
+      interruption: interruptionNow ? [interruptionNow.status, interruptionNow.visible, interruptionNow.text] : null,
+      resumedNotice: resumedNoticeUntil > Date.now() ? resumedNoticeKey : '',
       cloudPending: next && next.authoritySnapshot && next.authoritySnapshot.pendingCloudMission || null,
       intentPending: missionIntentPending === true,
       intentStatus: missionIntentStatus || '',
@@ -2994,13 +3122,17 @@
     missionSnapshot = next;
     window.gaTrackerExecutionControl = next && next.control || null;
     if (window.MissionFireSearchMap) window.MissionFireSearchMap.render(map, window.L, window.MissionFireSearchMap.fromControl(nextControl));
+    if (window.MissionResumeZoneMap) window.MissionResumeZoneMap.render(map, window.L, window.MissionResumeZoneMap.fromControl(nextControl));
     if (window.missionPoiChainRuntime) window.missionPoiChainRuntime.renderAuthorityProjection(nextControl && nextControl.chainSpec, nextControl && nextControl.poiTask && nextControl.poiTask.poiChain);
     if (window.missionSurveyPattern) window.missionSurveyPattern.renderAuthorityProjection(nextControl && nextControl.surveySpec, nextControl && nextControl.poiTask && nextControl.poiTask.surveyPattern);
     if (nextControl && nextControl.cargoWindowCloseId
         && (!previousControl || previousControl.cargoWindowCloseId !== nextControl.cargoWindowCloseId)) closeCargoManager(true);
-    if (nextControl && nextControl.cargoWindowOpenId && (!previousControl || previousControl.cargoWindowOpenId !== nextControl.cargoWindowOpenId)) openCargoManager(true);
+    if (interruptionNow) {
+      // An interrupted run shows no mission windows or prompts.
+      if (cargoManagerOpen) closeCargoManager(true);
+    } else if (nextControl && nextControl.cargoWindowOpenId && (!previousControl || previousControl.cargoWindowOpenId !== nextControl.cargoWindowOpenId)) openCargoManager(true);
     else if (openBoardingDialog) openCargoManager(true);
-    renderBoardBookReminder(nextControl);
+    if (!interruptionNow) renderBoardBookReminder(nextControl);
     renderPaxWidget(next);
     if (presentationSignature !== missionPresentationSignature) {
       missionPresentationSignature = presentationSignature;

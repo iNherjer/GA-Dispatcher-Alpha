@@ -5366,8 +5366,12 @@ window.closeMissionCargoDialog = function(options = {}) {
         window.gaTrackerCargoDialogDismissed = true;
         const control = window.gaTrackerExecutionControl || window.lastTrackerMissionAuthority?.activeRun;
         const key = control?.runId ? `${control.missionId || ''}:${control.runId}` : '';
-        const seen = window.gaTrackerCargoAutoOpenedRuns || [];
-        if (key && !seen.includes(key)) window.gaTrackerCargoAutoOpenedRuns = [...seen, key].slice(-32);
+        if (typeof window.gaRememberTrackerCargoAutoOpenedRun === 'function') {
+            window.gaRememberTrackerCargoAutoOpenedRun(key);
+        } else {
+            const seen = window.gaTrackerCargoAutoOpenedRuns || [];
+            if (key && !seen.includes(key)) window.gaTrackerCargoAutoOpenedRuns = [...seen, key].slice(-32);
+        }
         if (options.trackerProjection !== true && window.liveTrackerConnected === true) {
             // Closing UI is local; shared presentation is best effort, never a mission gate.
             try { Promise.resolve(window.gaTrackerExecutionSubmitIntent?.('close_cargo_window', {}, { silent: true })).catch(() => {}); } catch (_) {}

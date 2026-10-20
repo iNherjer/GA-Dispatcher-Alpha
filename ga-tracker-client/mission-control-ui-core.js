@@ -7,7 +7,7 @@
 }(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this), function () {
   'use strict';
 
-  var BUILD_ID = 'tracker-mission-ui-20261019-01';
+  var BUILD_ID = 'tracker-mission-ui-20261020-01';
 
   var ACTION_LABELS = Object.freeze({
     activate_cloud_mission: 'Mission aus der Cloud beginnen',
@@ -97,6 +97,82 @@
     };
   }
 
+  var INTERRUPTION_DEBOUNCE_MS = 15000;
+  var RESUMED_NOTICE_TEXT = 'Mission wieder aufgenommen. Bewertung, Ansagen und Aufgaben laufen ab hier weiter.';
+
+  function interruptionDistance(zone, live) {
+    if (!zone || !live) return null;
+    var lat = Number(live.lat), lon = Number(live.lon != null ? live.lon : live.lng);
+    if (!isFinite(lat) || !isFinite(lon)) return null;
+    var toRad = function (value) { return value * Math.PI / 180; };
+    var dLat = toRad(zone.lat - lat), dLon = toRad(zone.lon - lon);
+    var a = Math.pow(Math.sin(dLat / 2), 2) + Math.cos(toRad(lat)) * Math.cos(toRad(zone.lat)) * Math.pow(Math.sin(dLon / 2), 2);
+    var distanceNm = 2 * 3440.065 * Math.asin(Math.min(1, Math.sqrt(a)));
+    var y = Math.sin(dLon) * Math.cos(toRad(zone.lat));
+    var x = Math.cos(toRad(lat)) * Math.sin(toRad(zone.lat)) - Math.sin(toRad(lat)) * Math.cos(toRad(zone.lat)) * Math.cos(dLon);
+    var bearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    return { distanceNm: distanceNm, bearingDeg: bearing };
+  }
+
+  function formatNm(value) {
+    return (Math.round(value * 10) / 10).toFixed(1).replace('.', ',');
+  }
+
+  // Shared presentation of a tracker-side simulator interruption for App, EFB
+  // and toolbar. `simulatorConnected` is the viewer's knowledge (null = unknown).
+  function interruptionModel(control, options) {
+    var settings = options && typeof options === 'object' ? options : {};
+    var record = control && control.executionAuthority === 'tracker' && control.interruption && typeof control.interruption === 'object'
+      ? control.interruption : null;
+    if (!record) return null;
+    var now = Number(settings.now) || Date.now();
+    var status = String(record.status || '');
+    var zone = record.zone && isFinite(Number(record.zone.lat)) && isFinite(Number(record.zone.lon)) ? record.zone : null;
+    var age = Math.max(0, now - (Number(record.since) || now));
+    // A short SimConnect/tracker gap usually resumes on its own; do not flash the UI.
+    var debounced = status === 'awaiting_decision' && age < INTERRUPTION_DEBOUNCE_MS;
+    var allowed = Array.isArray(control.allowedActions) ? control.allowedActions : [];
+    var navigation = zone ? interruptionDistance(zone, settings.livePosition) : null;
+    var whereText = navigation ? ' Noch ' + formatNm(navigation.distanceNm) + ' NM, Kurs ' + ('00' + Math.round(navigation.bearingDeg) % 360).slice(-3) + '°.' : '';
+    var model = {
+      key: [control.missionId || '', control.runId || '', 'interruption', status].join(':'),
+      status: status,
+      visible: !debounced,
+      recheckInMs: debounced ? INTERRUPTION_DEBOUNCE_MS - age : 0,
+      kicker: 'Mission unterbrochen',
+      text: '',
+      primary: null,
+      zone: zone ? { lat: Number(zone.lat), lon: Number(zone.lon), radiusNm: Number(zone.radiusNm) || 5, airborne: zone.airborne === true } : null,
+      distanceNm: navigation ? navigation.distanceNm : null,
+      bearingDeg: navigation ? navigation.bearingDeg : null,
+      resetAvailable: allowed.indexOf('abort_mission') >= 0,
+      abortAvailable: allowed.indexOf('abort_mission') >= 0
+    };
+    if (status === 'awaiting_decision') {
+      model.text = settings.simulatorConnected === false
+        ? 'Der Simulator ist getrennt. Zum Fortsetzen MSFS starten und einen Flug laden – dann „Mission fortsetzen“ wählen. Alternativ die Mission zurücksetzen.'
+        : 'Der Simulator wurde neu gestartet. „Mission fortsetzen“ baut Szenen und Zuladung im laufenden Cockpit neu auf'
+          + (model.zone && model.zone.airborne ? '; danach geht es in der markierten Zone weiter.' : '.') + ' Alternativ die Mission zurücksetzen.';
+      if (allowed.indexOf('resume_mission') >= 0) model.primary = { intent: 'resume_mission', label: 'Mission fortsetzen' };
+    } else if (status === 'resuming') {
+      model.kicker = 'Fortsetzen vorgemerkt';
+      model.text = settings.simulatorConnected === false
+        ? 'Sobald MSFS läuft und ein Flug im Cockpit geladen ist, baut der Tracker Szenen und Zuladung neu auf.'
+        : 'Warte auf das laufende Cockpit. Erst dann werden Szenen und Zuladung neu aufgebaut – nicht in der Weltkarte.';
+    } else if (status === 'awaiting_zone') {
+      model.kicker = 'Zurück zum Unterbrechungsort';
+      if (model.zone && model.zone.airborne) {
+        model.text = 'In die markierte Zone (' + formatNm(model.zone.radiusNm) + ' NM Radius) fliegen oder slewen. Die Mission läuft weiter, sobald du dort 10 Sekunden normal fliegst.' + whereText;
+        if (allowed.indexOf('resume_teleport') >= 0) model.primary = { intent: 'resume_teleport', label: 'An Unterbrechungspunkt versetzen' };
+      } else {
+        model.text = 'Flugzeug am Unterbrechungsort abstellen (innerhalb ' + formatNm(model.zone ? model.zone.radiusNm : 1) + ' NM). Die Mission läuft weiter, sobald es dort 5 Sekunden am Boden steht.' + whereText;
+      }
+    } else {
+      return null;
+    }
+    return model;
+  }
+
   function missionToolbarModel(input, options) {
     var envelope = input && typeof input === 'object' ? input : {};
     var settings = options && typeof options === 'object' ? options : {};
@@ -116,7 +192,19 @@
         ? envelope.ui.banner
         : null);
     var primary = null;
-    if (banner && (banner.kind === 'intent' || banner.kind === 'cargo')) {
+    // An interrupted run only offers its resume choice plus reset/abort.
+    var interruption = settings.interruption && typeof settings.interruption === 'object' ? settings.interruption : null;
+    var interrupted = settings.interrupted === true || !!interruption;
+    if (interrupted) {
+      primary = interruption && interruption.visible !== false && interruption.primary ? {
+        kind: 'intent',
+        intent: interruption.primary.intent,
+        cargoMode: '',
+        label: interruption.primary.label,
+        title: interruption.text || interruption.kicker,
+        disabled: false
+      } : null;
+    } else if (banner && (banner.kind === 'intent' || banner.kind === 'cargo')) {
       var bannerIntent = String(banner.intent || '');
       var bannerCargoMode = String(banner.cargoMode || (/^(end_unloading|end_ready)$/.test(phase) ? 'unload' : (phase === 'on_task' ? 'pickup' : 'load')));
       primary = {
@@ -151,7 +239,7 @@
     }
     var activeRun = !!(missionId && runId && allowed.indexOf('abort_mission') >= 0);
     var flags = control.flags && typeof control.flags === 'object' ? control.flags : {};
-    var cargoVisible = activeRun && cargoWorldAvailable(control) && (
+    var cargoVisible = !interrupted && activeRun && cargoWorldAvailable(control) && (
       /^(planned|prepare|boarding|boarded|end_unloading|end_ready)$/.test(phase)
       || (flags.groundStill === true && /^(active|on_task)$/.test(phase))
     );
@@ -191,7 +279,9 @@
     var allowed = control && Array.isArray(control.allowedActions) ? control.allowedActions : [];
     if (!control || control.executionAuthority !== 'tracker') return '';
     var disabled = settings.intentPending === true ? ' disabled' : '';
-    var actionHtml = PRIMARY_ACTIONS.filter(function (intent) {
+    var interruption = settings.interruption && typeof settings.interruption === 'object' ? settings.interruption : null;
+    var interrupted = settings.interrupted === true || !!interruption;
+    var actionHtml = interrupted ? '' : PRIMARY_ACTIONS.filter(function (intent) {
       return allowed.indexOf(intent) >= 0;
     }).map(function (intent) {
       return '<button type="button" data-action="mission-control-intent" data-efb-drawer-action="mission-intent" data-mission-intent="'
@@ -201,7 +291,15 @@
       ? '<div class="mission-control-actions is-danger"><button type="button" data-action="mission-control-intent" data-efb-drawer-action="mission-intent" data-mission-intent="abort_mission"'
         + disabled + '>Mission abbrechen</button></div>'
       : '';
-    var toolbar = missionToolbarModel(control, { banner: settings.banner || null });
+    var toolbar = missionToolbarModel(control, { banner: settings.banner || null, interrupted: interrupted, interruption: interruption });
+    var interruptedText = interruption ? interruption.kicker + ': ' + interruption.text
+      : 'Simulator getrennt: Die Mission ist unterbrochen. Zum Fortsetzen MSFS starten und einen Flug laden – die Mission geht dann an derselben Stelle weiter. Alternativ die Mission zurücksetzen oder abbrechen.';
+    var interruptedHtml = interrupted
+      ? '<div class="mission-control-actions is-interrupted"><p>' + escapeHtml(interruptedText) + '</p>'
+        + (interruption && interruption.primary ? '<button type="button" data-action="mission-control-intent" data-efb-drawer-action="mission-intent" data-mission-intent="'
+          + escapeHtml(interruption.primary.intent) + '"' + disabled + '>' + escapeHtml(interruption.primary.label) + '</button>' : '')
+        + '</div>'
+      : '';
     var cargoHtml = toolbar && toolbar.cargo && toolbar.cargo.visible
       ? '<div class="mission-control-actions"><button type="button" data-action="mission-control-open-cargo" data-efb-drawer-action="open-cargo"'
         + disabled + '>Verlade-Manager öffnen</button></div>'
@@ -210,6 +308,7 @@
     var statusTone = safeTone(settings.intentTone || (/abgelehnt|fehlgeschlagen|nicht verfuegbar|nicht verfügbar/i.test(status) ? 'danger' : 'info'), 'info');
     return '<section class="mission-control-card mission-control-operations">'
       + '<div class="mission-control-section-kicker">BEDIENUNG</div>'
+      + interruptedHtml
       + cargoHtml
       + (actionHtml ? '<div class="mission-control-actions">' + actionHtml + '</div>' : '')
       + abortHtml
@@ -301,6 +400,9 @@
     if (error === 'mission_transfer_too_large') return { tone: 'danger', text: 'Das vollstaendige Missionspaket ueberschreitet die Transportgrenze. Es wurden keine Daten gekuerzt.' };
     if (error === 'resume_bundle_too_large') return { tone: 'danger', text: 'Das vollstaendige Missionspaket ueberschreitet die lokale Tracker-Grenze. Es wurden keine Daten gekuerzt.' };
     if (error === 'mission_relay_payload_too_large') return { tone: 'danger', text: 'Die Paketuebertragung ist nicht verfuegbar. Bitte App und Tracker aktualisieren und erneut versuchen.' };
+    if (error === 'simulator_disconnected') {
+      return { tone: 'warn', text: 'Der Simulator ist nicht verbunden. Die Mission ist unterbrochen; möglich sind nur Zurücksetzen und Abbrechen.' };
+    }
     if (error === 'mission_intent_pending') {
       return { tone: 'info', text: 'Der Tracker verarbeitet bereits eine Aktion. Bitte den aktualisierten Stand kurz abwarten.' };
     }
@@ -425,6 +527,9 @@
     renderEmpty: renderEmpty,
     projectLiveFields: projectLiveFields,
     missionToolbarModel: missionToolbarModel,
+    interruptionModel: interruptionModel,
+    INTERRUPTION_DEBOUNCE_MS: INTERRUPTION_DEBOUNCE_MS,
+    RESUMED_NOTICE_TEXT: RESUMED_NOTICE_TEXT,
     cargoWorldAvailable: cargoWorldAvailable,
     formatIntentResult: formatIntentResult,
     abortConfirmation: abortConfirmation

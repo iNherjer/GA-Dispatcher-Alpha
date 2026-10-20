@@ -128,7 +128,8 @@ test('EFB keeps a cloud load banner even when the legacy run has no presentable 
   const start = hostSource.indexOf('  function missionActionBannerModel(');
   const end = hostSource.indexOf('  function setupMissionActionBanner(', start);
   const context = {};
-  vm.runInNewContext(hostSource.slice(start, end) + '\nthis.model = missionActionBannerModel;', context);
+  // Interruption presentation is covered by its own tests; no run is interrupted here.
+  vm.runInNewContext("var interruptionView = () => null, scheduleInterruptionRecheck = () => {}, resumedNoticeUntil = 0, resumedNoticeKey = '';\n" + hostSource.slice(start, end) + '\nthis.model = missionActionBannerModel;', context);
   const model = context.model({ available: false, authoritySnapshot: { pendingCloudMission: { missionId: 'training', title: 'POI Training' } } });
   assert.equal(model.kind, 'cloud-replacement');
   assert.equal(model.button, 'Neue Mission laden');
@@ -141,7 +142,7 @@ test('EFB failure keeps acknowledgement and permits only an explicit retry', asy
   const scheduled = []; let prompts = 0;
   const context = { window: { setTimeout: callback => scheduled.push(callback), confirm: () => { prompts++; return true; },
     alert: () => {}, gaCockpitSessionClient: { submitIntent: async () => ({ ok: false }) } }, renderMissionActionBanner: () => {}, missionSnapshot: null };
-  vm.runInNewContext(hostSource.slice(start, end) + '\nthis.offer = offerCloudMissionReplacement;', context);
+  vm.runInNewContext("var interruptionView = () => null, scheduleInterruptionRecheck = () => {}, resumedNoticeUntil = 0, resumedNoticeKey = '';\n" + hostSource.slice(start, end) + '\nthis.offer = offerCloudMissionReplacement;', context);
   const snapshot = { authoritySnapshot: { activeRun: { runId: 'legacy', revision: 4 },
     pendingCloudMission: { missionId: 'training', updatedAt: 200, control: { runId: 'cloud-pending' } } } };
   context.offer(snapshot); scheduled.shift()();

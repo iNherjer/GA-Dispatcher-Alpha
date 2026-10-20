@@ -38,3 +38,29 @@ test('authenticated EFB/toolbar export is read-only, bound to run and disallowed
   assert.equal(JSON.stringify(source),before);
   assert.equal((await controller.submitTool({intent:'flightplan_export',payload:request})).error,'cockpit_session_required');
 });
+
+test('resume export starts at the interruption point and keeps only the remaining route', () => {
+  const { createFlightPlanExport, remainingRoute } = require('./tracker-flightplan-export.js');
+  const points = [
+    { lat: 48.0, lon: 7.8, name: 'EDTF', icao: 'EDTF' },
+    { lat: 48.1, lon: 8.0, name: 'WP1', icao: '' },
+    { lat: 48.2, lon: 8.2, name: 'WP2', icao: '' },
+    { lat: 48.28, lon: 8.43, name: 'EDTW', icao: 'EDTW' }
+  ];
+  // Interrupted between WP1 and WP2.
+  const rest = remainingRoute(points, { lat: 48.15, lon: 8.1 });
+  assert.deepEqual(rest.map(point => point.name), ['UNTERBRECHUNG', 'WP2', 'EDTW']);
+  assert.deepEqual(remainingRoute(points, { lat: 48.0, lon: 7.81 }).map(point => point.name), ['UNTERBRECHUNG', 'WP1', 'WP2', 'EDTW']);
+  const run = { missionId: 'm', runId: 'r', navigationRoute: { revision: 3, points }, resumeBundle: { missionState: { currentStartICAO: 'EDTF', currentDestICAO: 'EDTW' } } };
+  const plan = createFlightPlanExport(run, { missionId: 'm', runId: 'r', startAt: { lat: 48.15, lon: 8.1 } });
+  assert.equal(plan.departureIcao, '');
+  assert.equal(plan.destinationIcao, 'EDTW');
+  assert.deepEqual(plan.resumeFrom, { lat: 48.15, lon: 8.1 });
+  assert.equal(plan.points.length, 3);
+  assert.ok(plan.routeHash);
+  assert.throws(() => createFlightPlanExport(run, { missionId: 'm', runId: 'r', startAt: { lat: 'x', lon: 8 } }), /flightplan_resume_point_invalid/);
+  const normal = createFlightPlanExport(run, { missionId: 'm', runId: 'r' });
+  assert.equal(normal.departureIcao, 'EDTF');
+  assert.equal(normal.points.length, 4);
+  assert.equal(normal.resumeFrom, undefined);
+});

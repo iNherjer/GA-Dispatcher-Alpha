@@ -26,6 +26,7 @@ const EXECUTION_AUTHORITY_TRACKER = 'tracker';
 const EXECUTION_HANDOFF_RECIPE = 'apt';
 const poiRuntime = require('./tracker-mission-poi-runtime.js');
 const resumeAdapters = require('../mission-resume-adapters-core.js');
+const interruptionCore = require('./tracker-mission-interruption-core.js');
 const EXECUTION_PAYLOAD_RECOVERY_SCHEMA = 'ga.mission-payload-recovery.v1';
 const EXECUTION_RUNTIME_CONTEXT_SCHEMA = 'ga.mission-runtime-context.v1';
 
@@ -474,6 +475,9 @@ function publicExecutionSnapshot(run) {
     missionCargoOutcome: poiLifecycle.outcome, missionFailed: poiLifecycle.outcome?.failed === true,
     poiNeedsRideHome: state.poiLifecycle?.needsRideHome === true, poiEndedAtHome: state.poiLifecycle?.endedAtHome === true };
   const exposeFlight = runtime && /^(end_unloading|end_ready|closing|closed)$/.test(state.phase);
+  // Only an active run can be interrupted; a terminal projection never carries one.
+  const runOpen = run.active !== false && !TERMINAL_STATES.has(cleanString(run.state, 60).toLowerCase());
+  const interruption = runOpen && interruptionCore.interruptible(state) ? interruptionCore.normalize(run.executionInterruption) : null;
   return {
     schema: 'ga.mission-execution-control.v1',
     version: 1,
@@ -535,10 +539,11 @@ function publicExecutionSnapshot(run) {
         healthPct: item.healthPct
       }))
     },
-    allowedActions: view.allowedActions.filter(action => (action.startsWith('fire_') ? poiRecipe?.taskDomain === 'fire_watch' : true)
+    interruption: interruptionCore.publicProjection(interruption, run.executionInterruptionHistory),
+    allowedActions: interruptionCore.filterAllowedActions(view.allowedActions.filter(action => (action.startsWith('fire_') ? poiRecipe?.taskDomain === 'fire_watch' : true)
       && (action === 'poi_tell_more'
       ? poiVoiceAvailability.knowledgeAvailable(run.resumeBundle?.executionPoiRecipe?.voiceContext, state.voice?.poiMemory, state.flags.active)
-      : !action.startsWith('pax_') || paxQueryCore.available(executionPaxQueryContext(run), runtime?.latestTelemetry || {}).includes(action))),
+      : !action.startsWith('pax_') || paxQueryCore.available(executionPaxQueryContext(run), runtime?.latestTelemetry || {}).includes(action))), interruption),
     blockingReasons: view.blockingReasons.slice(),
     nextStep: view.nextStep
   };
@@ -579,6 +584,8 @@ function normalizeStoredRun(run) {
     executionWebStateHash: cleanString(run.executionWebStateHash, 180) || null,
     executionAppliedEvents: Math.max(0, Math.round(Number(run.executionAppliedEvents) || 0)),
     executionPayloadRecovery: normalizeExecutionPayloadRecovery(run.executionPayloadRecovery),
+    executionInterruption: interruptionCore.normalize(run.executionInterruption),
+    executionInterruptionHistory: interruptionCore.normalizeHistory(run.executionInterruptionHistory),
     executionRuntimeContext: normalizeExecutionRuntimeContext(run.executionRuntimeContext),
     effects: (Array.isArray(run.effects) ? run.effects : []).slice(-MAX_EFFECTS).map(effect => ({
       ...publicEffect(effect),
@@ -744,6 +751,8 @@ function createMissionAuthorityManager(options = {}) {
       executionWebStateHash: null,
       executionAppliedEvents: 0,
       executionPayloadRecovery: null,
+      executionInterruption: null,
+      executionInterruptionHistory: [],
       executionRuntimeContext: null,
       executionHandoff: null,
       state: cleanString(request.state, 60).toLowerCase() || 'active',
@@ -1585,7 +1594,8 @@ function createMissionAuthorityManager(options = {}) {
         executionStateHash: resetProjection.stateHash,
         executionWebStateHash: null,
         executionState: resetProjection.state,
-        executionPayloadRecovery: null, executionRuntimeContext: null, executionHandoff: null,
+        executionPayloadRecovery: null, executionInterruption: null, executionInterruptionHistory: [],
+        executionRuntimeContext: null, executionHandoff: null,
         resumeBundle: resetBundle, effects: []
       };
     }
@@ -1885,6 +1895,49 @@ function createMissionAuthorityManager(options = {}) {
     return { ok: true, status: 'ok', recovery: jsonClone(active.executionPayloadRecovery) };
   };
 
+  const getExecutionInterruption = (request = {}) => {
+    const active = state.activeRun;
+    if (!active?.missionId || !active?.runId) return null;
+    const missionId = cleanString(request.missionId);
+    const runId = cleanString(request.runId, 220);
+    if ((missionId && missionId !== active.missionId) || (runId && runId !== active.runId)) return null;
+    return jsonClone(interruptionCore.normalize(active.executionInterruption));
+  };
+
+  // Private, persisted record beside the deterministic execution state. It never
+  // changes the execution revision or state hash; the public control projection
+  // carries it to App, EFB and toolbar.
+  const updateExecutionInterruption = (request = {}) => {
+    const match = activeMatches(request);
+    if (!match.ok) return { ok: false, status: 'conflict', error: match.error, interruption: null };
+    const active = match.activeRun;
+    if (!cleanString(request.missionId) || !cleanString(request.runId, 220)) {
+      return { ok: false, status: 'error', error: 'mission_interruption_credentials_required', interruption: null };
+    }
+    if (active.executionAuthority !== EXECUTION_AUTHORITY_TRACKER) {
+      return { ok: false, status: 'blocked', error: 'mission_execution_authority_web', interruption: null };
+    }
+    const next = request.record === null ? null : interruptionCore.normalize(request.record);
+    if (request.record !== null && !next) return { ok: false, status: 'error', error: 'mission_interruption_invalid', interruption: null };
+    const previous = active.executionInterruption || null;
+    const previousHistory = active.executionInterruptionHistory || [];
+    if (executionCore.canonicalStringify(interruptionCore.normalize(previous)) === executionCore.canonicalStringify(next)
+        && !request.historyEntry) {
+      return { ok: true, status: 'noop', interruption: jsonClone(next) };
+    }
+    active.executionInterruption = next;
+    if (request.historyEntry) {
+      active.executionInterruptionHistory = interruptionCore.normalizeHistory([...previousHistory, request.historyEntry]);
+    }
+    if (!persist()) {
+      active.executionInterruption = previous;
+      active.executionInterruptionHistory = previousHistory;
+      return { ok: false, status: 'error', error: 'mission_interruption_persist_failed', interruption: jsonClone(interruptionCore.normalize(previous)) };
+    }
+    log(`MISSION_INTERRUPTION status=${next?.status || 'cleared'} reason=${cleanString(request.reason, 80) || 'update'} mission=${active.missionId} run=${active.runId}`);
+    return { ok: true, status: 'ok', interruption: jsonClone(next) };
+  };
+
   const getExecutionRuntimeContext = (request = {}) => {
     const active = state.activeRun;
     if (!active?.missionId || !active?.runId) return null;
@@ -1981,7 +2034,7 @@ function createMissionAuthorityManager(options = {}) {
     if (!run?.executionState) return null;
     let cached = publicBodies.get(run);
     const sources = [run.executionState, run.executionRuntimeContext, run.resumeBundle?.executionPoiRecipe, run.resumeBundle?.executionTrainingRecipe,
-      run.executionAuthority, run.executionRecipe, run.missionId, run.runId];
+      run.executionAuthority, run.executionRecipe, run.missionId, run.runId, run.executionInterruption];
     if (!cached || sources.some((source, index) => source !== cached.sources[index])) {
       cached = { sources, body: publicExecutionSnapshot(run) };
       publicBodies.set(run, cached);
@@ -2027,6 +2080,8 @@ function createMissionAuthorityManager(options = {}) {
     recordEffectAck,
     getExecutionPayloadRecovery,
     getLastExecutionPayloadRecovery,
+    getExecutionInterruption,
+    updateExecutionInterruption,
     recordExecutionPayloadRecovery,
     getExecutionRuntimeContext,
     recordExecutionRuntimeContext,

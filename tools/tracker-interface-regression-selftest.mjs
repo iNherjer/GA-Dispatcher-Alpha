@@ -13,6 +13,8 @@ const between = (text, start, end) => {
 // Execute the real App wrapper, including its historical fallback.
 const bannerContext = { window: { GAMissionAptUiCore: ui }, Date };
 vm.createContext(bannerContext);
+const interruptionHelpers = between(sync, 'const TRACKER_CARGO_AUTO_OPENED_RUNS_KEY', 'function _applyTrackerExecutionControl(');
+vm.runInContext(interruptionHelpers, bannerContext);
 vm.runInContext(between(sync, 'function _trackerMissionBannerModel(', 'function _renderTrackerMissionBanner('), bannerContext);
 assert.equal(bannerContext._trackerMissionBannerModel({ executionAuthority: 'tracker', missionId: 'm', phase: 'enroute',
   flags: { active: true, onGround: false }, allowedActions: ['set_manifest_item'] }), null);
@@ -91,6 +93,8 @@ const efb = { window: {}, missionSnapshot: null, missionIntentPending: false, mi
   missionRenderSignature: value => JSON.stringify(value), openCargoManager: () => opened++,
   offerCloudMissionReplacement() {}, renderPaxWidget() {}, renderTrainingGuidance() {}, renderDebrief() {},
   renderBoardBookReminder() {}, renderMissionActionBanner() {}, renderMissionToolbar() {}, renderCargoManager() {}, byId: () => null,
+  // No interrupted run in this regression; interruption handling has its own tests.
+  trackInterruptionResume: () => null, resumedNoticeUntil: 0, resumedNoticeKey: '',
   document: { querySelector: () => null }, report() {} };
 vm.createContext(efb);
 vm.runInContext(between(host, '  function renderMissionPayload(', '  function renderChecklistPayload('), efb);
@@ -201,6 +205,7 @@ const appProjection = { _normalizeMissionRuntimeId: value => value, _activeMissi
   window: { gaTrackerExecutionControl: { missionId: 'm', runId: 'r', phase: 'boarding' },
     closeMissionCargoDialog: options => { assert.equal(options.trackerProjection, true); projectedCloses++; } } };
 vm.createContext(appProjection);
+vm.runInContext(interruptionHelpers, appProjection);
 vm.runInContext(projectionPrefix + '\nreturn openBoardingDialog;\n}', appProjection);
 const closedControl = { missionId: 'm', runId: 'r', phase: 'boarding', executionAuthority: 'tracker', cargoWindowCloseId: 'new-close' };
 assert.equal(appProjection._applyTrackerExecutionControl(closedControl), false);

@@ -83,6 +83,7 @@ compileShared('checklists.js');
 compileShared('navigation-warning-core.js');
 compileShared('map-prediction.js');
 compileShared('mission-fire-search-map.js');
+compileShared('mission-resume-zone-map.js');
 compileShared('mission-survey-pattern.js');
 compileShared('mission-poi-chain-runtime.js');
 compileShared('map-profile-controls.js');

@@ -279,3 +279,88 @@ test('equipment load failures explain distance and replacement restrictions with
   assert.match(core.formatIntentResult({ ok: false, error: 'manifest_lost_item_replacement_required' }).text, /vor Missionsbeginn/);
   assert.match(core.formatIntentResult({ ok: false, error: 'manifest_ground_handling_required' }).text, /Stillstand/);
 });
+
+test('disconnected simulator explains the interrupted mission instead of a generic tracker error', () => {
+  const presentation = core.formatIntentResult({ ok: false, status: 'blocked', error: 'simulator_disconnected' });
+  assert.equal(presentation.tone, 'warn');
+  assert.match(presentation.text, /Simulator ist nicht verbunden/);
+  assert.match(presentation.text, /Zurücksetzen und Abbrechen/);
+});
+
+test('interrupted run hides cargo and start actions but keeps reset and abort', () => {
+  const control = {
+    missionId: 'mission-interrupted',
+    runId: 'run-interrupted',
+    executionAuthority: 'tracker',
+    phase: 'boarding',
+    allowedActions: ['abort_mission', 'start_mission', 'set_manifest_item', 'clear_manifest_signature']
+  };
+  const banner = { kind: 'cargo', cargoMode: 'load', button: 'Verladung öffnen' };
+  const normal = core.missionToolbarModel(control, { banner });
+  assert.equal(normal.primary.kind, 'cargo');
+  const interrupted = core.missionToolbarModel(control, { banner, interrupted: true });
+  assert.equal(interrupted.primary, null);
+  assert.equal(interrupted.cargo.visible, false);
+  assert.equal(interrupted.reset.visible, true);
+  assert.equal(interrupted.reset.intent, 'abort_mission');
+  const markup = core.render(sampleView(), { control, interrupted: true });
+  assert.match(markup, /Mission ist unterbrochen/);
+  assert.match(markup, /data-mission-intent="abort_mission"/);
+  assert.doesNotMatch(markup, /data-mission-intent="start_mission"/);
+  assert.doesNotMatch(markup, /mission-control-open-cargo/);
+  const normalMarkup = core.render(sampleView(), { control });
+  assert.match(normalMarkup, /data-mission-intent="start_mission"/);
+  assert.doesNotMatch(normalMarkup, /Mission ist unterbrochen/);
+});
+
+test('interruption model presents decision, waiting and zone states for every view', () => {
+  const now = 2_000_000;
+  const control = (interruption, allowedActions) => ({ executionAuthority: 'tracker', missionId: 'm', runId: 'r',
+    phase: 'enroute', allowedActions, interruption });
+  const zone = { lat: 48.1, lon: 8.1, radiusNm: 5, airborne: true };
+  assert.equal(core.interruptionModel(control(null, ['abort_mission'])), null);
+  assert.equal(core.interruptionModel({ executionAuthority: 'web', interruption: { status: 'awaiting_decision' } }), null);
+
+  const fresh = core.interruptionModel(control({ status: 'awaiting_decision', since: now - 3000, zone }, ['abort_mission', 'resume_mission']),
+    { now, simulatorConnected: false });
+  assert.equal(fresh.visible, false, 'short gaps do not flash the banner');
+  assert.equal(fresh.recheckInMs, 12000);
+  const decision = core.interruptionModel(control({ status: 'awaiting_decision', since: now - 20000, zone }, ['abort_mission', 'resume_mission']),
+    { now, simulatorConnected: false });
+  assert.equal(decision.visible, true);
+  assert.match(decision.text, /MSFS starten und einen Flug laden/);
+  assert.match(decision.text, /Alternativ die Mission zurücksetzen/);
+  assert.deepEqual(decision.primary, { intent: 'resume_mission', label: 'Mission fortsetzen' });
+  assert.equal(decision.resetAvailable, true);
+  const restarted = core.interruptionModel(control({ status: 'awaiting_decision', since: now - 20000, zone }, ['abort_mission', 'resume_mission']),
+    { now, simulatorConnected: true });
+  assert.match(restarted.text, /markierten Zone/);
+
+  const waiting = core.interruptionModel(control({ status: 'resuming', since: now - 60000, zone }, ['abort_mission']), { now, simulatorConnected: true });
+  assert.equal(waiting.primary, null);
+  assert.match(waiting.text, /nicht in der Weltkarte/);
+
+  const air = core.interruptionModel(control({ status: 'awaiting_zone', since: now - 90000, zone }, ['abort_mission', 'resume_teleport']),
+    { now, livePosition: { lat: 49.1, lon: 8.1 } });
+  assert.deepEqual(air.primary, { intent: 'resume_teleport', label: 'An Unterbrechungspunkt versetzen' });
+  assert.match(air.text, /5,0 NM Radius/);
+  assert.match(air.text, /Noch 60,\d NM, Kurs 180°/);
+  assert.ok(Math.abs(air.distanceNm - 60) < 0.5);
+
+  const ground = core.interruptionModel(control({ status: 'awaiting_zone', since: now - 90000,
+    zone: { lat: 48.1, lon: 8.1, radiusNm: 1, airborne: false } }, ['abort_mission']), { now });
+  assert.equal(ground.primary, null);
+  assert.match(ground.text, /am Boden steht/);
+
+  // Toolbar and Mission Control take the resume choice, never cargo.
+  const toolbar = core.missionToolbarModel(control({ status: 'awaiting_decision', since: now - 20000, zone }, ['abort_mission', 'resume_mission']),
+    { interruption: decision });
+  assert.equal(toolbar.primary.intent, 'resume_mission');
+  assert.equal(toolbar.cargo.visible, false);
+  assert.equal(toolbar.reset.visible, true);
+  const markup = core.render(sampleView(), { control: control({ status: 'awaiting_decision', since: now - 20000, zone }, ['abort_mission', 'resume_mission']), interruption: decision });
+  assert.match(markup, /data-mission-intent="resume_mission"/);
+  assert.match(markup, /data-mission-intent="abort_mission"/);
+  assert.match(markup, /Mission unterbrochen: Der Simulator ist getrennt/);
+  assert.match(core.RESUMED_NOTICE_TEXT, /Mission wieder aufgenommen/);
+});

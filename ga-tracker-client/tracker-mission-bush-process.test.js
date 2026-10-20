@@ -93,10 +93,11 @@ test('Bush supply strip stays in the real mission process; restart restores task
     syncPayloadManifestState:completed,cleanupMission:completed});
   await until(()=>host.runtime.publicState().simulatorAttached);
   result=await intent('set_manifest_item',{itemId:'box',action:'unload'});
-  assert.equal(result.error,'bush_fresh_telemetry_required',JSON.stringify(result));
+  assert.equal(result.error,'mission_interrupted',JSON.stringify(result));
   assert.equal(host.authorityManager.getExecutionSnapshot().state.bushTask.progress.status,'ready_to_close');
 
-  await telemetry({lat:48.3,lon:8.5,altFt:500,aglFt:0,onGround:true,gsKts:0});
+  // A real (non-slew) sample at the stand ends the restart interruption.
+  await telemetry({lat:48.3,lon:8.5,altFt:500,aglFt:0,onGround:true,gsKts:0,slewActive:false,slewMode:false,isSlewActive:false,slewTelemetryStatus:'ok'});
   result=await intent('set_manifest_item',{itemId:'box',action:'unload'});
   assert.equal(result.ok,true,JSON.stringify(result));
   await settleEffects();

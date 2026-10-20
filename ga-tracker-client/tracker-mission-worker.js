@@ -130,7 +130,8 @@ function runMissionWorker() {
         // The parent cancels its adapter before retiring the connection. Calling
         // back from detach would target an already invalid generation.
         cancelPayloadSync: () => true,
-        cleanupMission: request => simulatorCall('cleanupMission', request)
+        cleanupMission: request => simulatorCall('cleanupMission', request),
+        setAircraftPosition: request => simulatorCall('setAircraftPosition', request)
       });
       publish(); return true;
     },

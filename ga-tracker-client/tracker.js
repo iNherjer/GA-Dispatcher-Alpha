@@ -84,6 +84,12 @@ const {
   isTrustedMissionIntentEnvelope
 } = require('./tracker-relay-routing-core.js');
 const {
+  SIMULATOR_DISCONNECTED,
+  classifyMissionCommandWithoutSimulator,
+  buildMissionIntentAck,
+  buildAuthorityAck
+} = require('./tracker-mission-offline-command-core.js');
+const {
   createTelemetryHibernateController,
   disconnectedTelemetryHibernateState,
   resolveSimPausedState,
@@ -103,8 +109,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v571';
-const TRACKER_VERSION_CODE = 571;
+const TRACKER_VERSION = 'v572';
+const TRACKER_VERSION_CODE = 572;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -4431,6 +4437,26 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     cancelExecutionPayloadSync(reason = 'simulator-detached') {
       return missionPayloadHandler.cancelPayloadSyncQueue(reason);
     },
+    // Resume after a simulator interruption: place the user aircraft at the
+    // last airborne state. Only the interruption runtime calls this.
+    async setUserAircraftPosition(request = {}) {
+      const lat = Number(request.lat), lon = Number(request.lon), altFt = Number(request.altFt);
+      const hdg = Number(request.hdg) || 0, airspeedKts = Number(request.airspeedKts) || 0;
+      if (![lat, lon, altFt].every(Number.isFinite) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+        return { ok: false, error: 'mission_resume_position_invalid' };
+      }
+      if (!ensureSceneGroundDefinitions()) return { ok: false, error: 'mission_resume_position_unavailable' };
+      try {
+        const position = buildInitPos(lat, lon, altFt, hdg, false);
+        position.airspeed = Math.max(0, Math.min(250, Math.round(airspeedKts)));
+        handle.setDataOnSimObject(sceneGroundPositionDefId, SimConnectConstants.OBJECT_ID_USER, [position]);
+        debugLog(`MISSION_RESUME_AIRCRAFT_POSITION lat=${lat.toFixed(5)} lon=${lon.toFixed(5)} alt=${Math.round(altFt)} hdg=${Math.round(hdg)} kts=${position.airspeed}`);
+        return { ok: true };
+      } catch (error) {
+        debugLog(`MISSION_RESUME_AIRCRAFT_POSITION_ERROR error=${error?.message || error}`);
+        return { ok: false, error: 'mission_resume_teleport_failed' };
+      }
+    },
     async cleanupExecutionRun(request = {}) {
       const activeRun = missionAuthority?.getActiveRun?.() || null;
       const missionId = String(request?.missionId || '').trim();
@@ -6000,6 +6026,78 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       if ((now - at) > 30000) _directHangarAckCommandIds.delete(commandId);
     }
   };
+  const sendMissionAckWithoutSimulator = (trackerAck, extra = {}) => {
+    const ws = getWs();
+    if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+    try {
+      const msg = {
+        type: 'gps',
+        syncId,
+        pin,
+        trackerVersion: TRACKER_VERSION,
+        trackerVersionCode: TRACKER_VERSION_CODE,
+        commandAckOnly: true,
+        ...extra,
+        trackerAck: { source: 'tracker', ...trackerAck, at: Date.now() }
+      };
+      let wire = JSON.stringify(msg);
+      if (Buffer.byteLength(wire, 'utf8') > 512 * 1024) {
+        if (trackerAck.missionTransferPeer && missionTransfer?.enqueue(msg, trackerAck.missionTransferPeer)) return true;
+        msg.trackerAck = { source: 'tracker', type: trackerAck.type, commandId: trackerAck.commandId,
+          missionId: trackerAck.missionId, runId: trackerAck.runId, status: 'error', error: 'mission_relay_payload_too_large', at: Date.now() };
+        wire = JSON.stringify(msg);
+        debugLog('MISSION_RELAY_REJECTED error=mission_relay_payload_too_large source=no-simulator');
+      }
+      ws.send(wire);
+      return true;
+    } catch (error) {
+      debugLog(`MISSION_NO_SIM_ACK_ERROR type=${trackerAck?.type || 'unknown'} commandId=${trackerAck?.commandId || ''} error=${error?.message || error}`);
+      return false;
+    }
+  };
+  // Mission runtime and authority do not depend on SimConnect. Without a
+  // simulator, answer mission intents now instead of replaying them later.
+  const handleMissionCommandWithoutSimulator = (command) => {
+    const decision = classifyMissionCommandWithoutSimulator(command);
+    if (decision.action === 'buffer') return false;
+    const commandId = String(command?.commandId || '');
+    if (decision.action === 'snapshot') {
+      Promise.resolve(missionAuthorityManager.requestSnapshot(command)).then(result => {
+        const ack = buildAuthorityAck('mission_snapshot_request', command, result);
+        sendMissionAckWithoutSimulator(ack);
+        debugLog(`MISSION_NO_SIM_SNAPSHOT status=${ack.status} commandId=${commandId || 'none'} run=${ack.runId || 'none'} error=${ack.error || 'none'}`);
+      }).catch(error => {
+        sendMissionAckWithoutSimulator(buildAuthorityAck('mission_snapshot_request', command,
+          { ok: false, status: 'error', error: error?.code || error?.message || String(error) }));
+      });
+      return true;
+    }
+    const sendIntentAck = (result) => {
+      const authoritySnapshot = cloudAuthoritySnapshot();
+      const ack = buildMissionIntentAck(command, result, authoritySnapshot);
+      sendMissionAckWithoutSimulator(ack, { trackerMissionAuthority: authoritySnapshot });
+      debugLog(`MISSION_NO_SIM_INTENT_ACK intent=${decision.intent || 'unknown'} status=${ack.status} commandId=${commandId || 'none'} activeRun=${ack.activeRun?.runId || 'none'} error=${ack.error || 'none'}`);
+    };
+    if (decision.action === 'reject_intent') {
+      sendIntentAck({ ok: false, status: 'blocked', error: decision.error || SIMULATOR_DISCONNECTED,
+        sideEffect: false, activeRun: missionAuthorityManager.getActiveRun() || null });
+      return true;
+    }
+    const execute = TRACKER_APT_EXECUTION_ENABLED && typeof trackerCockpitControl?.submitTrustedIntent === 'function'
+      ? trackerCockpitControl.submitTrustedIntent({ ...command, deferEffects: true }, {
+          clientId: String(command?.clientId || 'web-relay').slice(0, 220),
+          role: 'web',
+          appVersion: String(command?.appVersion || 'origin').slice(0, 80),
+          capabilities: ['mission.snapshot.v2', 'mission.intent.v1']
+        })
+      : Promise.resolve({ ok: false, status: 'blocked', error: 'mission_execution_authority_not_enabled',
+          sideEffect: false, activeRun: missionAuthorityManager.getActiveRun() || null });
+    Promise.resolve(execute).then(sendIntentAck).catch(error => sendIntentAck({
+      ok: false, status: 'error', error: error?.code || error?.message || String(error),
+      sideEffect: false, activeRun: missionAuthorityManager.getActiveRun() || null
+    }));
+    return true;
+  };
   const dispatchTrackerCommand = (command, source = 'tracker-relay') => {
     const type = String(command?.type || '');
     const commandId = String(command?.commandId || '');
@@ -6110,6 +6208,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       });
       return;
     }
+    if (handleMissionCommandWithoutSimulator(command)) return;
     if (_pendingTrackerCommands.length >= MAX_PENDING_TRACKER_COMMANDS) _pendingTrackerCommands.shift();
     _pendingTrackerCommands.push(command);
     debugLog(`COMMAND_QUEUE_BUFFERED type=${command?.type || 'unknown'} size=${_pendingTrackerCommands.length}`);
@@ -6421,7 +6520,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         syncPayloadBeforeStart: request => missionSmokeController.syncExecutionPayload(request),
         syncPayloadManifestState: request => missionSmokeController.scheduleExecutionPayload(request),
         cancelPayloadSync: reason => missionSmokeController.cancelExecutionPayloadSync(reason),
-        cleanupMission: request => missionSmokeController.cleanupExecutionRun(request)
+        cleanupMission: request => missionSmokeController.cleanupExecutionRun(request),
+        setAircraftPosition: request => missionSmokeController.setUserAircraftPosition(request)
       }) || null;
       if (missionExecutionRuntime?.enabled) independentReadiness = createStartReadinessSource({
         open, float64Type: SimConnectDataType.FLOAT64, secondPeriod: SimConnectPeriod.SECOND,
@@ -7030,6 +7130,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                     slewTelemetryStatus: slew.status,
                     pitchDeg: Number.isFinite(pitchDeg) ? pitchDeg : null,
                     iasKts: Number.isFinite(iasKts) ? iasKts : null,
+                    engRpm: Number.isFinite(raw.engRpm) ? Math.round(raw.engRpm) : null,
                     aoaDeg: Number.isFinite(aoaDeg) ? aoaDeg : null,
                     stallState: Number.isFinite(stallState) ? stallState > 0.5 : null,
                     bankDeg: Number.isFinite(bank) ? Math.round(bank * 10) / 10 : null,

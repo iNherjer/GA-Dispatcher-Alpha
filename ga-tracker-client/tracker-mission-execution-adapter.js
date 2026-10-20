@@ -1512,6 +1512,24 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       }
       return persistRuntimeContext(snapshot, true);
     },
+    // A resumed simulator interruption must not count the gap, the restart
+    // position jump or ground time as flown time, distance or a landing.
+    markTelemetryDiscontinuity() {
+      const snapshot = current();
+      if (!snapshot) return { ok: true, status: 'ignored' };
+      resetObservationIfNeeded(snapshot);
+      observations.bushTelemetry = null;
+      observations.groundTelemetry = { observedAt: NaN };
+      observations.airborneCandidateAt = null;
+      observations.groundStillCandidateAt = null;
+      observations.flightRecorder.pauseActive = true;
+      observations.flightRecorder.startCandidateSince = 0;
+      observations.flightRecorder.lastPosition = null;
+      observations.recorderLowSpeedSince = null;
+      observations.lastGpsTick = null;
+      observations.smoothedVsFpm = 0;
+      return persistRuntimeContext(snapshot, true);
+    },
     getFarewellDynamicContext,
     getFarewellVoiceRecipe: () => observations.farewellVoiceRecipe,
     getMissionFlightRecord: () => missionRecord(),

@@ -22,6 +22,8 @@ const { createTrackerMissionSimulatorEffects } = require('./tracker-mission-simu
 const poiRuntime = require('./tracker-mission-poi-runtime.js');
 const bushPickupVoice = require('../mission-bush-pickup-voice-core.js');
 const boardingVoiceCore = require('../mission-boarding-voice-core.js');
+const { createMissionInterruptionController } = require('./tracker-mission-interruption-controller.js');
+const { createCargoCheckpointRecovery } = require('./tracker-cargo-checkpoint-recovery.js');
 
 function createTrackerMissionExecutionRuntime(options = {}) {
   const authorityManager = options.authorityManager;
@@ -67,11 +69,19 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   let simulatorPayloadSyncManifestState = null;
   let cancelSimulatorPayloadSync = null;
   let cleanupExecutionRun = null;
+  let simulatorSetAircraftPosition = null;
   let recoveryDrain = Promise.resolve();
-  const cargoCheckpointRecovery = options.recoverCargoCheckpoint === true
-    ? require('./tracker-cargo-checkpoint-recovery.js').createCargoCheckpointRecovery(authorityManager, log) : null;
-  const reconcileCargoCheckpoint = () => cargoCheckpointRecovery?.reconcile(
-    simulatorEffects, getSimulatorPosition(), simulatorPayloadSyncManifestState);
+  let cargoCheckpointRecovery = options.recoverCargoCheckpoint === true
+    ? createCargoCheckpointRecovery(authorityManager, log) : null;
+  // Every recovery keeps its ACK ownership after a newer one replaced it.
+  const cargoRecoveries = cargoCheckpointRecovery ? [cargoCheckpointRecovery] : [];
+  const sceneRecoveryPrefix = `interruption-scene-${Date.now().toString(36)}-`;
+  let sceneRecoverySequence = 0;
+  let interruption = null;
+  const reconcileCargoCheckpoint = () => {
+    if (interruption?.blocksRebuild()) return;
+    cargoCheckpointRecovery?.reconcile(simulatorEffects, getSimulatorPosition(), simulatorPayloadSyncManifestState);
+  };
   let effectRunner = null;
   let bushDeparturePending = null;
   let autoClosePromise = null;
@@ -285,9 +295,9 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   };
   effectRunner = createTrackerMissionEffectRunner({
     fairScheduling: options.fairEffectScheduling === true,
-    canDispatchEffect: effect => !startReadiness
+    canDispatchEffect: effect => !interruption?.blocksEffects() && (!startReadiness
       || !['scene.prepare', 'scene.boarding', 'payload.sync_before_start'].includes(effect.type)
-      || (Boolean(simulatorEffects) && startReadiness.snapshot().ready),
+      || (Boolean(simulatorEffects) && startReadiness.snapshot().ready)),
     log,
     authorityManager,
     applySystemEvent: request => adapter.applySystemEvent(request),
@@ -421,6 +431,8 @@ function createTrackerMissionExecutionRuntime(options = {}) {
 
   const executeIntent = async (request = {}) => {
     await recoveryDrain;
+    const interrupted = await interruption.handleIntent(request);
+    if (interrupted) return { ...interrupted, activeRun: authorityManager.getActiveRun() };
     if (startReadiness && START_INTENTS.has(String(request.intent || request.action || '').trim().toLowerCase())) {
       const readiness = startReadiness.snapshot();
       if (!simulatorEffects || !readiness.ready) return { ok: false, status: 'blocked', error: 'mission_cockpit_not_ready', startReadiness: readiness, sideEffect: false };
@@ -587,6 +599,109 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     return effects;
   };
 
+  const requestFireSceneRecovery = () => {
+    const recoveringFire = authorityManager.getExecutionSnapshot();
+    if (recoveringFire?.state.flags.active && authorityManager.getExecutionPoiRecipe?.()?.taskDomain === 'fire_watch'
+        && recoveringFire.state.effects.some(effect => effect.type === 'smoke.spawn')
+        && !recoveringFire.state.effects.some(effect => effect.type === 'smoke.spawn' && effect.status === 'requested')) {
+      // SimConnect/parent restart loses object ownership. Recreate only the fire
+      // scene, using the original replace-before-spawn path; no task/voice replay.
+      adapter.applySystemEvent({ type: 'FIRE_SCENE_RECOVERY_REQUESTED', missionId: recoveringFire.missionId,
+        runId: recoveringFire.runId, eventId: `${recoveringFire.runId}:fire-scene-recovery:${recoveringFire.executionRevision + 1}` });
+    }
+  };
+
+  // Scenes the simulator lost with its restart. Recreate the desired state of
+  // the current phase from already completed effects; never replay voice,
+  // tasks or phase transitions, and never add effects to the execution state.
+  // `aircraftRelative` scenes stand at the aircraft, the others at planned points.
+  const restoreInterruptedScenes = (aircraftRelative) => {
+    const snapshot = authorityManager.getExecutionSnapshot();
+    if (!snapshot || !simulatorEffects) return 0;
+    const { state } = snapshot;
+    const lastCompleted = type => state.effects.filter(effect => effect.type === type && effect.status === 'completed').at(-1) || null;
+    const restore = [];
+    if (aircraftRelative) {
+      if (['prepare', 'boarding'].includes(state.phase) && !state.flags.boardingSceneConfirmed) {
+        const prepare = lastCompleted('scene.prepare');
+        if (prepare) restore.push(prepare);
+      }
+    } else {
+      const target = lastCompleted('scene.target');
+      if (target) restore.push(target);
+      const pickupCleared = state.effects.some(effect => effect.type === 'scene.bush_pickup_clear' && effect.status === 'completed');
+      const arrival = lastCompleted('scene.arrival');
+      if (arrival && !pickupCleared && !state.flags.deboardingCompleted) restore.push(arrival);
+    }
+    for (const effect of restore) {
+      const effectId = `${sceneRecoveryPrefix}${++sceneRecoverySequence}`;
+      Promise.resolve(simulatorEffects.dispatch({
+        missionId: snapshot.missionId,
+        runId: snapshot.runId,
+        commandId: effectId,
+        effect: { effectId, type: effect.type, payload: effect.payload || {} }
+      })).catch(error => log(`MISSION_SCENE_RECOVERY_ERROR type=${effect.type} error=${error?.message || error}`));
+    }
+    log(`MISSION_SCENE_RECOVERY run=${snapshot.runId} phase=${state.phase} scope=${aircraftRelative ? 'aircraft' : 'planned'} scenes=${restore.map(effect => effect.type).join(',') || 'none'}`);
+    return restore.length;
+  };
+
+  const syncInterruptedPayload = () => {
+    const snapshot = authorityManager.getExecutionSnapshot();
+    if (!snapshot || !simulatorPayloadSyncManifestState) return;
+    Promise.resolve(simulatorPayloadSyncManifestState({ missionId: snapshot.missionId, runId: snapshot.runId,
+      commandId: `${sceneRecoveryPrefix}payload-${++sceneRecoverySequence}`, manifest: snapshot.state.manifest, reason: 'interruption-recovery' }))
+      .catch(error => log(`MISSION_INTERRUPTION_PAYLOAD_ERROR error=${error?.message || error}`));
+  };
+
+  // Cargo objects and the waiting passenger stand at the aircraft.
+  const restoreAircraftRelative = () => {
+    if (options.recoverCargoCheckpoint === true) {
+      // Fresh projection of the saved cargo/payload desired state for this resume.
+      cargoCheckpointRecovery = createCargoCheckpointRecovery(authorityManager, log);
+      cargoRecoveries.push(cargoCheckpointRecovery);
+      cargoCheckpointRecovery.reconcile(simulatorEffects, getSimulatorPosition(), simulatorPayloadSyncManifestState);
+    } else {
+      syncInterruptedPayload();
+    }
+    restoreInterruptedScenes(true);
+  };
+
+  const rebuildAfterInterruption = (current) => {
+    if (!simulatorEffects) return { ok: false, error: 'mission_simulator_not_connected' };
+    // After a restart elsewhere on the ground the aircraft is not yet back at
+    // its stand: write the payload now, place aircraft-side objects on arrival.
+    const groundZonePending = current?.zone && !current.zone.airborne && current.decidedBy !== 'auto';
+    if (groundZonePending) syncInterruptedPayload();
+    else restoreAircraftRelative();
+    restoreInterruptedScenes(false);
+    requestFireSceneRecovery();
+    return { ok: true };
+  };
+
+  interruption = createMissionInterruptionController({
+    authorityManager,
+    log,
+    now: options.now,
+    onChanged: reason => {
+      try { onAuthorityChanged(reason, authorityManager.getExecutionSnapshot?.()); }
+      catch (error) { log(`MISSION_EXECUTION_NOTIFY_ERROR reason=${reason} error=${error.message}`); }
+    },
+    simulatorAttached: () => Boolean(simulatorEffects),
+    worldReady: () => startReadiness ? startReadiness.snapshot().worldReady === true : Boolean(simulatorEffects),
+    rebuild: rebuildAfterInterruption,
+    setAircraftPosition: target => simulatorSetAircraftPosition ? simulatorSetAircraftPosition(target) : { ok: false, error: 'mission_simulator_not_connected' },
+    onResumed: (mode, record) => {
+      if (mode === 'ground' && record?.zone && !record.zone.airborne) restoreAircraftRelative();
+      const marked = adapter.markTelemetryDiscontinuity();
+      if (marked?.ok === false) log(`MISSION_INTERRUPTION_DISCONTINUITY_ERROR error=${marked.error || 'unknown'}`);
+      effectRunner.drain().catch(error => log(`MISSION_INTERRUPTION_DRAIN_ERROR error=${error?.message || error}`));
+    }
+  });
+  // A started run found at tracker start was interrupted by the tracker itself.
+  // It resumes on its own if the simulator obviously kept flying.
+  interruption.begin('tracker_restart', 'tracker-start');
+
   const attachSimulator = (simulator = {}) => {
     startReadiness?.reset();
     getSimulatorPosition = typeof simulator.getLivePosition === 'function' ? simulator.getLivePosition : () => null;
@@ -606,8 +721,12 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       getLivePosition: simulator.getLivePosition,
       dispatchCommand: simulator.dispatchCommand,
       acknowledgeEffect: async request => {
-        if (cargoCheckpointRecovery?.ownsAck(request.effectId)) {
+        if (cargoRecoveries.some(recovery => recovery.ownsAck(request.effectId))) {
           log(`MISSION_CARGO_RECOVERY_ACK status=${request.status}`);
+          return { ok: true };
+        }
+        if (String(request.effectId || '').startsWith(sceneRecoveryPrefix)) {
+          log(`MISSION_SCENE_RECOVERY_ACK effect=${request.effectId} status=${request.status}`);
           return { ok: true };
         }
         const beforeAck = authorityManager.getExecutionSnapshot?.();
@@ -666,17 +785,11 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       log
     });
     simulatorEffects = bridge;
+    simulatorSetAircraftPosition = typeof simulator.setAircraftPosition === 'function' ? simulator.setAircraftPosition : null;
     reconcileCargoCheckpoint();
     cleanupExecutionRun = typeof simulator.cleanupMission === 'function' ? simulator.cleanupMission : null;
-    const recoveringFire = authorityManager.getExecutionSnapshot();
-    if (recoveringFire?.state.flags.active && authorityManager.getExecutionPoiRecipe?.()?.taskDomain === 'fire_watch'
-        && recoveringFire.state.effects.some(effect => effect.type === 'smoke.spawn')
-        && !recoveringFire.state.effects.some(effect => effect.type === 'smoke.spawn' && effect.status === 'requested')) {
-      // SimConnect/parent restart loses object ownership. Recreate only the fire
-      // scene, using the original replace-before-spawn path; no task/voice replay.
-      adapter.applySystemEvent({ type: 'FIRE_SCENE_RECOVERY_REQUESTED', missionId: recoveringFire.missionId,
-        runId: recoveringFire.runId, eventId: `${recoveringFire.runId}:fire-scene-recovery:${recoveringFire.executionRevision + 1}` });
-    }
+    // An interrupted run rebuilds its fire scene with the other scenes after the decision.
+    if (!interruption?.record()) requestFireSceneRecovery();
     recoveryDrain = effectRunner.drain().then(async (result) => {
       if (!result.ok && !['mission_execution_authority_web', 'no_active_run'].includes(result.error)) {
         log(`MISSION_EFFECT_RECOVERY status=${result.status || 'error'} error=${result.error || ''}`);
@@ -692,6 +805,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     motionBuffer.clear();
     poiPaused = false;
     if (bridge && simulatorEffects !== bridge) return false;
+    interruption.begin('simulator_disconnected', 'simulator-detached');
     reportPoiCheckpoint(trainingDriver.disconnect(), 'training-disconnect');
     const disconnected = poiDriver.disconnect();
     reportPoiCheckpoint(disconnected, 'disconnect');
@@ -700,6 +814,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     getSimulatorPosition = () => null;
     simulatorEffects?.cancelPending?.({ preserveManual: true });
     simulatorEffects = null;
+    simulatorSetAircraftPosition = null;
     startReadiness?.reset();
     simulatorPayloadSyncBeforeStart = null;
     simulatorPayloadSyncManifestState = null;
@@ -834,6 +949,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     const wasReady = startReadiness?.snapshot().ready;
     const readiness = startReadiness?.observe(sample);
     if (readiness?.ready && !wasReady) effectRunner.drain().catch(error => log(`MISSION_PREFLIGHT_RESUME_ERROR error=${error.message}`));
+    if (readiness?.worldReady) interruption.maybeRebuild('cockpit-ready').catch(error => log(`MISSION_INTERRUPTION_REBUILD_ERROR error=${error?.message || error}`));
     return readiness;
   };
   return Object.freeze({
@@ -850,10 +966,16 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     },
     observeMotionTelemetry: sample => {
       motionInputConnected = true;
+      if (interruption.record()) return;
       motionBuffer.observe(sample, authorityManager.getActiveRun()?.runId);
     },
     observeTelemetry: sample => {
       if (options.independentStartReadiness !== true) observeStartReadiness(sample);
+      // A simulator interruption pauses all mission logic, scoring and voice.
+      if (authorityManager.getActiveRun()?.executionAuthority === 'tracker' && interruption.observe(sample)) {
+        if (!interruption.blocksRebuild()) reconcileCargoCheckpoint();
+        return { ok: true, status: 'ignored', reason: 'mission_interrupted', sideEffect: false };
+      }
       // Simulator readiness must be observable before replacing an old Web run.
       // That does not grant its legacy execution any telemetry-driven authority.
       if (startReadiness && authorityManager.getActiveRun()?.executionAuthority !== 'tracker') {
@@ -1252,6 +1374,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       enabled: true,
       executionAuthority: authorityManager.getActiveRun()?.executionAuthority || 'web',
       simulatorAttached: Boolean(simulatorEffects),
+      interruption: interruption.record()?.status || null,
       startReadinessSource: options.independentStartReadiness === true ? 'independent-simconnect' : 'mission-telemetry',
       startReadiness: startReadiness?.snapshot() || null,
       effects: effectRunner.publicState()

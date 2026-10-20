@@ -12,6 +12,8 @@ const MAX_INTENTS_PER_MINUTE = 60;
 const COCKPIT_ROLES = new Set(['web', 'efb', 'toolbar']);
 const MISSION_INTENTS = new Set([
   'close_debrief',
+  'resume_mission',
+  'resume_teleport',
   'activate_cloud_mission',
   'poi_status',
   'poi_orientation',

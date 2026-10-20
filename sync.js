@@ -2021,6 +2021,153 @@ function _applyTrackerPayloadControl(rawPayload = null) {
     return true;
 }
 
+const TRACKER_CARGO_AUTO_OPENED_RUNS_KEY = 'ga_tracker_cargo_auto_opened_runs_v1';
+function _trackerCargoAutoOpenedRuns() {
+    if (!Array.isArray(window.gaTrackerCargoAutoOpenedRuns)) {
+        let stored = [];
+        try { stored = JSON.parse(localStorage.getItem(TRACKER_CARGO_AUTO_OPENED_RUNS_KEY) || '[]'); } catch (_) {}
+        window.gaTrackerCargoAutoOpenedRuns = Array.isArray(stored)
+            ? stored.filter(key => typeof key === 'string' && key).slice(-32)
+            : [];
+    }
+    return window.gaTrackerCargoAutoOpenedRuns;
+}
+// The loading dialog opens once per run. Persist that across reloads so a
+// standalone PWA restart does not reopen it for an already presented run.
+window.gaRememberTrackerCargoAutoOpenedRun = function(key = '') {
+    const normalized = String(key || '').trim();
+    const seen = _trackerCargoAutoOpenedRuns();
+    if (!normalized || seen.includes(normalized)) return false;
+    window.gaTrackerCargoAutoOpenedRuns = [...seen, normalized].slice(-32);
+    try { localStorage.setItem(TRACKER_CARGO_AUTO_OPENED_RUNS_KEY, JSON.stringify(window.gaTrackerCargoAutoOpenedRuns)); } catch (_) {}
+    return true;
+};
+
+function _trackerSimulatorDisconnected() {
+    return window.liveTrackerConnected === true
+        && String(window.liveTrackerTelemetryMode || '').toLowerCase() === 'hibernate'
+        && String(window.liveTrackerTelemetryReason || '').toLowerCase() === 'sim_disconnected';
+}
+function _trackerRunStarted(control) {
+    const phase = String(control?.phase || 'planned').trim().toLowerCase();
+    return phase !== 'planned' && phase !== 'closed' && control?.flags?.closed !== true;
+}
+// Presentation of an interrupted tracker run. The tracker's own record
+// (decision, rebuild, resume zone) wins; the link state is only a fallback for
+// older trackers or a tracker that went away entirely.
+function _trackerInterruptionView(control = window.gaTrackerExecutionControl) {
+    if (!control || control.executionAuthority !== 'tracker') return null;
+    const core = window.GAMissionControlUiCore;
+    const simulatorConnected = window.liveTrackerConnected === true ? !_trackerSimulatorDisconnected() : null;
+    const model = core?.interruptionModel?.(control, {
+        now: Date.now(),
+        simulatorConnected,
+        livePosition: window.lastLiveGpsPos && window.lastLiveGpsPos.lastKnown !== true ? window.lastLiveGpsPos : null
+    });
+    if (model) return model;
+    if (!_trackerRunStarted(control)) return null;
+    const debounceMs = Number(core?.INTERRUPTION_DEBOUNCE_MS) || 15000;
+    const key = `${control.missionId || ''}:${control.runId || ''}:interruption`;
+    const allowed = Array.isArray(control.allowedActions) ? control.allowedActions : [];
+    // Only a link lost during this session; before the first connection the
+    // App has no tracker projection to interrupt.
+    if (window.liveTrackerConnected === false && lastTrackerDisconnectAt > 0) {
+        const age = Date.now() - lastTrackerDisconnectAt;
+        return { key: `${key}:tracker_offline`, status: 'tracker_offline', visible: age >= debounceMs,
+            recheckInMs: Math.max(0, debounceMs - age), kicker: 'Tracker getrennt',
+            text: 'Der Tracker ist nicht verbunden. Tracker starten, um die Mission fortzusetzen – der Missionsstand bleibt im Tracker gespeichert.',
+            primary: null, zone: null, resetAvailable: false, abortAvailable: false };
+    }
+    if (_trackerSimulatorDisconnected()) {
+        const age = Date.now() - (Number(window.liveTrackerTelemetrySince) || Date.now());
+        return { key: `${key}:simulator_disconnected`, status: 'simulator_disconnected', visible: age >= debounceMs,
+            recheckInMs: Math.max(0, debounceMs - age), kicker: 'Mission unterbrochen',
+            text: 'Der Simulator ist getrennt. Zum Fortsetzen MSFS starten und einen Flug laden – die Mission geht dann an derselben Stelle weiter. Alternativ die Mission zurücksetzen.',
+            primary: null, zone: null, resetAvailable: allowed.includes('abort_mission'), abortAvailable: allowed.includes('abort_mission') };
+    }
+    return null;
+}
+// Any interruption, also during its short display delay: mission windows and
+// prompts stay closed immediately.
+function _trackerMissionInterrupted(control = window.gaTrackerExecutionControl) {
+    return Boolean(_trackerInterruptionView(control));
+}
+window.gaTrackerMissionInterrupted = () => _trackerMissionInterrupted();
+window.gaTrackerInterruptionModel = () => {
+    const view = _trackerInterruptionView();
+    return view && view.visible !== false ? view : null;
+};
+
+function _renderTrackerResumeZone() {
+    if (typeof map === 'undefined') return;
+    const view = _trackerInterruptionView();
+    try {
+        window.MissionResumeZoneMap?.render(map, window.L,
+            view && view.visible !== false && view.status !== 'tracker_offline' ? view.zone : null);
+    } catch (_) {}
+}
+
+let trackerInterruptionRecheckTimer = null;
+function _scheduleTrackerInterruptionRecheck(delayMs) {
+    if (trackerInterruptionRecheckTimer || !(delayMs > 0)) return;
+    trackerInterruptionRecheckTimer = setTimeout(() => {
+        trackerInterruptionRecheckTimer = null;
+        _syncTrackerMissionInterruption('interruption-delay');
+    }, Math.min(60000, delayMs + 50));
+}
+
+let trackerResumedNotice = null;
+let trackerResumedNoticeTimer = null;
+function _showTrackerResumedNotice(control) {
+    trackerResumedNotice = { key: `${control?.missionId || ''}:${control?.runId || ''}:resumed:${Date.now()}`, until: Date.now() + 8000 };
+    clearTimeout(trackerResumedNoticeTimer);
+    trackerResumedNoticeTimer = setTimeout(() => {
+        trackerResumedNotice = null;
+        try { _updateMissionRuntimeUi(); } catch (_) {}
+    }, 8100);
+}
+
+let trackerInterruptionSignature = '';
+let trackerInterruptionRefreshTimer = null;
+let trackerInterruptionRun = '';
+function _syncTrackerMissionInterruption(reason = 'tracker-telemetry') {
+    const control = window.gaTrackerExecutionControl;
+    const view = _trackerInterruptionView(control);
+    const run = control?.runId ? `${control.missionId || ''}:${control.runId}` : '';
+    const signature = view ? JSON.stringify([run, view.status, view.visible !== false, view.zone]) : '';
+    if (view && view.visible === false) _scheduleTrackerInterruptionRecheck(view.recheckInMs);
+    // Distance/heading to the resume zone follow the live position.
+    if (view?.status === 'awaiting_zone' && !trackerInterruptionRefreshTimer) {
+        trackerInterruptionRefreshTimer = setInterval(() => { try { _updateMissionRuntimeUi(); } catch (_) {} }, 5000);
+    } else if (view?.status !== 'awaiting_zone' && trackerInterruptionRefreshTimer) {
+        clearInterval(trackerInterruptionRefreshTimer);
+        trackerInterruptionRefreshTimer = null;
+    }
+    _renderTrackerResumeZone();
+    if (signature === trackerInterruptionSignature) return Boolean(view);
+    const previousStatus = trackerInterruptionSignature && trackerInterruptionRun === run
+        ? JSON.parse(trackerInterruptionSignature)[1] : '';
+    trackerInterruptionSignature = signature;
+    trackerInterruptionRun = run;
+    if (view && document.getElementById('missionCargoOverlay')?.style.display === 'flex') {
+        try { window.closeMissionCargoDialog?.({ trackerProjection: true }); } catch (_) {}
+    }
+    // The tracker cleared its own record on the same, still open run.
+    if (!view && ['awaiting_decision', 'resuming', 'awaiting_zone'].includes(previousStatus) && _trackerRunStarted(control)) {
+        _showTrackerResumedNotice(control);
+    }
+    _missionPhaseDebugPush('tracker_simulator_interruption', {
+        reason,
+        status: view?.status || null,
+        visible: view ? view.visible !== false : false,
+        missionId: control?.missionId || null,
+        runId: control?.runId || null,
+        phase: control?.phase || null
+    });
+    try { _updateMissionRuntimeUi(); } catch (_) {}
+    return Boolean(view);
+}
+
 function _applyTrackerExecutionControl(control = null, activeRun = null, reason = 'tracker-execution') {
     if (window.gaCloudOpeningPending) return false;
     if (window.gaMissionDraftActive?.() || window.gaIsDispatchBusy?.() === true) return false;
@@ -2032,12 +2179,13 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
         window.closeMissionCargoDialog?.({ trackerProjection: true });
     }
     const cargoRunKey = `${missionId}:${control.runId || activeRun?.runId || ''}`;
-    const cargoSeenRuns = window.gaTrackerCargoAutoOpenedRuns || [];
-    const openBoardingDialog = !control.cargoWindowCloseId && control.phase === 'boarding'
+    const cargoSeenRuns = _trackerCargoAutoOpenedRuns();
+    const simulatorInterrupted = _trackerMissionInterrupted(control);
+    const openBoardingDialog = !simulatorInterrupted && !control.cargoWindowCloseId && control.phase === 'boarding'
         && !cargoSeenRuns.includes(cargoRunKey);
-    // Keep presentation history across disconnects/empty snapshots and competing trackers.
+    // Keep presentation history across disconnects/empty snapshots, reloads and competing trackers.
     if (control.phase === 'boarding' && !cargoSeenRuns.includes(cargoRunKey)) {
-        window.gaTrackerCargoAutoOpenedRuns = [...cargoSeenRuns, cargoRunKey].slice(-32);
+        window.gaRememberTrackerCargoAutoOpenedRun(cargoRunKey);
     }
     const projectionSignature = JSON.stringify({
         missionId,
@@ -2059,10 +2207,12 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
         cargoWindowOpenId: control.cargoWindowOpenId || null,
         cargoWindowCloseId: control.cargoWindowCloseId || null,
         blockingReasons: control.blockingReasons || [],
+        interruption: control.interruption || null,
         trainingGuidance: control.poiTask?.trainingGuidance || control.trainingTask?.guidance || null
     });
     if (projectionSignature === missionExecutionProjectionSignature) {
         window.gaTrackerExecutionControl = { ...control, receivedAt: Date.now() };
+        _syncTrackerMissionInterruption(`${reason}:unchanged`);
         return true;
     }
     missionExecutionProjectionSignature = projectionSignature;
@@ -2184,8 +2334,14 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
             onAbort: () => window.gaTrackerExecutionSubmitIntent?.('training_abort', {})
         });
     } catch (_) {}
-    try { window.missionCargoApplyTrackerFlightReminders?.(control); } catch (_) {}
-    if (control.cargoWindowOpenId && control.cargoWindowOpenId !== previousControl?.cargoWindowOpenId) {
+    if (!simulatorInterrupted) {
+        try { window.missionCargoApplyTrackerFlightReminders?.(control); } catch (_) {}
+    }
+    if (simulatorInterrupted) {
+        if (document.getElementById('missionCargoOverlay')?.style.display === 'flex') {
+            try { window.closeMissionCargoDialog?.({ trackerProjection: true }); } catch (_) {}
+        }
+    } else if (control.cargoWindowOpenId && control.cargoWindowOpenId !== previousControl?.cargoWindowOpenId) {
         try { window.openMissionCargoDialog?.(control.cargoWindowMode, { trackerProjection: true }); } catch (_) {}
     } else if (openBoardingDialog) {
         try { window.openMissionCargoDialog?.('load', { trackerProjection: true }); } catch (_) {}
@@ -2207,6 +2363,7 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
     try {
         window.dispatchEvent(new CustomEvent('missioncontrolchange', { detail: { reason, control: window.gaTrackerExecutionControl } }));
     } catch (_) {}
+    _syncTrackerMissionInterruption(reason);
     _updateMissionRuntimeUi();
     return true;
 }
@@ -2817,7 +2974,8 @@ window.openMissionToolbarCargo = function() {
     if (_missionExecutionAuthorityIsTracker()) {
         const control = window.gaTrackerExecutionControl;
         const toolbar = window.GAMissionControlUiCore?.missionToolbarModel?.(control, {
-            banner: _trackerMissionBannerModel(control)
+            banner: _trackerMissionBannerModel(control),
+            interrupted: _trackerMissionInterrupted(control)
         }) || null;
         if (!toolbar?.cargo?.visible) return false;
         return window.openMissionCargoDialog?.(toolbar.cargo.mode || 'load') !== false;
@@ -12609,6 +12767,29 @@ window.confirmMissionCriticalAction = _confirmMissionCriticalAction;
 
 function _trackerMissionBannerModel(control = null) {
     if (!control || control.executionAuthority !== 'tracker') return null;
+    if (trackerResumedNotice && trackerResumedNotice.until > Date.now()) {
+        return { intent: '', kind: 'notice', kicker: 'Mission wieder aufgenommen', text: window.GAMissionControlUiCore?.RESUMED_NOTICE_TEXT
+            || 'Mission wieder aufgenommen.', button: '', buttonHidden: true, className: 'is-resumed', key: trackerResumedNotice.key };
+    }
+    const interruption = _trackerInterruptionView(control);
+    if (interruption) {
+        if (interruption.visible === false) {
+            _scheduleTrackerInterruptionRecheck(interruption.recheckInMs);
+            return null;
+        }
+        return {
+            intent: interruption.primary?.intent || '',
+            kind: interruption.primary ? 'intent' : 'interruption',
+            interruption: true,
+            kicker: interruption.kicker,
+            text: interruption.text,
+            button: interruption.primary?.label || '',
+            buttonHidden: !interruption.primary,
+            secondary: interruption.resetAvailable ? { action: 'reset', label: 'Mission zurücksetzen' } : null,
+            className: 'is-interrupted',
+            key: interruption.key
+        };
+    }
     const uiCore = control.recipe === 'poi' ? window.GAMissionPoiUiCore : window.GAMissionAptUiCore;
     const canonical = uiCore?.bannerModel?.({
         missionId: control.missionId,
@@ -12675,6 +12856,14 @@ function _renderTrackerMissionBanner(banner, control, elements = {}) {
     banner.classList.toggle('is-end-ready', model?.endReady === true || model?.className === 'is-end-ready');
     banner.classList.toggle('is-begin-action', model?.begin === true || model?.className === 'is-begin-action');
     banner.classList.toggle('is-final-action', model?.final === true || model?.className === 'is-final-action');
+    banner.classList.toggle('is-interrupted', model?.className === 'is-interrupted');
+    banner.classList.toggle('is-resumed', model?.className === 'is-resumed');
+    const secondary = document.getElementById('missionStartBannerSecondaryBtn');
+    if (secondary) {
+        secondary.style.display = model?.secondary ? '' : 'none';
+        secondary.textContent = model?.secondary?.label || 'Mission zurücksetzen';
+        secondary.disabled = !!missionExecutionIntentPromise;
+    }
     if (!model || _missionStartBannerDismissed(model.key)) {
         banner.style.display = 'none';
         return true;
@@ -12684,7 +12873,7 @@ function _renderTrackerMissionBanner(banner, control, elements = {}) {
     if (elements.text) elements.text.textContent = model.text;
     if (elements.close) elements.close.style.display = model.closeHidden === true ? 'none' : '';
     if (elements.button) {
-        elements.button.style.display = '';
+        elements.button.style.display = model.buttonHidden === true ? 'none' : '';
         elements.button.textContent = model.button;
         elements.button.disabled = !!missionExecutionIntentPromise || model.disabled === true;
     }
@@ -12698,7 +12887,7 @@ function _syncMissionMainNotificationFromBanner(sourceBanner = null) {
     const visible = !!source && source.style.display !== 'none';
     notification.classList.toggle('is-visible', visible);
     notification.setAttribute('aria-hidden', visible ? 'false' : 'true');
-    for (const className of ['is-end-ready', 'is-begin-action', 'is-final-action']) {
+    for (const className of ['is-end-ready', 'is-begin-action', 'is-final-action', 'is-interrupted', 'is-resumed']) {
         notification.classList.toggle(className, !!source?.classList.contains(className));
     }
     if (!visible) return;
@@ -12758,6 +12947,9 @@ function _updateMissionStartBanner() {
     }
     banner._gaTrackerAction = null;
     banner._gaMissionActionKey = 'legacy';
+    banner.classList.remove('is-interrupted', 'is-resumed');
+    const legacySecondary = document.getElementById('missionStartBannerSecondaryBtn');
+    if (legacySecondary) legacySecondary.style.display = 'none';
     const valid = _hasValidMissionForStart();
     const trackerConnected = !!window.liveTrackerConnected;
     const simMode = !!window.simModeActive;
@@ -12948,6 +13140,8 @@ function _updateMissionStartBanner() {
 }
 
 function _updateMissionRuntimeUi() {
+    // The resume zone follows the projection, also when a run is aborted or replaced.
+    _renderTrackerResumeZone();
     if (window.gaMissionDraftActive?.()) {
         const status = document.getElementById('missionRuntimeStatus');
         if (status) status.textContent = 'Lokaler Entwurf – Mission zuerst akzeptieren.';
@@ -13211,8 +13405,11 @@ function _updateMissionRuntimeUi() {
         bReset.title = 'Mission zurücksetzen (mit Rückfrage)';
     }
     const trackerControl = window.gaTrackerExecutionControl;
+    const trackerInterruption = _trackerInterruptionView(trackerControl);
     const trackerToolbar = window.GAMissionControlUiCore?.missionToolbarModel?.(trackerControl, {
-        banner: _trackerMissionBannerModel(trackerControl)
+        banner: _trackerMissionBannerModel(trackerControl),
+        interrupted: Boolean(trackerInterruption),
+        interruption: trackerInterruption && trackerInterruption.visible !== false ? trackerInterruption : null
     }) || null;
     if (trackerToolbar) {
         const primary = trackerToolbar.primary;
@@ -14967,6 +15164,15 @@ function _tryStartMissionEndScene(reason = 'mission-end', options = {}) {
     return !!window.missionSceneDeboarding(reason);
 }
 
+window.handleMissionStartBannerSecondaryAction = async function() {
+    const action = document.getElementById('missionStartBanner')?._gaTrackerAction?.secondary || null;
+    if (!action || missionExecutionIntentPromise) return false;
+    if (action.action === 'reset') {
+        return (await window.requestMissionRuntimeReset?.({ reason: 'mission-reset-interrupted' })) !== false;
+    }
+    return false;
+};
+
 window.handleMissionStartBannerAction = async function() {
     if (window.gaMissionDraftActive?.()) return false;
     if (missionStartActionPromise) return missionStartActionPromise;
@@ -14983,6 +15189,7 @@ window.handleMissionStartBannerAction = async function() {
         }
         const trackerBannerAction = document.getElementById('missionStartBanner')?._gaTrackerAction || null;
         if (_missionExecutionAuthorityIsTracker() && trackerBannerAction) {
+            if (trackerBannerAction.kind === 'interruption' || trackerBannerAction.kind === 'notice') return false;
             if (trackerBannerAction.kind === 'cargo') {
                 window.openMissionCargoDialog?.(trackerBannerAction.cargoMode || 'load');
                 return true;
@@ -17491,9 +17698,7 @@ function _reconcileMissionSceneOnTrackerReconnect(pkt) {
     try { window.clearMissionSceneObjects?.('websocket-open-resync'); } catch (_) {}
 }
 
-function _markTrackerHeartbeat(pkt) {
-    lastTrackerHeartbeatAt = Date.now();
-    if (pkt?.trackerAudio) window.dispatchEvent(new CustomEvent('ga:tracker-audio-state', { detail: pkt.trackerAudio }));
+function _rememberTrackerTelemetryMode(pkt) {
     const reportedTelemetryMode = String(pkt?.telemetryMode || '').trim().toLowerCase();
     if (reportedTelemetryMode === 'active' || reportedTelemetryMode === 'hibernate') {
         window.liveTrackerTelemetryMode = reportedTelemetryMode;
@@ -17509,6 +17714,13 @@ function _markTrackerHeartbeat(pkt) {
         window.liveTrackerTelemetryReason = '';
         window.liveTrackerTelemetrySince = null;
     }
+}
+
+function _markTrackerHeartbeat(pkt) {
+    lastTrackerHeartbeatAt = Date.now();
+    if (pkt?.trackerAudio) window.dispatchEvent(new CustomEvent('ga:tracker-audio-state', { detail: pkt.trackerAudio }));
+    _rememberTrackerTelemetryMode(pkt);
+    _syncTrackerMissionInterruption('tracker-heartbeat');
     const reportedCapabilities = _trackerCapabilitiesFromPacket(pkt);
     if (reportedCapabilities.length) {
         window.liveTrackerCapabilities = reportedCapabilities;
@@ -18793,6 +19005,11 @@ window.connectToLiveGPS = async function(syncId, options = {}) {
                 if (liveGpsSocket) liveGpsSocket.close();
                 return;
             }
+            // Status packets carry simulator state and mission projection together;
+            // apply the simulator state first so the projection sees an interruption.
+            if (data.trackerStatusOnly === true && data.source === 'tracker' && data.telemetryMode) {
+                _rememberTrackerTelemetryMode(data);
+            }
             if (data.trackerMissionAuthority && typeof data.trackerMissionAuthority === 'object') {
                 try {
                     const source = data.commandAckOnly
@@ -18901,6 +19118,7 @@ window.connectToLiveGPS = async function(syncId, options = {}) {
         liveGpsSocket = null;
         lastTrackerDisconnectAt = Date.now();
         window.liveTrackerConnected = false;
+        setTimeout(() => _syncTrackerMissionInterruption('tracker-disconnect'), 0);
         _missionPhaseDebugPush('tracker_connection', {
             state: 'closed',
             runtimeActive: !!missionRuntime.active,

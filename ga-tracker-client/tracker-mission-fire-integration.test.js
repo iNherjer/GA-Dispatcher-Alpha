@@ -248,10 +248,18 @@ test('reconnecting the simulator rebuilds fire objects without resetting task or
   h.runtime.detachSimulator();
   h.runtime.attachSimulator({getLivePosition:()=>({lat:48.3,lon:8.5,altFt:3000}),
     dispatchCommand:command=>{h.commands.push(command);return completed();},syncPayloadManifestState:completed,cleanupMission:completed});
+  for(let n=0;n<5;n++) await tick();
+  assert.equal(h.commands.filter(command=>command.type==='mission_smoke_spawn').length,1,'nothing is rebuilt before the simulator is confirmed running');
+  // The simulator kept flying: the first plausible sample continues the run and rebuilds the fire.
+  await h.sample();
+  assert.equal(h.manager.getExecutionInterruption(),null);
   for(let n=0;n<20;n++) await tick();
   const after = h.manager.getExecutionSnapshot().state;
   assert.equal(h.commands.filter(command=>command.type==='mission_smoke_spawn').length,2);
-  assert.deepEqual(after.poiTask,before.poiTask);
+  // The resuming sample is a normal observation: only its timing fields move on.
+  const progress = task => JSON.parse(JSON.stringify(task, (key, value) =>
+    ['lastTickTime', 'observedAt', 'sequence', 'targetAreaEnteredAt'].includes(key) ? undefined : value));
+  assert.deepEqual(progress(after.poiTask),progress(before.poiTask));
   assert.deepEqual(after.effects.filter(effect=>effect.type==='voice.poi'),before.effects.filter(effect=>effect.type==='voice.poi'));
 });
 

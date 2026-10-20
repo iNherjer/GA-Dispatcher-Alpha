@@ -1,5 +1,122 @@
 # Mission Runtime Authority Contract
 
+## Simulator getrennt: Unterbrechung und Fortsetzen (20.10.2026)
+
+Feldbefund (Tracker v568, 20.10.2026): MSFS wurde in `boarding` geschlossen, der
+Tracker lief im Hibernate `sim_disconnected` weiter. Missionslauf und Authority
+bleiben dabei korrekt erhalten. Weil Missions-Intents nur ueber den
+SimConnect-Command-Handler liefen, wurden `close_cargo_window`,
+`clear_manifest_signature`, `abort_mission` und `mission_snapshot_request` ohne
+ACK gepuffert (`COMMAND_QUEUE_BUFFERED`); die App lief in `authority_timeout`.
+Der Puffer haette die Befehle beim naechsten Sim-Start nachtraeglich ausgefuehrt.
+Gleichzeitig oeffnete jede Projektion `boarding` nach einem PWA-Reload erneut den
+Verlade-Dialog, weil die Praesentationshistorie nur im Seitenspeicher lag.
+
+### Stufe 1 und 2 (umgesetzt, lokaler Kandidat)
+
+- Ohne SimConnect-Handler beantwortet der Tracker Missionsbefehle sofort
+  (`tracker-mission-offline-command-core.js`):
+  - `abort_mission` und `close_cargo_window` laufen direkt ueber
+    `trackerCockpitControl.submitTrustedIntent` (Rolle `web`, `deferEffects`).
+    Abort ueberspringt die Sim-Bereinigung; Payload-Restore meldet wie bisher
+    `mission_payload_restore_simulator_not_connected` als Warnung.
+  - Alle anderen `mission_execution_intent` werden mit `simulator_disconnected`
+    abgelehnt und nie gepuffert. Kein veralteter Intent wird spaeter nachgeholt.
+  - `mission_snapshot_request` wird lesend aus der Authority beantwortet
+    (gleiches ACK-Format, grosse Bundles ueber den Missionstransfer).
+  - Alle uebrigen Befehle behalten das bisherige Pufferverhalten.
+- App: Ein gestarteter Tracker-Lauf (Phase nicht `planned`/`closed`) gilt als
+  unterbrochen, solange der verbundene Tracker `hibernate`/`sim_disconnected`
+  meldet. Weltkarte/Menue (`menu_zero`, `menu_position`) sind keine
+  Unterbrechung. Waehrend der Unterbrechung:
+  - kein automatisches Oeffnen des Verlade-Dialogs, keine Bordbuch-Erinnerung,
+    ein offener Dialog wird lokal (ohne Intent) geschlossen;
+  - Banner „Mission unterbrochen“ mit „Mission zurücksetzen“; Mission Control
+    und Toolbar zeigen nur Zuruecksetzen/Abbrechen (`interrupted` im
+    gemeinsamen `mission-control-ui-core.js`);
+  - Telemetriezustand eines Statuspakets wird vor dessen Missionsprojektion
+    uebernommen.
+- Die Verlade-Dialog-Historie pro Lauf liegt in
+  `ga_tracker_cargo_auto_opened_runs_v1` (32 Laeufe) und uebersteht Reloads.
+
+### Stufe 3 (umgesetzt, lokaler Kandidat)
+
+Datensatz und Projektion:
+
+- `tracker-mission-interruption-core.js` (rein) und
+  `tracker-mission-interruption-controller.js` (Laufzeit). Der Datensatz
+  `executionInterruption` liegt wie die Payload-Baseline neben dem
+  deterministischen Ausfuehrungszustand (`updateExecutionInterruption`); er
+  aendert weder Ausfuehrungsrevision noch State-Hash noch Replay. Verlauf:
+  `executionInterruptionHistory` (max. 8, Modus zone/ground/auto/teleport).
+- Oeffentliche Projektion `control.interruption` (Status, Ursache, Zeitpunkt,
+  Zone, letzte Position ohne Rohdaten). `allowedActions` schrumpft waehrend der
+  Unterbrechung auf `abort_mission` + `resume_mission` (Entscheidung) bzw.
+  `abort_mission` (+ `resume_teleport` bei Luftzone). Terminale Laeufe tragen
+  keine Unterbrechung.
+
+Ablauf:
+
+- Beginn bei Simulator-Trennung (`simulator_disconnected`) oder Tracker-Start
+  mit gestartetem Lauf (`tracker_restart`), nur fuer Phasen ausser
+  `planned/closing/closed`. Position = letztes gueltiges Sample (kein
+  Pause/Menue/Slew), sonst gespeicherte `latestTelemetry`. Ohne bekannte
+  Position entsteht keine Unterbrechung (bisheriges Reconnect-Verhalten).
+- Waehrend der Unterbrechung: Telemetrie, Motion/Komfort, Effekte
+  (`canDispatchEffect`), Cargo-Checkpoint-Abgleich und alle uebrigen Intents
+  (`mission_interrupted`) pausieren. Erlaubt: Abbruch, Fortsetzen, Versetzen,
+  `close_cargo_window`, `close_debrief`.
+- Automatisches Weiterlaufen ohne Rueckfrage, wenn innerhalb von 90 s ein
+  gueltiges Sample in erreichbarer Entfernung kommt (Rollen 30 kt am Boden,
+  sonst 150 kt, Faktor 1,5, mind. 0,3 NM): SimConnect-Aussetzer oder
+  Tracker-Neustart bei laufendem Sim. Szenen/Zuladung werden trotzdem neu
+  aufgebaut; das ausloesende Sample laeuft danach normal in die Missionslogik.
+- `resume_mission` merkt die Entscheidung vor (auch ohne Sim). Neuaufbau erst
+  bei `startReadiness.worldReady` (geladenes Cockpit, nicht Weltkarte/Hangar):
+  frische Cargo-Checkpoint-Recovery inkl. Payload-Abgleich, Szenen
+  (`scene.prepare` solange Boarding nicht bestaetigt, `scene.target`,
+  `scene.arrival` ausser nach Pickup-Clear/Deboarding) ueber eigene
+  Recovery-IDs ohne neue Effekte im Ausfuehrungszustand, Brand-Recovery.
+- Danach Zone: Luft 5 NM, hoehenunabhaengig, 10 s gueltiger Flug in der
+  Luft; Boden 1 NM, 5 s am Boden. Erreichen loescht den Datensatz, markiert
+  eine Telemetrie-Diskontinuitaet (Flugrekorder ohne Sprungstrecke und ohne
+  Pausenzeit, Bodenbeobachtung neu) und gibt die Effekt-Queue frei.
+- Erneute Trennung vor Erreichen der Zone: zurueck zur Entscheidung, Zone
+  bleibt am ersten Unterbrechungspunkt.
+- `resume_teleport` (nur Luftzone, Cockpit bereit, Motor > 300 rpm): setzt
+  das Nutzerflugzeug per SimConnect `Initial Position` auf den letzten
+  Luftzustand (mind. 500 ft AGL, 60-250 kt).
+- Ohne Sim angenommene Relay-Intents: `abort_mission`,
+  `close_cargo_window`, `resume_mission`.
+
+Oberflaechen (gemeinsamer Kern `GAMissionControlUiCore.interruptionModel`):
+
+- Texte je Status fuer App, EFB, Toolbar und Mission Control; 15 s
+  Anzeigeverzoegerung fuer kurze Aussetzer (Fenster bleiben trotzdem sofort
+  geschlossen). Banner: „Mission fortsetzen“ / „An Unterbrechungspunkt
+  versetzen“ plus Alternative „Mission zurücksetzen“; EFB zusaetzlich
+  „Mission neustarten“, „Mission abbrechen“, „Restroute an Avionik senden“
+  und experimentell „Restroute an Weltkarte senden“.
+- Gesperrt: Verlade-Dialog/Erinnerungen, Vorflug-Planungsbanner, manuelle
+  Flugplanuebertragung, Cloud-Missionswechsel.
+- Zone gestrichelt auf App- und EFB-Karte (`mission-resume-zone-map.js`),
+  entfernt sobald der Tracker den Datensatz loescht; danach 8 s „Mission
+  wieder aufgenommen“.
+- App-Fallbacks ohne Tracker-Datensatz: aeltere Tracker
+  (`hibernate/sim_disconnected`) und „Tracker getrennt“ nach verlorener
+  Relay-Verbindung.
+- Restroute: `flightplan_export` mit `startAt` beginnt am
+  Unterbrechungspunkt und behaelt die Wegpunkte nach dem naechstgelegenen
+  Segment (`departureIcao` leer).
+
+Offen / PC-Pruefung:
+
+- Ob MSFS 2024 eine Route ohne Abflugplatz aus dem EFB fuer einen
+  Weltkarten-Luftstart uebernimmt, ist ungeprueft.
+- Ob SimConnect-Objekte beim Beenden des Trackers aus dem Sim verschwinden
+  (sonst koennen nach Tracker-Neustart Szenenobjekte doppelt stehen).
+- `Initial Position` fuer das Nutzerflugzeug im Flug.
+
 ## Stable-Freigabe vom 09.10.2026
 
 Auf ausdrücklichen Nutzerwunsch wird der geprüfte Origin-Stand vom 09.10.2026

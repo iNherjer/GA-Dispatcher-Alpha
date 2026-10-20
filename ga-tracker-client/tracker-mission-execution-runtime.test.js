@@ -308,6 +308,13 @@ async function exerciseUnloadCompletion(t, restart = '', inspection = false) {
     manager = createMissionAuthorityManager({ storageFile, executionAuthorityEnabled: true });
     runtime = createTrackerMissionExecutionRuntime({ ...runtimeOptions, authorityManager: manager });
     runtime.attachSimulator(simulator);
+    if (restart === 'after-confirm') {
+      // Tracker restart while the simulator kept running: the first plausible
+      // sample ends the interruption and continues the durable confirmation.
+      assert.equal(manager.getExecutionInterruption()?.status, 'awaiting_decision', 'the persisted interruption survives the restart');
+      runtime.observeTelemetry({ observedAt: clock, lat: 48.3, lon: 8.5, onGround: true, gsKts: 0 });
+      assert.equal(manager.getExecutionInterruption(), null);
+    }
     if (restart === 'before-confirm') {
       runtime.observeTelemetry({ observedAt: clock, lat: 48.3, lon: 8.5, onGround: true, gsKts: 0 });
       await new Promise(resolve => setImmediate(resolve));
@@ -694,6 +701,34 @@ test('tracker abort cleans simulator effects before atomically releasing the act
   assert.equal(manager.getPublicSnapshot().lastRun.phase, 'closed');
   assert.equal(manager.getPublicSnapshot().lastRun.lastCommandType, 'mission_execution_abort');
   assert.match(logs.join('\n'), /MISSION_EXECUTION_ABORTED .*cleared=3 .*source=efb/);
+});
+
+test('abort after the simulator was closed releases the run without touching the old simulator bridge', async (t) => {
+  const manager = committedManager(t);
+  const cleanupCalls = [];
+  const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: true, log: () => {} });
+  const bridge = runtime.attachSimulator({
+    getLivePosition: () => null,
+    dispatchCommand: () => ({ ok: true, status: 'noop', sideEffect: false }),
+    cleanupMission: async request => { cleanupCalls.push(request); return { ok: true, status: 'ok', cleared: 1, sideEffect: true }; }
+  });
+  assert.equal(runtime.detachSimulator(bridge), true);
+  const run = manager.getActiveRun();
+  const aborted = await runtime.executeIntent({
+    commandId: 'intent-abort-after-sim-close',
+    intent: 'abort_mission',
+    missionId: run.missionId,
+    runId: run.runId,
+    expectedRevision: run.revision,
+    payload: { reason: 'mission-reset-simulator-disconnected' },
+    deferEffects: true,
+    controllerSession: { clientId: 'web-relay', role: 'web' }
+  });
+  assert.equal(aborted.ok, true);
+  assert.equal(aborted.cleanup.status, 'simulator_not_connected');
+  assert.equal(cleanupCalls.length, 0, 'a closed simulator has nothing left to clean up');
+  assert.equal(manager.getActiveRun(), null);
+  assert.equal(manager.getPublicSnapshot().lastRun.state, 'aborted');
 });
 
 for (const role of ['efb', 'toolbar']) test(`${role}-only reset clears manifest and persists a fresh planned run without a browser`, async t => {
@@ -1603,4 +1638,163 @@ test('a missing Crewboard writer keeps the sanction effect pending instead of fa
 
 test('inspector visit dispatches automatically at the final ground stop and is not duplicated', async t => {
   await exerciseUnloadCompletion(t, '', true);
+});
+
+function boardingManager(t, events = 4) {
+  const manager = committedManager(t);
+  for (let index = 0; index < events; index++) {
+    const snapshot = manager.getExecutionSnapshot();
+    const result = manager.applyExecutionEvent({
+      missionId: snapshot.missionId, runId: snapshot.runId,
+      expectedRevision: snapshot.authorityRevision, expectedExecutionRevision: snapshot.executionRevision,
+      expectedExecutionStateHash: snapshot.executionStateHash,
+      event: { type: ['PREPARE_REQUESTED', 'EFFECT_ACKNOWLEDGED', 'BOARDING_STARTED', 'EFFECT_ACKNOWLEDGED'][index],
+        eventId: `interruption-boarding-${index}`, sequence: snapshot.executionRevision + 1, occurredAt: 1000 + index,
+        payload: index % 2 === 1 ? { effectId: snapshot.state.effects.at(-1).effectId, status: 'completed' } : {} }
+    });
+    assert.equal(result.ok, true, JSON.stringify(result));
+  }
+  assert.equal(manager.getExecutionSnapshot().state.phase, 'boarding');
+  return manager;
+}
+
+test('closed simulator pauses a boarding run until the user resumes in a running cockpit at the aircraft', async t => {
+  const manager = boardingManager(t);
+  let clock = 100000;
+  const dispatched = [];
+  const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: true,
+    requireCockpitReady: true, independentStartReadiness: true, now: () => clock, log: () => {} });
+  const simulator = {
+    getLivePosition: () => ({ lat: 48.2, lon: 8.4, alt: 800, hdg: 90 }),
+    dispatchCommand: command => { dispatched.push(command); return { ok: true, status: 'completed', sideEffect: true }; }
+  };
+  const ground = (over = {}) => ({ observedAt: clock, lat: 48.2, lon: 8.4, altFt: 800, aglFt: 0, hdg: 90, gsKts: 0,
+    onGround: true, simRunning: 1, simPaused: false, inMenuOrMap: false, slewActive: false, ...over });
+  const cockpit = (over = {}) => ({ ...ground(over), cameraState: 2 });
+  let bridge = runtime.attachSimulator(simulator);
+  runtime.observeTelemetry(ground());
+  assert.equal(manager.getExecutionInterruption(), null);
+
+  // MSFS closes during boarding.
+  assert.equal(runtime.detachSimulator(bridge), true);
+  const interruption = manager.getExecutionInterruption();
+  assert.equal(interruption.status, 'awaiting_decision');
+  assert.equal(interruption.cause, 'simulator_disconnected');
+  assert.deepEqual(interruption.zone, { lat: 48.2, lon: 8.4, radiusNm: 1, airborne: false });
+  const control = manager.getPublicSnapshot().execution;
+  assert.equal(control.interruption.status, 'awaiting_decision');
+  assert.deepEqual(control.allowedActions, ['abort_mission', 'resume_mission']);
+  assert.equal(manager.getExecutionSnapshot().state.phase, 'boarding', 'the execution state itself is untouched');
+  const run = () => manager.getActiveRun();
+  const intent = (name, payload = {}) => runtime.executeIntent({ commandId: `${name}-${clock}`, intent: name,
+    missionId: run().missionId, runId: run().runId, expectedRevision: run().revision, payload,
+    controllerSession: { clientId: 'efb-test', role: 'efb' } });
+  assert.equal((await intent('set_manifest_item', { itemId: 'x', action: 'load' })).error, 'mission_interrupted');
+
+  // Restart: world map first. Nothing may spawn there.
+  clock += 300000;
+  bridge = runtime.attachSimulator(simulator);
+  runtime.observeStartReadiness({ ...cockpit({ lat: 50.1, lon: 8.6 }), cameraState: 12 });
+  runtime.observeTelemetry(ground({ lat: 50.1, lon: 8.6 }));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(manager.getExecutionInterruption().status, 'awaiting_decision', 'a restart elsewhere never auto-resumes');
+  assert.equal((await intent('resume_mission')).ok, true);
+  assert.equal(manager.getExecutionInterruption().status, 'resuming');
+  assert.equal(manager.getExecutionInterruption().decidedBy, 'efb');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(dispatched.length, 0, 'decision in the world map does not spawn objects');
+
+  // Cockpit loaded at another airport: the run waits for the aircraft. The
+  // waiting passenger must not appear at the wrong airport.
+  runtime.observeStartReadiness(cockpit({ lat: 50.1, lon: 8.6 }));
+  assert.equal(manager.getExecutionInterruption().status, 'awaiting_zone');
+  assert.deepEqual(dispatched, [], 'aircraft-side scenes wait for the aircraft');
+  assert.equal(manager.getPublicSnapshot().execution.allowedActions.includes('resume_teleport'), false, 'no teleport for ground zones');
+  runtime.observeTelemetry(ground({ lat: 50.1, lon: 8.6 }));
+  clock += 6000;
+  runtime.observeTelemetry(ground({ lat: 50.1, lon: 8.6 }));
+  assert.equal(manager.getExecutionInterruption().status, 'awaiting_zone');
+
+  // Back at the stand for five seconds: the run continues.
+  runtime.observeTelemetry(ground());
+  clock += 5000;
+  runtime.observeTelemetry(ground());
+  assert.equal(manager.getExecutionInterruption(), null);
+  assert.deepEqual(dispatched.map(command => command.type), ['mission_scene_spawn'], 'start scene with the waiting passenger at the stand');
+  assert.equal(dispatched[0].reason, 'tracker-execution:scene.prepare');
+  assert.equal(dispatched[0].lat, 48.2);
+  const resumed = manager.getPublicSnapshot().execution;
+  assert.equal(resumed.interruption, null);
+  assert.equal(resumed.allowedActions.includes('set_manifest_item'), true);
+  assert.equal(manager.getActiveRun({ includeBundle: true }) && true, true);
+});
+
+test('abort stays available while interrupted and releases the run without a simulator', async t => {
+  const manager = boardingManager(t);
+  const clock = 50000;
+  const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: true, now: () => clock, log: () => {} });
+  const bridge = runtime.attachSimulator({ getLivePosition: () => null, dispatchCommand: () => ({ ok: true, status: 'completed' }) });
+  runtime.observeTelemetry({ observedAt: clock, lat: 48.2, lon: 8.4, onGround: true, gsKts: 0 });
+  runtime.detachSimulator(bridge);
+  assert.equal(manager.getExecutionInterruption().status, 'awaiting_decision');
+  const run = manager.getActiveRun();
+  const aborted = await runtime.executeIntent({ commandId: 'abort-interrupted', intent: 'abort_mission',
+    missionId: run.missionId, runId: run.runId, expectedRevision: run.revision, deferEffects: true,
+    controllerSession: { clientId: 'web-relay', role: 'web' } });
+  assert.equal(aborted.ok, true, JSON.stringify(aborted));
+  assert.equal(manager.getActiveRun(), null);
+  assert.equal(manager.getPublicSnapshot().lastExecution.interruption ?? null, null);
+});
+
+test('effects queued before the interruption wait until the run resumes', async t => {
+  // Boarding started, its passenger animation is still requested.
+  const manager = boardingManager(t, 3);
+  const boardingRequested = () => manager.getExecutionSnapshot().state.effects
+    .some(effect => effect.type === 'scene.boarding' && effect.status === 'requested');
+  assert.equal(boardingRequested(), true);
+  let clock = 70000;
+  const dispatched = [];
+  const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: true, now: () => clock, log: () => {} });
+  const simulator = { getLivePosition: () => ({ lat: 48.2, lon: 8.4, alt: 800, hdg: 90 }),
+    dispatchCommand: command => { dispatched.push(command.type); return { ok: true, status: 'completed', sideEffect: true }; } };
+  const ground = () => ({ observedAt: clock, lat: 48.2, lon: 8.4, onGround: true, gsKts: 0 });
+  runtime.observeTelemetry(ground());
+  // The simulator closes before the runtime could dispatch anything.
+  runtime.detachSimulator(null);
+  assert.equal(manager.getExecutionInterruption().status, 'awaiting_decision');
+  clock += 20000;
+  runtime.attachSimulator(simulator);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(boardingRequested(), true, 'reattach alone does not drain mission effects');
+  assert.deepEqual(dispatched, [], 'nor spawns anything');
+  // Same stand 20 s later: the simulator obviously kept running.
+  runtime.observeTelemetry(ground());
+  assert.equal(manager.getExecutionInterruption(), null);
+  assert.equal(dispatched[0], 'mission_scene_spawn', 'the waiting passenger is restored first');
+  assert.equal(await waitUntil(() => !boardingRequested()), true, 'queued boarding continues after the resume');
+});
+
+test('restarting an interrupted run returns to a planned run that a closed simulator does not interrupt', async t => {
+  const manager = boardingManager(t);
+  const clock = 60000;
+  const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: true, now: () => clock, log: () => {} });
+  let bridge = runtime.attachSimulator({ getLivePosition: () => null, dispatchCommand: () => ({ ok: true, status: 'completed' }) });
+  runtime.observeTelemetry({ observedAt: clock, lat: 48.2, lon: 8.4, onGround: true, gsKts: 0 });
+  runtime.detachSimulator(bridge);
+  assert.equal(manager.getExecutionInterruption().status, 'awaiting_decision');
+  const run = manager.getActiveRun();
+  const restarted = await runtime.executeIntent({ commandId: 'efb-restart-interrupted', intent: 'abort_mission',
+    missionId: run.missionId, runId: run.runId, expectedRevision: run.revision,
+    payload: { reason: 'efb-interruption-restart', resetToPlanned: true },
+    controllerSession: { clientId: 'efb-test', role: 'efb' } });
+  assert.equal(restarted.ok, true, JSON.stringify(restarted));
+  assert.equal(manager.getExecutionSnapshot().state.phase, 'planned');
+  assert.equal(manager.getExecutionInterruption(), null);
+  assert.equal(manager.getPublicSnapshot().execution.interruption, null);
+  assert.equal(manager.getPublicSnapshot().execution.allowedActions.includes('prepare_mission'), true);
+  // A planned (not yet begun) mission never becomes interrupted.
+  bridge = runtime.attachSimulator({ getLivePosition: () => null, dispatchCommand: () => ({ ok: true, status: 'completed' }) });
+  runtime.observeTelemetry({ observedAt: clock + 1000, lat: 48.2, lon: 8.4, onGround: true, gsKts: 0 });
+  runtime.detachSimulator(bridge);
+  assert.equal(manager.getExecutionInterruption(), null);
 });

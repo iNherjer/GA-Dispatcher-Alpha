@@ -11594,6 +11594,37 @@ body.map-drawing-active #map.leaflet-dragging {
 .mission-start-banner.is-final-action .mission-start-banner-btn:hover {
     background: rgba(41, 154, 88, 0.98);
 }
+.mission-start-banner.is-interrupted {
+    /* Two action buttons wrap below the text; keep them clear of the map tool button. */
+    bottom: 150px;
+    flex-wrap: wrap;
+    border-color: rgba(245, 158, 11, 0.6);
+    background: linear-gradient(135deg, rgba(32, 22, 6, 0.96), rgba(58, 38, 8, 0.94));
+}
+.mission-start-banner.is-interrupted .mission-start-banner-body {
+    flex: 1 1 220px;
+}
+.mission-start-banner.is-interrupted .mission-start-banner-kicker {
+    color: #fbbf24;
+}
+.mission-start-banner.is-interrupted .mission-start-banner-btn {
+    border-color: rgba(251, 191, 36, 0.7);
+    background: rgba(146, 92, 12, 0.94);
+    color: #fff8e6;
+}
+.mission-start-banner .mission-start-banner-btn.is-secondary,
+.mission-start-banner.is-interrupted .mission-start-banner-btn.is-secondary {
+    border-color: rgba(232, 244, 255, 0.35);
+    background: rgba(255, 255, 255, 0.08);
+    color: #e8f4ff;
+}
+.mission-start-banner.is-resumed {
+    bottom: 150px;
+    border-color: rgba(104, 242, 160, 0.6);
+}
+.mission-start-banner.is-resumed .mission-start-banner-kicker {
+    color: #68f2a0;
+}
 .mission-start-banner-close {
     flex: 0 0 auto;
     width: 28px;

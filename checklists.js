@@ -1408,6 +1408,8 @@
             if (view) {
                 bodyEl.innerHTML = toolTopline('mission') + window.GAMissionControlUiCore.render(view, {
                     storyExpanded: state.missionStoryExpanded, control: window.gaTrackerExecutionControl,
+                    interrupted: window.gaTrackerMissionInterrupted?.() === true,
+                    interruption: window.gaTrackerInterruptionModel?.() || null,
                     intentPending: window.gaMissionControlIntentPending === true,
                     intentStatus: window.gaMissionControlIntentStatus?.text || '', intentTone: window.gaMissionControlIntentStatus?.tone || ''
                 });
@@ -1434,6 +1436,8 @@
             bodyEl.innerHTML = `${toolTopline('mission')}${window.GAMissionControlUiCore.render(sharedView, {
                 storyExpanded: state.missionStoryExpanded,
                 control: window.gaTrackerExecutionControl || null,
+                interrupted: window.gaTrackerMissionInterrupted?.() === true,
+                    interruption: window.gaTrackerInterruptionModel?.() || null,
                 intentPending: window.gaMissionControlIntentPending === true,
                 intentStatus: window.gaMissionControlIntentStatus?.text || '',
                 intentTone: window.gaMissionControlIntentStatus?.tone || ''

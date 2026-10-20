@@ -62,6 +62,8 @@ const projection = { window: { missionCargoStatus: {} }, currentMissionData: {},
     _missionCargoPersistOnboardEquipment: value => inventoryWrites.push(structuredClone(value)),
     _missionPhaseDebugPush: () => {}, _updateMissionRuntimeUi: () => {}, document: { getElementById: () => null } };
 vm.createContext(projection);
+const interruptionHelpersStart = syncSource.indexOf('const TRACKER_CARGO_AUTO_OPENED_RUNS_KEY');
+vm.runInContext(syncSource.slice(interruptionHelpersStart, syncSource.indexOf('function _applyTrackerExecutionControl(', interruptionHelpersStart)), projection);
 vm.runInContext(extractOriginalFunction(syncSource, '_applyTrackerExecutionControl'), projection);
 const control = { missionId: 'm', runId: 'r', executionAuthority: 'tracker', phase: 'prepare', flags: {},
     manifest: { key: 'current', aircraftSlot: 'C172', items: [{ id: 'chocks', persistentEquipment: true, status: 'lost' }] } };

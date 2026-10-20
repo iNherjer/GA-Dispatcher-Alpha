@@ -42,7 +42,12 @@ async function harness(t,name,restartFile=null){
  let serial=0;
  async function intent(intent,payload={},revision){const r=manager.getActiveRun();const out=await runtime.executeIntent({intent,payload,commandId:(restartFile?'restored-':'bush-')+(++serial),missionId:r.missionId,runId:r.runId,expectedRevision:revision??r.revision});await settle();return out;}
  async function sample(patch={}){now+=1000;const out=runtime.observeTelemetry({observedAt:now,lat:48,lon:8,altFt:500,aglFt:0,hdg:90,onGround:true,gsKts:0,slewActive:true,slewMode:true,isSlewActive:true,slewTelemetryStatus:'error',...patch});await settle();await runtime.flush();return out;}
- return {b,manager,runtime,bridge,intent,sample,commands,voices,storageFile,advance:ms=>{now+=ms;}};
+ // After a restart the run stays interrupted until a real (non-slew) sample at
+ // the last position shows that the simulator kept running.
+ async function resume(){const p=manager.getExecutionInterruption()?.position;if(!p)return null;
+  return sample({lat:p.lat,lon:p.lon,altFt:p.altFt??500,aglFt:p.aglFt??0,onGround:p.onGround,gsKts:p.gsKts??0,
+   slewActive:false,slewMode:false,isSlewActive:false,slewTelemetryStatus:'ok'});}
+ return {b,manager,runtime,bridge,intent,sample,resume,commands,voices,storageFile,advance:ms=>{now+=ms;}};
 }
 async function start(h){
  await h.sample();for(const action of ['prepare_mission','start_boarding']){const r=await h.intent(action);assert.equal(r.ok,true,JSON.stringify(r));}
@@ -120,10 +125,13 @@ test('restart retains original Bush progress and cargo, but requires fresh groun
  const restored=await harness(t,'bush_supply_strip',h.storageFile);
  assert.deepEqual(restored.manager.getExecutionSnapshot().state.bushTask,before.state.bushTask);
  assert.equal(restored.manager.getExecutionSnapshot().state.manifest.items[0].status,'unloaded');
- assert.equal((await restored.intent('sign_manifest')).error,'bush_fresh_telemetry_required');
+ // Tracker restart: interrupted until a plausible fresh sample shows the simulator kept running.
+ assert.equal((await restored.intent('sign_manifest')).error,'mission_interrupted');
  await restored.sample({lat:47,lon:7});
  assert.equal((await restored.intent('confirm_unload')).ok,false);
- restored.advance(10000);await restored.sample({lat:48.3,lon:8.5});
+ assert.equal(restored.manager.getExecutionInterruption()?.status,'awaiting_decision','a sample elsewhere never resumes');
+ restored.advance(10000);await restored.sample({lat:48.3,lon:8.5,slewActive:false,slewMode:false,isSlewActive:false,slewTelemetryStatus:'ok'});
+ assert.equal(restored.manager.getExecutionInterruption(),null,'fresh real sample at the stand continues the run');
  const signed=await restored.intent('sign_manifest');assert.equal(signed.ok,true,JSON.stringify(signed));
  const oldRevision=restored.manager.getActiveRun().revision;
  assert.equal((await restored.intent('open_cargo_window')).ok,true);
@@ -162,7 +170,8 @@ test('navigation edits and invalid samples cannot move the Bush destination or a
  }
  await h.sample({lat:47,lon:7});assert.equal((await h.intent('set_manifest_item',{itemId:'box',action:'unload'})).error,'bush_target_required');
  await h.sample({lat:48.3,lon:8.5});h.runtime.detachSimulator(h.bridge);
- assert.equal((await h.intent('set_manifest_item',{itemId:'box',action:'unload'})).error,'bush_fresh_telemetry_required');
+ // A closed simulator interrupts the run; nothing can be unloaded without it.
+ assert.equal((await h.intent('set_manifest_item',{itemId:'box',action:'unload'})).error,'mission_interrupted');
 });
 
 

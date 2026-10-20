@@ -338,7 +338,9 @@ test('EFB map banner exposes only contextual tracker-approved actions', () => {
   const modelSource = hostSource.match(/function missionActionBannerModel\(payload\) \{[\s\S]*?\n  \}\n\n  function setupMissionActionBanner/)?.[0]
     .replace(/\n\n  function setupMissionActionBanner$/, '');
   assert.ok(modelSource);
-  const missionActionBannerModel = new Function(`return (${modelSource});`)();
+  // Interruption presentation is covered by its own tests; no run is interrupted here.
+  const missionActionBannerModel = new Function('interruptionView', 'scheduleInterruptionRecheck', 'resumedNoticeUntil', 'resumedNoticeKey',
+    `return (${modelSource});`)(() => null, () => {}, 0, '');
 
   assert.equal(missionActionBannerModel(null), null);
   const readOnly = missionActionBannerModel({
