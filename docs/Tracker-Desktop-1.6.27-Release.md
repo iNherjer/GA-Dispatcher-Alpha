@@ -24,3 +24,8 @@ und speicherte den alten Wert zurück.
 ## Prüfung
 
 - 120 Desktop-Tests (117 bestanden, 3 Windows-only übersprungen).
+
+## Aktivierung (20.10.2026)
+
+Öffentlicher Download geprüft (100280999 Bytes, SHA-512 wie `latest.yml`, Blockmap identisch).
+`latest.yml` und `alpha.yml` aktiviert.
