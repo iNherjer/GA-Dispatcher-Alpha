@@ -21,3 +21,8 @@ Basis: Desktop 1.6.27 (`origin/main`). Tracker-Runtime unverändert.
 - 120 Desktop-Tests bestanden (inkl. neuer Autostart-Tests für Position,
   Wartezeit, Startliste, Beenden mit dem Sim und fehlgeschlagenen Start).
 - Windows-Installer auf macOS gebaut; Windows-Feldtest offen.
+
+## Aktivierung (20.10.2026)
+
+Öffentlicher Download geprüft (100281327 Bytes, SHA-512 wie `latest.yml`, Blockmap identisch).
+`latest.yml` und `alpha.yml` aktiviert.
