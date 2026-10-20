@@ -1,5 +1,31 @@
 # Mission Runtime Authority Contract
 
+## Web-Ausfuehrung ist Legacy (20.10.2026)
+
+Ausserhalb des Sim-Modus fuehrt nur noch der Tracker Missionen aus
+(`_missionLocalExecutionBlocked` in `sync.js`, Commit `791e93d70`). Eine
+Rueckwaertskompatibilitaet zu Trackern ohne Missionsfaehigkeit ist nicht
+erforderlich (Nutzerentscheidung): alle Nutzer haben mindestens den Stable-
+Tracker, EFB-Nutzer koennen ohnehin nur Tracker-Missionen fliegen.
+
+- Die App merkt sich Tracker-Laeufe ueber Reloads
+  (`ga_tracker_execution_run_v1`) und zeigt bis zur Tracker-Projektion
+  „Warte auf Tracker“ statt ihres lokalen Stands.
+- Die lokale Missionslaufzeit in `sync.js`/`mission-runtime-core.js`
+  (Start, Boarding, Verladung, Abschluss ohne Tracker-Authority) ist
+  **Legacy-Code**. Sie bleibt nur fuer den Sim-Modus aktiv und soll bei
+  einer spaeteren Bereinigung entfernt bzw. auf den Sim-Modus reduziert
+  werden. Neue Missionslogik gehoert ausschliesslich in den Tracker.
+- Inventur 20.10.2026: alle 27 aktiven Picker-Profile laufen ueber die
+  Tracker-Ausfuehrung (APT, POI, Bush); `sar_heli` ist deaktiviert. Ohne
+  eigenen Tracker-Test: `science_bio`, `science_geo`,
+  `tour_guide_knowledge`, `animal_transport`, `medical_transfer`,
+  `apt_charter_pickup` (allgemeine APT-/POI-Pfade). Feldnachweis sind die
+  EFB-Fluege der Tester.
+- Theoretische Restluecke: eine POI-Mission mit Aufgabenart ausserhalb der
+  POI-Voice-Domaenen erhielte kein Tracker-Paket und waere nicht startbar.
+  Dispatcher/Writer gleichen auf gueltige Profile ab; bisher keine Meldung.
+
 ## Simulator getrennt: Unterbrechung und Fortsetzen (20.10.2026)
 
 Feldbefund (Tracker v568, 20.10.2026): MSFS wurde in `boarding` geschlossen, der
