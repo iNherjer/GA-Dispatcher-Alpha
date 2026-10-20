@@ -270,10 +270,33 @@
               <button type="button" id="audioRefreshDevices" class="secondary-button">Ausgänge aktualisieren</button>
               <label><span>Lautstärke</span><input id="audioMasterVolume" type="range" min="0" max="100" value="100"></label>
               <label class="toggle-row"><span><strong>Audio aktiviert</strong></span><span class="toggle-control"><input id="audioMasterEnabled" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
+              <p id="audioPlaybackStatus" class="form-message" role="status">Tracker-Audio wird verbunden.</p>
+            </div>
+            <form id="voiceCredentialsForm" class="voice-credentials-form">
+              <label>
+                <span>Provider</span>
+                <select id="voiceProviderSelect" name="voiceProvider">
+                  <option value="gemini">Gemini</option>
+                  <option value="openai">OpenAI</option>
+                </select>
+              </label>
+              <label>
+                <span>API-Key</span>
+                <input id="voiceApiKeyInput" name="voiceApiKey" type="password" maxlength="1024" autocomplete="new-password" placeholder="API-Key eingeben">
+              </label>
+              <div class="voice-credentials-actions">
+                <button id="saveVoiceCredentialsButton" class="primary-button" type="submit">Sicher speichern</button>
+                <button id="clearVoiceCredentialsButton" class="secondary-button" type="button">Entfernen</button>
+              </div>
+            </form>
+            <p id="voiceFormMessage" class="form-message" role="status"></p>
+            <details class="audio-subpanel">
+              <summary>Stimmen, Effekte und Warnungen</summary>
+              <div class="audio-output-menu">
               <label class="toggle-row"><span><strong>Stimmen und Ansagen</strong></span><span class="toggle-control"><input id="audioPaxEnabled" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
               <label class="toggle-row"><span><strong>Audioeffekte</strong></span><span class="toggle-control"><input id="audioEffectsEnabled" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
               <label>Stimmklang <select id="audioPaxStyle"><option value="clear">Klar</option><option value="intercom">Intercom ohne Rauschen</option><option value="intercom_noise">Intercom mit Rauschen</option></select></label>
-          <div id="navigationAudioSettings" hidden>
+              <div id="navigationAudioSettings" hidden>
                 <label><span>Warnstimme</span><select id="audioWarningVoice"><option value="">Anna (DE)</option></select></label>
                 <label class="toggle-row"><span><strong>Frequenzen ansagen</strong></span><span class="toggle-control"><input id="audioReadFreq" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
                 <label class="toggle-row"><span><strong>Terrainwarnungen</strong></span><span class="toggle-control"><input id="audioTerrain" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
@@ -281,22 +304,13 @@
                 <label class="toggle-row"><span><strong>Vertikale Luftraumwarnungen</strong></span><span class="toggle-control"><input id="audioAirspaceVertical" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
                 <label class="toggle-row"><span><strong>Wegpunkte ansagen</strong></span><span class="toggle-control"><input id="audioWaypoint" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
               </div>
-              <p id="audioPlaybackStatus" class="form-message" role="status">Tracker-Audio wird verbunden.</p>
-            </div>
+              </div>
+            </details>
             <section class="media-control" aria-label="Windows-Mediensteuerung">
               <h3>Musik / Windows-Player</h3>
               <p class="subtle">Spotify oder einen anderen Windows-Player öffnen und dort anmelden.</p>
               <label for="mediaPlayer">Player</label>
               <select id="mediaPlayer"><option value="">Kein Player geöffnet</option></select>
-              <p id="mediaTitle" class="media-title">Keine Wiedergabe</p>
-              <p id="mediaArtist" class="subtle"></p>
-              <div class="media-buttons">
-                <button id="mediaPrevious" type="button" class="secondary-button" disabled aria-label="Vorheriger Titel">Zurück</button>
-                <button id="mediaPlayPause" type="button" class="secondary-button" disabled>Play / Pause</button>
-                <button id="mediaNext" type="button" class="secondary-button" disabled aria-label="Nächster Titel">Weiter</button>
-              </div>
-              <label for="mediaVolume">Musiklautstärke <span id="mediaVolumeValue">–</span></label>
-              <input id="mediaVolume" type="range" min="0" max="100" value="50" disabled>
               <label class="media-duck-toggle"><input id="mediaDuckEnabled" type="checkbox" checked> Bei Stimmen und Warnungen leiser</label>
               <label for="mediaDuckFactor">Restlautstärke während Ansagen</label>
               <select id="mediaDuckFactor"><option value="0.1">10 %</option><option value="0.2" selected>20 %</option><option value="0.35">35 %</option><option value="0.5">50 %</option></select>
@@ -325,24 +339,6 @@
               </div>
               <p id="radioHoldStatus" class="form-message" role="status">Funk-Pause ist aus.</p>
             </section>
-            <form id="voiceCredentialsForm" class="voice-credentials-form">
-              <label>
-                <span>Provider</span>
-                <select id="voiceProviderSelect" name="voiceProvider">
-                  <option value="gemini">Gemini</option>
-                  <option value="openai">OpenAI</option>
-                </select>
-              </label>
-              <label>
-                <span>API-Key</span>
-                <input id="voiceApiKeyInput" name="voiceApiKey" type="password" maxlength="1024" autocomplete="new-password" placeholder="API-Key eingeben">
-              </label>
-              <div class="voice-credentials-actions">
-                <button id="saveVoiceCredentialsButton" class="primary-button" type="submit">Sicher speichern</button>
-                <button id="clearVoiceCredentialsButton" class="secondary-button" type="button">Entfernen</button>
-              </div>
-            </form>
-            <p id="voiceFormMessage" class="form-message" role="status"></p>
           </section>
         </div>
       </details>

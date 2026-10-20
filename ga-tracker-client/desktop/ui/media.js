@@ -17,7 +17,7 @@
     if (!result.ok) {
       available = false;
       $('mediaStatus').textContent = result.error || 'Mediensteuerung nicht verfügbar.';
-      for (const id of ['mediaPlayer', 'mediaPrevious', 'mediaPlayPause', 'mediaNext', 'mediaVolume']) $(id).disabled = true;
+      $('mediaPlayer').disabled = true;
       return;
     }
     available = true; state = result;
@@ -33,15 +33,8 @@
       for (const player of players) select.add(new Option(player.name, player.source));
     }
     select.value = result.source || ''; select.disabled = busy || !players.length;
-    $('mediaTitle').textContent = result.title || 'Keine Wiedergabe';
-    $('mediaArtist').textContent = result.artist || '';
-    $('mediaPlayPause').textContent = result.playing ? 'Pause' : 'Play';
-    for (const [id, control] of [['mediaPrevious','previous'], ['mediaPlayPause','playPause'], ['mediaNext','next']]) $(id).disabled = busy || !result.controls?.[control];
-    $('mediaVolume').disabled = busy || !result.volumeAvailable;
-    if (document.activeElement !== $('mediaVolume')) $('mediaVolume').value = Math.round((result.volume || 0) * 100);
-    $('mediaVolumeValue').textContent = result.volumeAvailable ? Math.round(result.volume * 100) + ' %' : '–';
     $('mediaStatus').textContent = !players.length ? 'Player öffnen und dort einen Titel starten.'
-      : result.ducking ? 'Musik für Ansage abgesenkt.' : !result.volumeAvailable ? 'Bedienung verfügbar; Windows-Audiositzung fehlt für Lautstärke und Absenkung.' : 'Windows-Player verbunden.';
+      : result.ducking ? 'Musik für Ansage abgesenkt.' : !result.volumeAvailable ? 'Player verbunden; Windows-Audiositzung fehlt für die Absenkung.' : 'Windows-Player verbunden.';
   }
   async function command(payload) {
     if (busy) return;
@@ -52,9 +45,6 @@
     } catch (_) { busy = false; render({ ok: false, error: 'Windows-Mediensteuerung nicht erreichbar.' }); }
   }
   $('mediaPlayer').onchange = () => command({ action: 'select', source: $('mediaPlayer').value });
-  for (const [id, action] of [['mediaPrevious','previous'], ['mediaPlayPause','playPause'], ['mediaNext','next']]) $(id).onclick = () => command({ action });
-  $('mediaVolume').oninput = () => { $('mediaVolumeValue').textContent = $('mediaVolume').value + ' %'; };
-  $('mediaVolume').onchange = () => command({ action: 'volume', volume: Number($('mediaVolume').value) / 100 });
   async function settings() {
     const enabled = $('mediaDuckEnabled').checked, factor = Number($('mediaDuckFactor').value);
     // Show the choice at once so a redraw during the request cannot bring back the old value.
