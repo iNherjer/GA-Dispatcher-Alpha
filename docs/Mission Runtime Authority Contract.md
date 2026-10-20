@@ -274,11 +274,13 @@ Nachbesserung Tracker v582 (Luftstart-Hoehe):
 
 Offen / PC-Pruefung:
 
-- Ob MSFS 2024 eine Route ohne Abflugplatz aus dem EFB fuer einen
-  Weltkarten-Luftstart uebernimmt, ist ungeprueft.
-- Ob SimConnect-Objekte beim Beenden des Trackers aus dem Sim verschwinden
-  (sonst koennen nach Tracker-Neustart Szenenobjekte doppelt stehen).
-- `Initial Position` fuer das Nutzerflugzeug im Flug.
+- Erledigt (Feldtest v579): MSFS uebernimmt den Luftstart-Plan ohne
+  Abflugplatz; Spawn am letzten Wegpunkt vor dem Ziel.
+- Erledigt (Feldtest 20.10.2026): Beim Beenden des Trackers verschwinden
+  seine SimConnect-Objekte (beobachtet an der Homebase-Szene); nach einem
+  Tracker-Neustart baut der Wiederaufbau sie neu, ohne Doppelungen.
+- Erledigt (Feldtest v573): `Initial Position` fuer das Nutzerflugzeug im
+  Flug (Teleport an den Speicherpunkt).
 
 ## Stable-Freigabe vom 09.10.2026
 

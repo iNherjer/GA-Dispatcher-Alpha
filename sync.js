@@ -2124,8 +2124,8 @@ function _trackerInterruptionView(control = window.gaTrackerExecutionControl) {
     if (window.liveTrackerConnected === false && lastTrackerDisconnectAt > 0) {
         const age = Date.now() - lastTrackerDisconnectAt;
         return { key: `${key}:tracker_offline`, status: 'tracker_offline', visible: age >= debounceMs,
-            recheckInMs: Math.max(0, debounceMs - age), kicker: 'Tracker getrennt',
-            text: 'Der Tracker ist nicht verbunden. Tracker starten, um die Mission fortzusetzen – der Missionsstand bleibt im Tracker gespeichert.',
+            recheckInMs: Math.max(0, debounceMs - age), kicker: 'Mission läuft noch',
+            text: 'Dein Spielstand wurde gespeichert. Tracker starten und den Flug im Ingame-EFB laden, um die Mission fortzusetzen.',
             primary: null, zone: null, resetAvailable: false, abortAvailable: false };
     }
     if (_trackerSimulatorDisconnected()) {
@@ -13019,8 +13019,8 @@ function _updateMissionStartBanner() {
             return;
         }
         banner.style.display = 'flex';
-        if (kickerEl) kickerEl.textContent = 'Warte auf Tracker';
-        if (textEl) textEl.textContent = 'Diese Mission wird vom Tracker geführt. Der aktuelle Missionsstand erscheint, sobald der Tracker verbunden ist.';
+        if (kickerEl) kickerEl.textContent = 'Mission läuft noch';
+        if (textEl) textEl.textContent = 'Dein Spielstand wurde gespeichert. Lade den Flug im Ingame-EFB, um die Mission fortzusetzen.';
         if (btn) btn.style.display = 'none';
         if (closeBtn) closeBtn.style.display = '';
         return;

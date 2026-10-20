@@ -114,8 +114,8 @@ test('tracker offline shows its own hint after the display delay', () => {
   assert.equal(c.api._trackerMissionBannerModel(boardingControl()), null);
   c.api.setDisconnectAt(Date.now() - 20000);
   const banner = c.api._trackerMissionBannerModel(boardingControl());
-  assert.equal(banner.kicker, 'Tracker getrennt');
-  assert.match(banner.text, /Tracker starten/);
+  assert.equal(banner.kicker, 'Mission läuft noch');
+  assert.match(banner.text, /Dein Spielstand wurde gespeichert. Tracker starten und den Flug im Ingame-EFB laden/);
   assert.equal(banner.buttonHidden, true);
   assert.equal(banner.secondary, null, 'no reset without the tracker');
 });
@@ -257,6 +257,8 @@ test('web "Warte auf Tracker" is dismissible and the interruption offers restart
   const source = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'sync.js'), 'utf8');
   const awaiting = source.slice(source.indexOf("banner._gaMissionActionKey = 'awaiting-tracker';"), source.indexOf("banner._gaMissionActionKey = 'legacy';"));
   assert.match(awaiting, /if \(_missionStartBannerDismissed\('awaiting-tracker'\)\) \{\s*banner\.style\.display = 'none';/);
+  assert.match(awaiting, /kickerEl\.textContent = 'Mission läuft noch'/);
+  assert.match(awaiting, /'Dein Spielstand wurde gespeichert\. Lade den Flug im Ingame-EFB, um die Mission fortzusetzen\.'/);
   const secondary = source.slice(source.indexOf('window.handleMissionStartBannerSecondaryAction = async function'), source.indexOf('window.handleMissionStartBannerAction = async function'));
   assert.match(secondary, /action\.action === 'abort'[\s\S]*?gaAbortTrackerMission\?\.\(\{ reason: 'mission-abort-interrupted', confirmAction: 'abort' \}\)/);
   const html = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'index.html'), 'utf8');
