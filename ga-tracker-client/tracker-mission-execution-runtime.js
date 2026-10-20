@@ -695,12 +695,15 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       if (mode === 'ground' && record?.zone && !record.zone.airborne) restoreAircraftRelative();
       const marked = adapter.markTelemetryDiscontinuity();
       if (marked?.ok === false) log(`MISSION_INTERRUPTION_DISCONTINUITY_ERROR error=${marked.error || 'unknown'}`);
-      effectRunner.drain().catch(error => log(`MISSION_INTERRUPTION_DRAIN_ERROR error=${error?.message || error}`));
+      // A drain started while the run was still interrupted may be running;
+      // join it, then drain again with the effects released.
+      effectRunner.drain().then(() => effectRunner.drain())
+        .catch(error => log(`MISSION_INTERRUPTION_DRAIN_ERROR error=${error?.message || error}`));
     }
   });
   // A started run found at tracker start was interrupted by the tracker itself.
   // It resumes on its own if the simulator obviously kept flying.
-  interruption.begin('tracker_restart', 'tracker-start');
+  interruption.begin('tracker_restart', 'tracker-start', { requirePosition: true });
 
   const attachSimulator = (simulator = {}) => {
     startReadiness?.reset();
@@ -788,6 +791,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     simulatorSetAircraftPosition = typeof simulator.setAircraftPosition === 'function' ? simulator.setAircraftPosition : null;
     reconcileCargoCheckpoint();
     cleanupExecutionRun = typeof simulator.cleanupMission === 'function' ? simulator.cleanupMission : null;
+    interruption?.attached();
     // An interrupted run rebuilds its fire scene with the other scenes after the decision.
     if (!interruption?.record()) requestFireSceneRecovery();
     recoveryDrain = effectRunner.drain().then(async (result) => {

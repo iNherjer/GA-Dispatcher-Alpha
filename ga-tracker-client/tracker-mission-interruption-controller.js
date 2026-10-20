@@ -16,6 +16,7 @@ function createMissionInterruptionController(options = {}) {
   const onResumed = typeof options.onResumed === 'function' ? options.onResumed : () => {};
   const setAircraftPosition = typeof options.setAircraftPosition === 'function' ? options.setAircraftPosition : () => null;
   let lastValidSample = null;
+  let pendingUnknownStart = false;
   let lastEngineRpm = null;
   let dwell = null;
 
@@ -45,12 +46,36 @@ function createMissionInterruptionController(options = {}) {
   };
   const fallbackPosition = snapshot => {
     if (lastValidSample) return lastValidSample;
+    const stored = authorityManager.getExecutionLastPosition?.({ missionId: snapshot.missionId, runId: snapshot.runId });
+    if (stored) return stored;
     const context = authorityManager.getExecutionRuntimeContext?.({ missionId: snapshot.missionId, runId: snapshot.runId });
     return context?.latestTelemetry || null;
   };
 
+  // Persist the last valid position of a started run (also before the mission
+  // start) so an interruption after a tracker restart still knows its place.
+  let persistedPosition = null;
+  const POSITION_PERSIST_MS = 30000;
+  const POSITION_PERSIST_NM = 0.2;
+  const persistPosition = (sample) => {
+    const snapshot = activeExecution();
+    if (!snapshot || !core.interruptible(snapshot.state) || typeof authorityManager.recordExecutionLastPosition !== 'function') return;
+    const position = core.positionFromSample(sample);
+    if (!position) return;
+    const previous = persistedPosition;
+    const due = !previous || previous.runId !== snapshot.runId
+      || position.onGround !== previous.position.onGround
+      || (position.observedAt || 0) - (previous.position.observedAt || 0) >= POSITION_PERSIST_MS
+      || core.haversineNm(previous.position.lat, previous.position.lon, position.lat, position.lon) >= POSITION_PERSIST_NM;
+    if (!due) return;
+    const result = authorityManager.recordExecutionLastPosition({ missionId: snapshot.missionId, runId: snapshot.runId, position });
+    if (result?.ok) persistedPosition = { runId: snapshot.runId, position };
+  };
+
   // Called on simulator detach and on tracker start with a started run.
-  const begin = (cause, reason) => {
+  // `requirePosition`: at tracker start only a run with a known place is
+  // interrupted at once; one without waits for the first simulator connection.
+  const begin = (cause, reason, { requirePosition = false } = {}) => {
     const snapshot = activeExecution();
     if (!snapshot || !core.interruptible(snapshot.state)) return null;
     const existing = record();
@@ -64,12 +89,14 @@ function createMissionInterruptionController(options = {}) {
       return reopened;
     }
     const created = core.create({ cause, phase: snapshot.state.phase, position: fallbackPosition(snapshot), now: now() });
-    // Without any known position there is neither a zone nor a plausibility
-    // check; keep the established reconnect behaviour for that run.
-    if (!created?.position) {
-      log(`MISSION_INTERRUPTION_SKIPPED cause=${cause} reason=position_unknown phase=${snapshot.state.phase}`);
+    if (requirePosition && !created?.position) {
+      pendingUnknownStart = true;
+      log(`MISSION_INTERRUPTION_DEFERRED cause=${cause} reason=position_unknown phase=${snapshot.state.phase}`);
       return null;
     }
+    pendingUnknownStart = false;
+    // Without a known position there is no zone and no automatic continuation:
+    // the pilot decides, and the run resumes right after the cockpit rebuild.
     write(created, reason);
     log(`MISSION_INTERRUPTION_BEGIN cause=${cause} phase=${snapshot.state.phase} airborne=${created?.zone?.airborne === true ? 1 : 0} position=${created?.position ? 1 : 0}`);
     return created;
@@ -112,7 +139,10 @@ function createMissionInterruptionController(options = {}) {
       if (Number.isFinite(Number(sample.engRpm))) lastEngineRpm = Number(sample.engRpm);
     }
     const current = record();
-    if (!current) return false;
+    if (!current) {
+      if (core.validSample(sample)) persistPosition(sample);
+      return false;
+    }
     const at = Number(sample?.observedAt) || now();
     if (current.status === 'awaiting_decision' && core.plausibleContinuation(current, sample, at)) {
       // The simulator obviously kept running (SimConnect/tracker gap).
@@ -180,9 +210,17 @@ function createMissionInterruptionController(options = {}) {
     return null;
   };
 
+  // First simulator connection after a tracker start without a stored position.
+  const attached = () => {
+    if (!pendingUnknownStart) return null;
+    pendingUnknownStart = false;
+    return begin('tracker_restart', 'first-simulator-attach');
+  };
+
   return Object.freeze({
     record,
     begin,
+    attached,
     observe,
     handleIntent,
     maybeRebuild,

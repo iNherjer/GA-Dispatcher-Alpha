@@ -71,7 +71,11 @@ test('central mission voice lane never overlaps simultaneous story and weather e
  for(const [i,kind] of ['bush_story','weather_preset'].entries()){
   assert.equal(adapter.applySystemEvent({missionId:h.b.missionId,runId:'bush-run',type:'APT_FLIGHT_VOICE_REQUESTED',eventId:'serial-'+i,payload:{kind,fallbackText:'Test',triggerAt:200000}}).ok,true);
  }
- h.runtime.detachSimulator();h.runtime.attachSimulator({getLivePosition:()=>({lat:48.1,lon:8.2}),dispatchCommand:completed,syncPayloadManifestState:completed});await settle();assert.deepEqual(played,['bush_story']);assert.equal(peak,1);
+ h.runtime.detachSimulator();h.runtime.attachSimulator({getLivePosition:()=>({lat:48.1,lon:8.2}),dispatchCommand:completed,syncPayloadManifestState:completed});
+ // SimConnect reconnect while the simulator kept running: the first real sample continues the run.
+ await h.sample({lat:48.1,lon:8.2,onGround:false,gsKts:90,aglFt:1500,altFt:2000,slewActive:false,slewMode:false,isSlewActive:false,slewTelemetryStatus:'ok'});
+ assert.equal(h.manager.getExecutionInterruption(),null);
+ await settle();assert.deepEqual(played,['bush_story']);assert.equal(peak,1);
  releases.shift()();await settle();assert.deepEqual(played,['bush_story','weather_preset']);assert.equal(peak,1);
  releases.shift()();await settle();h.runtime.detachSimulator();
 });

@@ -140,11 +140,47 @@ test('automatic continuation waits for the running cockpit before it resumes', (
   assert.deepEqual(f.resumed, ['auto']);
 });
 
-test('no interruption for planned runs or without any known position', () => {
+test('no interruption for planned runs', () => {
   const planned = fixture('planned');
   planned.controller.observe(planned.air());
   assert.equal(planned.controller.begin('simulator_disconnected', 'detach'), null);
-  const unknown = fixture('boarding');
-  assert.equal(unknown.controller.begin('simulator_disconnected', 'detach'), null);
-  assert.equal(unknown.record, null);
+  assert.equal(planned.record, null);
+});
+
+test('without a known position the run waits for a running cockpit and then continues', () => {
+  const f = fixture('boarding');
+  const created = f.controller.begin('tracker_restart', 'tracker-start');
+  assert.equal(created.status, 'awaiting_decision');
+  assert.equal(created.zone, null);
+  // World map / menu samples keep it interrupted (no loading prompts there).
+  assert.equal(f.controller.observe(f.air({ onGround: true, gsKts: 0, inMenuOrMap: true })), true);
+  assert.equal(f.record.status, 'awaiting_decision');
+  f.ready = true;
+  assert.equal(f.controller.observe(f.air({ onGround: true, gsKts: 0 })), false, 'first cockpit sample continues');
+  assert.equal(f.record, null);
+  assert.deepEqual(f.resumed, ['auto']);
+});
+
+test('the last valid position of a started run is persisted, throttled', () => {
+  const f = fixture('boarding');
+  const writes = [];
+  f.authority = null;
+  const stored = [];
+  const controller = require('./tracker-mission-interruption-controller.js').createMissionInterruptionController({
+    authorityManager: {
+      getExecutionSnapshot: () => ({ executionAuthority: 'tracker', missionId: 'm', runId: 'r', state: { phase: 'boarding', flags: {} } }),
+      getExecutionInterruption: () => null,
+      recordExecutionLastPosition: request => { writes.push(request.position); stored.push(request); return { ok: true }; }
+    },
+    now: () => f.clock
+  });
+  controller.observe(f.air({ onGround: true, gsKts: 0 }));
+  controller.observe(f.air({ onGround: true, gsKts: 0, observedAt: f.clock + 1000 }));
+  controller.observe(f.air({ onGround: true, gsKts: 0, inMenuOrMap: true, observedAt: f.clock + 2000 }));
+  assert.equal(writes.length, 1, 'unchanged position within 30 s is not written again; menu samples never');
+  controller.observe(f.air({ onGround: true, gsKts: 0, observedAt: f.clock + 31000 }));
+  controller.observe(f.air({ onGround: false, observedAt: f.clock + 32000 }));
+  assert.equal(writes.length, 3);
+  assert.equal(writes[2].onGround, false);
+  assert.equal(stored[0].runId, 'r');
 });

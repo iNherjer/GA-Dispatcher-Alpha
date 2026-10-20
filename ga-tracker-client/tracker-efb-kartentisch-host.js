@@ -210,13 +210,16 @@
   }
   // After a simulator interruption: the remaining route from the interruption
   // point. 'atc' prepares the World Map (air start is chosen there by the pilot).
+  // An airborne interruption sends the remaining route from its point; a ground
+  // interruption (or one without a known point) sends the mission route.
   function transferResumeFlightPlan(target) {
     var control = missionSnapshot && missionSnapshot.control;
     var view = interruptionView(missionSnapshot);
-    if (!control || !view || !view.zone || missionIntentPending || ['avionics', 'atc'].indexOf(target) < 0) return Promise.resolve(false);
+    if (!control || !view || missionIntentPending || ['avionics', 'atc'].indexOf(target) < 0) return Promise.resolve(false);
     if (target === 'atc' && Date.now() >= flightPlanAtcReadyUntil) return Promise.resolve(false);
     var revision = mapSnapshot && mapSnapshot.missionId === control.missionId && mapSnapshot.routeEdit ? mapSnapshot.routeEdit.revision : null;
-    return transferStartedFlightPlan(target, control.missionId, revision, 'interruption-resume', { lat: view.zone.lat, lon: view.zone.lon });
+    var startAt = view.zone && view.zone.airborne ? { lat: view.zone.lat, lon: view.zone.lon } : null;
+    return transferStartedFlightPlan(target, control.missionId, revision, 'interruption-resume', startAt);
   }
   function transferStartedFlightPlan(target, missionId, navigationRevision, trigger, startAt) {
     var control = missionSnapshot && missionSnapshot.control;
@@ -237,7 +240,7 @@
       if (!current || current.runId !== runId || current.missionId !== missionId) throw new Error('flightplan_run_changed');
       if (mapSnapshot && mapSnapshot.missionId === missionId && mapSnapshot.routeEdit && mapSnapshot.routeEdit.revision !== result.plan.navigationRevision) throw new Error('flightplan_route_changed');
       if (Date.now() >= flightPlanBridgeReadyUntil) throw new Error('flightplan_host_unavailable');
-      if (target === 'atc' && !startAt && !preflightPlanningModel(missionSnapshot)) throw new Error('flightplan_planning_state_changed');
+      if (target === 'atc' && trigger !== 'interruption-resume' && !preflightPlanningModel(missionSnapshot)) throw new Error('flightplan_planning_state_changed');
       var timer = setTimeout(function() {
         delete flightPlanJobs[jobId]; flightPlanBridgeReadyUntil = 0; requestSideDrawerRefresh();
         flightPlanStatus('Flugplanübertragung nicht bestätigt. Mission läuft unabhängig weiter.', {ok:false, jobId:jobId, routeHash:result.plan.routeHash, error:'flightplan_timeout'});
@@ -2921,11 +2924,15 @@
     var interruptionButtons = [];
     var interruptionModel = model && model.interruption;
     if (interruptionModel) {
-      if (interruptionModel.status !== 'awaiting_decision' && interruptionModel.zone && Date.now() < flightPlanBridgeReadyUntil) {
-        interruptionButtons.push({ id: 'avionics', label: 'Restroute an Avionik senden', run: function () { return transferResumeFlightPlan('avionics'); } });
+      var airborneZone = !!(interruptionModel.zone && interruptionModel.zone.airborne);
+      if (interruptionModel.status !== 'awaiting_decision' && Date.now() < flightPlanBridgeReadyUntil) {
+        interruptionButtons.push({ id: 'avionics', label: airborneZone ? 'Restroute an Avionik senden' : 'Flugplan an Avionik senden',
+          run: function () { return transferResumeFlightPlan('avionics'); } });
       }
-      if (interruptionModel.status === 'awaiting_decision' && interruptionModel.zone && interruptionModel.zone.airborne && Date.now() < flightPlanAtcReadyUntil) {
-        interruptionButtons.push({ id: 'atc', label: 'Restroute an Weltkarte senden (Luftstart dort wählen, experimentell)', run: function () { return transferResumeFlightPlan('atc'); } });
+      // World Map: prepare the flight before loading it (air start or departure stand).
+      if (interruptionModel.status === 'awaiting_decision' && Date.now() < flightPlanAtcReadyUntil) {
+        interruptionButtons.push({ id: 'atc', label: airborneZone ? 'Restroute an Weltkarte senden (Luftstart dort wählen, experimentell)' : 'Flugplan an Weltkarte senden',
+          run: function () { return transferResumeFlightPlan('atc'); } });
       }
       if (interruptionModel.resetAvailable) {
         interruptionButtons.push({ id: 'restart', label: 'Mission neustarten', run: function () { return window.requestMissionRuntimeReset({ reason: 'efb-interruption-restart' }); } });

@@ -163,7 +163,10 @@ function create({ cause = 'simulator_disconnected', phase = null, position = nul
 }
 
 function plausibleContinuation(record, sample, now = Date.now()) {
-  if (!record || record.status !== 'awaiting_decision' || !record.position?.observedAt) return false;
+  if (!record || record.status !== 'awaiting_decision') return false;
+  // Unknown position (older runs): nothing to compare, a running simulator continues.
+  if (!record.position) return validSample(sample);
+  if (!record.position.observedAt) return false;
   if (!record.autoResumeUntil || now > record.autoResumeUntil || !validSample(sample)) return false;
   const gapSec = Math.max(0, (now - record.position.observedAt) / 1000);
   // Taxi speed bound on the ground, cruise bound once either state is airborne.
@@ -254,6 +257,7 @@ module.exports = {
   bearingDeg,
   validSample,
   positionFromSample,
+  normalizePosition,
   normalize,
   normalizeHistory,
   interruptible,

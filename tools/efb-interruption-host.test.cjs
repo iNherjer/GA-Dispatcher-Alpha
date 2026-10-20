@@ -106,3 +106,19 @@ test('EFB render wiring keeps mission windows, reminders and the manual flight p
   assert.match(banner, /var planning = interrupted \? null : preflightPlanningModel\(payload, true\);/);
   for (const label of ['Restroute an Avionik senden', 'Mission neustarten', 'Mission abbrechen']) assert.ok(banner.includes(label), label);
 });
+
+test('reset and abort from the interruption banner always ask first', () => {
+  const banner = between('  function renderMissionActionBanner(payload) {', '  function updateMissionLiveFields(');
+  assert.match(banner, /id: 'restart', label: 'Mission neustarten', run: function \(\) \{ return window\.requestMissionRuntimeReset\(/,
+    'restart uses the existing EFB confirmation dialog');
+  assert.match(banner, /id: 'abort', label: 'Mission abbrechen', run: function \(\) \{\s*if \(!window\.confirm\(window\.GAMissionControlUiCore\.abortConfirmation\(\)\)\) return false;/);
+  const reset = between('    window.requestMissionRuntimeReset = function (options) {', '    window.handleMissionStartBannerAction = function () {');
+  assert.match(reset, /gaEfbResetConfirm/);
+  assert.match(reset, /if \(!accepted \|\| !current/);
+  const web = fs.readFileSync(path.join(__dirname, '..', 'sync.js'), 'utf8');
+  const secondary = web.slice(web.indexOf('window.handleMissionStartBannerSecondaryAction = async function'), web.indexOf('window.handleMissionStartBannerAction = async function'));
+  assert.match(secondary, /window\.requestMissionRuntimeReset\?\.\(\{ reason: 'mission-reset-interrupted' \}\)/);
+  assert.doesNotMatch(secondary, /skipConfirm/, 'the web reset keeps its critical-action confirmation');
+  const abort = web.slice(web.indexOf('window.gaAbortTrackerMission = '), web.indexOf('window.requestMissionRuntimeReset = async function'));
+  assert.match(abort, /options\.skipConfirm !== true && !_confirmMissionCriticalAction\(options\.confirmAction \|\| 'abort', options\)/);
+});

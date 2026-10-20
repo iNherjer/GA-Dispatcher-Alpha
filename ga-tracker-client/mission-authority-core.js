@@ -586,6 +586,7 @@ function normalizeStoredRun(run) {
     executionPayloadRecovery: normalizeExecutionPayloadRecovery(run.executionPayloadRecovery),
     executionInterruption: interruptionCore.normalize(run.executionInterruption),
     executionInterruptionHistory: interruptionCore.normalizeHistory(run.executionInterruptionHistory),
+    executionLastPosition: interruptionCore.normalizePosition(run.executionLastPosition),
     executionRuntimeContext: normalizeExecutionRuntimeContext(run.executionRuntimeContext),
     effects: (Array.isArray(run.effects) ? run.effects : []).slice(-MAX_EFFECTS).map(effect => ({
       ...publicEffect(effect),
@@ -1938,6 +1939,29 @@ function createMissionAuthorityManager(options = {}) {
     return { ok: true, status: 'ok', interruption: jsonClone(next) };
   };
 
+  // Last valid simulator position of the run, also before the mission start
+  // (the execution runtime context only records flight telemetry after it).
+  const recordExecutionLastPosition = (request = {}) => {
+    const match = activeMatches(request);
+    if (!match.ok) return { ok: false, status: 'conflict', error: match.error };
+    const position = interruptionCore.normalizePosition(request.position);
+    if (!position) return { ok: false, status: 'error', error: 'mission_position_invalid' };
+    const active = match.activeRun;
+    const previous = active.executionLastPosition || null;
+    active.executionLastPosition = position;
+    if (!persist()) {
+      active.executionLastPosition = previous;
+      return { ok: false, status: 'error', error: 'mission_position_persist_failed' };
+    }
+    return { ok: true, status: 'ok' };
+  };
+  const getExecutionLastPosition = (request = {}) => {
+    const active = state.activeRun;
+    if (!active?.missionId || !active?.runId) return null;
+    if ((request.runId && cleanString(request.runId, 220) !== active.runId)) return null;
+    return jsonClone(interruptionCore.normalizePosition(active.executionLastPosition));
+  };
+
   const getExecutionRuntimeContext = (request = {}) => {
     const active = state.activeRun;
     if (!active?.missionId || !active?.runId) return null;
@@ -2082,6 +2106,8 @@ function createMissionAuthorityManager(options = {}) {
     getLastExecutionPayloadRecovery,
     getExecutionInterruption,
     updateExecutionInterruption,
+    recordExecutionLastPosition,
+    getExecutionLastPosition,
     recordExecutionPayloadRecovery,
     getExecutionRuntimeContext,
     recordExecutionRuntimeContext,

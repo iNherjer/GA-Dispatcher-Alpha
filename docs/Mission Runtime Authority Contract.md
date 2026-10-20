@@ -135,6 +135,19 @@ Oberflaechen (gemeinsamer Kern `GAMissionControlUiCore.interruptionModel`):
   Unterbrechungspunkt und behaelt die Wegpunkte nach dem naechstgelegenen
   Segment (`departureIcao` leer).
 
+Nachbesserung Tracker v573 (Feldtest 20.10.2026):
+
+- Die letzte gueltige Position eines gestarteten Laufs wird auch vor dem
+  Missionsstart (Vorbereitung/Boarding) gesichert (`executionLastPosition`,
+  hoechstens alle 30 s bzw. bei 0,2 NM Bewegung oder Boden/Luft-Wechsel).
+- Laeufe ohne gespeicherte Position (aeltere Laeufe) werden beim ersten
+  Simulator-Verbinden unterbrochen: Weltkarte zeigt Unterbrechung statt
+  Verladung; das erste gueltige Cockpit-Sample setzt sie automatisch fort.
+- EFB bietet bei Boden-Unterbrechungen bzw. ohne Position „Flugplan an
+  Weltkarte senden“ (Missionsroute) und nach der Entscheidung „Flugplan an
+  Avionik senden“; im Flug weiterhin die Restroute.
+- Neustart/Abbruch aus dem Banner sind immer mit Rueckfrage gesichert.
+
 Offen / PC-Pruefung:
 
 - Ob MSFS 2024 eine Route ohne Abflugplatz aus dem EFB fuer einen

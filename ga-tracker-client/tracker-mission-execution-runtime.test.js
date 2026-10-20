@@ -481,6 +481,8 @@ test('restored confirmed unload keeps the passenger loaded until voice, continua
     },
     syncPayloadManifestState: () => ({ ok: true, status: 'completed', sideEffect: false })
   });
+  // The simulator is running: its first sample continues the restored run.
+  runtime.observeTelemetry({ observedAt: Date.now(), lat: 48.3, lon: 8.5, onGround: true, gsKts: 0 });
   assert.equal(await waitUntil(() => commands.length === 1), true, 'restored confirmation starts the existing close sequence');
   assert.equal(commands[0].type, 'mission_scene_deboarding');
   assert.equal(commands[0].coordinateFarewell, true);
@@ -663,6 +665,8 @@ test('simulator reconnect cancels payload work and immediately redrives persiste
   assert.equal(runtime.publicState().effects.awaitingAck.length, 0);
 
   runtime.attachSimulator(simulator);
+  // SimConnect reconnect while the simulator kept running.
+  runtime.observeTelemetry({ observedAt: Date.now(), lat: 48, lon: 8, onGround: true, gsKts: 0 });
   assert.equal(await waitUntil(() => dispatches === 2
     && runtime.publicState().effects.awaitingAck.length === 1), true);
   assert.equal(manager.getExecutionSnapshot().state.effects.some(effect => effect.status === 'requested'), true);
@@ -1107,6 +1111,10 @@ test('long loading sessions checkpoint their journal and still confirm payload a
   }
   const runtime = createTrackerMissionExecutionRuntime({ enabled: true, authorityManager: manager,
     payloadSyncBeforeStart: () => ({ ok: true, status: 'completed' }) });
+  // Runtime start on a started run: the first running-simulator sample continues it.
+  runtime.attachSimulator({ getLivePosition: () => null, dispatchCommand: () => ({ ok: true, status: 'completed' }) });
+  runtime.observeTelemetry({ observedAt: Date.now(), lat: 48, lon: 8, onGround: true, gsKts: 0 });
+  assert.equal(manager.getExecutionInterruption(), null);
   const run = manager.getActiveRun();
   assert.equal((await runtime.executeIntent({ intent: 'confirm_load', commandId: 'confirm-after-many-loads',
     missionId: run.missionId, runId: run.runId, expectedRevision: run.revision })).ok, true);
@@ -1672,8 +1680,11 @@ test('closed simulator pauses a boarding run until the user resumes in a running
     onGround: true, simRunning: 1, simPaused: false, inMenuOrMap: false, slewActive: false, ...over });
   const cockpit = (over = {}) => ({ ...ground(over), cameraState: 2 });
   let bridge = runtime.attachSimulator(simulator);
+  // Runtime start on a started run without a stored position: the running cockpit continues it.
+  runtime.observeStartReadiness(cockpit());
   runtime.observeTelemetry(ground());
   assert.equal(manager.getExecutionInterruption(), null);
+  dispatched.length = 0;
 
   // MSFS closes during boarding.
   assert.equal(runtime.detachSimulator(bridge), true);
@@ -1797,4 +1808,34 @@ test('restarting an interrupted run returns to a planned run that a closed simul
   runtime.observeTelemetry({ observedAt: clock + 1000, lat: 48.2, lon: 8.4, onGround: true, gsKts: 0 });
   runtime.detachSimulator(bridge);
   assert.equal(manager.getExecutionInterruption(), null);
+});
+
+test('an older started run without a stored position is interrupted at the first simulator connection (world map)', async t => {
+  const manager = boardingManager(t);
+  let clock = 200000;
+  const dispatched = [];
+  const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: true,
+    requireCockpitReady: true, independentStartReadiness: true, now: () => clock, log: () => {} });
+  assert.equal(manager.getExecutionInterruption(), null, 'no simulator yet: nothing to protect');
+  runtime.attachSimulator({ getLivePosition: () => ({ lat: 48.2, lon: 8.4, alt: 800, hdg: 90 }),
+    dispatchCommand: command => { dispatched.push(command.type); return { ok: true, status: 'completed' }; } });
+  const record = manager.getExecutionInterruption();
+  assert.equal(record.status, 'awaiting_decision');
+  assert.equal(record.zone, null);
+  const control = manager.getPublicSnapshot().execution;
+  assert.deepEqual(control.allowedActions, ['abort_mission', 'resume_mission'], 'world map shows the interruption, not loading');
+  // World map: menu samples keep the decision open.
+  runtime.observeStartReadiness({ observedAt: clock, lat: 48.2, lon: 8.4, altFt: 800, onGround: true, gsKts: 0,
+    simRunning: 1, simPaused: false, inMenuOrMap: false, slewActive: false, cameraState: 12 });
+  runtime.observeTelemetry({ observedAt: clock, lat: 0, lon: 0, onGround: true, gsKts: 0, inMenuOrMap: true });
+  assert.equal(manager.getExecutionInterruption().status, 'awaiting_decision');
+  assert.deepEqual(dispatched, []);
+  // Cockpit loaded: the run continues on its own and stores its position from now on.
+  clock += 5000;
+  runtime.observeStartReadiness({ observedAt: clock, lat: 48.2, lon: 8.4, altFt: 800, onGround: true, gsKts: 0,
+    simRunning: 1, simPaused: false, inMenuOrMap: false, slewActive: false, cameraState: 2 });
+  runtime.observeTelemetry({ observedAt: clock, lat: 48.2, lon: 8.4, onGround: true, gsKts: 0 });
+  assert.equal(manager.getExecutionInterruption(), null);
+  runtime.observeTelemetry({ observedAt: clock + 1000, lat: 48.2, lon: 8.4, onGround: true, gsKts: 0 });
+  assert.equal(manager.getExecutionLastPosition().lat, 48.2);
 });
