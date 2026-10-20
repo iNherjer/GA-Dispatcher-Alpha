@@ -23,8 +23,6 @@ const elements = {
   voiceFormMessage: document.getElementById('voiceFormMessage'),
   runtimeChannelSelect: document.getElementById('runtimeChannelSelect'),
   runtimeChannelMessage: document.getElementById('runtimeChannelMessage'),
-  aptMissionExecutionCheckbox: document.getElementById('aptMissionExecutionCheckbox'),
-  aptMissionExecutionMessage: document.getElementById('aptMissionExecutionMessage'),
   hardMissionResetButton: document.getElementById('hardMissionResetButton'),
   hardMissionResetMessage: document.getElementById('hardMissionResetMessage'),
   trackerAutoUpdateCheckbox: document.getElementById('trackerAutoUpdateCheckbox'),
@@ -151,7 +149,6 @@ const updateModules = {
 let latestState = null;
 let activeUpdateDialog = null;
 let channelChangePending = false;
-let aptMissionExecutionChangePending = false;
 let hardMissionResetPending = false;
 let dismissedDesktopInstallVersion = '';
 const dismissedUpdates = new Set();
@@ -406,7 +403,7 @@ let autostartLaunchPending = false;
 let autostartDetectPending = false;
 
 function autostartPayload(entries) {
-  return entries.map((entry) => ({ id: entry.id, enabled: entry.enabled, admin: entry.admin, args: entry.args, minimized: entry.minimized, stage: entry.stage, delaySeconds: entry.delaySeconds }));
+  return entries.map((entry) => ({ id: entry.id, enabled: entry.enabled, admin: entry.admin, args: entry.args, minimized: entry.minimized, stage: entry.stage, delaySeconds: entry.delaySeconds, closeWithSim: entry.closeWithSim }));
 }
 
 function saveAutostartEntries(entries) {
@@ -419,11 +416,15 @@ function autostartStage(entry) {
   return entry.stage === 'simconnect' ? 'simconnect' : 'start';
 }
 
-// Verschiebt einen Eintrag vor targetId bzw. ans Ende der Zielliste. Der Sim
-// bleibt immer in der oberen Startliste.
+// Sim und Tracker bleiben immer in der oberen Startliste (vor SimConnect).
+function autostartStartOnly(entry) {
+  return entry?.kind === 'sim' || entry?.kind === 'tracker';
+}
+
+// Verschiebt einen Eintrag vor targetId bzw. ans Ende der Zielliste.
 function moveAutostartEntryTo(id, targetId, stage) {
   const moved = autostartEntries.find((entry) => entry.id === id);
-  if (!moved || id === targetId || (moved.kind === 'sim' && stage === 'simconnect')) return;
+  if (!moved || id === targetId || (autostartStartOnly(moved) && stage === 'simconnect')) return;
   const next = autostartEntries.filter((entry) => entry.id !== id);
   const updated = { ...moved, stage };
   let index = targetId ? next.findIndex((entry) => entry.id === targetId) : -1;
@@ -456,7 +457,7 @@ function setupAutostartListDrop(list, stage, targetId = () => null) {
   list.addEventListener('dragover', (event) => {
     if (!autostartDragId) return;
     const moved = autostartEntries.find((entry) => entry.id === autostartDragId);
-    if (moved?.kind === 'sim' && stage === 'simconnect') return;
+    if (autostartStartOnly(moved) && stage === 'simconnect') return;
     event.preventDefault();
     list.classList.add('drop-target');
   });
@@ -563,6 +564,7 @@ function autostartItem(entry, index, run, group, numberOffset = 0) {
   const item = document.createElement('li');
   item.className = 'autostart-item';
   if (entry.kind === 'sim') item.classList.add('is-sim');
+  if (entry.kind === 'tracker') item.classList.add('is-tracker');
   if (!entry.enabled) item.classList.add('disabled');
   if (run.phase === 'running' && run.currentId === entry.id) item.classList.add('current');
   if (autostartMenuId === entry.id) item.classList.add('menu-open');
@@ -608,7 +610,7 @@ function autostartItem(entry, index, run, group, numberOffset = 0) {
   item.addEventListener('dragover', (event) => {
     if (!autostartDragId) return;
     const moved = autostartEntries.find((other) => other.id === autostartDragId);
-    if (moved?.kind === 'sim' && autostartStage(entry) === 'simconnect') return;
+    if (autostartStartOnly(moved) && autostartStage(entry) === 'simconnect') return;
     event.preventDefault();
     item.classList.add('drop-target');
   });
@@ -634,6 +636,8 @@ function autostartItem(entry, index, run, group, numberOffset = 0) {
   } else {
     if (entry.kind === 'sim') {
       icon.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg>';
+    } else if (entry.kind === 'tracker') {
+      icon.textContent = 'TRK';
     } else {
       icon.textContent = 'EXE';
     }
@@ -646,10 +650,10 @@ function autostartItem(entry, index, run, group, numberOffset = 0) {
   const nameText = document.createElement('span');
   nameText.textContent = entry.name;
   name.append(nameText);
-  if (entry.kind === 'sim') {
+  if (entry.kind === 'sim' || entry.kind === 'tracker') {
     const tag = document.createElement('span');
     tag.className = 'autostart-sim-tag';
-    tag.textContent = 'Simulator';
+    tag.textContent = entry.kind === 'sim' ? 'Simulator' : 'Tracker';
     name.append(tag);
   }
   const result = run.results?.[entry.id];
@@ -671,11 +675,20 @@ function autostartItem(entry, index, run, group, numberOffset = 0) {
 
   const options = document.createElement('div');
   options.className = 'autostart-options';
-  const enabled = document.createElement('input');
-  enabled.type = 'checkbox';
-  enabled.checked = entry.enabled;
-  enabled.addEventListener('change', () => patchAutostartEntry(entry.id, { enabled: enabled.checked }));
-  options.append(autostartOption('Aktiv', enabled));
+  if (entry.kind === 'tracker') {
+    // Der Tracker startet immer; beenden darf ihn der Autostart nur auf Wunsch.
+    const closeWithSim = document.createElement('input');
+    closeWithSim.type = 'checkbox';
+    closeWithSim.checked = entry.closeWithSim === true;
+    closeWithSim.addEventListener('change', () => patchAutostartEntry(entry.id, { closeWithSim: closeWithSim.checked }));
+    options.append(autostartOption('Mit dem Sim beenden', closeWithSim));
+  } else {
+    const enabled = document.createElement('input');
+    enabled.type = 'checkbox';
+    enabled.checked = entry.enabled;
+    enabled.addEventListener('change', () => patchAutostartEntry(entry.id, { enabled: enabled.checked }));
+    options.append(autostartOption('Aktiv', enabled));
+  }
   const delay = document.createElement('select');
   const delays = AUTOSTART_DELAYS.includes(entry.delaySeconds) ? AUTOSTART_DELAYS : AUTOSTART_DELAYS.concat(entry.delaySeconds).sort((a, b) => a - b);
   for (const seconds of delays) {
@@ -702,7 +715,7 @@ function autostartItem(entry, index, run, group, numberOffset = 0) {
   remove.addEventListener('click', () => saveAutostartEntries(autostartEntries.filter((other) => other.id !== entry.id)));
   const menu = autostartMenu(entry);
   if (menu) side.append(menu.button);
-  side.append(remove);
+  if (entry.kind !== 'tracker') side.append(remove);
   if (menu) item.append(menu.panel);
 
   item.append(handle, icon, body, side);
@@ -808,19 +821,13 @@ function render(state) {
       ? 'Alpha erhält neue Tracker-Versionen zuerst. Die Stable-Runtime bleibt als Rückweg erhalten.'
       : 'Stable verwendet ausschließlich freigegebene Tracker-Versionen.';
   }
-  setChecked(elements.aptMissionExecutionCheckbox, settings.aptMissionExecutionEnabled === false);
-  elements.aptMissionExecutionCheckbox.disabled = aptMissionExecutionChangePending;
-  elements.aptMissionExecutionMessage.textContent = settings.aptMissionExecutionEnabled !== false
-    ? 'Tracker-Missionslogik aktiv (Standard). Nur zur Fehlersuche deaktivieren.'
-    : 'Warnung: Tracker-Missionslogik für Debug deaktiviert. Die App übernimmt unterstützte neue Missionsläufe. Für normalen Betrieb wieder einschalten.';
-  const hardMissionResetAvailable = tracker.process === 'running'
-    && settings.aptMissionExecutionEnabled === true;
+  const hardMissionResetAvailable = tracker.process === 'running';
   elements.hardMissionResetButton.disabled = !hardMissionResetAvailable || hardMissionResetPending;
   if (!hardMissionResetPending && !elements.hardMissionResetMessage.textContent) {
     elements.hardMissionResetMessage.className = 'form-message';
     elements.hardMissionResetMessage.textContent = hardMissionResetAvailable
       ? 'Nur verwenden, wenn eine Tracker-Mission festhängt. Eine Rückfrage schützt vor Versehen.'
-      : 'Verfügbar bei laufendem Tracker mit aktiver Missionslogik.';
+      : 'Verfügbar bei laufendem Tracker.';
   }
   setChecked(elements.trackerAutoUpdateCheckbox, modulePolicy(settings, 'tracker') === 'automatic');
   setChecked(elements.desktopAutoUpdateCheckbox, modulePolicy(settings, 'desktop') === 'automatic');
@@ -926,29 +933,6 @@ elements.runtimeChannelSelect.addEventListener('change', async () => {
   }
 });
 
-elements.aptMissionExecutionCheckbox.addEventListener('change', async () => {
-  const previous = latestState?.settings?.aptMissionExecutionEnabled === false;
-  const enabled = !elements.aptMissionExecutionCheckbox.checked;
-  if (!enabled && !window.confirm('Tracker-Missionslogik nur zu Debug-Zwecken deaktivieren?\n\nDiese Option ist ausschließlich zur Fehlersuche gedacht. Der Tracker wird neu gestartet. Nicht während einer laufenden Mission umschalten. Für den normalen Betrieb die Missionslogik anschließend wieder aktivieren.')) {
-    elements.aptMissionExecutionCheckbox.checked = previous;
-    return;
-  }
-  aptMissionExecutionChangePending = true;
-  elements.aptMissionExecutionCheckbox.disabled = true;
-  elements.aptMissionExecutionMessage.textContent = enabled
-    ? 'Tracker-Steuerung wird aktiviert und der Tracker bei Bedarf neu gestartet …'
-    : 'Tracker-Steuerung wird deaktiviert und der Tracker bei Bedarf neu gestartet …';
-  const result = await window.trackerDesktop.setAptMissionExecutionEnabled(enabled);
-  aptMissionExecutionChangePending = false;
-  render(await window.trackerDesktop.getState());
-  if (!result?.ok) {
-    elements.aptMissionExecutionCheckbox.checked = previous;
-    elements.aptMissionExecutionMessage.textContent = result?.message || 'Tracker-Missionssteuerung konnte nicht geändert werden.';
-  } else if (result.restartFailed) {
-    elements.aptMissionExecutionMessage.textContent = result.message;
-  }
-});
-
 elements.hardMissionResetButton.addEventListener('click', async () => {
   if (hardMissionResetPending) return;
   if (!window.confirm('Laufende Tracker-Mission wirklich hart zurücksetzen?\n\nDer Tracker stellt zuerst Payload und Simulator-Szenen wieder her, entfernt danach nur seinen Missionszustand und lädt die aktuelle Mission erneut aus der App. Fluglog und App-Mission werden nicht gelöscht.')) return;
@@ -1051,7 +1035,7 @@ elements.autostartLaunchButton.addEventListener('click', async () => {
     const result = await window.trackerDesktop.launchAutostart();
     if (result?.tracker?.needsCredentials) {
       elements.formMessage.className = 'form-message error';
-      elements.formMessage.textContent = 'Bitte zuerst Pilot-ID und PIN speichern. Die Programme wurden trotzdem gestartet.';
+      elements.formMessage.textContent = 'Bitte zuerst Pilot-ID und PIN speichern. Die übrigen Programme wurden trotzdem gestartet.';
     }
   } finally {
     autostartLaunchPending = false;

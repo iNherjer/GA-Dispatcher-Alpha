@@ -107,7 +107,6 @@ function currentState() {
       homebaseUpdatePolicy: 'ask',
       efbUpdatePolicy: 'ask',
       bridgeUpdatePolicy: 'ask',
-      aptMissionExecutionEnabled: true,
       autoStartTracker: true,
       startMinimized: false,
       autoStartBridge: false,
@@ -258,42 +257,6 @@ async function switchRuntimeChannel(rawChannel) {
     broadcastState();
     return { ok: false, channel: requested, message: error?.message || String(error) };
   }
-}
-
-async function setAptMissionExecutionEnabled(rawEnabled) {
-  const enabled = rawEnabled === true;
-  const settings = configStore.publicSettings();
-  if (settings.aptMissionExecutionEnabled === enabled) {
-    return { ok: true, unchanged: true, settings };
-  }
-
-  const stopped = await stopTrackerAndWait();
-  if (!stopped.ok) return stopped;
-
-  try {
-    configStore.setAptMissionExecutionEnabled(enabled);
-  } catch (error) {
-    if (stopped.wasRunning) {
-      trackerStartupAllowed = true;
-      await startTrackerIfReady();
-    }
-    return { ok: false, message: error?.message || String(error) };
-  }
-  if (stopped.wasRunning) {
-    trackerStartupAllowed = true;
-    const started = await startTrackerIfReady();
-    if (!started?.ok) {
-      broadcastState();
-      return {
-        ok: true,
-        enabled,
-        restartFailed: true,
-        message: 'Einstellung gespeichert. Der Tracker konnte nicht automatisch neu gestartet werden.'
-      };
-    }
-  }
-  broadcastState();
-  return { ok: true, enabled, settings: configStore.publicSettings() };
 }
 
 function radioHoldState(state = radioHold.publicState()) {
@@ -528,12 +491,8 @@ function registerIpc() {
   ipcMain.handle('autostart:update-entries', (_event, payload) => autostartLauncher.updateEntries(payload?.entries));
   ipcMain.handle('autostart:detect-sims', () => autostartLauncher.detectSimulators());
   ipcMain.handle('autostart:choose-sim', (_event, payload) => autostartLauncher.chooseSimulator(String(payload?.key || '')));
-  ipcMain.handle('autostart:launch-all', async () => {
-    trackerStartupAllowed = true;
-    const tracker = await startTrackerIfReady();
-    const programs = await autostartLauncher.launchAll();
-    return { ...programs, tracker };
-  });
+  // The tracker is part of the ordered autostart list (fixed entry).
+  ipcMain.handle('autostart:launch-all', () => autostartLauncher.launchAll());
   ipcMain.handle('settings:save-credentials', async (_event, payload) => {
     const pilotId = String(payload?.pilotId || '').trim();
     const pin = String(payload?.pin || '').trim();
@@ -603,7 +562,6 @@ function registerIpc() {
     return { ok: update?.ok !== false, settings: configStore.publicSettings(), update };
   });
   ipcMain.handle('settings:set-runtime-channel', (_event, payload) => switchRuntimeChannel(payload?.channel));
-  ipcMain.handle('settings:set-apt-mission-execution', (_event, payload) => setAptMissionExecutionEnabled(payload?.enabled));
   ipcMain.handle('settings:set-startup-preferences', (_event, payload) => {
     configStore.setStartupPreferences({
       autoStartTracker: payload?.autoStartTracker === true,
@@ -777,8 +735,7 @@ async function startApplication() {
       const voice = configStore.voiceCredentials();
       return voice ? { ...credentials, voice } : credentials;
     },
-    getRuntimeChannel: () => configStore.publicSettings().runtimeChannel,
-    getAptMissionExecutionEnabled: () => configStore.publicSettings().aptMissionExecutionEnabled
+    getRuntimeChannel: () => configStore.publicSettings().runtimeChannel
   });
   const developmentBridgeDirectory = path.resolve(__dirname, '..', 'accusim-router-desktop');
   let developmentBridgeVersion = '';
@@ -816,6 +773,13 @@ async function startApplication() {
   autostartLauncher = new AutostartLauncher({
     configStore,
     getSimConnectState: () => trackerProcess?.status || null,
+    startTracker: async () => {
+      trackerStartupAllowed = true;
+      const result = await startTrackerIfReady();
+      return result?.ok === false ? result : { ok: true };
+    },
+    stopTracker: () => stopTrackerAndWait(),
+    trackerRunning: () => Boolean(trackerProcess?.child),
     log: (line) => {
       try {
         if (fs.existsSync(autostartLogPath) && fs.statSync(autostartLogPath).size > 512 * 1024) fs.writeFileSync(autostartLogPath, '');

@@ -46,8 +46,29 @@ function imageNameFor(target) {
   return extension === '.exe' ? path.win32.basename(target) : '';
 }
 
+// The tracker itself is a fixed list entry: its position and wait time are
+// configurable, it always starts before SimConnect (the EFB in the World Map
+// needs it) and may optionally stop again when the simulator ends.
+const TRACKER_ENTRY_ID = 'tracker';
+const TRACKER_ENTRY_NAME = 'VFR Multitool Tracker';
+
+function trackerEntry(raw = {}) {
+  const entry = safeObject(raw);
+  return {
+    id: TRACKER_ENTRY_ID,
+    kind: 'tracker',
+    name: TRACKER_ENTRY_NAME,
+    enabled: true,
+    delaySeconds: entry.delaySeconds === undefined ? 0 : clampDelay(entry.delaySeconds),
+    closeWithSim: entry.closeWithSim === true,
+    admin: false,
+    stage: 'start'
+  };
+}
+
 function normalizeEntry(raw) {
   const entry = safeObject(raw);
+  if (entry.kind === 'tracker') return trackerEntry(entry);
   const kind = entry.kind === 'sim' ? 'sim' : 'program';
   const id = cleanText(entry.id, 64);
   if (!id) return null;
@@ -89,9 +110,15 @@ function normalizeAutostartSettings(raw) {
     const entry = normalizeEntry(item);
     if (!entry || seen.has(entry.id)) continue;
     if (entry.kind === 'sim' && entries.some((existing) => existing.kind === 'sim')) continue;
+    if (entry.kind !== 'tracker' && entry.id === TRACKER_ENTRY_ID) continue;
     seen.add(entry.id);
     entries.push(entry);
     if (entries.length >= MAX_ENTRIES) break;
+  }
+  // Older settings started the tracker before the list: keep it first there.
+  if (!seen.has(TRACKER_ENTRY_ID)) {
+    entries.unshift(trackerEntry());
+    if (entries.length > MAX_ENTRIES) entries.pop();
   }
   return {
     enabled: settings.enabled === true,
@@ -251,7 +278,10 @@ class AutostartLauncher extends EventEmitter {
     sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
     createId = () => crypto.randomUUID(),
     log = () => {},
-    getSimConnectState = () => null
+    getSimConnectState = () => null,
+    startTracker = async () => ({ ok: false, message: 'Tracker-Start nicht verfügbar.' }),
+    stopTracker = async () => {},
+    trackerRunning = () => false
   } = {}) {
     super();
     if (!configStore) throw new Error('configStore fehlt.');
@@ -267,6 +297,10 @@ class AutostartLauncher extends EventEmitter {
     this.log = (line) => { try { log(line); } catch (_) {} };
     this.adminLaunched = new Set();
     this.getSimConnectState = getSimConnectState;
+    this.startTracker = startTracker;
+    this.stopTracker = stopTracker;
+    this.trackerRunning = trackerRunning;
+    this.trackerOwned = false;
     this.stageToken = 0;
     this.adminTasksReady = new Set();
     this.icons = new Map();
@@ -304,7 +338,9 @@ class AutostartLauncher extends EventEmitter {
         id: entry.id,
         kind: entry.kind,
         name: entry.name,
-        detail: entry.kind === 'sim' ? (entry.source === 'steam' ? 'Steam' : 'Microsoft Store') : entry.path,
+        detail: entry.kind === 'sim' ? (entry.source === 'steam' ? 'Steam' : 'Microsoft Store')
+          : (entry.kind === 'tracker' ? 'Startet vor bzw. mit dem Sim, damit das EFB in der Weltkarte verfügbar ist' : entry.path),
+        closeWithSim: entry.kind === 'tracker' ? entry.closeWithSim === true : undefined,
         enabled: entry.enabled,
         admin: entry.admin,
         args: entry.args || '',
@@ -381,7 +417,9 @@ class AutostartLauncher extends EventEmitter {
         delaySeconds: DEFAULT_DELAY_SECONDS
       });
     }
-    this.save({ ...settings, entries: added.concat(settings.entries) });
+    // New programs go to the top of the list, but below a leading tracker entry.
+    const lead = settings.entries[0]?.kind === 'tracker' ? 1 : 0;
+    this.save({ ...settings, entries: [...settings.entries.slice(0, lead), ...added, ...settings.entries.slice(lead)] });
     if (added.length) void this.loadIcons();
     return { ok: true, added: added.length, rejected };
   }
@@ -396,6 +434,13 @@ class AutostartLauncher extends EventEmitter {
       const existing = byId.get(String(item?.id || ''));
       if (!existing) continue;
       byId.delete(existing.id);
+      if (existing.kind === 'tracker') {
+        next.push(trackerEntry({
+          delaySeconds: item.delaySeconds === undefined ? existing.delaySeconds : item.delaySeconds,
+          closeWithSim: typeof item.closeWithSim === 'boolean' ? item.closeWithSim : existing.closeWithSim
+        }));
+        continue;
+      }
       next.push({
         ...existing,
         enabled: typeof item.enabled === 'boolean' ? item.enabled : existing.enabled,
@@ -601,7 +646,30 @@ class AutostartLauncher extends EventEmitter {
     this.emitState();
   }
 
+  async launchTracker(entry) {
+    this.setRun({ currentId: entry.id });
+    if (this.trackerRunning()) {
+      this.setResult(entry.id, 'skipped');
+      this.log('AUTOSTART_SKIPPED entry=tracker reason=already-running');
+      return true;
+    }
+    try {
+      const result = await this.startTracker();
+      this.lastTrackerResult = result || null;
+      if (result && result.ok === false) throw new Error(result.message || (result.needsCredentials ? 'Pilot-ID und PIN fehlen.' : 'Tracker konnte nicht gestartet werden.'));
+      this.trackerOwned = true;
+      this.setResult(entry.id, 'started');
+      this.log(`AUTOSTART_STARTED entry=tracker closeWithSim=${entry.closeWithSim ? 1 : 0}`);
+      return true;
+    } catch (error) {
+      this.setResult(entry.id, 'failed');
+      this.log(`AUTOSTART_FAILED entry=tracker error=${cleanText(error?.message, 200)}`);
+      return false;
+    }
+  }
+
   async launchOne(entry) {
+    if (entry.kind === 'tracker') return this.launchTracker(entry);
     this.setRun({ currentId: entry.id });
     const running = entry.imageName ? await this.runningImageNames() : new Set();
     if (entry.imageName && running.has(entry.imageName.toLowerCase())) {
@@ -652,6 +720,7 @@ class AutostartLauncher extends EventEmitter {
     const first = entries.filter((entry) => entry.stage !== 'simconnect');
     const later = entries.filter((entry) => entry.stage === 'simconnect');
     this.setRun({ phase: 'running', currentId: '', results: {}, message: '' });
+    this.lastTrackerResult = null;
     this.log(`AUTOSTART_LAUNCH entries=${first.map((entry) => entry.name).join(', ')} simconnect=${later.map((entry) => entry.name).join(', ') || 'none'}`);
     if (entries.some((entry) => entry.kind === 'program' && entry.admin)) await this.ensureAdminTasks(entries);
     if (!this.baselinePids && entries.some((entry) => entry.kind === 'program')) {
@@ -665,10 +734,10 @@ class AutostartLauncher extends EventEmitter {
     if (later.length) {
       this.setRun({ phase: 'waiting', currentId: '', message: 'Wartet auf SimConnect …' });
       void this.launchAfterSimConnect(later, failed);
-      return { ok: failed === 0, message, waiting: later.length };
+      return { ok: failed === 0, message, waiting: later.length, tracker: this.lastTrackerResult };
     }
     this.setRun({ phase: 'done', currentId: '', message });
-    return { ok: failed === 0, message };
+    return { ok: failed === 0, message, tracker: this.lastTrackerResult };
   }
 
   // SimConnect gilt als bereit, wenn der Tracker verbunden ist und Daten
@@ -754,6 +823,16 @@ class AutostartLauncher extends EventEmitter {
   async shutdownOwned(reason = 'app-exit') {
     this.stopSimulatorWatch();
     this.cancelWaitingStage();
+    // The tracker stops with the simulator only when the pilot allowed it and
+    // the autostart started it; on app exit the app stops it anyway.
+    const tracker = this.settings().entries.find((entry) => entry.kind === 'tracker');
+    if (reason === 'sim-ended' && this.trackerOwned && tracker?.closeWithSim) {
+      this.trackerOwned = false;
+      this.log('AUTOSTART_CLOSE entry=tracker reason=sim-ended');
+      try { await this.stopTracker(); } catch (error) { this.log(`AUTOSTART_CLOSE_FAILED entry=tracker error=${cleanText(error?.message, 200)}`); }
+      this.run = { ...this.run, results: { ...this.run.results, [TRACKER_ENTRY_ID]: 'closed' } };
+      this.emitState();
+    }
     const hasOwned = this.ownedImageNames.size || this.ownedRoots.size || this.ownedFolders.size || this.adminLaunched.size;
     if (this.platform !== 'win32' || !this.settings().closeOnExit || !hasOwned) return;
     const names = [...this.ownedImageNames];

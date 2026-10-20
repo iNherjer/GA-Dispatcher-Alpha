@@ -77,30 +77,25 @@ test('private media endpoint is inherited only by the child and the managed runt
   assert.equal(spec.args.length,0,'private media token must not be in process arguments');
 });
 
-test('mission execution works on Stable and explicit debug opt-out overrides inherited process state', () => {
-  const inherited = process.env.VFR_MULTITOOL_APT_EXECUTION;
-  process.env.VFR_MULTITOOL_APT_EXECUTION = '1';
+test('mission execution is always on, even with a stored debug opt-out or inherited process state', () => {
+  const inherited = { apt: process.env.VFR_MULTITOOL_APT_EXECUTION, debug: process.env.VFR_MULTITOOL_MISSION_EXECUTION_DEBUG_DISABLED };
+  process.env.VFR_MULTITOOL_APT_EXECUTION = '0';
+  process.env.VFR_MULTITOOL_MISSION_EXECUTION_DEBUG_DISABLED = '1';
   try {
-    const stable = new TrackerProcess({
-      electronApp: { isPackaged: false },
-      dataDirectory: path.join(os.tmpdir(), 'vfr-tracker-process-stable-test'),
-      getRuntimeChannel: () => 'stable',
-      getAptMissionExecutionEnabled: () => true,
-      getCredentials: () => ({ pilotId: 'Stable-Pilot', pin: '1234' })
-    });
-    const alphaOff = new TrackerProcess({
-      electronApp: { isPackaged: false },
-      dataDirectory: path.join(os.tmpdir(), 'vfr-tracker-process-alpha-off-test'),
-      getRuntimeChannel: () => 'alpha',
-      getAptMissionExecutionEnabled: () => false,
-      getCredentials: () => ({ pilotId: 'Alpha-Pilot', pin: '1234' })
-    });
-    assert.equal(stable.executableSpec().env.VFR_MULTITOOL_APT_EXECUTION, '1');
-    assert.equal(stable.executableSpec().env.VFR_MULTITOOL_MISSION_EXECUTION_DEBUG_DISABLED, '0');
-    assert.equal(alphaOff.executableSpec().env.VFR_MULTITOOL_MISSION_EXECUTION_DEBUG_DISABLED, '1');
-    assert.equal(alphaOff.executableSpec().env.VFR_MULTITOOL_APT_EXECUTION, '0');
+    for (const channel of ['stable', 'alpha']) {
+      const tracker = new TrackerProcess({
+        electronApp: { isPackaged: false },
+        dataDirectory: path.join(os.tmpdir(), `vfr-tracker-process-${channel}-test`),
+        getRuntimeChannel: () => channel,
+        getCredentials: () => ({ pilotId: 'Pilot', pin: '1234' })
+      });
+      assert.equal(tracker.executableSpec().env.VFR_MULTITOOL_APT_EXECUTION, '1');
+      assert.equal(tracker.executableSpec().env.VFR_MULTITOOL_MISSION_EXECUTION_DEBUG_DISABLED, '0');
+    }
   } finally {
-    if (inherited === undefined) delete process.env.VFR_MULTITOOL_APT_EXECUTION;
-    else process.env.VFR_MULTITOOL_APT_EXECUTION = inherited;
+    if (inherited.apt === undefined) delete process.env.VFR_MULTITOOL_APT_EXECUTION;
+    else process.env.VFR_MULTITOOL_APT_EXECUTION = inherited.apt;
+    if (inherited.debug === undefined) delete process.env.VFR_MULTITOOL_MISSION_EXECUTION_DEBUG_DISABLED;
+    else process.env.VFR_MULTITOOL_MISSION_EXECUTION_DEBUG_DISABLED = inherited.debug;
   }
 });

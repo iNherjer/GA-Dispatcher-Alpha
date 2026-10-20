@@ -47,10 +47,13 @@ zwischen `Stable` und `Alpha` gewechselt werden.
   Sim-Erkennung findet MSFS 2024/2020 über Steam (`appmanifest_*.acf` in allen
   Steam-Bibliotheken) und den Microsoft Store (`Get-AppxPackage`); bei mehreren
   Funden wird gewählt. Ist das Modul an, erscheint oben `Tracker & Sim starten`:
-  erst Tracker, dann die Liste in Reihenfolge; bereits laufende Programme
-  werden übersprungen. Optional schließt die App beim Beenden nur Programme,
-  die der Autostart in dieser Sitzung selbst gestartet hat; der Sim wird nie
-  geschlossen. Einstellungen liegen in `desktop-settings.json` unter `autostart`.
+  die Liste startet in Reihenfolge; bereits laufende Programme werden
+  übersprungen. Der Tracker ist ein fester Listeneintrag (Position und Wartezeit
+  frei wählbar, nicht entfernbar) und startet immer vor SimConnect, damit das
+  EFB in der Weltkarte verfügbar ist. Optional beendet „Mit dem Sim beenden“
+  einen vom Autostart gestarteten Tracker, sobald der Sim geschlossen wurde.
+  Optional schließt die App beim Beenden nur Programme, die der Autostart in
+  dieser Sitzung selbst gestartet hat; der Sim wird nie geschlossen. Einstellungen liegen in `desktop-settings.json` unter `autostart`.
 
 Persoenliche Tracker-/Homebase-Daten bleiben unter
 `Dokumente/VFR Multitool/Tracker`. Programmzustand, geladene Tracker-Versionen und

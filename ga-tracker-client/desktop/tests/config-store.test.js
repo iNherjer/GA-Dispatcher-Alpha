@@ -37,7 +37,6 @@ test('credentials are encrypted in app data while personal tracker config is pre
   store.setModuleUpdatePolicy('homebase', 'automatic');
   store.setModuleUpdatePolicy('efb', 'automatic');
   store.setModuleUpdatePolicy('bridge', 'automatic');
-  store.setAptMissionExecutionEnabled(true);
   store.setStartupPreferences({
     autoStartTracker: false,
     startMinimized: true,
@@ -67,7 +66,6 @@ test('credentials are encrypted in app data while personal tracker config is pre
     homebaseUpdatePolicy: 'automatic',
     efbUpdatePolicy: 'automatic',
     bridgeUpdatePolicy: 'automatic',
-    aptMissionExecutionEnabled: true,
     autoStartTracker: false,
     startMinimized: true,
     autoStartBridge: true,
@@ -116,7 +114,6 @@ test('startup preferences default to automatic tracker start and visible window'
     homebaseUpdatePolicy: 'ask',
     efbUpdatePolicy: 'ask',
     bridgeUpdatePolicy: 'ask',
-    aptMissionExecutionEnabled: true,
     autoStartTracker: true,
     startMinimized: false,
     autoStartBridge: false,
@@ -202,17 +199,9 @@ test('radio hold settings merge, persist and keep credentials untouched', () => 
 });
 
 
-test('stable promotion enables old opt-in defaults and persists an explicit debug opt-out', () => {
+test('a stored mission debug opt-out no longer exists in the settings', () => {
   const store = createStore();
-  store.writeDesktop({ preferences: { runtimeChannel: 'stable', aptMissionExecutionEnabled: false } });
-  assert.equal(store.publicSettings().aptMissionExecutionEnabled, true);
-  store.setAptMissionExecutionEnabled(false);
-  assert.equal(store.readDesktop().preferences.missionExecutionDebugDisabled, true);
-  assert.equal(store.publicSettings().aptMissionExecutionEnabled, false);
-  store.setRuntimeChannel('alpha');
-  assert.equal(store.publicSettings().aptMissionExecutionEnabled, false);
-  store.setAptMissionExecutionEnabled(true);
-  assert.equal(store.publicSettings().aptMissionExecutionEnabled, true);
-  store.setRuntimeChannel('stable');
-  assert.equal(store.publicSettings().aptMissionExecutionEnabled, true);
+  store.writeDesktop({ preferences: { runtimeChannel: 'stable', aptMissionExecutionEnabled: false, missionExecutionDebugDisabled: true } });
+  assert.equal('aptMissionExecutionEnabled' in store.publicSettings(), false);
+  assert.equal(typeof store.setAptMissionExecutionEnabled, 'undefined');
 });

@@ -47,6 +47,7 @@ function launcher({ store = memoryStore(), files = [], handlers = {}, calls = []
     },
     sleep: async () => {},
     createId: () => `id-${++counter}`,
+    startTracker: async () => ({ ok: true }),
     ...rest
   });
 }
@@ -64,10 +65,10 @@ test('settings are normalized and unknown or invalid entries are dropped', () =>
   });
   assert.equal(settings.enabled, true);
   assert.equal(settings.closeOnExit, false);
-  assert.deepEqual(settings.entries.map((entry) => entry.id), ['a', 's1']);
-  assert.equal(settings.entries[0].delaySeconds, 120);
-  assert.equal(settings.entries[0].imageName, 'a.exe');
-  assert.equal(settings.entries[1].imageName, 'FlightSimulator2024.exe');
+  assert.deepEqual(settings.entries.map((entry) => entry.id), ['tracker', 'a', 's1'], 'older settings get the tracker first');
+  assert.equal(settings.entries[1].delaySeconds, 120);
+  assert.equal(settings.entries[1].imageName, 'a.exe');
+  assert.equal(settings.entries[2].imageName, 'FlightSimulator2024.exe');
 });
 
 test('start commands quote paths and request elevation only for admin entries', () => {
@@ -99,8 +100,8 @@ test('dropped files are validated, shortcuts resolved and duplicates ignored', (
   assert.equal(result.added, 2);
   assert.deepEqual(result.rejected, ['notes.txt', 'missing.exe']);
   const entries = instance.publicState().entries;
-  assert.deepEqual(entries.map((entry) => entry.name), ['Little Navmap', 'Navigraph']);
-  assert.equal(entries[1].detail, 'C:\\Navigraph\\Charts.exe');
+  assert.deepEqual(entries.map((entry) => entry.name), ['VFR Multitool Tracker', 'Little Navmap', 'Navigraph']);
+  assert.equal(entries[2].detail, 'C:\\Navigraph\\Charts.exe');
 });
 
 test('entry updates only reorder and toggle known entries', () => {
@@ -116,10 +117,10 @@ test('entry updates only reorder and toggle known entries', () => {
     { id: 'a', enabled: false }
   ]);
   const entries = instance.settings().entries;
-  assert.deepEqual(entries.map((entry) => entry.id), ['c', 'a']);
-  assert.equal(entries[0].admin, true);
-  assert.equal(entries[0].delaySeconds, 10);
-  assert.equal(entries[1].enabled, false);
+  assert.deepEqual(entries.map((entry) => entry.id), ['tracker', 'c', 'a'], 'the tracker cannot be removed');
+  assert.equal(entries[1].admin, true);
+  assert.equal(entries[1].delaySeconds, 10);
+  assert.equal(entries[2].enabled, false);
 });
 
 test('simulator detection offers steam and store installs and stores the chosen one', async () => {
@@ -162,7 +163,7 @@ test('launch runs entries in order, skips running programs and only closes owned
   });
   const result = await instance.launchAll();
   assert.equal(result.ok, true);
-  assert.deepEqual(instance.run.results, { a: 'started', b: 'skipped', s: 'started' });
+  assert.deepEqual(instance.run.results, { tracker: 'started', a: 'started', b: 'skipped', s: 'started' });
   const starts = calls.filter((call) => call.command === 'powershell.exe' && /Start-Process -FilePath 'C:/.test(call.args.at(-1)));
   assert.equal(starts.length, 1);
   assert.match(starts[0].args.at(-1), /-Verb RunAs/);
@@ -190,7 +191,7 @@ test('new programs are listed first and the simulator stays at the end', () => {
   ] });
   const instance = launcher({ store, files: ['C:\\new.exe'] });
   assert.equal(instance.addPaths(['C:\\new.exe']).added, 1);
-  assert.deepEqual(instance.settings().entries.map((entry) => entry.name), ['new', 'old', 'MSFS 2024']);
+  assert.deepEqual(instance.settings().entries.map((entry) => entry.name), ['VFR Multitool Tracker', 'new', 'old', 'MSFS 2024']);
 });
 
 function simWatchFixture(sequence) {
@@ -275,7 +276,7 @@ test('start arguments are editable for programs and Steam, not for the Store', a
   const instance = launcher({ store, calls, files: ['C:\\Tools\\Nav\\nav.exe'], openExternal: async (url) => opened.push(url) });
   instance.updateEntries([{ id: 'p', args: '--profile "VFR One"' }, { id: 's', args: '-FastLaunch' }]);
   const state = instance.publicState().entries;
-  assert.deepEqual(state.map((entry) => [entry.args, entry.argsSupported]), [['--profile "VFR One"', true], ['-FastLaunch', true]]);
+  assert.deepEqual(state.map((entry) => [entry.args, entry.argsSupported]), [['', false], ['--profile "VFR One"', true], ['-FastLaunch', true]]);
   await instance.launchAll();
   instance.stopSimulatorWatch();
   const start = calls.find((call) => call.command === 'powershell.exe' && /Start-Process/.test(call.args.at(-1)));
@@ -286,7 +287,7 @@ test('start arguments are editable for programs and Steam, not for the Store', a
     { id: 'x', kind: 'sim', simId: 'msfs2024', source: 'store', launchTarget: 'Microsoft.Limitless_8wekyb3d8bbwe!App' }
   ] }) });
   storeSim.updateEntries([{ id: 'x', args: '-FastLaunch' }]);
-  assert.deepEqual(storeSim.publicState().entries.map((entry) => [entry.args, entry.argsSupported]), [['', false]]);
+  assert.deepEqual(storeSim.publicState().entries.map((entry) => [entry.args, entry.argsSupported]), [['', false], ['', false]]);
 });
 
 test('minimized programs start with a minimized window and the option is stored', async () => {
@@ -294,7 +295,7 @@ test('minimized programs start with a minimized window and the option is stored'
   const store = memoryStore({ enabled: true, entries: [{ id: 'p', kind: 'program', path: 'C:\\Tools\\Nav\\nav.exe' }] });
   const instance = launcher({ store, calls, files: ['C:\\Tools\\Nav\\nav.exe'] });
   instance.updateEntries([{ id: 'p', minimized: true }]);
-  assert.equal(instance.publicState().entries[0].minimized, true);
+  assert.equal(instance.publicState().entries.find((entry) => entry.id === 'p').minimized, true);
   await instance.launchAll();
   const start = calls.find((call) => call.command === 'powershell.exe' && /Start-Process/.test(call.args.at(-1)));
   assert.match(start.args.at(-1), /-WindowStyle Minimized/);
@@ -469,4 +470,71 @@ test('status shows the sim as running, then ended, and closed programs as closed
   assert.ok(seen.includes('running'));
   assert.equal(instance.run.results.s, 'ended');
   assert.equal(instance.run.results.p, 'closed');
+});
+
+test('the tracker is a fixed entry: position and wait time move, it never waits for SimConnect', async () => {
+  const store = memoryStore({ enabled: true, entries: [
+    { id: 'p', kind: 'program', path: 'C:\\Tools\\nav.exe' },
+    { id: 's', kind: 'sim', simId: 'msfs2024', source: 'steam', launchTarget: 'steam://rungameid/2537590' },
+    { id: 'tracker', kind: 'tracker', delaySeconds: 5, stage: 'simconnect', enabled: false, closeWithSim: true }
+  ] });
+  const order = [];
+  const instance = launcher({
+    store,
+    files: ['C:\\Tools\\nav.exe'],
+    openExternal: async () => order.push('sim'),
+    startTracker: async () => { order.push('tracker'); return { ok: true }; },
+    handlers: { 'powershell.exe': (args) => { if (/Start-Process/.test(args.at(-1))) order.push('nav'); return ''; } }
+  });
+  const tracker = instance.settings().entries.find((entry) => entry.kind === 'tracker');
+  assert.deepEqual({ ...tracker }, { id: 'tracker', kind: 'tracker', name: 'VFR Multitool Tracker', enabled: true, delaySeconds: 5, closeWithSim: true, admin: false, stage: 'start' });
+  // Updates may move it and change its wait time and close option, nothing else.
+  instance.updateEntries([{ id: 'p' }, { id: 'tracker', stage: 'simconnect', enabled: false, delaySeconds: 10, closeWithSim: false }, { id: 's' }]);
+  const moved = instance.settings().entries;
+  assert.deepEqual(moved.map((entry) => entry.id), ['p', 'tracker', 's']);
+  assert.equal(moved[1].stage, 'start');
+  assert.equal(moved[1].enabled, true);
+  assert.equal(moved[1].delaySeconds, 10);
+  assert.equal(moved[1].closeWithSim, false);
+  assert.equal(instance.publicState().entries[1].closeWithSim, false);
+  const result = await instance.launchAll();
+  instance.stopSimulatorWatch();
+  assert.equal(result.ok, true);
+  assert.deepEqual(order, ['nav', 'tracker', 'sim'], 'the tracker starts at its list position, before SimConnect');
+});
+
+test('the tracker stops with the simulator only when allowed and started by the autostart', async () => {
+  const run = async ({ closeWithSim, alreadyRunning }) => {
+    let stops = 0;
+    const instance = launcher({
+      store: memoryStore({ enabled: true, entries: [{ id: 'tracker', kind: 'tracker', closeWithSim }] }),
+      trackerRunning: () => alreadyRunning,
+      stopTracker: async () => { stops += 1; }
+    });
+    await instance.launchAll();
+    assert.equal(instance.run.results.tracker, alreadyRunning ? 'skipped' : 'started');
+    await instance.shutdownOwned('sim-ended');
+    return { stops, result: instance.run.results.tracker };
+  };
+  assert.deepEqual(await run({ closeWithSim: true, alreadyRunning: false }), { stops: 1, result: 'closed' });
+  assert.equal((await run({ closeWithSim: false, alreadyRunning: false })).stops, 0);
+  assert.equal((await run({ closeWithSim: true, alreadyRunning: true })).stops, 0, 'a tracker that was already running stays');
+  // App exit never stops it through the autostart (the app stops it itself).
+  let stops = 0;
+  const exit = launcher({ store: memoryStore({ enabled: true, entries: [{ id: 'tracker', kind: 'tracker', closeWithSim: true }] }), stopTracker: async () => { stops += 1; } });
+  await exit.launchAll();
+  await exit.shutdownOwned('app-exit');
+  assert.equal(stops, 0);
+});
+
+test('a failed tracker start is reported and the remaining programs still start', async () => {
+  const instance = launcher({
+    store: memoryStore({ enabled: true, entries: [{ id: 'tracker', kind: 'tracker' }, { id: 'p', kind: 'program', path: 'C:\\nav.exe' }] }),
+    files: ['C:\\nav.exe'],
+    startTracker: async () => ({ ok: false, needsCredentials: true })
+  });
+  const result = await instance.launchAll();
+  assert.equal(result.ok, false);
+  assert.equal(result.tracker.needsCredentials, true);
+  assert.deepEqual(instance.run.results, { tracker: 'failed', p: 'started' });
 });

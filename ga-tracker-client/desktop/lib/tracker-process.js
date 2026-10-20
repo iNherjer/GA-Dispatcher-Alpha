@@ -17,7 +17,7 @@ function cleanLogLine(line) {
 }
 
 class TrackerProcess extends EventEmitter {
-  constructor({ electronApp, dataDirectory, runtimeManager, getCredentials, getRuntimeChannel, getAptMissionExecutionEnabled, getMediaEndpoint }) {
+  constructor({ electronApp, dataDirectory, runtimeManager, getCredentials, getRuntimeChannel, getMediaEndpoint }) {
     super();
     this.app = electronApp;
     this.dataDirectory = dataDirectory;
@@ -25,9 +25,6 @@ class TrackerProcess extends EventEmitter {
     this.getMediaEndpoint = typeof getMediaEndpoint === 'function' ? getMediaEndpoint : () => null;
     this.getCredentials = typeof getCredentials === 'function' ? getCredentials : () => null;
     this.getRuntimeChannel = typeof getRuntimeChannel === 'function' ? getRuntimeChannel : () => 'stable';
-    this.getAptMissionExecutionEnabled = typeof getAptMissionExecutionEnabled === 'function'
-      ? getAptMissionExecutionEnabled
-      : () => true;
     this.child = null;
     this.status = createTrackerStatus();
     this.logs = [];
@@ -52,15 +49,15 @@ class TrackerProcess extends EventEmitter {
   executableSpec() {
     const credentials = this.getCredentials();
     const runtimeChannel = this.getRuntimeChannel() === 'alpha' ? 'alpha' : 'stable';
-    const aptMissionExecutionEnabled = this.getAptMissionExecutionEnabled() !== false;
     const desktopControlToken = this.ensureDesktopControlToken();
     const sharedEnvironment = {
       ...process.env,
       VFR_MULTITOOL_TRACKER_DATA_DIR: this.dataDirectory,
       VFR_MULTITOOL_TRACKER_HEADLESS: '1',
       VFR_MULTITOOL_TRACKER_CHANNEL: runtimeChannel,
-      VFR_MULTITOOL_APT_EXECUTION: aptMissionExecutionEnabled ? '1' : '0',
-      VFR_MULTITOOL_MISSION_EXECUTION_DEBUG_DISABLED: aptMissionExecutionEnabled ? '0' : '1',
+      // Missions run only under tracker authority; the former debug switch is gone.
+      VFR_MULTITOOL_APT_EXECUTION: '1',
+      VFR_MULTITOOL_MISSION_EXECUTION_DEBUG_DISABLED: '0',
       VFR_MULTITOOL_DESKTOP_AUDIO_PLAYER: '1',
       VFR_MULTITOOL_DESKTOP_NAVIGATION_PLAYER: '1',
       VFR_MULTITOOL_DESKTOP_CONTROL_TOKEN: desktopControlToken
