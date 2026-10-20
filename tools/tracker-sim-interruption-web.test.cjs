@@ -35,7 +35,8 @@ function sandbox(storage = new Map()) {
     clearInterval: () => {},
     localStorage: {
       getItem: key => (storage.has(key) ? storage.get(key) : null),
-      setItem: (key, value) => storage.set(key, String(value))
+      setItem: (key, value) => storage.set(key, String(value)),
+      removeItem: key => storage.delete(key)
     },
     document: { getElementById: id => elements.get(id) || null },
     _missionPhaseDebugPush: (name, detail) => debug.push({ name, detail }),
@@ -199,4 +200,55 @@ test('projection wiring keeps automatic dialogs and reminders off while interrup
   const authorityIndex = source.indexOf('_handleTrackerMissionAuthoritySnapshot(data.trackerMissionAuthority, source);');
   assert.ok(statusIndex > 0 && statusIndex < authorityIndex, 'simulator state is applied before the mission projection');
   assert.match(source, /window\.handleMissionStartBannerSecondaryAction = async function/);
+});
+
+test('a tracker-run mission is remembered across reloads and never shows local execution meanwhile', () => {
+  const storage = new Map();
+  const first = sandbox(storage);
+  first._normalizeMissionRuntimeId = value => String(value || '');
+  first._activeMissionRuntimeId = () => 'mission-a';
+  vm.runInContext('_rememberTrackerExecutionRun({ executionAuthority: "tracker", missionId: "mission-a", runId: "run-a" });', first);
+  assert.equal(JSON.parse(storage.get('ga_tracker_execution_run_v1')).runId, 'run-a');
+
+  // Reload before the tracker sent its projection.
+  const reloaded = sandbox(storage);
+  reloaded._activeMissionRuntimeId = () => 'mission-a';
+  assert.equal(reloaded.gaMissionAwaitsTrackerProjection(), true);
+  reloaded.simModeActive = true;
+  assert.equal(reloaded.gaMissionAwaitsTrackerProjection(), false, 'sim mode keeps its own local runtime');
+  reloaded.simModeActive = false;
+  reloaded.gaTrackerExecutionControl = boardingControl();
+  assert.equal(reloaded.gaMissionAwaitsTrackerProjection(), false, 'the tracker projection takes over');
+  reloaded.gaTrackerExecutionControl = null;
+  reloaded._activeMissionRuntimeId = () => 'another-mission';
+  assert.equal(reloaded.gaMissionAwaitsTrackerProjection(), false, 'a newly generated mission is not affected');
+  vm.runInContext('_forgetTrackerExecutionRun();', reloaded);
+  assert.equal(storage.has('ga_tracker_execution_run_v1'), false);
+});
+
+test('outside the simulator mode a mission never starts locally', () => {
+  const c = sandbox();
+  const alerts = [];
+  c.alert = text => alerts.push(text);
+  c._activeMissionRuntimeId = () => 'mission-a';
+  c._trackerSupportsMissionIntents = () => false;
+  let trackerAuthority = false;
+  c._missionExecutionAuthorityIsTracker = () => trackerAuthority;
+  vm.runInContext(functionSource('_missionLocalExecutionBlocked'), c);
+  assert.equal(c._missionLocalExecutionBlocked('prepare'), true);
+  assert.match(alerts.at(-1), /Missionen werden vom Tracker ausgeführt/);
+  assert.equal(c.debug.at(-1).name, 'mission_local_execution_blocked');
+  c.simModeActive = true;
+  assert.equal(c._missionLocalExecutionBlocked('prepare'), false, 'sim mode stays local');
+  c.simModeActive = false;
+  trackerAuthority = true;
+  assert.equal(c._missionLocalExecutionBlocked('prepare'), false, 'tracker-run missions use their intents');
+  const wiring = ['window.startMissionBoarding = async function', 'window.manualMissionStart = function'];
+  for (const marker of wiring) {
+    const start = source.indexOf(marker);
+    assert.ok(source.slice(start, start + 2500).includes('_missionLocalExecutionBlocked('), marker);
+  }
+  assert.match(source, /if \(_missionLocalExecutionBlocked\('prepare'\)\) return false;/);
+  const cargo = fs.readFileSync(path.join(__dirname, '..', 'mission-cargo-core.js'), 'utf8');
+  assert.match(cargo, /window\.openMissionCargoDialog = function\(mode = 'load', options = \{\}\) \{\n\s*\/\/[^\n]*\n\s*if \(window\.gaMissionAwaitsTrackerProjection\?\.\(\)\) return false;/);
 });

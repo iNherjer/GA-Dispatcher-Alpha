@@ -1139,6 +1139,7 @@ function _clearMissionAuthorityState(reason = 'clear') {
         missionAuthoritySnapshotPushTimer = null;
     }
     _writeMissionAuthorityState(null);
+    _forgetTrackerExecutionRun();
     missionAuthorityLastSnapshotHash = '';
     missionAuthoritySnapshotSequence = 0;
     missionAuthorityLastSnapshotPushAt = 0;
@@ -1182,6 +1183,23 @@ function _missionExecutionAuthorityIsTracker() {
         || window.gaTrackerExecutionControl?.executionAuthority === 'tracker';
 }
 window.gaTrackerExecutionHandlesMission = _missionExecutionAuthorityIsTracker;
+
+// Outside the simulator mode missions run only under tracker authority.
+function _missionLocalExecutionBlocked(action = 'start') {
+    if (window.simModeActive === true || _missionExecutionAuthorityIsTracker()) return false;
+    const awaiting = _missionAwaitsTrackerProjection();
+    _missionPhaseDebugPush('mission_local_execution_blocked', {
+        action, awaiting, trackerConnected: window.liveTrackerConnected === true,
+        intents: _trackerSupportsMissionIntents()
+    });
+    try {
+        alert(awaiting
+            ? 'Diese Mission wird vom Tracker geführt. Bitte warten, bis der Tracker verbunden ist.'
+            : 'Missionen werden vom Tracker ausgeführt. Bitte den aktuellen Tracker verbinden – ohne Tracker nur im Sim-Modus.');
+    } catch (_) {}
+    _updateMissionRuntimeUi();
+    return true;
+}
 
 function _waitForMissionAuthorityCapability(timeoutMs = 1400) {
     if (_trackerSupportsMissionAuthority()) return Promise.resolve(true);
@@ -2043,6 +2061,38 @@ window.gaRememberTrackerCargoAutoOpenedRun = function(key = '') {
     return true;
 };
 
+// Remembers across reloads that the active mission runs under tracker
+// authority, so the App never shows its own local presentation for it while
+// the tracker is still connecting.
+const TRACKER_EXECUTION_RUN_KEY = 'ga_tracker_execution_run_v1';
+function _rememberTrackerExecutionRun(control = null) {
+    if (!control?.missionId || !control?.runId || control.executionAuthority !== 'tracker') return;
+    const missionId = _normalizeMissionRuntimeId(control.missionId);
+    const runId = String(control.runId).slice(0, 220);
+    const previous = window.gaTrackerExecutionRun;
+    if (previous?.missionId === missionId && previous?.runId === runId) return;
+    window.gaTrackerExecutionRun = { missionId, runId, at: Date.now() };
+    try { localStorage.setItem(TRACKER_EXECUTION_RUN_KEY, JSON.stringify(window.gaTrackerExecutionRun)); } catch (_) {}
+}
+function _forgetTrackerExecutionRun() {
+    window.gaTrackerExecutionRun = null;
+    try { localStorage.removeItem(TRACKER_EXECUTION_RUN_KEY); } catch (_) {}
+}
+function _rememberedTrackerExecutionRun() {
+    if (window.gaTrackerExecutionRun === undefined) {
+        let stored = null;
+        try { stored = JSON.parse(localStorage.getItem(TRACKER_EXECUTION_RUN_KEY) || 'null'); } catch (_) {}
+        window.gaTrackerExecutionRun = stored?.missionId && stored?.runId ? stored : null;
+    }
+    const run = window.gaTrackerExecutionRun;
+    const missionId = _activeMissionRuntimeId('');
+    return run && missionId && run.missionId === missionId ? run : null;
+}
+// The active mission belongs to the tracker, but its projection has not arrived yet.
+function _missionAwaitsTrackerProjection() {
+    return window.simModeActive !== true && !window.gaTrackerExecutionControl && !!_rememberedTrackerExecutionRun();
+}
+window.gaMissionAwaitsTrackerProjection = _missionAwaitsTrackerProjection;
 function _trackerSimulatorDisconnected() {
     return window.liveTrackerConnected === true
         && String(window.liveTrackerTelemetryMode || '').toLowerCase() === 'hibernate'
@@ -2175,6 +2225,7 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
     const missionId = _normalizeMissionRuntimeId(control.missionId || activeRun?.missionId || '');
     if (!missionId || missionId !== _activeMissionRuntimeId('')) return false;
     const previousControl = window.gaTrackerExecutionControl;
+    _rememberTrackerExecutionRun(control);
     if (control.cargoWindowCloseId && control.cargoWindowCloseId !== previousControl?.cargoWindowCloseId) {
         window.closeMissionCargoDialog?.({ trackerProjection: true });
     }
@@ -5721,6 +5772,7 @@ function _handleTrackerMissionAuthoritySnapshot(snapshot = null, reason = 'track
             missionExecutionProjectionSignature = '';
         }
         window.lastTrackerMissionStatus = null;
+        _forgetTrackerExecutionRun();
         if (local?.runId) _clearMissionAuthorityState(`${reason}:tracker-no-active-run`);
         if (window.missionRuntimeResumeConflict?.trackerActive) {
             window.missionRuntimeResumeConflict = null;
@@ -12946,6 +12998,19 @@ function _updateMissionStartBanner() {
         return;
     }
     banner._gaTrackerAction = null;
+    if (_missionAwaitsTrackerProjection()) {
+        banner._gaMissionActionKey = 'awaiting-tracker';
+        banner.classList.remove('is-interrupted', 'is-resumed', 'is-end-ready', 'is-begin-action', 'is-final-action');
+        const awaitingSecondary = document.getElementById('missionStartBannerSecondaryBtn');
+        if (awaitingSecondary) awaitingSecondary.style.display = 'none';
+        banner.style.display = 'flex';
+        if (kickerEl) kickerEl.textContent = 'Warte auf Tracker';
+        if (textEl) textEl.textContent = 'Diese Mission wird vom Tracker geführt. Der aktuelle Missionsstand erscheint, sobald der Tracker verbunden ist.';
+        if (btn) btn.style.display = 'none';
+        if (closeBtn) closeBtn.style.display = '';
+        return;
+    }
+    if (btn) btn.style.display = '';
     banner._gaMissionActionKey = 'legacy';
     banner.classList.remove('is-interrupted', 'is-resumed');
     const legacySecondary = document.getElementById('missionStartBannerSecondaryBtn');
@@ -13435,6 +13500,9 @@ function _updateMissionRuntimeUi() {
             bReset.textContent = '↺ ' + trackerToolbar.reset.label;
             bReset.title = trackerToolbar.reset.title + ' (mit Rückfrage)';
         }
+    } else if (_missionAwaitsTrackerProjection()) {
+        // A tracker-run mission before its projection: no local start, cargo or reset.
+        [bMap, bGroundCargo, bReset].forEach(button => { if (button) button.style.display = 'none'; });
     }
     _updateMissionStartBanner();
     _syncMissionMainNotificationFromBanner();
@@ -14630,6 +14698,7 @@ window.startMissionBoarding = async function() {
         }
     });
     if (missionStartBoardingPromise) return missionStartBoardingPromise;
+    if (_missionLocalExecutionBlocked('start-boarding')) return false;
     if (typeof window.paxVoiceUnlockAudio === 'function') {
         try { window.paxVoiceUnlockAudio('boarding-click'); } catch (_) {}
     }
@@ -14784,6 +14853,7 @@ window.manualMissionStart = function() {
     if (_missionExecutionAuthorityIsTracker()) {
         return window.gaTrackerExecutionSubmitIntent?.('start_mission') || false;
     }
+    if (_missionLocalExecutionBlocked('start-mission')) return false;
     _missionPhaseDebugPush('mission_start_attempt', {
         runtimePhase: _missionRuntimePhaseSnapshot(),
         startPhase: _missionStartPhase(),
@@ -15275,6 +15345,7 @@ window.handleMissionStartBannerAction = async function() {
                 const result = await window.gaTrackerExecutionSubmitIntent?.('prepare_mission');
                 return result?.ok === true;
             }
+            if (_missionLocalExecutionBlocked('prepare')) return false;
             const authorityReady = await _ensureMissionAuthorityForStart('mission-start-prepare');
             if (!authorityReady) {
                 const runningId = window.missionRuntimeResumeConflict?.trackerMissionId || 'eine andere Mission';

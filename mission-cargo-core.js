@@ -5311,6 +5311,8 @@ window.missionCargoHandleLiveFuelUpdate = function(flightData = null) {
 };
 
 window.openMissionCargoDialog = function(mode = 'load', options = {}) {
+    // A tracker-run mission opens its cargo window only from the tracker projection.
+    if (window.gaMissionAwaitsTrackerProjection?.()) return false;
     _missionCargoEnsureUiSyncHook();
     const requestedMode = String(mode || 'load');
     const normalizedMode = ['unload', 'pickup', 'equipment'].includes(requestedMode) ? requestedMode : 'load';
