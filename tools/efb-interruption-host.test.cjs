@@ -128,7 +128,7 @@ test('the World Map keeps the flight planning ("Flugsicherung") before and after
   assert.match(banner, /var cockpitRunning = !!\(interruptionReadiness && interruptionReadiness\.worldReady === true\) \|\| liveFlying;/);
   assert.match(banner, /var liveFlying = !!\(flight && Date\.now\(\) - flight\.capturedAt <= 5000 && flight\.onGround === false && flight\.gsKts >= 40\);/,
     'a lagging readiness projection does not keep the World Map send in the flying cockpit');
-  assert.match(host, /if \(startAt && target === 'atc'\) exportPayload\.airStart = true;/);
+  assert.match(host, /pending\.airStart[\s\S]{0,200}die Startart „In der Luft“ wählen/, 'MSFS defaults a coordinate departure to the runway');
   assert.match(banner, /if \(!arrivalZone && !cockpitRunning && Date\.now\(\) < flightPlanAtcReadyUntil\) \{/, 'no decision-status gate');
   assert.match(banner, /if \(!arrivalZone && cockpitRunning && interruptionModel\.status !== 'awaiting_decision'/);
   assert.ok(banner.includes("'Flugplan an Flugsicherung senden'"));
@@ -137,5 +137,5 @@ test('the World Map keeps the flight planning ("Flugsicherung") before and after
   assert.match(banner, /submitMissionIntent\('resume_mission', \{ reason: 'efb-interruption-resume-atc' \}\)\)\.then\(function \(result\) \{\s*return result === true \? transferResumeFlightPlan\('atc', true\) : false;/);
   assert.match(banner, /interruptionButtons\.sort\(/);
   assert.match(banner, /entry\.primary \? 'mission-start-banner-btn' : 'mission-start-banner-btn is-secondary'/);
-  assert.match(host, /pending\.trigger === 'interruption-resume'[\s\S]{0,200}die Mission wird im Cockpit fortgesetzt/);
+  assert.match(host, /pending\.trigger === 'interruption-resume'[\s\S]{0,400}die Mission wird im Cockpit fortgesetzt/);
 });

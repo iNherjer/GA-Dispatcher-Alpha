@@ -175,10 +175,8 @@ Nachbesserung Tracker v575 (Feldtest Flug-Unterbrechung):
 
 Nachbesserung Tracker v576 (Feldtest Luftstart/Teleport 20.10.2026):
 
-- MSFS setzt einen Weltkarten-Luftstart ohne Abflugplatz an den zweiten
-  Planpunkt. Der Export fuer die Flugsicherung (`airStart: true`) stellt
-  deshalb einen Vorlaufpunkt `VORLAUF` 3 NM hinter den Unterbrechungspunkt
-  (Gegenkurs zum naechsten Leg). Avionik-Restroute ohne Vorlauf.
+- (In v577 zurueckgenommen) Vorlaufpunkt `VORLAUF` vor dem
+  Unterbrechungspunkt fuer den Weltkarten-Luftstart.
 - Nach jeder Wiederaufnahme 20 s Schonfrist: keine Komfort-Bewertung, keine
   Bank/G/Sinkraten/Aufsetz-Werte fuer Ladungs-/Pax-Stress, Bewegungspuffer
   fuer Pax-Kommentare pausiert (Einschwingen nach Teleport/Luftstart).
@@ -189,6 +187,16 @@ Nachbesserung Tracker v576 (Feldtest Luftstart/Teleport 20.10.2026):
   wegklickbar.
 - `efb-web-assets/mission-resume-zone-map.js` ist jetzt im EXE enthalten
   (v573–v575 lieferten es nicht aus; die EFB-Zone fehlte dort).
+
+Nachbesserung Tracker v577 (Weltkarten-Luftstart):
+
+- Feldtest: MSFS uebernimmt den ersten Koordinatenpunkt eines Plans ohne
+  Abflugplatz als Abflug, setzt dessen Startart aber auf
+  „Start-/Landebahn“; der Spawn landet dann auf dem ersten weiteren
+  Wegpunkt. `JS_FlightPlanRoute` hat kein Feld fuer die Startart (SDK).
+- Der Vorlaufpunkt entfaellt wieder; Abflug ist `UNTERBRECHUNG`. Banner und
+  Rueckmeldung sagen, in der Weltkarte beim Abflug „In der Luft“ zu waehlen.
+  Rueckfall bleibt „An Unterbrechungspunkt versetzen“ im Cockpit.
 
 Offen / PC-Pruefung:
 

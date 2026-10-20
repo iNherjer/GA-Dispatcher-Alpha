@@ -33,22 +33,6 @@ function remainingRoute(points, start) {
   return [{ lat: start.lat, lon: start.lon, name: 'UNTERBRECHUNG', icao: '' }, ...points.slice(best + 1)];
 }
 
-// MSFS places a World Map air start at the second point of a plan without a
-// departure airport. A lead-in point behind the interruption point (on the
-// reverse of the next leg) makes the interruption point that second point.
-const AIR_START_LEAD_IN_NM = 3;
-function withAirStartLeadIn(points) {
-  const [start, next] = points;
-  if (!start || !next) return points;
-  const scale = Math.cos(start.lat * Math.PI / 180) || 1;
-  const dx = (next.lon - start.lon) * scale, dy = next.lat - start.lat;
-  const length = Math.hypot(dx, dy);
-  if (!(length > 0)) return points;
-  const factor = AIR_START_LEAD_IN_NM / 60 / length;
-  const lead = { lat: start.lat - dy * factor, lon: start.lon - dx * factor / scale, name: 'VORLAUF', icao: '' };
-  return [lead, ...points];
-}
-
 function missionRouteSource(run) {
   const bundle = run?.resumeBundle || {}, state = bundle.missionState || {};
   const mission = state.currentMissionData || state.activeMissionContract || state;
@@ -93,7 +77,6 @@ function createFlightPlanExport(run, request = {}) {
   });
   const resume = resumeStart(request.startAt);
   if (resume) points = remainingRoute(points, resume);
-  if (resume && request.airStart === true) points = withAirStartLeadIn(points);
   const context = bundle.mapProfile?.context || {};
   const altitude = [context.profileCruiseFt, mission.cruiseAltitudeFt, mission.cruiseAltFt, mission.cruiseAltitude,
     contract.cruiseAltitudeFt, contract.cruiseAltFt, state.cruiseAltitudeFt, state.cruiseAltFt, state.altMapInput]
@@ -103,8 +86,7 @@ function createFlightPlanExport(run, request = {}) {
     departureIcao: resume ? '' : String(context.departureIcao || state.currentStartICAO || state.mDepICAO || points[0].icao || '').toUpperCase(),
     destinationIcao: String(context.destinationIcao || state.currentDestICAO || state.mDestICAO || points[points.length - 1].icao || '').toUpperCase(),
     cruiseAltitudeFt: altitude == null ? null : Number(altitude), isVfr: true, points,
-    ...(resume ? { resumeFrom: { lat: resume.lat, lon: resume.lon } } : {}),
-    ...(resume && request.airStart === true ? { airStartLeadInNm: AIR_START_LEAD_IN_NM } : {}) };
+    ...(resume ? { resumeFrom: { lat: resume.lat, lon: resume.lon } } : {}) };
   return { ...plan, routeHash: crypto.createHash('sha256').update(JSON.stringify(plan)).digest('hex') };
 }
-module.exports = { createFlightPlanExport, remainingRoute, missionRouteEnds, withAirStartLeadIn };
+module.exports = { createFlightPlanExport, remainingRoute, missionRouteEnds };
