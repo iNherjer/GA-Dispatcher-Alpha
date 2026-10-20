@@ -149,6 +149,8 @@ test('the World Map keeps the flight planning ("Flugsicherung") before and after
   assert.match(host, /if \(startAt && target === 'atc'\) exportPayload\.airStart = true;/);
   // Only the World Map air start uses the save point; avionics gets the complete plan.
   assert.match(host, /var startAt = target === 'atc' && view\.zone && view\.zone\.airborne \?/);
+  assert.match(host, /var airStartAltFt = control\.interruption && control\.interruption\.zone && Number\(control\.interruption\.zone\.airStartAltFt\);/);
+  assert.match(host, /exportPayload\.startAt = Object\.assign\(\{lat: startAt\.lat, lon: startAt\.lon\}, startAt\.altFt \? \{altFt: startAt\.altFt\} : \{\}\)/);
   // Hidden after a confirmed World Map transfer until the route or run changes.
   assert.match(host, /if \(pending\.trigger === 'interruption-resume' && pending\.resumeKey\) \{ resumeTransferredKey = pending\.resumeKey;/);
   assert.match(banner, /if \(!arrivalZone && !cockpitRunning && !transferred && Date\.now\(\) < flightPlanAtcReadyUntil\)/);

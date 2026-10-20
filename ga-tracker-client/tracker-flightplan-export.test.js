@@ -78,3 +78,15 @@ test('POI round trip: air start returns to the home field, the complete plan kee
   assert.equal(complete.departureIcao, 'EDTF');
   assert.deepEqual(complete.points.map(point => point.name), ['WP1', 'POI Burg', 'Return Leg', 'Freiburg']);
 });
+
+test('the air start plan carries the save point altitude (rounded up) as cruise; the avionics plan keeps the mission cruise', () => {
+  const { createFlightPlanExport } = require('./tracker-flightplan-export.js');
+  const points = [{ lat: 48.0, lon: 7.8, name: 'EDTF', icao: 'EDTF' }, { lat: 48.1, lon: 8.0, name: 'WP1' }, { lat: 48.28, lon: 8.43, name: 'EDTW', icao: 'EDTW' }];
+  const run = { missionId: 'm', runId: 'r', navigationRoute: { revision: 1, points },
+    resumeBundle: { missionState: { currentStartICAO: 'EDTF', currentDestICAO: 'EDTW', currentMissionData: { cruiseAltitudeFt: 8800 } } } };
+  const air = createFlightPlanExport(run, { missionId: 'm', runId: 'r', startAt: { lat: 48.05, lon: 7.9, altFt: 4510 }, airStart: true });
+  assert.equal(air.cruiseAltitudeFt, 4600);
+  assert.equal(createFlightPlanExport(run, { missionId: 'm', runId: 'r', startAt: { lat: 48.05, lon: 7.9 }, airStart: true }).cruiseAltitudeFt, 8800,
+    'without a known altitude the mission cruise stays');
+  assert.equal(createFlightPlanExport(run, { missionId: 'm', runId: 'r' }).cruiseAltitudeFt, 8800);
+});

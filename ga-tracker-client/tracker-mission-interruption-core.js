@@ -245,7 +245,7 @@ function publicProjection(record, history = []) {
     since: record.since,
     phase: record.phase,
     airborne: record.zone?.airborne === true,
-    zone: record.zone ? { ...record.zone } : null,
+    zone: record.zone ? { ...record.zone, ...(airStartAltitudeFt(record) ? { airStartAltFt: airStartAltitudeFt(record) } : {}) } : null,
     position: record.position ? { lat: record.position.lat, lon: record.position.lon, altFt: record.position.altFt,
       hdg: record.position.hdg, gsKts: record.position.gsKts, onGround: record.position.onGround } : null,
     autoResumeUntil: record.autoResumeUntil,
@@ -254,6 +254,17 @@ function publicProjection(record, history = []) {
     rebuiltAt: record.rebuiltAt,
     count: normalizeHistory(history).length + 1
   };
+}
+
+// World Map air start altitude: the save point altitude (never below 500 ft
+// AGL), always rounded UP to the next 100 ft so the spawn never lands lower.
+function airStartAltitudeFt(record) {
+  if (!record?.zone?.airborne || !record.position) return null;
+  const agl = finite(record.position.aglFt);
+  const alt = finite(record.position.altFt);
+  if (alt === null) return null;
+  const safe = agl !== null && agl < 500 ? alt + (500 - agl) : alt;
+  return Math.max(100, Math.ceil(safe / 100) * 100);
 }
 
 // Teleport target: the last valid airborne state, never below 500 ft AGL.
@@ -293,5 +304,6 @@ module.exports = {
   historyEntry,
   filterAllowedActions,
   publicProjection,
+  airStartAltitudeFt,
   teleportTarget
 };

@@ -226,6 +226,9 @@
     if (target === 'atc' && Date.now() >= flightPlanAtcReadyUntil) return Promise.resolve(false);
     var revision = mapSnapshot && mapSnapshot.missionId === control.missionId && mapSnapshot.routeEdit ? mapSnapshot.routeEdit.revision : null;
     var startAt = target === 'atc' && view.zone && view.zone.airborne ? { lat: view.zone.lat, lon: view.zone.lon } : null;
+    // Air start altitude from the tracker (save point, >= 500 ft AGL, rounded up).
+    var airStartAltFt = control.interruption && control.interruption.zone && Number(control.interruption.zone.airStartAltFt);
+    if (startAt && isFinite(airStartAltFt) && airStartAltFt > 0) startAt.altFt = airStartAltFt;
     return transferStartedFlightPlan(target, control.missionId, revision, 'interruption-resume', startAt, resumeTransferKey(control, view));
   }
   function transferStartedFlightPlan(target, missionId, navigationRevision, trigger, startAt, resumeKey) {
@@ -240,7 +243,7 @@
     var runId = control.runId;
     report('info', 'flightplan-export', 'request', trigger === 'manual' ? 'Manuelle Flugplanübertragung' : 'Flugplanauftrag nach bestätigtem Missionsstart', JSON.stringify({jobId: jobId, missionId: missionId, runId: runId, target: target, host: flightPlanBridgeHost}));
     var exportPayload = {missionId: missionId, runId: runId, navigationRevision: navigationRevision};
-    if (startAt) exportPayload.startAt = {lat: startAt.lat, lon: startAt.lon};
+    if (startAt) exportPayload.startAt = Object.assign({lat: startAt.lat, lon: startAt.lon}, startAt.altFt ? {altFt: startAt.altFt} : {});
     // World Map air start: the tracker sends only the interruption point and the destination.
     if (startAt && target === 'atc') exportPayload.airStart = true;
     return client.submitTool({ commandId: jobId, intent: 'flightplan_export', payload: exportPayload }).then(function(result) {

@@ -207,6 +207,8 @@ test('a running cockpit continues without a button; the save point zone follows'
   assert.equal(f.record.status, 'awaiting_zone');
   assert.equal(f.record.decidedBy, 'cockpit');
   assert.ok(f.logs.some(line => /^MISSION_INTERRUPTION_DECISION by=cockpit .* camera=2=cockpit$/.test(line)), f.logs.join('\n'));
+  assert.ok(f.logs.some(line => /^MISSION_INTERRUPTION_BEGIN .* altFt=4500 aglFt=2500 airStartAltFt=4500$/.test(line)), f.logs.join('\n'));
+  assert.ok(f.logs.some(line => /^MISSION_INTERRUPTION_REBUILT reason=cockpit zone=5nm altFt=4500 aglFt=2500 onGround=0 distanceNm=\d+\.\d\d camera=2=cockpit$/.test(line)), f.logs.join('\n'));
   assert.deepEqual(f.rebuilds, ['resuming']);
   // Air start at the save point: 10 s of real flight there resume the mission.
   f.controller.observe(f.air({ lat: 48.11 }));

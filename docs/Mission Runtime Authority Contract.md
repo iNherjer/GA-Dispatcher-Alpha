@@ -256,6 +256,19 @@ Nachbesserung Tracker v581 (Feldtest v580):
   Kameraansicht (z. B. `12=world_map`, `11=waiting`, `2=cockpit`) und
   `camera=…` an `MISSION_INTERRUPTION_DECISION` (aus der Release-Warteschlange).
 
+Nachbesserung Tracker v582 (Luftstart-Hoehe):
+
+- Der Luftstart-Plan traegt als Reiseflughoehe die Hoehe am Speicherpunkt
+  (mindestens 500 ft AGL wie beim Teleport), immer auf die naechsten 100 ft
+  aufgerundet (`zone.airStartAltFt` in der Projektion, `startAt.altFt` im
+  Export). Ohne bekannte Hoehe bleibt die Missions-Reiseflughoehe. „Flugplan
+  laden“ (Avionik) sendet weiter die Missions-Reiseflughoehe.
+- Vermutung aus dem Feldtest: MSFS spawnt den Luftstart auf der
+  Reiseflughoehe des Plans. Nachweis im Debug-Log:
+  `MISSION_INTERRUPTION_BEGIN … altFt= aglFt= airStartAltFt=` und
+  `MISSION_INTERRUPTION_REBUILT … altFt= aglFt= onGround= distanceNm= camera=`
+  (erste Cockpit-Position nach „Fliegen“).
+
 - Grenze: Ohne aufloesbares Ziel-ICAO waere der Zielpunkt selbst der letzte
   Wegpunkt; dann spawnt MSFS dort.
 

@@ -153,3 +153,14 @@ test('before take-off and after landing the airport is the ground reference', ()
   assert.equal(core.plausibleContinuation(unknown, parked({ lat: 50, lon: 9 }), T0), false, 'parked at another airport: decision needed');
   assert.equal(core.normalize({ ...unknown, anchor: { kind: 'bogus', lat: 1, lon: 1 } }).anchor, null);
 });
+
+test('air start altitude is the save point altitude, at least 500 ft AGL, always rounded up', () => {
+  const at = position => core.airStartAltitudeFt(core.create({ phase: 'enroute', position: airborne(position), now: T0 }));
+  assert.equal(at({ altFt: 4501, aglFt: 2500 }), 4600);
+  assert.equal(at({ altFt: 4500, aglFt: 2500 }), 4500, 'already on 100 ft stays');
+  assert.equal(at({ altFt: 4410.2, aglFt: 2500 }), 4500);
+  assert.equal(at({ altFt: 1322, aglFt: 320 }), 1600, 'low over terrain: lifted to 500 ft AGL (1502), then up');
+  assert.equal(core.airStartAltitudeFt(core.create({ phase: 'boarding', position: parked(), now: T0 })), null, 'ground: no air start');
+  const projection = core.publicProjection(core.create({ phase: 'enroute', position: airborne({ altFt: 6612 }), now: T0 }));
+  assert.equal(projection.zone.airStartAltFt, 6700);
+});

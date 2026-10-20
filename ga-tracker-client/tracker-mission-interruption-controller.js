@@ -105,7 +105,8 @@ function createMissionInterruptionController(options = {}) {
     // Without a known position there is no zone and no automatic continuation:
     // the pilot decides, and the run resumes right after the cockpit rebuild.
     write(created, reason);
-    log(`MISSION_INTERRUPTION_BEGIN cause=${cause} phase=${snapshot.state.phase} airborne=${created?.zone?.airborne === true ? 1 : 0} position=${created?.position ? 1 : 0} anchor=${created?.anchor?.kind || 'none'}`);
+    log(`MISSION_INTERRUPTION_BEGIN cause=${cause} phase=${snapshot.state.phase} airborne=${created?.zone?.airborne === true ? 1 : 0} position=${created?.position ? 1 : 0} anchor=${created?.anchor?.kind || 'none'}`
+      + ` altFt=${created?.position?.altFt ?? '-'} aglFt=${created?.position?.aglFt ?? '-'} airStartAltFt=${core.airStartAltitudeFt(created) ?? '-'}`);
     return created;
   };
 
@@ -132,7 +133,12 @@ function createMissionInterruptionController(options = {}) {
     }
     const next = core.rebuilt(current, now());
     if (!write(next, `rebuilt:${reason}`).ok) return false;
-    log(`MISSION_INTERRUPTION_REBUILT reason=${reason} zone=${next?.zone ? `${next.zone.radiusNm}nm` : 'none'}`);
+    // The first cockpit position after the restart (e.g. the World Map air start altitude).
+    const here = lastValidSample;
+    log(`MISSION_INTERRUPTION_REBUILT reason=${reason} zone=${next?.zone ? `${next.zone.radiusNm}nm` : 'none'}`
+      + ` altFt=${here ? Math.round(Number(here.altFt)) : '-'} aglFt=${here && Number.isFinite(Number(here.aglFt)) ? Math.round(Number(here.aglFt)) : '-'}`
+      + ` onGround=${here ? (here.onGround ? 1 : 0) : '-'} distanceNm=${here && next?.zone ? core.haversineNm(next.zone.lat, next.zone.lon, Number(here.lat), Number(here.lon ?? here.lng)).toFixed(2) : '-'}`
+      + ` camera=${cameraName(here?.cameraState)}`);
     // An automatic continuation is already where it was; no zone to fly to.
     if (!next?.zone || next.decidedBy === 'auto') finish(next.decidedBy === 'auto' ? 'auto' : 'ground', next);
     return true;

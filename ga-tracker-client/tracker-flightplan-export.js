@@ -7,7 +7,9 @@ function resumeStart(raw) {
   if (raw.lat == null || raw.lon == null || !Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
     throw new Error('flightplan_resume_point_invalid');
   }
-  return { lat, lon };
+  // Optional air start altitude; always rounded up to the next 100 ft.
+  const altFt = Number(raw.altFt);
+  return { lat, lon, altFt: raw.altFt != null && Number.isFinite(altFt) && altFt > 0 && altFt <= 45000 ? Math.ceil(altFt / 100) * 100 : null };
 }
 
 // World Map air start (field test 20.10.2026): MSFS spawns in the air at the
@@ -67,7 +69,9 @@ function createFlightPlanExport(run, request = {}) {
   const resume = request.airStart === true ? savePoint : null;
   if (resume) points = airStartPlan(points, resume);
   const context = bundle.mapProfile?.context || {};
-  const altitude = [context.profileCruiseFt, mission.cruiseAltitudeFt, mission.cruiseAltFt, mission.cruiseAltitude,
+  // The air start plan carries the save point altitude as its cruise altitude
+  // (MSFS appears to spawn there); the avionics plan keeps the mission cruise.
+  const altitude = resume?.altFt || [context.profileCruiseFt, mission.cruiseAltitudeFt, mission.cruiseAltFt, mission.cruiseAltitude,
     contract.cruiseAltitudeFt, contract.cruiseAltFt, state.cruiseAltitudeFt, state.cruiseAltFt, state.altMapInput]
     .find(value => value != null && value !== '' && Number.isFinite(Number(value)) && Number(value) > 0);
   const plan = { schema: 'ga.flightplan-export.v1', missionId: run.missionId, runId: run.runId, navigationRevision,
