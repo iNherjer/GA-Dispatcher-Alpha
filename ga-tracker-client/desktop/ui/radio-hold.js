@@ -21,7 +21,7 @@
   }
   function render() {
     if (settings) {
-      $('radioHoldEnabled').checked = settings.enabled;
+      if (document.activeElement !== $('radioHoldEnabled')) $('radioHoldEnabled').checked = settings.enabled;
       const list = $('radioHoldBindings');
       list.replaceChildren();
       settings.bindings.forEach((binding, index) => {
@@ -38,12 +38,14 @@
         item.append(label, remove); list.append(item);
       });
       if (!settings.bindings.length) { const empty = document.createElement('li'); empty.className = 'empty'; empty.textContent = 'Noch keine Eingabe belegt.'; list.append(empty); }
-      $('radioHoldResume').value = String(settings.resumeSeconds);
-      $('radioHoldShortPress').checked = settings.shortPressResumes;
-      $('radioHoldVoiceMode').value = settings.voiceMode;
-      $('radioHoldVoiceDim').value = String(settings.voiceDimPercent);
-      $('radioHoldMusicMode').value = settings.musicMode;
-      $('radioHoldMusicDim').value = String(settings.musicDimPercent);
+      // Never overwrite a control the user is operating; Chromium would report it as a new choice.
+      const set = (id, property, value) => { if (document.activeElement !== $(id)) $(id)[property] = value; };
+      set('radioHoldResume', 'value', String(settings.resumeSeconds));
+      set('radioHoldShortPress', 'checked', settings.shortPressResumes);
+      set('radioHoldVoiceMode', 'value', settings.voiceMode);
+      set('radioHoldVoiceDim', 'value', String(settings.voiceDimPercent));
+      set('radioHoldMusicMode', 'value', settings.musicMode);
+      set('radioHoldMusicDim', 'value', String(settings.musicDimPercent));
       const voiceDim = settings.voiceMode === 'dim', musicDim = settings.musicMode === 'dim';
       $('radioHoldVoiceDim').hidden = $('radioHoldVoiceDimLabel').hidden = !voiceDim;
       $('radioHoldMusicDim').hidden = $('radioHoldMusicDimLabel').hidden = !musicDim;
@@ -57,6 +59,8 @@
   }
   async function save(patch) {
     message = '';
+    // Show the choice at once so state broadcasts during the save cannot redraw the old value.
+    if (settings) settings = { ...settings, ...patch };
     try { const result = await api.setRadioHold(patch); if (result && result.settings) settings = result.settings; }
     catch (error) { message = error.message; }
     render();

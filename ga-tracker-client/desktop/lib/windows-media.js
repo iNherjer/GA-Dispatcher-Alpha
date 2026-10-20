@@ -84,7 +84,7 @@ class WindowsMedia {
         command.factor = value; command.enabled = payload.enabled === true;
         const changed = !this.duckSettings || this.duckSettings.enabled !== command.enabled || this.duckSettings.factor !== value;
         this.duckSettings = { enabled: command.enabled, factor: value };
-        if (changed && typeof this.onSettings === 'function') { try { this.onSettings({ ...this.duckSettings }); } catch (_) {} }
+        if (changed && typeof this.onSettings === 'function') { try { this.onSettings({ ...this.duckSettings }, String(payload.clientId || 'desktop')); } catch (_) {} }
       }
     }
     if (payload.action === 'duck') {

@@ -493,6 +493,7 @@ function registerIpc() {
     return { ok: true, settings };
   });
   ipcMain.handle('settings:set-radio-hold', (_event, payload) => {
+    radioHoldLog('CHANGE ' + JSON.stringify(payload && typeof payload === 'object' ? payload : {}).slice(0, 300));
     const settings = configStore.setRadioHold(payload);
     configureRadioHold(settings); broadcastState();
     return { ok: true, settings };
@@ -727,7 +728,7 @@ async function startApplication() {
     });
   }
   windowsMedia.restoreSettings(configStore.publicSettings().mediaDuck);
-  windowsMedia.onSettings = (settings) => configStore.setMediaDuck(settings);
+  windowsMedia.onSettings = (settings, source) => { radioHoldLog(`MEDIA duck enabled=${settings.enabled} factor=${settings.factor} from=${source}`); configStore.setMediaDuck(settings); };
   radioHoldLogPath = path.join(configStore.dataDirectory, 'funk-pause-log.txt');
   radioHoldLog(`START desktop=${app.getVersion()} platform=${process.platform} ${require('node:os').release()}`);
   configureRadioHold(configStore.publicSettings().radioHold);

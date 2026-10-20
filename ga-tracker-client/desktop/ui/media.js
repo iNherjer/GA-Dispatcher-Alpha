@@ -56,7 +56,10 @@
   $('mediaVolume').oninput = () => { $('mediaVolumeValue').textContent = $('mediaVolume').value + ' %'; };
   $('mediaVolume').onchange = () => command({ action: 'volume', volume: Number($('mediaVolume').value) / 100 });
   async function settings() {
-    await command({ action: 'settings', enabled: $('mediaDuckEnabled').checked, factor: Number($('mediaDuckFactor').value) });
+    const enabled = $('mediaDuckEnabled').checked, factor = Number($('mediaDuckFactor').value);
+    // Show the choice at once so a redraw during the request cannot bring back the old value.
+    if (state) state = { ...state, duckEnabled: enabled, duckFactor: factor };
+    await command({ action: 'settings', enabled, factor });
   }
   $('mediaDuckEnabled').onchange = settings;
   $('mediaDuckFactor').onchange = settings;
