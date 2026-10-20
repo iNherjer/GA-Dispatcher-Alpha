@@ -224,6 +224,25 @@ Nachbesserung Tracker v579 (Feldtest v578, Luftstart geklaert):
   Unterbrechung am Boden: Weltkarte bekommt ebenfalls den kompletten Plan.
 - Begriffe: Weltkarten-Knopf „Speicherstand laden“ (Luft und Boden),
   Rueckmeldung „Speicherstand geladen.“, Cockpit-Knopf „Route an Avionik“.
+
+Nachbesserung Tracker v580 (Feldtest v579, Luftstart bestaetigt):
+
+- Fortsetzen ist der Normalfall: Es gibt keinen Knopf „Mission fortsetzen“
+  mehr. Das erste gueltige Sample im laufenden Cockpit (Kamera 2–8, Sim
+  laeuft, nicht pausiert, kein Slew) entscheidet (`decidedBy: 'cockpit'`),
+  egal wo das Flugzeug steht; danach Wiederaufbau von Szenen/Zuladung und
+  der Weg zum Speicherpunkt (Zone, Verweildauer wie bisher). „Bereit zum
+  Fliegen“-Bildschirm und Weltkarte zaehlen nicht. Waehlbar bleiben nur
+  Neustarten und Abbrechen (mit Rueckfrage).
+- EFB Weltkarte: „Speicherstand laden“, Neustarten, Abbrechen. Cockpit:
+  „Flugplan laden“ (kompletter Plan an die Avionik), Teleport „An
+  Speicherpunkt versetzen“ (nur Luft-Zone), Neustarten, Abbrechen.
+- Nach dem Erreichen der Zone: Bestaetigung „Speicherstand geladen“ (EFB
+  30 s, mit „Flugplan laden“; App 8 s).
+- Boden-Zone: Steht das Flugzeug schon innerhalb der Zone (z. B. am
+  Startplatz, 1,5 NM), zeigt der Banner keinen „Zurueck“-Hinweis, nur
+  „Mission laeuft gleich weiter“.
+
 - Grenze: Ohne aufloesbares Ziel-ICAO waere der Zielpunkt selbst der letzte
   Wegpunkt; dann spawnt MSFS dort.
 

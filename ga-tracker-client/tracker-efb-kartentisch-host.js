@@ -2473,7 +2473,8 @@
     var open = control && control.phase !== 'closed' && !(control.flags && control.flags.closed);
     if (!view && run && run === interruptionPreviousRun && open
         && ['awaiting_decision', 'resuming', 'awaiting_zone'].indexOf(interruptionPreviousStatus) >= 0) {
-      resumedNoticeUntil = Date.now() + 8000;
+      // Long enough to use "Flugplan laden" from the confirmation.
+      resumedNoticeUntil = Date.now() + 30000;
       resumedNoticeKey = run + ':resumed:' + resumedNoticeUntil;
       setTimeout(function () { missionPresentationSignature = ''; renderMissionPayload(missionSnapshot); }, 8100);
       report('info', 'mission-interruption', 'resumed', 'Mission nach Simulator-Unterbrechung wieder aufgenommen', run);
@@ -2547,8 +2548,8 @@
     }
     if (resumedNoticeUntil > Date.now() && payload && payload.control) {
       return { key: resumedNoticeKey, missionId: String(payload.missionId || payload.control.missionId || ''),
-        kicker: 'Mission wieder aufgenommen', text: window.GAMissionControlUiCore.RESUMED_NOTICE_TEXT,
-        button: '', buttonHidden: true, kind: 'notice', intent: '', className: 'is-resumed' };
+        kicker: 'Speicherstand geladen', text: window.GAMissionControlUiCore.RESUMED_NOTICE_TEXT,
+        button: '', buttonHidden: true, kind: 'notice', intent: '', className: 'is-resumed', resumed: true };
     }
     var pending = payload && payload.authoritySnapshot && payload.authoritySnapshot.pendingCloudMission;
     if (pending) return { key: 'cloud-replacement:' + pending.missionId, missionId: pending.missionId,
@@ -2945,14 +2946,13 @@
       // The published readiness can lag; live flight (airborne, moving) is the cockpit too.
       var liveFlying = !!(flight && Date.now() - flight.capturedAt <= 5000 && flight.onGround === false && flight.gsKts >= 40);
       var cockpitRunning = !!(interruptionReadiness && interruptionReadiness.worldReady === true) || liveFlying;
-      if (!arrivalZone && cockpitRunning && interruptionModel.status !== 'awaiting_decision' && Date.now() < flightPlanBridgeReadyUntil) {
-        interruptionButtons.push({ id: 'avionics', label: 'Route an Avionik',
+      // Cockpit: the complete mission plan to the avionics.
+      if (!arrivalZone && cockpitRunning && Date.now() < flightPlanBridgeReadyUntil) {
+        interruptionButtons.push({ id: 'avionics', label: 'Flugplan laden',
           run: function () { return transferResumeFlightPlan('avionics'); } });
       }
-      // World Map: prepare the flight before loading it (air start or departure
-      // stand). Shown first in the resume prompt; before the decision it also
-      // continues the mission, then sends the route to the flight planning.
-      // Hidden once transferred; a route change (new revision) brings it back.
+      // World Map: the save point as air start (or the mission plan after a
+      // ground interruption). Hidden once transferred until the route changes.
       var transferred = resumeTransferredKey && resumeTransferredKey === resumeTransferKey(payload && payload.control, interruptionModel);
       if (!arrivalZone && !cockpitRunning && !transferred && Date.now() < flightPlanAtcReadyUntil) {
         var decide = interruptionModel.status === 'awaiting_decision';
@@ -2972,6 +2972,14 @@
           return submitMissionIntent('abort_mission', { reason: 'efb-interruption-abort' });
         } });
       }
+    } else if (model && model.resumed && Date.now() < flightPlanBridgeReadyUntil) {
+      // Confirmation after the resume: offer the complete plan for the avionics.
+      interruptionButtons.push({ id: 'avionics-resumed', primary: true, label: 'Flugplan laden', run: function () {
+        var control = missionSnapshot && missionSnapshot.control;
+        if (!control || missionIntentPending) return Promise.resolve(false);
+        var revision = mapSnapshot && mapSnapshot.missionId === control.missionId && mapSnapshot.routeEdit ? mapSnapshot.routeEdit.revision : null;
+        return transferStartedFlightPlan('avionics', control.missionId, revision, 'resumed');
+      } });
     }
     interruptionButtons.sort(function (a, b) { return (b.primary ? 1 : 0) - (a.primary ? 1 : 0); });
     var interruptionSignature = interruptionButtons.map(function (entry) { return entry.id; }).join('|');

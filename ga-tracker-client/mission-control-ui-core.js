@@ -7,7 +7,7 @@
 }(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this), function () {
   'use strict';
 
-  var BUILD_ID = 'tracker-mission-ui-20261020-02';
+  var BUILD_ID = 'tracker-mission-ui-20261020-04';
 
   var ACTION_LABELS = Object.freeze({
     activate_cloud_mission: 'Mission aus der Cloud beginnen',
@@ -98,7 +98,7 @@
   }
 
   var INTERRUPTION_DEBOUNCE_MS = 15000;
-  var RESUMED_NOTICE_TEXT = 'Mission wieder aufgenommen. Bewertung, Ansagen und Aufgaben laufen ab hier weiter.';
+  var RESUMED_NOTICE_TEXT = 'Speicherstand erfolgreich geladen: Szenen und Zuladung sind wieder da. Bewertung, Ansagen und Aufgaben laufen ab hier weiter.';
 
   function interruptionDistance(zone, live) {
     if (!zone || !live) return null;
@@ -149,25 +149,27 @@
       resetAvailable: allowed.indexOf('abort_mission') >= 0,
       abortAvailable: allowed.indexOf('abort_mission') >= 0
     };
-    if (status === 'awaiting_decision') {
+    // Continuing is the default: the running cockpit resumes on its own. Only
+    // restart/abort are choices; there is no "continue" button any more.
+    if (status === 'awaiting_decision' || status === 'resuming') {
       model.text = settings.simulatorConnected === false
-        ? 'Der Simulator ist getrennt. Zum Fortsetzen MSFS starten und einen Flug laden – dann „Mission fortsetzen“ wählen. Alternativ die Mission neu starten oder abbrechen.'
-        : 'Der Simulator wurde neu gestartet. „Mission fortsetzen“ baut Szenen und Zuladung im laufenden Cockpit neu auf'
-          + (model.zone && model.zone.airborne ? '; danach geht es in der markierten Zone weiter.' : '.') + ' Alternativ die Mission neu starten oder abbrechen.';
-      if (allowed.indexOf('resume_mission') >= 0) model.primary = { intent: 'resume_mission', label: 'Mission fortsetzen' };
-    } else if (status === 'resuming') {
-      model.kicker = 'Fortsetzen vorgemerkt';
-      model.text = settings.simulatorConnected === false
-        ? 'Sobald MSFS läuft und ein Flug im Cockpit geladen ist, baut der Tracker Szenen und Zuladung neu auf.'
-        : 'Warte auf das laufende Cockpit. Erst dann werden Szenen und Zuladung neu aufgebaut – nicht in der Weltkarte.';
+        ? 'Der Simulator ist getrennt. Zum Fortsetzen MSFS starten und einen Flug laden. Alternativ die Mission neu starten oder abbrechen.'
+        : 'Im laufenden Cockpit werden Szenen und Zuladung neu aufgebaut, dann geht es am Speicherpunkt weiter'
+          + (model.zone && model.zone.airborne ? ' („Speicherstand laden“ startet dich dort in der Luft).' : '.')
+          + ' Alternativ die Mission neu starten oder abbrechen.';
     } else if (status === 'awaiting_zone') {
-      model.kicker = 'Zurück zum Unterbrechungsort';
+      var insideZone = !!(model.zone && navigation && navigation.distanceNm <= model.zone.radiusNm);
+      model.kicker = 'Zum Speicherpunkt';
       if (model.zone && model.zone.airborne) {
-        model.text = 'In die markierte Zone (' + formatNm(model.zone.radiusNm) + ' NM Radius) fliegen oder slewen. Die Mission läuft weiter, sobald du dort 10 Sekunden normal fliegst.' + whereText;
-        if (allowed.indexOf('resume_teleport') >= 0) model.primary = { intent: 'resume_teleport', label: 'An Unterbrechungspunkt versetzen' };
+        model.text = 'Zum Fortsetzen an den Speicherpunkt fliegen (' + formatNm(model.zone.radiusNm) + ' NM Zone). Die Mission läuft weiter, sobald du dort 10 Sekunden normal fliegst.' + whereText;
+        if (allowed.indexOf('resume_teleport') >= 0) model.primary = { intent: 'resume_teleport', label: 'An Speicherpunkt versetzen' };
+      } else if (insideZone) {
+        // Already there (e.g. on the departure field): no "go back" instruction.
+        model.kicker = 'Speicherstand wird geladen';
+        model.text = 'Flugzeug steht am Speicherpunkt. Die Mission läuft gleich weiter.';
       } else {
         var place = model.zone && model.zone.kind === 'departure' ? 'am Startplatz' + (model.zone.label ? ' ' + model.zone.label : '')
-          : (model.zone && model.zone.kind === 'destination' ? 'am Zielplatz' + (model.zone.label ? ' ' + model.zone.label : '') : 'am Unterbrechungsort');
+          : (model.zone && model.zone.kind === 'destination' ? 'am Zielplatz' + (model.zone.label ? ' ' + model.zone.label : '') : 'am Speicherpunkt');
         if (model.zone && model.zone.kind) model.kicker = model.zone.kind === 'departure' ? 'Zurück zum Startplatz' : 'Zurück zum Zielplatz';
         model.text = 'Flugzeug ' + place + ' abstellen (innerhalb ' + formatNm(model.zone ? model.zone.radiusNm : 1) + ' NM). Die Mission läuft weiter, sobald es dort 5 Sekunden am Boden steht.' + whereText;
       }

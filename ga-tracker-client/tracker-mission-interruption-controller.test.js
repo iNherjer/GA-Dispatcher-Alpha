@@ -184,3 +184,31 @@ test('the last valid position of a started run is persisted, throttled', () => {
   assert.equal(writes[2].onGround, false);
   assert.equal(stored[0].runId, 'r');
 });
+
+test('a running cockpit continues without a button; the save point zone follows', () => {
+  const f = fixture();
+  f.controller.observe(f.air());
+  f.attached = false;
+  f.controller.begin('simulator_disconnected', 'detach');
+  f.clock += 3_600_000; // long after the automatic-continuation window
+  f.attached = true;
+  // Ready-to-fly screen / World Map: not a running cockpit, nothing happens.
+  assert.equal(f.controller.observe(f.air({ lat: 50, lon: 9 })), true);
+  assert.equal(f.record.status, 'awaiting_decision');
+  assert.deepEqual(f.rebuilds, []);
+  // Slew samples are not a running flight either.
+  f.ready = true;
+  f.controller.observe(f.air({ lat: 50, lon: 9, slewActive: true }));
+  assert.equal(f.record.status, 'awaiting_decision');
+  // Cockpit at another place: continued, scenes rebuilt, the zone is the way back.
+  assert.equal(f.controller.observe(f.air({ lat: 50, lon: 9 })), true);
+  assert.equal(f.record.status, 'awaiting_zone');
+  assert.equal(f.record.decidedBy, 'cockpit');
+  assert.deepEqual(f.rebuilds, ['resuming']);
+  // Air start at the save point: 10 s of real flight there resume the mission.
+  f.controller.observe(f.air({ lat: 48.11 }));
+  f.clock += 10_500;
+  assert.equal(f.controller.observe(f.air({ lat: 48.12 })), false);
+  assert.equal(f.record, null);
+  assert.deepEqual(f.resumed, ['zone']);
+});

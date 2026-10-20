@@ -45,11 +45,10 @@ test('EFB banner shows the interruption choice and blocks a cloud mission replac
   const interrupted = payload(control({ status: 'awaiting_decision', since: Date.now() - 30000, zone }, ['abort_mission', 'resume_mission']),
     { authoritySnapshot: { pendingCloudMission: { missionId: 'new', title: 'Neue Mission' } } });
   const model = c.api.missionActionBannerModel(interrupted);
-  assert.equal(model.kind, 'intent');
-  assert.equal(model.intent, 'resume_mission');
-  assert.equal(model.button, 'Mission fortsetzen');
+  assert.equal(model.kind, 'interruption');
+  assert.equal(model.buttonHidden, true, 'no continue button; continuing is the default');
   assert.equal(model.className, 'is-interrupted');
-  assert.match(model.text, /Szenen und Zuladung im laufenden Cockpit/, 'the EFB runs inside the simulator');
+  assert.match(model.text, /Im laufenden Cockpit werden Szenen und Zuladung neu aufgebaut/, 'the EFB runs inside the simulator');
   assert.equal(model.interruption.resetAvailable, true);
   assert.equal(c.window.gaTrackerMissionInterrupted(), false, 'helpers read the current snapshot');
   c.missionSnapshot = interrupted;
@@ -83,8 +82,8 @@ test('EFB announces the resume once when the tracker clears the record on the sa
   const resumed = payload(control(null, ['abort_mission', 'pax_wellbeing']));
   assert.equal(c.api.trackInterruptionResume(resumed), null);
   const notice = c.api.missionActionBannerModel(resumed);
-  assert.equal(notice.kicker, 'Mission wieder aufgenommen');
-  assert.equal(notice.buttonHidden, true);
+  assert.equal(notice.kicker, 'Speicherstand geladen');
+  assert.equal(notice.resumed, true, 'the confirmation offers "Flugplan laden"');
   assert.equal(c.reports.filter(entry => entry[1] === 'mission-interruption').length, 1);
   // An aborted/closed run is not announced as resumed.
   const d = sandbox();
@@ -104,7 +103,7 @@ test('EFB render wiring keeps mission windows, reminders and the manual flight p
   assert.match(between('  function offerCloudMissionReplacement(payload, force) {', '  function renderDebrief('), /if \(interruptionView\(payload\)\) return;/);
   const banner = between('  function renderMissionActionBanner(payload) {', '  function updateMissionLiveFields(');
   assert.match(banner, /var planning = interrupted \? null : preflightPlanningModel\(payload, true\);/);
-  for (const label of ['Route an Avionik', 'Speicherstand laden', 'Mission neustarten', 'Mission abbrechen']) assert.ok(banner.includes(label), label);
+  for (const label of ['Flugplan laden', 'Speicherstand laden', 'Mission neustarten', 'Mission abbrechen']) assert.ok(banner.includes(label), label);
 });
 
 test('reset and abort from the interruption banner always ask first', () => {
@@ -136,7 +135,10 @@ test('the World Map keeps the flight planning ("Flugsicherung") before and after
   assert.match(banner, /if \(!arrivalZone && !cockpitRunning && !transferred && Date\.now\(\) < flightPlanAtcReadyUntil\)/);
   const key = between('  function resumeTransferKey(control, view) {', '  function transferResumeFlightPlan(');
   assert.match(key, /mapSnapshot\.routeEdit\.revision/, 'a route edit changes the key');
-  assert.match(banner, /if \(!arrivalZone && cockpitRunning && interruptionModel\.status !== 'awaiting_decision'/);
+  assert.match(banner, /if \(!arrivalZone && cockpitRunning && Date\.now\(\) < flightPlanBridgeReadyUntil\) \{\s*interruptionButtons\.push\(\{ id: 'avionics', label: 'Flugplan laden',/);
+  // The resume confirmation offers the complete plan for the avionics.
+  assert.match(banner, /model\.resumed && Date\.now\(\) < flightPlanBridgeReadyUntil[\s\S]{0,200}id: 'avionics-resumed', primary: true, label: 'Flugplan laden'/);
+  assert.match(banner, /transferStartedFlightPlan\('avionics', control\.missionId, revision, 'resumed'\)/);
   assert.match(banner, /label: 'Speicherstand laden',/, 'short labels');
   // Directly in the resume prompt: first, primary, and it resumes before sending.
   assert.match(banner, /submitMissionIntent\('resume_mission', \{ reason: 'efb-interruption-resume-atc' \}\)\)\.then\(function \(result\) \{\s*return result === true \? transferResumeFlightPlan\('atc', true\) : false;/);

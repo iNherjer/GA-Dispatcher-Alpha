@@ -330,39 +330,46 @@ test('interruption model presents decision, waiting and zone states for every vi
   assert.equal(decision.visible, true);
   assert.match(decision.text, /MSFS starten und einen Flug laden/);
   assert.match(decision.text, /Alternativ die Mission neu starten oder abbrechen/);
-  assert.deepEqual(decision.primary, { intent: 'resume_mission', label: 'Mission fortsetzen' });
+  assert.equal(decision.primary, null, 'continuing is the default; no continue button');
   assert.equal(decision.resetAvailable, true);
   const restarted = core.interruptionModel(control({ status: 'awaiting_decision', since: now - 20000, zone }, ['abort_mission', 'resume_mission']),
     { now, simulatorConnected: true });
-  assert.match(restarted.text, /markierten Zone/);
+  assert.match(restarted.text, /Im laufenden Cockpit werden Szenen und Zuladung neu aufgebaut/);
+  assert.match(restarted.text, /„Speicherstand laden“ startet dich dort in der Luft/);
 
   const waiting = core.interruptionModel(control({ status: 'resuming', since: now - 60000, zone }, ['abort_mission']), { now, simulatorConnected: true });
   assert.equal(waiting.primary, null);
-  assert.match(waiting.text, /nicht in der Weltkarte/);
+  assert.equal(waiting.kicker, 'Mission unterbrochen');
 
   const air = core.interruptionModel(control({ status: 'awaiting_zone', since: now - 90000, zone }, ['abort_mission', 'resume_teleport']),
     { now, livePosition: { lat: 49.1, lon: 8.1 } });
-  assert.deepEqual(air.primary, { intent: 'resume_teleport', label: 'An Unterbrechungspunkt versetzen' });
-  assert.match(air.text, /5,0 NM Radius/);
+  assert.deepEqual(air.primary, { intent: 'resume_teleport', label: 'An Speicherpunkt versetzen' });
+  assert.match(air.text, /Zum Fortsetzen an den Speicherpunkt fliegen \(5,0 NM Zone\)/);
   assert.match(air.text, /Noch 60,\d NM, Kurs 180°/);
   assert.ok(Math.abs(air.distanceNm - 60) < 0.5);
 
-  const ground = core.interruptionModel(control({ status: 'awaiting_zone', since: now - 90000,
-    zone: { lat: 48.1, lon: 8.1, radiusNm: 1, airborne: false } }, ['abort_mission']), { now });
+  const groundZone = { lat: 48.1, lon: 8.1, radiusNm: 1.5, airborne: false, kind: 'departure', label: 'EDTF' };
+  const ground = core.interruptionModel(control({ status: 'awaiting_zone', since: now - 90000, zone: groundZone }, ['abort_mission']),
+    { now, livePosition: { lat: 48.3, lon: 8.1 } });
   assert.equal(ground.primary, null);
-  assert.match(ground.text, /am Boden steht/);
+  assert.match(ground.text, /am Startplatz EDTF abstellen/);
+  // Already on the field (inside 1.5 NM): no "go back" instruction.
+  const atField = core.interruptionModel(control({ status: 'awaiting_zone', since: now - 90000, zone: groundZone }, ['abort_mission']),
+    { now, livePosition: { lat: 48.11, lon: 8.1 } });
+  assert.equal(atField.kicker, 'Speicherstand wird geladen');
+  assert.doesNotMatch(atField.text, /abstellen/);
 
-  // Toolbar and Mission Control take the resume choice, never cargo.
+  // Toolbar and Mission Control show no cargo and no continue button.
   const toolbar = core.missionToolbarModel(control({ status: 'awaiting_decision', since: now - 20000, zone }, ['abort_mission', 'resume_mission']),
     { interruption: decision });
-  assert.equal(toolbar.primary.intent, 'resume_mission');
+  assert.equal(toolbar.primary, null);
   assert.equal(toolbar.cargo.visible, false);
   assert.equal(toolbar.reset.visible, true);
   const markup = core.render(sampleView(), { control: control({ status: 'awaiting_decision', since: now - 20000, zone }, ['abort_mission', 'resume_mission']), interruption: decision });
-  assert.match(markup, /data-mission-intent="resume_mission"/);
+  assert.doesNotMatch(markup, /data-mission-intent="resume_mission"/);
   assert.match(markup, /data-mission-intent="abort_mission"/);
   assert.match(markup, /Mission unterbrochen: Der Simulator ist getrennt/);
-  assert.match(core.RESUMED_NOTICE_TEXT, /Mission wieder aufgenommen/);
+  assert.match(core.RESUMED_NOTICE_TEXT, /Speicherstand erfolgreich geladen/);
 });
 
 test('ground interruptions name the departure or destination airport', () => {

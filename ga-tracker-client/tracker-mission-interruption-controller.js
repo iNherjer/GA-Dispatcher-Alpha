@@ -154,6 +154,15 @@ function createMissionInterruptionController(options = {}) {
       // The simulator obviously kept running (SimConnect/tracker gap).
       const decided = core.decide(current, { by: 'auto', now: at });
       if (write(decided, 'auto-continuation').ok) rebuildNow('auto-continuation');
+    } else if (current.status === 'awaiting_decision' && simulatorAttached() && worldReady() && core.validSample(sample)) {
+      // Continuing is the default: a running cockpit (after "Fliegen") resumes
+      // without a button; restart/abort are the only choices. Scenes and
+      // payload come back now, the zone (save point) follows as usual.
+      const decided = core.decide(current, { by: 'cockpit', now: at });
+      if (write(decided, 'cockpit').ok) {
+        log('MISSION_INTERRUPTION_DECISION by=cockpit simulator=1 ready=1');
+        rebuildNow('cockpit');
+      }
     } else if (current.status === 'resuming') {
       rebuildNow('telemetry');
     } else if (current.status === 'awaiting_zone') {

@@ -12820,8 +12820,8 @@ window.confirmMissionCriticalAction = _confirmMissionCriticalAction;
 function _trackerMissionBannerModel(control = null) {
     if (!control || control.executionAuthority !== 'tracker') return null;
     if (trackerResumedNotice && trackerResumedNotice.until > Date.now()) {
-        return { intent: '', kind: 'notice', kicker: 'Mission wieder aufgenommen', text: window.GAMissionControlUiCore?.RESUMED_NOTICE_TEXT
-            || 'Mission wieder aufgenommen.', button: '', buttonHidden: true, className: 'is-resumed', key: trackerResumedNotice.key };
+        return { intent: '', kind: 'notice', kicker: 'Speicherstand geladen', text: window.GAMissionControlUiCore?.RESUMED_NOTICE_TEXT
+            || 'Speicherstand erfolgreich geladen.', button: '', buttonHidden: true, className: 'is-resumed', key: trackerResumedNotice.key };
     }
     const interruption = _trackerInterruptionView(control);
     if (interruption) {

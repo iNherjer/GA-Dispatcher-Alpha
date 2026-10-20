@@ -89,7 +89,7 @@ test('the tracker record drives the interruption; started runs only', () => {
   const view = c.api._trackerInterruptionView(control);
   assert.equal(view.status, 'awaiting_decision');
   assert.equal(view.visible, true);
-  assert.deepEqual(JSON.parse(JSON.stringify(view.primary)), { intent: 'resume_mission', label: 'Mission fortsetzen' });
+  assert.equal(view.primary, null, 'continuing is the default; no continue button');
   // Fallback for trackers without a record: closed simulator, link state only.
   c.api._rememberTrackerTelemetryMode({ telemetryMode: 'hibernate', telemetryHibernateReason: 'sim_disconnected', telemetryModeSince: Date.now() - 20000 });
   const fallback = c.api._trackerInterruptionView(boardingControl());
@@ -120,13 +120,12 @@ test('tracker offline shows its own hint after the display delay', () => {
   assert.equal(banner.secondary, null, 'no reset without the tracker');
 });
 
-test('banner offers resume with reset as the alternative, then waiting and zone guidance', () => {
+test('banner offers restart and abort (no continue button), then waiting and zone guidance', () => {
   const c = sandbox();
   connect(c, { telemetryMode: 'hibernate', telemetryHibernateReason: 'sim_disconnected', telemetryModeSince: Date.now() - 30000 });
   const decision = c.api._trackerMissionBannerModel(boardingControl(record('awaiting_decision', 30000)));
-  assert.equal(decision.kind, 'intent');
-  assert.equal(decision.intent, 'resume_mission');
-  assert.equal(decision.button, 'Mission fortsetzen');
+  assert.equal(decision.kind, 'interruption');
+  assert.equal(decision.buttonHidden, true);
   assert.deepEqual(JSON.parse(JSON.stringify(decision.secondary)), { action: 'reset', label: 'Mission neustarten' });
   assert.deepEqual(JSON.parse(JSON.stringify(decision.tertiary)), { action: 'abort', label: 'Mission abbrechen' });
   assert.equal(decision.className, 'is-interrupted');
@@ -141,13 +140,13 @@ test('banner offers resume with reset as the alternative, then waiting and zone 
   const waiting = c.api._trackerMissionBannerModel(boardingControl(record('resuming', 60000), { allowedActions: ['abort_mission'] }));
   assert.equal(waiting.kind, 'interruption');
   assert.equal(waiting.buttonHidden, true);
-  assert.match(waiting.text, /nicht in der Weltkarte/);
+  assert.match(waiting.text, /Im laufenden Cockpit werden Szenen und Zuladung neu aufgebaut/);
 
   c.lastLiveGpsPos = { lat: 49.2, lon: 8.4 };
   const zone = c.api._trackerMissionBannerModel(boardingControl(record('awaiting_zone', 90000,
     { lat: 48.2, lon: 8.4, radiusNm: 5, airborne: true }), { phase: 'enroute', allowedActions: ['abort_mission', 'resume_teleport'] }));
   assert.equal(zone.intent, 'resume_teleport');
-  assert.equal(zone.button, 'An Unterbrechungspunkt versetzen');
+  assert.equal(zone.button, 'An Speicherpunkt versetzen');
   assert.match(zone.text, /Noch 60,\d NM, Kurs 180°/);
 });
 
@@ -171,7 +170,7 @@ test('zone is drawn while interrupted, removed on resume, and the resume is anno
   assert.equal(c.api._syncTrackerMissionInterruption('test'), false);
   assert.equal(c.zoneRenders.at(-1), null, 'zone removed when the tracker clears the interruption');
   const notice = c.api._trackerMissionBannerModel(c.gaTrackerExecutionControl);
-  assert.equal(notice.kicker, 'Mission wieder aufgenommen');
+  assert.equal(notice.kicker, 'Speicherstand geladen');
   assert.equal(notice.kind, 'notice');
   assert.deepEqual(c.debug.map(entry => entry.detail.status), ['awaiting_zone', null]);
 });
