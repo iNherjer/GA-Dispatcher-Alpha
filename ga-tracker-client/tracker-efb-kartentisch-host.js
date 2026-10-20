@@ -2925,12 +2925,13 @@
     var interruptionModel = model && model.interruption;
     if (interruptionModel) {
       var airborneZone = !!(interruptionModel.zone && interruptionModel.zone.airborne);
-      if (interruptionModel.status !== 'awaiting_decision' && Date.now() < flightPlanBridgeReadyUntil) {
+      var arrivalZone = !!(interruptionModel.zone && interruptionModel.zone.kind === 'destination');
+      if (!arrivalZone && interruptionModel.status !== 'awaiting_decision' && Date.now() < flightPlanBridgeReadyUntil) {
         interruptionButtons.push({ id: 'avionics', label: airborneZone ? 'Restroute an Avionik senden' : 'Flugplan an Avionik senden',
           run: function () { return transferResumeFlightPlan('avionics'); } });
       }
       // World Map: prepare the flight before loading it (air start or departure stand).
-      if (interruptionModel.status === 'awaiting_decision' && Date.now() < flightPlanAtcReadyUntil) {
+      if (!arrivalZone && interruptionModel.status === 'awaiting_decision' && Date.now() < flightPlanAtcReadyUntil) {
         interruptionButtons.push({ id: 'atc', label: airborneZone ? 'Restroute an Weltkarte senden (Luftstart dort wählen, experimentell)' : 'Flugplan an Weltkarte senden',
           run: function () { return transferResumeFlightPlan('atc'); } });
       }

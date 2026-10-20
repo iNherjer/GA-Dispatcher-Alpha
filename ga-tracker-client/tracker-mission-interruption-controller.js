@@ -15,6 +15,9 @@ function createMissionInterruptionController(options = {}) {
   const rebuild = typeof options.rebuild === 'function' ? options.rebuild : async () => ({ ok: true });
   const onResumed = typeof options.onResumed === 'function' ? options.onResumed : () => {};
   const setAircraftPosition = typeof options.setAircraftPosition === 'function' ? options.setAircraftPosition : () => null;
+  // Airport reference for interruptions on the ground (departure before take-off,
+  // destination after landing); supplied by the runtime from the mission route.
+  const anchorFor = typeof options.anchorFor === 'function' ? options.anchorFor : () => null;
   let lastValidSample = null;
   let pendingUnknownStart = false;
   let lastEngineRpm = null;
@@ -88,7 +91,10 @@ function createMissionInterruptionController(options = {}) {
       write(reopened, `${reason}:reopen`);
       return reopened;
     }
-    const created = core.create({ cause, phase: snapshot.state.phase, position: fallbackPosition(snapshot), now: now() });
+    const position = fallbackPosition(snapshot);
+    let anchor = null;
+    try { anchor = anchorFor(snapshot, core.positionFromSample(position)); } catch (error) { log(`MISSION_INTERRUPTION_ANCHOR_ERROR error=${error?.message || error}`); }
+    const created = core.create({ cause, phase: snapshot.state.phase, position, anchor, now: now() });
     if (requirePosition && !created?.position) {
       pendingUnknownStart = true;
       log(`MISSION_INTERRUPTION_DEFERRED cause=${cause} reason=position_unknown phase=${snapshot.state.phase}`);
@@ -98,7 +104,7 @@ function createMissionInterruptionController(options = {}) {
     // Without a known position there is no zone and no automatic continuation:
     // the pilot decides, and the run resumes right after the cockpit rebuild.
     write(created, reason);
-    log(`MISSION_INTERRUPTION_BEGIN cause=${cause} phase=${snapshot.state.phase} airborne=${created?.zone?.airborne === true ? 1 : 0} position=${created?.position ? 1 : 0}`);
+    log(`MISSION_INTERRUPTION_BEGIN cause=${cause} phase=${snapshot.state.phase} airborne=${created?.zone?.airborne === true ? 1 : 0} position=${created?.position ? 1 : 0} anchor=${created?.anchor?.kind || 'none'}`);
     return created;
   };
 

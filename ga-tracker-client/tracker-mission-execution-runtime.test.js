@@ -1648,8 +1648,8 @@ test('inspector visit dispatches automatically at the final ground stop and is n
   await exerciseUnloadCompletion(t, '', true);
 });
 
-function boardingManager(t, events = 4) {
-  const manager = committedManager(t);
+function boardingManager(t, events = 4, bundle = aptBundle()) {
+  const manager = committedManager(t, bundle);
   for (let index = 0; index < events; index++) {
     const snapshot = manager.getExecutionSnapshot();
     const result = manager.applyExecutionEvent({
@@ -1838,4 +1838,24 @@ test('an older started run without a stored position is interrupted at the first
   assert.equal(manager.getExecutionInterruption(), null);
   runtime.observeTelemetry({ observedAt: clock + 1000, lat: 48.2, lon: 8.4, onGround: true, gsKts: 0 });
   assert.equal(manager.getExecutionLastPosition().lat, 48.2);
+});
+
+test('a ground interruption before take-off points back to the departure airport, not the exact stand', async t => {
+  const bundle = aptBundle();
+  bundle.missionState = { ...(bundle.missionState || {}), currentStartICAO: 'EDTF', currentDestICAO: 'EDTW',
+    routeWaypoints: [{ lat: 48.0225, lon: 7.8325, icao: 'EDTF' }, { lat: 48.3, lon: 8.0 }, { lat: 48.0525, lon: 8.53, icao: 'EDTW' }] };
+  const manager = boardingManager(t, 4, bundle);
+  let clock = 300000;
+  const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: true,
+    requireCockpitReady: true, independentStartReadiness: true, now: () => clock, log: () => {} });
+  const ground = (over = {}) => ({ observedAt: clock, lat: 48.025, lon: 7.836, altFt: 800, aglFt: 0, hdg: 90, gsKts: 0,
+    onGround: true, simRunning: 1, simPaused: false, inMenuOrMap: false, slewActive: false, ...over });
+  const bridge = runtime.attachSimulator({ getLivePosition: () => ({ lat: 48.025, lon: 7.836, alt: 800, hdg: 90 }),
+    dispatchCommand: () => ({ ok: true, status: 'completed' }) });
+  runtime.observeStartReadiness({ ...ground(), cameraState: 2 });
+  runtime.observeTelemetry(ground());
+  runtime.detachSimulator(bridge);
+  const record = manager.getExecutionInterruption();
+  assert.deepEqual(record.zone, { lat: 48.0225, lon: 7.8325, radiusNm: 1.5, airborne: false, kind: 'departure', label: 'EDTF' });
+  assert.equal(manager.getPublicSnapshot().execution.interruption.zone.label, 'EDTF');
 });

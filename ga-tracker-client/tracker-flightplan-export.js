@@ -33,6 +33,30 @@ function remainingRoute(points, start) {
   return [{ lat: start.lat, lon: start.lon, name: 'UNTERBRECHUNG', icao: '' }, ...points.slice(best + 1)];
 }
 
+function missionRouteSource(run) {
+  const bundle = run?.resumeBundle || {}, state = bundle.missionState || {};
+  const mission = state.currentMissionData || state.activeMissionContract || state;
+  const contract = mission.missionContract || state.activeMissionContract || {};
+  return [run?.navigationRoute?.points, mission.routeWaypoints, mission.missionRouteWaypoints,
+    state.routeWaypoints, state.missionRouteWaypoints, contract.routeWaypoints, contract.missionRouteWaypoints]
+    .find(value => Array.isArray(value) && value.length >= 2) || null;
+}
+
+// Departure and destination airport of the mission route (first/last point).
+function missionRouteEnds(run) {
+  const raw = missionRouteSource(run);
+  if (!raw) return null;
+  const point = (value, fallbackIcao) => {
+    const lat = Number(value?.lat ?? value?.latitude), lon = Number(value?.lon ?? value?.lng ?? value?.longitude);
+    if (value?.lat == null && value?.latitude == null) return null;
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+    const icao = String(value.icao || value.airportIdent || fallbackIcao || '').trim().toUpperCase().slice(0, 12);
+    return { lat, lon, label: icao || String(value.name || value.label || '').trim().slice(0, 60) };
+  };
+  const state = run?.resumeBundle?.missionState || {};
+  return { departure: point(raw[0], state.currentStartICAO), destination: point(raw[raw.length - 1], state.currentDestICAO) };
+}
+
 // Read the private, complete route. Never export the bounded map projection.
 function createFlightPlanExport(run, request = {}) {
   if (!run || run.missionId !== request.missionId || run.runId !== request.runId) throw new Error('flightplan_run_changed');
@@ -41,9 +65,7 @@ function createFlightPlanExport(run, request = {}) {
   const bundle = run.resumeBundle || {}, state = bundle.missionState || {};
   const mission = state.currentMissionData || state.activeMissionContract || state;
   const contract = mission.missionContract || state.activeMissionContract || {};
-  const raw = [run.navigationRoute?.points, mission.routeWaypoints, mission.missionRouteWaypoints,
-    state.routeWaypoints, state.missionRouteWaypoints, contract.routeWaypoints, contract.missionRouteWaypoints]
-    .find(value => Array.isArray(value) && value.length >= 2);
+  const raw = missionRouteSource(run);
   if (!raw || raw.length > 512) throw new Error('flightplan_route_invalid');
   let points = raw.map((point, index) => {
     const latValue = point.lat ?? point.latitude, lonValue = point.lon ?? point.lng ?? point.longitude;
@@ -67,4 +89,4 @@ function createFlightPlanExport(run, request = {}) {
     ...(resume ? { resumeFrom: { lat: resume.lat, lon: resume.lon } } : {}) };
   return { ...plan, routeHash: crypto.createHash('sha256').update(JSON.stringify(plan)).digest('hex') };
 }
-module.exports = { createFlightPlanExport, remainingRoute };
+module.exports = { createFlightPlanExport, remainingRoute, missionRouteEnds };

@@ -364,3 +364,15 @@ test('interruption model presents decision, waiting and zone states for every vi
   assert.match(markup, /Mission unterbrochen: Der Simulator ist getrennt/);
   assert.match(core.RESUMED_NOTICE_TEXT, /Mission wieder aufgenommen/);
 });
+
+test('ground interruptions name the departure or destination airport', () => {
+  const now = 3_000_000;
+  const control = zone => ({ executionAuthority: 'tracker', missionId: 'm', runId: 'r', phase: 'boarding', allowedActions: ['abort_mission'],
+    interruption: { status: 'awaiting_zone', since: now - 60000, zone } });
+  const departure = core.interruptionModel(control({ lat: 48, lon: 7.8, radiusNm: 1.5, airborne: false, kind: 'departure', label: 'EDTF' }), { now });
+  assert.equal(departure.kicker, 'Zurück zum Startplatz');
+  assert.match(departure.text, /am Startplatz EDTF abstellen \(innerhalb 1,5 NM\)/);
+  const destination = core.interruptionModel(control({ lat: 48, lon: 8.4, radiusNm: 1.5, airborne: false, kind: 'destination', label: 'EDTW' }), { now });
+  assert.equal(destination.kicker, 'Zurück zum Zielplatz');
+  assert.match(destination.text, /am Zielplatz EDTW/);
+});

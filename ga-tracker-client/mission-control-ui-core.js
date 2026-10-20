@@ -142,7 +142,8 @@
       kicker: 'Mission unterbrochen',
       text: '',
       primary: null,
-      zone: zone ? { lat: Number(zone.lat), lon: Number(zone.lon), radiusNm: Number(zone.radiusNm) || 5, airborne: zone.airborne === true } : null,
+      zone: zone ? { lat: Number(zone.lat), lon: Number(zone.lon), radiusNm: Number(zone.radiusNm) || 5, airborne: zone.airborne === true,
+        kind: zone.kind === 'departure' || zone.kind === 'destination' ? zone.kind : '', label: String(zone.label || '') } : null,
       distanceNm: navigation ? navigation.distanceNm : null,
       bearingDeg: navigation ? navigation.bearingDeg : null,
       resetAvailable: allowed.indexOf('abort_mission') >= 0,
@@ -165,7 +166,10 @@
         model.text = 'In die markierte Zone (' + formatNm(model.zone.radiusNm) + ' NM Radius) fliegen oder slewen. Die Mission läuft weiter, sobald du dort 10 Sekunden normal fliegst.' + whereText;
         if (allowed.indexOf('resume_teleport') >= 0) model.primary = { intent: 'resume_teleport', label: 'An Unterbrechungspunkt versetzen' };
       } else {
-        model.text = 'Flugzeug am Unterbrechungsort abstellen (innerhalb ' + formatNm(model.zone ? model.zone.radiusNm : 1) + ' NM). Die Mission läuft weiter, sobald es dort 5 Sekunden am Boden steht.' + whereText;
+        var place = model.zone && model.zone.kind === 'departure' ? 'am Startplatz' + (model.zone.label ? ' ' + model.zone.label : '')
+          : (model.zone && model.zone.kind === 'destination' ? 'am Zielplatz' + (model.zone.label ? ' ' + model.zone.label : '') : 'am Unterbrechungsort');
+        if (model.zone && model.zone.kind) model.kicker = model.zone.kind === 'departure' ? 'Zurück zum Startplatz' : 'Zurück zum Zielplatz';
+        model.text = 'Flugzeug ' + place + ' abstellen (innerhalb ' + formatNm(model.zone ? model.zone.radiusNm : 1) + ' NM). Die Mission läuft weiter, sobald es dort 5 Sekunden am Boden steht.' + whereText;
       }
     } else {
       return null;

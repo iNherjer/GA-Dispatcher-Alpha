@@ -24,6 +24,7 @@ const bushPickupVoice = require('../mission-bush-pickup-voice-core.js');
 const boardingVoiceCore = require('../mission-boarding-voice-core.js');
 const { createMissionInterruptionController } = require('./tracker-mission-interruption-controller.js');
 const { createCargoCheckpointRecovery } = require('./tracker-cargo-checkpoint-recovery.js');
+const { missionRouteEnds } = require('./tracker-flightplan-export.js');
 
 function createTrackerMissionExecutionRuntime(options = {}) {
   const authorityManager = options.authorityManager;
@@ -690,6 +691,15 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     simulatorAttached: () => Boolean(simulatorEffects),
     worldReady: () => startReadiness ? startReadiness.snapshot().worldReady === true : Boolean(simulatorEffects),
     rebuild: rebuildAfterInterruption,
+    anchorFor: (snapshot, position) => {
+      if (position && position.onGround === false) return null;
+      const ends = missionRouteEnds(authorityManager.getActiveRun({ includeBundle: true }));
+      if (!ends) return null;
+      // Not yet airborne: the departure airport; landed and handling the arrival: the destination.
+      if (snapshot.state.progress?.airborneSeen !== true) return ends.departure ? { kind: 'departure', ...ends.departure } : null;
+      if (['end_unloading', 'end_ready'].includes(snapshot.state.phase)) return ends.destination ? { kind: 'destination', ...ends.destination } : null;
+      return null;
+    },
     setAircraftPosition: target => simulatorSetAircraftPosition ? simulatorSetAircraftPosition(target) : { ok: false, error: 'mission_simulator_not_connected' },
     onResumed: (mode, record) => {
       if (mode === 'ground' && record?.zone && !record.zone.airborne) restoreAircraftRelative();

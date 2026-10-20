@@ -12,6 +12,10 @@
 const SCHEMA = 'ga.mission-interruption.v1';
 const AIR_RADIUS_NM = 5;
 const GROUND_RADIUS_NM = 1;
+// Before take-off (and after landing at the destination) the airport is the
+// reference, not the exact stand: a restarted simulator may park elsewhere.
+const AIRPORT_RADIUS_NM = 1.5;
+const ANCHOR_KINDS = Object.freeze(['departure', 'destination']);
 const AIR_DWELL_MS = 10000;
 const GROUND_DWELL_MS = 5000;
 const AUTO_RESUME_GAP_MS = 90000;
@@ -99,7 +103,17 @@ function normalizePosition(raw) {
   return position;
 }
 
-function zoneFor(position) {
+function normalizeAnchor(raw) {
+  if (!raw || typeof raw !== 'object' || !ANCHOR_KINDS.includes(raw.kind)) return null;
+  const lat = finite(raw.lat), lon = finite(raw.lon);
+  if (!validCoordinate(lat, lon)) return null;
+  return { kind: raw.kind, lat: round(lat, 6), lon: round(lon, 6), label: String(raw.label || '').trim().slice(0, 60) };
+}
+
+function zoneFor(position, anchor = null) {
+  if (anchor && (!position || position.onGround)) {
+    return { lat: anchor.lat, lon: anchor.lon, radiusNm: AIRPORT_RADIUS_NM, airborne: false, kind: anchor.kind, label: anchor.label };
+  }
   if (!position) return null;
   return {
     lat: position.lat,
@@ -114,6 +128,7 @@ function normalize(raw) {
   const status = STATUSES.includes(raw.status) ? raw.status : null;
   if (!status) return null;
   const position = normalizePosition(raw.position);
+  const anchor = normalizeAnchor(raw.anchor);
   const timestamp = value => Math.max(0, Math.round(finite(value) || 0)) || null;
   return {
     schema: SCHEMA,
@@ -122,7 +137,8 @@ function normalize(raw) {
     since: timestamp(raw.since) || 0,
     phase: String(raw.phase || '').trim().toLowerCase().slice(0, 40) || null,
     position,
-    zone: zoneFor(position),
+    anchor,
+    zone: zoneFor(position, anchor),
     autoResumeUntil: timestamp(raw.autoResumeUntil),
     decidedAt: timestamp(raw.decidedAt),
     decidedBy: String(raw.decidedBy || '').trim().toLowerCase().slice(0, 24) || null,
@@ -147,7 +163,7 @@ function interruptible(executionState) {
     && executionState.flags?.closingPending !== true;
 }
 
-function create({ cause = 'simulator_disconnected', phase = null, position = null, now = Date.now() } = {}) {
+function create({ cause = 'simulator_disconnected', phase = null, position = null, anchor = null, now = Date.now() } = {}) {
   const normalizedPosition = normalizePosition(position);
   // A short gap may resume on its own when the simulator obviously continued.
   const autoResumeUntil = normalizedPosition?.observedAt ? normalizedPosition.observedAt + AUTO_RESUME_GAP_MS : null;
@@ -158,14 +174,21 @@ function create({ cause = 'simulator_disconnected', phase = null, position = nul
     since: now,
     phase,
     position: normalizedPosition,
+    anchor,
     autoResumeUntil
   });
 }
 
 function plausibleContinuation(record, sample, now = Date.now()) {
   if (!record || record.status !== 'awaiting_decision') return false;
-  // Unknown position (older runs): nothing to compare, a running simulator continues.
-  if (!record.position) return validSample(sample);
+  // Unknown position (older runs): at its airport it continues, without one
+  // there is nothing to compare and a running simulator continues.
+  if (!record.position) {
+    if (!validSample(sample)) return false;
+    if (!record.zone || sample.onGround === false) return true;
+    return sample.onGround === true
+      && haversineNm(record.zone.lat, record.zone.lon, Number(sample.lat), Number(sample.lon ?? sample.lng)) <= record.zone.radiusNm;
+  }
   if (!record.position.observedAt) return false;
   if (!record.autoResumeUntil || now > record.autoResumeUntil || !validSample(sample)) return false;
   const gapSec = Math.max(0, (now - record.position.observedAt) / 1000);
@@ -249,6 +272,7 @@ module.exports = {
   SCHEMA,
   AIR_RADIUS_NM,
   GROUND_RADIUS_NM,
+  AIRPORT_RADIUS_NM,
   AIR_DWELL_MS,
   GROUND_DWELL_MS,
   AUTO_RESUME_GAP_MS,

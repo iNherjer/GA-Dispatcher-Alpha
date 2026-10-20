@@ -160,7 +160,7 @@ test('zone is drawn while interrupted, removed on resume, and the resume is anno
   c.gaTrackerExecutionControl = boardingControl(record('awaiting_zone', 90000, airZone), { phase: 'enroute', allowedActions: ['abort_mission'] });
   assert.equal(c.api._syncTrackerMissionInterruption('test'), true);
   assert.equal(closed, 1);
-  assert.deepEqual(JSON.parse(JSON.stringify(c.zoneRenders.at(-1))), airZone);
+  assert.deepEqual(JSON.parse(JSON.stringify(c.zoneRenders.at(-1))), { ...airZone, kind: '', label: '' });
   const updates = c.uiUpdates;
   c.api._syncTrackerMissionInterruption('test');
   assert.equal(c.uiUpdates, updates, 'unchanged state does not repeat');

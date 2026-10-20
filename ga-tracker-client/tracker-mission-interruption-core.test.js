@@ -132,3 +132,24 @@ test('projection and history are bounded and public', () => {
   assert.ok(Math.abs(core.bearingDeg(48, 8, 49, 8) - 0) < 0.01);
   assert.ok(Math.abs(core.haversineNm(48, 8, 49, 8) - 60) < 0.2);
 });
+
+test('before take-off and after landing the airport is the ground reference', () => {
+  const departure = { kind: 'departure', lat: 48.02, lon: 7.83, label: 'EDTF' };
+  const record = core.create({ phase: 'boarding', position: parked({ lat: 48.025, lon: 7.835 }), anchor: departure, now: T0 });
+  assert.deepEqual(record.zone, { lat: 48.02, lon: 7.83, radiusNm: core.AIRPORT_RADIUS_NM, airborne: false, kind: 'departure', label: 'EDTF' });
+  assert.deepEqual(core.normalize(JSON.parse(JSON.stringify(record))).zone, record.zone, 'anchor survives persistence');
+  // Another stand on the same airport counts, another airport does not.
+  const zone = core.rebuilt(core.decide(record, { now: T0 }), T0);
+  let step = core.evaluateZone(zone, parked({ lat: 48.03, lon: 7.82 }), null, T0);
+  step = core.evaluateZone(zone, parked({ lat: 48.03, lon: 7.82 }), step.dwell, T0 + core.GROUND_DWELL_MS);
+  assert.equal(step.reached, true);
+  assert.equal(core.evaluateZone(zone, parked({ lat: 48.3, lon: 8.4 }), null, T0).inside, false);
+  // An airborne interruption keeps its own point.
+  assert.equal(core.create({ phase: 'enroute', position: airborne(), anchor: departure, now: T0 }).zone.airborne, true);
+  // Older runs without a position continue only at their airport (or when airborne).
+  const unknown = core.create({ phase: 'boarding', anchor: departure, now: T0 });
+  assert.equal(unknown.zone.kind, 'departure');
+  assert.equal(core.plausibleContinuation(unknown, parked({ lat: 48.021, lon: 7.831 }), T0), true);
+  assert.equal(core.plausibleContinuation(unknown, parked({ lat: 50, lon: 9 }), T0), false, 'parked at another airport: decision needed');
+  assert.equal(core.normalize({ ...unknown, anchor: { kind: 'bogus', lat: 1, lon: 1 } }).anchor, null);
+});

@@ -6,7 +6,8 @@ function zone(raw){
  if(!raw)return null;
  const lat=Number(raw.lat),lon=Number(raw.lon),radiusNm=Number(raw.radiusNm);
  if(!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180||!Number.isFinite(radiusNm)||radiusNm<=0||radiusNm>25)return null;
- return {lat,lon,radiusNm,airborne:raw.airborne===true};
+ const kind=raw.kind==='departure'||raw.kind==='destination'?raw.kind:'';
+ return {lat,lon,radiusNm,airborne:raw.airborne===true,kind,label:String(raw.label||'').slice(0,60)};
 }
 // Drawn from the decision on until the zone is reached (the tracker clears it).
 function fromControl(control){
@@ -16,7 +17,8 @@ function fromControl(control){
 function label(spec){
  return spec.airborne
   ? 'Wiederaufnahme-Zone · '+spec.radiusNm.toFixed(1).replace('.',',')+' NM · hierher fliegen oder slewen'
-  : 'Unterbrechungsort · '+spec.radiusNm.toFixed(1).replace('.',',')+' NM · Flugzeug hier abstellen';
+  : (spec.kind==='departure'?'Startplatz':spec.kind==='destination'?'Zielplatz':'Unterbrechungsort')+(spec.label?' '+spec.label:'')
+   +' · '+spec.radiusNm.toFixed(1).replace('.',',')+' NM · Flugzeug hier abstellen';
 }
 function render(map,L,raw){
  if(!map||!L)return false;

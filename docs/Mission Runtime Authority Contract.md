@@ -148,6 +148,21 @@ Nachbesserung Tracker v573 (Feldtest 20.10.2026):
   Avionik senden“; im Flug weiterhin die Restroute.
 - Neustart/Abbruch aus dem Banner sind immer mit Rueckfrage gesichert.
 
+Nachbesserung Tracker v574 (Flugplatz-Bezug am Boden):
+
+- Wird ein Lauf vor dem Abheben (`progress.airborneSeen` nicht gesetzt) am
+  Boden unterbrochen, ist der Bezug der Startplatz der Missionsroute (erster
+  Routenpunkt, 1,5 NM) statt der exakten Parkposition; nach der Landung
+  (`end_unloading`/`end_ready`) entsprechend der Zielplatz. Jede Parkposition
+  auf dem Platz zaehlt.
+- Unterbrechungen im Flug behalten ihren Punkt (5 NM); Boden-Unterbrechungen
+  unterwegs (Aussenlandung) behalten die Position (1 NM).
+- Aeltere Laeufe ohne Position werden mit Startplatz-Bezug nur am Startplatz
+  (oder in der Luft) automatisch fortgesetzt, sonst ist eine Entscheidung
+  noetig.
+- UI/Karte nennen „Startplatz EDTF“ bzw. „Zielplatz …“; am Zielplatz wird
+  kein Flugplan angeboten.
+
 Offen / PC-Pruefung:
 
 - Ob MSFS 2024 eine Route ohne Abflugplatz aus dem EFB fuer einen
