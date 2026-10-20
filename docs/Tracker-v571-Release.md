@@ -28,3 +28,5 @@ und Desktop-Installer unverändert. Nur Alpha-Runtime umstellen.
   und eingebetteter Medien-Client geprüft.
 
 EXE: 174144572 Bytes; SHA-256 `7cc8d1c9d248b4ecafb056b1381414580f48486ea62e1c956af7e2b783df587d`.
+
+Release-Upload verifiziert und EXE öffentlich erneut heruntergeladen: Größe und SHA-256 identisch. `channel/alpha.json` auf v571 umgestellt, `stable.json` unverändert.
