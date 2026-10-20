@@ -104,7 +104,7 @@ test('EFB render wiring keeps mission windows, reminders and the manual flight p
   assert.match(between('  function offerCloudMissionReplacement(payload, force) {', '  function renderDebrief('), /if \(interruptionView\(payload\)\) return;/);
   const banner = between('  function renderMissionActionBanner(payload) {', '  function updateMissionLiveFields(');
   assert.match(banner, /var planning = interrupted \? null : preflightPlanningModel\(payload, true\);/);
-  for (const label of ['Restroute an Avionik', 'Mission neustarten', 'Mission abbrechen']) assert.ok(banner.includes(label), label);
+  for (const label of ['Route an Avionik', 'Speicherstand laden', 'Mission neustarten', 'Mission abbrechen']) assert.ok(banner.includes(label), label);
 });
 
 test('reset and abort from the interruption banner always ask first', () => {
@@ -129,16 +129,18 @@ test('the World Map keeps the flight planning ("Flugsicherung") before and after
   assert.match(banner, /var liveFlying = !!\(flight && Date\.now\(\) - flight\.capturedAt <= 5000 && flight\.onGround === false && flight\.gsKts >= 40\);/,
     'a lagging readiness projection does not keep the World Map send in the flying cockpit');
   assert.match(host, /if \(startAt && target === 'atc'\) exportPayload\.airStart = true;/);
+  // Only the World Map air start uses the save point; avionics gets the complete plan.
+  assert.match(host, /var startAt = target === 'atc' && view\.zone && view\.zone\.airborne \?/);
   // Hidden after a confirmed World Map transfer until the route or run changes.
   assert.match(host, /if \(pending\.trigger === 'interruption-resume' && pending\.resumeKey\) \{ resumeTransferredKey = pending\.resumeKey;/);
   assert.match(banner, /if \(!arrivalZone && !cockpitRunning && !transferred && Date\.now\(\) < flightPlanAtcReadyUntil\)/);
   const key = between('  function resumeTransferKey(control, view) {', '  function transferResumeFlightPlan(');
   assert.match(key, /mapSnapshot\.routeEdit\.revision/, 'a route edit changes the key');
   assert.match(banner, /if \(!arrivalZone && cockpitRunning && interruptionModel\.status !== 'awaiting_decision'/);
-  assert.match(banner, /label: airborneZone \? 'Restroute übertragen' : 'Flugplan übertragen',/, 'short labels');
+  assert.match(banner, /label: 'Speicherstand laden',/, 'short labels');
   // Directly in the resume prompt: first, primary, and it resumes before sending.
   assert.match(banner, /submitMissionIntent\('resume_mission', \{ reason: 'efb-interruption-resume-atc' \}\)\)\.then\(function \(result\) \{\s*return result === true \? transferResumeFlightPlan\('atc', true\) : false;/);
   assert.match(banner, /interruptionButtons\.sort\(/);
   assert.match(banner, /entry\.primary \? 'mission-start-banner-btn' : 'mission-start-banner-btn is-secondary'/);
-  assert.match(host, /pending\.airStart \? 'Restroute übertragen\. Flug in der Weltkarte starten; die Mission geht im Cockpit weiter\.'/);
+  assert.match(host, /pending\.trigger === 'interruption-resume'\s*\? 'Speicherstand geladen\.'/);
 });

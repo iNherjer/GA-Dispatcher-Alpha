@@ -39,46 +39,42 @@ test('authenticated EFB/toolbar export is read-only, bound to run and disallowed
   assert.equal((await controller.submitTool({intent:'flightplan_export',payload:request})).error,'cockpit_session_required');
 });
 
-test('resume export starts at the interruption point and keeps only the remaining route', () => {
-  const { createFlightPlanExport, remainingRoute } = require('./tracker-flightplan-export.js');
-  const points = [
-    { lat: 48.0, lon: 7.8, name: 'EDTF', icao: 'EDTF' },
-    { lat: 48.1, lon: 8.0, name: 'WP1', icao: '' },
-    { lat: 48.2, lon: 8.2, name: 'WP2', icao: '' },
-    { lat: 48.28, lon: 8.43, name: 'EDTW', icao: 'EDTW' }
-  ];
-  // Interrupted between WP1 and WP2.
-  const rest = remainingRoute(points, { lat: 48.15, lon: 8.1 });
-  assert.deepEqual(rest.map(point => point.name), ['UNTERBRECHUNG', 'WP2', 'EDTW']);
-  assert.deepEqual(remainingRoute(points, { lat: 48.0, lon: 7.81 }).map(point => point.name), ['UNTERBRECHUNG', 'WP1', 'WP2', 'EDTW']);
-  const run = { missionId: 'm', runId: 'r', navigationRoute: { revision: 3, points }, resumeBundle: { missionState: { currentStartICAO: 'EDTF', currentDestICAO: 'EDTW' } } };
-  const plan = createFlightPlanExport(run, { missionId: 'm', runId: 'r', startAt: { lat: 48.15, lon: 8.1 } });
-  assert.equal(plan.departureIcao, '');
-  assert.equal(plan.destinationIcao, 'EDTW');
-  assert.deepEqual(plan.resumeFrom, { lat: 48.15, lon: 8.1 });
-  assert.equal(plan.points.length, 3);
-  assert.ok(plan.routeHash);
-  assert.throws(() => createFlightPlanExport(run, { missionId: 'm', runId: 'r', startAt: { lat: 'x', lon: 8 } }), /flightplan_resume_point_invalid/);
-  const normal = createFlightPlanExport(run, { missionId: 'm', runId: 'r' });
-  assert.equal(normal.departureIcao, 'EDTF');
-  assert.equal(normal.points.length, 4);
-  assert.equal(normal.resumeFrom, undefined);
-});
-
-
-test('World Map air start puts a substitute first point on the departure field so MSFS spawns at the interruption point', () => {
+test('World Map air start sends only the save point and the destination; everything else the complete plan', () => {
   const { createFlightPlanExport } = require('./tracker-flightplan-export.js');
   const points = [
     { lat: 48.0, lon: 7.8, name: 'EDTF', icao: 'EDTF' }, { lat: 48.1, lon: 8.0, name: 'WP1', icao: '' },
-    { lat: 48.2, lon: 8.2, name: 'WP2', icao: '' }, { lat: 48.28, lon: 8.43, name: 'EDTW', icao: 'EDTW' }
+    { lat: 48.2, lon: 8.2, name: 'WP2', icao: '' }, { lat: 48.25, lon: 8.3, name: 'WP3', icao: '' },
+    { lat: 48.28, lon: 8.43, name: 'EDTW', icao: 'EDTW' }
   ];
-  const run = { missionId: 'm', runId: 'r', navigationRoute: { revision: 3, points }, resumeBundle: { missionState: { currentStartICAO: 'EDTF' } } };
-  const plan = createFlightPlanExport(run, { missionId: 'm', runId: 'r', startAt: { lat: 48.15, lon: 8.1 }, airStart: true });
-  assert.deepEqual(plan.points.map(point => point.name), ['ABFLUG', 'UNTERBRECHUNG', 'WP2', 'EDTW']);
-  assert.deepEqual({ lat: plan.points[0].lat, lon: plan.points[0].lon, icao: plan.points[0].icao }, { lat: 48.0, lon: 7.8, icao: '' }, 'coordinates only, not the airport');
-  assert.equal(plan.departureIcao, '', 'no airport departure, so the bridge sends it as a coordinate');
-  assert.equal(plan.airStart, 'substitute-departure');
-  // Avionics (no airStart) and normal exports stay unchanged.
-  assert.equal(createFlightPlanExport(run, { missionId: 'm', runId: 'r', startAt: { lat: 48.15, lon: 8.1 } }).points[0].name, 'UNTERBRECHUNG');
-  assert.equal(createFlightPlanExport(run, { missionId: 'm', runId: 'r', airStart: true }).points[0].name, 'EDTF');
+  const run = { missionId: 'm', runId: 'r', navigationRoute: { revision: 3, points }, resumeBundle: { missionState: { currentStartICAO: 'EDTF', currentDestICAO: 'EDTW' } } };
+  // MSFS spawns at the last waypoint before the destination (field test).
+  const plan = createFlightPlanExport(run, { missionId: 'm', runId: 'r', startAt: { lat: 48.05, lon: 7.9 }, airStart: true });
+  assert.deepEqual(plan.points.map(point => point.name), ['SPEICHERPUNKT', 'EDTW']);
+  assert.deepEqual({ lat: plan.points[0].lat, lon: plan.points[0].lon }, { lat: 48.05, lon: 7.9 });
+  assert.equal(plan.departureIcao, '');
+  assert.equal(plan.destinationIcao, 'EDTW');
+  assert.equal(plan.airStart, 'spawn-only');
+  assert.deepEqual(plan.resumeFrom, { lat: 48.05, lon: 7.9 });
+  assert.throws(() => createFlightPlanExport(run, { missionId: 'm', runId: 'r', startAt: { lat: 'x', lon: 8 }, airStart: true }), /flightplan_resume_point_invalid/);
+  // Avionics gets the complete mission plan, also after an interruption.
+  const complete = createFlightPlanExport(run, { missionId: 'm', runId: 'r' });
+  assert.equal(complete.departureIcao, 'EDTF');
+  assert.deepEqual(complete.points.map(point => point.name), ['EDTF', 'WP1', 'WP2', 'WP3', 'EDTW']);
+  assert.equal(complete.resumeFrom, undefined);
+  assert.equal(createFlightPlanExport(run, { missionId: 'm', runId: 'r', startAt: { lat: 48.05, lon: 7.9 } }).points.length, 5, 'a save point alone does not cut the plan');
+  assert.equal(createFlightPlanExport(run, { missionId: 'm', runId: 'r', airStart: true }).points.length, 5);
+});
+
+test('POI round trip: air start returns to the home field, the complete plan keeps the POI', () => {
+  const { createFlightPlanExport } = require('./tracker-flightplan-export.js');
+  const points = [{ lat: 48.0, lng: 7.8 }, { lat: 48.3, lng: 8.2, name: 'POI Burg', isPOI: true },
+    { lat: 48.12, lng: 8.05, name: 'Return Leg' }, { lat: 48.0, lng: 7.8, name: 'Freiburg' }];
+  const run = { missionId: 'm', runId: 'r', navigationRoute: { revision: 1, points }, resumeBundle: { missionState: { currentStartICAO: 'EDTF', currentDestICAO: 'EDTF' } } };
+  // Interrupted on the way out, close to home: no out-and-back confusion.
+  const air = createFlightPlanExport(run, { missionId: 'm', runId: 'r', startAt: { lat: 48.06, lon: 7.92 }, airStart: true });
+  assert.deepEqual(air.points.map(point => point.name), ['SPEICHERPUNKT', 'Freiburg']);
+  assert.equal(air.destinationIcao, 'EDTF');
+  const complete = createFlightPlanExport(run, { missionId: 'm', runId: 'r' });
+  assert.equal(complete.departureIcao, 'EDTF');
+  assert.deepEqual(complete.points.map(point => point.name), ['WP1', 'POI Burg', 'Return Leg', 'Freiburg']);
 });

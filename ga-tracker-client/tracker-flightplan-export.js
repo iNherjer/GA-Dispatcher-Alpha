@@ -10,37 +10,13 @@ function resumeStart(raw) {
   return { lat, lon };
 }
 
-// Distance (NM, local equirectangular) from a point to a route segment.
-function segmentDistanceNm(point, a, b) {
-  const scale = Math.cos(point.lat * Math.PI / 180);
-  const ax = (a.lon - point.lon) * scale, ay = a.lat - point.lat;
-  const bx = (b.lon - point.lon) * scale, by = b.lat - point.lat;
-  const dx = bx - ax, dy = by - ay;
-  const length = dx * dx + dy * dy;
-  const t = length > 0 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / length)) : 0;
-  return Math.hypot(ax + t * dx, ay + t * dy) * 60;
-}
-
-// Remaining route after a simulator interruption: the interruption point, then
-// every waypoint after the route segment closest to it.
-function remainingRoute(points, start) {
-  let best = 0;
-  let bestDistance = Infinity;
-  for (let index = 0; index < points.length - 1; index++) {
-    const distance = segmentDistanceNm(start, points[index], points[index + 1]);
-    if (distance < bestDistance) { bestDistance = distance; best = index; }
-  }
-  return [{ lat: start.lat, lon: start.lon, name: 'UNTERBRECHUNG', icao: '' }, ...points.slice(best + 1)];
-}
-
-// World Map air start (field test): MSFS uses the first coordinate of a plan
-// without departure airport as a runway-type departure and spawns in the air
-// at the next waypoint. A substitute first point on the mission's departure
-// field (coordinates only, no airport) makes the interruption point that next
-// waypoint.
-function withAirStartSubstitute(points, departure) {
-  if (!departure || points.length < 2) return points;
-  return [{ lat: departure.lat, lon: departure.lon, name: 'ABFLUG', icao: '' }, ...points];
+// World Map air start (field test 20.10.2026): MSFS spawns in the air at the
+// last waypoint before the destination, whatever comes before it. The air start
+// plan therefore holds only the save point and the destination; the complete
+// mission plan follows in the cockpit via the avionics (no remaining-route
+// guess, which is ambiguous for out-and-back routes).
+function airStartPlan(points, start) {
+  return [{ lat: start.lat, lon: start.lon, name: 'SPEICHERPUNKT', icao: '' }, points[points.length - 1]];
 }
 
 function missionRouteSource(run) {
@@ -85,21 +61,21 @@ function createFlightPlanExport(run, request = {}) {
     return { lat, lon, name: String(point.name || point.label || point.icao || `WP${index + 1}`).slice(0, 100),
       icao: String(point.icao || point.airportIdent || '').trim().toUpperCase().slice(0, 12) };
   });
-  const resume = resumeStart(request.startAt);
-  const departurePoint = points[0];
-  if (resume) points = remainingRoute(points, resume);
-  if (resume && request.airStart === true) points = withAirStartSubstitute(points, departurePoint);
+  // Only the World Map air start uses the save point; everything else gets the
+  // complete mission plan.
+  const savePoint = resumeStart(request.startAt);
+  const resume = request.airStart === true ? savePoint : null;
+  if (resume) points = airStartPlan(points, resume);
   const context = bundle.mapProfile?.context || {};
   const altitude = [context.profileCruiseFt, mission.cruiseAltitudeFt, mission.cruiseAltFt, mission.cruiseAltitude,
     contract.cruiseAltitudeFt, contract.cruiseAltFt, state.cruiseAltitudeFt, state.cruiseAltFt, state.altMapInput]
     .find(value => value != null && value !== '' && Number.isFinite(Number(value)) && Number(value) > 0);
   const plan = { schema: 'ga.flightplan-export.v1', missionId: run.missionId, runId: run.runId, navigationRevision,
-    // A resume route starts in the air at the interruption point, not at an airport.
+    // An air start plan starts at the save point, not at an airport.
     departureIcao: resume ? '' : String(context.departureIcao || state.currentStartICAO || state.mDepICAO || points[0].icao || '').toUpperCase(),
     destinationIcao: String(context.destinationIcao || state.currentDestICAO || state.mDestICAO || points[points.length - 1].icao || '').toUpperCase(),
     cruiseAltitudeFt: altitude == null ? null : Number(altitude), isVfr: true, points,
-    ...(resume ? { resumeFrom: { lat: resume.lat, lon: resume.lon } } : {}),
-    ...(resume && request.airStart === true ? { airStart: 'substitute-departure' } : {}) };
+    ...(resume ? { resumeFrom: { lat: resume.lat, lon: resume.lon }, airStart: 'spawn-only' } : {}) };
   return { ...plan, routeHash: crypto.createHash('sha256').update(JSON.stringify(plan)).digest('hex') };
 }
-module.exports = { createFlightPlanExport, remainingRoute, missionRouteEnds };
+module.exports = { createFlightPlanExport, missionRouteEnds };

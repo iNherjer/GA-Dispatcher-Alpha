@@ -210,6 +210,23 @@ Nachbesserung Tracker v578 (Feldtest v577, Workaround Luftstart):
 - Nach bestaetigter Uebertragung in der Weltkarte verschwindet der Knopf,
   bis sich Route (Revision) oder Lauf aendern.
 
+Nachbesserung Tracker v579 (Feldtest v578, Luftstart geklaert):
+
+- Feldtest: Als Weltkarten-Luftstart zaehlt immer der letzte Wegpunkt vor
+  dem Ziel; ohne weitere Wegpunkte wird der definierte Punkt korrekt zum
+  Startpunkt. Der Ersatzpunkt `ABFLUG` entfaellt.
+- Der Luftstart-Export (`airStart: true`, `airStart: 'spawn-only'`) enthaelt
+  nur `SPEICHERPUNKT` und den Zielflugplatz. Im Cockpit sendet „Route an
+  Avionik“ den kompletten Missionsflugplan (Abflug, alle Wegpunkte, Ziel),
+  den der Flug ohnehin braucht. Die fruehere Restroute-Ermittlung ueber den
+  naechsten Abschnitt entfaellt; sie verwechselte bei Hin-/Rueckweg (POI,
+  POI-Ketten, Rueckkehr-Missionen) die Abschnitte und liess den POI aus.
+  Unterbrechung am Boden: Weltkarte bekommt ebenfalls den kompletten Plan.
+- Begriffe: Weltkarten-Knopf „Speicherstand laden“ (Luft und Boden),
+  Rueckmeldung „Speicherstand geladen.“, Cockpit-Knopf „Route an Avionik“.
+- Grenze: Ohne aufloesbares Ziel-ICAO waere der Zielpunkt selbst der letzte
+  Wegpunkt; dann spawnt MSFS dort.
+
 Offen / PC-Pruefung:
 
 - Ob MSFS 2024 eine Route ohne Abflugplatz aus dem EFB fuer einen
