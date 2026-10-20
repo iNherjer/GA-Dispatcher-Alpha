@@ -11228,6 +11228,45 @@ body.map-drawing-active #map.leaflet-dragging {
     text-transform: uppercase;
     color: #ffdf9a;
 }
+.followup-banner-toggle {
+    width: 100%;
+    margin: 0;
+    padding: 2px 0;
+    border: 0;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    justify-content: flex-start;
+    cursor: pointer;
+}
+.followup-request-banner:not(.is-open) .followup-banner-header {
+    margin-bottom: 0;
+}
+.followup-banner-chevron {
+    flex: 0 0 auto;
+    color: #ffdf9a;
+    font-size: 12px;
+    transition: transform 0.18s ease;
+}
+.followup-request-banner.is-open .followup-banner-chevron {
+    transform: rotate(90deg);
+}
+.followup-banner-badge {
+    flex: 0 0 auto;
+    min-width: 20px;
+    height: 20px;
+    padding: 0 6px;
+    box-sizing: border-box;
+    border-radius: 10px;
+    background: #e03131;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 800;
+    line-height: 20px;
+    text-align: center;
+    box-shadow: 0 0 6px rgba(224, 49, 49, 0.6);
+}
 .followup-banner-later {
     flex: 0 0 auto;
     min-width: 74px;

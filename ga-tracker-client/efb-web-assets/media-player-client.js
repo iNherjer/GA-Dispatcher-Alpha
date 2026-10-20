@@ -359,10 +359,24 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         active: audible.size > 0
       }).catch(function () {});
     });
+    // With the player closed, the settings panel still shows ducking shared with the app; refresh it while visible.
+    var settingsPolledAt = -Infinity;
+    function settingsShown() {
+      if (closed || document.hidden || !hasMediaControl()) return false;
+      var box = typeof container.getBoundingClientRect === 'function' ? container.getBoundingClientRect() : null;
+      return !!box && box.width > 0 && box.height > 0;
+    }
     var timer = setInterval(function () {
       if (visible()) {
         render();
         watch();
+      } else if (!pendingAction && settingsShown() && Date.now() - settingsPolledAt >= 3000) {
+        settingsPolledAt = Date.now();
+        send({
+          action: 'snapshot'
+        }).then(function (result) {
+          if (!visible() && result && result.ok) receive(result);
+        }).catch(function () {});
       }
       // Only active speech renews its short lease; collapsed controls need no status traffic.
       if (audible.size && hasMediaControl()) send({

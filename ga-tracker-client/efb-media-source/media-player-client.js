@@ -70,8 +70,12 @@
   function settings(){action({action:'settings',enabled:duck.checked,factor:Number(factor.value)});}
   duck.onchange=settings;factor.onchange=settings;
   root.addEventListener('ga:media-audible',function(event){var d=event.detail||{},key=String(d.effectId||'')+':'+d.stage;if(d.active)audible.add(key);else audible.delete(key);if(hasMediaControl())send({action:'duck',active:audible.size>0}).catch(function(){});});
+  // With the player closed, the settings panel still shows ducking shared with the app; refresh it while visible.
+  var settingsPolledAt=-Infinity;
+  function settingsShown(){if(closed||document.hidden||!hasMediaControl())return false;var box=typeof container.getBoundingClientRect==='function'?container.getBoundingClientRect():null;return !!box&&box.width>0&&box.height>0;}
   var timer=setInterval(function(){
    if(visible()){render();watch();}
+   else if(!pendingAction&&settingsShown()&&Date.now()-settingsPolledAt>=3000){settingsPolledAt=Date.now();send({action:'snapshot'}).then(function(result){if(!visible()&&result&&result.ok)receive(result);}).catch(function(){});}
    // Only active speech renews its short lease; collapsed controls need no status traffic.
    if(audible.size&&hasMediaControl())send({action:'duck',active:true}).catch(function(){});
    if(state&&Date.now()-lastReachable>45000){state=Object.assign({},state,{ok:false});render();}
