@@ -1,5 +1,6 @@
 'use strict';
 const core = require('./tracker-mission-interruption-core.js');
+const { cameraName } = require('./tracker-camera-telemetry.js');
 
 // Runtime side of a simulator interruption. Owns the persisted record through
 // the authority manager and decides when the paused mission may continue.
@@ -160,7 +161,7 @@ function createMissionInterruptionController(options = {}) {
       // payload come back now, the zone (save point) follows as usual.
       const decided = core.decide(current, { by: 'cockpit', now: at });
       if (write(decided, 'cockpit').ok) {
-        log('MISSION_INTERRUPTION_DECISION by=cockpit simulator=1 ready=1');
+        log(`MISSION_INTERRUPTION_DECISION by=cockpit simulator=1 ready=1 camera=${cameraName(sample.cameraState)}`);
         rebuildNow('cockpit');
       }
     } else if (current.status === 'resuming') {
@@ -198,7 +199,7 @@ function createMissionInterruptionController(options = {}) {
       const decided = core.decide(current, { by: role, now: now() });
       const written = write(decided, `resume:${role}`);
       if (!written.ok) return { ...written, sideEffect: false };
-      log(`MISSION_INTERRUPTION_DECISION by=${role} simulator=${simulatorAttached() ? 1 : 0} ready=${worldReady() ? 1 : 0}`);
+      log(`MISSION_INTERRUPTION_DECISION by=${role} simulator=${simulatorAttached() ? 1 : 0} ready=${worldReady() ? 1 : 0} camera=${cameraName(lastValidSample?.cameraState)}`);
       rebuildNow('decision');
       return { ok: true, status: 'ok', interruption: record()?.status || 'resumed', sideEffect: false };
     }

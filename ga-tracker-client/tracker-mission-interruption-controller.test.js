@@ -13,6 +13,7 @@ function fixture(phase = 'enroute') {
   const rebuilds = [];
   const moves = [];
   const resumed = [];
+  const logs = [];
   const authorityManager = {
     getExecutionSnapshot: () => ({ executionAuthority: 'tracker', missionId: 'm', runId: 'r', state: { phase, flags: {} } }),
     getExecutionInterruption: () => record,
@@ -31,17 +32,18 @@ function fixture(phase = 'enroute') {
     worldReady: () => ready,
     rebuild: current => { rebuilds.push(current.status); return { ok: true }; },
     setAircraftPosition: target => { moves.push(target); return { ok: true }; },
-    onResumed: mode => resumed.push(mode)
+    onResumed: mode => resumed.push(mode),
+    log: line => logs.push(line)
   });
   const air = (over = {}) => ({ observedAt: clock, lat: 48.1, lon: 8.1, altFt: 4500, aglFt: 2500, hdg: 75, gsKts: 110,
-    iasKts: 105, onGround: false, simRunning: 1, simPaused: false, inMenuOrMap: false, slewActive: false, engRpm: 2300, ...over });
+    iasKts: 105, onGround: false, simRunning: 1, simPaused: false, inMenuOrMap: false, slewActive: false, engRpm: 2300, cameraState: 2, ...over });
   const intent = (name, role = 'efb') => controller.handleIntent({ intent: name, missionId: 'm', runId: 'r', controllerSession: { role } });
   return {
     controller, intent, air,
     get clock() { return clock; }, set clock(value) { clock = value; },
     get record() { return record; }, get history() { return history; },
     set attached(value) { attached = value; }, set ready(value) { ready = value; },
-    notifications, rebuilds, moves, resumed
+    notifications, rebuilds, moves, resumed, logs
   };
 }
 
@@ -204,6 +206,7 @@ test('a running cockpit continues without a button; the save point zone follows'
   assert.equal(f.controller.observe(f.air({ lat: 50, lon: 9 })), true);
   assert.equal(f.record.status, 'awaiting_zone');
   assert.equal(f.record.decidedBy, 'cockpit');
+  assert.ok(f.logs.some(line => /^MISSION_INTERRUPTION_DECISION by=cockpit .* camera=2=cockpit$/.test(line)), f.logs.join('\n'));
   assert.deepEqual(f.rebuilds, ['resuming']);
   // Air start at the save point: 10 s of real flight there resume the mission.
   f.controller.observe(f.air({ lat: 48.11 }));

@@ -107,6 +107,10 @@ committed sind oder der Release in einem separaten sauberen Worktree gebaut wird
 
 ## 2) Sonderfall: `ga-tracker-client/tracker.js` wurde geaendert
 
+0. Vor jedem Tracker-, Desktop- oder EFB-Paket-Build `docs/Release Queue.md`
+   lesen: Offene Eintraege werden mit ausgeliefert, ihre Doku-Hinweise
+   uebertragen und die Eintraege danach nach „Ausgeliefert“ verschoben.
+   Wartende Aenderungen werden dort eingereicht statt sofort gebaut.
 1. Tracker-Version vor dem Build erhoehen:
    - In `ga-tracker-client/tracker.js`:
      - `TRACKER_VERSION` und `TRACKER_VERSION_CODE` um `+1` erhoehen.

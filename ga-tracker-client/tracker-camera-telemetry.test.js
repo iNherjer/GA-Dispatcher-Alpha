@@ -26,3 +26,9 @@ test('concrete user aircraft IDs are accepted; an invalid transition cannot reta
  assert.match(f.logs.at(-1),/"objectId":540672/);
  f.receive(2,{objectID:540672});assert.equal(f.camera.snapshot(),2);
 });
+test('camera changes are logged once per change with a readable name',()=>{
+ const f=fixture();f.receive(12);f.receive(12);f.receive(11);f.receive(2);f.receive(2);f.receive(27);
+ assert.deepEqual(f.logs.filter(line=>line.startsWith('SIM_CAMERA_STATE')),[
+  'SIM_CAMERA_STATE from=none to=12=world_map','SIM_CAMERA_STATE from=12=world_map to=11=waiting',
+  'SIM_CAMERA_STATE from=11=waiting to=2=cockpit','SIM_CAMERA_STATE from=2=cockpit to=27=unknown']);
+});
