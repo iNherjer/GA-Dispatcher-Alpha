@@ -745,3 +745,9 @@ html[data-theme="blueprint"] #map {
   background-image: radial-gradient(ellipse at 9% 35%, #041f3c55, transparent 32%), radial-gradient(ellipse at 84% 82%, #ccba8d16, transparent 22%), linear-gradient(90deg, transparent 47.5%, #ffffff0b 48%, #001b3438 48.3%, transparent 49%), repeating-linear-gradient(0deg, transparent 0 31px, #ffffff08 31px 32px), repeating-linear-gradient(90deg, transparent 0 31px, #ffffff08 31px 32px);
 }
 html[data-theme="blueprint"] .object-index { filter: grayscale(1); }
+
+/* Native dropdown lists render on a light system background: keep option text dark blue for contrast. */
+select option,
+select optgroup,
+html[data-theme] select option,
+html[data-theme] select optgroup { color: #0b2a5b; background: #ffffff; }
