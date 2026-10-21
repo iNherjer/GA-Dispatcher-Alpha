@@ -1,6 +1,6 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
-const EVENTS = new Set(['state:changed', 'radio-hold:changed']);
+const EVENTS = new Set(['state:changed', 'radio-hold:changed', 'radio-hold:levels']);
 
 contextBridge.exposeInMainWorld('trackerDesktop', {
   getState: () => ipcRenderer.invoke('app:get-state'),
@@ -12,6 +12,14 @@ contextBridge.exposeInMainWorld('trackerDesktop', {
   logRadioHold: line => ipcRenderer.invoke('radio-hold:log', String(line || '').slice(0, 400)),
   learnRadioHoldButton: () => ipcRenderer.invoke('radio-hold:learn'),
   removeRadioHoldButton: index => ipcRenderer.invoke('radio-hold:remove', index),
+  listRadioHoldAudio: active => ipcRenderer.invoke('radio-hold:list-audio', active === true),
+  addRadioHoldProgram: name => ipcRenderer.invoke('radio-hold:add-program', String(name || '').slice(0, 64)),
+  onRadioHoldLevels: (callback) => {
+    if (typeof callback !== 'function') return () => {};
+    const listener = (_event, sessions) => callback(sessions);
+    ipcRenderer.on('radio-hold:levels', listener);
+    return () => ipcRenderer.removeListener('radio-hold:levels', listener);
+  },
   setRadioHold: settings => ipcRenderer.invoke('settings:set-radio-hold', settings),
   onRadioHoldChanged: (callback) => {
     if (typeof callback !== 'function') return () => {};

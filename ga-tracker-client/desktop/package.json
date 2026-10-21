@@ -1,6 +1,6 @@
 {
   "name": "vfr-multitool-tracker-desktop",
-  "version": "1.6.29",
+  "version": "1.6.30",
   "private": true,
   "description": "Desktop UI and updater for the VFR Multitool MSFS tracker",
   "author": "VFR Multitool",
@@ -34,7 +34,8 @@
       "lib/windows-media.ps1",
       "lib/windows-media-volume.cs",
       "lib/windows-input.ps1",
-      "lib/windows-input.cs"
+      "lib/windows-input.cs",
+      "lib/windows-audio-meter.cs"
     ],
     "directories": {
       "output": "dist"

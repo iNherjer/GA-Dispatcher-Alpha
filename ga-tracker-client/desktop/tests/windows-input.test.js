@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const { EventEmitter } = require('node:events');
 const { PassThrough, Writable } = require('node:stream');
-const { WindowsInput, normalizeBinding, watchLine } = require('../lib/windows-input');
+const { WindowsInput, normalizeBinding, watchLine, meterLine, normalizeProcessName } = require('../lib/windows-input');
 
 function fixture() {
   const child = new EventEmitter(), lines = [];
@@ -60,7 +60,8 @@ test('learning resolves the binding and restores the previous watch', async () =
 test('native input helper compiles under Windows PowerShell', { skip: process.platform !== 'win32' }, () => {
   const { spawnSync } = require('node:child_process'), path = require('node:path');
   const source = path.join(__dirname, '../lib/windows-input.cs').replaceAll("'", "''");
-  const script = `$ErrorActionPreference='Stop'; Add-Type -Path '${source}'; if ([GAInput.Helper]::Run -eq $null) { throw 'missing' }; 'INPUT_HELPER_OK'`;
+  const meter = path.join(__dirname, '../lib/windows-audio-meter.cs').replaceAll("'", "''");
+  const script = `$ErrorActionPreference='Stop'; Add-Type -Path @('${source}','${meter}'); if ([GAInput.AudioMeter] -eq $null) { throw 'missing' }; 'INPUT_HELPER_OK'`;
   const result = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { encoding: 'utf8', windowsHide: true });
   assert.equal(result.status, 0, result.stdout + result.stderr);
   assert.match(result.stdout, /INPUT_HELPER_OK/);
@@ -85,4 +86,47 @@ test('helper compile errors, device logs and press durations reach the diagnosti
   assert.match(text, /INPUT button up heldMs=\d+/);
   assert.match(text, /INPUT helper ended code=1/);
   await input.close();
+});
+
+test('meter commands carry validated names and numbers only', () => {
+  assert.equal(normalizeProcessName('SayIntentionsAI'), 'SayIntentionsAI');
+  assert.equal(normalizeProcessName('evil;meter off'), '');
+  assert.equal(normalizeProcessName('a:b'), '');
+  assert.equal(meterLine([{ name: 'Discord', threshold: 0.03, minMs: 300 }, { name: 'x;y', threshold: 1, minMs: 1 }]), 'meter watch Discord:0.03:300');
+  assert.equal(meterLine([], false), 'meter off');
+  assert.equal(meterLine([{ name: 'Discord', threshold: 0.01, minMs: 100 }], true), 'meter list Discord:0.01:100');
+  assert.equal(meterLine([], true), 'meter list');
+});
+
+test('audio events reach listeners once, are logged and end when the helper is lost', async () => {
+  const child = new EventEmitter(), logs = [], lines = [], events = [];
+  child.stdout = new PassThrough(); child.stderr = new PassThrough();
+  child.stdin = new Writable({ write(chunk, _e, done) { lines.push(...String(chunk).trim().split('\n')); done(); } });
+  const input = new WindowsInput({ platform: 'win32', restartDelayMs: 60000, spawnProcess: () => child, log: line => logs.push(line) });
+  input.on('audio', event => events.push(event.name + ':' + event.active));
+  input.meter([{ name: 'Discord', threshold: 0.03, minMs: 300 }]);
+  assert.deepEqual(lines, ['meter watch Discord:0.03:300'], 'metering alone starts the helper');
+  const emit = message => child.stdout.write(JSON.stringify(message) + '\n');
+  emit({ event: 'audio', name: 'Discord', active: true, peak: 0.2 });
+  emit({ event: 'audio', name: 'Discord', active: true, peak: 0.2 });
+  emit({ event: 'levels', sessions: [{ name: 'Discord', peak: 0.2 }, { name: 'bad;name', peak: 1 }] });
+  await tick();
+  assert.deepEqual(events, ['Discord:true']);
+  assert.ok(logs.some(line => /INPUT audio start name=Discord peak=0.200/.test(line)));
+  assert.ok(!logs.some(line => /levels/.test(line)), 'live levels are not written to the log');
+  child.emit('exit', 1); await tick();
+  assert.deepEqual(events, ['Discord:true', 'Discord:false'], 'a lost helper must not hold audio forever');
+  await input.close();
+});
+
+test('removing a rule ends its audible state', () => {
+  const child = new EventEmitter();
+  child.stdout = new PassThrough(); child.stderr = new PassThrough();
+  child.stdin = new Writable({ write(_c, _e, done) { done(); } });
+  const input = new WindowsInput({ platform: 'win32', spawnProcess: () => child });
+  const events = []; input.on('audio', event => events.push(event.name + ':' + event.active));
+  input.meter([{ name: 'Discord', threshold: 0.03, minMs: 300 }]);
+  input.handle({ event: 'audio', name: 'Discord', active: true });
+  input.meter([]);
+  assert.deepEqual(events, ['Discord:true', 'Discord:false']);
 });

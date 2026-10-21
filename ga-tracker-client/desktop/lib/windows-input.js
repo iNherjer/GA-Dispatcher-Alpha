@@ -54,7 +54,22 @@ function watchLine(bindings) {
     : ['joy', binding.mid, binding.pid, binding.device, binding.button].join(' ')).join(';');
 }
 
-// Owns the native read-only input helper. Emits 'down', 'up' and 'device'.
+// Audio session process names, as Windows reports them (no path, no extension).
+const PROCESS_NAME = /^[A-Za-z0-9 ._()+-]{1,64}$/;
+function normalizeProcessName(value) {
+  const name = String(value || '').trim();
+  return PROCESS_NAME.test(name) ? name : '';
+}
+function meterLine(rules, listing) {
+  const specs = (Array.isArray(rules) ? rules : [])
+    .filter(rule => normalizeProcessName(rule.name) && Number.isFinite(rule.threshold) && Number.isInteger(rule.minMs))
+    .map(rule => [rule.name, rule.threshold, rule.minMs].join(':')).join(';');
+  if (listing) return 'meter list' + (specs ? ' ' + specs : '');
+  return specs ? 'meter watch ' + specs : 'meter off';
+}
+
+// Owns the native read-only input helper. Emits 'down', 'up', 'device',
+// 'audio' (rule start/end) and 'levels' (live peaks for the settings view).
 class WindowsInput extends EventEmitter {
   constructor({ platform = process.platform, spawnProcess = spawn, restartDelayMs = 3000, log = () => {} } = {}) {
     super();
@@ -63,7 +78,9 @@ class WindowsInput extends EventEmitter {
     this.platform = platform; this.spawnProcess = spawnProcess; this.restartDelayMs = restartDelayMs;
     this.child = null; this.bindings = []; this.learning = null; this.closed = false;
     this.restartTimer = null; this.down = false; this.connected = null;
+    this.meterRules = []; this.listing = false; this.audible = new Set();
   }
+  get needed() { return this.bindings.length > 0 || this.meterRules.length > 0 || this.listing; }
   get supported() { return this.platform === 'win32'; }
   start() {
     if (this.child || this.closed || !this.supported) return;
@@ -81,9 +98,10 @@ class WindowsInput extends EventEmitter {
       this.log('helper ended ' + (code instanceof Error ? 'error=' + code.message : 'code=' + code));
       this.child = null;
       this.release();
+      this.resetAudio();
       this.settleLearn({ ok: false, error: 'Eingabe-Helfer ist nicht verfügbar.' });
-      if (!this.closed && this.bindings.length && !this.restartTimer) {
-        this.restartTimer = setTimeout(() => { this.restartTimer = null; this.start(); this.send(watchLine(this.bindings)); }, this.restartDelayMs);
+      if (!this.closed && this.needed && !this.restartTimer) {
+        this.restartTimer = setTimeout(() => { this.restartTimer = null; this.start(); this.send(watchLine(this.bindings)); this.send(meterLine(this.meterRules, this.listing)); }, this.restartDelayMs);
         this.restartTimer.unref?.();
       }
     };
@@ -99,6 +117,23 @@ class WindowsInput extends EventEmitter {
     if (message.event === 'log') { this.log(String(message.message || '').slice(0, 400)); return; }
     if (message.event === 'ready') { this.log('helper ready clr=' + message.clr + ' os=' + message.os); return; }
     if (message.event === 'error') { this.log('helper error ' + String(message.error || '').slice(0, 400)); return; }
+    if (message.event === 'audio') {
+      const name = normalizeProcessName(message.name);
+      if (!name) return;
+      const active = message.active === true;
+      if (active === this.audible.has(name)) return;
+      if (active) this.audible.add(name); else this.audible.delete(name);
+      this.log('audio ' + (active ? 'start' : 'end') + ' name=' + name + ' peak=' + Number(message.peak || 0).toFixed(3) + (active ? '' : ' ms=' + (Number(message.ms) || 0)));
+      this.emit('audio', { name, active, peak: Number(message.peak) || 0 });
+      return;
+    }
+    if (message.event === 'levels') {
+      const sessions = (Array.isArray(message.sessions) ? message.sessions : [])
+        .map(entry => ({ name: normalizeProcessName(entry?.name), peak: Math.max(0, Math.min(1, Number(entry?.peak) || 0)) }))
+        .filter(entry => entry.name).slice(0, 64);
+      this.emit('levels', sessions);
+      return;
+    }
     if (message.event === 'down' && !this.down) { this.pressedAt = Date.now(); this.log('button down'); this.down = true; this.emit('down'); }
     else if (message.event === 'up') this.release();
     else if (message.event === 'device') { this.connected = message.connected === true; this.log('device connected=' + this.connected); this.emit('device', this.connected); }
@@ -108,6 +143,19 @@ class WindowsInput extends EventEmitter {
       this.settleLearn(binding ? { ok: true, binding }
         : { ok: false, error: message.error === 'timeout' ? 'Kein Button erkannt.' : 'Eingabe konnte nicht gelernt werden.' });
     }
+  }
+  resetAudio() {
+    for (const name of [...this.audible]) { this.audible.delete(name); this.emit('audio', { name, active: false, peak: 0 }); }
+  }
+  // rules: [{ name, threshold, minMs }]; listing adds every session to the live levels.
+  meter(rules, listing = this.listing) {
+    this.meterRules = (Array.isArray(rules) ? rules : []).filter(rule => normalizeProcessName(rule?.name));
+    this.listing = listing === true;
+    const names = new Set(this.meterRules.map(rule => rule.name.toLowerCase()));
+    for (const name of [...this.audible]) if (!names.has(name.toLowerCase())) { this.audible.delete(name); this.emit('audio', { name, active: false, peak: 0 }); }
+    if (!this.supported || this.closed) return;
+    if (!this.needed && !this.child) return;
+    this.start(); this.send(meterLine(this.meterRules, this.listing));
   }
   release() { if (this.down) { this.down = false; this.log('button up heldMs=' + (Date.now() - this.pressedAt)); this.emit('up'); } }
   settleLearn(result) {
@@ -122,7 +170,7 @@ class WindowsInput extends EventEmitter {
     this.bindings = normalizeBindings(Array.isArray(bindings) ? bindings : bindings ? [bindings] : []);
     this.release(); this.connected = null;
     if (!this.supported || this.closed) return;
-    if (!this.bindings.length && !this.child) return;
+    if (!this.needed && !this.child) return;
     this.start(); this.send(watchLine(this.bindings));
   }
   learn() {
@@ -142,6 +190,7 @@ class WindowsInput extends EventEmitter {
     this.closed = true; clearTimeout(this.restartTimer); this.restartTimer = null;
     this.settleLearn({ ok: false, error: 'Eingabe-Helfer wurde beendet.' });
     this.release();
+    this.resetAudio();
     const child = this.child;
     if (!child) return Promise.resolve();
     return new Promise(resolve => {
@@ -151,4 +200,4 @@ class WindowsInput extends EventEmitter {
     });
   }
 }
-module.exports = { WindowsInput, normalizeBinding, normalizeBindings, bindingKey, keyName, watchLine, MAX_BINDINGS };
+module.exports = { WindowsInput, normalizeProcessName, meterLine, normalizeBinding, normalizeBindings, bindingKey, keyName, watchLine, MAX_BINDINGS };

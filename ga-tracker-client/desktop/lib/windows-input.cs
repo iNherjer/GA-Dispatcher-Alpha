@@ -33,8 +33,8 @@ namespace GAInput {
 
   sealed class Device { public int Id, Buttons, ButtonCount; public ushort Mid, Pid; public string Name = ""; }
 
-  static void Write(string json) { lock (writeLock) { Console.Out.WriteLine(json); Console.Out.Flush(); } }
-  static string Quote(string value) {
+  internal static void Write(string json) { lock (writeLock) { Console.Out.WriteLine(json); Console.Out.Flush(); } }
+  internal static string Quote(string value) {
    var b = new StringBuilder("\"");
    foreach (char c in value ?? "") {
     if (c == '"' || c == '\\') b.Append('\\').Append(c);
@@ -65,7 +65,7 @@ namespace GAInput {
    if (device.Name.Length == 0) device.Name = "Joystick " + (id + 1);
    return device;
   }
-  static void Log(string text) { Write("{\"event\":\"log\",\"message\":" + Quote(text) + "}"); }
+  internal static void Log(string text) { Write("{\"event\":\"log\",\"message\":" + Quote(text) + "}"); }
   static void LogDevices() {
    int found = 0;
    for (int id = 0; id < MAX_JOYSTICKS; id++) {
@@ -215,6 +215,7 @@ namespace GAInput {
      while ((line = Console.In.ReadLine()) != null) {
       line = line.Trim();
       if (line == "learn" || line == "idle" || line.StartsWith("watch ")) command = line + " #" + Environment.TickCount;
+      else if (line.StartsWith("meter ")) AudioMeter.Command(line);
      }
     } catch (Exception) { }
     inputClosed = true;

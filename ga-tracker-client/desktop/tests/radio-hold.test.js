@@ -1,7 +1,7 @@
 'use strict';
 const assert = require('node:assert/strict');
 const test = require('node:test');
-const { RadioHold, createMusicHold, normalizeRadioHoldSettings } = require('../lib/radio-hold');
+const { RadioHold, createMusicHold, normalizeRadioHoldSettings, detectionMeterRules } = require('../lib/radio-hold');
 
 const binding = { type: 'joystick', device: 0, mid: 1103, pid: 46629, button: 4, name: 'Stick' };
 function fixture(settings = {}) {
@@ -108,4 +108,72 @@ test('a 1 s auto-resume is available for quick radio calls', () => {
   hold.press(); advance(2000); hold.releasePress();
   advance(999); assert.equal(hold.publicState().held, true);
   advance(1); assert.equal(hold.publicState().held, false);
+});
+
+const programs = (extra = {}) => ({ detection: { enabled: true, programs: [
+  { name: 'SayIntentionsAI', mode: 'ptt', sensitivity: 'medium' },
+  { name: 'Discord', mode: 'dim', sensitivity: 'high' }] }, ...extra });
+
+test('program rules normalize, dedupe and translate sensitivity into meter rules', () => {
+  const settings = normalizeRadioHoldSettings({ enabled: true, detection: { enabled: true, programs: [
+    { name: 'Discord', mode: 'loud', sensitivity: 'x' }, { name: 'discord' }, { name: 'bad:name' }, { name: 'SayIntentionsAI', mode: 'dim', sensitivity: 'low' }] } });
+  assert.deepEqual(settings.detection.programs, [{ name: 'Discord', mode: 'ptt', sensitivity: 'medium' }, { name: 'SayIntentionsAI', mode: 'dim', sensitivity: 'low' }]);
+  assert.deepEqual(detectionMeterRules(settings), [{ name: 'Discord', threshold: 0.03, minMs: 300 }, { name: 'SayIntentionsAI', threshold: 0.1, minMs: 600 }]);
+  assert.deepEqual(detectionMeterRules({ ...settings, enabled: false }), [], 'no metering while the radio hold is off');
+  assert.deepEqual(normalizeRadioHoldSettings({}).detection, { enabled: false, programs: [] });
+});
+
+test('a "Wie PTT" program holds with the shared rules and resumes through the timer after it goes quiet', () => {
+  const { hold, advance, states } = fixture({ bindings: [], resumeSeconds: 10, ...programs() });
+  hold.audio('SayIntentionsAI', true);
+  assert.equal(hold.publicState().held, true);
+  assert.deepEqual(hold.publicState().voice, { mode: 'pause', factor: 0 });
+  assert.deepEqual(hold.publicState().sources, ['SayIntentionsAI']);
+  advance(60000); assert.equal(hold.publicState().held, true, 'no timer while the program still talks');
+  hold.audio('SayIntentionsAI', false);
+  assert.equal(states.at(-1).reason, 'audio-end SayIntentionsAI');
+  advance(9999); assert.equal(hold.publicState().held, true);
+  advance(1); assert.equal(hold.publicState().held, false);
+});
+
+test('a "Nur leiser" program only dims voices and music, PTT upgrades the hold to the full rules', () => {
+  const { hold } = fixture({ musicMode: 'pause', ...programs() });
+  hold.audio('Discord', true);
+  assert.deepEqual(hold.publicState().voice, { mode: 'dim', factor: 0.2 });
+  assert.equal(hold.publicState().music.mode, 'dim', 'dim-only programs never pause the music');
+  hold.press();
+  assert.deepEqual(hold.publicState().voice, { mode: 'pause', factor: 0 });
+  assert.equal(hold.publicState().music.mode, 'pause');
+});
+
+test('PTT and programs combine: resume waits for the button and every program', () => {
+  const { hold, advance } = fixture({ resumeSeconds: 1, ...programs() });
+  hold.press(); hold.audio('Discord', true); advance(2000); hold.releasePress();
+  advance(5000); assert.equal(hold.publicState().held, true, 'Discord still audible');
+  hold.audio('Discord', false); advance(1000);
+  assert.equal(hold.publicState().held, false);
+});
+
+test('a short press resumes over a talking program until it goes quiet; unknown programs are ignored', () => {
+  const { hold, advance } = fixture(programs());
+  hold.audio('SayIntentionsAI', true);
+  hold.press(); advance(100); hold.releasePress();
+  assert.equal(hold.publicState().held, false);
+  hold.audio('SayIntentionsAI', true);
+  assert.equal(hold.publicState().held, false, 'the same phase stays suppressed');
+  hold.audio('SayIntentionsAI', false); hold.audio('SayIntentionsAI', true);
+  assert.equal(hold.publicState().held, true, 'the next phase holds again');
+  hold.resume('manual');
+  hold.audio('Spotify', true);
+  assert.equal(hold.publicState().held, false);
+});
+
+test('removing a program or disabling detection releases its hold', () => {
+  const { hold, advance } = fixture({ resumeSeconds: 1, ...programs() });
+  hold.audio('Discord', true);
+  hold.configure({ enabled: true, bindings: [binding], resumeSeconds: 1, detection: { enabled: true, programs: [{ name: 'SayIntentionsAI' }] } });
+  advance(1000); assert.equal(hold.publicState().held, false);
+  hold.audio('SayIntentionsAI', true);
+  hold.configure({ enabled: true, bindings: [], detection: { enabled: false, programs: [{ name: 'SayIntentionsAI' }] } });
+  assert.equal(hold.publicState().held, false, 'no button and no detection disables the hold');
 });

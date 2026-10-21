@@ -881,6 +881,16 @@ dialog::backdrop {
 .radio-hold-bindings li { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 8px; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 6px; }
 .radio-hold-bindings li.empty { justify-content: flex-start; opacity: 0.7; }
 .radio-hold-bindings button { min-width: 32px; padding: 2px 8px; }
+.radio-hold-programs li { flex-wrap: wrap; }
+.radio-hold-programs li.active { border-color: #73b5ff; box-shadow: 0 0 0 1px #73b5ff inset; }
+.radio-hold-programs .program-name { flex: 1 1 70%; font-weight: 600; }
+.radio-hold-programs select { flex: 1 1 40%; min-width: 0; }
+.radio-hold-programs .radio-hold-meter { flex: 1 1 100%; }
+.radio-hold-meter { position: relative; flex: 1 1 60px; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+.radio-hold-meter > span { position: absolute; inset: 0 auto 0 0; width: 0; background: #4fd1a5; transition: width 0.15s linear; }
+.radio-hold-meter > i { position: absolute; top: 0; bottom: 0; width: 2px; background: #ffdf9a; }
+.radio-hold-picker[hidden] { display: none; }
+.radio-hold-picker { display: grid; gap: 8px; padding: 8px; border: 1px dashed rgba(255, 255, 255, 0.2); border-radius: 6px; }
 
 .autostart-launch-button {
   width: 100%;

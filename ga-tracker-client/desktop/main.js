@@ -34,10 +34,12 @@ const windowsMedia = new WindowsMedia();
 const { createMediaServer } = require('./lib/media-server');
 const mediaServer = createMediaServer(windowsMedia);
 let mediaEndpoint = null;
-const { WindowsInput, bindingKey, MAX_BINDINGS } = require('./lib/windows-input');
-const { RadioHold, createMusicHold } = require('./lib/radio-hold');
+const { WindowsInput, bindingKey, normalizeProcessName, MAX_BINDINGS } = require('./lib/windows-input');
+const { RadioHold, createMusicHold, detectionMeterRules, MAX_PROGRAMS } = require('./lib/radio-hold');
 // Diagnose-Log der Funk-Pause im Tracker-Datenordner; wird ab 512 KB neu begonnen.
 let radioHoldLogPath = '';
+const OWN_AUDIO_PROCESS = /^VFR[ -]Multitool[ -]Tracker/i;
+let audioListTimer = null;
 function radioHoldLog(line) {
   if (!radioHoldLogPath) return;
   try {
@@ -51,9 +53,15 @@ const applyMusicHold = createMusicHold(windowsMedia, radioHoldLog);
 windowsInput.on('down', () => radioHold.press());
 windowsInput.on('up', () => radioHold.releasePress());
 windowsInput.on('device', () => broadcastRadioHold());
+windowsInput.on('audio', ({ name, active }) => radioHold.audio(name, active));
+windowsInput.on('levels', (sessions) => {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  // The app's own processes never count as foreign audio.
+  mainWindow.webContents.send('radio-hold:levels', sessions.filter(entry => !OWN_AUDIO_PROCESS.test(entry.name)));
+});
 radioHold.on('state', state => {
   if (state.reason) {
-    radioHoldLog(`HOLD ${state.reason} held=${state.held} pressed=${state.pressed}`
+    radioHoldLog(`HOLD ${state.reason} held=${state.held} pressed=${state.pressed}` + (state.sources.length ? ` programs=${state.sources.join(',')}` : '')
       + (state.resumeAt ? ` resumeIn=${Math.round((state.resumeAt - Date.now()) / 1000)}s` : '')
       + (state.voice ? ` voice=${state.voice.mode}${state.voice.mode === 'dim' ? ':' + state.voice.factor : ''}` : '')
       + (state.music ? ` music=${state.music.mode}${state.music.mode === 'dim' ? ':' + state.music.factor : ''}` : ''));
@@ -271,8 +279,10 @@ function broadcastRadioHold(state) {
 function configureRadioHold(settings) {
   radioHoldLog(`SETTINGS enabled=${settings.enabled} inputs=${settings.bindings.length ? settings.bindings.map(binding => binding.label).join(' | ') : 'none'} voice=${settings.voiceMode}/${settings.voiceDimPercent}% `
     + `music=${settings.musicMode}/${settings.musicDimPercent}% resume=${settings.resumeSeconds || 'off'}s shortPress=${settings.shortPressResumes}`);
+  radioHoldLog(`DETECTION enabled=${settings.detection.enabled} programs=${settings.detection.programs.length ? settings.detection.programs.map(program => `${program.name}/${program.mode}/${program.sensitivity}`).join(' | ') : 'none'}`);
   radioHold.configure(settings);
   windowsInput.watch(settings.enabled ? settings.bindings : []);
+  windowsInput.meter(detectionMeterRules(settings));
 }
 
 function broadcastState() {
@@ -433,6 +443,25 @@ function registerIpc() {
   ipcMain.handle('tracker:media', (_event, payload) => windowsMedia.request(payload));
   ipcMain.handle('settings:audio-output', (_event, id) => { configStore.setAudioOutputDeviceId(id); broadcastState(); return { ok: true }; });
   ipcMain.handle('radio-hold:get', () => radioHoldState());
+  // Live list of all audible programs for "+ Programm hinzufügen"; ends by itself after a minute.
+  ipcMain.handle('radio-hold:list-audio', (_event, active) => {
+    clearTimeout(audioListTimer); audioListTimer = null;
+    const listing = active === true && windowsInput.supported;
+    windowsInput.meter(detectionMeterRules(configStore.publicSettings().radioHold), listing);
+    if (listing) audioListTimer = setTimeout(() => windowsInput.meter(detectionMeterRules(configStore.publicSettings().radioHold), false), 60000);
+    return { ok: windowsInput.supported, error: windowsInput.supported ? '' : 'Programm-Erkennung benötigt Windows.' };
+  });
+  ipcMain.handle('radio-hold:add-program', (_event, name) => {
+    const program = normalizeProcessName(name);
+    const current = configStore.publicSettings().radioHold;
+    if (!program || OWN_AUDIO_PROCESS.test(program)) return { ok: false, error: 'Dieses Programm kann nicht gewählt werden.', settings: current };
+    if (current.detection.programs.some(entry => entry.name.toLowerCase() === program.toLowerCase())) return { ok: false, error: program + ' ist bereits eingetragen.', settings: current };
+    if (current.detection.programs.length >= MAX_PROGRAMS) return { ok: false, error: 'Höchstens ' + MAX_PROGRAMS + ' Programme.', settings: current };
+    radioHoldLog('ADD PROGRAM ' + program);
+    const settings = configStore.setRadioHold({ enabled: true, detection: { enabled: true, programs: [...current.detection.programs, { name: program, mode: 'ptt', sensitivity: 'medium' }] } });
+    configureRadioHold(settings); broadcastState();
+    return { ok: true, settings };
+  });
   ipcMain.handle('radio-hold:log', (_event, line) => { radioHoldLog('VOICE ' + String(line || '').slice(0, 400)); return { ok: true }; });
   ipcMain.handle('radio-hold:resume', () => { radioHold.resume('manual'); return radioHoldState(); });
   ipcMain.handle('radio-hold:learn', async () => {
