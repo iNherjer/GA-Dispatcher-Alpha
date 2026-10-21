@@ -29,3 +29,8 @@ Basis: Desktop 1.6.29 (`origin/main`). Tracker-Runtime unverändert.
   Moduswechsel, aktive Zeile, Status).
 - Nicht auf Windows vorgeprüft: Kompilierung der Pegelmessung und reale Pegel.
   Abnahme im Feldtest über `funk-pause-log.txt`.
+
+## Aktivierung (21.10.2026)
+
+Öffentlicher Download geprüft (100288212 Bytes, SHA-512 wie `latest.yml`, Blockmap identisch).
+`latest.yml` und `alpha.yml` aktiviert.
