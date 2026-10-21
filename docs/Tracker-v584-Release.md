@@ -23,3 +23,10 @@ EFB-/Toolbar-Community-Paket und Desktop-Installer unverändert. Nur Alpha-Runti
   `tracker-efb-http-server.test.js`, Szenen-Selbsttest.
 - Gesamtsuite `ga-tracker-client/*.test.js`: 1396 bestanden, 34 Fehlschläge, alle schon
   beim v583-Release vorhanden – keine neuen Fehler.
+- Windows-x64 mit pkg 6.18.1 / Node18, ARM-Cross-Build
+  `--no-bytecode --public --public-packages '*'`. PE-x64, v584, `sceneItemHeadingDeg` und
+  `RANDOM_YAW_DEG` eingebettet geprüft.
+
+EXE: 174259350 Bytes; SHA-256 `adc05db8f82066991ac743c11357e14fe49773d935f2ed8988ac813966c751ec`.
+
+Release-Upload verifiziert und EXE öffentlich erneut heruntergeladen: Größe und SHA-256 identisch. `channel/alpha.json` auf v584 umgestellt, `stable.json` unverändert.
