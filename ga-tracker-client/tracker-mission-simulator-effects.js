@@ -3,6 +3,7 @@
 const { createCargoVisualQueue } = require('./tracker-cargo-visual-queue.generated.js');
 const { haversineNm } = require('../mission-location-core.js');
 const bushPickupSceneCore = require('../mission-bush-pickup-scene-core.js');
+const cargoVisualCore = require('../mission-cargo-visual-core.js');
 
 const EFFECT_PLAN_SCHEMA = 'ga.mission-apt-effect-plan.v1';
 const EFFECT_COMMANDS = Object.freeze({
@@ -321,6 +322,8 @@ function createTrackerMissionSimulatorEffects(options = {}) {
         return { ok: true, status: 'pending', commandId };
       }
       const objectRevision = cargoRevisions.get(commandId) || ++cargoRevision;
+      // Composer-chosen luggage pieces share one manifest item and always move together.
+      const pieceObjectKeys = cargoVisualCore.pieceObjectKeys(objectKey, item);
       let command;
       let ackType;
       if (action === 'load' || action === 'reload') {
@@ -334,7 +337,7 @@ function createTrackerMissionSimulatorEffects(options = {}) {
           objectKey,
           objectRevision,
           allScenes: true,
-          objectKeys: [objectKey],
+          objectKeys: pieceObjectKeys,
           kinds: Array.from(new Set([baseKind, unloadedKind, item.pickupLocation === 'target' ? 'arrival_equipment_1' : 'cargo'].filter(Boolean))),
           labels: [item.label, item.storyName].map(value => cleanString(value, 180)).filter(Boolean),
           itemIds: [itemId],
@@ -359,7 +362,7 @@ function createTrackerMissionSimulatorEffects(options = {}) {
           lon: position.lon,
           altFt: position.altFt,
           hdg: position.hdg,
-          items: [{
+          items: cargoVisualCore.expandSceneItem({
             kind: unloadedKind,
             itemId,
             cargoItemId: itemId,
@@ -374,7 +377,7 @@ function createTrackerMissionSimulatorEffects(options = {}) {
             rightM: finite(placement.rightM, 4) + finite(item.rightM, finite(item.rightOffsetM, 0)),
             headingMode: 'with_aircraft',
             altOffsetFt: finite(placement.altOffsetFt, 0) + finite(item.altOffsetFt, 0)
-          }]
+          }, item)
         };
         ackType = 'mission_scene_object_spawn_ack';
       }

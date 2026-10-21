@@ -153,3 +153,20 @@ Writer und Composer dürfen passende Tiere und größere Herden einsetzen. Biolo
 Tiergruppen erlauben bis 20 Tiere pro Gruppe und bis 40 Objekte insgesamt. Nichttiergruppen behalten höchstens sechs Objekte pro Gruppe und das bisherige Dichtebudget. Größere Tiergruppen erhalten eine zentrierte Gruppenanordnung; Flächen-, Gebäude-, Abstands- und Kollisionsprüfungen bleiben wirksam. Alle katalogisierten Tiere werden zunächst als bodengebundene Objekte behandelt; Flug-, Schwimm- oder Herdenverhalten wird dadurch nicht zugesichert.
 
 Prüfung: `node --test tools/mission-animal-scene-assets.test.mjs` prüft Katalogübernahme, eine Herde mit 20 Schafen bis zur tatsächlichen Objektliste, Artentrennung, räumliche Ablehnung und Erhalt der Gruppenangaben im App-Sanitizer. Biologie bleibt bis zur gesonderten Freigabe im dokumentierten Testpfad (`ga_bio_briefing_v1`). Keine neuen Tracker- oder Voice-Auslöser.
+
+## Gepäckdarstellung über den Cargo-Composer (21.10.2026)
+
+Gepäck und Ausrüstung der Passagiere bei Reporter-, Charter- und Sightseeing-Ideen werden nicht mehr nur per Stichwortsuche im Label einem Objekt zugeordnet.
+
+- **Kreativer Teil bleibt frei:** Die Ideen-Prompts kennen keinen Katalog und bekommen keine Beispiele. Label und Verpackung schreibt Gemini frei.
+- **Composer-Schritt:** `mission-cargo-visual-core.js` ordnet die fertige Beschreibung (Label, Verpackung, Gewicht) 1–3 Packstücken zu. Der Aufruf läuft in den Browser-Adaptern parallel zum Writer. Er sieht nur neutrale Formen (Bezeichnung und Tags), gemischt, ohne Beispiele.
+- **Größe und Variante wählt der Code:** Die Größe richtet sich nach dem Gewicht des Stücks; unter gleich gut passenden Varianten wird stabil gestreut (z.B. Farbe).
+- **Datenquelle:** Formen, Größe, Lastbereich und Verwendung stehen in `data/mission-cargo-asset-profiles.json`, nach Pack-Asset-Key. Identität und Titel bleiben im Pack-Katalog. Nach Änderungen `node tools/generate-mission-cargo-assets.mjs` ausführen; erzeugt `data/mission-cargo-assets.js` und warnt bei Cargo-Assets ohne Profil. Neue Assets brauchen nur einen Profil-Eintrag.
+- **Rückflug:** Die Auswahl liegt in der Idee (`cargoVisual`) und wird mit der Rückflug-Fortsetzung übernommen, damit dieselben Stücke erscheinen.
+- **Gruppen:** Ein Manifest-Posten bleibt eine Zeile mit einem Gewicht und trägt `visualPieces`. Jedes Stück hat einen eigenen Objektschlüssel (`<itemKey>`, `<itemKey>:p2`, `:p3`); Startszene, Laden, Entladen und Abwurf behandeln alle Stücke gemeinsam.
+- **Fallback:** Ohne gültige Composer-Wahl gilt die bisherige Text-Zuordnung mit einem Stück.
+- **Reporter:** Der generische Zusatzposten „Akkukoffer und Speicherkarten“ entfällt bei `apt-news-idea.v1`, weil die Reporter-Ausrüstung ihn bereits enthält.
+- **Pickup:** Am Zielplatz wartet dieselbe Gruppe in der Ankunftsszene (`arrival_equipment_1`, `arrival_equipment_1_p2`, …) mit denselben Stück-Schlüsseln, die das Laden entfernt.
+- **Offen:** Abstände und Optik der Gruppen sind noch nicht im Simulator geprüft. Die Platzierungsprüfung der Ankunftsszene bewertet das Ausrüstungs-Objekt; weitere Stücke liegen 0,6–1,1 m daneben.
+
+Tests: `node --test tools/mission-cargo-visual.test.mjs`, Gruppenfall in `ga-tracker-client/tracker-mission-simulator-effects.test.js`.

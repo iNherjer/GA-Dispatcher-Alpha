@@ -40,6 +40,8 @@ async function story({start,dest,proposal,contract={}}){
   input={...proposal.input,maxPassengers:capacity(),recent:core().history(localStorage)};idea=core().validate(proposal.idea,input);
  }else{input=await frame(start,dest);idea=(await ideas([{candidateId:'direct',...input}]))[0];}
  if(!idea)throw Error('Die gewählte Reisegruppe oder die Besuchsziele passen nicht mehr zum Flug. Bitte neu auswählen.');
+ // Ground appearance of the luggage, chosen by the composer beside the writer.
+ const cargoVisualTask=root.MissionCargoVisualCore?.ensure(idea,json);
  const api=root.MissionPrivateEpisodeV6,context=api.flightContext(contract),flight={context,bindings:api.flightBindings(context)};
  const pageWriter=p=>root.MissionAirportInformationBrowser?.writePages(p,contract,null,json)||json(p);
  const prompt=core().writerPrompt(idea,flight,input.recent),parse=raw=>core().prose(resolveText(raw,flight.bindings),idea);
@@ -51,6 +53,7 @@ async function story({start,dest,proposal,contract={}}){
  else if(!brief){try{const repair=await json('Erstelle ausschließlich den Wetterabsatz. Nur JSON {flightBriefing}. '+core().weatherPrompt(flight));brief=api.resolveFlightBriefing(repair.flightBriefing,context);raw.flightBriefing=repair.flightBriefing;}catch{console.warn('[Sightseeing] Wetterabsatz konnte nicht separat korrigiert werden.');}}
  if(!brief){brief=core().weatherFallback(context);weatherBriefingStatus='observations-fallback';}
  else if(weatherBriefingStatus==='pending')weatherBriefingStatus='repaired-bindings';
+ await cargoVisualTask;
  const m=core().mission(idea,written,brief,contract.route);
  Object.assign(m._missionWriterV4Debug,{weatherBriefingStatus,weatherSnapshot:context.weather,rawFlightBriefing:raw.flightBriefing||'',historyCount:input.recent.length});
  Object.assign(contract,{status:'ready',profile:{id:'sightseeing_tour',taskDomain:'sightseeing_tour',roleProfile:'tour_guide_relaxed_v1'},sightseeingIdea:m.sightseeingIdea,passenger:m.passenger,passengerCount:m.passengerCount,plannedPassengerCount:m.passengerCount,party:m.party,paxText:m.pax,cargoText:m.cargo,missionStory:m.s,target:input.route.target,storyFrame:{trigger:idea.summary,soughtOutcome:idea.groundPlan,noDelivery:true}});

@@ -6489,19 +6489,20 @@ function _missionAptArrivalSceneItems(plan = {}) {
             return role === 'person.ground_crew' || /^person\./.test(role) || kind.includes('arrival_person');
         })
         : -1;
-    return items.map((item, index) => {
+    const expandPieces = globalThis.MissionCargoVisualCore?.expandSceneItem || (sceneItem => [sceneItem]);
+    return items.flatMap((item, index) => {
         const isMovingPickupPerson = index === movingPickupPersonIndex;
         const asset = _missionAptArrivalAssetForItem(item, index, {
             movingPerson: isMovingPickupPerson || item.departWithPickupVehicle === true
         });
-        if (!asset.title) return null;
+        if (!asset.title) return [];
         const isPickupCargoVisual = pickupCargoItem
             && !_missionCargoIsPassengerItem(pickupCargoItem)
             && (
                 String(item?.kind || '').toLowerCase().includes('arrival_equipment')
                 || String(item?.role || '').toLowerCase().startsWith('cargo.')
             );
-        return {
+        const sceneItem = {
             ...item,
             kind: isMovingPickupPerson ? 'person_boarder_1' : item.kind,
             label: item.label || item.kind || `APT Arrival ${index + 1}`,
@@ -6517,7 +6518,9 @@ function _missionAptArrivalSceneItems(plan = {}) {
             headingMode: 'with_aircraft',
             altOffsetFt: Number.isFinite(Number(item.altOffsetFt)) ? Number(item.altOffsetFt) : 0
         };
-    }).filter(Boolean);
+        // Composer-chosen luggage waits at the pickup point as the same group that is later unloaded at home.
+        return isPickupCargoVisual ? expandPieces(sceneItem, pickupCargoItem) : [sceneItem];
+    });
 }
 
 function _missionAptArrivalBuildEffectCommand(reason, plan = _missionAptArrivalPlan(), resolvedItems = null) {
@@ -7436,7 +7439,8 @@ function _missionSceneCargoItems(cargoPoint, cargoAsset) {
             .filter(item => item.persistentEquipment !== true)
             .filter(item => item.pickupLocation !== 'target')
             .filter(item => String(item.status || 'pending') === 'pending')
-            .map((item, index) => ({
+            // Composer-chosen luggage pieces spawn as one group with one object key per piece.
+            .flatMap((item, index) => (globalThis.MissionCargoVisualCore?.expandSceneItem || (sceneItem => [sceneItem]))({
                 ...makeItem(
                     item.sceneKind || (index === 0 ? 'cargo' : `cargo_extra_${index}`),
                     item.storyName || item.label || `Ladung ${index + 1}`,
@@ -7452,7 +7456,7 @@ function _missionSceneCargoItems(cargoPoint, cargoAsset) {
                     ? _missionCargoStableObjectKey(item, manifest)
                     : `mission-cargo:${manifest?.key || 'active'}:${item.id || index}`,
                 objectRevision: 0
-            }));
+            }, item));
     }
     const primary = cargoAsset?.sizePrimary || cargoAsset?.title || 'Cardboard';
     const primaryCandidates = cargoAsset?.candidates || MISSION_SCENE_ASSET_POOLS.cargo;

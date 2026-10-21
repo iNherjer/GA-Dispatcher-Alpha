@@ -629,6 +629,25 @@ function _missionCargoPushItem(items, item) {
     });
 }
 
+// Composer-chosen pieces for the passenger luggage (MissionCargoVisualCore). Without a matching
+// plan the item keeps the title from the text mapping.
+function _missionCargoApplyVisualPlan(items = []) {
+    const visual = window.MissionCargoVisualCore;
+    const idea = visual?.ideaOf?.(window.currentMissionData);
+    const plan = idea?.cargoVisual;
+    if (!plan) return false;
+    const item = items.find(entry => ['pickup-companion-cargo', 'primary-cargo'].includes(entry.id)
+        && visual.planMatches(plan, entry.label, entry.weightLbs));
+    const pieces = item ? visual.resolve(plan) : null;
+    if (!item || !pieces?.length) return false;
+    item.visualPieces = pieces;
+    item.objectTitle = pieces[0].title;
+    item.titleCandidates = pieces[0].titleCandidates;
+    item.cargoVisualSource = 'composer';
+    return true;
+}
+window.missionCargoApplyVisualPlan = _missionCargoApplyVisualPlan;
+
 function _missionCargoBushPickupCompanionItem(bush = null) {
     const spec = bush && typeof bush === 'object' ? bush : {};
     const label = String(
@@ -959,7 +978,8 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
         _missionCargoPushItem(items, { id: 'cargo-docs', label: 'Frachtpapiere und Uebergabeunterlagen', weightLbs: 4, required: true, deliverAtDestination: !isBushReturnHomeRecon, deliverAtHome: isBushReturnHomeRecon, forwardOffsetM: 0.75, rightOffsetM: 0.8 });
         _missionCargoPushItem(items, { id: 'tie-downs', label: 'Spanngurte / Ladungsnetz', weightLbs: 8, required: false, deliverAtDestination: false, forwardOffsetM: 1.1, rightOffsetM: -0.9, objectTitle: 'Pallet01_03', titleCandidates: MISSION_SCENE_ASSET_POOLS.palletCargo });
     }
-    if (/(news_coverage|media|photo)/.test(taskDomain)) {
+    // A reporter idea already describes the complete personal equipment; no generic battery carton beside it.
+    if (/(news_coverage|media|photo)/.test(taskDomain) && window.currentMissionData?.aptNewsIdea?.schema !== 'apt-news-idea.v1') {
         _missionCargoPushItem(items, { id: 'media-batteries', label: 'Akkukoffer und Speicherkarten', weightLbs: 9, required: false, deliverAtDestination: false, forwardOffsetM: 0.85, rightOffsetM: 0.9 });
     }
     if (/(survey|inspection|science|mapping)/.test(taskDomain)) {
@@ -1012,6 +1032,7 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
             weightLbs: cargoIdea.shipment.weightLbs
         });
     }
+    window.missionCargoApplyVisualPlan?.(items);
     _missionCargoApplyStoredOnboardEquipment(items, aircraftSlot);
     _missionCargoManifestCore()?.reconcileOffboardEquipment?.({ key, items }, {
         beforeDeparture: true, position: _missionCargoLivePos(), now: Date.now(),
@@ -1853,8 +1874,9 @@ function _missionCargoVisibleSelectors(item = null, options = {}) {
     const baseKind = String(item?.sceneKind || '').trim();
     const objectKey = String(options.objectKey || _missionCargoStableObjectKey(item)).trim();
     const extraKinds = Array.isArray(options.extraKinds) ? options.extraKinds.map(v => String(v || '').trim()).filter(Boolean) : [];
+    const pieceKeys = objectKey && window.MissionCargoVisualCore ? window.MissionCargoVisualCore.pieceObjectKeys(objectKey, item) : [objectKey];
     return {
-        objectKeys: objectKey ? [objectKey] : [],
+        objectKeys: objectKey ? pieceKeys : [],
         kinds: Array.from(new Set([visibleKind, baseKind, ...extraKinds].filter(Boolean))),
         labels: [item?.label, item?.storyName].filter(Boolean),
         itemIds: [item?.id].filter(Boolean),
@@ -1896,6 +1918,7 @@ function _missionCargoSpawnVisibleItem(item = null, options = {}) {
     const kind = _missionCargoVisibleKind(item, { unloaded: !!options.unloaded });
     const objectKey = String(options.objectKey || _missionCargoStableObjectKey(item)).trim();
     const placement = _missionCargoGroundSpawnPlacement(item);
+    const expand = sceneItem => window.MissionCargoVisualCore ? window.MissionCargoVisualCore.expandSceneItem(sceneItem, item) : [sceneItem];
     const commandId = window.sendTrackerCommand({
         type: 'mission_scene_object_spawn',
         sceneId,
@@ -1907,7 +1930,7 @@ function _missionCargoSpawnVisibleItem(item = null, options = {}) {
         lon: Number(pos.lon),
         altFt: Number.isFinite(Number(pos.altFt)) ? Number(pos.altFt) : 0,
         hdg: Number.isFinite(Number(pos.hdg)) ? Number(pos.hdg) : 0,
-        items: [{
+        items: expand({
             kind,
             itemId: item.id || '',
             cargoItemId: item.id || '',
@@ -1921,7 +1944,7 @@ function _missionCargoSpawnVisibleItem(item = null, options = {}) {
             rightM: Number.isFinite(Number(options.rightM)) ? Number(options.rightM) : placement.rightM,
             headingMode: 'with_aircraft',
             altOffsetFt: Number.isFinite(Number(options.altOffsetFt)) ? Number(options.altOffsetFt) : placement.altOffsetFt
-        }]
+        })
     });
     window.missionCargoStatus.lastCommandAt = Date.now();
     window.missionCargoStatus.lastCommand = { type: 'mission_scene_object_spawn', commandId, itemId: item.id, objectKey };

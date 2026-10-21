@@ -20,6 +20,8 @@ async function story({start,dest,proposal,contract={}}){
  return write(idea,input,contract);
 }
 async function write(idea,input,contract,extraPrompt=''){
+ // Ground appearance of the luggage: kept from the outbound idea, otherwise chosen by the composer beside the writer.
+ const cargoVisualTask=root.MissionCargoVisualCore?.ensure(idea,json);
  const api=root.MissionPrivateEpisodeV6,context=api.flightContext(contract),flight={context,bindings:api.flightBindings(context)};
  const pageWriter=p=>root.MissionAirportInformationBrowser?.writePages(p,contract,null,json)||json(p);
  const prompt=core().writerPrompt(idea,flight,input.recent)+extraPrompt;
@@ -50,6 +52,7 @@ async function write(idea,input,contract,extraPrompt=''){
   }
   brief='Leerflug zur Abholung: '+(brief||'Der Wetterabsatz konnte nicht erstellt werden; die Wetterdaten bitte separat prüfen.')+'\n\nBesetzter Rückflug: '+returnBrief;
  }
+ await cargoVisualTask;
  const m=core().mission(idea,written,brief,contract.route||{});
  m._missionWriterV4Debug.weatherSnapshot=context.weather;
  m._missionWriterV4Debug.rawFlightBriefing=raw.flightBriefing||'';m._missionWriterV4Debug.historyCount=input.recent.length;
@@ -76,6 +79,7 @@ async function continuation({req,base,contract,aiEnabled=true}) {
  const input={recent:core().history(localStorage),route:idea.route};
  const written=await write(idea,input,contract,'\nFORTSETZUNG: Erzähle den gespeicherten Aufenthalt und den jetzigen Rückreiseauftrag. Verbinde einen konkreten kurzen Rückblick mit dem aktuellen Stand des Kundenanliegens und dem nächsten Schritt nach der Rückkehr zu einer flüssigen Geschichte. Erkläre anschließend knapp den anstehenden Flug. Bleibe außenstehender Erzähler; nur greeting ist direkte Rede. Der professionelle Rahmen darf menschlich und warm wirken. Überlasse persönliche Vertiefungen den späteren Gesprächen, statt diese im Briefing vorwegzunehmen. Erfinde keine neue Version des Erlebnisses. Der Pilot war nicht automatisch dabei. Der gesamte Flug liegt noch bevor. greeting ist erst beim tatsächlichen Boarding zu hören. Ablauf und Startort: '+JSON.stringify({acceptance:req.acceptance,pickupRequired:!!base.bush,continuity:req.charterContinuation})+'. Bei Abholung zuerst leer zum Aufenthaltsplatz, danach die vollständige Gruppe zum ursprünglichen Startplatz; ein Drittplatz des Piloten ist nicht das Kundenziel. Wetterdaten gelten ausschließlich für die jeweils ausdrücklich genannte Strecke.');
  const m=api.applyMission(req,base,written);
+ if(m.charterIdea&&!m.charterIdea.cargoVisual&&written.charterIdea?.cargoVisual)m.charterIdea.cargoVisual=written.charterIdea.cargoVisual;
  Object.assign(contract,{charterIdea:m.charterIdea,bush:m.bush,passenger:m.passenger,passengerCount:m.passengerCount,plannedPassengerCount:m.plannedPassengerCount,party:m.party,paxText:m.pax,cargoText:m.cargo,followUpContinuation:m.followUpContinuation});
  m._missionContractV4=contract;return m;
 }

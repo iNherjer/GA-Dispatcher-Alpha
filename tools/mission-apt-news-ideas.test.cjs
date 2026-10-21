@@ -56,7 +56,9 @@ test('manifest retains reporter-owned equipment and original passenger handoff',
  extract('mission-cargo-core.js','_missionCargoGenerateManifest',c);
  const before=c._missionCargoGenerateManifest();c.window.currentMissionData.aptNewsIdea=core.validate(raw,input);const after=c._missionCargoGenerateManifest();
  for(const items of [before.items,after.items]){assert.equal(items.some(x=>x.itemType==='passenger'),true);const p=items.find(x=>x.id==='primary-cargo');assert.equal(p.required,true);assert.equal(p.deliverAtDestination,true);assert.equal(p.deliverAtHome,false);assert.equal(p.handoffWithPassenger,true);assert.equal(p.weightLbs,22);}
- assert.deepEqual(after.items.map(x=>({id:x.id,required:x.required,deliverAtDestination:x.deliverAtDestination})),before.items.map(x=>({id:x.id,required:x.required,deliverAtDestination:x.deliverAtDestination})));
+ // The reporter idea already lists the complete equipment, so the generic media battery carton is omitted.
+ assert.equal(before.items.some(x=>x.id==='media-batteries'),true);assert.equal(after.items.some(x=>x.id==='media-batteries'),false);
+ assert.deepEqual(after.items.map(x=>({id:x.id,required:x.required,deliverAtDestination:x.deliverAtDestination})),before.items.filter(x=>x.id!=='media-batteries').map(x=>({id:x.id,required:x.required,deliverAtDestination:x.deliverAtDestination})));
 });
 test('arrival resolver retains planned media contact',()=>{
  const c=vm.createContext({normalizeMissionType:()=> 'apt'});extract('app.js','getMissionPlanV2Plan',c);extract('mission-definition-core.js','normalizeAptArrivalRole',c);

@@ -109,8 +109,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v582';
-const TRACKER_VERSION_CODE = 582;
+const TRACKER_VERSION = 'v583';
+const TRACKER_VERSION_CODE = 583;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -2108,11 +2108,13 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const apron = (Array.isArray(candidates?.apron) ? candidates.apron : []).map(aptArrivalCandidatePoint).filter(Boolean);
     const selected = (candidates?.selected || []).map(aptArrivalCandidatePoint).filter(Boolean);
     const surface = (candidates?.surface || []).map(aptArrivalCandidatePoint).filter(Boolean);
-    if (!parking.length && !apron.length && !surface.length && !selected.length) return command;
+    const hangarFront = (candidates?.hangarFront || []).map(aptArrivalCandidatePoint).filter(Boolean);
+    if (!parking.length && !apron.length && !surface.length && !selected.length && !hangarFront.length) return command;
     const traffic = aptArrivalLiveTraffic();
     if (!traffic.length) return command;
     const ordered = [
       ...selected.map(p=>({...p,liveSource:command.snapStatus?.source || 'composer_selected',radiusM:35})),
+      ...hangarFront.map(p => ({ ...p, liveSource: 'osm_hangar_front', radiusM: 35 })),
       ...parking.map(p => ({ ...p, liveSource: 'osm_parking_position', radiusM: 35 })),
       ...apron.map(p => ({ ...p, liveSource: 'osm_apron', radiusM: 45 })),
       ...surface.map(p => ({...p,liveSource:'osm_surface',radiusM:35}))
@@ -2169,6 +2171,10 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const buildScenePlan = (command) => {
     command = resolveAptArrivalLivePlacement(command);
     if (command?.targetSceneKind === 'apt_arrival' && command?.snapStatus?.spawnAllowed === false) return [];
+    // An unchecked airport offset (plans stored before the OSM placement) can
+    // sit on the runway; only the bush strip side offset may spawn unchecked.
+    if (command?.targetSceneKind === 'apt_arrival' && !command?.snapStatus
+      && String(command?.planSource || 'airport-representative-offset') === 'airport-representative-offset') return [];
     const lastGps = typeof getLastGpsMsg === 'function' ? getLastGpsMsg() : null;
     const base = {
       lat: toFiniteNumber(command?.lat, toFiniteNumber(command?.aircraftLat, toFiniteNumber(lastGps?.lat, null))),

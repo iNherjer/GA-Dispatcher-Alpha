@@ -120,6 +120,41 @@ test('cargo transitions remove loaded objects and spawn unloaded objects through
   assert.equal(commands[1].items[0].rightM, 3);
 });
 
+test('composer luggage pieces load and unload together with one object key per piece', async () => {
+  const activeRun = runWithPlan();
+  const commands = [];
+  const bridge = createTrackerMissionSimulatorEffects({
+    authorityManager: { getActiveRun: () => activeRun },
+    getLivePosition: () => ({ lat: 48.1, lon: 7.9, alt: 510, hdg: 90 }),
+    dispatchCommand: command => { commands.push(command); return { ok: true, status: 'pending' }; },
+    acknowledgeEffect: () => ({ ok: true })
+  });
+  const item = {
+    id: 'primary-cargo', itemType: 'cargo', sceneKind: 'cargo', label: 'Medienequipment', objectTitle: 'VFR Multitool Homebase Backpack',
+    visualPieces: [
+      { title: 'VFR Multitool Homebase Backpack', titleCandidates: ['VFR Multitool Homebase Backpack'], forwardM: 0, rightM: 0 },
+      { title: 'VFR Multitool Homebase Hardcase Yellow Small', titleCandidates: ['VFR Multitool Homebase Hardcase Yellow Small'], forwardM: 0.7, rightM: 0.35 }
+    ]
+  };
+  await bridge.dispatch({ commandId: 'group-load', missionId: activeRun.missionId, runId: activeRun.runId,
+    effect: { type: 'scene.cargo_item_transition', payload: { action: 'load', itemId: item.id, manifestKey: 'manifest-a', item } } });
+  await new Promise(resolve => setTimeout(resolve, 200));
+  assert.equal(commands[0].type, 'mission_scene_object_remove');
+  assert.deepEqual(commands[0].objectKeys, ['mission-cargo:manifest-a:primary-cargo', 'mission-cargo:manifest-a:primary-cargo:p2']);
+  bridge.handleAck({ type: 'mission_scene_object_remove_ack', commandId: 'group-load', status: 'ok' });
+
+  await bridge.dispatch({ commandId: 'group-unload', missionId: activeRun.missionId, runId: activeRun.runId,
+    effect: { type: 'scene.cargo_item_transition', payload: { action: 'unload', itemId: item.id, manifestKey: 'manifest-a', item } } });
+  await new Promise(resolve => setTimeout(resolve, 200));
+  const spawn = commands[1];
+  assert.equal(spawn.type, 'mission_scene_object_spawn');
+  assert.deepEqual(spawn.items.map(entry => [entry.objectKey, entry.objectTitle, entry.cargoItemId]), [
+    ['mission-cargo:manifest-a:primary-cargo', 'VFR Multitool Homebase Backpack', 'primary-cargo'],
+    ['mission-cargo:manifest-a:primary-cargo:p2', 'VFR Multitool Homebase Hardcase Yellow Small', 'primary-cargo']
+  ]);
+  assert.ok(Math.abs(spawn.items[1].forwardM - spawn.items[0].forwardM - 0.7) < 1e-9);
+});
+
 test('APT simulator effects reuse the prepared app command and force live tracker position plus stable IDs', async () => {
   let activeRun = runWithPlan();
   const commands = [];

@@ -6,7 +6,7 @@ const { fontDeclarations, htmlFontDeclarations, clientFontSource } = require('./
 
 const EFB_WEB_CLIENT_PATH = '/efb/v1/';
 const EFB_WEB_CLIENT_PROBE_PATH = '/efb/v1/probe/';
-const EFB_WEB_ASSET_REVISION = '58201';
+const EFB_WEB_ASSET_REVISION = '58301';
 const fileCache = new Map();
 
 const STATIC_ASSETS = Object.freeze({

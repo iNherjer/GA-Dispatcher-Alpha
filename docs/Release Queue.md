@@ -47,6 +47,24 @@ liefert alles Offene mit aus.
 - **Doku beim Release:** `docs/Arrival Scene Placement.md` und `docs/Tracker Mission Migration Guide.md` sind aktualisiert; Tracker-Release-Notiz ergänzen.
 - **Pruefen im Feld:** Startbanner auf der Quest; PAX-Ladung/Wetter im EFB; Watch-QNH; Ankunftsszene in EDTW/EDTQ vor dem Hangar, EDDS am GA-Vorfeld, Big Creek neben der Hütte; Ladung bei neuem Lauf draußen.
 
+### 2026-10-21 · Gepäckdarstellung über den Cargo-Composer, Gepäckgruppen
+- **Artefakt:** Tracker-EXE (Laden/Entladen/Abwurf von Gruppen); die Web-App-Teile sind mit dem Push live
+- **Dateien:** `mission-cargo-visual-core.js` (neu), `data/mission-cargo-asset-profiles.json` (neu),
+  `data/mission-cargo-assets.js` (generiert, `tools/generate-mission-cargo-assets.mjs`), `mission-cargo-core.js`,
+  `mission-apt-news-browser.js`, `mission-charter-browser.js`, `mission-sightseeing-browser.js`, `sync.js`,
+  `index.html`, `sw.js`, `ga-tracker-client/tracker-mission-simulator-effects.js` (+ Tests)
+- **Was:**
+  - Reporter-, Charter- und Sightseeing-Gepäck: Ein Composer-Schritt (parallel zum Writer) ordnet die frei geschriebene Beschreibung 1–3 Packstücken aus dem Cargo-Katalog zu; Größe und Variante wählt der Code nach Gewicht, Farbe/Modell wird gestreut. Ideen-Prompts bleiben ohne Katalog und ohne Beispiele.
+  - Dynamischer Katalog: Form, Größe, Lastbereich und Verwendung pro Pack-Asset in `data/mission-cargo-asset-profiles.json`; neue Assets brauchen nur einen Profil-Eintrag.
+  - Gruppen: ein Manifest-Posten, mehrere Stücke mit eigenem Objektschlüssel (`:p2`, `:p3`); Startszene, Pickup-Szene, Laden, Entladen und Abwurf gemeinsam.
+  - Rückflug übernimmt die Auswahl des Hinflugs.
+  - Reporter: generischer Zusatzposten „Akkukoffer und Speicherkarten“ entfällt.
+  - Ohne gültige Composer-Wahl bleibt die bisherige Text-Zuordnung.
+- **Warum:** Rückflug vom 20.10.2026 zeigte die Reporter-Ausrüstung als zwei Kartons statt Kamera-Equipment; Live-Proben: heutige Stichwort-Zuordnung lag bei Reportern 5 von 10 daneben.
+- **Tests:** `node --test tools/mission-cargo-visual.test.mjs`, `ga-tracker-client/tracker-mission-simulator-effects.test.js` (Gruppenfall), `tools/mission-scene-cargo-selftest.mjs`, `tools/mission-apt-news-ideas.test.cjs` (angepasst); Live-Check 15/15 gültig (`analysis/cargo-visual-core-live-20261021.json`, lokal).
+- **Doku beim Release:** `data/mission-scene-asset-strategy.md` Abschnitt „Gepäckdarstellung über den Cargo-Composer“ ist aktualisiert; Tracker-Release-Notiz ergänzen.
+- **Pruefen im Feld:** Reporter-/Charter-/Sightseeing-Mission neu erstellen: Gepäckgruppe an der Startposition, gemeinsames Laden, Entladen am Ziel, gleiche Stücke auf dem Rückflug; Pickup-Rückflug: Gruppe wartet am Zielplatz; Abstände und Optik der Stücke.
+
 ## Ausgeliefert
 
 ### 2026-10-20 · Kameraansicht im Debug-Log — ausgeliefert in Tracker v581 (20.10.2026)

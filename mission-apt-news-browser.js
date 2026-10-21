@@ -26,6 +26,9 @@ async function story({start,dest,proposal,contract={},preparedIdea=null}){
   idea=core().validate(proposal.idea,input);
  }else idea=(await ideas([{candidateId:'direct',...input}]))[0];
  if(!idea)throw Error('Die gewählte Reportage passt nicht mehr zum aktuellen Flugzeug. Bitte neu auswählen.');
+ // Ground appearance of the equipment: kept from the outbound idea, otherwise chosen by the composer beside the writer.
+ if(preparedIdea?.cargoVisual)idea.cargoVisual=preparedIdea.cargoVisual;
+ const cargoVisualTask=root.MissionCargoVisualCore?.ensure(idea,json);
  const api=root.MissionPrivateEpisodeV6,context=api.flightContext(contract),flight={context,bindings:api.flightBindings(context)};
  const pageWriter=p=>root.MissionAirportInformationBrowser?.writePages(p,contract,null,json)||json(p);
  const prompt=core().writerPrompt(idea,flight,input.recent);
@@ -44,6 +47,7 @@ async function story({start,dest,proposal,contract={},preparedIdea=null}){
   }
   brief='Leerflug zur Abholung: '+(brief||'Wetterdaten separat prüfen.')+'\n\nBesetzter Rückflug: '+rb;
  }
+ await cargoVisualTask;
  const m=core().mission(idea,written,brief,contract.route);
  Object.assign(m._missionWriterV4Debug,{weatherSnapshot:context.weather,rawFlightBriefing:raw.flightBriefing||'',historyCount:input.recent.length});
  // Preserve original apt-news passenger, sensitivity and personal equipment ownership.
@@ -67,6 +71,7 @@ async function continuation({req,base,contract,aiEnabled=true}){
  const idea=api.continuationIdea(req);
  const written=await story({start:idea.route.start,dest:idea.route.target,contract,preparedIdea:idea});
  const m=api.applyMission(req,base,written);
+ if(m.aptNewsIdea&&!m.aptNewsIdea.cargoVisual&&written.aptNewsIdea?.cargoVisual)m.aptNewsIdea.cargoVisual=written.aptNewsIdea.cargoVisual;
  Object.assign(contract,{aptNewsIdea:m.aptNewsIdea,bush:m.bush,passenger:m.passenger,passengerCount:m.passengerCount,plannedPassengerCount:m.plannedPassengerCount,party:m.party,paxText:m.pax,cargoText:m.cargo,followUpContinuation:m.followUpContinuation});
  m._missionContractV4=contract;return m;
 }
