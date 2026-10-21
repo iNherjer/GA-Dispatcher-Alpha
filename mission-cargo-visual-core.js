@@ -5,6 +5,7 @@
 // prompts never see the catalogue.
 const SCHEMA = 'cargo-visual-plan.v1';
 const MAX_PIECES = 3;
+const RANDOM_YAW_DEG = 180;
 const USE = 'passenger_gear';
 
 function catalog() { return root.MISSION_CARGO_ASSETS || (typeof module !== 'undefined' && module.exports ? require('./data/mission-cargo-assets.js') : null); }
@@ -90,7 +91,8 @@ function pickVariant(form, weightLbs, seed) {
   return pool.slice().sort((a, b) => distance(a) - distance(b))[0];
 }
 
-const SPACING_M = { s: 0.6, m: 0.8, l: 1.1 };
+// Centre spacing leaves room for the random turn of each piece.
+const SPACING_M = { s: 0.7, m: 0.9, l: 1.3 };
 function resolve(plan, assets = catalog()) {
   if (!plan || plan.schema !== SCHEMA) return null;
   const pieces = [];
@@ -128,6 +130,8 @@ function expandSceneItem(sceneItem, item) {
     titleCandidates: Array.isArray(piece.titleCandidates) && piece.titleCandidates.length ? piece.titleCandidates.slice(0, 24) : [piece.title],
     forwardM: (Number(sceneItem.forwardM) || 0) + (Number(piece.forwardM) || 0),
     rightM: (Number(sceneItem.rightM) || 0) + (Number(piece.rightM) || 0),
+    // The tracker turns each piece randomly on every spawn.
+    randomYawDeg: RANDOM_YAW_DEG,
     cargoPieceIndex: index
   }));
 }

@@ -109,8 +109,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v583';
-const TRACKER_VERSION_CODE = 583;
+const TRACKER_VERSION = 'v584';
+const TRACKER_VERSION_CODE = 584;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -432,6 +432,17 @@ function normalizeHeading(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return 0;
   return ((n % 360) + 360) % 360;
+}
+
+// Scene item heading. Items with randomYawDeg (loose luggage pieces) get a fresh
+// random turn within ±randomYawDeg on every spawn so a group never stands in one row.
+function sceneItemHeadingDeg(baseHdg, item = {}, random = Math.random) {
+  const mode = String(item?.headingMode || '').trim().toLowerCase();
+  if (mode === 'face_aircraft') return normalizeHeading(baseHdg + 180);
+  const fixed = Number(item?.hdg ?? item?.heading);
+  const heading = Number.isFinite(fixed) ? fixed : baseHdg + toFiniteNumber(item?.hdgOffsetDeg, 0);
+  const randomYawDeg = Math.max(0, Math.min(180, toFiniteNumber(item?.randomYawDeg, 0) || 0));
+  return normalizeHeading(heading + (randomYawDeg ? (random() * 2 - 1) * randomYawDeg : 0));
 }
 
 function uniqueStrings(values) {
@@ -2191,10 +2202,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       const rightM = toFiniteNumber(item?.rightM ?? item?.right, 0);
       const rel = buildRelativePosition(base, forwardM, rightM);
       const altOffsetFt = toFiniteNumber(item?.altOffsetFt, 0) || 0;
-      const mode = String(item?.headingMode || '').trim().toLowerCase();
-      const hdg = mode === 'face_aircraft'
-        ? normalizeHeading(base.hdg + 180)
-        : normalizeHeading(Number.isFinite(Number(item?.hdg ?? item?.heading)) ? Number(item?.hdg ?? item?.heading) : base.hdg + toFiniteNumber(item?.hdgOffsetDeg, 0));
+      const hdg = sceneItemHeadingDeg(base.hdg, item);
       return {
         index: idx + 1,
         kind: String(item?.kind || `scene-${idx + 1}`),

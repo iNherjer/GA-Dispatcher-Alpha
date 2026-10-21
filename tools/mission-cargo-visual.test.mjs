@@ -184,3 +184,27 @@ test('pickup scene at the target shows the whole luggage group with the keys use
     'pickup load removes exactly the keys spawned at the target');
   assert.equal(equipment[0].forwardM, 3);
 });
+
+test('every luggage piece asks the tracker for a random turn per spawn', () => {
+  const pieces = visual.resolve(visual.validate({ pieces: [{ form: 'backpack', weightLbs: 14 }, { form: 'hardcase', weightLbs: 10 }] }, { description: 'Kit', weightLbs: 24 }));
+  const expanded = visual.expandSceneItem({ kind: 'cargo', objectKey: 'k', headingMode: 'with_aircraft' }, { visualPieces: pieces });
+  assert.deepEqual(expanded.map(item => item.randomYawDeg), [180, 180]);
+  assert.deepEqual(visual.expandSceneItem({ kind: 'cargo', objectKey: 'k' }, {}).map(item => item.randomYawDeg), [undefined], 'items without pieces keep their heading');
+});
+
+test('tracker turns pieces randomly on each spawn and leaves other items aligned', () => {
+  const source = fs.readFileSync(new URL('../ga-tracker-client/tracker.js', import.meta.url), 'utf8');
+  const scope = {};
+  for (const name of ['toFiniteNumber', 'normalizeHeading', 'sceneItemHeadingDeg']) {
+    const start = source.indexOf(`function ${name}(`);
+    vm.runInNewContext(source.slice(start, source.indexOf('\n}\n', start) + 3), scope);
+  }
+  const heading = scope.sceneItemHeadingDeg;
+  assert.equal(heading(90, { headingMode: 'with_aircraft' }), 90);
+  assert.equal(heading(90, { headingMode: 'face_aircraft', randomYawDeg: 180 }), 270);
+  assert.equal(heading(90, { hdgOffsetDeg: 20, randomYawDeg: 180 }, () => 0.5), 110);
+  assert.equal(heading(90, { randomYawDeg: 180 }, () => 0), 270);
+  assert.equal(heading(90, { randomYawDeg: 30 }, () => 1), 120);
+  const turns = new Set(Array.from({ length: 20 }, () => Math.round(heading(0, { randomYawDeg: 180 }))));
+  assert.ok(turns.size > 10, 'fresh random turn on every call');
+});

@@ -169,6 +169,7 @@ Gepäck und Ausrüstung der Passagiere bei Reporter-, Charter- und Sightseeing-I
 - **Fallback:** Ohne gültige Composer-Wahl gilt die bisherige Text-Zuordnung mit einem Stück.
 - **Reporter:** Der generische Zusatzposten „Akkukoffer und Speicherkarten“ entfällt bei `apt-news-idea.v1`, weil die Reporter-Ausrüstung ihn bereits enthält.
 - **Pickup:** Am Zielplatz wartet dieselbe Gruppe in der Ankunftsszene (`arrival_equipment_1`, `arrival_equipment_1_p2`, …) mit denselben Stück-Schlüsseln, die das Laden entfernt.
-- **Offen:** Abstände und Optik der Gruppen sind noch nicht im Simulator geprüft. Die Platzierungsprüfung der Ankunftsszene bewertet das Ausrüstungs-Objekt; weitere Stücke liegen 0,6–1,1 m daneben.
+- **Drehung:** Jedes Stück trägt `randomYawDeg: 180`; der Tracker dreht es bei jedem neuen Spawn-Befehl zufällig (`sceneItemHeadingDeg` in `tracker.js`). Wiederherstellen nach Reconnect nutzt die gespeicherten Positionen. Objekte ohne `randomYawDeg` behalten ihre feste Ausrichtung. Stückabstand 0,7/0,9/1,3 m (klein/mittel/groß) lässt Platz für die Drehung.
+- **Offen:** Die Platzierungsprüfung der Ankunftsszene bewertet das Ausrüstungs-Objekt; weitere Stücke liegen 0,7–1,3 m daneben.
 
 Tests: `node --test tools/mission-cargo-visual.test.mjs`, Gruppenfall in `ga-tracker-client/tracker-mission-simulator-effects.test.js`.
