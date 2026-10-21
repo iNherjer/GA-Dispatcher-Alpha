@@ -36,11 +36,34 @@ function _missionWeatherReactionLine(flightData = null) {
     if (fd.inCloud === true) parts.push('in Wolken');
     return parts.join(', ');
 }
+function _cargoConditionLines(items) {
+    return (Array.isArray(items) ? items : [])
+        .filter(item => item && String(item.itemType || '').toLowerCase() !== 'passenger'
+            && item.persistentEquipment !== true
+            && ['loaded', 'unloaded', 'dropped', 'lost'].includes(String(item.status || '').toLowerCase()))
+        .map(item => {
+            const status = String(item.status || '').toLowerCase();
+            const health = Number(item.healthPct ?? 100);
+            const condition = status === 'dropped' || status === 'lost'
+                ? 'nicht mehr an Bord'
+                : (!Number.isFinite(health) || health >= 95 ? 'unversehrt'
+                    : (health >= 75 ? 'leichte Gebrauchsspuren'
+                        : (health > 35 ? 'sichtbar beschaedigt' : 'schwer beschaedigt')));
+            return {
+                name: String(item.storyName || item.label || item.id || 'Gegenstand').trim(),
+                condition,
+                required: item.required === true,
+                damaged: condition !== 'unversehrt' && condition !== 'leichte Gebrauchsspuren'
+            };
+        });
+}
 function available(context={},fd={}) {
  const focus=comfortCore.evaluate(null,null,context).cargoFocus;
- return [...(!context.isPoi && context.hasPassenger && !focus ? ['pax_wellbeing']:[]),
- ...(!context.isPoi && focus ? ['pax_cargo']:[]),
- ...(_missionWeatherReactionLine(fd) && (context.hasPassenger||focus) ? ['pax_weather']:[])];
+ // Weather is always answerable (calm weather may simply be praised); the
+ // availability depends on mission facts only, never on a telemetry sample.
+ return [...(!context.isPoi && context.hasPassenger ? ['pax_wellbeing']:[]),
+ ...(!context.isPoi && (focus || String(context.cargoText||'').trim()) ? ['pax_cargo']:[]),
+ ...(context.hasPassenger||focus ? ['pax_weather']:[])];
 }
 function render(action,context={},facts={}) {
  if(!available(context,facts.flightData||{}).includes(action)) return null;
@@ -52,6 +75,7 @@ function render(action,context={},facts={}) {
  const _activeCargoText=()=>context.cargoText||'';
  const _isPOIMission=()=>context.isPoi===true;
  const _aptMissingRequiredCargoItems=()=>facts.missingRequired||[];
+ const _aptManifestItems=()=>facts.manifestItems||[];
  const _activeMissionData=()=>context.missionData||{};
  let result=null;
  const _missionActionSpeak=(prompt,label,fallbackText)=>{result={kind:'pax_query',action,prompt,label,fallbackText,delayMs:0};};
@@ -60,21 +84,22 @@ function render(action,context={},facts={}) {
     const summary = _missionComfortSummary();
     const base = _baseContext();
     const wx = _missionWeatherReactionLine(ctx.fd);
-    const facts = `Score ${summary.comfortScore}/100 (${summary.mood}); Pilot-Events ${summary.pilotEvents}, davon schwer ${summary.pilotSevere}; Wetter-Events ${summary.weatherEvents}, davon schwer ${summary.weatherSevere}; max G ${summary.maxG}, max Bank ${summary.maxBankDeg} Grad, max Sinken ${summary.maxDescentFpm} ft/min, Wetter: ${wx || 'unauffaellig'}.`;
+    const facts = `Stimmung ${summary.mood}; Pilot-Events ${summary.pilotEvents}, davon schwer ${summary.pilotSevere}; Wetter-Events ${summary.weatherEvents}, davon schwer ${summary.weatherSevere}; max G ${summary.maxG}, max Bank ${summary.maxBankDeg} Grad, max Sinken ${summary.maxDescentFpm} ft/min, Wetter: ${wx || 'unauffaellig'}.`;
     const prompt = base ? `${base}
 
-Button-Frage: Der Pilot fragt nach dem Wohlbefinden/Zufriedenheit.
-Auswertung seit Missionsstart: ${facts}
+Button-Frage: Der Pilot fragt, wie es dir geht.
+Auswertung seit Missionsstart (nur zur Einordnung): ${facts}
+Beschreibe dein koerperliches Befinden in Worten, vor allem Magen, Gleichgewicht und wie entspannt du sitzt. Keine Zahlen, Prozentwerte, Punkte oder Scores nennen.
 Wichtig: Turbulenzen, Boeen und Regen nicht dem Piloten anlasten; Flugweise wie harte G-Last, steile Kurven oder starker Sinkflug darfst du humorvoll bewerten. Reagiere kreativ, menschlich und passend zur Rolle. Max 2 Saetze.${_toneHint()}` : null;
     const pilotIssue = Number(summary.pilotEvents || 0) > 0 || Number(summary.pilotSevere || 0) > 0;
     const weatherIssue = Number(summary.weatherEvents || 0) > 0 || Number(summary.weatherSevere || 0) > 0 || !!wx;
     const fallback = summary.comfortScore >= 75
-        ? `Mir geht es gut, Score etwa ${summary.comfortScore} von 100. Wetter war ${wx ? 'spuerbar, aber das geht nicht auf deine Kappe' : 'unauffaellig'}, die Flugweise passt.`
+        ? `Mir geht es gut, der Magen ist ruhig. Wetter war ${wx ? 'spuerbar, aber das geht nicht auf deine Kappe' : 'unauffaellig'}, die Flugweise passt.`
         : (!pilotIssue && weatherIssue)
-            ? `Ich bin bei etwa ${summary.comfortScore} von 100. Das war wetterbedingt unruhig, aber deinen Flugstil kreide ich dir nicht an.`
+            ? 'Mein Magen hat sich gemeldet, das war wetterbedingt unruhig. Deinen Flugstil kreide ich dir nicht an.'
             : (pilotIssue && weatherIssue)
-                ? `Ich bin bei etwa ${summary.comfortScore} von 100. Das Wetter war spuerbar, und Kurven, G-Last oder Sinkflug haben sich zusaetzlich bemerkbar gemacht.`
-                : `Ich bin bei etwa ${summary.comfortScore} von 100. Kurven, G-Last oder Sinkflug haben sich schon bemerkbar gemacht.`;
+                ? 'Mein Magen ist etwas flau. Das Wetter war spuerbar, und Kurven, G-Last oder Sinkflug haben sich zusaetzlich bemerkbar gemacht.'
+                : 'Mein Magen ist etwas flau. Kurven, G-Last oder Sinkflug haben sich schon bemerkbar gemacht.';
     _missionActionSpeak(prompt, 'Wohlbefinden', fallback);
 }
 function paxCargoConditionReport() {
@@ -98,15 +123,24 @@ Reagiere als Passagier kurz erschrocken und klar: Wir haben die Pflichtladung ve
         _missionActionSpeak(prompt, 'Ladung', fallback);
         return;
     }
+    const conditions = _cargoConditionLines(_aptManifestItems());
+    const damaged = conditions.filter(item => item.damaged);
+    const conditionText = conditions.length
+        ? conditions.map(item => `${item.name}${item.required ? ' (Pflicht)' : ''}: ${item.condition}`).join('; ')
+        : 'keine Einzelangaben';
     const prompt = `${_baseContext() || `MISSION: ${_activeMissionData().start || '?'} -> ${_activeMissionData().dest || '?'}\nAUSRUESTUNG: ${cargo}\nAUSGABE: Nur gesprochener Text, Deutsch.`}
 
-Button-Frage: Der Pilot fragt nach dem Zustand der Ladung.
+Button-Frage: Der Pilot fragt nach dem Zustand der Ladung und deiner Pflichtgegenstaende.
 Cargo: ${cargo}
-Auswertung seit Missionsstart: Cargo-Risiko ${summary.cargoRiskEvents}, Pilot-Events ${summary.pilotEvents}, schwere Pilot-Events ${summary.pilotSevere}; max G ${summary.maxG}, max Bank ${summary.maxBankDeg} Grad, max Sinken ${summary.maxDescentFpm} ft/min; Wetter-Events ${summary.weatherEvents}, Wetter: ${wx || 'unauffaellig'}.
-Wichtig: Turbulenzen/Regen nicht dem Piloten anlasten. Bewerte Frachtzustand kreativ passend zur Ladung, von "sitzt sauber" bis "Kaffeebecher/Proben/Kisten haben gelitten". Max 2 Saetze.${_toneHint()}`;
-    const fallback = summary.cargoRiskEvents <= 1
-        ? `Die Ladung sieht gut aus: ${cargo} sitzt noch sauber. Wetter war ${wx || 'kein Thema'}, nichts Kritisches.`
-        : `Die Ladung hat etwas gearbeitet: ${cargo} ist noch dabei, aber ich wuerde nach der Landung Gurte und Verpackung pruefen. Wetter zaehlt nicht gegen dich, die haerteren Manoever schon eher.`;
+Zustand je Gegenstand: ${conditionText}
+Auswertung seit Missionsstart (nur zur Einordnung): Cargo-Risiko ${summary.cargoRiskEvents}, Pilot-Events ${summary.pilotEvents}, schwere Pilot-Events ${summary.pilotSevere}; max G ${summary.maxG}, max Bank ${summary.maxBankDeg} Grad, max Sinken ${summary.maxDescentFpm} ft/min; Wetter-Events ${summary.weatherEvents}, Wetter: ${wx || 'unauffaellig'}.
+Kommentiere den Zustand in Worten, keine Zahlen, Prozentwerte oder Scores. Ist etwas beschaedigt oder nicht mehr an Bord, sag das klar und nenne den Gegenstand beim Namen; ist alles heil, bestaetige das kurz und passend zur Ladung.
+Wichtig: Turbulenzen/Regen nicht dem Piloten anlasten. Max 2 Saetze.${_toneHint()}`;
+    const fallback = damaged.length
+        ? `${damaged.slice(0, 3).map(item => item.name).join(', ')} hat etwas abbekommen. Das schaue ich mir nach der Landung genauer an.`
+        : (summary.cargoRiskEvents <= 1
+            ? `Die Ladung sieht gut aus: ${cargo} sitzt noch sauber. Wetter war ${wx || 'kein Thema'}, nichts Kritisches.`
+            : `Die Ladung hat etwas gearbeitet: ${cargo} ist noch dabei, aber ich wuerde nach der Landung Gurte und Verpackung pruefen. Wetter zaehlt nicht gegen dich, die haerteren Manoever schon eher.`);
     _missionActionSpeak(prompt, 'Ladung', fallback);
 }
 function paxWeatherReactionReport() {
@@ -116,13 +150,13 @@ function paxWeatherReactionReport() {
     const base = _baseContext();
     const prompt = base ? `${base}
 
-Button-Frage: Der Pilot fragt nach einer Reaktion auf markantes Wetter.
+Button-Frage: Der Pilot fragt nach deinem Eindruck vom Wetter.
 Live-Wetter: ${liveWeather || 'keine aktuellen Live-Wetterdaten verfuegbar; Wetterbedingungen unbekannt'}
-Datenregel: Nutze nur die uebergebenen Wetterwerte; fehlende Einzelwerte bleiben unbekannt. Erfinde dazu keine Wetterwahrnehmungen. Fehlen aktuelle Live-Wetterdaten insgesamt, benenne die Datenluecke, behaupte kein ruhiges oder gutes Wetter und empfehle keine andere Flughoehe. Nicht markant bedeutet nicht, dass alle Wetterwerte bekannt sind.
-Reagiere auf Regen, Wind, Boeen, Wolken oder Turbulenz aus Passagier-/Rollenperspektive. Wichtig: Bei Turbulenz oder Regen keine Schuldzuweisung an den Piloten, nur Lagegefuehl und ggf. pragmatischer Wunsch nach ruhiger Fluglage. Max 2 Saetze.${_toneHint()}` : null;
+Datenregel: Nutze nur die uebergebenen Wetterwerte; fehlende Einzelwerte bleiben unbekannt. Erfinde dazu keine Wetterwahrnehmungen. Fehlen aktuelle Live-Wetterdaten insgesamt, benenne die Datenluecke, behaupte kein ruhiges oder gutes Wetter und empfehle keine andere Flughoehe.
+Reagiere aus Passagier-/Rollenperspektive auf das aktuelle Wetter. Ist es ruhig und klar, darfst du es geniessen und loben, etwa Sonne, Sicht oder ruhige Luft, soweit die Werte das hergeben. Bei Regen, Wind, Boeen, Wolken oder Turbulenz keine Schuldzuweisung an den Piloten, nur Lagegefuehl und ggf. pragmatischer Wunsch nach ruhiger Fluglage. Keine Prozentwerte vorlesen. Max 2 Saetze.${_toneHint()}` : null;
     const fallback = wx
         ? `Das Wetter ist spuerbar: ${wx}. Das laste ich dir nicht an, aber ruhig und sauber geflogen bleibt jetzt Gold wert.`
-        : (liveWeather ? `Die verfuegbaren Wetterwerte sind: ${liveWeather}.` : 'Mir fehlen gerade aktuelle Wetterdaten fuer eine belastbare Rueckmeldung.');
+        : (liveWeather ? 'Ruhige Luft da draussen, so laesst es sich gut fliegen.' : 'Mir fehlen gerade aktuelle Wetterdaten fuer eine belastbare Rueckmeldung.');
     _missionActionSpeak(prompt, 'Wetter', fallback);
 }
  ({pax_wellbeing:paxAptWellbeingReport,pax_cargo:paxCargoConditionReport,pax_weather:paxWeatherReactionReport})[action]();

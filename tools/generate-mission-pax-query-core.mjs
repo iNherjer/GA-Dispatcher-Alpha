@@ -9,11 +9,14 @@ const comfortCore=require('./mission-comfort-core.js');
 const weatherCore=require('./mission-farewell-voice-core.js');
 ${extractOriginalFunction(source,'_precipitationObservation')}
 ${extractOriginalFunction(source,'_missionWeatherReactionLine')}
+${extractOriginalFunction(source,'_cargoConditionLines')}
 function available(context={},fd={}) {
  const focus=comfortCore.evaluate(null,null,context).cargoFocus;
- return [...(!context.isPoi && context.hasPassenger && !focus ? ['pax_wellbeing']:[]),
- ...(!context.isPoi && focus ? ['pax_cargo']:[]),
- ...(_missionWeatherReactionLine(fd) && (context.hasPassenger||focus) ? ['pax_weather']:[])];
+ // Weather is always answerable (calm weather may simply be praised); the
+ // availability depends on mission facts only, never on a telemetry sample.
+ return [...(!context.isPoi && context.hasPassenger ? ['pax_wellbeing']:[]),
+ ...(!context.isPoi && (focus || String(context.cargoText||'').trim()) ? ['pax_cargo']:[]),
+ ...(context.hasPassenger||focus ? ['pax_weather']:[])];
 }
 function render(action,context={},facts={}) {
  if(!available(context,facts.flightData||{}).includes(action)) return null;
@@ -25,6 +28,7 @@ function render(action,context={},facts={}) {
  const _activeCargoText=()=>context.cargoText||'';
  const _isPOIMission=()=>context.isPoi===true;
  const _aptMissingRequiredCargoItems=()=>facts.missingRequired||[];
+ const _aptManifestItems=()=>facts.manifestItems||[];
  const _activeMissionData=()=>context.missionData||{};
  let result=null;
  const _missionActionSpeak=(prompt,label,fallbackText)=>{result={kind:'pax_query',action,prompt,label,fallbackText,delayMs:0};};

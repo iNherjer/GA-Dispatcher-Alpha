@@ -440,6 +440,9 @@
     if (error === 'manifest_ground_handling_required') {
       return { tone: 'warn', text: 'Verladen ist nur am Boden und im Stillstand möglich.' };
     }
+    if (error === 'pax_query_not_available') {
+      return { tone: 'warn', text: 'Der Passagier kann dazu gerade nichts sagen.' };
+    }
     if (/not_allowed|not_ready|invalid_phase|blocked|manifest/.test(error)) {
       return { tone: 'warn', text: 'Diese Aktion ist im aktuellen Missionsschritt nicht verfügbar.' };
     }

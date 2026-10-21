@@ -2,13 +2,16 @@
 
 const executionCore = require('../mission-execution-core.js');
 
-// Rebuild a planned seed from the retained order, never from a progressed replay.
-// This is local Tracker state: no browser, cloud fetch or simulator write.
-function plannedResetBundle(run) {
-  const bundle = JSON.parse(JSON.stringify(run.resumeBundle));
-  const manifest = executionCore.normalizeManifest(run.executionState?.manifest || bundle.runtime?.cargoManifest);
+// A new run starts with the order's cargo still outside. Only aircraft
+// equipment that stayed on board keeps its loaded state; a restart also returns
+// equipment loaded during the aborted run unless keepOnboardEquipment is set.
+function plannedManifest(source, options = {}) {
+  if (!source || typeof source !== 'object' || !Array.isArray(source.items)) return source || null;
+  const manifest = JSON.parse(JSON.stringify(source));
   for (const item of manifest.items) {
-    const inherited = item.persistentEquipment === true && item.persistentEquipmentInherited === true && item.status === 'loaded';
+    if (!item || typeof item !== 'object') continue;
+    const inherited = item.persistentEquipment === true && item.status === 'loaded'
+      && (item.persistentEquipmentInherited === true || options.keepOnboardEquipment === true);
     item.status = inherited ? 'loaded' : 'pending';
     item.loadedAt = inherited ? item.loadedAt : 0;
     item.unloadedAt = item.droppedAt = item.handedOffAt = 0;
@@ -22,6 +25,14 @@ function plannedResetBundle(run) {
   manifest.dispatchSignature = null;
   manifest.maxStressDamagePct = 0;
   delete manifest.flightEvents;
+  return manifest;
+}
+
+// Rebuild a planned seed from the retained order, never from a progressed replay.
+// This is local Tracker state: no browser, cloud fetch or simulator write.
+function plannedResetBundle(run) {
+  const bundle = JSON.parse(JSON.stringify(run.resumeBundle));
+  const manifest = plannedManifest(executionCore.normalizeManifest(run.executionState?.manifest || bundle.runtime?.cargoManifest));
   bundle.runtime = {
     missionId: run.missionId,
     startPhase: 'planned',
@@ -50,4 +61,4 @@ function plannedResetBundle(run) {
   return bundle;
 }
 
-module.exports = { plannedResetBundle };
+module.exports = { plannedResetBundle, plannedManifest };

@@ -286,6 +286,11 @@ Siehe [v417](Tracker-v417-Release.md). Manuelle Abfragen werden aus den original
 Standalone-Funktionen generiert (`generate-mission-pax-query-core.mjs`). Verfuegbarkeit
 muss sowohl in der Projektion als auch vor Ausfuehrung aus aktuellem Tracker-Zustand
 geprueft werden. Keine manuellen App-Voice-Aufrufe neben Tracker-Autoritaet.
+Seit 21.10.2026 haengt die Verfuegbarkeit nur an Missionsfakten, nie an einer
+Telemetrieprobe: Wetter immer bei Passagier oder Fracht (ruhiges Wetter darf gelobt
+werden), Ladung bei Fracht oder Cargo-Text, Wohlbefinden bei Passagier. Antworten
+nennen keine Scores oder Prozentwerte; Ladung meldet Schaeden und fehlende Teile
+je Gegenstand in Worten (Flugzeug-Inventar ausgenommen).
 
 Neue App-Trigger ausserhalb `passenger-voice.js` gehoeren ebenfalls zum Audit:
 Der private Abflugtrigger lag in `mission-runtime-core.js`/Recorder und fehlte deshalb

@@ -1416,12 +1416,12 @@ test('private return and manual PAX use Tracker telemetry, pause handling and du
   tick(260000); await new Promise(resolve=>setImmediate(resolve));
   assert.equal(manager.getExecutionSnapshot().state.effects.filter(e=>e.payload.kind==='private_return_departure').length,1);
   assert.ok(manager.getPublicSnapshot().execution.allowedActions.includes('pax_wellbeing'));
-  assert.ok(!manager.getPublicSnapshot().execution.allowedActions.includes('pax_weather'));
+  assert.ok(manager.getPublicSnapshot().execution.allowedActions.includes('pax_weather'), 'calm weather is answerable too');
   let run=manager.getActiveRun();
   assert.equal((await runtime.executeIntent({missionId:run.missionId,runId:run.runId,expectedRevision:run.revision,commandId:'wellbeing-query',intent:'pax_wellbeing'})).ok,true);
   await new Promise(resolve=>setImmediate(resolve));
   const query=manager.getExecutionSnapshot().state.effects.find(e=>e.payload.kind==='pax_query');
-  assert.match(query.payload.prompt,/Score 100\/100/);
+  assert.match(query.payload.prompt,/Stimmung sehr zufrieden/);
   tick(266000,{windKts:30});
   assert.ok(manager.getPublicSnapshot().execution.allowedActions.includes('pax_weather'));
   runtime.detachSimulator();

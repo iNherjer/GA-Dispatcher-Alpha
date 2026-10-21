@@ -3546,7 +3546,6 @@ function _refreshMissionActionMenu() {
         ? window.missionSarHeliProgressSnapshot()
         : null;
     const sarHeliFoundReported = !!(sarHeliProgress?.targetConfirmed || sarHeliProgress?.patientLoaded);
-    const showWeather = !!_missionWeatherReactionLine(window.lastLiveFlightData || {});
     const setVisible = (id, visible) => {
         const el = document.getElementById(id);
         if (el) el.style.display = visible ? 'block' : 'none';
@@ -3564,9 +3563,17 @@ function _refreshMissionActionMenu() {
     const trackerSar = window.gaTrackerExecutionHandlesMission?.();
     const sarButton=document.getElementById('paxPoiFoundBtn');if(sarButton)sarButton.textContent=typeof currentMissionData!=='undefined'&&currentMissionData?.sarScenario?.schema==='sar-search.v2'?'Sichtmeldung prüfen':'Fund melden';
     setVisible('paxPoiFoundBtn', trackerSar ? !!window.gaTrackerExecutionControl?.allowedActions?.includes('poi_report_found') : sarPoi && !_poiSatisfied && !_poiAborted && (!sarHeli || !sarHeliFoundReported));
-    setVisible('paxAptWellbeingBtn', !isPoi && hasPax && !cargoFocus);
-    setVisible('paxCargoConditionBtn', !isPoi && cargoFocus);
-    setVisible('paxWeatherReactionBtn', showWeather && (hasPax || cargoFocus));
+    if (trackerSar) {
+        // The tracker answers exactly what it offers.
+        const allowed = window.gaTrackerExecutionControl?.allowedActions || [];
+        setVisible('paxAptWellbeingBtn', allowed.includes('pax_wellbeing'));
+        setVisible('paxCargoConditionBtn', allowed.includes('pax_cargo'));
+        setVisible('paxWeatherReactionBtn', allowed.includes('pax_weather'));
+    } else {
+        setVisible('paxAptWellbeingBtn', !isPoi && hasPax);
+        setVisible('paxCargoConditionBtn', !isPoi && (cargoFocus || !!_activeCargoText()));
+        setVisible('paxWeatherReactionBtn', hasPax || cargoFocus);
+    }
 
     const nameEl = document.getElementById('paxVoiceName');
     const textEl = document.getElementById('paxVoiceText');
@@ -4369,27 +4376,61 @@ window.paxMissionReportTargetFound = function() {
     _missionActionSpeak(prompt, 'Fund bestaetigt', fallback);
 };
 
+function _aptManifestItems() {
+    try {
+        const manifest = typeof _missionCargoGetManifest === 'function' ? _missionCargoGetManifest() : null;
+        return Array.isArray(manifest?.items) ? manifest.items : [];
+    } catch (_) {
+        return [];
+    }
+}
+
+// Condition words for mission cargo and required items. Aircraft equipment and
+// passengers are not cargo; the voice never reads health percentages.
+function _cargoConditionLines(items) {
+    return (Array.isArray(items) ? items : [])
+        .filter(item => item && String(item.itemType || '').toLowerCase() !== 'passenger'
+            && item.persistentEquipment !== true
+            && ['loaded', 'unloaded', 'dropped', 'lost'].includes(String(item.status || '').toLowerCase()))
+        .map(item => {
+            const status = String(item.status || '').toLowerCase();
+            const health = Number(item.healthPct ?? 100);
+            const condition = status === 'dropped' || status === 'lost'
+                ? 'nicht mehr an Bord'
+                : (!Number.isFinite(health) || health >= 95 ? 'unversehrt'
+                    : (health >= 75 ? 'leichte Gebrauchsspuren'
+                        : (health > 35 ? 'sichtbar beschaedigt' : 'schwer beschaedigt')));
+            return {
+                name: String(item.storyName || item.label || item.id || 'Gegenstand').trim(),
+                condition,
+                required: item.required === true,
+                damaged: condition !== 'unversehrt' && condition !== 'leichte Gebrauchsspuren'
+            };
+        });
+}
+
 window.paxAptWellbeingReport = function() {
     if (window.gaTrackerExecutionHandlesMission?.()) return window.gaTrackerExecutionSubmitIntent?.('pax_wellbeing');
     const ctx = _missionActionContext();
     const summary = _missionComfortSummary();
     const base = _baseContext();
     const wx = _missionWeatherReactionLine(ctx.fd);
-    const facts = `Score ${summary.comfortScore}/100 (${summary.mood}); Pilot-Events ${summary.pilotEvents}, davon schwer ${summary.pilotSevere}; Wetter-Events ${summary.weatherEvents}, davon schwer ${summary.weatherSevere}; max G ${summary.maxG}, max Bank ${summary.maxBankDeg} Grad, max Sinken ${summary.maxDescentFpm} ft/min, Wetter: ${wx || 'unauffaellig'}.`;
+    const facts = `Stimmung ${summary.mood}; Pilot-Events ${summary.pilotEvents}, davon schwer ${summary.pilotSevere}; Wetter-Events ${summary.weatherEvents}, davon schwer ${summary.weatherSevere}; max G ${summary.maxG}, max Bank ${summary.maxBankDeg} Grad, max Sinken ${summary.maxDescentFpm} ft/min, Wetter: ${wx || 'unauffaellig'}.`;
     const prompt = base ? `${base}
 
-Button-Frage: Der Pilot fragt nach dem Wohlbefinden/Zufriedenheit.
-Auswertung seit Missionsstart: ${facts}
+Button-Frage: Der Pilot fragt, wie es dir geht.
+Auswertung seit Missionsstart (nur zur Einordnung): ${facts}
+Beschreibe dein koerperliches Befinden in Worten, vor allem Magen, Gleichgewicht und wie entspannt du sitzt. Keine Zahlen, Prozentwerte, Punkte oder Scores nennen.
 Wichtig: Turbulenzen, Boeen und Regen nicht dem Piloten anlasten; Flugweise wie harte G-Last, steile Kurven oder starker Sinkflug darfst du humorvoll bewerten. Reagiere kreativ, menschlich und passend zur Rolle. Max 2 Saetze.${_toneHint()}` : null;
     const pilotIssue = Number(summary.pilotEvents || 0) > 0 || Number(summary.pilotSevere || 0) > 0;
     const weatherIssue = Number(summary.weatherEvents || 0) > 0 || Number(summary.weatherSevere || 0) > 0 || !!wx;
     const fallback = summary.comfortScore >= 75
-        ? `Mir geht es gut, Score etwa ${summary.comfortScore} von 100. Wetter war ${wx ? 'spuerbar, aber das geht nicht auf deine Kappe' : 'unauffaellig'}, die Flugweise passt.`
+        ? `Mir geht es gut, der Magen ist ruhig. Wetter war ${wx ? 'spuerbar, aber das geht nicht auf deine Kappe' : 'unauffaellig'}, die Flugweise passt.`
         : (!pilotIssue && weatherIssue)
-            ? `Ich bin bei etwa ${summary.comfortScore} von 100. Das war wetterbedingt unruhig, aber deinen Flugstil kreide ich dir nicht an.`
+            ? 'Mein Magen hat sich gemeldet, das war wetterbedingt unruhig. Deinen Flugstil kreide ich dir nicht an.'
             : (pilotIssue && weatherIssue)
-                ? `Ich bin bei etwa ${summary.comfortScore} von 100. Das Wetter war spuerbar, und Kurven, G-Last oder Sinkflug haben sich zusaetzlich bemerkbar gemacht.`
-                : `Ich bin bei etwa ${summary.comfortScore} von 100. Kurven, G-Last oder Sinkflug haben sich schon bemerkbar gemacht.`;
+                ? 'Mein Magen ist etwas flau. Das Wetter war spuerbar, und Kurven, G-Last oder Sinkflug haben sich zusaetzlich bemerkbar gemacht.'
+                : 'Mein Magen ist etwas flau. Kurven, G-Last oder Sinkflug haben sich schon bemerkbar gemacht.';
     _missionActionSpeak(prompt, 'Wohlbefinden', fallback);
 };
 
@@ -4415,15 +4456,24 @@ Reagiere als Passagier kurz erschrocken und klar: Wir haben die Pflichtladung ve
         _missionActionSpeak(prompt, 'Ladung', fallback);
         return;
     }
+    const conditions = _cargoConditionLines(_aptManifestItems());
+    const damaged = conditions.filter(item => item.damaged);
+    const conditionText = conditions.length
+        ? conditions.map(item => `${item.name}${item.required ? ' (Pflicht)' : ''}: ${item.condition}`).join('; ')
+        : 'keine Einzelangaben';
     const prompt = `${_baseContext() || `MISSION: ${_activeMissionData().start || '?'} -> ${_activeMissionData().dest || '?'}\nAUSRUESTUNG: ${cargo}\nAUSGABE: Nur gesprochener Text, Deutsch.`}
 
-Button-Frage: Der Pilot fragt nach dem Zustand der Ladung.
+Button-Frage: Der Pilot fragt nach dem Zustand der Ladung und deiner Pflichtgegenstaende.
 Cargo: ${cargo}
-Auswertung seit Missionsstart: Cargo-Risiko ${summary.cargoRiskEvents}, Pilot-Events ${summary.pilotEvents}, schwere Pilot-Events ${summary.pilotSevere}; max G ${summary.maxG}, max Bank ${summary.maxBankDeg} Grad, max Sinken ${summary.maxDescentFpm} ft/min; Wetter-Events ${summary.weatherEvents}, Wetter: ${wx || 'unauffaellig'}.
-Wichtig: Turbulenzen/Regen nicht dem Piloten anlasten. Bewerte Frachtzustand kreativ passend zur Ladung, von "sitzt sauber" bis "Kaffeebecher/Proben/Kisten haben gelitten". Max 2 Saetze.${_toneHint()}`;
-    const fallback = summary.cargoRiskEvents <= 1
-        ? `Die Ladung sieht gut aus: ${cargo} sitzt noch sauber. Wetter war ${wx || 'kein Thema'}, nichts Kritisches.`
-        : `Die Ladung hat etwas gearbeitet: ${cargo} ist noch dabei, aber ich wuerde nach der Landung Gurte und Verpackung pruefen. Wetter zaehlt nicht gegen dich, die haerteren Manoever schon eher.`;
+Zustand je Gegenstand: ${conditionText}
+Auswertung seit Missionsstart (nur zur Einordnung): Cargo-Risiko ${summary.cargoRiskEvents}, Pilot-Events ${summary.pilotEvents}, schwere Pilot-Events ${summary.pilotSevere}; max G ${summary.maxG}, max Bank ${summary.maxBankDeg} Grad, max Sinken ${summary.maxDescentFpm} ft/min; Wetter-Events ${summary.weatherEvents}, Wetter: ${wx || 'unauffaellig'}.
+Kommentiere den Zustand in Worten, keine Zahlen, Prozentwerte oder Scores. Ist etwas beschaedigt oder nicht mehr an Bord, sag das klar und nenne den Gegenstand beim Namen; ist alles heil, bestaetige das kurz und passend zur Ladung.
+Wichtig: Turbulenzen/Regen nicht dem Piloten anlasten. Max 2 Saetze.${_toneHint()}`;
+    const fallback = damaged.length
+        ? `${damaged.slice(0, 3).map(item => item.name).join(', ')} hat etwas abbekommen. Das schaue ich mir nach der Landung genauer an.`
+        : (summary.cargoRiskEvents <= 1
+            ? `Die Ladung sieht gut aus: ${cargo} sitzt noch sauber. Wetter war ${wx || 'kein Thema'}, nichts Kritisches.`
+            : `Die Ladung hat etwas gearbeitet: ${cargo} ist noch dabei, aber ich wuerde nach der Landung Gurte und Verpackung pruefen. Wetter zaehlt nicht gegen dich, die haerteren Manoever schon eher.`);
     _missionActionSpeak(prompt, 'Ladung', fallback);
 };
 
@@ -4435,13 +4485,13 @@ window.paxWeatherReactionReport = function() {
     const base = _baseContext();
     const prompt = base ? `${base}
 
-Button-Frage: Der Pilot fragt nach einer Reaktion auf markantes Wetter.
+Button-Frage: Der Pilot fragt nach deinem Eindruck vom Wetter.
 Live-Wetter: ${liveWeather || 'keine aktuellen Live-Wetterdaten verfuegbar; Wetterbedingungen unbekannt'}
-Datenregel: Nutze nur die uebergebenen Wetterwerte; fehlende Einzelwerte bleiben unbekannt. Erfinde dazu keine Wetterwahrnehmungen. Fehlen aktuelle Live-Wetterdaten insgesamt, benenne die Datenluecke, behaupte kein ruhiges oder gutes Wetter und empfehle keine andere Flughoehe. Nicht markant bedeutet nicht, dass alle Wetterwerte bekannt sind.
-Reagiere auf Regen, Wind, Boeen, Wolken oder Turbulenz aus Passagier-/Rollenperspektive. Wichtig: Bei Turbulenz oder Regen keine Schuldzuweisung an den Piloten, nur Lagegefuehl und ggf. pragmatischer Wunsch nach ruhiger Fluglage. Max 2 Saetze.${_toneHint()}` : null;
+Datenregel: Nutze nur die uebergebenen Wetterwerte; fehlende Einzelwerte bleiben unbekannt. Erfinde dazu keine Wetterwahrnehmungen. Fehlen aktuelle Live-Wetterdaten insgesamt, benenne die Datenluecke, behaupte kein ruhiges oder gutes Wetter und empfehle keine andere Flughoehe.
+Reagiere aus Passagier-/Rollenperspektive auf das aktuelle Wetter. Ist es ruhig und klar, darfst du es geniessen und loben, etwa Sonne, Sicht oder ruhige Luft, soweit die Werte das hergeben. Bei Regen, Wind, Boeen, Wolken oder Turbulenz keine Schuldzuweisung an den Piloten, nur Lagegefuehl und ggf. pragmatischer Wunsch nach ruhiger Fluglage. Keine Prozentwerte vorlesen. Max 2 Saetze.${_toneHint()}` : null;
     const fallback = wx
         ? `Das Wetter ist spuerbar: ${wx}. Das laste ich dir nicht an, aber ruhig und sauber geflogen bleibt jetzt Gold wert.`
-        : (liveWeather ? `Die verfuegbaren Wetterwerte sind: ${liveWeather}.` : 'Mir fehlen gerade aktuelle Wetterdaten fuer eine belastbare Rueckmeldung.');
+        : (liveWeather ? 'Ruhige Luft da draussen, so laesst es sich gut fliegen.' : 'Mir fehlen gerade aktuelle Wetterdaten fuer eine belastbare Rueckmeldung.');
     _missionActionSpeak(prompt, 'Wetter', fallback);
 };
 
@@ -7840,6 +7890,9 @@ function _aptArrivalCue(plan = null) {
 function _aptArrivalLocationLabel(plan = null) {
     const p = plan || _activeAptArrivalPlan();
     if (!p) return 'Empfangspunkt';
+    // Without a checked place no static scene stands; the pickup drives up to the aircraft.
+    if (p.snapStatus?.spawnAllowed === false
+        || (!p.snapStatus && String(p.source || '') === 'airport-representative-offset')) return 'direkt am Flugzeug';
     const semantic = String(p.semantic || p.anchorType || '').toLowerCase();
     const cues = Array.isArray(p.cues) ? p.cues.join(' ').toLowerCase() : '';
     const policy = Array.isArray(p.snapPolicy?.prefer) ? p.snapPolicy.prefer.join(' ').toLowerCase() : '';

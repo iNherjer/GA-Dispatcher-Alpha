@@ -49,6 +49,51 @@ Datenwege keinen belegten geeigneten Standard-APT-Punkt, entfällt nur die
 statische Darstellung. Es wird kein pauschaler Flughafenversatz als geprüfte
 Fläche ausgegeben. Der bestehende Bush-Runway-Side-Fallback bleibt gesondert.
 
+Gespeicherte Missionen von vor v557 können noch den rohen Flughafenversatz
+(`airport-representative-offset`, ohne `snapStatus`) tragen; dieser liegt je nach
+Bezugspunkt auf der Bahn. Vor der Tracker-Übergabe löst die App einen solchen
+Plan einmal nachträglich über `resolveAptArrivalPlanPlacement` auf und speichert
+ihn. App und Tracker spawnen einen ungeprüften Flughafenversatz nie; der
+Bush-Strip-Seitenversatz (`remote_strip_side_offset`) ist davon ausgenommen.
+
+## Freigegebene Flächen: Vorfeld und Hangar-Vorzone (21.10.2026)
+
+Kartierte Abstellflächen werden nicht durch pauschale Puffer beschnitten:
+
+- **Hangar-Vorzone:** bahnseitig vor jedem Hangar im Flughafengelände, bis
+  40 m vor der Wand. Das Tor ist in OSM nicht kartiert; die zur Bahn zeigende
+  Seite gilt als Vorderseite, die Landseite zur öffentlichen Straße bleibt
+  ausgeschlossen. Die Zone ist frei, auch wenn Rollweg, Servicewege oder Gras
+  darüber kartiert sind (auf kleinen Plätzen reichen Rollwege oft bis ans Tor).
+- **Vorfeld:** frei bis 4 m zur Rollweg-Mitte; über das Vorfeld kartierte Wege
+  sperren nicht.
+- **Immer gesperrt:** Bahnfläche plus 3 m (halbe kartierte Breite, ohne Angabe
+  10 m) und Gebäude.
+- **Vorrang:** `osm_hangar_front` vor Parkposition, Vorfeld und Flächen. Innerhalb
+  der Hangar-Zonen etwa 10 m vor der Wand, nahe dem Vorfeld, nicht an der Bahn,
+  passend zum Missionskontext (Rettungsstationen nur für medizinische Übergaben).
+  Je Hangar bis zu sechs Plätze mit mindestens 12 m Abstand, insgesamt bis 24.
+- **General Aviation:** Terminals, Gebäude, Vorfelder oder Parkpositionen mit
+  General Aviation, GAT, Allgemeine Luftfahrt, Business Aviation, FBO oder
+  Kennung `GA…` sind GA-Anker. Gibt es sie, zählt bei Hangar-Plätzen die Nähe
+  dazu (bis 400 m), Vorfeld- und Parkpositionskandidaten messen ihren Abstand
+  zum GA-Anker statt zum Flughafenbezugspunkt. Ohne GA-Anker unverändert.
+  EDDS: GAT plus Vorfelder GA2/GA3, Abholung am GA-Vorfeld.
+- **Bewertung je Hangar-Platz:** nächster Hangar entscheidet über Betreiber und
+  Name; Nähe zu Rollweg und Vorfeld (Erreichbarkeit) zählt; Rettungsstationen
+  werden außer bei medizinischen Übergaben stark abgewertet.
+
+Außerhalb freigegebener Flächen gelten die bisherigen Sperrpuffer. Der
+Bahnpuffer folgt dort der kartierten Breite (halbe Breite plus 20 m), ohne
+Angabe 45 m. Zonen behalten Name, Betreiber und Zugangs-Tags für Bewertung und
+Composer. Große Plätze: ein räumliches Raster begrenzt die Prüfung auf nahe
+Zonen (EDDS mit rund 3.800 Sperrzonen unter 1 s,
+`tools/fixtures/arrival-edds-osm-20261021.json`). Nachweis mit echten OSM-Daten: `tools/fixtures/arrival-edtw-osm-20261021.json`
+und `tools/fixtures/arrival-edtq-osm-20261021.json`, geprüft in
+`tools/apt-arrival-hangar-front.test.mjs` (dort darf es nie zu einem Fallback
+kommen). Vorher wählte EDTW eine Grasfläche 60 m neben der Bahn, EDTQ fand
+keinen Platz.
+
 ## Freiburg-Nachweis
 
 Öffentliche Daten vom 17.10.2026:
@@ -92,7 +137,17 @@ Bush-Fallback beide Seiten beider Bahnenden. Der Anker liegt längs 60 m
 (bei kurzen Bahnen höchstens 20 % der Bahnlänge) innerhalb des Endes, seitlich
 außerhalb der Bahn-/Breitenpuffer. Keine Position auf der verlängerten
 Bahnmittellinie. Alle Objektabstände werden gegen bekannte Ausschlüsse geprüft.
-Ist ein Ende blockiert, werden die anderen End-/Seitenkombinationen geprüft.
+
+Seit 21.10.2026 sucht der Fallback entlang beider Seiten (alle 20 m ab dem
+Ende bis zur Bahnmitte, seitlich ab dem Pufferrand in 5-m-Schritten) statt nur
+vier feste Punkte zu prüfen; Bäche, Feldwege oder Servicewege blockieren sonst
+alle Enden (Big Creek, Idaho). Bewertung: möglichst direkt am Rand der
+Bahn-Sperrzone, nahe einer Hütte oder Station (bis 400 m berücksichtigt), dann
+nahe dem Bahnende; ohne Gebäude entscheidet wie bisher die Nähe zum geplanten
+Punkt. Echte OSM-Nachweise: `tools/fixtures/arrival-bigcreek-osm-20261021.json`
+(Ostseite am Südende neben der Hütte) und `tools/fixtures/arrival-soldierbar-osm-20261021.json`
+(unverändert am Pistenende), geprüft in `tools/apt-arrival-hangar-front.test.mjs`.
+Kartierte Hangars oder Vorfelder an einem Strip haben weiterhin Vorrang.
 
 Fehlt eine OSM-Bahn, können explizite, über den bestehenden Airport-Core
 normalisierte Bahnmaße und trueHeading aus dem Ziel verwendet werden. Dann

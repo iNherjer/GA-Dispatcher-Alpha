@@ -52,7 +52,7 @@ test('raw rate alone cannot create a comfort penalty, severe precipitation event
     const result=comfort.evaluate(null,fd,ctx,1000);
     assert.equal(result.state.weatherEvents,0); assert.equal(result.state.weatherSevere,0);
     assert.equal(result.summary.maxPrecipRate,null);
-    assert(!query.available(ctx,fd).includes('pax_weather'));
+    assert.doesNotMatch(query.render('pax_weather',ctx,{flightData:fd}).prompt,/Live-Wetter: [^\n]*(Regen|Schnee|Niederschlag(?! unbekannt))/);
   }
   const rain=comfort.evaluate(null,{precipState:4,precipRateRaw:500},ctx,1000);
   assert.equal(rain.state.weatherEvents,1); assert.equal(rain.state.weatherSevere,0);

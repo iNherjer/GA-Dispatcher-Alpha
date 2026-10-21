@@ -20,7 +20,10 @@ const clone=x=>JSON.parse(JSON.stringify(x));
 test('real Freiburg geometry provides four aprons and multiple mapped handoff areas instead of the representative offset',()=>{
  assert.equal(geo.aprons.length,4);
  assert.equal(geo.parkingPositions.length,0,'airport has no mapped stand nodes in this captured dataset');
- assert.equal(base.source,'osm_apron');
+ // Released hangar fronts come first; aprons stay offered as alternatives.
+ assert.equal(base.source,'osm_hangar_front');
+ assert.ok(base.placementCandidates.hangarFront.length>1);
+ assert.ok(c.aptArrivalRunwayDistanceM(geo,base)>40);
  assert.ok(base.placementCandidates.apron.length>1);
  assert.ok(base.placementCandidates.surface.length>1);
  assert.ok(Math.abs(base.lon-initial.lon)>0.001);
@@ -157,9 +160,15 @@ test('strip-only grass eligibility never leaks to a regular airport context',()=
  assert.equal(placement.alternates.runwaySide.length,4,'both ends and sides offered');
  for(const x of placement.alternates.runwaySide)assert.equal(x.endInsetM,60);
  const blocks=placement.alternates.runwaySide.map((p,i)=>({type:'building',id:String(i),center:p,line:[point(0,0)],polygon:[],bufferM:5}));
- // Circle-like tiny segments at each anchor exclude all four end choices.
+ // Circle-like tiny segments at each anchor exclude all four end choices;
+ // the search moves along the runway side instead of giving up.
  blocks.forEach(z=>z.line=[z.center,c.offsetAptArrivalLatLon(z.center.lat,z.center.lon,0,1,0)]);
- assert.equal(c.pickAptArrivalBushRunwaySidePlacement({avoidZones:[...geo.avoidZones,...blocks]},plan),null);
+ const blockedCtx={avoidZones:[...geo.avoidZones,...blocks]};
+ const moved=c.pickAptArrivalBushRunwaySidePlacement(blockedCtx,plan);
+ assert.ok(moved,'another spot along the runway side');
+ assert.ok(c.aptArrivalNavM(48,8,moved.point.lat,moved.point.lon).distM>250,'still towards a runway end');
+ assert.ok(blocks.every(b=>c.aptArrivalNavM(b.center.lat,b.center.lon,moved.point.lat,moved.point.lon).distM>10));
+ assert.equal(c.aptArrivalScenePoints(moved.point,{...plan,items:moved.items}).map(e=>c.aptArrivalBlockedZone(blockedCtx,e.point,e.radiusM)).find(Boolean),undefined);
  assert.equal(c.pickAptArrivalBushRunwaySidePlacement(geo,{...plan,role:'media_pickup'}),null);
  });
  test('missing OSM runway can use explicit airport dimensions as estimated end reference',async()=>{

@@ -859,7 +859,7 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     if (['pax_wellbeing', 'pax_cargo', 'pax_weather'].includes(intent)) {
       const context = authorityManager.getExecutionPaxQueryContext?.() || {};
       const cue = paxQueryCore.render(intent, context, { flightData: observations.latestTelemetry || {},
-        comfortState: observations.comfort?.state, missingRequired: snapshot.state.manifest?.items?.filter(item => item.required && !['loaded','unloaded','dropped'].includes(item.status)).map(item => item.storyName || item.label || item.id) || [] });
+        comfortState: observations.comfort?.state, manifestItems: snapshot.state.manifest?.items || [], missingRequired: snapshot.state.manifest?.items?.filter(item => item.required && !['loaded','unloaded','dropped'].includes(item.status)).map(item => item.storyName || item.label || item.id) || [] });
       if (!cue) return errorResult('pax_query_not_available');
       return submitEvent(snapshot, 'APT_FLIGHT_VOICE_REQUESTED', cue, `${snapshot.runId}:intent:${commandId}`, `intent:${intent}`);
     }

@@ -131,3 +131,27 @@ test('a second browser tab cannot borrow the first tab revision acknowledgement'
   assert.equal(b._syncProfileIsNewer({_syncRevision:11}),true);
   assert.equal(a._syncProfileIsNewer({_syncRevision:11}),false);
 });
+test('stored unchecked airport offset is resolved before handoff and never spawned', async () => {
+  const debug = [];
+  const saves = [];
+  const c = vm.createContext({ console, Date, Promise,
+    window: { queueActiveMissionCloudSave: reason => saves.push(reason) },
+    _missionSceneIsPoiMission: () => false,
+    _missionPhaseDebugPush: (name, data) => debug.push([name, data]),
+    attachAptArrivalPlanToMissionTruth: (truth, plan) => ({ ...(truth || {}), arrivalScene: plan }) });
+  for (const name of ['_missionAptArrivalPlanUnchecked', '_missionResolveUncheckedAptArrivalPlan', '_missionAptArrivalBuildEffectCommand']) {
+    vm.runInContext(declaration(sync, name), c);
+  }
+  const legacy = { lat: 48.27879, lon: 8.42825, source: 'airport-representative-offset', items: [{ kind: 'arrival_vehicle' }] };
+  c._missionAptArrivalSceneId = () => 'scene-a';
+  assert.equal(c._missionAptArrivalBuildEffectCommand('test', legacy, [{ kind: 'arrival_vehicle' }]), null);
+  assert.ok(c._missionAptArrivalBuildEffectCommand('test', { ...legacy, source: 'osm_apron', snapStatus: { spawnAllowed: true } }, [{ kind: 'a' }]));
+  c.currentMissionData = { aptArrivalPlan: legacy, missionContract: { aptArrivalPlan: legacy } };
+  c.resolveAptArrivalPlanPlacement = async plan => ({ ...plan, source: 'osm_apron', lat: 48.2785, snapStatus: { status: 'resolved', spawnAllowed: true } });
+  assert.equal(await c._missionResolveUncheckedAptArrivalPlan('test'), true);
+  assert.equal(c.currentMissionData.aptArrivalPlan.source, 'osm_apron');
+  assert.equal(c.currentMissionData.missionContract.aptArrivalPlan.source, 'osm_apron');
+  assert.equal(c.currentMissionData.missionTruth.arrivalScene.source, 'osm_apron');
+  assert.deepEqual(saves, ['apt-arrival-placement-backfilled']);
+  assert.equal(await c._missionResolveUncheckedAptArrivalPlan('again'), false, 'checked plans are not resolved twice');
+});

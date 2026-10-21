@@ -25620,7 +25620,7 @@ const MISSION_TARGET_GEO_CONTEXT_TTL_MS = 12 * 60 * 60 * 1000;
 const MISSION_TRUTH_MAX_REFINEMENT_M = 450;
 const MISSION_SCENE_COMPOSER_MODEL_TIMEOUT_MS = 9000;
 const MISSION_SCENE_COMPOSER_TOTAL_TIMEOUT_MS = 18000;
-const MISSION_SCENE_PLANNER_V3_VERSION = 'scene-v3-arrival-placement-2026-10-17';
+const MISSION_SCENE_PLANNER_V3_VERSION = 'scene-v3-arrival-hangar-front-2026-10-21';
 const missionTargetGeoContextInflight = new Map();
 
 function missionTargetGeoContextCacheKey(lat, lon, radiusM = MISSION_TARGET_GEO_CONTEXT_RADIUS_M) {
@@ -26599,7 +26599,8 @@ function scenePlannerV3CompactAptPlan(plan = null) {
         placementCandidates: plan.placementCandidates ? {
             parking: Array.isArray(plan.placementCandidates.parking) ? plan.placementCandidates.parking.slice(0, 8) : [],
             apron: Array.isArray(plan.placementCandidates.apron) ? plan.placementCandidates.apron.slice(0, 8) : [],
-            surface: Array.isArray(plan.placementCandidates.surface) ? plan.placementCandidates.surface : []
+            surface: Array.isArray(plan.placementCandidates.surface) ? plan.placementCandidates.surface : [],
+            hangarFront: Array.isArray(plan.placementCandidates.hangarFront) ? plan.placementCandidates.hangarFront.slice(0, 12) : []
         } : null,
         items: Array.isArray(plan.items) ? plan.items.slice(0, 8).map(item => ({
             kind: item?.kind || '',
@@ -26829,7 +26830,7 @@ Arbeitsweise:
 1. Rufe zuerst get_scene_context_bundle auf.
 2. Nutze die Tool-Daten als Wahrheit. Erfinde keine andere Lage.
 3. POI: Plane targetScene fuer das gepruefte Ziel. Nutze requirements mit feature/count/arrangement/placement und, wenn sinnvoll, forwardM/rightM relativ zum sceneAnchor/mainTarget.
-4. APT: targetScene muss none bleiben. Plane stattdessen aptArrivalPlan: Waehle selbst preferredPlacement aus den angebotenen Kandidaten (osm_parking_position, osm_apron oder osm_surface). osm_surface umfasst kartierte Parkplatz-/Grasflaechen im Flughafenbereich oder nahe kartierten Hangars. Beruecksichtige Gebaeude und die ganze Aufstellung, nicht nur den Anker. Schreibe headingDeg und alle item-Offsets passend zur gewaehlten Flaeche. Bei headingDeg=0 ist forwardM Norden und rightM Osten. Ein Hangarname allein belegt keine freie Wiese oder Zufahrt.
+4. APT: targetScene muss none bleiben. Plane stattdessen aptArrivalPlan: Waehle selbst preferredPlacement aus den angebotenen Kandidaten (osm_hangar_front, osm_parking_position, osm_apron oder osm_surface). osm_hangar_front liegt bahnseitig vor einem kartierten Hangar und ist bevorzugt, sofern Betreiber/Name zur Mission passen (z. B. keine Rettungsstation fuer eine Reporterabholung). Gibt es einen kartierten General-Aviation-Bereich (generalAviation in der Geometrie), bevorzuge Kandidaten dort. osm_surface umfasst kartierte Parkplatz-/Grasflaechen im Flughafenbereich oder nahe kartierten Hangars. Beruecksichtige Gebaeude und die ganze Aufstellung, nicht nur den Anker. Schreibe headingDeg und alle item-Offsets passend zur gewaehlten Flaeche. Bei headingDeg=0 ist forwardM Norden und rightM Osten. Ein Hangarname allein belegt keine freie Wiese oder Zufahrt.
 4b. BUSH: targetScene bleibt ebenfalls none. Fuer Strip-Missionen darf aptArrivalPlan eine kleine Handoff-/Dropoff-Szene mit Quad/Utility-Fahrzeug am Striprand beschreiben. Fuer Recon-Return ohne Ziel-Landung muss aptArrivalPlan none bleiben.
 5. Fahrzeuge nur auf angebotenen geeigneten Stellflaechen; kartierte Grasflaechen sind fuer kleine Abhol-/Bush-Szenen zulaessig, Befestigung und Zufahrt bleiben bei fehlenden Daten unbekannt. Wasserobjekte nur an Wasser/Ufer. Bei Badesee/Teich/kleinem Binnensee nur kleine Boote. Keine Deko.
 6. Wenn targetScene.kind="none", muessen features=[], requirements=[], roles=[], density="none" und layout="" sein. Keine impliziten Autos/Personen als Deko fuer Historiker-, Lern- oder Sightseeing-Fluege.
@@ -26859,7 +26860,7 @@ JSON-Schema:
     "expectedBy": "wer wartet",
     "visibleCue": "was sieht der Pilot",
     "narrativeHint": "kurzer Hinweis fuer Briefing/PAX",
-    "preferredPlacement": {"source":"osm_parking_position|osm_apron|osm_surface","index":0,"reason":"Eignung der kartierten Flaeche und Gebaeudebezug"},
+    "preferredPlacement": {"source":"osm_hangar_front|osm_parking_position|osm_apron|osm_surface","index":0,"reason":"Eignung der kartierten Flaeche und Gebaeudebezug"},
     "headingDeg": 0,
     "items": [
       {"kind":"arrival_vehicle","label":"Fracht-Van","role":"vehicle.van","forwardM":-8,"rightM":6,"hdgOffsetDeg":205},
@@ -26885,7 +26886,8 @@ function scenePlannerV3PreferredAptPlacement(basePlan = null, preferred = null) 
     const list = source === 'osm_apron'
         ? (Array.isArray(candidates.apron) ? candidates.apron : [])
         : (source === 'osm_parking_position' ? (Array.isArray(candidates.parking) ? candidates.parking : [])
-            : (source === 'osm_surface' ? (candidates.surface || []) : []));
+            : (source === 'osm_hangar_front' ? (Array.isArray(candidates.hangarFront) ? candidates.hangarFront : [])
+                : (source === 'osm_surface' ? (candidates.surface || []) : [])));
     const candidate = list[index];
     const lat = Number(candidate?.lat);
     const lon = Number(candidate?.lon);
@@ -26899,7 +26901,7 @@ function scenePlannerV3PreferredAptPlacement(basePlan = null, preferred = null) 
         lon,
         source: candidate.source || source,
         anchorType: candidate.source || source,
-        confidence: source === 'osm_parking_position' ? 0.82 : 0.72,
+        confidence: source === 'osm_hangar_front' ? 0.86 : (source === 'osm_parking_position' ? 0.82 : 0.72),
         semantic: `safe_${candidate.source || source}_ai_selected`,
         osmPlacement: { source: candidate.source || source, point: { lat,lon }, sourceId:candidate.sourceId,
             name:candidate.name || '', reason:scenePlannerV3CleanText(preferred.reason || '',140) },

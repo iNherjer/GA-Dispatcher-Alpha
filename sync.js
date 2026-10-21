@@ -2596,6 +2596,9 @@ async function _ensureTrackerExecutionAuthority(reason = 'apt-ui-intent') {
             const session = await client.start();
             if (!session) return fail('session', { error: 'cockpit_session_unavailable' });
         }
+        if (typeof _missionResolveUncheckedAptArrivalPlan === 'function') {
+            try { await _missionResolveUncheckedAptArrivalPlan(`${reason}:arrival-placement`); } catch (_) {}
+        }
         const seeded = await _pushMissionAuthoritySnapshotForExecutionHandoff(`${reason}:snapshot`);
         const seededRun = seeded.authoritativeRun;
         if (seeded.status !== 'ok' || !seededRun?.stateHash) return fail('snapshot', seeded);
@@ -3158,6 +3161,15 @@ async function _ensureMissionAuthorityForStart(reason = 'mission-start') {
                 if (!await _restoreResumedMissionAuthority(ack.authoritativeRun, `${reason}:resume`, { localSnapshot })) return false;
             }
             missionAuthorityResumeReadPending = false;
+            if (ack.resumed !== true && typeof _missionCargoResetManifestState === 'function') {
+                // A new run starts with the order's cargo outside. The manifest
+                // may still mirror an earlier run; aircraft equipment follows
+                // the stored onboard inventory.
+                try {
+                    const manifest = _missionCargoGetManifest();
+                    if (_missionCargoResetManifestState(manifest)) _missionCargoPersistManifest(manifest);
+                } catch (_) {}
+            }
             if (ack.resumed === true && (missionRuntime.active || missionRuntime.closingPending || _missionStartPhase() !== 'planned')) {
                 _persistMissionRuntimeSnapshot('tracker-authority-resumed', { immediate: true });
             }
@@ -6212,6 +6224,45 @@ window.missionStartEndSceneDebugPreview = function(reason = 'planned-start-end-s
     return { start, end };
 };
 
+// Missions stored before the OSM placement (Tracker v557) may still carry the
+// raw airport offset, which can sit on the runway. It is not a checked place.
+function _missionAptArrivalPlanUnchecked(plan = null) {
+    return !!plan && typeof plan === 'object' && !plan.snapStatus
+        && String(plan.source || '') === 'airport-representative-offset';
+}
+
+async function _missionResolveUncheckedAptArrivalPlan(reason = 'tracker-handoff') {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    if (!md || _missionSceneIsPoiMission()) return false;
+    const contract = md.missionContract || window.activeMissionContract || null;
+    const plan = md.aptArrivalPlan || contract?.aptArrivalPlan || null;
+    if (!_missionAptArrivalPlanUnchecked(plan) || typeof resolveAptArrivalPlanPlacement !== 'function') return false;
+    let resolved = null;
+    try {
+        resolved = await resolveAptArrivalPlanPlacement(plan);
+    } catch (_) {
+        resolved = null;
+    }
+    if (!resolved?.snapStatus) {
+        resolved = { ...plan, snapStatus: { status: 'fallback', spawnAllowed: false, source: plan.source,
+            reason: 'resolver_exception', resolvedAt: Date.now() } };
+    }
+    md.aptArrivalPlan = resolved;
+    for (const target of [md.missionContract, window.activeMissionContract]) {
+        if (target && typeof target === 'object') target.aptArrivalPlan = resolved;
+    }
+    if (typeof attachAptArrivalPlanToMissionTruth === 'function') {
+        md.missionTruth = attachAptArrivalPlanToMissionTruth(md.missionTruth || contract?.missionTruth || null, resolved);
+        if (md.missionContract && typeof md.missionContract === 'object') md.missionContract.missionTruth = md.missionTruth;
+    }
+    _missionPhaseDebugPush('apt_arrival_placement_backfilled', {
+        reason, source: resolved.source || null, spawnAllowed: resolved.snapStatus?.spawnAllowed === true,
+        snapReason: resolved.snapStatus?.reason || null
+    });
+    try { window.queueActiveMissionCloudSave?.('apt-arrival-placement-backfilled', { delayMs: 0 }); } catch (_) {}
+    return true;
+}
+
 function _missionAptArrivalPlan() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     const contract = md?.missionContract || window.activeMissionContract || {};
@@ -6245,7 +6296,7 @@ function _missionAptArrivalPreviewItems(plan = {}) {
 function _missionAptArrivalPickupPoint(plan = null) {
     const src = plan || _missionAptArrivalPlan();
     if (!src || typeof src !== 'object') return null;
-    if (src.snapStatus?.spawnAllowed === false) return null;
+    if (src.snapStatus?.spawnAllowed === false || _missionAptArrivalPlanUnchecked(src)) return null;
     const items = _missionAptArrivalPreviewItems(src);
     const vehicle = items.find(item => {
         const text = `${item.kind || ''} ${item.label || ''} ${item.role || ''} ${item.objectTitle || ''}`.toLowerCase();
@@ -6471,7 +6522,7 @@ function _missionAptArrivalSceneItems(plan = {}) {
 
 function _missionAptArrivalBuildEffectCommand(reason, plan = _missionAptArrivalPlan(), resolvedItems = null) {
     if (!plan) return null;
-    if (plan.snapStatus?.spawnAllowed === false) return null;
+    if (plan.snapStatus?.spawnAllowed === false || _missionAptArrivalPlanUnchecked(plan)) return null;
     const sceneId = _missionAptArrivalSceneId();
     const items = resolvedItems || _missionAptArrivalSceneItems(plan);
     if (!items.length) return null;
@@ -6480,6 +6531,7 @@ function _missionAptArrivalBuildEffectCommand(reason, plan = _missionAptArrivalP
         sceneId,
         reason,
         targetSceneKind: 'apt_arrival',
+        planSource: plan.source || '',
         lat: plan.lat,
         lon: plan.lon,
         altFt: plan.altFt,
@@ -6499,7 +6551,7 @@ window.missionAptArrivalEnsureSpawned = function(reason = 'apt-arrival-prestage'
     if (window.simModeActive || !window.liveTrackerConnected) return false;
     const plan = _missionAptArrivalPlan();
     if (!plan) return false;
-    if (plan.snapStatus?.spawnAllowed === false) {
+    if (plan.snapStatus?.spawnAllowed === false || _missionAptArrivalPlanUnchecked(plan)) {
         window.missionAptArrivalSceneStatus = { ...(window.missionAptArrivalSceneStatus || {}),
             lifecycleBlockReason: 'no_safe_arrival_placement' };
         return false;
@@ -12817,6 +12869,23 @@ function _confirmMissionCriticalAction(action = 'end', options = {}) {
 }
 window.confirmMissionCriticalAction = _confirmMissionCriticalAction;
 
+// The tracker checks start readiness against its own clock when it publishes
+// the projection and drops start intents while the sample is stale. The App
+// receives that projection over the relay only every few seconds (status
+// heartbeat 5 s), often on another device (Quest, phone) with a different
+// clock. Comparing the PC timestamp with this device's clock kept the banner
+// on "Warte auf aktuelle Simulatordaten" forever. Age the tracker's verdict
+// by the local receive time instead.
+const TRACKER_READINESS_RECEIVE_MAX_AGE_MS = 7500;
+function _trackerControlWithLocalReadinessAge(control) {
+    const readiness = control?.startReadiness;
+    if (!readiness || readiness.ready !== true) return control;
+    const receivedAt = Number(control.receivedAt);
+    const age = Date.now() - receivedAt;
+    if (!Number.isFinite(receivedAt) || age < 0 || age > TRACKER_READINESS_RECEIVE_MAX_AGE_MS) return control;
+    return { ...control, startReadiness: { ...readiness, observedAt: Date.now() } };
+}
+
 function _trackerMissionBannerModel(control = null) {
     if (!control || control.executionAuthority !== 'tracker') return null;
     if (trackerResumedNotice && trackerResumedNotice.until > Date.now()) {
@@ -12848,7 +12917,7 @@ function _trackerMissionBannerModel(control = null) {
     const canonical = uiCore?.bannerModel?.({
         missionId: control.missionId,
         revision: control.authorityRevision,
-        control,
+        control: _trackerControlWithLocalReadinessAge(control),
         manifest: control.manifest || (typeof _missionCargoGetManifest === 'function' ? _missionCargoGetManifest() : null),
         destination: control.flight?.destination || null
     });
@@ -19163,7 +19232,9 @@ window.connectToLiveGPS = async function(syncId, options = {}) {
                 }
                 if (data.flight && typeof data.flight === 'object') {
                     window.lastLiveFlightData = data.flight;
-                    window.GADisplayClock?.observe(data.flight);
+                    // The watch needs the position for sunrise/sunset, QNH and
+                    // temperature; the tracker sends it next to the flight values.
+                    window.GADisplayClock?.observe({ ...data.flight, lat: Number(data.lat), lon: Number(data.lon) });
                     window.missionCargoHandleLiveFuelUpdate?.(data.flight);
                 } else {
                     window.GADisplayClock?.clear();

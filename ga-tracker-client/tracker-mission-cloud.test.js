@@ -63,6 +63,24 @@ test('cloud mission seed becomes a deterministic planned tracker candidate', () 
   assert.equal(result.candidate.control.cargo.summary.departureMissing, 1);
 });
 
+test('cloud seed with a progressed manifest starts the new run with the cargo outside', () => {
+  const source = profile();
+  source.activeMissionTrackerSeed.initialCargoManifest = {
+    version: 6,
+    dispatchSignature: { scope: 'departure' },
+    items: [
+      { id: 'cargo-1', itemType: 'cargo', required: true, status: 'loaded', loadedAt: 99, healthPct: 40, weightLbs: 12 },
+      { id: 'fire-extinguisher', itemType: 'cargo', persistentEquipment: true, status: 'loaded', loadedAt: 50, weightLbs: 5 }
+    ]
+  };
+  const manifest = buildCloudMissionCandidate(source).candidate.bundle.runtime.cargoManifest;
+  const byId = Object.fromEntries(manifest.items.map(item => [item.id, item]));
+  assert.equal(byId['cargo-1'].status, 'pending');
+  assert.equal(byId['cargo-1'].healthPct, 100);
+  assert.equal(byId['fire-extinguisher'].status, 'loaded', 'aircraft equipment stays on board');
+  assert.equal(manifest.dispatchSignature, null);
+});
+
 test('cloud mission seed must identify the same mission as the cloud state', () => {
   const value = profile();
   value.activeMissionTrackerSeed.missionId = 'mission-other';

@@ -27,7 +27,25 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-(keine offenen Eintraege)
+### 2026-10-21 · Testflug-Funde EDTF→EDTW: Startfreigabe, PAX-Fragen, Ladung, Ankunftsplatzierung
+- **Artefakt:** Tracker-EXE (inkl. EFB-Host); die Web-App-Teile sind mit diesem Push live (`sw.js` v2185)
+- **Dateien:** `sync.js`, `passenger-voice.js`, `app.js`, `mission-arrival-core.js`,
+  `mission-pax-query-core.js` (generiert, `tools/generate-mission-pax-query-core.mjs`),
+  `ga-tracker-client/tracker-efb-kartentisch-host.js`, `ga-tracker-client/mission-control-ui-core.js`,
+  `ga-tracker-client/tracker-mission-execution-adapter.js`, `ga-tracker-client/tracker-mission-reset.js`,
+  `ga-tracker-client/tracker-mission-cloud.js` (+ Tests, Fixtures `tools/fixtures/arrival-*-osm-20261021.json`)
+- **Was:**
+  - Web-Startbanner: Startfreigabe des Trackers nach lokaler Empfangszeit statt PC-Uhr (Quest hing bei „Warte auf aktuelle Simulatordaten“).
+  - EFB-Verlade-Manager: lokale „Schließen“-Taste nie durch laufende Tracker-Aktion gesperrt.
+  - Watch (Web + EFB): Position wird an die Uhr übergeben → QNH, Temperatur, SR/SS.
+  - PAX-Fragen: Wetter immer beantwortbar (auch Lob bei Sonne), Ladung kommentiert Fracht/Pflicht-Items mit Schäden in Worten, Wohlbefinden ohne Score/Prozent; Verfügbarkeit nur aus Missionsfakten (Angebot = Prüfung); EFB zeigt Ablehnungen im PAX-Fenster.
+  - Neuer Lauf einer noch nicht gestarteten Mission beginnt mit Missionsladung draußen (App beim Acquire, Tracker beim Cloud-Laden); Flugzeug-Inventar bleibt.
+  - Ankunftsszene: ungeprüfter Flughafen-Ersatzpunkt spawnt nie, alte Pläne werden vor der Übergabe nachträglich platziert; Vorfeld freigegeben (4 m zur Rollweg-Mitte), Hangar-Vorzone freigegeben und bevorzugt, nächster Hangar entscheidet, Rettungsstationen abgewertet, Rollweg-Nähe bevorzugt, GA-Bereich (GAT/GA-Vorfeld/FBO) bevorzugt; Bahnpuffer aus kartierter Breite; Bush-Fallback sucht entlang der Piste (Pufferrand, nahe Hütte); räumliches Raster für große Plätze.
+- **Warum:** Funde aus dem Testflug vom 20.10.2026 (Charter-/Reporter-Rückflug EDTF→EDTW, Quest-Web + EFB).
+- **Tests:** `tools/apt-arrival-hangar-front.test.mjs` (EDTW, EDTQ, EDDS, Big Creek, Soldier Bar), `tools/apt-arrival-composer.test.mjs`, `tools/flight-report-20261017.test.mjs`, `ga-tracker-client/tracker-mission-pax-query.test.js`, `tracker-mission-execution-runtime.test.js`, `tracker-mission-cloud.test.js`, `tools/mission-precipitation.test.cjs`.
+- **Beim Release noch einchecken:** kleiner `ga-tracker-client/tracker.js`-Teil liegt lokal (nicht in der Warteschlange erlaubt): Spawn-Sperre für ungeprüfte Flughafen-Ersatzpunkte (`planSource`) und `hangarFront`-Kandidaten in `resolveAptArrivalLivePlacement`. `EFB_WEB_ASSET_REVISION` erhöhen (EFB-Host geändert).
+- **Doku beim Release:** `docs/Arrival Scene Placement.md` und `docs/Tracker Mission Migration Guide.md` sind aktualisiert; Tracker-Release-Notiz ergänzen.
+- **Pruefen im Feld:** Startbanner auf der Quest; PAX-Ladung/Wetter im EFB; Watch-QNH; Ankunftsszene in EDTW/EDTQ vor dem Hangar, EDDS am GA-Vorfeld, Big Creek neben der Hütte; Ladung bei neuem Lauf draußen.
 
 ## Ausgeliefert
 

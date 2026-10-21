@@ -883,6 +883,11 @@
       missionIntentStatus = presentation.text;
       missionIntentTone = presentation.tone;
       report(result && result.ok ? 'info' : 'warn', 'mission-intent-result', intent, presentation.text, result && result.error || '');
+      // Passenger questions have no cargo or banner status line; answer in the PAX window.
+      if (!(result && result.ok === true) && /^pax_/.test(String(intent || '')) && byId('paxVoiceText')) {
+        byId('paxVoiceText').textContent = presentation.text;
+        paxWidgetTextKey = '';
+      }
       var finalize = function () {
         var ok = result && result.ok === true;
         // Mirror the App flow for the device that started boarding.  Opening
@@ -1145,8 +1150,10 @@
       var attributes = localClose
         ? ' data-efb-cargo-action="close"'
         : cargoActionAttributes(action, 'intent');
+      // Closing only hides the window locally, like the X; a pending tracker
+      // intent must not lock it.
       return '<button type="button" class="' + drawerEscape(action.className || 'mission-cargo-primary') + '"'
-        + ((missionIntentPending || action.disabled === true) ? ' disabled' : '') + attributes + '>'
+        + (((missionIntentPending && !localClose) || action.disabled === true) ? ' disabled' : '') + attributes + '>'
         + drawerEscape(action.label || '') + '</button>';
     }
     var payload = appCargoPayloadMarkup(model.payload, model.mode);
@@ -2149,7 +2156,10 @@
     flight = normalized;
     refreshLocalNavigation();
     window.lastLiveFlightData = payload.flight || {};
-    window.GADisplayClock.observe(payload.flight, normalized.capturedAt);
+    // The watch needs the position for sunrise/sunset, QNH and temperature;
+    // the tracker sends it next to the flight values, not inside them.
+    window.GADisplayClock.observe(payload.flight
+      ? Object.assign({}, payload.flight, { lat: normalized.lat, lon: normalized.lon }) : null, normalized.capturedAt);
     window.lastLiveTerrainFt = Number.isFinite(Number(payload.flight && payload.flight.aglFt))
       ? flight.altFt - Number(payload.flight.aglFt) : null;
     if(Array.isArray(payload.traffic)) window.vpTrafficData = window.GAMapLivePresentation.filterTraffic(payload.traffic, payload);

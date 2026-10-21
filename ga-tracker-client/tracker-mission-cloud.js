@@ -8,6 +8,7 @@ const aptTraining = require('./tracker-mission-apt-training.js');
 
 const executionCore = require('../mission-execution-core.js');
 const resumeAdapters = require('../mission-resume-adapters-core.js');
+const { plannedManifest } = require('./tracker-mission-reset.js');
 const { DEFAULT_SYNC_BASE_URL, getJson, syncUrl } = require('./tracker-efb-checklist-cloud.js');
 
 const CLOUD_MISSION_SEED_SCHEMA = 'ga.tracker-cloud-mission-seed.v1';
@@ -90,7 +91,8 @@ function plannedRuntime(missionId, state, seed) {
       closingPending: false,
       closingReason: ''
     },
-    cargoManifest: initialCargoManifest(state, seed),
+    // The seed may carry the progressed manifest of an earlier run.
+    cargoManifest: plannedManifest(initialCargoManifest(state, seed), { keepOnboardEquipment: true }),
     complianceInspection: null,
     poiProgress: null,
     bushProgress: null,
