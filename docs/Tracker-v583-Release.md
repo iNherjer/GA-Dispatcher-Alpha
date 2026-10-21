@@ -35,3 +35,12 @@ Desktop-Installer unverändert. Nur Alpha-Runtime umstellen.
 - `node --test tools/mission-cargo-visual.test.mjs` (11), Gruppenfall in
   `tracker-mission-simulator-effects.test.js`, Cargo-/Szenen-/Ideen-Tests, Ankunftsszenen-Tests.
 - Live-Check des Composers über den Produktionscode: 15 von 15 gültige Zuordnungen.
+- Gesamtsuite `ga-tracker-client/*.test.js`: 1395 bestanden, 35 Fehlschläge; alle 35 bestehen
+  ebenso auf dem unveränderten Stand `74dd6c901` – keine neuen Fehler.
+- Windows-x64 mit pkg 6.18.1 / Node18, ARM-Cross-Build
+  `--no-bytecode --public --public-packages '*'`. PE-x64, v583, Assetrevision 58301,
+  Cargo-Visual-Core, Cargo-Katalog und Hangar-Kandidaten eingebettet geprüft.
+
+EXE: 174258162 Bytes; SHA-256 `48292751a769cbbd8b1fffe36a68a03247d4803b74ca26a646eb3444042c5ae1`.
+
+Release-Upload verifiziert und EXE öffentlich erneut heruntergeladen: Größe und SHA-256 identisch. `channel/alpha.json` auf v583 umgestellt, `stable.json` unverändert.

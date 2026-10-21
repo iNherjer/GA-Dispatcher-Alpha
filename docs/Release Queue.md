@@ -27,7 +27,9 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-### 2026-10-21 · Testflug-Funde EDTF→EDTW: Startfreigabe, PAX-Fragen, Ladung, Ankunftsplatzierung
+## Ausgeliefert
+
+### 2026-10-21 · Testflug-Funde EDTF→EDTW: Startfreigabe, PAX-Fragen, Ladung, Ankunftsplatzierung — ausgeliefert in Tracker v583 (21.10.2026)
 - **Artefakt:** Tracker-EXE (inkl. EFB-Host); die Web-App-Teile sind mit diesem Push live (`sw.js` v2185)
 - **Dateien:** `sync.js`, `passenger-voice.js`, `app.js`, `mission-arrival-core.js`,
   `mission-pax-query-core.js` (generiert, `tools/generate-mission-pax-query-core.mjs`),
@@ -47,7 +49,7 @@ liefert alles Offene mit aus.
 - **Doku beim Release:** `docs/Arrival Scene Placement.md` und `docs/Tracker Mission Migration Guide.md` sind aktualisiert; Tracker-Release-Notiz ergänzen.
 - **Pruefen im Feld:** Startbanner auf der Quest; PAX-Ladung/Wetter im EFB; Watch-QNH; Ankunftsszene in EDTW/EDTQ vor dem Hangar, EDDS am GA-Vorfeld, Big Creek neben der Hütte; Ladung bei neuem Lauf draußen.
 
-### 2026-10-21 · Gepäckdarstellung über den Cargo-Composer, Gepäckgruppen
+### 2026-10-21 · Gepäckdarstellung über den Cargo-Composer, Gepäckgruppen — ausgeliefert in Tracker v583 (21.10.2026)
 - **Artefakt:** Tracker-EXE (Laden/Entladen/Abwurf von Gruppen); die Web-App-Teile sind mit dem Push live
 - **Dateien:** `mission-cargo-visual-core.js` (neu), `data/mission-cargo-asset-profiles.json` (neu),
   `data/mission-cargo-assets.js` (generiert, `tools/generate-mission-cargo-assets.mjs`), `mission-cargo-core.js`,
@@ -64,8 +66,6 @@ liefert alles Offene mit aus.
 - **Tests:** `node --test tools/mission-cargo-visual.test.mjs`, `ga-tracker-client/tracker-mission-simulator-effects.test.js` (Gruppenfall), `tools/mission-scene-cargo-selftest.mjs`, `tools/mission-apt-news-ideas.test.cjs` (angepasst); Live-Check 15/15 gültig (`analysis/cargo-visual-core-live-20261021.json`, lokal).
 - **Doku beim Release:** `data/mission-scene-asset-strategy.md` Abschnitt „Gepäckdarstellung über den Cargo-Composer“ ist aktualisiert; Tracker-Release-Notiz ergänzen.
 - **Pruefen im Feld:** Reporter-/Charter-/Sightseeing-Mission neu erstellen: Gepäckgruppe an der Startposition, gemeinsames Laden, Entladen am Ziel, gleiche Stücke auf dem Rückflug; Pickup-Rückflug: Gruppe wartet am Zielplatz; Abstände und Optik der Stücke.
-
-## Ausgeliefert
 
 ### 2026-10-20 · Kameraansicht im Debug-Log — ausgeliefert in Tracker v581 (20.10.2026)
 - **Artefakt:** Tracker-EXE
