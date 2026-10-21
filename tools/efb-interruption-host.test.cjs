@@ -167,3 +167,17 @@ test('the World Map keeps the flight planning ("Flugsicherung") before and after
   assert.match(banner, /entry\.primary \? 'mission-start-banner-btn' : 'mission-start-banner-btn is-secondary'/);
   assert.match(host, /pending\.trigger === 'interruption-resume'\s*\? 'Speicherstand geladen\.'/);
 });
+
+test('World Map planning: after a confirmed send the banner says so, the toolbar brings the send back', () => {
+  const planning = between('  function preflightPlanningModel(payload, allowWaiting) {', '  function flightPlanTransferMarkup() {');
+  assert.match(planning, /if \(available && planningTransferredKey && planningTransferredKey === planningTransferKey\(control\)\) \{/);
+  assert.match(planning, /kicker:'Flugplan übertragen', text:'Der Flugplan wurde erfolgreich an die Flugsicherung übertragen\. Du kannst den Flug jetzt starten\.'/);
+  assert.match(planning, /buttonHidden:true, closeHidden:false, recallable:true, transferred:true/);
+  // The key includes the route revision: a route edit offers the send again.
+  assert.match(host, /function planningTransferKey\(control\) \{[\s\S]{0,200}mapSnapshot\.routeEdit\.revision[\s\S]{0,80}\[control\.missionId, control\.runId, revision\]/);
+  assert.match(host, /planningKey:trigger === 'manual' && target === 'atc' \? planningTransferKey\(current\) : ''/);
+  assert.match(host, /if \(pending\.planningKey\) \{\s*planningTransferredKey = pending\.planningKey;/);
+  const recall = between('  function syncFlightPlanRecallButton(planning) {', '  function renderMissionActionBanner(payload) {');
+  assert.match(recall, /planningTransferredKey = ''; \/\/ offer the send again/);
+  assert.match(recall, /planning\.key === missionBannerDismissedKey \|\| planning\.transferred === true/);
+});

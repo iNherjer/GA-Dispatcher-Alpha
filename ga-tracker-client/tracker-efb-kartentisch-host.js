@@ -150,6 +150,11 @@
       if (result.atc === 'confirmed') {
         // The World Map send is done until the route (or the run) changes.
         if (pending.trigger === 'interruption-resume' && pending.resumeKey) { resumeTransferredKey = pending.resumeKey; renderMissionActionBanner(missionSnapshot); }
+        // Regular World Map planning: the banner turns into the success note.
+        if (pending.planningKey) {
+          planningTransferredKey = pending.planningKey;
+          missionBannerDismissedKey = ''; renderMissionActionBanner(missionSnapshot);
+        }
         flightPlanStatus(pending.trigger === 'interruption-resume'
           ? 'Speicherstand geladen.'
           : 'Flugplan an die Flugsicherung übertragen und zurückgelesen. Mission wurde nicht begonnen.', result); return;
@@ -171,6 +176,12 @@
     if (flightPlanBridgeReadyUntil && Date.now() > flightPlanBridgeReadyUntil) { flightPlanBridgeReadyUntil = 0; requestSideDrawerRefresh(); }
   }, 4000);
 
+  // The World Map planning send, remembered per run and route revision.
+  var planningTransferredKey = '';
+  function planningTransferKey(control) {
+    var revision = mapSnapshot && control && mapSnapshot.missionId === control.missionId && mapSnapshot.routeEdit ? mapSnapshot.routeEdit.revision : '';
+    return control ? [control.missionId, control.runId, revision].join('|') : '';
+  }
   function preflightPlanningModel(payload, allowWaiting) {
     var control = payload && payload.control, readiness = control && control.startReadiness;
     var sync = payload && payload.authoritySnapshot && payload.authoritySnapshot.cloudMissionSync;
@@ -186,6 +197,13 @@
     if (!available && !(allowWaiting === true && flightPlanAtcKnownHost && flightPlanAtcKnownHost === flightPlanBridgeHost)) return null;
     // Camera 12 also occurs on World Map (measured in MSFS 2024); it does not
     // uniquely identify that page. Offer pure planning throughout preflight.
+    // Sent and confirmed for this route: say so instead of offering it again;
+    // the toolbar "Flugplan" button brings the send back, a route edit too.
+    if (available && planningTransferredKey && planningTransferredKey === planningTransferKey(control)) {
+      return {key:'preflight-plan:' + control.runId, missionId:control.missionId, kind:'notice', target:'atc',
+        kicker:'Flugplan übertragen', text:'Der Flugplan wurde erfolgreich an die Flugsicherung übertragen. Du kannst den Flug jetzt starten.',
+        button:'', buttonHidden:true, closeHidden:false, recallable:true, transferred:true, disabled:true};
+    }
     return {key:'preflight-plan:' + control.runId, missionId:control.missionId, kind:available ? 'flightplan' : 'wait', target:'atc',
       kicker:'Flugplanung', text:available ? 'Route an die Simulator-Flugplanung übertragen. Die Mission beginnt erst im geladenen Cockpit.'
         : 'Warte auf aktuelle Simulatordaten und die Verbindung zur Flugplanung.',
@@ -257,7 +275,8 @@
         delete flightPlanJobs[jobId]; flightPlanBridgeReadyUntil = 0; requestSideDrawerRefresh();
         flightPlanStatus('Flugplanübertragung nicht bestätigt. Mission läuft unabhängig weiter.', {ok:false, jobId:jobId, routeHash:result.plan.routeHash, error:'flightplan_timeout'});
       }, 65000);
-      flightPlanJobs[jobId] = {timer:timer, routeHash:result.plan.routeHash, missionId:missionId, runId:runId, navigationRevision:result.plan.navigationRevision, trigger:trigger, airStart:!!(startAt && target === 'atc'), resumeKey:target === 'atc' ? resumeKey || '' : ''};
+      flightPlanJobs[jobId] = {timer:timer, routeHash:result.plan.routeHash, missionId:missionId, runId:runId, navigationRevision:result.plan.navigationRevision, trigger:trigger, airStart:!!(startAt && target === 'atc'), resumeKey:target === 'atc' ? resumeKey || '' : '',
+        planningKey:trigger === 'manual' && target === 'atc' ? planningTransferKey(current) : ''};
       flightPlanMessage('ga-flightplan-send', {job:{jobId:jobId, target:target, plan:result.plan}});
       return true;
     }).catch(function(error) { flightPlanStatus('Flugplanübertragung fehlgeschlagen. Mission läuft unabhängig weiter.', {ok:false, jobId:jobId, error:String(error.message || error)}); return false; })
@@ -2914,13 +2933,14 @@
       button.onclick = function(event) {
         event.stopPropagation();
         missionBannerDismissedKey = '';
+        planningTransferredKey = ''; // offer the send again
         report('info', 'mission-action-banner', 'recall', 'Flugplanungs-Banner über die Toolbar eingeblendet', '');
         renderMissionActionBanner(missionSnapshot);
       };
       anchor.parentNode.insertBefore(button, anchor);
     }
     if (!button) return;
-    var show = !!(planning && planning.recallable && planning.key === missionBannerDismissedKey);
+    var show = !!(planning && planning.recallable && (planning.key === missionBannerDismissedKey || planning.transferred === true));
     button.style.display = show ? 'inline-flex' : 'none';
   }
 

@@ -139,3 +139,12 @@ Manual transfer is released on Alpha with Tracker v526 (13.10.2026),
 integrated on v525. EFB 0.4.24 remains unchanged. All sends use the current
 authenticated route export, with no mission start/restart intent. The separate
 readback-settling candidate remains deferred.
+
+## Weltkarten-Planung: Erfolgsmeldung (Tracker v585, 21.10.2026)
+
+Nach bestaetigter Uebertragung an die Flugsicherung (`atc: confirmed`) ersetzt
+der Planungsbanner seinen Knopf durch „Flugplan uebertragen – Der Flugplan
+wurde erfolgreich an die Flugsicherung uebertragen. Du kannst den Flug jetzt
+starten.“ Der Zustand gilt pro Lauf und Routen-Revision; eine Routenaenderung
+bietet das Senden wieder an. Der Toolbar-Knopf „🗺️ Flugplan“ erscheint nach
+der Uebertragung und holt den Senden-Knopf zurueck.
