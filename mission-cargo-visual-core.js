@@ -120,7 +120,8 @@ function pieceObjectKeys(baseKey, item) { return Array.from({ length: itemPieceC
 // Expand one scene/spawn item into the item's pieces. Offsets add to the item position.
 function expandSceneItem(sceneItem, item) {
   const pieces = Array.isArray(item?.visualPieces) ? item.visualPieces.slice(0, MAX_PIECES) : [];
-  if (!pieces.length) return [sceneItem];
+  // Onboard equipment (chocks, logbook, extinguisher, first aid case) lies loose on the ground as well.
+  if (!pieces.length) return [item?.persistentEquipment === true ? { ...sceneItem, randomYawDeg: RANDOM_YAW_DEG } : sceneItem];
   const baseKey = String(sceneItem.objectKey || '').trim();
   return pieces.map((piece, index) => ({
     ...sceneItem,

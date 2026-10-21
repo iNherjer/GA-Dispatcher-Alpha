@@ -155,6 +155,25 @@ test('composer luggage pieces load and unload together with one object key per p
   assert.ok(Math.abs(spawn.items[1].forwardM - spawn.items[0].forwardM - 0.7) < 1e-9);
 });
 
+test('unloaded onboard equipment spawns with a random turn', async () => {
+  const activeRun = runWithPlan();
+  const commands = [];
+  const bridge = createTrackerMissionSimulatorEffects({
+    authorityManager: { getActiveRun: () => activeRun },
+    getLivePosition: () => ({ lat: 48.1, lon: 7.9, alt: 510, hdg: 90 }),
+    dispatchCommand: command => { commands.push(command); return { ok: true, status: 'pending' }; },
+    acknowledgeEffect: () => ({ ok: true })
+  });
+  const item = { id: 'chocks', itemType: 'cargo', sceneKind: 'cargo.wheel_chocks', label: 'Radkeile', persistentEquipment: true, objectTitle: 'VFR Multitool Homebase Aircraft Wheel Chocks' };
+  await bridge.dispatch({ commandId: 'chocks-unload', missionId: activeRun.missionId, runId: activeRun.runId,
+    effect: { type: 'scene.cargo_item_transition', payload: { action: 'unload', itemId: item.id, manifestKey: 'manifest-a', aircraftSlot: 'PA-24', item } } });
+  await new Promise(resolve => setTimeout(resolve, 200));
+  assert.equal(commands[0].type, 'mission_scene_object_spawn');
+  assert.equal(commands[0].items.length, 1);
+  assert.equal(commands[0].items[0].objectKey, 'aircraft-equipment:PA-24:chocks');
+  assert.equal(commands[0].items[0].randomYawDeg, 180);
+});
+
 test('APT simulator effects reuse the prepared app command and force live tracker position plus stable IDs', async () => {
   let activeRun = runWithPlan();
   const commands = [];

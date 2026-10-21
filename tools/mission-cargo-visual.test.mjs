@@ -208,3 +208,11 @@ test('tracker turns pieces randomly on each spawn and leaves other items aligned
   const turns = new Set(Array.from({ length: 20 }, () => Math.round(heading(0, { randomYawDeg: 180 }))));
   assert.ok(turns.size > 10, 'fresh random turn on every call');
 });
+
+test('onboard equipment is turned randomly on the ground, ordinary cargo keeps its heading', () => {
+  for (const id of ['chocks', 'bordbuch', 'fire-extinguisher', 'first-aid']) {
+    assert.deepEqual(visual.expandSceneItem({ kind: 'unloaded_' + id, objectKey: 'aircraft-equipment:PA-24:' + id }, { id, persistentEquipment: true })
+      .map(item => [item.objectKey, item.randomYawDeg]), [['aircraft-equipment:PA-24:' + id, 180]]);
+  }
+  assert.equal(visual.expandSceneItem({ kind: 'cargo', objectKey: 'k' }, { id: 'cargo-docs' })[0].randomYawDeg, undefined);
+});
