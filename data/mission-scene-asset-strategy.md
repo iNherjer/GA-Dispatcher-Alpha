@@ -117,11 +117,13 @@ Homebase confirmation proves that these exact SimObject titles can be spawned an
 
 `homebase/assets/catalog.json` is the source for pack eligibility: only entries with `missionSpawnable: true` and `missionRoles` containing `scene-prop` are imported. `homebasePlaceable` alone is not permission for a mission scene; `cargo` alone is not scene decoration. Preserve `missionTags` as descriptive capabilities, not heuristics inferred from model names.
 
-Run `node tools/generate-homebase-scene-assets.mjs` after changing the pack catalogue. It generates `data/mission-homebase-scene-assets.js`, loaded directly after the base scene catalogue and before consumers. It registers one `homebase_<key>` feature and exact-title role per eligible asset, carrying its tags. Current pack 0.6.24 has 32 eligible scene props out of 43 entries. The earlier `pavilion` feature remains compatible.
+Run `node tools/generate-homebase-scene-assets.mjs` after changing the pack catalogue. It generates `data/mission-homebase-scene-assets.js`, loaded directly after the base scene catalogue and before consumers. It registers one `homebase_<key>` feature and exact-title role per eligible asset, carrying its tags. Current pack 0.6.25 has 33 eligible scene props out of 44 entries, including `homebase_woodenpallet`. The earlier `pavilion` feature remains compatible.
 
 The existing scene composer sees these features through the same catalogue API. The Reporter idea adapter also retains their tags. `sync.js` handles explicit catalogue-backed pack features in the existing item builder, preserving placement overrides and current scene limits. This fixes the gap where a new feature could normalize correctly but never become an item. No cargo manifest or Homebase eligibility changes.
 
-Tests: `tools/mission-homebase-scene-assets.test.mjs` checks eligibility, generated catalogue parity, and all 32 exact titles through the original scene item builder with placement overrides. `tools/mission-scene-cargo-selftest.mjs` checks existing cargo scene behavior. These are not physical simulator placement/visibility tests; collision, spacing and appearance still need visual validation.
+Tests: `tools/mission-homebase-scene-assets.test.mjs` checks eligibility, generated catalogue parity, and all 33 exact titles through the original scene item builder with placement overrides. `tools/mission-scene-cargo-selftest.mjs` checks existing cargo scene behavior. These are not physical simulator placement/visibility tests; collision, spacing and appearance still need visual validation.
+
+Pack 0.6.25 adds `woodenPallet` as the freight-only appearance form `empty_pallet` (Leere Holzpalette). Its 33–66 lb range is a visual-selection assumption for the empty pallet, not a payload-capacity rating or an added load on the model. It is not offered as passenger luggage, and it does not represent stacked goods. Existing stock pallets, cargo forms, mission contracts and runtime behavior are unchanged. The user confirmed the local Homebase test and authorized pack rollout on 21.10.2026; this does not claim a separately tested mission-scene arrangement.
 
 ## Explicit reporter composition
 

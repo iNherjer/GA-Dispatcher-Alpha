@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "package": {
     "name": "vfr-multitool-homebase-assets",
-    "version": "0.6.24",
+    "version": "0.6.25",
     "title": "VFR Multitool Homebase Assets"
   },
   "assets": [
@@ -1395,8 +1395,39 @@
       ],
       "workbenchVisible": true,
       "homebasePlaceable": true
+    },
+    {
+      "key": "woodenPallet",
+      "folder": "VFRHomebaseWoodenPallet",
+      "title": "VFR Multitool Homebase Wooden Pallet",
+      "label": "Holzpalette 120 × 80 cm",
+      "version": "1.0.0",
+      "kind": "object",
+      "group": "Fracht",
+      "homebasePlaceable": true,
+      "workbenchVisible": true,
+      "missionSpawnable": true,
+      "missionTags": [
+        "cargo",
+        "pallet",
+        "wooden",
+        "logistics",
+        "warehouse",
+        "supplies"
+      ],
+      "missionRoles": [
+        "cargo",
+        "scene-prop"
+      ],
+      "controls": [],
+      "animation": null,
+      "footprint": null,
+      "headingCorrectionDeg": 0,
+      "collisionProfile": null,
+      "vegetationExclusion": null,
+      "updatedAt": "2026-10-21T13:40:12.792Z"
     }
   ],
-  "updatedAt": "2026-08-06T09:13:36.687Z",
+  "updatedAt": "2026-10-21T13:40:12.866Z",
   "stockObjects": []
 }

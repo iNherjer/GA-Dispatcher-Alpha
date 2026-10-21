@@ -43,6 +43,16 @@ test('a new pack asset becomes selectable through its profile alone', () => {
   assert.equal(visual.offeredForms(withProfile).some(form => form.id === 'instrument_case'), true);
 });
 
+test('empty wooden pallet keeps its exact pack title and freight-only appearance profile', () => {
+  const pallet = generated.forms.empty_pallet;
+  assert.equal(pallet.label, 'Leere Holzpalette');
+  assert.equal(pallet.variants.length, 1);
+  assert.equal(pallet.variants[0].key, 'woodenPallet');
+  assert.equal(pallet.variants[0].title, 'VFR Multitool Homebase Wooden Pallet');
+  assert.deepEqual(pallet.variants[0].uses, ['freight']);
+  assert.equal(visual.offeredForms(generated).some(form => form.id === 'empty_pallet'), false);
+});
+
 test('passenger gear offers luggage forms and generic containers, never fixed aircraft equipment or fuel', () => {
   const ids = visual.offeredForms(generated).map(form => form.id);
   for (const id of ['backpack', 'suitcase', 'duffel', 'hardcase', 'camera_kit', 'wood_crate', 'carton']) assert.ok(ids.includes(id), id);

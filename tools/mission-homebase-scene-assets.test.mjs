@@ -9,7 +9,8 @@ const pack=JSON.parse(fs.readFileSync('homebase/assets/catalog.json','utf8'));
 function catalog(){const env={window:{}};for(const f of ['data/mission-scene-assets.js','data/mission-homebase-scene-assets.js'])vm.runInNewContext(fs.readFileSync(f,'utf8'),env);return env.window.MISSION_SCENE_ASSETS;}
 test('generated registrations exactly match scene eligibility, roles, titles and tags',()=>{
  const expected=buildSceneAssets(pack),actual=catalog();
- assert.equal(Object.keys(expected.features).length,32);
+ assert.equal(Object.keys(expected.features).length,33);
+ assert.deepEqual(expected.roles['homebase.scene.woodenPallet'],['VFR Multitool Homebase Wooden Pallet']);
  for(const [key,spec] of Object.entries(expected.features)){assert.deepEqual(JSON.parse(JSON.stringify(actual.targetSceneFeatures[key])),spec);assert.deepEqual(Array.from(actual.roles[spec.roles[0]]),expected.roles[spec.roles[0]]);}
  const filtered=buildSceneAssets({assets:[{key:'cargo',title:'Cargo',missionSpawnable:true,missionRoles:['cargo']},{key:'disabled',title:'Disabled',missionSpawnable:false,missionRoles:['scene-prop']},{key:'base',title:'Base',homebasePlaceable:true}]});
  assert.equal(Object.keys(filtered.features).length,0);

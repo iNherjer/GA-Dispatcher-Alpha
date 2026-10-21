@@ -3,7 +3,7 @@
 'use strict';
 const assets={
   "schema": "mission-cargo-assets.v1",
-  "packageVersion": "0.6.24",
+  "packageVersion": "0.6.25",
   "forms": {
     "aircraft_logbook": {
       "id": "aircraft_logbook",
@@ -627,6 +627,32 @@ const assets={
           ],
           "uses": [
             "passenger_gear",
+            "freight"
+          ]
+        }
+      ]
+    },
+    "empty_pallet": {
+      "id": "empty_pallet",
+      "label": "Leere Holzpalette",
+      "tags": [
+        "pallet",
+        "wooden",
+        "logistics",
+        "warehouse",
+        "supplies"
+      ],
+      "variants": [
+        {
+          "key": "woodenPallet",
+          "title": "VFR Multitool Homebase Wooden Pallet",
+          "label": "Holzpalette 120 × 80 cm",
+          "size": "l",
+          "loadLbs": [
+            33,
+            66
+          ],
+          "uses": [
             "freight"
           ]
         }

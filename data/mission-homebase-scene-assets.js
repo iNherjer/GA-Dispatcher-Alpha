@@ -2,7 +2,7 @@
 (function(root){
 'use strict';
 const pack={
-  "packageVersion": "0.6.24",
+  "packageVersion": "0.6.25",
   "features": {
     "homebase_aircraftwheelchocks": {
       "label": "Radkeile – 2 Paare",
@@ -414,6 +414,21 @@ const pack={
         "supplies"
       ],
       "assetKey": "woodCrateSmall"
+    },
+    "homebase_woodenpallet": {
+      "label": "Holzpalette 120 × 80 cm",
+      "roles": [
+        "homebase.scene.woodenPallet"
+      ],
+      "missionTags": [
+        "cargo",
+        "pallet",
+        "wooden",
+        "logistics",
+        "warehouse",
+        "supplies"
+      ],
+      "assetKey": "woodenPallet"
     }
   },
   "roles": {
@@ -512,6 +527,9 @@ const pack={
     ],
     "homebase.scene.woodCrateSmall": [
       "VFR Multitool Homebase Wood Crate Small"
+    ],
+    "homebase.scene.woodenPallet": [
+      "VFR Multitool Homebase Wooden Pallet"
     ]
   }
 };
