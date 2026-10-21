@@ -279,7 +279,7 @@ function broadcastRadioHold(state) {
 function configureRadioHold(settings) {
   radioHoldLog(`SETTINGS enabled=${settings.enabled} inputs=${settings.bindings.length ? settings.bindings.map(binding => binding.label).join(' | ') : 'none'} voice=${settings.voiceMode}/${settings.voiceDimPercent}% `
     + `music=${settings.musicMode}/${settings.musicDimPercent}% resume=${settings.resumeSeconds || 'off'}s shortPress=${settings.shortPressResumes}`);
-  radioHoldLog(`DETECTION enabled=${settings.detection.enabled} programs=${settings.detection.programs.length ? settings.detection.programs.map(program => `${program.name}/${program.mode}/${program.sensitivity}`).join(' | ') : 'none'}`);
+  radioHoldLog(`DETECTION enabled=${settings.detection.enabled} programs=${settings.detection.programs.length ? settings.detection.programs.map(program => `${program.name}/${program.mode}/${program.sensitivity}/${program.triggerMs}ms`).join(' | ') : 'none'}`);
   radioHold.configure(settings);
   windowsInput.watch(settings.enabled ? settings.bindings : []);
   windowsInput.meter(detectionMeterRules(settings));
@@ -458,7 +458,7 @@ function registerIpc() {
     if (current.detection.programs.some(entry => entry.name.toLowerCase() === program.toLowerCase())) return { ok: false, error: program + ' ist bereits eingetragen.', settings: current };
     if (current.detection.programs.length >= MAX_PROGRAMS) return { ok: false, error: 'Höchstens ' + MAX_PROGRAMS + ' Programme.', settings: current };
     radioHoldLog('ADD PROGRAM ' + program);
-    const settings = configStore.setRadioHold({ enabled: true, detection: { enabled: true, programs: [...current.detection.programs, { name: program, mode: 'ptt', sensitivity: 'medium' }] } });
+    const settings = configStore.setRadioHold({ enabled: true, detection: { enabled: true, programs: [...current.detection.programs, { name: program, mode: 'ptt', sensitivity: 'medium', triggerMs: 300 }] } });
     configureRadioHold(settings); broadcastState();
     return { ok: true, settings };
   });

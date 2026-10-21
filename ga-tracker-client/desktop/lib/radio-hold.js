@@ -6,7 +6,8 @@ const RESUME_SECONDS = Object.freeze([1, 2, 5, 10, 20, 30, 40, 60, 90, 0]);
 const DIM_PERCENT = Object.freeze([0, 10, 20, 35, 50]);
 const SHORT_PRESS_MS = 600;
 const MAX_PROGRAMS = 8;
-// Sensitivity combines the peak threshold (0..1 of full scale) and the minimum loud time.
+// Sensitivity is the peak threshold (0..1 of full scale); minMs is its former default delay,
+// still used for programs saved before the delay could be chosen.
 const SENSITIVITY = Object.freeze({
   low: Object.freeze({ threshold: 0.1, minMs: 600 }),
   medium: Object.freeze({ threshold: 0.03, minMs: 300 }),
@@ -23,6 +24,8 @@ const DEFAULTS = Object.freeze({
   shortPressResumes: true,
   detection: Object.freeze({ enabled: false, programs: Object.freeze([]) })
 });
+// How long a program must be audible before it triggers.
+const TRIGGER_MS = Object.freeze([0, 100, 300, 500, 1000, 2000]);
 
 function normalizePrograms(value) {
   const list = [], seen = new Set();
@@ -30,7 +33,9 @@ function normalizePrograms(value) {
     const name = normalizeProcessName(entry?.name);
     if (!name || seen.has(name.toLowerCase())) continue;
     seen.add(name.toLowerCase());
-    list.push({ name, mode: entry.mode === 'dim' ? 'dim' : 'ptt', sensitivity: SENSITIVITY[entry.sensitivity] ? entry.sensitivity : 'medium' });
+    const sensitivity = SENSITIVITY[entry.sensitivity] ? entry.sensitivity : 'medium';
+    list.push({ name, mode: entry.mode === 'dim' ? 'dim' : 'ptt', sensitivity,
+      triggerMs: TRIGGER_MS.includes(entry.triggerMs) ? entry.triggerMs : SENSITIVITY[sensitivity].minMs });
     if (list.length >= MAX_PROGRAMS) break;
   }
   return list;
@@ -38,7 +43,7 @@ function normalizePrograms(value) {
 // Rules for the native meter; empty while the radio hold or the detection is off.
 function detectionMeterRules(settings) {
   if (!settings?.enabled || !settings.detection?.enabled) return [];
-  return settings.detection.programs.map(program => ({ name: program.name, ...SENSITIVITY[program.sensitivity] }));
+  return settings.detection.programs.map(program => ({ name: program.name, threshold: SENSITIVITY[program.sensitivity].threshold, minMs: program.triggerMs }));
 }
 
 function normalizeRadioHoldSettings(value = {}) {
@@ -178,4 +183,4 @@ function createMusicHold(media, log = () => {}) {
   return music => { const next = queue.then(() => run(music)).catch(() => {}); queue = next; return next; };
 }
 
-module.exports = { RadioHold, createMusicHold, normalizeRadioHoldSettings, detectionMeterRules, SENSITIVITY, MAX_PROGRAMS, RESUME_SECONDS, DIM_PERCENT, SHORT_PRESS_MS, DEFAULTS };
+module.exports = { RadioHold, createMusicHold, normalizeRadioHoldSettings, detectionMeterRules, SENSITIVITY, TRIGGER_MS, MAX_PROGRAMS, RESUME_SECONDS, DIM_PERCENT, SHORT_PRESS_MS, DEFAULTS };

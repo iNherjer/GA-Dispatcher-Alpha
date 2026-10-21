@@ -117,7 +117,8 @@ const programs = (extra = {}) => ({ detection: { enabled: true, programs: [
 test('program rules normalize, dedupe and translate sensitivity into meter rules', () => {
   const settings = normalizeRadioHoldSettings({ enabled: true, detection: { enabled: true, programs: [
     { name: 'Discord', mode: 'loud', sensitivity: 'x' }, { name: 'discord' }, { name: 'bad:name' }, { name: 'SayIntentionsAI', mode: 'dim', sensitivity: 'low' }] } });
-  assert.deepEqual(settings.detection.programs, [{ name: 'Discord', mode: 'ptt', sensitivity: 'medium' }, { name: 'SayIntentionsAI', mode: 'dim', sensitivity: 'low' }]);
+  assert.deepEqual(settings.detection.programs, [{ name: 'Discord', mode: 'ptt', sensitivity: 'medium', triggerMs: 300 }, { name: 'SayIntentionsAI', mode: 'dim', sensitivity: 'low', triggerMs: 600 }],
+    'programs saved before 1.6.31 keep their former delay');
   assert.deepEqual(detectionMeterRules(settings), [{ name: 'Discord', threshold: 0.03, minMs: 300 }, { name: 'SayIntentionsAI', threshold: 0.1, minMs: 600 }]);
   assert.deepEqual(detectionMeterRules({ ...settings, enabled: false }), [], 'no metering while the radio hold is off');
   assert.deepEqual(normalizeRadioHoldSettings({}).detection, { enabled: false, programs: [] });
@@ -176,4 +177,11 @@ test('removing a program or disabling detection releases its hold', () => {
   hold.audio('SayIntentionsAI', true);
   hold.configure({ enabled: true, bindings: [], detection: { enabled: false, programs: [{ name: 'SayIntentionsAI' }] } });
   assert.equal(hold.publicState().held, false, 'no button and no detection disables the hold');
+});
+
+test('the trigger delay is chosen per program and independent of the sensitivity', () => {
+  const settings = normalizeRadioHoldSettings({ enabled: true, detection: { enabled: true, programs: [
+    { name: 'Discord', sensitivity: 'high', triggerMs: 1000 }, { name: 'SayIntentionsAI', sensitivity: 'low', triggerMs: 0 }, { name: 'X', triggerMs: 777 }] } });
+  assert.deepEqual(detectionMeterRules(settings), [
+    { name: 'Discord', threshold: 0.01, minMs: 1000 }, { name: 'SayIntentionsAI', threshold: 0.1, minMs: 0 }, { name: 'X', threshold: 0.03, minMs: 300 }]);
 });

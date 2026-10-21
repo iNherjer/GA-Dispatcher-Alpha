@@ -884,7 +884,7 @@ dialog::backdrop {
 .radio-hold-programs li { flex-wrap: wrap; }
 .radio-hold-programs li.active { border-color: #73b5ff; box-shadow: 0 0 0 1px #73b5ff inset; }
 .radio-hold-programs .program-name { flex: 1 1 70%; font-weight: 600; }
-.radio-hold-programs select { flex: 1 1 40%; min-width: 0; }
+.radio-hold-programs select { flex: 1 1 auto; width: auto; min-width: 0; }
 .radio-hold-programs .radio-hold-meter { flex: 1 1 100%; }
 .radio-hold-meter { position: relative; flex: 1 1 60px; height: 8px; border-radius: 4px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
 .radio-hold-meter > span { position: absolute; inset: 0 auto 0 0; width: 0; background: #4fd1a5; transition: width 0.15s linear; }
