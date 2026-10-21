@@ -17,3 +17,8 @@ Basis: Desktop 1.6.30 (`origin/main`). Tracker-Runtime unverändert.
 - 133 Desktop-Tests (130 bestanden, 3 Windows-only übersprungen), neu: Verzögerung
   unabhängig von der Empfindlichkeit, Übernahme alter Einträge.
 - Programmzeile im Browser geprüft (alle Felder vollständig, Änderung gespeichert).
+
+## Aktivierung (21.10.2026)
+
+Öffentlicher Download geprüft (100288445 Bytes, SHA-512 wie `latest.yml`, Blockmap identisch).
+`latest.yml` und `alpha.yml` aktiviert.
