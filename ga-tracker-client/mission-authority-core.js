@@ -1823,6 +1823,26 @@ function createMissionAuthorityManager(options = {}) {
     return { ok: true, status: 'ok', sideEffect: false, effect: publicEffect(recorded) };
   };
 
+  // Nur fuer den Worker: Die Freigabe wurde angelegt, der Aufruf an den
+  // Simulator aber nachweislich nie zugestellt (Verbindung gewechselt, Prozess
+  // weg). Dann darf die naechste Wiederholung wieder senden.
+  const abandonExecutionEffectDispatch = (command = {}) => {
+    const active = state.activeRun;
+    const commandId = cleanString(command.commandId, 220);
+    if (!active || !commandId) return { ok: false, status: 'noop' };
+    const index = active.effects.findIndex(effect => effect.commandId === commandId);
+    if (index < 0) return { ok: true, status: 'noop' };
+    const effect = active.effects[index];
+    if (effect.completedAt || effect.ack || effect.managerSessionId !== managerSessionId) {
+      return { ok: false, status: 'blocked', error: 'mission_effect_dispatch_not_abandonable' };
+    }
+    active.effects.splice(index, 1);
+    active.updatedAt = now();
+    persist();
+    log(`MISSION_EFFECT_DISPATCH_ABANDONED command=${commandId} reason=${cleanString(command.reason, 80) || 'not_delivered'}`);
+    return { ok: true, status: 'ok' };
+  };
+
   const getExecutionPayloadRecovery = (request = {}) => {
     const active = state.activeRun;
     if (!active?.missionId || !active?.runId) return null;
@@ -2149,6 +2169,7 @@ function createMissionAuthorityManager(options = {}) {
     release,
     releaseLegacy,
     beginExecutionEffectDispatch,
+    abandonExecutionEffectDispatch,
     recordCommand,
     recordEffectAck,
     getExecutionPayloadRecovery,

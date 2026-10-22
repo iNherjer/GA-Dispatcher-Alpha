@@ -111,8 +111,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v589';
-const TRACKER_VERSION_CODE = 589;
+const TRACKER_VERSION = 'v590';
+const TRACKER_VERSION_CODE = 590;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -4551,7 +4551,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         return { ok: false, status: 'error', error: error?.code || error?.message || String(error), cleared: 0, sideEffect: false };
       }
     },
-    async dispatchExecutionCommand(command) {
+    async dispatchExecutionCommand(command, options = {}) {
       const type = String(command?.type || '').trim().toLowerCase();
       const commandId = String(command?.commandId || '').trim();
       const missionId = String(command?.missionId || '').trim();
@@ -4565,12 +4565,16 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       if (missionId !== activeRun.missionId || runId !== activeRun.runId) {
         return { ok: false, status: 'conflict', error: 'mission_run_conflict', sideEffect: false };
       }
-      const dispatchLease = (await missionAuthority?.beginExecutionEffectDispatch?.(command)) || {
-        ok: false,
-        status: 'blocked',
-        error: 'mission_effect_dispatch_journal_unavailable',
-        sideEffect: false
-      };
+      // Der Mission-Worker legt die Freigabe selbst an, bevor er hierher ruft
+      // (internes Argument, nicht ueber Relay erreichbar).
+      const dispatchLease = options?.workerLease === true
+        ? { ok: true, status: 'ok', sideEffect: false }
+        : ((await missionAuthority?.beginExecutionEffectDispatch?.(command)) || {
+          ok: false,
+          status: 'blocked',
+          error: 'mission_effect_dispatch_journal_unavailable',
+          sideEffect: false
+        });
       if (!dispatchLease.ok || dispatchLease.status === 'completed') return dispatchLease;
       const currentRun = missionAuthority?.getActiveRun?.();
       if (currentRun?.runId !== runId || currentRun?.missionId !== missionId || currentRun.executionAuthority !== 'tracker') {
@@ -6678,7 +6682,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       refreshMissionPayloadSnapshot();
       missionSimulatorEffects = missionExecutionRuntime?.attachSimulator?.({
         getLivePosition: () => independentReadiness?.position() || lastGpsMsg,
-        dispatchCommand: command => missionSmokeController.dispatchExecutionCommand(command),
+        dispatchCommand: (command, options) => missionSmokeController.dispatchExecutionCommand(command, options),
         syncPayloadBeforeStart: request => missionSmokeController.syncExecutionPayload(request),
         syncPayloadManifestState: request => missionSmokeController.scheduleExecutionPayload(request),
         cancelPayloadSync: reason => missionSmokeController.cancelExecutionPayloadSync(reason),

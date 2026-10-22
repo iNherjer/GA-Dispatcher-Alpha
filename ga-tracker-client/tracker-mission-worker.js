@@ -6,6 +6,14 @@ const { createMissionAuthorityManager } = require('./mission-authority-core.js')
 const { createTrackerMissionExecutionRuntime } = require('./tracker-mission-execution-runtime.js');
 const { createTrackerFlightLogStore } = require('./tracker-flight-log-store.js');
 
+// Diese Fehler entstehen, bevor der Hauptprozess den Simulator-Aufruf ausfuehrt.
+const UNDELIVERED_DISPATCH_ERRORS = new Set([
+  'mission_simulator_connection_changed',
+  'mission_simulator_not_connected',
+  'mission_process_unavailable',
+  'mission_process_busy'
+]);
+
 function runMissionWorker() {
   let authority, runtime, bridge, flightLog, published = null, publishScheduled = false;
   let cachedAuthority = null, cachedVersion = -1, readPublication;
@@ -124,7 +132,21 @@ function runMissionWorker() {
         getLivePosition: () => readinessPosition && runtime.publicState().startReadiness?.worldReady
           && Date.now()-readinessPosition.observedAt >= 0 && Date.now()-readinessPosition.observedAt <= 2500
           ? readinessPosition : livePosition,
-        dispatchCommand: request => simulatorCall('dispatchCommand', request),
+        // Freigabe (Journal-Eintrag) direkt im Worker statt per Rueckfrage aus
+        // dem Hauptprozess: spart pro Effekt eine komplette Prozess-Runde.
+        dispatchCommand: async request => {
+          const lease = authority.beginExecutionEffectDispatch(request);
+          if (!lease?.ok || lease.status === 'completed') return lease;
+          if (lease.status === 'pending' && lease.duplicate === true) return { ...lease, ok: true, status: 'pending', sideEffect: false };
+          try {
+            return await simulatorCall('dispatchCommand', request, { workerLease: true });
+          } catch (error) {
+            if (UNDELIVERED_DISPATCH_ERRORS.has(String(error?.message || ''))) {
+              authority.abandonExecutionEffectDispatch({ commandId: request?.commandId, reason: error.message });
+            }
+            throw error;
+          }
+        },
         syncPayloadBeforeStart: request => simulatorCall('syncPayloadBeforeStart', request),
         syncPayloadManifestState: request => simulatorCall('syncPayloadManifestState', request),
         // The parent cancels its adapter before retiring the connection. Calling
