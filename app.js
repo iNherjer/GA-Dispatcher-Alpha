@@ -1834,6 +1834,18 @@ function toggleSettingsPanel() {
     );
 }
 
+// Einstellungen schliessen, wenn ausserhalb geklickt wird. Win95 hat ein eigenes
+// Fenster mit X-Button; Popups/Dialoge aus den Einstellungen zaehlen nicht als "ausserhalb".
+document.addEventListener('pointerdown', (event) => {
+    const shell = document.querySelector('.settings-shell');
+    if (!shell?.classList.contains('is-open') || isWin95DesktopMode()) return;
+    if (typeof activeSettingsHelp !== 'undefined' && activeSettingsHelp) return;
+    const target = event.target;
+    if (!(target instanceof Element) || !target.isConnected || shell.contains(target)) return;
+    if (target.closest('[role="dialog"], dialog, [class*="modal"], [class*="overlay"], [class*="popup"], [class*="popover"], [class*="dropdown"], [class*="autocomplete"]')) return;
+    setSettingsPanelOpen(false, true);
+}, true);
+
 function closeWin95SettingsWindow(event) {
     event?.preventDefault?.();
     event?.stopPropagation?.();
