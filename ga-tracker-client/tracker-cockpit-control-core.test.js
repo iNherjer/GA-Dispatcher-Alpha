@@ -362,3 +362,37 @@ test('debug inspection intent uses the authenticated Web HTTP/relay path', async
   assert.deepEqual(calls.map(call => call.intent), ['debug_force_compliance', 'debug_force_compliance']);
   assert.ok(calls.every(call => call.controllerSession.role === 'web'));
 });
+
+test('Verladefenster oeffnen und schliessen werden von EFB und Web-App gleich angenommen', async () => {
+  const executed = [];
+  const app = fixture({
+    executionAuthority: 'tracker',
+    executeIntent: async intent => {
+      executed.push(intent);
+      return { ok: true, status: 'ok', sideEffect: false, activeRun: { missionId: 'mission-a', runId: 'run-a', revision: 8 } };
+    }
+  });
+  const efb = app.control.register({ clientId: 'efb-one', role: 'efb', appVersion: '0.4.25' });
+  assert.equal(efb.ok, true);
+  const opened = await app.control.submitIntent({ sessionId: efb.session.sessionId, sessionToken: efb.sessionToken,
+    commandId: 'efb-open', intent: 'open_cargo_window', missionId: 'mission-a', runId: 'run-a', expectedRevision: 7,
+    payload: { mode: 'load' } });
+  assert.equal(opened.ok, true, JSON.stringify(opened));
+  const relayed = await app.control.submitTrustedIntent({ commandId: 'web-open', intent: 'open_cargo_window',
+    missionId: 'mission-a', runId: 'run-a', expectedRevision: 7, payload: { mode: 'unload' } }, { clientId: 'web-relay', role: 'web' });
+  assert.equal(relayed.ok, true, JSON.stringify(relayed));
+  const closed = await app.control.submitTrustedIntent({ commandId: 'web-close', intent: 'close_cargo_window',
+    missionId: 'mission-a', runId: 'run-a', expectedRevision: 7 }, { clientId: 'web-relay', role: 'web' });
+  assert.equal(closed.ok, true, JSON.stringify(closed));
+  assert.deepEqual(executed.map(row => [row.intent, row.payload?.mode || null]),
+    [['open_cargo_window', 'load'], ['open_cargo_window', 'unload'], ['close_cargo_window', null]]);
+});
+
+test('Oeffnen des Verladefensters darf wie Schliessen nach Revisionskonflikt erneut gesendet werden', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const core = fs.readFileSync(path.join(__dirname, 'mission-authority-core.js'), 'utf8');
+  assert.match(core, /rebasableIntents = new Set\(\[[^\]]*'open_cargo_window'[^\]]*'close_cargo_window'/);
+  const client = fs.readFileSync(path.join(__dirname, 'tracker-cockpit-session-client.js'), 'utf8');
+  assert.match(client, /intent !== 'close_cargo_window' && intent !== 'open_cargo_window'/);
+});

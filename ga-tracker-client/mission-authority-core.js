@@ -1395,7 +1395,7 @@ function createMissionAuthorityManager(options = {}) {
   // and accept a stale revision only when the complete control inputs match.
   const intentRevisionGuards = new Map();
   const rebasableIntents = new Set(['set_manifest_item', 'set_boardbook_time',
-    'sign_manifest', 'clear_manifest_signature', 'confirm_unload', 'close_cargo_window']);
+    'sign_manifest', 'clear_manifest_signature', 'confirm_unload', 'open_cargo_window', 'close_cargo_window']);
   const intentGuard = active => {
     const { state: execution, view } = cachedExecutionProjection(active.executionState);
     const control = { phase: execution.phase, flags: execution.flags,

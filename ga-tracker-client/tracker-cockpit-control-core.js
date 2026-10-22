@@ -20,6 +20,7 @@ const MISSION_INTENTS = new Set([
   'poi_tell_more',
   'prepare_mission',
   'start_boarding',
+  'open_cargo_window',
   'close_cargo_window',
   'set_manifest_item',
   'set_boardbook_time',

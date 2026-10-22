@@ -102,8 +102,13 @@ test('Ansicht ist eingefroren, wird wiederverwendet und folgt jeder Aenderung', 
   sameContent(host, options);
   sameContent(host, { includeBundle: true });
 
-  const aborted = await host.runtime.executeIntent({ intent: 'abort_mission', commandId: 'view-abort',
-    missionId: run.missionId, runId: run.runId, expectedRevision: host.authorityManager.getActiveRun().revision });
+  // Hintergrund-Effekte koennen die Revision zwischen Lesen und Senden erhoehen.
+  let aborted = null;
+  for (let attempt = 0; attempt < 5 && aborted?.ok !== true; attempt++) {
+    aborted = await host.runtime.executeIntent({ intent: 'abort_mission', commandId: `view-abort-${attempt}`,
+      missionId: run.missionId, runId: run.runId, expectedRevision: host.authorityManager.getActiveRun().revision });
+    if (aborted?.error === 'mission_revision_conflict') await delay(50);
+  }
   assert.equal(aborted.ok, true, JSON.stringify(aborted));
   assert.equal(host.authorityManager.getActiveRunView(options), null);
 });

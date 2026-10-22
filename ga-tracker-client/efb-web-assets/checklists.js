@@ -6306,8 +6306,9 @@ ${routeLines}`;
       render();
     } else if (action === 'cargo-open-modal') {
       if (typeof window.openMissionGroundCargoDialog === 'function') {
+        var _window$missionCargoS;
         var opened = window.openMissionGroundCargoDialog();
-        setStatus(opened ? 'Verladefenster geöffnet.' : 'Verladefenster ist nur am Boden und im Stillstand verfügbar.', opened ? 'good' : 'warn');
+        setStatus(opened ? 'Verladefenster geöffnet.' : String(((_window$missionCargoS = window.missionCargoStatus) === null || _window$missionCargoS === void 0 ? void 0 : _window$missionCargoS.error) || '').trim() || 'Verladefenster ist nur am Boden und im Stillstand verfügbar.', opened ? 'good' : 'warn');
       } else if (typeof window.openMissionCargoDialog === 'function') {
         window.openMissionCargoDialog('load');
         setStatus('Verladefenster geöffnet.', 'good');

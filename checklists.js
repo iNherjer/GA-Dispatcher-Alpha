@@ -4861,7 +4861,8 @@ ${routeLines}`;
             if (typeof window.openMissionGroundCargoDialog === 'function') {
                 const opened = window.openMissionGroundCargoDialog();
                 setStatus(
-                    opened ? 'Verladefenster geöffnet.' : 'Verladefenster ist nur am Boden und im Stillstand verfügbar.',
+                    opened ? 'Verladefenster geöffnet.'
+                        : (String(window.missionCargoStatus?.error || '').trim() || 'Verladefenster ist nur am Boden und im Stillstand verfügbar.'),
                     opened ? 'good' : 'warn'
                 );
             } else if (typeof window.openMissionCargoDialog === 'function') {

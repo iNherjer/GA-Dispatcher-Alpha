@@ -538,7 +538,7 @@
         const intent = String(request.intent || request.action || '').toLowerCase();
         if (!control || control.executionAuthority !== 'tracker'
             || String(control.missionId || '') !== String(request.missionId || '')
-            || (allowed.indexOf(intent) < 0 && intent !== 'close_cargo_window')) {
+            || (allowed.indexOf(intent) < 0 && intent !== 'close_cargo_window' && intent !== 'open_cargo_window')) {
           return first;
         }
         return submit(Object.assign({}, request, {

@@ -5358,9 +5358,42 @@ window.openMissionCargoDialog = function(mode = 'load', options = {}) {
     return true;
 };
 
+// Tracker-Modus: In diesen Phasen hat der Tracker den Boden selbst festgestellt
+// (vor dem Abheben bzw. nach erkannter Landung). Lueckenhafte App-Telemetrie
+// darf das Verladefenster dann nicht sperren; nur eindeutiges Rollen sperrt.
+const MISSION_CARGO_TRACKER_GROUND_PHASES = ['prepare', 'boarding', 'end_unloading', 'end_ready'];
+
+function _missionCargoGroundDialogGate() {
+    const local = _missionCargoGroundHandlingStatus();
+    if (local.ready === true) return { allowed: true, source: 'local', local };
+    let groundStatus = null;
+    try { groundStatus = typeof _missionStartGroundStatus === 'function' ? _missionStartGroundStatus() : null; } catch (_) {}
+    const reason = String(groundStatus?.reason || (local.onGround ? 'moving' : 'not_on_ground'));
+    if (window.gaTrackerExecutionHandlesMission?.() === true) {
+        const phase = String(window.gaTrackerExecutionControl?.phase || '').toLowerCase();
+        const trackerGround = MISSION_CARGO_TRACKER_GROUND_PHASES.includes(phase)
+            && _missionCargoTrackerIntentAllowed('set_manifest_item');
+        if (trackerGround && reason !== 'moving') return { allowed: true, source: 'tracker-phase', phase, reason, local };
+        return { allowed: false, source: 'tracker-phase', phase, reason, local };
+    }
+    return { allowed: false, source: 'local', reason, local };
+}
+
 window.openMissionGroundCargoDialog = function() {
-    if (!_missionCargoGroundHandlingAllowed()) {
-        window.missionCargoStatus.error = 'Bordbestand kann nur am Boden und im Stillstand geoeffnet werden.';
+    const gate = _missionCargoGroundDialogGate();
+    if (gate.source !== 'local' || !gate.allowed) {
+        try {
+            _missionPhaseDebugPush?.('cargo_ground_dialog_gate', {
+                allowed: gate.allowed, source: gate.source, phase: gate.phase || null,
+                reason: gate.reason || null, label: gate.local?.label || null, gs: gate.local?.gs ?? null
+            });
+        } catch (_) {}
+    }
+    if (!gate.allowed) {
+        const label = String(gate.local?.label || '').trim();
+        window.missionCargoStatus.error = label && !['Am Boden bereit', 'Nicht am Boden', 'Nicht im Stillstand'].includes(label)
+            ? `Bordbestand derzeit nicht verfuegbar: ${label}.`
+            : 'Bordbestand kann nur am Boden und im Stillstand geoeffnet werden.';
         return false;
     }
     if (_missionCargoHasActiveMission()) {
