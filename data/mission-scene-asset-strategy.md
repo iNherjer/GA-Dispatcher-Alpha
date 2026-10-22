@@ -173,3 +173,22 @@ Gepäck und Ausrüstung der Passagiere bei Reporter-, Charter- und Sightseeing-I
 - **Offen:** Die Platzierungsprüfung der Ankunftsszene bewertet das Ausrüstungs-Objekt; weitere Stücke liegen 0,7–1,3 m daneben.
 
 Tests: `node --test tools/mission-cargo-visual.test.mjs`, Gruppenfall in `ga-tracker-client/tracker-mission-simulator-effects.test.js`.
+
+## Ersatztitel nur bei echten Titel-Fehlern (22.10.2026)
+
+- **Befund:** Auf einem schwachen System vergab MSFS Objekt-IDs erst nach
+  10-20 s. Der Tracker wertete das nach 2,2-3 s als Fehler und forderte die
+  Ersatztitel (`..._Fire_Extinguisher`, `Cardboard`, `CoffeeCup`) zusaetzlich
+  an. Alle Anfragen wurden spaeter trotzdem ausgefuehrt: kurzzeitig stand ein
+  Kaffeebecher statt des Feuerloeschers am Flugzeug, und der Sim bekam die
+  vierfache Last.
+- **Regel:** Ersatztitel werden nur nach einer SimConnect-Exception versucht
+  (`UNRECOGNIZED_ID`, `CREATE_OBJECT_FAILED`). Bleibt der Sim still, wartet der
+  Tracker bis zu 17 s zusaetzlich (`SCENE_SPAWN_SILENT_GRACE_MS`) auf den
+  Originaltitel und meldet diesen dann als normalen Erfolg
+  (`SCENE_SPAWN_WAIT_EXTENDED`). Danach wird abgebrochen
+  (`SCENE_SPAWN_FALLBACK_SKIPPED`), ohne Ersatzobjekt; eine noch spaetere ID
+  wird ueber die bestehende Late-Assign-Logik der Szene zugeordnet oder bei
+  zwischenzeitlich verstecktem Objekt entfernt.
+- Gilt fuer Einzelobjekte (`spawnSceneObjectFromPlan`) und volle Szenen
+  (`spawnMissionScene`). Test: `ga-tracker-client/tracker-scene-spawn-wait.test.js`.

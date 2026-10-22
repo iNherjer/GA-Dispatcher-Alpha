@@ -473,6 +473,10 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const sceneObjectDesiredStates = new Map();
   let authorityReleasePending = false;
   const CREATE_EXCEPTION_GRACE_MS = 900;
+  // Langsame Systeme vergeben Objekt-IDs erst nach 10-20 s. Solange keine
+  // SimConnect-Exception kommt, auf den Originaltitel warten statt Ersatzobjekte
+  // (Karton, Kaffeebecher) zusaetzlich anzufordern.
+  const SCENE_SPAWN_SILENT_GRACE_MS = 17000;
   const LATE_ASSIGNED_RETENTION_MS = 30000;
   const pendingAssign = new Map();
   const lateAssignedRequests = new Map();
@@ -1916,10 +1920,27 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   };
 
   const waitForAssignedObject = (requestId, timeoutMs = 5000, meta = {}) => new Promise((resolve, reject) => {
-    const timer = setTimeout(() => {
+    const giveUp = (pending) => {
       const hint = lastExceptions.length ? lastExceptions.splice(0).join(', ') : 'keine Antwort vom Sim';
+      const error = new Error(hint);
+      // Ohne SimConnect-Exception ist der Titel nicht falsch, sondern der Sim
+      // nur langsam: die Anfrage laeuft weiter und darf spaet zugeordnet werden.
+      if (!pending.lastException && !pending.exceptionTimer) error.code = 'sim_no_response';
+      rejectPendingAssign(requestId, pending, error, 'timeout');
+    };
+    const timer = setTimeout(() => {
       const pending = pendingAssign.get(requestId);
-      if (pending) rejectPendingAssign(requestId, pending, new Error(hint), 'timeout');
+      if (!pending) return;
+      const graceMs = Math.max(0, Number(meta.silentGraceMs) || 0);
+      if (graceMs > 0 && !pending.lastException && !pending.exceptionTimer) {
+        debugLog(`SCENE_SPAWN_WAIT_EXTENDED requestId=${requestId} title="${meta.title || ''}" waitedMs=${timeoutMs} graceMs=${graceMs}`);
+        pending.timer = setTimeout(() => {
+          const stillPending = pendingAssign.get(requestId);
+          if (stillPending) giveUp(stillPending);
+        }, graceMs);
+        return;
+      }
+      giveUp(pending);
     }, timeoutMs);
     pendingAssign.set(requestId, { resolve, reject, timer, exceptionTimer: null, title: meta.title || '', pos: meta.pos || null, meta });
   });
@@ -2035,7 +2056,8 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         const objectId = await spawnObject(candidate, plan, timeoutMs, {
           sceneId,
           plan,
-          requestedTitle: plan.title
+          requestedTitle: plan.title,
+          silentGraceMs: SCENE_SPAWN_SILENT_GRACE_MS
         });
         await stabilizeSceneGroundObject(objectId, candidate, plan);
         trackObjectId(objectId);
@@ -2047,6 +2069,10 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         lastError = err;
         trackerWarn(`  ✗ scene ${plan.kind} title="${candidate}": ${err?.message || err}`);
         debugLog(`SCENE_TRY_ERROR scene=${sceneId} kind=${plan.kind} title="${candidate}" error=${err?.message || err}`);
+        if (err?.code === 'sim_no_response') {
+          debugLog(`SCENE_SPAWN_FALLBACK_SKIPPED scene=${sceneId} kind=${plan.kind} title="${candidate}" reason=sim_no_response lateAssign=1`);
+          break;
+        }
       }
     }
     debugLog(`SCENE_SPAWN_ERROR scene=${sceneId} kind=${plan.kind} title="${plan.title}" candidates=${JSON.stringify(candidates)} error=${lastError?.message || lastError || 'all candidates failed'}`);
@@ -3694,7 +3720,8 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
           const objectId = await spawnObject(candidate, p, 2200, {
             sceneId,
             plan: p,
-            requestedTitle: p.title
+            requestedTitle: p.title,
+            silentGraceMs: SCENE_SPAWN_SILENT_GRACE_MS
           });
           await stabilizeSceneGroundObject(objectId, candidate, p);
           const spawnedObj = { objectId, ...p, title: candidate, requestedTitle: p.title };
@@ -3711,6 +3738,10 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
           lastError = err;
           trackerWarn(`  ✗ scene ${p.kind} title="${candidate}": ${err?.message || err}`);
           debugLog(`SCENE_TRY_ERROR scene=${sceneId} kind=${p.kind} title="${candidate}" error=${err?.message || err}`);
+          if (err?.code === 'sim_no_response') {
+            debugLog(`SCENE_SPAWN_FALLBACK_SKIPPED scene=${sceneId} kind=${p.kind} title="${candidate}" reason=sim_no_response lateAssign=1`);
+            break;
+          }
         }
       }
       if (!spawned) {
