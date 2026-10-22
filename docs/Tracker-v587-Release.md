@@ -50,3 +50,6 @@ EXE: 174282617 Bytes; SHA-256 `aeb96becefab8eed5c645c7c2199fbcd6fc9d07c81ae126c2
 - Beim Verladen mit offenem EFB: `projectionMs`, `MISSION_PROCESS_LOOP`, `TRACKER_TELEMETRY_DELAY`.
 - Bei langsamem Sim `SCENE_SPAWN_WAIT_EXTENDED` statt Karton-/Becher-Versuchen.
 - Ab dem zweiten Checkpoint Ordner `mission-authority-v1.json.blobs`; Mission nach Tracker-Neustart fortsetzen.
+
+Release-Upload verifiziert und EXE öffentlich erneut heruntergeladen: Größe und SHA-256 identisch.
+`channel/alpha.json` auf v587 umgestellt, `stable.json` unverändert.
