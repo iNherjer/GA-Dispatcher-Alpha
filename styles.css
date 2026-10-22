@@ -10,6 +10,13 @@
 }
 
 @font-face {
+    font-family: 'Doto';
+    src: url('./assets/fonts/Doto-Black-latin.woff2') format('woff2');
+    font-weight: 900;
+    font-display: swap;
+}
+
+@font-face {
     font-family: 'MS33558';
     src: url('./MS33558.ttf') format('truetype');
     font-weight: normal;
@@ -21641,3 +21648,12 @@ body.theme-win95 #mapVoiceMenu select { color:#000 !important; background:#fff !
 body.theme-win95 #mapHintsMenu input[type="checkbox"],
 body.theme-win95 #mapHintsMenu input[type="radio"] { padding:0; width:14px; height:14px; min-height:14px; }
 body.theme-win95 #mapVoiceMenu .ga-media-message { color:#333 !important; }
+
+/* NavCom: Dot-Matrix-Schrift in den Radio-Anzeigen (Doto, OFL, assets/fonts) */
+body.theme-navcom .radio-stack .lcd-input,
+body.theme-navcom .radio-stack input.lcd-input:not(.ga-skin-control),
+body.theme-navcom .radio-stack select.lcd-input:not(.ga-skin-control),
+body.theme-navcom .radio-stack .lcd-label {
+    font-family: 'Doto', 'Share Tech Mono', monospace !important;
+    font-weight: 900 !important;
+}
