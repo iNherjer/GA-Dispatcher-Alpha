@@ -132,6 +132,7 @@ const STATIC = [
     './mission-cloud-control-core.js',
     './sync.js',
     './homebase-capability-retry-core.js',
+    './homebase-scene-core.js',
     './homebase-integration.js',
     './homebase-integration.css',
     './assets/ui/homebase/blueprint-09-27.png',

@@ -65,3 +65,53 @@ historische Rückfall- und Prüfspur erhalten.
 - Der 5-Sekunden-Trackerstatus haelt die spaetere Aushandlung auch im
   Telemetrie-Hibernate am Leben. Nur ein neuer Relay-Verbindungs-Token setzt
   das Retry-Gate sofort zurueck.
+
+## Tracker lädt die eigene Homebase selbst aus der Cloud (22.10.2026, lokaler Kandidat)
+
+Feldbefund (Tracker v587, schwacher Rechner): Beim Start baute der Tracker die
+Homebase dreimal komplett auf (84 Spawns, 56 Entfernungen in 30 s) – erst aus
+seinem Zwischenspeicher, dann je einmal aus zwei App-Clients mit abweichender
+Szenensignatur. Das System stammt aus der Zeit ohne Cloud-Zugriff des Trackers.
+
+- **Gemeinsamer Szenen-Kern** `homebase-scene-core.js`: Cloud-Datensatz
+  (`record.plan`) + Status des installierten Homebase-Mods → Live-Szene
+  (Objekte, Personen, Navigation, Türzustände) und Signatur. Unverändert aus
+  `homebase-integration.js` herausgelöst; einmaliger Vergleich gegen die alte
+  App-Rechnung: 1600/1600 zufällige Pläne mit allen Paketstatus-Varianten
+  identisch. App und Tracker nutzen beide den Workbench-Katalog
+  `homebase/homebase-asset-catalog.js`.
+- **Tracker** (`ga-tracker-client/tracker-homebase-cloud.js`): lädt beim Start
+  (nach 1,5 s), alle 15 min, nach Paket-Installation/-Entfernung und auf
+  `homebase_v1.cloud.refresh` die Homebase über `/api/homebase/<Pilot>` mit den
+  vorhandenen Zugangsdaten, baut sie mit dem Kern und speichert sie im
+  bestehenden Zwischenspeicher. Angewendet wird wie bisher über den
+  Fallback-Weg im 20/22-NM-Radius; beim Start erst nach dem ersten Abruf
+  (höchstens 8 s), damit nicht doppelt aufgebaut wird. Telemetrie
+  `gpsMsg.homebase.capabilities` enthält `homebase-cloud-scene-v1`,
+  `gpsMsg.homebase.cloudScene` den Status (`idle`, `loading`, `ok`, `empty`,
+  `legacy`, `error`).
+- **App**: baut nur noch selbst auf und schickt keinen Zwischenspeicher, wenn
+  der Tracker nicht zuständig ist: alter Tracker ohne Fähigkeit, Status `empty`
+  (keine Homebase in der Cloud), `legacy` (Datensatz Schema < 2 mit lokalen
+  Personen), `error` (z. B. PIN falsch, offline, Mod ohne Vergleichsstand),
+  Cloud-Sync in der App aus (rein lokale Homebase) oder ein ungespeicherter
+  Workbench-Entwurf. Platzieren/Verschieben laufen unverändert direkt
+  (`preview.object.add/move/remove`). Nach erfolgreichem Speichern schickt die
+  App `homebase_v1.cloud.refresh`.
+- **Entwurfsvorrang**: Die App kennzeichnet `fallback.store` mit `draftDirty`.
+  Solange ein Entwurf aktiv ist, überschreibt der Cloud-Abgleich den
+  Zwischenspeicher nicht (`HOMEBASE_CLOUD_DEFERRED`); nach dem Speichern hebt
+  `cloud.refresh` mit `draftDirty: false` den Vorrang auf.
+- **„Live-Ergänzungen entfernen“** in der Workbench: `homebase_v1.fallback.suppress`
+  blendet den Tracker-Stand bis zum Verlassen des Radius aus; „Aktualisieren“
+  schickt `cloud.refresh` mit `clearSuppression`.
+
+Grenzen: Crew-Homebases (`/api/homebase-group/`) laufen weiter über die App.
+Weicht die Workbench-Konfiguration eines gerade gespeicherten Entwurfs vom
+Kern ab, baut der Tracker nach dem Speichern einmal neu auf (Schritt „nur
+Unterschiede neu bauen“ steht noch aus).
+
+Tests: `tools/homebase-scene-core.test.cjs`,
+`ga-tracker-client/tracker-homebase-cloud.test.js`.
+Log: `HOMEBASE_CLOUD_SCENE`, `HOMEBASE_CLOUD_EMPTY`, `HOMEBASE_CLOUD_LEGACY`,
+`HOMEBASE_CLOUD_ERROR`, `HOMEBASE_CLOUD_DEFERRED`, `HOMEBASE_FALLBACK_STORE source=cloud|app|app-draft`.

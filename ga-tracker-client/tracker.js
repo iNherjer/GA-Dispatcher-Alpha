@@ -31,6 +31,7 @@ const {
   compatibleHomebaseFallbackCache,
   fallbackShouldBeActive
 } = require('./homebase-fallback-cache.js');
+const { createHomebaseCloudScene } = require('./tracker-homebase-cloud.js');
 const { verifyTrackerCredentials } = require('./tracker-auth.js');
 const { createTrackerRelayHello } = require('./tracker-efb-relay-core.js');
 const {
@@ -5995,20 +5996,86 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
         log: debugLog
       })
     : null;
+  // Gemeinsamer Speicherweg fuer den Homebase-Zwischenspeicher: von der App
+  // (homebase_v1.fallback.store) oder vom Tracker selbst aus der Cloud.
+  const storeHomebaseFallbackCache = (raw, meta = {}) => {
+    try {
+      const cache = normalizeHomebaseFallbackCache(raw, {
+        pilotId: syncId,
+        trackerVersionCode: TRACKER_VERSION_CODE,
+        savedAt: Date.now()
+      });
+      const config = readTrackerConfig();
+      config.homebaseFallback = cache;
+      if (!writeTrackerConfig(config)) throw new Error('Tracker-Konfiguration konnte nicht geschrieben werden.');
+      _homebaseFallbackCache = cache;
+      debugLog(`HOMEBASE_FALLBACK_STORE source=${meta.source || 'app'} signature=${cache.sceneSignature} objects=${cache.objects.length} people=${cache.people.length}${meta.revision ? ` revision=${meta.revision}` : ''}`);
+      return { ok: true, cache };
+    } catch (error) {
+      return { ok: false, error: error?.message || String(error) };
+    }
+  };
+  // Tracker laedt die eigene Homebase selbst aus der Cloud (gemeinsamer
+  // Szenen-Kern mit der App). Die App bearbeitet nur noch.
+  let _homebaseFallbackSuppressed = false;
+  // Ein ungespeicherter Workbench-Entwurf der App hat Vorrang: der Cloud-Abgleich
+  // ueberschreibt ihn nicht, bis die App nach dem Speichern neu laden laesst.
+  let _homebaseAppDraftActive = false;
+  const homebaseCloud = HOMEBASE_ENABLED && homebasePackageService
+    ? createHomebaseCloudScene({
+        pilotId: syncId,
+        pin,
+        getPackageStatus: () => homebasePackageService.inspectInstalledScene(),
+        getCurrentCache: () => _homebaseFallbackCache,
+        storeCache: (payload, meta) => (_homebaseAppDraftActive
+          ? { ok: true, skipped: true, reason: 'app_draft_active' }
+          : storeHomebaseFallbackCache(payload, meta)),
+        log: debugLog
+      })
+    : null;
+  homebaseCloud?.start(1500);
+  const homebaseCloudAccess = homebaseCloud ? {
+    capability: homebaseCloud.capability,
+    available: homebaseCloud.available,
+    initialSettled: () => homebaseCloud.initialSettled(),
+    suppressed: () => _homebaseFallbackSuppressed,
+    clearSuppression: () => { _homebaseFallbackSuppressed = false; },
+    publicState: () => ({ ...homebaseCloud.publicState(), suppressed: _homebaseFallbackSuppressed })
+  } : null;
   const handleAlwaysAvailableHomebaseCommand = (command) => {
     if (!HOMEBASE_ENABLED || !homebasePackageService) return false;
     const type = String(command?.type || '');
+    if (type === 'homebase_v1.cloud.refresh') {
+      if (command?.clearSuppression === true) _homebaseFallbackSuppressed = false;
+      if (command?.draftDirty !== true) _homebaseAppDraftActive = false;
+      const respond = (cloudScene) => sendHomebaseAck({
+        type: 'homebase_v1.cloud.refresh_ack',
+        commandId: command?.commandId || null,
+        status: homebaseCloud?.available ? 'ok' : 'error',
+        error: homebaseCloud?.available ? undefined : 'homebase_cloud_unavailable',
+        cloudScene: cloudScene ? { ...cloudScene, suppressed: _homebaseFallbackSuppressed } : null
+      });
+      if (!homebaseCloud?.available) respond(null);
+      else homebaseCloud.refresh(String(command?.reason || 'app').slice(0, 60)).then(respond, () => respond(homebaseCloud.publicState()));
+      return true;
+    }
+    if (type === 'homebase_v1.fallback.suppress') {
+      _homebaseFallbackSuppressed = command?.suppressed !== false;
+      debugLog(`HOMEBASE_FALLBACK_SUPPRESS suppressed=${_homebaseFallbackSuppressed ? 1 : 0}`);
+      sendHomebaseAck({
+        type: 'homebase_v1.fallback.suppress_ack',
+        commandId: command?.commandId || null,
+        status: 'ok',
+        suppressed: _homebaseFallbackSuppressed
+      });
+      return true;
+    }
     if (type === 'homebase_v1.fallback.store') {
       try {
-        const cache = normalizeHomebaseFallbackCache(command?.cache, {
-          pilotId: syncId,
-          trackerVersionCode: TRACKER_VERSION_CODE,
-          savedAt: Date.now()
-        });
-        const config = readTrackerConfig();
-        config.homebaseFallback = cache;
-        if (!writeTrackerConfig(config)) throw new Error('Tracker-Konfiguration konnte nicht geschrieben werden.');
-        _homebaseFallbackCache = cache;
+        const stored = storeHomebaseFallbackCache(command?.cache, { source: command?.draftDirty === true ? 'app-draft' : 'app' });
+        if (!stored.ok) throw new Error(stored.error);
+        _homebaseAppDraftActive = command?.draftDirty === true;
+        const cache = stored.cache;
         sendHomebaseAck({
           type: 'homebase_v1.fallback.store_ack',
           commandId: command?.commandId || null,
@@ -6017,7 +6084,6 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
           sceneSignature: cache.sceneSignature,
           savedAt: cache.savedAt
         });
-        debugLog(`HOMEBASE_FALLBACK_STORE signature=${cache.sceneSignature} objects=${cache.objects.length} people=${cache.people.length}`);
       } catch (error) {
         sendHomebaseAck({
           type: 'homebase_v1.fallback.store_ack',
@@ -6042,7 +6108,14 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       });
       return true;
     }
-    if (homebasePackageService.handleCommand(command)) return true;
+    if (homebasePackageService.handleCommand(command)) {
+      // Ein neu installierter oder entfernter Homebase-Mod aendert, welche
+      // Objekte live ergaenzt werden muessen.
+      if (homebaseCloud?.available && ['homebase_v1.package.install', 'homebase_v1.package.uninstall'].includes(type)) {
+        setTimeout(() => { void homebaseCloud.refresh(type.replace('homebase_v1.', '')); }, 5000).unref?.();
+      }
+      return true;
+    }
     if (type === 'homebase_v1.capabilities' && typeof _trackerCommandHandler !== 'function') {
       sendHomebaseAck({
         type: 'homebase_v1.capabilities_ack',
@@ -6051,7 +6124,8 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
         protocol: 1,
         simConnected: false,
         assetPackageVersion: homebaseAssetCatalog.assetPackageVersion,
-        capabilities: [...homebasePackageService.capabilities, 'homebase-fallback-cache-v1', 'homebase-fallback-control-state-v1']
+        capabilities: [...homebasePackageService.capabilities, 'homebase-fallback-cache-v1', 'homebase-fallback-control-state-v1',
+          ...(homebaseCloud?.available ? [homebaseCloud.capability] : [])]
       });
       return true;
     }
@@ -6381,7 +6455,8 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       missionExecutionRuntime,
       trackerCockpitControl,
       missionTransfer,
-      cloudAuthoritySnapshot
+      cloudAuthoritySnapshot,
+      () => homebaseCloudAccess
     );
   };
 
@@ -6534,7 +6609,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
   for (const state of _relayStates.values()) connectRelay(state);
 }
 
-function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, setTrackerTelemetryWakeHandler = null, setTrackerCommandWakeFilter = null, isDirectHangarAckCommand = null, getHomebaseFallback = null, updateEfbState = null, missionAuthorityManager = null, trackerMissionShadow = null, missionExecutionRuntime = null, trackerCockpitControl = null, missionTransfer = null, getCloudAuthoritySnapshot = null) {
+function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, setTrackerTelemetryWakeHandler = null, setTrackerCommandWakeFilter = null, isDirectHangarAckCommand = null, getHomebaseFallback = null, updateEfbState = null, missionAuthorityManager = null, trackerMissionShadow = null, missionExecutionRuntime = null, trackerCockpitControl = null, missionTransfer = null, getCloudAuthoritySnapshot = null, getHomebaseCloud = null) {
   let independentReadiness = null;
   open('VFR-Multitool-v206', 5)
     .then(({ handle }) => {
@@ -6738,9 +6813,22 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
 
       const applyHomebaseFallback = (position) => {
         if (!homebaseManager || typeof getHomebaseFallback !== 'function' || Date.now() < homebaseAppAuthorityUntil) return;
+        const homebaseCloud = typeof getHomebaseCloud === 'function' ? getHomebaseCloud() : null;
+        // Beim Start erst den Cloud-Abruf abwarten (max. 8 s), sonst wird der alte
+        // Zwischenspeicher gebaut und kurz danach durch den Cloud-Stand ersetzt.
+        if (homebaseCloud && !homebaseCloud.initialSettled()) return;
         const cache = getHomebaseFallback();
         if (!cache) return;
         const shouldBeActive = fallbackShouldBeActive(cache, position, homebaseFallbackInside);
+        if (shouldBeActive && homebaseCloud?.suppressed()) {
+          // Workbench "Live-Ergaenzungen entfernen": bis zum Verlassen des Radius aus.
+          homebaseFallbackInside = true;
+          if (homebaseSceneSignature !== cache.sceneSignature) return;
+          homebaseSceneSignature = '';
+          homebaseManager.handleCommand({ type: 'homebase_v1.preview.clear', commandId: `homebase-fallback-suppress-${Date.now()}` });
+          debugLog(`HOMEBASE_FALLBACK_SUPPRESSED signature=${cache.sceneSignature}`);
+          return;
+        }
         if (shouldBeActive) {
           homebaseFallbackInside = true;
           if (homebaseSceneSignature === cache.sceneSignature) return;
@@ -6765,6 +6853,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
           return;
         }
         homebaseFallbackInside = false;
+        homebaseCloud?.clearSuppression();
         if (homebaseSceneSignature !== cache.sceneSignature) return;
         homebaseSceneSignature = '';
         homebaseManager.handleCommand({ type: 'homebase_v1.preview.clear', commandId: `homebase-fallback-clear-${Date.now()}` });
@@ -7287,11 +7376,15 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                 };
                 if (homebaseManager) {
                   const currentFallback = typeof getHomebaseFallback === 'function' ? getHomebaseFallback() : null;
+                  const homebaseCloud = typeof getHomebaseCloud === 'function' ? getHomebaseCloud() : null;
                   gpsMsg.homebase = {
                     protocol: homebaseManager.protocol,
-                    capabilities: homebaseManager.capabilities,
+                    capabilities: homebaseCloud?.available
+                      ? [...homebaseManager.capabilities, homebaseCloud.capability]
+                      : homebaseManager.capabilities,
                     sceneSignature: homebaseSceneSignature,
                     fallbackActive: homebaseFallbackInside && currentFallback?.sceneSignature === homebaseSceneSignature,
+                    ...(homebaseCloud?.available ? { cloudScene: homebaseCloud.publicState() } : {}),
                     ...homebaseManager.snapshot()
                   };
                 }
@@ -7429,7 +7522,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         clearInterval(trafficInterval);
         clearInterval(payloadSnapshotInterval);
         trackerWarn("⚠️  MSFS getrennt. Neuer SimConnect-Versuch in 5 Sekunden...");
-        setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, setTrackerTelemetryWakeHandler, setTrackerCommandWakeFilter, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager, trackerMissionShadow, missionExecutionRuntime, trackerCockpitControl, missionTransfer, getCloudAuthoritySnapshot), 5000);
+        setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, setTrackerTelemetryWakeHandler, setTrackerCommandWakeFilter, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager, trackerMissionShadow, missionExecutionRuntime, trackerCockpitControl, missionTransfer, getCloudAuthoritySnapshot, getHomebaseCloud), 5000);
       });
     })
     .catch(err => {
@@ -7443,7 +7536,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       trackerWarn("⚠️  MSFS nicht gefunden / SimConnect-Fehler. Neuer Versuch in 5 Sekunden...");
       if (typeof setTrackerTelemetryWakeHandler === 'function') setTrackerTelemetryWakeHandler(null);
       if (typeof setTrackerCommandWakeFilter === 'function') setTrackerCommandWakeFilter(null);
-      setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, setTrackerTelemetryWakeHandler, setTrackerCommandWakeFilter, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager, trackerMissionShadow, missionExecutionRuntime, trackerCockpitControl, missionTransfer, getCloudAuthoritySnapshot), 5000);
+      setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, setTrackerTelemetryWakeHandler, setTrackerCommandWakeFilter, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager, trackerMissionShadow, missionExecutionRuntime, trackerCockpitControl, missionTransfer, getCloudAuthoritySnapshot, getHomebaseCloud), 5000);
     });
 }
 
