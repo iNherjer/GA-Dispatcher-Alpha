@@ -1,0 +1,850 @@
+/* ==========================================================================
+   NavCom-Designs: Klassik (styles.css), Bendix und KX.
+   Bendix/KX bauen eigenes Geräte-Markup (navcom-skins.js) und übernehmen die
+   Optik der Entwürfe analysis/navcom-redesign-2026-10-22/. Die echten
+   Bedienelemente werden hineingehängt und hier passend gestylt.
+   ========================================================================== */
+
+@font-face {
+    font-family: 'NC DSEG14';
+    font-weight: 700;
+    font-display: swap;
+    src: url('assets/fonts/DSEG14Classic-Bold.woff2') format('woff2');
+}
+@font-face {
+    font-family: 'NC DSEG14';
+    font-weight: 400;
+    font-display: swap;
+    src: url('assets/fonts/DSEG14Classic-Regular.woff2') format('woff2');
+}
+
+/* Schraube oben rechts ist im NavCom der Design-Umschalter */
+body.theme-navcom .screw.top-right { cursor: pointer; z-index: 20; }
+
+/* --------------------------------------------------------------------------
+   Anzeigefarben
+   -------------------------------------------------------------------------- */
+body.theme-navcom {
+    --nc-seg: #ff6b25;
+    --nc-seg-hot: #ffd2b5;
+    --nc-seg-label: #ff8a42;
+    --nc-glow: rgba(255, 92, 28, .55);
+    --nc-glow-far: rgba(255, 70, 15, .2);
+    --nc-ghost: rgba(255, 100, 40, .07);
+    --nc-glass: #070202;
+    --nc-paint: #f2f2ee;
+    --nc-paint-dim: #9a9a96;
+    --nc-legend: #e4e2dc;
+    --nc-legend-dim: #8d8f93;
+    --nc-led: #4dff6a;
+}
+body.theme-navcom.nc-disp-red {
+    --nc-seg: #ff2f1f; --nc-seg-hot: #ffb3a6; --nc-seg-label: #ff5a48;
+    --nc-glow: rgba(255, 45, 25, .55); --nc-glow-far: rgba(255, 20, 0, .22);
+    --nc-ghost: rgba(255, 40, 20, .055); --nc-glass: #0b0202;
+}
+body.theme-navcom.nc-disp-amber {
+    --nc-seg: #ff9a2e; --nc-seg-hot: #ffd9a8; --nc-seg-label: #ffab52;
+    --nc-glow: rgba(255, 128, 24, .5); --nc-glow-far: rgba(255, 96, 0, .2);
+    --nc-ghost: rgba(255, 130, 40, .075); --nc-glass: #0d0805;
+}
+body.theme-navcom.nc-disp-green {
+    --nc-seg: #46ff5a; --nc-seg-hot: #c9ffd0; --nc-seg-label: #6dff7d;
+    --nc-glow: rgba(60, 255, 80, .45); --nc-glow-far: rgba(30, 220, 60, .18);
+    --nc-ghost: rgba(70, 255, 90, .07); --nc-glass: #040b05;
+}
+body.theme-navcom.nc-disp-cyan {
+    --nc-seg: #6fe6ff; --nc-seg-hot: #dcf8ff; --nc-seg-label: #8fecff;
+    --nc-glow: rgba(90, 220, 255, .45); --nc-glow-far: rgba(40, 180, 255, .18);
+    --nc-ghost: rgba(110, 230, 255, .07); --nc-glass: #03080b;
+}
+
+/* Klassik: Grundfarbe unverändert, nur Amber/Grün färben um */
+body.theme-navcom:not(.navcom-skin-bendix):not(.navcom-skin-kx):not(.nc-disp-orig) #navcomInputs .lcd-input,
+body.theme-navcom:not(.navcom-skin-bendix):not(.navcom-skin-kx):not(.nc-disp-orig) #navcomInputs .lcd-input * {
+    color: var(--nc-seg) !important;
+    text-shadow: 0 0 5px var(--nc-glow), 0 0 12px var(--nc-glow-far) !important;
+}
+body.theme-navcom:not(.navcom-skin-bendix):not(.navcom-skin-kx):not(.nc-disp-orig) #navcomInputs .radio-disp-inner .lcd-label {
+    color: var(--nc-seg-label);
+    text-shadow: 0 0 6px var(--nc-glow-far);
+}
+body.theme-navcom:not(.navcom-skin-bendix):not(.navcom-skin-kx):not(.nc-disp-orig) #navcomInputs .lcd-input option { color: var(--nc-seg); }
+
+/* Lampentest und Werte-Animation */
+#navcomInputs.nc-lamp-test .lcd-input { animation: ncLampTest .9s ease-out; }
+@keyframes ncLampTest {
+    0% { opacity: .2; }
+    25% { opacity: 1; filter: brightness(1.5); }
+    45% { opacity: .35; }
+    100% { opacity: 1; filter: none; }
+}
+#navcomInputs .nc-unit .lcd-input.nc-flash { animation: ncLedOn .3s ease-out; }
+@keyframes ncLedOn {
+    0% { opacity: .15; filter: blur(1px); }
+    100% { opacity: 1; filter: none; }
+}
+
+body.theme-navcom #navcomInputs .marker-lights { cursor: pointer; }
+body.theme-navcom #navcomInputs .marker-lights:focus-visible { outline: 2px solid var(--nc-seg); outline-offset: 2px; }
+
+/* --------------------------------------------------------------------------
+   Gemeinsam für Bendix und KX
+   -------------------------------------------------------------------------- */
+/* Originale Module ausblenden (ihre Bedienelemente stecken im Geräte-Markup) */
+#navcomInputs.nc-layout > .radio-row,
+#navcomInputs.nc-layout > .radio-module:not(.kln90b-module) { display: none !important; }
+
+#navcomInputs .nc-unit { position: relative; z-index: 1; box-sizing: border-box; width: 100%; }
+#navcomInputs .nc-unit *, #navcomInputs .nc-unit *::before, #navcomInputs .nc-unit *::after { box-sizing: border-box; }
+/* Geöffnete Flughafen-/Favoritenliste liegt über allen Geräten, Knöpfen und Tasten */
+#navcomInputs .nc-unit:focus-within,
+#navcomInputs .nc-unit:has(.airport-autocomplete:not([hidden])) { z-index: 200; }
+#navcomInputs .nc-unit .win:focus-within,
+#navcomInputs .nc-unit .win:has(.airport-autocomplete:not([hidden])) { z-index: 50 !important; overflow: visible; }
+#navcomInputs .nc-unit .radio-disp-inner .airport-autocomplete {
+    width: min(380px, calc(100vw - 48px));
+    left: -10px;
+    right: auto;
+    top: calc(100% + 8px);
+    z-index: 60;
+}
+#navcomInputs .nc-unit .radio-disp-inner .airport-autocomplete[data-input-id="destLocRadio"] { left: auto; right: -10px; }
+
+/* Unsichtbare Original-Bedienelemente über den Zierknöpfen/-tastern */
+#navcomInputs .nc-unit .ovl { position: absolute; inset: 0; z-index: 6; }
+#navcomInputs .nc-unit .ovl > * {
+    position: absolute !important;
+    inset: 0 !important;
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 50% !important;
+    transform: none !important;
+    opacity: 0 !important;
+    cursor: pointer;
+}
+#navcomInputs .nc-unit .xfer .ovl > * { border-radius: 3px !important; }
+#navcomInputs .nc-unit .radio-knob.drag-knob { cursor: ns-resize; }
+
+/* Werte im Fenster (umgehängtes .radio-disp-inner) */
+#navcomInputs .nc-unit .radio-disp-inner {
+    position: relative;
+    z-index: 2;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+    margin: 0;
+}
+#navcomInputs .nc-unit .lcd-input,
+#navcomInputs .nc-unit input.lcd-input,
+#navcomInputs .nc-unit select.lcd-input,
+#navcomInputs .nc-unit button.lcd-input,
+#navcomInputs .nc-unit div.lcd-input {
+    position: relative;
+    z-index: 1;
+    display: block;
+    width: 100% !important;
+    min-width: 0;
+    height: auto;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    color: var(--nc-seg) !important;
+    text-shadow: 0 0 1px var(--nc-seg-hot), 0 0 4px var(--nc-glow), 0 0 10px var(--nc-glow-far) !important;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    caret-color: var(--nc-seg);
+    transition: none !important;
+    appearance: none;
+    -webkit-appearance: none;
+    cursor: pointer;
+}
+#navcomInputs .nc-unit .lcd-input * { color: inherit !important; text-shadow: inherit !important; }
+#navcomInputs .nc-unit .lcd-input:focus { background: rgba(255,255,255,.04) !important; outline: none; }
+#navcomInputs .nc-unit .lcd-input option { font: 15px 'Share Tech Mono', monospace; background: #0a0a0a; color: var(--nc-seg); }
+#navcomInputs .nc-unit .lcd-input::placeholder { color: var(--nc-seg); opacity: .9; }
+
+/* Taster (Audio, CMD): Text als Block, LED oben */
+#navcomInputs .nc-unit .agrid .audio-btn,
+#navcomInputs .nc-unit .cmd-btns .audio-btn {
+    position: relative;
+    display: block;
+    width: 100% !important;
+    min-width: 0;
+    margin: 0;
+    border: 0;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    user-select: none;
+    transition: transform .06s, box-shadow .06s;
+}
+#navcomInputs .nc-unit .audio-btn .audio-led {
+    position: absolute;
+    left: 50%;
+    margin: 0 !important;
+    border: 0 !important;
+    transform: translateX(-50%);
+    transition: background .15s, box-shadow .15s;
+}
+#navcomInputs .nc-unit .audio-btn .audio-btn-label { display: inline; }
+#navcomInputs .nc-unit .audio-btn.active .audio-led,
+#navcomInputs .nc-unit .audio-btn.is-active .audio-led {
+    background: var(--nc-led) !important;
+    box-shadow: 0 0 4px var(--nc-led), 0 0 10px rgba(77,255,106,.55), inset 0 0 1px #fff !important;
+}
+#navcomInputs .nc-unit .audio-btn.active { color: #fff; }
+
+/* Knöpfe: Riffelung dreht mit (--nc-rot), Lichtreflex bleibt stehen */
+#navcomInputs .nc-unit .nc-knob { --nc-rot: 0deg; border-radius: 50%; cursor: grab; touch-action: none; }
+#navcomInputs .nc-unit .nc-knob:active { cursor: grabbing; }
+#navcomInputs .nc-unit .nc-knob > i { position: absolute; border-radius: 50%; display: block; pointer-events: none; }
+#navcomInputs .nc-unit .nc-knob:focus-visible,
+#navcomInputs .nc-unit .xfer:focus-within { outline: 2px solid var(--nc-seg); outline-offset: 2px; }
+
+
+/* ==========================================================================
+   KX (nach analysis/.../navcom-kx-entwurf.html)
+   Maße in cqw: jede Frontplatte skaliert mit ihrer Breite
+   ========================================================================== */
+body.theme-navcom #navcomInputs.nc-layout-kx {
+    gap: 4px;
+    padding: 6px;
+    border: 0;
+    border-radius: 5px;
+    background: linear-gradient(180deg, #17181b, #060607);
+    box-shadow: 0 0 0 1px #000, inset 0 1px 0 rgba(255,255,255,.06), 0 26px 50px -8px rgba(0,0,0,.9), 0 8px 16px rgba(0,0,0,.5);
+}
+body.theme-navcom #navcomInputs.nc-layout-kx.nc-wide { padding: 10px 26px; gap: 6px; }
+body.theme-navcom #navcomInputs.nc-layout-kx.nc-wide::before,
+body.theme-navcom #navcomInputs.nc-layout-kx.nc-wide::after {
+    content: '';
+    position: absolute; top: 10px; bottom: 10px; width: 12px; border-radius: 3px;
+    background:
+        radial-gradient(ellipse 3px 5px at 50% 50%, #000 0 70%, rgba(255,255,255,.12) 80%, transparent 95%) 0 0 / 12px 22px,
+        linear-gradient(90deg, #26292e, #0c0d0f 60%, #1a1c20);
+    box-shadow: inset 1px 0 0 rgba(255,255,255,.08), inset -1px 0 0 rgba(0,0,0,.8);
+    pointer-events: none;
+}
+body.theme-navcom #navcomInputs.nc-layout-kx.nc-wide::before { left: 7px; }
+body.theme-navcom #navcomInputs.nc-layout-kx.nc-wide::after { right: 7px; }
+
+#navcomInputs .ncx {
+    container-type: inline-size;
+    border-radius: 4px;
+    font-family: Arial, 'Helvetica Neue', sans-serif;
+    background:
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .035 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
+        linear-gradient(180deg, rgba(255,255,255,.06), transparent 12%, transparent 85%, rgba(0,0,0,.4)),
+        #0d0d0e;
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.16),
+        inset 0 -1px 0 rgba(0,0,0,.9),
+        inset 1px 0 0 rgba(255,255,255,.05),
+        0 0 0 1px #000,
+        0 3px 6px rgba(0,0,0,.6);
+}
+#navcomInputs .ncx.kx   { aspect-ratio: 100 / 34; }
+#navcomInputs .ncx.kma  { aspect-ratio: 100 / 19; }
+#navcomInputs .ncx.kt   { aspect-ratio: 100 / 27; }
+#navcomInputs .ncx.kcmd { aspect-ratio: 100 / 15; }
+#navcomInputs .ncx > * { position: absolute; }
+
+/* Fenster */
+#navcomInputs .ncx .wins { top: 2.6cqw; left: 2cqw; right: 2cqw; height: 13.8cqw; display: grid; grid-template-columns: 1fr 1fr; gap: 2cqw; }
+#navcomInputs .ncx .win {
+    position: relative; min-width: 0; z-index: 1;
+    border: max(2px, .6cqw) solid var(--nc-paint);
+    border-radius: 1.1cqw;
+    background:
+        radial-gradient(80% 90% at 70% 45%, rgba(255,40,20,.05), transparent 70%),
+        linear-gradient(180deg, rgba(0,0,0,.7), transparent 35%),
+        var(--nc-glass);
+    box-shadow: 0 0 0 1px #000, inset 0 0 0 1px #000, inset 0 .8cqw 1.8cqw rgba(0,0,0,.95);
+}
+#navcomInputs .ncx .win::after {
+    content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 3;
+    background: linear-gradient(164deg, rgba(255,255,255,.10) 0%, rgba(255,255,255,.025) 34%, transparent 35%);
+}
+#navcomInputs .ncx .win:focus-within::after { display: none; }
+#navcomInputs .ncx .wins .win .radio-disp-inner {
+    position: absolute;
+    inset: 1cqw 2.2cqw 1cqw;
+    width: auto;
+    grid-template-rows: minmax(0, 1fr) auto;
+    grid-template-areas: "val" "lab";
+    align-items: center;
+}
+#navcomInputs .ncx .wins .win .radio-disp-inner .lcd-input {
+    grid-area: val;
+    font-family: 'NC DSEG14', 'Share Tech Mono', monospace !important;
+    font-weight: 400 !important;
+    font-size: calc(7.4cqw * var(--nc-fit, 1)) !important;
+    line-height: 1.2 !important;
+    letter-spacing: .02em !important;
+    text-align: right;
+    text-align-last: right;
+}
+#navcomInputs .ncx .wins .win .radio-disp-inner .lcd-input.airport-input-name { font-size: calc(4.4cqw * var(--nc-fit, 1)) !important; letter-spacing: 0 !important; }
+#navcomInputs .ncx .wins .win .radio-disp-inner .airport-type-radio-button { font-size: calc(5.4cqw * var(--nc-fit, 1)) !important; }
+#navcomInputs .ncx .wins .win .radio-disp-inner .lcd-label,
+#navcomInputs .ncx .leg-r,
+#navcomInputs .ncx .cell .leg {
+    grid-area: lab;
+    margin: 0 !important;
+    padding: 0;
+    border: 0;
+    background: none;
+    text-align: left;
+    font: 700 max(7.5px, 1.6cqw)/1 Arial, 'Helvetica Neue', sans-serif !important;
+    letter-spacing: .08em !important;
+    color: var(--nc-paint) !important;
+    opacity: 1 !important;
+    text-shadow: none !important;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+#navcomInputs .ncx .leg-r { position: absolute; right: 2.2cqw; bottom: 1cqw; z-index: 2; }
+#navcomInputs .ncx .leg-r .ann { color: var(--nc-paint-dim); opacity: .55; transition: opacity .15s, color .15s; }
+#navcomInputs .ncx.nc-pick .leg-r .ann.pick,
+#navcomInputs .ncx:not(.nc-pick) .leg-r .ann.rdm { color: var(--nc-paint); opacity: 1; }
+
+/* Weißes Band */
+#navcomInputs .ncx .band {
+    top: 18.2cqw; left: 1.5cqw; right: 1.5cqw; height: 4.6cqw; z-index: 0;
+    border: max(1.5px, .45cqw) solid var(--nc-paint); border-radius: .9cqw;
+    box-shadow: 0 0 0 1px #000, inset 0 0 0 1px #000;
+}
+#navcomInputs .ncx .band > * { position: absolute; top: 50%; transform: translateY(-50%); }
+#navcomInputs .ncx .model { font: 800 max(9px, 2.5cqw)/1 Arial, 'Helvetica Neue', sans-serif; letter-spacing: .06em; color: var(--nc-paint); white-space: nowrap; }
+#navcomInputs .ncx .band .model { left: 2cqw; }
+#navcomInputs .ncx .blabel { font: 800 max(8px, 2.2cqw)/1 Arial, 'Helvetica Neue', sans-serif; letter-spacing: .1em; color: var(--nc-paint); white-space: nowrap; }
+#navcomInputs .ncx .blabel.l { left: 43.5cqw; }
+#navcomInputs .ncx .blabel.r { right: 2cqw; }
+#navcomInputs .ncx .xfer {
+    width: 5.8cqw; height: 3.3cqw; min-width: 22px; min-height: 13px;
+    display: grid; place-items: center;
+    border-radius: .6cqw;
+    background: linear-gradient(180deg, #ffffff 0%, #ecece8 55%, #c9c9c4 100%);
+    box-shadow: inset 0 1px 0 #fff, inset 0 -1px 0 rgba(0,0,0,.25), 0 0 0 1px #000, 0 .4cqw 0 #3a3a38, 0 .6cqw .8cqw rgba(0,0,0,.7);
+    transition: transform .06s, box-shadow .06s;
+    z-index: 3;
+}
+#navcomInputs .ncx .xfer svg { width: 72%; height: auto; fill: #0b0b0b; pointer-events: none; }
+#navcomInputs .ncx .xfer:active { transform: translateY(calc(-50% + .35cqw)); box-shadow: inset 0 1px 3px rgba(0,0,0,.35), 0 0 0 1px #000; }
+#navcomInputs .ncx .xfer.l { left: 19cqw; }
+#navcomInputs .ncx .xfer.r { left: 67cqw; }
+
+/* Untere Zone */
+#navcomInputs .ncx .brand { top: 24cqw; left: 2.6cqw; font: italic 800 max(7px, 1.9cqw)/1 Arial, 'Helvetica Neue', sans-serif; letter-spacing: .02em; color: var(--nc-paint); white-space: nowrap; }
+#navcomInputs .ncx .pull {
+    font: 700 max(6.5px, 1.6cqw)/1.15 Arial, sans-serif; letter-spacing: .06em; color: var(--nc-paint); text-align: left; white-space: nowrap;
+    padding: .35cqw .6cqw; border-radius: .4cqw; background: rgba(255,255,255,.07); box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+    pointer-events: none;
+}
+#navcomInputs .ncx .pull.l { left: 11.6cqw; top: 26.6cqw; }
+#navcomInputs .ncx .pull.r { left: 61.8cqw; top: 26.6cqw; }
+#navcomInputs .ncx .off { left: 4.4cqw; top: 31cqw; font: 700 max(6px, 1.5cqw)/1 Arial, sans-serif; color: var(--nc-paint); letter-spacing: .06em; }
+
+/* Konzentrischer Doppelknopf */
+#navcomInputs .ncx .nc-knob { aspect-ratio: 1; z-index: 4; }
+#navcomInputs .ncx .nc-knob .sh { inset: -2%; transform: translate(5%, 9%); background: radial-gradient(circle, rgba(0,0,0,.85) 48%, transparent 72%); }
+#navcomInputs .ncx .nc-knob .k1 { inset: 0;
+    background:
+        radial-gradient(circle, transparent 60%, rgba(255,255,255,.07) 63%, transparent 66%),
+        repeating-conic-gradient(from var(--nc-rot), #2c2c2f 0 3.2deg, #050506 3.2deg 6.4deg);
+    box-shadow: 0 0 0 1px #000, inset 0 -.5cqw 1cqw rgba(0,0,0,.9); }
+#navcomInputs .ncx .nc-knob .w1 { inset: 17%; background: conic-gradient(from 200deg, #fff, #b9b9b4 22%, #f4f4f0 45%, #9d9d98 68%, #f8f8f5 88%, #fff); box-shadow: 0 0 0 1px #000, 0 .4cqw .8cqw rgba(0,0,0,.8); }
+#navcomInputs .ncx .nc-knob .k2 { inset: 21%; background: repeating-conic-gradient(from calc(var(--nc-rot) * 1.7), #2a2a2d 0 5deg, #060607 5deg 10deg); box-shadow: inset 0 -.4cqw .8cqw rgba(0,0,0,.9); }
+#navcomInputs .ncx .nc-knob .w2 { inset: 31%; background: conic-gradient(from 200deg, #fff, #a8a8a3 30%, #eeeeea 55%, #8f8f8a 80%, #fff); }
+#navcomInputs .ncx .nc-knob .cap { inset: 33%; background: radial-gradient(circle at 40% 32%, #2b2b2e, #0b0b0c 62%, #040405); box-shadow: inset 0 1px 0 rgba(255,255,255,.12); }
+#navcomInputs .ncx .nc-knob .shine { inset: 0; background: radial-gradient(circle at 32% 22%, rgba(255,255,255,.3), transparent 36%), radial-gradient(circle at 74% 84%, rgba(0,0,0,.5), transparent 46%); }
+#navcomInputs .ncx .nc-knob.big { width: 12.4cqw; top: 21.2cqw; }
+#navcomInputs .ncx .nc-knob.big.l { left: 29.6cqw; }
+#navcomInputs .ncx .nc-knob.big.r { left: 81.6cqw; }
+#navcomInputs .ncx .nc-knob.mini { width: 4.8cqw; min-width: 18px; top: 25.6cqw; }
+#navcomInputs .ncx .nc-knob.mini.l { left: 5.8cqw; }
+#navcomInputs .ncx .nc-knob.mini.r { left: 55.8cqw; }
+#navcomInputs .ncx .nc-knob.mini .k1 { background: repeating-conic-gradient(from var(--nc-rot), #2c2c2f 0 8deg, #060607 8deg 16deg); }
+#navcomInputs .ncx .nc-knob.mini .cap { inset: 18%; background: radial-gradient(circle at 40% 32%, #303034, #0c0c0d 65%); box-shadow: 0 0 0 1px #000; }
+#navcomInputs .ncx .nc-knob .ptr { inset: 0; background: linear-gradient(var(--nc-paint), var(--nc-paint)) 50% 12% / 9% 34% no-repeat; transform: rotate(calc(var(--nc-rot) - 40deg)); }
+
+/* Audio (KMA-Stil): 7 Taster in einer Reihe */
+#navcomInputs .ncx .mk-win {
+    top: 2.6cqw; left: 2cqw; width: 16cqw; height: 9.6cqw;
+    border: max(2px, .6cqw) solid var(--nc-paint); border-radius: 1.1cqw;
+    background: #050505; box-shadow: 0 0 0 1px #000, inset 0 .6cqw 1.4cqw rgba(0,0,0,.95);
+}
+#navcomInputs .ncx .mk-win .marker-lights {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: row; align-items: center; justify-content: space-around;
+    gap: 0; padding: 0 1.2cqw; margin: 0;
+    border: 0; border-radius: 0; background: none; box-shadow: none;
+}
+#navcomInputs .ncx .marker-light {
+    width: 3.6cqw !important; height: 3.6cqw !important; min-width: 0; min-height: 0;
+    border-radius: 50% !important; display: grid; place-items: center;
+    font: 800 max(6px, 1.6cqw)/1 Arial, sans-serif !important; color: rgba(0,0,0,.65) !important;
+    opacity: 1 !important;
+    background-image: radial-gradient(circle at 40% 30%, rgba(255,255,255,.5), transparent 55%);
+    filter: brightness(.3) saturate(.7);
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.6) !important;
+    text-shadow: none !important;
+    animation: none;
+    transition: filter .08s, box-shadow .08s;
+}
+#navcomInputs .ncx .marker-light.on, #navcomInputs .ncx .marker-light.blinking { filter: none; }
+#navcomInputs .ncx .marker-light.blinking { animation: ncMarkerBlink .3s infinite alternate; }
+@keyframes ncMarkerBlink { from { filter: brightness(.35); } to { filter: none; } }
+#navcomInputs .ncx .mk-outer.on, #navcomInputs .ncx .mk-outer.blinking { box-shadow: inset 0 0 0 1px rgba(255,255,255,.5), 0 0 1.4cqw #3d8dff, 0 0 3cqw #3d8dff !important; }
+#navcomInputs .ncx .mk-middle.on, #navcomInputs .ncx .mk-middle.blinking { box-shadow: inset 0 0 0 1px rgba(255,255,255,.5), 0 0 1.4cqw #ffb41e, 0 0 3cqw #ffb41e !important; }
+#navcomInputs .ncx .mk-inner.on, #navcomInputs .ncx .mk-inner.blinking { box-shadow: inset 0 0 0 1px rgba(255,255,255,.5), 0 0 1.4cqw #f5f5f2, 0 0 3cqw #f5f5f2 !important; }
+#navcomInputs .ncx .agrid {
+    top: 2.6cqw; left: 20.5cqw; right: 2cqw; height: 9.6cqw;
+    display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: 1fr; gap: 1.1cqw;
+    margin: 0;
+}
+#navcomInputs .ncx .agrid .audio-btn,
+#navcomInputs .ncx .cmd-btns .audio-btn {
+    height: 100% !important; min-height: 0 !important;
+    padding: 4.4cqw .4cqw 0 !important;
+    border-radius: .7cqw;
+    font: 700 calc(max(6.5px, 1.75cqw) * var(--nc-fit, 1))/1 Arial, 'Helvetica Neue', sans-serif !important;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: var(--nc-paint);
+    text-shadow: none;
+    background: linear-gradient(180deg, #2b2b2e 0%, #141416 60%, #0c0c0d 100%) !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.14), inset 0 -1px 0 rgba(0,0,0,.6), 0 0 0 1px #000, 0 .4cqw 0 #000, 0 .7cqw 1cqw rgba(0,0,0,.6) !important;
+}
+#navcomInputs .ncx .agrid .audio-btn:active,
+#navcomInputs .ncx .cmd-btns .audio-btn:active { transform: translateY(.35cqw); box-shadow: inset 0 .3cqw .6cqw rgba(0,0,0,.7), 0 0 0 1px #000 !important; }
+#navcomInputs .ncx .audio-btn .audio-led { top: 2.2cqw; width: 3.2cqw !important; height: max(2px, .65cqw) !important; border-radius: .3cqw !important; background: #070807 !important; box-shadow: inset 0 1px 1px #000, 0 1px 0 rgba(255,255,255,.07) !important; }
+#navcomInputs .ncx.kma .model { top: 14.3cqw; left: 2.6cqw; }
+#navcomInputs .ncx.kma .brand { top: 14.6cqw; left: auto; right: 2.6cqw; }
+
+/* XPDR (KT-76-Stil) */
+#navcomInputs .ncx.kt > .win {
+    position: absolute;
+    top: 2.6cqw; left: 2cqw; width: 68cqw; height: 13.4cqw;
+    display: flex; align-items: stretch; padding: 1cqw;
+}
+#navcomInputs .ncx .cell { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; padding: 0 1.2cqw; }
+#navcomInputs .ncx .cell + .cell { border-left: 1px solid rgba(255,255,255,.06); }
+#navcomInputs .ncx .cell[data-act] { cursor: pointer; }
+#navcomInputs .ncx .cell .seg { height: 7cqw; display: flex; align-items: center; justify-content: center; }
+#navcomInputs .ncx .cell .lcd-input {
+    font-family: 'NC DSEG14', 'Share Tech Mono', monospace !important;
+    font-weight: 400 !important;
+    font-size: calc(6.6cqw * var(--nc-fit, 1)) !important;
+    line-height: 1.2 !important;
+    letter-spacing: .02em !important;
+    text-align: center;
+    text-align-last: center;
+    pointer-events: none;
+}
+#navcomInputs .ncx .cell select.lcd-input { pointer-events: auto; }
+#navcomInputs .ncx .cell .leg { display: block; text-align: center; margin-top: 1.3cqw !important; }
+#navcomInputs .ncx .tk { width: 7cqw; top: 17.4cqw; }
+#navcomInputs .ncx .tk.c1 { left: 6.2cqw; } #navcomInputs .ncx .tk.c2 { left: 23.2cqw; }
+#navcomInputs .ncx .tk.c3 { left: 40.2cqw; } #navcomInputs .ncx .tk.c4 { left: 57.2cqw; }
+#navcomInputs .ncx .tk .w1 { inset: 22%; } #navcomInputs .ncx .tk .k2 { inset: 26%; }
+#navcomInputs .ncx .tk .w2 { inset: 36%; } #navcomInputs .ncx .tk .cap { inset: 38%; }
+#navcomInputs .ncx .reply { top: 17.6cqw; left: 75.4cqw; display: flex; align-items: center; gap: .8cqw; font: 800 max(7px, 1.7cqw)/1 Arial, sans-serif; color: var(--nc-paint); }
+#navcomInputs .ncx .reply i { width: 2.2cqw; aspect-ratio: 1; border-radius: 50%; background: #1a0605; box-shadow: inset 0 0 0 1px #000; transition: background .05s, box-shadow .05s; }
+#navcomInputs .ncx .reply.on i { background: var(--nc-seg); box-shadow: 0 0 .8cqw var(--nc-glow); }
+#navcomInputs .ncx .nc-knob.mode { top: 6.6cqw; left: 81.5cqw; width: 9.6cqw; }
+#navcomInputs .ncx .nc-knob.mode .cap { inset: 14%; }
+#navcomInputs .ncx .nc-knob.mode .ptr { background: linear-gradient(var(--nc-paint), var(--nc-paint)) 50% 8% / 8% 30% no-repeat; transform: rotate(-35deg); transition: transform .18s cubic-bezier(.4,1.6,.6,1); }
+#navcomInputs .ncx.nc-vs .nc-knob.mode .ptr { transform: rotate(35deg); }
+#navcomInputs .ncx .mlab { font: 800 max(7px, 1.7cqw)/1 Arial, sans-serif; letter-spacing: .06em; color: var(--nc-paint-dim); transition: color .15s; cursor: pointer; }
+#navcomInputs .ncx:not(.nc-vs) .mlab.a, #navcomInputs .ncx.nc-vs .mlab.v { color: var(--nc-paint); }
+#navcomInputs .ncx .mlab.a { top: 6.2cqw; left: 75.4cqw; } #navcomInputs .ncx .mlab.v { top: 6.2cqw; left: 92.6cqw; }
+#navcomInputs .ncx.kt .model { top: auto; bottom: 2.6cqw; right: 2.6cqw; }
+
+/* CMD */
+#navcomInputs .ncx .cmd-btns { top: 2.4cqw; left: 13cqw; right: 2cqw; height: 9.6cqw; display: grid; grid-template-columns: minmax(0, 2.3fr) minmax(0, 1fr) minmax(0, 1fr); gap: 1.6cqw; }
+#navcomInputs .ncx .cmd-btns > span { position: relative; display: block; min-width: 0; }
+#navcomInputs .ncx .cmd-btns .audio-btn { font-size: calc(max(9px, 2.6cqw) * var(--nc-fit, 1)) !important; letter-spacing: .16em; padding-top: 4cqw !important; }
+#navcomInputs .ncx .cmd-btns #radioGenerateBtn { color: #ff5a4a !important; text-shadow: 0 0 .8cqw rgba(255,90,74,.45); }
+#navcomInputs .ncx .cmd-btns #radioClearBtn { color: #ffd24a !important; text-shadow: 0 0 .8cqw rgba(255,210,74,.35); }
+#navcomInputs .ncx .cmd-btns #radioTransferBtn { text-shadow: 0 0 .8cqw rgba(108,184,255,.4); }
+#navcomInputs .ncx.kcmd .model { top: 5.6cqw; left: 2.6cqw; }
+
+@media (max-width: 440px) {
+    body.theme-navcom #navcomInputs.nc-layout-kx { padding: 4px; gap: 3px; }
+    #navcomInputs .ncx.kx .brand, #navcomInputs .ncx .off { display: none; }
+}
+
+
+/* ==========================================================================
+   BENDIX (nach analysis/.../navcom-entwurf.html)
+   ========================================================================== */
+body.theme-navcom #navcomInputs.nc-layout-bendix {
+    gap: 5px;
+    padding: 8px 6px;
+    border: 0;
+    border-radius: 10px;
+    background: linear-gradient(#141518, #0a0b0c);
+    box-shadow: 0 0 0 1px #000, inset 0 1px 0 rgba(255,255,255,.06), 0 30px 60px -10px rgba(0,0,0,.85), 0 10px 20px rgba(0,0,0,.5);
+}
+body.theme-navcom #navcomInputs.nc-layout-bendix.nc-wide {
+    padding: 12px 22px;
+    background:
+        linear-gradient(90deg, #050506 0 22px, transparent 22px calc(100% - 22px), #050506 calc(100% - 22px)),
+        linear-gradient(#141518, #0a0b0c);
+}
+body.theme-navcom #navcomInputs.nc-layout-bendix.nc-wide::before,
+body.theme-navcom #navcomInputs.nc-layout-bendix.nc-wide::after {
+    content: ''; position: absolute; top: 10px; bottom: 10px; width: 10px; pointer-events: none;
+    background: radial-gradient(circle at 50% 50%, #000 0 2.2px, #2a2c30 2.6px 3.2px, transparent 3.6px) 0 0 / 10px 18px;
+}
+body.theme-navcom #navcomInputs.nc-layout-bendix.nc-wide::before { left: 6px; }
+body.theme-navcom #navcomInputs.nc-layout-bendix.nc-wide::after { right: 6px; }
+
+#navcomInputs .ncb-row { display: flex; gap: 5px; }
+#navcomInputs .ncb-row > .ncb-half { flex: 1; min-width: 0; }
+
+/* Frontplatte */
+#navcomInputs .ncb-unit,
+#navcomInputs .ncb-half {
+    position: relative;
+    border-radius: 5px;
+    padding: 20px 12px 10px;
+    font-family: Arial, 'Helvetica Neue', sans-serif;
+    background:
+        url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 .05 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>"),
+        linear-gradient(180deg, #34373c 0%, #1b1c1f 100%);
+    box-shadow:
+        inset 0 1px 0 rgba(255,255,255,.14),
+        inset 0 -1px 0 rgba(0,0,0,.7),
+        inset 1px 0 0 rgba(255,255,255,.04),
+        inset -1px 0 0 rgba(0,0,0,.4),
+        0 0 0 1px #050506,
+        0 3px 6px rgba(0,0,0,.55);
+}
+#navcomInputs .ncb .unit-label {
+    position: absolute; top: 5px; left: 22px;
+    font: 700 10px/1 Arial, 'Helvetica Neue', sans-serif;
+    letter-spacing: .22em; text-transform: uppercase;
+    color: var(--nc-legend);
+    text-shadow: 0 -1px 0 rgba(0,0,0,.9);
+}
+#navcomInputs .ncb .unit-label small { color: var(--nc-legend-dim); letter-spacing: .14em; margin-left: 6px; font-weight: 600; font-size: 10px; }
+#navcomInputs .ncb .nc-screw {
+    position: absolute; width: 9px; height: 9px; border-radius: 50%;
+    background:
+        linear-gradient(var(--r, 35deg), transparent 42%, rgba(0,0,0,.85) 43% 57%, transparent 58%),
+        radial-gradient(circle at 35% 30%, #c9ccd1, #6e7278 55%, #34373b);
+    box-shadow: 0 1px 1px rgba(0,0,0,.8), inset 0 0 0 .5px rgba(0,0,0,.6);
+}
+#navcomInputs .ncb .nc-screw.tl { top: 5px; left: 6px; --r: 35deg; }
+#navcomInputs .ncb .nc-screw.tr { top: 5px; right: 6px; --r: 120deg; }
+#navcomInputs .ncb .nc-screw.bl { bottom: 5px; left: 6px; --r: 70deg; }
+#navcomInputs .ncb .nc-screw.br { bottom: 5px; right: 6px; --r: 10deg; }
+
+#navcomInputs .ncb .unit-body { display: flex; align-items: center; gap: 8px; }
+
+/* Anzeigefenster */
+#navcomInputs .ncb .win {
+    position: relative; flex: 1; min-width: 0; height: 50px; z-index: 1;
+    padding: 5px 9px 4px;
+    border-radius: 4px;
+    background:
+        radial-gradient(120% 140% at 50% 120%, rgba(255,255,255,.02), transparent 60%),
+        var(--nc-glass);
+    box-shadow:
+        inset 0 2px 6px rgba(0,0,0,.95),
+        inset 0 0 0 1px rgba(0,0,0,.9),
+        0 1px 0 rgba(255,255,255,.09),
+        0 -1px 0 rgba(0,0,0,.6);
+}
+#navcomInputs .ncb .win::after {
+    content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: 3;
+    background:
+        linear-gradient(168deg, rgba(255,255,255,.10) 0%, rgba(255,255,255,.03) 28%, transparent 29%),
+        repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 1px, transparent 1px 3px);
+    mix-blend-mode: screen;
+    opacity: .8;
+}
+#navcomInputs .ncb .win:focus-within::after { display: none; }
+#navcomInputs .ncb .unit-body .win .radio-disp-inner {
+    position: absolute; inset: 5px 9px 4px;
+    width: auto;
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas: "lab" "val";
+    row-gap: 3px;
+}
+#navcomInputs .ncb .unit-body .win .radio-disp-inner .lcd-label,
+#navcomInputs .ncb .annun,
+#navcomInputs .ncb .flag {
+    grid-area: lab;
+    margin: 0 !important;
+    padding: 0;
+    border: 0;
+    background: none;
+    text-align: left;
+    font: 400 9px/1 'Share Tech Mono', monospace !important;
+    letter-spacing: .14em !important;
+    color: var(--nc-seg) !important;
+    opacity: .72 !important;
+    text-shadow: 0 0 3px var(--nc-glow-far) !important;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+#navcomInputs .ncb .flag { position: absolute; top: 5px; right: 9px; opacity: .25 !important; transition: opacity .2s; z-index: 2; }
+#navcomInputs .ncb-row[data-unit="com"] .ncb-half:first-child .flag,
+#navcomInputs .ncb-row[data-unit="nav"] .ncb-half:last-child .flag,
+#navcomInputs .ncb-row[data-unit="adf"] .flag,
+#navcomInputs .ncb-row[data-unit="nav"].nc-pick .ncb-half:first-child .flag { opacity: .72 !important; }
+#navcomInputs .ncb .unit-body .win .radio-disp-inner .lcd-input {
+    grid-area: val;
+    align-self: center;
+    font-family: 'NC DSEG14', 'Share Tech Mono', monospace !important;
+    font-weight: 700 !important;
+    font-size: calc(19px * var(--nc-fit, 1)) !important;
+    line-height: 1.15 !important;
+    letter-spacing: .04em !important;
+    text-align: right;
+    text-align-last: right;
+}
+#navcomInputs .ncb .unit-body .win .radio-disp-inner .lcd-input.airport-input-name { font-size: calc(12px * var(--nc-fit, 1)) !important; letter-spacing: .02em !important; }
+#navcomInputs .ncb .unit-body .win .radio-disp-inner .airport-type-radio-button { font-size: calc(16px * var(--nc-fit, 1)) !important; }
+
+/* Transfertaste */
+#navcomInputs .ncb .xfer {
+    position: relative; flex: none; display: grid; place-items: center;
+    width: 26px; height: 30px;
+    border-radius: 4px;
+    color: var(--nc-legend); font: 700 13px/1 'Share Tech Mono', monospace;
+    background: linear-gradient(#3e4147, #1f2124);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 0 0 1px #050506, 0 2px 0 #050506, 0 3px 4px rgba(0,0,0,.6);
+    text-shadow: 0 -1px 0 #000;
+    transition: transform .06s, box-shadow .06s;
+}
+#navcomInputs .ncb .xfer:active { transform: translateY(2px); box-shadow: inset 0 1px 3px rgba(0,0,0,.7), 0 0 0 1px #050506; }
+
+/* Konzentrischer Knopf */
+#navcomInputs .ncb .nc-knob.bx { position: relative; width: 44px; height: 44px; flex: none; }
+#navcomInputs .ncb .nc-knob.bx::before {
+    content: ''; position: absolute; inset: -2px; border-radius: 50%; pointer-events: none;
+    background: radial-gradient(circle at 50% 60%, rgba(0,0,0,.75), transparent 70%); transform: translateY(3px);
+}
+#navcomInputs .ncb .nc-knob.bx .ring { inset: 0;
+    background:
+        radial-gradient(circle at 50% 50%, transparent 58%, rgba(0,0,0,.6) 60%, transparent 63%),
+        repeating-conic-gradient(from var(--nc-rot), #2b2d31 0 4deg, #0d0e10 4deg 8deg);
+    box-shadow: 0 0 0 1px #000, inset 0 0 0 1.5px rgba(255,255,255,.08);
+}
+#navcomInputs .ncb .nc-knob.bx .ring::after {
+    content: ''; position: absolute; inset: 0; border-radius: 50%;
+    background: radial-gradient(circle at 34% 26%, rgba(255,255,255,.28), transparent 45%),
+                radial-gradient(circle at 70% 85%, rgba(0,0,0,.55), transparent 50%);
+}
+#navcomInputs .ncb .nc-knob.bx .cap { inset: 11px;
+    background: repeating-conic-gradient(from calc(var(--nc-rot) * 1.8), #303237 0 6deg, #121315 6deg 12deg);
+    box-shadow: 0 0 0 1px #000, 0 2px 4px rgba(0,0,0,.8);
+}
+#navcomInputs .ncb .nc-knob.bx .cap::after {
+    content: ''; position: absolute; inset: 4px; border-radius: 50%;
+    background: radial-gradient(circle at 38% 30%, #5a5e65, #1d1f22 60%, #0e0f11);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.18);
+}
+#navcomInputs .ncb .nc-knob.bx .cap::before {
+    content: ''; position: absolute; left: 50%; top: 3px; width: 2px; height: 6px; margin-left: -1px; border-radius: 1px; z-index: 1;
+    background: var(--nc-legend);
+    transform-origin: 50% 8px; transform: rotate(calc(var(--nc-rot) * 1.8));
+}
+#navcomInputs .ncb .nc-knob.bx.small { width: 34px; height: 34px; }
+#navcomInputs .ncb .nc-knob.bx.small .cap { inset: 8px; }
+#navcomInputs .ncb .nc-knob.bx.small .cap::before { transform-origin: 50% 6px; height: 4px; }
+
+/* RDM/PICK-Kippschalter oben rechts im NAV-1-Gerät */
+#navcomInputs .ncb .lever-wrap {
+    position: absolute; top: 2px; right: 22px; z-index: 4;
+    display: flex; align-items: center; gap: 4px;
+}
+#navcomInputs .ncb .lever-wrap .tl { font: 700 8px/1 Arial, sans-serif; letter-spacing: .12em; color: var(--nc-legend-dim); text-shadow: 0 -1px 0 #000; transition: color .15s; }
+#navcomInputs .ncb .lever-wrap .base { position: relative; width: 13px; height: 13px; border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, #b9bcc2, #5d6167 60%, #2b2d31); box-shadow: 0 0 0 1px #000, 0 2px 3px rgba(0,0,0,.7); }
+#navcomInputs .ncb .lever-wrap .lever { position: absolute; left: 50%; top: 50%; width: 4px; height: 9px; margin-left: -2px; border-radius: 2px;
+    background: linear-gradient(90deg, #7d8187, #e9ebee 45%, #8b8f95);
+    box-shadow: 0 1px 2px rgba(0,0,0,.8); transform-origin: 50% 0; transform: rotate(-90deg); transition: transform .14s cubic-bezier(.5,1.8,.6,1); }
+#navcomInputs .ncb.nc-pick .lever-wrap .lever { transform: rotate(90deg); }
+#navcomInputs .ncb.nc-pick .lever-wrap .tl.pick,
+#navcomInputs .ncb:not(.nc-pick) .lever-wrap .tl.rdm { color: var(--nc-legend); }
+#navcomInputs .ncb .lever-wrap .ovl > * { border-radius: 4px !important; }
+
+/* Audio */
+#navcomInputs .ncb .audio { display: flex; gap: 12px; align-items: center; }
+#navcomInputs .ncb .markers-slot { flex: none; }
+#navcomInputs .ncb .markers-slot .marker-lights {
+    display: flex; flex-direction: column; gap: 4px; margin: 0;
+    padding: 5px; border: 0; border-radius: 5px; background: #08090a;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.07);
+}
+#navcomInputs .ncb .marker-light {
+    width: 22px !important; height: 15px !important; border-radius: 3px !important;
+    display: grid; place-items: center;
+    font: 700 9px/1 'Share Tech Mono', monospace !important; color: rgba(0,0,0,.65) !important;
+    opacity: 1 !important;
+    background-image: radial-gradient(ellipse at 50% 20%, rgba(255,255,255,.35), transparent 60%);
+    filter: brightness(.32) saturate(.7);
+    box-shadow: inset 0 0 0 1px rgba(0,0,0,.6) !important;
+    text-shadow: none !important;
+    animation: none;
+    transition: filter .08s, box-shadow .08s;
+}
+#navcomInputs .ncb .marker-light.on, #navcomInputs .ncb .marker-light.blinking { filter: none; }
+#navcomInputs .ncb .marker-light.blinking { animation: ncMarkerBlink .3s infinite alternate; }
+#navcomInputs .ncb .mk-outer.on, #navcomInputs .ncb .mk-outer.blinking { box-shadow: inset 0 0 0 1px rgba(255,255,255,.4), 0 0 10px #3b8cff, 0 0 22px #3b8cff !important; }
+#navcomInputs .ncb .mk-middle.on, #navcomInputs .ncb .mk-middle.blinking { box-shadow: inset 0 0 0 1px rgba(255,255,255,.4), 0 0 10px #ffb21e, 0 0 22px #ffb21e !important; }
+#navcomInputs .ncb .mk-inner.on, #navcomInputs .ncb .mk-inner.blinking { box-shadow: inset 0 0 0 1px rgba(255,255,255,.4), 0 0 10px #f4f4f4, 0 0 22px #f4f4f4 !important; }
+#navcomInputs .ncb .agrid { flex: 1; min-width: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 0; }
+#navcomInputs .ncb .agrid .audio-btn,
+#navcomInputs .ncb .cmd-btns .audio-btn {
+    height: 36px !important; min-height: 0 !important;
+    padding: 15px 3px 0 !important;
+    border-radius: 4px;
+    font: 700 calc(11px * var(--nc-fit, 1))/1 Arial, 'Helvetica Neue', sans-serif !important;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--nc-legend-dim);
+    text-shadow: 0 -1px 0 #000;
+    background: linear-gradient(#3a3d42 0%, #26282c 55%, #1c1d20 100%) !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.16), inset 0 -2px 0 rgba(0,0,0,.35), 0 0 0 1px #050506, 0 2px 0 #050506, 0 4px 6px rgba(0,0,0,.5) !important;
+}
+#navcomInputs .ncb .agrid .audio-btn.active { color: #fafafa; }
+#navcomInputs .ncb .agrid .audio-btn:active,
+#navcomInputs .ncb .cmd-btns .audio-btn:active { transform: translateY(2px); box-shadow: inset 0 2px 4px rgba(0,0,0,.6), 0 0 0 1px #050506 !important; }
+#navcomInputs .ncb .audio-btn .audio-led { top: 5px; width: 16px !important; height: 3px !important; border-radius: 2px !important; background: #0b0c0d !important; box-shadow: inset 0 1px 1px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.06) !important; }
+
+/* XPDR */
+#navcomInputs .ncb .xpdr { display: flex; align-items: center; gap: 10px; }
+#navcomInputs .ncb .xpdr .win { height: 54px; display: flex; align-items: stretch; padding: 5px 8px; }
+#navcomInputs .ncb .xcell { position: relative; flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: center; padding: 0 7px; z-index: 2; }
+#navcomInputs .ncb .xcell + .xcell { border-left: 1px solid var(--nc-ghost); }
+#navcomInputs .ncb .xcell[data-act] { cursor: pointer; }
+#navcomInputs .ncb .xcell .annun { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px !important; }
+#navcomInputs .ncb .xcell .lcd-input {
+    font-family: 'NC DSEG14', 'Share Tech Mono', monospace !important;
+    font-weight: 700 !important;
+    font-size: calc(18px * var(--nc-fit, 1)) !important;
+    line-height: 1.15 !important;
+    letter-spacing: .04em !important;
+    text-align: left;
+    pointer-events: none;
+}
+#navcomInputs .ncb .xcell select.lcd-input { pointer-events: auto; }
+#navcomInputs .ncb .reply { width: 7px; height: 7px; border-radius: 50%; background: #2a0d00; box-shadow: inset 0 0 1px #000; transition: background .05s, box-shadow .05s; }
+#navcomInputs .ncb .reply.on { background: var(--nc-seg); box-shadow: 0 0 6px var(--nc-glow); }
+#navcomInputs .ncb .xknobs { display: flex; gap: 6px; flex: none; }
+#navcomInputs .ncb .xknob-wrap { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+#navcomInputs .ncb .xknob-wrap > span { font: 700 8px/1 Arial, sans-serif; letter-spacing: .14em; color: var(--nc-legend-dim); text-shadow: 0 -1px 0 #000; }
+
+/* CMD */
+#navcomInputs .ncb .cmd-btns { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+#navcomInputs .ncb .cmd-btns > span { position: relative; display: block; min-width: 0; }
+#navcomInputs .ncb .cmd-btns .audio-btn { height: 42px !important; padding-top: 17px !important; font-size: calc(14px * var(--nc-fit, 1)) !important; letter-spacing: .2em; color: #fff; }
+#navcomInputs .ncb .cmd-btns #radioClearBtn { color: #ff6a5a !important; }
+#navcomInputs .ncb .cmd-btns .audio-btn .audio-led { width: 34px !important; }
+
+@media (max-width: 480px) {
+    body.theme-navcom #navcomInputs.nc-layout-bendix { padding: 6px 4px; gap: 4px; }
+    #navcomInputs .ncb-row { gap: 4px; }
+    #navcomInputs .ncb-unit, #navcomInputs .ncb-half { padding: 18px 8px 9px; }
+    #navcomInputs .ncb .unit-body { gap: 6px; }
+    #navcomInputs .ncb .nc-knob.bx { width: 38px; height: 38px; }
+    #navcomInputs .ncb .nc-knob.bx .cap { inset: 9px; }
+    #navcomInputs .ncb .xfer { width: 22px; }
+    #navcomInputs .ncb .unit-body .win .radio-disp-inner .lcd-input { font-size: calc(16px * var(--nc-fit, 1)) !important; }
+    #navcomInputs .ncb .agrid .audio-btn { font-size: calc(9.5px * var(--nc-fit, 1)) !important; letter-spacing: .03em; }
+    #navcomInputs .ncb .xpdr { flex-direction: column; align-items: stretch; }
+    #navcomInputs .ncb .xknobs { justify-content: space-around; }
+    #navcomInputs .ncb .lever-wrap { right: 18px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #navcomInputs.nc-lamp-test .lcd-input,
+    #navcomInputs .nc-unit .lcd-input.nc-flash,
+    #navcomInputs .nc-unit .marker-light.blinking { animation: none; }
+}
+
+
+/* --------------------------------------------------------------------------
+   Unbeleuchtete Segmente: liegen in derselben Rasterzelle wie der Wert, mit
+   derselben Schrift, Größe (--nc-fit) und Ausrichtung. Anzahl setzt das JS
+   (--nc-ghost-text), passend zur Fensterbreite.
+   -------------------------------------------------------------------------- */
+#navcomInputs .nc-unit .win .radio-disp-inner::before,
+#navcomInputs .nc-unit .seg::before {
+    content: var(--nc-ghost-text, '');
+    grid-area: val;
+    position: relative;
+    z-index: 0;
+    align-self: center;
+    max-width: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    pointer-events: none;
+    color: var(--nc-ghost);
+}
+#navcomInputs .nc-unit .win .radio-disp-inner:has(.airport-input-name)::before { content: ''; }
+#navcomInputs .nc-unit .seg { display: grid; grid-template-columns: minmax(0, 1fr); grid-template-areas: "val"; }
+#navcomInputs .nc-unit .seg > .lcd-input { grid-area: val; align-self: center; }
+
+/* KX */
+#navcomInputs .ncx .wins .win .radio-disp-inner::before {
+    justify-self: end;
+    font: 400 calc(7.4cqw * var(--nc-fit, 1))/1.2 'NC DSEG14', 'Share Tech Mono', monospace;
+    letter-spacing: .02em;
+}
+#navcomInputs .ncx .wins .win .radio-disp-inner:has(.airport-type-radio-button)::before { font-size: calc(5.4cqw * var(--nc-fit, 1)); }
+#navcomInputs .ncx .cell .seg { align-items: center; }
+#navcomInputs .ncx .cell .seg::before {
+    justify-self: center;
+    font: 400 calc(6.6cqw * var(--nc-fit, 1))/1.2 'NC DSEG14', 'Share Tech Mono', monospace;
+    letter-spacing: .02em;
+}
+
+/* Bendix */
+#navcomInputs .ncb .unit-body .win .radio-disp-inner::before {
+    justify-self: end;
+    font: 700 calc(19px * var(--nc-fit, 1))/1.15 'NC DSEG14', 'Share Tech Mono', monospace;
+    letter-spacing: .04em;
+}
+#navcomInputs .ncb .unit-body .win .radio-disp-inner:has(.airport-type-radio-button)::before { font-size: calc(16px * var(--nc-fit, 1)); }
+#navcomInputs .ncb .xcell .seg::before {
+    justify-self: start;
+    font: 700 calc(18px * var(--nc-fit, 1))/1.15 'NC DSEG14', 'Share Tech Mono', monospace;
+    letter-spacing: .04em;
+}
+@media (max-width: 480px) {
+    #navcomInputs .ncb .unit-body .win .radio-disp-inner::before { font-size: calc(16px * var(--nc-fit, 1)); }
+}
+
+/* Leerzeichen belegen in DSEG nur ein Viertel Feld: auf volle Segmentbreite auffüllen */
+#navcomInputs .nc-unit .lcd-input { word-spacing: .616em; }
+#navcomInputs .nc-unit .lcd-input.airport-input-name { word-spacing: normal; }
+
+/* Bendix: Fenster enden oberhalb der unteren Schrauben */
+#navcomInputs .ncb-half { padding-bottom: 16px; }
+#navcomInputs .ncb .unit-body .win { height: 46px; }
+@media (max-width: 480px) {
+    #navcomInputs .ncb-half { padding-bottom: 16px; }
+    #navcomInputs .ncb .unit-body .win { height: 42px; padding-top: 4px; }
+    #navcomInputs .ncb .unit-body .win .radio-disp-inner { inset: 4px 8px 3px; }
+    #navcomInputs .ncb .nc-knob.bx { width: 36px; height: 36px; }
+}

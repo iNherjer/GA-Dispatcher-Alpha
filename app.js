@@ -1137,46 +1137,12 @@ window.setAppUiScaleFromSlider = setAppUiScaleFromSlider;
 window.adjustAppUiScale = adjustAppUiScale;
 window.resetAppUiScale = resetAppUiScale;
 
-const NAVCOM_RACK_V2_STORAGE_KEY = 'ga_navcom_rack_v2';
-
-function isNavcomRackV2Enabled() {
-    return localStorage.getItem(NAVCOM_RACK_V2_STORAGE_KEY) === 'true';
-}
-
-function updateNavcomRackV2ButtonUi() {
-    const enabled = isNavcomRackV2Enabled();
-    const btn = document.getElementById('btnNavcomRackV2');
-    if (!btn) return;
-    btn.textContent = enabled ? 'NavCom V2 An' : 'NavCom V2 Aus';
-    btn.style.background = enabled ? '#173a2a' : '#222832';
-    btn.style.borderColor = enabled ? '#55b982' : '#5d6470';
-    btn.style.color = enabled ? '#d9ffe7' : '#d6dde8';
-}
-
+// Das frühere Debug-Experiment "NavCom Rack V2" ist entfernt; die NavCom-Designs
+// (Klassik, Bendix, KX) schaltet navcom-skins.js. Alte Klasse/Einstellung aufräumen.
 function applyNavcomRackV2State() {
-    const enabled = isNavcomRackV2Enabled();
-    document.body.classList.toggle('navcom-rack-v2', enabled);
-    updateNavcomRackV2ButtonUi();
+    document.body.classList.remove('navcom-rack-v2');
+    try { localStorage.removeItem('ga_navcom_rack_v2'); } catch (_) {}
 }
-
-function toggleNavcomRackV2(forceState) {
-    const enabled = typeof forceState === 'boolean' ? forceState : !isNavcomRackV2Enabled();
-    localStorage.setItem(NAVCOM_RACK_V2_STORAGE_KEY, enabled ? 'true' : 'false');
-    if (enabled && !document.body.classList.contains('theme-navcom')) {
-        setTheme('navcom');
-    } else {
-        applyNavcomRackV2State();
-    }
-    const indicator = document.getElementById('searchIndicator');
-    if (indicator) indicator.innerText = enabled
-        ? 'Debug: NavCom Rack V2 aktiv.'
-        : 'Debug: NavCom Legacy aktiv.';
-    return enabled;
-}
-
-window.isNavcomRackV2Enabled = isNavcomRackV2Enabled;
-window.toggleNavcomRackV2 = toggleNavcomRackV2;
-window.updateNavcomRackV2ButtonUi = updateNavcomRackV2ButtonUi;
 
 function isWin95DesktopMode() {
     if (!document.body || !document.body.classList.contains('theme-win95')) return false;
