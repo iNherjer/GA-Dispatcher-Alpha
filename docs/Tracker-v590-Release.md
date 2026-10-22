@@ -42,3 +42,6 @@ EXE: 174355670 Bytes; SHA-256 `603ca8409156a706402e36e482b934335c7a32eca9a29b3b2
 - Verladen mit Web-App und EFB: Abstand `MISSION_CARGO_VISUAL` → `MISSION_EFFECT_DISPATCH` im
   Debug-Log (vorher ~1 s) und gefühlte Zeit bis zum Spawn/Despawn.
 - `MISSION_EFFECT_DISPATCH_ABANDONED` sollte nur bei Sim-Neuverbindungen auftauchen.
+
+Release-Upload verifiziert und EXE öffentlich erneut heruntergeladen: Größe und SHA-256 identisch.
+`channel/alpha.json` auf v590 umgestellt, `stable.json` unverändert.
