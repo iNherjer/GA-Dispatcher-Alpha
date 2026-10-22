@@ -1,456 +1,465 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
-    <title>VFR Multitool - Hilfe</title>
-
-    <link rel="icon" type="image/png" href="IconDRK.PNG">
-    <link rel="icon" type="image/png" sizes="32x32" href="Icon.PNG" media="(prefers-color-scheme: light)">
-    <link rel="icon" type="image/png" sizes="32x32" href="IconDRK.PNG" media="(prefers-color-scheme: dark)">
-    <link rel="stylesheet" href="styles.css">
-
-    <style>
-        .readme-content {
-            line-height: 1.65;
-            font-size: 15px;
-        }
-        .readme-content h1,
-        .readme-content h2,
-        .readme-content h3 {
-            color: var(--blue);
-            margin-top: 28px;
-            margin-bottom: 8px;
-            text-transform: uppercase;
-        }
-        .readme-content h1 {
-            font-size: 1.5em;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            padding-bottom: 6px;
-        }
-        .readme-content h2 { font-size: 1.15em; }
-        .readme-content h3 { font-size: 1em; opacity: 0.9; }
-
-        body.theme-retro .readme-content h1,
-        body.theme-retro .readme-content h2,
-        body.theme-retro .readme-content h3 {
-            color: var(--piper-white);
-            text-shadow: 1px 1px 0 #555;
-            font-family: 'Oleo Script', cursive;
-            transform: rotate(-1deg);
-        }
-        body.theme-navcom .readme-content h1,
-        body.theme-navcom .readme-content h2,
-        body.theme-navcom .readme-content h3 {
-            color: #33ff33;
-            text-shadow: 0 0 5px rgba(51,255,51,0.6);
-            font-family: 'Share Tech Mono', monospace;
-            transform: none;
-            letter-spacing: 2px;
-        }
-
-        ul, ol { padding-left: 20px; }
-        li { margin-bottom: 7px; }
-
-        a {
-            color: var(--blue);
-            text-decoration: none;
-            border-bottom: 1px dotted currentColor;
-            transition: color 0.2s;
-        }
-        a:hover { color: var(--green); }
-        body.theme-retro a { color: var(--piper-yellow); }
-        body.theme-navcom a {
-            color: #33ff33;
-            border-bottom: 1px solid #33ff33;
-        }
-
-        code {
-            background: rgba(0,0,0,0.3);
-            padding: 2px 5px;
-            border-radius: 3px;
-            font-family: monospace;
-            color: #e0e0e0;
-        }
-        body.theme-retro code {
-            background: rgba(255,255,255,0.2);
-            color: #111;
-            font-weight: bold;
-            box-shadow: 1px 1px 2px rgba(0,0,0,0.2);
-        }
-        body.theme-navcom code {
-            color: #33ff33;
-            background: rgba(0,50,0,0.5);
-            border: 1px solid #005500;
-        }
-
-        .key-badge {
-            display: inline-block;
-            padding: 2px 7px;
-            border: 1px solid #555;
-            border-radius: 4px;
-            font-size: 0.88em;
-            background: #222;
-            color: #fff;
-            box-shadow: 0 2px 0 #111;
-        }
-        body.theme-retro .key-badge {
-            background: #eee;
-            color: #111;
-            border: 1px solid #bbb;
-            box-shadow: 1px 1px 0 #999;
-            font-family: sans-serif;
-            font-weight: bold;
-        }
-
-        .back-btn {
-            display: inline-block;
-            margin-bottom: 20px;
-            padding: 8px 15px;
-            background: var(--blue);
-            color: #111;
-            font-weight: bold;
-            text-decoration: none;
-            border-radius: 4px;
-            border: none;
-            cursor: pointer;
-        }
-        body.theme-retro .back-btn {
-            background: linear-gradient(to bottom, #d93829, #8a1a12);
-            color: #fff;
-            border: 2px solid #222;
-            border-bottom: 4px solid #111;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.4);
-        }
-        body.theme-navcom .back-btn {
-            background: transparent;
-            color: #33ff33;
-            border: 2px solid #33ff33;
-            box-shadow: 0 0 10px rgba(51,255,51,0.3);
-            font-family: 'Share Tech Mono', monospace;
-        }
-
-        .feature-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin: 12px 0;
-        }
-        @media (max-width: 600px) {
-            .feature-grid { grid-template-columns: 1fr; }
-        }
-        .feature-card {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.1);
-            border-radius: 6px;
-            padding: 10px 13px;
-        }
-        body.theme-retro .feature-card {
-            background: rgba(0,0,0,0.08);
-            border: 1px solid rgba(0,0,0,0.2);
-        }
-        body.theme-navcom .feature-card {
-            background: rgba(0,60,0,0.3);
-            border: 1px solid #005500;
-        }
-        .feature-card strong {
-            display: block;
-            margin-bottom: 4px;
-        }
-
-        hr.section {
-            border: 0;
-            border-top: 1px dashed rgba(255,255,255,0.2);
-            margin: 22px 0;
-        }
-        body.theme-retro hr.section { border-top-color: rgba(0,0,0,0.2); }
-
-        body.theme-retro .container.panel-creme,
-        body.theme-retro .container.panel-light { color: #111; }
-        body.theme-retro .container.panel-creme h1,
-        body.theme-retro .container.panel-light h1,
-        body.theme-retro .container.panel-creme h2,
-        body.theme-retro .container.panel-light h2 { color: #222; text-shadow: none; }
-    </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#193c34">
+<meta name="description" content="Die aktuelle Anleitung zum VFR Multitool: Dispatch, Missionen, Verladung, Flugbuch, Karte, Funk, Audio, Tracker, Autostart, Cockpit-EFB und Homebase verständlich erklärt.">
+<title>Anleitung · VFR Multitool</title>
+<link rel="icon" type="image/png" href="IconDRK.PNG">
+<style>
+:root{--paper:#f6f4ed;--ink:#1d302b;--muted:#626d64;--green:#193c34;--lime:#d9ef90;--line:#d9ded2;--mono:ui-monospace,SFMono-Regular,Consolas,monospace;--sans:Inter,"Avenir Next",Avenir,"Segoe UI",sans-serif}*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:105px}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.8 var(--sans);-webkit-font-smoothing:antialiased}a{color:inherit;text-underline-offset:4px}button,input{font:inherit}button{cursor:pointer}a:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid #498e67;outline-offset:4px}[hidden]{display:none!important}h1,h2,h3,p,figure{margin:0}h1,h2,h3{line-height:1.15;letter-spacing:-.035em}.wrap{width:min(1260px,calc(100% - 80px));margin-inline:auto}.skip{position:fixed;top:-80px;left:12px;z-index:50;background:var(--lime);padding:12px}.skip:focus{top:12px}.eyebrow{font:600 10px/1.6 var(--mono);letter-spacing:.12em;text-transform:uppercase}.topbar{background:var(--paper);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}.nav{height:80px;display:flex;align-items:center;justify-content:space-between;gap:25px}.brand{display:flex;gap:13px;align-items:center;text-decoration:none;font-size:15px;font-weight:800;letter-spacing:-.025em}.brand svg{width:36px;height:36px}.brand small{display:block;font:10px/1.6 var(--mono);color:var(--muted);letter-spacing:.12em;font-weight:400}.navlinks{display:flex;gap:24px;align-items:center;font-size:12px}.navlinks a{text-decoration:none}.navlinks a:hover{text-decoration:underline}.navlinks .app-link{padding:9px 15px;border:1px solid var(--ink);border-radius:3px;font-weight:600}.hero{padding:36px 0 28px;display:grid;grid-template-columns:1fr .45fr;gap:60px;align-items:center}.hero h1{font-size:clamp(42px,4.2vw,58px);margin:14px 0 20px}.hero h1 em{font-family:Georgia,serif;color:#527759;font-weight:400}.intro p{color:var(--muted);font-size:14px;margin-top:13px;max-width:80ch}.intro p a{color:#315c47;font-weight:600}.intro p:first-child{color:var(--ink);font-size:16px}.hero-note{background:var(--green);padding:25px 27px;border-radius:4px;color:#c7d9cb;transform:rotate(1deg)}.hero-note .eyebrow{color:var(--lime)}.hero-note h2{color:#fffef9;font-size:27px;margin:17px 0 14px}.hero-note p{font-size:12px;line-height:1.7}.hero-note a{display:inline-block;margin-top:17px;font-size:12px;font-weight:600;color:var(--lime)}.coverage{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:17px 0;margin-bottom:35px;display:flex;gap:25px;justify-content:space-between;font:10px/1.6 var(--mono);color:#5d7153}.coverage span:before{content:"+";margin-right:9px}.layout{display:grid;grid-template-columns:255px minmax(0,1fr);gap:60px;align-items:start;padding-bottom:65px}.sidebar{position:sticky;top:105px}.search-label{font:600 10px/1.6 var(--mono);letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:9px}.search-box{display:flex;border:1px solid #bac7b0;border-radius:3px;background:#fffef9}.search-box input{border:0;background:transparent;min-width:0;width:100%;padding:11px 12px;color:var(--ink);font-size:12px;outline-offset:1px}.search-box button{background:transparent;border:0;padding:8px 12px;color:var(--muted);font-size:17px}.search-result{font:9px/1.7 var(--mono);color:var(--muted);margin:9px 0 17px;min-height:16px}.toc summary{font:600 10px/1.7 var(--mono);letter-spacing:.1em;cursor:pointer;padding-bottom:12px;border-bottom:1px solid var(--line)}.toc nav{max-height:calc(100vh - 300px);overflow:auto;scrollbar-width:thin;padding-top:11px;padding-right:7px}.toc ol{list-style:none;padding:0;margin:0}.toc li+li{margin-top:3px}.toc a{display:block;font-size:11px;line-height:1.5;padding:9px 10px;text-decoration:none;border:1px solid transparent;border-radius:3px}.toc a:hover{background:#e9edde}.toc a[aria-current=location]{background:#e3ead8;border-color:#cad7ba}.sidebar-note{border-top:1px solid var(--line);font:9px/1.7 var(--mono);color:var(--muted);margin-top:17px;padding-top:14px}.manual{min-width:0}.chapter{padding-top:4px;scroll-margin-top:0}.chapter+.chapter{border-top:1px solid var(--line);margin-top:48px;padding-top:39px}.chapter h2{font-size:clamp(29px,3vw,39px);margin-bottom:23px;max-width:28ch}.chapter h3{font-size:21px;margin-top:29px;margin-bottom:13px;scroll-margin-top:0}.chapter p{font-size:14px;margin-top:15px;max-width:85ch}.chapter>p:first-of-type{margin-top:0}.chapter ul,.chapter ol{margin:17px 0 0;padding-left:22px;font-size:14px}.chapter li{padding-left:4px;margin-top:9px}.chapter strong{font-weight:650}.chapter a{color:#315f49}.chapter code{font:12px/1.6 var(--mono);background:#e5e9dd;padding:3px 5px;border-radius:3px;color:#315a46;overflow-wrap:anywhere}.chapter img{max-width:100%;height:auto;display:block;border:1px solid #c1cbb8;border-radius:4px;margin-top:25px}.chapter blockquote{background:#e9edde;border-left:3px solid #8ba269;margin:22px 0;padding:15px 20px}.chapter blockquote p{margin:0;color:#516748}.no-results{padding:30px;background:#e9edde;border:1px solid var(--line);border-radius:4px}.no-results h2{font-size:27px;margin-bottom:14px}.no-results p{font-size:14px;color:var(--muted)}.no-results button{margin-top:20px;border:1px solid #a7b89a;border-radius:3px;padding:10px 16px;background:transparent;color:var(--ink);font-size:12px}.back-top{display:inline-block;font-size:11px;margin-top:35px;color:var(--muted)}footer{background:var(--green);color:#c9d9cb;padding:26px 0;font-size:11px}.footer-row{display:flex;align-items:center;justify-content:space-between;gap:35px}footer strong{color:#fffef9;font-size:12px}footer p{margin-top:5px;max-width:70ch}.footer-links{display:flex;gap:18px;white-space:nowrap}.js-search{display:none}.js .js-search{display:block}.no-js-note{font-size:12px;color:var(--muted);padding:15px;border:1px solid var(--line);margin-bottom:25px}
+@media(max-width:1050px){.wrap{width:calc(100% - 48px)}.layout{grid-template-columns:220px minmax(0,1fr);gap:35px}.hero{gap:35px;grid-template-columns:1fr .5fr}.hero-note{padding:22px}.hero h1{font-size:52px}.coverage{font-size:9px;gap:14px}}
+@media(max-width:800px){.wrap{width:calc(100% - 36px)}.nav{height:68px;gap:10px}.brand{font-size:12px;gap:9px}.brand small{font-size:8px}.brand svg{width:30px;height:30px}.navlinks{gap:12px;font-size:10px}.navlinks .welcome-link,.navlinks .setup-link{display:none}.navlinks .app-link{padding:8px 10px}.hero{grid-template-columns:1fr;gap:24px;padding:32px 0 27px}.hero h1{font-size:clamp(43px,9vw,60px);margin-bottom:20px}.hero .intro p{font-size:13px}.hero .intro p:first-child{font-size:15px}.hero-note{transform:none;padding:20px 22px}.hero-note h2{font-size:25px;margin:12px 0}.hero-note a{margin-top:12px}.coverage{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:25px}.layout{grid-template-columns:1fr;gap:27px;padding-bottom:40px}.sidebar{position:static}.search-result{margin-bottom:15px}.toc nav{max-height:360px}.toc a{font-size:12px;padding:10px}.sidebar-note{display:none}.chapter h2{font-size:31px}.chapter h3{font-size:21px;margin-top:27px}.chapter p,.chapter ul,.chapter ol{font-size:14px}.chapter+.chapter{margin-top:37px;padding-top:31px}.chapter li{margin-top:10px}.footer-row{flex-direction:column;align-items:start;gap:20px}.footer-links{font-size:10px}}
+@media(max-width:380px){.navlinks>a:not(.app-link){display:none}.navlinks .app-link{font-size:10px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+@media print{.topbar,.sidebar,.coverage,.back-top,.no-results{display:none!important}.chapter[hidden]{display:block!important}.wrap{width:100%}.layout{display:block}.hero{padding:0 0 20px}.hero h1{font-size:42px}.chapter h2{font-size:27px;break-after:avoid}.chapter h3{break-after:avoid}.chapter+.chapter{margin-top:25px;padding-top:20px}.chapter img{max-height:350px;object-fit:contain;width:auto}.hero-note,footer{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style>
 </head>
-<body class="theme-retro">
-
-<div class="container">
-    <div class="glareshield"></div>
-    <div class="screw top-left" onclick="cyclePanelColor()" title="Panel-Lackierung ändern" style="cursor:pointer;z-index:20;"></div>
-    <div class="screw top-right"></div>
-    <div class="screw bottom-left"></div>
-    <div class="screw bottom-right"></div>
-
-    <a href="index.html" class="back-btn">⬅ ZURÜCK ZUM COCKPIT</a>
-
-    <div class="readme-content">
-        <h1 style="border-bottom:none; margin-bottom:0;">VFR Multitool</h1>
-        <p style="margin-top:2px; font-style:italic; opacity:0.75;">Dispatch, EFB und Crew-Board fuer Microsoft Flight Simulator</p>
-
-        <p>Das <strong>VFR Multitool</strong> ist ein browserbasiertes Cockpit-, Dispatch- und EFB-Werkzeug fuer VFR-Fluege im Microsoft Flight Simulator. Es kann einfache Freifluege begleiten, komplette Auftraege generieren, Routen und Hoehenprofile anzeigen, Live-GPS vom Simulator auf Tablet oder Zweitgeraet bringen und Fluege mit einer Crew teilen.</p>
-        <p><strong>Hinweis:</strong> Das Tool ist fuer den Flugsimulator gedacht und ersetzt keine echte Flugvorbereitung.</p>
-
-        <div class="feature-grid">
-            <div class="feature-card"><strong>1. Grundeinstellungen</strong> Darstellung, Flugzeugwerte, KI-Provider, Pilot-ID, Sync, Tracker und Missionsstatus.</div>
-            <div class="feature-card"><strong>2. Dispatch</strong> APT-, POI-, Bush- und Spezialmissionen mit Briefing, Nav-Log, PDF, MSFS-Export und Mission Runtime.</div>
-            <div class="feature-card"><strong>3. EFB / Kartentisch</strong> Karte, Profil, Wetter, VFR-Index, Terrain Avoid, Traffic, Audio, Tools und Direct-To-Freiflug.</div>
-            <div class="feature-card"><strong>4. Pinnwand &amp; Crew</strong> Private Notizen, angeheftete Fluege, Flugcodes, Debriefs und gemeinsames Crew Board.</div>
-        </div>
-
-        <hr class="section">
-
-        <h2>Schnellstart</h2>
-        <ol>
-            <li>Unter <span class="key-badge">DEP</span> den Startplatz eingeben, zum Beispiel <code>EDTW</code>.</li>
-            <li>Flugzeugwerte pruefen: Preset waehlen oder <strong>TAS</strong>, <strong>GPH</strong>, <strong>Cruise ALT</strong> und <strong>V/S</strong> setzen.</li>
-            <li>Fuer einen Auftrag Typ, Distanz, Region und Richtung waehlen und <span class="key-badge">DISPATCH</span> klicken.</li>
-            <li>Fuer freie Navigation den <span class="key-badge">Kartentisch</span> oeffnen und <span class="key-badge">Direct To</span> nutzen.</li>
-            <li>Optional: Pilot-ID + PIN einrichten, damit Cloud-Sync, Crew Board und PC-Tracker zusammenarbeiten.</li>
-        </ol>
-
-        <hr class="section">
-
-        <h2>Teil 1: Grundeinstellungen</h2>
-
-        <h3>Darstellung</h3>
-        <ul>
-            <li><strong>Modern:</strong> kompakte Standardansicht.</li>
-            <li><strong>Analog:</strong> Retro-Cockpit. Die obere linke Schraube wechselt die Panel-Lackierung.</li>
-            <li><strong>NavCom:</strong> Radio-Stack mit KLN-90B-artigem GPS, DATA- und DISPATCH-Tasten.</li>
-            <li><strong>Ops 1940:</strong> instrumentenartige Missionsauswahl mit Piktogrammen.</li>
-            <li><strong>Seitengroesse:</strong> wichtig fuer Tablet, iPad, Quest oder kleine Displays.</li>
-        </ul>
-        <p><strong>Tipp:</strong> Bei zu kleiner Bedienung zuerst die Seitengroesse anpassen, nicht den Browser-Zoom.</p>
-
-        <h3>Aircraft Presets</h3>
-        <ul>
-            <li><strong>TAS</strong> bestimmt die Reisegeschwindigkeit und ETE.</li>
-            <li><strong>GPH</strong> bestimmt die Fuel-Schaetzung.</li>
-            <li><strong>Cruise ALT</strong> beeinflusst Profil, Wetter- und Luftraumhinweise.</li>
-            <li><strong>V/S Rate</strong> steuert Steig-/Sinkprofil, TOC und TOD.</li>
-            <li><strong>Sitze / PAX</strong> begrenzt, wie viele Personen eingeplant werden.</li>
-            <li>Die Slots <strong>C172</strong>, <strong>Comanche / PA-24</strong> und <strong>Aerostar</strong> koennen mit eigenen Werten ueberschrieben werden.</li>
-            <li>Ein normaler Klick waehlt das Preset; <strong>Rechtsklick oder Langdruck</strong> oeffnet den Schnell-Editor.</li>
-            <li>Der Editor speichert Name, TAS, Standard-Fuel-Flow, Sitze, maximale Zuladung, Flugzeugklasse und die kombinierbaren Einsatzprofile Privat/Reise, Business/Charter, Cargo, Utility/Arbeit, Bush/STOL und Training.</li>
-            <li>Angehakte Einsatzprofile begrenzen nur die Zufallsrotation. Konkrete Mission-Picker-Auswahlen bleiben moeglich; ohne Haken bleibt Auto uneingeschraenkt.</li>
-            <li>Boarding-Punkte, Tuer und Marker koennen pro Flugzeugslot angepasst und synchronisiert werden.</li>
-        </ul>
-
-        <h3>KI-Dispatcher</h3>
-        <ul>
-            <li>Provider: <strong>Gemini</strong> oder <strong>OpenAI</strong>.</li>
-            <li>Profile: <strong>Auto</strong>, <strong>Sparsam</strong> oder <strong>Qualitaet</strong>.</li>
-            <li>Getrennte API-Key-Felder fuer Gemini und OpenAI.</li>
-            <li>Ohne API-Key nutzt die App lokale Auftraege und Fallbacks.</li>
-            <li>Die FUEL-Anzeige gibt einen groben Verbrauchs-/Kontingenthinweis.</li>
-        </ul>
-        <p><strong>Tipp:</strong> Auto ist der Normalbetrieb. Sparsam ist gut fuer viele Tests, Qualitaet fuer bessere Story-Briefings. API-Keys werden lokal im Browser gespeichert.</p>
-
-        <h3>Pilot-ID, Sync und Tracker</h3>
-        <ul>
-            <li><strong>Pilot-ID + PIN</strong> sind die Grundlage fuer Cloud-Sync, Crew und PC-Tracker.</li>
-            <li><span class="key-badge">Login</span> schaltet Cloud-Funktionen frei.</li>
-            <li><span class="key-badge">Auto-Sync</span> laedt und speichert automatisch.</li>
-            <li><span class="key-badge">Push</span> schreibt den aktuellen Stand in die Cloud.</li>
-            <li><span class="key-badge">Pull</span> holt den gespeicherten Stand auf dieses Geraet.</li>
-            <li>Der <strong>PC-Tracker</strong> sendet MSFS-Position, Hoehe, Kurs, Geschwindigkeit und Verkehr an die App.</li>
-        </ul>
-        <p><strong>Tipp:</strong> Tracker und MSFS koennen in beliebiger Reihenfolge starten. Wichtig ist nur, dass Pilot-ID und PIN auf beiden Seiten identisch sind.</p>
-
-        <h3>Homebase Workbench</h3>
-        <ul>
-            <li>Die Workbench wird ueber den grossen <strong>Homebase</strong>-Eintrag im Hauptmenue direkt unter dem Flugbuch geoeffnet.</li>
-            <li>Hangar, Spawnpunkt und Ausstattungsobjekte lassen sich platzieren, verschieben, drehen, stapeln und in der Hoehe anpassen.</li>
-            <li>Live-Vorschau, SDK-Bau und Installation benoetigen den produktiven PC-Tracker ab <strong>v288</strong>.</li>
-            <li>Neue Versionen des gemeinsamen Assetpakets werden angezeigt und erst nach Bestaetigung installiert.</li>
-            <li>Die Planung wird lokal sowie bei Auto-Sync nach 30 Sekunden, beim Schliessen oder Verlassen in der Cloud gespeichert.</li>
-        </ul>
-        <p><strong>Tipp:</strong> Vor dem ersten Einsatz das angebotene Assetpaket installieren. <em>Vorschau neu laden</em> erzeugt nur die Arbeitsvorschau neu und veraendert keinen bereits kompilierten Flugplatz.</p>
-
-        <h3>Mission Runtime</h3>
-        <ul>
-            <li><strong>Missionsstatus</strong> zeigt, was eine laufende Mission gerade erwartet.</li>
-            <li><span class="key-badge">Mission Reset</span> setzt die laufende Mission zurueck, ohne alle Einstellungen zu loeschen.</li>
-            <li><span class="key-badge">Auto Load</span> kann vorbereitete Missionsfracht automatisch laden.</li>
-            <li>Freiflug/Direct-To wird als EFB-only behandelt und startet keine versteckte Mission.</li>
-        </ul>
-
-        <hr class="section">
-
-        <h2>Teil 2: Dispatch</h2>
-
-        <h3>Auftrag erzeugen</h3>
-        <ul>
-            <li><strong>DEP / Start:</strong> ICAO-Code oder Suchtext.</li>
-            <li><strong>DEST / Ziel:</strong> optional. Leer, <code>RNDM</code> oder <code>----</code> bedeutet Zufallsziel.</li>
-            <li><strong>TYPE / Typ:</strong> APT, POI, Bush oder Spezialprofil.</li>
-            <li><strong>RANGE / Distanz:</strong> Egal, Short, Medium oder Long.</li>
-            <li><strong>Region:</strong> International, nur Deutschland oder Ausland.</li>
-            <li><strong>Richtung:</strong> bevorzugte Himmelsrichtung.</li>
-            <li><strong>RDM / PICK:</strong> sofort zufaellig erzeugen oder erst 2-3 Vorschlaege anzeigen.</li>
-        </ul>
-        <p><strong>Tipp:</strong> Fuer Abwechslung Ziel leer lassen und RDM nutzen. Fuer Kontrolle PICK aktivieren und erst im Briefing den Auftrag waehlen.</p>
-
-        <h3>Missionstypen</h3>
-        <ul>
-            <li><strong>APT:</strong> Flugplatz-zu-Flugplatz, zum Beispiel Verein, Privat, Charter, Cargo, Training, Medizin, Tiertransport, Reporter oder Sightseeing.</li>
-            <li><strong>POI:</strong> Ziel- oder Rundflug mit Profilen wie Inspektion, Foto/Film, Mapping, Reporter, Sightseeing, Lern-Guide, Historiker, Bio/Geo, SAR oder Fire Watch.</li>
-            <li><strong>Bush:</strong> Backcountry-Auftraege wie Versorgung, Charter, Adventure, Recon, Pickup oder Cargo Return.</li>
-            <li><strong>Zielkategorien:</strong> Bruecken, Strassen, Staudaemme, Funkmasten, Industrie, Infrastruktur, Burgen, Wasser, Berge, Staedte und Sonstige.</li>
-            <li><strong>Freiflug/Planung:</strong> erzeugt Route und Planungsbriefing ohne Missionsruntime.</li>
-        </ul>
-
-        <h3>Briefing und Export</h3>
-        <ul>
-            <li><strong>Seite 1:</strong> Story, Payload, Fracht, Strecke, Kurs und ETE.</li>
-            <li><strong>Seite 2:</strong> Nav-Log und Luftraumwarnungen.</li>
-            <li><strong>Seite 3/4:</strong> Start- und Ziel-Info mit AIP, METAR, Pisten, Frequenzen und Wiki-/Ortsdaten.</li>
-            <li><strong>Seite 5:</strong> Vertical Profile, wenn aktiv.</li>
-            <li><span class="key-badge">📌</span> pinnt den Flug privat oder an die Crew.</li>
-            <li><span class="key-badge">DATA</span> oeffnet Flugcode, MSFS-Plan Import/Export und Transferfunktionen.</li>
-            <li><span class="key-badge">PDF</span> erstellt ein Briefing Pack.</li>
-        </ul>
-        <p><strong>Tipp:</strong> Entwuerfe erst akzeptieren, bevor du exportierst, pinnst oder mit der Crew teilst.</p>
-
-        <h3>Mission starten</h3>
-        <ul>
-            <li>Ein akzeptierter Auftrag wird im Kartentisch startbar.</li>
-            <li>Mit Live-Tracker erkennt die App Start, Boarding, Fracht, Zielnaehe, Foto-/Inspektionsereignisse und Ankunft besser.</li>
-            <li>Passagier-Text, Stimme und Audioeffekte koennen Missionsphasen begleiten.</li>
-        </ul>
-        <p><strong>Tipp:</strong> Vor dem Missionsstart Tracker verbinden und am Boden stabil stehen. Reine Freiflug-Planungen haben bewusst keinen Missionsstart.</p>
-
-        <hr class="section">
-
-        <h2>Teil 3: EFB, Kartentisch und Freiflug ohne Dispatch</h2>
-
-        <h3>Kartentisch</h3>
-        <ul>
-            <li><span class="key-badge">Route Reset</span> setzt manuelle Routenanpassungen zurueck.</li>
-            <li><span class="key-badge">Profil</span> blendet das Hoehenprofil ein oder aus.</li>
-            <li><span class="key-badge">Anzeige</span> steuert Snapping, Direkt-Linie, Wetter, VFR-Index, Terrain Avoid, Traffic, Autozoom, Telemetrie, Route-Leiste, Kompass, Low FPS und Flugzeug-Icon.</li>
-            <li><span class="key-badge">Audio</span> steuert Warnungen, Frequenzansagen, Passagier-Stimme, TTS, Humor und Audioeffekte.</li>
-            <li><span class="key-badge">Direct To</span> startet freie Navigation ohne Missionsablauf.</li>
-        </ul>
-
-        <h3>Route, Tools und Profil</h3>
-        <ul>
-            <li>Wegpunkte setzen, verschieben und loeschen.</li>
-            <li>Snapping an Flugplaetze, Funkfeuer oder Meldepunkte.</li>
-            <li>Stift, Radierer, Farben, Messwerkzeug, Stoppuhr, Timer und VFR-Rechner.</li>
-            <li>Seitendrawer mit Checklisten und Kartenwerkzeugen.</li>
-            <li><span class="key-badge">Mission Control</span> zeigt aktuelle Aufgabe, Missionsphasen, Ziel/Arbeitshoehe, Arbeitszeit oder Mapping-/Kettenfortschritt, Pax-Stimmung, Ladungszustand und Abweichungshinweise.</li>
-            <li>Profil mit Terrain, Luftraeumen, Hindernissen, Wolken, Verkehr, TOC/TOD, Cruise ALT und V/S.</li>
-        </ul>
-        <p><strong>Tipp:</strong> Fuer VFR-Notizen Stift und Messwerkzeug nutzen, statt die Hauptroute fuer jede Skizze zu veraendern.</p>
-
-        <h3>Live-Tracking</h3>
-        <ul>
-            <li>Live-Position, Hoehe, Groundspeed, Vertical Speed und Heading.</li>
-            <li>Flugspur, Route Progress, Auto-Follow und Autozoom.</li>
-            <li>Simulator-Verkehr auf Karte und Profil.</li>
-            <li>HDG-/Vorausschau im Profil entlang des aktuellen Kurses.</li>
-        </ul>
-        <p><strong>Tipp:</strong> Live-Tracking uebertraegt keine Bild- oder Tondaten aus dem Simulator.</p>
-
-        <h3>Direct To / Freiflug</h3>
-        <ol>
-            <li>Kartentisch oeffnen.</li>
-            <li><span class="key-badge">Direct To (An)</span> aktivieren.</li>
-            <li>Ziel auf der Karte oder an einem Flugplatz waehlen.</li>
-            <li>Bei Live-GPS startet die Route an deiner aktuellen Position.</li>
-        </ol>
-        <ul>
-            <li>kein Missionsstart,</li>
-            <li>kein Boarding-/Cargo-Zwang,</li>
-            <li>keine versteckte Passagier-State-Machine,</li>
-            <li>keine Wiederherstellung als aktive Mission.</li>
-        </ul>
-        <p><strong>Tipp:</strong> Fuer private Simulatorabende ohne Story immer Direct To oder Freiflug/Planung nutzen. Fuer Story, Passagier, Cargo oder Zielszene einen echten Dispatch akzeptieren.</p>
-
-        <hr class="section">
-
-        <h2>Teil 4: Pinnwand und Gruppenfunktion</h2>
-
-        <h3>Private Pinnwand</h3>
-        <ul>
-            <li>Tipps ein-/ausblenden.</li>
-            <li>Freie Zettel anlegen, verschieben, bearbeiten und loeschen.</li>
-            <li>Aktuelle Fluege aus dem Briefing anpinnen.</li>
-            <li>Flugcodes laden.</li>
-            <li>Gespeicherte Fluege wiederherstellen.</li>
-            <li>Aufgezeichnete Flugrecords als Karte oder Debrief ansehen, wenn entsprechende Daten vorliegen.</li>
-        </ul>
-        <p><strong>Tipp:</strong> Private Zettel werden mit deiner Pilot-ID synchronisiert, wenn Auto-Sync aktiv ist. Angepinnte Entwuerfe koennen nicht geladen werden - erst akzeptieren, dann pinnen.</p>
-
-        <h3>Crew Board</h3>
-        <ol>
-            <li>Mit Pilot-ID und PIN einloggen.</li>
-            <li>Unter Crew Board einen Crew-Code eingeben, zum Beispiel <code>EDTK</code>.</li>
-            <li>Optional Anzeigename setzen.</li>
-            <li><span class="key-badge">Beitreten / Update</span> klicken.</li>
-        </ol>
-        <ul>
-            <li>Gemeinsame Zettel fuer alle Crew-Mitglieder.</li>
-            <li>Fluege aus dem Briefing an die Crew heften.</li>
-            <li>Neue Crew-Zettel erscheinen mit Badge.</li>
-            <li>Crew-Roster zeigt Mitglieder und Status.</li>
-            <li>Der erste Ersteller wird Admin und kann Mitglieder entfernen.</li>
-            <li>Eigene Crew-Zettel koennen fuer alle geloescht werden; fremde Zettel werden lokal ausgeblendet.</li>
-        </ul>
-        <p><strong>Tipp:</strong> Das Crew Board teilt Planung, Notizen und Auftraege. Es ist kein ATC- oder Multiplayer-Server.</p>
-
-        <hr class="section">
-
-        <h2>Datenquellen und Grenzen</h2>
-        <ul>
-            <li>Je nach Funktion nutzt die App lokale Daten, Browser-Cache, Live-Tracker, OpenAIP, Wetterquellen, DWD-/VFR-Daten, Kartenkacheln, Flughafen-/POI-Daten, Wikipedia/Wikidata und optionale KI-Provider.</li>
-            <li>Internetdaten koennen fehlen, veraltet sein oder kurzzeitig nicht antworten.</li>
-            <li>Luftraum-, Wetter-, Terrain- und Hindernisdaten sind Simulator-/Planungshilfen, keine reale Freigabe.</li>
-            <li>Browser-Cache und Service Worker koennen alte Versionen halten; im Zweifel Update erzwingen oder Seite neu laden.</li>
-        </ul>
-
-        <div style="text-align:center; margin-top:40px; font-size:0.8em; opacity:0.5;">
-            &copy; 2026 VFR Multitool &nbsp;·&nbsp; <a href="https://github.com/iNherjer/VFR-Multitool" target="_blank" rel="noopener" style="opacity:0.7;">GitHub</a>
-        </div>
-    </div>
-</div>
-
+<body>
+<!-- Generated from README.md by tools/build-user-guide.py. Edit the source, then rebuild. -->
+<a class="skip" href="#handbuch-inhalt">Zum Handbuch</a>
+<header class="topbar"><nav class="nav wrap" aria-label="Hauptnavigation"><a class="brand" href="#anfang"><svg viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="4" fill="#193c34"/><path d="m20 7 2 12 11 5v3l-11-3-1 8h-2l-1-8-11 3v-3l11-5z" fill="#d9ef90"/></svg><span>VFR MULTITOOL<small>DAS HANDBUCH</small></span></a><div class="navlinks"><a class="welcome-link" href="willkommen.html">Entdecken</a><a class="setup-link" href="onboarding.html">Einrichtung</a><a href="#guide-search">Suchen</a><a class="app-link" href="index.html">Multitool öffnen ↗</a></div></nav></header>
+<main class="wrap" id="anfang"><section class="hero" aria-labelledby="handbuch-titel"><div><p class="eyebrow">Anleitung · Stand Oktober 2026</p><h1 id="handbuch-titel">Dein Multitool.<br><em>Gut erklärt.</em></h1><div class="intro"><p>Das VFR Multitool begleitet deine VFR-Flüge im Microsoft Flight Simulator: von der Flugidee über Planung und Missionen bis zur Live-Karte im Cockpit. Diese Anleitung erklärt die größeren Funktionen und ihre Bedienung.</p>
+<p><strong>Stand: 22. Oktober 2026 · Origin / Alpha.</strong> Diese Anleitung beschreibt den Origin-Stand. Stable kann einen anderen Funktionsumfang haben. Versionshinweise in App und Tracker sind maßgeblich.</p>
+<p><a href="https://inherjer.github.io/GA-Dispatcher-Alpha/" target="_blank" rel="noopener noreferrer">Multitool auf Origin öffnen</a> · <a href="willkommen.html">Willkommen</a> · <a href="onboarding.html">Geführte Einrichtung</a></p>
+<p>Das Tool ist für den Flugsimulator gedacht. Karten, Wetter und Warnungen sind keine Grundlage für reale Flüge.</p>
+</div></div><aside class="hero-note"><p class="eyebrow">Von der Flugidee bis zur Landung</p><h2>Einsteigen.<br>Nachschlagen.<br>Weiterfliegen.</h2><p>Hier findest du Bedienung und Zusammenhänge. Für die erste Anmeldung, KI-Schlüssel und Tracker-Verbindung führt dich das Onboarding Schritt für Schritt durch die Einrichtung.</p><a href="onboarding.html">Zur geführten Einrichtung ↗</a></aside></section><div class="coverage"><span>PLANUNG &amp; MISSIONEN</span><span>KARTE, WETTER &amp; FUNK</span><span>TRACKER, AUDIO &amp; EFB</span><span>HOMEBASE &amp; CREW</span></div>
+<noscript><p class="no-js-note">Alle Kapitel sind vollständig lesbar. Mit JavaScript kannst du zusätzlich die Suche benutzen.</p></noscript>
+<div class="layout"><aside class="sidebar"><div class="js-search"><label class="search-label" for="guide-search">Im Handbuch suchen</label><div class="search-box"><input type="search" id="guide-search" placeholder="z. B. Funk-Pause oder Verladung" autocomplete="off" aria-controls="handbuch-inhalt"><button type="button" id="clear-search" aria-label="Suche leeren" hidden>×</button></div><p class="search-result" id="search-result" role="status" aria-live="polite">Alle 16 Kapitel</p></div><details class="toc" id="guide-toc" open><summary>Inhaltsverzeichnis</summary><nav aria-label="Handbuchkapitel"><ol><li><a href="#1-schnellstart-und-orientierung" data-chapter="1-schnellstart-und-orientierung">1. Schnellstart und Orientierung</a></li>
+<li><a href="#2-pilot-id-cloud-und-ki-einrichten" data-chapter="2-pilot-id-cloud-und-ki-einrichten">2. Pilot-ID, Cloud und KI einrichten</a></li>
+<li><a href="#3-flugzeug-darstellung-und-flugplatzsuche" data-chapter="3-flugzeug-darstellung-und-flugplatzsuche">3. Flugzeug, Darstellung und Flugplatzsuche</a></li>
+<li><a href="#4-dispatch-und-missionsarten" data-chapter="4-dispatch-und-missionsarten">4. Dispatch und Missionsarten</a></li>
+<li><a href="#5-briefing-und-flugplan-ubergabe" data-chapter="5-briefing-und-flugplan-ubergabe">5. Briefing und Flugplan-Übergabe</a></li>
+<li><a href="#6-mission-passagiere-und-verladung" data-chapter="6-mission-passagiere-und-verladung">6. Mission, Passagiere und Verladung</a></li>
+<li><a href="#7-unterbrechen-fortsetzen-und-flugbuch" data-chapter="7-unterbrechen-fortsetzen-und-flugbuch">7. Unterbrechen, Fortsetzen und Flugbuch</a></li>
+<li><a href="#8-kartentisch-route-und-funk" data-chapter="8-kartentisch-route-und-funk">8. Kartentisch, Route und Funk</a></li>
+<li><a href="#9-wetter-luftraume-und-gelande" data-chapter="9-wetter-luftraume-und-gelande">9. Wetter, Lufträume und Gelände</a></li>
+<li><a href="#10-checklisten-rechner-und-uhren" data-chapter="10-checklisten-rechner-und-uhren">10. Checklisten, Rechner und Uhren</a></li>
+<li><a href="#11-stimmen-musik-und-funk-pause" data-chapter="11-stimmen-musik-und-funk-pause">11. Stimmen, Musik und Funk-Pause</a></li>
+<li><a href="#12-tracker-autostart-und-updates" data-chapter="12-tracker-autostart-und-updates">12. Tracker, Autostart und Updates</a></li>
+<li><a href="#13-msfs-2024-efb-toolbar-und-vr" data-chapter="13-msfs-2024-efb-toolbar-und-vr">13. MSFS-2024-EFB, Toolbar und VR</a></li>
+<li><a href="#14-deine-homebase-gestalten" data-chapter="14-deine-homebase-gestalten">14. Deine Homebase gestalten</a></li>
+<li><a href="#15-pinnwand-und-crew-board" data-chapter="15-pinnwand-und-crew-board">15. Pinnwand und Crew Board</a></li>
+<li><a href="#16-hilfe-daten-und-haufige-fragen" data-chapter="16-hilfe-daten-und-haufige-fragen">16. Hilfe, Daten und häufige Fragen</a></li></ol></nav></details><p class="sidebar-note">Die Suche filtert ganze Kapitel. Alle Inhalte bleiben auch ohne Internet im geladenen Dokument lesbar; verknüpfte Apps und Live-Funktionen benötigen ihre jeweilige Verbindung.</p></aside><div class="manual" id="handbuch-inhalt"><div class="no-results" id="no-results" hidden><h2>Kein passendes Kapitel.</h2><p>Versuche einen kürzeren Begriff wie „Funk“, „Fracht“ oder „Tracker“.</p><button type="button" id="show-all">Alle Kapitel anzeigen</button></div><section class="chapter" id="1-schnellstart-und-orientierung" aria-labelledby="1-schnellstart-und-orientierung-titel"><h2 id="1-schnellstart-und-orientierung-titel">1. Schnellstart und Orientierung</h2>
+<p>Du kannst das Multitool auf drei Arten nutzen:</p>
+<ul>
+<li><strong>Planen:</strong> Start, Ziel und Flugzeug wählen, Briefing ansehen, Route bearbeiten und exportieren. Das geht bereits im Browser.</li>
+<li><strong>Frei fliegen:</strong> Im Kartentisch mit <strong>Direct To</strong> ein eigenes Ziel setzen. Mit Tracker folgt die Karte deinem Flugzeug; eine Mission ist dafür nicht nötig.</li>
+<li><strong>Eine Mission fliegen:</strong> Auftrag erzeugen, prüfen und akzeptieren. Für den tatsächlichen Missionsablauf im Simulator brauchst du den verbundenen Windows-Tracker.</li>
+</ul>
+<h3 id="dein-erster-auftrag">Dein erster Auftrag</h3>
+<ol>
+<li>Unter <strong>Start / DEP</strong> deinen Startplatz eingeben, etwa <code>EDTW</code>, und den passenden Suchtreffer auswählen.</li>
+<li>Ein Flugzeug-Preset wählen oder Geschwindigkeit, Verbrauch, Reiseflughöhe und Steig-/Sinkrate einstellen.</li>
+<li>Missionstyp, Distanz und Richtung wählen. Ein leeres Ziel lässt den Dispatcher suchen.</li>
+<li><strong>Auftrag generieren / DISPATCH</strong> anklicken. Das Briefing prüfen und <strong>Mission akzeptieren</strong> wählen.</li>
+<li>Tracker und MSFS verbinden. Mit installiertem EFB-Paket kannst du schon auf der <strong>Weltkarte</strong> das VFR Multitool im EFB öffnen und den vorbereiteten Flug an die Simulator-Flugplanung senden. Die Übernahme prüfen und den Flug im Simulator laden.</li>
+<li>Im geladenen Cockpit am Boden stehen und im Kartentisch <strong>Mission starten</strong> wählen.</li>
+<li>Die angezeigten Schritte für Boarding, Verladung und Auftrag abarbeiten.</li>
+</ol>
+<p>Für die komplette Ersteinrichtung nutze die <a href="onboarding.html">Onboarding-Seite</a>. Diese Anleitung dient danach zum Nachschlagen.</p>
+<h3 id="wo-finde-ich-was">Wo finde ich was?</h3>
+<ul>
+<li><strong>Hauptseite:</strong> Dispatch, Flugzeug-Presets, Briefing, Flugbuch, Homebase und Einstellungen.</li>
+<li><strong>Kartentisch:</strong> Route, Live-Position, Höhenprofil, Anzeige- und Audio-Menü sowie Werkzeuge.</li>
+<li><strong>Seitenmenü im Kartentisch:</strong> Checklisten, Mission, Wetter, Radio, Warnungen, Platzinformationen, Nearest und Ladung.</li>
+<li><strong>Windows-Tracker:</strong> Verbindung, Audioausgabe, Autostart, Updates und Zusatzpakete.</li>
+<li><strong>MSFS-2024-EFB und Toolbar:</strong> Cockpit-Zugriff auf Karte, Mission und Werkzeuge über den laufenden Tracker.</li>
+</ul>
+</section>
+<section class="chapter" id="2-pilot-id-cloud-und-ki-einrichten" aria-labelledby="2-pilot-id-cloud-und-ki-einrichten-titel"><h2 id="2-pilot-id-cloud-und-ki-einrichten-titel">2. Pilot-ID, Cloud und KI einrichten</h2>
+<h3 id="pilot-id-und-cloud-sync">Pilot-ID und Cloud-Sync</h3>
+<p><strong>Hier:</strong> Hauptseite → <strong>Einstellungen</strong> → <strong>Pilot Identity &amp; Sync</strong>.</p>
+<p>Die Pilot-ID ist dein gemeinsames Profil. Eine <strong>PIN aus 4 bis 8 Ziffern</strong> schützt den Zugriff.</p>
+<ol>
+<li>Eine eigene, eindeutige Pilot-ID und eine PIN eintragen.</li>
+<li><strong>Login</strong> anklicken. Eine noch freie ID wird dabei registriert; für eine vorhandene ID brauchst du deren PIN.</li>
+<li><strong>Auto-Sync</strong> aktivieren, wenn gespeicherte Inhalte automatisch abgeglichen werden sollen.</li>
+<li>Auf Tablet, Zweitgerät und im Tracker dieselbe ID und PIN verwenden.</li>
+</ol>
+<p><strong>Push</strong> schreibt den aktuellen Stand in die Cloud. <strong>Pull</strong> holt den Cloud-Stand auf das Gerät. Bei unterschiedlichen Ständen zuerst prüfen, welches Gerät die gewünschten Daten enthält.</p>
+<p>Neu erstellte Entwürfe und akzeptierte Aufträge werden bei aktivem Auto-Sync geräteübergreifend gespeichert. Ein noch nicht bestätigter Upload bleibt vorgemerkt und wird erneut versucht. Ein wieder geladenes Briefing ist dabei nicht automatisch eine gestartete Mission.</p>
+<h3 id="ki-fur-briefings">KI für Briefings</h3>
+<p><strong>Hier:</strong> Einstellungen → <strong>KI-Dispatcher</strong>.</p>
+<p>Die optionale KI ergänzt Aufträge um individuelle Briefings, Passagiere, Fracht und Hintergründe. Ohne KI bleiben Kartenplanung und lokal erzeugte Aufträge verfügbar.</p>
+<ul>
+<li><strong>Provider:</strong> Gemini oder ChatGPT (OpenAI). Der Schlüssel muss zum gewählten Anbieter gehören.</li>
+<li><strong>API-Key:</strong> im angezeigten Feld für Gemini beziehungsweise OpenAI eintragen und die Statusmeldung prüfen.</li>
+<li><strong>KI an/aus:</strong> bestimmt, ob die KI genutzt wird.</li>
+<li><strong>Profil:</strong> Auto, Sparsam, Qualität oder High Quality. Für den Einstieg eignet sich Auto; Sparsam ist für häufiges Ausprobieren gedacht.</li>
+</ul>
+<p>Gemini-Schlüssel erstellst du in <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>, OpenAI-Schlüssel auf der <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI-Plattform</a>. Offizielle Hilfen: <a href="https://ai.google.dev/gemini-api/docs/api-key" target="_blank" rel="noopener noreferrer">Gemini API-Keys</a> und <a href="https://developers.openai.com/api/docs/quickstart" target="_blank" rel="noopener noreferrer">OpenAI API-Einstieg</a>.</p>
+<p>Die Anbieter regeln Kontingente und Abrechnung. KI-Briefings und KI-Stimmen können getrennten Verbrauch verursachen. Prüfe die Nutzung beim Anbieter; ein Chat-Login allein ersetzt keinen API-Key.</p>
+<h3 id="warum-schlussel-und-anmeldung-im-tracker-erneut-eintragen">Warum Schlüssel und Anmeldung im Tracker erneut eintragen?</h3>
+<p>Die <strong>Pilot-ID + PIN</strong> ordnen die Verbindung deinem Piloten zu. Der <strong>Web-API-Key</strong> ermöglicht KI-Briefings im jeweiligen Browser. Der <strong>Voice-Key im Tracker</strong> ermöglicht die zentrale KI-Sprachausgabe, auch für EFB und Toolbar.</p>
+<p>Browser und Tracker speichern diese Zugänge getrennt. Der Web-Key wird nicht über dein Pilotenprofil synchronisiert. Auf einem weiteren Web-Gerät trägst du ihn erneut ein. Der Startdialog bietet an, ihn für weitere Besuche auf diesem Gerät zu merken; lokaler Website-Speicher ist nicht verschlüsselt. Der Tracker schützt seinen gespeicherten Voice-Key mit deinem Windows-Konto.</p>
+<p>Teile PIN und API-Keys nicht über Pinnwände oder Screenshots. Die für KI-Anfragen benötigten Inhalte werden an deinen ausgewählten Anbieter gesendet.</p>
+</section>
+<section class="chapter" id="3-flugzeug-darstellung-und-flugplatzsuche" aria-labelledby="3-flugzeug-darstellung-und-flugplatzsuche-titel"><h2 id="3-flugzeug-darstellung-und-flugplatzsuche-titel">3. Flugzeug, Darstellung und Flugplatzsuche</h2>
+<h3 id="flugzeug-presets">Flugzeug-Presets</h3>
+<p>C172, Comanche und Aerostar sind die drei Schnellslots. Ein Klick wählt den Slot; Rechtsklick oder Langdruck öffnet den Editor. Du erreichst ihn auch über <strong>Einstellungen → Aircraft / Presets</strong>.</p>
+<ul>
+<li><strong>TAS:</strong> geplante Reisegeschwindigkeit in Knoten; beeinflusst Flugzeit und Planung.</li>
+<li><strong>GPH:</strong> geplanter Verbrauch in US-Gallonen pro Stunde; Grundlage der Fuel-Schätzung.</li>
+<li><strong>Cruise ALT:</strong> gewünschte Reiseflughöhe für Route, Profil und Hinweise.</li>
+<li><strong>V/S:</strong> geplante Steig-/Sinkrate für Steig- und Sinkflugprofil.</li>
+<li><strong>Sitze, Zuladung und Flugzeugklasse:</strong> helfen dem Dispatcher, passende Aufträge und Beladungen auszuwählen.</li>
+<li><strong>Einsatzprofile:</strong> etwa Privat/Reise, Charter, Cargo, Utility, Bush/STOL oder Training. Sie begrenzen die automatische Zufallsrotation; eine gezielte Mission bleibt auswählbar.</li>
+</ul>
+<p>Bei unpassenden Zeiten oder Frachtmengen zuerst die Flugzeugwerte prüfen. Boarding-Tür und relative Wegpunkte lassen sich pro Slot anpassen, wenn die Szene im Simulator nicht zum Flugzeug passt.</p>
+<h3 id="oberflachen-und-grossen">Oberflächen und Größen</h3>
+<p>Unter <strong>Einstellungen → Darstellung</strong> stehen Modern, Analog, NavCom, Ops 1940 und Win95 zur Wahl. Sie bedienen dieselben grundlegenden Daten.</p>
+<ul>
+<li><strong>Analog:</strong> mechanisch wirkendes Panel; die obere linke Schraube wechselt die Lackierung.</li>
+<li><strong>NavCom:</strong> Radio-Stack mit Drehknöpfen sowie DATA- und DISPATCH-Bedienung.</li>
+<li><strong>Ops 1940:</strong> instrumentenartige Missionsauswahl und Briefing-Darstellung.</li>
+<li><strong>Win95:</strong> Fenster- und Desktop-Gestaltung im klassischen PC-Stil.</li>
+</ul>
+<p>Passe mit <strong>Seitengröße</strong> die Bedienung an Tablet, Monitor oder VR an. Uhren- und Medien-Skins sind davon unabhängig wählbar. Auf iPad/iPhone kannst du die Web-App über Safari zum Home-Bildschirm hinzufügen.</p>
+<h3 id="flugplatze-suchen-und-merken">Flugplätze suchen und merken</h3>
+<p>Start und Ziel lassen sich über Kennung, Namen und Suchvorschläge auswählen. Der selbst gehostete Bestand enthält weltweite Flugplätze, auch ohne klassischen ICAO-Code. Prüfe bei ähnlichen Namen den angezeigten Ort und wähle den Treffer bewusst aus.</p>
+<p>Mit dem <strong>Stern</strong> in der Flugplatzsuche merkst du dir Favoriten. Sie erscheinen beim Öffnen eines passenden Felds und werden in den Ergebnissen bevorzugt angeboten. Auch auf der Karte gibt es Favoriten-Sterne; die Anzeige lässt sich unter <strong>Anzeige → Favoriten</strong> schalten.</p>
+<p>Der Filter <strong>Platztypen</strong> begrenzt die angebotenen und automatisch gewählten Plätze. Für zivile Heliports muss <strong>Heli</strong> ausdrücklich aktiviert sein. Unterschiedliche Start-/Zieltypen lassen sich durch mehrere ausgewählte Kategorien kombinieren.</p>
+</section>
+<section class="chapter" id="4-dispatch-und-missionsarten" aria-labelledby="4-dispatch-und-missionsarten-titel"><h2 id="4-dispatch-und-missionsarten-titel">4. Dispatch und Missionsarten</h2>
+<h3 id="zufall-vorschlage-oder-eigenes-ziel">Zufall, Vorschläge oder eigenes Ziel</h3>
+<ul>
+<li><strong>Ziel leer / RNDM / ----:</strong> der Dispatcher sucht ein Ziel.</li>
+<li><strong>Ziel vorgeben:</strong> eine bestimmte Verbindung planen, soweit sie zum gewählten Profil passt.</li>
+<li><strong>RDM:</strong> direkt zufällig erzeugen.</li>
+<li><strong>PICK:</strong> zunächst Vorschläge sehen und einen davon ausarbeiten lassen.</li>
+<li><strong>Distanz und Richtung:</strong> grenzen den Suchraum ein. Zu enge Vorgaben können die Auswahl stark beschränken.</li>
+<li><strong>Region:</strong> soweit in der gewählten Ansicht angeboten, zwischen regionalen beziehungsweise internationalen Zielen eingrenzen.</li>
+</ul>
+<p>Die Flugzeugwerte und das gewählte Einsatzprofil beeinflussen die Auswahl. Ein Entwurf lässt sich prüfen, bevor du ihn akzeptierst.</p>
+<h3 id="flugplatz-poi-und-bush-auftrage">Flugplatz-, POI- und Bush-Aufträge</h3>
+<p><strong>APT</strong> führt in der Regel von einem Flugplatz zum anderen: Verein, Privat, Charter, Cargo, Training, Medizin-Transfer, fragile Fracht, Tiertransport, Reporter oder Sightseeing.</p>
+<p><strong>POI</strong> stellt eine Aufgabe an einem Ort in den Mittelpunkt: Training, Infrastruktur-Inspektion, Ketten-Erstbefund, Foto/Film, Mapping/Survey, Reporter, Sightseeing, Lern-Guide, Historiker, Bio/Umwelt, Geo/Relief, SAR/Rescue oder Fire Watch.</p>
+<p><strong>Bush</strong> steht für abgelegene Landeplätze und Backcountry-Flüge: Versorgung, Charter, Adventure, Erkundung mit Rückkehr sowie Passagier- oder Frachtabholung mit Rückflug.</p>
+<p>Zusätzlich kannst du nach Zielkategorien wie Brücken, Straßen, Staudämmen, Funkmasten, Industrie, Burgen, Gewässern, Bergen oder Städten suchen. <strong>Freiflug/Planung</strong> liefert eine Planungsroute ohne Missionsablauf.</p>
+<h3 id="was-verlangt-ein-auftrag">Was verlangt ein Auftrag?</h3>
+<p>Lies das konkrete Briefing: Eine Fotoaufgabe ist etwas anderes als eine Sichtprüfung, eine Flächenvermessung oder eine Abholung. Nicht jeder POI-Flug verlangt ein Foto, nicht jeder Auftrag endet am ersten Ziel und nicht jede Mission nimmt Passagiere mit.</p>
+<p>Bei Training, Mapping und anderen Arbeitsaufträgen können bestimmte Höhen, Bereiche, Zeiten oder einzelne Bestätigungen nötig sein. Die aktuellen Bedingungen findest du während des Flugs in <strong>Mission Control</strong>.</p>
+</section>
+<section class="chapter" id="5-briefing-und-flugplan-ubergabe" aria-labelledby="5-briefing-und-flugplan-ubergabe-titel"><h2 id="5-briefing-und-flugplan-ubergabe-titel">5. Briefing und Flugplan-Übergabe</h2>
+<h3 id="was-steht-im-briefing">Was steht im Briefing?</h3>
+<ul>
+<li><strong>Auftrag:</strong> Titel, Hintergrund, Passagiere, Fracht, Strecke, Kurs und geschätzte Flugzeit.</li>
+<li><strong>Nav-Log:</strong> Wegpunkte, Frequenzen, Kurse, Entfernungen, Zeiten und Fuel-Schätzung.</li>
+<li><strong>Start und Ziel:</strong> verfügbare Pisten-, Wetter-, Frequenz-, AIP- und Ortsinformationen.</li>
+<li><strong>Höhenprofil:</strong> Gelände, Höhenplanung und verfügbare Hinweise entlang der Route.</li>
+</ul>
+<p>Im Nav-Log kann der Luftraumfilter die Warnungen auf deine geplante Flughöhe begrenzen. Ein Quellenlink hilft, ergänzende Flugplatz- oder Wetterinformationen zu öffnen.</p>
+<h3 id="flugcode-pdf-und-msfs-datei">Flugcode, PDF und MSFS-Datei</h3>
+<p>Über <strong>DATA / 💾 / Transfer</strong> kannst du Flugcodes kopieren oder laden und MSFS-Flugpläne importieren beziehungsweise als <code>.pln</code> exportieren. Die PDF-Funktion erzeugt ein Briefing zum Mitnehmen oder Drucken.</p>
+<p>Akzeptiere einen Missionsentwurf, bevor du ihn als Auftrag pinnst, teilst oder für den Flug weitergibst. Ein reiner Planungsimport ist noch kein gestarteter Auftrag.</p>
+<h3 id="schon-auf-der-weltkarte-uber-das-efb-laden">Schon auf der Weltkarte über das EFB laden</h3>
+<p>Du kannst den vorbereiteten Flug bereits auf der <strong>Weltkarte von MSFS 2024</strong> übernehmen:</p>
+<ol>
+<li>Den Auftrag im Multitool vorbereiten und <strong>Mission akzeptieren</strong> wählen.</li>
+<li>Den Tracker laufen lassen und auf der Weltkarte das <strong>VFR Multitool im EFB</strong> öffnen. Dafür muss das EFB-Paket installiert sein.</li>
+<li>Im Planungshinweis <strong>Flugplan an Flugsicherung senden</strong> wählen. Die Bestätigung abwarten und Startposition sowie Flugzeug im Simulator prüfen.</li>
+<li>Den Flug im Simulator laden. Sobald du im Cockpit am Boden bereit bist, <strong>Mission starten</strong> wählen.</li>
+</ol>
+<p>So bringst du die Planung schon vor dem Einstieg ins Cockpit in den Simulator. Die Weltkarten-Übertragung allein startet noch keine Mission und lädt keine Passagiere oder Fracht.</p>
+<h3 id="direkt-an-msfs-und-avionik-senden">Direkt an MSFS und Avionik senden</h3>
+<p>Mit passendem Tracker und Cockpit-Paket kannst du die Route auch aus dem EFB beziehungsweise der Toolbar an die <strong>Simulator-Flugplanung</strong> senden. Die Planungshinweise bieten den passenden Übertragungsweg an. Ein geschlossenes Planungsbanner lässt sich über die Toolbar wieder aufrufen.</p>
+<p>In Mission Control gibt es die Übertragung an <strong>MSFS</strong> sowie an <strong>MSFS und Avionik</strong>. Für die Avionik vorher das Gerät einschalten und hochfahren lassen. Nicht jedes Flugzeug übernimmt einen Plan gleich; die Bestätigung ansehen und die Route im Gerät kontrollieren.</p>
+<p>Fehlt die Bestätigung der Übernahme, nicht von einer erfolgreichen Übertragung ausgehen.</p>
+</section>
+<section class="chapter" id="6-mission-passagiere-und-verladung" aria-labelledby="6-mission-passagiere-und-verladung-titel"><h2 id="6-mission-passagiere-und-verladung-titel">6. Mission, Passagiere und Verladung</h2>
+<h3 id="starten-und-den-nachsten-schritt-finden">Starten und den nächsten Schritt finden</h3>
+<p>Nach <strong>Mission akzeptieren</strong> ist der Auftrag vorbereitet. Im normalen Simulatorbetrieb steuert der <strong>Tracker</strong> den Missionsablauf; Web-App, EFB und Toolbar zeigen denselben Stand und die dort erlaubten Aktionen.</p>
+<ol>
+<li>Tracker verbinden und das Cockpit vollständig laden.</li>
+<li>Am Boden anhalten und <strong>Mission starten</strong> wählen.</li>
+<li>Boarding und Verladung nach den angezeigten Vorgaben durchführen.</li>
+<li>Erst nach Freigabe zum eigentlichen Flug aufbrechen.</li>
+</ol>
+<p><strong>Mission Control</strong> im Kartentisch-Seitenmenü zeigt Aufgabe, Phase, Entfernung, Arbeitshöhe, Arbeitszeit oder Flächen-/Kettenfortschritt. Dazu kommen Pflichtbedingungen, Passagierstimmung, Ladungszustand und Abweichungshinweise.</p>
+<h3 id="verlade-manager">Verlade-Manager</h3>
+<p>Der Verlade-Manager bündelt <strong>Laden</strong>, <strong>Abholen</strong> und <strong>Entladen</strong>. Er zeigt die für die aktuelle Station relevanten Personen und Gegenstände sowie den Bordbestand.</p>
+<ol>
+<li>Pflichtpositionen laden, abholen oder am richtigen Ziel entladen.</li>
+<li>Die Liste <strong>unterschreiben</strong> und die Unterschrift abwarten.</li>
+<li>Danach die Verladung <strong>separat bestätigen</strong>.</li>
+</ol>
+<p>Eine Änderung nach der Unterschrift macht eine neue Unterschrift nötig. Eine Start-Unterschrift gilt nicht automatisch für Abholung oder Ankunft. Das Schließen des Fensters verwirft den bearbeiteten Zustand nicht. Den Dialog kannst du über den Ladungsbereich wieder öffnen.</p>
+<p>Im Simulator-Menü und auf der Weltkarte ist die Verladung gesperrt. Wenn ein Auftrag nicht weitergeht, prüfe Pflichtpositionen, Unterschrift und Bestätigung sowie die nächste erwartete Aktion.</p>
+<h3 id="boarding-gepack-und-ankunft">Boarding, Gepäck und Ankunft</h3>
+<p>Je nach Auftrag erscheinen Personen, Gepäck, Fracht und passende Szenen im Simulator. Boarding und Ausstieg gehören zum Ablauf; ein offener Zielpunkt allein erledigt noch keine Abholung.</p>
+<p>Bei Abholaufträgen kann nach der Beladung ein Rückflug anstehen. Bei Ankunft müssen die vorgesehenen Gegenstände und Personen übergeben werden, bevor Abschluss und Debrief freigegeben sind. Warte auf noch laufende Ein-/Ausstiegsaktionen oder Abschiedsansagen.</p>
+<p>Passagiertexte und optionale Stimmen begleiten Missionsphase und Flugverhalten. Verfügbare Gesprächs- und Aufgabenaktionen erscheinen in den Missions-/Passagierbereichen. Neue Einträge können durch einen Hinweis markiert sein; du musst nicht ständig alle Bereiche offen halten.</p>
+<h3 id="bordbestand-und-bordbuch">Bordbestand und Bordbuch</h3>
+<p>Bordbuch, Verbandzeug, Feuerlöscher und Radkeile lassen sich am Boden im Stillstand verwalten, auch unabhängig von einer Mission. Sie sind vom verpflichtenden Missionsgepäck getrennt. Zurückgelassene Gegenstände können nach dem Abflug als verloren gelten.</p>
+<p>Das <strong>Bordbuch</strong> gehört zur mitgeführten Ausstattung. Das rote <strong>Flugbuch auf der Hauptseite</strong> zeigt dagegen abgeschlossene Flüge und deren Auswertung.</p>
+</section>
+<section class="chapter" id="7-unterbrechen-fortsetzen-und-flugbuch" aria-labelledby="7-unterbrechen-fortsetzen-und-flugbuch-titel"><h2 id="7-unterbrechen-fortsetzen-und-flugbuch-titel">7. Unterbrechen, Fortsetzen und Flugbuch</h2>
+<h3 id="einen-laufenden-auftrag-wieder-aufnehmen">Einen laufenden Auftrag wieder aufnehmen</h3>
+<p>Bei einer Simulator-Trennung oder einem Tracker-Neustart kann der laufende Missionsstand erhalten bleiben. Die Oberfläche zeigt einen gespeicherten oder unterbrochenen Auftrag; Boarding- und Verladeaktionen warten währenddessen.</p>
+<p>Starte MSFS wieder und lade einen Flug. Im aktuellen Ablauf ist Fortsetzen der Normalfall: Das geladene Cockpit nimmt die Mission wieder auf, sobald die Bedingungen am Speicherpunkt erfüllt sind. Kurze Verbindungsunterbrechungen können sich selbst erholen.</p>
+<ul>
+<li><strong>Unterbrechung am Boden:</strong> das Flugzeug am angezeigten Start-, Ziel- oder Speicherpunkt abstellen und kurz stabil stehen lassen.</li>
+<li><strong>Unterbrechung in der Luft:</strong> zur markierten Zone fliegen und die angezeigte Zeit normal weiterfliegen. Wenn angeboten, kannst du dich an den Speicherpunkt versetzen lassen.</li>
+</ul>
+<h3 id="gespeicherten-flug-uber-die-weltkarte-fortsetzen">Gespeicherten Flug über die Weltkarte fortsetzen</h3>
+<p>Auch einen gespeicherten, unterbrochenen Flug kannst du schon auf der <strong>Weltkarte</strong> wieder vorbereiten:</p>
+<ol>
+<li>Den Tracker starten und in MSFS 2024 auf der Weltkarte das <strong>VFR Multitool im EFB</strong> öffnen.</li>
+<li>Beim unterbrochenen Auftrag <strong>Speicherstand laden</strong> wählen, sobald die Aktion angeboten wird. Damit wird der Wiedereinstieg an die Simulator-Flugplanung übergeben; bei einer Unterbrechung in der Luft kann dies ein Luftstart am Speicherpunkt sein.</li>
+<li>Die Bestätigung und Hinweise beachten, das passende Flugzeug wählen und den Flug im Simulator laden.</li>
+<li>Im Cockpit den Wiederaufnahme-Hinweisen folgen. Sobald die Bedingungen am Speicherpunkt erfüllt sind, läuft dein bisheriger Auftrag weiter. Den Flugplan bei Bedarf anschließend über <strong>Flugplan laden</strong> in die Avionik übernehmen.</li>
+</ol>
+<p>Du musst dafür keinen neuen Auftrag erzeugen oder die Mission zurücksetzen.</p>
+<p>Eine für den Wiedereinstieg gesendete Weltkarten-Position und die Route für die Avionik erfüllen unterschiedliche Aufgaben. Kontrolliere Startposition und anschließend den Flugplan im Cockpit. Ein Speicherstand lädt nicht selbstständig ein bestimmtes Flugzeugmodell.</p>
+<h3 id="wiederaufnahme-oder-neustart">Wiederaufnahme oder Neustart?</h3>
+<p><strong>Wieder aufnehmen</strong> soll deinen laufenden Auftrag erhalten. <strong>Mission neu starten / zurücksetzen</strong> beginnt den Ablauf erneut; <strong>abbrechen</strong> beendet den Auftrag. Wähle Reset nicht nur deshalb, weil der Tracker vorübergehend fehlt.</p>
+<p>Bereits geplante und akzeptierte Aufträge ohne Missionsstart haben keine Altersgrenze. Die Browser-Wiederherstellung eines begonnenen Auftrags und der gespeicherte Tracker-Lauf sind unterschiedliche Sicherungen; folge dem aktuell angezeigten Tracker-Status. Eine Browser-Zeitgrenze ist kein allgemeines Ablaufdatum für jeden Tracker-Speicherstand.</p>
+<h3 id="abschluss-und-debrief">Abschluss und Debrief</h3>
+<p>Nach erfülltem Auftrag und abgeschlossener Übergabe wird <strong>Abschluss &amp; Debrief</strong> beziehungsweise <strong>Mission beenden</strong> verfügbar. Die Auswertung zeigt die aufgezeichneten Flugdaten; bei mehrteiligen Flügen werden die vorhandenen Abschnitte für die Missionsauswertung zusammengeführt.</p>
+<p>Der finale Missionsabschluss schreibt den Eintrag automatisch ins Flugbuch. Ein Zwischenhalt ist noch nicht der endgültige Missionsabschluss.</p>
+<h3 id="das-rote-flugbuch">Das rote Flugbuch</h3>
+<p>Auf der Hauptseite das rote Leder-Flugbuch öffnen. Es zeigt Datum, Flugzeug, Strecke, Dauer, Entfernung und eine Auftragsnotiz. Mit den Seitentasten blätterst du; ein vorhandener Eintrag öffnet seine Details beziehungsweise das Debrief.</p>
+<p>Das Leeren des gesamten Flugbuchs ist eine eigene Aktion mit Bestätigung. Reine Direct-To-Flüge besitzen keinen Missionsabschluss und sind deshalb nicht automatisch dasselbe wie ein protokollierter Missionsflug.</p>
+</section>
+<section class="chapter" id="8-kartentisch-route-und-funk" aria-labelledby="8-kartentisch-route-und-funk-titel"><h2 id="8-kartentisch-route-und-funk-titel">8. Kartentisch, Route und Funk</h2>
+<h3 id="die-karte-im-alltag">Die Karte im Alltag</h3>
+<p>Der <strong>Kartentisch</strong> funktioniert mit Auftrag, importierter Route und Freiflug. Über das Vollbild-Symbol bekommt die Karte mehr Platz. Auf kleinen Displays kannst du die obere Werkzeugleiste einklappen.</p>
+<ul>
+<li>Wegpunkte verschieben, ergänzen und entfernen; <strong>Route Reset</strong> setzt manuelle Anpassungen zurück.</li>
+<li><strong>Snapping</strong> hilft beim Einrasten an Flugplätzen, Funkfeuern und Meldepunkten.</li>
+<li><strong>Auto-Follow</strong> folgt deiner Live-Position; <strong>Autozoom</strong> passt den Ausschnitt mit Vorausschau an.</li>
+<li>Route-Leiste, Telemetrie, aktuelle Position und Wegpunkt-Info lassen sich unter <strong>Anzeige</strong> einblenden.</li>
+<li>Kartenstile und Layer wählst du im Kartenmenü. Verfügbarkeit und Darstellung unterscheiden sich zwischen Browser und Cockpit.</li>
+</ul>
+<p><img src="assets/welcome/kartentisch.png" alt="Kartentisch mit Route, Lufträumen und Höhenprofil im Schwarzwald. Beispielansicht ohne Live-Flug." loading="lazy" decoding="async" /></p>
+<p>Im Browser gibt es zusätzlich die reduzierten OpenFreeMap-Stile <strong>Positron (Hell)</strong>, <strong>Dark</strong> und <strong>Fiord</strong>. Sie benötigen WebGL und Internet. EFB und Toolbar nutzen ihre unterstützten Raster-Basiskarten; eine Browser-Kartenwahl bedeutet dort nicht automatisch denselben Kartenstil.</p>
+<h3 id="direct-to-ohne-auftrag">Direct To ohne Auftrag</h3>
+<ol>
+<li>Kartentisch öffnen und <strong>Direct To</strong> einschalten.</li>
+<li>Einen Flugplatz oder Kartenpunkt als Ziel wählen.</li>
+<li>Bei Live-GPS beginnt die Verbindung an deiner aktuellen Position; sonst wird ein vorhandener Planungsstart verwendet.</li>
+</ol>
+<p>Dafür sind kein Boarding, keine Fracht und kein Missionsstart nötig. Für Story, Aufgaben, Abholungen und Missionsszenen wählst du einen echten Dispatch.</p>
+<h3 id="radio-und-frequenzen-ubernehmen">Radio und Frequenzen übernehmen</h3>
+<p>Der Radio-Bereich bietet verfügbare Frequenzen zu Route und Flugplätzen; die Wegpunkt-Info unterstützt die Orientierung zum nächsten Abschnitt. Auch ATIS kann angezeigt werden, wenn die Daten vorhanden sind.</p>
+<p>Unter <strong>Anzeige → NAVCOM</strong> legst du fest, wie angebotene Frequenzen bedient werden:</p>
+<ul>
+<li><strong>AUS:</strong> keine direkte Funkübernahme.</li>
+<li><strong>Gerät 1 aktiv:</strong> direkte Übernahme auf das erste passende Gerät.</li>
+<li><strong>Auswahl:</strong> Zielgerät und, soweit verfügbar, Aktiv oder Standby bewusst auswählen.</li>
+</ul>
+<p>Mit passendem Tracker lassen sich unterstützte COM-, NAV-, ADF- und Transponderwerte an den Simulator übertragen. Prüfe die Rückmeldung und das tatsächliche Gerät; nicht jede individuelle Flugzeug-Avionik unterstützt alle Standardfunktionen.</p>
+<p>Die NAVCOM-Bedienungsart wird mit deinem Profil abgeglichen. Ein Wechsel der Bedienungsart stellt allein noch keine Frequenz um.</p>
+<h3 id="nearest-und-platzinformationen">Nearest und Platzinformationen</h3>
+<p><strong>Nearest</strong> sucht mit Live-Position nahe Flugplätze. <strong>Platz</strong> bündelt verfügbare Start-/Zielinfos und AIP-Links. Auf der Karte kannst du Flugplätze und Punkte für weitere Informationen auswählen. Fehlende Daten sind keine Bestätigung, dass es vor Ort keine Frequenz, Einschränkung oder Besonderheit gibt.</p>
+</section>
+<section class="chapter" id="9-wetter-luftraume-und-gelande" aria-labelledby="9-wetter-luftraume-und-gelande-titel"><h2 id="9-wetter-luftraume-und-gelande-titel">9. Wetter, Lufträume und Gelände</h2>
+<h3 id="wetter-und-vfr-index">Wetter und VFR-Index</h3>
+<p>Unter <strong>Anzeige</strong> kannst du Wetterlayer mit verfügbaren METAR-/Modellinformationen, Wind und Wolken aktivieren. Das Wetter-Seitenmenü ergänzt die Angaben entlang deiner Route.</p>
+<p>Der <strong>VFR-Index</strong> bietet eine regionale Übersicht mit Planungsland, Modellauswahl und Zeitfenster. Du kannst zwischen den angebotenen Modellansichten wechseln, das Ampelfenster wählen und die Daten aktualisieren.</p>
+<p>Achte auf Quelle, Zeitpunkt und verfügbaren Bereich. Ein Wettermodell und ein Flugplatz-METAR beantworten nicht dieselbe Frage. Die Kartenanzeige ist kein Beleg dafür, dass MSFS gerade genau dieses Wetter simuliert.</p>
+<h3 id="hohenprofil">Höhenprofil</h3>
+<p>Das Profil zeigt den Flug von der Seite: Gelände, verfügbare Hindernisse, Luftraumgrenzen, Wetter und gegebenenfalls Verkehr. Reiseflughöhe und Steig-/Sinkrate beeinflussen den geplanten Höhenverlauf und TOC/TOD.</p>
+<p>Du kannst horizontal zoomen, die Höhenachse automatisch oder manuell skalieren und die Profilhöhe am Griff ändern. <strong>RTE</strong> folgt der geplanten Route; <strong>HDG</strong> blickt bei verfügbaren Live-Daten in die aktuelle Flugrichtung.</p>
+<h3 id="terrain-avoid-und-warnungen">Terrain Avoid und Warnungen</h3>
+<p><strong>Terrain Avoid</strong> färbt Gelände nach deiner Live-Höhe beziehungsweise der verwendeten Planungshöhe. Warn- und Freiraumschwellen lassen sich einstellen. Prüfe eine sinnvolle Höhe, bevor du die Darstellung bewertest.</p>
+<p>Luftraum-, Terrain-, Frequenz- und Wegpunkthinweise kannst du getrennt aktivieren. Das Warnungen-Seitenmenü hilft bei den aktuellen Luftrauminformationen. Verkehr stammt aus den verfügbaren Simulator-Daten und ist kein vollständiges Bild jedes Online-Netzwerks.</p>
+</section>
+<section class="chapter" id="10-checklisten-rechner-und-uhren" aria-labelledby="10-checklisten-rechner-und-uhren-titel"><h2 id="10-checklisten-rechner-und-uhren-titel">10. Checklisten, Rechner und Uhren</h2>
+<h3 id="checklisten">Checklisten</h3>
+<p><strong>Hier:</strong> Kartentisch → Seitenmenü → <strong>Checklist</strong>.</p>
+<p>Es gibt eingebaute Listen, eigene Checklisten und Community-Listen. Du kannst eigene Kapitel und Punkte anlegen, umsortieren und Listen per Code importieren oder weitergeben. Community-Listen lassen sich abonnieren beziehungsweise als Grundlage kopieren; eigene Veröffentlichungen werden gesondert verwaltet.</p>
+<p>Listenbibliothek und Häkchen sind zu unterscheiden: Die Bibliothek kann auch dem passenden Tracker/EFB bereitgestellt werden; der aktuelle Abhakfortschritt gehört zur jeweiligen Bedienansicht. Verlass dich nicht darauf, dass jedes bereits abgehakte Kästchen sofort auf allen Geräten identisch erscheint.</p>
+<h3 id="zeichnen-messen-vfr-rechner-und-e6b">Zeichnen, Messen, VFR-Rechner und E6B</h3>
+<p>Über die Kartenwerkzeuge erreichst du Stift, Radierer, Farben, Strichstärke und das Messwerkzeug. Zeichnungen sind für Hinweise und Skizzen gedacht; sie ändern nicht automatisch die Flugroute.</p>
+<p>Der <strong>VFR-Rechner</strong> hilft unter anderem bei Zeit, Fuel, Wind, Sinkflug und Einheiten. Die Formelhilfe erklärt die verwendeten Zusammenhänge. Der <strong>E6B</strong> ergänzt den klassischen interaktiven Flugrechner mit Rechen- und Windseite.</p>
+<h3 id="zeit-timer-und-watch">Zeit, Timer und Watch</h3>
+<p>Unter <strong>Anzeige → Zeit</strong> wählst du Uhransicht, Zeitquelle <strong>Simulator / Gerät</strong> und <strong>UTC / Lokal</strong>. Fehlen brauchbare Simulator-Zeitdaten, zeigt die Oberfläche den Geräte-Fallback an.</p>
+<p>Über das Uhr-Werkzeug öffnest du Stoppuhr beziehungsweise <strong>A Watch</strong>. Timer und Zeitmessung lassen sich unabhängig vom Hauptdesign nutzen. Die Uhrenwahl ist nicht an den eingestellten Medien-Skin gekoppelt.</p>
+<p><strong>Low FPS Mode</strong> und angepasste Seitengröße können auf schwächeren Tablets oder in VR helfen. Zu viele gleichzeitig sichtbare Layer und Fenster kosten Übersicht und Leistung.</p>
+</section>
+<section class="chapter" id="11-stimmen-musik-und-funk-pause" aria-labelledby="11-stimmen-musik-und-funk-pause-titel"><h2 id="11-stimmen-musik-und-funk-pause-titel">11. Stimmen, Musik und Funk-Pause</h2>
+<h3 id="warnungen-und-passagierstimmen">Warnungen und Passagierstimmen</h3>
+<p><strong>Hier:</strong> Kartentisch → <strong>Audio</strong>; am PC zusätzlich Tracker → <strong>Audio</strong>.</p>
+<p>Warnungen, Frequenz- und Wegpunktansagen sowie Passagier-/Story-Stimmen können getrennt eingestellt werden. Texte bleiben nutzbar, wenn Stimmen ausgeschaltet sind. Stimme, Klang und angebotene KI-Optionen wählst du nach Bedarf.</p>
+<p>Für die zentrale Spracherzeugung im Tracker unter <strong>Provider / API-Key</strong> einen passenden Gemini- oder OpenAI-Key eintragen und <strong>Sicher speichern</strong> wählen. Ein laufender Tracker wird dabei neu gestartet: Änderungen vor dem Flug durchführen.</p>
+<h3 id="pc-ausgang-und-musiksteuerung">PC-Ausgang und Musiksteuerung</h3>
+<p>Im Tracker <strong>Audio aktiviert</strong>, <strong>PC-Ausgang</strong> und Lautstärke prüfen. Wähle etwa dein Headset statt versehentlich eines anderen Windows-Ausgangs.</p>
+<p>Öffne deinen Musikplayer auf Windows und starte die Wiedergabe dort. Unter <strong>Musik / Windows-Player</strong> beziehungsweise in der Multitool-Mediensteuerung wählst du die verfügbare Quelle. Die Funktionen nutzen den laufenden Windows-Player und dessen unterstützte Steuerung; das Multitool stellt kein Musikabo und keine eigene Streaming-Bibliothek bereit.</p>
+<p>Im Kartentisch-Audio-Menü die <strong>Mediensteuerung</strong> einschalten. Als Skin stehen <strong>Winamp</strong>, <strong>iPod</strong> und <strong>Watch</strong> bereit. Damit steuerst du Wiedergabe und verfügbare Titel-/Zeitinformationen. Player und Uhren besitzen eigene Größen- und Ansichtsoptionen.</p>
+<p><strong>Bei Ansagen leiser</strong> senkt die Musik während Stimmen und Warnungen ab. Mit der Restlautstärke bestimmst du, wie viel davon hörbar bleibt. Diese Einstellung wird mit der Windows-Ausgabe abgestimmt.</p>
+<h3 id="funk-pause-per-taste-oder-joystick">Funk-Pause per Taste oder Joystick</h3>
+<p><strong>Hier:</strong> Tracker → Audio → <strong>Funk-Pause (PTT)</strong>.</p>
+<ol>
+<li><strong>Funk-Pause aktiv</strong> einschalten.</li>
+<li>Über <strong>+ Button hinzufügen</strong> eine Taste oder einen Joystick-Button anlernen. Mehrere Belegungen sind möglich.</li>
+<li>Für Stimmen/Warnungen <strong>Pausieren</strong> oder <strong>Leiser</strong> wählen; für Musik stehen ebenfalls passende Optionen bereit.</li>
+<li>Unter <strong>Automatisch weiter nach</strong> die Wartezeit nach dem Loslassen einstellen. So bleibt Raum für die Funkantwort.</li>
+</ol>
+<p>Der Knopf bleibt für dein Funkprogramm und den Simulator verwendbar. Ein kurzer Druck kann während einer bestehenden Pause die Ausgabe sofort fortsetzen, wenn die entsprechende Option aktiv ist. Die Funk-Pause betrifft die PC-Ausgabe.</p>
+<h3 id="sprechende-programme-automatisch-erkennen">Sprechende Programme automatisch erkennen</h3>
+<p><strong>Programme automatisch erkennen</strong> aktivieren und über <strong>+ Programm hinzufügen</strong> das gewünschte Programm auswählen, während es Ton ausgibt. Zum Beispiel kann dein Funkprogramm die Stimmen pausieren lassen.</p>
+<p>Pro Programm kannst du Reaktion, Empfindlichkeit und <strong>Auslösen nach</strong> festlegen. <strong>Wie PTT</strong> nutzt die gemeinsamen Pausenregeln; <strong>Nur leiser</strong> senkt die Ausgaben ab. Die Erkennung liest Audiopegel und zeichnet keine Gespräche auf.</p>
+</section>
+<section class="chapter" id="12-tracker-autostart-und-updates" aria-labelledby="12-tracker-autostart-und-updates-titel"><h2 id="12-tracker-autostart-und-updates-titel">12. Tracker, Autostart und Updates</h2>
+<h3 id="installieren-und-verbinden">Installieren und verbinden</h3>
+<p>Den Windows-Tracker über den Download in <strong>Einstellungen → Pilot Identity &amp; Sync</strong> installieren. Das Programm lädt seine passende Tracker-Version und prüft Updates.</p>
+<p>Unter <strong>Konto</strong> dieselbe Pilot-ID und PIN wie in der Web-App eintragen, dann <strong>Prüfen &amp; verbinden</strong> wählen. Der Tracker prüft ein vorhandenes Profil; eine neue ID legst du zuerst in der Web-App über Login an.</p>
+<p>Der Tracker und die Web-App müssen zum selben Piloten angemeldet sein. Eine Desktop-App-Version, eine Tracker-Version und eine EFB-Paketversion sind unterschiedliche Bestandteile; sie müssen nicht dieselbe Versionsnummer tragen.</p>
+<h3 id="was-bedeuten-die-statusanzeigen">Was bedeuten die Statusanzeigen?</h3>
+<ul>
+<li><strong>WAIT / Wartet:</strong> die App oder ein Verbindungsteil wartet noch; das allein bestätigt keinen aktiven Simulator.</li>
+<li><strong>LINK:</strong> Tracker verbunden, aber keine frischen Live-Flugdaten.</li>
+<li><strong>LIVE:</strong> aktuelle Sim-Daten treffen ein.</li>
+<li><strong>HIB:</strong> der Tracker ruht etwa bei Pause, im Menü oder in einem passenden Stillstand; bei aktivem Flug kann er wieder aufwachen.</li>
+<li><strong>OFF:</strong> keine aktive Tracker-Telemetrie.</li>
+</ul>
+<p><strong>C</strong> und <strong>R</strong> kennzeichnen die verfügbaren Verbindungswege. Entscheidend für den Flugtest sind verbundener Simulator und frische Live-Daten, nicht allein ein grüner Verbindungspunkt.</p>
+<h3 id="tracker-automatisch-starten-oder-ins-tray-legen">Tracker automatisch starten oder ins Tray legen</h3>
+<p>Im Modul <strong>Tracker</strong> legst du fest, ob die Tracker-Engine beim Öffnen der Desktop-App automatisch startet und ob das Fenster künftig minimiert im Windows-Tray beginnen soll. Bei nötiger Anmeldung oder einer Updateentscheidung kann sich das Fenster trotzdem zeigen.</p>
+<p>Das ist von der folgenden Programm-Startliste und vom Windows-Start beim Hochfahren zu unterscheiden.</p>
+<h3 id="autostart-fur-deinen-flugabend">Autostart für deinen Flugabend</h3>
+<p><strong>Hier:</strong> Tracker → <strong>Autostart</strong>.</p>
+<ol>
+<li><strong>Autostart aktivieren</strong> einschalten; oben erscheint <strong>Tracker &amp; Sim starten</strong>.</li>
+<li>Mit <strong>Sim erkennen</strong> installierte MSFS-Versionen finden und gegebenenfalls auswählen.</li>
+<li>Programme oder Verknüpfungen in die Liste ziehen oder <strong>Importieren</strong> wählen.</li>
+<li>Reihenfolge durch Ziehen oder Pfeile ändern und über <strong>Danach warten</strong> Pausen festlegen.</li>
+<li>Helfer, die einen laufenden Simulator brauchen, unter <strong>Auf SimConnect warten</strong> einordnen.</li>
+</ol>
+<p>Der Tracker ist ein fester Eintrag in der Startliste. Der gemeinsame Startknopf führt die Liste aus; bereits laufende Programme werden übersprungen. Über die Zusatzoptionen sind unter anderem minimierter Start, Argumente und gegebenenfalls Administratorstart möglich.</p>
+<p><strong>Mit dem Sim schließen</strong> berücksichtigt nur Programme, die dieser Autostart selbst geöffnet hat. Der Simulator selbst wird damit nicht geschlossen. Das Modul richtet nicht automatisch den Windows-Autostart beim Hochfahren ein.</p>
+<h3 id="updates-stable-und-alpha">Updates, Stable und Alpha</h3>
+<p>Desktop-App, Tracker-Engine, Homebase-Paket, EFB und Bridge haben eigene Updatebereiche beziehungsweise Regeln. Neue Versionen können einmalig installiert, künftig automatisch übernommen oder auf später verschoben werden, soweit angeboten.</p>
+<p><strong>Stable</strong> ist für den regulären Betrieb voreingestellt. <strong>Alpha</strong> enthält neuere Teststände. Ein Kanalwechsel kann den laufenden Tracker neu starten und ein anderes EFB-Paket erfordern. Plane solche Änderungen vor einem Flug und prüfe den angezeigten Kanal.</p>
+<h3 id="optionale-accusim-telemetry-bridge">Optionale AccuSim Telemetry Bridge</h3>
+<p>Für passende DRSM-/Motion-Nutzung kann das Modul <strong>AccuSim Telemetry Bridge</strong> eine vorhandene Installation erkennen oder einen Installer anbieten. Einstellungen und Start-/Stopp-Verhalten sind über den Tracker erreichbar. Für normale Kartenplanung, Missionen oder einen ersten Live-Test ist die Bridge nicht erforderlich.</p>
+</section>
+<section class="chapter" id="13-msfs-2024-efb-toolbar-und-vr" aria-labelledby="13-msfs-2024-efb-toolbar-und-vr-titel"><h2 id="13-msfs-2024-efb-toolbar-und-vr-titel">13. MSFS-2024-EFB, Toolbar und VR</h2>
+<h3 id="cockpit-paket-installieren">Cockpit-Paket installieren</h3>
+<p>Im Tracker das Modul <strong>VFR Multitool EFB</strong> öffnen und dem angebotenen Installationsweg folgen. MSFS für Paketänderungen schließen und danach neu starten. Das aktuelle gemeinsame Paket enthält EFB-App und Toolbar-Panel; der Tracker muss laufen, damit der volle Kartentisch verfügbar ist.</p>
+<p>Wenn eine ältere Version nur eine reduzierte Karte zeigt oder die Verbindung fehlt, zuerst Tracker, Kanal und EFB-Paket prüfen. Eine sichtbare Basiskarte allein bestätigt noch nicht, dass alle Missionsfunktionen bereit sind.</p>
+<h3 id="was-ist-im-cockpit-verfugbar">Was ist im Cockpit verfügbar?</h3>
+<p>Die gemeinsame Cockpit-Ansicht bietet Karte, Route, Profil, Mission Control, Verladung, Checklisten, Funk, Warnungen, Audio und Werkzeuge, soweit die installierte Version sie unterstützt. EFB und Toolbar bedienen denselben laufenden Auftrag; es sind keine getrennten Missionen.</p>
+<p>Das EFB hilft bereits <strong>vor dem Cockpit auf der Weltkarte</strong>: Dort kannst du einen vorbereiteten Flug laden oder einen gespeicherten, unterbrochenen Flug für die Wiederaufnahme übergeben. Die Abläufe stehen in Kapitel 5 und 7.</p>
+<p>In VR helfen Skalierung, einklappbare Leisten und passende Fenstergrößen. Verschiebbare Werkzeuge und Medienansichten lassen sich getrennt positionieren. Die unterstützten Kartenstile können sich von der Web-App unterscheiden.</p>
+<p>Die Web-App bleibt der Einstieg für Dispatch, umfangreiche Einstellungen und Homebase-Bearbeitung. Nicht jedes Web-Fenster ist im Cockpit als eigener Editor verfügbar.</p>
+</section>
+<section class="chapter" id="14-deine-homebase-gestalten" aria-labelledby="14-deine-homebase-gestalten-titel"><h2 id="14-deine-homebase-gestalten-titel">14. Deine Homebase gestalten</h2>
+<h3 id="startpunkt-hangar-und-ausstattung">Startpunkt, Hangar und Ausstattung</h3>
+<p><strong>Hier:</strong> Hauptseite → Blaupause <strong>Homebase Designer</strong>.</p>
+<ol>
+<li>Den späteren Startpunkt auf der Karte festlegen oder die aktuelle Flugzeugposition übernehmen.</li>
+<li>Hangarmodell beziehungsweise offenen Parkbereich wählen und platzieren.</li>
+<li>Ausstattung hinzufügen, verschieben, drehen und in der Höhe anpassen.</li>
+<li>Mit laufendem Tracker und Simulator die Darstellung prüfen und bei Bedarf neu abgleichen.</li>
+</ol>
+<p>Hangar und Gegenstände nutzen das <strong>Homebase Asset Pack</strong>. Prüfe beziehungsweise installiere es über den Tracker, wenn Modelle fehlen. Ein eigener kompilierter Flugplatz-Mod ist für das bloße Gestalten nicht zwingend nötig.</p>
+<p><img src="assets/welcome/homebase.png" alt="Homebase-Designer mit Karte, Startpunkt und Hangarauswahl. Die Beispielansicht ist nicht mit dem Simulator verbunden." loading="lazy" decoding="async" /></p>
+<h3 id="turen-licht-und-mitarbeitende">Türen, Licht und Mitarbeitende</h3>
+<p>Unterstützte Modelle besitzen bedienbare Türen, Lichter oder Animationen. Die angebotenen Schalter richten sich nach den platzierten Objekten. Für passende Hangartore kannst du automatisches Öffnen und Schließen bei Annäherung aktivieren.</p>
+<p>Dynamische Tarmac-Personen können Zielpunkte an der Homebase anlaufen. Lege dafür Mitarbeitende und ihren Zielpool an oder verwende die platzierten Objekte als mögliche Ziele. Diese Ausstattung gehört zu deiner Homebase und ist nicht automatisch ein Missionspassagier.</p>
+<h3 id="mit-der-crew-teilen">Mit der Crew teilen</h3>
+<p>Über <strong>Meine Homebase für die aktuelle Crew freigeben</strong> kannst du passende Homebase-Objekte und Mitarbeitende für deine Crew sichtbar machen. Die Darstellung erfolgt in der Nähe; Objekt- und Umgebungsgrenzen verhindern eine beliebig große gemeinsame Szene.</p>
+<p>Die Homebase-Planung wird lokal gespeichert und mit aktiviertem Auto-Sync in die Cloud übertragen. Für die Bearbeitung bleibt der Designer zuständig.</p>
+<h3 id="als-eigenen-startplatz-installieren">Als eigenen Startplatz installieren</h3>
+<p>Optional lässt der Assistent einen MSFS-Mod bauen, damit du einen Flug direkt am Homebase-Parkplatz beginnen kannst. Je nach Auswahl enthält er Startplatz, Hangar und Ausstattung oder nur den Startplatz. Dafür wird die passende SDK-Bauumgebung benötigt; die Workbench führt durch fehlende Voraussetzungen.</p>
+<p>Änderungen an kompilierten Objekten erfordern einen erneuten Bau. Ein installierter Mod, das gemeinsame Objektpaket und dein gespeicherter Entwurf sind verschiedene Dinge. Das Entfernen des kompilierten Mods löscht nicht automatisch deine Planung.</p>
+<h3 id="homebase-ohne-dauerhaft-geoffnete-web-app">Homebase ohne dauerhaft geöffnete Web-App</h3>
+<p>Ab <strong>Tracker v589 im Alpha-Kanal</strong> lädt der Tracker die eigene gespeicherte Homebase und freigegebene Crew-Homebases selbst aus der Cloud. Für ihre Anzeige muss die Web-App nicht dauerhaft geöffnet bleiben. Speichere deine Planung dafür mit aktiviertem Auto-Sync und verwende im Tracker dieselbe Pilot-ID. Das passende Objektpaket, die Crew-Freigabe und die Nähe zur Homebase bleiben Voraussetzungen. Zum Bearbeiten öffnest du weiterhin den Designer. Ältere Tracker können dafür noch die geöffnete Web-App benötigen.</p>
+</section>
+<section class="chapter" id="15-pinnwand-und-crew-board" aria-labelledby="15-pinnwand-und-crew-board-titel"><h2 id="15-pinnwand-und-crew-board-titel">15. Pinnwand und Crew Board</h2>
+<h3 id="deine-private-pinnwand">Deine private Pinnwand</h3>
+<p>Über <strong>Pinnwand → Privat</strong> verwaltest du Notizzettel, Flugideen und angeheftete Aufträge. Zettel lassen sich verschieben, bearbeiten und entfernen. Akzeptierte Flüge kannst du aus dem Briefing anheften und später wieder öffnen; Flugcodes lassen sich laden.</p>
+<p>Mit Auto-Sync gehört der private Inhalt zu deiner Pilot-ID. Eine angeheftete Planung ist keine zweite gleichzeitig laufende Mission.</p>
+<h3 id="eine-crew-einrichten">Eine Crew einrichten</h3>
+<ol>
+<li>Mit deiner persönlichen Pilot-ID und PIN einloggen.</li>
+<li>Unter <strong>Einstellungen → Crew Board</strong> den gemeinsamen <strong>Crew-Code</strong> eintragen.</li>
+<li>Optional einen Anzeigenamen setzen und <strong>Beitreten / Update</strong> wählen.</li>
+<li><strong>Pinnwand → Crew</strong> öffnen.</li>
+</ol>
+<p>Die persönliche Pilot-ID bleibt bei jedem Mitglied anders. Alle verwenden denselben Crew-Code. Neue Zettel können markiert sein; die Mitgliederübersicht zeigt die Crew. Der erste Ersteller erhält die Verwaltungsrolle und kann Mitglieder entfernen.</p>
+<p>Eigene Crew-Zettel können für alle entfernt werden. Fremde Zettel lassen sich lokal ausblenden. Teile nur Inhalte, die zur Gruppe gehören; API-Keys und PINs gehören nicht auf die Pinnwand.</p>
+<p>Das Crew Board teilt Aufträge und Planung. Es ersetzt weder die MSFS-Multiplayer-Sitzung noch ATC oder einen Funkserver.</p>
+</section>
+<section class="chapter" id="16-hilfe-daten-und-haufige-fragen" aria-labelledby="16-hilfe-daten-und-haufige-fragen-titel"><h2 id="16-hilfe-daten-und-haufige-fragen-titel">16. Hilfe, Daten und häufige Fragen</h2>
+<h3 id="keine-live-position-oder-mission-wartet-auf-den-tracker">Keine Live-Position oder Mission wartet auf den Tracker</h3>
+<p>Prüfe zuerst Pilot-ID und PIN auf beiden Seiten, den Tracker-Start, einen geladenen Sim-Flug und den LIVE-Status. Bei einer laufenden Mission nach einer Trennung auf die Wiederaufnahmehinweise achten. Ein Verbindungsproblem allein ist kein Grund, den Auftrag zurückzusetzen.</p>
+<h3 id="auftrag-geht-am-boden-nicht-weiter">Auftrag geht am Boden nicht weiter</h3>
+<p>Mission Control und Ladung öffnen. Sind alle Pflichtpositionen für genau diese Station erledigt? Ist die passende Liste unterschrieben und danach bestätigt? Läuft Boarding, Ausstieg oder Abschied noch? In der Weltkarte können diese Bodenaktionen nicht durchgeführt werden.</p>
+<h3 id="ki-funktioniert-nicht-oder-stimmen-bleiben-stumm">KI funktioniert nicht oder Stimmen bleiben stumm</h3>
+<p>Provider und Schlüssel prüfen. Browser-Briefing-Key und Tracker-Voice-Key getrennt kontrollieren; beim Anbieter Kontingent und Abrechnung ansehen. Für Ton zusätzlich PC-Ausgang, Lautstärke, Stimmen-Schalter und Funk-Pause prüfen. Ein KI-Briefing allein erzeugt noch keine gesprochene Ansage.</p>
+<h3 id="crew-inhalt-oder-gespeicherte-daten-fehlen">Crew-Inhalt oder gespeicherte Daten fehlen</h3>
+<p>Richtige Pilot-ID, erfolgreiche Anmeldung, Auto-Sync und Crew-Code kontrollieren. Ein neues Crew Board kann noch leer sein. Vor einem manuellen Push/Pull klären, welcher Stand erhalten bleiben soll. Browserdaten oder App-Caches nicht vorschnell löschen.</p>
+<h3 id="hilfe-und-ruckmeldung">Hilfe und Rückmeldung</h3>
+<p>Die <a href="onboarding.html">geführte Einrichtung</a> erklärt die ersten Schritte. Das integrierte <strong>Tutorial</strong> bleibt über die App erreichbar. <strong>Problem per E-Mail</strong> bereitet einen gekürzten Diagnosebericht vor; erst du versendest den Entwurf. Für Ideen und Fragen gibt es die <a href="https://discord.gg/xzXQXey2N8" target="_blank" rel="noopener noreferrer">Discord-Community</a>.</p>
+<h3 id="datenquellen-und-grenzen">Datenquellen und Grenzen</h3>
+<p>Je nach Funktion werden eigene Flugplatzdaten, Karten, OpenAIP-/Aero-Daten, Wetterquellen, VFR-/DWD-Daten, Ortsinformationen, Sim-Daten und optionale KI-Antworten verwendet. Quellen und rechtliche Hinweise findest du unter <a href="legal.html#daten-lizenzen">Daten &amp; Lizenzen</a>.</p>
+<ul>
+<li>Internetdaten können fehlen, veraltet oder vorübergehend nicht erreichbar sein.</li>
+<li>Vorgeladene Daten sind kein vollständiger Offline-Betrieb aller Funktionen.</li>
+<li>Karten-, Wetter-, Gelände-, Hindernis- und Luftraumhinweise sind ausschließlich Simulatorhilfen.</li>
+<li>Für neue Funktionen müssen App, Tracker und gegebenenfalls Cockpit-Paket zueinander passen.</li>
+<li>Bei einer veralteten Anzeige zuerst Versionshinweis und angebotenen Updateweg prüfen; wichtige lokale Inhalte vorher sichern beziehungsweise synchronisieren.</li>
+</ul>
+</section><a class="back-top" href="#anfang">↑ Zurück zum Anfang</a></div></div>
+</main>
+<footer><div class="wrap footer-row"><div><strong>VFR MULTITOOL · DAS HANDBUCH</strong><p>Für den Microsoft Flight Simulator. Der installierte Versions- und Kanalstand bestimmt die verfügbaren Funktionen.</p></div><div class="footer-links"><a href="legal.html#impressum">Impressum</a><a href="legal.html#datenschutz">Datenschutz</a><a href="legal.html#daten-lizenzen">Daten &amp; Lizenzen</a></div></div></footer>
 <script>
-    function applySavedTheme() {
-        const savedTheme = localStorage.getItem('ga_theme') || 'retro';
-        const savedPanel = localStorage.getItem('ga_panel_theme') || 'panel-med';
-        document.body.className = '';
-        const container = document.querySelector('.container');
-        container.classList.remove('panel-med', 'panel-creme', 'panel-light', 'panel-dark');
-        if (savedTheme === 'retro') {
-            document.body.classList.add('theme-retro');
-            container.classList.add(savedPanel);
-        } else if (savedTheme === 'navcom') {
-            document.body.classList.add('theme-navcom');
-        }
-    }
-
-    function cyclePanelColor() {
-        if (!document.body.classList.contains('theme-retro')) return;
-        const panel = document.querySelector('.container');
-        const themes = ['panel-med', 'panel-creme', 'panel-light', 'panel-dark'];
-        let currentIndex = 0;
-        for (let i = 0; i < themes.length; i++) {
-            if (panel.classList.contains(themes[i])) {
-                currentIndex = i;
-                panel.classList.remove(themes[i]);
-                break;
-            }
-        }
-        const nextTheme = themes[(currentIndex + 1) % themes.length];
-        panel.classList.add(nextTheme);
-        localStorage.setItem('ga_panel_theme', nextTheme);
-    }
-
-    document.addEventListener('DOMContentLoaded', applySavedTheme);
+(() => {
+  const chapters = [...document.querySelectorAll('.chapter')];
+  const links = [...document.querySelectorAll('[data-chapter]')];
+  const input = document.getElementById('guide-search');
+  const clear = document.getElementById('clear-search');
+  const result = document.getElementById('search-result');
+  const toc = document.getElementById('guide-toc');
+  const compact = matchMedia('(max-width: 800px)');
+  function normalize(text) { return text.toLowerCase().replace(/ß/g, 'ss').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim(); }
+  const text = new Map(chapters.map(chapter => [chapter.id, normalize(chapter.textContent)]));
+  function filter() {
+    const terms = normalize(input.value).split(/\s+/).filter(Boolean);
+    let count = 0;
+    chapters.forEach(chapter => {
+      const visible = terms.every(term => text.get(chapter.id).includes(term));
+      chapter.hidden = !visible;
+      const link = links.find(item => item.dataset.chapter === chapter.id);
+      if (link) link.closest('li').hidden = !visible;
+      if (visible) count++;
+    });
+    clear.hidden = !input.value;
+    document.getElementById('no-results').hidden = count > 0;
+    result.textContent = terms.length ? count + ' von ' + chapters.length + ' Kapiteln gefunden' : 'Alle ' + chapters.length + ' Kapitel';
+    if (terms.length && compact.matches) toc.open = true;
+  }
+  function clearSearch() { input.value = ''; filter(); input.focus(); }
+  input.addEventListener('input', filter);
+  input.addEventListener('keydown', event => { if (event.key === 'Escape') clearSearch(); });
+  clear.addEventListener('click', clearSearch);
+  document.getElementById('show-all').addEventListener('click', clearSearch);
+  document.addEventListener('click', event => {
+    const anchor = event.target.closest('a[href^="#"]');
+    if (!anchor) return;
+    let id;
+    try { id = decodeURIComponent(anchor.hash.slice(1)); } catch (_) { return; }
+    const target = document.getElementById(id);
+    if (target && target.closest('.chapter')?.hidden) { input.value = ''; filter(); }
+    if (anchor.dataset.chapter && compact.matches) toc.open = false;
+  });
+  function adaptToc() { toc.open = !compact.matches; }
+  adaptToc(); compact.addEventListener('change', adaptToc);
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(entries => {
+      const visible = entries.filter(entry => entry.isIntersecting && !entry.target.hidden).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+      if (!visible.length) return;
+      links.forEach(link => { if (link.dataset.chapter === visible[0].target.id) link.setAttribute('aria-current', 'location'); else link.removeAttribute('aria-current'); });
+    }, { rootMargin: '-90px 0px -55% 0px' });
+    chapters.forEach(chapter => observer.observe(chapter));
+  }
+  filter(); document.body.classList.add('js');
+})();
 </script>
-
 </body>
 </html>
