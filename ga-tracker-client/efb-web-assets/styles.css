@@ -10,6 +10,13 @@
 }
 
 @font-face {
+    font-family: 'Doto';
+    src: url('./assets/fonts/Doto-Black-latin.woff2') format('woff2');
+    font-weight: 900;
+    font-display: swap;
+}
+
+@font-face {
     font-family: 'MS33558';
     src: url('./MS33558.ttf') format('truetype');
     font-weight: normal;
@@ -6894,6 +6901,11 @@ body.theme-navcom .radio-stack {
         0 20px 45px rgba(0, 0, 0, 0.97),
         inset 0 2px 0 rgba(255, 255, 255, 0.06),
         inset 0 0 10px rgba(0, 0, 0, 0.95);
+    /* Eigener Stapelkontext: Ebenenwechsel beim Oeffnen der Flughafenliste
+       bleiben im Stack und zeichnen das Panel (Schrauben) nicht neu. */
+    position: relative;
+    z-index: 30;
+    isolation: isolate;
 }
 
 /* Einzelne Paneele – KX 165 Frontplatten-Optik */
@@ -6942,7 +6954,8 @@ body.theme-navcom .half-module {
     overflow: visible;
 }
 
-body.theme-navcom .half-module:focus-within {
+body.theme-navcom .half-module:focus-within,
+body.theme-navcom .half-module:has(.airport-autocomplete:not([hidden])) {
     z-index: 10040;
 }
 
@@ -6969,7 +6982,8 @@ body.theme-navcom .radio-disp-inner {
     width: 100%;
 }
 
-body.theme-navcom .radio-disp-inner.airport-search-anchor {
+body.theme-navcom .radio-disp-inner.airport-search-anchor,
+body.theme-navcom .radio-disp-inner.airport-search-anchor:has(.airport-autocomplete:not([hidden])) {
     z-index: 10030;
 }
 
@@ -7212,8 +7226,12 @@ body.theme-navcom .radio-display-container {
         inset 0 2px 8px rgba(0, 0, 0, 0.9);
 }
 
-/* Rote LED-Anzeige – Bendix/King Stil */
-body.theme-navcom .lcd-input {
+/* Rote LED-Anzeige – Bendix/King Stil
+   :not(.ga-skin-control) haelt die Spezifitaet ueber body.theme-retro input:not(.ga-skin-control),
+   da NavCom zusaetzlich theme-retro traegt. */
+body.theme-navcom .lcd-input,
+body.theme-navcom input.lcd-input:not(.ga-skin-control),
+body.theme-navcom select.lcd-input:not(.ga-skin-control) {
     color: #ff4400 !important;
     text-shadow: 0 0 5px rgba(255, 55, 0, 0.8), 0 0 12px rgba(255, 30, 0, 0.3) !important;
     font-size: 20px;
@@ -8562,6 +8580,17 @@ body.theme-navcom.navcom-rack-v2 .radio-module > .radio-label {
     z-index: 2;
 }
 
+/* Flughafen-Auswahl ueber Knoepfe und nachfolgende Modulreihen legen */
+body.theme-navcom.navcom-rack-v2 .radio-stack > :focus-within,
+body.theme-navcom.navcom-rack-v2 .radio-stack > :has(.airport-autocomplete:not([hidden])) {
+    z-index: 50;
+}
+
+body.theme-navcom.navcom-rack-v2 .radio-module > .radio-display-container:focus-within,
+body.theme-navcom.navcom-rack-v2 .radio-module > .radio-display-container:has(.airport-autocomplete:not([hidden])) {
+    z-index: 40;
+}
+
 body.theme-navcom.navcom-rack-v2 .audio-panel {
     padding: 8px 10px !important;
     background:
@@ -8725,7 +8754,9 @@ body.theme-navcom.navcom-rack-v2 .radio-disp-inner .lcd-label {
     text-shadow: 0 0 6px rgba(255,95,32,0.72);
 }
 
-body.theme-navcom.navcom-rack-v2 .lcd-input {
+body.theme-navcom.navcom-rack-v2 .lcd-input,
+body.theme-navcom.navcom-rack-v2 input.lcd-input:not(.ga-skin-control),
+body.theme-navcom.navcom-rack-v2 select.lcd-input:not(.ga-skin-control) {
     color: #ff6b25 !important;
     font-size: 18px;
     line-height: 1;
@@ -21617,3 +21648,12 @@ body.theme-win95 #mapVoiceMenu select { color:#000 !important; background:#fff !
 body.theme-win95 #mapHintsMenu input[type="checkbox"],
 body.theme-win95 #mapHintsMenu input[type="radio"] { padding:0; width:14px; height:14px; min-height:14px; }
 body.theme-win95 #mapVoiceMenu .ga-media-message { color:#333 !important; }
+
+/* NavCom: Dot-Matrix-Schrift in den Radio-Anzeigen (Doto, OFL, assets/fonts) */
+body.theme-navcom .radio-stack .lcd-input,
+body.theme-navcom .radio-stack input.lcd-input:not(.ga-skin-control),
+body.theme-navcom .radio-stack select.lcd-input:not(.ga-skin-control),
+body.theme-navcom .radio-stack .lcd-label {
+    font-family: 'Doto', 'Share Tech Mono', monospace !important;
+    font-weight: 900 !important;
+}
