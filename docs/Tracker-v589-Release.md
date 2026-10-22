@@ -50,3 +50,6 @@ EXE: 174353212 Bytes; SHA-256 `b975aa54709f8f46f5ba20a7fc983ed39a6578dbdb68cebad
   `HOMEBASE_FALLBACK_ADOPT` statt Neuaufbau.
 - Crew: `HOMEBASE_CREW_GROUP`, `HOMEBASE_CREW_BASES`, Crew-Basis im 10-NM-Radius erscheint auch ohne App.
 - Rückfall: alte Clients/Tracker nutzen den bisherigen Weg (fähigkeitsgesteuert).
+
+Release-Upload verifiziert und EXE öffentlich erneut heruntergeladen: Größe und SHA-256 identisch.
+`channel/alpha.json` auf v589 umgestellt, `stable.json` unverändert.
