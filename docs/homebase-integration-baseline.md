@@ -120,12 +120,30 @@ Szenensignatur. Das System stammt aus der Zeit ohne Cloud-Zugriff des Trackers.
   nach dem Speichern eines Workbench-Entwurfs: Workbench und Kern berechnen
   Positionen mit derselben Formel.
 
-Grenzen: Crew-Homebases (`/api/homebase-group/`) laufen weiter über die App.
-Unterscheiden sich Objekte wirklich, baut der Tracker die Vorschau wie bisher
+- **Crew-Homebases ohne App** (`ga-tracker-client/tracker-homebase-crew.js`):
+  Der Tracker liest den Gruppennamen aus dem Cloud-Profil (`field:groupName`,
+  alle 10 min), ruft `/api/homebase-group/<Gruppe>` alle 45 s ab (der Server
+  prüft die Mitgliedschaft und lässt die eigene Basis weg) und baut mit dem
+  Kern dieselbe Crew-Szene wie bisher die App: 10-NM-Radius, nächste Basis
+  zuerst, dann reihum Personen und Ausstattung, höchstens 100 Objekte
+  (Vergleich gegen die alte App-Rechnung: 900/900 identisch). Angewendet per
+  `homebase_v1.crew.set` nur bei Änderung (`HOMEBASE_CREW_APPLY`). Keine Gruppe
+  oder nicht mehr Mitglied (403) leert die Crew-Szene; bei Netzwerkfehlern
+  bleibt die stehende Szene unangetastet. Telemetrie: Fähigkeit
+  `homebase-crew-cloud-v1`, Status `gpsMsg.homebase.crewScene`
+  (`idle`, `loading`, `ok`, `no-group`, `error` + `groupName`).
+- **App und Crew**: Die App schickt keine Crew-Szene mehr, wenn der Tracker die
+  Fähigkeit meldet, den Status `ok`/`no-group` hat und dieselbe Gruppe kennt.
+  Beim Beitreten/Verlassen einer Gruppe schickt sie `homebase_v1.crew.refresh`
+  mit dem neuen Gruppennamen, weil der Profil-Sync noch ausstehen kann. Das
+  Crew-Verzeichnis für Karte und Board lädt die App weiter selbst.
+
+Grenzen: Unterscheiden sich Objekte wirklich, baut der Tracker die Vorschau wie bisher
 komplett neu auf (gezielter Teil-Neuaufbau steht noch aus).
 
 Tests: `tools/homebase-scene-core.test.cjs`,
 `ga-tracker-client/tracker-homebase-cloud.test.js`,
-`ga-tracker-client/homebase-preview-adopt.test.js`.
+`ga-tracker-client/homebase-preview-adopt.test.js`,
+`ga-tracker-client/tracker-homebase-crew.test.js`.
 Log: `HOMEBASE_CLOUD_SCENE`, `HOMEBASE_CLOUD_EMPTY`, `HOMEBASE_CLOUD_LEGACY`,
-`HOMEBASE_CLOUD_ERROR`, `HOMEBASE_CLOUD_DEFERRED`, `HOMEBASE_FALLBACK_ADOPT`, `HOMEBASE_FALLBACK_STORE source=cloud|app|app-draft`.
+`HOMEBASE_CLOUD_ERROR`, `HOMEBASE_CLOUD_DEFERRED`, `HOMEBASE_FALLBACK_ADOPT`, `HOMEBASE_CREW_GROUP`, `HOMEBASE_CREW_BASES`, `HOMEBASE_CREW_APPLY`, `HOMEBASE_CREW_ERROR`, `HOMEBASE_FALLBACK_STORE source=cloud|app|app-draft`.

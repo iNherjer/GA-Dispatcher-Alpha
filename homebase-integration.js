@@ -6,9 +6,6 @@
   const HOMEBASE_CREW_URL = 'https://ga-proxy.einherjer.workers.dev/api/homebase-group/';
   const HOMEBASE_SYNC_DELAY_MS = 20000;
   const HOMEBASE_CREW_POLL_MS = 45000;
-  const HOMEBASE_CREW_RADIUS_NM = 10;
-  const HOMEBASE_CREW_MAX_OBJECTS = 100;
-  const HOMEBASE_CREW_MAX_PEOPLE = 3;
   const HOMEBASE_OWN_ENTER_RADIUS_NM = 20;
   const HOMEBASE_OWN_EXIT_RADIUS_NM = 22;
   const HOMEBASE_CREW_CAPABILITY_RETRY_MS = 15000;
@@ -196,14 +193,7 @@
 
   function offsetLatLon(lat, lon, northM, eastM) { return sceneCore.offsetLatLon(lat, lon, northM, eastM); }
 
-  function distanceNm(latA, lonA, latB, lonB) {
-    const toRad = Math.PI / 180;
-    const dLat = (latB - latA) * toRad;
-    const dLon = (lonB - lonA) * toRad;
-    const a = Math.sin(dLat / 2) ** 2
-      + Math.cos(latA * toRad) * Math.cos(latB * toRad) * Math.sin(dLon / 2) ** 2;
-    return 3440.065 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(Math.max(0, 1 - a)));
-  }
+  function distanceNm(latA, lonA, latB, lonB) { return sceneCore.distanceNm(latA, lonA, latB, lonB); }
 
   function readJsonStorage(key) {
     try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch (_) { return null; }
@@ -485,94 +475,43 @@
     return true;
   }
 
-  function compactCrewId(value) {
-    let hash = 2166136261;
-    const text = String(value || 'crew');
-    for (let index = 0; index < text.length; index += 1) {
-      hash ^= text.charCodeAt(index);
-      hash = Math.imul(hash, 16777619);
-    }
-    return (hash >>> 0).toString(36);
+  function compactCrewId(value) { return sceneCore.compactCrewId(value); }
+
+  function crewObjectsForBase(base) { return homebaseScene.crewObjectsForBase(base); }
+
+  // Gemeinsamer Kern mit dem Tracker (homebase-scene-core.js).
+  function crewSceneForPosition(position) { return homebaseScene.crewSceneForPosition(crewHomebases, position); }
+
+  // Ab Tracker v589 baut der Tracker die Crew-Szene selbst aus der Cloud
+  // (homebase-crew-cloud-v1), solange er dieselbe Gruppe kennt wie die App.
+  const TRACKER_CREW_CLOUD_CAPABILITY = 'homebase-crew-cloud-v1';
+
+  function trackerCrewTelemetry(position) {
+    return position?.homebase ? position : ownLastTelemetry;
   }
 
-  function crewObjectsForBase(base) {
-    const plan = base?.plan || {};
-    const spawn = plan.spawn || {};
-    const hangar = plan.hangar || {};
-    const lat = finite(spawn.lat, NaN);
-    const lon = finite(spawn.lon, NaN);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return { hangar: null, people: [], extras: [] };
-    const prefix = `crew-${compactCrewId(base.pilotId)}-`;
-    const owner = String(base.nick || 'Pilot').slice(0, 48);
-    const hangarPosition = offsetLatLon(lat, lon, finite(hangar.northM), finite(hangar.eastM));
-    const hangarObject = String(hangar.objectTitle || '').trim() ? {
-      id: `${prefix}hangar`, title: String(hangar.objectTitle), label: `${owner} · Hangar`,
-      lat: hangarPosition.lat, lon: hangarPosition.lon,
-      altFt: finite(spawn.altFt) + finite(hangar.heightFt), heightOffsetFt: finite(hangar.heightFt),
-      heading: heading(finite(hangar.heading) + homebaseHeadingCorrection(hangar.objectTitle)), scale: 1
-    } : null;
-    const extras = (Array.isArray(plan.objects) ? plan.objects : [])
-      .filter((item) => item?.title && isLiveSpawnableCrewObject(item.title))
-      .slice(0, HOMEBASE_CREW_MAX_OBJECTS).map((item, index) => {
-      const position = offsetLatLon(lat, lon, finite(item?.northM), finite(item?.eastM));
-      return {
-        id: `${prefix}object-${index + 1}`, title: String(item?.title || ''),
-        label: `${owner} · ${String(item?.label || 'Ausstattung').slice(0, 48)}`,
-        lat: position.lat, lon: position.lon,
-        altFt: finite(spawn.altFt) + finite(item?.heightFt), heightOffsetFt: finite(item?.heightFt),
-        heading: heading(finite(item?.heading) + homebaseHeadingCorrection(item?.title)), scale: Math.max(.1, Math.min(10, finite(item?.scale, 1)))
-      };
-    }).filter((item) => item.title);
-    const people = (Array.isArray(plan.people) ? plan.people : []).slice(0, HOMEBASE_CREW_MAX_PEOPLE).flatMap((person, index) => {
-      const title = normalizeHomebasePersonTitle(person?.title);
-      if (!title) return [];
-      const position = offsetLatLon(lat, lon, finite(person?.startNorthM), finite(person?.startEastM));
-      return [{
-        id: `${prefix}person-${index + 1}`, title,
-        label: `${owner} · ${String(person?.label || `Mitarbeiter ${index + 1}`).slice(0, 48)}`,
-        lat: position.lat, lon: position.lon,
-        altFt: finite(spawn.altFt), heightOffsetFt: 0,
-        heading: heading(spawn.heading), scale: 1
-      }];
-    });
-    return { hangar: hangarObject, people, extras };
+  function ownTrackerOwnsCrew(position) {
+    const telemetry = trackerCrewTelemetry(position);
+    const capabilities = telemetry?.homebase?.capabilities;
+    if (!Array.isArray(capabilities) || !capabilities.includes(TRACKER_CREW_CLOUD_CAPABILITY)) return false;
+    const crewScene = telemetry?.homebase?.crewScene || {};
+    if (!['ok', 'no-group'].includes(String(crewScene.status || ''))) return false;
+    return String(crewScene.groupName || '').trim().toUpperCase() === getCrewContext().groupName;
   }
 
-  function crewSceneForPosition(position) {
-    const ownLat = finite(position?.lat, NaN);
-    const ownLon = finite(position?.lon, NaN);
-    if (!Number.isFinite(ownLat) || !Number.isFinite(ownLon)) return [];
-    const nearby = crewHomebases.map((base) => {
-      const spawn = base?.plan?.spawn || {};
-      return { base, distance: distanceNm(ownLat, ownLon, finite(spawn.lat, NaN), finite(spawn.lon, NaN)) };
-    }).filter((entry) => Number.isFinite(entry.distance) && entry.distance <= HOMEBASE_CREW_RADIUS_NM)
-      .sort((left, right) => left.distance - right.distance)
-      .map((entry) => ({ ...entry, objects: crewObjectsForBase(entry.base) }));
-    const scene = nearby.map((entry) => entry.objects.hangar).filter(Boolean).slice(0, HOMEBASE_CREW_MAX_OBJECTS);
-    for (let index = 0; scene.length < HOMEBASE_CREW_MAX_OBJECTS; index += 1) {
-      let added = false;
-      for (const entry of nearby) {
-        const person = entry.objects.people[index];
-        if (!person || scene.length >= HOMEBASE_CREW_MAX_OBJECTS) continue;
-        scene.push(person);
-        added = true;
-      }
-      if (!added) break;
-    }
-    for (let index = 0; scene.length < HOMEBASE_CREW_MAX_OBJECTS; index += 1) {
-      let added = false;
-      for (const entry of nearby) {
-        const object = entry.objects.extras[index];
-        if (!object || scene.length >= HOMEBASE_CREW_MAX_OBJECTS) continue;
-        scene.push(object);
-        added = true;
-      }
-      if (!added) break;
-    }
-    return scene;
+  function requestTrackerCrewRefresh(reason) {
+    const telemetry = trackerCrewTelemetry(window.lastLiveGpsPos);
+    const capabilities = telemetry?.homebase?.capabilities;
+    if (!Array.isArray(capabilities) || !capabilities.includes(TRACKER_CREW_CLOUD_CAPABILITY)) return false;
+    return !!sendTracker({ type: 'homebase_v1.crew.refresh', reason, groupName: getCrewContext().groupName }, { kind: 'crew-refresh', reason });
   }
 
   function applyCrewScene(position, reason = 'telemetry') {
+    if (ownTrackerOwnsCrew(position)) {
+      // Der Tracker baut selbst; bei spaeterer Rueckgabe an die App neu senden.
+      crewLastSceneSignature = '';
+      return false;
+    }
     const objects = crewSceneForPosition(position);
     const signature = JSON.stringify(objects);
     if (signature === crewLastSceneSignature) return false;
@@ -1050,7 +989,7 @@
       return;
     }
     if (meta.kind === 'crew-scene') return;
-    if (meta.kind === 'cloud-refresh') return;
+    if (meta.kind === 'cloud-refresh' || meta.kind === 'crew-refresh') return;
     if (meta.kind === 'fallback-suppress') {
       if (ack.status !== 'ok') ownTrackerSuppressRequested = false;
       return;
@@ -1458,9 +1397,13 @@
   window.homebaseUpdateAssetStatus = updateAssetStatus;
   window.homebaseCloudPush = (reason = 'app-push') => flushHomebaseDraft(reason);
   window.homebaseCloudPull = (reason = 'app-pull') => loadHomebaseFromCloud(reason);
-  window.homebaseGroupRefresh = (reason = 'external') => refreshCrewHomebases(reason);
+  window.homebaseGroupRefresh = (reason = 'external') => {
+    requestTrackerCrewRefresh(reason);
+    return refreshCrewHomebases(reason);
+  };
   window.homebaseApplyTheme = syncHomebaseTheme;
   window.homebaseGroupClear = () => {
+    requestTrackerCrewRefresh('group-cleared');
     crewHomebases = [];
     crewHomebaseDirectory = [];
     publishCrewHomebaseDirectory();

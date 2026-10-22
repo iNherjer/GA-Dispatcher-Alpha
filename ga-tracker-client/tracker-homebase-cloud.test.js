@@ -143,7 +143,7 @@ test('Tracker-Verdrahtung: Startsperre, Unterdrueckung, Faehigkeit, Entwurfsvorr
   assert.match(source, /if \(homebaseCloud && !homebaseCloud\.initialSettled\(\)\) return;/);
   assert.match(source, /if \(shouldBeActive && homebaseCloud\?\.suppressed\(\)\)/);
   assert.match(source, /homebaseCloud\?\.clearSuppression\(\);/);
-  assert.match(source, /\[\.\.\.homebaseManager\.capabilities, homebaseCloud\.capability\]/);
+  assert.match(source, /\.\.\.\(homebaseCloud\?\.available \? \[homebaseCloud\.capability\] : \[\]\),\s*\.\.\.\(homebaseCloud\?\.crew \? \[homebaseCloud\.crew\.capability\] : \[\]\)/);
   assert.match(source, /cloudScene: homebaseCloud\.publicState\(\)/);
   assert.match(source, /_homebaseAppDraftActive = command\?\.draftDirty === true;/);
   assert.match(source, /storeCache: \(payload, meta\) => \(_homebaseAppDraftActive/);

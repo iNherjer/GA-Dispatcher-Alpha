@@ -15,6 +15,9 @@
   const OWN_ENTER_RADIUS_NM = 20;
   const OWN_EXIT_RADIUS_NM = 22;
   const OPEN_PARKING_TITLE = 'VFR Multitool Homebase Open Parking';
+  const CREW_RADIUS_NM = 10;
+  const CREW_MAX_OBJECTS = 100;
+  const CREW_MAX_PEOPLE = 3;
 
   function finite(value, fallback = 0) {
     const number = Number(value);
@@ -32,6 +35,25 @@
       lat: lat + (northM / radius) * 180 / Math.PI,
       lon: lon + (eastM / (radius * Math.max(.05, Math.cos(latRad)))) * 180 / Math.PI
     };
+  }
+
+  function distanceNm(latA, lonA, latB, lonB) {
+    const toRad = Math.PI / 180;
+    const dLat = (latB - latA) * toRad;
+    const dLon = (lonB - lonA) * toRad;
+    const a = Math.sin(dLat / 2) ** 2
+      + Math.cos(latA * toRad) * Math.cos(latB * toRad) * Math.sin(dLon / 2) ** 2;
+    return 3440.065 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(Math.max(0, 1 - a)));
+  }
+
+  function compactCrewId(value) {
+    let hash = 2166136261;
+    const text = String(value || 'crew');
+    for (let index = 0; index < text.length; index += 1) {
+      hash ^= text.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return (hash >>> 0).toString(36);
   }
 
   function compactSceneSignature(serialized) {
@@ -336,7 +358,90 @@
       return { ok: true, reason: '', payload: fallbackPayload(config, delta), delta, config };
     }
 
+    // Crew-Homebases der eigenen Gruppe (/api/homebase-group/<Gruppe>, ohne die
+    // eigene Basis). Aus homebase-integration.js herausgeloest, unveraendert.
+    function crewObjectsForBase(base) {
+      const plan = base?.plan || {};
+      const spawn = plan.spawn || {};
+      const hangar = plan.hangar || {};
+      const lat = finite(spawn.lat, NaN);
+      const lon = finite(spawn.lon, NaN);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return { hangar: null, people: [], extras: [] };
+      const prefix = `crew-${compactCrewId(base.pilotId)}-`;
+      const owner = String(base.nick || 'Pilot').slice(0, 48);
+      const hangarPosition = offsetLatLon(lat, lon, finite(hangar.northM), finite(hangar.eastM));
+      const hangarObject = String(hangar.objectTitle || '').trim() ? {
+        id: `${prefix}hangar`, title: String(hangar.objectTitle), label: `${owner} · Hangar`,
+        lat: hangarPosition.lat, lon: hangarPosition.lon,
+        altFt: finite(spawn.altFt) + finite(hangar.heightFt), heightOffsetFt: finite(hangar.heightFt),
+        heading: heading(finite(hangar.heading) + headingCorrection(hangar.objectTitle)), scale: 1
+      } : null;
+      const extras = (Array.isArray(plan.objects) ? plan.objects : [])
+        .filter((item) => item?.title && isLiveSpawnableCrewObject(item.title))
+        .slice(0, CREW_MAX_OBJECTS).map((item, index) => {
+        const position = offsetLatLon(lat, lon, finite(item?.northM), finite(item?.eastM));
+        return {
+          id: `${prefix}object-${index + 1}`, title: String(item?.title || ''),
+          label: `${owner} · ${String(item?.label || 'Ausstattung').slice(0, 48)}`,
+          lat: position.lat, lon: position.lon,
+          altFt: finite(spawn.altFt) + finite(item?.heightFt), heightOffsetFt: finite(item?.heightFt),
+          heading: heading(finite(item?.heading) + headingCorrection(item?.title)), scale: Math.max(.1, Math.min(10, finite(item?.scale, 1)))
+        };
+      }).filter((item) => item.title);
+      const people = (Array.isArray(plan.people) ? plan.people : []).slice(0, CREW_MAX_PEOPLE).flatMap((person, index) => {
+        const title = normalizePersonTitle(person?.title);
+        if (!title) return [];
+        const position = offsetLatLon(lat, lon, finite(person?.startNorthM), finite(person?.startEastM));
+        return [{
+          id: `${prefix}person-${index + 1}`, title,
+          label: `${owner} · ${String(person?.label || `Mitarbeiter ${index + 1}`).slice(0, 48)}`,
+          lat: position.lat, lon: position.lon,
+          altFt: finite(spawn.altFt), heightOffsetFt: 0,
+          heading: heading(spawn.heading), scale: 1
+        }];
+      });
+      return { hangar: hangarObject, people, extras };
+    }
+
+    // Crew-Szene im 10-NM-Radius: erst Hangars, dann reihum Personen, dann
+    // reihum Ausstattung, zusammen hoechstens 100 Objekte.
+    function crewSceneForPosition(bases, position) {
+      const ownLat = finite(position?.lat, NaN);
+      const ownLon = finite(position?.lon, NaN);
+      if (!Number.isFinite(ownLat) || !Number.isFinite(ownLon)) return [];
+      const nearby = (Array.isArray(bases) ? bases : []).map((base) => {
+        const spawn = base?.plan?.spawn || {};
+        return { base, distance: distanceNm(ownLat, ownLon, finite(spawn.lat, NaN), finite(spawn.lon, NaN)) };
+      }).filter((entry) => Number.isFinite(entry.distance) && entry.distance <= CREW_RADIUS_NM)
+        .sort((left, right) => left.distance - right.distance)
+        .map((entry) => ({ ...entry, objects: crewObjectsForBase(entry.base) }));
+      const scene = nearby.map((entry) => entry.objects.hangar).filter(Boolean).slice(0, CREW_MAX_OBJECTS);
+      for (let index = 0; scene.length < CREW_MAX_OBJECTS; index += 1) {
+        let added = false;
+        for (const entry of nearby) {
+          const person = entry.objects.people[index];
+          if (!person || scene.length >= CREW_MAX_OBJECTS) continue;
+          scene.push(person);
+          added = true;
+        }
+        if (!added) break;
+      }
+      for (let index = 0; scene.length < CREW_MAX_OBJECTS; index += 1) {
+        let added = false;
+        for (const entry of nearby) {
+          const object = entry.objects.extras[index];
+          if (!object || scene.length >= CREW_MAX_OBJECTS) continue;
+          scene.push(object);
+          added = true;
+        }
+        if (!added) break;
+      }
+      return scene;
+    }
+
     return {
+      crewObjectsForBase,
+      crewSceneForPosition,
       catalogDefinition,
       normalizePersonTitle,
       sanitizeRuntimeConfig,
@@ -356,7 +461,12 @@
     FALLBACK_SCHEMA_VERSION,
     OWN_ENTER_RADIUS_NM,
     OWN_EXIT_RADIUS_NM,
+    CREW_RADIUS_NM,
+    CREW_MAX_OBJECTS,
+    CREW_MAX_PEOPLE,
     finite,
+    distanceNm,
+    compactCrewId,
     heading,
     offsetLatLon,
     compactSceneSignature,

@@ -117,3 +117,45 @@ test('Neu laden beim Tracker: nur mit Faehigkeit, Entwurfsstatus wird mitgeschic
   assert.equal(old.context.requestTrackerCloudRefresh('app-save'), false);
   assert.equal(old.sent.length, 0);
 });
+
+test('Crew-Szene: Radius 10 NM, eigene Reihenfolge, hoechstens 100 Objekte', () => {
+  const base = (id, lat, lon, objects = 0) => ({ pilotId: id, nick: id, plan: {
+    spawn: { lat, lon, altFt: 2200, heading: 90 }, hangar: { objectTitle: hangarTitle, northM: 5, eastM: 5, heading: 0 },
+    objects: Array.from({ length: objects }, (_, index) => ({ title: objectTitle, northM: index, eastM: 1 })),
+    people: [{ title: personTitle }, { title: personTitle }] } });
+  const position = { lat: 48.2792, lon: 8.4283 };
+  const bases = [base('FAR', 49.5, 9.5, 5), base('B', 48.30, 8.45, 80), base('A', 48.28, 8.43, 80)];
+  const scene = core.crewSceneForPosition(bases, position);
+  assert.equal(scene.length, coreApi.CREW_MAX_OBJECTS);
+  assert.deepEqual(scene.slice(0, 2).map((item) => item.id), [`crew-${coreApi.compactCrewId('A')}-hangar`, `crew-${coreApi.compactCrewId('B')}-hangar`], 'naechste Basis zuerst');
+  assert.equal(scene.some((item) => item.id.includes(coreApi.compactCrewId('FAR'))), false, 'ausserhalb 10 NM');
+  assert.equal(scene[2].id.endsWith('person-1'), true, 'dann reihum Personen');
+  assert.deepEqual(core.crewSceneForPosition(bases, { lat: 'x' }), []);
+});
+
+function crewGate({ capabilities = ['homebase-crew-cloud-v1'], status = 'ok', trackerGroup = 'FALKEN', appGroup = 'FALKEN' } = {}) {
+  const source = fs.readFileSync(path.join(repo, 'homebase-integration.js'), 'utf8');
+  const extract = (name) => {
+    const start = source.indexOf(`  function ${name}(`);
+    const end = source.indexOf('\n  }\n', start);
+    return source.slice(start, end + 4);
+  };
+  const context = {
+    TRACKER_CREW_CLOUD_CAPABILITY: 'homebase-crew-cloud-v1',
+    ownLastTelemetry: null,
+    getCrewContext: () => ({ groupName: appGroup }),
+    window: { lastLiveGpsPos: null }, sendTracker: () => 'id'
+  };
+  vm.createContext(context);
+  vm.runInContext(['trackerCrewTelemetry', 'ownTrackerOwnsCrew'].map(extract).join('\n'), context);
+  return context.ownTrackerOwnsCrew({ homebase: { capabilities, crewScene: { status, groupName: trackerGroup } } });
+}
+
+test('App ueberlaesst die Crew dem Tracker nur bei gleicher Gruppe und gueltigem Stand', () => {
+  assert.equal(crewGate(), true);
+  assert.equal(crewGate({ status: 'no-group', trackerGroup: '', appGroup: '' }), true, 'beide ohne Gruppe');
+  assert.equal(crewGate({ trackerGroup: 'ADLER' }), false, 'Profil noch nicht synchron');
+  assert.equal(crewGate({ status: 'error' }), false);
+  assert.equal(crewGate({ status: 'loading' }), false);
+  assert.equal(crewGate({ capabilities: [] }), false, 'alter Tracker');
+});

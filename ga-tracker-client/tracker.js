@@ -32,6 +32,7 @@ const {
   fallbackShouldBeActive
 } = require('./homebase-fallback-cache.js');
 const { createHomebaseCloudScene } = require('./tracker-homebase-cloud.js');
+const { createHomebaseCrewScene } = require('./tracker-homebase-crew.js');
 const { verifyTrackerCredentials } = require('./tracker-auth.js');
 const { createTrackerRelayHello } = require('./tracker-efb-relay-core.js');
 const {
@@ -6042,13 +6043,23 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       })
     : null;
   homebaseCloud?.start(1500);
+  // Crew-Homebases der eigenen Gruppe ebenfalls ohne App (Gruppenname aus dem
+  // Cloud-Profil, gemeinsamer Szenen-Kern).
+  const homebaseCrew = HOMEBASE_ENABLED ? createHomebaseCrewScene({ pilotId: syncId, pin, log: debugLog }) : null;
+  homebaseCrew?.start(2500);
+  const homebaseCrewAccess = homebaseCrew?.available ? {
+    capability: homebaseCrew.capability,
+    sceneFor: (position) => homebaseCrew.sceneFor(position),
+    publicState: () => homebaseCrew.publicState()
+  } : null;
   const homebaseCloudAccess = homebaseCloud ? {
     capability: homebaseCloud.capability,
     available: homebaseCloud.available,
     initialSettled: () => homebaseCloud.initialSettled(),
     suppressed: () => _homebaseFallbackSuppressed,
     clearSuppression: () => { _homebaseFallbackSuppressed = false; },
-    publicState: () => ({ ...homebaseCloud.publicState(), suppressed: _homebaseFallbackSuppressed })
+    publicState: () => ({ ...homebaseCloud.publicState(), suppressed: _homebaseFallbackSuppressed }),
+    crew: homebaseCrewAccess
   } : null;
   const handleAlwaysAvailableHomebaseCommand = (command) => {
     if (!HOMEBASE_ENABLED || !homebasePackageService) return false;
@@ -6065,6 +6076,22 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       });
       if (!homebaseCloud?.available) respond(null);
       else homebaseCloud.refresh(String(command?.reason || 'app').slice(0, 60)).then(respond, () => respond(homebaseCloud.publicState()));
+      return true;
+    }
+    if (type === 'homebase_v1.crew.refresh') {
+      const respond = (crewScene) => sendHomebaseAck({
+        type: 'homebase_v1.crew.refresh_ack',
+        commandId: command?.commandId || null,
+        status: homebaseCrew?.available ? 'ok' : 'error',
+        error: homebaseCrew?.available ? undefined : 'homebase_crew_unavailable',
+        crewScene
+      });
+      if (!homebaseCrew?.available) respond(null);
+      else homebaseCrew.refresh(String(command?.reason || 'app').slice(0, 60), {
+        forceGroup: true,
+        ...(typeof command?.groupName === 'string' ? { groupName: command.groupName } : {})
+      })
+        .then(respond, () => respond(homebaseCrew.publicState()));
       return true;
     }
     if (type === 'homebase_v1.fallback.suppress') {
@@ -6126,7 +6153,8 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
         simConnected: false,
         assetPackageVersion: homebaseAssetCatalog.assetPackageVersion,
         capabilities: [...homebasePackageService.capabilities, 'homebase-fallback-cache-v1', 'homebase-fallback-control-state-v1',
-          ...(homebaseCloud?.available ? [homebaseCloud.capability] : [])]
+          ...(homebaseCloud?.available ? [homebaseCloud.capability] : []),
+          ...(homebaseCrewAccess ? [homebaseCrewAccess.capability] : [])]
       });
       return true;
     }
@@ -6876,6 +6904,21 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         debugLog(`HOMEBASE_FALLBACK_CLEAR signature=${cache.sceneSignature}`);
       };
 
+      // Crew-Szene aus der Cloud: nur bei Aenderung an den Object-Manager (der
+      // erkennt unveraenderte Crew-Szenen zusaetzlich selbst).
+      let homebaseCrewSignature = null;
+      const applyHomebaseCrew = (position) => {
+        const crew = typeof getHomebaseCloud === 'function' ? getHomebaseCloud()?.crew : null;
+        if (!homebaseManager || !crew) return;
+        const objects = crew.sceneFor(position);
+        if (!Array.isArray(objects)) return;
+        const signature = JSON.stringify(objects);
+        if (signature === homebaseCrewSignature) return;
+        homebaseCrewSignature = signature;
+        homebaseManager.handleCommand({ type: 'homebase_v1.crew.set', commandId: `homebase-crew-${Date.now()}`, objects });
+        debugLog(`HOMEBASE_CREW_APPLY objects=${objects.length} group=${crew.publicState().groupName || '-'}`);
+      };
+
       let lastSent = 0;
       let lastFlightLog = 0;
       const telemetryConnectedAt = Date.now();
@@ -7275,6 +7318,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                 if (now - lastSent < SEND_INTERVAL_MS) return;
                 lastSent = now;
                 applyHomebaseFallback(lastGpsMsg);
+                applyHomebaseCrew(lastGpsMsg);
                 if (missionExecutionRuntime?.enabled) {
                   const executionTelemetry = missionExecutionRuntime.observeTelemetry({
                     observedAt: now,
@@ -7395,12 +7439,15 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                   const homebaseCloud = typeof getHomebaseCloud === 'function' ? getHomebaseCloud() : null;
                   gpsMsg.homebase = {
                     protocol: homebaseManager.protocol,
-                    capabilities: homebaseCloud?.available
-                      ? [...homebaseManager.capabilities, homebaseCloud.capability]
-                      : homebaseManager.capabilities,
+                    capabilities: [
+                      ...homebaseManager.capabilities,
+                      ...(homebaseCloud?.available ? [homebaseCloud.capability] : []),
+                      ...(homebaseCloud?.crew ? [homebaseCloud.crew.capability] : [])
+                    ],
                     sceneSignature: homebaseSceneSignature,
                     fallbackActive: homebaseFallbackInside && currentFallback?.sceneSignature === homebaseSceneSignature,
                     ...(homebaseCloud?.available ? { cloudScene: homebaseCloud.publicState() } : {}),
+                    ...(homebaseCloud?.crew ? { crewScene: homebaseCloud.crew.publicState() } : {}),
                     ...homebaseManager.snapshot()
                   };
                 }
