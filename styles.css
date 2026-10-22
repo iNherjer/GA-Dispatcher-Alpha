@@ -6894,6 +6894,11 @@ body.theme-navcom .radio-stack {
         0 20px 45px rgba(0, 0, 0, 0.97),
         inset 0 2px 0 rgba(255, 255, 255, 0.06),
         inset 0 0 10px rgba(0, 0, 0, 0.95);
+    /* Eigener Stapelkontext: Ebenenwechsel beim Oeffnen der Flughafenliste
+       bleiben im Stack und zeichnen das Panel (Schrauben) nicht neu. */
+    position: relative;
+    z-index: 30;
+    isolation: isolate;
 }
 
 /* Einzelne Paneele – KX 165 Frontplatten-Optik */
@@ -6942,7 +6947,8 @@ body.theme-navcom .half-module {
     overflow: visible;
 }
 
-body.theme-navcom .half-module:focus-within {
+body.theme-navcom .half-module:focus-within,
+body.theme-navcom .half-module:has(.airport-autocomplete:not([hidden])) {
     z-index: 10040;
 }
 
@@ -6969,7 +6975,8 @@ body.theme-navcom .radio-disp-inner {
     width: 100%;
 }
 
-body.theme-navcom .radio-disp-inner.airport-search-anchor {
+body.theme-navcom .radio-disp-inner.airport-search-anchor,
+body.theme-navcom .radio-disp-inner.airport-search-anchor:has(.airport-autocomplete:not([hidden])) {
     z-index: 10030;
 }
 
@@ -8564,6 +8571,17 @@ body.theme-navcom.navcom-rack-v2 .radio-module > :not(.radio-module-right-screws
 
 body.theme-navcom.navcom-rack-v2 .radio-module > .radio-label {
     z-index: 2;
+}
+
+/* Flughafen-Auswahl ueber Knoepfe und nachfolgende Modulreihen legen */
+body.theme-navcom.navcom-rack-v2 .radio-stack > :focus-within,
+body.theme-navcom.navcom-rack-v2 .radio-stack > :has(.airport-autocomplete:not([hidden])) {
+    z-index: 50;
+}
+
+body.theme-navcom.navcom-rack-v2 .radio-module > .radio-display-container:focus-within,
+body.theme-navcom.navcom-rack-v2 .radio-module > .radio-display-container:has(.airport-autocomplete:not([hidden])) {
+    z-index: 40;
 }
 
 body.theme-navcom.navcom-rack-v2 .audio-panel {
