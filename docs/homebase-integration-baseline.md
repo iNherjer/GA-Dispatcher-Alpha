@@ -106,12 +106,26 @@ Szenensignatur. Das System stammt aus der Zeit ohne Cloud-Zugriff des Trackers.
   blendet den Tracker-Stand bis zum Verlassen des Radius aus; „Aktualisieren“
   schickt `cloud.refresh` mit `clearSuppression`.
 
+- **Bearbeiten bleibt live**: Verschieben, Hinzufügen und Entfernen in der
+  Workbench gehen unverändert als Einzelbefehle direkt an den Tracker
+  (`preview.object.move/add/remove`, ohne Neu-Spawn beim Verschieben). Auch alle
+  SDK-Paket-Aufträge (`package.prepare/build/install/uninstall`) laufen
+  unverändert über die App. Nach erfolgreicher Installation oder Entfernung des
+  Mods lädt der Tracker die Szene neu (an der Erfolgsmeldung, nicht zeitgesteuert).
+- **Übernahme ohne Neuaufbau**: Bevor der Tracker einen neuen Stand anwendet,
+  prüft der Object-Manager (`previewObjectsMatch`), ob alle Vorschau-Objekte
+  schon mit gleicher ID, Titel, Position, Höhe, Richtung und Größe stehen. Dann
+  übernimmt er nur die Signatur und gleicht Personen/Wege per
+  `preview.people.sync` an (`HOMEBASE_FALLBACK_ADOPT`). Das gilt insbesondere
+  nach dem Speichern eines Workbench-Entwurfs: Workbench und Kern berechnen
+  Positionen mit derselben Formel.
+
 Grenzen: Crew-Homebases (`/api/homebase-group/`) laufen weiter über die App.
-Weicht die Workbench-Konfiguration eines gerade gespeicherten Entwurfs vom
-Kern ab, baut der Tracker nach dem Speichern einmal neu auf (Schritt „nur
-Unterschiede neu bauen“ steht noch aus).
+Unterscheiden sich Objekte wirklich, baut der Tracker die Vorschau wie bisher
+komplett neu auf (gezielter Teil-Neuaufbau steht noch aus).
 
 Tests: `tools/homebase-scene-core.test.cjs`,
-`ga-tracker-client/tracker-homebase-cloud.test.js`.
+`ga-tracker-client/tracker-homebase-cloud.test.js`,
+`ga-tracker-client/homebase-preview-adopt.test.js`.
 Log: `HOMEBASE_CLOUD_SCENE`, `HOMEBASE_CLOUD_EMPTY`, `HOMEBASE_CLOUD_LEGACY`,
-`HOMEBASE_CLOUD_ERROR`, `HOMEBASE_CLOUD_DEFERRED`, `HOMEBASE_FALLBACK_STORE source=cloud|app|app-draft`.
+`HOMEBASE_CLOUD_ERROR`, `HOMEBASE_CLOUD_DEFERRED`, `HOMEBASE_FALLBACK_ADOPT`, `HOMEBASE_FALLBACK_STORE source=cloud|app|app-draft`.

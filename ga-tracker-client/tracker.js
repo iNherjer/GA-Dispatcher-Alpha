@@ -5992,7 +5992,15 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
   const homebasePackageService = HOMEBASE_ENABLED
     ? createHomebasePackageService({
         runtimeDir: TRACKER_DATA_DIR,
-        sendAck: sendHomebaseAck,
+        sendAck: (ack) => {
+          sendHomebaseAck(ack);
+          // Ein installierter oder entfernter Homebase-Mod aendert, welche Objekte
+          // live ergaenzt werden: erst nach der Erfolgsmeldung neu aufbauen.
+          if (['homebase_v1.package.install_ack', 'homebase_v1.package.uninstall_ack'].includes(ack?.type)
+              && ['ok', 'noop'].includes(ack?.status) && homebaseCloud?.available) {
+            void homebaseCloud.refresh(String(ack.type).replace(/^homebase_v1\.|_ack$/g, ''));
+          }
+        },
         log: debugLog
       })
     : null;
@@ -6108,14 +6116,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       });
       return true;
     }
-    if (homebasePackageService.handleCommand(command)) {
-      // Ein neu installierter oder entfernter Homebase-Mod aendert, welche
-      // Objekte live ergaenzt werden muessen.
-      if (homebaseCloud?.available && ['homebase_v1.package.install', 'homebase_v1.package.uninstall'].includes(type)) {
-        setTimeout(() => { void homebaseCloud.refresh(type.replace('homebase_v1.', '')); }, 5000).unref?.();
-      }
-      return true;
-    }
+    if (homebasePackageService.handleCommand(command)) return true;
     if (type === 'homebase_v1.capabilities' && typeof _trackerCommandHandler !== 'function') {
       sendHomebaseAck({
         type: 'homebase_v1.capabilities_ack',
@@ -6833,6 +6834,21 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
           homebaseFallbackInside = true;
           if (homebaseSceneSignature === cache.sceneSignature) return;
           const commandId = `homebase-fallback-${Date.now()}`;
+          // Objekte stehen schon genau so (z. B. nach Workbench-Bearbeitung und
+          // Speichern): Stand uebernehmen, nur Personen/Wege schonend angleichen.
+          if (homebaseSceneSignature && typeof homebaseManager.previewObjectsMatch === 'function'
+              && homebaseManager.previewObjectsMatch(cache.objects)) {
+            homebaseSceneSignature = cache.sceneSignature;
+            homebaseManager.handleCommand({
+              type: 'homebase_v1.preview.people.sync',
+              commandId,
+              people: cache.people,
+              navigation: cache.navigation,
+              sceneSignature: cache.sceneSignature
+            });
+            debugLog(`HOMEBASE_FALLBACK_ADOPT signature=${cache.sceneSignature} objects=${cache.objects.length} people=${cache.people.length}`);
+            return;
+          }
           homebaseSceneSignature = cache.sceneSignature;
           homebaseManager.handleCommand({
             type: 'homebase_v1.preview.set',

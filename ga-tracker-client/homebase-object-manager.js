@@ -1325,6 +1325,31 @@ function createHomebaseObjectManager(handle, options = {}) {
     },
     isCrewSceneCurrent,
     clearAll,
+    // Stehen die Vorschau-Objekte (ohne Personen) schon genau so im Sim? Dann
+    // kann ein neuer Szenenstand ohne kompletten Neuaufbau uebernommen werden.
+    previewObjectsMatch(rawObjects) {
+      let desired;
+      try {
+        desired = (Array.isArray(rawObjects) ? rawObjects : []).slice(0, MAX_OBJECTS).map((raw) => normalizeItem(raw));
+      } catch (_) {
+        return false;
+      }
+      const current = [...objectsById.values()].filter((record) => collectionFor(record) === 'preview'
+        && !personControllers.has(record.item.id) && isCurrentRecord(record));
+      if (current.length !== desired.length || pendingCreates.size > 0) return false;
+      const byId = new Map(current.map((record) => [record.item.id, record.item]));
+      const headingDelta = (a, b) => { const d = Math.abs(heading(a) - heading(b)); return Math.min(d, 360 - d); };
+      return desired.every((item) => {
+        const live = byId.get(item.id);
+        return !!live && live.title === item.title
+          && Math.abs(live.lat - item.lat) <= 0.0000001
+          && Math.abs(live.lon - item.lon) <= 0.0000001
+          && Math.abs(live.altFt - item.altFt) <= 0.1
+          && Math.abs(live.heightOffsetFt - item.heightOffsetFt) <= 0.02
+          && headingDelta(live.heading, item.heading) <= 0.1
+          && Math.abs(live.scale - item.scale) <= 0.005;
+      });
+    },
     snapshot() {
       return {
         generation: generations.preview,

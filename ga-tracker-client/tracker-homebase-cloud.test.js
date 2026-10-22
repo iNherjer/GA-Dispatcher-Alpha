@@ -150,4 +150,6 @@ test('Tracker-Verdrahtung: Startsperre, Unterdrueckung, Faehigkeit, Entwurfsvorr
   assert.match(source, /if \(command\?\.draftDirty !== true\) _homebaseAppDraftActive = false;/);
   assert.match(source, /missionTransfer, getCloudAuthoritySnapshot, getHomebaseCloud\), 5000\);/);
   assert.equal((source.match(/getCloudAuthoritySnapshot, getHomebaseCloud\), 5000\)/g) || []).length, 2, 'Reconnect behaelt den Cloud-Zugriff');
+  assert.match(source, /\['homebase_v1\.package\.install_ack', 'homebase_v1\.package\.uninstall_ack'\]\.includes\(ack\?\.type\)[\s\S]{0,120}homebaseCloud\.refresh/,
+    'Neuaufbau erst nach erfolgreicher Paket-Installation');
 });
