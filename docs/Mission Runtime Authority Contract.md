@@ -26,6 +26,81 @@ Tracker, EFB-Nutzer koennen ohnehin nur Tracker-Missionen fliegen.
   POI-Voice-Domaenen erhielte kein Tracker-Paket und waere nicht startbar.
   Dispatcher/Writer gleichen auf gueltige Profile ab; bisher keine Meldung.
 
+## Missionsstand aufgeteilt und Kopien vermieden (22.10.2026, lokaler Kandidat)
+
+Feldbefund (Tracker v586, schwacher Rechner, Web-App und EFB gleichzeitig):
+`mission-authority-v1.json` war 2,7 MB gross und wurde alle 5 s komplett neu
+geschrieben. 67 % davon waren dieselben Missionsdaten zweimal (aktiver und
+vorheriger Lauf). Die EFB fragt den Missionsstand alle 300 ms (Verlade-Dialog
+offen) bzw. 550 ms ab; jede Abfrage kopierte im Hauptprozess das komplette
+Resume-Paket (1,2 MB, `projectionMs` bis 301 ms). Jedes Missionsereignis wandelte
+zusaetzlich das ganze Paket nur fuer die 12-MB-Grenze in Text um.
+
+Grundlage aller drei Aenderungen ist die bestehende Regel: Teile des
+Resume-Pakets werden nach dem Erzeugen nie veraendert, nur ersetzt (siehe
+`copyPublicationPart`).
+
+- **Groessenpruefung inkrementell** (`resumeBundleBytes` in
+  `mission-authority-core.js`): Byte-Groesse je Teil einmal pro Objekt gemerkt;
+  ein Ereignis misst nur die ersetzten Teile. Ergebnis byte-genau gleich der
+  Vollmessung (Test). Ab 90 % der Grenze entscheidet wie bisher die Vollmessung.
+- **Lesende Ansicht im Hauptprozess** (`getActiveRunView` in
+  `tracker-mission-process.js`): eingefrorene Kopie je Paket-Teil, erneuert nur
+  bei einer IPC-Aenderung genau dieses Teils. Genutzt von EFB-Missionsabfrage,
+  Kartenprojektion, Cockpit-Tools und Shadow-Beobachter. `getActiveRun` bleibt
+  eine freie, veraenderbare Kopie fuer alle anderen Aufrufer. Ein versehentlicher
+  Schreibzugriff auf die Ansicht wirft einen Fehler statt still zu verfaelschen.
+- **Aufgeteilte Checkpoint-Datei** (`tracker-mission-checkpoint-blobs.js`):
+  Teile ab 64 KB, die seit dem letzten Checkpoint unveraendert sind, liegen
+  einmalig als `mission-authority-v1.json.blobs/<sha256>.json`; die Hauptdatei
+  (Version 2, `storageFormat: ga.mission-authority.blob-refs.v1`) verweist darauf.
+  Gleicher Inhalt in aktivem und altem Lauf liegt nur einmal auf der Platte.
+  Gibt es nichts zu verweisen, wird exakt das alte Version-1-Format geschrieben.
+
+Messung mit der Feld-Datei: Hauptdatei 2.735 KB -> 338 KB, nach Neustart keine
+Teil-Datei neu geschrieben; Resume-Paket, Ausfuehrungsstand und alter Lauf nach
+dem Laden identisch. EFB-Projektion auf Apple M1 14,8 ms -> 0,14 ms je Abfrage.
+
+### Sicherheitsregeln und Grenzfaelle
+
+- Reihenfolge: Teil-Dateien (mit fsync) -> Hauptdatei -> erst danach Aufraeumen.
+  Absturz dazwischen laesst die alte Hauptdatei gueltig; Waisen und `.tmp`-Reste
+  entfernt der naechste Checkpoint.
+- Laden prueft jede Teil-Datei per SHA-256. Fehlt eine oder ist sie beschaedigt,
+  wird genau dieser Lauf verworfen (`MISSION_AUTHORITY_BLOB_MISSING`), nie halb
+  geladen. Der andere Lauf bleibt erhalten.
+- Jeder Fehler beim Schreiben der Teil-Dateien (Platte voll, Sperre) faellt fuer
+  diesen Checkpoint auf das vollstaendige Inline-Format zurueck
+  (`MISSION_CHECKPOINT_BLOB_FALLBACK`).
+- Extern geloeschte Teil-Dateien werden beim naechsten Checkpoint neu geschrieben.
+  Gesperrte alte Teil-Dateien (Virenscanner, OneDrive) werden erneut geloescht.
+- Stichprobe: hoechstens ein verwiesenes Teil pro Minute wird neu gehasht. Wurde
+  es entgegen der Regel veraendert, wird das erkannt
+  (`mission_checkpoint_blob_hash_mismatch`) und der aktuelle Inhalt gespeichert.
+- Der erste Checkpoint einer neuen Mission ist noch vollstaendig (Teile gelten
+  erst als stabil, wenn sie einen Checkpoint ueberdauert haben). Nach einem
+  Neustart werden geladene Teile sofort wieder verwiesen.
+- Der synchrone In-Prozess-Pfad (Ausfuehrung deaktiviert) schreibt weiter Version
+  1, liest aber beide Formate.
+
+### Rueckfall
+
+1. Ohne neuen Build: Datei `mission-checkpoint-inline.flag` im Tracker-Datenordner
+   (`Dokumente\VFR Multitool\Tracker`) anlegen oder
+   `VFR_MULTITOOL_MISSION_CHECKPOINT_BLOBS=0` setzen und den Tracker neu starten.
+   Er liest das aufgeteilte Format weiter und schreibt ab dem naechsten Checkpoint
+   wieder Version 1 (`MISSION_CHECKPOINT_FORMAT format=inline`).
+2. Zurueck auf die alte EXE (v586 und aelter): Diese ignoriert eine Version-2-Datei
+   und startet ohne laufende Mission. Deshalb vorher Schritt 1 ausfuehren und einen
+   Checkpoint abwarten, oder die Mission vorher beenden.
+3. Code-Stand vor dem Umbau: Git-Tag `fallback/pre-checkpoint-split-2026-10-22`
+   (Tracker v586). Der Spawn-Fix vom selben Tag liegt zusaetzlich als
+   `analysis/spawn-fix-2026-10-22.patch` vor.
+
+Tests: `tracker-mission-checkpoint-blobs.test.js`,
+`tracker-mission-run-view.test.js` (beide optional mit
+`GA_MISSION_AUTHORITY_SAMPLE=<Feld-Datei>`). Windows-/MSFS-Abnahme ausstehend.
+
 ## Simulator getrennt: Unterbrechung und Fortsetzen (20.10.2026)
 
 Feldbefund (Tracker v568, 20.10.2026): MSFS wurde in `boarding` geschlossen, der

@@ -18,6 +18,41 @@ async function createTrackerMissionProcess(options) {
   let pendingSample = null, pendingMotion = [], telemetrySending = false, coalesced = 0, motionOverflow = 0;
   let pendingReadiness, readinessSending = false;
   const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
+  // Read-only view for frequent readers (EFB mission poll every 300-550 ms,
+  // map snapshot, shadow observer). Large parts are copied and frozen once per
+  // change instead of on every call; getActiveRun keeps detached copies.
+  const viewParts = new Map();
+  const deepFreeze = value => {
+    if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+      Object.freeze(value);
+      for (const child of Object.values(value)) deepFreeze(child);
+    }
+    return value;
+  };
+  const viewPart = (key, value) => {
+    if (value == null) return value;
+    if (!viewParts.has(key)) viewParts.set(key, deepFreeze(clone(value)));
+    return viewParts.get(key);
+  };
+  const invalidateView = changes => {
+    for (const { path } of changes) {
+      if (path.length === 0 || (path[0] === 'active' && path.length === 1)) { viewParts.clear(); return; }
+      if (path[0] !== 'active') continue;
+      if (path[1] === 'resumeBundle') {
+        viewParts.delete('bundle');
+        if (path.length === 2) for (const key of [...viewParts.keys()]) { if (key.startsWith('bundle:')) viewParts.delete(key); }
+        else viewParts.delete(`bundle:${path[2]}`);
+      } else if (path[1] === 'navigationRoute' || path[1] === 'effects') viewParts.delete(path[1]);
+    }
+  };
+  const bundleView = bundle => {
+    if (!bundle || typeof bundle !== 'object') return clone(bundle);
+    if (!viewParts.has('bundle')) {
+      viewParts.set('bundle', Object.freeze(Object.fromEntries(Object.entries(bundle)
+        .map(([key, value]) => [key, viewPart(`bundle:${key}`, value)]))));
+    }
+    return viewParts.get('bundle');
+  };
   const context = () => ({ audioSettings: options.getAudioSettings?.() || null, livePosition: simulator?.getLivePosition?.() || null });
   const ipc = createMissionIpc(child, {
     callback(name, args, generation) {
@@ -29,7 +64,7 @@ async function createTrackerMissionProcess(options) {
   }, {
     timeoutForRequest: missionRequestTimeout,
     onEvent(name, value) {
-      if (name === 'state') state = applyDifference(state, value);
+      if (name === 'state') { invalidateView(value); state = applyDifference(state, value); }
       else if (name === 'log') log(value);
       else if (name === 'authorityChanged') options.onAuthorityChanged?.(value.reason, { state: { phase: value.phase } });
     }
@@ -50,6 +85,17 @@ async function createTrackerMissionProcess(options) {
       if (!state.active) return null;
       const { resumeBundle, effects, navigationRoute, ...summary } = state.active;
       return clone({ ...summary, ...(settings.includeBundle ? { resumeBundle, navigationRoute } : {}), ...(settings.includeEffects ? { effects } : {}) });
+    },
+    getActiveRunView: (settings = {}) => {
+      if (!state.active) return null;
+      const { resumeBundle, effects, navigationRoute, ...summary } = state.active;
+      const run = clone(summary);
+      if (settings.includeBundle) {
+        if (resumeBundle !== undefined) run.resumeBundle = bundleView(resumeBundle);
+        if (navigationRoute !== undefined) run.navigationRoute = viewPart('navigationRoute', navigationRoute);
+      }
+      if (settings.includeEffects && effects !== undefined) run.effects = viewPart('effects', effects);
+      return run;
     },
     recordGeneratedText: (request, text) => ipc.request('recordGeneratedText', request, text),
     getPublicSnapshot: () => {

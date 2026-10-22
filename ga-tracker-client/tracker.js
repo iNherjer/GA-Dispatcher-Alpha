@@ -464,6 +464,12 @@ function buildTitleCandidates(title, extra = []) {
   return uniqueStrings(candidates);
 }
 
+// Frozen, cached view for read-only projections; falls back to a detached copy.
+function readActiveRunView(manager, options = {}) {
+  if (!manager) return null;
+  return typeof manager.getActiveRunView === 'function' ? manager.getActiveRunView(options) : manager.getActiveRun?.(options) ?? null;
+}
+
 function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg = null, getGroundTrafficSnapshot = null, missionAuthority = null, missionShadow = null, onExecutionAck = null, onPayloadSnapshot = null, missionTransfer = null) {
   const missions = new Map();
   const scenes = new Map();
@@ -4314,7 +4320,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
   const logAuthorityMapProjection = (command = {}, result = null) => {
     if (!result?.ok) return;
     const projected = projectTrackerMapSnapshot(
-      missionAuthority.getActiveRun({ includeBundle: true }),
+      readActiveRunView(missionAuthority, { includeBundle: true }),
       typeof getLastGpsMsg === 'function' ? getLastGpsMsg() : null
     );
     const signature = projected ? JSON.stringify({
@@ -4331,7 +4337,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
 
   const observeMissionShadow = (command = {}, result = null) => {
     if (!missionShadow) return null;
-    const activeRun = missionAuthority?.getActiveRun?.({ includeBundle: true }) || null;
+    const activeRun = readActiveRunView(missionAuthority, { includeBundle: true }) || null;
     try {
       return missionShadow.observeAuthorityResult(
         result,
@@ -4969,8 +4975,15 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     onObservation: state => missionTestLog.observe(state)
   });
   let broadcastMissionAuthorityUpdate = () => false;
+  // Rueckfall-Schalter fuer das alte Inline-Format des Missionsstands:
+  // Umgebungsvariable VFR_MULTITOOL_MISSION_CHECKPOINT_BLOBS=0 oder eine Datei
+  // mission-checkpoint-inline.flag im Tracker-Datenordner.
+  const missionCheckpointBlobs = process.env.VFR_MULTITOOL_MISSION_CHECKPOINT_BLOBS !== '0'
+    && !fs.existsSync(path.join(TRACKER_DATA_DIR, 'mission-checkpoint-inline.flag'));
+  debugLog(`MISSION_CHECKPOINT_FORMAT format=${missionCheckpointBlobs ? 'blob-refs' : 'inline'}`);
   const authorityOptions = {
     storageFile: MISSION_AUTHORITY_FILE,
+    checkpointBlobs: missionCheckpointBlobs,
     executionAuthorityEnabled: TRACKER_APT_EXECUTION_ENABLED,
     poiExecutionEnabled: TRACKER_POI_EXECUTION_ENABLED,
     poiLifecycleRequired: true
@@ -5373,7 +5386,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
   let tuneCockpitRadio = null;
   const cockpitTools = createCockpitTools({
     filename: path.join(TRACKER_DATA_DIR, 'navigation-route-v1.json'),
-    getRun: () => missionAuthorityManager.getActiveRun({ includeBundle: true }),
+    getRun: () => readActiveRunView(missionAuthorityManager, { includeBundle: true }),
     editMissionRoute: request => missionAuthorityManager.editNavigationRoute(request),
     getCompliance: () => missionAuthorityManager.getPublicSnapshot()?.execution?.workflows?.complianceInspection,
     getRunSummary: () => missionAuthorityManager.getActiveRun(),
@@ -5689,7 +5702,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
         const authoritySnapshot = cloudAuthoritySnapshot();
         const executionControl = authoritySnapshot.execution || null;
         const projected = projectTrackerEfbMissionView(
-          missionAuthorityManager.getActiveRun({ includeBundle: true }),
+          readActiveRunView(missionAuthorityManager, { includeBundle: true }),
           _lastEfbSnapshot,
           _lastEfbMissionSnapshot,
           executionControl,

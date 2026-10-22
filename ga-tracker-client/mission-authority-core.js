@@ -15,6 +15,7 @@ const payloadCore = require('../mission-payload-core.js');
 const flightRecorderCore = require('../mission-flight-recorder-core.js');
 const { plannedResetBundle } = require('./tracker-mission-reset.js');
 
+const checkpointBlobs = require('./tracker-mission-checkpoint-blobs.js');
 const STATE_SCHEMA = 'ga.mission-authority.v1';
 const STATE_VERSION = 1;
 const MAX_EVENTS = 120;
@@ -54,8 +55,41 @@ function jsonClone(value) {
 // Internal bundles consist only of previously validated immutable data and new
 // reducer output. Check the same wire-size limit without copying static mission
 // data again. Public inputs and getters still cross a detached-copy boundary.
+// Bundle parts are never edited after creation (see copyPublicationPart), so
+// their serialized size is measured once per object. A new event then only
+// measures the parts it replaced instead of the whole static mission.
+const resumePartBytes = new WeakMap();
+function jsonValueBytes(value) {
+  if (value === null) return 4;
+  if (typeof value !== 'object') {
+    const text = JSON.stringify(value);
+    return text === undefined ? -1 : Buffer.byteLength(text, 'utf8');
+  }
+  let bytes = resumePartBytes.get(value);
+  if (bytes === undefined) {
+    bytes = Buffer.byteLength(JSON.stringify(value), 'utf8');
+    resumePartBytes.set(value, bytes);
+  }
+  return bytes;
+}
+function resumeBundleBytes(bundle) {
+  if (!bundle || typeof bundle !== 'object' || Array.isArray(bundle) || typeof bundle.toJSON === 'function') {
+    return Buffer.byteLength(JSON.stringify(bundle) ?? '', 'utf8');
+  }
+  let bytes = 2, members = 0;
+  for (const [key, value] of Object.entries(bundle)) {
+    const valueBytes = jsonValueBytes(value);
+    if (valueBytes < 0) continue;
+    bytes += Buffer.byteLength(JSON.stringify(key), 'utf8') + 1 + valueBytes;
+    members++;
+  }
+  return bytes + Math.max(0, members - 1);
+}
+
 function checkedInternalResumeBundle(value) {
-  const bytes = Buffer.byteLength(JSON.stringify(value), 'utf8');
+  let bytes = resumeBundleBytes(value);
+  // Close to the limit the exact full measurement decides, as before.
+  if (bytes > MAX_RESUME_BYTES * 0.9) bytes = Buffer.byteLength(JSON.stringify(value), 'utf8');
   if (bytes > MAX_RESUME_BYTES) {
     const error = new Error(`resume_bundle_too_large:${bytes}`);
     error.code = 'resume_bundle_too_large';
@@ -638,7 +672,9 @@ function createMissionAuthorityManager(options = {}) {
   const checkpoint = storageFile && options.periodicCheckpoint === true
     ? require('./tracker-mission-checkpoint.js').createMissionCheckpoint({
       filename: storageFile, getState: () => state, log,
-      io: options.checkpointIo, intervalMs: options.checkpointIntervalMs
+      io: options.checkpointIo, intervalMs: options.checkpointIntervalMs,
+      blobs: options.checkpointBlobs !== false, minBlobBytes: options.checkpointMinBlobBytes,
+      blobAuditIntervalMs: options.checkpointBlobAuditIntervalMs
     }) : null;
   const persist = () => {
     publicationVersion++;
@@ -677,8 +713,16 @@ function createMissionAuthorityManager(options = {}) {
   const load = () => {
     if (!storageFile || !io.existsSync(storageFile)) return;
     try {
-      const parsed = JSON.parse(io.readFileSync(storageFile, 'utf8'));
-      if (parsed?.schema !== STATE_SCHEMA || Number(parsed?.version) !== STATE_VERSION) return;
+      const raw = JSON.parse(io.readFileSync(storageFile, 'utf8'));
+      if (raw?.schema !== STATE_SCHEMA) return;
+      if (Number(raw?.version) !== STATE_VERSION && Number(raw?.version) !== checkpointBlobs.STORAGE_VERSION) return;
+      const resolved = checkpointBlobs.resolveStoredState(raw, {
+        filename: storageFile, readFileSync: (file, encoding) => io.readFileSync(file, encoding)
+      });
+      for (const dropped of resolved.droppedRuns) {
+        log(`MISSION_AUTHORITY_BLOB_MISSING run=${dropped.run} mission=${dropped.missionId} runId=${dropped.runId} error=${dropped.error}`);
+      }
+      const parsed = resolved.state;
       state = {
         schema: STATE_SCHEMA,
         version: STATE_VERSION,
@@ -687,7 +731,12 @@ function createMissionAuthorityManager(options = {}) {
         followupOutbox: Array.isArray(parsed.followupOutbox) ? parsed.followupOutbox : [],
         events: Array.isArray(parsed.events) ? parsed.events.slice(-MAX_EVENTS) : []
       };
-      log(`MISSION_AUTHORITY_LOADED active=${state.activeRun?.missionId || 'none'} run=${state.activeRun?.runId || 'none'}`);
+      // Loaded parts are already on disk: reference them from the first checkpoint on.
+      for (const part of resolved.loadedParts) {
+        const value = state[part.run]?.resumeBundle?.[part.part];
+        if (value && typeof value === 'object') checkpoint?.registerLoadedPart(value, part.hash, part.bytes);
+      }
+      log(`MISSION_AUTHORITY_LOADED active=${state.activeRun?.missionId || 'none'} run=${state.activeRun?.runId || 'none'} format=${Number(raw.version) === checkpointBlobs.STORAGE_VERSION ? 'blob-refs' : 'inline'} blobParts=${resolved.loadedParts.length}`);
     } catch (error) {
       log(`MISSION_AUTHORITY_LOAD_ERROR ${error?.message || error}`);
       state = newState();
@@ -2163,6 +2212,14 @@ function createMissionAuthorityManager(options = {}) {
         includeEffects: options.includeEffects === true
       });
     },
+    // In-process callers get the same detached copy; the worker mirror
+    // (tracker-mission-process.js) serves a cached read-only view instead.
+    getActiveRunView(options = {}) {
+      return publicRun(state.activeRun, {
+        includeBundle: options.includeBundle === true,
+        includeEffects: options.includeEffects === true
+      });
+    },
     isAuthorityCommand(command = {}) {
       return AUTHORITY_COMMANDS.has(commandType(command));
     }
@@ -2177,5 +2234,6 @@ module.exports = {
   STATE_SCHEMA,
   STATE_VERSION,
   createMissionAuthorityManager,
-  isMissionCommand
+  isMissionCommand,
+  resumeBundleBytes
 };
