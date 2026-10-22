@@ -43,3 +43,6 @@ EXE: 174282892 Bytes; SHA-256 `d9e44430188c78a8597488c8e03f4d2322a8de56a4df5fb29
 - Öffnen per Kartentisch-Knopf während Boarding: keine Sperre durch Telemetrielücken; beim Rollen
   weiterhin gesperrt. Falls doch gesperrt: Grund in der Meldung und `cargo_ground_dialog_gate` im
   App-Debug.
+
+Release-Upload verifiziert und EXE öffentlich erneut heruntergeladen: Größe und SHA-256 identisch.
+`channel/alpha.json` auf v588 umgestellt, `stable.json` unverändert.
