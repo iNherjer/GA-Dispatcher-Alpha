@@ -423,6 +423,8 @@ body.theme-retro:not(.theme-navcom):not(.theme-ops1940) #classicInputs .tx-lever
 
 /* Drehschalter (Bakelit-Foto, nur der Zeiger dreht) */
 #classicInputs .tx-rotary { position: relative; height: 104px; cursor: pointer; touch-action: manipulation; }
+/* Flugzeug-Regler: Langdruck öffnet die Schnellwahl-Zuweisung, daher kein Text-/Callout-Menü */
+#classicInputs .tx-ac, #classicInputs .tx-ac * { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 #classicInputs .tx-lbl { position: absolute; transform: translate(-50%, -50%); font: 700 9px/1 var(--tx-label-font); letter-spacing: .06em; color: var(--tx-label-dim); white-space: nowrap; transition: color .15s; cursor: pointer; max-width: 70px; overflow: hidden; text-overflow: ellipsis; }
 #classicInputs .tx-lbl.on { color: var(--tx-label); text-shadow: 0 0 6px rgba(255,182,46,.55); }
 #classicInputs .tx-knob { position: absolute; left: 50%; top: 56%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%;

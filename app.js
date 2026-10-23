@@ -1087,7 +1087,7 @@ function getAircraftQuickSlotMenuEl() {
     if (!menu) {
         menu = document.createElement('div');
         menu.id = 'aircraftQuickSlotMenu';
-        menu.className = 'aircraft-quick-slot-menu';
+        menu.className = 'airport-autocomplete aircraft-quick-slot-menu';
         menu.setAttribute('role', 'menu');
         menu.hidden = true;
         menu.addEventListener('keydown', handleAircraftQuickSlotMenuKeydown);
@@ -1104,6 +1104,7 @@ function renderAircraftQuickSlotMenu() {
     menu.replaceChildren();
     menu.setAttribute('aria-label', `Preset für Schnellwahl ${index + 1} wählen`);
 
+    // Gleiche Klassen wie die Flughafen-/Favoritenliste, damit das Menü dem Design folgt.
     const head = document.createElement('div');
     head.className = 'aircraft-quick-slot-menu-head';
     head.textContent = `Schnellwahl ${index + 1} belegen`;
@@ -1111,22 +1112,42 @@ function renderAircraftQuickSlotMenu() {
 
     aircraftPresetOrder.forEach(presetId => {
         const preset = getAircraftPreset(presetId);
+        const assigned = presetId === assignedId;
         const item = document.createElement('button');
         item.type = 'button';
-        item.className = 'aircraft-quick-slot-menu-item';
+        item.className = 'airport-autocomplete-option aircraft-quick-slot-menu-item';
+        if (assigned) item.classList.add('is-active');
         item.setAttribute('role', 'menuitemradio');
-        item.setAttribute('aria-checked', String(presetId === assignedId));
+        item.setAttribute('aria-checked', String(assigned));
         item.dataset.presetId = presetId;
+
+        const code = document.createElement('span');
+        code.className = 'airport-result-code';
+        code.textContent = getAircraftClassOption(preset.aircraftClass).label;
+
         const name = document.createElement('span');
-        name.className = 'aircraft-quick-slot-menu-name';
+        name.className = 'airport-result-name';
         name.textContent = preset.name;
+
         const meta = document.createElement('span');
-        meta.className = 'aircraft-quick-slot-menu-meta';
-        meta.textContent = `${getAircraftClassOption(preset.aircraftClass).label} · ${preset.tas} kt · ${preset.gph} GPH · ${preset.pax} Sitze`;
-        item.append(name, meta);
+        meta.className = 'airport-result-meta';
+        meta.textContent = `${preset.tas} kt · ${preset.gph} GPH · ${preset.pax} Sitze`;
+
+        const check = document.createElement('span');
+        check.className = 'aircraft-quick-slot-check';
+        check.setAttribute('aria-hidden', 'true');
+        check.textContent = assigned ? '✓' : '';
+
+        item.append(code, name, meta, check);
         item.addEventListener('click', event => {
             event.preventDefault();
             assignAircraftQuickSlot(index, presetId);
+        });
+        item.addEventListener('focus', () => {
+            menu.querySelectorAll('.airport-autocomplete-option.is-active').forEach(el => {
+                if (el !== item) el.classList.remove('is-active');
+            });
+            item.classList.add('is-active');
         });
         menu.appendChild(item);
     });
@@ -1136,28 +1157,33 @@ function renderAircraftQuickSlotMenu() {
     divider.setAttribute('role', 'separator');
     menu.appendChild(divider);
 
-    const edit = document.createElement('button');
-    edit.type = 'button';
-    edit.className = 'aircraft-quick-slot-menu-action';
-    edit.setAttribute('role', 'menuitem');
-    edit.textContent = `✎ ${getAircraftPreset(assignedId).name} bearbeiten`;
-    edit.addEventListener('click', event => {
+    const addAction = (label, handler) => {
+        const action = document.createElement('button');
+        action.type = 'button';
+        action.className = 'airport-autocomplete-option aircraft-quick-slot-menu-action';
+        action.setAttribute('role', 'menuitem');
+        const text = document.createElement('span');
+        text.className = 'airport-result-name';
+        text.textContent = label;
+        action.appendChild(text);
+        action.addEventListener('click', handler);
+        action.addEventListener('focus', () => {
+            menu.querySelectorAll('.airport-autocomplete-option.is-active').forEach(el => el.classList.remove('is-active'));
+            action.classList.add('is-active');
+        });
+        menu.appendChild(action);
+    };
+
+    addAction(`✎ ${getAircraftPreset(assignedId).name} bearbeiten`, event => {
         const control = aircraftQuickSlotMenuState?.control || null;
         openAircraftPresetEditor(assignedId, event, control);
     });
-    menu.appendChild(edit);
 
     if (aircraftPresetOrder.length < AIRCRAFT_PRESET_MAX) {
-        const create = document.createElement('button');
-        create.type = 'button';
-        create.className = 'aircraft-quick-slot-menu-action';
-        create.setAttribute('role', 'menuitem');
-        create.textContent = `+ Neues Preset für Schnellwahl ${index + 1}`;
-        create.addEventListener('click', event => {
+        addAction(`+ Neues Preset für Schnellwahl ${index + 1}`, event => {
             const control = aircraftQuickSlotMenuState?.control || null;
             createAircraftPreset(event, control, { assignQuickSlot: index });
         });
-        menu.appendChild(create);
     }
 }
 
@@ -1254,6 +1280,114 @@ function applyAircraftQuickSlot(index) {
 }
 window.applyAircraftQuickSlot = applyAircraftQuickSlot;
 
+// Langdruck/Rechtsklick für Schnellwahl-Bedienelemente. Bei Touch zählen die
+// Touch-Events: iOS meldet beim Gedrückthalten früh pointercancel (Textauswahl),
+// das darf den Langdruck nicht abbrechen. 450 ms liegen vor der iOS-Textauswahl.
+const AIRCRAFT_QUICK_SLOT_LONG_PRESS_MS = 450;
+
+function bindAircraftQuickSlotLongPress(element, onLongPress, onPressState = null) {
+    if (!element || element.dataset.aircraftLongPressBound === '1') return;
+    element.dataset.aircraftLongPressBound = '1';
+    let timer = null;
+    let startX = 0;
+    let startY = 0;
+    let touchActiveUntil = 0;
+    let firedAt = 0;
+    const setState = active => { try { onPressState?.(active); } catch (_) {} };
+    // Solange ein Finger auf dem Element liegt, keine Textauswahl auf der Seite zulassen.
+    const blockSelection = event => event.preventDefault();
+    let selectionBlocked = false;
+    const setSelectionBlocked = blocked => {
+        if (blocked === selectionBlocked) return;
+        selectionBlocked = blocked;
+        if (blocked) document.addEventListener('selectstart', blockSelection, true);
+        else document.removeEventListener('selectstart', blockSelection, true);
+    };
+    const cancel = () => {
+        if (timer) clearTimeout(timer);
+        timer = null;
+        setState(false);
+    };
+    const fire = detail => {
+        timer = null;
+        setState(false);
+        firedAt = Date.now();
+        try { window.getSelection?.()?.removeAllRanges?.(); } catch (_) {}
+        onLongPress(detail);
+    };
+    const start = (x, y, detail) => {
+        cancel();
+        startX = x;
+        startY = y;
+        setState(true);
+        timer = setTimeout(() => fire(detail), AIRCRAFT_QUICK_SLOT_LONG_PRESS_MS);
+    };
+    const moved = (x, y) => Math.hypot(x - startX, y - startY) > 12;
+
+    element.addEventListener('touchstart', event => {
+        touchActiveUntil = Date.now() + 2000;
+        if (event.touches.length !== 1) { cancel(); return; }
+        setSelectionBlocked(true);
+        const touch = event.touches[0];
+        start(touch.clientX, touch.clientY, { target: event.target, clientX: touch.clientX, clientY: touch.clientY });
+    }, { passive: true });
+    element.addEventListener('touchmove', event => {
+        const touch = event.touches[0];
+        if (timer && touch && moved(touch.clientX, touch.clientY)) cancel();
+    }, { passive: true });
+    element.addEventListener('touchend', event => {
+        cancel();
+        setSelectionBlocked(false);
+        touchActiveUntil = Date.now() + 700;
+        // Nach ausgelöstem Langdruck keinen Klick nachschieben. Da so kein Klick
+        // folgt, die Sperre gleich wieder aufheben (nächster Tap zählt normal).
+        if (Date.now() - firedAt < 1500 && event.cancelable) {
+            event.preventDefault();
+            firedAt = 0;
+        }
+    }, { passive: false });
+    element.addEventListener('touchcancel', () => {
+        cancel();
+        setSelectionBlocked(false);
+    });
+
+    element.addEventListener('pointerdown', event => {
+        if (event.pointerType === 'touch' || Date.now() < touchActiveUntil) return;
+        if (event.button !== 0 || event.isPrimary === false) return;
+        start(event.clientX, event.clientY, event);
+    });
+    element.addEventListener('pointermove', event => {
+        if (event.pointerType === 'touch' || !timer) return;
+        if (moved(event.clientX, event.clientY)) cancel();
+    });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(type => {
+        element.addEventListener(type, event => {
+            if (event.pointerType === 'touch') return;
+            cancel();
+        });
+    });
+    element.addEventListener('blur', cancel);
+
+    element.addEventListener('click', event => {
+        if (Date.now() - firedAt >= 1200) return;
+        firedAt = 0;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+    }, true);
+    element.addEventListener('contextmenu', event => {
+        event.preventDefault();
+        // Android meldet den Langdruck zusätzlich als contextmenu.
+        if (Date.now() - firedAt < 1200) return;
+        cancel();
+        // Nur bei Touch merken (Doppelmeldung abfangen); ein Rechtsklick erzeugt keinen Klick.
+        firedAt = Date.now() < touchActiveUntil ? Date.now() : 0;
+        try { window.getSelection?.()?.removeAllRanges?.(); } catch (_) {}
+        onLongPress(event);
+    });
+    element.addEventListener('selectstart', event => event.preventDefault());
+}
+window.bindAircraftQuickSlotLongPress = bindAircraftQuickSlotLongPress;
+
 function initAircraftPresetInteractions() {
     document.querySelectorAll('[data-quick-slot]').forEach(control => {
         if (control.dataset.aircraftPresetEditorBound === '1') return;
@@ -1266,46 +1400,9 @@ function initAircraftPresetInteractions() {
         }
         control.setAttribute('draggable', 'false');
 
-        let pressTimer = null;
-        let startX = 0;
-        let startY = 0;
-        const cancelPress = () => {
-            clearTimeout(pressTimer);
-            pressTimer = null;
-            control.classList.remove('aircraft-preset-longpress-active');
-        };
-        control.addEventListener('pointerdown', event => {
-            if (event.button !== 0 || event.isPrimary === false) return;
-            cancelPress();
-            startX = event.clientX;
-            startY = event.clientY;
-            control.classList.add('aircraft-preset-longpress-active');
-            pressTimer = setTimeout(() => {
-                pressTimer = null;
-                control.classList.remove('aircraft-preset-longpress-active');
-                try { window.getSelection?.()?.removeAllRanges?.(); } catch (_) {}
-                control.dataset.aircraftPresetSuppressClickUntil = String(Date.now() + 1200);
-                openAircraftQuickSlotMenu(control.dataset.quickSlot, control, event);
-            }, 650);
-        });
-        control.addEventListener('pointermove', event => {
-            if (Math.hypot(event.clientX - startX, event.clientY - startY) > 12) cancelPress();
-        });
-        ['pointerup', 'pointercancel', 'pointerleave', 'blur'].forEach(type => {
-            control.addEventListener(type, cancelPress);
-        });
-        control.addEventListener('click', event => {
-            const suppressUntil = Number(control.dataset.aircraftPresetSuppressClickUntil || 0);
-            if (suppressUntil <= Date.now()) return;
-            delete control.dataset.aircraftPresetSuppressClickUntil;
-            event.preventDefault();
-            event.stopImmediatePropagation();
-        }, true);
-        control.addEventListener('contextmenu', event => {
-            cancelPress();
-            try { window.getSelection?.()?.removeAllRanges?.(); } catch (_) {}
+        bindAircraftQuickSlotLongPress(control, event => {
             openAircraftQuickSlotMenu(control.dataset.quickSlot, control, event);
-        });
+        }, active => control.classList.toggle('aircraft-preset-longpress-active', active));
         control.addEventListener('selectstart', event => event.preventDefault());
         control.addEventListener('dragstart', event => event.preventDefault());
         control.addEventListener('keydown', event => {
@@ -6550,7 +6647,7 @@ function ensureAirportAutocompleteMenu(input, classicId) {
 function hideAirportAutocomplete(input = null) {
     const menus = input
         ? [ensureAirportAutocompleteMenu(input, input.dataset.airportFieldId || '')].filter(Boolean)
-        : Array.from(document.querySelectorAll('.airport-autocomplete'));
+        : Array.from(document.querySelectorAll('.airport-autocomplete:not(.aircraft-quick-slot-menu)'));
     menus.forEach(menu => {
         menu.hidden = true;
         menu.innerHTML = '';

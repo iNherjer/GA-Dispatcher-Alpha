@@ -769,8 +769,23 @@
                 if (['ArrowLeft', 'ArrowDown'].indexOf(e.key) >= 0) { e.preventDefault(); pick((cur - 1 + n) % n); }
             });
         });
-        // Flugzeug: Positionen = Presets; Rechtsklick auf eine Beschriftung öffnet den Preset-Editor
+        // Flugzeug: Positionen = Schnellwahl-Presets. Langdruck/Rechtsklick öffnet die
+        // Zuweisungsliste – auf einer Beschriftung für diese Position, sonst für die aktive.
         var ac = txRotary('ac');
+        var acOpenQuickMenu = function (e) {
+            var btns = txPresets(); if (!btns.length || typeof window.openAircraftQuickSlotMenu !== 'function') return false;
+            var lbl = e && e.target && e.target.closest ? e.target.closest('.tx-lbl') : null;
+            var btn = lbl ? btns[+lbl.dataset.i] : txActivePreset();
+            if (!btn || btn.dataset.quickSlot === undefined) return false;
+            window.openAircraftQuickSlotMenu(+btn.dataset.quickSlot, lbl || ac, e);
+            return true;
+        };
+        if (typeof window.bindAircraftQuickSlotLongPress === 'function') {
+            // Gemeinsame, handyfeste Langdruck-Logik aus app.js (inkl. Rechtsklick).
+            window.bindAircraftQuickSlotLongPress(ac, function (e) { acOpenQuickMenu(e); });
+        } else {
+            ac.addEventListener('contextmenu', function (e) { e.preventDefault(); acOpenQuickMenu(e); });
+        }
         ac.addEventListener('click', function (e) {
             var btns = txPresets(); if (!btns.length) return;
             var lbl = e.target.closest('.tx-lbl');
@@ -779,14 +794,12 @@
             if (target) target.click();
             setTimeout(syncTelex, 60);
         });
-        ac.addEventListener('contextmenu', function (e) {
-            var lbl = e.target.closest('.tx-lbl');
-            var btn = lbl && txPresets()[+lbl.dataset.i];
-            if (!btn) return;
-            e.preventDefault();
-            btn.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: e.clientX, clientY: e.clientY }));
-        });
+        ac.addEventListener('selectstart', function (e) { e.preventDefault(); });
+        ac.setAttribute('aria-haspopup', 'menu');
         ac.addEventListener('keydown', function (e) {
+            if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10') || (e.altKey && e.key === 'ArrowDown')) {
+                e.preventDefault(); acOpenQuickMenu(e); return;
+            }
             if (['ArrowRight', 'ArrowUp', 'Enter', ' '].indexOf(e.key) >= 0) { e.preventDefault(); ac.click(); }
         });
         // Auftrag: Knopf schaltet die Auswahlliste weiter
