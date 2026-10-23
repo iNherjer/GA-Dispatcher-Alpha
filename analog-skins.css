@@ -1,0 +1,514 @@
+/* ==========================================================================
+   Analog-Design „Tower“: Schreibtisch der Flugleitung (analog-skins.js)
+   Entwurf: analysis/tower-redesign-2026-10-22/tower-entwurf.html
+   ========================================================================== */
+@import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@700&family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans+Condensed:wght@500;600;700&display=swap');
+
+/* Schraube oben rechts wechselt auch im Analog-Modus das Design */
+body.theme-retro .screw.top-right { cursor: pointer; z-index: 20; }
+
+/* Originalfelder, deren Bedienung der Tower übernimmt, ausblenden */
+body.theme-retro #classicInputs.tw-on > .ops-route-fields,
+body.theme-retro #classicInputs.tw-on > .ops-type-fields,
+body.theme-retro #classicInputs.tw-on > .ops-filter-fields,
+body.theme-retro #classicInputs.tw-on > .preset-row,
+body.theme-retro #classicInputs.tw-on > .slider-container,
+body.theme-retro #classicInputs.tw-on > #classicActionBar,
+body.theme-retro #classicInputs.tx-on > .ops-route-fields,
+body.theme-retro #classicInputs.tx-on > .ops-type-fields,
+body.theme-retro #classicInputs.tx-on > .ops-filter-fields,
+body.theme-retro #classicInputs.tx-on > .preset-row,
+body.theme-retro #classicInputs.tx-on > .slider-container,
+body.theme-retro #classicInputs.tx-on > #classicActionBar { display: none !important; }
+
+#classicInputs .tw-desk {
+    --tw-paper: #fbf8ef;
+    --tw-rule: #c8d3e6;
+    --tw-rule-red: #e2a3a0;
+    --tw-print: #4c4a44;
+    --tw-graphite: #33363b;
+    --tw-stamp-green: #23824a;
+    --tw-lcd-ink: #1f2a12;
+    --tw-hand: 'Caveat', 'Bradley Hand', cursive;
+    --tw-print-font: 'IBM Plex Mono', 'Courier New', monospace;
+    --tw-label-font: 'IBM Plex Sans Condensed', 'Arial Narrow', Arial, sans-serif;
+    --tw-lcd-font: 'Share Tech Mono', 'Courier New', monospace;
+    position: relative;
+    box-sizing: border-box;
+    width: 100%;
+    margin: 4px 0 18px;
+    padding: 16px 14px 18px;
+    border-radius: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    color: var(--tw-graphite);
+    background:
+        radial-gradient(120% 90% at 50% 35%, transparent 55%, rgba(0,0,0,.45)),
+        url('assets/ui/tower/tower-wood.webp') 0 0 / 300px 300px repeat,
+        #6e4b2f;
+    box-shadow: 0 0 0 1px #000, 0 24px 44px -12px rgba(0,0,0,.8);
+    text-align: left;
+}
+#classicInputs .tw-desk *, #classicInputs .tw-desk *::before, #classicInputs .tw-desk *::after { box-sizing: border-box; }
+#classicInputs .tw-coffee { position: absolute; left: -26px; bottom: 120px; width: 96px; height: 96px; border-radius: 50%; pointer-events: none;
+    box-shadow: inset 0 0 0 5px rgba(60,32,12,.28), inset 0 0 0 9px rgba(60,32,12,.08); filter: blur(.4px); }
+
+/* Tischschild */
+#classicInputs .tw-nameplate {
+    align-self: center;
+    font: 700 11px/1 var(--tw-label-font); letter-spacing: .26em; color: #2a1c10;
+    background: linear-gradient(180deg, #f3e7c9, #d9c49a 55%, #c4ab7c); padding: 7px 14px 6px; border-radius: 3px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.55), inset 0 -2px 0 rgba(0,0,0,.15), 0 1px 0 #6b4a2c, 0 6px 8px -3px rgba(0,0,0,.55);
+    white-space: nowrap;
+}
+
+/* ---------- Flugzeug-Presets als Karteikarten (echte .btn-preset) ---------- */
+#classicInputs .tw-desk .tw-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0; }
+body.theme-retro #classicInputs .tw-desk .tw-cards .btn-preset {
+    position: relative; display: block; min-width: 0; width: 100%; height: auto; min-height: 58px; margin: 0;
+    padding: 14px 8px 8px !important; text-align: left;
+    border: 0 !important; border-radius: 2px !important;
+    background:
+        linear-gradient(180deg, transparent 10px, var(--tw-rule-red) 10px 11.5px, transparent 11.5px),
+        repeating-linear-gradient(180deg, transparent 0 15px, var(--tw-rule) 15px 16px),
+        var(--tw-paper) !important;
+    background-position: 0 0, 0 12px, 0 0 !important;
+    color: var(--tw-graphite) !important;
+    font: 600 20px/1 var(--tw-hand) !important;
+    text-transform: none; letter-spacing: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    box-shadow: 0 1px 1px rgba(0,0,0,.25), 0 6px 10px -4px rgba(0,0,0,.55) !important;
+    transform: rotate(var(--tw-r, 0deg)) !important;
+    transition: transform .25s ease, box-shadow .25s ease;
+    cursor: pointer;
+}
+body.theme-retro #classicInputs .tw-desk .tw-cards .btn-preset:nth-child(1) { --tw-r: -2deg; }
+body.theme-retro #classicInputs .tw-desk .tw-cards .btn-preset:nth-child(2) { --tw-r: 1.2deg; }
+body.theme-retro #classicInputs .tw-desk .tw-cards .btn-preset:nth-child(3) { --tw-r: -.8deg; }
+body.theme-retro #classicInputs .tw-desk .tw-cards .btn-preset::after {
+    content: attr(data-tw-sub); display: block; margin-top: 5px;
+    font: 600 15px/1.05 var(--tw-hand); color: var(--tw-graphite); opacity: .85;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+body.theme-retro #classicInputs .tw-desk .tw-cards .btn-preset.active {
+    transform: rotate(0deg) translateY(-4px) !important;
+    box-shadow: 0 1px 1px rgba(0,0,0,.25), 0 14px 18px -6px rgba(0,0,0,.65) !important;
+}
+body.theme-retro #classicInputs .tw-desk .tw-cards .btn-preset.active::before { /* Büroklammer */
+    content: ''; position: absolute; right: 10px; top: -10px; width: 10px; height: 26px; border-radius: 6px;
+    border: 2px solid #b8bec4; border-bottom-color: #8e959c; box-shadow: 1px 1px 1px rgba(0,0,0,.35);
+}
+body.theme-retro #classicInputs .tw-desk .tw-cards .btn-preset:focus-visible { outline: 2px solid #f2c230; outline-offset: 2px; }
+
+/* ---------- Klemmbrett ---------- */
+#classicInputs .tw-clipboard {
+    position: relative; z-index: 3; margin-top: 22px; padding: 42px 14px 16px;
+    border-style: solid; border-width: 0;
+    border-image-source: url('assets/ui/tower/tower-board.webp');
+    border-image-slice: 40 fill;
+    border-image-width: 26px;
+    border-image-repeat: stretch;
+    filter: drop-shadow(0 10px 10px rgba(0,0,0,.45));
+}
+/* geöffnete Flughafen-/Favoritenliste über Karte und Funkgerät */
+#classicInputs .tw-clipboard:focus-within,
+#classicInputs .tw-clipboard:has(.airport-autocomplete:not([hidden])) { z-index: 60; }
+#classicInputs .tw-clip {
+    position: absolute; left: 50%; top: -36px; transform: translateX(-50%); z-index: 4;
+    width: 190px; aspect-ratio: 235 / 116;
+    background: url('assets/ui/tower/tower-clip.webp') center / contain no-repeat;
+    filter: drop-shadow(0 4px 3px rgba(0,0,0,.45));
+    pointer-events: none;
+}
+#classicInputs .tw-sheet {
+    position: relative; padding: 16px 14px 14px;
+    background: radial-gradient(140% 90% at 100% 0%, rgba(0,0,0,.035), transparent 50%), var(--tw-paper);
+    border-radius: 2px;
+    transform: rotate(-.5deg);
+    box-shadow: 0 1px 2px rgba(0,0,0,.25), 0 8px 14px -8px rgba(0,0,0,.5);
+}
+#classicInputs .tw-sheet:focus-within { transform: none; }
+#classicInputs .tw-letterhead { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; border-bottom: 2px solid var(--tw-print); padding-bottom: 6px; margin-bottom: 4px; }
+#classicInputs .tw-letterhead h2 { margin: 0; font: 700 17px/1 var(--tw-label-font); letter-spacing: .18em; color: var(--tw-print); text-shadow: none; background: none; border: 0; padding: 0; transform: none; }
+#classicInputs .tw-org { font: 500 10px/1.3 var(--tw-print-font); color: var(--tw-print); text-align: right; }
+
+#classicInputs .tw-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); column-gap: 14px; }
+#classicInputs .tw-f {
+    position: relative; display: flex; flex-direction: column; min-width: 0; padding: 8px 0 3px;
+    border-bottom: 1px dotted #9a968a;
+}
+#classicInputs .tw-span2 { grid-column: span 2; }
+#classicInputs .tw-k,
+body.theme-retro #classicInputs .tw-slot label:not(.modern-proposal-mode-control) {
+    display: block; margin: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important;
+    background: none !important; box-shadow: none !important; transform: none !important;
+    font: 600 9px/1 var(--tw-print-font) !important; letter-spacing: .1em !important; text-transform: uppercase;
+    color: var(--tw-print) !important; text-shadow: none !important;
+}
+/* umgehängte Wrapper-DIVs der Originalfelder */
+#classicInputs .tw-slot > div { display: flex; flex-direction: column; min-width: 0; margin: 0; padding: 0; position: relative; }
+#classicInputs .tw-slot .mission-type-control { display: block; margin: 0; padding: 0; min-width: 0; }
+body.theme-retro #classicInputs .tw-slot .modern-proposal-mode-control { display: none !important; }
+
+#classicInputs .tw-v,
+body.theme-retro #classicInputs .tw-slot input:not([type="hidden"]):not([type="checkbox"]),
+body.theme-retro #classicInputs .tw-slot select,
+body.theme-retro #classicInputs .tw-slot .airport-type-filter-button {
+    display: block; width: 100% !important; min-width: 0; height: auto !important; min-height: 0 !important;
+    margin: 2px 0 0 !important; padding: 0 !important;
+    border: 0 !important; border-radius: 0 !important; outline: none;
+    background: transparent !important; background-image: none !important; box-shadow: none !important;
+    transform: none !important;
+    font: 600 25px/1.1 var(--tw-hand) !important; color: var(--tw-graphite) !important; letter-spacing: 0 !important;
+    text-align: left; text-shadow: 0 0 .5px rgba(51,54,59,.6) !important;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    appearance: none; -webkit-appearance: none; cursor: pointer;
+}
+body.theme-retro #classicInputs .tw-slot input:not([type="hidden"]) { text-transform: uppercase; }
+body.theme-retro #classicInputs .tw-slot input::placeholder { color: rgba(51,54,59,.3); }
+body.theme-retro #classicInputs .tw-slot select option { font: 15px 'Courier New', monospace; color: #111; }
+body.theme-retro #classicInputs .tw-slot .airport-type-filter-chevron { display: none; }
+#classicInputs .tw-f:focus-within { border-bottom-color: var(--tw-graphite); }
+
+/* Zahlenfelder: seitlich wischen */
+#classicInputs .tw-num { cursor: ew-resize; user-select: none; touch-action: pan-y; }
+#classicInputs .tw-num::after { content: '◂ − · + ▸'; position: absolute; right: 0; bottom: 6px; font: 9px/1 var(--tw-print-font); color: rgba(76,74,68,.45); pointer-events: none; }
+#classicInputs .tw-num:focus-visible { outline: 2px solid #f2c230; outline-offset: 2px; }
+#classicInputs .tw-v.tw-write { animation: twPencil .28s ease-out; }
+@keyframes twPencil { from { opacity: .35; filter: blur(.6px); transform: translateY(1px); } to { opacity: 1; filter: none; transform: none; } }
+
+/* RDM/PICK als Stempel (echter #analogProposalModeLabel) */
+body.theme-retro:not(.theme-navcom):not(.theme-ops1940) #classicInputs .tw-typ .analog-proposal-mode-label {
+    position: absolute; right: 2px; bottom: 6px; z-index: 3; margin: 0;
+    min-width: 0; padding: 5px 7px 4px;
+    font: 700 12px/1 var(--tw-print-font); letter-spacing: .16em;
+    color: #6c2a86; background: transparent; border: 2px solid currentColor; border-radius: 3px; box-shadow: none;
+    transform: rotate(-6deg); opacity: .8; cursor: pointer;
+}
+body.theme-retro:not(.theme-navcom):not(.theme-ops1940) #classicInputs .tw-typ .analog-proposal-mode-label.is-active { color: #b3261e; transform: rotate(4deg); }
+body.theme-retro #classicInputs .tw-typ select { padding-right: 72px !important; }
+body.theme-retro #classicInputs .tw-typ #targetTypeLabel { cursor: pointer; }
+
+/* Freigabe-Stempel */
+#classicInputs .tw-cleared {
+    position: absolute; left: 50%; top: 56%; z-index: 4; pointer-events: none;
+    font: 700 24px/1 var(--tw-print-font); letter-spacing: .14em; color: var(--tw-stamp-green);
+    border: 3px double currentColor; border-radius: 6px; padding: 6px 12px 5px; text-align: center;
+    transform: translate(-50%, -50%) rotate(-11deg) scale(1.6); opacity: 0;
+    mix-blend-mode: multiply;
+}
+#classicInputs .tw-cleared small { display: block; font-size: 11px; letter-spacing: .12em; margin-top: 3px; }
+#classicInputs .tw-cleared.on { animation: twStamp .35s cubic-bezier(.2,1.4,.4,1) forwards; }
+@keyframes twStamp { from { opacity: 0; transform: translate(-50%,-50%) rotate(-11deg) scale(1.8); } to { opacity: .82; transform: translate(-50%,-50%) rotate(-11deg) scale(1); } }
+
+#classicInputs .tw-pencil {
+    position: absolute; right: -10px; bottom: -16px; width: 210px; aspect-ratio: 760 / 55; transform: rotate(-14deg); z-index: 5;
+    background: url('assets/ui/tower/tower-pencil.webp') center / contain no-repeat;
+    filter: drop-shadow(0 5px 3px rgba(0,0,0,.4));
+    pointer-events: none;
+}
+
+/* ---------- Karte + Funkgerät ---------- */
+#classicInputs .tw-lower { display: grid; grid-template-columns: minmax(0, 1fr) 140px; gap: 14px; align-items: start; }
+#classicInputs .tw-chart {
+    position: relative; padding: 8px 8px 10px; border-radius: 2px; background: #eef0de;
+    transform: rotate(1deg);
+    box-shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 16px -8px rgba(0,0,0,.6);
+}
+#classicInputs .tw-chart-title { display: flex; justify-content: space-between; font: 600 9px/1 var(--tw-print-font); letter-spacing: .1em; color: #5b6650; text-transform: uppercase; margin-bottom: 4px; }
+#classicInputs .tw-map { width: 100%; height: auto; display: block; cursor: crosshair; touch-action: manipulation; }
+#classicInputs .tw-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+#classicInputs .tw-chip { border: 0; background: none; padding: 0; margin: 0; box-shadow: none; cursor: pointer; font: 600 18px/1 var(--tw-hand); color: var(--tw-graphite); text-transform: none; }
+#classicInputs .tw-chip span { font: 600 9px/1 var(--tw-print-font); color: #5b6650; letter-spacing: .08em; text-transform: uppercase; margin-right: 4px; }
+#classicInputs .tw-chip b { font-weight: 600; }
+
+#classicInputs .tw-radio { position: relative; z-index: 4; }
+#classicInputs .tw-rbody {
+    position: relative; width: 100%; aspect-ratio: 430 / 914;
+    background: url('assets/ui/tower/tower-radio.webp') center / contain no-repeat;
+    filter: drop-shadow(0 12px 10px rgba(0,0,0,.5));
+}
+#classicInputs .tw-lcd {
+    position: absolute; left: 26%; top: 43.7%; width: 50.3%; height: 13.1%;
+    padding: 2px 4px; border-radius: 2px;
+    background: linear-gradient(180deg, rgba(255,255,255,.12), transparent 40%);
+    font: 400 clamp(7.5px, 2.3vw, 9.5px)/1 var(--tw-lcd-font); color: var(--tw-lcd-ink);
+    display: flex; flex-direction: column; justify-content: space-between; overflow: hidden;
+}
+#classicInputs .tw-row { display: flex; justify-content: space-between; align-items: center; white-space: nowrap; }
+#classicInputs .tw-big { font-size: 1.45em; letter-spacing: .02em; }
+#classicInputs .tw-bars { display: inline-flex; gap: 1.5px; align-items: flex-end; height: 8px; }
+#classicInputs .tw-bars i { display: block; width: 2.5px; background: var(--tw-lcd-ink); opacity: .2; transition: opacity .12s; }
+#classicInputs .tw-bars i:nth-child(1) { height: 2px; } #classicInputs .tw-bars i:nth-child(2) { height: 4px; }
+#classicInputs .tw-bars i:nth-child(3) { height: 6px; } #classicInputs .tw-bars i:nth-child(4) { height: 8px; }
+#classicInputs .tw-bars i.on { opacity: 1; }
+#classicInputs .tw-txflag { opacity: .18; }
+#classicInputs .tw-radio.tw-tx .tw-txflag { opacity: 1; }
+#classicInputs .tw-rkey,
+#classicInputs .tw-ptt {
+    position: absolute; padding: 0; margin: 0; border: 0; cursor: pointer; background: transparent; box-shadow: none; min-width: 0; min-height: 0;
+}
+#classicInputs .tw-rkey { top: 83%; height: 5.2%; width: 16.6%; border-radius: 10px; color: rgba(225,228,231,.78); font: 700 clamp(7px, 2.2vw, 9px)/1 var(--tw-label-font); letter-spacing: .1em; text-shadow: none; }
+#classicInputs .tw-k1 { left: 21.7%; } #classicInputs .tw-k2 { left: 41.4%; } #classicInputs .tw-k3 { left: 61.6%; }
+#classicInputs .tw-rkey:active { background: rgba(0,0,0,.35); transform: translateY(1px); }
+#classicInputs .tw-ptt { left: 3.5%; top: 42.5%; width: 9%; height: 21%; border-radius: 8px; }
+#classicInputs .tw-ptt:active, #classicInputs .tw-radio.tw-tx .tw-ptt { background: rgba(0,0,0,.35); }
+#classicInputs .tw-txled { position: absolute; left: 47.2%; top: 34.6%; width: 6px; height: 6px; border-radius: 50%; background: #3a0c0a; box-shadow: inset 0 0 0 1px #000; }
+#classicInputs .tw-radio.tw-tx .tw-txled { background: #ff3b2b; box-shadow: 0 0 8px #ff3b2b; }
+#classicInputs .tw-ptt-hint { margin-top: 4px; text-align: center; font: 600 15px/1.1 var(--tw-hand); color: #f3e6c8; text-shadow: 0 1px 1px rgba(0,0,0,.6); }
+#classicInputs .tw-radio button:focus-visible,
+#classicInputs .tw-chip:focus-visible { outline: 2px solid #f2c230; outline-offset: 2px; }
+
+@media (max-width: 460px) {
+    #classicInputs .tw-desk { padding: 16px 10px 16px; gap: 14px; border-radius: 12px; }
+    #classicInputs .tw-desk .tw-cards { gap: 7px; }
+    body.theme-retro #classicInputs .tw-desk .tw-cards .btn-preset { font-size: 17px !important; }
+    body.theme-retro #classicInputs .tw-desk .tw-cards .btn-preset::after { font-size: 13px; }
+    #classicInputs .tw-form { column-gap: 10px; }
+    #classicInputs .tw-v,
+    body.theme-retro #classicInputs .tw-slot input:not([type="hidden"]):not([type="checkbox"]),
+    body.theme-retro #classicInputs .tw-slot select,
+    body.theme-retro #classicInputs .tw-slot .airport-type-filter-button { font-size: 22px !important; }
+    #classicInputs .tw-lower { grid-template-columns: minmax(0, 1fr) 128px; gap: 10px; }
+    #classicInputs .tw-pencil { width: 170px; }
+    #classicInputs .tw-clip { width: 170px; top: -32px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    #classicInputs .tw-v.tw-write, #classicInputs .tw-cleared.on { animation: none; }
+    #classicInputs .tw-cleared.on { opacity: .82; transform: translate(-50%,-50%) rotate(-11deg); }
+}
+
+/* Flughafen-/Favoritenliste unter Start/Ziel: breit genug für die Namen */
+#classicInputs .tw-slot .airport-autocomplete {
+    width: min(360px, calc(100vw - 56px)) !important;
+    max-width: none !important;
+    left: 0 !important;
+    right: auto !important;
+    z-index: 70;
+}
+#classicInputs .tw-slot .airport-autocomplete[data-input-id="destLoc"] { left: auto !important; right: 0 !important; }
+
+
+/* ==========================================================================
+   Analog-Design „Fernschreiber“ (analog-skins.js, Entwurf: analysis/fernschreiber-2026-10-23/)
+   ========================================================================== */
+#classicInputs .tx-desk {
+    --tx-line-h: 17px;
+    --tx-pad-top: 18px;
+    --tx-paper: #ece3c8;
+    --tx-ink: #2a2740;
+    --tx-plate: #1c1f1d;
+    --tx-label: #f1eee2;
+    --tx-label-dim: #b8b5a6;
+    --tx-lamp-green: #57ff7a;
+    --tx-lamp-amber: #ffb62e;
+    --tx-cover: #3e4a43;
+    --tx-cover-lo: #2b342f;
+    --tx-tele: 'Courier Prime', 'Courier New', monospace;
+    --tx-mono: 'IBM Plex Mono', 'Courier New', monospace;
+    --tx-label-font: 'IBM Plex Sans Condensed', 'Arial Narrow', Arial, sans-serif;
+    position: relative; box-sizing: border-box; width: 100%; margin: 4px 0 18px;
+    text-align: left;
+}
+#classicInputs .tx-desk *, #classicInputs .tx-desk *::before, #classicInputs .tx-desk *::after { box-sizing: border-box; }
+
+/* Papierausgabe */
+#classicInputs .tx-paper-window { position: relative; z-index: 1; margin: 0 20px; overflow: hidden;
+    height: calc(var(--tx-line-h) * 14 + var(--tx-pad-top) + 24px); }
+#classicInputs .tx-paper {
+    position: absolute; left: 0; right: 0; bottom: 0;
+    padding: var(--tx-pad-top) 18px 24px 24px;
+    background: url('assets/ui/telex/tele-paper.webp') 0 0 / 100% auto repeat-y;
+    box-shadow: 0 0 0 1px rgba(0,0,0,.2), 0 -6px 14px rgba(0,0,0,.35);
+    transform: translateY(0); transition: transform .26s cubic-bezier(.4,0,.2,1); will-change: transform;
+}
+#classicInputs .tx-paper.tx-slow { transition-duration: .34s; }
+#classicInputs .tx-paper::before {
+    content: ''; position: absolute; left: 0; right: 0; top: -6px; height: 8px;
+    background: linear-gradient(135deg, transparent 50%, var(--tx-paper) 50%) 0 0 / 8px 8px repeat-x, linear-gradient(225deg, transparent 50%, var(--tx-paper) 50%) 0 0 / 8px 8px repeat-x;
+}
+#classicInputs .tx-paper-window::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 26px; pointer-events: none; background: linear-gradient(180deg, transparent, rgba(0,0,0,.28)); }
+#classicInputs .tx-line { height: var(--tx-line-h); white-space: pre; overflow: hidden; font: 700 13.5px/var(--tx-line-h) var(--tx-tele); letter-spacing: .02em; color: var(--tx-ink); text-transform: uppercase; }
+#classicInputs .tx-c { display: inline-block; opacity: var(--o, .92); transform: translateY(var(--y, 0)); }
+#classicInputs .tx-line.tx-ack { color: #1f6b37; }
+#classicInputs .tx-line.tx-nak { color: #9e2a22; }
+
+/* Maschine */
+#classicInputs .tx-machine {
+    position: relative; z-index: 2; margin-top: -10px; padding: 0 14px 16px; border-radius: 18px 18px 14px 14px;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,.14), transparent 28%, transparent 70%, rgba(0,0,0,.22)),
+        url('assets/ui/telex/tele-body.webp') 0 0 / 256px 256px repeat,
+        #9d9b8a;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.35), inset 0 -3px 0 rgba(0,0,0,.2), 0 0 0 1px #000, 0 26px 44px -10px rgba(0,0,0,.8);
+}
+#classicInputs .tx-hood { position: relative; margin: 0 -14px; aspect-ratio: 1000 / 225; background: url('assets/ui/telex/tele-hood.webp') center / 100% 100% no-repeat; }
+#classicInputs .tx-carriage { position: absolute; top: -2px; left: 0; width: 26px; height: 30px; margin-left: -13px; transition: left .05s linear; pointer-events: none; }
+#classicInputs .tx-ribbon { position: absolute; left: 3px; right: 3px; top: -4px; height: 9px; border-radius: 2px; background: linear-gradient(180deg, #222 0 50%, #8e1d17 50%); box-shadow: 0 1px 2px rgba(0,0,0,.6); }
+#classicInputs .tx-head { position: absolute; left: 0; right: 0; top: 6px; height: 22px; border-radius: 4px; background: linear-gradient(180deg, #d9dcdc, #8a8f92); box-shadow: inset 0 1px 0 #fff, 0 2px 3px rgba(0,0,0,.5); }
+#classicInputs .tx-bar { position: absolute; left: 50%; top: 2px; width: 3px; height: 24px; margin-left: -1.5px; border-radius: 2px; background: linear-gradient(90deg, #6f7377, #e9ebec, #6f7377); transform-origin: 50% 100%; transform: rotate(38deg); opacity: 0; }
+#classicInputs .tx-carriage.tx-strike .tx-bar { animation: txStrike .07s ease-out; }
+@keyframes txStrike { 0% { opacity: 1; transform: rotate(38deg); } 60% { opacity: 1; transform: rotate(0deg) translateY(-7px); } 100% { opacity: 0; transform: rotate(20deg); } }
+#classicInputs .tx-plate { position: absolute; left: 50%; bottom: 9px; transform: translateX(-50%); font: 700 10px/1 var(--tx-label-font); letter-spacing: .3em; color: #cfd8d1; white-space: nowrap; padding: 4px 10px 3px; border-radius: 2px; background: rgba(0,0,0,.25); box-shadow: inset 0 1px 2px rgba(0,0,0,.5), 0 1px 0 rgba(255,255,255,.08); }
+#classicInputs .tx-lamps { position: absolute; right: 18px; bottom: 9px; display: flex; gap: 10px; align-items: center; }
+#classicInputs .tx-lamp { display: flex; align-items: center; gap: 5px; font: 700 8px/1 var(--tx-label-font); letter-spacing: .14em; color: #cfd8d1; }
+#classicInputs .tx-lamp i { width: 9px; height: 9px; border-radius: 50%; background: #143018; box-shadow: inset 0 0 0 1px #000, 0 1px 0 rgba(255,255,255,.1); transition: background .1s, box-shadow .1s; }
+#classicInputs .tx-lamp.on i { background: var(--tx-lamp-green); box-shadow: 0 0 8px var(--tx-lamp-green); }
+#classicInputs .tx-lamp.tx-amber.on i { background: var(--tx-lamp-amber); box-shadow: 0 0 8px var(--tx-lamp-amber); }
+#classicInputs .tx-sound { position: absolute; left: 18px; bottom: 8px; display: flex; align-items: center; gap: 6px; border: 0; background: none; padding: 0; margin: 0; box-shadow: none; cursor: pointer; font: 700 8px/1 var(--tx-label-font); letter-spacing: .14em; color: #cfd8d1; }
+#classicInputs .tx-sw { width: 22px; height: 12px; border-radius: 6px; background: #1b211d; box-shadow: inset 0 1px 2px #000; position: relative; }
+#classicInputs .tx-sw::after { content: ''; position: absolute; left: 1px; top: 1px; width: 10px; height: 10px; border-radius: 50%; background: radial-gradient(circle at 40% 35%, #f0f0ec, #9da1a3); transition: transform .15s; }
+#classicInputs .tx-sound[aria-pressed="true"] .tx-sw::after { transform: translateX(10px); }
+
+/* Bedienfeld */
+#classicInputs .tx-panel { margin-top: 14px; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
+#classicInputs .tx-group { position: relative; padding: 20px 8px 9px; border-radius: 8px; min-width: 0;
+    background: linear-gradient(180deg, #2a2e2b, var(--tx-plate));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08), inset 0 -1px 0 rgba(0,0,0,.6), 0 0 0 1px #0b0c0b, 0 2px 0 rgba(255,255,255,.18); }
+#classicInputs .tx-gl { position: absolute; left: 10px; top: 6px; font: 700 9px/1 var(--tx-label-font); letter-spacing: .22em; color: var(--tx-label-dim); text-transform: uppercase; white-space: nowrap; }
+#classicInputs .tx-gl small { letter-spacing: .1em; font-size: 9px; }
+#classicInputs .tx-route { grid-column: span 6; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 8px; align-items: end; }
+#classicInputs .tx-ac, #classicInputs .tx-type { grid-column: span 3; }
+#classicInputs .tx-counters { grid-column: span 6; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+#classicInputs .tx-dir, #classicInputs .tx-dist { grid-column: span 2; }
+#classicInputs .tx-apt { grid-column: span 2; display: flex; flex-direction: column; justify-content: center; gap: 6px; }
+#classicInputs .tx-keys { grid-column: span 6; display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr); gap: 10px; padding-top: 4px; }
+
+/* Start/Ziel: echte Felder als Eingabefenster */
+#classicInputs .tx-win { min-width: 0; }
+#classicInputs .tx-win > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; margin: 0; padding: 0; position: relative; }
+body.theme-retro #classicInputs .tx-win label {
+    margin: 0 !important; padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; transform: none !important;
+    font: 700 8px/1 var(--tx-label-font) !important; letter-spacing: .18em !important; text-transform: uppercase; color: var(--tx-label-dim) !important; text-shadow: none !important;
+}
+body.theme-retro #classicInputs .tx-win input {
+    width: 100% !important; min-width: 0; height: 36px !important; margin: 0 !important; padding: 0 8px !important;
+    border: 0 !important; border-radius: 4px !important; outline: none; transform: none !important;
+    font: 700 19px/1 var(--tx-tele) !important; letter-spacing: .1em !important; text-transform: uppercase; color: #f4efd9 !important;
+    background: linear-gradient(180deg, #070807, #151815) !important; background-image: linear-gradient(180deg, #070807, #151815) !important;
+    box-shadow: inset 0 2px 5px #000, 0 0 0 1px #000, 0 1px 0 rgba(255,255,255,.12) !important;
+}
+body.theme-retro #classicInputs .tx-win input::placeholder { color: rgba(244,239,217,.3); }
+body.theme-retro #classicInputs .tx-win input:focus { box-shadow: inset 0 2px 5px #000, 0 0 0 2px var(--tx-lamp-amber) !important; }
+#classicInputs .tx-win .airport-autocomplete { width: min(360px, calc(100vw - 56px)) !important; max-width: none !important; left: 0 !important; right: auto !important; z-index: 70; }
+#classicInputs .tx-win .airport-autocomplete[data-input-id="destLoc"] { left: auto !important; right: 0 !important; }
+#classicInputs .tx-route:focus-within, #classicInputs .tx-route:has(.airport-autocomplete:not([hidden])) { z-index: 30; }
+
+/* Auftrag: echte Auswahl als Fenster, RDM/PICK als Kippschalter */
+#classicInputs .tx-typeslot > div { display: flex; flex-direction: column; gap: 3px; margin: 0; padding: 0; }
+body.theme-retro #classicInputs .tx-typeslot #targetTypeLabel {
+    margin: 0 !important; padding: 0 !important; border: 0 !important; background: none !important; box-shadow: none !important; transform: none !important;
+    font: 700 8px/1 var(--tx-label-font) !important; letter-spacing: .18em !important; text-transform: uppercase; color: var(--tx-label-dim) !important; cursor: pointer;
+}
+#classicInputs .tx-typeslot .mission-type-control { display: block; margin: 0; padding: 0; min-width: 0; }
+body.theme-retro #classicInputs .tx-typeslot .modern-proposal-mode-control { display: none !important; }
+body.theme-retro #classicInputs .tx-typeslot select {
+    width: 100% !important; height: 30px !important; margin: 0 !important; padding: 0 6px !important; border: 0 !important; border-radius: 4px !important; transform: none !important;
+    font: 700 12px/1 var(--tx-tele) !important; color: #f4efd9 !important; text-transform: uppercase;
+    background: linear-gradient(180deg, #070807, #151815) !important; background-image: linear-gradient(180deg, #070807, #151815) !important;
+    box-shadow: inset 0 2px 5px #000, 0 0 0 1px #000 !important; appearance: none; -webkit-appearance: none; cursor: pointer;
+}
+body.theme-retro #classicInputs .tx-typeslot select option { color: #111; font: 14px 'Courier New', monospace; }
+#classicInputs .tx-lever { position: absolute; right: 10px; top: 3px; display: flex; align-items: center; gap: 3px; font: 700 8px/1 var(--tx-label-font); letter-spacing: .12em; color: var(--tx-label-dim); }
+#classicInputs .tx-desk:not(.tx-pick) .tx-l-rdm, #classicInputs .tx-desk.tx-pick .tx-l-pick { color: var(--tx-label); }
+#classicInputs .tx-lever-slot { display: inline-flex; }
+body.theme-retro:not(.theme-navcom):not(.theme-ops1940) #classicInputs .tx-lever-slot .analog-proposal-mode-label {
+    width: 30px; height: 22px; min-width: 0; margin: 0; padding: 0; border: 0; border-radius: 0; box-shadow: none; font-size: 0; color: transparent;
+    background: url('assets/ui/telex/tele-toggle-left.webp') center / contain no-repeat; cursor: pointer;
+}
+body.theme-retro:not(.theme-navcom):not(.theme-ops1940) #classicInputs .tx-lever-slot .analog-proposal-mode-label.is-active { background-image: url('assets/ui/telex/tele-toggle-right.webp'); }
+#classicInputs .tx-type .tx-rotary { height: 70px; margin-top: 4px; }
+#classicInputs .tx-type .tx-rotary .tx-knob { width: 40px; height: 40px; margin: -20px 0 0 -20px; top: 50%; }
+
+/* Drehschalter (Bakelit-Foto, nur der Zeiger dreht) */
+#classicInputs .tx-rotary { position: relative; height: 104px; cursor: pointer; touch-action: manipulation; }
+#classicInputs .tx-lbl { position: absolute; transform: translate(-50%, -50%); font: 700 9px/1 var(--tx-label-font); letter-spacing: .06em; color: var(--tx-label-dim); white-space: nowrap; transition: color .15s; cursor: pointer; max-width: 70px; overflow: hidden; text-overflow: ellipsis; }
+#classicInputs .tx-lbl.on { color: var(--tx-label); text-shadow: 0 0 6px rgba(255,182,46,.55); }
+#classicInputs .tx-knob { position: absolute; left: 50%; top: 56%; width: 50px; height: 50px; margin: -25px 0 0 -25px; border-radius: 50%;
+    background: url('assets/ui/telex/tele-knob.webp') center / cover no-repeat; box-shadow: 0 5px 8px rgba(0,0,0,.55); }
+#classicInputs .tx-knob::before { content: ''; position: absolute; inset: 0; border-radius: 50%; z-index: 1;
+    background: linear-gradient(#f2efe3, #f2efe3) 50% 7% / 8% 30% no-repeat;
+    transform: rotate(var(--a, 0deg)); transition: transform .22s cubic-bezier(.35,1.5,.5,1); }
+#classicInputs .tx-rotary:focus-visible, #classicInputs .tx-counter:focus-visible, #classicInputs .tx-key:focus-visible, #classicInputs .tx-tsw:focus-visible { outline: 2px solid var(--tx-lamp-amber); outline-offset: 3px; }
+
+/* Rollenzählwerke */
+#classicInputs .tx-counter { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; cursor: ew-resize; user-select: none; touch-action: pan-y; }
+#classicInputs .tx-cl { font: 700 8px/1 var(--tx-label-font); letter-spacing: .14em; color: var(--tx-label-dim); white-space: nowrap; }
+#classicInputs .tx-drums { display: flex; gap: 1px; padding: 3px; border-radius: 3px; background: #050605; box-shadow: inset 0 1px 3px #000, 0 1px 0 rgba(255,255,255,.12); }
+#classicInputs .tx-drum { position: relative; width: 13px; height: 22px; overflow: hidden; border-radius: 1px;
+    background: linear-gradient(180deg, #050505, #2a2a2a 30%, #333 50%, #2a2a2a 70%, #050505);
+    font: 600 15px/22px var(--tx-mono); color: #f4f1e6; text-align: center; }
+#classicInputs .tx-drum span { position: absolute; left: 0; right: 0; top: 0; }
+#classicInputs .tx-drum span.tx-up { animation: txRollUp .16s ease-out; }
+#classicInputs .tx-drum span.tx-down { animation: txRollDown .16s ease-out; }
+@keyframes txRollUp { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes txRollDown { from { transform: translateY(-100%); } to { transform: none; } }
+
+/* Tasten mit Chromrahmen (9-Slice) */
+#classicInputs .tx-key {
+    position: relative; cursor: pointer; user-select: none; min-width: 0; margin: 0; padding: 0 8px; height: 34px;
+    border-style: solid; border-width: 0; border-radius: 0;
+    border-image-source: url('assets/ui/telex/tele-key-cream.webp'); border-image-slice: 30 fill; border-image-width: 11px; border-image-repeat: stretch;
+    background: none; box-shadow: none; filter: drop-shadow(0 4px 4px rgba(0,0,0,.45));
+    font: 700 10px/1 var(--tx-label-font); letter-spacing: .14em; color: #2c2b24; text-shadow: 0 1px 0 rgba(255,255,255,.5); text-transform: uppercase;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    transition: transform .06s;
+}
+#classicInputs .tx-key:active { transform: translateY(2px); filter: drop-shadow(0 1px 1px rgba(0,0,0,.45)) brightness(.96); }
+#classicInputs .tx-key.tx-big { height: 50px; border-image-width: 15px; font-size: 13px; letter-spacing: .14em; padding: 0 10px; }
+#classicInputs .tx-key.tx-send { border-image-source: url('assets/ui/telex/tele-key-green.webp'); color: #f4f8f0; text-shadow: 0 -1px 0 rgba(0,0,0,.45); }
+#classicInputs .tx-key.tx-clear { border-image-source: url('assets/ui/telex/tele-key-red.webp'); color: #fbefec; text-shadow: 0 -1px 0 rgba(0,0,0,.45); }
+#classicInputs .tx-swap { width: 38px; padding: 0; font-size: 15px; margin-bottom: 1px; }
+#classicInputs .tx-aptkey { height: 42px; font-size: 11px; letter-spacing: .06em; padding: 0 6px; }
+#classicInputs .tx-apthint { font: 8px/1.2 var(--tx-mono); color: rgba(184,181,166,.6); text-align: center; }
+
+/* Platztypen-Klappe */
+#classicInputs .tx-scrim { position: absolute; inset: 0; z-index: 20; border-radius: 18px 18px 14px 14px; background: rgba(0,0,0,.35); opacity: 0; transition: opacity .2s; }
+#classicInputs .tx-scrim.on { opacity: 1; }
+#classicInputs .tx-flap {
+    position: absolute; left: 10px; right: 10px; top: 76px; z-index: 21; padding: 26px 14px 14px; border-radius: 10px;
+    background: linear-gradient(180deg, #56645b, var(--tx-cover) 50%, var(--tx-cover-lo));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 0 0 1px #000, 0 18px 30px rgba(0,0,0,.6);
+    transform-origin: 50% 0; transform: perspective(700px) rotateX(-88deg); opacity: 0;
+    transition: transform .28s cubic-bezier(.3,1.25,.5,1), opacity .15s;
+}
+#classicInputs .tx-flap.on { transform: perspective(700px) rotateX(0deg); opacity: 1; }
+#classicInputs .tx-flap::before { content: ''; position: absolute; left: 30px; right: 30px; top: 6px; height: 6px; border-radius: 3px; background: repeating-linear-gradient(90deg, #d9dcdc 0 18px, #7f8487 18px 20px); box-shadow: 0 1px 2px rgba(0,0,0,.5); }
+#classicInputs .tx-flap h3 { margin: 0 0 10px; padding: 0; border: 0; background: none; font: 700 10px/1 var(--tx-label-font); letter-spacing: .24em; color: #cfd8d1; text-shadow: none; }
+#classicInputs .tx-flap-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+#classicInputs .tx-tsw { position: relative; display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 8px; align-items: center; text-align: left; margin: 0;
+    padding: 8px 22px 8px 8px; border: 0; border-radius: 6px; cursor: pointer; min-width: 0;
+    background: linear-gradient(180deg, #2a2e2b, var(--tx-plate)); box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 0 0 1px #0b0c0b; color: var(--tx-label-dim); }
+#classicInputs .tx-tbase { width: 24px; height: 33px; background: url('assets/ui/telex/tele-toggle-down.webp') center / contain no-repeat; }
+#classicInputs .tx-tsw[aria-checked="true"] .tx-tbase { background-image: url('assets/ui/telex/tele-toggle-up.webp'); }
+#classicInputs .tx-tsw b { display: block; font: 700 11px/1.15 var(--tx-label-font); letter-spacing: .06em; color: var(--tx-label-dim); }
+#classicInputs .tx-tsw small { display: block; margin-top: 2px; font: 500 9px/1.2 var(--tx-label-font); color: #8f9187; }
+#classicInputs .tx-tsw[aria-checked="true"] b { color: var(--tx-label); }
+#classicInputs .tx-tsw::after { content: ''; position: absolute; right: 8px; top: 9px; width: 7px; height: 7px; border-radius: 50%; background: #143018; box-shadow: inset 0 0 0 1px #000; transition: background .12s, box-shadow .12s; }
+#classicInputs .tx-tsw[aria-checked="true"]::after { background: var(--tx-lamp-green); box-shadow: 0 0 7px var(--tx-lamp-green); }
+#classicInputs .tx-tsw.tx-nope { animation: txNope .3s; }
+@keyframes txNope { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+#classicInputs .tx-flap-keys { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+#classicInputs .tx-flap-keys .tx-key { height: 38px; }
+
+@media (max-width: 460px) {
+    #classicInputs .tx-machine { padding: 0 10px 14px; }
+    #classicInputs .tx-hood { margin: 0 -10px; }
+    #classicInputs .tx-paper-window { margin: 0 14px; }
+    #classicInputs .tx-paper { padding-left: 20px; padding-right: 14px; }
+    #classicInputs .tx-line { font-size: 12px; }
+    #classicInputs .tx-panel { gap: 8px; }
+    #classicInputs .tx-counters { grid-template-columns: repeat(5, auto); justify-content: space-between; gap: 2px; }
+    #classicInputs .tx-drums { padding: 2px; }
+    #classicInputs .tx-drum { width: 10px; font-size: 12px; }
+    #classicInputs .tx-rotary { height: 96px; }
+    #classicInputs .tx-knob { width: 44px; height: 44px; margin: -22px 0 0 -22px; }
+    #classicInputs .tx-key.tx-big { font-size: 11px; letter-spacing: .08em; padding: 0 8px; }
+    #classicInputs .tx-lamps { gap: 6px; }
+    #classicInputs .tx-plate { bottom: 30px; font-size: 9px; letter-spacing: .16em; }
+}
+@media (prefers-reduced-motion: reduce) {
+    #classicInputs .tx-paper { transition: none; }
+    #classicInputs .tx-carriage.tx-strike .tx-bar, #classicInputs .tx-drum span { animation: none !important; }
+}

@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v2202';
+const CACHE = 'ga-dispatcher-v2203';
 
 const STATIC = [
     './',
@@ -11,6 +11,24 @@ const STATIC = [
     './assets/fonts/DSEG14Classic-Regular.woff2',
     './navcom-skins.css',
     './navcom-skins.js',
+    './analog-skins.css',
+    './analog-skins.js',
+    './assets/ui/tower/tower-wood.webp',
+    './assets/ui/tower/tower-board.webp',
+    './assets/ui/tower/tower-clip.webp',
+    './assets/ui/tower/tower-pencil.webp',
+    './assets/ui/tower/tower-radio.webp',
+    './assets/ui/telex/tele-body.webp',
+    './assets/ui/telex/tele-paper.webp',
+    './assets/ui/telex/tele-hood.webp',
+    './assets/ui/telex/tele-knob.webp',
+    './assets/ui/telex/tele-toggle-up.webp',
+    './assets/ui/telex/tele-toggle-down.webp',
+    './assets/ui/telex/tele-toggle-left.webp',
+    './assets/ui/telex/tele-toggle-right.webp',
+    './assets/ui/telex/tele-key-green.webp',
+    './assets/ui/telex/tele-key-cream.webp',
+    './assets/ui/telex/tele-key-red.webp',
     './media-player.css',
     './media-player-ipod.js',
     './vendor/suncalc/suncalc.js',
