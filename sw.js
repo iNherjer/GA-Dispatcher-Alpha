@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v2203';
+const CACHE = 'ga-dispatcher-v2204';
 
 const STATIC = [
     './',
@@ -29,6 +29,30 @@ const STATIC = [
     './assets/ui/telex/tele-key-green.webp',
     './assets/ui/telex/tele-key-cream.webp',
     './assets/ui/telex/tele-key-red.webp',
+    './assets/ui/ops1940/ops1940-controls-atlas.webp',
+    './assets/ui/ops1940/ops1940-desk-bg.webp',
+    './assets/ui/ops1940/ops1940-panel-aircraft.webp',
+    './assets/ui/ops1940/ops1940-panel-direction.webp',
+    './assets/ui/ops1940/ops1940-panel-region.webp',
+    './assets/ui/ops1940/ops1940-panel-route-selector-mobile.webp',
+    './assets/ui/ops1940/ops1940-panel-route-selector.webp',
+    './assets/ui/ops1940/ops1940-panel-slider.webp',
+    './assets/ui/ops1940/ops1940-picto-dep-square.webp',
+    './assets/ui/ops1940/ops1940-picto-dest-square.webp',
+    './assets/ui/ops1940/ops1940-picto-range-square.webp',
+    './assets/ui/ops1940/ops1940-picto-type-apt-square.webp',
+    './assets/ui/ops1940/ops1940-picto-type-poi-square.webp',
+    './assets/ui/ops1940/ops1940-reset-button-cap.webp',
+    './assets/ui/ops1940/ops1940-screw-cross-r0.webp',
+    './assets/ui/ops1940/ops1940-screw-cross-r17.webp',
+    './assets/ui/ops1940/ops1940-screw-cross-r41.webp',
+    './assets/ui/ops1940/ops1940-screw-cross-r73.webp',
+    './assets/ui/ops1940/ops1940-selector-knob-square.webp',
+    './assets/ui/ops1940/ops1940-switch-base-square.webp',
+    './assets/ui/ops1940/ops1940-switch-lever-down.webp',
+    './assets/ui/ops1940/ops1940-switch-lever-up.webp',
+    './assets/ui/ops1940/ops1940-switchgear-atlas.webp',
+    './assets/ui/ops1940/ops1940-texture-atlas.webp',
     './media-player.css',
     './media-player-ipod.js',
     './vendor/suncalc/suncalc.js',
