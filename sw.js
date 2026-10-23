@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v2204';
+const CACHE = 'ga-dispatcher-v2205';
 
 const STATIC = [
     './',
@@ -13,6 +13,8 @@ const STATIC = [
     './navcom-skins.js',
     './analog-skins.css',
     './analog-skins.js',
+    './glareshield.css',
+    './glareshield.js',
     './assets/ui/tower/tower-wood.webp',
     './assets/ui/tower/tower-board.webp',
     './assets/ui/tower/tower-clip.webp',

@@ -1,0 +1,219 @@
+/* ==========================================================================
+   Glareshield (Analog + NavCom): Material, stufenlose Randbiegung, Design-Liste
+   Aufbau und Gesten: glareshield.js
+   ========================================================================== */
+
+/* Das Glareshield bildet die Oberkante des Panels: es liegt über dem Panelrahmen */
+/* Überstand (nur im Bogen) ohne den Overflow-Schutz anzufassen: Die Box des Panels bleibt gleich (sie schneidet weiter
+   an ihrer Kante ab), das sichtbare Panel wird aber um --gs-ov nach innen gemalt (::before). Das
+   Glareshield nutzt die volle Box und steht dadurch seitlich über. Rahmen werden zu Innenschatten,
+   Polster gleichen die Rahmenbreite aus, der Inhalt behält Position und Breite. */
+body.theme-retro .container.gs-on {
+    --gs-h: 46px; --gs-pad: 58px; --gs-ov-max: 5px; /* --gs-ov setzt glareshield.js: 0 gerade, voll ab 20 % Biegung */
+    padding-top: var(--gs-pad) !important;
+    padding-left: 28px !important;
+    padding-right: 29px !important;
+    padding-bottom: 29px !important;
+    border-width: 0 !important;
+    background: transparent !important;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9);
+}
+body.theme-retro .container.gs-on::before {
+    content: ''; position: absolute; z-index: -1; pointer-events: none;
+    top: 0; bottom: 0; left: var(--gs-ov, 0px); right: var(--gs-ov, 0px);
+    border-radius: calc(24px - var(--gs-ov, 0px) * 0.4);
+    background-color: var(--p-bg);
+    background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 15%, rgba(0, 0, 0, 0) 70%, rgba(0, 0, 0, 0.25) 100%),
+        repeating-linear-gradient(85deg, transparent, transparent 2px, rgba(255, 255, 255, 0.015) 2px, rgba(255, 255, 255, 0.015) 4px),
+        repeating-linear-gradient(-85deg, transparent, transparent 2px, rgba(0, 0, 0, 0.02) 2px, rgba(0, 0, 0, 0.02) 4px);
+    box-shadow: inset 3px 0 0 var(--p-bl), inset -4px 0 0 var(--p-br), inset 0 -4px 0 var(--p-bb),
+        inset 0 4px 6px rgba(255, 255, 255, 0.2), inset 0 -6px 12px rgba(0, 0, 0, 0.3);
+    transition: background-color 0.4s ease;
+}
+@media (max-width: 767px) {
+    body.theme-retro .container.gs-on { --gs-ov-max: 4px; padding-left: 17px !important; padding-right: 18px !important; padding-bottom: 24px !important; }
+}
+body.theme-retro .container.gs-on > .glareshield,
+body.theme-retro .container.gs-on .glareshield {
+    top: calc(-1 * var(--gs-bt, 3px));
+    left: calc(-1 * var(--gs-bl, 3px));
+    right: calc(-1 * var(--gs-br, 4px));
+    height: var(--gs-h, 46px);
+    z-index: 401;
+    background: none;
+    border: 0;
+    box-shadow: none;
+    border-radius: 24px 24px 0 0;
+    filter: drop-shadow(0 7px 7px rgba(0, 0, 0, .55));
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+    -webkit-user-select: none;
+    outline: none;
+}
+body.theme-retro .container.gs-on .glareshield:active { cursor: grabbing; }
+body.theme-retro .container.gs-on .glareshield:focus-visible .gs-mat.on { box-shadow: inset 0 0 0 2px rgba(242, 184, 75, .7); }
+
+/* Material-Ebenen (im Bogen per clip-path zugeschnitten, das ist ohne Bildmaske flackerfrei) */
+.glareshield .gs-mats { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; pointer-events: none; }
+.glareshield .gs-mat {
+    position: absolute; inset: 0; overflow: hidden; pointer-events: none;
+    opacity: 0; transition: opacity .32s ease, transform .32s ease;
+}
+.glareshield .gs-mat.on { opacity: 1; }
+.glareshield .gs-mat.from-r { transform: translateX(18px); }
+.glareshield .gs-mat.from-l { transform: translateX(-18px); }
+.glareshield .gs-mat::after { /* gerollte Vorderkante */
+    content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 7px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, .07), rgba(0, 0, 0, .55));
+    border-top: 1px solid rgba(0, 0, 0, .45);
+}
+.glareshield .gs-carbon {
+    background-color: #1b1c1e;
+    background-image:
+        radial-gradient(120% 140% at 50% -30%, rgba(255, 255, 255, .16), transparent 55%),
+        linear-gradient(90deg, rgba(255, 255, 255, .04), transparent 30%, transparent 70%, rgba(255, 255, 255, .04)),
+        repeating-linear-gradient(45deg, #252629 0 3px, #141517 3px 6px),
+        repeating-linear-gradient(-45deg, rgba(255, 255, 255, .05) 0 3px, transparent 3px 6px);
+}
+.glareshield .gs-leder {
+    background-color: #3b281d;
+    background-image: radial-gradient(120% 160% at 50% -40%, rgba(255, 220, 190, .14), transparent 60%), var(--gs-grain-coarse);
+    background-size: auto, 180px 180px;
+}
+.glareshield .gs-wild {
+    background-color: #5a4a3b;
+    background-image: linear-gradient(100deg, rgba(255, 255, 255, .05), transparent 40%, rgba(0, 0, 0, .12) 75%, rgba(255, 255, 255, .03)), var(--gs-grain-fine);
+    background-size: auto, 120px 120px;
+}
+.glareshield .gs-velours {
+    background-color: #3d1a2c;
+    background-image: linear-gradient(90deg, rgba(0, 0, 0, .35), rgba(255, 170, 210, .10) 35%, rgba(0, 0, 0, .25) 60%, rgba(255, 170, 210, .08) 85%, rgba(0, 0, 0, .35)), var(--gs-grain-fine);
+    background-size: auto, 90px 90px;
+}
+.glareshield .gs-leder::before, .glareshield .gs-wild::before, .glareshield .gs-velours::before { /* Naht */
+    content: ''; position: absolute; left: 16px; right: 16px; bottom: 11px; height: 0;
+    border-top: 1.5px dashed rgba(236, 214, 180, .55);
+    filter: drop-shadow(0 1px 0 rgba(0, 0, 0, .6));
+}
+.glareshield .gs-wild::before { border-top-color: rgba(222, 206, 182, .42); }
+.glareshield .gs-velours::before { border-top-color: rgba(230, 190, 140, .5); }
+
+/* Bogen: Kontur, Naht und Klickfläche rechnet glareshield.js in echter Breite */
+.glareshield .gs-fx { display: block; position: absolute; left: 0; top: 0; width: 100%; height: 130px; z-index: 2; overflow: visible; pointer-events: none; }
+.glareshield .gs-hit { display: none; position: absolute; left: 0; top: 0; width: 100%; height: 130px; z-index: 4; clip-path: var(--gs-hit); }
+.container.gs-arc .glareshield .gs-mats { bottom: auto; height: 130px; border-radius: 0; overflow: visible; clip-path: var(--gs-hit); }
+.container.gs-arc .glareshield .gs-mat::after, .container.gs-arc .glareshield .gs-mat::before { display: none; }
+.container.gs-arc .glareshield .gs-hit { display: block; }
+.container:not(.gs-arc) .glareshield .gs-fx .gs-bottom { display: none; }
+.glareshield .gs-stitch { fill: none; stroke: var(--gs-stitch, transparent); stroke-width: 1.5; stroke-dasharray: 4 3; filter: drop-shadow(0 1px 0 rgba(0, 0, 0, .6)); }
+.container[data-gs-mat="1"] { --gs-stitch: rgba(236, 214, 180, .55); }
+.container[data-gs-mat="2"] { --gs-stitch: rgba(222, 206, 182, .42); }
+.container[data-gs-mat="3"] { --gs-stitch: rgba(230, 190, 140, .5); }
+
+/* Materialname, kurz eingeblendet */
+.glareshield .gs-name {
+    position: absolute; top: 0; left: 0; right: 0; height: calc(var(--gs-h, 46px) - 6px); z-index: 5;
+    display: grid; place-items: center; pointer-events: none;
+    font: 700 10px/1 'IBM Plex Sans Condensed', 'Arial Narrow', sans-serif; letter-spacing: .32em; color: rgba(255, 255, 255, .75);
+    text-shadow: 0 -1px 0 rgba(0, 0, 0, .9); opacity: 0; transition: opacity .25s;
+}
+.container.gs-naming .glareshield .gs-name { opacity: 1; }
+
+/* NavCom-Logo: schmaler, damit es nicht in die Schrauben läuft (auch wenn sie im Bogen tiefer wandern) */
+body.theme-navcom .container.gs-on h1 { margin-left: 24px; margin-right: 24px; }
+
+/* Schrauben wandern mit der Biegung */
+body.theme-retro .container.gs-on .screw.top-left,
+body.theme-retro .container.gs-on .screw.top-right { top: calc(var(--gs-h, 46px) - var(--gs-bt, 3px) + 8px + var(--gs-shift, 0px)); }
+
+/* Ausziehliste */
+.gs-drawer-clip { display: none; }
+body.theme-retro .container.gs-on .gs-drawer-clip {
+    display: block; position: absolute; left: 40px; right: 40px; top: calc(var(--gs-h, 46px) - var(--gs-bt, 3px) - 8px); z-index: 400;
+    overflow: hidden; pointer-events: none; padding: 0 6px 26px; margin: 0 -6px;
+}
+body.theme-retro .container.gs-open .gs-drawer-clip { pointer-events: auto; }
+.gs-drawer {
+    position: relative; pointer-events: auto; touch-action: none;
+    background: #17191b; color: #eceae4;
+    border-radius: 0 0 14px 14px;
+    box-shadow: 0 16px 30px rgba(0, 0, 0, .65), inset 0 0 0 1px rgba(255, 255, 255, .05);
+    transform: translateY(calc(-100% + var(--gs-pull, 0px)));
+    transition: transform .34s cubic-bezier(.2, .8, .2, 1);
+    padding: 18px 14px 14px;
+    font-family: 'IBM Plex Sans Condensed', 'Arial Narrow', sans-serif;
+    text-align: left;
+}
+.container:not(.gs-open) .gs-drawer { visibility: hidden; transition: transform .34s cubic-bezier(.2, .8, .2, 1), visibility 0s .34s; }
+.container.gs-open .gs-drawer, .container .gs-drawer.dragging { visibility: visible; transition: transform .34s cubic-bezier(.2, .8, .2, 1); }
+.container .gs-drawer.dragging { transition: none !important; }
+.gs-drawer h2 {
+    margin: 0 0 10px; padding: 0; border: 0; text-align: left;
+    font: 700 10px/1 'IBM Plex Sans Condensed', 'Arial Narrow', sans-serif; letter-spacing: .24em; color: #7c8186; text-transform: uppercase; text-shadow: none;
+}
+.gs-sets { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.gs-set {
+    display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; gap: 12px; align-items: center;
+    padding: 8px 10px 8px 8px; border-radius: 8px; cursor: pointer;
+    background: rgba(255, 255, 255, .03); border: 1px solid transparent;
+}
+.gs-set:hover { background: rgba(255, 255, 255, .06); }
+.gs-set:focus-visible { outline: 2px solid #f2b84b; outline-offset: 2px; }
+.gs-set.on { border-color: rgba(242, 184, 75, .55); background: rgba(242, 184, 75, .07); }
+.gs-sw { width: 46px; height: 32px; border-radius: 5px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12), 0 2px 4px rgba(0, 0, 0, .5); }
+.gs-sw.modern { background: linear-gradient(180deg, #fff, #dfe4e8); }
+.gs-sw.analog { background: linear-gradient(180deg, #5d636b, #3c4045); }
+.gs-sw.navcom { background: linear-gradient(180deg, #2f3236, #101113); box-shadow: inset 0 -9px 0 -5px #c9452f, inset 0 0 0 1px rgba(255, 255, 255, .12); }
+.gs-sw.ops1940 { background: linear-gradient(180deg, #5a4c34, #2a2218); box-shadow: inset 0 0 0 2px #b88935; }
+.gs-sw.win95 { background: #c0c0c0; box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #404040; }
+.gs-set strong { display: block; font: 700 14px/1.2 'IBM Plex Sans Condensed', 'Arial Narrow', sans-serif; color: #eceae4; }
+.gs-set small { display: flex; flex-wrap: wrap; gap: 2px 8px; font: 500 11.5px/1.35 'IBM Plex Sans Condensed', 'Arial Narrow', sans-serif; color: #a9adb1; }
+.gs-chip { cursor: pointer; border-radius: 3px; }
+.gs-chip:hover { color: #eceae4; }
+.gs-chip.on { color: #f2b84b; }
+.gs-chk { width: 16px; height: 16px; border-radius: 50%; border: 1.5px solid rgba(255, 255, 255, .25); }
+.gs-set.on .gs-chk { border-color: #f2b84b; background: radial-gradient(circle, #f2b84b 0 4px, transparent 5px); }
+.gs-tips { margin: 12px 2px 0; padding: 10px 0 0; border-top: 1px solid rgba(255, 255, 255, .07); display: grid; gap: 7px; }
+.gs-tip { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: 9px; align-items: center; font: 500 11.5px/1.35 'IBM Plex Sans Condensed', 'Arial Narrow', sans-serif; color: #a9adb1; }
+.gs-tip b { color: #eceae4; font-weight: 700; }
+.gs-mini-screw { width: 13px; height: 13px; border-radius: 50%; background: linear-gradient(135deg, #c4c4c4, #555); position: relative; box-shadow: inset 0 0 3px #000; }
+.gs-mini-screw::after { content: ''; position: absolute; top: 5.5px; left: 1px; width: 11px; height: 2px; background: #222; transform: rotate(45deg); }
+.gs-mini-swipe { width: 18px; height: 10px; border-radius: 3px; background: repeating-linear-gradient(45deg, #2a2b2e 0 2px, #141517 2px 4px); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .15); }
+.gs-close {
+    margin-top: 12px; width: 100%; padding: 8px; border: 0; border-radius: 6px; cursor: pointer;
+    background: rgba(255, 255, 255, .06); color: #a9adb1; font: 700 10px/1 'IBM Plex Sans Condensed', 'Arial Narrow', sans-serif; letter-spacing: .2em;
+    box-shadow: none; text-shadow: none; min-height: 0; height: auto;
+}
+.gs-close:focus-visible { outline: 2px solid #f2b84b; }
+
+/* Lasche: versteckt, schiebt sich bei Hover/Antippen unter dem Glareshield hervor */
+.gs-tab {
+    position: absolute; left: 50%; top: 100%; transform: translate(-50%, -16px); transition: transform .25s ease;
+    width: 40px; height: 16px; border-radius: 0 0 7px 7px; pointer-events: auto; cursor: grab; touch-action: none;
+    background: linear-gradient(180deg, #1c1e20, #17181a);
+    box-shadow: 0 2px 3px rgba(0, 0, 0, .45), inset 0 -1px 0 rgba(255, 255, 255, .04);
+    visibility: visible;
+}
+.gs-tab::after { content: ''; position: absolute; left: 50%; bottom: 4px; width: 14px; height: 1px; transform: translateX(-50%); background: rgba(255, 255, 255, .13); border-radius: 1px; }
+.container.gs-peek .gs-tab, .container.gs-open .gs-tab { transform: translate(-50%, 0); }
+
+/* Hinweis-Puls an den Schrauben bei offener Liste */
+body.theme-retro .container.gs-open .screw.top-left::before,
+body.theme-retro .container.gs-open .screw.top-right::before {
+    content: ''; position: absolute; inset: -7px; border-radius: 50%;
+    border: 2px solid #f2b84b; animation: gsPing 1.6s ease-out infinite; pointer-events: none;
+}
+@keyframes gsPing { 0% { transform: scale(.7); opacity: 1; } 100% { transform: scale(1.6); opacity: 0; } }
+
+@media (max-width: 640px) {
+    body.theme-retro .container.gs-on { --gs-h: 40px; --gs-pad: 48px; }
+    body.theme-retro .container.gs-on .gs-drawer-clip { left: 30px; right: 30px; }
+    .gs-set { grid-template-columns: 38px minmax(0, 1fr) auto; gap: 9px; }
+    .gs-sw { width: 38px; height: 28px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .glareshield .gs-mat, .gs-drawer, .gs-tab { transition: none !important; }
+    body.theme-retro .container.gs-open .screw.top-left::before,
+    body.theme-retro .container.gs-open .screw.top-right::before { animation: none; }
+}
