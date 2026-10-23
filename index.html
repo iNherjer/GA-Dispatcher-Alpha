@@ -127,7 +127,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="stylesheet" href="vendor/maplibre/maplibre-gl.css">
-    <link rel="preload" href="styles.css?v=ops1940-webp-20261023-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=aircraft-presets-20261023-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="stylesheet" href="homebase-integration.css?v=homebase-foreground-20261014-01">
     <link rel="stylesheet" href="media-player.css">
     <link rel="stylesheet" href="settings-toolroll.css?v=toolroll-settings-tidy-20261014-01">
@@ -136,7 +136,7 @@
     <link rel="stylesheet" href="glareshield.css?v=glareshield-20261023-10">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=ops1940-webp-20261023-01">
+        <link rel="stylesheet" href="styles.css?v=aircraft-presets-20261023-01">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -314,9 +314,9 @@
         </div>
 
         <div class="preset-row">
-            <button class="btn-preset" data-aircraft="C172" data-aircraft-slot="C172" onclick="applyAircraftPresetSlot('C172')">C172</button>
-            <button class="btn-preset" data-aircraft="PA-24" data-aircraft-slot="PA-24" onclick="applyAircraftPresetSlot('PA-24')">Comanche</button>
-            <button class="btn-preset" data-aircraft="AERO" data-aircraft-slot="AERO" onclick="applyAircraftPresetSlot('AERO')">Aerostar</button>
+            <button class="btn-preset" data-quick-slot="0" onclick="applyAircraftQuickSlot(0)">C172</button>
+            <button class="btn-preset" data-quick-slot="1" onclick="applyAircraftQuickSlot(1)">Comanche</button>
+            <button class="btn-preset" data-quick-slot="2" onclick="applyAircraftQuickSlot(2)">Aerostar</button>
         </div>
 
         <div class="slider-container">
@@ -389,9 +389,9 @@
                 </div>
                 
                 <div class="audio-btn-grid">
-                    <div class="audio-btn active" id="btnAC-C172" data-aircraft-slot="C172" onclick="applyAircraftPresetSlot('C172')">C172<div class="audio-led"></div></div>
-                    <div class="audio-btn" id="btnAC-PA24" data-aircraft-slot="PA-24" onclick="applyAircraftPresetSlot('PA-24')">PA24<div class="audio-led"></div></div>
-                    <div class="audio-btn" id="btnAC-AERO" data-aircraft-slot="AERO" onclick="applyAircraftPresetSlot('AERO')">AERO<div class="audio-led"></div></div>
+                    <div class="audio-btn active" id="btnAC-C172" data-quick-slot="0" onclick="applyAircraftQuickSlot(0)">C172<div class="audio-led"></div></div>
+                    <div class="audio-btn" id="btnAC-PA24" data-quick-slot="1" onclick="applyAircraftQuickSlot(1)">PA24<div class="audio-led"></div></div>
+                    <div class="audio-btn" id="btnAC-AERO" data-quick-slot="2" onclick="applyAircraftQuickSlot(2)">AERO<div class="audio-led"></div></div>
                     <div class="audio-btn" id="btnToggleAI" onclick="toggleNavComAI(this)">KI Mode<div class="audio-led"></div></div>
                     
                     <div class="audio-btn" id="navcomSaveBtn" onclick="triggerCloudSave('manual')">☁️ SAVE<div class="audio-led"></div></div>
@@ -986,65 +986,18 @@
                 <label class="settings-section-title">Presets</label>
             </div>
             <div class="settings-section-status">
-                <span id="aircraftPresetStatus" style="font-size: 10px; color: #888;">Slot wählen und speichern</span>
+                <span id="aircraftPresetStatus" style="font-size: 10px; color: #888;">Preset wählen oder anlegen</span>
                 <button type="button" class="settings-help-btn" onclick="showSettingsHelp('aircraft-presets', event)" aria-label="Hilfe zu Aircraft Presets" aria-expanded="false">?</button>
             </div>
         </div>
         <div id="settingsPresetButtons" class="settings-preset-list" aria-label="Flugzeug-Presets"></div>
+        <div class="settings-preset-boarding-head">
+            <label for="aircraftPresetSlot">Boarding-Szene für</label>
+            <select id="aircraftPresetSlot" onchange="selectAircraftPresetSlotFromSettings(this.value)"></select>
+            <button type="button" id="settingsBoardingToggle" class="settings-preset-boarding-toggle" aria-expanded="false" aria-controls="settingsPresetEditor" onclick="toggleSettingsBoardingEditor()">Bearbeiten</button>
+        </div>
         <div id="settingsPresetEditor" class="settings-preset-editor" inert aria-hidden="true">
         <div class="settings-preset-editor-body">
-        <select id="aircraftPresetSlot" hidden aria-hidden="true" tabindex="-1"><option value="C172">Slot 1</option><option value="PA-24">Slot 2</option><option value="AERO">Slot 3</option></select>
-        <div class="settings-form-row"><label for="aircraftPresetName">Name</label><input type="text" id="aircraftPresetName" placeholder="Name" maxlength="20" autocomplete="off" spellcheck="false"></div>
-        <div class="settings-form-row">
-            <div class="aircraft-preset-settings-field">
-                <label for="aircraftPresetTas">TAS (kt)</label>
-                <input type="number" id="aircraftPresetTas" placeholder="TAS" min="80" max="300" step="5" aria-describedby="aircraftPresetTasHint">
-                <small id="aircraftPresetTasHint">Reisegeschwindigkeit in Knoten (True Airspeed).</small>
-            </div>
-            <div class="aircraft-preset-settings-field">
-                <label for="aircraftPresetGph">Verbrauch (GPH)</label>
-                <input type="number" id="aircraftPresetGph" placeholder="GPH" min="0" max="80" step="1" aria-describedby="aircraftPresetGphHint">
-                <small id="aircraftPresetGphHint">Verbrauch in US-Gallonen pro Stunde.</small>
-            </div>
-            <div class="aircraft-preset-settings-field">
-                <label for="aircraftPresetPax">Sitze</label>
-                <input type="number" id="aircraftPresetPax" placeholder="PAX" min="1" max="6" step="1" aria-describedby="aircraftPresetPaxHint">
-                <small id="aircraftPresetPaxHint">Sitzplätze inklusive Pilot.</small>
-            </div>
-        </div>
-        <div class="settings-form-row">
-            <div class="aircraft-preset-settings-field">
-                <label for="aircraftPresetMaxPayload">Max. Zuladung (kg)</label>
-                <input type="number" id="aircraftPresetMaxPayload" placeholder="Max. Zuladung (kg)" min="0" max="10000" step="5" aria-describedby="aircraftPresetMaxPayloadHint">
-                <small id="aircraftPresetMaxPayloadHint">Maximale Zuladung in Kilogramm.</small>
-            </div>
-            <div class="aircraft-preset-settings-field">
-                <label for="aircraftPresetClass">Flugzeugklasse</label>
-                <select id="aircraftPresetClass" aria-label="Flugzeugklasse">
-                    <option value="sep">SEP</option>
-                    <option value="mep">MEP</option>
-                    <option value="set">SET</option>
-                    <option value="met">MET</option>
-                    <option value="jet">Jet</option>
-                    <option value="heli">Heli</option>
-                    <option value="other">Sonstige</option>
-                </select>
-                <small>Technische Klasse, z. B. SEP: einmotoriges Kolbenflugzeug.</small>
-            </div>
-        </div>
-        <div class="aircraft-preset-settings-tags" aria-label="Flugzeugprofile">
-            <span>Profil</span>
-            <label><input type="checkbox" value="touring" data-aircraft-settings-tag> Privat / Reise</label>
-            <label><input type="checkbox" value="business" data-aircraft-settings-tag> Business / Charter</label>
-            <label><input type="checkbox" value="cargo" data-aircraft-settings-tag> Cargo</label>
-            <label><input type="checkbox" value="bush" data-aircraft-settings-tag> Bush / STOL</label>
-            <label><input type="checkbox" value="training" data-aircraft-settings-tag> Training</label>
-            <label><input type="checkbox" value="utility" data-aircraft-settings-tag> Utility / Arbeit</label>
-            <small class="aircraft-preset-profile-hint">Nur für die Zufallsrotation. Keine Auswahl = alle Auto-Profile; konkrete Picker-Auswahlen bleiben möglich.</small>
-        </div>
-        <div class="settings-action-row">
-            <button class="btn-preset sync-req-btn" style="flex: 1; margin: 0; height: 42px; background: #333; color: #f2c12e;" onclick="saveAircraftPresetFromSettings()">💾 Preset speichern</button>
-        </div>
         <div class="boarding-scene-settings">
             <div class="boarding-scene-toolbar">
                 <div>
@@ -1089,7 +1042,7 @@
             </div>
         </div>
         <div class="api-hint">
-            Normaler Klick wählt ein Preset. Rechtsklick oder Langdruck öffnet den Schnell-Editor. Alle Werte und Boarding-Punkte werden pro Slot gespeichert und mit der Pilot-ID synchronisiert.
+            Bis zu 10 Presets. Klick auf ein Preset öffnet den Editor. Die drei Buttons bei den Missionsparametern sind Schnellwahl-Plätze: Klick wählt, Rechtsklick oder Langdruck weist ein anderes Preset zu. Alles wird mit der Pilot-ID synchronisiert.
         </div>
         </div>
         </div>
@@ -2747,7 +2700,7 @@
             </fieldset>
 
             <footer class="airport-type-picker-footer aircraft-preset-editor-footer">
-                <span class="airport-type-picker-count">Klick = auswählen · Langdruck/Rechtsklick = bearbeiten</span>
+                <button type="button" id="aircraftPresetEditorDeleteBtn" class="aircraft-preset-editor-delete" onclick="deleteAircraftPresetFromEditor(event)">Löschen</button>
                 <div class="airport-type-picker-actions">
                     <button type="button" onclick="closeAircraftPresetEditor(event)">Abbrechen</button>
                     <button type="submit" class="airport-type-picker-done">Preset speichern</button>
@@ -2909,7 +2862,7 @@
 <script defer src="map-utility-tools.js?v=map-tool-toggle-20260817-01"></script>
 <script defer src="aircraft-mission-capability-core.js?v=aircraft-mission-party-20260817-01"></script>
 <script defer src="aircraft-mission-profile-core.js?v=aircraft-mission-capability-20260817-01"></script>
-<script defer src="app.js?v=navcom-skins-20261022-04"></script>
+<script defer src="app.js?v=aircraft-presets-20261023-01"></script>
 <script defer src="navcom-skins.js?v=navcom-skins-20261022-04"></script>
 <script defer src="analog-skins.js?v=analog-skins-20261023-03"></script>
 <script defer src="glareshield.js?v=glareshield-20261023-10"></script>

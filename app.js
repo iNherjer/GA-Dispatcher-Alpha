@@ -95,22 +95,31 @@ const AIRCRAFT_BOARDING_LEGACY_DEFAULT = {
     target: { forwardM: 4.5, rightM: 8.5 },
     waypoints: []
 };
+// Legacy-IDs der ersten drei Presets. Sie bleiben als Preset-IDs erhalten,
+// weil Manifest, Ausrüstung und Tracker den Wert als aircraftSlot nutzen.
 const AIRCRAFT_PRESET_SLOT_ORDER = ['C172', 'PA-24', 'AERO'];
+const AIRCRAFT_PRESET_LIBRARY_STORAGE_KEY = 'ga_aircraft_preset_library_v2';
+const AIRCRAFT_PRESET_MAX = 10;
+const AIRCRAFT_QUICK_SLOT_COUNT = 3;
+const AIRCRAFT_PRESET_NEW_DEFAULT = {
+    name: 'Neues Preset', tas: 120, gph: 9, pax: 4, maxPayloadKg: 400,
+    aircraftClass: 'sep', aircraftTags: []
+};
 let aircraftPresets = {};
+let aircraftPresetOrder = [...AIRCRAFT_PRESET_SLOT_ORDER];
+let aircraftQuickSlots = [...AIRCRAFT_PRESET_SLOT_ORDER];
+let activeAircraftQuickSlotIndex = null;
 let activeAircraftPresetSettingsSlot = 'C172';
 window.activeAircraftPresetSettingsSlot = activeAircraftPresetSettingsSlot;
 let activeBoardingPointKey = 'spawn';
 let aircraftPresetCloudSyncTimer = null;
 let activeAircraftPresetEditorSlot = null;
+let aircraftPresetEditorCreating = false;
+let aircraftPresetEditorAssignQuickSlot = null;
 let aircraftPresetEditorReturnFocus = null;
-const AIRCRAFT_PRESET_SLOT_LABELS = {
-    'C172': 'Slot 1',
-    'PA-24': 'Slot 2',
-    'AERO': 'Slot 3'
-};
 
 function sanitizeAircraftPresetName(slotId, value) {
-    const fallback = AIRCRAFT_PRESET_DEFAULTS[slotId]?.name || slotId;
+    const fallback = AIRCRAFT_PRESET_DEFAULTS[slotId]?.name || AIRCRAFT_PRESET_NEW_DEFAULT.name;
     const text = String(value || '').trim().replace(/\s+/g, ' ');
     return text ? text.slice(0, 20) : fallback;
 }
@@ -209,7 +218,7 @@ function normalizeAircraftBoardingConfig(source) {
 }
 
 function normalizeAircraftPreset(slotId, source) {
-    const defaults = AIRCRAFT_PRESET_DEFAULTS[slotId] || AIRCRAFT_PRESET_DEFAULTS['C172'];
+    const defaults = AIRCRAFT_PRESET_DEFAULTS[slotId] || AIRCRAFT_PRESET_NEW_DEFAULT;
     const preset = source && typeof source === 'object' ? source : {};
     let boardingSource = preset.boarding || preset.boardingScene || defaults.boarding;
     if (slotId === 'PA-24' && shouldMigrateComancheBoardingDefaults(boardingSource)) {
@@ -257,35 +266,142 @@ function buildDefaultAircraftPresets() {
     return out;
 }
 
+function isValidAircraftPresetId(id) {
+    return typeof id === 'string' && /^[A-Z0-9][A-Z0-9_.-]{0,15}$/i.test(id);
+}
+
+function hasAircraftPreset(id) {
+    return isValidAircraftPresetId(id) && Object.prototype.hasOwnProperty.call(aircraftPresets, id);
+}
+window.hasAircraftPreset = hasAircraftPreset;
+
+function resolveAircraftPresetId(id) {
+    if (hasAircraftPreset(id)) return id;
+    const quickFallback = aircraftQuickSlots.find(hasAircraftPreset);
+    return quickFallback || aircraftPresetOrder.find(hasAircraftPreset) || 'C172';
+}
+
+// Speichert die Bibliothek. Die Presets liegen weiter flach unter ihrer ID im
+// v1-Schlüssel (ältere App-Versionen lesen C172/PA-24/AERO von dort), Reihenfolge
+// und Schnellwahl stehen in `_library`. Der v2-Schlüssel ist die lokale Sicherung,
+// falls ein älterer Client den v1-Schlüssel ohne `_library` überschreibt.
 function saveAircraftPresets() {
+    const payload = {};
+    aircraftPresetOrder.forEach(id => {
+        if (aircraftPresets[id]) payload[id] = aircraftPresets[id];
+    });
+    payload._library = {
+        version: 2,
+        order: [...aircraftPresetOrder],
+        quick: [...aircraftQuickSlots]
+    };
     try {
-        localStorage.setItem(AIRCRAFT_PRESET_STORAGE_KEY, JSON.stringify(aircraftPresets));
+        const json = JSON.stringify(payload);
+        localStorage.setItem(AIRCRAFT_PRESET_STORAGE_KEY, json);
+        localStorage.setItem(AIRCRAFT_PRESET_LIBRARY_STORAGE_KEY, json);
     } catch (_) {}
 }
 window.saveAircraftPresets = saveAircraftPresets;
 
+function readAircraftPresetStorage(key) {
+    try {
+        const parsed = JSON.parse(localStorage.getItem(key) || 'null');
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : null;
+    } catch (_) {
+        return null;
+    }
+}
+
 function loadAircraftPresets() {
     const defaults = buildDefaultAircraftPresets();
-    let parsed = {};
-    try {
-        parsed = JSON.parse(localStorage.getItem(AIRCRAFT_PRESET_STORAGE_KEY) || '{}') || {};
-    } catch (_) {
-        parsed = {};
+    const v1 = readAircraftPresetStorage(AIRCRAFT_PRESET_STORAGE_KEY);
+    const v2 = readAircraftPresetStorage(AIRCRAFT_PRESET_LIBRARY_STORAGE_KEY);
+    let source;
+    let library;
+    if (v1?._library) {
+        source = v1;
+        library = v1._library;
+    } else if (v2?._library) {
+        // v1 wurde von einer älteren Version geschrieben: deren Werte für die
+        // drei Legacy-Presets übernehmen, die übrige Bibliothek behalten.
+        source = { ...v2 };
+        library = v2._library;
+        AIRCRAFT_PRESET_SLOT_ORDER.forEach(id => {
+            if (v1?.[id] && Array.isArray(library.order) && library.order.includes(id)) source[id] = v1[id];
+        });
+    } else {
+        source = v1 || {};
+        library = { order: AIRCRAFT_PRESET_SLOT_ORDER, quick: AIRCRAFT_PRESET_SLOT_ORDER };
     }
+
+    const order = [];
+    (Array.isArray(library.order) ? library.order : []).forEach(id => {
+        if (!isValidAircraftPresetId(id) || order.includes(id) || order.length >= AIRCRAFT_PRESET_MAX) return;
+        if (!source[id] && !defaults[id]) return;
+        order.push(id);
+    });
+    if (!order.length) order.push(...AIRCRAFT_PRESET_SLOT_ORDER);
+
     aircraftPresets = {};
-    AIRCRAFT_PRESET_SLOT_ORDER.forEach(slotId => {
-        aircraftPresets[slotId] = normalizeAircraftPreset(slotId, parsed[slotId] || defaults[slotId]);
+    order.forEach(id => {
+        aircraftPresets[id] = normalizeAircraftPreset(id, source[id] || defaults[id] || AIRCRAFT_PRESET_NEW_DEFAULT);
+    });
+    aircraftPresetOrder = order;
+
+    const quickSource = Array.isArray(library.quick) ? library.quick : [];
+    aircraftQuickSlots = Array.from({ length: AIRCRAFT_QUICK_SLOT_COUNT }, (_, index) => {
+        const id = quickSource[index];
+        if (hasAircraftPreset(id)) return id;
+        return order[index] || order[0];
     });
     saveAircraftPresets();
+
+    try {
+        if (typeof selectedAC !== 'undefined' && !hasAircraftPreset(selectedAC)) {
+            selectedAC = aircraftQuickSlots[0];
+            window.selectedAC = selectedAC;
+        }
+    } catch (_) {}
+    if (!hasAircraftPreset(activeAircraftPresetSettingsSlot)) {
+        activeAircraftPresetSettingsSlot = resolveAircraftPresetId(null);
+        window.activeAircraftPresetSettingsSlot = activeAircraftPresetSettingsSlot;
+    }
 }
 window.loadAircraftPresets = loadAircraftPresets;
 
 function getAircraftPreset(slotId) {
-    const resolvedSlot = AIRCRAFT_PRESET_SLOT_ORDER.includes(slotId) ? slotId : 'C172';
+    const resolvedSlot = resolveAircraftPresetId(slotId);
     if (!aircraftPresets[resolvedSlot]) {
         aircraftPresets[resolvedSlot] = normalizeAircraftPreset(resolvedSlot, AIRCRAFT_PRESET_DEFAULTS[resolvedSlot]);
     }
     return aircraftPresets[resolvedSlot];
+}
+
+function getAircraftPresetOrder() {
+    return [...aircraftPresetOrder];
+}
+window.getAircraftPresetOrder = getAircraftPresetOrder;
+
+function getAircraftQuickSlots() {
+    return [...aircraftQuickSlots];
+}
+window.getAircraftQuickSlots = getAircraftQuickSlots;
+
+function generateAircraftPresetId(name) {
+    const base = String(name || '')
+        .toUpperCase()
+        .replace(/Ä/g, 'AE').replace(/Ö/g, 'OE').replace(/Ü/g, 'UE').replace(/ß/g, 'SS')
+        .replace(/[^A-Z0-9-]+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 12) || 'PRESET';
+    const safeBase = /^[A-Z0-9]/.test(base) ? base : `P${base}`.slice(0, 12);
+    let candidate = safeBase;
+    let suffix = 2;
+    while (Object.prototype.hasOwnProperty.call(aircraftPresets, candidate) || candidate === '_LIBRARY') {
+        candidate = `${safeBase}-${suffix++}`;
+    }
+    return candidate;
 }
 
 function getAircraftPresetData(slotId = selectedAC) {
@@ -299,7 +415,7 @@ function getAircraftPresetData(slotId = selectedAC) {
 window.getAircraftPresetData = getAircraftPresetData;
 
 function getMissionAircraftCapabilitySnapshot({ slotId = selectedAC, totalSeats = null } = {}) {
-    const resolvedSlot = AIRCRAFT_PRESET_SLOT_ORDER.includes(slotId) ? slotId : 'C172';
+    const resolvedSlot = resolveAircraftPresetId(slotId);
     const preset = getAircraftPresetData(resolvedSlot);
     const capabilityCore = window.aircraftMissionCapabilityCore;
     if (capabilityCore && typeof capabilityCore.buildAircraftCapabilitySnapshot === 'function') {
@@ -432,7 +548,7 @@ function scheduleAircraftPresetCloudSync() {
 }
 
 function updateAircraftPresetBoarding(slotId, updater, statusText) {
-    const resolvedSlot = AIRCRAFT_PRESET_SLOT_ORDER.includes(slotId) ? slotId : 'C172';
+    const resolvedSlot = resolveAircraftPresetId(slotId);
     const preset = getAircraftPreset(resolvedSlot);
     const boarding = normalizeAircraftBoardingConfig(preset.boarding);
     updater(boarding);
@@ -448,7 +564,7 @@ function updateAircraftPresetBoarding(slotId, updater, statusText) {
 
 function nudgeBoardingPresetPoint(pointKey, axis, delta) {
     if (!pointKey || !['forwardM', 'rightM'].includes(axis)) return;
-    const slotId = AIRCRAFT_PRESET_SLOT_ORDER.includes(activeAircraftPresetSettingsSlot) ? activeAircraftPresetSettingsSlot : 'C172';
+    const slotId = resolveAircraftPresetId(activeAircraftPresetSettingsSlot);
     updateAircraftPresetBoarding(slotId, (boarding) => {
         const point = getBoardingPointRef(boarding, pointKey);
         if (!point) return;
@@ -478,7 +594,7 @@ function midpointBoardingPoint(a, b) {
 }
 
 function addBoardingWaypointAfterSelected() {
-    const slotId = AIRCRAFT_PRESET_SLOT_ORDER.includes(activeAircraftPresetSettingsSlot) ? activeAircraftPresetSettingsSlot : 'C172';
+    const slotId = resolveAircraftPresetId(activeAircraftPresetSettingsSlot);
     updateAircraftPresetBoarding(slotId, (boarding) => {
         const route = boardingRoutePointList(boarding);
         const selectedIndex = Math.max(0, route.findIndex(item => item.key === activeBoardingPointKey));
@@ -502,7 +618,7 @@ window.addBoardingWaypointAfterSelected = addBoardingWaypointAfterSelected;
 function deleteSelectedBoardingWaypoint() {
     const match = String(activeBoardingPointKey || '').match(/^waypoint:(\d+)$/);
     if (!match) return;
-    const slotId = AIRCRAFT_PRESET_SLOT_ORDER.includes(activeAircraftPresetSettingsSlot) ? activeAircraftPresetSettingsSlot : 'C172';
+    const slotId = resolveAircraftPresetId(activeAircraftPresetSettingsSlot);
     updateAircraftPresetBoarding(slotId, (boarding) => {
         const index = Number(match[1]);
         if (!boarding.waypoints[index]) return;
@@ -515,7 +631,7 @@ window.deleteSelectedBoardingWaypoint = deleteSelectedBoardingWaypoint;
 function moveSelectedBoardingWaypoint(direction) {
     const match = String(activeBoardingPointKey || '').match(/^waypoint:(\d+)$/);
     if (!match) return;
-    const slotId = AIRCRAFT_PRESET_SLOT_ORDER.includes(activeAircraftPresetSettingsSlot) ? activeAircraftPresetSettingsSlot : 'C172';
+    const slotId = resolveAircraftPresetId(activeAircraftPresetSettingsSlot);
     updateAircraftPresetBoarding(slotId, (boarding) => {
         const route = boardingRoutePointList(boarding);
         const currentIndex = route.findIndex(item => item.key === activeBoardingPointKey);
@@ -544,7 +660,7 @@ function moveSelectedBoardingWaypoint(direction) {
 window.moveSelectedBoardingWaypoint = moveSelectedBoardingWaypoint;
 
 function resetBoardingPresetConfig() {
-    const slotId = AIRCRAFT_PRESET_SLOT_ORDER.includes(activeAircraftPresetSettingsSlot) ? activeAircraftPresetSettingsSlot : 'C172';
+    const slotId = resolveAircraftPresetId(activeAircraftPresetSettingsSlot);
     const slotDefault = normalizeAircraftBoardingConfig(AIRCRAFT_PRESET_DEFAULTS[slotId]?.boarding || AIRCRAFT_BOARDING_DEFAULT);
     updateAircraftPresetBoarding(slotId, (boarding) => {
         boarding.spawn = { ...slotDefault.spawn };
@@ -560,7 +676,7 @@ function resetBoardingPresetConfig() {
 window.resetBoardingPresetConfig = resetBoardingPresetConfig;
 
 function setBoardingDoorOption(enabled) {
-    const slotId = AIRCRAFT_PRESET_SLOT_ORDER.includes(activeAircraftPresetSettingsSlot) ? activeAircraftPresetSettingsSlot : 'C172';
+    const slotId = resolveAircraftPresetId(activeAircraftPresetSettingsSlot);
     updateAircraftPresetBoarding(slotId, (boarding) => {
         boarding.openDoor = !!enabled;
     }, `${getAircraftPresetSlotLabel(slotId)} Tür ${enabled ? 'aktiv' : 'aus'}`);
@@ -607,163 +723,211 @@ function getMissionSceneBoardingConfig(slotId = selectedAC) {
 window.getMissionSceneBoardingConfig = getMissionSceneBoardingConfig;
 
 function getAircraftPresetSlotLabel(slotId) {
-    return AIRCRAFT_PRESET_SLOT_LABELS[slotId] || String(slotId || '');
+    return aircraftPresets[slotId]?.name || String(slotId || '');
+}
+
+function getActiveAircraftQuickSlotIndex() {
+    if (activeAircraftQuickSlotIndex !== null && aircraftQuickSlots[activeAircraftQuickSlotIndex] === selectedAC) {
+        return activeAircraftQuickSlotIndex;
+    }
+    const index = aircraftQuickSlots.indexOf(selectedAC);
+    return index >= 0 ? index : null;
 }
 
 function updateNavComAircraftButtons() {
-    const slotToNavButtonId = {
-        'C172': 'btnAC-C172',
-        'PA-24': 'btnAC-PA24',
-        'AERO': 'btnAC-AERO'
-    };
-    Object.values(slotToNavButtonId).forEach(btnId => {
-        document.getElementById(btnId)?.classList.remove('active');
+    const activeIndex = getActiveAircraftQuickSlotIndex();
+    document.querySelectorAll('.audio-btn[data-quick-slot]').forEach(btn => {
+        btn.classList.toggle('active', Number(btn.dataset.quickSlot) === activeIndex);
     });
-    const activeBtnId = slotToNavButtonId[selectedAC];
-    if (activeBtnId) document.getElementById(activeBtnId)?.classList.add('active');
+}
+
+function describeAircraftPresetSummary(preset) {
+    const aircraftClass = getAircraftClassOption(preset.aircraftClass);
+    const tagLabels = (preset.aircraftTags || [])
+        .map(tagId => AIRCRAFT_TAG_OPTIONS.find(option => option.id === tagId)?.label)
+        .filter(Boolean);
+    return [
+        preset.name,
+        aircraftClass.label,
+        `${preset.tas} TAS`,
+        `${String(preset.gph).padStart(2, '0')} GPH`,
+        `${preset.pax} Sitze`,
+        `${preset.maxPayloadKg} kg Zuladung`,
+        ...tagLabels
+    ].join(' · ');
 }
 
 function updateAircraftPresetButtonsUI() {
     updateSettingsPresetButtons();
-    AIRCRAFT_PRESET_SLOT_ORDER.forEach(slotId => {
-        const preset = getAircraftPreset(slotId);
-        const aircraftClass = getAircraftClassOption(preset.aircraftClass);
-        const tagLabels = (preset.aircraftTags || [])
-            .map(tagId => AIRCRAFT_TAG_OPTIONS.find(option => option.id === tagId)?.label)
-            .filter(Boolean);
-        const summary = [
-            preset.name,
-            aircraftClass.label,
-            `${preset.tas} TAS`,
-            `${String(preset.gph).padStart(2, '0')} GPH`,
-            `${preset.pax} Sitze`,
-            `${preset.maxPayloadKg} kg Zuladung`,
-            ...tagLabels
-        ].join(' · ');
-        document.querySelectorAll(`.btn-preset[data-aircraft-slot="${slotId}"]`).forEach(btn => {
+    aircraftQuickSlots.forEach((presetId, index) => {
+        const preset = getAircraftPreset(presetId);
+        const summary = describeAircraftPresetSummary(preset);
+        const hint = 'Rechtsklick/Langdruck: Preset zuweisen';
+        document.querySelectorAll(`.btn-preset[data-quick-slot="${index}"]`).forEach(btn => {
             btn.textContent = preset.name;
-            btn.title = `${summary} · Rechtsklick/Langdruck: bearbeiten`;
-            btn.setAttribute('aria-label', `${preset.name} auswählen. Rechtsklick oder Langdruck zum Bearbeiten.`);
+            btn.title = `Schnellwahl ${index + 1}: ${summary} · ${hint}`;
+            btn.setAttribute('aria-label', `Schnellwahl ${index + 1}: ${preset.name} auswählen. Rechtsklick oder Langdruck, um ein anderes Preset zuzuweisen.`);
         });
-        document.querySelectorAll(`.audio-btn[data-aircraft-slot="${slotId}"]`).forEach(btn => {
+        document.querySelectorAll(`.audio-btn[data-quick-slot="${index}"]`).forEach(btn => {
             const led = btn.querySelector('.audio-led');
             btn.textContent = preset.name;
             if (led) btn.appendChild(led);
-            btn.title = `${summary} · Rechtsklick/Langdruck: bearbeiten`;
-            btn.setAttribute('aria-label', `${preset.name} auswählen. Rechtsklick oder Langdruck zum Bearbeiten.`);
+            btn.title = `Schnellwahl ${index + 1}: ${summary} · ${hint}`;
+            btn.setAttribute('aria-label', `Schnellwahl ${index + 1}: ${preset.name} auswählen. Rechtsklick oder Langdruck, um ein anderes Preset zuzuweisen.`);
         });
     });
     if (typeof updateOpsAircraftSwitches === 'function') updateOpsAircraftSwitches();
     updateNavComAircraftButtons();
+    if (isAircraftQuickSlotMenuOpen()) renderAircraftQuickSlotMenu();
 }
 window.updateAircraftPresetButtonsUI = updateAircraftPresetButtonsUI;
 
 function updateSettingsPresetButtons() {
     const list = document.getElementById('settingsPresetButtons');
-    const editor = document.getElementById('settingsPresetEditor');
     if (!list) return;
     list.replaceChildren();
-    AIRCRAFT_PRESET_SLOT_ORDER.forEach(slot => {
+    aircraftPresetOrder.forEach(presetId => {
+        const preset = getAircraftPreset(presetId);
         const button = document.createElement('button');
         button.type = 'button';
-        button.textContent = getAircraftPreset(slot).name;
-        button.dataset.presetSlot = slot;
-        const expanded = editor?.classList.contains('is-open') && activeAircraftPresetSettingsSlot === slot;
-        button.setAttribute('aria-expanded', String(!!expanded));
-        button.setAttribute('aria-controls', 'settingsPresetEditor');
-        button.addEventListener('click', () => {
-            const opening = !(editor.classList.contains('is-open') && activeAircraftPresetSettingsSlot === slot);
-            selectAircraftPresetSlotFromSettings(slot);
-            editor.classList.toggle('is-open', opening);
-            editor.inert = !opening;
-            editor.setAttribute('aria-hidden', String(!opening));
-            updateSettingsPresetButtons();
-            list.querySelector(`[data-preset-slot="${slot}"]`)?.focus({ preventScroll: true });
-        });
+        button.className = 'settings-preset-item';
+        button.dataset.presetSlot = presetId;
+        button.setAttribute('aria-haspopup', 'dialog');
+        if (presetId === selectedAC) button.classList.add('is-active');
+
+        const name = document.createElement('span');
+        name.className = 'settings-preset-item-name';
+        name.textContent = preset.name;
+        button.appendChild(name);
+
+        const meta = document.createElement('span');
+        meta.className = 'settings-preset-item-meta';
+        meta.textContent = `${preset.tas} kt · ${preset.gph} GPH · ${preset.pax} Sitze`;
+        button.appendChild(meta);
+
+        const slots = aircraftQuickSlots
+            .map((id, index) => (id === presetId ? index + 1 : null))
+            .filter(Boolean);
+        if (slots.length) {
+            const badges = document.createElement('span');
+            badges.className = 'settings-preset-item-slots';
+            badges.title = `Liegt auf Schnellwahl ${slots.join(', ')}`;
+            slots.forEach(slot => {
+                const badge = document.createElement('span');
+                badge.textContent = String(slot);
+                badges.appendChild(badge);
+            });
+            button.appendChild(badges);
+        }
+        button.setAttribute('aria-label', `${preset.name} bearbeiten${slots.length ? ` (Schnellwahl ${slots.join(', ')})` : ''}`);
+        button.addEventListener('click', event => openAircraftPresetEditor(presetId, event, button));
         list.appendChild(button);
     });
+
+    const full = aircraftPresetOrder.length >= AIRCRAFT_PRESET_MAX;
+    const add = document.createElement('button');
+    add.type = 'button';
+    add.className = 'settings-preset-add';
+    add.disabled = full;
+    add.setAttribute('aria-haspopup', 'dialog');
+    add.textContent = full
+        ? `Maximum erreicht (${AIRCRAFT_PRESET_MAX})`
+        : `+ Neues Preset (${aircraftPresetOrder.length}/${AIRCRAFT_PRESET_MAX})`;
+    add.addEventListener('click', event => createAircraftPreset(event, add));
+    list.appendChild(add);
+
+    updateSettingsBoardingPresetSelect();
 }
 
+function updateSettingsBoardingPresetSelect() {
+    const select = document.getElementById('aircraftPresetSlot');
+    if (!select) return;
+    select.replaceChildren();
+    aircraftPresetOrder.forEach(presetId => {
+        const option = document.createElement('option');
+        option.value = presetId;
+        option.textContent = getAircraftPreset(presetId).name;
+        select.appendChild(option);
+    });
+    select.value = resolveAircraftPresetId(activeAircraftPresetSettingsSlot);
+}
+
+function toggleSettingsBoardingEditor(force = null) {
+    const editor = document.getElementById('settingsPresetEditor');
+    const toggle = document.getElementById('settingsBoardingToggle');
+    if (!editor) return;
+    const opening = force === null ? !editor.classList.contains('is-open') : !!force;
+    editor.classList.toggle('is-open', opening);
+    editor.inert = !opening;
+    editor.setAttribute('aria-hidden', String(!opening));
+    if (toggle) toggle.setAttribute('aria-expanded', String(opening));
+}
+window.toggleSettingsBoardingEditor = toggleSettingsBoardingEditor;
+
 function selectAircraftPresetSlotFromSettings(slotId) {
-    if (!AIRCRAFT_PRESET_SLOT_ORDER.includes(slotId)) slotId = 'C172';
+    slotId = resolveAircraftPresetId(slotId);
     activeAircraftPresetSettingsSlot = slotId;
     window.activeAircraftPresetSettingsSlot = slotId;
     const preset = getAircraftPreset(slotId);
     const slotSelect = document.getElementById('aircraftPresetSlot');
-    const nameInput = document.getElementById('aircraftPresetName');
-    const tasInput = document.getElementById('aircraftPresetTas');
-    const gphInput = document.getElementById('aircraftPresetGph');
-    const paxInput = document.getElementById('aircraftPresetPax');
-    const payloadInput = document.getElementById('aircraftPresetMaxPayload');
-    const classSelect = document.getElementById('aircraftPresetClass');
     if (slotSelect && slotSelect.value !== slotId) slotSelect.value = slotId;
-    if (nameInput) nameInput.value = preset.name;
-    if (tasInput) tasInput.value = String(preset.tas);
-    if (gphInput) gphInput.value = String(preset.gph);
-    if (paxInput) paxInput.value = String(preset.pax);
-    if (payloadInput) payloadInput.value = String(preset.maxPayloadKg);
-    if (classSelect) classSelect.value = preset.aircraftClass;
-    const activeTags = new Set(preset.aircraftTags || []);
-    document.querySelectorAll('[data-aircraft-settings-tag]').forEach(input => {
-        input.checked = activeTags.has(input.value);
-    });
     updateBoardingPresetEditorUI(preset.boarding);
-    setAircraftPresetStatus(`${getAircraftPresetSlotLabel(slotId)} geladen`, '#9aa3ad');
     updateSettingsPresetButtons();
 }
 window.selectAircraftPresetSlotFromSettings = selectAircraftPresetSlotFromSettings;
 
 function commitAircraftPresetUpdate(slotId, candidate, options = {}) {
-    const resolvedSlot = AIRCRAFT_PRESET_SLOT_ORDER.includes(slotId) ? slotId : 'C172';
+    const resolvedSlot = resolveAircraftPresetId(slotId);
     const next = normalizeAircraftPreset(resolvedSlot, candidate);
     aircraftPresets[resolvedSlot] = next;
     saveAircraftPresets();
     updateAircraftPresetButtonsUI();
     if (options.selectSettingsSlot !== false) selectAircraftPresetSlotFromSettings(resolvedSlot);
     if (selectedAC === resolvedSlot) applyPreset(next.tas, next.gph, next.pax, resolvedSlot);
-    setAircraftPresetStatus(options.statusText || `${getAircraftPresetSlotLabel(resolvedSlot)} gespeichert`, '#4caf50');
+    setAircraftPresetStatus(options.statusText || `${next.name} gespeichert`, '#4caf50');
     scheduleAircraftPresetCloudSync();
     return next;
 }
 
-function saveAircraftPresetFromSettings() {
-    const slotId = AIRCRAFT_PRESET_SLOT_ORDER.includes(activeAircraftPresetSettingsSlot) ? activeAircraftPresetSettingsSlot : 'C172';
-    const defaults = AIRCRAFT_PRESET_DEFAULTS[slotId] || AIRCRAFT_PRESET_DEFAULTS['C172'];
-    const nameInput = document.getElementById('aircraftPresetName');
-    const tasInput = document.getElementById('aircraftPresetTas');
-    const gphInput = document.getElementById('aircraftPresetGph');
-    const paxInput = document.getElementById('aircraftPresetPax');
-    const payloadInput = document.getElementById('aircraftPresetMaxPayload');
-    const classSelect = document.getElementById('aircraftPresetClass');
-    const settingsTagInputs = Array.from(document.querySelectorAll('[data-aircraft-settings-tag]'));
-    const aircraftTags = settingsTagInputs.length
-        ? settingsTagInputs.filter(input => input.checked).map(input => input.value)
-        : getAircraftPreset(slotId).aircraftTags;
-
-    const candidate = {
-        name: nameInput?.value ?? defaults.name,
-        tas: tasInput?.value ?? defaults.tas,
-        gph: gphInput?.value ?? defaults.gph,
-        pax: paxInput?.value ?? defaults.pax,
-        maxPayloadKg: payloadInput?.value ?? getAircraftPreset(slotId).maxPayloadKg,
-        aircraftClass: classSelect?.value ?? getAircraftPreset(slotId).aircraftClass,
+function readAircraftPresetEditorCandidate(fallback) {
+    const selectedClass = document.querySelector('input[name="aircraftPresetEditorClass"]:checked')?.value;
+    const aircraftTags = Array.from(document.querySelectorAll('[data-aircraft-editor-tag]:checked'))
+        .map(input => input.value);
+    return {
+        name: document.getElementById('aircraftPresetEditorName')?.value ?? fallback.name,
+        tas: document.getElementById('aircraftPresetEditorTas')?.value ?? fallback.tas,
+        gph: document.getElementById('aircraftPresetEditorGph')?.value ?? fallback.gph,
+        pax: document.getElementById('aircraftPresetEditorPax')?.value ?? fallback.pax,
+        maxPayloadKg: document.getElementById('aircraftPresetEditorMaxPayload')?.value ?? fallback.maxPayloadKg,
+        aircraftClass: selectedClass ?? fallback.aircraftClass,
         aircraftTags,
-        boarding: getAircraftPreset(slotId).boarding
+        boarding: fallback.boarding
     };
-    commitAircraftPresetUpdate(slotId, candidate);
 }
-window.saveAircraftPresetFromSettings = saveAircraftPresetFromSettings;
 
-function populateAircraftPresetEditor(slotId) {
-    const preset = getAircraftPreset(slotId);
+function populateAircraftPresetEditor(slotId, options = {}) {
+    const creating = !!options.creating;
+    const preset = creating ? normalizeAircraftPreset('', AIRCRAFT_PRESET_NEW_DEFAULT) : getAircraftPreset(slotId);
     const slotLabel = document.getElementById('aircraftPresetEditorSlotLabel');
+    const title = document.getElementById('aircraftPresetEditorTitle');
+    const deleteBtn = document.getElementById('aircraftPresetEditorDeleteBtn');
     const nameInput = document.getElementById('aircraftPresetEditorName');
     const tasInput = document.getElementById('aircraftPresetEditorTas');
     const gphInput = document.getElementById('aircraftPresetEditorGph');
     const paxInput = document.getElementById('aircraftPresetEditorPax');
     const payloadInput = document.getElementById('aircraftPresetEditorMaxPayload');
-    if (slotLabel) slotLabel.textContent = `${getAircraftPresetSlotLabel(slotId)} · ${preset.name}`;
-    if (nameInput) nameInput.value = preset.name;
+    if (slotLabel) {
+        const slots = creating ? [] : aircraftQuickSlots
+            .map((id, index) => (id === slotId ? index + 1 : null))
+            .filter(Boolean);
+        slotLabel.textContent = creating
+            ? `AIRCRAFT PRESET · ${aircraftPresetOrder.length + 1}/${AIRCRAFT_PRESET_MAX}`
+            : `AIRCRAFT PRESET · ${preset.name}${slots.length ? ` · Schnellwahl ${slots.join(', ')}` : ''}`;
+    }
+    if (title) title.textContent = creating ? 'Neues Flugzeug-Preset' : 'Flugzeug-Preset bearbeiten';
+    if (deleteBtn) deleteBtn.hidden = creating || aircraftPresetOrder.length <= 1;
+    if (nameInput) nameInput.value = creating ? '' : preset.name;
+    if (nameInput) nameInput.placeholder = creating ? 'z. B. DA40' : '';
     if (tasInput) tasInput.value = String(preset.tas);
     if (gphInput) gphInput.value = String(preset.gph);
     if (paxInput) paxInput.value = String(preset.pax);
@@ -777,24 +941,34 @@ function populateAircraftPresetEditor(slotId) {
     });
 }
 
-function openAircraftPresetEditor(slotId, event = null, sourceControl = null) {
+function openAircraftPresetEditor(slotId, event = null, sourceControl = null, options = {}) {
     event?.preventDefault?.();
     event?.stopPropagation?.();
-    const resolvedSlot = AIRCRAFT_PRESET_SLOT_ORDER.includes(slotId) ? slotId : 'C172';
+    const creating = !!options.creating;
+    if (creating && aircraftPresetOrder.length >= AIRCRAFT_PRESET_MAX) return;
+    const resolvedSlot = creating ? null : resolveAircraftPresetId(slotId);
     const backdrop = document.getElementById('aircraftPresetEditorBackdrop');
     const dialog = document.getElementById('aircraftPresetEditorDialog');
     if (!backdrop || !dialog) return;
+    closeAircraftQuickSlotMenu({ restoreFocus: false });
     if (typeof closeSettingsHelp === 'function') closeSettingsHelp();
     if (!document.getElementById('airportTypePickerBackdrop')?.hidden) window.gaAirportTypes?.close?.();
     activeAircraftPresetEditorSlot = resolvedSlot;
+    aircraftPresetEditorCreating = creating;
+    aircraftPresetEditorAssignQuickSlot = creating && Number.isInteger(options.assignQuickSlot) ? options.assignQuickSlot : null;
     aircraftPresetEditorReturnFocus = sourceControl || event?.currentTarget || document.activeElement;
-    populateAircraftPresetEditor(resolvedSlot);
+    populateAircraftPresetEditor(resolvedSlot, { creating });
     backdrop.hidden = false;
     dialog.setAttribute('aria-hidden', 'false');
     document.body.classList.add('aircraft-preset-editor-open');
     requestAnimationFrame(() => document.getElementById('aircraftPresetEditorName')?.focus?.({ preventScroll: true }));
 }
 window.openAircraftPresetEditor = openAircraftPresetEditor;
+
+function createAircraftPreset(event = null, sourceControl = null, options = {}) {
+    openAircraftPresetEditor(null, event, sourceControl, { creating: true, assignQuickSlot: options.assignQuickSlot });
+}
+window.createAircraftPreset = createAircraftPreset;
 
 function closeAircraftPresetEditor(event = null, options = {}) {
     event?.preventDefault?.();
@@ -806,42 +980,286 @@ function closeAircraftPresetEditor(event = null, options = {}) {
     dialog.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('aircraft-preset-editor-open');
     activeAircraftPresetEditorSlot = null;
+    aircraftPresetEditorCreating = false;
+    aircraftPresetEditorAssignQuickSlot = null;
     const returnFocus = aircraftPresetEditorReturnFocus;
     aircraftPresetEditorReturnFocus = null;
-    if (options.restoreFocus !== false) returnFocus?.focus?.({ preventScroll: true });
+    if (options.restoreFocus !== false && returnFocus?.isConnected) returnFocus.focus?.({ preventScroll: true });
 }
 window.closeAircraftPresetEditor = closeAircraftPresetEditor;
 
 function saveAircraftPresetFromEditor(event = null) {
     event?.preventDefault?.();
-    const slotId = AIRCRAFT_PRESET_SLOT_ORDER.includes(activeAircraftPresetEditorSlot)
-        ? activeAircraftPresetEditorSlot
-        : 'C172';
-    const current = getAircraftPreset(slotId);
-    const selectedClass = document.querySelector('input[name="aircraftPresetEditorClass"]:checked')?.value;
-    const aircraftTags = Array.from(document.querySelectorAll('[data-aircraft-editor-tag]:checked'))
-        .map(input => input.value);
-    const next = commitAircraftPresetUpdate(slotId, {
-        name: document.getElementById('aircraftPresetEditorName')?.value ?? current.name,
-        tas: document.getElementById('aircraftPresetEditorTas')?.value ?? current.tas,
-        gph: document.getElementById('aircraftPresetEditorGph')?.value ?? current.gph,
-        pax: document.getElementById('aircraftPresetEditorPax')?.value ?? current.pax,
-        maxPayloadKg: document.getElementById('aircraftPresetEditorMaxPayload')?.value ?? current.maxPayloadKg,
-        aircraftClass: selectedClass ?? current.aircraftClass,
-        aircraftTags,
-        boarding: current.boarding
+    if (aircraftPresetEditorCreating) {
+        if (aircraftPresetOrder.length >= AIRCRAFT_PRESET_MAX) {
+            closeAircraftPresetEditor(null);
+            return false;
+        }
+        const candidate = readAircraftPresetEditorCandidate(normalizeAircraftPreset('', AIRCRAFT_PRESET_NEW_DEFAULT));
+        const newId = generateAircraftPresetId(sanitizeAircraftPresetName('', candidate.name));
+        aircraftPresets[newId] = normalizeAircraftPreset(newId, candidate);
+        aircraftPresetOrder.push(newId);
+        const assignSlot = aircraftPresetEditorAssignQuickSlot;
+        const returnFocus = aircraftPresetEditorReturnFocus;
+        closeAircraftPresetEditor(null, { restoreFocus: false });
+        if (assignSlot !== null) {
+            assignAircraftQuickSlot(assignSlot, newId);
+            if (returnFocus?.isConnected) returnFocus.focus?.({ preventScroll: true });
+            return false;
+        }
+        saveAircraftPresets();
+        updateAircraftPresetButtonsUI();
+        setAircraftPresetStatus(`${aircraftPresets[newId].name} angelegt`, '#4caf50');
+        scheduleAircraftPresetCloudSync();
+        document.querySelector(`#settingsPresetButtons [data-preset-slot="${CSS.escape(newId)}"]`)?.focus?.({ preventScroll: true });
+        return false;
+    }
+    if (!hasAircraftPreset(activeAircraftPresetEditorSlot)) {
+        closeAircraftPresetEditor(null);
+        return false;
+    }
+    const slotId = activeAircraftPresetEditorSlot;
+    const next = commitAircraftPresetUpdate(slotId, readAircraftPresetEditorCandidate(getAircraftPreset(slotId)), {
+        selectSettingsSlot: false
     });
-    setAircraftPresetStatus(`${getAircraftPresetSlotLabel(slotId)} · ${next.name} gespeichert`, '#4caf50');
+    setAircraftPresetStatus(`${next.name} gespeichert`, '#4caf50');
     closeAircraftPresetEditor(null, { restoreFocus: true });
     return false;
 }
 window.saveAircraftPresetFromEditor = saveAircraftPresetFromEditor;
 
+function deleteAircraftPreset(presetId) {
+    if (!hasAircraftPreset(presetId) || aircraftPresetOrder.length <= 1) return false;
+    const name = getAircraftPreset(presetId).name;
+    delete aircraftPresets[presetId];
+    aircraftPresetOrder = aircraftPresetOrder.filter(id => id !== presetId);
+    // Frei werdende Schnellwahl bevorzugt mit einem Preset belegen, das noch
+    // auf keinem anderen Button liegt.
+    let firstReplacedIndex = -1;
+    aircraftQuickSlots.forEach((id, index) => {
+        if (id !== presetId) return;
+        if (firstReplacedIndex < 0) firstReplacedIndex = index;
+        aircraftQuickSlots[index] = aircraftPresetOrder.find(candidate => !aircraftQuickSlots.includes(candidate))
+            || aircraftPresetOrder[0];
+    });
+    saveAircraftPresets();
+    if (activeAircraftPresetSettingsSlot === presetId) {
+        activeAircraftPresetSettingsSlot = resolveAircraftPresetId(selectedAC);
+        window.activeAircraftPresetSettingsSlot = activeAircraftPresetSettingsSlot;
+    }
+    if (selectedAC === presetId) {
+        const slotIndex = Math.max(0, firstReplacedIndex);
+        activeAircraftQuickSlotIndex = slotIndex;
+        applyAircraftPresetSlot(aircraftQuickSlots[slotIndex]);
+    }
+    updateAircraftPresetButtonsUI();
+    selectAircraftPresetSlotFromSettings(activeAircraftPresetSettingsSlot);
+    setAircraftPresetStatus(`${name} gelöscht`, '#e0a040');
+    scheduleAircraftPresetCloudSync();
+    return true;
+}
+window.deleteAircraftPreset = deleteAircraftPreset;
+
+function deleteAircraftPresetFromEditor(event = null) {
+    event?.preventDefault?.();
+    const presetId = activeAircraftPresetEditorSlot;
+    if (aircraftPresetEditorCreating || !hasAircraftPreset(presetId)) return;
+    const name = getAircraftPreset(presetId).name;
+    const slots = aircraftQuickSlots.map((id, index) => (id === presetId ? index + 1 : null)).filter(Boolean);
+    const slotNote = slots.length ? `\nEs liegt auf Schnellwahl ${slots.join(', ')} und wird dort ersetzt.` : '';
+    if (!confirm(`Preset „${name}“ wirklich löschen?${slotNote}`)) return;
+    closeAircraftPresetEditor(null, { restoreFocus: false });
+    deleteAircraftPreset(presetId);
+    document.querySelector('#settingsPresetButtons .settings-preset-add')?.focus?.({ preventScroll: true });
+}
+window.deleteAircraftPresetFromEditor = deleteAircraftPresetFromEditor;
+
+// --- Schnellwahl: Klick wählt, Langdruck/Rechtsklick öffnet die Zuweisung ---
+
+let aircraftQuickSlotMenuState = null;
+
+function isAircraftQuickSlotMenuOpen() {
+    return !!aircraftQuickSlotMenuState;
+}
+
+function getAircraftQuickSlotMenuEl() {
+    let menu = document.getElementById('aircraftQuickSlotMenu');
+    if (!menu) {
+        menu = document.createElement('div');
+        menu.id = 'aircraftQuickSlotMenu';
+        menu.className = 'aircraft-quick-slot-menu';
+        menu.setAttribute('role', 'menu');
+        menu.hidden = true;
+        menu.addEventListener('keydown', handleAircraftQuickSlotMenuKeydown);
+        document.body.appendChild(menu);
+    }
+    return menu;
+}
+
+function renderAircraftQuickSlotMenu() {
+    if (!aircraftQuickSlotMenuState) return;
+    const { index } = aircraftQuickSlotMenuState;
+    const menu = getAircraftQuickSlotMenuEl();
+    const assignedId = aircraftQuickSlots[index];
+    menu.replaceChildren();
+    menu.setAttribute('aria-label', `Preset für Schnellwahl ${index + 1} wählen`);
+
+    const head = document.createElement('div');
+    head.className = 'aircraft-quick-slot-menu-head';
+    head.textContent = `Schnellwahl ${index + 1} belegen`;
+    menu.appendChild(head);
+
+    aircraftPresetOrder.forEach(presetId => {
+        const preset = getAircraftPreset(presetId);
+        const item = document.createElement('button');
+        item.type = 'button';
+        item.className = 'aircraft-quick-slot-menu-item';
+        item.setAttribute('role', 'menuitemradio');
+        item.setAttribute('aria-checked', String(presetId === assignedId));
+        item.dataset.presetId = presetId;
+        const name = document.createElement('span');
+        name.className = 'aircraft-quick-slot-menu-name';
+        name.textContent = preset.name;
+        const meta = document.createElement('span');
+        meta.className = 'aircraft-quick-slot-menu-meta';
+        meta.textContent = `${getAircraftClassOption(preset.aircraftClass).label} · ${preset.tas} kt · ${preset.gph} GPH · ${preset.pax} Sitze`;
+        item.append(name, meta);
+        item.addEventListener('click', event => {
+            event.preventDefault();
+            assignAircraftQuickSlot(index, presetId);
+        });
+        menu.appendChild(item);
+    });
+
+    const divider = document.createElement('div');
+    divider.className = 'aircraft-quick-slot-menu-divider';
+    divider.setAttribute('role', 'separator');
+    menu.appendChild(divider);
+
+    const edit = document.createElement('button');
+    edit.type = 'button';
+    edit.className = 'aircraft-quick-slot-menu-action';
+    edit.setAttribute('role', 'menuitem');
+    edit.textContent = `✎ ${getAircraftPreset(assignedId).name} bearbeiten`;
+    edit.addEventListener('click', event => {
+        const control = aircraftQuickSlotMenuState?.control || null;
+        openAircraftPresetEditor(assignedId, event, control);
+    });
+    menu.appendChild(edit);
+
+    if (aircraftPresetOrder.length < AIRCRAFT_PRESET_MAX) {
+        const create = document.createElement('button');
+        create.type = 'button';
+        create.className = 'aircraft-quick-slot-menu-action';
+        create.setAttribute('role', 'menuitem');
+        create.textContent = `+ Neues Preset für Schnellwahl ${index + 1}`;
+        create.addEventListener('click', event => {
+            const control = aircraftQuickSlotMenuState?.control || null;
+            createAircraftPreset(event, control, { assignQuickSlot: index });
+        });
+        menu.appendChild(create);
+    }
+}
+
+function positionAircraftQuickSlotMenu() {
+    if (!aircraftQuickSlotMenuState) return;
+    const menu = getAircraftQuickSlotMenuEl();
+    const rect = aircraftQuickSlotMenuState.control.getBoundingClientRect();
+    const margin = 8;
+    const vw = document.documentElement.clientWidth || window.innerWidth;
+    const vh = document.documentElement.clientHeight || window.innerHeight;
+    menu.style.maxHeight = `${Math.max(160, vh - margin * 2)}px`;
+    const width = menu.offsetWidth;
+    const height = menu.offsetHeight;
+    let left = rect.left + rect.width / 2 - width / 2;
+    left = Math.max(margin, Math.min(left, vw - width - margin));
+    let top = rect.bottom + 6;
+    if (top + height > vh - margin) top = rect.top - height - 6;
+    top = Math.max(margin, Math.min(top, vh - height - margin));
+    menu.style.left = `${Math.round(left)}px`;
+    menu.style.top = `${Math.round(top)}px`;
+}
+
+function openAircraftQuickSlotMenu(index, control, event = null) {
+    event?.preventDefault?.();
+    event?.stopPropagation?.();
+    const slotIndex = Number(index);
+    if (!Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex >= AIRCRAFT_QUICK_SLOT_COUNT) return;
+    if (typeof closeSettingsHelp === 'function') closeSettingsHelp();
+    aircraftQuickSlotMenuState = { index: slotIndex, control };
+    document.querySelectorAll('[data-quick-slot][aria-expanded="true"]').forEach(el => el.setAttribute('aria-expanded', 'false'));
+    control?.setAttribute('aria-expanded', 'true');
+    renderAircraftQuickSlotMenu();
+    const menu = getAircraftQuickSlotMenuEl();
+    menu.hidden = false;
+    positionAircraftQuickSlotMenu();
+    requestAnimationFrame(() => {
+        const current = menu.querySelector('[aria-checked="true"]') || menu.querySelector('button');
+        current?.focus?.({ preventScroll: true });
+    });
+}
+window.openAircraftQuickSlotMenu = openAircraftQuickSlotMenu;
+
+function closeAircraftQuickSlotMenu(options = {}) {
+    if (!aircraftQuickSlotMenuState) return;
+    const control = aircraftQuickSlotMenuState.control;
+    aircraftQuickSlotMenuState = null;
+    const menu = document.getElementById('aircraftQuickSlotMenu');
+    if (menu) menu.hidden = true;
+    control?.setAttribute('aria-expanded', 'false');
+    if (options.restoreFocus !== false && control?.isConnected) control.focus?.({ preventScroll: true });
+}
+window.closeAircraftQuickSlotMenu = closeAircraftQuickSlotMenu;
+
+function handleAircraftQuickSlotMenuKeydown(event) {
+    const items = Array.from(event.currentTarget.querySelectorAll('button:not([disabled])'));
+    const currentIndex = items.indexOf(document.activeElement);
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        const step = event.key === 'ArrowDown' ? 1 : -1;
+        const next = items[(currentIndex + step + items.length) % items.length];
+        next?.focus?.({ preventScroll: true });
+    } else if (event.key === 'Home' || event.key === 'End') {
+        event.preventDefault();
+        (event.key === 'Home' ? items[0] : items[items.length - 1])?.focus?.({ preventScroll: true });
+    } else if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        closeAircraftQuickSlotMenu();
+    } else if (event.key === 'Tab') {
+        closeAircraftQuickSlotMenu({ restoreFocus: false });
+    }
+}
+
+function assignAircraftQuickSlot(index, presetId) {
+    const slotIndex = Number(index);
+    if (!hasAircraftPreset(presetId) || !Number.isInteger(slotIndex) || slotIndex < 0 || slotIndex >= AIRCRAFT_QUICK_SLOT_COUNT) return;
+    aircraftQuickSlots[slotIndex] = presetId;
+    saveAircraftPresets();
+    closeAircraftQuickSlotMenu();
+    activeAircraftQuickSlotIndex = slotIndex;
+    applyAircraftPresetSlot(presetId);
+    updateAircraftPresetButtonsUI();
+    setAircraftPresetStatus(`Schnellwahl ${slotIndex + 1}: ${getAircraftPreset(presetId).name}`, '#4caf50');
+    scheduleAircraftPresetCloudSync();
+}
+window.assignAircraftQuickSlot = assignAircraftQuickSlot;
+
+function applyAircraftQuickSlot(index) {
+    const slotIndex = Number(index);
+    const presetId = aircraftQuickSlots[slotIndex];
+    if (!hasAircraftPreset(presetId)) return;
+    activeAircraftQuickSlotIndex = slotIndex;
+    applyAircraftPresetSlot(presetId);
+}
+window.applyAircraftQuickSlot = applyAircraftQuickSlot;
+
 function initAircraftPresetInteractions() {
-    document.querySelectorAll('[data-aircraft-slot]').forEach(control => {
+    document.querySelectorAll('[data-quick-slot]').forEach(control => {
         if (control.dataset.aircraftPresetEditorBound === '1') return;
         control.dataset.aircraftPresetEditorBound = '1';
-        control.setAttribute('aria-haspopup', 'dialog');
+        control.setAttribute('aria-haspopup', 'menu');
+        control.setAttribute('aria-expanded', 'false');
         if (control.tagName !== 'BUTTON') {
             control.setAttribute('role', 'button');
             if (!control.hasAttribute('tabindex')) control.tabIndex = 0;
@@ -867,7 +1285,7 @@ function initAircraftPresetInteractions() {
                 control.classList.remove('aircraft-preset-longpress-active');
                 try { window.getSelection?.()?.removeAllRanges?.(); } catch (_) {}
                 control.dataset.aircraftPresetSuppressClickUntil = String(Date.now() + 1200);
-                openAircraftPresetEditor(control.dataset.aircraftSlot, event, control);
+                openAircraftQuickSlotMenu(control.dataset.quickSlot, control, event);
             }, 650);
         });
         control.addEventListener('pointermove', event => {
@@ -886,13 +1304,17 @@ function initAircraftPresetInteractions() {
         control.addEventListener('contextmenu', event => {
             cancelPress();
             try { window.getSelection?.()?.removeAllRanges?.(); } catch (_) {}
-            openAircraftPresetEditor(control.dataset.aircraftSlot, event);
+            openAircraftQuickSlotMenu(control.dataset.quickSlot, control, event);
         });
         control.addEventListener('selectstart', event => event.preventDefault());
         control.addEventListener('dragstart', event => event.preventDefault());
         control.addEventListener('keydown', event => {
-            if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')) {
-                openAircraftPresetEditor(control.dataset.aircraftSlot, event);
+            if (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10')
+                || (event.altKey && event.key === 'ArrowDown')) {
+                openAircraftQuickSlotMenu(control.dataset.quickSlot, control, event);
+            } else if (control.tagName !== 'BUTTON' && (event.key === 'Enter' || event.key === ' ')) {
+                event.preventDefault();
+                control.click();
             }
         });
     });
@@ -906,18 +1328,33 @@ function initAircraftPresetInteractions() {
     }
     if (document.documentElement.dataset.aircraftPresetKeyBound !== '1') {
         document.addEventListener('keydown', event => {
-            if (event.key === 'Escape' && !document.getElementById('aircraftPresetEditorBackdrop')?.hidden) {
+            if (event.key === 'Escape' && isAircraftQuickSlotMenuOpen()) {
+                closeAircraftQuickSlotMenu();
+            } else if (event.key === 'Escape' && !document.getElementById('aircraftPresetEditorBackdrop')?.hidden) {
                 closeAircraftPresetEditor(event);
             }
         });
+        document.addEventListener('pointerdown', event => {
+            if (!isAircraftQuickSlotMenuOpen()) return;
+            const menu = document.getElementById('aircraftQuickSlotMenu');
+            if (menu?.contains(event.target) || aircraftQuickSlotMenuState.control?.contains(event.target)) return;
+            closeAircraftQuickSlotMenu({ restoreFocus: false });
+        }, true);
+        window.addEventListener('resize', () => closeAircraftQuickSlotMenu({ restoreFocus: false }));
+        window.addEventListener('scroll', event => {
+            const menu = document.getElementById('aircraftQuickSlotMenu');
+            if (menu && event.target instanceof Node && menu.contains(event.target)) return;
+            closeAircraftQuickSlotMenu({ restoreFocus: false });
+        }, true);
         document.documentElement.dataset.aircraftPresetKeyBound = '1';
     }
 }
 window.initAircraftPresetInteractions = initAircraftPresetInteractions;
 
 function applyAircraftPresetSlot(slotId) {
-    const preset = getAircraftPreset(slotId);
-    applyPreset(preset.tas, preset.gph, preset.pax, slotId);
+    const presetId = resolveAircraftPresetId(slotId);
+    const preset = getAircraftPreset(presetId);
+    applyPreset(preset.tas, preset.gph, preset.pax, presetId);
 }
 window.applyAircraftPresetSlot = applyAircraftPresetSlot;
 
@@ -1000,7 +1437,7 @@ function applyPersistedMainPerformanceSettings() {
         vpClimbRate = rate;
         vpDescentRate = rate;
     }
-    if (AIRCRAFT_PRESET_SLOT_ORDER.includes(aircraft)) {
+    if (hasAircraftPreset(aircraft)) {
         selectedAC = aircraft;
         window.selectedAC = selectedAC;
     }
@@ -2002,8 +2439,9 @@ const SETTINGS_HELP_CONTENT = {
         title: 'Presets',
         intro: 'Aircraft Presets speichern die wichtigsten Planungswerte deines Flugzeugs, damit Missionen und Zeiten realistischer werden.',
         items: [
-            { term: 'Slot', text: 'Waehlt einen von drei Speicherplaetzen fuer Flugzeugprofile.' },
-            { term: 'Schnell bearbeiten', text: 'Rechtsklick oder Langdruck auf einen Preset-Button oeffnet den Editor direkt. Ein normaler Klick waehlt das Preset weiterhin aus.' },
+            { term: 'Preset-Liste', text: 'Bis zu 10 Flugzeug-Presets. Mit + legst du ein neues an, ein Klick auf ein Preset oeffnet den Editor. Dort kannst du es auch loeschen.' },
+            { term: 'Schnellwahl', text: 'Die drei Buttons bei den Missionsparametern sind Schnellwahl-Plaetze. Ein Klick waehlt das zugewiesene Preset. Rechtsklick oder Langdruck oeffnet eine Liste, aus der du dem Button ein anderes Preset zuweist.' },
+            { term: 'Boarding-Szene', text: 'Die Boarding-Punkte werden pro Preset gespeichert. Waehle das Preset in der Auswahl ueber dem Boarding-Editor.' },
             { term: 'Name', text: 'Freier Anzeigename fuer das Flugzeug.' },
             { term: 'TAS', text: 'True Airspeed in Knoten. Dieser Wert bestimmt die geplante Reisegeschwindigkeit.' },
             { term: 'GPH', text: 'Fuel Flow in Gallonen pro Stunde. Damit schaetzt die App den Verbrauch.' },
@@ -2011,7 +2449,7 @@ const SETTINGS_HELP_CONTENT = {
             { term: 'Max. Zuladung', text: 'Maximale Zuladung in Kilogramm. Der Wert wird als Flugzeug-Metadatum gespeichert und kann spaeter fuer Payload-Pruefungen genutzt werden.' },
             { term: 'Klasse', text: 'Technische Klasse wie SEP, MEP, Turboprop, Jet oder Heli.' },
             { term: 'Einsatzprofile', text: 'Privat/Reise, Business/Charter, Cargo, Utility/Arbeit, Bush/STOL und Training begrenzen nur die echte Zufallsrotation. Ohne Auswahl bleibt Auto uneingeschraenkt; eine konkrete Mission-Picker-Auswahl bleibt immer moeglich.' },
-            { term: 'Preset speichern', text: 'Speichert alle Werte im gewaehlten Slot. Angemeldet koennen sie auch synchronisiert werden.' }
+            { term: 'Preset speichern', text: 'Speichert alle Werte des Presets. Angemeldet werden Presets und Schnellwahl mit der Pilot-ID synchronisiert.' }
         ]
     },
     'boarding-scene': {
@@ -6514,8 +6952,9 @@ function updateOpsSelectorDials() {
 }
 
 function updateOpsAircraftSwitches() {
-    document.querySelectorAll('.preset-row .btn-preset[data-aircraft]').forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.aircraft === selectedAC);
+    const activeIndex = getActiveAircraftQuickSlotIndex();
+    document.querySelectorAll('.preset-row .btn-preset[data-quick-slot]').forEach(btn => {
+        btn.classList.toggle('active', Number(btn.dataset.quickSlot) === activeIndex);
     });
 }
 
@@ -10380,7 +10819,7 @@ function refreshAllDrums() {
 function applyPreset(t, g, s, n) {
     document.getElementById('tasSlider').value = t; document.getElementById('gphSlider').value = g;
     document.getElementById('maxSeats').value = s;
-    if (AIRCRAFT_PRESET_SLOT_ORDER.includes(n)) {
+    if (hasAircraftPreset(n)) {
         selectedAC = n;
         window.selectedAC = selectedAC;
     }
