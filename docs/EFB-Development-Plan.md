@@ -1,3 +1,13 @@
+## NAVCOM-Modus und Media Player neustartfest – Alpha-Rollout Tracker v591 / Web v2208 (24.10.2026)
+
+Tester: NAVCOM-Wahl und Mediensteuerung gingen im EFB bei jedem Neustart verloren. Ursache
+NAVCOM: unbedingter `AbortController` im NAVCOM-Client; Coherent hat ihn teils nicht, jede
+Anfrage scheiterte still, der Tracker erhielt die Wahl nie. Jetzt nur bei Verfügbarkeit, mit
+eigener Zeitgrenze. Media Player lag nur im Webansicht-Speicher; `mediaEnabled`/`mediaSkin`
+jetzt in `efbDisplay.ui` der Tracker-Config, Weg wie Kartenfenster/Uhr-Skin. Host-Assetrevision
+59101. Community-Paket und Desktop-Installer unverändert, nur Alpha-Runtime, Stable unverändert.
+Details: [Tracker-v591-Release.md](Tracker-v591-Release.md). Reale MSFS-Abnahme bleibt offen.
+
 ## Win95-Korrekturen – Alpha-Rollout Tracker v570 / Web v2163 (19.10.2026)
 
 Nutzer autorisiert den Rollout des geprüften Win95-Kandidaten. Tracker v570,

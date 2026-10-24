@@ -441,6 +441,13 @@
       window.gaMapDisplayAdapter.apply(key); changed = true;
     });
     if (typeof ui.clockSkin === 'string' && !Object.prototype.hasOwnProperty.call(uiPending,'clockSkin') && window.GAClockSkins) window.GAClockSkins.select(ui.clockSkin, false);
+    var media = window.gaMediaPlayerClient;
+    if (media && media.applyPreferences) {
+      var mediaPatch = {};
+      if (typeof ui.mediaEnabled === 'boolean' && !Object.prototype.hasOwnProperty.call(uiPending,'mediaEnabled')) mediaPatch.enabled = ui.mediaEnabled;
+      if (typeof ui.mediaSkin === 'string' && !Object.prototype.hasOwnProperty.call(uiPending,'mediaSkin')) mediaPatch.skin = ui.mediaSkin;
+      media.applyPreferences(mediaPatch);
+    }
     [['clockSource','source'],['clockZone','zone']].forEach(function(item) {
       if (typeof ui[item[0]] !== 'string' || Object.prototype.hasOwnProperty.call(uiPending,item[0])) return;
       if (window.GADisplayClock.settings()[item[1]] === ui[item[0]]) return;
@@ -490,6 +497,9 @@
     if (uiPreferenceKeys.indexOf(key) >= 0) queueUiPreference(key, value);
   };
   window.gaPersistDisplayClockSetting = queueUiPreference;
+  window.gaPersistMediaSetting = function(key, value) {
+    if (key === 'mediaEnabled' || key === 'mediaSkin') queueUiPreference(key, value);
+  };
   window.gaPersistProfileSetting = function(key, value) {
     if (key === 'profileAltitudeFt' || key === 'profileRateFpm') queueUiPreference(key, value);
   };
@@ -499,6 +509,10 @@
     var clockSettings = window.GADisplayClock.settings();
     seed.clockSource = clockSettings.source; seed.clockZone = clockSettings.zone;
     if (window.GAClockSkins) seed.clockSkin = window.GAClockSkins.selected();
+    if (window.gaMediaPlayerClient && window.gaMediaPlayerClient.preferences) {
+      var mediaPreferences = window.gaMediaPlayerClient.preferences();
+      seed.mediaEnabled = mediaPreferences.enabled; seed.mediaSkin = mediaPreferences.skin;
+    }
     uiLoading = true;
     displaySettingsRequest({initializeUi: seed}).then(function(display) {
       applyUiPreferences(display); uiLoading = false; flushUiPreferences();

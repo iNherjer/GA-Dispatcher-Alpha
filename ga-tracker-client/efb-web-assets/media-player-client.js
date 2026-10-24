@@ -271,17 +271,32 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     }
     var ui = createSkin();
     ui.setEnabled(enabled);
-    check.onchange = function () {
-      enabled = check.checked;
+    // The simulator web view does not keep localStorage across restarts; the Tracker config is the durable copy.
+    function persist(key, value) {
+      if (typeof root.gaPersistMediaSetting === 'function') root.gaPersistMediaSetting(key, value);
+    }
+    function setEnabled(value, save) {
+      value = value === true;
+      if (value === enabled && save === false) return;
+      enabled = value;
+      check.checked = enabled;
       savePreferences();
       ui.setEnabled(enabled);
       if (root.gaEfbRefreshMediaSettings) root.gaEfbRefreshMediaSettings();
+      if (save !== false) persist('mediaEnabled', enabled);
+    }
+    check.onchange = function () {
+      setEnabled(check.checked);
     };
-    container.querySelector('.ga-media-skin').onchange = function () {
+    function setSkin(value, save) {
+      var next = ['ipod', 'watch'].indexOf(value) >= 0 ? value : 'winamp';
+      if (next === skin && save === false) return;
+      var skinSelect = container.querySelector('.ga-media-skin');
+      if (skinSelect.value !== next) skinSelect.value = next;
       clockEntry = null;
       replacing = true;
       var reopen = open;
-      skin = ['ipod', 'watch'].indexOf(this.value) >= 0 ? this.value : 'winamp';
+      skin = next;
       savePreferences();
       epoch++;
       clearTimeout(watchTimer);
@@ -293,6 +308,11 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       if (reopen && enabled) ui.open();
       render();
       if (root.gaMediaPlayerClient) root.gaMediaPlayerClient.ui = ui;
+      if (root.gaEfbRefreshMediaSettings) root.gaEfbRefreshMediaSettings();
+      if (save !== false) persist('mediaSkin', skin);
+    }
+    container.querySelector('.ga-media-skin').onchange = function () {
+      setSkin(this.value);
     };
     function publishUi() {
       if (root.gaMediaPlayerClient) root.gaMediaPlayerClient.ui = ui;
@@ -407,6 +427,17 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     root.gaMediaPlayerClient = {
       receive: receive,
       ui: ui,
+      preferences: function preferences() {
+        return {
+          enabled: enabled,
+          skin: skin
+        };
+      },
+      applyPreferences: function applyPreferences(value) {
+        if (!value) return;
+        if (typeof value.enabled === 'boolean') setEnabled(value.enabled, false);
+        if (typeof value.skin === 'string') setSkin(value.skin, false);
+      },
       openClock: openClock,
       closeClock: function closeClock() {
         if (clockEntry) ui.close();

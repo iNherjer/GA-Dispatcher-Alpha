@@ -56,8 +56,12 @@
     onViewChange:function(){if(root.GAClockSkins)root.GAClockSkins.refresh();},onVisibilityChange:function(value){open=value;epoch++;clearTimeout(watchTimer);nextWatchAt=0;if(value)watch();if(!value&&clockEntry&&!replacing){var entry=clockEntry;setTimeout(function(){if(clockEntry===entry)restoreClock();},0);}if(root.GAClockSkins)root.GAClockSkins.refresh();}});}
   var ui=createSkin();
   ui.setEnabled(enabled);
-  check.onchange=function(){enabled=check.checked;savePreferences();ui.setEnabled(enabled);if(root.gaEfbRefreshMediaSettings)root.gaEfbRefreshMediaSettings();};
-  container.querySelector('.ga-media-skin').onchange=function(){clockEntry=null;replacing=true;var reopen=open;skin=['ipod','watch'].indexOf(this.value)>=0?this.value:'winamp';savePreferences();epoch++;clearTimeout(watchTimer);ui.destroy();open=false;ui=createSkin();ui.setEnabled(enabled);replacing=false;if(reopen&&enabled)ui.open();render();if(root.gaMediaPlayerClient)root.gaMediaPlayerClient.ui=ui;};
+  // The simulator web view does not keep localStorage across restarts; the Tracker config is the durable copy.
+  function persist(key,value){if(typeof root.gaPersistMediaSetting==='function')root.gaPersistMediaSetting(key,value);}
+  function setEnabled(value,save){value=value===true;if(value===enabled&&save===false)return;enabled=value;check.checked=enabled;savePreferences();ui.setEnabled(enabled);if(root.gaEfbRefreshMediaSettings)root.gaEfbRefreshMediaSettings();if(save!==false)persist('mediaEnabled',enabled);}
+  check.onchange=function(){setEnabled(check.checked);};
+  function setSkin(value,save){var next=['ipod','watch'].indexOf(value)>=0?value:'winamp';if(next===skin&&save===false)return;var skinSelect=container.querySelector('.ga-media-skin');if(skinSelect.value!==next)skinSelect.value=next;clockEntry=null;replacing=true;var reopen=open;skin=next;savePreferences();epoch++;clearTimeout(watchTimer);ui.destroy();open=false;ui=createSkin();ui.setEnabled(enabled);replacing=false;if(reopen&&enabled)ui.open();render();if(root.gaMediaPlayerClient)root.gaMediaPlayerClient.ui=ui;if(root.gaEfbRefreshMediaSettings)root.gaEfbRefreshMediaSettings();if(save!==false)persist('mediaSkin',skin);}
+  container.querySelector('.ga-media-skin').onchange=function(){setSkin(this.value);};
   function publishUi(){if(root.gaMediaPlayerClient)root.gaMediaPlayerClient.ui=ui;}
   function restoreClock(){
    if(!clockEntry)return;var resume=clockEntry.reopen;clockEntry=null;replacing=true;epoch++;clearTimeout(watchTimer);ui.destroy();open=false;ui=createSkin();ui.setEnabled(enabled);replacing=false;if(resume&&enabled)ui.open();render();publishUi();if(root.GAClockSkins)root.GAClockSkins.refresh();
@@ -82,7 +86,7 @@
   },1000);
   root.addEventListener('visibilitychange',function(){epoch++;if(!document.hidden)watch();});
   root.addEventListener('pagehide',function(){closed=true;clearInterval(timer);clearTimeout(watchTimer);if(audible.size)send({action:'duck',active:false}).catch(function(){});audible.clear();});
-  root.gaMediaPlayerClient={receive:receive,ui:ui,openClock:openClock,closeClock:function(){if(clockEntry)ui.close();},isClockOpen:function(){return !!clockEntry&&open&&!!(ui.isClockView&&ui.isClockView());}};
+  root.gaMediaPlayerClient={receive:receive,ui:ui,preferences:function(){return{enabled:enabled,skin:skin};},applyPreferences:function(value){if(!value)return;if(typeof value.enabled==='boolean')setEnabled(value.enabled,false);if(typeof value.skin==='string')setSkin(value.skin,false);},openClock:openClock,closeClock:function(){if(clockEntry)ui.close();},isClockOpen:function(){return !!clockEntry&&open&&!!(ui.isClockView&&ui.isClockView());}};
   if(root.gaEfbMediaSettings)root.gaEfbMediaSettings(container);
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();

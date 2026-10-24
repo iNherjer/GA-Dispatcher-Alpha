@@ -5,11 +5,19 @@
     let identity = '', cloud = null, pendingKey = '', busy = false, generation = 0, nativePending = null;
     function visible() { return document.visibilityState !== 'hidden'; }
     async function request(url, init) {
-        const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 15000);
+        // Coherent (MSFS EFB) may lack AbortController; without this guard every
+        // request threw and the EFB choice never reached the Tracker.
+        const controller = typeof AbortController === 'function' ? new AbortController() : null;
+        let timeout = null;
+        const deadline = new Promise((_, reject) => {
+            timeout = setTimeout(() => { if (controller) controller.abort(); reject(new Error('navcom_request_timeout')); }, 15000);
+        });
         try {
-            const response = await fetch(url, { ...init, signal: controller.signal, cache: 'no-store' });
-            const data = JSON.parse(await response.text());
-            return { ok: response.ok, status: response.status, json: async () => data };
+            return await Promise.race([deadline, (async () => {
+                const response = await fetch(url, { ...init, ...(controller ? { signal: controller.signal } : {}), cache: 'no-store' });
+                const data = JSON.parse(await response.text());
+                return { ok: response.ok, status: response.status, json: async () => data };
+            })()]);
         } finally { clearTimeout(timeout); }
     }
     function connect() {

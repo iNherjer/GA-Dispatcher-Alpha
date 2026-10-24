@@ -4,7 +4,7 @@ function validScale(value) {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0.5 && value <= 3;
 }
 
-const UI_BOOLEAN_KEYS = ['telemetry', 'currentInfo', 'nextLeg', 'routeProgress', 'compass', 'lowFps', 'autoZoom', 'zoomControl', 'terrainAvoid', 'magentaLine', 'favoriteAirports', 'profileVisible', 'toolbarCollapsed'];
+const UI_BOOLEAN_KEYS = ['telemetry', 'currentInfo', 'nextLeg', 'routeProgress', 'compass', 'lowFps', 'autoZoom', 'zoomControl', 'terrainAvoid', 'magentaLine', 'favoriteAirports', 'profileVisible', 'toolbarCollapsed', 'mediaEnabled'];
 function normalizeUi(value) {
   const result = {};
   if (!value || typeof value !== 'object' || Array.isArray(value)) return result;
@@ -14,6 +14,7 @@ function normalizeUi(value) {
   if (['device', 'simulator'].includes(value.clockSource)) result.clockSource = value.clockSource;
   if (['utc', 'local'].includes(value.clockZone)) result.clockZone = value.clockZone;
   if (['stopwatch', 'watch'].includes(value.clockSkin)) result.clockSkin = value.clockSkin;
+  if (['winamp', 'ipod', 'watch'].includes(value.mediaSkin)) result.mediaSkin = value.mediaSkin;
   return result;
 }
 function normalizeDisplaySettings(value) {

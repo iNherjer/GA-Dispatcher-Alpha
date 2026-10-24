@@ -26,51 +26,72 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     return _request.apply(this, arguments);
   }
   function _request() {
-    _request = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(url, init) {
-      var controller, timeout, response, data, _t;
-      return _regenerator().w(function (_context3) {
-        while (1) switch (_context3.p = _context3.n) {
+    _request = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(url, init) {
+      var controller, timeout, deadline;
+      return _regenerator().w(function (_context4) {
+        while (1) switch (_context4.p = _context4.n) {
           case 0:
-            controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 15000);
-            _context3.p = 1;
-            _context3.n = 2;
-            return fetch(url, _objectSpread(_objectSpread({}, init), {}, {
-              signal: controller.signal,
-              cache: 'no-store'
-            }));
-          case 2:
-            response = _context3.v;
-            _t = JSON;
-            _context3.n = 3;
-            return response.text();
-          case 3:
-            data = _t.parse.call(_t, _context3.v);
-            return _context3.a(2, {
-              ok: response.ok,
-              status: response.status,
-              json: function () {
-                var _json = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
-                  return _regenerator().w(function (_context2) {
-                    while (1) switch (_context2.n) {
-                      case 0:
-                        return _context2.a(2, data);
-                    }
-                  }, _callee2);
-                }));
-                function json() {
-                  return _json.apply(this, arguments);
-                }
-                return json;
-              }()
+            // Coherent (MSFS EFB) may lack AbortController; without this guard every
+            // request threw and the EFB choice never reached the Tracker.
+            controller = typeof AbortController === 'function' ? new AbortController() : null;
+            timeout = null;
+            deadline = new Promise((_, reject) => {
+              timeout = setTimeout(() => {
+                if (controller) controller.abort();
+                reject(new Error('navcom_request_timeout'));
+              }, 15000);
             });
-          case 4:
-            _context3.p = 4;
+            _context4.p = 1;
+            _context4.n = 2;
+            return Promise.race([deadline, _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
+              var response, data, _t;
+              return _regenerator().w(function (_context3) {
+                while (1) switch (_context3.n) {
+                  case 0:
+                    _context3.n = 1;
+                    return fetch(url, _objectSpread(_objectSpread(_objectSpread({}, init), controller ? {
+                      signal: controller.signal
+                    } : {}), {}, {
+                      cache: 'no-store'
+                    }));
+                  case 1:
+                    response = _context3.v;
+                    _t = JSON;
+                    _context3.n = 2;
+                    return response.text();
+                  case 2:
+                    data = _t.parse.call(_t, _context3.v);
+                    return _context3.a(2, {
+                      ok: response.ok,
+                      status: response.status,
+                      json: function () {
+                        var _json = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2() {
+                          return _regenerator().w(function (_context2) {
+                            while (1) switch (_context2.n) {
+                              case 0:
+                                return _context2.a(2, data);
+                            }
+                          }, _callee2);
+                        }));
+                        function json() {
+                          return _json.apply(this, arguments);
+                        }
+                        return json;
+                      }()
+                    });
+                }
+              }, _callee3);
+            }))()]);
+          case 2:
+            return _context4.a(2, _context4.v);
+          case 3:
+            _context4.p = 3;
             clearTimeout(timeout);
-            return _context3.f(4);
-          case 5:
-            return _context3.a(2);
+            return _context4.f(3);
+          case 4:
+            return _context4.a(2);
         }
-      }, _callee3, null, [[1,, 4, 5]]);
+      }, _callee4, null, [[1,, 3, 4]]);
     }));
     return _request.apply(this, arguments);
   }
@@ -139,30 +160,30 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     return _sync.apply(this, arguments);
   }
   function _sync() {
-    _sync = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4() {
+    _sync = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
       var epoch, key, adapter, mode, pending, saved, result, response, _pending, _t2;
-      return _regenerator().w(function (_context4) {
-        while (1) switch (_context4.p = _context4.n) {
+      return _regenerator().w(function (_context5) {
+        while (1) switch (_context5.p = _context5.n) {
           case 0:
             if (!(!visible() || busy || !connect() || typeof window.gaSetNavcomMode !== 'function')) {
-              _context4.n = 1;
+              _context5.n = 1;
               break;
             }
-            return _context4.a(2);
+            return _context5.a(2);
           case 1:
             busy = true;
             epoch = generation, key = pendingKey, adapter = cloud;
-            _context4.p = 2;
+            _context5.p = 2;
             if (!nativeEfb) {
-              _context4.n = 10;
+              _context5.n = 10;
               break;
             }
             pending = nativePending;
             if (!(pending !== null)) {
-              _context4.n = 6;
+              _context5.n = 6;
               break;
             }
-            _context4.n = 3;
+            _context5.n = 3;
             return request('/api/v1/navcom/settings', {
               method: 'POST',
               headers: {
@@ -173,69 +194,69 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               })
             });
           case 3:
-            saved = _context4.v;
-            _context4.n = 4;
+            saved = _context5.v;
+            _context5.n = 4;
             return saved.json();
           case 4:
-            result = _context4.v;
+            result = _context5.v;
             if (!(!saved.ok || !result.ok)) {
-              _context4.n = 5;
+              _context5.n = 5;
               break;
             }
             throw new Error('navcom_settings_write_failed');
           case 5:
             if (nativePending === pending) nativePending = null;
           case 6:
-            _context4.n = 7;
+            _context5.n = 7;
             return request('/api/v1/navcom/settings');
           case 7:
-            response = _context4.v;
+            response = _context5.v;
             if (response.ok) {
-              _context4.n = 8;
+              _context5.n = 8;
               break;
             }
             throw new Error('navcom_settings_unavailable');
           case 8:
-            _context4.n = 9;
+            _context5.n = 9;
             return response.json();
           case 9:
-            mode = _context4.v.mode;
-            _context4.n = 14;
+            mode = _context5.v.mode;
+            _context5.n = 14;
             break;
           case 10:
             _pending = readPending();
             if (!_pending) {
-              _context4.n = 12;
+              _context5.n = 12;
               break;
             }
-            _context4.n = 11;
+            _context5.n = 11;
             return adapter.write(_pending.mode);
           case 11:
             if (localStorage.getItem(key) === JSON.stringify(_pending)) localStorage.removeItem(key);
             mode = _pending.mode;
-            _context4.n = 14;
+            _context5.n = 14;
             break;
           case 12:
-            _context4.n = 13;
+            _context5.n = 13;
             return adapter.read();
           case 13:
-            mode = _context4.v;
+            mode = _context5.v;
           case 14:
             connect();
             if (epoch === generation && (nativeEfb ? nativePending === null : !readPending())) window.gaSetNavcomMode(mode, false);
-            _context4.n = 16;
+            _context5.n = 16;
             break;
           case 15:
-            _context4.p = 15;
-            _t2 = _context4.v;
+            _context5.p = 15;
+            _t2 = _context5.v;
           case 16:
-            _context4.p = 16;
+            _context5.p = 16;
             busy = false;
-            return _context4.f(16);
+            return _context5.f(16);
           case 17:
-            return _context4.a(2);
+            return _context5.a(2);
         }
-      }, _callee4, null, [[2, 15, 16, 17]]);
+      }, _callee5, null, [[2, 15, 16, 17]]);
     }));
     return _sync.apply(this, arguments);
   }

@@ -119,3 +119,17 @@ test('clock skin choice is additive, validated and persisted across views',()=>{
  assert.equal(control.update({ui:{clockSkin:'invalid'}}).ok,false);
  assert.equal(createDisplaySettingsControl({readConfig:()=>config,writeConfig:()=>false}).snapshot().ui.clockSkin,'watch');
 });
+
+test('EFB media player choice survives a simulator restart via Tracker config',()=>{
+ let config={efbDisplay:{ui:{clockSkin:'watch'}}};
+ const options={readConfig:()=>config,writeConfig:value=>{config=value;return true;}};
+ const control=createDisplaySettingsControl(options);
+ assert.equal(control.update({ui:{mediaEnabled:true,mediaSkin:'ipod'}}).ok,true);
+ // A fresh view seeds defaults after its storage was wiped; stored choice wins.
+ const restored=createDisplaySettingsControl(options);
+ assert.equal(restored.update({initializeUi:{mediaEnabled:false,mediaSkin:'winamp'}}).ok,true);
+ assert.equal(restored.snapshot().ui.mediaEnabled,true);assert.equal(restored.snapshot().ui.mediaSkin,'ipod');
+ assert.equal(restored.snapshot().ui.clockSkin,'watch');
+ assert.equal(restored.update({ui:{mediaSkin:'invalid'}}).ok,false);
+ assert.equal(restored.update({ui:{mediaEnabled:'yes'}}).ok,false);
+});
