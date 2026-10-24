@@ -49,3 +49,6 @@ EXE: 174346841 Bytes; SHA-256 `d04db1a94041b33ac61d6335f1062d4aae64340fa780d7784
 - EFB: NAVCOM auf „Auswahl“ bzw. „Aus“ stellen, MSFS neu starten → Modus bleibt.
 - EFB: Mediensteuerung an, Skin wählen, MSFS neu starten → beides bleibt.
 - Web-App: NAVCOM-Wahl weiterhin geräteübergreifend.
+
+Release-Upload verifiziert und EXE öffentlich erneut heruntergeladen: Größe und SHA-256 identisch.
+`channel/alpha.json` auf v591 umgestellt, `stable.json` unverändert.
