@@ -32,7 +32,7 @@
     host.appendChild(layer);
     var device=layer.querySelector('.ga-media-device'), launcher=layer.querySelector('.ga-media-launcher');
     var open=false, enabled=true, x=Number.isFinite(options.x)?options.x:30, y=Number.isFinite(options.y)?options.y:70, scale=1, state={}, drag=null, suppressUntil=0;
-    function save() { if (options.storageKey) { try { localStorage.setItem(options.storageKey,JSON.stringify({x:x,y:y,scale:scale})); } catch (_) {} } }
+    function save() { if (options.storageKey) { try { localStorage.setItem(options.storageKey,JSON.stringify({x:x,y:y,scale:scale})); } catch (_) {} } if (typeof options.onLayoutSave === 'function') options.onLayoutSave(scale); }
     if (options.storageKey) { try {var saved=JSON.parse(localStorage.getItem(options.storageKey)||'{}'); if(Number.isFinite(saved.x))x=saved.x;if(Number.isFinite(saved.y))y=saved.y;if(Number.isFinite(saved.scale))scale=Math.max(0.5,Math.min(1.6,saved.scale));} catch (_) {} }
     function layout() {
       var w=layer.clientWidth,h=layer.clientHeight;

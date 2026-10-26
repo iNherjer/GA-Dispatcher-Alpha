@@ -52,7 +52,16 @@
    finally{watching=false;clearTimeout(watchTimer);var delay=state&&state.ok?50:5000;nextWatchAt=Date.now()+delay;if(needsMedia())watchTimer=setTimeout(watch,delay);}
   }
   function savePreferences(){try{localStorage.setItem('ga.media.web.v1',JSON.stringify({enabled:enabled,skin:skin}));}catch(_){}}
-  function createSkin(requestedSkin){var viewSkin=requestedSkin||skin;return root.GAMediaPlayerUI.create({host:host,skin:viewSkin,storageKey:'ga.media.'+viewSkin+'.layout.v1',state:{connected:false,volumeAvailable:false},onCommand:action,
+  // Zoom per skin is kept by the Tracker for this view instance only; a drag alone sends nothing.
+  // knownScale is this view's own value: views may share the web storage, so it is the reference.
+  var mediaSkins=['winamp','ipod','watch'],knownScale={};
+  function layoutKey(name){return 'ga.media.'+name+'.layout.v1';}
+  function readLayout(name){try{var v=JSON.parse(localStorage.getItem(layoutKey(name))||'{}');return v&&typeof v==='object'?v:{};}catch(_){return {};}}
+  function writeScale(name,value){var layout=readLayout(name);if(layout.scale===value)return;layout.scale=value;try{localStorage.setItem(layoutKey(name),JSON.stringify(layout));}catch(_){}}
+  function clampScale(value){return Math.round(Math.max(0.5,Math.min(1.6,value))*100)/100;}
+  function layoutSaved(name,value){if(!Number.isFinite(value))return;value=clampScale(value);if(knownScale[name]===value)return;knownScale[name]=value;if(typeof root.gaPersistMediaScale==='function')root.gaPersistMediaScale(name,value);}
+  function applyScale(name,value){if(mediaSkins.indexOf(name)<0||!Number.isFinite(value))return false;value=clampScale(value);if(knownScale[name]===value)return false;knownScale[name]=value;writeScale(name,value);return true;}
+  function createSkin(requestedSkin){var viewSkin=requestedSkin||skin;if(Object.prototype.hasOwnProperty.call(knownScale,viewSkin))writeScale(viewSkin,knownScale[viewSkin]);else{var savedScale=readLayout(viewSkin).scale;knownScale[viewSkin]=Number.isFinite(savedScale)?clampScale(savedScale):1;}return root.GAMediaPlayerUI.create({host:host,skin:viewSkin,storageKey:layoutKey(viewSkin),onLayoutSave:function(value){layoutSaved(viewSkin,value);},state:{connected:false,volumeAvailable:false},onCommand:action,
     onViewChange:function(){if(root.GAClockSkins)root.GAClockSkins.refresh();},onVisibilityChange:function(value){open=value;epoch++;clearTimeout(watchTimer);nextWatchAt=0;if(value)watch();if(!value&&clockEntry&&!replacing){var entry=clockEntry;setTimeout(function(){if(clockEntry===entry)restoreClock();},0);}if(root.GAClockSkins)root.GAClockSkins.refresh();}});}
   var ui=createSkin();
   ui.setEnabled(enabled);
@@ -60,7 +69,7 @@
   function persist(key,value){if(typeof root.gaPersistMediaSetting==='function')root.gaPersistMediaSetting(key,value);}
   function setEnabled(value,save){value=value===true;if(value===enabled&&save===false)return;enabled=value;check.checked=enabled;savePreferences();ui.setEnabled(enabled);if(root.gaEfbRefreshMediaSettings)root.gaEfbRefreshMediaSettings();if(save!==false)persist('mediaEnabled',enabled);}
   check.onchange=function(){setEnabled(check.checked);};
-  function setSkin(value,save){var next=['ipod','watch'].indexOf(value)>=0?value:'winamp';if(next===skin&&save===false)return;var skinSelect=container.querySelector('.ga-media-skin');if(skinSelect.value!==next)skinSelect.value=next;clockEntry=null;replacing=true;var reopen=open;skin=next;savePreferences();epoch++;clearTimeout(watchTimer);ui.destroy();open=false;ui=createSkin();ui.setEnabled(enabled);replacing=false;if(reopen&&enabled)ui.open();render();if(root.gaMediaPlayerClient)root.gaMediaPlayerClient.ui=ui;if(root.gaEfbRefreshMediaSettings)root.gaEfbRefreshMediaSettings();if(save!==false)persist('mediaSkin',skin);}
+  function setSkin(value,save,force){var next=['ipod','watch'].indexOf(value)>=0?value:'winamp';if(next===skin&&save===false&&!force)return;var skinSelect=container.querySelector('.ga-media-skin');if(skinSelect.value!==next)skinSelect.value=next;clockEntry=null;replacing=true;var reopen=open;skin=next;savePreferences();epoch++;clearTimeout(watchTimer);ui.destroy();open=false;ui=createSkin();ui.setEnabled(enabled);replacing=false;if(reopen&&enabled)ui.open();render();if(root.gaMediaPlayerClient)root.gaMediaPlayerClient.ui=ui;if(root.gaEfbRefreshMediaSettings)root.gaEfbRefreshMediaSettings();if(save!==false)persist('mediaSkin',skin);}
   container.querySelector('.ga-media-skin').onchange=function(){setSkin(this.value);};
   function publishUi(){if(root.gaMediaPlayerClient)root.gaMediaPlayerClient.ui=ui;}
   function restoreClock(){
@@ -86,7 +95,7 @@
   },1000);
   root.addEventListener('visibilitychange',function(){epoch++;if(!document.hidden)watch();});
   root.addEventListener('pagehide',function(){closed=true;clearInterval(timer);clearTimeout(watchTimer);if(audible.size)send({action:'duck',active:false}).catch(function(){});audible.clear();});
-  root.gaMediaPlayerClient={receive:receive,ui:ui,preferences:function(){return{enabled:enabled,skin:skin};},applyPreferences:function(value){if(!value)return;if(typeof value.enabled==='boolean')setEnabled(value.enabled,false);if(typeof value.skin==='string')setSkin(value.skin,false);},openClock:openClock,closeClock:function(){if(clockEntry)ui.close();},isClockOpen:function(){return !!clockEntry&&open&&!!(ui.isClockView&&ui.isClockView());}};
+  root.gaMediaPlayerClient={receive:receive,ui:ui,preferences:function(){return{enabled:enabled,skin:skin};},applyPreferences:function(value){if(!value)return;if(typeof value.enabled==='boolean')setEnabled(value.enabled,false);if(typeof value.skin==='string')setSkin(value.skin,false);if(value.scales){var rebuild=false;mediaSkins.forEach(function(name){if(applyScale(name,value.scales[name])&&name===skin&&!clockEntry)rebuild=true;});if(rebuild)setSkin(skin,false,true);}},openClock:openClock,closeClock:function(){if(clockEntry)ui.close();},isClockOpen:function(){return !!clockEntry&&open&&!!(ui.isClockView&&ui.isClockView());}};
   if(root.gaEfbMediaSettings)root.gaEfbMediaSettings(container);
  }
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install);else install();

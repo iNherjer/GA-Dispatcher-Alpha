@@ -68,6 +68,7 @@
           }));
         } catch (_) {}
       }
+      if (typeof options.onLayoutSave === 'function') options.onLayoutSave(scale);
     }
     if (options.storageKey) {
       try {

@@ -239,12 +239,60 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         }));
       } catch (_) {}
     }
+    // Zoom per skin is kept by the Tracker for this view instance only; a drag alone sends nothing.
+    // knownScale is this view's own value: views may share the web storage, so it is the reference.
+    var mediaSkins = ['winamp', 'ipod', 'watch'],
+      knownScale = {};
+    function layoutKey(name) {
+      return 'ga.media.' + name + '.layout.v1';
+    }
+    function readLayout(name) {
+      try {
+        var v = JSON.parse(localStorage.getItem(layoutKey(name)) || '{}');
+        return v && typeof v === 'object' ? v : {};
+      } catch (_) {
+        return {};
+      }
+    }
+    function writeScale(name, value) {
+      var layout = readLayout(name);
+      if (layout.scale === value) return;
+      layout.scale = value;
+      try {
+        localStorage.setItem(layoutKey(name), JSON.stringify(layout));
+      } catch (_) {}
+    }
+    function clampScale(value) {
+      return Math.round(Math.max(0.5, Math.min(1.6, value)) * 100) / 100;
+    }
+    function layoutSaved(name, value) {
+      if (!Number.isFinite(value)) return;
+      value = clampScale(value);
+      if (knownScale[name] === value) return;
+      knownScale[name] = value;
+      if (typeof root.gaPersistMediaScale === 'function') root.gaPersistMediaScale(name, value);
+    }
+    function applyScale(name, value) {
+      if (mediaSkins.indexOf(name) < 0 || !Number.isFinite(value)) return false;
+      value = clampScale(value);
+      if (knownScale[name] === value) return false;
+      knownScale[name] = value;
+      writeScale(name, value);
+      return true;
+    }
     function createSkin(requestedSkin) {
       var viewSkin = requestedSkin || skin;
+      if (Object.prototype.hasOwnProperty.call(knownScale, viewSkin)) writeScale(viewSkin, knownScale[viewSkin]);else {
+        var savedScale = readLayout(viewSkin).scale;
+        knownScale[viewSkin] = Number.isFinite(savedScale) ? clampScale(savedScale) : 1;
+      }
       return root.GAMediaPlayerUI.create({
         host: host,
         skin: viewSkin,
-        storageKey: 'ga.media.' + viewSkin + '.layout.v1',
+        storageKey: layoutKey(viewSkin),
+        onLayoutSave: function onLayoutSave(value) {
+          layoutSaved(viewSkin, value);
+        },
         state: {
           connected: false,
           volumeAvailable: false
@@ -288,9 +336,9 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     check.onchange = function () {
       setEnabled(check.checked);
     };
-    function setSkin(value, save) {
+    function setSkin(value, save, force) {
       var next = ['ipod', 'watch'].indexOf(value) >= 0 ? value : 'winamp';
-      if (next === skin && save === false) return;
+      if (next === skin && save === false && !force) return;
       var skinSelect = container.querySelector('.ga-media-skin');
       if (skinSelect.value !== next) skinSelect.value = next;
       clockEntry = null;
@@ -437,6 +485,13 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
         if (!value) return;
         if (typeof value.enabled === 'boolean') setEnabled(value.enabled, false);
         if (typeof value.skin === 'string') setSkin(value.skin, false);
+        if (value.scales) {
+          var rebuild = false;
+          mediaSkins.forEach(function (name) {
+            if (applyScale(name, value.scales[name]) && name === skin && !clockEntry) rebuild = true;
+          });
+          if (rebuild) setSkin(skin, false, true);
+        }
       },
       openClock: openClock,
       closeClock: function closeClock() {

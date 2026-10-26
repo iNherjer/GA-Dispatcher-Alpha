@@ -1,3 +1,12 @@
+## Media-Player-Zoom je Ansicht – Alpha-Rollout Tracker v592 / Web v2212 (26.10.2026)
+
+Zoom des Media Players je Instanz (Oberfläche physical/popout/toolbar/unknown plus 2D/VR) und
+Skin in `efbDisplay.ui.mediaScales` der Tracker-Config; keine geräte- oder ansichtsübergreifende
+Synchronisierung. Skins melden Layoutspeicherungen über optionales `onLayoutSave`; nur echte
+Zoomänderungen werden gesendet. Position bleibt lokal. Host-Assetrevision 59201. Community-Paket
+und Desktop-Installer unverändert, nur Alpha-Runtime, Stable unverändert.
+Details: [Tracker-v592-Release.md](Tracker-v592-Release.md). Reale MSFS-Abnahme bleibt offen.
+
 ## NAVCOM-Modus und Media Player neustartfest – Alpha-Rollout Tracker v591 / Web v2208 (24.10.2026)
 
 Tester: NAVCOM-Wahl und Mediensteuerung gingen im EFB bei jedem Neustart verloren. Ursache

@@ -46,7 +46,7 @@
   var game=null,gameFrame=null,gameAt=0,menuHold=null;
   function clearMenuHold(){clearTimeout(menuHold);menuHold=null;}
   var seekMode=false,seekPreview=null,seekIdentity='',state={},open=false,enabled=true,x=Number.isFinite(options.x)?options.x:30,y=Number.isFinite(options.y)?options.y:40,scale=1,drag=null,gesture=null,ignoreClick=0,wheelIgnore=0,volumeUntil=0,previewVolume=0,volumeTimer=null,sendTimer=null,pendingVolume=null,lastSend=0,destroyed=false,metadataSince=Date.now(),metadataKey='';
-  function save(){if(options.storageKey)try{localStorage.setItem(options.storageKey,JSON.stringify({x:x,y:y,scale:scale}));}catch(_){}}
+  function save(){if(options.storageKey)try{localStorage.setItem(options.storageKey,JSON.stringify({x:x,y:y,scale:scale}));}catch(_){}if(typeof options.onLayoutSave==='function')options.onLayoutSave(scale);}
   if(options.storageKey)try{var saved=JSON.parse(localStorage.getItem(options.storageKey)||'{}');if(Number.isFinite(saved.x))x=saved.x;if(Number.isFinite(saved.y))y=saved.y;if(Number.isFinite(saved.scale))scale=Math.max(.5,Math.min(1.6,saved.scale));}catch(_){}
   function text(value,px,py,size,maxWidth,center){
    value=String(value||'').replace(/[’‘]/g,"'").replace(/[—–]/g,'-');

@@ -258,6 +258,7 @@
           scale: scale
         }));
       } catch (_) {}
+      if (typeof options.onLayoutSave === 'function') options.onLayoutSave(scale);
     }
     if (options.storageKey) try {
       var saved = JSON.parse(localStorage.getItem(options.storageKey) || '{}');

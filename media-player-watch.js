@@ -13,7 +13,7 @@
   device.querySelectorAll('[data-watch="face"],[data-watch="clock-back"],[data-watch="music"]').forEach(function(button){button.title='Kurz: zurück · Gedrückt halten: Watch schließen';});
   if(options.storageKey)try{var saved=JSON.parse(localStorage.getItem(options.storageKey)||'{}');if(Number.isFinite(saved.x))x=saved.x;if(Number.isFinite(saved.y))y=saved.y;if(Number.isFinite(saved.scale))scale=Math.max(.5,Math.min(1.6,saved.scale));}catch(_){}
   if(Number.isFinite(options.x))x=options.x;if(Number.isFinite(options.y))y=options.y;
-  function save(){if(options.storageKey)try{localStorage.setItem(options.storageKey,JSON.stringify({x:x,y:y,scale:scale}));}catch(_){}}
+  function save(){if(options.storageKey)try{localStorage.setItem(options.storageKey,JSON.stringify({x:x,y:y,scale:scale}));}catch(_){}if(typeof options.onLayoutSave==='function')options.onLayoutSave(scale);}
   function layout(){var w=layer.clientWidth,h=layer.clientHeight;if(open)scale=Math.min(scale,Math.max(.15,Math.min((w-12)/300,(h-12)/350)));var width=open?300*scale:58,height=open?350*scale:58;x=Math.max(open?-width*.8:6,Math.min(x,open?w-width*.2:w-width-6));y=Math.max(open?-height*.8:6,Math.min(y,open?h-height*.2:h-height-6));[device,launcher].forEach(function(el){el.style.left=x+'px';el.style.top=y+'px';});device.style.transform='scale('+scale+')';device.hidden=!enabled||!open;launcher.hidden=!enabled||open;}
   function show(value){open=value;clearHold();if(face&&face.setActive)face.setActive(enabled&&open);if(!value){gesture=null;sheetView='';renderSheet();}layout();save();clock();if(options.onVisibilityChange)options.onVisibilityChange(enabled&&open);}
   function command(value){if(options.onCommand)options.onCommand(value);}

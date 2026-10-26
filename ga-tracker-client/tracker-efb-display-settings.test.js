@@ -133,3 +133,17 @@ test('EFB media player choice survives a simulator restart via Tracker config',(
  assert.equal(restored.update({ui:{mediaSkin:'invalid'}}).ok,false);
  assert.equal(restored.update({ui:{mediaEnabled:'yes'}}).ok,false);
 });
+
+test('EFB media player zoom is kept per view instance and skin, never shared',()=>{
+ let config={};
+ const control=createDisplaySettingsControl({readConfig:()=>config,writeConfig:value=>{config=value;return true;}});
+ assert.equal(control.update({ui:{mediaScales:{'physical-2d':{ipod:1.3}}}}).ok,true);
+ assert.equal(control.update({ui:{mediaScales:{'toolbar-vr':{ipod:0.7}}}}).ok,true);
+ assert.equal(control.update({ui:{mediaScales:{'physical-2d':{watch:1.1}}}}).ok,true);
+ assert.deepEqual(control.snapshot().ui.mediaScales,{'physical-2d':{ipod:1.3,watch:1.1},'toolbar-vr':{ipod:0.7}});
+ const revision=control.snapshot().uiRevision;
+ assert.equal(control.update({ui:{mediaScales:{'physical-2d':{ipod:1.3}}}}).ok,true);
+ assert.equal(control.snapshot().uiRevision,revision);
+ for (const bad of [{'physical-2d':{ipod:2}},{'physical-2d':{ipod:'1.2'}},{'cockpit-2d':{ipod:1}},{'physical-2d':{classic:1}}]) assert.equal(control.update({ui:{mediaScales:bad}}).ok,false);
+ assert.deepEqual(createDisplaySettingsControl({readConfig:()=>config,writeConfig:()=>false}).snapshot().ui.mediaScales,{'physical-2d':{ipod:1.3,watch:1.1},'toolbar-vr':{ipod:0.7}});
+});

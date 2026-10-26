@@ -446,6 +446,8 @@
       var mediaPatch = {};
       if (typeof ui.mediaEnabled === 'boolean' && !Object.prototype.hasOwnProperty.call(uiPending,'mediaEnabled')) mediaPatch.enabled = ui.mediaEnabled;
       if (typeof ui.mediaSkin === 'string' && !Object.prototype.hasOwnProperty.call(uiPending,'mediaSkin')) mediaPatch.skin = ui.mediaSkin;
+      var instanceScales = ui.mediaScales && ui.mediaScales[mediaInstance()];
+      if (instanceScales && !Object.prototype.hasOwnProperty.call(uiPending,'mediaScales')) mediaPatch.scales = instanceScales;
       media.applyPreferences(mediaPatch);
     }
     [['clockSource','source'],['clockZone','zone']].forEach(function(item) {
@@ -499,6 +501,15 @@
   window.gaPersistDisplayClockSetting = queueUiPreference;
   window.gaPersistMediaSetting = function(key, value) {
     if (key === 'mediaEnabled' || key === 'mediaSkin') queueUiPreference(key, value);
+  };
+  // Zoom belongs to this view only: tablet, popout and toolbar, each in 2D or VR.
+  function mediaInstance() { return hostSurface + '-' + displayMode; }
+  window.gaPersistMediaScale = function(skin, value) {
+    if (['winamp','ipod','watch'].indexOf(skin) < 0 || typeof value !== 'number') return;
+    // Fresh object per change, so a zoom during a running save stays pending.
+    var instance = mediaInstance(), scales = Object.assign({}, uiPending.mediaScales);
+    scales[instance] = Object.assign({}, scales[instance]); scales[instance][skin] = value;
+    queueUiPreference('mediaScales', scales);
   };
   window.gaPersistProfileSetting = function(key, value) {
     if (key === 'profileAltitudeFt' || key === 'profileRateFpm') queueUiPreference(key, value);

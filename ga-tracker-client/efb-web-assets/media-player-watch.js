@@ -67,6 +67,7 @@
           scale: scale
         }));
       } catch (_) {}
+      if (typeof options.onLayoutSave === 'function') options.onLayoutSave(scale);
     }
     function layout() {
       var w = layer.clientWidth,
