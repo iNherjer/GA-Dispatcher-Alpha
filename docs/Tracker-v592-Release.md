@@ -44,3 +44,6 @@ EXE: 174351614 Bytes; SHA-256 `11dc755d33935bc810f376ddc686ff2b5f4407794a5b85348
 - Tablet: Player zoomen, MSFS neu starten → Zoom bleibt.
 - Toolbar/Popout: anderer Zoom als am Tablet bleibt unabhängig erhalten.
 - 2D und VR behalten jeweils eigene Werte.
+
+Release-Upload verifiziert und EXE öffentlich erneut heruntergeladen: Größe und SHA-256 identisch.
+`channel/alpha.json` auf v592 umgestellt, `stable.json` unverändert.
