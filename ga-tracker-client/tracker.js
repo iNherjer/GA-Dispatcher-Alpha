@@ -33,6 +33,9 @@ const {
 } = require('./homebase-fallback-cache.js');
 const { createHomebaseCloudScene } = require('./tracker-homebase-cloud.js');
 const { createHomebaseCrewScene } = require('./tracker-homebase-crew.js');
+const { createCrewPresence } = require('./tracker-crew-presence.js');
+// Crew status beats (online/current flight); fed by the telemetry loop.
+let trackerCrewPresence = null;
 const { verifyTrackerCredentials } = require('./tracker-auth.js');
 const { createTrackerRelayHello } = require('./tracker-efb-relay-core.js');
 const {
@@ -113,8 +116,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v595';
-const TRACKER_VERSION_CODE = 595;
+const TRACKER_VERSION = 'v596';
+const TRACKER_VERSION_CODE = 596;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -5147,7 +5150,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       try { await (missionProcess ? missionProcess.close() : missionExecutionRuntime.flush()); }
       catch (error) { debugLog(`MISSION_POI_SHUTDOWN_FLUSH_ERROR error=${error.message}`); }
     };
-    for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, async () => { await flushPoi(); await Promise.all([writeDebugLog.flush(), missionTestLog.flush()]); process.exit(0); });
+    for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, async () => { await Promise.race([trackerCrewPresence?.stop(), new Promise(resolve => setTimeout(resolve, 2000))]); await flushPoi(); await Promise.all([writeDebugLog.flush(), missionTestLog.flush()]); process.exit(0); });
   }
   const recoveredMissionRun = missionAuthorityManager.getActiveRun({ includeBundle: true });
   if (recoveredMissionRun?.resumeBundle) {
@@ -6098,6 +6101,38 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
   // Cloud-Profil, gemeinsamer Szenen-Kern).
   const homebaseCrew = HOMEBASE_ENABLED ? createHomebaseCrewScene({ pilotId: syncId, pin, log: debugLog }) : null;
   homebaseCrew?.start(2500);
+  // Crew-Status: Tracker laeuft = online; aktueller Flug fuer das Crew-Brett.
+  trackerCrewPresence = createCrewPresence({
+    pilotId: syncId,
+    pin,
+    log: debugLog,
+    getRoute: () => {
+      const run = readActiveRunView(missionAuthorityManager, { includeBundle: true });
+      if (run?.runId) {
+        const state = run.resumeBundle?.missionState || {};
+        const md = state.currentMissionData || state;
+        const poi = String(state.currentDestICAO || '').toUpperCase() === 'POI';
+        return {
+          kind: 'mission', id: run.runId, startedAt: run.acquiredAt,
+          title: md.mission || md.title || md.missionTitle || '',
+          dep: state.currentStartICAO || md.start || '', depName: state.currentSName || '',
+          dest: poi ? '' : (state.currentDestICAO || md.dest || ''),
+          destName: poi ? (md.poiName || state.currentDName || '') : (state.currentDName || ''),
+          waypoints: state.routeWaypoints || md.routeWaypoints || [],
+          missionState: run.resumeBundle?.missionState || null
+        };
+      }
+      const nav = cockpitTools.navigation();
+      const points = Array.isArray(nav?.points) ? nav.points : [];
+      return {
+        kind: 'free', title: points.length >= 2 ? (nav.briefing?.title || 'Direct To') : '',
+        dep: nav?.context?.departureIcao || '', depName: points[0]?.name || '',
+        dest: nav?.context?.destinationIcao || '', destName: points.length >= 2 ? (points.at(-1)?.name || '') : '',
+        waypoints: points
+      };
+    }
+  });
+  trackerCrewPresence.start();
   const homebaseCrewAccess = homebaseCrew?.available ? {
     capability: homebaseCrew.capability,
     sceneFor: (position) => homebaseCrew.sceneFor(position),
@@ -6137,6 +6172,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
         error: homebaseCrew?.available ? undefined : 'homebase_crew_unavailable',
         crewScene
       });
+      if (typeof command?.groupName === 'string') trackerCrewPresence?.setGroup(command.groupName);
       if (!homebaseCrew?.available) respond(null);
       else homebaseCrew.refresh(String(command?.reason || 'app').slice(0, 60), {
         forceGroup: true,
@@ -7440,6 +7476,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                   snapshot: null
                 });
               }
+              if (lat !== 0) trackerCrewPresence?.observe({ lat, lon, altFt: alt, hdg, onGround: !!onGround, gsKts: groundSpeedKts, vsFpm });
               if (ws && ws.readyState === WebSocket.OPEN && currentTelemetryHibernateState.shouldSendTelemetry) {
                 // GPS-Paket senden; Traffic wird alle 2s als Feld eingebettet (Relay-kompatibler Weg)
                 const flight = {

@@ -272,3 +272,31 @@ Speicheranker (`storageOwnerId`, folgt Umbenennungen) plus Registrierungsnamensr
 Schreiber: Tracker (`tracker-flight-logbook-cloud.js`). Leser: Web-App-Flugbuch.
 Konzept: `docs/Flugbuch Kruemelweg Konzept.md`. Deploy vor Tracker-Release; ohne Deploy
 antwortet der alte Worker 404 und der Tracker versucht es mit Backoff später erneut.
+
+## Crew-Status v1 (27.10.2026, noch nicht deployed)
+
+`/api/crew-presence-v1/<Crew>` (`crew-presence.mjs`, Durable Object `CrewPresence`, Migration
+`crew-presence-v1`, ein Objekt je Crew). Online-Status und aktueller Flug der Mitglieder,
+getrennt vom `GROUP_`-KV-Eintrag: Statusmeldungen kosten nie KV-Writes.
+
+- `GET` – Status der aktuellen Crew-Mitglieder (`online`, `flight`), nur was freigegeben ist
+- `POST {source, share, flight}` – Statusmeldung; `{offline:true}` löscht den Eintrag
+- `POST /mission {flightId, state}` – Auftrag des laufenden Flugs (≤ 64 KB, Laufzeitfelder entfernt), einmal je Flug gespeichert
+- `GET /mission/<pilotId>` – dieser Auftrag zum Selbstfliegen, nur solange der Flug freigegeben und sichtbar ist
+
+Statusmeldungen ≤ 8 KB; `flight` enthält Position zum Meldezeitpunkt und höchstens 40 Routenpunkte.
+
+Anmeldung wie Sync-V2 plus Mitgliedschaft im `GROUP_`-Datensatz (nicht gekickt). Erfolgreiche
+Prüfungen werden je Isolate 10 Minuten gehalten (SHA-256-Schlüssel, kein PIN im Speicher), so
+kostet eine Meldung meist keinen KV-Read. Der Spitzname kommt aus dem Crew-Datensatz.
+
+Schreibbremse (`crew-presence-core.js`, gemeinsam mit App und Tracker): Das Objekt speichert
+nur bei Flugereignis (Start, Phasenwechsel, Landung, Ende), Fortschritt ≥ 5 %, geänderter
+Freigabe oder wenn der gespeicherte Stand älter als 4 Minuten ist. Clients melden sich alle
+5 Minuten, Ereignisse frühestens nach 1 Minute. Online = Meldung jünger als 12 Minuten;
+gelandete Flüge bleiben 30 Minuten sichtbar. Eine App-Meldung ersetzt nie den Flug eines
+noch meldenden Trackers; bei der Freigabe gewinnt der neueste Zeitstempel (`share.at`).
+
+Schreiber: Tracker (`tracker-crew-presence.js`), Web-App nur ohne verbundenen Tracker
+(`crew-presence-client.js`). Leser: Web-App-Crew-Brett. Worker vor Web/Tracker deployen;
+ohne Deploy antwortet der alte Worker 404 und die App zeigt die Mitglieder als offline.

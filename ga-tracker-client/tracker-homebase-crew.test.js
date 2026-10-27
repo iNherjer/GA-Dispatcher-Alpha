@@ -46,10 +46,10 @@ test('Gruppe aus dem Profil, Abruf mit Zugangsdaten, Szene identisch mit dem App
   assert.deepEqual(x.crew.sceneFor(home), expected);
   assert.equal(expected.length, 2, 'nur die nahe Basis: Hangar + Person');
   assert.deepEqual(x.crew.sceneFor({ lat: 47, lon: 7 }), [], 'ausserhalb jedes Radius leer');
-  assert.equal(x.timers.at(-1).ms, 45000);
+  assert.equal(x.timers.at(-1).ms, 10 * 60 * 1000);
 });
 
-test('Gruppenname wird nur alle 10 min aus dem Profil gelesen, Abruf alle 45 s', async () => {
+test('Gruppenname wird nur alle 10 min aus dem Profil gelesen, Abruf alle 10 min', async () => {
   const x = fixture();
   await x.crew.refresh('start');
   await x.crew.refresh('poll');

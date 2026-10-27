@@ -5,7 +5,9 @@
   const HOMEBASE_SYNC_URL = 'https://ga-proxy.einherjer.workers.dev/api/homebase/';
   const HOMEBASE_CREW_URL = 'https://ga-proxy.einherjer.workers.dev/api/homebase-group/';
   const HOMEBASE_SYNC_DELAY_MS = 20000;
-  const HOMEBASE_CREW_POLL_MS = 45000;
+  // Crew-Homebases aendern sich selten; jeder Abruf kostet im Worker mehrere KV-Reads.
+  // Gruppenwechsel und Pinnwand-Sync rufen homebaseGroupRefresh zusaetzlich direkt auf.
+  const HOMEBASE_CREW_POLL_MS = 10 * 60 * 1000;
   const HOMEBASE_OWN_ENTER_RADIUS_NM = 20;
   const HOMEBASE_OWN_EXIT_RADIUS_NM = 22;
   const HOMEBASE_CREW_CAPABILITY_RETRY_MS = 15000;
@@ -561,9 +563,20 @@
     }
   }
 
+  let crewRefreshDue = false;
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && crewRefreshDue) {
+      crewRefreshDue = false;
+      void refreshCrewHomebases('visible');
+    }
+  });
+
   function scheduleCrewRefresh(delay = HOMEBASE_CREW_POLL_MS) {
     clearTimeout(crewRefreshTimer);
     crewRefreshTimer = setTimeout(async () => {
+      // Im Hintergrund nicht abfragen; beim Zurueckkehren holt visibilitychange nach.
+      if (document.hidden) { crewRefreshDue = true; scheduleCrewRefresh(); return; }
+      crewRefreshDue = false;
       await refreshCrewHomebases('poll');
       scheduleCrewRefresh();
     }, delay);
@@ -1400,6 +1413,55 @@
   window.homebaseGroupRefresh = (reason = 'external') => {
     requestTrackerCrewRefresh(reason);
     return refreshCrewHomebases(reason);
+  };
+  // Crew-Freigabe direkt vom Crew-Brett umschalten, ohne den Designer zu öffnen.
+  // Speichert den unveränderten Cloud-Plan mit neuer Freigabe (ein Homebase-Write).
+  window.homebaseSetCrewShare = async (enabled) => {
+    const context = getHomebaseSyncContext();
+    if (!context.pilotId || !context.pin) return { ok: false, message: 'Bitte zuerst mit Pilot-ID und PIN anmelden.' };
+    if (latestHomebaseDraft?.dirty || homebaseSaveInFlight) {
+      return { ok: false, message: 'Im Homebase Designer gibt es noch ungespeicherte Änderungen. Bitte dort speichern und dann erneut versuchen.' };
+    }
+    const url = HOMEBASE_SYNC_URL + encodeURIComponent(context.pilotId);
+    try {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const current = await fetch(url, { headers: homebaseSyncHeaders(context), cache: 'no-store' });
+        if (current.status === 404) return { ok: false, message: 'Du hast noch keine Homebase gespeichert.' };
+        const currentData = await current.json().catch(() => ({}));
+        if (!current.ok || !currentData.record?.plan) throw new Error(currentData.error || `Cloud-Antwort ${current.status}`);
+        let record = currentData.record;
+        if ((record.crewShareEnabled === true) !== (enabled === true)) {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: homebaseSyncHeaders(context),
+            body: JSON.stringify({
+              schemaVersion: 2,
+              baseRevision: record.revision || '',
+              clientUpdatedAt: Date.now(),
+              deviceId: 'crew-board',
+              crewShareEnabled: enabled === true,
+              plan: record.plan
+            })
+          });
+          const data = await response.json().catch(() => ({}));
+          if (response.status === 409) continue;
+          if (!response.ok || !data.record) throw new Error(data.error || `Cloud-Antwort ${response.status}`);
+          record = data.record;
+        }
+        ownCloudRecord = record;
+        ownCloudPlan = record.plan || null;
+        if (latestHomebaseDraft) {
+          latestHomebaseDraft.crewShareEnabled = record.crewShareEnabled === true;
+          latestHomebaseDraft.baseRevision = String(record.revision || '');
+        }
+        deliverHomebaseLoadResult({ ok: true, record, pilotId: context.pilotId, reason: 'crew-share' });
+        await window.homebaseGroupRefresh?.('crew-share');
+        return { ok: true, enabled: record.crewShareEnabled === true };
+      }
+      return { ok: false, message: 'Die Homebase wurde gerade woanders geändert. Bitte erneut versuchen.' };
+    } catch (error) {
+      return { ok: false, message: `Homebase-Freigabe nicht gespeichert: ${error?.message || error}` };
+    }
   };
   window.homebaseApplyTheme = syncHomebaseTheme;
   window.homebaseGroupClear = () => {

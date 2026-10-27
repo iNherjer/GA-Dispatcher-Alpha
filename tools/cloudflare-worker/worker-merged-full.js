@@ -3,6 +3,8 @@ import { handleProfileSync, profileStub } from './profile-sync.mjs';
 export { ProfileSync } from './profile-sync.mjs';
 import { handleFlightLogbook } from './flight-logbook.mjs';
 export { FlightLogbook } from './flight-logbook.mjs';
+import { handleCrewPresence } from './crew-presence.mjs';
+export { CrewPresence } from './crew-presence.mjs';
 import { handleAudioSettings } from './audio-settings.mjs';
 const OPENAIP_KEY = "049026a617e1380ac056e1fd3cc237ae";
 const DEFAULT_OBS_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/tiles";
@@ -404,6 +406,15 @@ function activeGroupMember(group, pilotId, now = Date.now()) {
     const latestSeen = normalizeFinite(latest?.lastSeen, 0, 0, now + 86400000);
     return !latest || lastSeen > latestSeen ? member : latest;
   }, null);
+}
+
+// Crew record for the presence membership check (crew-presence.mjs). Member IDs are
+// normalized through account renames like the crew homebase view.
+async function readCrewGroupForPresence(env, crew) {
+  if (!hasSyncKvBinding(env)) return null;
+  const raw = await env.GA_SYNC_KV.get(`GROUP_${crew}`);
+  const group = raw ? safeJsonParse(raw, null) : null;
+  return group ? hydrateGroupMemberActivity(group, env) : null;
 }
 
 async function handleCrewHomebases(request, requestUrl, env) {
@@ -2691,6 +2702,10 @@ export default {
 
     if (requestUrl.pathname.startsWith("/api/sync-v2/")) {
       return handleProfileSync(request, env, verifySyncProfileAuth);
+    }
+
+    if (requestUrl.pathname.startsWith("/api/crew-presence-v1/")) {
+      return handleCrewPresence(request, env, verifySyncProfileAuth, readCrewGroupForPresence);
     }
 
     if (requestUrl.pathname.startsWith("/api/flightlog-v1/")) {

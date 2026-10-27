@@ -349,6 +349,7 @@ async function joinGroup() {
         // Zugang gewährt: Wir speichern den Gruppen-Namen und den Anzeigenamen
         localStorage.setItem('ga_group_name', gName);
         localStorage.setItem('ga_group_nick', gNick);
+        window.gaCrewPresence?.reset();
         
         document.getElementById('groupStatus').innerText = "Verbunden als " + gNick;
         document.getElementById('groupStatus').style.color = "var(--green)";
@@ -400,6 +401,7 @@ function leaveGroup(isBanned = false) {
     localStorage.removeItem('ga_group_nick');
     localStorage.removeItem('ga_group_pin');
     window.homebaseGroupClear?.();
+    window.gaCrewPresence?.reset();
     document.getElementById('groupNameInput').value = "";
     document.getElementById('groupStatus').innerText = "Nicht verbunden";
     document.getElementById('groupStatus').style.color = "#888";
@@ -461,7 +463,7 @@ function updateGroupBadgeUI() {
     }
     const mainBadge = document.getElementById('mainPinboardBadge');
     const tabBadge = document.getElementById('groupBadge');
-    const hasNew = newBadges.length > 0;
+    const hasNew = newBadges.length > 0 || window.gaCrewPresence?.hasNewFlight?.() === true;
 
     if (mainBadge) mainBadge.style.display = hasNew ? 'inline-block' : 'none';
     if (tabBadge && currentBoardMode !== 'group') {
@@ -752,16 +754,21 @@ async function loadPinnedFlight(id, isGroup) {
         try { console.warn('[Pinboard] Flight note without flightData cannot be restored:', note); } catch (_) {}
         return;
     }
-    if (typeof window.isMissionDraftPending === 'function' && window.isMissionDraftPending(note.flightData)) {
+    await pinboardRestoreFlightData(note.flightData);
+}
+
+// Loads a saved mission state as a new planned mission (pinned flights, crew flights).
+async function pinboardRestoreFlightData(flightData) {
+    if (typeof window.isMissionDraftPending === 'function' && window.isMissionDraftPending(flightData)) {
         alert("Dieser angepinnte Flug ist nur ein Entwurf und kann nicht geladen werden.");
-        return;
+        return false;
     }
     try {
-        pinboardStoreActiveMissionStateForRestore(note.flightData);
-        const restored = await restoreMissionState(note.flightData, { source: 'pinboard' });
+        pinboardStoreActiveMissionStateForRestore(flightData);
+        const restored = await restoreMissionState(flightData, { source: 'pinboard' });
         if (restored === false) {
             alert("Dieser Pinnwand-Flug konnte nicht geladen werden.");
-            return;
+            return false;
         }
         // A pinboard restore is a new planned mission selection.  Publish the
         // refreshed mission timestamp and Tracker seed immediately so the EFB
@@ -771,16 +778,18 @@ async function loadPinnedFlight(id, isGroup) {
         } else {
             triggerCloudSave(true);
         }
-        togglePinboard();
+        if (document.getElementById('pinboardOverlay')?.classList.contains('active')) togglePinboard();
         setTimeout(() => {
             if (typeof map !== 'undefined' && map && routeWaypoints.length >= 2) {
                 map.fitBounds(L.latLngBounds(routeWaypoints), { padding: [40, 40] });
                 updateMiniMap();
             }
         }, 300);
+        return true;
     } catch (err) {
         console.error('[Pinboard] Flight restore failed:', err);
         alert("Dieser Pinnwand-Flug konnte nicht geladen werden.");
+        return false;
     }
 }
 
@@ -912,7 +921,8 @@ function renderNotes() {
             }
             displayName.appendChild(document.createTextNode(String(m.nick || m.syncId || 'Pilot')));
 
-            const status = pinboardCreateElement('span', 'roster-status', isMe ? 'Online' : 'Aktiv');
+            const presence = window.gaCrewPresence?.statusFor(m.syncId) || { label: isMe ? 'Online' : 'Aktiv', cls: '' };
+            const status = pinboardCreateElement('span', `roster-status ${presence.cls}`, presence.label);
             status.style.cssText = 'display:flex; align-items:center;';
             if (amIAdmin && !isMe) {
                 const targetSyncId = m.syncId;
@@ -926,6 +936,7 @@ function renderNotes() {
 
         roster.append(pin, rosterTitle, rosterList);
         board.appendChild(roster);
+        window.gaCrewPresence?.renderBoard(board);
         // Render Group Notes
         let gNotes = groupDataCache.notes || [];
         let hidden = JSON.parse(localStorage.getItem('ga_group_hidden')) || [];
@@ -1101,7 +1112,7 @@ function makeDraggable(element, noteId, isGroup) {
     let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
     element.onmousedown = dragMouseDown; element.ontouchstart = dragMouseDown;
     function dragMouseDown(e) {
-        if (e.target.closest?.('.post-it-del, .post-it-edit, .flight-load-btn, .flight-replay-btn, .crew-homebase-visit-btn')) return;
+        if (e.target.closest?.('.post-it-del, .post-it-edit, .flight-load-btn, .flight-replay-btn, .crew-homebase-visit-btn, .crew-share-toggle, .crew-flight-detail-btn')) return;
         e.preventDefault();
         const clientX = e.touches ? e.touches[0].clientX : e.clientX, clientY = e.touches ? e.touches[0].clientY : e.clientY;
         pos3 = clientX; pos4 = clientY;

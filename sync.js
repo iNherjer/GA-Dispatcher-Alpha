@@ -16698,6 +16698,7 @@ function setLastSyncedPayload(cloudData = null) {
         knownNotes: JSON.parse(localStorage.getItem('ga_known_group_notes') || '[]'),
         newBadges: JSON.parse(localStorage.getItem('ga_group_new') || '[]'),
         hiddenGroupNotes: _syncHiddenGroupNotesPayload(),
+        crewShare: window.gaCrewPresence?.sharePayload?.() || null,
         aircraftPresets: getAircraftPresetsForSync(),
         onboardEquipment: _syncOnboardEquipmentPayload(),
         favoriteAirports: _syncFavoriteAirportsPayload(),
@@ -16911,6 +16912,7 @@ async function triggerCloudSave(immediate = false, options = {}) {
         knownNotes: JSON.parse(localStorage.getItem('ga_known_group_notes') || '[]'),
         newBadges: JSON.parse(localStorage.getItem('ga_group_new') || '[]'),
         hiddenGroupNotes: _syncHiddenGroupNotesPayload(),
+        crewShare: window.gaCrewPresence?.sharePayload?.() || null,
         aircraftPresets: getAircraftPresetsForSync(),
         onboardEquipment: _syncOnboardEquipmentPayload(),
         favoriteAirports: _syncFavoriteAirportsPayload(),
@@ -17089,6 +17091,7 @@ async function forceSyncLoad() {
         if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
         if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
         _syncApplyHiddenGroupNotesFromCloud(data);
+        window.gaCrewPresence?.applyShareFromCloud?.(data.crewShare);
         if (data.aircraftPresets) applyAircraftPresetsFromSync(data.aircraftPresets);
         _syncApplyFollowupsFromCloud(data);
 
@@ -17188,6 +17191,7 @@ async function silentSyncLoad(options = {}) {
             if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
             if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
             _syncApplyHiddenGroupNotesFromCloud(data);
+            window.gaCrewPresence?.applyShareFromCloud?.(data.crewShare);
             if (data.aircraftPresets) applyAircraftPresetsFromSync(data.aircraftPresets);
             _syncApplyFollowupsFromCloud(data);
 
@@ -17392,6 +17396,7 @@ async function checkCloudAfterIdle() {
                 knownNotes: JSON.parse(localStorage.getItem('ga_known_group_notes') || '[]'),
                 newBadges: JSON.parse(localStorage.getItem('ga_group_new') || '[]'),
                 hiddenGroupNotes: _syncHiddenGroupNotesPayload(),
+                crewShare: window.gaCrewPresence?.sharePayload?.() || null,
                 aircraftPresets: getAircraftPresetsForSync(),
                 onboardEquipment: _syncOnboardEquipmentPayload(),
                 favoriteAirports: _syncFavoriteAirportsPayload(),
@@ -17445,6 +17450,7 @@ async function checkCloudAfterIdle() {
                 if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
                 if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
                 _syncApplyHiddenGroupNotesFromCloud(data);
+                window.gaCrewPresence?.applyShareFromCloud?.(data.crewShare);
                 if (data.aircraftPresets) applyAircraftPresetsFromSync(data.aircraftPresets);
                 _syncApplyFollowupsFromCloud(data);
                 if (data.groupName !== undefined) {

@@ -19,7 +19,9 @@ const { requestJson } = require('./tracker-navcom-preferences');
 const CAPABILITY = 'homebase-crew-cloud-v1';
 const DEFAULT_CREW_URL = 'https://ga-proxy.einherjer.workers.dev/api/homebase-group/';
 const DEFAULT_PROFILE_URL = 'https://ga-proxy.einherjer.workers.dev/api/sync-v2/';
-const DEFAULT_POLL_MS = 45000;
+// Crew-Bases aendern sich selten; jeder Abruf liest im Worker mehrere KV-Eintraege
+// je Mitglied. Gruppenwechsel aus der App loesen sofort einen eigenen Abruf aus.
+const DEFAULT_POLL_MS = 10 * 60 * 1000;
 const DEFAULT_GROUP_REFRESH_MS = 10 * 60 * 1000;
 const DEFAULT_RETRY_MS = 60000;
 

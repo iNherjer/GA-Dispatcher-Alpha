@@ -195,7 +195,7 @@ test('pinboard mission restore publishes a fresh tracker seed immediately', () =
   const restoreStart = boardSource.indexOf('async function loadPinnedFlight');
   const restoreEnd = boardSource.indexOf('\nfunction pinboardCreateElement', restoreStart);
   const restoreSource = boardSource.slice(restoreStart, restoreEnd);
-  assert.match(restoreSource, /restoreMissionState\(note\.flightData, \{ source: 'pinboard' \}\)/);
+  assert.match(restoreSource, /restoreMissionState\((note\.)?flightData, \{ source: 'pinboard' \}\)/);
   assert.match(restoreSource, /queueActiveMissionCloudSave\('pinboard-mission-restored', \{ delayMs: 0 \}\)/);
 });
 
