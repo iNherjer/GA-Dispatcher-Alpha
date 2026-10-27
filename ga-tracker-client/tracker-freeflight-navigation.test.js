@@ -76,7 +76,7 @@ test('Cloud freeflight restore retains tracker authority and pending local chang
     document:{getElementById:()=>({})},localStorage:{getItem:()=>null},
     _syncActiveTrackerRunForCloudPull:()=>null,_syncReadPendingUpload:()=>pending,
     _syncConfirmReplaceRunningLocalMission:()=>true,restoreMissionState:async s=>{restored++;return true;},
-    _syncRecordCloudMissionPullOutcome:()=>{}});
+    _syncRecordCloudMissionPullOutcome:()=>{},_syncMissionRestoreBlocked:()=>false});
   vm.runInContext(fn,sandbox);
   const options={freeflightNavigation:core.build(state())};
   assert.equal(await sandbox._syncApplyActiveMissionFromCloud(null,options),true);assert.equal(restored,1);

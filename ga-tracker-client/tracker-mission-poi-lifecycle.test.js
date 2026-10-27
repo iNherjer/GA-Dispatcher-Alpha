@@ -55,7 +55,11 @@ function replay(b) {
 async function harness(t, options = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'poi-lifecycle-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
-  const config = { storageFile: path.join(dir, 'authority.json'), executionAuthorityEnabled: true, poiExecutionEnabled: true, idFactory: () => 'poi-run' };
+  // Test clock follows the telemetry timestamps: ground handling requires samples
+  // no older than 5 s against the runtime clock (tracker inspection ground safety).
+  let clock = 1000;
+  const now = () => clock;
+  const config = { storageFile: path.join(dir, 'authority.json'), executionAuthorityEnabled: true, poiExecutionEnabled: true, idFactory: () => 'poi-run', now };
   let manager = createMissionAuthorityManager(config);
   const b = options.bundle || bundle();
   const acquired = manager.acquire({ missionId: b.missionId, clientId: 'app', stateHash: 'app', resumeBundle: b });
@@ -69,13 +73,13 @@ async function harness(t, options = {}) {
   let position = { lat: 48, lon: 8, altFt: 500, hdg: 90 };
   let runtime, adapter, bridge;
   function connect() {
-    adapter = createTrackerMissionExecutionAdapter({ authorityManager: manager });
+    adapter = createTrackerMissionExecutionAdapter({ authorityManager: manager, now });
     const fv = createTrackerMissionFarewellVoice({ authorityManager: manager });
     const runtimeAuthority = { ...manager,
       ...(options.pauseFinalization ? { finalizeExecutionRun: () => ({ ok: false, status: 'interrupted' }) } : {}),
       recordExecutionRuntimeContext: request => options.blockRecorder?.(manager.getExecutionSnapshot())
         ? { ok: false, error: 'test_recorder_disk_failure' } : manager.recordExecutionRuntimeContext(request) };
-    runtime = createTrackerMissionExecutionRuntime({ enabled: true, authorityManager: runtimeAuthority,
+    runtime = createTrackerMissionExecutionRuntime({ enabled: true, authorityManager: runtimeAuthority, now,
       fairEffectScheduling: options.workerScheduling === true, allowIntentRevisionRebase: options.workerScheduling === true,
       payloadSyncBeforeStart: completed, playBoardingVoice: options.voice || completed,
       playFarewellVoice: request => { farewell.push(request); return fv.dispatch(request); },
@@ -96,6 +100,7 @@ async function harness(t, options = {}) {
   }
   function sample(at, patch = {}) {
     const sample = { observedAt: at, lat: 48.1, lon: 8.1, altFt: 3000, aglFt: 500, gsKts: 95, hdg: 90, onGround: false, ...patch };
+    clock = Math.max(clock, at);
     position = sample;
     const result = runtime.observeTelemetry(sample);
     assert.equal(result.ok, true, JSON.stringify(result));
@@ -108,6 +113,10 @@ async function harness(t, options = {}) {
   }
   return { b, commands, farewell, payloads, start, intent, sample,
     setLivePosition(value) { position = value; },
+    advance(ms) { clock += ms; },
+    // After a tracker restart the running simulator keeps streaming; one sample at the
+    // last position lets the interruption controller continue (v580) and refreshes ground data.
+    resume() { if (!manager.getActiveRun()) return null; const { observedAt, ...last } = position; return sample(clock + 500, last); },
     get manager() { return manager; }, get runtime() { return runtime; }, get adapter() { return adapter; }, get bridge() { return bridge; },
     rawIntent: (intent, payload = {}) => { const run = manager.getActiveRun(); return runtime.executeIntent({ intent, payload, commandId: `raw-${++sequence}`, missionId: run.missionId, runId: run.runId, expectedRevision: run.revision }); },
     async restart() { runtime.detachSimulator(); options.pauseFinalization = false; manager = createMissionAuthorityManager(config); connect(); await tick(); } };
@@ -125,6 +134,7 @@ for (const workerScheduling of [false, true]) test(`full POI flight/task/away-en
   assert.equal(h.manager.getExecutionSnapshot().state.poiLifecycle.needsRideHome, true);
   await h.restart();
   assert.equal(h.adapter.getFarewellDynamicContext().record.poiNeedsRideHome, true);
+  h.resume();
   await h.intent('set_manifest_item', { itemId: 'camera', action: 'unload' });
   await h.intent('sign_manifest'); await h.intent('confirm_unload');
   for (let i = 0; i < 100 && h.manager.getActiveRun(); i++) await new Promise(resolve => setTimeout(resolve, 20));
@@ -186,6 +196,7 @@ test('manual POI passenger unload/reload uses original scene commands, rollback 
     ? (mode === 'fail' ? { ok: false, error: 'door_failed' } : mode === 'pending' ? { ok: true, status: 'pending' } : completed()) : completed() });
   await h.start();
   assert.equal(h.manager.getExecutionSnapshot().state.manifest.items.find(i => i.id === 'pax').status, 'loaded');
+  h.sample(9000, { lat: 48, lon: 8, altFt: 500, aglFt: 0, gsKts: 0, onGround: true }); // standing at the start
   await h.intent('request_pax_interaction', { itemId: 'pax', action: 'unload' });
   let s = h.manager.getExecutionSnapshot();
   assert.equal(s.state.manifest.items.find(i => i.id === 'pax').status, 'loaded');
@@ -287,7 +298,10 @@ for (const crash of ['after-confirm', 'after-close-ack']) test(`POI recovers ${c
   if (crash === 'after-confirm') {
     h.runtime.detachSimulator();
     const s = h.manager.getExecutionSnapshot();
-    assert.equal(h.adapter.executeIntent({ intent: 'confirm_unload', commandId: 'crash-confirm', missionId: s.missionId, runId: s.runId, expectedRevision: s.authorityRevision }).ok, true);
+    // This direct adapter has its own observations; the ground gate needs a fresh still sample.
+    h.adapter.observeTelemetry({ observedAt: 37000, lat: 48.1, lon: 8.1, altFt: 3000, aglFt: 0, gsKts: 0, hdg: 90, onGround: true });
+    const confirmed = h.adapter.executeIntent({ intent: 'confirm_unload', commandId: 'crash-confirm', missionId: s.missionId, runId: s.runId, expectedRevision: s.authorityRevision });
+    assert.equal(confirmed.ok, true, JSON.stringify(confirmed));
     assert.equal(h.farewell.length, 0);
   } else {
     await h.intent('confirm_unload');
@@ -295,7 +309,7 @@ for (const crash of ['after-confirm', 'after-close-ack']) test(`POI recovers ${c
     assert.equal(h.manager.getExecutionSnapshot().state.phase, 'closed');
     assert.equal(h.farewell.length, 1);
   }
-  await h.restart();
+  await h.restart(); h.resume();
   for (let i = 0; i < 100 && h.manager.getActiveRun(); i++) await new Promise(resolve => setTimeout(resolve, 20));
   assert.equal(h.manager.getActiveRun(), null); assert.equal(h.farewell.length, 1);
   const finished = h.manager.getPublicSnapshot().lastExecution;
@@ -552,7 +566,8 @@ test('full POI runtime checkpoints steady enroute telemetry without rewriting eq
   const events = f.manager.getActiveRun({ includeBundle: true }).resumeBundle.executionReplay.events;
   assert.equal(events.filter(e => e.type === 'POI_TASK_OBSERVED').length, 12);
   assert.equal(events.filter(e => e.type === 'POI_LIFECYCLE_OBSERVED').length, 2);
-  assert.ok(state.revision - baseline <= 16, 'no per-sample lifecycle journal writes');
+  // 12 task + 2 lifecycle + AIRBORNE + effect ACK + one GROUND_HANDLING_INVALIDATED at takeoff.
+  assert.ok(state.revision - baseline <= 17, `no per-sample lifecycle journal writes (delta ${state.revision - baseline})`);
   assert.equal(execution.replay(f.manager.getActiveRun({ includeBundle: true }).resumeBundle.executionReplay).stateHash,
     f.manager.getExecutionSnapshot().executionStateHash);
 });
@@ -583,6 +598,7 @@ for (const domain of ['sightseeing_tour', 'poi_learning_guide', 'historian_guide
     assert.equal((await h.rawIntent('poi_tell_more')).ok, false);
   }
   await h.restart();
+  h.resume();
   assert.deepEqual(h.manager.requestSnapshot({ missionId: b.missionId }).resumeBundle.executionPoiRecipe.voiceContext.knowledgeContext, context.knowledgeContext);
   h.sample(14000, { lat: 48.3, lon: 8.5 });
   assert.equal(h.manager.getExecutionSnapshot().state.progress.targetSatisfied, true);
@@ -691,6 +707,7 @@ for (const type of ['north_south_scan', 'orbit']) test(`Mapping ${type}: cloud g
         }
       }
       await h.restart();
+      h.resume();
     }
   }
   assert.equal(h.manager.getExecutionSnapshot().state.poiTask.detector.satisfied, true);
@@ -723,6 +740,7 @@ test('Mapping pause/restart drops an unfinished scan segment without inventing i
   assert.ok(h.manager.getPublicSnapshot().execution.poiTask.surveyPattern.scan.activeCoverage > 0);
   h.sample(at, { simPaused: true }); at += 1000;
   await h.restart();
+  h.resume();
   for (let i = 9; i <= 24; i++) { h.sample(at, { ...core.interpolateLine(line, i / 24), hdg: 180 }); at += 1000; }
   const survey = h.manager.getPublicSnapshot().execution.poiTask.surveyPattern;
   assert.equal(survey.scan.completedCount, 0);

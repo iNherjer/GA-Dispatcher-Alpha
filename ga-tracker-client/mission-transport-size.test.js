@@ -34,10 +34,14 @@ test('start banner displays failed intent directly, and restores normal text aft
   const source = read('tracker-efb-kartentisch-host.js');
   const start = source.indexOf('  function renderMissionActionBanner('), end = source.indexOf('  function updateMissionLiveFields', start);
   const text = {};
-  const ctx = { setupMissionActionBanner: () => ({ classList: { remove() {}, add() {} }, style: {}, setAttribute() {} }),
+  const element = () => ({ style: {}, children: [], classList: { remove() {}, add() {} }, setAttribute() {}, getAttribute: () => null, removeAttribute() {}, appendChild(child) { this.children.push(child); }, removeChild() {}, querySelector: () => null, querySelectorAll: () => [] });
+  const banner = element();
+  const ctx = { setupMissionActionBanner: () => banner, document: { createElement: element },
     missionActionBannerModel: () => ({ key: 'mission', text: 'Normal', kicker: 'Start', button: 'Beginnen' }),
     missionBannerDismissedKey: '', missionIntentTone: 'danger', missionIntentStatus: 'Paket zu gross', missionIntentPending: false,
-    setText: (id, value) => { text[id] = value; }, byId: () => null };
+    setText: (id, value) => { text[id] = value; }, byId: () => null,
+    // Helpers defined outside the sliced banner source.
+    flightPlanJobs: {}, interruptionView: () => null, preflightPlanningModel: () => null, syncFlightPlanRecallButton() {} };
   vm.createContext(ctx); vm.runInContext(source.slice(start, end), ctx);
   ctx.renderMissionActionBanner({}); assert.equal(text.missionStartBannerText, 'Paket zu gross');
   ctx.missionIntentTone = 'good'; ctx.renderMissionActionBanner({}); assert.equal(text.missionStartBannerText, 'Normal');

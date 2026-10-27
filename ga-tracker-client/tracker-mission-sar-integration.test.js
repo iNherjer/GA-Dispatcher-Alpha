@@ -21,8 +21,11 @@ async function harness(t, value = bundle()) {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'training-integration-'));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const b = value;
+  // Test clock follows the telemetry timestamps (ground handling needs samples <= 5 s old).
+  let clock = Date.now();
+  const now = () => clock;
   const manager = createMissionAuthorityManager({ storageFile: path.join(directory, 'authority.json'), executionAuthorityEnabled: true,
-    poiExecutionEnabled: true, poiLifecycleRequired: true, idFactory: () => 'training-run' });
+    poiExecutionEnabled: true, poiLifecycleRequired: true, idFactory: () => 'training-run', now });
   const acquired = manager.acquire({ missionId, clientId: 'app', stateHash: 'app', resumeBundle: b });
   const prepared = manager.prepareExecutionAuthority({ missionId, runId: acquired.activeRun.runId, clientId: 'app',
     expectedRevision: acquired.activeRun.revision, expectedStateHash: acquired.activeRun.stateHash,
@@ -32,7 +35,7 @@ async function harness(t, value = bundle()) {
     expectedRevision: prepared.activeRun.revision, expectedExecutionStateHash: prepared.activeRun.executionStateHash,
     handoffId: prepared.handoff.handoffId }).ok, true);
   const commands = [], farewells = [];
-  const runtime = createTrackerMissionExecutionRuntime({ enabled: true, authorityManager: manager,
+  const runtime = createTrackerMissionExecutionRuntime({ enabled: true, authorityManager: manager, now,
     payloadSyncBeforeStart: completed, playBoardingVoice: completed, playFarewellVoice: request => {farewells.push(request);return completed();} });
   runtime.attachSimulator({ getLivePosition: () => ({ lat: 48.3, lon: 8.5, altFt: 940, hdg: 0 }),
     dispatchCommand: command => { commands.push(command); return completed(); }, syncPayloadManifestState: completed, cleanupMission: completed });
@@ -46,8 +49,10 @@ async function harness(t, value = bundle()) {
     return result;
   }
   async function sample(patch = {}) {
-    const result = runtime.observeTelemetry({ observedAt: Date.now(), lat: 48.3, lon: 8.5, altFt: 3000, aglFt: 3000,
-      gsKts: 85, hdg: 0, onGround: false, ...patch });
+    const value = { observedAt: clock, lat: 48.3, lon: 8.5, altFt: 3000, aglFt: 3000,
+      gsKts: 85, hdg: 0, onGround: false, ...patch };
+    clock = Math.max(clock, value.observedAt);
+    const result = runtime.observeTelemetry(value);
     assert.equal(result.ok, true, JSON.stringify(result));
     for (let i = 0; i < 5; i++) await tick();
     await runtime.flush();

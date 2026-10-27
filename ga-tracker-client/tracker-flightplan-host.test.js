@@ -16,11 +16,13 @@ function harness() {
     missionSnapshot:{control:{missionId:'m',runId:'r'}},mapSnapshot:{missionId:'m',routeEdit:{revision:0}},
     missionIntentPending:false,missionIntentStatus:'',missionIntentTone:'',missionBannerDismissedKey:'',
     missionActionBannerModel:()=>banner._gaMissionActionModel,
+    // Interruption helpers live outside the sliced banner source (see tracker-cloud-load.test.js).
+    interruptionView:()=>null,scheduleInterruptionRecheck(){},resumedNoticeUntil:0,resumedNoticeKey:'',
     setText:(id,text)=>{node(id).textContent=text;}};
   vm.createContext(context);
   const bridge=source.slice(source.indexOf('  var flightPlanBridgeReadyUntil'),source.indexOf('  var cargoManagerOpen'));
   const setup=source.slice(source.indexOf('  function setupMissionActionBanner()'),source.indexOf('  function missionToolbarProjection('));
-  const render=source.slice(source.indexOf('  function renderMissionActionBanner(payload)'),source.indexOf('  function updateMissionLiveFields('));
+  const render=source.slice(source.indexOf('  // Toolbar entry for a dismissed World-Map planning banner.'),source.indexOf('  function updateMissionLiveFields('));
   vm.runInContext(bridge+setup+render+'\nsetupMissionActionBanner();',context);
   banner._gaMissionActionModel={intent:'prepare_mission',kind:'intent',key:'m:planned',button:'Mission starten'};
   let resolveStart;
