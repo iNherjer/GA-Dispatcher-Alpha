@@ -515,12 +515,27 @@ function createHomebasePackageService(options = {}) {
     return crypto.createHash('sha256').update(manifest).update(layout).digest('hex');
   };
 
+  // Installed configs may use titles from the downloaded asset package. Register that
+  // catalog from the local index first; otherwise the first check after a tracker
+  // start rejects those titles and reports the snapshot as missing.
+  let runtimeCatalogPrimed = false;
+  let lastSnapshotReadError = '';
+  const primeRuntimeCatalog = () => {
+    if (runtimeCatalogPrimed) return;
+    runtimeCatalogPrimed = true;
+    try { readActiveAssetCatalog(); } catch (_) {}
+  };
+
   const readInstalledState = () => {
     try {
       const raw = JSON.parse(fs.readFileSync(installedStatePath, 'utf8'));
       if (raw?.schemaVersion !== 1 || !raw.config) return null;
+      primeRuntimeCatalog();
       return { ...raw, config: normalizeConfig(raw.config) };
-    } catch (_) {
+    } catch (error) {
+      const message = error?.code === 'ENOENT' ? '' : String(error?.message || error);
+      if (message && message !== lastSnapshotReadError) log(`HOMEBASE_INSTALLED_SNAPSHOT_UNREADABLE error=${message}`);
+      lastSnapshotReadError = message;
       return null;
     }
   };
@@ -899,10 +914,34 @@ function createHomebasePackageService(options = {}) {
     };
   };
 
+  // The asset package may arrive without this tracker installing it (other tool or
+  // computer). Keep the local index in step so the next start knows its titles at once.
+  const persistActiveAssetIndex = (packageVersion, assets) => {
+    if (!packageVersion || !Array.isArray(assets) || !assets.length) return false;
+    try {
+      const current = JSON.parse(fs.readFileSync(activeAssetIndexPath, 'utf8'));
+      if (current?.packageName === catalog.assetPackageName && current?.packageVersion === packageVersion) return false;
+    } catch (_) {}
+    try {
+      fs.mkdirSync(stateRoot, { recursive: true });
+      const temporary = `${activeAssetIndexPath}.tmp`;
+      fs.writeFileSync(temporary, `${JSON.stringify({ packageName: catalog.assetPackageName, packageVersion, assets }, null, 2)}\n`, 'utf8');
+      fs.renameSync(temporary, activeAssetIndexPath);
+      log(`HOMEBASE_ASSET_INDEX_UPDATED version=${packageVersion} assets=${assets.length}`);
+      return true;
+    } catch (error) {
+      log(`HOMEBASE_ASSET_INDEX_WRITE_ERROR error=${error?.message || error}`);
+      return false;
+    }
+  };
+
   const checkRemoteAssets = async (checkOptions = {}) => {
     const installed = inspectAssets();
     const remote = await remoteUpdater.check(installed, { force: checkOptions.force === true });
-    if (installed.packageComplete && installed.packageVersion === remote.remoteVersion) catalog.registerRuntimeAssets(remote.remoteAssets);
+    if (installed.packageComplete && installed.packageVersion === remote.remoteVersion) {
+      catalog.registerRuntimeAssets(remote.remoteAssets);
+      persistActiveAssetIndex(remote.remoteVersion, remote.remoteAssets);
+    }
     if (checkOptions.notify === true) {
       sendAck({
         type: 'homebase_v1.assets.update.status',

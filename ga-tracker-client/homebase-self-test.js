@@ -1002,6 +1002,16 @@ async function run() {
     if (!fs.existsSync(activeIndexPath) || JSON.parse(fs.readFileSync(activeIndexPath, 'utf8')).packageVersion !== remoteVersion) {
       throw new Error('Active remote package index was not persisted.');
     }
+    // Asset package installed by other means: a stale local index is brought up to date by the check.
+    fs.writeFileSync(activeIndexPath, JSON.stringify({ packageName: catalog.assetPackageName, packageVersion: '0.0.1', assets: [] }), 'utf8');
+    await remoteService.checkRemoteAssets({ force: true });
+    const refreshedIndex = JSON.parse(fs.readFileSync(activeIndexPath, 'utf8'));
+    if (refreshedIndex.packageVersion !== remoteVersion || !Array.isArray(refreshedIndex.assets) || !refreshedIndex.assets.length) {
+      throw new Error(`Stale active asset index was not refreshed by the remote check: ${refreshedIndex.packageVersion}`);
+    }
+    if (remoteService.inspectAssetState().assetCatalog.length !== catalog.assets.length) {
+      throw new Error('Refreshed active asset index is not readable.');
+    }
     if (fs.existsSync(path.join(testRoot, 'remote-runtime', 'homebase-asset-cache'))) {
       throw new Error('Temporary remote asset cache was not removed after installation.');
     }
