@@ -100,7 +100,7 @@ function createFlightTrackStore(options = {}) {
       list.push(meta);
       byKind.set(meta.kind, list);
     }
-    for (const list of byKind.values()) for (const old of list.slice(keepPerKind)) { remove(trackFile(old.runId)); remove(noteFile(old.runId)); }
+    for (const list of byKind.values()) for (const old of list.slice(keepPerKind)) { remove(trackFile(old.runId)); remove(noteFile(old.runId)); remove(entryFile(old.runId)); }
   };
 
   // meta: { kind: 'mission'|'free', runId, missionId?, completionId?, startTs, endTs, track, entry? }
@@ -126,8 +126,10 @@ function createFlightTrackStore(options = {}) {
   };
 
   const markUploaded = (runId, status = 'uploaded') => {
+    const entry = getEntry(runId);
+    if (entry && !entry.uploadedAt) writeJson(entryFile(runId), { ...entry, uploadedAt: Date.now() });
     const value = getTrack(runId);
-    if (!value) return false;
+    if (!value) return !!entry;
     writeJson(trackFile(runId), { ...value, uploadedAt: Date.now(), uploadStatus: status });
     return true;
   };
@@ -135,7 +137,9 @@ function createFlightTrackStore(options = {}) {
   // Newest first; free flights before mission backfill so a fresh flight goes up at once.
   const pendingUploads = (limit = 5) => listTracks().filter(t => !t.uploadedAt)
     .sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'free' ? -1 : 1))
-    .slice(0, limit).map(t => getTrack(t.runId)).filter(Boolean);
+    .map(t => getTrack(t.runId)).filter(Boolean)
+    .concat(pendingEntriesWithoutTrack())
+    .slice(0, limit);
 
   // Logbook note per run (e.g. the passenger's farewell words). Kept beside the track file;
   // an already uploaded track is queued again so the note reaches the cloud.
@@ -154,6 +158,31 @@ function createFlightTrackStore(options = {}) {
     const track = getTrack(runId);
     if (track?.uploadedAt) writeJson(trackFile(runId), { ...track, uploadedAt: null, uploadStatus: 'note-added' });
     return true;
+  };
+
+  // Mission logbook entry written by the tracker at the end of a run (mission-logbook-record-core).
+  const ENTRY_WITHOUT_TRACK_WAIT_MS = Math.max(0, Number(options.entryWithoutTrackWaitMs ?? 10 * 60 * 1000));
+  const entryFile = id => path.join(trackDir, `${safeId(id)}.entry.json`);
+  const getEntry = runId => {
+    const value = readJson(entryFile(runId));
+    return value?.schema === 'ga.flight-track-entry.v1' ? value : null;
+  };
+  const putEntry = (runId, record, status = 'completed') => {
+    if (!runId || !record || typeof record !== 'object') return false;
+    writeJson(entryFile(runId), { schema: 'ga.flight-track-entry.v1', runId: String(runId), status: String(status || 'completed'),
+      record, recordedAt: Date.now(), uploadedAt: null });
+    const track = getTrack(runId);
+    if (track?.uploadedAt) writeJson(trackFile(runId), { ...track, uploadedAt: null, uploadStatus: 'entry-added' });
+    return true;
+  };
+  // Entries whose track never arrived (no movement, missing log) go up on their own after a while.
+  const pendingEntriesWithoutTrack = () => {
+    let names = [];
+    try { names = io.readdirSync(trackDir).filter(name => name.endsWith('.entry.json')); } catch (_) {}
+    return names.map(name => readJson(path.join(trackDir, name))).filter(e => e?.schema === 'ga.flight-track-entry.v1'
+      && !e.uploadedAt && !getTrack(e.runId) && Date.now() - Number(e.recordedAt || 0) >= ENTRY_WITHOUT_TRACK_WAIT_MS)
+      .map(e => ({ kind: 'mission', runId: e.runId, missionId: e.record?.missionId || null, startTs: null,
+        endTs: Number(e.record?.endedAt || e.record?.createdAt) || null, track: null, entryOnly: true }));
   };
 
   const getTrack = runId => {
@@ -210,6 +239,8 @@ function createFlightTrackStore(options = {}) {
     pendingUploads,
     getNote,
     putNote,
+    getEntry,
+    putEntry,
     listTracks,
     trackFromMissionLog,
     backfillMissionTracks

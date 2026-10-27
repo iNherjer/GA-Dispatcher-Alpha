@@ -113,8 +113,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v594';
-const TRACKER_VERSION_CODE = 594;
+const TRACKER_VERSION = 'v595';
+const TRACKER_VERSION_CODE = 595;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -137,7 +137,7 @@ const TRACKER_POI_EXECUTION_ENABLED = TRACKER_APT_EXECUTION_ENABLED;
 const TRACKER_AUDIO_OUTPUT_ENABLED = TRACKER_APT_EXECUTION_ENABLED
   && Boolean(TRACKER_DESKTOP_CONTROL_TOKEN) && process.env.VFR_MULTITOOL_DESKTOP_AUDIO_PLAYER === '1';
 const TRACKER_EXECUTION_CAPABILITIES = TRACKER_APT_EXECUTION_ENABLED
-  ? ['mission.transfer.v1', 'mission.intent.v1', 'mission.cloud-load.v1', 'mission.cloud-control.v1', 'mission.cargo-batch.v1', 'mission.compliance-debug.v1', 'voice.relay.v1', ...(TRACKER_POI_EXECUTION_ENABLED ? ['mission.poi.v1', 'mission.sar-search.v2', 'mission.bush-strip.v1', 'mission.bush-return.v1', 'mission.bush-narrative.v1'] : []), ...(TRACKER_AUDIO_OUTPUT_ENABLED ? ['audio.output.v1', ...(TRACKER_NAVIGATION_PLAYER_READY ? ['navigation.warnings.v1'] : [])] : [])] : [];
+  ? ['mission.transfer.v1', 'mission.intent.v1', 'flight.logbook.v1', 'mission.cloud-load.v1', 'mission.cloud-control.v1', 'mission.cargo-batch.v1', 'mission.compliance-debug.v1', 'voice.relay.v1', ...(TRACKER_POI_EXECUTION_ENABLED ? ['mission.poi.v1', 'mission.sar-search.v2', 'mission.bush-strip.v1', 'mission.bush-return.v1', 'mission.bush-narrative.v1'] : []), ...(TRACKER_AUDIO_OUTPUT_ENABLED ? ['audio.output.v1', ...(TRACKER_NAVIGATION_PLAYER_READY ? ['navigation.warnings.v1'] : [])] : [])] : [];
 const TRACKER_PROTOCOL_HELLO = createTrackerRelayHello({
   trackerVersion: TRACKER_VERSION,
   trackerVersionCode: TRACKER_VERSION_CODE,
@@ -5046,7 +5046,23 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       onUploaded: file => { if (file.kind === 'free') trackerFreeFlight?.acknowledge(file.completionId || file.runId); },
       log: debugLog
     });
-    const flightLogbookTimer = setInterval(() => { void flightLogbookCloud.flush(); }, 10000);
+    // Mission logbook entries come from the mission authority outbox (finished/aborted runs).
+    let logbookDrainBusy = false;
+    const drainLogbookOutbox = async () => {
+      if (logbookDrainBusy || typeof missionAuthorityManager.getLogbookOutbox !== 'function') return;
+      logbookDrainBusy = true;
+      try {
+        const entries = await missionAuthorityManager.getLogbookOutbox() || [];
+        for (const entry of entries) {
+          const stored = trackerFreeFlight?.store?.putEntry?.(entry.id, entry.record, entry.status);
+          if (stored) await missionAuthorityManager.acknowledgeLogbookOutbox(entry.id);
+          debugLog(`MISSION_LOGBOOK_ENTRY run=${entry.id} status=${entry.status || ''} stored=${stored ? 1 : 0}`);
+        }
+      } catch (error) {
+        debugLog(`MISSION_LOGBOOK_ENTRY_ERROR error=${error?.message || error}`);
+      } finally { logbookDrainBusy = false; }
+    };
+    const flightLogbookTimer = setInterval(() => { void drainLogbookOutbox().then(() => flightLogbookCloud.flush()); }, 10000);
     flightLogbookTimer.unref?.();
   } catch (error) {
     trackerFreeFlight = null;

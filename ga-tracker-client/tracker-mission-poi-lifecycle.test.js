@@ -143,6 +143,19 @@ for (const workerScheduling of [false, true]) test(`full POI flight/task/away-en
   assert.equal(h.farewell[0].farewellDynamicContext.missionFailed, false);
   assert.equal(h.farewell[0].farewellDynamicContext.record.poiNeedsRideHome, true);
   assert.ok(h.payloads.length >= 2);
+  // The tracker writes the flight logbook entry itself (mission-logbook-record-core).
+  const outbox = h.manager.getLogbookOutbox();
+  assert.equal(outbox.length, 1);
+  assert.equal(outbox[0].id, 'poi-run');
+  assert.equal(outbox[0].status, 'completed');
+  assert.equal(outbox[0].record.schemaVersion, 2);
+  assert.equal(outbox[0].record.runId, 'poi-run');
+  assert.equal(outbox[0].record.missionId, 'full-poi');
+  assert.match(outbox[0].record.completionId, /^full-poi-\d+$/);
+  assert.equal(outbox[0].record.result, 'completed');
+  assert.equal(outbox[0].record.start, 'HOME');
+  assert.equal(h.manager.acknowledgeLogbookOutbox('poi-run'), true);
+  assert.equal(h.manager.getLogbookOutbox().length, 0);
   assert.ok(h.commands.some(c => c.type === 'mission_scene_spawn'));
 });
 

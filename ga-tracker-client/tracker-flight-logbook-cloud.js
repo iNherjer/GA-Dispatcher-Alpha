@@ -23,9 +23,22 @@ function request(url, init = {}) {
   });
 }
 
-function entryFor(file) {
+const MAX_ENTRY_CHARS = 3900; // worker limit is 4 KB per entry
+
+function entryFor(file, logbookRecord = null) {
   if (file.kind === 'free') return { ...(file.entry || {}), kind: 'free', runId: file.runId, completionId: file.completionId || file.runId, startTs: file.startTs, endTs: file.endTs };
-  return { kind: 'mission', runId: file.runId, missionId: file.missionId || null, startTs: file.startTs, endTs: file.endTs };
+  const base = { kind: 'mission', runId: file.runId, missionId: file.missionId || null, startTs: file.startTs, endTs: file.endTs };
+  if (!logbookRecord) return base;
+  // Full logbook record written by the tracker (mission-logbook-record-core.js).
+  return { ...logbookRecord, ...base, missionId: logbookRecord.missionId || base.missionId,
+    endTs: base.endTs || Number(logbookRecord.endedAt || logbookRecord.createdAt) || null, hasLogbookRecord: true };
+}
+
+function fitEntry(entry) {
+  let json = JSON.stringify(entry);
+  if (json.length <= MAX_ENTRY_CHARS || !entry.farewellText) return entry;
+  const excess = json.length - MAX_ENTRY_CHARS + 3;
+  return { ...entry, farewellText: `${entry.farewellText.slice(0, Math.max(200, entry.farewellText.length - excess))}…` };
 }
 
 function createFlightLogbookCloud({ store, pilotId, pin, onUploaded = () => {}, baseUrl = DEFAULT_BASE_URL, transport = request, now = Date.now, log = () => {} }) {
@@ -40,10 +53,12 @@ function createFlightLogbookCloud({ store, pilotId, pin, onUploaded = () => {}, 
       if (!files.length) return { status: 'empty' };
       let uploaded = 0;
       for (const file of files) {
-        const entry = entryFor(file);
+        const logbook = file.kind === 'mission' && typeof store.getEntry === 'function' ? store.getEntry(file.runId) : null;
+        let entry = entryFor(file, logbook?.record || null);
         const note = typeof store.getNote === 'function' ? store.getNote(file.runId) : null;
         if (note?.farewellText) Object.assign(entry, { farewellText: note.farewellText, farewellSpeaker: note.farewellSpeaker || '', farewellRole: note.farewellRole || '' });
-        const res = await transport(baseUrl + 'put', { method: 'POST', headers, body: JSON.stringify({ entry, track: file.track }) });
+        entry = fitEntry(entry);
+        const res = await transport(baseUrl + 'put', { method: 'POST', headers, body: JSON.stringify({ entry, track: file.track || null }) });
         if (res.ok) {
           store.markUploaded(file.runId);
           uploaded += 1;

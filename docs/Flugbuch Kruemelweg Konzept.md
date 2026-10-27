@@ -192,3 +192,15 @@ Zitat im Missionsergebnis und im PDF. Ältere Flüge haben keine Abschiedsworte.
 
 - Worker-Endpunkt und Speicherlimit pro Pilot festlegen.
 - Tracker-Änderung → EXE-Release nötig (nur nach Freigabe).
+
+
+## Missionseinträge schreibt der Tracker (Tracker v595 / Web v2225)
+
+Nutzerentscheidung 27.10.2026: Fliegen ohne Web-App muss vollständige Flugbucheinträge ergeben.
+Der Tracker baut bei Abschluss/Abbruch eines Laufs den Eintrag mit `mission-logbook-record-core.js`
+(gleiches Schema und gleiche `completionId` wie bisher die App), Postausgang im Authority-Kern,
+Ablage `tracks/<runId>.entry.json`, Upload mit Spur und Abschiedsworten (`hasLogbookRecord: true`).
+Ohne Spur geht der Eintrag nach 10 min allein hoch. Abgebrochene Läufe nur mit Flugdaten,
+`result: 'aborted'`. Die Web-App liest Missionen aus der Cloud, aktualisiert beim Öffnen des
+Flugbuchs, zeigt ältere Profil-Einträge ohne Cloud-Gegenstück weiter und schreibt bei
+`flight.logbook.v1` keine eigenen Missionseinträge mehr. Alte Läufe werden nicht nachgerüstet.

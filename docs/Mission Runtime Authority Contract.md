@@ -1,5 +1,20 @@
 # Mission Runtime Authority Contract
 
+## Flugbuch-Eintraege schreibt der Tracker (27.10.2026, Tracker v595)
+
+- Bei `finalizeExecutionRun` (erledigt) und `abortExecutionRun` (abgebrochen, nur mit
+  Flugdaten) legt der Authority-Kern den Logbucheintrag in `state.logbookOutbox`
+  (`getLogbookOutbox`/`acknowledgeLogbookOutbox`, wie der Folgeauftrags-Postausgang).
+- Den Eintrag baut der gemeinsame Kern `mission-logbook-record-core.js` (aus dem
+  bisherigen `sync.js`-Builder herausgeloest, gleiche `completionId`). Die App nutzt
+  denselben Kern weiter fuer den Abschluss-Debrief und den Sim-Modus.
+- Der Hauptprozess legt den Eintrag neben die Spur (`flightlogs/tracks/<runId>.entry.json`)
+  und laedt ihn mit Spur und Abschiedsworten nach `/api/flightlog-v1/` hoch.
+- Capability `flight.logbook.v1`: Die App schreibt dann keine eigenen Missionseintraege
+  mehr ins Profil-Logbuch; ihr Flugbuch liest Missionen und freie Fluege aus der Cloud
+  und zeigt aeltere Profil-Eintraege ohne Cloud-Gegenstueck weiter an.
+- Konzept: `docs/Flugbuch Kruemelweg Konzept.md`.
+
 ## Web-Ausfuehrung ist Legacy (20.10.2026)
 
 Ausserhalb des Sim-Modus fuehrt nur noch der Tracker Missionen aus

@@ -13,6 +13,7 @@ const executionCore = require('../mission-execution-core.js');
 const locationCore = require('../mission-location-core.js');
 const payloadCore = require('../mission-payload-core.js');
 const flightRecorderCore = require('../mission-flight-recorder-core.js');
+const logbookRecordCore = require('../mission-logbook-record-core.js');
 const { plannedResetBundle } = require('./tracker-mission-reset.js');
 
 const checkpointBlobs = require('./tracker-mission-checkpoint-blobs.js');
@@ -606,6 +607,7 @@ function newState() {
     activeRun: null,
     lastRun: null,
     followupOutbox: [],
+    logbookOutbox: [],
     events: []
   };
 }
@@ -729,6 +731,7 @@ function createMissionAuthorityManager(options = {}) {
         activeRun: normalizeStoredRun(parsed.activeRun),
         lastRun: normalizeStoredRun(parsed.lastRun),
         followupOutbox: Array.isArray(parsed.followupOutbox) ? parsed.followupOutbox : [],
+        logbookOutbox: Array.isArray(parsed.logbookOutbox) ? parsed.logbookOutbox : [],
         events: Array.isArray(parsed.events) ? parsed.events.slice(-MAX_EVENTS) : []
       };
       // Loaded parts are already on disk: reference them from the first checkpoint on.
@@ -1487,6 +1490,7 @@ function createMissionAuthorityManager(options = {}) {
         state.followupOutbox.push({ id: active.runId, pilotId, createdAt: now(), requests: followup.requests });
       }
     } catch (error) { state = previousState; return { ok: false, error: 'followup_prepare_failed', detail: error.message }; }
+    queueLogbookRecord(active, 'completed');
     active.active = false;
     active.state = 'completed';
     active.phase = 'closed';
@@ -1589,6 +1593,35 @@ function createMissionAuthorityManager(options = {}) {
     };
   };
 
+  // Flight logbook: the tracker writes the entry for every finished or aborted run
+  // (shared record builder with the web app). Uploaded by tracker-flight-logbook-cloud.js.
+  const MAX_LOGBOOK_OUTBOX = 64;
+  const logbookRecordFor = (run, status) => {
+    const control = publicExecutionSnapshot(run) || {};
+    const missionState = safeObject(run.resumeBundle?.missionState);
+    const mission = safeObject(missionState.currentMissionData || missionState);
+    const flight = safeObject(control.flight?.missionRecord || run.executionRuntimeContext?.missionFlightRecord);
+    if (status === 'aborted' && !(Number(flight.durationSec) > 0)) return null; // aborted before flying: no entry
+    const items = Array.isArray(control.manifest?.items) ? control.manifest.items : [];
+    const isPassenger = item => /passenger|pax/i.test(item?.itemType || item?.type || '');
+    const outcome = control.poiOutcome || flight.missionCargoOutcome
+      || flightRecorderCore.evaluateFarewellOutcome(control.manifest, {}, { motionProtectionEnabled: false });
+    return logbookRecordCore.buildRecord({
+      mission, missionId: run.missionId, runId: run.runId, flight, outcome,
+      comfort: items.some(isPassenger) ? safeObject(run.executionRuntimeContext?.comfort?.summary) : null,
+      hasCargo: items.some(item => !isPassenger(item)),
+      status, now: now()
+    });
+  };
+  const queueLogbookRecord = (run, status) => {
+    let record = null;
+    try { record = logbookRecordFor(run, status); } catch (error) { log(`MISSION_LOGBOOK_RECORD_ERROR run=${run?.runId || ''} error=${error?.message || error}`); }
+    if (!record) return false;
+    state.logbookOutbox = (state.logbookOutbox || []).filter(entry => entry.id !== run.runId)
+      .concat({ id: run.runId, createdAt: now(), status, record }).slice(-MAX_LOGBOOK_OUTBOX);
+    return true;
+  };
+
   const abortExecutionRun = (request = {}) => {
     const active = state.activeRun;
     if (!active) return { ok: true, status: 'noop', outcome: 'aborted', activeRun: null, releasedRun: publicRun(state.lastRun) };
@@ -1621,6 +1654,7 @@ function createMissionAuthorityManager(options = {}) {
       }
     }
     const previousState = jsonClone(state);
+    queueLogbookRecord(active, 'aborted');
     active.active = false;
     active.state = 'aborted';
     active.phase = 'closed';
@@ -2206,6 +2240,14 @@ function createMissionAuthorityManager(options = {}) {
         debrief: debriefProjection(),
         updatedAt: Number(state.activeRun?.updatedAt || state.lastRun?.updatedAt || 0) || null
       };
+    },
+    getLogbookOutbox() { return jsonClone(state.logbookOutbox || []); },
+    acknowledgeLogbookOutbox(id) {
+      const previous = state.logbookOutbox || [];
+      state.logbookOutbox = previous.filter(entry => entry.id !== id);
+      if (state.logbookOutbox.length === previous.length) return true;
+      if (persist()) return true;
+      state.logbookOutbox = previous; return false;
     },
     getFollowupOutbox(pilotId) { return jsonClone(state.followupOutbox.filter(entry => entry.pilotId === pilotId)); },
     acknowledgeFollowupOutbox(id, pilotId) {

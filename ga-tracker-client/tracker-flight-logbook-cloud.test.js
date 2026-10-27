@@ -76,3 +76,43 @@ test('a note recorded before the track exists is sent with the first upload', as
   await createFlightLogbookCloud({ store, pilotId: 'P', pin: '1', transport: async (url, init) => { bodies.push(JSON.parse(init.body)); return { ok: true, status: 200 }; } }).flush();
   assert.equal(bodies[0].entry.farewellText, 'Bis zum nächsten Mal!');
 });
+
+test('the tracker logbook record travels with the mission track', async () => {
+  const store = setup(); const bodies = [];
+  store.putEntry('run-m', { schemaVersion: 2, completionId: 'mission-m-2', missionId: 'mission-m', missionTitle: 'Fotoflug', start: 'EDTW', dest: 'EDTF', createdAt: 2, endedAt: 2, result: 'completed' });
+  const cloud = createFlightLogbookCloud({ store, pilotId: 'P', pin: '1', transport: async (url, init) => { bodies.push(JSON.parse(init.body)); return { ok: true, status: 200 }; } });
+  await cloud.flush();
+  const mission = bodies.find(b => b.entry.runId === 'run-m').entry;
+  assert.equal(mission.kind, 'mission');
+  assert.equal(mission.missionTitle, 'Fotoflug');
+  assert.equal(mission.completionId, 'mission-m-2');
+  assert.equal(mission.hasLogbookRecord, true);
+  // an entry that arrives after the track upload sends the track again with the entry
+  bodies.length = 0;
+  store.putEntry('run-m', { schemaVersion: 2, completionId: 'mission-m-2', missionId: 'mission-m', missionTitle: 'Fotoflug (neu)', createdAt: 2 });
+  await cloud.flush();
+  assert.equal(bodies.length, 1);
+  assert.equal(bodies[0].entry.missionTitle, 'Fotoflug (neu)');
+  assert.ok(bodies[0].track);
+});
+
+test('an entry without a track goes up alone after the wait time', async () => {
+  const store = createFlightTrackStore({ directory: fs.mkdtempSync(path.join(os.tmpdir(), 'fl-entry-')), entryWithoutTrackWaitMs: 0 });
+  store.putEntry('run-ground', { schemaVersion: 2, completionId: 'mission-g-7', missionId: 'mission-g', missionTitle: 'Abgebrochen am Boden', createdAt: 7, endedAt: 7, result: 'aborted' }, 'aborted');
+  const bodies = [];
+  const cloud = createFlightLogbookCloud({ store, pilotId: 'P', pin: '1', transport: async (url, init) => { bodies.push(JSON.parse(init.body)); return { ok: true, status: 200 }; } });
+  await cloud.flush();
+  assert.equal(bodies.length, 1);
+  assert.equal(bodies[0].track, null);
+  assert.equal(bodies[0].entry.result, 'aborted');
+  assert.equal((await cloud.flush()).status, 'empty');
+});
+
+test('a very long farewell is shortened to the worker entry limit', async () => {
+  const store = setup(); const bodies = [];
+  store.putEntry('run-m', { schemaVersion: 2, completionId: 'c', missionId: 'mission-m', missionTitle: 'x'.repeat(200), createdAt: 2 });
+  store.putNote('run-m', { farewellText: 'ä'.repeat(2000) + 'Ende', farewellSpeaker: 'Anna' });
+  await createFlightLogbookCloud({ store, pilotId: 'P', pin: '1', transport: async (url, init) => { bodies.push(JSON.parse(init.body)); return { ok: true, status: 200 }; } }).flush();
+  const entry = bodies.find(b => b.entry.runId === 'run-m').entry;
+  assert.ok(JSON.stringify(entry).length <= 3900, String(JSON.stringify(entry).length));
+});

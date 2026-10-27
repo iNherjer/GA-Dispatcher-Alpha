@@ -12284,114 +12284,29 @@ function _buildMissionCompletionRecord(options = {}) {
         || missionRuntime.arrivalFlightRecord
         || _buildFlightRecordSnapshot(Date.now())
         || {};
-    const endedAt = Number(flight.createdAt || flight.endTs || Date.now()) || Date.now();
-    const startedAt = Number(flight.startTs || missionRuntime.startedAt || 0);
-    const durationSec = _completionFinite(flight.durationSec)
-        ?? (startedAt > 0 ? Math.max(1, Math.round((endedAt - startedAt) / 1000)) : null);
-    const recordedDistanceNm = _completionFinite(flight.distanceNm, 1);
-    const distanceNm = recordedDistanceNm
-        ?? _completionFinite(parseFloat(String(md.dist ?? md.distanceNm ?? '').replace(',', '.')), 1);
-    const cargoOutcome = options.outcome || flight.missionCargoOutcome || missionRuntime.closingOutcome || null;
     let comfort = null;
     if (_missionCompletionHasPassengers() && typeof window.paxVoiceGetComfortSummary === 'function') {
         try { comfort = window.paxVoiceGetComfortSummary(); } catch (_) {}
     }
-    const comfortHasSamples = Number(comfort?.samples || 0) > 0;
-    const maxGForce = _completionFinite(flight.maxGForce, 2)
-        ?? (comfortHasSamples ? _completionFinite(comfort?.maxG, 2) : null);
-    const maxBankDeg = _completionFinite(flight.maxBankDeg, 1)
-        ?? (comfortHasSamples ? _completionFinite(comfort?.maxBankDeg, 1) : null);
-    const telemetrySampleCount = Math.max(0, Math.round(Number(flight.telemetrySampleCount || 0)));
-    const bankSampleCount = Math.max(0, Math.round(Number(flight.bankSampleCount || 0)));
-    const gForceSampleCount = Math.max(0, Math.round(Number(flight.gForceSampleCount || 0)));
-    const enrouteSampleCount = Math.max(0, Math.round(Number(flight.enrouteSampleCount || 0)));
-    const aglSampleCount = Math.max(0, Math.round(Number(flight.aglSampleCount || 0)));
-    const telemetryStatus = _completionText(
-        flight.telemetryStatus
-        || ((maxGForce != null || maxBankDeg != null) ? 'partial' : 'unavailable'),
-        24
-    );
-    const completionId = `${missionId}-${Math.round(endedAt)}`;
-    const start = _completionText(flight.depLabel || md.start || (typeof currentStartICAO !== 'undefined' ? currentStartICAO : '') || 'START', 64);
-    const actualLanding = _completionText(flight.arrLabel || md.dest || (typeof currentDestICAO !== 'undefined' ? currentDestICAO : '') || 'LANDUNG', 64);
-    const assignment = _completionText(md.mission || md.title || md.missionTitle || md.task || 'Mission', 220);
-    const cruiseCount = Math.max(0, Math.round(Number(flight.cruiseSampleCount || 0)));
-    const cruiseDurationSec = Math.max(0, Math.round(Number(flight.cruiseDurationSec || 0)));
-    const hasCruiseEvidence = cruiseCount >= 10 && cruiseDurationSec >= 20;
-    return {
-        schemaVersion: 2,
-        ...((window.MissionPrivateReturnCore?.source(md) || window.MissionCharterContinuationCore?.source(md)) ? { privateOutingEvidence:
-            window.MissionPrivateReturnCore.completionEvidence(flight,
+    // Shared with the Tracker, which writes the flight logbook (mission-logbook-record-core.js).
+    return window.GAMissionLogbookRecordCore.buildRecord({
+        mission: md,
+        missionId,
+        flight,
+        outcome: options.outcome || flight.missionCargoOutcome || missionRuntime.closingOutcome || null,
+        comfort,
+        hasCargo: _missionCompletionHasCargo(),
+        startedAt: missionRuntime.startedAt || 0,
+        fallbackStart: typeof currentStartICAO !== 'undefined' ? currentStartICAO : '',
+        fallbackDest: typeof currentDestICAO !== 'undefined' ? currentDestICAO : '',
+        simulated: !!window.simModeActive,
+        privateOutingEvidence: (window.MissionPrivateReturnCore?.source(md) || window.MissionCharterContinuationCore?.source(md))
+            ? window.MissionPrivateReturnCore.completionEvidence(flight,
                 flight.missionEndEvidence?.missionId === missionId ? flight.missionEndEvidence
                     : (typeof _missionEndReadiness === 'function' ? _missionEndReadiness() : {}))
-        } : {}),
-        id: completionId,
-        completionId,
-        missionId,
-        createdAt: endedAt,
-        endedAt,
-        date: new Date(endedAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }),
-        dateLabel: new Date(endedAt).toLocaleString('de-DE'),
-        start,
-        dest: actualLanding,
-        depLabel: start,
-        arrLabel: actualLanding,
-        plannedDest: _completionText(md.dest || '', 64),
-        mission: assignment,
-        missionTitle: assignment,
-        taskDomain: _completionText(md.taskDomain || md.missionContract?.taskDomain || '', 80),
-        aircraft: _completionText(md.ac || md.aircraft || '', 80),
-        ac: _completionText(md.ac || md.aircraft || '', 80),
-        durationSec: durationSec == null ? null : Math.round(durationSec),
-        distanceNm,
-        dist: distanceNm,
-        distanceSource: _completionText(recordedDistanceNm != null ? (flight.distanceSource || 'gps') : 'planned', 24),
-        result: cargoOutcome?.failed || flight.missionFailed ? 'failed' : 'completed',
-        failed: !!(cargoOutcome?.failed || flight.missionFailed),
-        simulated: flight.simulated === true || !!window.simModeActive,
-        maxGForce,
-        maxBankDeg,
-        touchdownVsFpm: _completionFinite(flight.touchdownVsFpm),
-        maxClimbFpm: _completionFinite(flight.maxClimbFpm),
-        maxDescentFpm: _completionFinite(flight.maxDescentFpm),
-        minEnrouteAglFt: _completionFinite(flight.minEnrouteAglFt),
-        cruiseAltitudeMeanFt: hasCruiseEvidence ? _completionFinite(flight.cruiseAltitudeMeanFt) : null,
-        cruiseAltitudeStdDevFt: hasCruiseEvidence ? _completionFinite(flight.cruiseAltitudeStdDevFt) : null,
-        cruiseAltitudeRangeFt: hasCruiseEvidence ? _completionFinite(flight.cruiseAltitudeRangeFt) : null,
-        telemetryStatus,
-        telemetrySampleCount,
-        bankSampleCount: bankSampleCount || (comfortHasSamples ? Math.max(0, Math.round(Number(comfort.samples || 0))) : 0),
-        gForceSampleCount: gForceSampleCount || (comfortHasSamples ? Math.max(0, Math.round(Number(comfort.samples || 0))) : 0),
-        enrouteSampleCount,
-        aglSampleCount,
-        cruiseSampleCount: cruiseCount,
-        cruiseDurationSec,
-        segmentCount: Math.max(1, Math.round(Number(flight.segmentCount) || 1)),
-        comfort: comfort ? {
-            score: _completionFinite(comfort.comfortScore),
-            mood: _completionText(comfort.mood, 80),
-            pilotEvents: Math.max(0, Math.round(Number(comfort.pilotEvents || 0))),
-            pilotSevere: Math.max(0, Math.round(Number(comfort.pilotSevere || 0))),
-            weatherEvents: Math.max(0, Math.round(Number(comfort.weatherEvents || 0))),
-            weatherSevere: Math.max(0, Math.round(Number(comfort.weatherSevere || 0))),
-            samples: Math.max(0, Math.round(Number(comfort.samples || 0))),
-            maxG: _completionFinite(comfort.maxG, 2),
-            maxBankDeg: _completionFinite(comfort.maxBankDeg, 1),
-            maxDescentFpm: _completionFinite(comfort.maxDescentFpm)
-        } : null,
-        cargo: _missionCompletionHasCargo() && cargoOutcome ? {
-            status: _completionText(cargoOutcome.status || (cargoOutcome.failed ? 'failed' : 'completed'), 32),
-            failed: !!cargoOutcome.failed,
-            conditionPct: _completionFinite(cargoOutcome.conditionPct),
-            stressDamagePct: _completionFinite(cargoOutcome.stressDamagePct),
-            requiredTotal: Math.max(0, Math.round(Number(cargoOutcome.requiredTotal || 0))),
-            requiredLoaded: Math.max(0, Math.round(Number(cargoOutcome.requiredLoaded || 0))),
-            missingRequired: _completionList(cargoOutcome.missingRequired),
-            droppedRequired: _completionList(cargoOutcome.droppedRequired),
-            notDeliveredRequired: _completionList(cargoOutcome.notDeliveredRequired),
-            damagedRequired: _completionList(cargoOutcome.damagedRequired)
-        } : null
-    };
+            : null,
+        now: Date.now()
+    });
 }
 
 function _compactLegacyLogbookEntry(entry = {}, index = 0) {
@@ -12548,7 +12463,10 @@ function _persistMissionCompletion(record) {
     if (!record?.completionId) return false;
     localStorage.setItem(MISSION_DEBRIEF_PENDING_KEY, JSON.stringify(record));
     localStorage.setItem('last_icao_dest', String(record.dest || ''));
-    _upsertMissionLogbook(record);
+    // Trackers with flight.logbook.v1 write the logbook entry themselves (cloud flight logbook).
+    const trackerWritesLogbook = !!record.runId && Array.isArray(window.liveTrackerCapabilities)
+        && window.liveTrackerCapabilities.includes('flight.logbook.v1');
+    if (!trackerWritesLogbook) _upsertMissionLogbook(record);
     // Completion persistence is shared by local close and confirmed completion restore.
     // The private adapter requires measured flight + canonical destination evidence.
     try {

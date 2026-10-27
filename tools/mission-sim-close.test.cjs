@@ -18,7 +18,7 @@ function sandbox(){
  _missionEndReadiness:()=>({atTarget:true,groundStill:true}),_missionRuntimeHasPassengerForDeboarding:()=>true,
  _missionRuntimeStartFarewellSpeech(){c.missionRuntime.farewellSpeechStarted=true;},triggerPaxFarewell(){},
  _activeMissionRuntimeId:()=>c.currentMissionData.missionId,_readPendingMissionDebrief:()=>null,_missionCompletionHasPassengers:()=>false,_missionCompletionHasCargo:()=>false,
- MissionPrivateReturnCore:core,_safeCloneJson:x=>JSON.parse(JSON.stringify(x))};
+ MissionPrivateReturnCore:core,GAMissionLogbookRecordCore:require('../mission-logbook-record-core.js'),_safeCloneJson:x=>JSON.parse(JSON.stringify(x))};
  c.window=c;vm.createContext(c);
  load(c,'mission-runtime-core.js',['_triggerPaxFarewellAndWaitForDeboard']);
  load(c,'sync.js',['_completionFinite','_completionText','_buildMissionCompletionRecord','_compactFlightRecordForRuntime']);

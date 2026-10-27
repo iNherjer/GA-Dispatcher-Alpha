@@ -171,11 +171,24 @@ function freeEntries() {
 }
 
 // Local mission logbook plus (optionally) free flights, newest first.
+// Mission entries written by the tracker (full logbook record in the cloud flight logbook).
+function cloudMissionEntries() {
+    return state.entries.filter(e => e?.kind === 'mission' && e.hasLogbookRecord === true).map(e => {
+        const createdAt = Number(e.createdAt || e.endedAt || e.endTs) || 0;
+        return { ...e, kind: 'mission', createdAt, date: e.date || (createdAt ? new Date(createdAt).toLocaleString('de-DE') : '—') };
+    });
+}
+
+// Cloud mission entries (tracker) + older local entries without a cloud counterpart + free flights.
 function mergedEntries(missionEntries) {
-    const list = (Array.isArray(missionEntries) ? missionEntries : []).filter(e => e && typeof e === 'object');
-    if (!showFree()) return list;
+    const cloud = cloudMissionEntries();
+    const runIds = new Set(cloud.map(e => e.runId).filter(Boolean));
+    const completionIds = new Set(cloud.map(e => e.completionId).filter(Boolean));
+    const legacy = (Array.isArray(missionEntries) ? missionEntries : [])
+        .filter(e => e && typeof e === 'object' && !e.deleted)
+        .filter(e => !(e.runId && runIds.has(e.runId)) && !completionIds.has(e.completionId));
     const time = e => Number(e.createdAt || e.endedAt || e.endTs || 0) || 0;
-    return list.concat(freeEntries()).sort((a, b) => time(b) - time(a));
+    return cloud.concat(legacy, showFree() ? freeEntries() : []).sort((a, b) => time(b) - time(a));
 }
 
 function trackRunIdFor(entry) {
@@ -200,6 +213,10 @@ function openEntry(entry) {
     window.showFlightDebrief(entry, { awaitingCleanup: false });
     const body = document.getElementById('flightDebriefBody');
     if (!body) return;
+    if (entry?.result === 'aborted') {
+        const meta = body.querySelector('.flight-debrief-meta');
+        if (meta) meta.textContent = `${entry.dateLabel || entry.date || ''} · ABGEBROCHEN`;
+    }
     if (entry?.kind === 'free') {
         const meta = body.querySelector('.flight-debrief-meta');
         if (meta) meta.textContent = `${entry.date || ''} · FREIER FLUG`;
@@ -867,6 +884,7 @@ async function deleteEntry(entry, button) {
     if (button) button.disabled = true;
     const runId = trackRunIdFor(entry);
     try {
+        // Older entries also live in the local/profile logbook; tracker entries only in the cloud.
         if (entry?.kind !== 'free' && typeof window.deleteMissionLogbookEntry === 'function') {
             window.deleteMissionLogbookEntry(entry.completionId || entry.id);
         }
@@ -901,8 +919,10 @@ function missionOutcome(record) {
         if (listText(cargo.notDeliveredRequired)) reasons.push(`nicht abgeliefert: ${listText(cargo.notDeliveredRequired)}`);
         if (listText(cargo.damagedRequired)) reasons.push(`beschädigt: ${listText(cargo.damagedRequired)}`);
     }
-    rows.push({ label: 'Ergebnis', value: failed ? 'Nicht erfüllt' : 'Erfüllt', tone: failed ? 'bad' : 'good' });
+    const aborted = record.result === 'aborted';
+    rows.push({ label: 'Ergebnis', value: aborted ? 'Abgebrochen' : (failed ? 'Nicht erfüllt' : 'Erfüllt'), tone: failed ? 'bad' : 'good' });
     if (failed && reasons.length) rows.push({ label: 'Grund', value: reasons.join(' · '), tone: 'bad' });
+    else if (aborted) rows.push({ label: 'Grund', value: 'Mission vor dem Abschluss abgebrochen', tone: 'bad' });
     else if (failed) rows.push({ label: 'Grund', value: 'Auftrag nicht vollständig abgeschlossen', tone: 'bad' });
     const planned = String(record.plannedDest || '').trim();
     const landed = String(record.dest || record.arrLabel || '').trim();
@@ -929,7 +949,7 @@ function missionOutcome(record) {
 function farewellFor(record) {
     if (!record || record.kind === 'free') return null;
     const runId = trackRunIdFor(record);
-    const entry = runId ? state.entries.find(e => e.runId === runId) : null;
+    const entry = record.farewellText ? record : (runId ? state.entries.find(e => e.runId === runId) : null);
     const text = String(entry?.farewellText || '').trim();
     if (!text) return null;
     const who = [entry.farewellSpeaker, entry.farewellRole].map(v => String(v || '').trim()).filter(Boolean).join(', ');

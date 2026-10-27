@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v2224';
+const CACHE = 'ga-dispatcher-v2225';
 
 const STATIC = [
     './',
@@ -178,6 +178,7 @@ const STATIC = [
     './cloud-sync-core.js',
     './cloud-sync-client.js',
     './mission-cloud-control-core.js',
+    './mission-logbook-record-core.js',
     './sync.js',
     './homebase-capability-retry-core.js',
     './homebase-scene-core.js',

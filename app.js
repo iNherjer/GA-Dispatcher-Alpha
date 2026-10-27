@@ -47682,6 +47682,7 @@ async function toggleLogbook(open, options = {}) {
     const reading = document.getElementById('logbookReading');
     const pocket = stage?.querySelector('.logbook-pocket');
     if (!stage || !cover || !reading || logbookView.animating || logbookView.open === !!open) return;
+    if (open) window.GAFlightLogbook?.refresh({ force: true }); // new tracker entries when the book opens
     updateLogbookWidth();
     logbookView.animating = true;
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
