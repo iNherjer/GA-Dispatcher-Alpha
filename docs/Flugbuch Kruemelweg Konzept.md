@@ -1,6 +1,6 @@
 # Flugbuch: Krümelweg und Höhenprofil (Konzept)
 
-Stand: 2026-10-26 · Status: Tracker v593, Worker `/api/flightlog-v1/` und Web-App-Flugbuch (Web v2215) umgesetzt
+Stand: 2026-10-26 · Status: Tracker v593, Worker `/api/flightlog-v1/` und Web-App-Flugbuch mit Lufträumen (Web v2216) umgesetzt
 
 ## Ziel
 
@@ -138,6 +138,16 @@ Flüge: Flugplatz im Umkreis 3 NM, sonst Koordinaten. Missionseinträge finden i
 (Linie nach Höhe gefärbt, Start/Ende/Aufsetzen) und SVG-Höhenprofil mit Gelände, gekoppeltem Cursor
 und Werten (Höhe, über Grund, GS, Strecke, Uhrzeit). Freie Flüge ohne Passagier-/Ladungsabschnitt.
 „Leeren“ löscht auch das Cloud-Flugbuch.
+
+Lufträume (Web v2216): Karte mit denselben Grundkarten/Overlays wie die Hauptkarte (Topo gedimmt unter
+VFR-Overlay, Overlay ab Zoom 15 aus, DFS ICAO, Satellit, OpenFreeMap), Auswahl gemerkt
+(`ga_logbook_map_layers_v1`). Lufträume über `gaGetOpenAipRouteAirspaces` (Bounding Box der Spur),
+aufbereitet und bewertet mit `navigation-warning-core.js` (`prepareAirspaces`,
+`getAirspaceVerticalBandFt`, `isPointInsideAirspace`) – dieselben Regeln wie die Luftraumwarnung.
+Prüfung alle ~0,1 NM mit interpolierter Höhe/Gelände: „durchflogen“ = seitlich und vertikal innen,
+sonst „unter-/überflogen“. Profil zeigt die Bänder (AGL-Grenzen folgen dem Gelände), Liste mit
+Grenzen, Ein-/Austrittszeit und Dauer. Grenze: Luftraumdaten von heute, nicht vom Flugzeitpunkt;
+Aktivierungszeiten (ED-R, NOTAM) nicht ausgewertet.
 
 - Karte: Leaflet-Linie nach Höhe eingefärbt, Marker Start/Landung,
   `fitBounds` beim Öffnen, frei zoom-/verschiebbar.

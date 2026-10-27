@@ -226,7 +226,7 @@ function openEntry(entry) {
     getTrack(runId).then(track => {
         if (!section.isConnected) return;
         if (!track) { status.textContent = 'Flugweg nicht gefunden.'; return; }
-        renderTrack(section, status, track);
+        renderTrack(section, status, track, runId);
     }).catch(error => {
         if (section.isConnected) status.textContent = `Flugweg konnte nicht geladen werden (${error?.message || error}).`;
     });
@@ -239,7 +239,140 @@ function altitudeColor(t) {
     return `hsl(${hue}, 75%, 42%)`;
 }
 
-function renderTrack(section, status, track) {
+// ---- map layers: same base maps, overlays and zoom rules as the main map ------------------
+const LAYER_PREF_KEY = 'ga_logbook_map_layers_v1';
+const AERO_TILE_URL = 'https://nwy-tiles-api.prod.newaydata.com/tiles/{z}/{x}/{y}.png?path=latest/aero/latest';
+const AERO_HIDE_ZOOM = 15; // main map: VP_VFR_OVERLAY_AUTO_HIDE_ZOOM
+function readLayerPrefs() {
+    try { return JSON.parse(localStorage.getItem(LAYER_PREF_KEY) || 'null') || {}; } catch (_) { return {}; }
+}
+function writeLayerPrefs(prefs) {
+    try { localStorage.setItem(LAYER_PREF_KEY, JSON.stringify(prefs)); } catch (_) {}
+}
+function buildBaseLayers() {
+    const osm = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>';
+    const topo = typeof createResilientOpenTopoLayer === 'function'
+        ? createResilientOpenTopoLayer({ attribution: `${osm}, <a href="https://opentopomap.org" target="_blank" rel="noopener noreferrer">OpenTopoMap</a>` })
+        : L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', { maxZoom: 17, subdomains: 'abc', attribution: `${osm}, OpenTopoMap` });
+    const layers = {
+        '⛰️ Topografie (Mit Text)': topo,
+        '🗺️ Terrain (Ohne Text)': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri' }),
+        '🛰️ Satellit': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles &copy; Esri' })
+    };
+    if (typeof window.createOpenFreeMapLayer === 'function') {
+        try {
+            layers['📝 Positron (Hell)'] = window.createOpenFreeMapLayer('positron');
+            layers['🌑 Dark'] = window.createOpenFreeMapLayer('dark');
+            layers['🌊 Fiord'] = window.createOpenFreeMapLayer('fiord');
+        } catch (_) {}
+    }
+    return { layers, topo };
+}
+
+// ---- airspaces along the flown track ------------------------------------------------------
+const AIRSPACE_SAMPLE_NM = 0.1;
+const airspaceCache = new Map();
+function limitText(limit) {
+    if (!limit) return '?';
+    const value = Number(limit.value);
+    if (limit.referenceDatum === 0 && value === 0) return 'GND';
+    if (limit.unit === 6) return `FL ${String(Math.round(value)).padStart(3, '0')}`;
+    const ft = limit.unit === 0 ? Math.round(value * 3.28084) : Math.round(value);
+    return `${fmt(ft)} ft ${limit.referenceDatum === 0 ? 'AGL' : 'MSL'}`;
+}
+function airspaceColor(as) {
+    try { if (typeof getOpenAipOverlayStyle === 'function') return getOpenAipOverlayStyle(as); } catch (_) {}
+    return { color: '#64748b', fillOpacity: 0.08, weight: 1.6 };
+}
+function airspaceName(as) {
+    try { if (window.GANavigationWarningPresentation?.displayName) return window.GANavigationWarningPresentation.displayName(as); } catch (_) {}
+    return String(as?.name || 'Luftraum');
+}
+function polygonsOf(as) {
+    const g = as?.geometry;
+    if (!g) return [];
+    if (g.type === 'Polygon') return [g.coordinates[0]];
+    if (g.type === 'MultiPolygon') return g.coordinates.map(p => p[0]);
+    return [];
+}
+function bboxOf(polys) {
+    let w = 180, s = 90, e = -180, n = -90;
+    polys.forEach(poly => poly.forEach(([lon, lat]) => { if (lon < w) w = lon; if (lon > e) e = lon; if (lat < s) s = lat; if (lat > n) n = lat; }));
+    return { w, s, e, n };
+}
+
+// Dense samples along the track (every ~0.1 NM) with interpolated altitude and terrain.
+function densify(points, along) {
+    const out = [];
+    for (let i = 0; i < points.length; i++) {
+        const p = points[i];
+        if (i === 0 || p.segmentStart) { out.push({ ...p, x: along[i], idx: i }); continue; }
+        const a = points[i - 1];
+        const span = along[i] - along[i - 1];
+        const steps = Math.min(40, Math.max(1, Math.ceil(span / AIRSPACE_SAMPLE_NM)));
+        for (let k = 1; k <= steps; k++) {
+            const f = k / steps;
+            const gnd = a.gndFt !== null && p.gndFt !== null ? a.gndFt + (p.gndFt - a.gndFt) * f : (p.gndFt ?? a.gndFt);
+            out.push({ lat: a.lat + (p.lat - a.lat) * f, lon: a.lon + (p.lon - a.lon) * f, altFt: a.altFt + (p.altFt - a.altFt) * f,
+                gndFt: gnd, sec: a.sec + (p.sec - a.sec) * f, time: a.time + (p.time - a.time) * f, x: along[i - 1] + span * f,
+                idx: f < 0.5 ? i - 1 : i, segmentStart: false, onGround: k === steps ? p.onGround : a.onGround && p.onGround });
+        }
+    }
+    return out;
+}
+
+// Classifies each airspace whose footprint the track crosses: flown through (inside laterally and
+// vertically) or only overflown/underflown. Uses the same preparation and vertical rules as the
+// in-flight airspace warnings (navigation-warning-core.js).
+function analyseAirspaces(items, samples) {
+    const core = window.GANavigationWarnings;
+    if (!core?.prepareAirspaces || !core.getAirspaceVerticalBandFt || !core.isPointInsideAirspace) return [];
+    const prepared = core.prepareAirspaces(items);
+    const results = [];
+    prepared.forEach(as => {
+        const polys = polygonsOf(as);
+        if (!polys.length) return;
+        const box = bboxOf(polys);
+        const lateral = [], inside = [];
+        let latRun = null, inRun = null, below = 0, above = 0;
+        samples.forEach((s, k) => {
+            if (s.segmentStart) { latRun = null; inRun = null; }
+            const inBox = s.lon >= box.w && s.lon <= box.e && s.lat >= box.s && s.lat <= box.n;
+            const isLateral = inBox && core.isPointInsideAirspace(as, s.lat, s.lon);
+            const band = isLateral ? core.getAirspaceVerticalBandFt(as, s.gndFt ?? 0) : null;
+            const isInside = !!band && s.altFt >= band.lowerFt && s.altFt <= band.upperFt;
+            if (band && !isInside) { if (s.altFt < band.lowerFt) below++; else above++; }
+            if (isLateral) { if (!latRun) lateral.push(latRun = { from: k, to: k }); else latRun.to = k; } else latRun = null;
+            if (isInside) { if (!inRun) inside.push(inRun = { from: k, to: k }); else inRun.to = k; } else inRun = null;
+        });
+        if (!lateral.length) return;
+        const style = airspaceColor(as);
+        results.push({ as, name: airspaceName(as), style, lateral, inside,
+            flownThrough: inside.length > 0, relation: below >= above ? 'unterflogen' : 'überflogen',
+            limits: `${limitText(as.lowerLimit)} – ${limitText(as.upperLimit)}` });
+    });
+    return results;
+}
+
+async function loadAirspaces(runId, points) {
+    if (airspaceCache.has(runId)) return airspaceCache.get(runId);
+    if (typeof window.gaGetOpenAipRouteAirspaces !== 'function') throw new Error('airspace_data_unavailable');
+    let w = 180, s = 90, e = -180, n = -90;
+    points.forEach(p => { if (p.lon < w) w = p.lon; if (p.lon > e) e = p.lon; if (p.lat < s) s = p.lat; if (p.lat > n) n = p.lat; });
+    const pad = 0.05;
+    const items = await window.gaGetOpenAipRouteAirspaces({ west: w - pad, south: s - pad, east: e + pad, north: n + pad });
+    const list = Array.isArray(items) ? items : [];
+    airspaceCache.set(runId, list);
+    return list;
+}
+
+function clockText(ms) { return new Date(ms).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }); }
+function durationText(sec) {
+    const s = Math.max(0, Math.round(sec));
+    return s >= 60 ? `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, '0')} s` : `${s} s`;
+}
+
+function renderTrack(section, status, track, runId) {
     const codec = window.GAFlightTrackCodecCore;
     let points;
     try { points = codec.decodeTrack(track); } catch (_) { status.textContent = 'Flugweg ist beschädigt.'; return; }
@@ -261,30 +394,64 @@ function renderTrack(section, status, track) {
     const readout = document.createElement('div');
     readout.className = 'flight-track-readout';
     readout.textContent = 'Über das Profil oder die Linie fahren, um Werte zu sehen.';
-    section.append(mapEl, profileWrap, readout);
+    const airspaceBox = document.createElement('div');
+    airspaceBox.className = 'flight-track-airspaces';
+    airspaceBox.textContent = 'Lufträume werden geprüft…';
+    section.append(mapEl, profileWrap, readout, airspaceBox);
 
-    // Map
-    let marker = null;
+    const useTime = totalNm < 0.2;
+    const samples = densify(points, along);
+    let airspaces = [];      // analysis results
+    let highlighted = null;  // result highlighted from the list
+
+    // ---- map ----
+    let marker = null, map = null, airspaceLayer = null;
+    const airspacePolys = new Map();
     if (window.L) {
-        const map = L.map(mapEl, { zoomControl: true, attributionControl: true, scrollWheelZoom: true });
+        map = L.map(mapEl, { zoomControl: true, attributionControl: true, scrollWheelZoom: true });
         activeMap = map;
-        L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-            maxZoom: 17, subdomains: 'abc',
-            attribution: 'Karte: © <a href="https://opentopomap.org" target="_blank" rel="noopener">OpenTopoMap</a> (CC-BY-SA), Daten: © OpenStreetMap'
-        }).addTo(map);
+        map.createPane('gaTrackAirspace').style.zIndex = 410;
+        map.createPane('gaTrackLine').style.zIndex = 450;
+        const prefs = readLayerPrefs();
+        const base = buildBaseLayers();
+        const aero = L.tileLayer(AERO_TILE_URL, { attribution: 'AeroData / NewayData', opacity: 0.65, maxNativeZoom: 12 });
+        const dfs = L.tileLayer('https://secais.dfs.de/static-maps/icao500/tiles/{z}/{x}/{y}.png', { attribution: '© DFS Deutsche Flugsicherung', maxNativeZoom: 11, opacity: 1 });
+        airspaceLayer = L.layerGroup();
+        const overlays = { '🛩️ VFR Lufträume (Overlay)': aero, '🗺️ DFS ICAO Karte 1:500k': dfs, '🧭 Lufträume am Flugweg': airspaceLayer };
+        const baseName = base.layers[prefs.base] ? prefs.base : '⛰️ Topografie (Mit Text)';
+        base.layers[baseName].addTo(map);
+        const activeOverlays = Array.isArray(prefs.overlays) ? prefs.overlays : ['🛩️ VFR Lufträume (Overlay)', '🧭 Lufträume am Flugweg'];
+        Object.entries(overlays).forEach(([name, layer]) => { if (activeOverlays.includes(name)) layer.addTo(map); });
+        L.control.layers(base.layers, overlays, { collapsed: true }).addTo(map);
+        // Main map rule: topo is dimmed under the VFR overlay; the overlay hides from zoom 15.
+        const applyZoomRules = () => {
+            const aeroOn = map.hasLayer(aero), hidden = map.getZoom() >= AERO_HIDE_ZOOM;
+            if (aeroOn) aero.setOpacity(hidden ? 0 : 0.65);
+            if (map.hasLayer(base.topo) && typeof base.topo.setOpacity === 'function') base.topo.setOpacity(map.hasLayer(dfs) || !aeroOn || hidden ? 1 : 0.5);
+        };
+        const savePrefs = () => {
+            const current = Object.entries(base.layers).find(([, layer]) => map.hasLayer(layer));
+            writeLayerPrefs({ base: current ? current[0] : baseName, overlays: Object.entries(overlays).filter(([, layer]) => map.hasLayer(layer)).map(([name]) => name) });
+            applyZoomRules();
+        };
+        map.on('baselayerchange overlayadd overlayremove', savePrefs);
+        map.on('zoomend', applyZoomRules);
+
         for (let i = 1; i < points.length; i++) {
             if (points[i].segmentStart) continue;
             const t = maxAlt > minAlt ? ((points[i - 1].altFt + points[i].altFt) / 2 - minAlt) / (maxAlt - minAlt) : 0;
             L.polyline([[points[i - 1].lat, points[i - 1].lon], [points[i].lat, points[i].lon]],
-                { color: altitudeColor(t), weight: 4, opacity: 0.9 }).addTo(map);
+                { pane: 'gaTrackLine', color: altitudeColor(t), weight: 4, opacity: 0.95 }).addTo(map);
         }
-        const dot = (p, color, title) => L.circleMarker([p.lat, p.lon], { radius: 6, color: '#fff', weight: 2, fillColor: color, fillOpacity: 1 }).bindTooltip(title).addTo(map);
+        const dot = (p, color, title) => L.circleMarker([p.lat, p.lon], { pane: 'gaTrackLine', radius: 6, color: '#fff', weight: 2, fillColor: color, fillOpacity: 1 }).bindTooltip(title).addTo(map);
         dot(points[0], '#2e7d32', 'Start');
         dot(points[points.length - 1], '#c62828', 'Ende');
         (track.marks?.touchdowns || []).forEach(i => points[i] && dot(points[i], '#f9a825', 'Aufsetzen'));
-        marker = L.circleMarker([points[0].lat, points[0].lon], { radius: 7, color: '#111', weight: 2, fillColor: '#fff', fillOpacity: 1, opacity: 0 }).addTo(map);
-        map.fitBounds(L.latLngBounds(points.map(p => [p.lat, p.lon])), { padding: [18, 18] });
-        setTimeout(() => { try { map.invalidateSize(); map.fitBounds(L.latLngBounds(points.map(p => [p.lat, p.lon])), { padding: [18, 18] }); } catch (_) {} }, 80);
+        marker = L.circleMarker([points[0].lat, points[0].lon], { pane: 'gaTrackLine', radius: 7, color: '#111', weight: 2, fillColor: '#fff', fillOpacity: 1, opacity: 0 }).addTo(map);
+        const bounds = L.latLngBounds(points.map(p => [p.lat, p.lon]));
+        map.fitBounds(bounds, { padding: [18, 18] });
+        applyZoomRules();
+        setTimeout(() => { try { map.invalidateSize(); map.fitBounds(bounds, { padding: [18, 18] }); applyZoomRules(); } catch (_) {} }, 80);
         map.on('mousemove', event => {
             let best = -1, bestD = Infinity;
             for (let i = 0; i < points.length; i++) {
@@ -292,82 +459,225 @@ function renderTrack(section, status, track) {
                 if (d < bestD) { bestD = d; best = i; }
             }
             const px = map.latLngToContainerPoint([points[best].lat, points[best].lon]).distanceTo(event.containerPoint);
-            if (px <= 24) select(best);
+            if (px <= 24) select(xsOf(best), points[best]);
         });
     } else {
         mapEl.textContent = 'Karte nicht verfügbar.';
     }
 
-    // Height profile
-    const W = 640, H = 190, padL = 46, padR = 10, padT = 10, padB = 24;
-    const useTime = totalNm < 0.2;
-    const xs = points.map((p, i) => useTime ? p.sec : along[i]);
-    const xMax = Math.max(xs[xs.length - 1], 1e-6);
-    const yMin = Math.max(0, Math.floor((minAlt - 100) / 100) * 100);
-    const yMax = Math.ceil((maxAlt + 200) / 100) * 100;
-    const X = v => padL + (v / xMax) * (W - padL - padR);
-    const Y = v => H - padB - ((v - yMin) / (yMax - yMin)) * (H - padT - padB);
-    const ns = 'http://www.w3.org/2000/svg';
-    const svg = document.createElementNS(ns, 'svg');
-    svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-    svg.setAttribute('role', 'img');
-    svg.setAttribute('aria-label', `Höhenprofil, ${fmt(yMin)} bis ${fmt(yMax)} ft`);
-    const el = (name, attrs) => { const node = document.createElementNS(ns, name); Object.entries(attrs).forEach(([k, v]) => node.setAttribute(k, v)); svg.appendChild(node); return node; };
-    // grid
-    const step = [100, 250, 500, 1000, 2000, 5000].find(s => (yMax - yMin) / s <= 6) || 5000;
-    for (let v = Math.ceil(yMin / step) * step; v <= yMax; v += step) {
-        el('line', { x1: padL, x2: W - padR, y1: Y(v), y2: Y(v), class: 'flight-track-grid' });
-        el('text', { x: padL - 6, y: Y(v) + 4, 'text-anchor': 'end', class: 'flight-track-axis' }).textContent = fmt(v);
+    function drawMapAirspaces() {
+        if (!airspaceLayer) return;
+        airspaceLayer.clearLayers();
+        airspacePolys.clear();
+        airspaces.forEach(r => {
+            const strong = r.flownThrough;
+            const layers = polygonsOf(r.as).map(ring => L.polygon(ring.map(([lon, lat]) => [lat, lon]), {
+                pane: 'gaTrackAirspace', color: r.style.color, weight: strong ? r.style.weight + 1 : r.style.weight,
+                fillColor: r.style.color, fillOpacity: strong ? Math.max(0.16, r.style.fillOpacity) : r.style.fillOpacity * 0.6,
+                dashArray: r.style.dashArray || (strong ? null : '4,4'), interactive: true
+            }).bindTooltip(`${r.name} · ${r.limits}${strong ? ' · durchflogen' : ` · ${r.relation}`}`, { sticky: true, className: 'airspace-tooltip' }));
+            layers.forEach(layer => layer.addTo(airspaceLayer));
+            airspacePolys.set(r, layers);
+        });
     }
-    el('text', { x: W - padR, y: H - 6, 'text-anchor': 'end', class: 'flight-track-axis' }).textContent = useTime ? `${Math.round(xMax / 60)} min` : `${xMax.toFixed(1)} NM`;
-    el('text', { x: padL, y: H - 6, class: 'flight-track-axis' }).textContent = '0';
-    // terrain per segment
-    let runs = [], run = [];
-    points.forEach((p, i) => {
-        if ((p.segmentStart && i > 0) || p.gndFt === null) { if (run.length > 1) runs.push(run); run = []; }
-        if (p.gndFt !== null) run.push(i);
-    });
-    if (run.length > 1) runs.push(run);
-    runs.forEach(r => {
-        const top = r.map(i => `${X(xs[i]).toFixed(1)},${Y(Math.max(yMin, points[i].gndFt)).toFixed(1)}`).join(' ');
-        el('polygon', { points: `${X(xs[r[0]]).toFixed(1)},${H - padB} ${top} ${X(xs[r[r.length - 1]]).toFixed(1)},${H - padB}`, class: 'flight-track-terrain' });
-    });
-    // altitude per segment
-    let line = [];
-    const flush = () => { if (line.length > 1) el('polyline', { points: line.join(' '), class: 'flight-track-altitude' }); line = []; };
-    points.forEach((p, i) => { if (p.segmentStart && i > 0) flush(); line.push(`${X(xs[i]).toFixed(1)},${Y(p.altFt).toFixed(1)}`); });
-    flush();
-    const cursor = el('line', { x1: 0, x2: 0, y1: padT, y2: H - padB, class: 'flight-track-cursor', visibility: 'hidden' });
-    const cursorDot = el('circle', { r: 4, class: 'flight-track-cursor-dot', visibility: 'hidden' });
-    profileWrap.appendChild(svg);
 
-    function speedAt(i) {
+    // ---- profile ----
+    const W = 640, H = 210, padL = 46, padR = 10, padT = 10, padB = 24;
+    const xMax = Math.max(useTime ? points[points.length - 1].sec : totalNm, 1e-6);
+    const xsOf = i => (useTime ? points[i].sec : along[i]);
+    const sx = s => (useTime ? s.sec : s.x);
+    let yMin = 0, yMax = 1000, X = () => 0, Y = () => 0, cursor = null, cursorDot = null, svg = null;
+    const ns = 'http://www.w3.org/2000/svg';
+
+    function drawProfile() {
+        // Show the band directly above the flight (e.g. a TMA base) without flattening the flight.
+        let ceiling = maxAlt + 500;
+        airspaces.forEach(r => r.lateral.forEach(run => {
+            for (let k = run.from; k <= run.to; k += 4) {
+                const band = window.GANavigationWarnings.getAirspaceVerticalBandFt(r.as, samples[k].gndFt ?? 0);
+                if (band && band.lowerFt > samples[k].altFt && band.lowerFt < maxAlt + 3000) ceiling = Math.max(ceiling, band.lowerFt + 400);
+            }
+        }));
+        yMin = Math.max(0, Math.floor((minAlt - 100) / 100) * 100);
+        yMax = Math.ceil(ceiling / 100) * 100;
+        X = v => padL + (v / xMax) * (W - padL - padR);
+        Y = v => H - padB - ((Math.max(yMin, Math.min(yMax, v)) - yMin) / (yMax - yMin)) * (H - padT - padB);
+        profileWrap.replaceChildren();
+        svg = document.createElementNS(ns, 'svg');
+        svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+        svg.setAttribute('role', 'img');
+        svg.setAttribute('aria-label', `Höhenprofil, ${fmt(yMin)} bis ${fmt(yMax)} ft`);
+        const el = (name, attrs, parent = svg) => { const node = document.createElementNS(ns, name); Object.entries(attrs).forEach(([k, v]) => node.setAttribute(k, v)); parent.appendChild(node); return node; };
+        const step = [100, 250, 500, 1000, 2000, 5000].find(s => (yMax - yMin) / s <= 6) || 5000;
+        for (let v = Math.ceil(yMin / step) * step; v <= yMax; v += step) {
+            el('line', { x1: padL, x2: W - padR, y1: Y(v), y2: Y(v), class: 'flight-track-grid' });
+            el('text', { x: padL - 6, y: Y(v) + 4, 'text-anchor': 'end', class: 'flight-track-axis' }).textContent = fmt(v);
+        }
+        el('text', { x: W - padR, y: H - 6, 'text-anchor': 'end', class: 'flight-track-axis' }).textContent = useTime ? `${Math.round(xMax / 60)} min` : `${xMax.toFixed(1)} NM`;
+        el('text', { x: padL, y: H - 6, class: 'flight-track-axis' }).textContent = '0';
+        // airspace bands: lower/upper limit along each lateral crossing (AGL limits follow terrain)
+        const bandGroup = el('g', { class: 'flight-track-airspace-bands' });
+        airspaces.forEach(r => {
+            if (r.as.type === 33) return; // as in the route profile
+            const strong = r.flownThrough || r === highlighted;
+            r.lateral.forEach(run => {
+                const top = [], bottom = [];
+                for (let k = run.from; k <= run.to; k++) {
+                    const band = window.GANavigationWarnings.getAirspaceVerticalBandFt(r.as, samples[k].gndFt ?? 0);
+                    if (!band || band.lowerFt >= yMax) continue;
+                    const x = X(sx(samples[k])).toFixed(1);
+                    top.push(`${x},${Y(band.upperFt).toFixed(1)}`);
+                    bottom.unshift(`${x},${Y(band.lowerFt).toFixed(1)}`);
+                }
+                if (top.length < 2) return;
+                const poly = el('polygon', { points: top.concat(bottom).join(' '), fill: r.style.color, 'fill-opacity': strong ? 0.28 : 0.1,
+                    stroke: r.style.color, 'stroke-width': r === highlighted ? 2.4 : 1, 'stroke-opacity': strong ? 0.9 : 0.45,
+                    'stroke-dasharray': strong ? '' : '4 3' }, bandGroup);
+                const title = document.createElementNS(ns, 'title');
+                title.textContent = `${r.name} · ${r.limits}`;
+                poly.appendChild(title);
+                const width = X(sx(samples[run.to])) - X(sx(samples[run.from]));
+                if (width > 70 && strong) {
+                    const band = window.GANavigationWarnings.getAirspaceVerticalBandFt(r.as, samples[run.from].gndFt ?? 0);
+                    const labelY = Math.max(padT + 10, Y(Math.min(yMax, band.upperFt)) + 12);
+                    el('text', { x: X(sx(samples[run.from])) + 4, y: labelY, class: 'flight-track-band-label', fill: r.style.color }, bandGroup).textContent = r.name;
+                }
+            });
+        });
+        // terrain per segment
+        let runs = [], run = [];
+        points.forEach((p, i) => {
+            if ((p.segmentStart && i > 0) || p.gndFt === null) { if (run.length > 1) runs.push(run); run = []; }
+            if (p.gndFt !== null) run.push(i);
+        });
+        if (run.length > 1) runs.push(run);
+        runs.forEach(r => {
+            const top = r.map(i => `${X(xsOf(i)).toFixed(1)},${Y(points[i].gndFt).toFixed(1)}`).join(' ');
+            el('polygon', { points: `${X(xsOf(r[0])).toFixed(1)},${H - padB} ${top} ${X(xsOf(r[r.length - 1])).toFixed(1)},${H - padB}`, class: 'flight-track-terrain' });
+        });
+        // altitude per segment
+        let line = [];
+        const flushLine = () => { if (line.length > 1) el('polyline', { points: line.join(' '), class: 'flight-track-altitude' }); line = []; };
+        points.forEach((p, i) => { if (p.segmentStart && i > 0) flushLine(); line.push(`${X(xsOf(i)).toFixed(1)},${Y(p.altFt).toFixed(1)}`); });
+        flushLine();
+        cursor = el('line', { x1: 0, x2: 0, y1: padT, y2: H - padB, class: 'flight-track-cursor', visibility: 'hidden' });
+        cursorDot = el('circle', { r: 4, class: 'flight-track-cursor-dot', visibility: 'hidden' });
+        profileWrap.appendChild(svg);
+        svg.addEventListener('pointermove', event => {
+            const box = svg.getBoundingClientRect();
+            const target = ((((event.clientX - box.left) / box.width) * W - padL) / (W - padL - padR)) * xMax;
+            let best = 0;
+            for (let k = 1; k < samples.length; k++) if (Math.abs(sx(samples[k]) - target) < Math.abs(sx(samples[best]) - target)) best = k;
+            select(sx(samples[best]), samples[best], best);
+        });
+    }
+
+    function speedAt(p) {
+        const i = p.idx ?? points.indexOf(p);
         const a = points[Math.max(0, i - 1)], b = points[Math.min(points.length - 1, i + 1)];
         const dt = b.sec - a.sec;
         if (dt <= 0 || b.segmentStart) return null;
         return codec.distanceM(a, b) / 1852 / (dt / 3600);
     }
-    function select(i) {
-        const p = points[i];
-        cursor.setAttribute('x1', X(xs[i])); cursor.setAttribute('x2', X(xs[i])); cursor.setAttribute('visibility', 'visible');
-        cursorDot.setAttribute('cx', X(xs[i])); cursorDot.setAttribute('cy', Y(p.altFt)); cursorDot.setAttribute('visibility', 'visible');
+    function sampleIndexAt(x) {
+        let best = 0;
+        for (let k = 1; k < samples.length; k++) if (Math.abs(sx(samples[k]) - x) < Math.abs(sx(samples[best]) - x)) best = k;
+        return best;
+    }
+    function select(x, p, k = null) {
+        if (!cursor) return;
+        cursor.setAttribute('x1', X(x)); cursor.setAttribute('x2', X(x)); cursor.setAttribute('visibility', 'visible');
+        cursorDot.setAttribute('cx', X(x)); cursorDot.setAttribute('cy', Y(p.altFt)); cursorDot.setAttribute('visibility', 'visible');
         if (marker) { marker.setLatLng([p.lat, p.lon]); marker.setStyle({ opacity: 1 }); }
-        const gs = speedAt(i);
+        const gs = speedAt(p);
         const parts = [`Höhe ${fmt(p.altFt)} ft`];
-        if (p.gndFt !== null) parts.push(`über Grund ${fmt(Math.max(0, p.altFt - p.gndFt))} ft`);
+        if (p.gndFt !== null && p.gndFt !== undefined) parts.push(`über Grund ${fmt(Math.max(0, p.altFt - p.gndFt))} ft`);
         if (gs !== null && Number.isFinite(gs)) parts.push(`GS ${Math.round(gs)} kt`);
-        parts.push(useTime ? `${Math.round(p.sec / 60)} min` : `${along[i].toFixed(1)} NM`);
-        parts.push(new Date(p.time).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) + ' Uhr');
+        parts.push(useTime ? `${Math.round(p.sec / 60)} min` : `${x.toFixed(1)} NM`);
+        parts.push(`${clockText(p.time)} Uhr`);
         if (p.onGround) parts.push('am Boden');
+        const index = k ?? sampleIndexAt(x);
+        const inside = airspaces.filter(r => r.inside.some(run => index >= run.from && index <= run.to)).map(r => r.name);
+        if (inside.length) parts.push(`in ${inside.join(', ')}`);
         readout.textContent = parts.join(' · ');
     }
-    svg.addEventListener('pointermove', event => {
-        const box = svg.getBoundingClientRect();
-        const vx = ((event.clientX - box.left) / box.width) * W;
-        const target = ((vx - padL) / (W - padL - padR)) * xMax;
-        let best = 0;
-        for (let i = 1; i < xs.length; i++) if (Math.abs(xs[i] - target) < Math.abs(xs[best] - target)) best = i;
-        select(best);
+
+    function renderAirspaceList() {
+        airspaceBox.replaceChildren();
+        const through = airspaces.filter(r => r.flownThrough && r.as.type !== 33);
+        const passed = airspaces.filter(r => !r.flownThrough && r.as.type !== 33);
+        const info = airspaces.filter(r => r.as.type === 33);
+        const heading = document.createElement('h4');
+        heading.textContent = through.length ? `Durchflogene Lufträume (${through.length})` : 'Keine Luftraumdurchflüge';
+        airspaceBox.appendChild(heading);
+        const list = (rows, kind) => {
+            if (!rows.length) return;
+            const ul = document.createElement('ul');
+            ul.className = `flight-track-airspace-list is-${kind}`;
+            rows.forEach(r => {
+                const li = document.createElement('li');
+                const button = document.createElement('button');
+                button.type = 'button';
+                const swatch = document.createElement('span');
+                swatch.className = 'flight-track-swatch';
+                swatch.style.background = r.style.color;
+                const name = document.createElement('strong');
+                name.textContent = r.name;
+                const detail = document.createElement('span');
+                detail.className = 'flight-track-airspace-detail';
+                if (kind === 'through') {
+                    const spans = r.inside.map(run => `${clockText(samples[run.from].time)}–${clockText(samples[run.to].time)} (${durationText(samples[run.to].sec - samples[run.from].sec)})`);
+                    detail.textContent = `${r.limits} · ${spans.join(', ')}`;
+                } else {
+                    detail.textContent = `${r.limits} · ${r.relation}`;
+                }
+                button.append(swatch, name, detail);
+                button.addEventListener('click', () => {
+                    highlighted = highlighted === r ? null : r;
+                    drawProfile();
+                    const run = (r.inside[0] || r.lateral[0]);
+                    select(sx(samples[run.from]), samples[run.from], run.from);
+                    const layers = airspacePolys.get(r);
+                    if (map && layers?.length) {
+                        if (!map.hasLayer(airspaceLayer)) airspaceLayer.addTo(map);
+                        map.fitBounds(L.featureGroup(layers).getBounds().extend(L.latLngBounds(points.map(p => [p.lat, p.lon]))), { padding: [18, 18] });
+                        layers.forEach(layer => layer.openTooltip?.());
+                    }
+                    ul.querySelectorAll('button').forEach(b => b.classList.toggle('is-active', b === button && highlighted === r));
+                });
+                li.appendChild(button);
+                ul.appendChild(li);
+            });
+            airspaceBox.appendChild(ul);
+        };
+        list(through, 'through');
+        if (passed.length) {
+            const sub = document.createElement('h4');
+            sub.textContent = `Unter- oder überflogen (${passed.length})`;
+            airspaceBox.appendChild(sub);
+            list(passed, 'passed');
+        }
+        if (info.length) {
+            const sub = document.createElement('p');
+            sub.className = 'flight-track-airspace-note';
+            sub.textContent = `Außerdem im Gebiet: ${info.map(r => r.name).join(', ')}`;
+            airspaceBox.appendChild(sub);
+        }
+        const note = document.createElement('p');
+        note.className = 'flight-track-airspace-note';
+        note.textContent = 'Lufträume nach heutigem Datenstand (OpenAIP), nicht zum Flugzeitpunkt. Zeitlich aktivierte Gebiete sind ohne Aktivierungsstatus berücksichtigt.';
+        airspaceBox.appendChild(note);
+    }
+
+    drawProfile();
+    loadAirspaces(runId, points).then(items => {
+        if (!section.isConnected) return;
+        airspaces = analyseAirspaces(items, samples);
+        drawMapAirspaces();
+        drawProfile();
+        renderAirspaceList();
+    }).catch(error => {
+        if (section.isConnected) airspaceBox.textContent = `Lufträume nicht verfügbar (${error?.message || error}).`;
     });
 }
 
