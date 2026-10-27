@@ -252,3 +252,20 @@ mehrfache Umbenennung, unveränderte Mission/Revision/Pakete, Homebase, Audio,
 Crew-Rollen, Checklist-Eigentum, veraltete IDs, gefälschte Speicheranker und
 spätere Neuregistrierungen. Die lokalen Admin-Tests prüfen Vorschauen, Konflikte,
 Sicherungen und Rücksetzung nach jedem einzelnen Schreibschritt.
+
+## Flugbuch-Speicher v1 (27.10.2026, noch nicht deployed)
+
+`/api/flightlog-v1/` (`flight-logbook.mjs`, Durable Object `FlightLogbook`, Migration
+`flight-logbook-v1`). Getrennt von Sync-V2, damit ein neuer Flug nur wenige KB kostet.
+Anmeldung wie Sync-V2 (`X-Pilot-ID`/`X-Pilot-PIN`); Objekt je Pilot über den verifizierten
+Speicheranker (`storageOwnerId`, folgt Umbenennungen) plus Registrierungsnamensraum
+(neu angelegte gleiche ID erbt keine alten Flüge).
+
+- `GET list[?since=<revision>]` – Einträge ohne Spur, neueste zuerst; unverändert → `{unchanged:true}`
+- `GET track/<runId>` – eine Spur (`flight-track-codec-core.js`, 1–3 KB)
+- `POST put {entry, track}` – Eintrag ≤ 4 KB, Spur ≤ 32 KB und dekodierbar; je Art (`free`, `mission`) bleiben die neuesten 50
+- `POST delete {runIds}` oder `{kind}`
+
+Schreiber: Tracker (`tracker-flight-logbook-cloud.js`). Leser: Web-App-Flugbuch.
+Konzept: `docs/Flugbuch Kruemelweg Konzept.md`. Deploy vor Tracker-Release; ohne Deploy
+antwortet der alte Worker 404 und der Tracker versucht es mit Backoff später erneut.

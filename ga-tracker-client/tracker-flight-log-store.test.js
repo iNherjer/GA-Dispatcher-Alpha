@@ -58,3 +58,18 @@ test('slow raw-log I/O never blocks telemetry; queued samples retain order and e
   assert.match(errors[0], /disk unavailable/);
   assert.deepEqual(writes.join('').trim().split('\n').map(line => JSON.parse(line)).filter(row => row.type === 'telemetry').map(row => row.sample.observedAt), [1, 2, 3, 4]);
 });
+
+test('a finished run also leaves its logbook track', async () => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'ga-flight-log-track-'));
+  const logs = [];
+  const store = createTrackerFlightLogStore({ directory, log: text => logs.push(text) });
+  for (let i = 0; i < 300; i += 1) store.recordSample({ missionId: 'mission-t', runId: 'run-t', phase: 'enroute',
+    sample: { observedAt: 1000 + i * 500, lat: 48 + i * 0.0004, lon: 8 + Math.sin(i / 30) * 0.01, altFt: 3000 + i, aglFt: 2500, onGround: false } });
+  store.finalize({ missionId: 'mission-t', runId: 'run-t', status: 'completed', endedAt: 200000, record: { segmentCount: 1 } });
+  for (let i = 0; i < 50 && !logs.some(l => l.startsWith('FLIGHT_TRACK_')); i += 1) await new Promise(r => setTimeout(r, 10));
+  const saved = JSON.parse(fs.readFileSync(path.join(directory, 'tracks', 'run-t.json'), 'utf8'));
+  assert.equal(saved.kind, 'mission');
+  assert.equal(saved.missionId, 'mission-t');
+  assert.equal(saved.endTs, 200000);
+  assert.ok(saved.track.n > 2 && saved.bytes < 4000);
+});

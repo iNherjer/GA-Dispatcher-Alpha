@@ -76,6 +76,9 @@ function createTrackerFlightLogStore(options = {}) {
   const initialized = new Set();
   const finalized = new Set();
   io.mkdirSync(directory, { recursive: true });
+  // Logbook track per finished run (tracks/<runId>.json). Only with the real file system.
+  const tracks = options.tracks !== undefined ? options.tracks
+    : (options.fs ? null : require('./tracker-flight-track-store.js').createFlightTrackStore({ directory, log }));
 
   const filesFor = (missionId, runId) => {
     const base = `${safeId(missionId, 'mission')}--${safeId(runId, 'run')}`;
@@ -199,6 +202,13 @@ function createTrackerFlightLogStore(options = {}) {
     io.renameSync(temporary, files.summary);
     append(path.join(directory, 'flight-log-index-v1.jsonl'), summary);
     finalized.add(files.key);
+    if (tracks) {
+      // After the raw log is on disk; a missed track is rebuilt by the startup backfill.
+      flush()
+        .then(() => tracks.trackFromMissionLog(files.log))
+        .then(meta => { if (meta && tracks.putTrack({ ...meta, endTs: summary.endedAt })) log(`FLIGHT_TRACK_SAVED run=${runId} points=${meta.track.n}`); })
+        .catch(error => log(`FLIGHT_TRACK_ERROR run=${runId} error=${error.message}`));
+    }
     log(`FLIGHT_LOG_FINALIZED mission=${missionId} run=${runId} status=${summary.status} segments=${Math.max(0, Number(summary.record?.segmentCount || 0))}`);
     return { ok: true, status: 'completed', summary, filename: files.summary, rawFilename: files.log };
   };

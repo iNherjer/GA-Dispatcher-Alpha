@@ -71,6 +71,8 @@ const { createTrackerVoiceService } = require('./tracker-voice-service.js');
 const { createTrackerCockpitControl } = require('./tracker-cockpit-control-core.js');
 const { createCockpitTools } = require('./tracker-cockpit-tools.js');
 const { createTrackerFlightLogStore } = require('./tracker-flight-log-store.js');
+const { createFreeFlightRuntime } = require('./tracker-free-flight-runtime.js');
+const { createFlightLogbookCloud } = require('./tracker-flight-logbook-cloud.js');
 const {
   GROUP_VEHICLE_TITLES,
   evaluateGroupSequenceCompletion,
@@ -111,8 +113,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v592';
-const TRACKER_VERSION_CODE = 592;
+const TRACKER_VERSION = 'v593';
+const TRACKER_VERSION_CODE = 593;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -190,6 +192,8 @@ function resolveFuelWeightData(standardFuelWeightLbs, fuelWeightPerGallonLbs, pa
 
 const HEADLESS_MODE = process.env.VFR_MULTITOOL_TRACKER_HEADLESS === '1';
 let credentialsProvidedByDesktop = false;
+// Flights without a mission run (logbook + track). Created in main(), fed from SimConnect.
+let trackerFreeFlight = null;
 const MISSION_SMOKE_DEFAULT_TITLE = 'Chimney_Smoke_V1';
 const MISSION_FIRE_DEFAULT_TITLE = 'VO_Fire_R1_40';
 const MISSION_SCENE_VEHICLE_TITLE = 'Car Bush Firefighting';
@@ -5025,6 +5029,29 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     log: debugLog
   });
   debugLog(`FLIGHT_LOG_READY directory=${TRACKER_FLIGHT_LOG_DIR} format=jsonl summary=compact-v1`);
+  try {
+    trackerFreeFlight = createFreeFlightRuntime({
+      directory: TRACKER_FLIGHT_LOG_DIR,
+      log: debugLog,
+      isMissionActive: () => !!(missionAuthorityManager.getActiveRunView || missionAuthorityManager.getActiveRun)
+        .call(missionAuthorityManager)
+    });
+    trackerFreeFlight.installProcessHandlers();
+    const recoveredFreeFlight = trackerFreeFlight.start();
+    debugLog(`FREE_FLIGHT_READY recovered=${recoveredFreeFlight?.status || 'none'} pending=${trackerFreeFlight.pending().length}`);
+    const flightLogbookCloud = createFlightLogbookCloud({
+      store: trackerFreeFlight.store,
+      pilotId: String(syncId),
+      pin: String(pin),
+      onUploaded: file => { if (file.kind === 'free') trackerFreeFlight?.acknowledge(file.completionId || file.runId); },
+      log: debugLog
+    });
+    const flightLogbookTimer = setInterval(() => { void flightLogbookCloud.flush(); }, 10000);
+    flightLogbookTimer.unref?.();
+  } catch (error) {
+    trackerFreeFlight = null;
+    debugLog(`FREE_FLIGHT_START_ERROR error=${error.message}`);
+  }
   const trackerAudioControl = TRACKER_AUDIO_OUTPUT_ENABLED ? createAudioControl({
     storageFile: path.join(TRACKER_DATA_DIR, 'audio-settings-' + require('node:crypto').createHash('sha256').update(String(syncId)).digest('hex').slice(0, 24) + '.json'),
     cloud: createAudioCloud({ pilotId: String(syncId), pin: String(pin) }),
@@ -7045,6 +7072,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
             break;
           case EVT_SIM_STOP:
             runtimeState.simRunning = 0;
+            trackerFreeFlight?.simStopped(() => runtimeState.simRunning === 0);
             break;
           case EVT_POSITION_CHANGED:
             runtimeState.lastPositionChangedAt = Date.now();
@@ -7323,6 +7351,21 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                 lastSent = now;
                 applyHomebaseFallback(lastGpsMsg);
                 applyHomebaseCrew(lastGpsMsg);
+                trackerFreeFlight?.observe({
+                  observedAt: now,
+                  lat,
+                  lon,
+                  altFt: Number.isFinite(alt) ? Math.round(alt) : null,
+                  aglFt: Number.isFinite(agl) ? Math.round(agl) : null,
+                  gsKts: Number.isFinite(groundSpeedKts) ? groundSpeedKts : null,
+                  onGround: Boolean(onGround),
+                  vsFpm: Number.isFinite(vsFpm) ? Math.round(vsFpm) : null,
+                  bankDeg: Number.isFinite(bank) ? Math.round(bank * 10) / 10 : null,
+                  gForce: Number.isFinite(gForce) ? Math.round(gForce * 100) / 100 : null,
+                  touchdownFpm: Number.isFinite(touchdownFps) ? Math.round(touchdownFps * 60) : null,
+                  simPaused,
+                  inMenuOrMap: missionTelemetryInMenu
+                });
                 if (missionExecutionRuntime?.enabled) {
                   const executionTelemetry = missionExecutionRuntime.observeTelemetry({
                     observedAt: now,
@@ -7568,6 +7611,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       }, TRAFFIC_POLL_MS);
 
       handle.on('close', () => {
+        trackerFreeFlight?.simClosed();
         independentReadiness?.stop();
         missionExecutionRuntime?.detachSimulator?.(missionSimulatorEffects);
         if (typeof updateEfbState === 'function') updateEfbState({

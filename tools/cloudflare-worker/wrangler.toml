@@ -20,6 +20,14 @@ id = "359fbc81dd0548bbba7e27eba4e513c5"
 name = "GA_PROFILE_SYNC"
 class_name = "ProfileSync"
 
+[[durable_objects.bindings]]
+name = "GA_FLIGHT_LOGBOOK"
+class_name = "FlightLogbook"
+
 [[migrations]]
 tag = "profile-sync-v1"
 new_sqlite_classes = ["ProfileSync"]
+
+[[migrations]]
+tag = "flight-logbook-v1"
+new_sqlite_classes = ["FlightLogbook"]

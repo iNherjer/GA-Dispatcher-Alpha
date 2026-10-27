@@ -1,6 +1,8 @@
 import { handleAirportContextFaa } from './airport-context-faa.mjs';
 import { handleProfileSync, profileStub } from './profile-sync.mjs';
 export { ProfileSync } from './profile-sync.mjs';
+import { handleFlightLogbook } from './flight-logbook.mjs';
+export { FlightLogbook } from './flight-logbook.mjs';
 import { handleAudioSettings } from './audio-settings.mjs';
 const OPENAIP_KEY = "049026a617e1380ac056e1fd3cc237ae";
 const DEFAULT_OBS_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/tiles";
@@ -2689,6 +2691,10 @@ export default {
 
     if (requestUrl.pathname.startsWith("/api/sync-v2/")) {
       return handleProfileSync(request, env, verifySyncProfileAuth);
+    }
+
+    if (requestUrl.pathname.startsWith("/api/flightlog-v1/")) {
+      return handleFlightLogbook(request, env, verifySyncProfileAuth);
     }
 
     if (requestUrl.pathname === "/api/tracker/download" && (request.method === "GET" || request.method === "HEAD")) {
