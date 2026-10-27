@@ -20,6 +20,10 @@ Durchsicht von v596 nach Nutzerwunsch („Bugs, Edge Cases, Performance?“).
 
 EFB-Assets unverändert. Nur Alpha-Runtime umstellen, Stable unverändert.
 
+EXE (Windows-x64, pkg 6.18.1 / Node18, Cross-Build `--no-bytecode --public --public-packages '*'` aus sauberem
+Worktree von `df82cda29`): 174643966 Bytes; SHA-256 `fea24c3fcac6e9a00c63ad6fe33d40f2ed271024bb0fb86dd4817b3826158f8b`.
+Öffentlicher Download geprüft.
+
 ## Prüfung
 
 - Worker-Gesamtsuite grün (Crew-Status 12 Tests), Tracker `tracker-crew-presence` 8, `tracker-homebase-crew` 8,
