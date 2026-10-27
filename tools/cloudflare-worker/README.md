@@ -253,7 +253,10 @@ Crew-Rollen, Checklist-Eigentum, veraltete IDs, gefälschte Speicheranker und
 spätere Neuregistrierungen. Die lokalen Admin-Tests prüfen Vorschauen, Konflikte,
 Sicherungen und Rücksetzung nach jedem einzelnen Schreibschritt.
 
-## Flugbuch-Speicher v1 (27.10.2026, noch nicht deployed)
+## Flugbuch-Speicher v1 (27.10.2026, deployed)
+
+Am 27.10.2026 nach Nutzerfreigabe produktiv deployed, Worker-Version
+`5aa59a19-911a-49ca-b67d-d05d785b5799` (auf Basis von `bae753ab`, Umbenennung).
 
 `/api/flightlog-v1/` (`flight-logbook.mjs`, Durable Object `FlightLogbook`, Migration
 `flight-logbook-v1`). Getrennt von Sync-V2, damit ein neuer Flug nur wenige KB kostet.
