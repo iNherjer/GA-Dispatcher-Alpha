@@ -468,6 +468,7 @@
 
     window.gaCrewPresence = {
         statusFor, renderBoard, hasNewFlight, refresh, getShare, setShare, openDetail,
+        beatNow: () => beat(true),
         applyShareFromCloud, sharePayload, reset
     };
 })();

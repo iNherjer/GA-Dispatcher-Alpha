@@ -980,8 +980,10 @@ function nearestHomebaseAirport(spawn) {
     return best?.icao || '';
 }
 
-// Refresh button on the crew roster: crew notes, members' status and homebases at once
-// instead of waiting for the next poll. At most every 15 s; reads only, no crew write.
+// Refresh button on the crew roster: everything that otherwise waits for its next poll at
+// once. Own profile (queued uploads such as hidden notes, sharing switches, badges; then the
+// cloud copy), own status beat, crew notes, members' status, homebases (also asks a connected
+// tracker to refresh its crew). At most every 15 s; never writes the crew record.
 let crewRefreshBusyUntil = 0;
 function crewRefreshButton() {
     const button = pinboardCreateAction('button', 'crew-refresh-btn', '🔄', async () => {
@@ -992,9 +994,16 @@ function crewRefreshButton() {
         try {
             groupSyncTime = 0;
             await Promise.allSettled([
+                (async () => {
+                    if (typeof triggerCloudSave === 'function') await triggerCloudSave(true, { reason: 'crew-board-refresh' });
+                    if (typeof silentSyncLoad === 'function') await silentSyncLoad();
+                })(),
                 silentGroupSync(),
                 window.homebaseGroupRefresh?.('crew-board-refresh'),
-                window.gaCrewPresence?.refresh('crew-board-refresh', { fresh: true })
+                (async () => {
+                    await window.gaCrewPresence?.beatNow?.();
+                    await window.gaCrewPresence?.refresh('crew-board-refresh', { fresh: true });
+                })()
             ]);
         } finally {
             if (currentBoardMode === 'group') renderNotes();
