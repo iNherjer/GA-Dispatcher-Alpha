@@ -47778,7 +47778,8 @@ function renderLog() {
     const freeToggle = document.getElementById('logbookFreeToggle');
     if (freeToggle && flightLogbook) {
         const showing = flightLogbook.showFree();
-        freeToggle.textContent = showing ? 'Freie Flüge ausblenden' : 'Freie Flüge zeigen';
+        freeToggle.textContent = showing ? 'Freie Flüge: an' : 'Freie Flüge: aus';
+        freeToggle.title = showing ? 'Freie Flüge ausblenden' : 'Freie Flüge einblenden';
         freeToggle.setAttribute('aria-pressed', showing ? 'true' : 'false');
     }
     const container = document.getElementById('logContent');

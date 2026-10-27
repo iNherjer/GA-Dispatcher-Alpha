@@ -20924,7 +20924,8 @@ body.theme-win95 .ga-radio-dialog { background: #c0c0c0; color: #000; border: 3p
 .logbook-paper-action { position: absolute; top: 10%; margin: 0; padding: 2px 6px; border: 0; border-radius: 0; background: transparent; color: #3e4350; opacity: .8; font: 600 clamp(14px, 3.6cqw, 19px) 'GA Logbook Ink', cursive; cursor: pointer; }
 .logbook-paper-action.logbook-close { left: 8%; transform: rotate(-3deg); }
 .logbook-paper-action.logbook-clear { right: 8%; transform: rotate(2deg); }
-.logbook-paper-action.logbook-free-toggle { top: auto; bottom: 4.5%; right: 8%; transform: rotate(-1deg); font-size: clamp(12px, 3cqw, 16px); }
+.logbook-paper-action.logbook-free-toggle { right: 21%; transform: rotate(-1deg); }
+.logbook-paper-action.logbook-free-toggle[aria-pressed="false"] { opacity: .55; }
 .logbook-flight.logbook-free .logbook-cell-6 > span { font-style: italic; opacity: .85; }
 .logbook-paper-action:hover, .logbook-navigation button:not(:disabled):hover { color: #723726; opacity: 1; }
 .logbook-navigation button:focus-visible, .logbook-paper-action:focus-visible { outline: 1px dashed #943b2d; outline-offset: 1px; }
