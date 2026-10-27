@@ -106,6 +106,13 @@ body:not(.theme-win95) .settings-shell.settings-toolroll input:not([type=range])
     text-shadow: none !important;
 }
 body:not(.theme-win95) .settings-shell.settings-toolroll select option { color: #f4dfb9; background: #302218; }
+body:not(.theme-win95) .settings-shell.settings-toolroll .appearance-switch { border: 0; gap: 4px; overflow: visible; }
+body:not(.theme-win95) .settings-shell.settings-toolroll #appearanceSwitch.appearance-switch button[aria-pressed="true"] {
+    color: #2a1a10 !important;
+    background: linear-gradient(#e2c78f, #b8955a) !important;
+    border-color: #f0dcb0 !important;
+}
+body:not(.theme-win95) .settings-toolroll .appearance-control { border-top-color: #b28a5c; }
 body:not(.theme-win95) .settings-toolroll input::placeholder { color: #c1a989 !important; opacity: .8; }
 body:not(.theme-win95) .settings-shell.settings-toolroll button:not(#settingsToggleBtn):hover { filter: brightness(1.12); }
 body:not(.theme-win95) .settings-toolroll input[type=range] { accent-color: #d5b67c; }

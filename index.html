@@ -15,6 +15,33 @@
     <meta name="theme-color" content="#080808">
     <meta name="mobile-web-app-capable" content="yes">
     <script>
+        // Light/dark backgrounds (app, pinboard, map table). Set before the CSS paints so the
+        // wrong image is never fetched. Choice: light | dark | auto (follows the device).
+        (() => {
+            const KEY = 'ga_appearance';
+            const media = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+            const read = () => { try { const v = localStorage.getItem(KEY); return v === 'light' || v === 'dark' ? v : 'auto'; } catch (_) { return 'auto'; } };
+            const apply = () => {
+                const choice = read();
+                const resolved = choice === 'auto' ? (media && !media.matches ? 'light' : 'dark') : choice;
+                const root = document.documentElement;
+                root.dataset.appearance = resolved;
+                root.dataset.appearanceChoice = choice;
+                document.querySelectorAll('[data-appearance-option]').forEach(btn => {
+                    btn.setAttribute('aria-pressed', btn.dataset.appearanceOption === choice ? 'true' : 'false');
+                });
+            };
+            window.gaSetAppearance = (choice) => {
+                try { localStorage.setItem(KEY, choice === 'light' || choice === 'dark' ? choice : 'auto'); } catch (_) {}
+                apply();
+            };
+            window.gaApplyAppearance = apply;
+            if (media) (media.addEventListener ? media.addEventListener('change', apply) : media.addListener(apply));
+            apply();
+            document.addEventListener('DOMContentLoaded', apply);
+        })();
+    </script>
+    <script>
         // A development server on localhost or the private LAN must never be controlled by a
         // previously installed PWA worker. Otherwise Local can silently run
         // old mission/sync code while Alpha is current. Remove that worker and
@@ -127,17 +154,17 @@
     <link rel="apple-touch-icon" sizes="180x180" href="icon-dark-180.png">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="stylesheet" href="vendor/maplibre/maplibre-gl.css">
-    <link rel="preload" href="styles.css?v=images-webp-20261027-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=appearance-20261027-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="stylesheet" href="homebase-integration.css?v=homebase-foreground-20261014-01">
-    <link rel="stylesheet" href="crew-presence.css?v=crew-presence-20261027-03">
+    <link rel="stylesheet" href="crew-presence.css?v=crew-presence-20261027-04">
     <link rel="stylesheet" href="media-player.css">
-    <link rel="stylesheet" href="settings-toolroll.css?v=images-webp-20261027-01">
+    <link rel="stylesheet" href="settings-toolroll.css?v=appearance-20261027-01">
     <link rel="stylesheet" href="navcom-skins.css?v=navcom-skins-20261022-04">
     <link rel="stylesheet" href="analog-skins.css?v=quick-slot-touch-20261023-01">
-    <link rel="stylesheet" href="glareshield.css?v=glareshield-20261023-10">
+    <link rel="stylesheet" href="glareshield.css?v=appearance-20261027-01">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=images-webp-20261027-01">
+        <link rel="stylesheet" href="styles.css?v=appearance-20261027-01">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -1065,6 +1092,14 @@
             <span id="lbl-win95" style="color: #888; cursor: pointer; text-shadow: 0 1px 2px rgba(0,0,0,0.8), 0 0 2px rgba(0,0,0,0.9);" onclick="changeThemeFromSlider(4)">Win95</span>
         </div>
         <input type="range" id="themeSlider" min="0" max="4" value="0" style="width: min(290px, 100%); margin-top: 10px; cursor: pointer;" oninput="changeThemeFromSlider(this.value)">
+        <div class="appearance-control">
+            <span class="ui-scale-label">Hintergründe</span>
+            <div class="appearance-switch" id="appearanceSwitch" role="group" aria-label="Hell, automatisch oder dunkel">
+                <button type="button" data-appearance-option="light" aria-pressed="false" onclick="gaSetAppearance('light')">☀ Hell</button>
+                <button type="button" data-appearance-option="auto" aria-pressed="true" onclick="gaSetAppearance('auto')" title="Folgt der Einstellung des Geräts">Auto</button>
+                <button type="button" data-appearance-option="dark" aria-pressed="false" onclick="gaSetAppearance('dark')">☾ Dunkel</button>
+            </div>
+        </div>
         <div class="ui-scale-control">
             <div class="ui-scale-control-head">
                 <span class="ui-scale-label">Seitengröße</span>
@@ -2878,7 +2913,7 @@
 <script defer src="flight-track-codec-core.js?v=20261027-01"></script>
 <script defer src="flight-logbook-view.js?v=20261027-09"></script>
 <script defer src="crew-presence-core.js?v=crew-presence-20261027-03"></script>
-<script defer src="crew-presence-client.js?v=crew-presence-20261027-04"></script>
+<script defer src="crew-presence-client.js?v=crew-presence-20261027-05"></script>
 <script defer src="board.js?v=crew-presence-20261027-04"></script>
 <script defer src="sim-route.js?v=autozoom-20260613-03"></script>
 <script defer src="sim-manual-flight.js?v=cargo-left-behind-20260729-01"></script>

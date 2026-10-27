@@ -16,7 +16,7 @@ body.theme-retro .container.gs-on {
     padding-bottom: 29px !important;
     border-width: 0 !important;
     background: transparent !important;
-    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9);
+    box-shadow: none; /* the drop shadow sits on ::before, which has the visible panel shape */
 }
 body.theme-retro .container.gs-on::before {
     content: ''; position: absolute; z-index: -1; pointer-events: none;
@@ -27,9 +27,12 @@ body.theme-retro .container.gs-on::before {
         repeating-linear-gradient(85deg, transparent, transparent 2px, rgba(255, 255, 255, 0.015) 2px, rgba(255, 255, 255, 0.015) 4px),
         repeating-linear-gradient(-85deg, transparent, transparent 2px, rgba(0, 0, 0, 0.02) 2px, rgba(0, 0, 0, 0.02) 4px);
     box-shadow: inset 3px 0 0 var(--p-bl), inset -4px 0 0 var(--p-br), inset 0 -4px 0 var(--p-bb),
-        inset 0 4px 6px rgba(255, 255, 255, 0.2), inset 0 -6px 12px rgba(0, 0, 0, 0.3);
+        inset 0 4px 6px rgba(255, 255, 255, 0.2), inset 0 -6px 12px rgba(0, 0, 0, 0.3),
+        0 20px 50px var(--gs-panel-shadow, rgba(0, 0, 0, 0.9));
     transition: background-color 0.4s ease;
 }
+/* On the light map a 90 % shadow reads as a dark box around the panel. */
+:root[data-appearance="light"] body.theme-retro .container.gs-on::before { --gs-panel-shadow: rgba(0, 0, 0, 0.38); }
 @media (max-width: 767px) {
     body.theme-retro .container.gs-on { --gs-ov-max: 4px; padding-left: 17px !important; padding-right: 18px !important; padding-bottom: 24px !important; }
 }

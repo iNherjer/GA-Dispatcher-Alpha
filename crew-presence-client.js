@@ -367,6 +367,18 @@
             try { localStorage.setItem(LAYER_KEY, JSON.stringify({ base: active, overlays: on })); } catch (_) {}
         };
         detailMap.on('baselayerchange overlayadd overlayremove', savePrefs);
+        // Same shading as the map table: with the VFR overlay the topo map fades to 50 %
+        // so the airspaces stand out; from zoom 15 the overlay hides and topo is full again.
+        const vfr = overlays['✈️ VFR-Overlay'];
+        const dfs = overlays['🇩🇪 ICAO-Karte (DFS)'];
+        const shadeForOverlay = () => {
+            if (!detailMap) return;
+            const hidden = detailMap.getZoom() >= 15;
+            const vfrOn = detailMap.hasLayer(vfr);
+            if (vfrOn) vfr.setOpacity(hidden ? 0 : 0.65);
+            if (detailMap.hasLayer(topo)) topo.setOpacity(vfrOn && !hidden && !detailMap.hasLayer(dfs) ? 0.5 : 1);
+        };
+        detailMap.on('baselayerchange overlayadd overlayremove zoomend', shadeForOverlay);
 
         // Set the view first: Leaflet adds markers to a map without a view only later,
         // and the heading rotation needs the marker element right away.
@@ -376,6 +388,7 @@
         if (bounds.length >= 2) detailMap.fitBounds(bounds, { padding: [30, 30], maxZoom: 11 });
         else if (bounds.length === 1) detailMap.setView(bounds[0], 10);
         else detailMap.setView([51.1657, 10.4515], 6);
+        shadeForOverlay();
 
         if (line.length) {
             L.polyline(line, { color: '#ff00ff', weight: 3, opacity: 0.85 }).addTo(detailMap);
