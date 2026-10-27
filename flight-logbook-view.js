@@ -209,6 +209,7 @@ function openEntry(entry) {
         });
     }
     addDeleteButton(entry);
+    renderOutcomeSection(body, entry);
     const runId = trackRunIdFor(entry);
     const section = document.createElement('section');
     section.className = 'flight-debrief-section flight-track-section';
@@ -217,8 +218,8 @@ function openEntry(entry) {
     const status = document.createElement('p');
     status.className = 'flight-track-status';
     section.append(heading, status);
-    const grid = body.querySelector('.flight-debrief-metrics');
-    if (grid?.nextSibling) body.insertBefore(section, grid.nextSibling); else body.appendChild(section);
+    const anchor = body.querySelector('.flight-outcome-section') || body.querySelector('.flight-debrief-metrics');
+    if (anchor?.nextSibling) body.insertBefore(section, anchor.nextSibling); else body.appendChild(section);
     if (!runId) {
         status.textContent = state.loadedAt ? 'Für diesen Flug liegt kein Flugweg vor.' : 'Flugweg wird gesucht…';
         if (!state.loadedAt) refresh({ force: true }).then(() => { if (trackRunIdFor(entry) && section.isConnected) openEntry(entry); });
@@ -436,6 +437,7 @@ function durationText(sec) {
     return s >= 60 ? `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, '0')} s` : `${s} s`;
 }
 
+let lastRendered = null; // model of the flight path currently shown, used by the PDF export
 function renderTrack(section, status, track, runId) {
     const codec = window.GAFlightTrackCodecCore;
     let points;
@@ -532,6 +534,8 @@ function renderTrack(section, status, track, runId) {
         if (lastSelection) showLegendValue(lastSelection);
     }
     section.append(modeBar, mapEl, legend, profileWrap, readout, airspaceBox);
+    lastRendered = { runId, points, segs, minAlt, maxAlt, get samples() { return samples; }, get airspaces() { return airspaces; },
+        get scale() { return scale; }, get colorMode() { return colorMode; }, profileWrap, track };
 
     const useTime = totalNm < 0.2;
     const samples = densify(points, along);
@@ -642,11 +646,11 @@ function renderTrack(section, status, track, runId) {
         const el = (name, attrs, parent = svg) => { const node = document.createElementNS(ns, name); Object.entries(attrs).forEach(([k, v]) => node.setAttribute(k, v)); parent.appendChild(node); return node; };
         const step = [100, 250, 500, 1000, 2000, 5000].find(s => (yMax - yMin) / s <= 6) || 5000;
         for (let v = Math.ceil(yMin / step) * step; v <= yMax; v += step) {
-            el('line', { x1: padL, x2: W - padR, y1: Y(v), y2: Y(v), class: 'flight-track-grid' });
-            el('text', { x: padL - 6, y: Y(v) + 4, 'text-anchor': 'end', class: 'flight-track-axis' }).textContent = fmt(v);
+            el('line', { x1: padL, x2: W - padR, y1: Y(v), y2: Y(v), class: 'flight-track-grid', stroke: 'rgba(60,50,40,0.15)', 'stroke-width': 1 });
+            el('text', { x: padL - 6, y: Y(v) + 4, 'text-anchor': 'end', class: 'flight-track-axis', fill: '#5a5246', 'font-size': 11, 'font-family': 'Helvetica, Arial, sans-serif' }).textContent = fmt(v);
         }
-        el('text', { x: W - padR, y: H - 6, 'text-anchor': 'end', class: 'flight-track-axis' }).textContent = useTime ? `${Math.round(xMax / 60)} min` : `${xMax.toFixed(1)} NM`;
-        el('text', { x: padL, y: H - 6, class: 'flight-track-axis' }).textContent = '0';
+        el('text', { x: W - padR, y: H - 6, 'text-anchor': 'end', class: 'flight-track-axis', fill: '#5a5246', 'font-size': 11, 'font-family': 'Helvetica, Arial, sans-serif' }).textContent = useTime ? `${Math.round(xMax / 60)} min` : `${xMax.toFixed(1)} NM`;
+        el('text', { x: padL, y: H - 6, class: 'flight-track-axis', fill: '#5a5246', 'font-size': 11, 'font-family': 'Helvetica, Arial, sans-serif' }).textContent = '0';
         // airspace bands: lower/upper limit along each lateral crossing (AGL limits follow terrain)
         const bandGroup = el('g', { class: 'flight-track-airspace-bands' });
         airspaces.forEach(r => {
@@ -672,7 +676,7 @@ function renderTrack(section, status, track, runId) {
                 if (width > 70 && strong) {
                     const band = window.GANavigationWarnings.getAirspaceVerticalBandFt(r.as, samples[run.from].gndFt ?? 0);
                     const labelY = Math.max(padT + 10, Y(Math.min(yMax, band.upperFt)) + 12);
-                    el('text', { x: X(sx(samples[run.from])) + 4, y: labelY, class: 'flight-track-band-label', fill: r.style.color }, bandGroup).textContent = r.name;
+                    el('text', { x: X(sx(samples[run.from])) + 4, y: labelY, class: 'flight-track-band-label', fill: r.style.color, 'font-size': 10, 'font-weight': 700, 'font-family': 'Helvetica, Arial, sans-serif' }, bandGroup).textContent = r.name;
                 }
             });
         });
@@ -685,12 +689,12 @@ function renderTrack(section, status, track, runId) {
         if (run.length > 1) runs.push(run);
         runs.forEach(r => {
             const top = r.map(i => `${X(xsOf(i)).toFixed(1)},${Y(points[i].gndFt).toFixed(1)}`).join(' ');
-            el('polygon', { points: `${X(xsOf(r[0])).toFixed(1)},${H - padB} ${top} ${X(xsOf(r[r.length - 1])).toFixed(1)},${H - padB}`, class: 'flight-track-terrain' });
+            el('polygon', { points: `${X(xsOf(r[0])).toFixed(1)},${H - padB} ${top} ${X(xsOf(r[r.length - 1])).toFixed(1)},${H - padB}`, class: 'flight-track-terrain', fill: '#c8b48a', 'fill-opacity': 0.75, stroke: '#9a8459', 'stroke-width': 1 });
         });
         // altitude line, colored like the map line
         const lineGroup = el('g', { class: 'flight-track-altitude' });
         segs.forEach(seg => {
-            el('line', { x1: X(xsOf(seg.i - 1)).toFixed(1), y1: Y(points[seg.i - 1].altFt).toFixed(1),
+            el('line', { 'stroke-width': 2.6, 'stroke-linecap': 'round', x1: X(xsOf(seg.i - 1)).toFixed(1), y1: Y(points[seg.i - 1].altFt).toFixed(1),
                 x2: X(xsOf(seg.i)).toFixed(1), y2: Y(points[seg.i].altFt).toFixed(1), stroke: colorFor(scale, segValue(seg)) }, lineGroup);
         });
         cursor = el('line', { x1: 0, x2: 0, y1: padT, y2: H - padB, class: 'flight-track-cursor', visibility: 'hidden' });
@@ -880,6 +884,264 @@ async function deleteEntry(entry, button) {
     }
 }
 
+// ---- mission outcome (from the logbook record) -----------------------------------------------
+function listText(list) {
+    return (Array.isArray(list) ? list : []).map(item => String(item?.label || item?.name || item || '').trim()).filter(Boolean).join(', ');
+}
+// Rows describing how the mission ended. Only facts recorded in the logbook entry.
+function missionOutcome(record) {
+    if (!record || record.kind === 'free') return null;
+    const rows = [];
+    const failed = record.failed === true || record.result === 'failed';
+    const reasons = [];
+    const cargo = record.cargo || null;
+    if (cargo) {
+        if (listText(cargo.missingRequired)) reasons.push(`nicht geladen: ${listText(cargo.missingRequired)}`);
+        if (listText(cargo.droppedRequired)) reasons.push(`abgeworfen/verloren: ${listText(cargo.droppedRequired)}`);
+        if (listText(cargo.notDeliveredRequired)) reasons.push(`nicht abgeliefert: ${listText(cargo.notDeliveredRequired)}`);
+        if (listText(cargo.damagedRequired)) reasons.push(`beschädigt: ${listText(cargo.damagedRequired)}`);
+    }
+    rows.push({ label: 'Ergebnis', value: failed ? 'Nicht erfüllt' : 'Erfüllt', tone: failed ? 'bad' : 'good' });
+    if (failed && reasons.length) rows.push({ label: 'Grund', value: reasons.join(' · '), tone: 'bad' });
+    else if (failed) rows.push({ label: 'Grund', value: 'Auftrag nicht vollständig abgeschlossen', tone: 'bad' });
+    const planned = String(record.plannedDest || '').trim();
+    const landed = String(record.dest || record.arrLabel || '').trim();
+    if (landed) {
+        const differs = planned && planned !== landed && planned !== 'POI';
+        rows.push({ label: 'Landung', value: differs ? `${landed} (geplant: ${planned})` : `${landed}${planned ? ' wie geplant' : ''}`, tone: differs ? 'warn' : '' });
+    }
+    if (cargo && Number(cargo.requiredTotal) > 0) {
+        const condition = Number.isFinite(Number(cargo.conditionPct)) ? ` · Zustand ${Math.round(Number(cargo.conditionPct))} %` : '';
+        rows.push({ label: 'Ladung', value: `${cargo.requiredLoaded}/${cargo.requiredTotal} Pflichtteile${condition}`, tone: cargo.failed ? 'bad' : '' });
+    }
+    const sar = record.sarSearchSummary;
+    if (sar?.text || sar?.outcome) rows.push({ label: 'Suche', value: String(sar.text || sar.outcome), tone: '' });
+    if (record.simulated) rows.push({ label: 'Hinweis', value: 'Im Sim-Modus geflogen', tone: '' });
+    const comfort = record.comfort || null;
+    const score = Number(comfort?.score);
+    const passenger = comfort && Number.isFinite(score)
+        ? { mood: String(comfort.mood || ''), score: Math.round(score), stars: Math.max(0, Math.min(5, Math.round(score / 20))) }
+        : null;
+    return { rows, passenger, failed };
+}
+
+function starText(stars) { return '★★★★★'.slice(0, stars) + '☆☆☆☆☆'.slice(0, 5 - stars); }
+
+function renderOutcomeSection(body, record) {
+    const outcome = missionOutcome(record);
+    if (!outcome) return;
+    const section = document.createElement('section');
+    section.className = `flight-debrief-section flight-outcome-section${outcome.failed ? ' is-failed' : ''}`;
+    const heading = document.createElement('h3');
+    heading.textContent = 'Missionsergebnis';
+    section.appendChild(heading);
+    const list = document.createElement('dl');
+    list.className = 'flight-outcome-rows';
+    outcome.rows.forEach(row => {
+        const dt = document.createElement('dt');
+        dt.textContent = row.label;
+        const dd = document.createElement('dd');
+        dd.textContent = row.value;
+        if (row.tone) dd.className = `is-${row.tone}`;
+        list.append(dt, dd);
+    });
+    if (outcome.passenger) {
+        const dt = document.createElement('dt');
+        dt.textContent = 'Passagier';
+        const dd = document.createElement('dd');
+        const stars = document.createElement('span');
+        stars.className = 'flight-outcome-stars';
+        stars.textContent = starText(outcome.passenger.stars);
+        stars.setAttribute('aria-label', `${outcome.passenger.stars} von 5 Sternen`);
+        dd.append(stars, ` ${outcome.passenger.mood || 'bewertet'} · Komfort ${outcome.passenger.score}/100`);
+        list.append(dt, dd);
+    }
+    section.appendChild(list);
+    const grid = body.querySelector('.flight-debrief-metrics');
+    if (grid?.nextSibling) body.insertBefore(section, grid.nextSibling); else body.appendChild(section);
+}
+
+// ---- PDF export: second page with flight path, profile, airspaces and outcome ----------------
+function svgToPng(svg, width, height) {
+    return new Promise(resolve => {
+        try {
+            const clone = svg.cloneNode(true);
+            clone.querySelectorAll('.flight-track-cursor, .flight-track-cursor-dot').forEach(node => node.remove());
+            clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+            clone.setAttribute('width', width);
+            clone.setAttribute('height', height);
+            const url = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(clone)], { type: 'image/svg+xml' }));
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = width * 2; canvas.height = height * 2;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#fdf5e6'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                URL.revokeObjectURL(url);
+                resolve({ data: canvas.toDataURL('image/png'), width, height });
+            };
+            img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+            img.src = url;
+        } catch (_) { resolve(null); }
+    });
+}
+
+function mercator(lat, lon, zoom) {
+    const x = ((lon + 180) / 360) * Math.pow(2, zoom) * 256;
+    const r = lat * Math.PI / 180;
+    const y = ((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * Math.pow(2, zoom) * 256;
+    return { x, y };
+}
+function loadTile(url) {
+    return new Promise(resolve => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img);
+        img.onerror = () => resolve(null);
+        img.src = url;
+    });
+}
+
+async function renderMapImage(model) {
+    const W = 900, H = 560, pad = 40;
+    const lats = model.points.map(p => p.lat), lons = model.points.map(p => p.lon);
+    const n = Math.max(...lats), s = Math.min(...lats), e = Math.max(...lons), w = Math.min(...lons);
+    let zoom = 1;
+    for (let z = 14; z >= 1; z--) {
+        const a = mercator(n, w, z), b = mercator(s, e, z);
+        if (Math.abs(b.x - a.x) < W - 2 * pad && Math.abs(b.y - a.y) < H - 2 * pad) { zoom = z; break; }
+    }
+    const centre = mercator((n + s) / 2, (e + w) / 2, zoom);
+    const px = (lat, lon) => { const p = mercator(lat, lon, zoom); return { x: p.x - centre.x + W / 2, y: p.y - centre.y + H / 2 }; };
+    const canvas = document.createElement('canvas');
+    canvas.width = W * 2; canvas.height = H * 2;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(2, 2);
+    ctx.fillStyle = '#ebe4d4'; ctx.fillRect(0, 0, W, H);
+    const tiles = [];
+    const tx0 = Math.floor((centre.x - W / 2) / 256), tx1 = Math.floor((centre.x + W / 2) / 256);
+    const ty0 = Math.floor((centre.y - H / 2) / 256), ty1 = Math.floor((centre.y + H / 2) / 256);
+    for (let tx = tx0; tx <= tx1; tx++) for (let ty = ty0; ty <= ty1; ty++) {
+        const sub = 'abc'[(tx + ty + 3) % 3];
+        tiles.push(loadTile(`https://${sub}.tile.opentopomap.org/${zoom}/${tx}/${ty}.png`).then(img => {
+            if (img) { ctx.globalAlpha = 0.75; ctx.drawImage(img, tx * 256 - centre.x + W / 2, ty * 256 - centre.y + H / 2, 256, 256); ctx.globalAlpha = 1; }
+        }));
+    }
+    await Promise.race([Promise.all(tiles), new Promise(r => setTimeout(r, 8000))]);
+    // airspaces (same styles as on screen)
+    (model.airspaces || []).forEach(r => {
+        polygonsOf(r.as).forEach(ring => {
+            ctx.beginPath();
+            ring.forEach(([lon, lat], i) => { const p = px(lat, lon); if (i) ctx.lineTo(p.x, p.y); else ctx.moveTo(p.x, p.y); });
+            ctx.closePath();
+            ctx.globalAlpha = r.flownThrough ? 0.18 : 0.08; ctx.fillStyle = r.style.color; ctx.fill();
+            ctx.globalAlpha = r.flownThrough ? 0.9 : 0.5; ctx.strokeStyle = r.style.color; ctx.lineWidth = r.flownThrough ? 2.4 : 1.2;
+            ctx.setLineDash(r.flownThrough ? [] : [5, 4]); ctx.stroke(); ctx.setLineDash([]); ctx.globalAlpha = 1;
+        });
+    });
+    // track in the chosen coloring
+    ctx.lineCap = 'round'; ctx.lineWidth = 4;
+    model.segs.forEach(seg => {
+        const a = px(model.points[seg.i - 1].lat, model.points[seg.i - 1].lon), b = px(model.points[seg.i].lat, model.points[seg.i].lon);
+        ctx.strokeStyle = colorFor(model.scale, seg[model.colorMode]);
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    });
+    const dot = (p, color) => { const q = px(p.lat, p.lon); ctx.beginPath(); ctx.arc(q.x, q.y, 6, 0, Math.PI * 2); ctx.fillStyle = color; ctx.fill(); ctx.lineWidth = 2; ctx.strokeStyle = '#fff'; ctx.stroke(); };
+    dot(model.points[0], '#2e7d32');
+    dot(model.points[model.points.length - 1], '#c62828');
+    ctx.font = '11px Helvetica, Arial, sans-serif'; ctx.fillStyle = 'rgba(40,40,40,.75)';
+    ctx.fillText('Karte © OpenTopoMap (CC-BY-SA), Daten © OpenStreetMap, Lufträume OpenAIP', 8, H - 8);
+    try { return { data: canvas.toDataURL('image/jpeg', 0.88), width: W, height: H }; } catch (_) { return null; }
+}
+
+function pdfText(value) {
+    // jsPDF standard fonts: keep umlauts, drop symbols they cannot draw
+    return String(value ?? '').replace(/[★☆]/g, '*').replace(/[–—]/g, '-').replace(/[^\x20-\x7E -ÿ]/g, '');
+}
+
+// Called by the PDF export (board.js) before page 1 is drawn. Returns null when there is nothing to add.
+async function preparePdf(record) {
+    const outcome = missionOutcome(record);
+    const runId = trackRunIdFor(record);
+    const model = lastRendered && runId && lastRendered.runId === runId ? lastRendered : null;
+    if (!model && !outcome) return null;
+    const [mapImage, profileImage] = model ? await Promise.all([
+        renderMapImage(model),
+        model.profileWrap.querySelector('svg') ? svgToPng(model.profileWrap.querySelector('svg'), 640, 210) : null
+    ]) : [null, null];
+    return {
+        pages: 1,
+        draw(doc, helpers = {}) {
+            doc.addPage();
+            if (typeof helpers.background === 'function') helpers.background(doc, 2, 2);
+            let y = 28;
+            doc.setFont('Helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(11, 31, 101);
+            doc.text(model ? 'FLUGWEG & LUFTRAEUME' : 'MISSIONSERGEBNIS', 32, y); y += 4;
+            doc.setDrawColor(11, 31, 101); doc.setLineWidth(0.5); doc.line(32, y, 190, y); y += 6;
+            if (mapImage) {
+                const w = 158, h = w * mapImage.height / mapImage.width;
+                doc.addImage(mapImage.data, 'JPEG', 32, y, w, h);
+                doc.setDrawColor(160, 155, 140); doc.setLineWidth(0.3); doc.rect(32, y, w, h);
+                y += h + 5;
+            }
+            if (model) {
+                const ticks = scaleTicks(model.scale);
+                const unit = COLOR_MODES[model.colorMode].unit;
+                doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(60, 60, 60);
+                doc.text(pdfText(`Linienfarbe: ${COLOR_MODES[model.colorMode].label}`), 32, y + 3);
+                const barX = 80, barW = 60;
+                for (let i = 0; i < 30; i++) {
+                    const value = model.scale.min + (model.scale.max - model.scale.min) * (i + 0.5) / 30;
+                    const rgb = colorToRgb(colorFor(model.scale, value));
+                    doc.setFillColor(rgb[0], rgb[1], rgb[2]); doc.rect(barX + i * barW / 30, y, barW / 30 + 0.1, 3.5, 'F');
+                }
+                doc.text(pdfText(ticks[0]), barX - 1, y + 3, { align: 'right' });
+                doc.text(pdfText(`${ticks[2]} ${unit}`), barX + barW + 1, y + 3);
+                y += 8;
+            }
+            if (profileImage) {
+                const w = 158, h = w * profileImage.height / profileImage.width;
+                doc.addImage(profileImage.data, 'PNG', 32, y, w, h);
+                y += h + 4;
+            }
+            const line = (label, value, bold = false) => {
+                doc.setFont('Helvetica', 'bold'); doc.setFontSize(8.5); doc.setTextColor(115, 85, 55);
+                doc.text(pdfText(label), 32, y);
+                doc.setFont('Helvetica', bold ? 'bold' : 'normal'); doc.setTextColor(40, 40, 40);
+                const lines = doc.splitTextToSize(pdfText(value), 128);
+                doc.text(lines, 62, y);
+                y += Math.max(1, lines.length) * 4.2 + 0.8;
+            };
+            if (model) {
+                const through = (model.airspaces || []).filter(r => r.flownThrough && r.as.type !== 33);
+                const passed = (model.airspaces || []).filter(r => !r.flownThrough && r.as.type !== 33);
+                doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(11, 31, 101);
+                doc.text(pdfText(through.length ? `Durchflogene Luftraeume (${through.length})` : 'Keine Luftraumdurchfluege'), 32, y); y += 5;
+                through.forEach(r => {
+                    const spans = r.inside.map(run => `${clockText(model.samples[run.from].time)}-${clockText(model.samples[run.to].time)}`).join(', ');
+                    line(r.name, `${r.limits} · ${spans}`);
+                });
+                if (passed.length) line('Unter-/ueberflogen', passed.map(r => `${r.name} (${r.limits}, ${r.relation})`).join('; '));
+                y += 2;
+            }
+            if (outcome && y < 262) {
+                doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(11, 31, 101);
+                doc.text('Missionsergebnis', 32, y); y += 5;
+                outcome.rows.forEach(row => { if (y < 280) line(row.label, row.value, row.label === 'Ergebnis'); });
+                if (outcome.passenger && y < 280) line('Passagier', `${outcome.passenger.stars}/5 Sterne · ${outcome.passenger.mood} · Komfort ${outcome.passenger.score}/100`);
+            }
+        }
+    };
+}
+function colorToRgb(css) {
+    const probe = document.createElement('canvas').getContext('2d');
+    probe.fillStyle = css;
+    const hex = probe.fillStyle; // normalised to #rrggbb
+    const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+    return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : [100, 100, 100];
+}
+
 // Deleting the whole logbook also clears the cloud logbook (free flights and tracks).
 async function clearCloud() {
     if (!credentials()) return;
@@ -891,5 +1153,5 @@ async function clearCloud() {
     refresh({ force: true });
 }
 
-window.GAFlightLogbook = Object.freeze({ refresh, mergedEntries, freeEntries, showFree, setShowFree, openEntry, trackRunIdFor, clearCloud, getTrack });
+window.GAFlightLogbook = Object.freeze({ refresh, mergedEntries, freeEntries, showFree, setShowFree, openEntry, trackRunIdFor, clearCloud, getTrack, missionOutcome, preparePdf });
 })();

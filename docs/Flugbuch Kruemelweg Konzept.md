@@ -159,6 +159,13 @@ Höhe (tiefster bis höchster Punkt), Geschwindigkeit (0 bis 95. Perzentil GS), 
 (symmetrisch ±95. Perzentil, mind. ±300 ft/min, grau unter 100 ft/min). Werte je Spurabschnitt
 (mittlere Höhe, Strecke/Zeit, Höhendifferenz/Zeit). Legende mit Skala unter der Karte.
 
+Missionsergebnis und PDF (Web v2221): Abschnitt „Missionsergebnis“ aus dem Logbucheintrag (Ergebnis,
+Grund aus Ladungsergebnis, geplantes vs. tatsächliches Ziel, Pflichtladung/Zustand, SAR-Zusammenfassung,
+Passagier = Komfort-Stimmung + Wert, Sterne = Wert/20). PDF (`board.js` ruft
+`GAFlightLogbook.preparePdf`): Seite 2 mit Karte (OpenTopoMap-Kacheln, Lufträume, Spur in gewählter
+Färbung), Farblegende, Höhenprofil (SVG als Bild), Luftraumliste, Missionsergebnis. Offen: Die
+gesprochenen Abschiedsworte des Passagiers werden nicht gespeichert (bräuchte Tracker-Änderung).
+
 - Karte: Leaflet-Linie nach Höhe eingefärbt, Marker Start/Landung,
   `fitBounds` beim Öffnen, frei zoom-/verschiebbar.
 - Höhenprofil: SVG, x = Strecke (umschaltbar Zeit), y = Höhe MSL,

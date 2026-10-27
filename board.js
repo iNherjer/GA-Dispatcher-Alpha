@@ -1518,7 +1518,11 @@ window.buildDebriefPdfDocument = async function(record) {
     await ensureBriefingPdfLibraries();
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-    drawNotebookBackground(doc, 1, 1, 'Mission Debrief');
+    // Logbook flight path page (flight-logbook-view.js): map, profile, airspaces, mission outcome.
+    let flightPathPage = null;
+    try { flightPathPage = await window.GAFlightLogbook?.preparePdf?.(record); } catch (error) { console.warn('[Debrief PDF] Flugweg-Seite nicht verfügbar:', error); }
+    const totalPages = 1 + (flightPathPage?.pages || 0);
+    drawNotebookBackground(doc, 1, totalPages, 'Mission Debrief');
     const dep = String(record.depLabel || record.start || 'START');
     const arr = String(record.arrLabel || record.dest || 'LANDUNG');
     const altitude = window.GAFlightDebrief.altitudeAssessment(record);
@@ -1578,6 +1582,10 @@ window.buildDebriefPdfDocument = async function(record) {
     doc.setFontSize(13);
     doc.setTextColor(record.failed ? 150 : 30, record.failed ? 45 : 105, record.failed ? 35 : 55);
     doc.text(record.failed ? 'MISSION NICHT ERFUELLT' : 'MISSION ERFUELLT', 109.5, Math.min(256, y + 13), { align: 'center' });
+    if (flightPathPage) {
+        try { flightPathPage.draw(doc, { background: (d, page, total) => drawNotebookBackground(d, page, total, 'Mission Debrief') }); }
+        catch (error) { console.warn('[Debrief PDF] Flugweg-Seite fehlgeschlagen:', error); }
+    }
     doc.setProperties({ title: `Mission Debrief ${dep} - ${arr}`, subject: String(record.missionTitle || record.mission || '') });
     return doc;
 };
