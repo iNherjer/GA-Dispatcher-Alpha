@@ -2,9 +2,9 @@
 
 Das VFR Multitool begleitet deine VFR-Flüge im Microsoft Flight Simulator: von der Flugidee über Planung und Missionen bis zur Live-Karte im Cockpit. Diese Anleitung erklärt die größeren Funktionen und ihre Bedienung.
 
-**Stand: 22. Oktober 2026 · Origin / Alpha.** Diese Anleitung beschreibt den Origin-Stand. Stable kann einen anderen Funktionsumfang haben. Versionshinweise in App und Tracker sind maßgeblich.
+**Stand: 27. Oktober 2026 · Origin / Alpha.** Diese Anleitung beschreibt den Origin-Stand. Stable kann einen anderen Funktionsumfang haben. Versionshinweise in App und Tracker sind maßgeblich.
 
-[Multitool auf Origin öffnen](https://inherjer.github.io/GA-Dispatcher-Alpha/) · [Willkommen](willkommen.html) · [Geführte Einrichtung](onboarding.html)
+[Multitool öffnen](index.html) · [Willkommen](willkommen.html) · [Geführte Einrichtung](onboarding.html)
 
 Das Tool ist für den Flugsimulator gedacht. Karten, Wetter und Warnungen sind keine Grundlage für reale Flüge.
 
@@ -80,7 +80,7 @@ Teile PIN und API-Keys nicht über Pinnwände oder Screenshots. Die für KI-Anfr
 
 ### Flugzeug-Presets
 
-C172, Comanche und Aerostar sind die drei Schnellslots. Ein Klick wählt den Slot; Rechtsklick oder Langdruck öffnet den Editor. Du erreichst ihn auch über **Einstellungen → Aircraft / Presets**.
+Du kannst bis zu 10 Flugzeug-Presets anlegen. Die drei Preset-Buttons auf der Hauptseite und im NavCom sind Schnellwahl-Plätze (anfangs C172, Comanche und Aerostar). Ein Klick wählt das Preset auf dem Button; Rechtsklick oder Langdruck öffnet eine Liste, aus der du dem Button ein anderes Preset zuweist. Presets anlegen, bearbeiten und löschen kannst du unter **Einstellungen → Aircraft / Presets**: **+** legt ein neues an, ein Klick auf ein Preset öffnet den Editor.
 
 - **TAS:** geplante Reisegeschwindigkeit in Knoten; beeinflusst Flugzeit und Planung.
 - **GPH:** geplanter Verbrauch in US-Gallonen pro Stunde; Grundlage der Fuel-Schätzung.
@@ -89,16 +89,18 @@ C172, Comanche und Aerostar sind die drei Schnellslots. Ein Klick wählt den Slo
 - **Sitze, Zuladung und Flugzeugklasse:** helfen dem Dispatcher, passende Aufträge und Beladungen auszuwählen.
 - **Einsatzprofile:** etwa Privat/Reise, Charter, Cargo, Utility, Bush/STOL oder Training. Sie begrenzen die automatische Zufallsrotation; eine gezielte Mission bleibt auswählbar.
 
-Bei unpassenden Zeiten oder Frachtmengen zuerst die Flugzeugwerte prüfen. Boarding-Tür und relative Wegpunkte lassen sich pro Slot anpassen, wenn die Szene im Simulator nicht zum Flugzeug passt.
+Bei unpassenden Zeiten oder Frachtmengen zuerst die Flugzeugwerte prüfen. Boarding-Tür und relative Wegpunkte lassen sich pro Preset anpassen, wenn die Szene im Simulator nicht zum Flugzeug passt.
 
 ### Oberflächen und Größen
 
 Unter **Einstellungen → Darstellung** stehen Modern, Analog, NavCom, Ops 1940 und Win95 zur Wahl. Sie bedienen dieselben grundlegenden Daten.
 
-- **Analog:** mechanisch wirkendes Panel; die obere linke Schraube wechselt die Lackierung.
-- **NavCom:** Radio-Stack mit Drehknöpfen sowie DATA- und DISPATCH-Bedienung.
+- **Analog:** mechanisch wirkendes Panel. Die Schraube oben rechts wechselt das Design (Klassik, Tower, Fernschreiber), die Schraube oben links die Lackierung.
+- **NavCom:** Radio-Stack mit Drehknöpfen sowie DATA- und DISPATCH-Bedienung. Die Schraube oben rechts wechselt das Design (Klassik, Bendix, KX); die Anzeigefarbe änderst du über O/M/I, die TEST-Taste oder im KX über PULL TEST.
 - **Ops 1940:** instrumentenartige Missionsauswahl und Briefing-Darstellung.
 - **Win95:** Fenster- und Desktop-Gestaltung im klassischen PC-Stil.
+
+In Analog und NavCom bildet das **Glareshield** die Panel-Oberkante: seitlich wischen wechselt das Material, außen hoch- oder runterziehen biegt es, in der Mitte nach unten ziehen öffnet eine Design-Liste.
 
 Passe mit **Seitengröße** die Bedienung an Tablet, Monitor oder VR an. Uhren- und Medien-Skins sind davon unabhängig wählbar. Auf iPad/iPhone kannst du die Web-App über Safari zum Home-Bildschirm hinzufügen.
 

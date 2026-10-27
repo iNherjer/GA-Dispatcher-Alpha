@@ -4,16 +4,38 @@ let pendingPinNote = null;
 let groupDataCache = { members: [], notes: [] };
 let homebaseDirectoryAirportLoadRequested = false;
 
+// Tipp-Zettel fuer das private Brett. Bei inhaltlichen Aenderungen TUTORIAL_TIP_VERSION erhoehen,
+// dann ersetzt renderNotes() bereits angeheftete alte Tipps automatisch.
+const TUTORIAL_TIP_VERSION = 2;
+const TUTORIAL_TIP_ID_MIN = 101;
+const TUTORIAL_TIP_ID_MAX = 120;
 const tutorialNotes = [
-    { id: 101, text: "👋 WILLKOMMEN!\n\nZiehe diese Zettel umher, bearbeite sie (✏️) oder lösch sie (✖).", x: 4, y: 6, rot: -2 },
-    { id: 102, text: "📻 NAVCOM THEME\n\nZieh mit gedrückter Maus an den runden Drehknöpfen, um TAS und GPH schnell einzustellen!", x: 28, y: 10, rot: 3 },
-    { id: 103, text: "🗺️ KARTENTISCH\n\nKlick auf die rote Route für neue Wegpunkte. Nutze das ⛶ Icon für den echten Vollbildmodus!", x: 52, y: 5, rot: -1 },
-    { id: 104, text: "🔗 MULTIPLAYER\n\nTritt unten in den Settings einer Crew bei, um Zettel und Flüge in Echtzeit zu teilen!", x: 76, y: 12, rot: 4 },
-    { id: 105, text: "🌤️ WETTER & AIP\n\nIm Briefing (oder auf dem GPS) findest du Direkt-Links zu aktuellen METARs und Anflugkarten.", x: 6, y: 45, rot: 1 },
-    { id: 106, text: "🎨 ANALOG DESIGN\n\nKlicke im Retro-Modus auf die silberne SCHRAUBE oben links, um die Panel-Lackierung zu wechseln!", x: 30, y: 50, rot: -3 },
-    { id: 107, text: "🤖 KI DISPATCHER\n\nTrag unten deinen Gemini API-Key ein für kreative Missions-Storys mit Passagieren & Fracht.", x: 55, y: 42, rot: 2 },
-    { id: 108, text: "📌 FLÜGE MERKEN\n\nPinne coole Routen an dieses Brett. Geflogen? Logge sie unten, um deinen Startplatz zu versetzen!", x: 78, y: 46, rot: -2 }
-];
+    { id: 101, text: "👋 WILLKOMMEN!\n\nZettel ziehen, ✏️ bearbeiten, ✖ löschen. 📌 im Briefing heftet Flüge hier an.", x: 3, y: 6, rot: -2 },
+    { id: 102, text: "✈️ ERSTER AUFTRAG\n\nStart und Preset wählen, DISPATCH. Briefing prüfen, dann akzeptieren.", x: 22, y: 10, rot: 3 },
+    { id: 103, text: "🖥️ TRACKER\n\nMissionen laufen über den Windows-Tracker. Dort dieselbe Pilot-ID + PIN eintragen.", x: 41, y: 5, rot: -1 },
+    { id: 104, text: "📟 MSFS-EFB\n\nEFB-Paket im Tracker installieren. Flüge schon auf der Weltkarte laden.", x: 60, y: 11, rot: 4 },
+    { id: 105, text: "🗺️ DIRECT TO\n\nFrei fliegen ohne Auftrag: im Kartentisch Direct To an, Ziel wählen.", x: 79, y: 6, rot: -2 },
+    { id: 106, text: "🛩️ PRESETS\n\nBis zu 10 Flugzeuge. Langdruck oder Rechtsklick auf einen Schnellwahl-Knopf weist zu.", x: 3, y: 46, rot: 1 },
+    { id: 107, text: "🎨 DESIGN\n\nAnalog/NavCom: Schraube oben rechts wechselt den Skin. Glareshield seitlich wischen!", x: 22, y: 50, rot: -3 },
+    { id: 108, text: "🤖 KI-DISPATCHER\n\nGemini- oder ChatGPT-Key in den Einstellungen für eigene Storys & Passagiere.", x: 41, y: 44, rot: 2 },
+    { id: 109, text: "📕 FLUGBUCH\n\nMissionen trägt der Tracker selbst ein, mit Flugweg. Freie Flüge sind ausblendbar.", x: 60, y: 49, rot: -2 },
+    { id: 110, text: "👥 CREW\n\nCrew-Code in den Einstellungen: Flüge teilen und Homebases der Crew besuchen.", x: 79, y: 45, rot: 3 }
+].map(note => ({ ...note, tipVersion: TUTORIAL_TIP_VERSION }));
+
+function isTutorialTipNote(note) {
+    const id = Number(note?.id);
+    return !note?.type && id >= TUTORIAL_TIP_ID_MIN && id <= TUTORIAL_TIP_ID_MAX;
+}
+
+// Alte Tipp-Saetze (ohne aktuelle tipVersion) gegen den aktuellen Satz tauschen.
+function pinboardRefreshTutorialTips(notes) {
+    const tips = notes.filter(isTutorialTipNote);
+    if (!tips.length || tips.every(note => note.tipVersion === TUTORIAL_TIP_VERSION)) return { notes, changed: false };
+    return {
+        notes: notes.filter(note => !isTutorialTipNote(note)).concat(tutorialNotes.map(note => ({ ...note }))),
+        changed: true
+    };
+}
 
 function pinboardJsonClone(value) {
     if (value == null) return value;
@@ -461,9 +483,9 @@ function switchPinboardMode(mode) {
 function toggleTutorialNotes() {
     if (currentBoardMode === 'group') { alert("Tipps können nur auf dem privaten Brett geladen werden."); return; }
     let notes = JSON.parse(localStorage.getItem('ga_pinboard')) || [];
-    const hasTutorial = notes.some(n => n.id >= 101 && n.id <= 108);
-    if (hasTutorial) notes = notes.filter(n => n.id < 101 || n.id > 108);
-    else tutorialNotes.forEach(tn => { if (!notes.find(n => n.id === tn.id)) notes.push(tn); });
+    const hasTutorial = notes.some(isTutorialTipNote);
+    if (hasTutorial) notes = notes.filter(n => !isTutorialTipNote(n));
+    else tutorialNotes.forEach(tn => { if (!notes.find(n => n.id === tn.id)) notes.push({ ...tn }); });
     if (!pinboardTrySavePrivateNotes(notes, "Die Pinnwand konnte nicht gespeichert werden. Bitte lösche alte Flüge und versuche es erneut.")) return;
     renderNotes();
 }
@@ -850,8 +872,9 @@ function renderNotes() {
     if (currentBoardMode === 'private') {
         let notes = JSON.parse(localStorage.getItem('ga_pinboard')) || [];
         const pruned = pinboardPruneExpiredAuthoritySanctions(notes);
-        notes = pruned.notes;
-        if (pruned.changed) {
+        const refreshed = pinboardRefreshTutorialTips(pruned.notes);
+        notes = refreshed.notes;
+        if (pruned.changed || refreshed.changed) {
             pinboardTrySavePrivateNotes(notes);
             try { triggerCloudSave(true); } catch (_) {}
         }

@@ -30,7 +30,7 @@ def main():
             headings[base] += 1
             token.attrSet("id", base if headings[base] == 1 else f"{base}-{headings[base]}")
         for child in token.children or []:
-            if child.type == "link_open" and (child.attrGet("href") or "").startswith("https://"):
+            if child.type == "link_open" and ((child.attrGet("href") or "").startswith("https://") or child.attrGet("href") == "index.html"):
                 child.attrSet("target", "_blank")
                 child.attrSet("rel", "noopener noreferrer")
             if child.type == "image":
