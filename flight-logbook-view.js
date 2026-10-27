@@ -241,6 +241,68 @@ function altitudeColor(t) {
     return `hsl(${hue}, 75%, 42%)`;
 }
 
+// ---- track coloring: altitude, ground speed or vertical speed -------------------------------
+const COLOR_MODE_KEY = 'ga_logbook_track_color_v1';
+const COLOR_MODES = Object.freeze({
+    alt: { label: 'Höhe', unit: 'ft MSL' },
+    gs: { label: 'Geschwindigkeit', unit: 'kt GS' },
+    vs: { label: 'Steig-/Sinkrate', unit: 'ft/min' }
+});
+function readColorMode() {
+    try { const v = localStorage.getItem(COLOR_MODE_KEY); return COLOR_MODES[v] ? v : 'alt'; } catch (_) { return 'alt'; }
+}
+function writeColorMode(mode) { try { localStorage.setItem(COLOR_MODE_KEY, mode); } catch (_) {} }
+function percentile(values, q) {
+    const list = values.filter(Number.isFinite).sort((a, b) => a - b);
+    if (!list.length) return 0;
+    return list[Math.min(list.length - 1, Math.max(0, Math.round((list.length - 1) * q)))];
+}
+// Per segment (point i-1 -> i): mean altitude, ground speed and vertical speed.
+function segmentMetrics(points, codec) {
+    const out = [];
+    for (let i = 1; i < points.length; i++) {
+        if (points[i].segmentStart) continue;
+        const a = points[i - 1], b = points[i];
+        const dt = b.sec - a.sec;
+        out.push({ i, alt: (a.altFt + b.altFt) / 2,
+            gs: dt > 0 ? codec.distanceM(a, b) / 1852 / (dt / 3600) : null,
+            vs: dt > 0 ? (b.altFt - a.altFt) / dt * 60 : null });
+    }
+    return out;
+}
+// Scale per flight; robust against single outliers (95th percentile).
+function colorScale(mode, segs, minAlt, maxAlt) {
+    if (mode === 'gs') {
+        const top = Math.max(20, Math.ceil(percentile(segs.map(s => s.gs), 0.95) / 10) * 10);
+        return { mode, min: 0, max: top };
+    }
+    if (mode === 'vs') {
+        const m = Math.max(300, Math.ceil(percentile(segs.map(s => Math.abs(s.vs)), 0.95) / 100) * 100);
+        return { mode, min: -m, max: m };
+    }
+    return { mode, min: minAlt, max: Math.max(maxAlt, minAlt + 1) };
+}
+function colorFor(scale, value) {
+    if (!Number.isFinite(value)) return '#94a3b8';
+    if (scale.mode === 'vs') {
+        // diverging: sink = blue, level = grey, climb = red
+        const t = Math.max(-1, Math.min(1, value / scale.max));
+        if (Math.abs(value) < 100) return 'hsl(220, 8%, 55%)';
+        const strength = Math.abs(t);
+        return t < 0 ? `hsl(215, ${40 + 45 * strength}%, ${62 - 22 * strength}%)` : `hsl(4, ${40 + 45 * strength}%, ${62 - 22 * strength}%)`;
+    }
+    return altitudeColor((value - scale.min) / (scale.max - scale.min));
+}
+function scaleTicks(scale) {
+    const unitFmt = v => (scale.mode === 'vs' && v > 0 ? '+' : '') + fmt(v);
+    if (scale.mode === 'vs') return [scale.min, 0, scale.max].map(unitFmt);
+    return [scale.min, (scale.min + scale.max) / 2, scale.max].map(unitFmt);
+}
+function gradientFor(scale) {
+    const stops = [0, 0.15, 0.35, 0.5, 0.65, 0.85, 1].map(t => colorFor(scale, scale.min + (scale.max - scale.min) * t));
+    return `linear-gradient(90deg, ${stops.join(', ')})`;
+}
+
 // ---- map layers: same base maps, overlays and zoom rules as the main map ------------------
 const LAYER_PREF_KEY = 'ga_logbook_map_layers_v1';
 const AERO_TILE_URL = 'https://nwy-tiles-api.prod.newaydata.com/tiles/{z}/{x}/{y}.png?path=latest/aero/latest';
@@ -399,19 +461,53 @@ function renderTrack(section, status, track, runId) {
     const airspaceBox = document.createElement('div');
     airspaceBox.className = 'flight-track-airspaces';
     airspaceBox.textContent = 'Lufträume werden geprüft…';
+    // Color mode switch and legend (applies to map line and profile line).
+    const segs = segmentMetrics(points, codec);
+    let colorMode = readColorMode();
+    let scale = colorScale(colorMode, segs, minAlt, maxAlt);
+    const segValue = seg => seg[colorMode];
+    const modeBar = document.createElement('div');
+    modeBar.className = 'flight-track-colormode';
+    modeBar.setAttribute('role', 'group');
+    modeBar.setAttribute('aria-label', 'Linienfarbe');
+    const modeLabel = document.createElement('span');
+    modeLabel.textContent = 'Linienfarbe:';
+    modeBar.appendChild(modeLabel);
+    const modeButtons = Object.entries(COLOR_MODES).map(([mode, meta]) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = meta.label;
+        button.dataset.mode = mode;
+        button.addEventListener('click', () => setColorMode(mode));
+        modeBar.appendChild(button);
+        return button;
+    });
     const legend = document.createElement('div');
     legend.className = 'flight-track-legend';
-    const legendLabel = document.createElement('span');
-    legendLabel.textContent = 'Linienfarbe = Höhe:';
-    const legendLow = document.createElement('span');
-    legendLow.textContent = `${fmt(minAlt)} ft`;
-    const legendBar = document.createElement('span');
-    legendBar.className = 'flight-track-legend-bar';
-    legendBar.style.background = `linear-gradient(90deg, ${[0, 0.25, 0.5, 0.75, 1].map(altitudeColor).join(', ')})`;
-    const legendHigh = document.createElement('span');
-    legendHigh.textContent = `${fmt(maxAlt)} ft MSL`;
-    legend.append(legendLabel, legendLow, legendBar, legendHigh);
-    section.append(mapEl, legend, profileWrap, readout, airspaceBox);
+    function renderLegend() {
+        modeButtons.forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === colorMode ? 'true' : 'false'));
+        legend.replaceChildren();
+        const ticks = scaleTicks(scale);
+        const unit = COLOR_MODES[colorMode].unit;
+        const low = document.createElement('span');
+        low.textContent = colorMode === 'vs' ? `Sinken ${ticks[0]}` : ticks[0];
+        const bar = document.createElement('span');
+        bar.className = 'flight-track-legend-bar';
+        bar.style.background = gradientFor(scale);
+        const mid = document.createElement('span');
+        mid.className = 'flight-track-legend-mid';
+        mid.textContent = ticks[1];
+        bar.appendChild(mid);
+        const high = document.createElement('span');
+        high.textContent = colorMode === 'vs' ? `${ticks[2]} ${unit} Steigen` : `${ticks[2]} ${unit}`;
+        const note = document.createElement('span');
+        note.className = 'flight-track-legend-note';
+        note.textContent = colorMode === 'alt' ? 'Skala: tiefster bis höchster Punkt dieses Flugs'
+            : colorMode === 'gs' ? 'Skala: 0 bis zur Reisegeschwindigkeit dieses Flugs (einzelne Spitzen gekappt)'
+            : 'Skala: symmetrisch, Grau = nahezu Horizontalflug (< 100 ft/min)';
+        legend.append(low, bar, high, note);
+    }
+    section.append(modeBar, mapEl, legend, profileWrap, readout, airspaceBox);
 
     const useTime = totalNm < 0.2;
     const samples = densify(points, along);
@@ -451,12 +547,10 @@ function renderTrack(section, status, track, runId) {
         map.on('baselayerchange overlayadd overlayremove', savePrefs);
         map.on('zoomend', applyZoomRules);
 
-        for (let i = 1; i < points.length; i++) {
-            if (points[i].segmentStart) continue;
-            const t = maxAlt > minAlt ? ((points[i - 1].altFt + points[i].altFt) / 2 - minAlt) / (maxAlt - minAlt) : 0;
-            L.polyline([[points[i - 1].lat, points[i - 1].lon], [points[i].lat, points[i].lon]],
-                { pane: 'gaTrackLine', color: altitudeColor(t), weight: 4, opacity: 0.95 }).addTo(map);
-        }
+        segs.forEach(seg => {
+            seg.line = L.polyline([[points[seg.i - 1].lat, points[seg.i - 1].lon], [points[seg.i].lat, points[seg.i].lon]],
+                { pane: 'gaTrackLine', color: colorFor(scale, segValue(seg)), weight: 4, opacity: 0.95 }).addTo(map);
+        });
         const dot = (p, color, title) => L.circleMarker([p.lat, p.lon], { pane: 'gaTrackLine', radius: 6, color: '#fff', weight: 2, fillColor: color, fillOpacity: 1 }).bindTooltip(title).addTo(map);
         dot(points[0], '#2e7d32', 'Start');
         dot(points[points.length - 1], '#c62828', 'Ende');
@@ -569,11 +663,12 @@ function renderTrack(section, status, track, runId) {
             const top = r.map(i => `${X(xsOf(i)).toFixed(1)},${Y(points[i].gndFt).toFixed(1)}`).join(' ');
             el('polygon', { points: `${X(xsOf(r[0])).toFixed(1)},${H - padB} ${top} ${X(xsOf(r[r.length - 1])).toFixed(1)},${H - padB}`, class: 'flight-track-terrain' });
         });
-        // altitude per segment
-        let line = [];
-        const flushLine = () => { if (line.length > 1) el('polyline', { points: line.join(' '), class: 'flight-track-altitude' }); line = []; };
-        points.forEach((p, i) => { if (p.segmentStart && i > 0) flushLine(); line.push(`${X(xsOf(i)).toFixed(1)},${Y(p.altFt).toFixed(1)}`); });
-        flushLine();
+        // altitude line, colored like the map line
+        const lineGroup = el('g', { class: 'flight-track-altitude' });
+        segs.forEach(seg => {
+            el('line', { x1: X(xsOf(seg.i - 1)).toFixed(1), y1: Y(points[seg.i - 1].altFt).toFixed(1),
+                x2: X(xsOf(seg.i)).toFixed(1), y2: Y(points[seg.i].altFt).toFixed(1), stroke: colorFor(scale, segValue(seg)) }, lineGroup);
+        });
         cursor = el('line', { x1: 0, x2: 0, y1: padT, y2: H - padB, class: 'flight-track-cursor', visibility: 'hidden' });
         cursorDot = el('circle', { r: 4, class: 'flight-track-cursor-dot', visibility: 'hidden' });
         profileWrap.appendChild(svg);
@@ -607,6 +702,8 @@ function renderTrack(section, status, track, runId) {
         const parts = [`Höhe ${fmt(p.altFt)} ft`];
         if (p.gndFt !== null && p.gndFt !== undefined) parts.push(`über Grund ${fmt(Math.max(0, p.altFt - p.gndFt))} ft`);
         if (gs !== null && Number.isFinite(gs)) parts.push(`GS ${Math.round(gs)} kt`);
+        const segAt = segs.find(seg => seg.i === Math.max(1, Math.min(points.length - 1, (p.idx ?? points.indexOf(p)) + 1))) || null;
+        if (segAt && Number.isFinite(segAt.vs)) parts.push(`${segAt.vs >= 0 ? '+' : ''}${fmt(Math.round(segAt.vs / 10) * 10)} ft/min`);
         parts.push(useTime ? `${Math.round(p.sec / 60)} min` : `${x.toFixed(1)} NM`);
         parts.push(`${clockText(p.time)} Uhr`);
         if (p.onGround) parts.push('am Boden');
@@ -683,6 +780,17 @@ function renderTrack(section, status, track, runId) {
         airspaceBox.appendChild(note);
     }
 
+    function setColorMode(mode) {
+        if (!COLOR_MODES[mode] || mode === colorMode) return;
+        colorMode = mode;
+        writeColorMode(mode);
+        scale = colorScale(mode, segs, minAlt, maxAlt);
+        segs.forEach(seg => seg.line?.setStyle({ color: colorFor(scale, segValue(seg)) }));
+        renderLegend();
+        drawProfile();
+    }
+
+    renderLegend();
     drawProfile();
     loadAirspaces(runId, points).then(items => {
         if (!section.isConnected) return;

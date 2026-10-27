@@ -154,7 +154,10 @@ geöffnet). Freie Flüge: `delete {runIds}` im Worker. Missionseinträge: Lösch
 `{schemaVersion: 2, completionId, deleted: true, deletedAt}` im Logbuch; `_mergeMissionLogbooks`, der
 Abschluss-Upload und `_upsertMissionLogbook` lassen den Vermerk gewinnen, damit andere Geräte oder
 ein erneut eintreffender Abschluss den Eintrag nicht zurückbringen; zugehörige Spur wird mitgelöscht.
-Linienfarbe = Höhe relativ zum Flug (blau tiefster bis rot höchster Punkt), Legende unter der Karte.
+Linienfarbe einstellbar (Web v2219, `ga_logbook_track_color_v1`), gilt für Karte und Profillinie:
+Höhe (tiefster bis höchster Punkt), Geschwindigkeit (0 bis 95. Perzentil GS), Steig-/Sinkrate
+(symmetrisch ±95. Perzentil, mind. ±300 ft/min, grau unter 100 ft/min). Werte je Spurabschnitt
+(mittlere Höhe, Strecke/Zeit, Höhendifferenz/Zeit). Legende mit Skala unter der Karte.
 
 - Karte: Leaflet-Linie nach Höhe eingefärbt, Marker Start/Landung,
   `fitBounds` beim Öffnen, frei zoom-/verschiebbar.
