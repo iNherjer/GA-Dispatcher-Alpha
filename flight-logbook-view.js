@@ -1096,13 +1096,40 @@ async function preparePdf(record) {
         model.profileWrap.querySelector('svg') ? svgToPng(model.profileWrap.querySelector('svg'), 640, 210) : null
     ]) : [null, null];
     return {
-        pages: 1,
+        pages: model ? 1 : 0,
+        // Page 1, after the other debrief texts: mission outcome and the passenger's words.
+        drawOutcome(doc, y, helpers = {}) {
+            if (!outcome) return y;
+            doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(11, 31, 101);
+            doc.text('Missionsergebnis', 32, y); y += 6;
+            const rows = outcome.rows.filter(row => row.label !== 'Ergebnis');
+            if (outcome.passenger) rows.push({ label: 'Passagier', value: `${outcome.passenger.stars}/5 Sterne · ${outcome.passenger.mood} · Komfort ${outcome.passenger.score}/100` });
+            rows.forEach(row => {
+                doc.setFont('Helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(115, 85, 55);
+                doc.text(pdfText(row.label), 32, y);
+                doc.setFont('Helvetica', 'normal'); doc.setFontSize(9.5);
+                doc.setTextColor(row.tone === 'bad' ? 150 : 45, row.tone === 'bad' ? 45 : 45, row.tone === 'bad' ? 35 : 40);
+                const lines = doc.splitTextToSize(pdfText(row.value), 125);
+                doc.text(lines, 62, y);
+                y += Math.max(1, lines.length) * 5.2;
+            });
+            y += 4;
+            const farewell = farewellFor(record);
+            if (farewell) {
+                const text = `"${farewell.text}"${farewell.who ? ` - ${farewell.who}` : ''}`;
+                y = typeof helpers.section === 'function'
+                    ? helpers.section(doc, 'Worte des Passagiers', pdfText(text), y)
+                    : y;
+            }
+            return y;
+        },
         draw(doc, helpers = {}) {
+            if (!model) return;
             doc.addPage();
             if (typeof helpers.background === 'function') helpers.background(doc, 2, 2);
             let y = 28;
             doc.setFont('Helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(11, 31, 101);
-            doc.text(model ? 'FLUGWEG & LUFTRAEUME' : 'MISSIONSERGEBNIS', 32, y); y += 4;
+            doc.text('FLUGWEG & LUFTRAEUME', 32, y); y += 4;
             doc.setDrawColor(11, 31, 101); doc.setLineWidth(0.5); doc.line(32, y, 190, y); y += 6;
             if (mapImage) {
                 const w = 158, h = w * mapImage.height / mapImage.width;
@@ -1149,14 +1176,6 @@ async function preparePdf(record) {
                 });
                 if (passed.length) line('Unter-/ueberflogen', passed.map(r => `${r.name} (${r.limits}, ${r.relation})`).join('; '));
                 y += 2;
-            }
-            if (outcome && y < 262) {
-                doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(11, 31, 101);
-                doc.text('Missionsergebnis', 32, y); y += 5;
-                outcome.rows.forEach(row => { if (y < 280) line(row.label, row.value, row.label === 'Ergebnis'); });
-                if (outcome.passenger && y < 280) line('Passagier', `${outcome.passenger.stars}/5 Sterne · ${outcome.passenger.mood} · Komfort ${outcome.passenger.score}/100`);
-                const farewell = farewellFor(record);
-                if (farewell && y < 278) line('Abschiedsworte', `"${farewell.text}"${farewell.who ? ` - ${farewell.who}` : ''}`);
             }
         }
     };

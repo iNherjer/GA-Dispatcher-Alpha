@@ -1574,14 +1574,18 @@ window.buildDebriefPdfDocument = async function(record) {
     y = _drawDebriefPdfSection(doc, 'Flugdurchfuehrung', window.GAFlightDebrief.flightText(record, altitude), y);
     y = _drawDebriefPdfSection(doc, 'Passagierkomfort', window.GAFlightDebrief.comfortText(record), y);
     y = _drawDebriefPdfSection(doc, 'Ladungssicherheit', window.GAFlightDebrief.cargoText(record), y);
+    if (flightPathPage?.drawOutcome) {
+        try { y = flightPathPage.drawOutcome(doc, y, { section: _drawDebriefPdfSection }); }
+        catch (error) { console.warn('[Debrief PDF] Missionsergebnis fehlgeschlagen:', error); }
+    }
 
     doc.setDrawColor(record.failed ? 165 : 45, record.failed ? 55 : 120, record.failed ? 45 : 65);
     doc.setLineWidth(0.8);
-    doc.roundedRect(32, Math.min(245, y + 2), 155, 18, 2, 2);
+    doc.roundedRect(32, Math.min(265, y + 2), 155, 18, 2, 2);
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(13);
     doc.setTextColor(record.failed ? 150 : 30, record.failed ? 45 : 105, record.failed ? 35 : 55);
-    doc.text(record.failed ? 'MISSION NICHT ERFUELLT' : 'MISSION ERFUELLT', 109.5, Math.min(256, y + 13), { align: 'center' });
+    doc.text(record.failed ? 'MISSION NICHT ERFUELLT' : 'MISSION ERFUELLT', 109.5, Math.min(276, y + 13), { align: 'center' });
     if (flightPathPage) {
         try { flightPathPage.draw(doc, { background: (d, page, total) => drawNotebookBackground(d, page, total, 'Mission Debrief') }); }
         catch (error) { console.warn('[Debrief PDF] Flugweg-Seite fehlgeschlagen:', error); }
