@@ -900,8 +900,9 @@ function renderNotes() {
         
         const amIAdmin = (groupDataCache.members || []).find(m => m.syncId === getSyncId())?.isAdmin;
         const pin = pinboardCreateElement('div', 'post-it-pin');
-        const rosterTitle = pinboardCreateElement('div', '', `👥 CREW: ${String(getGroupName())}`);
-        rosterTitle.style.cssText = 'font-weight:bold; font-size:1.4cqw; border-bottom:2px solid #aaa; padding-bottom:4px; margin-bottom:4px;';
+        const rosterTitle = pinboardCreateElement('div', 'roster-title');
+        rosterTitle.append(pinboardCreateElement('span', '', `👥 CREW: ${String(getGroupName())}`), crewRefreshButton());
+        rosterTitle.style.cssText = 'display:flex; justify-content:space-between; align-items:flex-start; gap:4px; font-weight:bold; font-size:1.4cqw; border-bottom:2px solid #aaa; padding-bottom:4px; margin-bottom:4px;';
         const rosterList = pinboardCreateElement('div', 'roster-list');
 
         (groupDataCache.members || []).forEach(m => {
@@ -977,6 +978,35 @@ function nearestHomebaseAirport(spawn) {
         if (!best || distance < best.distance) best = { icao: String(airport?.icao || fallbackIcao || '').toUpperCase(), distance };
     });
     return best?.icao || '';
+}
+
+// Refresh button on the crew roster: crew notes, members' status and homebases at once
+// instead of waiting for the next poll. At most every 15 s; reads only, no crew write.
+let crewRefreshBusyUntil = 0;
+function crewRefreshButton() {
+    const button = pinboardCreateAction('button', 'crew-refresh-btn', '🔄', async () => {
+        if (Date.now() < crewRefreshBusyUntil) return;
+        crewRefreshBusyUntil = Date.now() + 15000;
+        button.disabled = true;
+        button.classList.add('is-busy');
+        try {
+            groupSyncTime = 0;
+            await Promise.allSettled([
+                silentGroupSync(),
+                window.homebaseGroupRefresh?.('crew-board-refresh'),
+                window.gaCrewPresence?.refresh('crew-board-refresh', { fresh: true })
+            ]);
+        } finally {
+            if (currentBoardMode === 'group') renderNotes();
+        }
+    }, 'Crew jetzt aktualisieren');
+    button.type = 'button';
+    button.setAttribute('aria-label', 'Crew jetzt aktualisieren');
+    if (Date.now() < crewRefreshBusyUntil) {
+        button.disabled = true;
+        setTimeout(() => { button.disabled = false; button.classList.remove('is-busy'); }, crewRefreshBusyUntil - Date.now());
+    }
+    return button;
 }
 
 function renderCrewHomebaseDirectory(board) {
@@ -1112,7 +1142,7 @@ function makeDraggable(element, noteId, isGroup) {
     let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
     element.onmousedown = dragMouseDown; element.ontouchstart = dragMouseDown;
     function dragMouseDown(e) {
-        if (e.target.closest?.('.post-it-del, .post-it-edit, .flight-load-btn, .flight-replay-btn, .crew-homebase-visit-btn, .crew-share-toggle, .crew-flight-detail-btn')) return;
+        if (e.target.closest?.('.post-it-del, .post-it-edit, .flight-load-btn, .flight-replay-btn, .crew-homebase-visit-btn, .crew-share-toggle, .crew-flight-detail-btn, .crew-refresh-btn')) return;
         e.preventDefault();
         const clientX = e.touches ? e.touches[0].clientX : e.clientX, clientY = e.touches ? e.touches[0].clientY : e.clientY;
         pos3 = clientX; pos4 = clientY;

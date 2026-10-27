@@ -64,13 +64,14 @@
         if (status === 401 || status === 403) blockedUntil = Date.now() + BACKOFF_MS;
     }
 
-    async function refresh(reason = 'poll') {
+    async function refresh(reason = 'poll', options = {}) {
+        if (options.fresh) blockedUntil = 0;
         if (!canReach()) return members;
         if (fetching) return fetching;
         const group = groupName();
         fetching = (async () => {
             try {
-                const res = await fetch(baseUrl() + encodeURIComponent(group), { headers: headers(), cache: 'no-store' });
+                const res = await fetch(baseUrl() + encodeURIComponent(group) + (options.fresh ? '?fresh=1' : ''), { headers: headers(), cache: 'no-store' });
                 handleStatus(res.status);
                 if (!res.ok) return members;
                 const data = await res.json();
@@ -276,6 +277,20 @@
         return facts.join(' · ');
     }
 
+    // Tracker v597+ sends the mission gzip-compressed (base64); v596 sends it plain.
+    async function missionFromResponse(data) {
+        if (data?.state && typeof data.state === 'object') return data.state;
+        if (data?.encoding !== 'gzip-base64' || typeof data.data !== 'string' || typeof DecompressionStream !== 'function') return null;
+        try {
+            const bytes = Uint8Array.from(atob(data.data), c => c.charCodeAt(0));
+            const text = await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+            const state = JSON.parse(text);
+            return state && typeof state === 'object' ? state : null;
+        } catch (_) {
+            return null;
+        }
+    }
+
     async function flyItYourself(member, button) {
         button.disabled = true;
         button.textContent = 'Lade Auftrag …';
@@ -283,15 +298,18 @@
             const res = await fetch(baseUrl() + encodeURIComponent(groupName()) + '/mission/' + encodeURIComponent(member.pilotId), { headers: headers(), cache: 'no-store' });
             handleStatus(res.status);
             const data = res.ok ? await res.json() : null;
-            if (!data?.state) {
-                alert('Für diesen Flug liegt kein Auftrag vor. Er wird geteilt, sobald der Tracker des Piloten den Flug gemeldet hat.');
+            const state = await missionFromResponse(data);
+            if (!state) {
+                alert(data?.encoding && typeof DecompressionStream !== 'function'
+                    ? 'Dieser Browser kann den Auftrag nicht entpacken. Bitte einen aktuellen Browser verwenden.'
+                    : 'Für diesen Flug ist kein Auftrag verfügbar. Er wird geteilt, sobald der Tracker des Piloten (ab v597) den Flug meldet.');
                 return;
             }
             const busy = typeof window.gaMissionDraftActive === 'function' && window.gaMissionDraftActive();
             const active = !!localStorage.getItem('ga_active_mission');
             if ((busy || active) && !confirm('Dein aktueller Auftrag wird durch diesen Auftrag ersetzt. Fortfahren?')) return;
             closeDetail();
-            if (typeof pinboardRestoreFlightData === 'function') await pinboardRestoreFlightData(core.plannedMissionState(data.state));
+            if (typeof pinboardRestoreFlightData === 'function') await pinboardRestoreFlightData(core.restoreSharedMissionState(state));
         } catch (_) {
             alert('Der Auftrag konnte nicht geladen werden.');
         } finally {
@@ -313,7 +331,7 @@
         panel.setAttribute('aria-modal', 'true');
         panel.setAttribute('aria-labelledby', 'crewFlightDetailTitle');
         const head = el('div', 'crew-flight-detail-head');
-        const title = el('h2', 'crew-flight-detail-title', `✈️ ${member.nick || member.pilotId}: ${f.dep || f.depName || '—'} ➔ ${f.dest || f.destName || (f.kind === 'free' ? 'frei' : '—')}`);
+        const title = el('h2', 'crew-flight-detail-title', `✈️ ${member.nick || member.pilotId}: ${core.placeLabel(f.dep, f.depName)} ➔ ${core.placeLabel(f.dest, f.destName, f.kind === 'free' ? 'frei' : '—')}`);
         title.id = 'crewFlightDetailTitle';
         const close = el('button', 'crew-flight-detail-close', '×');
         close.type = 'button';
@@ -367,7 +385,7 @@
                 L.circleMarker([p.lat, p.lon], end
                     ? { radius: 6, color: '#fff', weight: 2, fillColor: i ? '#c0392b' : '#1e7b34', fillOpacity: 1 }
                     : { radius: 4, color: '#ff00ff', weight: 2, fillColor: '#fff', fillOpacity: 1 })
-                    .bindTooltip(label, { direction: 'top', offset: [0, -4] }).addTo(detailMap);
+                    .bindTooltip(el('span', '', label), { direction: 'top', offset: [0, -4] }).addTo(detailMap); // element, never HTML: names come from other pilots
             });
         }
         if (f.pos) {
@@ -396,8 +414,8 @@
         note.append(el('div', 'post-it-pin'));
         const who = sameId(member.pilotId, pilotId()) ? `${member.nick || 'Ich'} (du)` : (member.nick || member.pilotId);
         note.append(el('div', 'crew-flight-who', `✈️ ${who}`));
-        const dep = f.dep || f.depName || '—';
-        const dest = f.dest || f.destName || (f.kind === 'free' ? 'frei' : '—');
+        const dep = core.placeLabel(f.dep, f.depName);
+        const dest = core.placeLabel(f.dest, f.destName, f.kind === 'free' ? 'frei' : '—');
         note.append(el('div', 'crew-flight-route', `${dep} ➔ ${dest}`));
         const title = f.title || (f.kind === 'free' ? 'Freier Flug' : 'Auftrag');
         note.append(el('div', 'crew-flight-title', title));
@@ -413,7 +431,8 @@
             details.addEventListener('click', () => openDetail(member.pilotId));
             note.append(details);
         }
-        placeNote(note, `crew-flight-${String(member.pilotId).toLowerCase()}`, 27 + (index % 3) * 18, 60 + Math.floor(index / 3) * 6, index % 2 ? 2 : -2);
+        // First row at the bottom, a second row (flights 4-6) in the middle of the board.
+        placeNote(note, `crew-flight-${String(member.pilotId).toLowerCase()}`, 27 + (index % 3) * 18, index < 3 ? 60 : 33, index % 2 ? 2 : -2);
         board.appendChild(note);
     }
 

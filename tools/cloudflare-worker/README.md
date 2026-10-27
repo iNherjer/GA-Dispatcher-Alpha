@@ -281,7 +281,8 @@ getrennt vom `GROUP_`-KV-Eintrag: Statusmeldungen kosten nie KV-Writes.
 
 - `GET` – Status der aktuellen Crew-Mitglieder (`online`, `flight`), nur was freigegeben ist
 - `POST {source, share, flight}` – Statusmeldung; `{offline:true}` löscht den Eintrag
-- `POST /mission {flightId, state}` – Auftrag des laufenden Flugs (≤ 64 KB, Laufzeitfelder entfernt), einmal je Flug gespeichert
+- `POST /mission {flightId, encoding:'gzip-base64', data}` (ab Tracker v597; v596: `{flightId, state}`) – Auftrag des laufenden Flugs (≤ 64 KB, Laufzeitfelder vom Tracker entfernt, Ankunftsplan nur einmal), einmal je Flug gespeichert
+- `GET ?fresh=1` – Aktualisieren-Knopf: Mitgliedschaft sofort neu prüfen statt Zwischenspeicher (Worker 9fc99173)
 - `GET /mission/<pilotId>` – dieser Auftrag zum Selbstfliegen, nur solange der Flug freigegeben und sichtbar ist
 
 Statusmeldungen ≤ 8 KB; `flight` enthält Position zum Meldezeitpunkt und höchstens 40 Routenpunkte.

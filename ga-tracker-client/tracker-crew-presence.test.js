@@ -68,6 +68,8 @@ test('mission flight: takeoff, progress, landing and end are reported, never mor
   s.advance(5 * 60 * 1000);
   s.sample({ onGround: false, gsKts: 110, vsFpm: 0, lon: 8.6 });
   await s.presence.tick();
+  s.advance(65000);
+  await s.presence.tick();
   assert.equal(s.posts.at(-1).body.flight.phase, 'cruise');
   assert.ok(s.posts.at(-1).body.flight.progress > 0.55);
   s.advance(5 * 60 * 1000);
@@ -96,12 +98,37 @@ test('mission is uploaded once per flight without runtime fields; beats carry po
   const missionPosts = s.posts.filter(p => p.url.endsWith('/mission'));
   assert.equal(missionPosts.length, 1);
   assert.equal(missionPosts[0].body.flightId, 'run-1');
-  assert.equal(missionPosts[0].body.state.activeMissionRuntimePhase, undefined);
+  assert.equal(missionPosts[0].body.encoding, 'gzip-base64');
+  const state = JSON.parse(require('node:zlib').gunzipSync(Buffer.from(missionPosts[0].body.data, 'base64')).toString());
+  assert.equal(state.mTitle, 'Charter');
+  assert.equal(state.activeMissionRuntimePhase, undefined);
   const beat = s.posts.filter(p => !p.url.endsWith('/mission')).at(-1).body.flight;
   assert.equal(beat.pos.altFt, 3500);
   assert.equal(beat.pos.hdg, 92);
   assert.equal(beat.route.length, 2);
   assert.equal(beat.route[1].name, 'EDRY');
+});
+
+test('phase changes must hold 30 s; a stale Direct To route far away is ignored', async () => {
+  const s = setup();
+  s.setRoute({ kind: 'free', title: 'Direct To EDDS', dest: 'EDDS', waypoints: [{ lat: 48.0, lon: 11.0 }, { lat: 48.69, lon: 9.22 }] });
+  s.sample();
+  await s.presence.tick();
+  s.advance(70000);
+  s.sample({ onGround: false, gsKts: 100, vsFpm: 0 });
+  await s.presence.tick();
+  let flight = s.posts.at(-1).body.flight;
+  assert.equal(flight.dest, '', 'route 100 NM away is not this flight');
+  assert.equal(flight.progress, null);
+  s.advance(70000);
+  s.sample({ onGround: false, gsKts: 100, vsFpm: 600 });
+  await s.presence.tick();
+  s.advance(10000);
+  s.sample({ onGround: false, gsKts: 100, vsFpm: 0 });
+  await s.presence.tick();
+  s.advance(70000);
+  await s.presence.tick();
+  assert.ok(s.posts.every(p => p.body.flight?.phase !== 'climb'), 'a 10 s climb blip is not reported');
 });
 
 test('free flight starts at takeoff, survives a touch-and-go and ends after standing still', async () => {

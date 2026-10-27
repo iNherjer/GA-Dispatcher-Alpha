@@ -10,6 +10,7 @@
 const core = require('../crew-presence-core.js');
 const cloudSync = require('../cloud-sync-client');
 const { requestJson } = require('./tracker-navcom-preferences');
+const zlib = require('node:zlib');
 
 const DEFAULT_PRESENCE_URL = 'https://ga-proxy.einherjer.workers.dev/api/crew-presence-v1/';
 const DEFAULT_PROFILE_URL = 'https://ga-proxy.einherjer.workers.dev/api/sync-v2/';
@@ -18,7 +19,10 @@ const PROFILE_REFRESH_MS = 10 * 60 * 1000;
 const BACKOFF_MS = 10 * 60 * 1000;
 const FREE_FLIGHT_END_STILL_MS = 60 * 1000;
 const STALE_SAMPLE_MS = 2 * 60 * 1000;
-const MAX_MISSION_BYTES = 60 * 1024;
+const MAX_MISSION_BYTES = 60 * 1024;        // compressed request body
+const MAX_MISSION_RAW_BYTES = 2 * 1024 * 1024;
+const PHASE_HOLD_MS = 30 * 1000;              // a new phase must hold this long (VS jitter in manual flight)
+const FREE_ROUTE_MAX_OFF_NM = 15;             // a saved Direct To route farther away than this is not this flight's route
 
 const normalizeGroupName = value => String(value || '').trim().toUpperCase().slice(0, 80);
 
@@ -116,20 +120,36 @@ function createCrewPresence(options = {}) {
         current = { kind: 'free', id, startedAt: airborne.takeoffAt, leg: 0, progress: null, takeoffAt: airborne.takeoffAt, landedAt: 0, endedAt: 0 };
       }
     }
+    // Free flights only use the saved navigation route while the aircraft is near it; the
+    // tracker keeps the last Direct To route across sessions.
+    let usable = route;
+    if (!missionId && live && Array.isArray(route?.waypoints) && route.waypoints.length >= 2) {
+      const check = core.routeProgress(route.waypoints, live, current.leg);
+      if (!check || check.offNm > FREE_ROUTE_MAX_OFF_NM) usable = { title: '' };
+    }
     Object.assign(current, {
-      title: route?.title || '', dep: route?.dep || '', depName: route?.depName || '',
-      dest: route?.dest || '', destName: route?.destName || '',
-      route: Array.isArray(route?.waypoints) ? route.waypoints : [],
+      title: usable?.title || '', dep: usable?.dep || '', depName: usable?.depName || '',
+      dest: usable?.dest || '', destName: usable?.destName || '',
+      route: Array.isArray(usable?.waypoints) ? usable.waypoints : [],
       missionState: missionId ? route?.missionState || null : null
     });
     current.landedAt = current.takeoffAt ? airborne.landedAt : 0;
     if (live) {
-      const progress = core.routeProgress(route?.waypoints, live, current.leg);
+      const progress = core.routeProgress(usable?.waypoints, live, current.leg);
       if (progress) {
         current.leg = Math.max(current.leg, progress.leg);
         current.progress = Math.max(current.progress ?? 0, progress.progress);
       }
-      current.phase = core.flightPhase(live, !!current.takeoffAt);
+      const candidate = core.flightPhase(live, !!current.takeoffAt);
+      if (!current.phase || candidate === current.phase || candidate === 'landed') {
+        current.phase = candidate;
+        current.phaseCandidate = null;
+      } else if (current.phaseCandidate?.phase !== candidate) {
+        current.phaseCandidate = { phase: candidate, since: t };
+      } else if (t - current.phaseCandidate.since >= PHASE_HOLD_MS) {
+        current.phase = candidate;
+        current.phaseCandidate = null;
+      }
       current.pos = { lat: live.lat, lon: live.lon, altFt: live.altFt, hdg: live.hdg, gsKts: live.gsKts, at: sampleAt };
     }
     if (!missionId && current.landedAt && airborne.stillSince && t - airborne.stillSince >= FREE_FLIGHT_END_STILL_MS) {
@@ -181,11 +201,12 @@ function createCrewPresence(options = {}) {
   let missionUploaded = '';
   async function uploadMission(flight) {
     if (flight?.kind !== 'mission' || flight.endedAt || missionUploaded === flight.id || !current?.missionState) return;
-    const state = core.plannedMissionState(current.missionState);
-    const body = JSON.stringify({ flightId: flight.id, state });
-    if (body.length > MAX_MISSION_BYTES) {
+    const json = JSON.stringify(core.sharedMissionState(current.missionState));
+    const data = json.length <= MAX_MISSION_RAW_BYTES ? zlib.gzipSync(json).toString('base64') : '';
+    const body = JSON.stringify({ flightId: flight.id, encoding: 'gzip-base64', data });
+    if (!data || body.length > MAX_MISSION_BYTES) {
       missionUploaded = flight.id;
-      log(`CREW_PRESENCE_MISSION_SKIPPED id=${flight.id} bytes=${body.length}`);
+      log(`CREW_PRESENCE_MISSION_SKIPPED id=${flight.id} raw=${json.length} bytes=${body.length}`);
       return;
     }
     const response = await request(presenceUrl + encodeURIComponent(groupName) + '/mission', {
@@ -195,7 +216,7 @@ function createCrewPresence(options = {}) {
     });
     if (response.ok) {
       missionUploaded = flight.id;
-      log(`CREW_PRESENCE_MISSION id=${flight.id} bytes=${body.length}`);
+      log(`CREW_PRESENCE_MISSION id=${flight.id} raw=${json.length} bytes=${body.length}`);
     }
   }
 

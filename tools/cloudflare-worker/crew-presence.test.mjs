@@ -116,6 +116,24 @@ test('mission of the current flight: stored once, readable by members while shar
     assert.equal((await client(env, 'BOB', 'EDTW', '/mission/ALICE')()).status, 404, 'mission of the old flight is gone');
 });
 
+test('compressed missions are stored as-is and returned compressed; bad encodings are refused', async () => {
+    const { gzipSync, gunzipSync } = await import('node:zlib');
+    const env = { GA_CREW_PRESENCE: namespace() };
+    await client(env, 'ALICE')({ source: 'tracker', flight: flight() });
+    const state = core.sharedMissionState({ currentMissionData: { mission: 'Charter', aptArrivalPlan: { geo: 'x'.repeat(1000) } }, activeMissionContract: { aptArrivalPlan: { geo: 'x'.repeat(1000) } } });
+    assert.equal(state.activeMissionContract.aptArrivalPlan, undefined, 'arrival plan kept once');
+    const data = gzipSync(JSON.stringify(state)).toString('base64');
+    const post = client(env, 'ALICE', 'EDTW', '/mission');
+    assert.equal((await post({ flightId: 'run-1', encoding: 'gzip-base64', data })).status, 200);
+    assert.equal((await post({ flightId: 'run-1', encoding: 'zip', data })).status, 400);
+    assert.equal((await post({ flightId: 'run-1', encoding: 'gzip-base64', data: '<script>' })).status, 400);
+    const got = (await client(env, 'BOB', 'EDTW', '/mission/ALICE')()).body;
+    assert.equal(got.encoding, 'gzip-base64');
+    const restored = core.restoreSharedMissionState(JSON.parse(gunzipSync(Buffer.from(got.data, 'base64')).toString()));
+    assert.equal(restored.activeMissionContract.aptArrivalPlan.geo.length, 1000, 'arrival plan restored on the contract');
+    assert.equal(restored.activeMissionContract.crewArrivalPlanFromMission, undefined);
+});
+
 test('beats carry position and a bounded route', async () => {
     const env = { GA_CREW_PRESENCE: namespace() };
     const route = Array.from({ length: 80 }, (_, i) => ({ lat: 49 + i * 0.01, lon: 8, name: 'WP' + i }));
@@ -125,12 +143,14 @@ test('beats carry position and a bounded route', async () => {
     assert.equal(alice.flight.pos.altFt, 3500);
 });
 
-test('auth and membership are cached per isolate', async () => {
+test('auth and membership are cached per isolate; ?fresh=1 checks again', async () => {
     const env = { GA_CREW_PRESENCE: namespace() };
     const before = authCalls;
     const bob = client(env, 'BOB', 'EDFE');
     for (let i = 0; i < 5; i++) await bob();
     assert.equal(authCalls - before, 1);
+    await client(env, 'BOB', 'EDFE', '?fresh=1')();
+    assert.equal(authCalls - before, 2);
 });
 
 test('oversized and malformed beats are refused; flight fields are bounded', async () => {

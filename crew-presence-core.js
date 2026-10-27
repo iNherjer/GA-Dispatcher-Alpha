@@ -98,7 +98,8 @@
             const off = (px - t * bx) ** 2 + (py - t * by) ** 2;
             if (!best || off < best.off) best = { off, leg: i, along: leg.start + t * leg.len };
         }
-        return { progress: Math.max(0, Math.min(1, best.along / total)), leg: best.leg, totalNm: Math.round(total * 10) / 10 };
+        // offNm: distance from the route; a far-away aircraft is not flying this route.
+        return { progress: Math.max(0, Math.min(1, best.along / total)), leg: best.leg, totalNm: Math.round(total * 10) / 10, offNm: Math.round(Math.sqrt(best.off) * 60 * 10) / 10 };
     }
 
     // Phase from telemetry. `airborneBefore` turns "on ground" after a flight into "landed".
@@ -185,6 +186,36 @@
         return copy;
     }
 
+    // Mission for crew sharing: planned state, the arrival plan (placement geometry, often
+    // 60 KB) kept once instead of twice. restoreSharedMissionState undoes the dedupe.
+    function sharedMissionState(state) {
+        const copy = plannedMissionState(state);
+        if (!copy) return null;
+        const md = copy.currentMissionData, contract = copy.activeMissionContract;
+        if (md?.aptArrivalPlan && contract?.aptArrivalPlan
+            && JSON.stringify(md.aptArrivalPlan) === JSON.stringify(contract.aptArrivalPlan)) {
+            delete contract.aptArrivalPlan;
+            contract.crewArrivalPlanFromMission = true;
+        }
+        return copy;
+    }
+    function restoreSharedMissionState(state) {
+        const copy = plannedMissionState(state);
+        const contract = copy?.activeMissionContract;
+        if (contract?.crewArrivalPlanFromMission) {
+            delete contract.crewArrivalPlanFromMission;
+            if (copy.currentMissionData?.aptArrivalPlan) contract.aptArrivalPlan = JSON.parse(JSON.stringify(copy.currentMissionData.aptArrivalPlan));
+        }
+        return copy;
+    }
+
+    // Placeholder codes that are no airport identifier for people.
+    function placeLabel(code, name, fallback = '—') {
+        const c = text(code, 24), n = text(name, 60);
+        if (!c || /^(GPS|POI|HOMEBASE|FREI|START|ZIEL)$/i.test(c) || /^OUR-/i.test(c)) return n || (/^HOMEBASE$/i.test(c) ? 'Homebase' : fallback);
+        return c;
+    }
+
     // Did the flight change enough to tell the crew now (rather than at the next heartbeat)?
     function flightEvent(prev, next) {
         if (!prev && !next) return false;
@@ -243,6 +274,6 @@
         PHASES, KINDS,
         normalizeShare, routeProgress, flightPhase, cleanFlight, flightEvent,
         shouldBeat, shouldStore, mergeBeat, publicView, phaseLabel, distanceNm,
-        cleanPosition, cleanRoute, plannedMissionState, ROUTE_MAX_POINTS
+        cleanPosition, cleanRoute, plannedMissionState, sharedMissionState, restoreSharedMissionState, placeLabel, ROUTE_MAX_POINTS
     };
 });

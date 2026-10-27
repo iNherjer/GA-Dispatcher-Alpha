@@ -3,7 +3,8 @@
 // Routes (auth: X-Pilot-ID / X-Pilot-PIN, plus active membership in GROUP_<crew>):
 //   GET  /api/crew-presence-v1/<crew>          members' public status (online, flight)
 //   POST /api/crew-presence-v1/<crew>          beat { source, share, flight } | { offline: true }
-//   POST /api/crew-presence-v1/<crew>/mission  { flightId, state } mission of the current flight (once per flight)
+//   POST /api/crew-presence-v1/<crew>/mission  { flightId, encoding: 'gzip-base64', data } (tracker >= v597)
+//                                              or { flightId, state } (v596); mission of the current flight, once per flight
 //   GET  /api/crew-presence-v1/<crew>/mission/<pilotId>  that mission, while the flight is shared and visible
 // Shared rules (sharing defaults, visibility windows, write throttling): crew-presence-core.js
 import '../../crew-presence-core.js';
@@ -14,6 +15,7 @@ const reply = (data, status = 200) => new Response(JSON.stringify(data), { statu
 const MAX_BODY = 8 * 1024;
 const MAX_MISSION_BODY = 64 * 1024;
 const FLIGHT_ID = /^[A-Za-z0-9_.:-]{1,120}$/;
+const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
 const PURGE_AFTER_MS = 2 * 24 * 60 * 60 * 1000;
 const AUTH_CACHE_MS = 10 * 60 * 1000;
 const AUTH_CACHE_MAX = 500;
@@ -30,7 +32,8 @@ export class CrewPresence {
             const id = lower(body.pilotId);
             const stored = await this.storage.get('m:' + id);
             if (stored?.flightId === body.flightId) return reply({ ok: true, stored: false });
-            await this.storage.put('m:' + id, { flightId: body.flightId, state: body.state, storedAt: now });
+            const payload = body.encoding ? { encoding: body.encoding, data: body.data } : { state: body.state };
+            await this.storage.put('m:' + id, { flightId: body.flightId, ...payload, storedAt: now });
             return reply({ ok: true, stored: true });
         }
         const id = lower(url.searchParams.get('pilot'));
@@ -39,7 +42,9 @@ export class CrewPresence {
         const [record, mission] = await Promise.all([this.storage.get('p:' + id), this.storage.get('m:' + id)]);
         const view = core.publicView(record, now);
         if (!view?.flight || !mission || mission.flightId !== view.flight.id) return reply({ error: 'mission_missing' }, 404);
-        return reply({ ok: true, flightId: mission.flightId, state: mission.state });
+        return reply(mission.encoding
+            ? { ok: true, flightId: mission.flightId, encoding: mission.encoding, data: mission.data }
+            : { ok: true, flightId: mission.flightId, state: mission.state });
     }
 
     async fetch(request) {
@@ -128,7 +133,9 @@ export async function handleCrewPresence(request, env, authenticate, readGroup) 
 
     const key = await cacheKey(request.headers.get('X-Pilot-ID'), request.headers.get('X-Pilot-PIN') || '', crew);
     let entry = authCache.get(key);
-    if (!entry || entry.expires < Date.now()) {
+    // ?fresh=1 (refresh button on the crew board): check membership again right away.
+    const fresh = url.searchParams.get('fresh') === '1';
+    if (!entry || entry.expires < Date.now() || fresh) {
         const auth = await authenticate(request, env);
         if (!auth.ok) return auth.response;
         const group = await readGroup(env, crew);
@@ -149,8 +156,15 @@ export async function handleCrewPresence(request, env, authenticate, readGroup) 
             return stub.fetch(new Request('https://crew-presence/mission?' + query.toString()));
         }
         const flightId = String(body?.flightId || '');
+        if (!FLIGHT_ID.test(flightId)) return reply({ error: 'mission_invalid' }, 400);
+        // Compressed missions are opaque here; the tracker strips runtime fields before packing.
+        if (body?.encoding !== undefined) {
+            const data = String(body.data || '');
+            if (body.encoding !== 'gzip-base64' || !data || !BASE64.test(data)) return reply({ error: 'mission_invalid' }, 400);
+            return stub.fetch(new Request('https://crew-presence/mission', { method: 'POST', body: JSON.stringify({ pilotId: entry.ownerId, flightId, encoding: 'gzip-base64', data }) }));
+        }
         const state = core.plannedMissionState(body?.state);
-        if (!FLIGHT_ID.test(flightId) || !state) return reply({ error: 'mission_invalid' }, 400);
+        if (!state) return reply({ error: 'mission_invalid' }, 400);
         return stub.fetch(new Request('https://crew-presence/mission', { method: 'POST', body: JSON.stringify({ pilotId: entry.ownerId, flightId, state }) }));
     }
     if (request.method === 'GET') {
