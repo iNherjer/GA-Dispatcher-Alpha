@@ -484,6 +484,21 @@ function renderTrack(section, status, track, runId) {
     });
     const legend = document.createElement('div');
     legend.className = 'flight-track-legend';
+    let legendPointer = null, legendPointerLabel = null, lastSelection = null;
+    // Places the pointer on the color scale at the value of the selected point.
+    function showLegendValue(values) {
+        lastSelection = values;
+        if (!legendPointer) return;
+        const value = values[colorMode];
+        if (!Number.isFinite(value)) { legendPointer.hidden = true; return; }
+        const t = Math.max(0, Math.min(1, (value - scale.min) / (scale.max - scale.min)));
+        legendPointer.hidden = false;
+        legendPointer.style.left = `${(t * 100).toFixed(1)}%`;
+        legendPointer.style.setProperty('--pointer-color', colorFor(scale, value));
+        const shown = colorMode === 'vs' ? Math.round(value / 10) * 10 : Math.round(value);
+        legendPointerLabel.textContent = `${colorMode === 'vs' && shown > 0 ? '+' : ''}${fmt(shown)} ${COLOR_MODES[colorMode].unit}`
+            + (value < scale.min || value > scale.max ? ' (außerhalb der Skala)' : '');
+    }
     function renderLegend() {
         modeButtons.forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === colorMode ? 'true' : 'false'));
         legend.replaceChildren();
@@ -505,7 +520,16 @@ function renderTrack(section, status, track, runId) {
         note.textContent = colorMode === 'alt' ? 'Skala: tiefster bis höchster Punkt dieses Flugs'
             : colorMode === 'gs' ? 'Skala: 0 bis zur Reisegeschwindigkeit dieses Flugs (einzelne Spitzen gekappt)'
             : 'Skala: symmetrisch, Grau = nahezu Horizontalflug (< 100 ft/min)';
+        // pointer for the value at the selected position
+        legendPointer = document.createElement('span');
+        legendPointer.className = 'flight-track-legend-pointer';
+        legendPointer.hidden = true;
+        legendPointerLabel = document.createElement('span');
+        legendPointerLabel.className = 'flight-track-legend-pointer-label';
+        legendPointer.appendChild(legendPointerLabel);
+        bar.appendChild(legendPointer);
         legend.append(low, bar, high, note);
+        if (lastSelection) showLegendValue(lastSelection);
     }
     section.append(modeBar, mapEl, legend, profileWrap, readout, airspaceBox);
 
@@ -703,6 +727,7 @@ function renderTrack(section, status, track, runId) {
         if (p.gndFt !== null && p.gndFt !== undefined) parts.push(`über Grund ${fmt(Math.max(0, p.altFt - p.gndFt))} ft`);
         if (gs !== null && Number.isFinite(gs)) parts.push(`GS ${Math.round(gs)} kt`);
         const segAt = segs.find(seg => seg.i === Math.max(1, Math.min(points.length - 1, (p.idx ?? points.indexOf(p)) + 1))) || null;
+        showLegendValue({ alt: p.altFt, gs: Number.isFinite(gs) ? gs : null, vs: segAt && Number.isFinite(segAt.vs) ? segAt.vs : null });
         if (segAt && Number.isFinite(segAt.vs)) parts.push(`${segAt.vs >= 0 ? '+' : ''}${fmt(Math.round(segAt.vs / 10) * 10)} ft/min`);
         parts.push(useTime ? `${Math.round(p.sec / 60)} min` : `${x.toFixed(1)} NM`);
         parts.push(`${clockText(p.time)} Uhr`);
