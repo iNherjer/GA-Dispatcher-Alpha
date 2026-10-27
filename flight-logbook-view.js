@@ -925,6 +925,17 @@ function missionOutcome(record) {
     return { rows, passenger, failed };
 }
 
+// The passenger's spoken farewell (stored by the tracker with the mission track, Tracker v594+).
+function farewellFor(record) {
+    if (!record || record.kind === 'free') return null;
+    const runId = trackRunIdFor(record);
+    const entry = runId ? state.entries.find(e => e.runId === runId) : null;
+    const text = String(entry?.farewellText || '').trim();
+    if (!text) return null;
+    const who = [entry.farewellSpeaker, entry.farewellRole].map(v => String(v || '').trim()).filter(Boolean).join(', ');
+    return { text, who };
+}
+
 function starText(stars) { return '★★★★★'.slice(0, stars) + '☆☆☆☆☆'.slice(0, 5 - stars); }
 
 function renderOutcomeSection(body, record) {
@@ -957,6 +968,20 @@ function renderOutcomeSection(body, record) {
         list.append(dt, dd);
     }
     section.appendChild(list);
+    const farewell = farewellFor(record);
+    if (farewell) {
+        const quote = document.createElement('blockquote');
+        quote.className = 'flight-outcome-farewell';
+        const words = document.createElement('p');
+        words.textContent = `„${farewell.text}“`;
+        quote.appendChild(words);
+        if (farewell.who) {
+            const cite = document.createElement('cite');
+            cite.textContent = `– ${farewell.who}`;
+            quote.appendChild(cite);
+        }
+        section.appendChild(quote);
+    }
     const grid = body.querySelector('.flight-debrief-metrics');
     if (grid?.nextSibling) body.insertBefore(section, grid.nextSibling); else body.appendChild(section);
 }
@@ -1130,6 +1155,8 @@ async function preparePdf(record) {
                 doc.text('Missionsergebnis', 32, y); y += 5;
                 outcome.rows.forEach(row => { if (y < 280) line(row.label, row.value, row.label === 'Ergebnis'); });
                 if (outcome.passenger && y < 280) line('Passagier', `${outcome.passenger.stars}/5 Sterne · ${outcome.passenger.mood} · Komfort ${outcome.passenger.score}/100`);
+                const farewell = farewellFor(record);
+                if (farewell && y < 278) line('Abschiedsworte', `"${farewell.text}"${farewell.who ? ` - ${farewell.who}` : ''}`);
             }
         }
     };

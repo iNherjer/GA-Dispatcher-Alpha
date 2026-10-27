@@ -21321,6 +21321,9 @@ body.theme-win95 .aircraft-quick-slot-menu .airport-autocomplete-option.is-activ
 .flight-outcome-rows dd.is-bad { color: #96302a; font-weight: 700; }
 .flight-outcome-rows dd.is-warn { color: #8a5a00; }
 .flight-outcome-stars { color: #c48a12; letter-spacing: 1px; }
+.flight-outcome-farewell { margin: 10px 0 0; padding: 8px 12px; border-left: 3px solid #c48a12; background: rgba(196, 138, 18, .07); }
+.flight-outcome-farewell p { margin: 0; font-style: italic; font-size: 14px; line-height: 1.45; }
+.flight-outcome-farewell cite { display: block; margin-top: 4px; font-size: 12px; font-style: normal; opacity: .75; }
 .flight-track-legend-pointer { position: absolute; top: -9px; width: 0; height: 0; transform: translateX(-6px); border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid var(--pointer-color, #3e4350); filter: drop-shadow(0 0 1px #fff); transition: left .08s linear; }
 .flight-track-legend-pointer-label { position: absolute; bottom: 9px; left: 0; transform: translateX(-50%); padding: 0 4px; border-radius: 3px; background: rgba(255, 250, 240, .92); color: #1f2433; font-size: 11px; font-weight: 700; white-space: nowrap; }
 .flight-track-legend-pointer[hidden] { display: none; }

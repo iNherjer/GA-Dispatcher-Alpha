@@ -63,7 +63,7 @@ function request() {
 }
 
 test('farewell uses one selected-device job with the App deboarding cue before TTS', async () => {
-  const requests = [];
+  const requests = [], spoken = [];
   let playbackWaits = 0;
   const handler = createTrackerMissionFarewellVoice({
     authorityManager: { getActiveRun: () => activeRun() },
@@ -85,10 +85,16 @@ test('farewell uses one selected-device job with the App deboarding cue before T
         return { status: 'completed', completed: true };
       }
     },
-    getAudioPlaybackCandidates: () => 2
+    getAudioPlaybackCandidates: () => 2,
+    onSpoken: value => spoken.push(value)
   });
   const result = await handler.dispatch(request());
   assert.equal(result.ok, true);
+  // logbook note: the spoken words reach the flight logbook
+  assert.equal(spoken.length, 1);
+  assert.equal(spoken[0].text, 'Danke fuers Mitnehmen.');
+  assert.equal(spoken[0].speaker, 'Mara');
+  assert.equal(spoken[0].runId, activeRun().runId);
   assert.equal(result.voiceOutcome.kind, 'farewell');
   assert.equal(result.voiceOutcome.text, 'Danke fuers Mitnehmen.');
   assert.equal(result.voiceStatus, 'completed');

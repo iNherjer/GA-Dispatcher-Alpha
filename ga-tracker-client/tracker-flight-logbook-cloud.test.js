@@ -50,3 +50,29 @@ test('re-saving an unchanged track keeps it uploaded; a changed one goes up agai
   store.putTrack({ kind: 'mission', runId: 'run-m', missionId: 'mission-m', startTs: 1, endTs: 2, track: { ...track, t0: 5 , enc: track.enc + '?' } });
   assert.equal(store.getTrack('run-m').uploadedAt, null);
 });
+
+test('farewell words travel with the mission track, also when they arrive after the upload', async () => {
+  const store = setup(); const bodies = [];
+  const cloud = createFlightLogbookCloud({ store, pilotId: 'P', pin: '1',
+    transport: async (url, init) => { bodies.push(JSON.parse(init.body)); return { ok: true, status: 200 }; } });
+  await cloud.flush();
+  assert.equal(bodies.find(b => b.entry.runId === 'run-m').entry.farewellText, undefined);
+  assert.equal(store.putNote('run-m', { farewellText: 'Danke, das war ein ruhiger Flug.', farewellSpeaker: 'Anna', farewellRole: 'Fotografin' }), true);
+  assert.equal(store.pendingUploads().map(t => t.runId).join(), 'run-m');
+  bodies.length = 0;
+  await cloud.flush();
+  assert.equal(bodies.length, 1);
+  assert.equal(bodies[0].entry.farewellText, 'Danke, das war ein ruhiger Flug.');
+  assert.equal(bodies[0].entry.farewellSpeaker, 'Anna');
+  assert.equal(store.putNote('run-x', { farewellText: '' }), false);
+});
+
+test('a note recorded before the track exists is sent with the first upload', async () => {
+  const store = createFlightTrackStore({ directory: fs.mkdtempSync(path.join(os.tmpdir(), 'fl-note-')) });
+  store.putNote('run-late', { farewellText: 'Bis zum nächsten Mal!' });
+  assert.equal(store.listTracks().length, 0, 'note files are not tracks');
+  store.putTrack({ kind: 'mission', runId: 'run-late', missionId: 'mission-late', startTs: 1, endTs: 2, track });
+  const bodies = [];
+  await createFlightLogbookCloud({ store, pilotId: 'P', pin: '1', transport: async (url, init) => { bodies.push(JSON.parse(init.body)); return { ok: true, status: 200 }; } }).flush();
+  assert.equal(bodies[0].entry.farewellText, 'Bis zum nächsten Mal!');
+});

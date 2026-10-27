@@ -40,7 +40,10 @@ function createFlightLogbookCloud({ store, pilotId, pin, onUploaded = () => {}, 
       if (!files.length) return { status: 'empty' };
       let uploaded = 0;
       for (const file of files) {
-        const res = await transport(baseUrl + 'put', { method: 'POST', headers, body: JSON.stringify({ entry: entryFor(file), track: file.track }) });
+        const entry = entryFor(file);
+        const note = typeof store.getNote === 'function' ? store.getNote(file.runId) : null;
+        if (note?.farewellText) Object.assign(entry, { farewellText: note.farewellText, farewellSpeaker: note.farewellSpeaker || '', farewellRole: note.farewellRole || '' });
+        const res = await transport(baseUrl + 'put', { method: 'POST', headers, body: JSON.stringify({ entry, track: file.track }) });
         if (res.ok) {
           store.markUploaded(file.runId);
           uploaded += 1;

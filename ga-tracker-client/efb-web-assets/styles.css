@@ -20924,6 +20924,9 @@ body.theme-win95 .ga-radio-dialog { background: #c0c0c0; color: #000; border: 3p
 .logbook-paper-action { position: absolute; top: 10%; margin: 0; padding: 2px 6px; border: 0; border-radius: 0; background: transparent; color: #3e4350; opacity: .8; font: 600 clamp(14px, 3.6cqw, 19px) 'GA Logbook Ink', cursive; cursor: pointer; }
 .logbook-paper-action.logbook-close { left: 8%; transform: rotate(-3deg); }
 .logbook-paper-action.logbook-clear { right: 8%; transform: rotate(2deg); }
+.logbook-paper-action.logbook-free-toggle { right: 21%; transform: rotate(-1deg); }
+.logbook-paper-action.logbook-free-toggle[aria-pressed="false"] { opacity: .55; }
+.logbook-flight.logbook-free .logbook-cell-6 > span { font-style: italic; opacity: .85; }
 .logbook-paper-action:hover, .logbook-navigation button:not(:disabled):hover { color: #723726; opacity: 1; }
 .logbook-navigation button:focus-visible, .logbook-paper-action:focus-visible { outline: 1px dashed #943b2d; outline-offset: 1px; }
 .logbook-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -21291,3 +21294,50 @@ body.theme-win95 .aircraft-quick-slot-menu .airport-autocomplete-option.is-activ
 .aircraft-preset-editor-footer .airport-type-picker-actions {
     margin-left: auto;
 }
+
+
+/* Flugbuch: Flugweg im Flugbericht (flight-logbook-view.js) */
+.flight-track-section .flight-track-status { margin: 0 0 8px; font-size: 13px; opacity: .75; }
+.flight-track-map { width: 100%; height: 280px; border-radius: 6px; overflow: hidden; border: 1px solid rgba(60, 50, 40, .25); background: #e8e2d4; }
+.flight-track-profile { margin-top: 10px; }
+.flight-track-profile svg { width: 100%; height: auto; display: block; touch-action: none; cursor: crosshair; }
+.flight-track-grid { stroke: rgba(60, 50, 40, .15); stroke-width: 1; }
+.flight-track-axis { fill: #5a5246; font-size: 11px; }
+.flight-track-terrain { fill: #c8b48a; fill-opacity: .75; stroke: #9a8459; stroke-width: 1; }
+.flight-track-altitude line { stroke-width: 2.6; stroke-linecap: round; }
+.flight-track-cursor { stroke: #723726; stroke-width: 1; stroke-dasharray: 3 3; }
+.flight-track-cursor-dot { fill: #fff; stroke: #723726; stroke-width: 2; }
+.flight-track-readout { margin-top: 6px; padding: 6px 8px; border-left: 3px solid #723726; background: rgba(114, 55, 38, .06); font-size: 13px; font-weight: 600; min-height: 1.4em; color: #2b2f3a; }
+@media (max-width: 600px) { .flight-track-map { height: 220px; } }
+.flight-track-legend { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; color: #3e4350; flex-wrap: wrap; }
+.flight-track-legend-bar { position: relative; flex: 0 1 180px; height: 10px; border-radius: 5px; margin-bottom: 12px; }
+.flight-track-legend-mid { position: absolute; left: 50%; top: 11px; transform: translateX(-50%); font-size: 10px; white-space: nowrap; }
+.flight-track-legend-note { flex: 1 1 100%; font-size: 11px; opacity: .65; }
+.flight-track-legend { margin-top: 30px; }
+.flight-outcome-rows { display: grid; grid-template-columns: max-content 1fr; gap: 4px 12px; margin: 0; font-size: 13px; }
+.flight-outcome-rows dt { font-weight: 700; color: #73553a; }
+.flight-outcome-rows dd { margin: 0; }
+.flight-outcome-rows dd.is-good { color: #1e6b3a; font-weight: 700; }
+.flight-outcome-rows dd.is-bad { color: #96302a; font-weight: 700; }
+.flight-outcome-rows dd.is-warn { color: #8a5a00; }
+.flight-outcome-stars { color: #c48a12; letter-spacing: 1px; }
+.flight-outcome-farewell { margin: 10px 0 0; padding: 8px 12px; border-left: 3px solid #c48a12; background: rgba(196, 138, 18, .07); }
+.flight-outcome-farewell p { margin: 0; font-style: italic; font-size: 14px; line-height: 1.45; }
+.flight-outcome-farewell cite { display: block; margin-top: 4px; font-size: 12px; font-style: normal; opacity: .75; }
+.flight-track-legend-pointer { position: absolute; top: -9px; width: 0; height: 0; transform: translateX(-6px); border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 8px solid var(--pointer-color, #3e4350); filter: drop-shadow(0 0 1px #fff); transition: left .08s linear; }
+.flight-track-legend-pointer-label { position: absolute; bottom: 9px; left: 0; transform: translateX(-50%); padding: 0 4px; border-radius: 3px; background: rgba(255, 250, 240, .92); color: #1f2433; font-size: 11px; font-weight: 700; white-space: nowrap; }
+.flight-track-legend-pointer[hidden] { display: none; }
+.flight-track-colormode { display: flex; align-items: center; gap: 4px; margin-bottom: 6px; flex-wrap: wrap; font-size: 12px; }
+.flight-track-colormode button { padding: 3px 8px; border: 1px solid rgba(60, 50, 40, .3); border-radius: 12px; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.flight-track-colormode button[aria-pressed="true"] { background: #1a2b5c; border-color: #1a2b5c; color: #fff; }
+.flight-debrief-btn.flight-debrief-delete { margin-right: auto; color: #8f2d1f; border-color: rgba(143, 45, 31, .45); }
+.flight-track-band-label { font-size: 10px; font-weight: 700; paint-order: stroke; stroke: rgba(255, 250, 240, .85); stroke-width: 3px; }
+.flight-track-airspaces { margin-top: 10px; }
+.flight-track-airspaces h4 { margin: 8px 0 4px; font-size: 14px; }
+.flight-track-airspace-list { list-style: none; margin: 0; padding: 0; }
+.flight-track-airspace-list button { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; width: 100%; padding: 4px 6px; border: 0; border-radius: 4px; background: transparent; color: inherit; font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.flight-track-airspace-list button:hover, .flight-track-airspace-list button.is-active { background: rgba(114, 55, 38, .08); }
+.flight-track-airspace-list.is-passed button { opacity: .75; }
+.flight-track-swatch { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 2px; align-self: center; }
+.flight-track-airspace-detail { flex: 1 1 100%; padding-left: 18px; opacity: .8; font-size: 12px; }
+.flight-track-airspace-note { margin: 6px 0 0; font-size: 11px; opacity: .65; }

@@ -163,8 +163,12 @@ Missionsergebnis und PDF (Web v2221): Abschnitt „Missionsergebnis“ aus dem L
 Grund aus Ladungsergebnis, geplantes vs. tatsächliches Ziel, Pflichtladung/Zustand, SAR-Zusammenfassung,
 Passagier = Komfort-Stimmung + Wert, Sterne = Wert/20). PDF (`board.js` ruft
 `GAFlightLogbook.preparePdf`): Seite 2 mit Karte (OpenTopoMap-Kacheln, Lufträume, Spur in gewählter
-Färbung), Farblegende, Höhenprofil (SVG als Bild), Luftraumliste, Missionsergebnis. Offen: Die
-gesprochenen Abschiedsworte des Passagiers werden nicht gespeichert (bräuchte Tracker-Änderung).
+Färbung), Farblegende, Höhenprofil (SVG als Bild), Luftraumliste, Missionsergebnis. Abschiedsworte (Tracker v594 / Web v2222): `tracker-mission-farewell-voice.js` meldet den tatsächlich
+erzeugten Text (`onSpoken`); `tracker.js` legt ihn als Notiz `tracks/<runId>.note.json` ab
+(`putNote`, max. 2000 Zeichen, ~0,3–0,5 KB). Der Upload schickt `farewellText`/`farewellSpeaker`/
+`farewellRole` im Missionseintrag des Flugbuch-Speichers mit; kommt die Notiz nach dem Upload, wird
+der Eintrag erneut hochgeladen. Kein Eintrag im Profil-Logbuch, kein Browser-Speicher. Web zeigt das
+Zitat im Missionsergebnis und im PDF. Ältere Flüge haben keine Abschiedsworte.
 
 - Karte: Leaflet-Linie nach Höhe eingefärbt, Marker Start/Landung,
   `fitBounds` beim Öffnen, frei zoom-/verschiebbar.

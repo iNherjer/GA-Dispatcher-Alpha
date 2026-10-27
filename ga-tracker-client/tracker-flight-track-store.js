@@ -100,7 +100,7 @@ function createFlightTrackStore(options = {}) {
       list.push(meta);
       byKind.set(meta.kind, list);
     }
-    for (const list of byKind.values()) for (const old of list.slice(keepPerKind)) remove(trackFile(old.runId));
+    for (const list of byKind.values()) for (const old of list.slice(keepPerKind)) { remove(trackFile(old.runId)); remove(noteFile(old.runId)); }
   };
 
   // meta: { kind: 'mission'|'free', runId, missionId?, completionId?, startTs, endTs, track, entry? }
@@ -136,6 +136,25 @@ function createFlightTrackStore(options = {}) {
   const pendingUploads = (limit = 5) => listTracks().filter(t => !t.uploadedAt)
     .sort((a, b) => (a.kind === b.kind ? 0 : a.kind === 'free' ? -1 : 1))
     .slice(0, limit).map(t => getTrack(t.runId)).filter(Boolean);
+
+  // Logbook note per run (e.g. the passenger's farewell words). Kept beside the track file;
+  // an already uploaded track is queued again so the note reaches the cloud.
+  const noteFile = id => path.join(trackDir, `${safeId(id)}.note.json`);
+  const getNote = runId => {
+    const value = readJson(noteFile(runId));
+    return value?.schema === 'ga.flight-track-note.v1' ? value : null;
+  };
+  const putNote = (runId, note = {}) => {
+    if (!runId) return false;
+    const text = String(note.farewellText || '').trim().slice(0, 2000);
+    if (!text) return false;
+    writeJson(noteFile(runId), { schema: 'ga.flight-track-note.v1', runId: String(runId), farewellText: text,
+      farewellSpeaker: String(note.farewellSpeaker || '').slice(0, 120), farewellRole: String(note.farewellRole || '').slice(0, 160),
+      recordedAt: Date.now() });
+    const track = getTrack(runId);
+    if (track?.uploadedAt) writeJson(trackFile(runId), { ...track, uploadedAt: null, uploadStatus: 'note-added' });
+    return true;
+  };
 
   const getTrack = runId => {
     const value = readJson(trackFile(runId));
@@ -189,6 +208,8 @@ function createFlightTrackStore(options = {}) {
     getTrack,
     markUploaded,
     pendingUploads,
+    getNote,
+    putNote,
     listTracks,
     trackFromMissionLog,
     backfillMissionTracks

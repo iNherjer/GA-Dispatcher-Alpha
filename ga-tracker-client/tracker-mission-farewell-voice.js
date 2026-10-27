@@ -54,6 +54,8 @@ function createTrackerMissionFarewellVoice(options = {}) {
     ? options.getAudioPlaybackCandidates
     : () => 0;
   const log = typeof options.log === 'function' ? options.log : () => {};
+  // Logbook: the passenger's actual farewell words (flight-logbook note next to the track).
+  const onSpoken = typeof options.onSpoken === 'function' ? options.onSpoken : () => {};
   const playbackClaimTimeoutMs = Math.max(250, Math.min(30000, Number(options.playbackClaimTimeoutMs) || 15000));
   const playbackTimeoutMs = Math.max(1000, Math.min(180000, Number(options.playbackTimeoutMs) || 90000));
   const generationTimeoutMs = Math.max(1000, Math.min(180000, Number(options.generationTimeoutMs) || 75000));
@@ -267,6 +269,14 @@ function createTrackerMissionFarewellVoice(options = {}) {
       }
     }
     log(`MISSION_FAREWELL_VOICE_COMPLETE effect=${effectId} job=${job.status} playback=${playback.status} candidates=${candidates}`);
+    if (cleanString(job.text, 4000)) {
+      try {
+        onSpoken({ missionId: run.missionId, runId: run.runId, text: cleanString(job.text, 2000),
+          speaker: cleanString(farewellVoiceCore.normalizeSpeaker(job.speaker || recipe.speaker).name, 120),
+          role: cleanString(farewellVoiceCore.normalizeSpeaker(job.speaker || recipe.speaker).role, 160),
+          playback: cleanString(playback.status, 40) });
+      } catch (error) { log(`MISSION_FAREWELL_NOTE_ERROR error=${error?.message || error}`); }
+    }
     return completed(request, {
       sideEffect: true,
       voiceStatus: playback.status,
