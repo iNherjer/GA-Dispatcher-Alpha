@@ -455,7 +455,7 @@ function updateGroupBadgeUI() {
 
     // GHOST BUSTER: Wenn ein Zettel im lokalen Müll liegt, kann er nicht "Neu" sein!
     let initialLen = newBadges.length;
-    newBadges = newBadges.filter(id => !hidden.includes(id));
+    newBadges = newBadges.filter(id => !hidden.some(entry => String(entry) === String(id)));
     if (newBadges.length !== initialLen) {
         localStorage.setItem('ga_group_new', JSON.stringify(newBadges));
     }
@@ -590,9 +590,10 @@ function deleteNote(id, isGroup) {
             renderNotes(); triggerGroupSave(true);
         } else {
             let hidden = JSON.parse(localStorage.getItem('ga_group_hidden')) || [];
-            hidden.push(id);
+            if (!hidden.some(entry => String(entry) === String(id))) hidden.push(id);
             localStorage.setItem('ga_group_hidden', JSON.stringify(hidden));
             renderNotes();
+            triggerCloudSave(true);
         }
     } else {
         let notes = JSON.parse(localStorage.getItem('ga_pinboard')) || [];
@@ -932,7 +933,7 @@ function renderNotes() {
         let newBadges = JSON.parse(localStorage.getItem('ga_group_new')) || [];
         
         gNotes.forEach(note => {
-            if (hidden.includes(note.id)) return;
+            if (hidden.some(entry => String(entry) === String(note.id))) return;
             let renderNote = { ...note };
             if (localPos[note.id]) {
                 renderNote.x = localPos[note.id].x;

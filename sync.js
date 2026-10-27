@@ -16655,6 +16655,35 @@ async function _syncApplyActiveMissionFromCloud(activeMission = null, options = 
     return false;
 }
 
+// Ausgeblendete Crew-Zettel (fremde Posts, die man weggeklickt hat) reisen mit dem
+// Profil, damit sie auf anderen Geraeten und nach geleertem Browser-Speicher weg bleiben.
+const SYNC_HIDDEN_GROUP_NOTES_MAX = 300;
+function _syncReadHiddenGroupNotes() {
+    try {
+        const list = JSON.parse(localStorage.getItem('ga_group_hidden') || '[]');
+        return Array.isArray(list) ? list.filter(id => id !== null && id !== undefined && id !== '') : [];
+    } catch (_) {
+        return [];
+    }
+}
+function _syncHiddenGroupNotesPayload() {
+    return _syncReadHiddenGroupNotes().slice(-SYNC_HIDDEN_GROUP_NOTES_MAX);
+}
+function _syncApplyHiddenGroupNotesFromCloud(data) {
+    if (!Array.isArray(data?.hiddenGroupNotes)) return;
+    const local = _syncReadHiddenGroupNotes();
+    const seen = new Set(local.map(String));
+    const merged = local.slice();
+    data.hiddenGroupNotes.forEach(id => {
+        if (id === null || id === undefined || id === '' || seen.has(String(id))) return;
+        seen.add(String(id));
+        merged.push(id);
+    });
+    if (merged.length !== local.length) {
+        try { localStorage.setItem('ga_group_hidden', JSON.stringify(merged.slice(-SYNC_HIDDEN_GROUP_NOTES_MAX))); } catch (_) {}
+    }
+}
+
 function setLastSyncedPayload(cloudData = null) {
     if (cloudData) _syncAcknowledgeProfile(cloudData);
     const activeMission = _syncActiveMissionPayload();
@@ -16668,6 +16697,7 @@ function setLastSyncedPayload(cloudData = null) {
         groupNick: getGroupNick(),
         knownNotes: JSON.parse(localStorage.getItem('ga_known_group_notes') || '[]'),
         newBadges: JSON.parse(localStorage.getItem('ga_group_new') || '[]'),
+        hiddenGroupNotes: _syncHiddenGroupNotesPayload(),
         aircraftPresets: getAircraftPresetsForSync(),
         onboardEquipment: _syncOnboardEquipmentPayload(),
         favoriteAirports: _syncFavoriteAirportsPayload(),
@@ -16880,6 +16910,7 @@ async function triggerCloudSave(immediate = false, options = {}) {
         groupNick: getGroupNick(),
         knownNotes: JSON.parse(localStorage.getItem('ga_known_group_notes') || '[]'),
         newBadges: JSON.parse(localStorage.getItem('ga_group_new') || '[]'),
+        hiddenGroupNotes: _syncHiddenGroupNotesPayload(),
         aircraftPresets: getAircraftPresetsForSync(),
         onboardEquipment: _syncOnboardEquipmentPayload(),
         favoriteAirports: _syncFavoriteAirportsPayload(),
@@ -17057,6 +17088,7 @@ async function forceSyncLoad() {
         _syncApplyFavoriteAirportsFromCloud(data);
         if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
         if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
+        _syncApplyHiddenGroupNotesFromCloud(data);
         if (data.aircraftPresets) applyAircraftPresetsFromSync(data.aircraftPresets);
         _syncApplyFollowupsFromCloud(data);
 
@@ -17155,6 +17187,7 @@ async function silentSyncLoad(options = {}) {
             _syncApplyFavoriteAirportsFromCloud(data);
             if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
             if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
+            _syncApplyHiddenGroupNotesFromCloud(data);
             if (data.aircraftPresets) applyAircraftPresetsFromSync(data.aircraftPresets);
             _syncApplyFollowupsFromCloud(data);
 
@@ -17212,6 +17245,14 @@ async function silentGroupSync() {
             }
             const downloadedNotes = data.notes || [];
             const activeNoteIds = downloadedNotes.map(n => n.id);
+            // Ausgeblendete Zettel, die es in der Crew nicht mehr gibt, aus der Liste nehmen.
+            const activeNoteKeys = new Set(activeNoteIds.map(String));
+            const hiddenBefore = _syncReadHiddenGroupNotes();
+            const hiddenAfter = hiddenBefore.filter(id => activeNoteKeys.has(String(id)));
+            if (hiddenAfter.length !== hiddenBefore.length) {
+                localStorage.setItem('ga_group_hidden', JSON.stringify(hiddenAfter));
+                changed = true;
+            }
 
             // Ghost-Badge Fix: Entferne alte Badges von Zetteln, die gelöscht wurden
             const originalBadgeCount = newBadges.length;
@@ -17350,6 +17391,7 @@ async function checkCloudAfterIdle() {
                 groupNick: getGroupNick(),
                 knownNotes: JSON.parse(localStorage.getItem('ga_known_group_notes') || '[]'),
                 newBadges: JSON.parse(localStorage.getItem('ga_group_new') || '[]'),
+                hiddenGroupNotes: _syncHiddenGroupNotesPayload(),
                 aircraftPresets: getAircraftPresetsForSync(),
                 onboardEquipment: _syncOnboardEquipmentPayload(),
                 favoriteAirports: _syncFavoriteAirportsPayload(),
@@ -17402,6 +17444,7 @@ async function checkCloudAfterIdle() {
                 _syncApplyFavoriteAirportsFromCloud(data);
                 if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
                 if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
+                _syncApplyHiddenGroupNotesFromCloud(data);
                 if (data.aircraftPresets) applyAircraftPresetsFromSync(data.aircraftPresets);
                 _syncApplyFollowupsFromCloud(data);
                 if (data.groupName !== undefined) {
