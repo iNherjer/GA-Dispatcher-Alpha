@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v2233';
+const CACHE = 'ga-dispatcher-v2234';
 
 const STATIC = [
     './',
@@ -64,10 +64,10 @@ const STATIC = [
     './media-player-ui.js',
     './media-player-client.js',
     './settings-toolroll.css',
-    './assets/ui/settings/roll-head-suede-v2.png',
-    './assets/ui/settings/roll-body-suede-v2.png',
-    './assets/ui/logbook/closed-tall-v2.png',
-    './assets/ui/logbook/open.png',
+    './assets/ui/settings/roll-head-suede-v2.webp',
+    './assets/ui/settings/roll-body-suede-v2.webp',
+    './assets/ui/logbook/closed-tall-v2.webp',
+    './assets/ui/logbook/open.webp',
     './ga-tracker-client/efb-fonts/Caveat-SemiBold.ttf',
     './app.js',
     './taws.js',
@@ -184,8 +184,8 @@ const STATIC = [
     './homebase-scene-core.js',
     './homebase-integration.js',
     './homebase-integration.css',
-    './assets/ui/homebase/blueprint-09-27.png',
-    './assets/ui/homebase/pocket.png',
+    './assets/ui/homebase/blueprint-09-27.webp',
+    './assets/ui/homebase/pocket.webp',
     './homebase/index.html',
     './homebase/homebase-workbench.js',
     './homebase/homebase-workbench.css',
@@ -279,8 +279,9 @@ const STATIC = [
     './manifest.json',
     './icon-192.png',
     './icon-512.png',
-    './Icon.PNG',
-    './IconDRK.PNG',
+    './favicon-light-64.png',
+    './favicon-dark-64.png',
+    './icon-dark-180.png',
     './vendor/leaflet/leaflet.css',
     './vendor/leaflet/leaflet.js',
     './vendor/leaflet/images/layers.png',

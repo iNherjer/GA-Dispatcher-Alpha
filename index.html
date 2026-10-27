@@ -5,9 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
     <title>VFR Multitool</title>
     
-    <link rel="icon" type="image/png" href="IconDRK.PNG">
-    <link rel="icon" type="image/png" sizes="32x32" href="Icon.PNG" media="(prefers-color-scheme: light)">
-    <link rel="icon" type="image/png" sizes="32x32" href="IconDRK.PNG" media="(prefers-color-scheme: dark)">
+    <link rel="icon" type="image/png" href="favicon-dark-64.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-light-64.png" media="(prefers-color-scheme: light)">
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-dark-64.png" media="(prefers-color-scheme: dark)">
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="VFR Multitool">
@@ -123,21 +123,21 @@
             50% { transform: translateY(-2px); opacity: 1; }
         }
     </style>
-    <link rel="apple-touch-icon" href="IconDRK.PNG">
-    <link rel="apple-touch-icon" sizes="180x180" href="IconDRK.PNG">
+    <link rel="apple-touch-icon" href="icon-dark-180.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icon-dark-180.png">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="stylesheet" href="vendor/maplibre/maplibre-gl.css">
-    <link rel="preload" href="styles.css?v=quick-slot-touch-20261023-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=images-webp-20261027-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="stylesheet" href="homebase-integration.css?v=homebase-foreground-20261014-01">
     <link rel="stylesheet" href="crew-presence.css?v=crew-presence-20261027-03">
     <link rel="stylesheet" href="media-player.css">
-    <link rel="stylesheet" href="settings-toolroll.css?v=toolroll-settings-tidy-20261014-01">
+    <link rel="stylesheet" href="settings-toolroll.css?v=images-webp-20261027-01">
     <link rel="stylesheet" href="navcom-skins.css?v=navcom-skins-20261022-04">
     <link rel="stylesheet" href="analog-skins.css?v=quick-slot-touch-20261023-01">
     <link rel="stylesheet" href="glareshield.css?v=glareshield-20261023-10">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=quick-slot-touch-20261023-01">
+        <link rel="stylesheet" href="styles.css?v=images-webp-20261027-01">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -806,10 +806,10 @@
         <div class="logbook-stage" id="logbookStage" onkeydown="if (event.key === 'Escape') toggleLogbook(false)">
             <div class="logbook-cover-mask">
             <button class="logbook-cover" id="logbookCover" type="button" onclick="toggleLogbook(true)" aria-expanded="false" aria-controls="logbookReading" aria-label="Flugbuch herausziehen und öffnen">
-                <img src="assets/ui/logbook/closed-tall-v2.png" alt="Rotes ledergebundenes Flugbuch" width="1340" height="1171">
+                <img src="assets/ui/logbook/closed-tall-v2.webp" alt="Rotes ledergebundenes Flugbuch" width="1340" height="1171">
             </button>
             </div>
-            <div class="logbook-pocket" aria-hidden="true"><img src="assets/ui/homebase/pocket.png" alt="" width="2172" height="724"></div>
+            <div class="logbook-pocket" aria-hidden="true"><img src="assets/ui/homebase/pocket.webp" alt="" width="2172" height="724"></div>
             <div class="logbook-reading" id="logbookReading" hidden>
                 <div class="logbook-spread" id="logContent"></div>
                 <button class="logbook-paper-action logbook-close" type="button" onclick="toggleLogbook(false)">Zuklappen</button>
@@ -829,9 +829,9 @@
         <button id="homebaseBlueprintLaunch" class="homebase-blueprint-button" type="button" onpointerenter="prepareHomebaseBlueprint()" onfocus="prepareHomebaseBlueprint()" onclick="openHomebaseEnvironment()" aria-describedby="homebaseAssetStatus" aria-controls="homebaseOverlay" aria-expanded="false">
             <span class="homebase-blueprint-sr" id="homebaseMainTitle">Homebase Designer öffnen</span>
             <span class="homebase-blueprint-mask">
-                <img id="homebaseBlueprintSheet" class="homebase-blueprint-sheet" src="assets/ui/homebase/blueprint-09-27.png" alt="Blaupause einer General-Aviation-Homebase mit Hangar und Propellerflugzeugen" width="1450" height="1000">
+                <img id="homebaseBlueprintSheet" class="homebase-blueprint-sheet" src="assets/ui/homebase/blueprint-09-27.webp" alt="Blaupause einer General-Aviation-Homebase mit Hangar und Propellerflugzeugen" width="1450" height="1000">
             </span>
-            <img class="homebase-blueprint-pocket" src="assets/ui/homebase/pocket.png" alt="" aria-hidden="true" width="1350" height="300">
+            <img class="homebase-blueprint-pocket" src="assets/ui/homebase/pocket.webp" alt="" aria-hidden="true" width="1350" height="300">
         </button>
         <span id="homebaseAssetStatus" class="homebase-asset-status homebase-blueprint-sr">Benötigte Homebase-Objekte werden beim Start des PC-Trackers geprüft</span>
     </section>
@@ -839,7 +839,7 @@
 
     <div class="settings-shell settings-toolroll">
         <button class="settings-toggle-btn" id="settingsToggleBtn" type="button" onclick="toggleSettingsPanel()" aria-expanded="false" aria-controls="settingsPanel">
-            <img class="settings-roll-head" src="assets/ui/settings/roll-head-suede-v2.png" alt="" aria-hidden="true" width="2048" height="724">
+            <img class="settings-roll-head" src="assets/ui/settings/roll-head-suede-v2.webp" alt="" aria-hidden="true" width="2048" height="724">
             <span class="settings-toggle-label settings-roll-sr">Einstellungen</span>
             <span class="settings-toggle-chevron" id="settingsToggleChevron">▾</span>
         </button>

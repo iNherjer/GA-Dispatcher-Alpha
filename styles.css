@@ -3178,7 +3178,7 @@ body.theme-retro .api-fuel-meter .api-scale {
 .pinboard-content {
     width: 900px;
     height: 600px;
-    background-image: url('board.jpg') !important;
+    background-image: url('board.webp') !important; /* WebP q80, 434 KB statt 5 MB JPEG, gleiche Auflösung */
     background-size: cover;
     background-position: center;
     position: relative;
@@ -13753,10 +13753,10 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) 
 body.theme-ops1940 {
     --ops-atlas: url('assets/ui/ops1940/ops1940-texture-atlas.webp');
     --ops-desk-bg: url('assets/ui/ops1940/ops1940-desk-bg.webp');
-    --ops-bomber-atlas: url('assets/ui/ops1940/ops1940-bomber-atlas.png');
-    --ops-bomber-bg: url('assets/ui/ops1940/ops1940-bomber-panel-bg.png');
+    --ops-bomber-atlas: url('assets/ui/ops1940/ops1940-bomber-atlas.webp');
+    --ops-bomber-bg: url('assets/ui/ops1940/ops1940-bomber-panel-bg.webp');
     --ops-controls-atlas: url('assets/ui/ops1940/ops1940-controls-atlas.webp');
-    --ops-pictogram-atlas: url('assets/ui/ops1940/ops1940-pictograms-v2.png');
+    --ops-pictogram-atlas: url('assets/ui/ops1940/ops1940-pictograms-v2.webp');
     --ops-switchgear-atlas: url('assets/ui/ops1940/ops1940-switchgear-atlas.webp');
     --ops-picto-dep: url('assets/ui/ops1940/ops1940-picto-dep-square.webp');
     --ops-picto-dest: url('assets/ui/ops1940/ops1940-picto-dest-square.webp');
@@ -20876,7 +20876,7 @@ body.theme-win95 .ga-radio-dialog { background: #c0c0c0; color: #000; border: 3p
 .logbook-stage.is-transitioning .logbook-reading { position: absolute; top: 0; left: calc(-1 * var(--logbook-bleed-left, 0px)); margin-left: 0; }
 .logbook-stage.is-transitioning .logbook-pocket { position: absolute; margin: 0; top: var(--logbook-pocket-top); bottom: auto; left: 0; width: 100%; }
 .logbook-cover[hidden], .logbook-reading[hidden] { display: none; }
-.logbook-spread { position: relative; width: 100%; min-width: 0; aspect-ratio: 1.8; min-height: 320px; box-sizing: border-box; background: url('assets/ui/logbook/open.png') center / 100% 100% no-repeat; color: #3e4350; }
+.logbook-spread { position: relative; width: 100%; min-width: 0; aspect-ratio: 1.8; min-height: 320px; box-sizing: border-box; background: url('assets/ui/logbook/open.webp') center / 100% 100% no-repeat; color: #3e4350; }
 .logbook-table { position: absolute; inset: 18% 7.5% 25%; display: grid; grid-template-rows: 25px repeat(4, minmax(0, 1fr)); font-family: 'GA Logbook Ink', 'Caveat', 'Segoe Print', cursive; font-weight: 600; font-size: clamp(11px, 3.6cqw, 18px); line-height: 1.05; }
 .logbook-table-header, .logbook-flight { display: grid; grid-template-columns: 16% 13% 18% 6% 12% 11% 24%; min-width: 0; }
 .logbook-table-header { align-items: stretch; font: 700 clamp(9px, 2.7cqw, 13px) 'Courier New', Courier, monospace; color: #77644c; }
