@@ -26,6 +26,10 @@ Tracker und EFB fliegt. Freigaben per Zettel auf dem Crew-Brett. Cloudflare-Last
 
 EFB-Assets unverändert. Nur Alpha-Runtime umstellen, Stable unverändert.
 
+EXE (Windows-x64, pkg 6.18.1 / Node18, Cross-Build `--no-bytecode --public --public-packages '*'` aus sauberem
+Worktree von `1f9e6cabc`): 174640866 Bytes; SHA-256 `d6760db2214d5865d056598434db9251d8848dfdc0da529c805a76803290b050`.
+Öffentlicher Download geprüft (gleiche Größe und Prüfsumme).
+
 ## Prüfung
 
 - Tracker-Gesamtsuite: 1520 Tests, 1518 bestanden nach Anpassung des Quelltext-Tests für `loadPinnedFlight` (`mission-control-ui-core.test.js`); `tracker-mission-fire-process.test.js` bleibt lastabhängig (einzeln 2/3).
