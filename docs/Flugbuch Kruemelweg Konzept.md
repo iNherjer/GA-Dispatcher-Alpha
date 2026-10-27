@@ -1,6 +1,6 @@
 # Flugbuch: Krümelweg und Höhenprofil (Konzept)
 
-Stand: 2026-10-26 · Status: Tracker v593 und Worker `/api/flightlog-v1/` umgesetzt, Web-App-Anzeige offen
+Stand: 2026-10-26 · Status: Tracker v593, Worker `/api/flightlog-v1/` und Web-App-Flugbuch (Web v2215) umgesetzt
 
 ## Ziel
 
@@ -129,6 +129,15 @@ Ursprüngliche Überlegung:
   beim nächsten Logbuch-Schreiben bzw. per Alarm.
 
 ### 4. Anzeige (Web-App, Logbuch-Detail)
+
+Umgesetzt in `flight-logbook-view.js` (nur Web; `flight-debrief.js` bleibt unverändert, weil es
+ins EFB kopiert wird). Liste: lokales Missions-Logbuch + freie Flüge aus `/list` (IndexedDB-Cache,
+`?since=`), Schalter „Freie Flüge ausblenden/zeigen“ (`ga_logbook_show_free`). Start/Landung freier
+Flüge: Flugplatz im Umkreis 3 NM, sonst Koordinaten. Missionseinträge finden ihre Spur über `runId`,
+ältere über `missionId` + Endzeit ±15 min. Bericht: Abschnitt „Flugweg“ mit OpenTopoMap-Karte
+(Linie nach Höhe gefärbt, Start/Ende/Aufsetzen) und SVG-Höhenprofil mit Gelände, gekoppeltem Cursor
+und Werten (Höhe, über Grund, GS, Strecke, Uhrzeit). Freie Flüge ohne Passagier-/Ladungsabschnitt.
+„Leeren“ löscht auch das Cloud-Flugbuch.
 
 - Karte: Leaflet-Linie nach Höhe eingefärbt, Marker Start/Landung,
   `fitBounds` beim Öffnen, frei zoom-/verschiebbar.

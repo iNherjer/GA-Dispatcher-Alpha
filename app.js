@@ -47769,6 +47769,18 @@ function renderLog() {
     try { log = JSON.parse(localStorage.getItem('ga_logbook') || '[]'); } catch (_) {}
     if (!Array.isArray(log)) log = [];
     log = log.filter(entry => entry && typeof entry === 'object');
+    // Free flights come from the cloud flight logbook (flight-logbook-view.js).
+    const flightLogbook = window.GAFlightLogbook;
+    if (flightLogbook) {
+        log = flightLogbook.mergedEntries(log);
+        flightLogbook.refresh();
+    }
+    const freeToggle = document.getElementById('logbookFreeToggle');
+    if (freeToggle && flightLogbook) {
+        const showing = flightLogbook.showFree();
+        freeToggle.textContent = showing ? 'Freie Flüge ausblenden' : 'Freie Flüge zeigen';
+        freeToggle.setAttribute('aria-pressed', showing ? 'true' : 'false');
+    }
     const container = document.getElementById('logContent');
     if (!container) return;
     const perSpread = LOGBOOK_ENTRIES_PER_SPREAD;
@@ -47789,7 +47801,7 @@ function renderLog() {
     for (let row = 0; row < perSpread; row++) {
         const e = log[logbookView.spread * perSpread + row];
         const entry = document.createElement(e ? 'button' : 'div');
-        entry.className = `logbook-flight${e ? '' : ' logbook-blank'}`;
+        entry.className = `logbook-flight${e ? '' : ' logbook-blank'}${e?.kind === 'free' ? ' logbook-free' : ''}`;
         if (e) {
             entry.type = 'button';
             const seconds = e.durationSec == null ? NaN : Number(e.durationSec);
@@ -47810,7 +47822,9 @@ function renderLog() {
             });
             entry.title = [rawDate, ...values.slice(1)].filter(Boolean).join(' — ');
             entry.setAttribute('aria-label', entry.title);
-            entry.addEventListener('click', () => window.showFlightDebrief?.(e, { awaitingCleanup: false }));
+            entry.addEventListener('click', () => (window.GAFlightLogbook
+                ? window.GAFlightLogbook.openEntry(e)
+                : window.showFlightDebrief?.(e, { awaitingCleanup: false })));
         } else {
             for (let index = 0; index < 7; index++) {
                 const cell = document.createElement('span');
@@ -47839,7 +47853,9 @@ function renderLog() {
     document.getElementById('logbookCaption').textContent = `${log.length} ${log.length === 1 ? 'Flug' : 'Flüge'} · ${logbookView.open ? 'Eintrag für Details anklicken' : 'Anklicken zum Öffnen'}`;
 }
 window.renderLog = renderLog;
-function clearLog() { if (confirm("Gesamtes Logbuch löschen?")) { localStorage.removeItem('ga_logbook'); localStorage.removeItem('last_icao_dest'); renderLog(); triggerCloudSave(true); } }
+function clearLog() { if (confirm("Gesamtes Logbuch löschen? Freie Flüge und Flugwege in der Cloud werden ebenfalls gelöscht.")) { localStorage.removeItem('ga_logbook'); localStorage.removeItem('last_icao_dest'); window.GAFlightLogbook?.clearCloud(); renderLog(); triggerCloudSave(true); } }
+function toggleLogbookFreeFlights() { const book = window.GAFlightLogbook; if (book) book.setShowFree(!book.showFree()); }
+window.toggleLogbookFreeFlights = toggleLogbookFreeFlights;
 
 /* =========================================================
    10. HANGAR PINNWAND & CREW BOARD MULTIPLAYER
