@@ -12428,6 +12428,7 @@ function _upsertMissionLogbook(record) {
     try { log = JSON.parse(localStorage.getItem('ga_logbook') || '[]'); } catch (_) {}
     const compact = (Array.isArray(log) ? log : []).map(_compactLegacyLogbookEntry);
     const idx = compact.findIndex(entry => entry?.completionId === record.completionId || entry?.id === record.completionId);
+    if (idx >= 0 && compact[idx]?.deleted) return false; // deleted by the pilot; a replayed completion must not restore it
     if (idx >= 0) compact[idx] = record;
     else compact.unshift(record);
     compact.sort((a, b) => Number(b?.createdAt || b?.endedAt || 0) - Number(a?.createdAt || a?.endedAt || 0));
@@ -12436,6 +12437,26 @@ function _upsertMissionLogbook(record) {
     return true;
 }
 window.upsertMissionLogbook = _upsertMissionLogbook;
+
+// Deletes one mission logbook entry. It stays as a small deletion mark (schemaVersion 2, so the
+// legacy compaction keeps it) and wins in _mergeMissionLogbooks on every device.
+function _deleteMissionLogbookEntry(completionId) {
+    const id = String(completionId || '');
+    if (!id) return false;
+    let log = [];
+    try { log = JSON.parse(localStorage.getItem('ga_logbook') || '[]'); } catch (_) {}
+    const compact = (Array.isArray(log) ? log : []).map(_compactLegacyLogbookEntry);
+    const idx = compact.findIndex(entry => entry?.completionId === id || entry?.id === id);
+    if (idx < 0) return false;
+    const entry = compact[idx];
+    compact[idx] = { schemaVersion: 2, id: entry.completionId, completionId: entry.completionId, missionId: entry.missionId || null,
+        createdAt: entry.createdAt || null, deleted: true, deletedAt: Date.now() };
+    _storeMissionLogbookEntries(compact);
+    try { window.renderLog?.(); } catch (_) {}
+    try { triggerCloudSave(true); } catch (_) {}
+    return true;
+}
+window.deleteMissionLogbookEntry = _deleteMissionLogbookEntry;
 
 function _missionLogbookForSync(source = null) {
     let entries = source;
@@ -12511,7 +12532,8 @@ function _mergeMissionLogbooks(remoteEntries = [], options = {}) {
     // Legacy normalization belongs to the local merge, not the lossless upload.
     const normalize = entries => _missionLogbookForSync(entries).map(_compactLegacyLogbookEntry).filter(entry => entry?.completionId);
     normalize(remoteEntries).forEach(entry => merged.set(entry.completionId, entry));
-    normalize(null).forEach(entry => merged.set(entry.completionId, entry));
+    // A deletion mark from any device wins, so a deleted entry cannot come back from another device.
+    normalize(null).forEach(entry => { if (!merged.get(entry.completionId)?.deleted) merged.set(entry.completionId, entry); });
     const result = Array.from(merged.values())
         .sort((a, b) => Number(b?.createdAt || b?.endedAt || 0) - Number(a?.createdAt || a?.endedAt || 0))
         .slice(0, 50);
@@ -16984,7 +17006,7 @@ async function triggerCloudSave(immediate = false, options = {}) {
             const logs = new Map();
             for (const entry of [...(cloud.profile.logbook || []), ...payloadToCompare.logbook]) {
                 const key = entry?.completionId || entry?.id || `legacy:${JSON.stringify(entry)}`;
-                logs.set(key, entry);
+                if (!logs.get(key)?.deleted) logs.set(key, entry);
             }
             uploadPayload = { ...cloud.profile, logbook: Array.from(logs.values()),
                 activeMission: null, activeMissionTrackerSeed: null, lastModified: uploadSyncTime };

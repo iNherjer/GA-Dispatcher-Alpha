@@ -149,6 +149,13 @@ sonst „unter-/überflogen“. Profil zeigt die Bänder (AGL-Grenzen folgen dem
 Grenzen, Ein-/Austrittszeit und Dauer. Grenze: Luftraumdaten von heute, nicht vom Flugzeitpunkt;
 Aktivierungszeiten (ED-R, NOTAM) nicht ausgewertet.
 
+Einzelne Einträge löschen (Web v2218): Knopf „Eintrag löschen“ im Flugbericht (nur aus dem Flugbuch
+geöffnet). Freie Flüge: `delete {runIds}` im Worker. Missionseinträge: Löschvermerk
+`{schemaVersion: 2, completionId, deleted: true, deletedAt}` im Logbuch; `_mergeMissionLogbooks`, der
+Abschluss-Upload und `_upsertMissionLogbook` lassen den Vermerk gewinnen, damit andere Geräte oder
+ein erneut eintreffender Abschluss den Eintrag nicht zurückbringen; zugehörige Spur wird mitgelöscht.
+Linienfarbe = Höhe relativ zum Flug (blau tiefster bis rot höchster Punkt), Legende unter der Karte.
+
 - Karte: Leaflet-Linie nach Höhe eingefärbt, Marker Start/Landung,
   `fitBounds` beim Öffnen, frei zoom-/verschiebbar.
 - Höhenprofil: SVG, x = Strecke (umschaltbar Zeit), y = Höhe MSL,

@@ -195,6 +195,7 @@ function trackRunIdFor(entry) {
 // ---- debrief with flight path --------------------------------------------------------------
 function openEntry(entry) {
     if (typeof window.showFlightDebrief !== 'function') return;
+    installDebriefGuard();
     if (activeMap) { try { activeMap.remove(); } catch (_) {} activeMap = null; }
     window.showFlightDebrief(entry, { awaitingCleanup: false });
     const body = document.getElementById('flightDebriefBody');
@@ -207,6 +208,7 @@ function openEntry(entry) {
             if (/Passagierkomfort|Ladungssicherheit/.test(section.querySelector('h3')?.textContent || '')) section.remove();
         });
     }
+    addDeleteButton(entry);
     const runId = trackRunIdFor(entry);
     const section = document.createElement('section');
     section.className = 'flight-debrief-section flight-track-section';
@@ -397,7 +399,19 @@ function renderTrack(section, status, track, runId) {
     const airspaceBox = document.createElement('div');
     airspaceBox.className = 'flight-track-airspaces';
     airspaceBox.textContent = 'Lufträume werden geprüft…';
-    section.append(mapEl, profileWrap, readout, airspaceBox);
+    const legend = document.createElement('div');
+    legend.className = 'flight-track-legend';
+    const legendLabel = document.createElement('span');
+    legendLabel.textContent = 'Linienfarbe = Höhe:';
+    const legendLow = document.createElement('span');
+    legendLow.textContent = `${fmt(minAlt)} ft`;
+    const legendBar = document.createElement('span');
+    legendBar.className = 'flight-track-legend-bar';
+    legendBar.style.background = `linear-gradient(90deg, ${[0, 0.25, 0.5, 0.75, 1].map(altitudeColor).join(', ')})`;
+    const legendHigh = document.createElement('span');
+    legendHigh.textContent = `${fmt(maxAlt)} ft MSL`;
+    legend.append(legendLabel, legendLow, legendBar, legendHigh);
+    section.append(mapEl, legend, profileWrap, readout, airspaceBox);
 
     const useTime = totalNm < 0.2;
     const samples = densify(points, along);
@@ -679,6 +693,58 @@ function renderTrack(section, status, track, runId) {
     }).catch(error => {
         if (section.isConnected) airspaceBox.textContent = `Lufträume nicht verfügbar (${error?.message || error}).`;
     });
+}
+
+// Other callers of showFlightDebrief (mission end) must not show the logbook delete button.
+let debriefGuardInstalled = false;
+function installDebriefGuard() {
+    if (debriefGuardInstalled || typeof window.showFlightDebrief !== 'function') return;
+    debriefGuardInstalled = true;
+    const original = window.showFlightDebrief;
+    window.showFlightDebrief = function (...args) {
+        document.querySelector('#flightDebriefOverlay .flight-debrief-delete')?.remove();
+        return original.apply(this, args);
+    };
+}
+
+// ---- delete a single entry ----------------------------------------------------------------
+function closeDebrief() {
+    if (activeMap) { try { activeMap.remove(); } catch (_) {} activeMap = null; }
+    const overlay = document.getElementById('flightDebriefOverlay');
+    if (overlay) overlay.style.display = 'none';
+}
+function addDeleteButton(entry) {
+    const actions = document.querySelector('#flightDebriefOverlay .flight-debrief-actions');
+    if (!actions) return;
+    actions.querySelector('.flight-debrief-delete')?.remove();
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'flight-debrief-btn secondary flight-debrief-delete';
+    button.textContent = 'Eintrag löschen';
+    button.addEventListener('click', () => deleteEntry(entry, button));
+    actions.insertBefore(button, actions.firstChild);
+}
+async function deleteEntry(entry, button) {
+    const label = entry?.kind === 'free' ? 'diesen freien Flug' : 'diesen Missionseintrag';
+    if (!confirm(`Möchtest du ${label} samt Flugweg aus dem Flugbuch löschen? Das gilt für alle Geräte.`)) return;
+    if (button) button.disabled = true;
+    const runId = trackRunIdFor(entry);
+    try {
+        if (entry?.kind !== 'free' && typeof window.deleteMissionLogbookEntry === 'function') {
+            window.deleteMissionLogbookEntry(entry.completionId || entry.id);
+        }
+        if (runId && credentials()) await call('delete', { runIds: [runId] });
+        state.entries = state.entries.filter(e => e.runId !== runId);
+        const auth = credentials();
+        if (auth) await cacheSet('list:' + auth.pilot.toUpperCase(), { revision: null, entries: state.entries });
+        state.revision = null; state.loadedAt = 0;
+        closeDebrief();
+        rerender();
+        refresh({ force: true });
+    } catch (error) {
+        if (button) button.disabled = false;
+        alert(`Löschen in der Cloud fehlgeschlagen (${error?.message || error}). Bitte später erneut versuchen.`);
+    }
 }
 
 // Deleting the whole logbook also clears the cloud logbook (free flights and tracks).

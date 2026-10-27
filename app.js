@@ -47768,7 +47768,7 @@ function renderLog() {
     let log = [];
     try { log = JSON.parse(localStorage.getItem('ga_logbook') || '[]'); } catch (_) {}
     if (!Array.isArray(log)) log = [];
-    log = log.filter(entry => entry && typeof entry === 'object');
+    log = log.filter(entry => entry && typeof entry === 'object' && !entry.deleted);
     // Free flights come from the cloud flight logbook (flight-logbook-view.js).
     const flightLogbook = window.GAFlightLogbook;
     if (flightLogbook) {

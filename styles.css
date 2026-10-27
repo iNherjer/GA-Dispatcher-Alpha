@@ -21309,6 +21309,9 @@ body.theme-win95 .aircraft-quick-slot-menu .airport-autocomplete-option.is-activ
 .flight-track-cursor-dot { fill: #fff; stroke: #723726; stroke-width: 2; }
 .flight-track-readout { margin-top: 6px; font-size: 13px; min-height: 1.4em; color: #3e4350; }
 @media (max-width: 600px) { .flight-track-map { height: 220px; } }
+.flight-track-legend { display: flex; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; color: #3e4350; flex-wrap: wrap; }
+.flight-track-legend-bar { flex: 0 1 140px; height: 8px; border-radius: 4px; }
+.flight-debrief-btn.flight-debrief-delete { margin-right: auto; color: #8f2d1f; border-color: rgba(143, 45, 31, .45); }
 .flight-track-band-label { font-size: 10px; font-weight: 700; paint-order: stroke; stroke: rgba(255, 250, 240, .85); stroke-width: 3px; }
 .flight-track-airspaces { margin-top: 10px; }
 .flight-track-airspaces h4 { margin: 8px 0 4px; font-size: 14px; }
