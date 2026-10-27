@@ -5,390 +5,406 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>GA Nutzer Admin</title>
   <style>
-    :root {
-      --bg: #101419;
-      --panel: #171d24;
-      --panel-alt: #1d2530;
-      --border: #304052;
-      --text: #dde8f5;
-      --muted: #92a5bb;
-      --accent: #58a8ff;
-      --ok: #72d98f;
-      --warn: #f0c45a;
-      --danger: #ff8282;
-    }
-
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      min-height: 100vh;
-      color: var(--text);
-      background: linear-gradient(180deg, #101821, var(--bg));
-      font-family: "Avenir Next", "Segoe UI", sans-serif;
-    }
-
-    .wrap {
-      width: min(1120px, 96vw);
-      margin: 18px auto 34px;
-      display: grid;
-      gap: 14px;
-    }
-
-    .bar, .panel {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 14px;
-    }
-
-    .bar {
-      display: grid;
-      grid-template-columns: 2fr 1fr 110px auto auto;
-      gap: 10px;
-      align-items: end;
-      position: sticky;
-      top: 12px;
-      z-index: 10;
-    }
-
-    .cleanup {
-      display: grid;
-      grid-template-columns: 2fr 120px auto auto;
-      gap: 10px;
-      align-items: end;
-    }
-
-    .field {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      min-width: 0;
-    }
-
-    label {
-      color: var(--muted);
-      font-size: 12px;
-    }
-
-    input, button {
-      width: 100%;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 9px 10px;
-      color: var(--text);
-      background: var(--panel-alt);
-      font: inherit;
-    }
-
-    input:focus, button:focus {
-      outline: 2px solid #2e77b6;
-      outline-offset: 1px;
-    }
-
-    button {
-      cursor: pointer;
-      white-space: nowrap;
-      background: linear-gradient(180deg, #2b3745, #222b36);
-    }
-
-    button:hover { filter: brightness(1.08); }
-    button:disabled { opacity: .55; cursor: default; }
-    .danger-btn { border-color: #7c3838; color: #ffd5d5; }
-
-    .status {
-      color: var(--muted);
-      font-size: 13px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
-
-    .status strong { color: var(--text); }
-    .error { color: var(--danger); }
-    .ok { color: var(--ok); }
-    .warn { color: var(--warn); }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      overflow: hidden;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-    }
-
-    th, td {
-      padding: 10px 11px;
-      text-align: left;
-      border-bottom: 1px solid #283748;
-      vertical-align: top;
-    }
-
-    th {
-      color: var(--muted);
-      font-size: 12px;
-      background: #151b23;
-      font-weight: 600;
-    }
-
-    tr:last-child td { border-bottom: 0; }
-    tbody tr { background: #171e27; }
-    tbody tr:nth-child(even) { background: #19222d; }
-    .name { font-weight: 700; }
-    .id { color: var(--muted); font-size: 12px; margin-top: 2px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
-    .empty {
-      text-align: center;
-      color: var(--muted);
-      padding: 24px;
-      border: 1px dashed #34465b;
-      border-radius: 8px;
-      background: rgba(23, 31, 42, .7);
-    }
-
-    pre {
-      margin: 10px 0 0;
-      white-space: pre-wrap;
-      color: #c9d9ec;
-      background: #111820;
-      border: 1px solid #263647;
-      border-radius: 6px;
-      padding: 10px;
-      max-height: 220px;
-      overflow: auto;
-      font-size: 12px;
-      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    }
-
-    @media (max-width: 940px) {
-      .bar, .cleanup { grid-template-columns: 1fr; }
+    :root { color-scheme: dark; --bg:#101419; --panel:#171f29; --border:#304052; --text:#dde8f5; --muted:#9eafc3; --accent:#58a8ff; --ok:#72d98f; --warn:#f0c45a; --danger:#ff9494; }
+    * { box-sizing:border-box; }
+    body { margin:0; color:var(--text); background:var(--bg); font:15px/1.5 "Avenir Next","Segoe UI",sans-serif; }
+    .wrap { width:min(1160px,94vw); margin:24px auto 40px; display:grid; gap:16px; }
+    h1 { font-size:26px; margin:0; } h2 { font-size:18px; margin:0 0 10px; }
+    p { margin:6px 0; } a { color:var(--accent); overflow-wrap:anywhere; }
+    .muted, label, summary { color:var(--muted); } .small { font-size:13px; }
+    .panel { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:18px; min-width:0; }
+    .row { display:flex; flex-wrap:wrap; align-items:end; gap:12px; }
+    .field { display:flex; flex-direction:column; gap:5px; min-width:0; flex:1; }
+    .compact { flex:0 1 130px; } label { font-size:13px; }
+    input,button,select { border:1px solid var(--border); border-radius:7px; padding:11px 12px; color:var(--text); background:#202c3a; font:inherit; min-height:46px; }
+    input,select { width:100%; } button { cursor:pointer; } button:hover { filter:brightness(1.12); }
+    button:disabled { opacity:.5; cursor:default; } button.primary { background:#245c93; } button.danger { color:#ffd5d5; border-color:#8c4949; }
+    :focus-visible { outline:2px solid var(--accent); outline-offset:3px; }
+    .status { border-left:4px solid var(--accent); }
+    .status[data-kind="ok"] { border-left-color:var(--ok); } .status[data-kind="error"] { border-left-color:var(--danger); } .status[data-kind="warn"] { border-left-color:var(--warn); }
+    #operationTitle { font-weight:700; } #operationDetail { color:var(--muted); margin-top:5px; overflow-wrap:anywhere; }
+    progress { width:100%; height:8px; accent-color:var(--accent); margin-top:14px; }
+    [hidden] { display:none !important; }
+    .metrics { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; }
+    .metric strong { display:block; font-size:30px; font-variant-numeric:tabular-nums; }
+    .metric span { color:var(--muted); font-size:13px; }
+    .stats { display:flex; flex-wrap:wrap; gap:10px 24px; color:var(--muted); margin:16px 0; font-size:13px; }
+    .stats strong { color:var(--text); } .help { font-size:13px; color:var(--muted); margin:12px 0; }
+    table { width:100%; border-collapse:collapse; font-size:14px; }
+    th,td { padding:12px 10px; text-align:left; border-bottom:1px solid var(--border); vertical-align:top; }
+    th { color:var(--muted); font-size:12px; } tbody tr:last-child td { border:0; }
+    .name { font-weight:700; overflow-wrap:anywhere; } .sub { color:var(--muted); font-size:12px; }
+    .warn { color:var(--warn); } .empty { padding:24px; text-align:center; color:var(--muted); }
+    details { margin-top:12px; } summary { cursor:pointer; } .settings { display:grid; gap:10px; padding-top:12px; }
+    #activityLog { padding-left:20px; color:var(--muted); font-size:13px; max-height:160px; overflow:auto; }
+    pre { white-space:pre-wrap; overflow-wrap:anywhere; font-size:12px; max-height:220px; overflow:auto; }
+    #purgeSummary { margin-top:12px; }
+    dialog { width:min(520px,94vw); color:var(--text); background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:22px; }
+    dialog::backdrop { background:#000b; }
+    dialog .field { margin:14px 0; }
+    .check { display:flex; gap:10px; align-items:start; margin:16px 0; font-size:13px; }
+    .check input { width:20px; min-height:20px; flex:none; }
+    .account-btn { margin-top:8px; font-size:12px; min-height:36px; padding:7px 10px; }
+    @media(max-width:650px) {
+      .wrap { margin-top:16px; } .panel { padding:14px; } .row > button { flex:1; } .field { flex-basis:100%; } .compact { flex:1 1 100px; }
+      table,tbody,tr,td { display:block; } thead { display:none; }
+      tbody tr { border:1px solid var(--border); border-radius:9px; padding:10px; margin:10px 0; }
+      td { display:grid; grid-template-columns:43% 1fr; gap:8px; padding:7px 0; border:0; }
+      td::before { content:attr(data-label); color:var(--muted); font-size:12px; }
+      td:first-child { display:block; } td:first-child::before { display:none; }
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="bar">
-      <div class="field">
-        <label for="usersApi">Nutzer API</label>
-        <input id="usersApi" value="/api/admin/users">
-      </div>
-      <div class="field">
-        <label for="token">Admin Token</label>
-        <input id="token" type="password" placeholder="nur fuer Worker-URL">
-      </div>
-      <div class="field">
-        <label for="limit">Limit</label>
-        <input id="limit" type="number" min="1" max="5000" value="1000">
-      </div>
-      <button id="refreshBtn">Aktualisieren</button>
-      <button id="copyBtn">CSV kopieren</button>
-    </div>
-
-    <div class="status">
-      <span>Nutzer: <strong id="countUsers">0</strong></span>
-      <span>Gescannt: <strong id="countScanned">0</strong></span>
-      <span id="lastSync">Noch kein Sync</span>
-      <span id="message"></span>
-    </div>
-
-    <div id="tableHost"></div>
-
-    <section class="panel">
-      <div class="cleanup">
-        <div class="field">
-          <label for="purgeApi">Bugreport Purge API</label>
-          <input id="purgeApi" value="/api/problem-reports/purge">
-        </div>
-        <div class="field">
-          <label for="olderThan">Aelter als Tage</label>
-          <input id="olderThan" type="number" min="0" max="3650" value="30">
-        </div>
-        <button id="previewPurgeBtn">Vorschau</button>
-        <button id="purgeBtn" class="danger-btn">Loeschen</button>
-      </div>
-      <pre id="purgeResult">Keine Vorschau geladen.</pre>
+  <main class="wrap">
+    <header><h1>Nutzer Admin</h1><p class="muted">Konten, App-Nutzung und Cloud-Speicherstand</p><p id="network" class="small muted"></p></header>
+    <section class="panel status" id="operation" data-kind="idle" aria-live="polite" aria-atomic="true">
+      <div class="row"><span id="operationTitle">Bereit</span><span id="elapsed" class="small muted"></span></div>
+      <div id="operationDetail">Noch keine Abfrage gestartet.</div>
+      <progress id="progress" hidden aria-label="Fortschritt"></progress>
+      <details><summary>Ablauf anzeigen</summary><ol id="activityLog"></ol></details>
     </section>
-  </div>
-
-  <script>
-    const STORAGE = {
-      usersApi: "ga_user_admin_users_api",
-      purgeApi: "ga_user_admin_purge_api",
-      token: "ga_user_admin_token",
-      limit: "ga_user_admin_limit",
-      olderThan: "ga_user_admin_older_than"
-    };
-
-    const state = { users: [] };
-    const el = {
-      usersApi: document.getElementById("usersApi"),
-      purgeApi: document.getElementById("purgeApi"),
-      token: document.getElementById("token"),
-      limit: document.getElementById("limit"),
-      olderThan: document.getElementById("olderThan"),
-      refreshBtn: document.getElementById("refreshBtn"),
-      copyBtn: document.getElementById("copyBtn"),
-      previewPurgeBtn: document.getElementById("previewPurgeBtn"),
-      purgeBtn: document.getElementById("purgeBtn"),
-      countUsers: document.getElementById("countUsers"),
-      countScanned: document.getElementById("countScanned"),
-      lastSync: document.getElementById("lastSync"),
-      message: document.getElementById("message"),
-      tableHost: document.getElementById("tableHost"),
-      purgeResult: document.getElementById("purgeResult")
-    };
-
+    <section aria-label="Nutzungsübersicht">
+      <div class="metrics">
+        <div class="panel metric"><strong id="totalUsers">–</strong><span>Nutzer gesamt</span></div>
+        <div class="panel metric"><strong id="active24h">–</strong><span>Genutzt · letzte 24 h</span></div>
+        <div class="panel metric"><strong id="active7d">–</strong><span>Genutzt · letzte 7 Tage</span></div>
+      </div>
+      <p class="help" id="usageNote">Zähler werden mit der Nutzerliste geladen.</p>
+    </section>
+    <section class="panel">
+      <div class="row">
+        <div class="field"><label for="search">Nutzer suchen</label><input id="search" type="search" placeholder="Name oder Pilot-ID" autocomplete="off"></div>
+        <div class="field compact"><label for="limit">Max. Nutzer</label><input id="limit" type="number" min="1" max="5000" value="1000"></div>
+        <button id="refreshBtn" class="primary">Aktualisieren</button><button id="copyBtn" disabled>CSV exportieren</button>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <div class="field"><label for="sortField">Sortieren nach</label><select id="sortField"><option value="name">Name</option><option value="lastAppSeen" selected>Zuletzt online / App genutzt</option><option value="registeredAt">Registriert</option></select></div>
+        <div class="field"><label for="sortDirection">Reihenfolge</label><select id="sortDirection"><option value="desc">Neueste zuerst</option><option value="asc">Älteste zuerst</option></select></div>
+      </div>
+      <div class="stats"><span>Sichtbar: <strong id="countUsers">0</strong></span><span>Geprüft: <strong id="countScanned">0</strong></span><span id="lastSync">Noch keine Liste geladen</span></div>
+      <p class="help">„App zuletzt genutzt“ erfasst authentifizierte App-Nutzung höchstens einmal pro UTC-Tag; es ist kein Live-Onlinestatus. „Cloud gespeichert“ zeigt bei Sync V2 den letzten erfolgreichen Server-Commit, bei alten Profilen den Legacy-Zeitstempel. Die Registrierung ist das Datum der Kontoanlage.</p>
+      <div id="tableHost" aria-busy="false"><div class="empty">Die Nutzerliste wird geladen …</div></div>
+    </section>
+    <section class="panel">
+      <h2>Alte Bugreports bereinigen</h2>
+      <p class="help">Die Vorschau prüft nur. Gelöscht wird erst über „Löschen“ und nach Bestätigung. Ein Bugreport kann mehrere KV-Einträge belegen.</p>
+      <div class="row"><div class="field compact"><label for="olderThan">Älter als Tage</label><input id="olderThan" type="number" min="0" max="3650" value="30"></div><button id="previewPurgeBtn">Vorschau prüfen</button><button id="purgeBtn" class="danger">Löschen</button></div>
+      <p id="purgeSummary" class="small muted">Noch keine Vorschau geladen.</p>
+      <details><summary>Technische Details</summary><pre id="purgeResult">–</pre></details>
+    </section>
+    <section class="panel"><details><summary>Verbindung / erweiterte Einstellungen</summary><div class="settings">
+      <p class="help">Beim Start über die .command-Datei arbeitet das Tool über den lokalen Cloudflare-Proxy. Dafür ist kein Admin-Token im Browser nötig.</p>
+      <div class="field"><label for="usersApi">Nutzer API</label><input id="usersApi" value="/api/admin/users"></div>
+      <div class="field"><label for="purgeApi">Bugreport Purge API</label><input id="purgeApi" value="/api/problem-reports/purge"></div>
+      <div class="field"><label for="token">Admin-Token (nur für direkte Worker-URL)</label><input id="token" type="password" autocomplete="off"></div>
+    </div></details></section>
+  </main>
+  <dialog id="editDialog" aria-labelledby="editTitle">
+    <form id="editForm">
+      <h2 id="editTitle">PIN ändern</h2>
+      <p id="editAccount" class="muted"></p>
+      <p class="help">Die bestehende PIN wird nicht angezeigt. Mit der neuen PIN muss sich der Nutzer in App und Tracker erneut anmelden.</p>
+      <div class="field"><label for="editPin">Neue PIN (mindestens 4 Zeichen)</label><input id="editPin" type="password" autocomplete="new-password" minlength="4" maxlength="160" required></div>
+      <div class="field"><label for="editPinRepeat">Neue PIN wiederholen</label><input id="editPinRepeat" type="password" autocomplete="new-password" minlength="4" maxlength="160" required></div>
+      <label class="check"><input id="editOffline" type="checkbox" required>App und Tracker dieses Kontos sind für die Änderung geschlossen.</label>
+      <p class="help">Vor dem Speichern wird das Konto erneut geprüft und lokal gesichert.</p>
+      <p id="editError" class="warn" role="alert"></p>
+      <div class="row"><button id="editSave" class="primary" type="submit">Neue PIN speichern</button><button id="editCancel" type="button">Abbrechen</button></div>
+    </form>
+  </dialog>
+  <dialog id="renameDialog" aria-labelledby="renameTitle">
+    <form id="renameForm">
+      <h2 id="renameTitle">Login-/Pilot-ID ändern</h2>
+      <p id="renameAccount" class="muted"></p>
+      <div class="field"><label for="renameNewId">Neue Pilot-ID</label><input id="renameNewId" autocomplete="off" autocapitalize="characters" spellcheck="false" minlength="3" maxlength="40" pattern="[A-Za-z0-9][A-Za-z0-9_-]{2,39}" required></div>
+      <p class="help">3–40 Buchstaben, Zahlen, Bindestriche oder Unterstriche. Groß-/Kleinschreibung unterscheidet keine Konten.</p>
+      <p class="help">Die bisherige Pilot-ID wird gesperrt. Cloud-Profil, Homebase, Audio, Crew-Rollen und eigene Community-Checklisten bleiben zugeordnet. Die PIN bleibt gleich. Danach in App und Tracker mit der neuen ID anmelden.</p>
+      <p id="renameFeedback" class="help" role="status" aria-live="polite">Zuerst eine Vorschau prüfen. Dabei wird nichts gespeichert.</p>
+      <label class="check"><input id="renameOffline" type="checkbox">App und Tracker dieses Kontos sind geschlossen; der vorhandene Stand ist synchronisiert.</label>
+      <div class="row"><button id="renamePreviewBtn" type="submit">Vorschau prüfen</button><button id="renameApplyBtn" class="primary" type="button" disabled>Jetzt umbenennen</button><button id="renameCancel" type="button">Abbrechen</button></div>
+    </form>
+  </dialog>
+  <script type="module">
+    import { sortUsers, usageSummary } from "./user-list-core.mjs";
+    const STORAGE = { usersApi:"ga_user_admin_users_api", purgeApi:"ga_user_admin_purge_api", limit:"ga_user_admin_limit", olderThan:"ga_user_admin_older_than", sortField:"ga_user_admin_sort_field", sortDirection:"ga_user_admin_sort_direction" };
+    const ids = ["renameDialog","renameForm","renameAccount","renameNewId","renameFeedback","renameOffline","renamePreviewBtn","renameApplyBtn","renameCancel","editDialog","editForm","editAccount","editPin","editPinRepeat","editOffline","editError","editSave","editCancel","totalUsers","active24h","active7d","usageNote","sortField","sortDirection","usersApi","purgeApi","token","limit","olderThan","refreshBtn","copyBtn","previewPurgeBtn","purgeBtn","countUsers","countScanned","lastSync","tableHost","purgeResult","purgeSummary","search","network","operation","operationTitle","operationDetail","elapsed","progress","activityLog"];
+    const el = Object.fromEntries(ids.map(id => [id, document.getElementById(id)]));
+    const state = { users:[], summary:null, editing:null, renaming:null, renamePlan:null, busy:false, started:0, timer:null, log:[], localProxy:false };
     function loadPrefs() {
-      const localHost = location.hostname === "127.0.0.1" || location.hostname === "localhost";
       for (const [key, storageKey] of Object.entries(STORAGE)) {
         const saved = localStorage.getItem(storageKey);
-        if (!saved || !el[key]) continue;
-        const savedWorkerUrl = /^https:\/\/ga-proxy\.einherjer\.workers\.dev\/api\//i.test(saved);
-        if (localHost && (key === "usersApi" || key === "purgeApi") && savedWorkerUrl) continue;
+        if (!saved) continue;
+        if (state.localProxy && ["usersApi","purgeApi"].includes(key) && /^https:\/\/ga-proxy\.einherjer\.workers\.dev\/api\//i.test(saved)) continue;
         el[key].value = saved;
       }
+      // Keep an existing token for this tab only; new saves never persist it.
+      el.token.value = sessionStorage.getItem("ga_user_admin_token") || localStorage.getItem("ga_user_admin_token") || "";
+      localStorage.removeItem("ga_user_admin_token");
+      updateSortLabels();
     }
-
     function savePrefs() {
-      for (const [key, storageKey] of Object.entries(STORAGE)) {
-        if (el[key]) localStorage.setItem(storageKey, el[key].value.trim());
-      }
+      for (const [key, storageKey] of Object.entries(STORAGE)) localStorage.setItem(storageKey, el[key].value.trim());
+      sessionStorage.setItem("ga_user_admin_token", el.token.value.trim());
     }
-
     function headers() {
-      const out = { "Content-Type": "application/json" };
-      const token = el.token.value.trim();
-      if (token) out["x-bug-admin-token"] = token;
+      const out = { "Content-Type":"application/json" };
+      if (el.token.value.trim()) out["x-bug-admin-token"] = el.token.value.trim();
       return out;
     }
-
-    function setMessage(text = "", type = "") {
-      el.message.textContent = text;
-      el.message.className = type;
+    function escapeHtml(value) { return String(value ?? "").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#39;"); }
+    function message(title, detail, kind = "idle") {
+      el.operationTitle.textContent = title; el.operationDetail.textContent = detail; el.operation.dataset.kind = kind;
     }
-
-    function buildUsersUrl() {
-      const url = new URL(el.usersApi.value.trim(), window.location.href);
-      url.searchParams.set("limit", String(Math.max(1, Math.min(5000, Number(el.limit.value) || 1000))));
-      return url.toString();
+    function log(text) {
+      if (state.log.at(-1)?.text === text) return;
+      state.log.push({ text, time:new Date().toLocaleTimeString("de-DE") });
+      state.log = state.log.slice(-12);
+      el.activityLog.innerHTML = state.log.map(item => `<li>${item.time} · ${escapeHtml(item.text)}</li>`).join("");
     }
-
+    function updateElapsed() { el.elapsed.textContent = `${Math.floor((Date.now() - state.started) / 1000)} s`; }
+    function busy(active, title = "", detail = "") {
+      state.busy = active;
+      [el.refreshBtn,el.previewPurgeBtn,el.purgeBtn,el.usersApi,el.purgeApi,el.token,el.limit,el.olderThan,el.editPin,el.editPinRepeat,el.editOffline,el.editSave,el.editCancel,el.renameNewId,el.renameOffline,el.renamePreviewBtn,el.renameApplyBtn,el.renameCancel].forEach(node => node.disabled = active);
+      el.tableHost.querySelectorAll("[data-edit-id], [data-rename-id]").forEach(node => node.disabled = active || !state.users.find(user => user.id === (node.dataset.editId || node.dataset.renameId))?.editVersion);
+      el.copyBtn.disabled = active || !state.users.length;
+      el.tableHost.setAttribute("aria-busy", String(active));
+      el.progress.hidden = !active;
+      clearInterval(state.timer);
+      if (active) {
+        state.started = Date.now(); el.progress.removeAttribute("value");
+        message(title, detail); log(title); updateElapsed(); state.timer = setInterval(updateElapsed,1000);
+      } else updateElapsed();
+      syncRenameControls();
+    }
+    function onProgress(data) {
+      el.operationDetail.textContent = data.message || "Cloud-Abfrage läuft …";
+      if (data.total > 0) { el.progress.max = data.total; el.progress.value = data.scanned || 0; }
+      if (Number.isFinite(data.scanned)) el.countScanned.textContent = data.scanned;
+      log(data.message || "Cloud-Abfrage läuft …");
+    }
+    async function request(api, options = {}, progress = onProgress) {
+      const url = new URL(api, location.href);
+      if (state.localProxy && url.origin === location.origin) url.searchParams.set("stream","1");
+      const res = await fetch(url, { ...options, headers:headers(), cache:"no-store" });
+      if (!(res.headers.get("content-type") || "").includes("application/x-ndjson")) {
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        return data;
+      }
+      const reader = res.body.getReader(), decoder = new TextDecoder();
+      let pending = "", result = null;
+      function line(raw) {
+        if (!raw.trim()) return;
+        const event = JSON.parse(raw);
+        if (event.type === "progress") progress(event);
+        if (event.type === "error") throw new Error(event.error);
+        if (event.type === "result") result = event.data;
+      }
+      try {
+        for (;;) {
+          const { done, value } = await reader.read();
+          pending += done ? decoder.decode() : decoder.decode(value, { stream:true });
+          const lines = pending.split("\n"); pending = lines.pop(); lines.forEach(line);
+          if (done) break;
+        }
+        line(pending);
+        if (!result?.ok) throw new Error("Verbindung vor Abschluss unterbrochen. Ergebnis ist nicht bestätigt.");
+        return result;
+      } finally { reader.releaseLock(); }
+    }
     async function refreshUsers() {
-      savePrefs();
-      setMessage("");
-      el.refreshBtn.disabled = true;
+      if (state.busy) return;
+      savePrefs(); busy(true,"Nutzerliste wird aktualisiert", "Cloudflare-Verbindung herstellen … Die vorhandene Liste bleibt bis zum Abschluss sichtbar.");
       try {
-        const res = await fetch(buildUsersUrl(), { headers: headers(), cache: "no-store" });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+        const url = new URL(el.usersApi.value.trim(), location.href);
+        url.searchParams.set("limit",String(Math.max(1,Math.min(5000,Number(el.limit.value) || 1000))));
+        const data = await request(url);
         state.users = Array.isArray(data.items) ? data.items : [];
-        el.countUsers.textContent = String(data.count || state.users.length);
-        el.countScanned.textContent = String(data.scanned || 0);
-        el.lastSync.textContent = `Letzter Sync: ${new Date().toLocaleTimeString("de-DE")}`;
-        if (data.truncated) setMessage("Liste wurde gekuerzt.", "warn");
+        state.summary = data.summary || { ...usageSummary(state.users), complete:!data.truncated && !data.skipped };
+        renderSummary();
+        el.countScanned.textContent = data.scanned || 0;
+        el.lastSync.textContent = `Liste geladen: ${new Date().toLocaleString("de-DE")}`;
         renderUsers();
+        const warnings = [];
+        if (data.truncated) warnings.push("Die Liste ist durch das Limit gekürzt. Die Sortierung gilt für die geladenen Nutzer; die Zähler berücksichtigen alle geprüften Konten.");
+        if (data.skipped) warnings.push(`${data.skipped} Einträge konnten nicht gelesen werden.`);
+        if (data.metadataErrors) warnings.push(`Aktueller Cloud-Zeitpunkt für ${data.metadataErrors} ${data.metadataErrors === 1 ? "Konto" : "Konten"} nicht abrufbar.`);
+        message("Nutzerliste geladen", `${state.users.length} Nutzer · ${data.scanned || 0} Einträge geprüft. ${warnings.join(" ")}`, warnings.length ? "warn" : "ok");
+        log("Nutzerliste geladen");
       } catch (error) {
-        setMessage(`Laden fehlgeschlagen: ${error.message}`, "error");
-      } finally {
-        el.refreshBtn.disabled = false;
-      }
+        message("Aktualisierung fehlgeschlagen", `${error.message} Die letzte erfolgreich geladene Liste bleibt erhalten.`,"error");
+        log("Aktualisierung fehlgeschlagen");
+        if (!state.users.length) el.tableHost.innerHTML = '<div class="empty">Keine Liste geladen. Verbindung prüfen und „Aktualisieren“ wählen.</div>';
+      } finally { busy(false); }
     }
-
-    function fmtDay(value, known = true) {
-      if (!value) return known ? "-" : "unbekannt";
+    function fmtDate(value, time = false) {
+      if (!value) return "nicht erfasst";
       const d = new Date(value);
-      if (Number.isNaN(d.getTime())) return String(value);
-      return d.toLocaleDateString("de-DE");
+      if (Number.isNaN(d.getTime())) return "unbekannt";
+      return time ? d.toLocaleString("de-DE",{dateStyle:"medium",timeStyle:"short"}) : d.toLocaleDateString("de-DE");
     }
-
+    function visibleUsers() {
+      const term = el.search.value.trim().toLocaleLowerCase("de");
+      return sortUsers(state.users.filter(user => `${user.name} ${user.id}`.toLocaleLowerCase("de").includes(term)),el.sortField.value,el.sortDirection.value);
+    }
+    function updateSortLabels() {
+      const options = el.sortDirection.options;
+      options[0].textContent = el.sortField.value === "name" ? "Z–A" : "Neueste zuerst";
+      options[1].textContent = el.sortField.value === "name" ? "A–Z" : "Älteste zuerst";
+    }
+    function renderSummary() {
+      const summary = state.summary;
+      if (!summary) return;
+      const prefix = summary.complete ? "" : "≥ ";
+      el.totalUsers.textContent = prefix + summary.total;
+      el.active24h.textContent = prefix + summary.active24h;
+      el.active7d.textContent = prefix + summary.active7d;
+      el.usageNote.textContent = `Stand ${fmtDate(summary.asOf,true)} · unabhängig vom Suchfilter. Erfasste App-Nutzung, höchstens ein Zeitstempel pro UTC-Tag; dadurch können die Zeitfenster Nutzer unterschätzen. ${summary.unknownActivity} Konten ohne gültigen Nutzungszeitpunkt.${summary.complete ? "" : " Abfrage unvollständig; die Zähler sind Mindestwerte."}`;
+    }
     function renderUsers() {
-      if (!state.users.length) {
-        el.tableHost.innerHTML = '<div class="empty">Keine Nutzer gefunden.</div>';
-        return;
-      }
-      const rows = state.users.map(user => `
-        <tr>
-          <td>
-            <div class="name">${escapeHtml(user.name || user.id || "-")}</div>
-            ${user.id && user.id !== user.name ? `<div class="id">${escapeHtml(user.id)}</div>` : ""}
-          </td>
-          <td class="${user.registrationKnown ? "" : "warn"}">${escapeHtml(fmtDay(user.registeredAt, user.registrationKnown))}</td>
-          <td>${escapeHtml(fmtDay(user.lastModified, true))}</td>
-        </tr>
-      `).join("");
-      el.tableHost.innerHTML = `
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Registrierung</th>
-              <th>Letzte Aenderung</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-      `;
+      const users = visibleUsers();
+      el.countUsers.textContent = `${users.length}${users.length !== state.users.length ? ` / ${state.users.length}` : ""}`;
+      if (!users.length) { el.tableHost.innerHTML = '<div class="empty">Keine passenden Nutzer gefunden.</div>'; return; }
+      const rows = users.map(user => `<tr>
+        <td data-label="Name"><div class="name">${escapeHtml(user.name || user.id)}</div><div class="sub">${escapeHtml(user.id)}</div>${state.localProxy && new URL(el.usersApi.value,location.href).origin === location.origin ? `<button class="account-btn" data-edit-id="${escapeHtml(user.id)}" ${state.busy || !user.editVersion ? "disabled" : ""}>PIN ändern</button> <button class="account-btn" data-rename-id="${escapeHtml(user.id)}" ${state.busy || !user.editVersion ? "disabled" : ""}>Pilot-ID ändern</button>` : ""}</td>
+        <td data-label="App zuletzt genutzt">${escapeHtml(fmtDate(user.lastAppSeen))}</td>
+        <td data-label="Cloud gespeichert">${escapeHtml(user.modifiedSource === "unavailable" ? "nicht abrufbar" : fmtDate(user.lastModified,true))}<div class="sub">${escapeHtml(user.modifiedSource === "v2" ? `Sync V2 · Revision ${user.revision}` : user.modifiedSource === "legacy" ? "Legacy-Profil" : user.modifiedSource === "unavailable" ? "Erneut aktualisieren" : "Quelle vom API nicht angegeben")}</div></td>
+        <td data-label="Registrierung" class="${user.registrationKnown ? "" : "warn"}">${escapeHtml(user.registrationKnown ? fmtDate(user.registeredAt) : "unbekannt")}</td>
+      </tr>`).join("");
+      el.tableHost.innerHTML = `<table><thead><tr><th>Name / Pilot-ID</th><th>App zuletzt genutzt</th><th>Cloud gespeichert</th><th>Registrierung</th></tr></thead><tbody>${rows}</tbody></table>`;
     }
-
+    function openEdit(id) {
+      if (state.busy) return;
+      const user = state.users.find(user => user.id === id);
+      if (!user?.editVersion) return;
+      state.editing = user;
+      el.editForm.reset(); el.editError.textContent = "";
+      el.editAccount.textContent = `${user.name} · Pilot-ID ${user.id}`;
+      el.editDialog.showModal();
+    }
+    async function saveUser(event) {
+      event.preventDefault();
+      if (state.busy || !state.editing) return;
+      const pin = el.editPin.value.trim();
+      if (pin.length < 4 || pin !== el.editPinRepeat.value.trim()) { el.editError.textContent = "Die PINs müssen übereinstimmen und mindestens 4 Zeichen lang sein."; return; }
+      if (!el.editOffline.checked) { el.editError.textContent = "App und Tracker dieses Kontos vor der Änderung schließen."; return; }
+      const user = state.editing;
+      const body = JSON.stringify({id:user.id,pin,expectedVersion:user.editVersion});
+      el.editPin.value = ""; el.editPinRepeat.value = ""; el.editError.textContent = "";
+      busy(true,"PIN wird geändert", `Konto ${user.id} prüfen …`);
+      try {
+        const result = await request("/api/admin/users/update",{method:"POST",body},data => { onProgress(data); el.editError.textContent = data.message; });
+        el.editDialog.close();
+        if (result.changed) user.editVersion = "";
+        message(result.changed ? "Neue PIN gespeichert" : "PIN unverändert",result.changed ? `${user.id}: Der Nutzer muss die neue PIN in App und Tracker eintragen. Sicherung ${result.backupId}. Für weitere Änderungen die Liste aktualisieren.` : "Diese PIN ist bereits hinterlegt.","ok");
+        log(result.changed ? `PIN für ${user.id} geändert` : `PIN für ${user.id} unverändert`);
+      } catch (error) {
+        el.editError.textContent = error.message;
+        message("PIN-Änderung nicht bestätigt",error.message,"error");
+      } finally { busy(false); renderUsers(); }
+    }
+    function syncRenameControls() {
+      el.renameApplyBtn.disabled = state.busy || !state.renamePlan || !el.renameOffline.checked;
+    }
+    function clearRenamePlan() {
+      state.renamePlan = null;
+      el.renameFeedback.textContent = "Zuerst eine Vorschau prüfen. Dabei wird nichts gespeichert.";
+      syncRenameControls();
+    }
+    function openRename(id) {
+      if (state.busy) return;
+      const user = state.users.find(user => user.id === id);
+      if (!user?.editVersion) return;
+      state.renaming = user; el.renameForm.reset(); clearRenamePlan();
+      el.renameAccount.textContent = `${user.name} · bisherige Pilot-ID ${user.id}`;
+      el.renameDialog.showModal();
+    }
+    function renameProgress(data) { onProgress(data); el.renameFeedback.textContent = data.message; }
+    async function previewRename(event) {
+      event.preventDefault();
+      if (state.busy || !state.renaming) return;
+      state.renamePlan = null;
+      const body = JSON.stringify({id:state.renaming.id,newId:el.renameNewId.value,expectedVersion:state.renaming.editVersion,dryRun:true});
+      busy(true,"Umbenennung wird geprüft","Verfügbarkeit und Kontozuordnung prüfen …");
+      try {
+        const plan = await request("/api/admin/users/rename",{method:"POST",body},renameProgress);
+        state.renamePlan = plan; el.renameNewId.value = plan.newId;
+        el.renameFeedback.textContent = `${plan.id} → ${plan.newId} ist vorbereitet. Die PIN bleibt gleich; alle gespeicherten Inhalte und Mitgliedschaften bleiben zugeordnet. Vorschau gültig bis ${new Date(plan.expiresAt).toLocaleTimeString("de-DE")}. Noch nichts gespeichert.`;
+        message("Umbenennung vorbereitet",`${plan.id} → ${plan.newId}. Noch nichts gespeichert.`,"ok");
+      } catch (error) {
+        el.renameFeedback.textContent = error.message; message("Vorschau fehlgeschlagen",error.message,"error");
+      } finally { busy(false); }
+    }
+    async function applyRename() {
+      if (state.busy || !state.renamePlan || !el.renameOffline.checked) return;
+      const plan = state.renamePlan, user = state.renaming;
+      const body = JSON.stringify({dryRun:false,token:plan.token,confirmOffline:true});
+      busy(true,"Pilot-ID wird umbenannt",`${plan.id} → ${plan.newId}: Sicherung vorbereiten …`);
+      try {
+        const result = await request("/api/admin/users/rename",{method:"POST",body},renameProgress);
+        if (user.name === user.id) user.name = result.newId;
+        user.id = result.newId; user.editVersion = "";
+        state.renamePlan = null; state.renaming = null; el.renameDialog.close();
+        message("Pilot-ID umbenannt",`${result.id} → ${result.newId}. Mit der neuen ID und der bisherigen PIN in App und Tracker anmelden. Sicherung ${result.backupId}. Liste anschließend aktualisieren.`,"ok");
+        log(`Pilot-ID ${result.id} in ${result.newId} umbenannt`);
+      } catch (error) {
+        state.renamePlan = null;
+        el.renameFeedback.textContent = error.message; message("Umbenennung nicht bestätigt",error.message,"error");
+      } finally { busy(false); renderUsers(); }
+    }
     function csvText() {
-      const lines = [["Name", "Registrierung", "Letzte Aenderung"]];
-      for (const user of state.users) {
-        lines.push([
-          user.name || user.id || "",
-          fmtDay(user.registeredAt, user.registrationKnown),
-          fmtDay(user.lastModified, true)
-        ]);
-      }
-      return lines.map(row => row.map(cell => `"${String(cell).replaceAll('"', '""')}"`).join(";")).join("\n");
+      const rows = [["Name","Pilot-ID","App zuletzt genutzt","Cloud gespeichert","Quelle","Registrierung"], ...visibleUsers().map(user => [user.name,user.id,fmtDate(user.lastAppSeen),user.modifiedSource === "unavailable" ? "nicht abrufbar" : fmtDate(user.lastModified,true),user.modifiedSource || "unbekannt",user.registrationKnown ? fmtDate(user.registeredAt) : "unbekannt"])];
+      return rows.map(row => row.map(value => `"${String(value ?? "").replaceAll('"','""')}"`).join(";")).join("\r\n");
     }
-
-    async function copyCsv() {
-      try {
-        await navigator.clipboard.writeText(csvText());
-        setMessage("CSV kopiert.", "ok");
-      } catch (error) {
-        setMessage(`CSV konnte nicht kopiert werden: ${error.message}`, "error");
-      }
+    function exportCsv() {
+      const url = URL.createObjectURL(new Blob(["\ufeff",csvText()],{type:"text/csv;charset=utf-8"}));
+      const link = document.createElement("a"); link.href = url; link.download = `ga-nutzer-${new Date().toISOString().slice(0,10)}.csv`; link.click();
+      setTimeout(() => URL.revokeObjectURL(url),1000);
+      message("CSV exportiert",`${visibleUsers().length} sichtbare Nutzer als Download bereitgestellt.`,"ok");
     }
-
     async function runPurge(dryRun) {
+      if (state.busy) return;
       savePrefs();
-      const days = Math.max(0, Math.min(3650, Number(el.olderThan.value) || 0));
-      if (!dryRun && !confirm(`Bugreport-KV-Eintraege aelter als ${days} Tage wirklich loeschen?`)) return;
-      const btn = dryRun ? el.previewPurgeBtn : el.purgeBtn;
-      btn.disabled = true;
+      const days = Math.max(0,Math.min(3650,Number(el.olderThan.value) || 0));
+      if (!dryRun && !confirm(`Bugreport-KV-Einträge älter als ${days} Tage wirklich löschen?`)) return;
+      busy(true,dryRun ? "Bereinigungsvorschau läuft" : "Bugreports werden gelöscht", "Cloudflare-Schlüssel laden …");
       try {
-        const res = await fetch(el.purgeApi.value.trim(), {
-          method: "POST",
-          headers: headers(),
-          cache: "no-store",
-          body: JSON.stringify({ olderThanDays: days, dryRun })
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
-        el.purgeResult.textContent = JSON.stringify(data, null, 2);
+        const data = await request(el.purgeApi.value.trim(),{method:"POST",body:JSON.stringify({olderThanDays:days,dryRun})}, data => { el.operationDetail.textContent = data.message; log(data.message); if (data.total > 0) { el.progress.max = data.total; el.progress.value = data.scanned || 0; } });
+        const summary = `${data.scannedReports} Bugreports und ${data.scannedOpenKeys} Indexeinträge geprüft. ${dryRun ? `${data.matchedKeys} KV-Einträge würden gelöscht` : `${data.deleted} KV-Einträge gelöscht`}. Stichtag: ${fmtDate(data.cutoff,true)}.${data.unknownDateReports ? ` ${data.unknownDateReports} Reports ohne Datum bleiben erhalten.` : ""}${data.truncated ? " Prüflimit erreicht; Ergebnis ist unvollständig." : ""}`;
+        el.purgeSummary.textContent = summary; el.purgeResult.textContent = JSON.stringify(data,null,2);
+        message(dryRun ? "Vorschau abgeschlossen" : "Bereinigung abgeschlossen",summary,data.truncated ? "warn" : "ok"); log(dryRun ? "Vorschau abgeschlossen" : "Bereinigung abgeschlossen");
       } catch (error) {
-        el.purgeResult.textContent = `Fehler: ${error.message}`;
-      } finally {
-        btn.disabled = false;
-      }
+        const detail = `${error.message}${dryRun ? "" : " Bereits gelöschte Einträge können nicht zurückgerollt werden. Vor einem erneuten Versuch die Vorschau prüfen."}`;
+        el.purgeSummary.textContent = detail; message("Bereinigung nicht abgeschlossen",detail,"error"); log("Bereinigung nicht abgeschlossen");
+      } finally { busy(false); }
     }
-
-    function escapeHtml(value) {
-      return String(value == null ? "" : value)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#39;");
+    el.renameForm.addEventListener("submit",previewRename);
+    el.renameApplyBtn.addEventListener("click",applyRename);
+    el.renameOffline.addEventListener("change",syncRenameControls);
+    el.renameNewId.addEventListener("input",clearRenamePlan);
+    el.renameCancel.addEventListener("click",() => { el.renameForm.reset(); el.renameDialog.close(); state.renaming = null; state.renamePlan = null; });
+    el.renameDialog.addEventListener("cancel",event => { if (state.busy) event.preventDefault(); else { el.renameForm.reset(); state.renaming = null; state.renamePlan = null; } });
+    el.editForm.addEventListener("submit",saveUser);
+    el.editCancel.addEventListener("click",() => { el.editForm.reset(); el.editDialog.close(); state.editing = null; });
+    el.editDialog.addEventListener("cancel",event => { if (state.busy) event.preventDefault(); else { el.editForm.reset(); state.editing = null; } });
+    el.tableHost.addEventListener("click",event => { const button = event.target.closest("[data-edit-id]"); if (button) openEdit(button.dataset.editId); const renameButton = event.target.closest("[data-rename-id]"); if (renameButton) openRename(renameButton.dataset.renameId); });
+    el.refreshBtn.addEventListener("click",refreshUsers); el.copyBtn.addEventListener("click",exportCsv);
+    el.previewPurgeBtn.addEventListener("click",() => runPurge(true)); el.purgeBtn.addEventListener("click",() => runPurge(false));
+    el.search.addEventListener("input",renderUsers);
+    el.sortField.addEventListener("change",() => { el.sortDirection.value = el.sortField.value === "name" ? "asc" : "desc"; updateSortLabels(); savePrefs(); renderUsers(); });
+    el.sortDirection.addEventListener("change",() => { savePrefs(); renderUsers(); });
+    [el.usersApi,el.purgeApi,el.token,el.limit,el.olderThan].forEach(input => input.addEventListener("change",savePrefs));
+    async function init() {
+      try {
+        const res = await fetch("/api/admin/info",{cache:"no-store"});
+        const info = await res.json();
+        state.localProxy = info.ok === true && Array.isArray(info.networkUrls);
+        if (state.localProxy) el.network.innerHTML = info.networkUrls.length ? `Smartphone mit aktivem Tailscale: ${info.networkUrls.map(url => `<a href="${escapeHtml(url)}">${escapeHtml(url)}</a>`).join(" · ")}` : "Tailscale ist nicht verbunden. Nach dem Verbinden das Tool neu starten.";
+      } catch { el.network.textContent = "Direkter API-Zugriff · kein lokaler Proxy erkannt"; }
+      loadPrefs(); refreshUsers();
     }
-
-    el.refreshBtn.addEventListener("click", refreshUsers);
-    el.copyBtn.addEventListener("click", copyCsv);
-    el.previewPurgeBtn.addEventListener("click", () => runPurge(true));
-    el.purgeBtn.addEventListener("click", () => runPurge(false));
-    [el.usersApi, el.purgeApi, el.token, el.limit, el.olderThan].forEach(input => input.addEventListener("change", savePrefs));
-
-    loadPrefs();
-    refreshUsers();
+    init();
   </script>
 </body>
 </html>

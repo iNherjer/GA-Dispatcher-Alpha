@@ -208,3 +208,47 @@ werden. Ohne neuen Endpoint fällt nur die optionale FAA-Ergänzung aus.
 
 ### Missionskontrolle v1 (08.10.2026, deployed)
 Sync-V2-Head bietet `capabilities.missionControl=true`. Commit mit `missionChange` (`action`, `expectedMissionRevision`, `operationId`) aktiviert/löscht den gemeinsamen Missionsslot mit unabhängiger Serverrevision. Der Head bindet den Vermerk an den Missionshash. Profiländerungen behalten die Missionsrevision; alte Clients können den kontrollierten Slot nicht ohne Aktivierungs-/Löschvermerk wechseln, auch nicht über `force`. Commit-Fingerprint enthält den Vermerk für idempotente Wiederholung nach verlorener Antwort. Worker vor App/Tracker v500 deployen; App verweigert destruktive Übernahme, solange die Fähigkeit fehlt. Siehe Cloud Profile Sync V2.
+
+## Administrative Pilot-ID-Umbenennung (26.10.2026)
+
+Stand dieser Änderung: am 26.10.2026 nach ausdrücklicher Nutzerfreigabe
+produktiv deployed. Worker-Version: `bae753ab-ed12-4854-b161-e79f5d6889de`.
+Das lokale Admin-Tool prüft die Cloud-Fähigkeit weiterhin vor jeder Vorschau
+und Ausführung. Durch das Deployment allein wird kein Konto umbenannt.
+
+`GET /api/admin/capabilities` kündigt mit `accountRename: 1` die Unterstützung
+für das lokale User-Admin-Tool an. Der Cloud-Worker bietet keinen öffentlichen
+Umbenennungs-Schreibendpunkt. Die Wartungsaktion läuft über den vorhandenen,
+lokal authentifizierten Wrangler-Zugang; Details in `../user-admin/README.md`.
+
+Umbenannte Auth-Records enthalten einen adminverwalteten `accountStorageId`
+(ursprüngliche Speicherkennung), `accountUid` (Kontogeneration) und
+`accountPreviousIds`. Frühere IDs werden zu permanenten Records mit Schema
+`ga.account-retired.v1`, `renamedTo` und derselben `accountUid`, ohne PIN.
+Die Anmeldung und Registrierung unter einer früheren ID liefern HTTP 409
+`pilot_id_renamed`; `accountStatus: renaming` liefert `account_maintenance`.
+
+Nur interne, bereits verknüpfte Crew-/Checklist-Referenzen folgen solchen
+Vermerken, mit Prüfung der Kontogeneration. Die eigentliche Authentifizierung
+folgt keinem alten Login-Namen. Der ursprüngliche Sperrvermerk muss zusätzlich
+die aktuelle ID und Generation bestätigen, bevor ein Auth-Record einen
+abweichenden Speicheranker verwenden darf. V2, Legacy-V2-Lesen, Homebase und
+Audio nutzen diesen verifizierten Anker; weder Cloudpakete noch Missionskontrolle
+werden kopiert oder neu geschrieben. Crew-Ausgaben verwenden die aktuelle ID,
+erhalten Rollen und versehen umbenannte Mitglieder mit der Kontogeneration.
+Crew-Saves normalisieren diese Verweise im vorhandenen Schreibzugriff.
+Community-Checklisten behalten ihren stabilen Eigentümeranker.
+
+Öffentliche Registrierungen können diese Metadaten nicht setzen; bestehende
+Legacy-Saves müssen die serverseitigen Werte erhalten. Ein Rollback auf einen
+Worker ohne diese Unterstützung ist nach der ersten tatsächlichen Umbenennung
+nicht zulässig, solange solche Konten bestehen. Die neue lokale Admin-Funktion
+wird erst nach dem Worker-Deployment nutzbar. Kein Tracker-/Web-App-Release
+notwendig; die Nutzer melden sich anschließend mit der neuen ID an.
+
+`account-rename.test.mjs` ist Teil von `npm test` und prüft den echten
+Worker-/ProfileSync-/Client-Pfad: alte und neue Registrierungsnamensräume,
+mehrfache Umbenennung, unveränderte Mission/Revision/Pakete, Homebase, Audio,
+Crew-Rollen, Checklist-Eigentum, veraltete IDs, gefälschte Speicheranker und
+spätere Neuregistrierungen. Die lokalen Admin-Tests prüfen Vorschauen, Konflikte,
+Sicherungen und Rücksetzung nach jedem einzelnen Schreibschritt.

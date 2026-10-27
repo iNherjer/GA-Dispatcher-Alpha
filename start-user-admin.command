@@ -15,18 +15,10 @@ cd "$TOOL_DIR"
 echo "[Nutzer Admin] Starte lokalen Server in: $TOOL_DIR"
 echo "[Nutzer Admin] URL: $URL"
 
-if command -v node >/dev/null 2>&1; then
-  (sleep 1; open "$URL" >/dev/null 2>&1 || true) &
-  exec node server.mjs "$PORT"
-elif command -v python3 >/dev/null 2>&1; then
-  echo "[Nutzer Admin] Hinweis: Python-Fallback kann nur statische Dateien ausliefern. Fuer lokale KV-Abfragen bitte Node installieren oder im Tool den Worker-Admin-Token eintragen."
-  (sleep 1; open "$URL" >/dev/null 2>&1 || true) &
-  exec python3 -m http.server "$PORT" --bind 127.0.0.1
-elif command -v python >/dev/null 2>&1; then
-  echo "[Nutzer Admin] Hinweis: Python-Fallback kann nur statische Dateien ausliefern. Fuer lokale KV-Abfragen bitte Node installieren oder im Tool den Worker-Admin-Token eintragen."
-  (sleep 1; open "$URL" >/dev/null 2>&1 || true) &
-  exec python -m SimpleHTTPServer "$PORT"
-else
-  echo "[Nutzer Admin] Fehler: Weder node noch python3/python gefunden."
+if ! command -v node >/dev/null 2>&1; then
+  echo "[Nutzer Admin] Node.js wird für Cloudflare-Abfragen und den sicheren Netzwerkzugriff benötigt."
   exit 1
 fi
+
+(sleep 1; open "$URL" >/dev/null 2>&1 || true) &
+exec node server.mjs "$PORT"

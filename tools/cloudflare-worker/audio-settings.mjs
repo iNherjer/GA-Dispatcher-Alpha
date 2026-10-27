@@ -7,7 +7,7 @@ export async function handleAudioSettings(request, requestUrl, env, helpers) {
   try { pilotId = decodeURIComponent(requestUrl.pathname.split('/').at(-1)); }
   catch (_) { return json({ error: 'invalid_pilot_id' }, 400); }
   if (normalizePilotId(pilotId) !== normalizePilotId(auth.ownerId)) return json({ error: 'pilot_mismatch' }, 403);
-  const key = `AUDIO_SETTINGS_${auth.ownerId}`;
+  const key = `AUDIO_SETTINGS_${auth.storageOwnerId || auth.ownerId}`;
   if (request.method === 'GET') {
     const stored = await env.GA_SYNC_KV.get(key);
     return json({ record: stored ? JSON.parse(stored) : null }, 200, { 'Cache-Control': 'no-store' });

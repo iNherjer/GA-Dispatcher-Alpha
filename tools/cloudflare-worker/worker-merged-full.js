@@ -212,17 +212,24 @@ async function hydrateGroupMemberActivity(group, env, now = Date.now()) {
     const memberId = normalizeOneLine(member.syncId, 160);
     if (!memberId) return member;
     try {
-      const resolution = await resolveSyncPilotId(env, memberId);
+      const resolution = await resolveAccountReference(env, memberId);
+      if (resolution.status === "invalid") return null;
       if (resolution.status !== "found") return member;
-      const profileActivity = pilotAppActivityMs(safeJsonParse(resolution.raw, null), now);
+      const profile = safeJsonParse(resolution.raw, null);
+      if (member.accountUid && member.accountUid !== profile?.accountUid) return null;
+      const profileActivity = pilotAppActivityMs(profile, now);
       const groupActivity = normalizeFinite(member.lastSeen, 0, 0, now + 86400000);
-      return profileActivity > groupActivity ? { ...member, lastSeen: profileActivity } : member;
+      return { ...member, syncId: resolution.pilotId, ...(profile?.accountUid ? { accountUid:profile.accountUid } : {}), lastSeen: Math.max(profileActivity, groupActivity) };
     } catch (error) {
       console.warn("Crew activity read failed:", memberId, String(error?.message || error));
       return member;
     }
   }));
-  return { ...group, members };
+  const kicked = await Promise.all((Array.isArray(group.kicked) ? group.kicked : []).map(async id => {
+    const resolved = await resolveAccountReference(env, id);
+    return resolved.status === "found" ? resolved.pilotId : id;
+  }));
+  return { ...group, members:members.filter(Boolean), kicked };
 }
 
 function normalizeFinite(value, fallback, min, max) {
@@ -332,7 +339,7 @@ async function handleHomebaseSync(request, requestUrl, env) {
   if (!auth.ok) return auth.response;
   if (normalizePilotIdLookup(auth.ownerId) !== normalizePilotIdLookup(pilotId)) return json({ error: "Pilot-ID stimmt nicht überein" }, 403);
 
-  const key = `${HOMEBASE_PREFIX}${auth.ownerId}`;
+  const key = `${HOMEBASE_PREFIX}${auth.storageOwnerId || auth.ownerId}`;
   let existing = null;
   try {
     const raw = await env.GA_SYNC_KV.get(key);
@@ -428,7 +435,10 @@ async function handleCrewHomebases(request, requestUrl, env) {
   for (const active of members) {
     const pilotId = String(active.syncId || "");
     try {
-      const raw = await env.GA_SYNC_KV.get(`${HOMEBASE_PREFIX}${pilotId}`);
+      const reference = await resolveAccountReference(env, pilotId);
+      const owner = reference.status === "found" ? await accountStorageOwner(env, reference.pilotId, safeJsonParse(reference.raw, null)) : pilotId;
+      if (!owner) continue;
+      const raw = await env.GA_SYNC_KV.get(`${HOMEBASE_PREFIX}${owner}`);
       const record = raw ? safeJsonParse(raw, null) : null;
       const nick = normalizeOneLine(active.nick, 64) || "Pilot";
       if (!record?.plan) {
@@ -686,6 +696,19 @@ function normalizeCommunityChecklist(input, fallbackId = "") {
   };
 }
 
+// A storage anchor is valid only when the retired original account confirms
+// the same generation and current ID. Never trust an unverified client-owned field.
+async function accountStorageOwner(env, pilotId, profile) {
+  if (!profile) return null;
+  if (!profile.accountStorageId && !profile.accountUid) return pilotId;
+  if (typeof profile.accountStorageId !== "string" || typeof profile.accountUid !== "string" || !profile.accountUid || profile.accountStorageId === pilotId) return null;
+  let original;
+  try { original = safeJsonParse(await env.GA_SYNC_KV.get(profile.accountStorageId), null); } catch { return null; }
+  return original?.schema === "ga.account-retired.v1" && original.accountUid === profile.accountUid
+    && normalizePilotIdLookup(original.renamedTo) === normalizePilotIdLookup(pilotId) ? profile.accountStorageId : null;
+}
+function accountAnchorError() { return json({ ok:false, code:"account_identity_unavailable", error:"Konto-Zuordnung wird aktualisiert oder muss geprüft werden. Bitte später erneut versuchen." },409); }
+
 async function verifyChecklistCommunityAuth(request, env) {
   const requestedOwnerId = normalizeOneLine(request.headers.get("X-Pilot-ID"), 160);
   const pin = trimText(request.headers.get("X-Pilot-PIN"), 160);
@@ -700,7 +723,9 @@ async function verifyChecklistCommunityAuth(request, env) {
     return { ok: false, response: json({ error: "Falscher PIN oder Pilot-ID unbekannt" }, 401) };
   }
 
-  return { ok: true, ownerId: resolution.pilotId, profileSyncNamespace: String(profile.profileSyncNamespace || ''), legacyLastModified: Number(profile.lastModified) || 0, legacyHasData: Object.hasOwn(profile, "activeMission") || Object.hasOwn(profile, "pinboard") };
+  const storageOwnerId = await accountStorageOwner(env, resolution.pilotId, profile);
+  if (!storageOwnerId) return { ok:false, response:accountAnchorError() };
+  return { ok: true, ownerId: resolution.pilotId, storageOwnerId, accountUid: String(profile.accountUid || ""), profileSyncNamespace: String(profile.profileSyncNamespace || ''), legacyLastModified: Number(profile.lastModified) || 0, legacyHasData: Object.hasOwn(profile, "activeMission") || Object.hasOwn(profile, "pinboard") };
 }
 
 async function verifySyncProfileAuth(request, env) {
@@ -717,7 +742,9 @@ async function verifySyncProfileAuth(request, env) {
     return { ok: false, response: json({ error: "Falscher PIN oder Pilot-ID unbekannt" }, 401) };
   }
 
-  return { ok: true, ownerId: resolution.pilotId, profileSyncNamespace: String(profile.profileSyncNamespace || ''), legacyLastModified: Number(profile.lastModified) || 0, legacyHasData: Object.hasOwn(profile, "activeMission") || Object.hasOwn(profile, "pinboard") };
+  const storageOwnerId = await accountStorageOwner(env, resolution.pilotId, profile);
+  if (!storageOwnerId) return { ok:false, response:accountAnchorError() };
+  return { ok: true, ownerId: resolution.pilotId, storageOwnerId, accountUid: String(profile.accountUid || ""), profileSyncNamespace: String(profile.profileSyncNamespace || ''), legacyLastModified: Number(profile.lastModified) || 0, legacyHasData: Object.hasOwn(profile, "activeMission") || Object.hasOwn(profile, "pinboard") };
 }
 
 async function getCommunityRecord(env, id) {
@@ -780,7 +807,7 @@ async function handleCommunityChecklists(request, requestUrl, env) {
         return json({ error: "KV-Read fehlgeschlagen", message: String(error?.message || error) }, 502);
       }
       if (!existing) return json({ ok: true, id: targetId, unpublished: true, alreadyGone: true }, 200);
-      if (existing.ownerId !== auth.ownerId) return json({ error: "Nur der Ersteller darf diese Checkliste ändern" }, 403);
+      if (!await sameAccountOwner(env, existing.ownerId, auth)) return json({ error: "Nur der Ersteller darf diese Checkliste ändern" }, 403);
 
       try {
         await env.GA_SYNC_KV.delete(communityChecklistKey(targetId));
@@ -809,7 +836,7 @@ async function handleCommunityChecklists(request, requestUrl, env) {
     } catch (error) {
       return json({ error: "KV-Read fehlgeschlagen", message: String(error?.message || error) }, 502);
     }
-    if (existing && existing.ownerId !== auth.ownerId) {
+    if (existing && !await sameAccountOwner(env, existing.ownerId, auth)) {
       return json({ error: "Nur der Ersteller darf diese Checkliste ändern" }, 403);
     }
 
@@ -818,7 +845,7 @@ async function handleCommunityChecklists(request, requestUrl, env) {
     const indexKey = communityIndexKey(normalized.id, updatedAt);
     const record = {
       id: normalized.id,
-      ownerId: auth.ownerId,
+      ownerId: auth.storageOwnerId || auth.ownerId,
       title: normalized.title,
       chapters: normalized.chapters,
       chapterCount: normalized.chapterCount,
@@ -1075,7 +1102,7 @@ async function resolveSyncPilotId(env, requestedPilotId) {
   } catch (error) {
     return { status: "error", error, pilotId: "", raw: null };
   }
-  if (exactRaw) return { status: "found", pilotId: requested, raw: exactRaw };
+  if (exactRaw) return classifyAccountResolution(requested, exactRaw);
 
   if (typeof env.GA_SYNC_KV.list !== "function") return { status: "missing", pilotId: "", raw: null };
 
@@ -1094,14 +1121,45 @@ async function resolveSyncPilotId(env, requestedPilotId) {
   try {
     const raw = await env.GA_SYNC_KV.get(matches[0]);
     return raw
-      ? { status: "found", pilotId: matches[0], raw }
+      ? classifyAccountResolution(matches[0], raw)
       : { status: "missing", pilotId: "", raw: null };
   } catch (error) {
     return { status: "error", error, pilotId: "", raw: null };
   }
 }
 
+function classifyAccountResolution(pilotId, raw) {
+  const record = safeJsonParse(raw, null);
+  if (record?.schema === "ga.account-retired.v1") return { status:"renamed", pilotId, raw, renamedTo:record.renamedTo, accountUid:record.accountUid };
+  if (record?.accountStatus === "renaming") return { status:"maintenance", pilotId, raw };
+  return { status:"found", pilotId, raw };
+}
+
+// Only linked records may follow a retired ID. Authentication never follows it.
+// The generation token prevents a later registration at an expired target ID
+// from inheriting another account's crew roles or checklist ownership.
+async function resolveAccountReference(env, pilotId) {
+  let resolution = await resolveSyncPilotId(env, pilotId);
+  const expectedUid = resolution.status === "renamed" ? resolution.accountUid : "";
+  const seen = new Set();
+  while (resolution.status === "renamed" && !seen.has(resolution.pilotId) && seen.size < 32) {
+    seen.add(resolution.pilotId);
+    if (!expectedUid || resolution.accountUid !== expectedUid || !resolution.renamedTo) return { status:"invalid" };
+    resolution = await resolveSyncPilotId(env, resolution.renamedTo);
+  }
+  if (expectedUid && (resolution.status !== "found" || safeJsonParse(resolution.raw, null)?.accountUid !== expectedUid)) return { status:"invalid" };
+  return resolution;
+}
+
+async function sameAccountOwner(env, previousOwnerId, auth) {
+  if (previousOwnerId === auth.ownerId) return true;
+  const reference = await resolveAccountReference(env, previousOwnerId);
+  return reference.status === "found" && reference.pilotId === auth.ownerId;
+}
+
 function syncPilotResolutionError(resolution) {
+  if (resolution?.status === "renamed") return json({ ok:false, code:"pilot_id_renamed", error:"Pilot-ID wurde umbenannt. Bitte mit der neuen Pilot-ID anmelden." },409);
+  if (resolution?.status === "maintenance") return json({ ok:false, code:"account_maintenance", error:"Das Konto wird gerade umbenannt. Bitte kurz warten." },409);
   if (resolution?.status === "invalid") return json({ ok: false, code: "invalid_pilot_id", error: "Ungültige Pilot-ID" }, 400);
   if (resolution?.status === "collision") return json({ ok: false, code: "pilot_id_collision", error: "Pilot-ID ist nicht eindeutig" }, 409);
   if (resolution?.status === "error") return json({ ok: false, code: "kv_read_failed", error: "KV-Read fehlgeschlagen", message: String(resolution.error?.message || resolution.error) }, 502);
@@ -1137,6 +1195,7 @@ async function handlePilotAuthVerify(request, env) {
     return json({ ok: false, code: "pin_invalid", error: "PIN ist falsch" }, 401);
   }
 
+  if (!await accountStorageOwner(env, resolution.pilotId, profile)) return accountAnchorError();
   await touchPilotAppActivityForDay(env, resolution.pilotId, profile);
 
   return json({ ok: true, pilotId: resolution.pilotId }, 200, {
@@ -1154,7 +1213,7 @@ function pickString(...values) {
 }
 
 function isLikelySyncUserRecord(data) {
-  if (!data || typeof data !== "object" || Array.isArray(data)) return false;
+  if (!data || typeof data !== "object" || Array.isArray(data) || data.schema === "ga.account-retired.v1" || data.accountStatus === "renaming") return false;
   if (typeof data.pin === "string" || typeof data.pin === "number") return true;
   return !!(
     data.registeredAt
@@ -2636,6 +2695,10 @@ export default {
       return handleTrackerDownload(requestUrl);
     }
 
+    if (request.method === "GET" && requestUrl.pathname === "/api/admin/capabilities") {
+      return json({ ok:true, accountRename:1 },200,{ "Cache-Control":"no-store" });
+    }
+
     if (requestUrl.pathname === "/api/admin/users") {
       return handleAdminUsers(request, requestUrl, env);
     }
@@ -2711,8 +2774,10 @@ export default {
           if (isGroupKey) {
             storedData = await hydrateGroupMemberActivity(storedData, env);
           }
+          const storageOwnerId = !isGroupKey ? await accountStorageOwner(env, storagePilotId, storedData) : storagePilotId;
+          if (!storageOwnerId) return accountAnchorError();
           if (!isGroupKey && env.GA_PROFILE_SYNC) {
-            const upgraded = await profileStub(env, storagePilotId, storedData.profileSyncNamespace).fetch('https://profile/profile' + (requestUrl.searchParams.get('mission') === '1' ? '?mission=1' : ''));
+            const upgraded = await profileStub(env, storageOwnerId, storedData.profileSyncNamespace).fetch('https://profile/profile' + (requestUrl.searchParams.get('mission') === '1' ? '?mission=1' : ''));
             if (upgraded.ok) storedData = { ...storedData, ...await upgraded.json() };
             else if (upgraded.status !== 404) return upgraded;
           }
@@ -2757,11 +2822,19 @@ export default {
             if (!isGroupKey && existingData.pin && existingData.pin !== incomingData.pin) {
               return json({ error: "Falscher PIN" }, 401);
             }
+            const storageOwnerId = !isGroupKey ? await accountStorageOwner(env, storagePilotId, existingData) : storagePilotId;
+            if (!storageOwnerId) return accountAnchorError();
             if (!isGroupKey && env.GA_PROFILE_SYNC && !pilotId.startsWith('CHK')) {
-              const head = await (await profileStub(env, storagePilotId, existingData.profileSyncNamespace).fetch('https://profile/head?inlineMetadata=1')).json();
+              const head = await (await profileStub(env, storageOwnerId, existingData.profileSyncNamespace).fetch('https://profile/head?inlineMetadata=1')).json();
               if (head.revision > 0) return json({ error: "Profil nutzt verlustfreien Sync. Bitte App aktualisieren." }, 409);
             }
             if (!isGroupKey) {
+              // Account storage anchors are admin-owned; public clients cannot redirect storage.
+              for (const field of ["accountStorageId", "accountUid", "accountPreviousIds"]) {
+                if (Object.hasOwn(existingData, field)) incomingData[field] = existingData[field];
+                else delete incomingData[field];
+              }
+              delete incomingData.accountStatus;
               // Namespace is server-owned and immutable for the life of this registration.
               if (existingData.profileSyncNamespace) incomingData.profileSyncNamespace = existingData.profileSyncNamespace;
               else delete incomingData.profileSyncNamespace;
@@ -2773,12 +2846,18 @@ export default {
               rawBody = JSON.stringify(incomingData);
             }
           } else if (!isGroupKey) {
+            for (const field of ["accountStorageId", "accountUid", "accountPreviousIds", "accountStatus"]) delete incomingData[field];
             incomingData.profileSyncNamespace = crypto.randomUUID();
             const registeredAt = nowIso();
             incomingData.registeredAt = registeredAt;
             incomingData.registeredAtMs = Date.parse(registeredAt);
             incomingData.syncId = storagePilotId;
             rawBody = JSON.stringify(incomingData);
+          }
+
+          if (isGroupKey) {
+            const hydrated = await hydrateGroupMemberActivity(incomingData, env);
+            rawBody = JSON.stringify(hydrated);
           }
 
           // Ein normaler Profil-Save ist bereits ein KV-Write. Deshalb kann er
