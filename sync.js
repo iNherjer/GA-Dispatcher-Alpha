@@ -16684,10 +16684,144 @@ function _syncApplyHiddenGroupNotesFromCloud(data) {
     }
 }
 
-function setLastSyncedPayload(cloudData = null) {
-    if (cloudData) _syncAcknowledgeProfile(cloudData);
+// === Field-wise profile merge (28.10.2026) ===
+// The app remembers what the cloud held at the last sync, per field (hashes only).
+// A field counts as changed here only if it differs from that base. Uploads take
+// such fields from this device and everything else from the freshly read cloud,
+// so neither this device's edits nor another device's edits get lost. Pulls keep
+// this device's unsent edits instead of overwriting them. The pinboard is merged
+// per note: new notes from both sides stay, deletions from both sides apply.
+const SYNC_MERGE_FIELDS = ['pinboard', 'logbook', 'groupName', 'groupNick', 'knownNotes', 'newBadges', 'hiddenGroupNotes',
+    'crewShare', 'aircraftPresets', 'onboardEquipment', 'favoriteAirports', 'followUpRequests'];
+// Saving a restored mission only renews these stamps; that alone is not a change.
+const SYNC_VOLATILE_MISSION_KEYS = new Set(['activeMissionSavedAt']);
+
+function _syncCanonicalJson(value, dropKeys = null) {
+    if (value === undefined) return 'null';
+    if (value === null || typeof value !== 'object') return JSON.stringify(value);
+    if (Array.isArray(value)) return '[' + value.map(item => _syncCanonicalJson(item === undefined ? null : item, dropKeys)).join(',') + ']';
+    const keys = Object.keys(value).filter(key => value[key] !== undefined && typeof value[key] !== 'function' && !(dropKeys && dropKeys.has(key))).sort();
+    return '{' + keys.map(key => JSON.stringify(key) + ':' + _syncCanonicalJson(value[key], dropKeys)).join(',') + '}';
+}
+function _syncHash(value, dropKeys = null) {
+    const text = _syncCanonicalJson(value, dropKeys);
+    let h1 = 0x811c9dc5, h2 = 0x01000193 ^ text.length;
+    for (let i = 0; i < text.length; i++) {
+        const c = text.charCodeAt(i);
+        h1 = Math.imul(h1 ^ c, 0x01000193);
+        h2 = Math.imul(h2 ^ c, 0x5bd1e995);
+    }
+    return (h1 >>> 0).toString(16) + (h2 >>> 0).toString(16) + ':' + text.length;
+}
+function _syncMissionHash(mission, seed, freeflightNavigation = null) {
+    let seedWithoutStamp = seed;
+    if (seed && typeof seed === 'object' && !Array.isArray(seed)) { seedWithoutStamp = { ...seed }; delete seedWithoutStamp.updatedAt; }
+    return _syncHash({ mission: mission || null, seed: seedWithoutStamp || null, freeflight: freeflightNavigation || null }, SYNC_VOLATILE_MISSION_KEYS);
+}
+function _syncFieldBaseKey() {
+    return 'ga_sync_field_base_v1:' + String(getSyncId() || '').toUpperCase();
+}
+function _syncReadFieldBase() {
+    if (!getSyncId()) return null;
+    try {
+        const base = JSON.parse(localStorage.getItem(_syncFieldBaseKey()) || 'null');
+        return base && typeof base === 'object' && base.fields && typeof base.fields === 'object' ? base : null;
+    } catch (_) { return null; }
+}
+function _syncNoteKey(note) {
+    return note && note.id !== undefined && note.id !== null ? String(note.id) : '';
+}
+// Remember the cloud state that this device has now seen or written.
+function _syncWriteFieldBase(profile) {
+    if (!getSyncId() || !profile || typeof profile !== 'object') return;
+    const fields = {};
+    SYNC_MERGE_FIELDS.forEach(field => { fields[field] = _syncHash(profile[field] ?? null); });
+    const notes = {};
+    (Array.isArray(profile.pinboard) ? profile.pinboard : []).forEach(note => {
+        const key = _syncNoteKey(note);
+        if (key) notes[key] = _syncHash(note);
+    });
+    const base = { at: Date.now(), fields, notes,
+        mission: _syncMissionHash(profile.activeMission, profile.activeMissionTrackerSeed, profile.freeflightNavigation) };
+    try { localStorage.setItem(_syncFieldBaseKey(), JSON.stringify(base)); } catch (_) {}
+}
+function _syncFieldChangedLocally(field, localValue, base) {
+    if (!base || !base.fields || base.fields[field] === undefined) return true;
+    return _syncHash(localValue ?? null) !== base.fields[field];
+}
+// Per-note three-way merge. Without a base, nothing counts as deleted (union).
+function _syncMergePinboard(cloudNotes, localNotes, base) {
+    const cloud = Array.isArray(cloudNotes) ? cloudNotes : [];
+    const local = Array.isArray(localNotes) ? localNotes : [];
+    const baseNotes = (base && base.notes) || {};
+    const localByKey = new Map(local.map(note => [_syncNoteKey(note), note]));
+    const cloudKeys = new Set(cloud.map(_syncNoteKey));
+    const result = [];
+    cloud.forEach(note => {
+        const key = _syncNoteKey(note);
+        if (!key) { result.push(note); return; }
+        const baseHash = baseNotes[key];
+        if (localByKey.has(key)) {
+            const mine = localByKey.get(key);
+            // Edited here since the last sync: this device's version wins.
+            result.push(baseHash !== undefined && _syncHash(mine) !== baseHash ? mine : note);
+        } else if (baseHash === undefined || _syncHash(note) !== baseHash) {
+            // New on the other side, or changed there after this device removed it.
+            result.push(note);
+        }
+        // Otherwise deleted here: stays deleted.
+    });
+    local.forEach(note => {
+        const key = _syncNoteKey(note);
+        if (!key || cloudKeys.has(key)) return;
+        const baseHash = baseNotes[key];
+        // New here, or changed here after the other side removed it.
+        if (baseHash === undefined || _syncHash(note) !== baseHash) result.push(note);
+    });
+    return result;
+}
+function _syncUnionByKey(cloudList, localList, keyOf) {
+    const out = new Map();
+    (Array.isArray(cloudList) ? cloudList : []).forEach(item => out.set(keyOf(item), item));
+    (Array.isArray(localList) ? localList : []).forEach(item => {
+        const key = keyOf(item);
+        if (!out.get(key)?.deleted) out.set(key, item);
+    });
+    return Array.from(out.values());
+}
+// Field values for an upload or a pull: this device's value where it changed
+// since the base, otherwise the cloud value.
+function _syncMergeProfileFields(cloudProfile, localPayload, base = _syncReadFieldBase()) {
+    const cloud = cloudProfile || {};
+    const merged = {};
+    SYNC_MERGE_FIELDS.forEach(field => {
+        const localValue = localPayload[field];
+        const cloudValue = cloud[field];
+        if (field === 'pinboard') {
+            merged.pinboard = _syncMergePinboard(cloudValue, localValue, base);
+            return;
+        }
+        // Without a base (first sync after this update) lists are combined and
+        // single values come from the cloud, as before.
+        const listField = field === 'logbook' || field === 'knownNotes' || field === 'hiddenGroupNotes' || field === 'crewShare';
+        const changedHere = base ? _syncFieldChangedLocally(field, localValue, base) : listField;
+        if (!changedHere) { merged[field] = cloudValue === undefined ? localValue : cloudValue; return; }
+        if (cloudValue === undefined || cloudValue === null) { merged[field] = localValue; return; }
+        if (field === 'logbook') {
+            merged.logbook = _syncUnionByKey(cloudValue, localValue, entry => entry?.completionId || entry?.id || `legacy:${JSON.stringify(entry)}`);
+        } else if (field === 'knownNotes' || field === 'hiddenGroupNotes') {
+            merged[field] = _syncUnionByKey(cloudValue, localValue, String);
+        } else if (field === 'crewShare') {
+            merged.crewShare = Number(localValue?.at || 0) >= Number(cloudValue?.at || 0) ? localValue : cloudValue;
+        } else {
+            merged[field] = localValue;
+        }
+    });
+    return merged;
+}
+function _syncLocalSyncPayload() {
     const activeMission = _syncActiveMissionPayload();
-    const payloadToCompare = {
+    return {
         pinboard: JSON.parse(localStorage.getItem('ga_pinboard') || '[]'),
         logbook: _missionLogbookForSync(),
         activeMission,
@@ -16704,6 +16838,74 @@ function setLastSyncedPayload(cloudData = null) {
         favoriteAirports: _syncFavoriteAirportsPayload(),
         followUpRequests: _syncFollowupPayload()
     };
+}
+// True when this device holds something the cloud (as last seen) does not.
+function _syncLocalAheadOfBase(payload, base = _syncReadFieldBase()) {
+    if (!base) return true;
+    if (SYNC_MERGE_FIELDS.some(field => _syncFieldChangedLocally(field, payload[field], base))) return true;
+    return _syncMissionHash(payload.activeMission, payload.activeMissionTrackerSeed, payload.freeflightNavigation) !== base.mission;
+}
+// Keeps the cloud's mission objects when only the save stamps differ, so an
+// unchanged mission is not written again.
+function _syncMissionForUpload(cloudProfile, mission, seed, freeflightNavigation) {
+    if (cloudProfile && _syncMissionHash(cloudProfile.activeMission, cloudProfile.activeMissionTrackerSeed, cloudProfile.freeflightNavigation)
+        === _syncMissionHash(mission, seed, freeflightNavigation)) {
+        return { activeMission: cloudProfile.activeMission ?? null, activeMissionTrackerSeed: cloudProfile.activeMissionTrackerSeed ?? null,
+            freeflightNavigation: cloudProfile.freeflightNavigation ?? null };
+    }
+    return { activeMission: mission ?? null, activeMissionTrackerSeed: seed ?? null, freeflightNavigation: freeflightNavigation ?? null };
+}
+// After an upload: bring in what the merge took from the cloud.
+function _syncApplyMergedFieldsLocally(merged, local) {
+    // Only fields that did not change here while the upload ran.
+    const current = _syncLocalSyncPayload();
+    const changed = field => _syncHash(merged[field] ?? null) !== _syncHash(local[field] ?? null)
+        && _syncHash(current[field] ?? null) === _syncHash(local[field] ?? null);
+    let pinboardChanged = false;
+    try {
+        if (changed('pinboard')) { _syncStoreCloudPinboard(merged.pinboard || []); pinboardChanged = true; }
+        if (changed('logbook') && Array.isArray(merged.logbook)) _mergeMissionLogbooks(merged.logbook, { replacePinboard: false });
+        if (changed('knownNotes')) localStorage.setItem('ga_known_group_notes', JSON.stringify(merged.knownNotes || []));
+        if (changed('newBadges')) localStorage.setItem('ga_group_new', JSON.stringify(merged.newBadges || []));
+        if (changed('hiddenGroupNotes')) _syncApplyHiddenGroupNotesFromCloud(merged);
+        if (changed('crewShare')) window.gaCrewPresence?.applyShareFromCloud?.(merged.crewShare);
+        if (changed('aircraftPresets') && merged.aircraftPresets) applyAircraftPresetsFromSync(merged.aircraftPresets);
+        if (changed('onboardEquipment')) _syncApplyOnboardEquipmentFromCloud(merged);
+        if (changed('favoriteAirports')) _syncApplyFavoriteAirportsFromCloud(merged);
+        if (changed('followUpRequests')) _syncApplyFollowupsFromCloud(merged);
+        if ((changed('groupName') || changed('groupNick')) && merged.groupName !== undefined) updateGroupUIFromSync(merged.groupName, merged.groupNick);
+    } catch (error) {
+        try { console.warn('[SYNC] Zusammengeführte Cloud-Felder konnten lokal nicht vollständig übernommen werden:', error); } catch (_) {}
+    }
+    if (pinboardChanged && document.getElementById('pinboardOverlay')?.classList.contains('active') && typeof renderNotes === 'function') renderNotes();
+}
+// A pull keeps unsent local edits: returns the cloud data with merged fields and
+// whether this device still has something to upload afterwards.
+function _syncMergeCloudPull(data) {
+    if (!data || typeof data !== 'object' || !getSyncId()) return { data, localAhead: false };
+    const base = _syncReadFieldBase();
+    const local = _syncLocalSyncPayload();
+    const merged = _syncMergeProfileFields(data, local, base);
+    const out = { ...data };
+    let localAhead = false;
+    SYNC_MERGE_FIELDS.forEach(field => {
+        if (data[field] === undefined && merged[field] === undefined) return;
+        out[field] = merged[field];
+        if (_syncHash(merged[field] ?? null) !== _syncHash(data[field] ?? null)) localAhead = true;
+    });
+    return { data: out, localAhead };
+}
+function _syncAfterMergedPull(cloudData, merge) {
+    _syncWriteFieldBase(cloudData);
+    if (!merge?.localAhead) return;
+    try { console.info('[SYNC] Lokale Änderungen beim Laden behalten; werden hochgeladen.'); } catch (_) {}
+    _syncMarkPendingUpload('merge-local-ahead');
+    setTimeout(() => { try { triggerCloudSave(true, { reason: 'merge-local-ahead' }); } catch (_) {} }, 0);
+}
+
+function setLastSyncedPayload(cloudData = null) {
+    if (cloudData) _syncAcknowledgeProfile(cloudData);
+    const payloadToCompare = _syncLocalSyncPayload();
     lastSyncedPayloadStr = JSON.stringify(payloadToCompare);
 }
 
@@ -16795,6 +16997,7 @@ async function _publishSharedMissionReplacement(state, basis) {
     localStorage.setItem('ga_sync_time', String(localSyncTime));
     window.gaLastCloudUploadDiagnostics = { ...transfer, at: Date.now(), status: 'saved', transport: 'lossless-v2', compacted: false };
     _syncClearPendingUpload();
+    if (typeof _syncWriteFieldBase === 'function') _syncWriteFieldBase(payload);
     _syncSetLocalMissionChoice(state ? 'shared' : null, { missionOnly: !!state });
     updateSyncStatus(state ? 'Cloud: Mission angenommen ✅' : 'Cloud: Mission gelöscht ✅');
     return transfer;
@@ -16920,7 +17123,17 @@ async function triggerCloudSave(immediate = false, options = {}) {
     };
 
     const currentPayloadStr = JSON.stringify(payloadToCompare);
-    if (currentPayloadStr === lastSyncedPayloadStr && immediate !== 'manual' && options.force !== true && !pendingBeforeSave) {
+    // Nothing differs from the cloud state this device last synced: no upload,
+    // even when a mission save only renewed its stamps.
+    const fieldMergeReady = typeof _syncMergeProfileFields === 'function';
+    if (immediate !== 'manual' && fieldMergeReady && _syncReadFieldBase() && !_syncLocalAheadOfBase(payloadToCompare)) {
+        _syncClearPendingUpload();
+        lastSyncedPayloadStr = currentPayloadStr;
+        await homebasePushPromise;
+        updateSyncStatus("Cloud: Aktuell ✅");
+        return { ok: true, skipped: true, reason: 'unchanged' };
+    }
+    if (currentPayloadStr === lastSyncedPayloadStr && immediate !== 'manual' && options.force !== true && !pendingBeforeSave && !(fieldMergeReady && _syncReadFieldBase())) {
         _syncClearPendingUpload();
         await homebasePushPromise;
         updateSyncStatus("Cloud: Aktuell ✅");
@@ -16959,7 +17172,7 @@ async function triggerCloudSave(immediate = false, options = {}) {
                 const key = entry?.completionId || entry?.id || `legacy:${JSON.stringify(entry)}`;
                 if (!logs.get(key)?.deleted) logs.set(key, entry);
             }
-            uploadPayload = { ...cloud.profile, logbook: Array.from(logs.values()),
+            uploadPayload = { ...cloud.profile, ...(fieldMergeReady ? _syncMergeProfileFields(cloud.profile, payloadToCompare) : {}), logbook: Array.from(logs.values()),
                 activeMission: null, activeMissionTrackerSeed: null, lastModified: uploadSyncTime };
             expectedRevision = cloud.revision;
             missionChange = { action: 'clear', expectedMissionRevision: cloud.missionControl?.revision || 0,
@@ -16975,8 +17188,23 @@ async function triggerCloudSave(immediate = false, options = {}) {
                 updateSyncStatus('Cloud-Mission wurde geändert; zuerst den aktuellen Cloud-Stand laden.', true);
                 return { ok: false, skipped: true, reason: 'cloud-mission-replaced' };
             }
-            uploadPayload = { ...cloud.profile, activeMission, activeMissionTrackerSeed: payloadToCompare.activeMissionTrackerSeed, lastModified: uploadSyncTime };
+            // Other devices' profile edits stay; this device's own edits go up too.
+            uploadPayload = fieldMergeReady
+                ? { ...cloud.profile, ..._syncMergeProfileFields(cloud.profile, payloadToCompare),
+                    ..._syncMissionForUpload(cloud.profile, activeMission, payloadToCompare.activeMissionTrackerSeed, payloadToCompare.freeflightNavigation),
+                    lastModified: uploadSyncTime }
+                : { ...cloud.profile, activeMission, activeMissionTrackerSeed: payloadToCompare.activeMissionTrackerSeed, lastModified: uploadSyncTime };
             expectedRevision = cloud.revision;
+        } else if (immediate !== 'manual' && fieldMergeReady) {
+            // Automatic upload: write against the fresh cloud state, field by field.
+            const cloud = await client.read();
+            if (getSyncId() !== id || _syncMissionRestoreBlocked(uploadEpoch)) return { ok: false, skipped: true, reason: 'mission-changed-during-upload' };
+            if (cloud.migrated && cloud.profile) {
+                uploadPayload = { ...cloud.profile, ..._syncMergeProfileFields(cloud.profile, payloadToCompare),
+                    ..._syncMissionForUpload(cloud.profile, activeMission, payloadToCompare.activeMissionTrackerSeed, payloadToCompare.freeflightNavigation),
+                    lastModified: uploadSyncTime };
+                expectedRevision = cloud.revision;
+            }
         }
         if (getSyncId() !== id || window.gaCloudOpeningPending || _syncMissionRestoreBlocked(uploadEpoch)) return { ok: false, skipped: true, reason: 'mission-changed-during-upload' };
         const transfer = await client.write(uploadPayload, { force: immediate === 'manual', expectedRevision, legacyTime: localSyncTime,
@@ -16988,6 +17216,10 @@ async function triggerCloudSave(immediate = false, options = {}) {
         Object.assign(window.gaLastCloudUploadDiagnostics, transfer);
         {
             profileSaved = true;
+            if (fieldMergeReady) {
+                _syncWriteFieldBase(uploadPayload);
+                if (immediate !== 'manual') _syncApplyMergedFieldsLocally(uploadPayload, payloadToCompare);
+            }
             if (window.gaLastCloudUploadDiagnostics) window.gaLastCloudUploadDiagnostics.status = 'saved';
             localSyncTime = Number(transfer.lastModified) || uploadSyncTime;
             localStorage.setItem('ga_sync_time', localSyncTime);
@@ -17099,6 +17331,7 @@ async function forceSyncLoad() {
             updateGroupUIFromSync(data.groupName, data.groupNick);
         }
         setLastSyncedPayload(data);
+        if (typeof _syncWriteFieldBase === 'function') _syncWriteFieldBase(data);
         _syncScheduleLegacyPinboardCleanup(pinboardStore);
         updateGroupBadgeUI();
         const storageAdjusted = !!(
@@ -17172,10 +17405,12 @@ async function silentSyncLoad(options = {}) {
         if (_syncMissionRestoreBlocked(restoreEpoch, data.activeMission)) return false;
         if (options.authoritativeOpening || _syncProfileIsNewer(data)) {
             window.gaCloudRestoreIncomplete = false;
+            const merge = typeof _syncMergeCloudPull === 'function' ? _syncMergeCloudPull(data) : { data, localAhead: false };
+            const fields = merge.data;
             localSyncTime = data.lastModified;
             localStorage.setItem('ga_sync_time', localSyncTime);
-            if (data.logbook) _mergeMissionLogbooks(data.logbook, { replacePinboard: !!data.pinboard });
-            const pinboardStore = data.pinboard ? _syncStoreCloudPinboard(data.pinboard) : null;
+            if (fields.logbook) _mergeMissionLogbooks(fields.logbook, { replacePinboard: !!fields.pinboard });
+            const pinboardStore = fields.pinboard ? _syncStoreCloudPinboard(fields.pinboard) : null;
             await _syncApplyActiveMissionFromCloud(data.activeMission || null, { freeflightNavigation: data.freeflightNavigation,
                 source: 'silent-cloud-pull',
                 authoritativeOpening: options.authoritativeOpening === true,
@@ -17186,20 +17421,22 @@ async function silentSyncLoad(options = {}) {
                 window.gaCloudMissionCheckedPilot = id;
                 _syncClearPendingUpload();
             }
-            _syncApplyOnboardEquipmentFromCloud(data);
-            _syncApplyFavoriteAirportsFromCloud(data);
-            if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
-            if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
-            _syncApplyHiddenGroupNotesFromCloud(data);
-            window.gaCrewPresence?.applyShareFromCloud?.(data.crewShare);
-            if (data.aircraftPresets) applyAircraftPresetsFromSync(data.aircraftPresets);
-            _syncApplyFollowupsFromCloud(data);
+            _syncApplyOnboardEquipmentFromCloud(fields);
+            _syncApplyFavoriteAirportsFromCloud(fields);
+            if (fields.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(fields.knownNotes));
+            if (fields.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(fields.newBadges));
+            _syncApplyHiddenGroupNotesFromCloud(fields);
+            window.gaCrewPresence?.applyShareFromCloud?.(fields.crewShare);
+            window.gaApplyCloudNavcomMode?.(data.navcomMode);
+            if (fields.aircraftPresets) applyAircraftPresetsFromSync(fields.aircraftPresets);
+            _syncApplyFollowupsFromCloud(fields);
 
-            if (data.groupName !== undefined) {
-                updateGroupUIFromSync(data.groupName, data.groupNick);
+            if (fields.groupName !== undefined) {
+                updateGroupUIFromSync(fields.groupName, fields.groupNick);
             }
 
             setLastSyncedPayload(data);
+            if (typeof _syncAfterMergedPull === 'function') _syncAfterMergedPull(data, merge);
             _syncScheduleLegacyPinboardCleanup(pinboardStore);
             updateGroupBadgeUI();
             if (document.getElementById('pinboardOverlay').classList.contains('active')) renderNotes();
@@ -17436,27 +17673,31 @@ async function checkCloudAfterIdle() {
             if (applyWithoutPrompt || confirm(msg)) {
                 // User will laden -> Daten anwenden
                 window.gaCloudRestoreIncomplete = false;
+                const merge = typeof _syncMergeCloudPull === 'function' ? _syncMergeCloudPull(data) : { data, localAhead: false };
+                const fields = merge.data;
                 localSyncTime = data.lastModified;
                 localStorage.setItem('ga_sync_time', localSyncTime);
-                if (data.logbook) _mergeMissionLogbooks(data.logbook, { replacePinboard: !!data.pinboard });
-                const pinboardStore = data.pinboard ? _syncStoreCloudPinboard(data.pinboard) : null;
+                if (fields.logbook) _mergeMissionLogbooks(fields.logbook, { replacePinboard: !!fields.pinboard });
+                const pinboardStore = fields.pinboard ? _syncStoreCloudPinboard(fields.pinboard) : null;
                 await _syncApplyActiveMissionFromCloud(data.activeMission || null, { freeflightNavigation: data.freeflightNavigation,
                     source: 'idle-cloud-pull',
                     allowTrackerHandoff: true
                 });
                 const missionPullOutcome = window.gaLastCloudMissionPullOutcome || null;
-                _syncApplyOnboardEquipmentFromCloud(data);
-                _syncApplyFavoriteAirportsFromCloud(data);
-                if (data.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(data.knownNotes));
-                if (data.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(data.newBadges));
-                _syncApplyHiddenGroupNotesFromCloud(data);
-                window.gaCrewPresence?.applyShareFromCloud?.(data.crewShare);
-                if (data.aircraftPresets) applyAircraftPresetsFromSync(data.aircraftPresets);
-                _syncApplyFollowupsFromCloud(data);
-                if (data.groupName !== undefined) {
-                    updateGroupUIFromSync(data.groupName, data.groupNick);
+                _syncApplyOnboardEquipmentFromCloud(fields);
+                _syncApplyFavoriteAirportsFromCloud(fields);
+                if (fields.knownNotes) localStorage.setItem('ga_known_group_notes', JSON.stringify(fields.knownNotes));
+                if (fields.newBadges) localStorage.setItem('ga_group_new', JSON.stringify(fields.newBadges));
+                _syncApplyHiddenGroupNotesFromCloud(fields);
+                window.gaCrewPresence?.applyShareFromCloud?.(fields.crewShare);
+                window.gaApplyCloudNavcomMode?.(data.navcomMode);
+                if (fields.aircraftPresets) applyAircraftPresetsFromSync(fields.aircraftPresets);
+                _syncApplyFollowupsFromCloud(fields);
+                if (fields.groupName !== undefined) {
+                    updateGroupUIFromSync(fields.groupName, fields.groupNick);
                 }
                 setLastSyncedPayload(data);
+                if (typeof _syncAfterMergedPull === 'function') _syncAfterMergedPull(data, merge);
                 _syncScheduleLegacyPinboardCleanup(pinboardStore);
                 updateGroupBadgeUI();
                 if (document.getElementById('pinboardOverlay').classList.contains('active')) renderNotes();

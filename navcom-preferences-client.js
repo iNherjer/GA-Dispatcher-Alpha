@@ -83,11 +83,19 @@
             void sync();
         }
     };
+    // Web: the regular profile pull already carries navcomMode (gaApplyCloudNavcomMode),
+    // so no own cloud polling. The EFB asks the local Tracker, which costs no cloud requests.
+    window.gaApplyCloudNavcomMode = function(mode) {
+        if (nativeEfb || !window.GANavcomPreferencesCore?.validMode?.(mode) || typeof window.gaSetNavcomMode !== 'function') return;
+        connect();
+        if (!readPending()) window.gaSetNavcomMode(mode, false);
+    };
     function install() {
         void sync();
-        setInterval(sync, 15000);
-        document.addEventListener('visibilitychange', () => { if (visible()) void sync(); });
-        window.addEventListener('pageshow', sync);
+        if (nativeEfb) {
+            setInterval(sync, 15000);
+            document.addEventListener('visibilitychange', () => { if (visible()) void sync(); });
+        }
         window.addEventListener('online', sync);
         window.addEventListener('storage', () => { connect(); void sync(); });
     }

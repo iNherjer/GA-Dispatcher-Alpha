@@ -296,3 +296,40 @@ Cloudrevisionen bleiben erkennbar; keine pauschale Hinweisunterdrueckung.
 Der Idle-Singleflight-Guard wird auch bei fruehen Rueckgaben freigegeben.
 Regressionen verwenden die echten Sync-Funktionen inklusive unvollstaendigem
 Restore, fehlendem Identitaetsnachweis und nachfolgender neuer Revision.
+
+## 28.10.2026 – Feldweiser Abgleich statt Überschreiben
+
+Befund (iPhone-Bericht, lokal mit dem echten `ProfileSync`-Modul im Browser nachgestellt):
+
+- Nach „Mission annehmen“ blieb `missionOnly` gesetzt. Jeder automatische Upload nahm das
+  Cloud-Profil und tauschte nur die Mission. Pinnwand, Presets, Favoriten, Crew-Freigaben
+  dieses Geräts wurden verworfen, die App meldete trotzdem „Gespeichert“. Das nächste
+  Öffnen überschrieb die lokale Pinnwand mit dem alten Cloud-Stand (Zettel verschwanden).
+- Laden ersetzte die Pinnwand komplett, ohne Abgleich.
+- Wiederherstellen zeichnete die Route neu und speicherte die Mission mit neuem
+  `activeMissionSavedAt`; jedes Öffnen schrieb dadurch die ganze Mission neu.
+- NAVCOM fragte alle 15 s das Profil ab (240 Abfragen pro Stunde und offener App).
+
+Lösung:
+
+- Merker `ga_sync_field_base_v1:<PILOT>`: Hashes je Profilfeld und je Pinnwand-Zettel des
+  zuletzt gesehenen/geschriebenen Cloud-Stands, dazu ein Missions-Hash ohne Speicherstempel.
+- Automatische Uploads lesen die Cloud und schreiben gegen genau diese Revision. Ein Feld
+  kommt nur von diesem Gerät, wenn es sich seit dem Merker hier geändert hat, sonst bleibt
+  der Cloud-Wert. Pinnwand je Zettel (neu/gelöscht auf beiden Seiten), Logbuch und
+  Listen vereinigt, Crew-Freigabe nach `at`. Damit bleibt der Schutz von `missionOnly`
+  (fremde Änderungen bleiben), ohne die eigenen zu verwerfen.
+- Laden führt genauso zusammen; was hier noch nicht oben ist, bleibt und wird danach
+  hochgeladen. Der manuelle Cloud-Download überschreibt weiterhin bewusst.
+- Kein Upload, wenn nichts vom Merker abweicht; eine nur neu gestempelte Mission behält
+  die Cloud-Objekte (kein Commit).
+- NAVCOM im Web ohne eigenes Polling: Der Wert kommt beim normalen Profilabruf mit
+  (`gaApplyCloudNavcomMode`). Das EFB fragt weiter den lokalen Tracker.
+- Private Pinnwand-Flüge als `flightDataGz` (gzip, base64); bestehende werden beim Öffnen
+  der Pinnwand einmalig umgestellt (Test: 172 KB → 43 KB). Crew-Zettel bleiben unkomprimiert.
+
+Gemessen (lokal, gleiche Mission): App öffnen/zurückholen vorher 1 Commit mit
+Missionsdaten, jetzt 0; Leerlauf vorher 4 Abfragen pro Minute, jetzt 0; Anpinnen 1 Commit
+nur mit der Pinnwand. Offen: „Annehmen“ schreibt zweimal (Entwurfs-Status im Seed wird
+direkt korrigiert), einmalig ein weiterer Commit nach Neustart (`cargoObjectRevision`).
+Tests: `tools/sync-field-merge.test.mjs`.

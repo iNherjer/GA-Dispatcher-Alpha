@@ -536,7 +536,7 @@ function togglePinboard(forceInternal) {
         if (board.classList.contains('active')) {
             if (!win95WindowMode && window.innerWidth < 1250) lockBodyScroll();
             renderNotes();
-            silentSyncLoad();
+            Promise.resolve(silentSyncLoad()).catch(() => {}).finally(() => { void pinboardCompressStoredFlights(); });
             if (getGroupName()) silentGroupSync();
         } else {
             if (!win95WindowMode) unlockBodyScroll();
@@ -711,14 +711,71 @@ function closePinModal() {
     document.getElementById('pinModalOverlay').style.display = 'none';
     pendingPinNote = null;
 }
-function executePin(target) {
+// Private pinned flights are kept gzip-compressed (base64) in `flightDataGz`,
+// locally and in the cloud profile. Crew pins stay plain for older app versions.
+async function pinboardGzipJson(value) {
+    if (typeof CompressionStream !== 'function') return null;
+    const stream = new Blob([JSON.stringify(value)]).stream().pipeThrough(new CompressionStream('gzip'));
+    const bytes = new Uint8Array(await new Response(stream).arrayBuffer());
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(binary);
+}
+async function pinboardGunzipJson(base64) {
+    const binary = atob(String(base64 || ''));
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+    return JSON.parse(await new Response(stream).text());
+}
+async function pinboardCompressFlightNote(note) {
+    if (!note || note.type !== 'flight' || !note.flightData || note.flightDataGz) return note;
+    try {
+        const packed = await pinboardGzipJson(note.flightData);
+        if (!packed) return note;
+        const out = { ...note, flightDataGz: packed };
+        delete out.flightData;
+        return out;
+    } catch (error) {
+        try { console.warn('[Pinboard] Flugdaten konnten nicht komprimiert werden; bleiben unkomprimiert.', error); } catch (_) {}
+        return note;
+    }
+}
+async function pinboardNoteFlightData(note) {
+    if (note?.flightData) return note.flightData;
+    if (note?.flightDataGz && typeof DecompressionStream === 'function') return pinboardGunzipJson(note.flightDataGz);
+    return null;
+}
+// One-time: compress private flights that were pinned before compression existed.
+let pinboardCompressionMigrationRunning = false;
+async function pinboardCompressStoredFlights() {
+    if (pinboardCompressionMigrationRunning || typeof CompressionStream !== 'function') return;
+    let notes;
+    try { notes = JSON.parse(localStorage.getItem('ga_pinboard') || '[]'); } catch (_) { return; }
+    if (!Array.isArray(notes) || !notes.some(n => n?.type === 'flight' && n.flightData && !n.flightDataGz)) return;
+    pinboardCompressionMigrationRunning = true;
+    try {
+        const packed = await Promise.all(notes.map(pinboardCompressFlightNote));
+        // Only write if nothing changed meanwhile.
+        if (localStorage.getItem('ga_pinboard') !== JSON.stringify(notes)) return;
+        pinboardSavePrivateNotes(packed);
+        triggerCloudSave(true, { reason: 'pinboard-compress' });
+    } catch (error) {
+        try { console.warn('[Pinboard] Komprimieren gespeicherter Flüge fehlgeschlagen:', error); } catch (_) {}
+    } finally {
+        pinboardCompressionMigrationRunning = false;
+    }
+}
+async function executePin(target) {
     if(!pendingPinNote) return;
     if(target === 'private') {
         let notes = JSON.parse(localStorage.getItem('ga_pinboard')) || [];
         if (notes.filter(n => n.type === 'flight').length >= 10) {
             alert("Dein privates Board ist voll! (Max 10 Flüge)."); closePinModal(); return;
         }
-        notes.push(pendingPinNote);
+        const pinNote = await pinboardCompressFlightNote(pendingPinNote);
+        notes = JSON.parse(localStorage.getItem('ga_pinboard')) || [];
+        notes.push(pinNote);
         try {
             const saved = pinboardSavePrivateNotes(notes);
             notes = saved.notes || notes;
@@ -749,12 +806,16 @@ async function loadPinnedFlight(id, isGroup) {
         note = notes.find(n => n.id === id);
     }
     if (!note) return;
-    if (!note.flightData) {
+    let flightData = null;
+    try { flightData = await pinboardNoteFlightData(note); } catch (error) {
+        try { console.warn('[Pinboard] Komprimierte Flugdaten konnten nicht gelesen werden:', error); } catch (_) {}
+    }
+    if (!flightData) {
         alert("Dieser Pinnwand-Flug enthaelt keine gespeicherten Flugdaten mehr. Bitte den Flug neu anpinnen oder aus einem neueren Cloud-Backup laden.");
         try { console.warn('[Pinboard] Flight note without flightData cannot be restored:', note); } catch (_) {}
         return;
     }
-    await pinboardRestoreFlightData(note.flightData);
+    await pinboardRestoreFlightData(flightData);
 }
 
 // Loads a saved mission state as a new planned mission (pinned flights, crew flights).
