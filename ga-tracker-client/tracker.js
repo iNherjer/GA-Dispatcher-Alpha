@@ -116,8 +116,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v599';
-const TRACKER_VERSION_CODE = 599;
+const TRACKER_VERSION = 'v600';
+const TRACKER_VERSION_CODE = 600;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -140,7 +140,7 @@ const TRACKER_POI_EXECUTION_ENABLED = TRACKER_APT_EXECUTION_ENABLED;
 const TRACKER_AUDIO_OUTPUT_ENABLED = TRACKER_APT_EXECUTION_ENABLED
   && Boolean(TRACKER_DESKTOP_CONTROL_TOKEN) && process.env.VFR_MULTITOOL_DESKTOP_AUDIO_PLAYER === '1';
 const TRACKER_EXECUTION_CAPABILITIES = TRACKER_APT_EXECUTION_ENABLED
-  ? ['mission.transfer.v1', 'mission.intent.v1', 'flight.logbook.v1', 'mission.cloud-load.v1', 'mission.cloud-control.v1', 'mission.cargo-batch.v1', 'mission.compliance-debug.v1', 'voice.relay.v1', ...(TRACKER_POI_EXECUTION_ENABLED ? ['mission.poi.v1', 'mission.sar-search.v2', 'mission.bush-strip.v1', 'mission.bush-return.v1', 'mission.bush-narrative.v1'] : []), ...(TRACKER_AUDIO_OUTPUT_ENABLED ? ['audio.output.v1', ...(TRACKER_NAVIGATION_PLAYER_READY ? ['navigation.warnings.v1'] : [])] : [])] : [];
+  ? ['mission.transfer.v1', 'mission.intent.v1', 'flight.logbook.v1', 'mission.cloud-load.v1', 'mission.cloud-control.v1', 'mission.cloud-knock.v1', 'mission.cargo-batch.v1', 'mission.compliance-debug.v1', 'voice.relay.v1', ...(TRACKER_POI_EXECUTION_ENABLED ? ['mission.poi.v1', 'mission.sar-search.v2', 'mission.bush-strip.v1', 'mission.bush-return.v1', 'mission.bush-narrative.v1'] : []), ...(TRACKER_AUDIO_OUTPUT_ENABLED ? ['audio.output.v1', ...(TRACKER_NAVIGATION_PLAYER_READY ? ['navigation.warnings.v1'] : [])] : [])] : [];
 const TRACKER_PROTOCOL_HELLO = createTrackerRelayHello({
   trackerVersion: TRACKER_VERSION,
   trackerVersionCode: TRACKER_VERSION_CODE,
@@ -5173,6 +5173,9 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     pendingCloudMission: _cloudMissionControl ? null : pendingCloudMission(_cloudMissionCandidate, missionAuthorityManager.getActiveRun())
   });
   let _cloudMissionSyncInProgress = false;
+  const CLOUD_MISSION_RETRY_UNSETTLED_MS = 2000; // every 2.5 s poll tick
+  const CLOUD_MISSION_RETRY_ERROR_MS = 10000;
+  let _cloudMissionRetryGapMs = 0;
   let _cloudMissionLastAttemptAt = 0;
   let _cloudMissionLastSuccessAt = 0;
   let _cloudMissionLastStatus = TRACKER_APT_EXECUTION_ENABLED ? 'pending' : 'disabled';
@@ -5181,9 +5184,11 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     if (_cloudMissionSyncInProgress) return _cloudMissionCandidate;
     _cloudMissionSyncInProgress = true;
     _cloudMissionLastAttemptAt = Date.now();
+    _cloudMissionRetryGapMs = 0;
     try {
       const result = await fetchTrackerCloudMission(syncId, pin, { poiExecutionEnabled: TRACKER_POI_EXECUTION_ENABLED });
       if (!result.ok) {
+        _cloudMissionRetryGapMs = CLOUD_MISSION_RETRY_ERROR_MS;
         _cloudMissionLastStatus = result.status || result.code || 'error';
         debugLog(`MISSION_CLOUD_SYNC_ERROR reason=${reason} code=${result.code || 'unknown'} error=${result.message || 'unknown'}`);
         return _cloudMissionCandidate;
@@ -5191,11 +5196,13 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       if (result.missionControl) {
         const applied = cloudMissionReconciler.applied();
         if (applied?.epoch === result.missionControl.epoch && applied.revision > result.missionControl.revision) {
+          _cloudMissionRetryGapMs = CLOUD_MISSION_RETRY_UNSETTLED_MS;
           _cloudMissionLastStatus = 'control-stale';
           return _cloudMissionCandidate;
         }
         _cloudMissionControl = result.missionControl;
         const reconciled = await cloudMissionReconciler.reconcile(result);
+        if (!reconciled.ok && reconciled.status !== 'unversioned') _cloudMissionRetryGapMs = CLOUD_MISSION_RETRY_UNSETTLED_MS;
         if (!reconciled.ok && reconciled.status !== 'pending') {
           _cloudMissionLastStatus = 'control-' + reconciled.status;
           debugLog(`MISSION_CLOUD_CONTROL_WAIT revision=${result.missionControl.revision} status=${reconciled.status} error=${reconciled.error || 'none'}`);
@@ -5207,6 +5214,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       }
       if (!result.missionControl && result.candidate?.bundle?.execution) {
         const reconciled = await cloudMissionReconciler.reconcileLegacy(result);
+        if (!reconciled.ok && reconciled.status !== 'unversioned') _cloudMissionRetryGapMs = CLOUD_MISSION_RETRY_UNSETTLED_MS;
         if (!reconciled.ok) {
           _cloudMissionLastStatus = 'control-' + reconciled.status;
           debugLog(`MISSION_CLOUD_CONTROL_WAIT status=${reconciled.status} error=${reconciled.error || 'none'}`);
@@ -5242,12 +5250,38 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       if (previousKey !== nextKey) broadcastMissionAuthorityUpdate('cloud-mission-detected');
       return _cloudMissionCandidate;
     } catch (error) {
+      _cloudMissionRetryGapMs = CLOUD_MISSION_RETRY_ERROR_MS;
       _cloudMissionLastStatus = 'exception';
       debugLog(`MISSION_CLOUD_SYNC_ERROR reason=${reason} code=exception error=${error?.message || error}`);
       return _cloudMissionCandidate;
     } finally {
       _cloudMissionSyncInProgress = false;
     }
+  };
+  // The app knocks over the relay after it saved, cleared or replaced the cloud
+  // mission; the tracker then reads the cloud at once instead of polling every
+  // 2.5 s. Knocks arriving together share one read.
+  let _cloudMissionKnockTimer = null;
+  const requestCloudMissionRefresh = (reason) => {
+    if (!TRACKER_APT_EXECUTION_ENABLED || _cloudMissionKnockTimer) return;
+    const run = () => {
+      if (_cloudMissionSyncInProgress) { _cloudMissionKnockTimer = setTimeout(run, 500); return; }
+      _cloudMissionKnockTimer = null;
+      refreshCloudMissionCandidate(reason);
+    };
+    // At most one knock-triggered read every 2 s, even when knocks pile up.
+    _cloudMissionKnockTimer = setTimeout(run, Math.max(250, 2000 - (Date.now() - _cloudMissionLastAttemptAt)));
+  };
+  // Safety net when a knock is lost: every 30 s while a relay is connected,
+  // every 5 s without relay (no knock can arrive then).
+  // A reconcile that is not settled yet (sim cleanup, load or cloud change
+  // pending) retries at the old 2.5 s pace; read errors after 10 s.
+  const CLOUD_MISSION_POLL_RELAY_MS = 30000;
+  const CLOUD_MISSION_POLL_NO_RELAY_MS = 5000;
+  const cloudMissionPollDue = (now = Date.now()) => {
+    const relayOpen = [..._relayStates.values()].some(state => state.socket?.readyState === 1);
+    const gap = relayOpen ? CLOUD_MISSION_POLL_RELAY_MS : CLOUD_MISSION_POLL_NO_RELAY_MS;
+    return now - _cloudMissionLastAttemptAt >= (_cloudMissionRetryGapMs ? Math.min(gap, _cloudMissionRetryGapMs) : gap);
   };
   let cleanupLegacyCloudRun = null;
   let _cloudMissionReplacementCleanupInProgress = false;
@@ -6409,6 +6443,11 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       if (source === 'direct-stabilizer-fallback') _directHangarAckCommandIds.set(commandId, Date.now());
       debugLog(`HOMEBASE_CONTROL_DISPATCH source=${source} type=${type} commandId=${commandId} controlId=${command?.controlId || 'door'} state=${command?.state || ''}`);
     }
+    if (type === 'cloud_mission_changed') {
+      debugLog(`MISSION_CLOUD_KNOCK source=${source} reason=${String(command?.reason || 'app').slice(0, 40)}`);
+      requestCloudMissionRefresh('knock');
+      return;
+    }
     if (type === 'radio_tuning_request') {
       executeRadioRelay(command).then(result => sendHomebaseAck({...result, type:'radio_tuning_ack', commandId:command.commandId, clientId:command.clientId, status:result.ok ? 'ok' : 'error'}));
       return;
@@ -6677,6 +6716,8 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       refreshRelayConnectionState();
       clearWsTimers();
       ws.send(JSON.stringify({ type: 'join', syncId, pin, relayRole: 'tracker' }));
+      // Knocks sent while the relay was down are lost; read the cloud once.
+      requestCloudMissionRefresh('relay-open');
       trackerLog(`📡 ${state.config.label}-Relay [${state.config.code}] verbunden für Pilot-ID: ${syncId}`);
       debugLog(`TRACKER_RELAY_OPEN relay=${state.config.key} version=${TRACKER_PROTOCOL_HELLO.protocolVersion} channel=${TRACKER_RUNTIME_CHANNEL} capabilities=${TRACKER_PROTOCOL_HELLO.payload.capabilities.join(',')}`);
       trackerStatusStartTimer = setTimeout(() => {
@@ -6731,7 +6772,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     : null;
   const missionCloudInterval = TRACKER_APT_EXECUTION_ENABLED
     ? setInterval(() => {
-        refreshCloudMissionCandidate('interval');
+        if (cloudMissionPollDue()) refreshCloudMissionCandidate('interval');
       }, 2500)
     : null;
   if (typeof checklistCloudStartTimer.unref === 'function') checklistCloudStartTimer.unref();

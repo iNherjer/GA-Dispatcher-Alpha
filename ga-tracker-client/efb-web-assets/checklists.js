@@ -988,6 +988,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
   function setDrawerOpen(open) {
     if (!drawerEl) return;
     if (!open) closeExpandedPlaceMap();
+    // Reopening the drawer on the list counts as opening the list again.
+    if (!open) lastRenderedView = '';
     if (!isDrawerOpen() || !open) drawerPinned = false;
     drawerEl.classList.toggle('is-open', !!open);
     syncDrawerPin();
@@ -1026,7 +1028,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
       return true;
     }
   }
-  var lastRenderedView = '';
+  var lastRenderedView = ''; // var: setDrawerOpen may run before this line
   function render() {
     var _window$gaChecklistHo3, _window$gaChecklistHo4, _window$gaChecklistHo5, _window$gaChecklistHo6;
     if (!bodyEl) return;

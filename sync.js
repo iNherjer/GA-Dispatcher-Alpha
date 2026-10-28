@@ -16982,6 +16982,49 @@ async function _cleanupSharedMissionForReplacement() {
         complianceReleased: true, respawnAfterClear: false, reason: 'accepted-mission-replacement' });
     if (reset === false) throw new Error('Lokale Missionsbereinigung wurde nicht bestätigt.');
 }
+// After a cloud write that changed the mission or free-flight route, knock the
+// running tracker over the relay so it reads the cloud at once (it otherwise
+// only checks every 30 s). The knock carries no mission data.
+const CLOUD_MISSION_KNOCK_CAPABILITY = 'mission.cloud-knock.v1';
+let cloudMissionKnockFingerprint = '';
+let cloudMissionKnockPending = null;
+function _sendCloudMissionKnock(reason) {
+    if (!(window.liveTrackerCapabilities || []).includes(CLOUD_MISSION_KNOCK_CAPABILITY)) return false;
+    return window.sendTrackerCommand?.({ type: 'cloud_mission_changed', reason: String(reason || 'save').slice(0, 40) }) === true;
+}
+window.gaKnockTrackerCloudMission = function(payload, reason, force = false) {
+    try {
+        const fingerprint = JSON.stringify([getSyncId(), payload?.activeMission ?? null,
+            payload?.activeMissionTrackerSeed ?? null, payload?.freeflightNavigation ?? null]);
+        if (!force && fingerprint === cloudMissionKnockFingerprint) return false;
+        cloudMissionKnockFingerprint = fingerprint;
+        if (_sendCloudMissionKnock(reason)) {
+            cloudMissionKnockPending = null;
+            return true;
+        }
+        // Relay down or tracker not heard yet: knock with the next tracker heartbeat.
+        cloudMissionKnockPending = { syncId: getSyncId(), reason, at: Date.now() };
+        return false;
+    } catch (_) {
+        return false;
+    }
+};
+window.gaFlushTrackerCloudMissionKnock = function() {
+    const pending = cloudMissionKnockPending;
+    if (!pending) return false;
+    // Older than the tracker's 30 s safety poll: it has read the cloud by now.
+    if (pending.syncId !== getSyncId() || Date.now() - pending.at > 30000) {
+        cloudMissionKnockPending = null;
+        return false;
+    }
+    try {
+        if (!_sendCloudMissionKnock(pending.reason)) return false;
+    } catch (_) {
+        return false;
+    }
+    cloudMissionKnockPending = null;
+    return true;
+};
 async function _publishSharedMissionReplacement(state, basis) {
     if (basis.localOnly) return { localOnly: true };
     if (getSyncId() !== basis.id) throw new Error('Pilot während der Übernahme gewechselt.');
@@ -16999,6 +17042,7 @@ async function _publishSharedMissionReplacement(state, basis) {
     _syncClearPendingUpload();
     if (typeof _syncWriteFieldBase === 'function') _syncWriteFieldBase(payload);
     _syncSetLocalMissionChoice(state ? 'shared' : null, { missionOnly: !!state });
+    window.gaKnockTrackerCloudMission?.(payload, state ? 'activate' : 'clear', true);
     updateSyncStatus(state ? 'Cloud: Mission angenommen ✅' : 'Cloud: Mission gelöscht ✅');
     return transfer;
 }
@@ -17210,6 +17254,7 @@ async function triggerCloudSave(immediate = false, options = {}) {
         const transfer = await client.write(uploadPayload, { force: immediate === 'manual', expectedRevision, legacyTime: localSyncTime,
             ...(immediate === 'manual' ? { missionChange: { action: activeMission ? 'activate' : 'clear' } } : missionChange ? { missionChange } : {}) });
         if (missionChange && localStorage.getItem(completedClearKey) === JSON.stringify(completedClear)) localStorage.removeItem(completedClearKey);
+        window.gaKnockTrackerCloudMission?.(uploadPayload, missionChange ? missionChange.action : (immediate === 'manual' ? 'manual' : 'save'), !!missionChange || immediate === 'manual');
         if (immediate === 'manual') _syncSetLocalMissionChoice(null);
         if (getSyncId() !== id) throw new Error('Pilot während Upload gewechselt; lokaler Stand bleibt unverändert.');
         window.gaCloudRestoreIncomplete = false;
@@ -18120,6 +18165,7 @@ function _markTrackerHeartbeat(pkt) {
     const reportedCapabilities = _trackerCapabilitiesFromPacket(pkt);
     if (reportedCapabilities.length) {
         window.liveTrackerCapabilities = reportedCapabilities;
+        window.gaFlushTrackerCloudMissionKnock?.();
         // A fresh handshake may explicitly disable the opt-in; a transport
         // gap with no capabilities may not silently change execution mode.
         if (!reportedCapabilities.includes(MISSION_INTENT_CAPABILITY)) missionExecutionRequestedMissionId = null;

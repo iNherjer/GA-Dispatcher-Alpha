@@ -790,6 +790,8 @@
     function setDrawerOpen(open) {
         if (!drawerEl) return;
         if (!open) closeExpandedPlaceMap();
+        // Reopening the drawer on the list counts as opening the list again.
+        if (!open) lastRenderedView = '';
         if (!isDrawerOpen() || !open) drawerPinned = false;
         drawerEl.classList.toggle('is-open', !!open);
         syncDrawerPin();
@@ -832,7 +834,7 @@
         }
     }
 
-    let lastRenderedView = '';
+    var lastRenderedView = ''; // var: setDrawerOpen may run before this line
     function render() {
         if (!bodyEl) return;
         if (state.view === 'list' && lastRenderedView !== 'list') refreshHostChecklists('open');

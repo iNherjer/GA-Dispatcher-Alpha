@@ -1779,6 +1779,19 @@ Annehmen und bestätigtes Löschen veröffentlichen einen ausdrücklichen `missi
 
 Der Tracker prüft den bestehenden Cloud-Poll, verifiziert Kontrollvermerk und Seed und ersetzt den älteren Run über den vorhandenen Abbruch-/Sim-Bereinigungspfad. Nach Bereinigung liest er nochmals den Head; ein inzwischen ersetzter Auftrag wird nicht geladen. Der neue Seed wird als `planned` mit Tracker Authority übernommen, ohne `prepare_mission`, Boarding oder Voice. Löschung erfordert explizit `activeMission=null` und `activeMissionTrackerSeed=null`; Netzwerkfehler, HTTP 404, fehlender Kontrollvermerk und ungültige Seeds sind keine Löschung. Benötigte Sim-Bereinigung bleibt bei fehlender Verbindung ausstehend. Die angewandte Revision wird pro Pilot/Kanal erst nach erfolgreichem Authority-Checkpoint gespeichert, damit abgebrochene/beendete Aufträge nach Neustart nicht erneut laden. Ab Tracker v545 werden auch Legacy-Profile mit vollstaendig validiertem Tracker-Seed automatisch uebernommen; zwei frische Lesepruefungen binden die Uebernahme an dieselbe Missions-/Seed-Auswahl. Unversionierte Leerantworten sind weiterhin keine Loeschung. Ein serverkontrollierter Slot wird nie auf eine unversionierte Antwort zurueckgestuft. Nicht unterstützte oder fehlende Tracker-Seeds werden abgewiesen, ohne den alten Run abzubrechen.
 
+Cloud-Anstoß (ab Tracker v600, Fähigkeit `mission.cloud-knock.v1`): Nach jedem erfolgreichen Cloud-Schreiben, das
+`activeMission`, `activeMissionTrackerSeed` oder `freeflightNavigation` ändert (Annahme, Löschen, Ersetzen,
+Abschluss, manuelles Speichern), schickt die Web-App über den Relay `cloud_mission_changed` ohne Missionsdaten.
+Der Tracker liest daraufhin sofort den Cloud-Head über denselben Prüfpfad wie beim Poll; mehrere Anstöße teilen sich
+einen Lesevorgang. Die Cloud bleibt alleinige Quelle, der Anstoß ist nur ein Weckruf. Der Poll bleibt als
+Sicherheitsnetz: alle 30 s bei verbundenem Relay, alle 5 s ohne Relay, plus einmal nach jedem Relay-(Wieder-)Aufbau.
+Ein noch nicht abgeschlossener Abgleich (`pending`, `cleanup_pending`, `load_pending`, `retry`, `cloud_changed`,
+`run_changed`, `control-stale`) wird wie bisher alle 2,5 s wiederholt, Lesefehler nach 10 s; `unversioned` bleibt
+beim normalen Takt. Höchstens ein durch Anstöße ausgelöster Lesevorgang alle 2 s. Konnte die App den Anstoß nicht
+senden (Relay weg, Tracker noch nicht gehört), holt sie ihn mit dem nächsten Tracker-Heartbeat nach, längstens 30 s.
+Vorher lief er fest alle 2,5 s (rund 35.000 Worker-Anfragen pro Tracker und Tag). Ohne laufenden Tracker lädt er die
+Mission wie bisher beim Start.
+
 App-Entwürfe bleiben lokal isoliert. Beim Öffnen ersetzt der aktuelle Cloud-Slot eine angenommene alte App-Mission; während eines Entwurfs erscheint nur ein Hinweis. Vor destruktiver Annahme-/Löschbereinigung muss der Worker `capabilities.missionControl=true` liefern. Rollout: zuerst Worker, dann Web-App und Tracker-EXE v500. Kein neues SDK-Paket erforderlich. Kontrollmetadata verwendet denselben Head-Abruf; nur bei Missionswechseln werden zusätzliche frische Kontrolllesungen vor/nach Bereinigung benötigt.
 
 

@@ -24,6 +24,15 @@ test('current tracker exits a duplicate instance when the fixed EFB port is alre
   assert.match(trackerSource, /refreshChecklistLibraryFromCloud\('startup'\)/);
   assert.doesNotMatch(trackerSource, /refreshChecklistLibraryFromCloud\('interval'\)/);
   assert.match(trackerSource, /request\.intent === 'refresh_checklists'/);
+  // Cloud mission: the app knocks over the relay; polling is only a 30 s / 5 s safety net.
+  assert.match(trackerSource, /'mission\.cloud-knock\.v1'/);
+  assert.match(trackerSource, /type === 'cloud_mission_changed'[\s\S]*?requestCloudMissionRefresh\('knock'\)/);
+  assert.match(trackerSource, /requestCloudMissionRefresh\('relay-open'\)/);
+  assert.match(trackerSource, /CLOUD_MISSION_POLL_RELAY_MS = 30000/);
+  assert.match(trackerSource, /if \(cloudMissionPollDue\(\)\) refreshCloudMissionCandidate\('interval'\)/);
+  const appSyncSource = fs.readFileSync(path.join(__dirname, '..', 'sync.js'), 'utf8');
+  assert.match(appSyncSource, /const CLOUD_MISSION_KNOCK_CAPABILITY = 'mission\.cloud-knock\.v1'/);
+  assert.equal((appSyncSource.match(/window\.gaKnockTrackerCloudMission\?\.\((payload|uploadPayload),/g) || []).length, 2);
   assert.match(trackerSource, /modelGroundClearanceFt: modelClearanceFt/);
   assert.match(trackerSource, /createTelemetryHibernateController/);
   assert.match(trackerSource, /telemetryMode: _telemetryHibernateState\.mode/);
