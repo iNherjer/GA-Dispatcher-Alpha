@@ -276,13 +276,22 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       void sync();
     }
   };
+  // Web: the regular profile pull already carries navcomMode (gaApplyCloudNavcomMode),
+  // so no own cloud polling. The EFB asks the local Tracker, which costs no cloud requests.
+  window.gaApplyCloudNavcomMode = function (mode) {
+    var _window$GANavcomPrefe, _window$GANavcomPrefe2;
+    if (nativeEfb || !((_window$GANavcomPrefe = window.GANavcomPreferencesCore) !== null && _window$GANavcomPrefe !== void 0 && (_window$GANavcomPrefe2 = _window$GANavcomPrefe.validMode) !== null && _window$GANavcomPrefe2 !== void 0 && _window$GANavcomPrefe2.call(_window$GANavcomPrefe, mode)) || typeof window.gaSetNavcomMode !== 'function') return;
+    connect();
+    if (!readPending()) window.gaSetNavcomMode(mode, false);
+  };
   function install() {
     void sync();
-    setInterval(sync, 15000);
-    document.addEventListener('visibilitychange', () => {
-      if (visible()) void sync();
-    });
-    window.addEventListener('pageshow', sync);
+    if (nativeEfb) {
+      setInterval(sync, 15000);
+      document.addEventListener('visibilitychange', () => {
+        if (visible()) void sync();
+      });
+    }
     window.addEventListener('online', sync);
     window.addEventListener('storage', () => {
       connect();

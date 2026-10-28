@@ -5157,12 +5157,64 @@ function vpGetStoredElevationCache(key) {
     return null;
   }
 }
+
+// Elevation profiles are a cache (~18 KB each, fine + coarse per route). Keep only the most
+// recent ones; unbounded they filled Safari's local storage and blocked pinboard saves.
+var VP_ELEVATION_STORE_PREFIX = 'ga_elev_cache_';
+var VP_ELEVATION_STORE_INDEX_KEY = 'ga_elev_index_v1';
+var VP_ELEVATION_STORE_MAX = 24;
+var vpElevationStoreSwept = false;
+function vpReadElevationStoreIndex() {
+  try {
+    var list = JSON.parse(localStorage.getItem(VP_ELEVATION_STORE_INDEX_KEY) || '[]');
+    return Array.isArray(list) ? list.filter(k => typeof k === 'string' && k.startsWith(VP_ELEVATION_STORE_PREFIX)) : [];
+  } catch (_) {
+    return [];
+  }
+}
+function vpPruneElevationStore(index) {
+  var removeAll = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+  var keep = new Set(removeAll ? [] : index);
+  try {
+    for (var i = localStorage.length - 1; i >= 0; i--) {
+      var key = localStorage.key(i);
+      if (key && key.startsWith(VP_ELEVATION_STORE_PREFIX) && !keep.has(key)) localStorage.removeItem(key);
+    }
+  } catch (_) {}
+}
+
+// Startup: clear old entries that are not in the index (from versions without a limit).
+if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+  setTimeout(() => {
+    if (vpElevationStoreSwept) return;
+    vpElevationStoreSwept = true;
+    vpPruneElevationStore(vpReadElevationStoreIndex());
+  }, 4000);
+}
 function vpSetStoredElevationCache(key, data) {
   var coarse = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
+  var prefix = coarse ? 'ga_elev_cache_q3_' : VP_ELEVATION_STORE_PREFIX;
+  var fullKey = prefix + key;
+  var index = vpReadElevationStoreIndex().filter(k => k !== fullKey);
+  index.push(fullKey);
+  var dropped = index.length > VP_ELEVATION_STORE_MAX ? index.slice(0, index.length - VP_ELEVATION_STORE_MAX) : [];
+  index = index.slice(-VP_ELEVATION_STORE_MAX);
   try {
-    var prefix = coarse ? 'ga_elev_cache_q3_' : 'ga_elev_cache_';
-    localStorage.setItem(prefix + key, JSON.stringify(data));
-  } catch (_) {}
+    dropped.forEach(k => localStorage.removeItem(k));
+    // Once per session: drop entries from before the index existed.
+    if (!vpElevationStoreSwept) {
+      vpElevationStoreSwept = true;
+      vpPruneElevationStore(index);
+    }
+    localStorage.setItem(VP_ELEVATION_STORE_INDEX_KEY, JSON.stringify(index));
+    localStorage.setItem(fullKey, JSON.stringify(data));
+  } catch (_) {
+    // Storage full: the cache is the first thing to give up.
+    vpPruneElevationStore([], true);
+    try {
+      localStorage.removeItem(VP_ELEVATION_STORE_INDEX_KEY);
+    } catch (_) {}
+  }
 }
 function vpIsElevationCoolingDown() {
   var _window$vpWeatherDebu;

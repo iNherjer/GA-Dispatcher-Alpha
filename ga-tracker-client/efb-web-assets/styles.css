@@ -24,6 +24,11 @@
 }
 
 :root {
+    /* Backgrounds per light/dark choice (data-appearance is set in index.html). Without it,
+       e.g. in the EFB, the old images stay. */
+    --app-bg-image: url('bg.jpg');
+    --pinboard-bg-image: url('board.webp');
+    --maptable-bg-image: url('map.jpg');
     --blue: #4da6ff;
     --bg-dark: #080808;
     --card: #1e1e1e;
@@ -96,7 +101,7 @@ body::before {
     z-index: -1;
     pointer-events: none;
     background-color: var(--bg-dark);
-    background-image: url('bg.jpg');
+    background-image: var(--app-bg-image);
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -3178,7 +3183,7 @@ body.theme-retro .api-fuel-meter .api-scale {
 .pinboard-content {
     width: 900px;
     height: 600px;
-    background-image: url('board.jpg') !important;
+    background-image: var(--pinboard-bg-image) !important;
     background-size: cover;
     background-position: center;
     position: relative;
@@ -3386,7 +3391,7 @@ body.theme-retro .api-fuel-meter .api-scale {
 .maptable-content {
     width: 1000px;
     height: 600px;
-    background-image: url('map.jpg');
+    background-image: var(--maptable-bg-image);
     background-size: cover;
     background-position: center;
     position: relative;
@@ -13049,7 +13054,7 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95):
         linear-gradient(180deg, rgba(255, 255, 255, 0.11), transparent 34%),
         linear-gradient(90deg, rgba(126, 199, 255, 0.13), transparent 42%, rgba(104, 242, 160, 0.10)),
         linear-gradient(135deg, rgba(42, 94, 125, 0.32), rgba(14, 18, 30, 0.68) 48%, rgba(17, 59, 56, 0.36)),
-        url('bg.jpg');
+        var(--app-bg-image);
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -13753,10 +13758,10 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) 
 body.theme-ops1940 {
     --ops-atlas: url('assets/ui/ops1940/ops1940-texture-atlas.webp');
     --ops-desk-bg: url('assets/ui/ops1940/ops1940-desk-bg.webp');
-    --ops-bomber-atlas: url('assets/ui/ops1940/ops1940-bomber-atlas.png');
-    --ops-bomber-bg: url('assets/ui/ops1940/ops1940-bomber-panel-bg.png');
+    --ops-bomber-atlas: url('assets/ui/ops1940/ops1940-bomber-atlas.webp');
+    --ops-bomber-bg: url('assets/ui/ops1940/ops1940-bomber-panel-bg.webp');
     --ops-controls-atlas: url('assets/ui/ops1940/ops1940-controls-atlas.webp');
-    --ops-pictogram-atlas: url('assets/ui/ops1940/ops1940-pictograms-v2.png');
+    --ops-pictogram-atlas: url('assets/ui/ops1940/ops1940-pictograms-v2.webp');
     --ops-switchgear-atlas: url('assets/ui/ops1940/ops1940-switchgear-atlas.webp');
     --ops-picto-dep: url('assets/ui/ops1940/ops1940-picto-dep-square.webp');
     --ops-picto-dest: url('assets/ui/ops1940/ops1940-picto-dest-square.webp');
@@ -20876,7 +20881,7 @@ body.theme-win95 .ga-radio-dialog { background: #c0c0c0; color: #000; border: 3p
 .logbook-stage.is-transitioning .logbook-reading { position: absolute; top: 0; left: calc(-1 * var(--logbook-bleed-left, 0px)); margin-left: 0; }
 .logbook-stage.is-transitioning .logbook-pocket { position: absolute; margin: 0; top: var(--logbook-pocket-top); bottom: auto; left: 0; width: 100%; }
 .logbook-cover[hidden], .logbook-reading[hidden] { display: none; }
-.logbook-spread { position: relative; width: 100%; min-width: 0; aspect-ratio: 1.8; min-height: 320px; box-sizing: border-box; background: url('assets/ui/logbook/open.png') center / 100% 100% no-repeat; color: #3e4350; }
+.logbook-spread { position: relative; width: 100%; min-width: 0; aspect-ratio: 1.8; min-height: 320px; box-sizing: border-box; background: url('assets/ui/logbook/open.webp') center / 100% 100% no-repeat; color: #3e4350; }
 .logbook-table { position: absolute; inset: 18% 7.5% 25%; display: grid; grid-template-rows: 25px repeat(4, minmax(0, 1fr)); font-family: 'GA Logbook Ink', 'Caveat', 'Segoe Print', cursive; font-weight: 600; font-size: clamp(11px, 3.6cqw, 18px); line-height: 1.05; }
 .logbook-table-header, .logbook-flight { display: grid; grid-template-columns: 16% 13% 18% 6% 12% 11% 24%; min-width: 0; }
 .logbook-table-header { align-items: stretch; font: 700 clamp(9px, 2.7cqw, 13px) 'Courier New', Courier, monospace; color: #77644c; }
@@ -21341,3 +21346,94 @@ body.theme-win95 .aircraft-quick-slot-menu .airport-autocomplete-option.is-activ
 .flight-track-swatch { flex: 0 0 auto; width: 10px; height: 10px; border-radius: 2px; align-self: center; }
 .flight-track-airspace-detail { flex: 1 1 100%; padding-left: 18px; opacity: .8; font-size: 12px; }
 .flight-track-airspace-note { margin: 6px 0 0; font-size: 11px; opacity: .65; }
+
+/* ==========================================================================
+   HELL / DUNKEL (Hintergründe)
+   ========================================================================== */
+:root[data-appearance="dark"] {
+    --app-bg-image: url('assets/ui/appearance/app-bg-dark.webp?v=20261028');
+    --pinboard-bg-image: url('assets/ui/appearance/pinboard-dark.webp');
+    --maptable-bg-image: url('assets/ui/appearance/maptable-dark.webp');
+}
+:root[data-appearance="light"] {
+    --light-panel-drop: 0 2px 4px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.18),
+        0 14px 24px 4px rgba(8, 14, 22, 0.45), 0 34px 60px 16px rgba(8, 14, 22, 0.48),
+        0 70px 120px 40px rgba(8, 14, 22, 0.40);
+    --app-bg-image: url('assets/ui/appearance/app-bg-light.webp?v=20261028');
+    --pinboard-bg-image: url('assets/ui/appearance/pinboard-light.webp');
+    --maptable-bg-image: url('assets/ui/appearance/maptable-light.webp');
+}
+
+.appearance-control {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: min(260px, 100%);
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+.appearance-switch {
+    display: flex;
+    width: 100%;
+    border: 1px solid #4d5b68;
+    border-radius: 6px;
+    overflow: hidden;
+}
+.appearance-switch button {
+    flex: 1;
+    min-height: 32px;
+    padding: 4px 6px;
+    border: 0;
+    border-left: 1px solid #4d5b68;
+    background: #252b31;
+    color: #dce8f5;
+    font-weight: 800;
+    font-size: 11px;
+    cursor: pointer;
+}
+.appearance-switch button:first-child { border-left: 0; }
+.appearance-switch button:hover { color: #fff; }
+.appearance-switch button[aria-pressed="true"] {
+    background: var(--blue) !important; /* skins style all settings buttons */
+    color: #04121f !important;
+    text-shadow: none !important;
+}
+.appearance-switch button:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+body.theme-retro .appearance-control { border-top: 1px dashed rgba(228, 222, 200, 0.38); }
+/* Panels without the glareshield get the same lift on the light map. */
+:root[data-appearance="light"] body.theme-retro .container:not(.gs-on),
+:root[data-appearance="light"] body.theme-navcom .container:not(.gs-on) {
+    box-shadow: inset 0 4px 6px rgba(255, 255, 255, 0.2), inset 0 -6px 12px rgba(0, 0, 0, 0.3), var(--light-panel-drop);
+}
+body.theme-retro .appearance-switch button[aria-pressed="true"] { background: var(--piper-yellow) !important; color: #111 !important; }
+
+/* Light map: the footer below the panel sits directly on the bright background,
+   so its pale text needs dark ink (inline colors in index.html need !important). */
+:root[data-appearance="light"] body:not(.theme-ops1940):not(.theme-win95) .version-info {
+    color: #26303b;
+    text-shadow: 0 0 3px rgba(255, 255, 255, 0.9), 0 0 8px rgba(255, 255, 255, 0.6);
+}
+:root[data-appearance="light"] body:not(.theme-ops1940):not(.theme-win95) .version-info #swVersionDisplay {
+    color: #144a85 !important;
+    background: rgba(255, 255, 255, 0.6) !important;
+    text-shadow: none;
+}
+:root[data-appearance="light"] body:not(.theme-ops1940):not(.theme-win95) .version-info #localFreshnessDisplay { color: #144a85 !important; }
+:root[data-appearance="light"] body:not(.theme-ops1940):not(.theme-win95) .version-info > button:not(#btnReportProblemEmail):not(#openTutorialBtn) {
+    color: #22344a !important;
+    border-color: #4f6680 !important;
+    background: rgba(255, 255, 255, 0.55) !important;
+    opacity: 0.9 !important;
+    text-shadow: none;
+}
+:root[data-appearance="light"] body:not(.theme-ops1940):not(.theme-win95) .version-info > button:not(#btnReportProblemEmail):not(#openTutorialBtn):hover { opacity: 1 !important; }
+:root[data-appearance="light"] body:not(.theme-ops1940):not(.theme-win95) .legal-footer-links a { color: #144a85; }
+:root[data-appearance="light"] body:not(.theme-ops1940):not(.theme-win95) .legal-footer-links a:hover { color: #0a2c52; border-bottom-color: #0a2c52; }
+:root[data-appearance="light"] body:not(.theme-ops1940):not(.theme-win95) .support-donate-prompt { color: #26303b; }
+:root[data-appearance="light"] body:not(.theme-ops1940):not(.theme-win95) .support-donate-note,
+:root[data-appearance="light"] body:not(.theme-ops1940):not(.theme-win95) .support-donate-note summary { color: #3c4652; }
