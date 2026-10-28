@@ -202,14 +202,12 @@
         fx.querySelector('.gs-rs1').setAttribute('offset', edgeF.toFixed(3));
         fx.querySelector('.gs-rs2').setAttribute('offset', (1 - edgeF).toFixed(3));
 
-        // Panel folgt oben genau der Kontur (Koordinaten des Glareshields, um seinen Abstand zur Box versetzt);
-        // seitlich, oben und unten bleibt reichlich Platz, damit der Schatten nicht hart abgeschnitten wird
-        if (k > 0) {
-            var Hb = container.offsetHeight, Wb = container.offsetWidth, gx = glare.offsetLeft, M = 240;
-            var top2 = topPath(W, k, R, Dt, S, gx, 0), y0 = f1(top2.start[1]);
-            container.style.clipPath = "path('M" + (-M) + ' ' + (-M) + 'L' + gx + ' ' + (-M) + 'L' + gx + ' ' + y0 + top2.d +
-                'L' + (gx + W) + ' ' + (-M) + 'L' + (Wb + M) + ' ' + (-M) + 'L' + (Wb + M) + ' ' + (Hb + M) + 'L' + (-M) + ' ' + (Hb + M) + "Z')";
-        } else container.style.clipPath = '';
+        // Panel folgt oben der Kontur: deren Ecken sind Ellipsenviertel (Sx breit, Dy hoch), also rundet
+        // das Panel seine oberen Ecken genauso. Das schneidet den Rahmen über dem Bogen ab, und der Schatten
+        // folgt der Form, statt von einem Zuschnitt gekappt zu werden.
+        var cornerX = f1(R + (S - R) * k + glare.offsetLeft), cornerY = f1(top.Dy);
+        container.style.clipPath = '';
+        container.style.borderTopLeftRadius = container.style.borderTopRightRadius = k > 0 ? cornerX + 'px ' + cornerY + 'px' : '';
         container.style.setProperty('--gs-shift', f1(DROP * k) + 'px');
         container.classList.toggle('gs-arc', k > 0 || !!(start && start.edge && start.axis));
     }
@@ -353,6 +351,7 @@
         if (!on) {
             if (open) setOpen(false);
             container.style.clipPath = '';
+            container.style.borderTopLeftRadius = container.style.borderTopRightRadius = '';
             container.classList.remove('gs-arc', 'gs-peek');
             return;
         }
