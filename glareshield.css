@@ -34,6 +34,9 @@ body.theme-retro .container.gs-on::before {
 /* On the light map one big 90 % shadow reads as a dark box; layered shadows
    (contact edge, near, far) lift the panel off the map instead. */
 :root[data-appearance="light"] body.theme-retro .container.gs-on::before { --gs-panel-drop: var(--light-panel-drop); }
+:root[data-appearance="light"] body.theme-retro .container.gs-on .glareshield {
+    filter: drop-shadow(0 7px 7px rgba(0, 0, 0, .55)) drop-shadow(0 4px 16px rgba(10, 20, 30, .55));
+}
 @media (max-width: 767px) {
     body.theme-retro .container.gs-on { --gs-ov-max: 4px; padding-left: 17px !important; padding-right: 18px !important; padding-bottom: 24px !important; }
 }
