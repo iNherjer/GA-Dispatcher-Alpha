@@ -28,11 +28,12 @@ body.theme-retro .container.gs-on::before {
         repeating-linear-gradient(-85deg, transparent, transparent 2px, rgba(0, 0, 0, 0.02) 2px, rgba(0, 0, 0, 0.02) 4px);
     box-shadow: inset 3px 0 0 var(--p-bl), inset -4px 0 0 var(--p-br), inset 0 -4px 0 var(--p-bb),
         inset 0 4px 6px rgba(255, 255, 255, 0.2), inset 0 -6px 12px rgba(0, 0, 0, 0.3),
-        0 20px 50px var(--gs-panel-shadow, rgba(0, 0, 0, 0.9));
+        var(--gs-panel-drop, 0 20px 50px rgba(0, 0, 0, 0.9));
     transition: background-color 0.4s ease;
 }
-/* On the light map a 90 % shadow reads as a dark box around the panel. */
-:root[data-appearance="light"] body.theme-retro .container.gs-on::before { --gs-panel-shadow: rgba(0, 0, 0, 0.38); }
+/* On the light map one big 90 % shadow reads as a dark box; layered shadows
+   (contact edge, near, far) lift the panel off the map instead. */
+:root[data-appearance="light"] body.theme-retro .container.gs-on::before { --gs-panel-drop: var(--light-panel-drop); }
 @media (max-width: 767px) {
     body.theme-retro .container.gs-on { --gs-ov-max: 4px; padding-left: 17px !important; padding-right: 18px !important; padding-bottom: 24px !important; }
 }

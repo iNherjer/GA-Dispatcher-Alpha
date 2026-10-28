@@ -21356,6 +21356,8 @@ body.theme-win95 .aircraft-quick-slot-menu .airport-autocomplete-option.is-activ
     --maptable-bg-image: url('assets/ui/appearance/maptable-dark.webp');
 }
 :root[data-appearance="light"] {
+    --light-panel-drop: 0 1px 2px rgba(0, 0, 0, 0.45), 0 6px 12px rgba(10, 20, 30, 0.30),
+        0 18px 34px rgba(10, 20, 30, 0.30), 0 38px 76px rgba(10, 20, 30, 0.26);
     --app-bg-image: url('assets/ui/appearance/app-bg-light.webp?v=20261028');
     --pinboard-bg-image: url('assets/ui/appearance/pinboard-light.webp');
     --maptable-bg-image: url('assets/ui/appearance/maptable-light.webp');
@@ -21402,4 +21404,9 @@ body.theme-win95 .aircraft-quick-slot-menu .airport-autocomplete-option.is-activ
 }
 .appearance-switch button:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
 body.theme-retro .appearance-control { border-top: 1px dashed rgba(228, 222, 200, 0.38); }
+/* Panels without the glareshield get the same lift on the light map. */
+:root[data-appearance="light"] body.theme-retro .container:not(.gs-on),
+:root[data-appearance="light"] body.theme-navcom .container:not(.gs-on) {
+    box-shadow: inset 0 4px 6px rgba(255, 255, 255, 0.2), inset 0 -6px 12px rgba(0, 0, 0, 0.3), var(--light-panel-drop);
+}
 body.theme-retro .appearance-switch button[aria-pressed="true"] { background: var(--piper-yellow) !important; color: #111 !important; }
