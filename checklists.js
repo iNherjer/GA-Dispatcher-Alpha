@@ -832,8 +832,11 @@
         }
     }
 
+    let lastRenderedView = '';
     function render() {
         if (!bodyEl) return;
+        if (state.view === 'list' && lastRenderedView !== 'list') refreshHostChecklists('open');
+        lastRenderedView = state.view;
         if (window.gaChecklistHost?.supportsTool?.(state.view) === false) {
             setTitle(state.view === 'weather' ? 'Wetter' : 'Kartenwerkzeuge');
             bodyEl.innerHTML = toolTopline(state.view) + renderToolEmpty('Diese Funktion ist im EFB noch nicht verfügbar. Niederschlagsradar ist im Layer-Menü wählbar.');
@@ -3592,6 +3595,26 @@ ${routeLines}`;
         setTimeout(renderPlaceEnhancements, 0);
     }
 
+    // EFB only: the tracker fetches cloud checklists when the list opens or on the button.
+    let hostChecklistRefreshAt = 0;
+    function refreshHostChecklists(trigger) {
+        const host = window.gaChecklistHost;
+        if (!host?.refreshChecklists) return;
+        const now = Date.now();
+        if (trigger !== 'button' && now - hostChecklistRefreshAt < 2 * 60 * 1000) return;
+        hostChecklistRefreshAt = now;
+        if (trigger === 'button') setStatus('Checklisten werden aus der Cloud geholt …');
+        Promise.resolve(host.refreshChecklists(trigger)).then(result => {
+            if (trigger !== 'button') return;
+            if (!result?.ok) setStatus('Cloud-Abruf fehlgeschlagen. Der letzte Stand bleibt erhalten.', 'warn');
+            else if (result.status === 'app-authority') setStatus('Checklisten kommen gerade direkt aus der verbundenen App.', 'good');
+            else if (result.status === 'recent') setStatus('Gerade erst aktualisiert.', 'good');
+            else setStatus('Checklisten aktualisiert.', 'good');
+        }).catch(() => {
+            if (trigger === 'button') setStatus('Tracker nicht erreichbar.', 'warn');
+        });
+    }
+
     function renderList() {
         setTitle('Checklists');
         const cards = visibleChecklists().map(checklist => {
@@ -3615,6 +3638,7 @@ ${routeLines}`;
                 <button class="checklist-action-btn primary" type="button" data-action="new">Neue Checkliste</button>
                 <button class="checklist-action-btn" type="button" data-action="import-open">Import</button>
                 <button class="checklist-icon-btn" type="button" data-action="manager" title="Checklists verwalten">⚙</button>
+                ${window.gaChecklistHost?.refreshChecklists ? '<button class="checklist-icon-btn" type="button" data-action="checklist-cloud-refresh" title="Checklisten aus der Cloud aktualisieren">↻</button>' : ''}
             </div>
             <div class="checklist-list">${cards}</div>
         `;
@@ -4615,6 +4639,10 @@ ${routeLines}`;
         if (!button || !bodyEl.contains(button)) return;
         if (button.disabled || button.getAttribute('aria-disabled') === 'true') return;
         const action = button.dataset.action;
+        if (action === 'checklist-cloud-refresh') {
+            refreshHostChecklists('button');
+            return;
+        }
         if (action === 'mission-flightplan-transfer' && window.gaChecklistHost?.transferFlightPlan) {
             window.gaChecklistHost.transferFlightPlan(button.dataset.target);
             return;

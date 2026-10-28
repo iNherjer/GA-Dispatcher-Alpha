@@ -1117,6 +1117,11 @@ async function resolveSyncPilotId(env, requestedPilotId) {
   }
   if (exactRaw) return classifyAccountResolution(requested, exactRaw);
 
+  // Checklist keys are built by the apps, never typed by a person, so the
+  // case-insensitive search is not needed. It cost one KV list per missing
+  // key, and the tracker asks for CHKIDX_ once a minute.
+  if (/^CHK(IDX)?_/.test(requested)) return { status: "missing", pilotId: "", raw: null };
+
   if (typeof env.GA_SYNC_KV.list !== "function") return { status: "missing", pilotId: "", raw: null };
 
   let listed;

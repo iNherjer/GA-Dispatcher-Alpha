@@ -301,3 +301,13 @@ noch meldenden Trackers; bei der Freigabe gewinnt der neueste Zeitstempel (`shar
 Schreiber: Tracker (`tracker-crew-presence.js`), Web-App nur ohne verbundenen Tracker
 (`crew-presence-client.js`). Leser: Web-App-Crew-Brett. Worker vor Web/Tracker deployen;
 ohne Deploy antwortet der alte Worker 404 und die App zeigt die Mitglieder als offline.
+
+## KV-List-Sparfix Checklisten (28.10.2026, deployed)
+Ursache der Cloudflare-Mail „50 % des KV-Tageslimits“: Fehlte ein Schlüssel exakt,
+listete `resolveSyncPilotId` alle KV-Schlüssel für die Suche ohne Groß-/Kleinschreibung.
+Der Tracker fragt `CHKIDX_<Pilot>` jede Minute ab. Bei Piloten ohne Checklisten kostete
+das 1 List-Vorgang pro Minute (Free-Limit 1.000/Tag). `CHK_`/`CHKIDX_`-Schlüssel werden
+jetzt nur noch exakt gelesen; Pilot-IDs bleiben unabhängig von Groß-/Kleinschreibung.
+Worker-Version `e2beced8-98c3-43dd-9a65-013df724e70c`. Tracker-Seite (ab dem nächsten
+Tracker-Release): keine Minuten-Abfrage mehr, nur beim Start, beim Öffnen der
+EFB-Checklistenliste (höchstens alle 2 Minuten) und über den Knopf ↻.

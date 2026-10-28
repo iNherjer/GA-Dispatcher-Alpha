@@ -1575,6 +1575,15 @@
         return { id:list.id, title:list.title, source:'tracker', editable:false, updatedAt:list.updatedAt,
           chapters:(list.sections || []).map(function(section) { return {id:section.id,title:section.title,items:section.items}; }) };
       }); },
+      // Cloud checklists: the tracker fetches them on demand only (startup, list open, button).
+      refreshChecklists: function(trigger) {
+        return submitCockpitTool('refresh_checklists', {trigger: trigger === 'button' ? 'button' : 'open'}).then(function(result) {
+          return fetchJson('/api/v1/checklists', 5000).then(function(envelope) {
+            renderChecklistPayload(safePayload(envelope));
+            return result;
+          });
+        });
+      },
       flightPlanActions: flightPlanTransferMarkup,
       transferFlightPlan: transferCurrentMissionFlightPlan,
       missionView: function() { return missionSnapshot && missionSnapshot.available !== false && (missionSnapshot.view || missionSnapshot) || null; },

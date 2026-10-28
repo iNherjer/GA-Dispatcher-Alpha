@@ -22,7 +22,8 @@ test('current tracker exits a duplicate instance when the fixed EFB port is alre
   assert.ok(trackerSource.includes("const TRACKER_VERSION = 'v" + versionCode + "';"));
   assert.match(trackerSource, /fetchTrackerEfbChecklistLibrary/);
   assert.match(trackerSource, /refreshChecklistLibraryFromCloud\('startup'\)/);
-  assert.match(trackerSource, /refreshChecklistLibraryFromCloud\('interval'\), 60000/);
+  assert.doesNotMatch(trackerSource, /refreshChecklistLibraryFromCloud\('interval'\)/);
+  assert.match(trackerSource, /request\.intent === 'refresh_checklists'/);
   assert.match(trackerSource, /modelGroundClearanceFt: modelClearanceFt/);
   assert.match(trackerSource, /createTelemetryHibernateController/);
   assert.match(trackerSource, /telemetryMode: _telemetryHibernateState\.mode/);

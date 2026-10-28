@@ -317,7 +317,7 @@ function createTrackerCockpitControl(options = {}) {
     if (!auth.ok) return auth;
     const intent = cleanString(request.intent, 80);
     if (intent === 'flightplan_export' && !['efb', 'toolbar'].includes(auth.session.role)) return resultError('flightplan_host_required');
-    if (!['radio_tune', 'flightplan_export', 'airport_direct_to', 'read_payload', 'open_airport_aip', 'open_airport_weather', 'navigation_get', 'navigation_edit', 'navigation_adopt'].includes(intent) || !options.executeTool) return resultError('cockpit_tool_not_allowed');
+    if (!['radio_tune', 'flightplan_export', 'airport_direct_to', 'read_payload', 'open_airport_aip', 'open_airport_weather', 'navigation_get', 'navigation_edit', 'navigation_adopt', 'refresh_checklists'].includes(intent) || !options.executeTool) return resultError('cockpit_tool_not_allowed');
     const commandId = cleanString(request.commandId, 220);
     if (!commandId) return resultError('command_id_required');
     const key = `${auth.session.sessionId}:tool:${commandId}`;

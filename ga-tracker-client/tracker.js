@@ -116,8 +116,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v598';
-const TRACKER_VERSION_CODE = 598;
+const TRACKER_VERSION = 'v599';
+const TRACKER_VERSION_CODE = 599;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -5464,6 +5464,9 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
   const executeRadioRelay = require('./tracker-radio-relay').createRadioRelay(payload => cockpitTools.execute({intent:'radio_tune',payload}));
   trackerCockpitControl = createTrackerCockpitControl({
     executeTool: async request => {
+      if (request.intent === 'refresh_checklists') {
+        return refreshChecklistLibraryFromCloud(request.payload?.trigger === 'button' ? 'efb-button' : 'efb-open');
+      }
       const result = await cockpitTools.execute(request);
       if (result.ok && request.intent !== 'navigation_get' && result.navigation) broadcastNavigation();
       return result;
@@ -5509,39 +5512,54 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
   let _checklistCloudLastSuccessAt = 0;
   let _checklistCloudLastStatus = 'pending';
   let _checklistAppSnapshotAccepted = false;
-  const refreshChecklistLibraryFromCloud = async (reason = 'interval') => {
-    if (_checklistCloudSyncInProgress) return;
+  // Cloud checklists are fetched at startup and when the EFB checklist list is
+  // opened (or its refresh button pressed), not on a timer: a missing CHKIDX_
+  // otherwise cost a request every minute while the tracker runs alone.
+  const CHECKLIST_CLOUD_MIN_GAP_MS = { 'efb-open': 2 * 60 * 1000, 'efb-button': 15 * 1000 };
+  let _checklistCloudPending = null;
+  const refreshChecklistLibraryFromCloud = (reason = 'startup') => {
     if (_checklistAppSnapshotAccepted) {
       _checklistCloudLastStatus = 'app-authority';
-      return;
+      return Promise.resolve({ ok: true, status: 'app-authority' });
+    }
+    if (_checklistCloudPending) return _checklistCloudPending;
+    const minGap = CHECKLIST_CLOUD_MIN_GAP_MS[reason] || 0;
+    if (minGap && Date.now() - _checklistCloudLastAttemptAt < minGap) {
+      return Promise.resolve({ ok: true, status: 'recent', checkedAt: _checklistCloudLastAttemptAt });
     }
     _checklistCloudSyncInProgress = true;
     _checklistCloudLastAttemptAt = Date.now();
-    try {
-      const result = await fetchTrackerEfbChecklistLibrary(syncId, pin);
-      if (!result.ok) {
-        _checklistCloudLastStatus = result.code || 'error';
-        debugLog(`EFB_CHECKLIST_CLOUD_ERROR reason=${reason} code=${_checklistCloudLastStatus} error=${result.message || 'unknown'}`);
-        return;
+    _checklistCloudPending = (async () => {
+      try {
+        const result = await fetchTrackerEfbChecklistLibrary(syncId, pin);
+        if (!result.ok) {
+          _checklistCloudLastStatus = result.code || 'error';
+          debugLog(`EFB_CHECKLIST_CLOUD_ERROR reason=${reason} code=${_checklistCloudLastStatus} error=${result.message || 'unknown'}`);
+          return { ok: false, status: _checklistCloudLastStatus };
+        }
+        // Der Web-Client liefert die vollstaendige lokale Bibliothek. Wenn sie
+        // waehrend des laufenden Cloud-Abrufs eingetroffen ist, darf ein aelterer
+        // CHKIDX_-Stand sie nicht direkt wieder ueberschreiben.
+        if (_checklistAppSnapshotAccepted) {
+          _checklistCloudLastStatus = 'app-authority';
+          debugLog(`EFB_CHECKLIST_CLOUD_DEFERRED reason=${reason} status=app-authority cloudChecklists=${result.library.checklists.length}`);
+          return { ok: true, status: 'app-authority' };
+        }
+        const stored = efbChecklistStore.store(result.library);
+        _checklistCloudLastStatus = stored.status;
+        if (stored.ok) _checklistCloudLastSuccessAt = Date.now();
+        debugLog(`EFB_CHECKLIST_CLOUD_SYNC reason=${reason} status=${_checklistCloudLastStatus} cloudStatus=${result.status} checklists=${result.library.checklists.length} revision=${stored.snapshot.revision}`);
+        return { ok: stored.ok !== false, status: stored.status, count: result.library.checklists.length, checkedAt: _checklistCloudLastAttemptAt };
+      } catch (error) {
+        _checklistCloudLastStatus = 'exception';
+        debugLog(`EFB_CHECKLIST_CLOUD_ERROR reason=${reason} code=exception error=${error?.message || error}`);
+        return { ok: false, status: 'exception' };
+      } finally {
+        _checklistCloudSyncInProgress = false;
+        _checklistCloudPending = null;
       }
-      // Der Web-Client liefert die vollstaendige lokale Bibliothek. Wenn sie
-      // waehrend des laufenden Cloud-Abrufs eingetroffen ist, darf ein aelterer
-      // CHKIDX_-Stand sie nicht direkt wieder ueberschreiben.
-      if (_checklistAppSnapshotAccepted) {
-        _checklistCloudLastStatus = 'app-authority';
-        debugLog(`EFB_CHECKLIST_CLOUD_DEFERRED reason=${reason} status=app-authority cloudChecklists=${result.library.checklists.length}`);
-        return;
-      }
-      const stored = efbChecklistStore.store(result.library);
-      _checklistCloudLastStatus = stored.status;
-      if (stored.ok) _checklistCloudLastSuccessAt = Date.now();
-      debugLog(`EFB_CHECKLIST_CLOUD_SYNC reason=${reason} status=${_checklistCloudLastStatus} cloudStatus=${result.status} checklists=${result.library.checklists.length} revision=${stored.snapshot.revision}`);
-    } catch (error) {
-      _checklistCloudLastStatus = 'exception';
-      debugLog(`EFB_CHECKLIST_CLOUD_ERROR reason=${reason} code=exception error=${error?.message || error}`);
-    } finally {
-      _checklistCloudSyncInProgress = false;
-    }
+    })();
+    return _checklistCloudPending;
   };
   let _simStarted = false;
   const _relayStates = new Map(
@@ -6708,7 +6726,6 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
   }
 
   const checklistCloudStartTimer = setTimeout(() => refreshChecklistLibraryFromCloud('startup'), 600);
-  const checklistCloudInterval = setInterval(() => refreshChecklistLibraryFromCloud('interval'), 60000);
   const missionCloudStartTimer = TRACKER_APT_EXECUTION_ENABLED
     ? setTimeout(() => refreshCloudMissionCandidate('startup'), 800)
     : null;
@@ -6718,7 +6735,6 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       }, 2500)
     : null;
   if (typeof checklistCloudStartTimer.unref === 'function') checklistCloudStartTimer.unref();
-  if (typeof checklistCloudInterval.unref === 'function') checklistCloudInterval.unref();
   if (typeof missionCloudStartTimer?.unref === 'function') missionCloudStartTimer.unref();
   if (typeof missionCloudInterval?.unref === 'function') missionCloudInterval.unref();
   startSimConnectOnce();

@@ -2065,8 +2065,11 @@ Fehler bleiben weiterhin protokolliert. Der veroeffentlichte Web-Cache ist
 Eigene App-Checklisten werden nach Aushandlung von `checklist.library.v1`
 begrenzt und sanitisiert an den Tracker uebergeben. Zusaetzlich liest Tracker
 mit Pilot-ID/PIN die bereits von der App im bestehenden GA-Sync
-gespeicherten `CHKIDX_`-/`CHK_`-Datensaetze beim Start und alle 60 Sekunden
-selbst. Nur ein vollstaendig gueltiger Abruf ersetzt den atomaren lokalen Cache
+gespeicherten `CHKIDX_`-/`CHK_`-Datensaetze beim Start, beim Oeffnen der
+EFB-Checklistenliste (hoechstens alle 2 Minuten) und ueber den Knopf ↻ in der
+Liste (Cockpit-Tool `refresh_checklists`) selbst. Seit 28.10.2026 gibt es keine
+60-Sekunden-Abfrage mehr: Ohne Checklisten kostete jede Abfrage einen 404 und
+im Worker einen KV-List-Vorgang (siehe `tools/cloudflare-worker/README.md`). Nur ein vollstaendig gueltiger Abruf ersetzt den atomaren lokalen Cache
 `efb-checklists-v1.json`; bei Netz- oder Serverfehlern bleibt der letzte Stand
 erhalten. `GET /api/v1/checklists` stellt ihn lokal fuer das EFB bereit. Der
 Abhakfortschritt bleibt weiter ausschliesslich im EFB-localStorage und wird

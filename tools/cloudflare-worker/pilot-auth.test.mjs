@@ -125,3 +125,19 @@ assert.equal(collision.response.status, 409);
 assert.equal(collision.body.code, "pilot_id_collision");
 
 console.log("pilot auth tests ok");
+
+// A missing checklist key must not trigger the case-insensitive KV list search.
+{
+  const chkKv = makeKv({ SALUD: JSON.stringify({ pin: "1138", syncId: "SALUD" }) });
+  let listCalls = 0;
+  const originalList = chkKv.list.bind(chkKv);
+  chkKv.list = async (...args) => { listCalls++; return originalList(...args); };
+  const missingIndex = await call({ GA_SYNC_KV: chkKv }, "/api/sync/CHKIDX_SALUD?pin=1138");
+  assert.equal(missingIndex.response.status, 404);
+  const missingItem = await call({ GA_SYNC_KV: chkKv }, "/api/sync/CHK_SALUD_custom_1?pin=1138");
+  assert.equal(missingItem.response.status, 404);
+  assert.equal(listCalls, 0);
+  const missingPilot = await call({ GA_SYNC_KV: chkKv }, "/api/sync/salud?pin=1138");
+  assert.equal(missingPilot.response.status, 200);
+  assert.equal(listCalls, 1);
+}

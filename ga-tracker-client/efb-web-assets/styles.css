@@ -6595,7 +6595,65 @@ body.theme-retro .wp-data {
         overflow-y: hidden !important;
         -webkit-overflow-scrolling: touch;
         padding: 0 !important;
-        height: calc(100vh - 70px) !important;
+        flex: 1 1 auto !important;
+        min-height: 0 !important;
+        height: auto !important;
+        /* Feste Bezugshöhe für das Brett, auch wo Safari Prozenthöhen in Flex-Elementen nicht auflöst. */
+        container-type: size;
+    }
+
+    /* Pinnwand-Kopfzeile: eine Zeile nur mit Symbolen, damit das Brett die Höhe bekommt. */
+    #pinboardOverlay .pinboard-header {
+        flex-wrap: nowrap !important;
+        gap: 6px;
+        padding: 6px 8px !important;
+        padding-top: max(6px, env(safe-area-inset-top)) !important;
+    }
+    #pinboardOverlay .pinboard-header .pb-header-left {
+        flex: none;
+        flex-wrap: nowrap !important;
+        gap: 6px !important;
+    }
+    #pinboardOverlay .pinboard-header .pb-title,
+    #pinboardOverlay .pinboard-header .pb-label {
+        display: none !important;
+    }
+    #pinboardOverlay .pinboard-header .pb-tab {
+        padding: 0 !important;
+        width: 36px;
+        height: 34px;
+        justify-content: center;
+        font-size: 17px !important;
+        position: relative;
+    }
+    #pinboardOverlay .pinboard-header #groupBadge {
+        position: absolute;
+        top: 1px;
+        right: 3px;
+        font-size: 11px;
+    }
+    #pinboardOverlay .pinboard-header .pb-actions {
+        display: flex;
+        flex: 1 1 auto;
+        min-width: 0;
+        justify-content: flex-end;
+        gap: 4px;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+    #pinboardOverlay .pinboard-header .pb-actions::-webkit-scrollbar { display: none; }
+    #pinboardOverlay .pinboard-header .pb-actions .pb-btn {
+        flex: none;
+        width: 34px !important;
+        height: 34px !important;
+        min-height: 0 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px !important;
+        line-height: 1 !important;
     }
 
     .pinboard-content {
@@ -6608,6 +6666,10 @@ body.theme-retro .wp-data {
         max-width: none !important;
         max-height: none !important;
         border-radius: 0 !important;
+    }
+
+    #pinboardOverlay .pinboard-scroll-area > .pinboard-content {
+        height: 100cqh !important;
     }
 
     #pinboardOverlay .post-it {
@@ -6623,6 +6685,21 @@ body.theme-retro .wp-data {
         width: clamp(190px, 30cqw, 320px) !important;
         min-height: clamp(136px, 18cqw, 220px) !important;
         height: auto !important;
+    }
+
+    /* Zettel mit Listen oder Schaltern wachsen mit ihrem Inhalt statt fest 220 px hoch zu sein. */
+    #pinboardOverlay .post-it.crew-share-card,
+    #pinboardOverlay .post-it.homebase-directory-card,
+    #pinboardOverlay .post-it.roster-card,
+    #pinboardOverlay .post-it.crew-flight-card,
+    #pinboardOverlay .post-it.authority-sanction-card {
+        height: auto !important;
+        min-height: clamp(132px, 22cqw, 220px) !important;
+        max-height: none !important;
+    }
+    #pinboardOverlay .post-it.crew-share-card,
+    #pinboardOverlay .post-it.homebase-directory-card {
+        width: clamp(200px, 28cqw, 300px) !important;
     }
 
     #pinboardOverlay .post-it-del,
