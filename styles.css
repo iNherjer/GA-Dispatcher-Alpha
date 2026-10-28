@@ -21351,12 +21351,12 @@ body.theme-win95 .aircraft-quick-slot-menu .airport-autocomplete-option.is-activ
    HELL / DUNKEL (Hintergründe)
    ========================================================================== */
 :root[data-appearance="dark"] {
-    --app-bg-image: url('assets/ui/appearance/app-bg-dark.webp');
+    --app-bg-image: url('assets/ui/appearance/app-bg-dark.webp?v=20261028');
     --pinboard-bg-image: url('assets/ui/appearance/pinboard-dark.webp');
     --maptable-bg-image: url('assets/ui/appearance/maptable-dark.webp');
 }
 :root[data-appearance="light"] {
-    --app-bg-image: url('assets/ui/appearance/app-bg-light.webp');
+    --app-bg-image: url('assets/ui/appearance/app-bg-light.webp?v=20261028');
     --pinboard-bg-image: url('assets/ui/appearance/pinboard-light.webp');
     --maptable-bg-image: url('assets/ui/appearance/maptable-light.webp');
 }
