@@ -174,9 +174,10 @@
     padding: 6px 8px;
     font: 12px 'Courier New', Courier, monospace;
 }
-.crew-flight-detail .leaflet-control-layers-list,
-.crew-flight-detail .leaflet-control-layers-base,
-.crew-flight-detail .leaflet-control-layers-overlays {
+/* Only while expanded: Leaflet hides the list when the menu is collapsed. */
+.crew-flight-detail .leaflet-control-layers-expanded .leaflet-control-layers-list,
+.crew-flight-detail .leaflet-control-layers-expanded .leaflet-control-layers-base,
+.crew-flight-detail .leaflet-control-layers-expanded .leaflet-control-layers-overlays {
     display: block !important;
     width: auto !important;
 }

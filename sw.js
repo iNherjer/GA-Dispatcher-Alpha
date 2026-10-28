@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v2245';
+const CACHE = 'ga-dispatcher-v2246';
 
 const STATIC = [
     './',
@@ -248,6 +248,8 @@ const STATIC = [
     './crew-presence-core.js',
     './crew-presence-client.js',
     './crew-presence.css',
+    './ppl-quiz.js',
+    './ppl-quiz.css',
     './assets/ui/plane-side.svg',
     './flight-debrief.js',
     './flight-track-codec-core.js',
@@ -315,7 +317,8 @@ const NETWORK_ONLY = [
 ];
 
 const NETWORK_FIRST_PATHS = [
-    '/data/gafor-sector-dataset-de.json'
+    '/data/gafor-sector-dataset-de.json',
+    '/data/ppl-quiz-catalog.json'
 ];
 
 const APP_SHELL_NETWORK_FIRST_EXTENSIONS = ['.html', '.js', '.css'];
