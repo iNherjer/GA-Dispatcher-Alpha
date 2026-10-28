@@ -141,3 +141,27 @@ console.log("pilot auth tests ok");
   assert.equal(missingPilot.response.status, 200);
   assert.equal(listCalls, 1);
 }
+
+// Other casing: the first lookup lists once and writes the index; later lookups read the index.
+{
+  const idxKv = makeKv({ MixedCase: JSON.stringify({ pin: "777", syncId: "MixedCase" }) });
+  let listCalls = 0;
+  const originalList = idxKv.list.bind(idxKv);
+  idxKv.list = async (...args) => { listCalls++; return originalList(...args); };
+  const idxEnv = { GA_SYNC_KV: idxKv };
+  const first = await call(idxEnv, "/api/sync/MIXEDCASE?pin=777");
+  assert.equal(first.response.status, 200);
+  assert.equal(idxKv.store.get("pilotidx:mixedcase"), "MixedCase");
+  const listsAfterFirst = listCalls;
+  assert.ok(listsAfterFirst <= 1);
+  const second = await call(idxEnv, "/api/sync/mixedcase?pin=777");
+  assert.equal(second.response.status, 200);
+  assert.equal(listCalls, listsAfterFirst);
+  // Unknown IDs reuse the cached key list instead of listing again.
+  for (const id of ["nobody-1", "nobody-2", "nobody-3"]) {
+    assert.equal((await call(idxEnv, `/api/sync/${id}?pin=1`)).response.status, 404);
+  }
+  assert.ok(listCalls <= 1);
+  // The index key itself is not readable through the sync route.
+  assert.equal((await call(idxEnv, "/api/sync/pilotidx:mixedcase?pin=777")).response.status, 400);
+}

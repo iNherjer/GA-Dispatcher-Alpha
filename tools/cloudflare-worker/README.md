@@ -311,3 +311,11 @@ jetzt nur noch exakt gelesen; Pilot-IDs bleiben unabhängig von Groß-/Kleinschr
 Worker-Version `e2beced8-98c3-43dd-9a65-013df724e70c`. Tracker-Seite (ab dem nächsten
 Tracker-Release): keine Minuten-Abfrage mehr, nur beim Start, beim Öffnen der
 EFB-Checklistenliste (höchstens alle 2 Minuten) und über den Knopf ↻.
+
+## Pilot-ID-Index (28.10.2026, deployed)
+Login mit anderer Groß-/Kleinschreibung liest `pilotidx:<kleingeschrieben>` → echte ID (ein Lesevorgang).
+Neue Registrierungen schreiben den Eintrag; bestehende Konten beim ersten solchen Login (einmal ein
+Schreibvorgang). Ohne Eintrag hilft weiter die Schlüsselliste, aber höchstens einmal pro Minute und Instanz,
+auch bei vielen unbekannten IDs. `pilotidx:` ist über `/api/sync/` nicht lesbar. Worker-Version
+`180f737b-8c1b-4295-ae68-4b1cd2754df3`. Ein Zwischenspeicher für Anmeldungen wurde verworfen: Nach
+ID-Umbenennung oder PIN-Wechsel hätten alte Zugangsdaten noch bis zu 60 s lesen können.

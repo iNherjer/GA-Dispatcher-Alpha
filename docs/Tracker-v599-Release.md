@@ -17,6 +17,10 @@ Web: `checklists.js` zeigt den Knopf nur in der EFB (`gaChecklistHost.refreshChe
 
 Nur Alpha-Runtime umstellen, Stable unverändert.
 
+EXE (Windows-x64, pkg 6.18.1 / Node18, Cross-Build `--no-bytecode --public --public-packages '*'` aus sauberem
+Worktree von `e779baab7`): 174662576 Bytes; SHA-256 `7a259b292792e66fc71b6a33c7fc196a58abc077134ae5495f5d54078db1c013`.
+Öffentlicher Download geprüft.
+
 ## Prüfung
 
 - `tracker-efb-http-server`, `tracker-cockpit-control-core`, `tracker-cockpit-tools`,

@@ -149,6 +149,9 @@ const COMMUNITY_CHECKLIST_MAX_CHAPTERS = 20;
 const COMMUNITY_CHECKLIST_MAX_ITEMS = 300;
 
 const HOMEBASE_PREFIX = "homebase:";
+// Lowercase pilot ID -> stored key, so a login with other casing costs one read instead of a KV list.
+const PILOT_ID_INDEX_PREFIX = "pilotidx:";
+const PILOT_KEY_LIST_CACHE_MS = 60 * 1000;
 const HOMEBASE_MAX_BODY_BYTES = 64 * 1024;
 const HOMEBASE_MAX_OBJECTS = 100;
 const HOMEBASE_MAX_PEOPLE = 3;
@@ -1089,6 +1092,7 @@ function isReservedSyncKvKey(keyName) {
     || name.startsWith(BUG_REPORT_PREFIX)
     || name.startsWith(BUG_OPEN_PREFIX)
     || name.startsWith(HOMEBASE_PREFIX)
+    || name.startsWith(PILOT_ID_INDEX_PREFIX)
     || name.startsWith(COMMUNITY_CHECKLIST_PREFIX)
     || name.startsWith(COMMUNITY_CHECKLIST_INDEX_PREFIX)
     || name === COMMUNITY_CHECKLIST_AGGREGATE_INDEX_KEY;
@@ -1122,27 +1126,56 @@ async function resolveSyncPilotId(env, requestedPilotId) {
   // key, and the tracker asks for CHKIDX_ once a minute.
   if (/^CHK(IDX)?_/.test(requested)) return { status: "missing", pilotId: "", raw: null };
 
-  if (typeof env.GA_SYNC_KV.list !== "function") return { status: "missing", pilotId: "", raw: null };
-
-  let listed;
+  // 1. Index entry written at registration or by an earlier list lookup.
   try {
-    listed = await listKvKeys(env, { limit: ADMIN_KV_LIST_MAX });
+    const indexed = normalizeOneLine(await env.GA_SYNC_KV.get(PILOT_ID_INDEX_PREFIX + lookup), 160);
+    if (indexed && indexed !== requested && normalizePilotIdLookup(indexed) === lookup) {
+      const raw = await env.GA_SYNC_KV.get(indexed);
+      if (raw) return classifyAccountResolution(indexed, raw);
+    }
   } catch (error) {
     return { status: "error", error, pilotId: "", raw: null };
   }
-  const matches = (listed.keys || [])
-    .map(key => String(key?.name || ""))
-    .filter(key => !isReservedSyncKvKey(key) && normalizePilotIdLookup(key) === lookup);
+
+  // 2. Accounts without index entry: key list, shared per isolate for a minute.
+  if (typeof env.GA_SYNC_KV.list !== "function") return { status: "missing", pilotId: "", raw: null };
+  let keyNames;
+  try {
+    keyNames = await cachedPilotKeyNames(env);
+  } catch (error) {
+    return { status: "error", error, pilotId: "", raw: null };
+  }
+  const matches = keyNames.filter(key => normalizePilotIdLookup(key) === lookup);
   if (matches.length > 1) return { status: "collision", pilotId: "", raw: null };
   if (!matches.length) return { status: "missing", pilotId: "", raw: null };
 
   try {
     const raw = await env.GA_SYNC_KV.get(matches[0]);
-    return raw
-      ? classifyAccountResolution(matches[0], raw)
-      : { status: "missing", pilotId: "", raw: null };
+    if (!raw) return { status: "missing", pilotId: "", raw: null };
+    await writePilotIdIndex(env, matches[0]);
+    return classifyAccountResolution(matches[0], raw);
   } catch (error) {
     return { status: "error", error, pilotId: "", raw: null };
+  }
+}
+
+let pilotKeyListCache = null;
+async function cachedPilotKeyNames(env) {
+  const now = Date.now();
+  if (pilotKeyListCache && pilotKeyListCache.kv === env.GA_SYNC_KV && now - pilotKeyListCache.at < PILOT_KEY_LIST_CACHE_MS) return pilotKeyListCache.names;
+  const listed = await listKvKeys(env, { limit: ADMIN_KV_LIST_MAX });
+  const names = (listed.keys || []).map(key => String(key?.name || "")).filter(key => !isReservedSyncKvKey(key) && !/^CHK(IDX)?_/.test(key));
+  pilotKeyListCache = { kv: env.GA_SYNC_KV, at: now, names };
+  return names;
+}
+
+async function writePilotIdIndex(env, pilotId) {
+  const lookup = normalizePilotIdLookup(pilotId);
+  if (!lookup || lookup === pilotId) return; // exact read already finds it
+  try {
+    await env.GA_SYNC_KV.put(PILOT_ID_INDEX_PREFIX + lookup, pilotId);
+  } catch (error) {
+    console.warn("Pilot ID index write failed:", pilotId, String(error?.message || error));
   }
 }
 
@@ -2899,6 +2932,7 @@ export default {
           } catch (error) {
             return json({ error: "KV-Write fehlgeschlagen", message: String(error?.message || error) }, 502);
           }
+          if (!existingRaw && !isGroupKey && !/^CHK(IDX)?_/.test(storagePilotId)) await writePilotIdIndex(env, storagePilotId);
           return json({ success: true, pilotId: storagePilotId }, 200, { "X-Pilot-ID": storagePilotId });
         } catch {
           return json({ error: "Ungültiges JSON beim Speichern" }, 400);
