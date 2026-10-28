@@ -6598,6 +6598,8 @@ body.theme-retro .wp-data {
         flex: 1 1 auto !important;
         min-height: 0 !important;
         height: auto !important;
+        /* Feste Bezugshöhe für das Brett, auch wo Safari Prozenthöhen in Flex-Elementen nicht auflöst. */
+        container-type: size;
     }
 
     /* Pinnwand-Kopfzeile: eine Zeile nur mit Symbolen, damit das Brett die Höhe bekommt. */
@@ -6666,6 +6668,10 @@ body.theme-retro .wp-data {
         border-radius: 0 !important;
     }
 
+    #pinboardOverlay .pinboard-scroll-area > .pinboard-content {
+        height: 100cqh !important;
+    }
+
     #pinboardOverlay .post-it {
         width: clamp(132px, 22cqw, 220px) !important;
         height: clamp(132px, 22cqw, 220px) !important;
@@ -6679,6 +6685,21 @@ body.theme-retro .wp-data {
         width: clamp(190px, 30cqw, 320px) !important;
         min-height: clamp(136px, 18cqw, 220px) !important;
         height: auto !important;
+    }
+
+    /* Zettel mit Listen oder Schaltern wachsen mit ihrem Inhalt statt fest 220 px hoch zu sein. */
+    #pinboardOverlay .post-it.crew-share-card,
+    #pinboardOverlay .post-it.homebase-directory-card,
+    #pinboardOverlay .post-it.roster-card,
+    #pinboardOverlay .post-it.crew-flight-card,
+    #pinboardOverlay .post-it.authority-sanction-card {
+        height: auto !important;
+        min-height: clamp(132px, 22cqw, 220px) !important;
+        max-height: none !important;
+    }
+    #pinboardOverlay .post-it.crew-share-card,
+    #pinboardOverlay .post-it.homebase-directory-card {
+        width: clamp(200px, 28cqw, 300px) !important;
     }
 
     #pinboardOverlay .post-it-del,
