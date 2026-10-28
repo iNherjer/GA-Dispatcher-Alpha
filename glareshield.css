@@ -4,10 +4,11 @@
    ========================================================================== */
 
 /* Das Glareshield bildet die Oberkante des Panels: es liegt über dem Panelrahmen */
-/* Überstand (nur im Bogen) ohne den Overflow-Schutz anzufassen: Die Box des Panels bleibt gleich (sie schneidet weiter
-   an ihrer Kante ab), das sichtbare Panel wird aber um --gs-ov nach innen gemalt (::before). Das
-   Glareshield nutzt die volle Box und steht dadurch seitlich über. Rahmen werden zu Innenschatten,
-   Polster gleichen die Rahmenbreite aus, der Inhalt behält Position und Breite. */
+/* Überstand (nur im Bogen) ohne den Overflow-Schutz anzufassen: Die Box des Panels schneidet weiter an
+   ihrer Kante ab, der sichtbare Rahmen (::before) sitzt aber immer --gs-ov-max weiter innen und bleibt
+   gleich breit. Gerade ist das Glareshield so breit wie der Rahmen; im Bogen wächst es um --gs-ov in
+   den Rand hinein und steht seitlich über. Der Schatten ist zweigeteilt: im Rand malt ihn ::before,
+   außerhalb die Box mit um --gs-ov-max kleinerer Ausdehnung, so treffen beide nahtlos aufeinander. */
 body.theme-retro .container.gs-on {
     --gs-h: 46px; --gs-pad: 58px; --gs-ov-max: 5px; /* --gs-ov setzt glareshield.js: 0 gerade, voll ab 20 % Biegung */
     padding-top: var(--gs-pad) !important;
@@ -16,34 +17,43 @@ body.theme-retro .container.gs-on {
     padding-bottom: 29px !important;
     border-width: 0 !important;
     background: transparent !important;
-    /* The drop shadow sits on the container itself: it clips its content (overflow),
-       so a shadow on ::before would be cut off at the panel edge. */
-    box-shadow: var(--gs-panel-drop, 0 20px 50px rgba(0, 0, 0, 0.9));
+    box-shadow: 0 20px 50px calc(0px - var(--gs-ov-max, 5px)) rgba(0, 0, 0, 0.9);
 }
 body.theme-retro .container.gs-on::before {
     content: ''; position: absolute; z-index: -1; pointer-events: none;
-    top: 0; bottom: 0; left: var(--gs-ov, 0px); right: var(--gs-ov, 0px);
-    border-radius: calc(24px - var(--gs-ov, 0px) * 0.4);
+    top: 0; bottom: 0; left: var(--gs-ov-max, 5px); right: var(--gs-ov-max, 5px);
+    border-radius: 24px;
     background-color: var(--p-bg);
     background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 15%, rgba(0, 0, 0, 0) 70%, rgba(0, 0, 0, 0.25) 100%),
         repeating-linear-gradient(85deg, transparent, transparent 2px, rgba(255, 255, 255, 0.015) 2px, rgba(255, 255, 255, 0.015) 4px),
         repeating-linear-gradient(-85deg, transparent, transparent 2px, rgba(0, 0, 0, 0.02) 2px, rgba(0, 0, 0, 0.02) 4px);
     box-shadow: inset 3px 0 0 var(--p-bl), inset -4px 0 0 var(--p-br), inset 0 -4px 0 var(--p-bb),
         inset 0 4px 6px rgba(255, 255, 255, 0.2), inset 0 -6px 12px rgba(0, 0, 0, 0.3),
-        0 0 6px 2px rgba(0, 0, 0, 0.45); /* fills the side strip while the glareshield is bent */
+        0 20px 50px rgba(0, 0, 0, 0.9);
     transition: background-color 0.4s ease;
 }
 /* On the light map one big 90 % shadow reads as a dark box; layered shadows
-   (contact edge, near, far) lift the panel off the map instead. */
-:root[data-appearance="light"] body.theme-retro .container.gs-on { --gs-panel-drop: var(--light-panel-drop); }
+   (contact edge, near, far) lift the panel off the map instead. Same layers as --light-panel-drop. */
+:root[data-appearance="light"] body.theme-retro .container.gs-on {
+    box-shadow: 0 2px 4px calc(0px - var(--gs-ov-max, 5px)) rgba(0, 0, 0, 0.55),
+        0 14px 24px calc(4px - var(--gs-ov-max, 5px)) rgba(8, 14, 22, 0.45),
+        0 34px 60px calc(16px - var(--gs-ov-max, 5px)) rgba(8, 14, 22, 0.48),
+        0 70px 120px calc(40px - var(--gs-ov-max, 5px)) rgba(8, 14, 22, 0.40);
+}
+:root[data-appearance="light"] body.theme-retro .container.gs-on::before {
+    box-shadow: inset 3px 0 0 var(--p-bl), inset -4px 0 0 var(--p-br), inset 0 -4px 0 var(--p-bb),
+        inset 0 4px 6px rgba(255, 255, 255, 0.2), inset 0 -6px 12px rgba(0, 0, 0, 0.3),
+        0 2px 4px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(0, 0, 0, 0.18), 0 14px 24px 4px rgba(8, 14, 22, 0.45),
+        0 34px 60px 16px rgba(8, 14, 22, 0.48), 0 70px 120px 40px rgba(8, 14, 22, 0.40);
+}
 @media (max-width: 767px) {
     body.theme-retro .container.gs-on { --gs-ov-max: 4px; padding-left: 17px !important; padding-right: 18px !important; padding-bottom: 24px !important; }
 }
 body.theme-retro .container.gs-on > .glareshield,
 body.theme-retro .container.gs-on .glareshield {
     top: calc(-1 * var(--gs-bt, 3px));
-    left: calc(-1 * var(--gs-bl, 3px));
-    right: calc(-1 * var(--gs-br, 4px));
+    left: calc(var(--gs-ov-max, 5px) - var(--gs-ov, 0px) - var(--gs-bl, 3px));
+    right: calc(var(--gs-ov-max, 5px) - var(--gs-ov, 0px) - var(--gs-br, 4px));
     height: var(--gs-h, 46px);
     z-index: 401;
     background: none;

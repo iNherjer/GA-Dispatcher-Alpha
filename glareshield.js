@@ -165,6 +165,10 @@
     }
     function buildArc() {
         if (!built || !active()) return;
+        // Überstand zuerst setzen: er ändert die Breite des Glareshields (gerade bündig mit dem Rahmen,
+        // wächst über die ersten 20 % der Biegung auf den vollen Wert)
+        var ovMax = parseFloat(getComputedStyle(container).getPropertyValue('--gs-ov-max')) || 0;
+        container.style.setProperty('--gs-ov', f1(ovMax * Math.min(1, arcK / 0.2)) + 'px');
         var W = Math.round(glare.clientWidth), h = H();
         if (!W) return;
         var D = h + DROP, k = arcK, r = T / 2, ry = r * k, Dt = D - r - h;
@@ -198,16 +202,15 @@
         fx.querySelector('.gs-rs1').setAttribute('offset', edgeF.toFixed(3));
         fx.querySelector('.gs-rs2').setAttribute('offset', (1 - edgeF).toFixed(3));
 
-        // Panel folgt oben genau der Kontur (das Glareshield liegt über dem Rahmen, gleiche Koordinaten);
-        // nach unten und zur Seite bleibt Platz für den Schatten
+        // Panel folgt oben genau der Kontur (Koordinaten des Glareshields, um seinen Abstand zur Box versetzt);
+        // seitlich, oben und unten bleibt reichlich Platz, damit der Schatten nicht hart abgeschnitten wird
         if (k > 0) {
-            var Hb = container.offsetHeight, y0 = f1(top.start[1]);
-            container.style.clipPath = "path('M-90 " + y0 + 'L0 ' + y0 + top.d + 'L' + (W + 90) + ' ' + y0 + 'L' + (W + 90) + ' ' + (Hb + 140) + 'L-90 ' + (Hb + 140) + "Z')";
+            var Hb = container.offsetHeight, Wb = container.offsetWidth, gx = glare.offsetLeft, M = 240;
+            var top2 = topPath(W, k, R, Dt, S, gx, 0), y0 = f1(top2.start[1]);
+            container.style.clipPath = "path('M" + (-M) + ' ' + (-M) + 'L' + gx + ' ' + (-M) + 'L' + gx + ' ' + y0 + top2.d +
+                'L' + (gx + W) + ' ' + (-M) + 'L' + (Wb + M) + ' ' + (-M) + 'L' + (Wb + M) + ' ' + (Hb + M) + 'L' + (-M) + ' ' + (Hb + M) + "Z')";
         } else container.style.clipPath = '';
         container.style.setProperty('--gs-shift', f1(DROP * k) + 'px');
-        // Überstand: gerade bündig, wächst über die ersten 20 % der Biegung auf den vollen Wert
-        var ovMax = parseFloat(getComputedStyle(container).getPropertyValue('--gs-ov-max')) || 0;
-        container.style.setProperty('--gs-ov', f1(ovMax * Math.min(1, k / 0.2)) + 'px');
         container.classList.toggle('gs-arc', k > 0 || !!(start && start.edge && start.axis));
     }
     function setK(k) { arcK = Math.max(0, Math.min(1, k)); buildArc(); }
