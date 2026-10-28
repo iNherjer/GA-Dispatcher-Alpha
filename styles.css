@@ -21411,3 +21411,29 @@ body.theme-retro .appearance-control { border-top: 1px dashed rgba(228, 222, 200
     box-shadow: inset 0 4px 6px rgba(255, 255, 255, 0.2), inset 0 -6px 12px rgba(0, 0, 0, 0.3), var(--light-panel-drop);
 }
 body.theme-retro .appearance-switch button[aria-pressed="true"] { background: var(--piper-yellow) !important; color: #111 !important; }
+
+/* Light map: the footer below the panel sits directly on the bright background,
+   so its pale text needs dark ink (inline colors in index.html need !important). */
+:root[data-appearance="light"] body:not(.theme-ops1940):not(.theme-win95) .version-info {
+    color: #26303b;
+    text-shadow: 0 0 3px rgba(255, 255, 255, 0.9), 0 0 8px rgba(255, 255, 255, 0.6);
+}
+:root[data-appearance="light"] body:not(.theme-ops1940):not(.theme-win95) .version-info #swVersionDisplay {
+    color: #144a85 !important;
+    background: rgba(255, 255, 255, 0.6) !important;
+    text-shadow: none;
+}
+:root[data-appearance="light"] body:not(.theme-ops1940):not(.theme-win95) .version-info #localFreshnessDisplay { color: #144a85 !important; }
+:root[data-appearance="light"] body:not(.theme-ops1940):not(.theme-win95) .version-info > button:not(#btnReportProblemEmail):not(#openTutorialBtn) {
+    color: #22344a !important;
+    border-color: #4f6680 !important;
+    background: rgba(255, 255, 255, 0.55) !important;
+    opacity: 0.9 !important;
+    text-shadow: none;
+}
+:root[data-appearance="light"] body:not(.theme-ops1940):not(.theme-win95) .version-info > button:not(#btnReportProblemEmail):not(#openTutorialBtn):hover { opacity: 1 !important; }
+:root[data-appearance="light"] body:not(.theme-ops1940):not(.theme-win95) .legal-footer-links a { color: #144a85; }
+:root[data-appearance="light"] body:not(.theme-ops1940):not(.theme-win95) .legal-footer-links a:hover { color: #0a2c52; border-bottom-color: #0a2c52; }
+:root[data-appearance="light"] body:not(.theme-ops1940):not(.theme-win95) .support-donate-prompt { color: #26303b; }
+:root[data-appearance="light"] body:not(.theme-ops1940):not(.theme-win95) .support-donate-note,
+:root[data-appearance="light"] body:not(.theme-ops1940):not(.theme-win95) .support-donate-note summary { color: #3c4652; }
