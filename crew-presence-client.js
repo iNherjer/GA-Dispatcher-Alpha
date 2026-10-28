@@ -143,6 +143,7 @@
         if (boardShowsCrew() && typeof renderNotes === 'function') renderNotes();
     }
     function onChange() {
+        updateOpenDetail();
         if (boardShowsCrew()) rerenderBoard();
         if (typeof updateGroupBadgeUI === 'function') updateGroupBadgeUI();
     }
@@ -258,7 +259,9 @@
         return { base, overlays, topo };
     }
 
+    let detailLive = null; // the open detail view's parts that follow a newer position
     function closeDetail() {
+        detailLive = null;
         if (detailMap) { try { detailMap.remove(); } catch (_) {} detailMap = null; }
         document.getElementById('crewFlightDetail')?.remove();
         document.removeEventListener('keydown', onDetailKey);
@@ -342,7 +345,8 @@
         const facts = el('div', 'crew-flight-detail-facts', detailFacts(f));
         const mapBox = el('div', 'crew-flight-detail-map');
         const foot = el('div', 'crew-flight-detail-foot');
-        foot.append(el('span', 'crew-flight-detail-time', f.pos?.at ? `Position von ${timeText(f.pos.at)} Uhr` : 'Keine Position gemeldet'));
+        const time = el('span', 'crew-flight-detail-time', positionText(f));
+        foot.append(time);
         if (f.kind === 'mission' && !sameId(member.pilotId, pilotId())) {
             const fly = el('button', 'crew-flight-detail-fly', '✈️ Diesen Auftrag selbst fliegen');
             fly.type = 'button';
@@ -401,21 +405,48 @@
                     .bindTooltip(el('span', '', label), { direction: 'top', offset: [0, -4] }).addTo(detailMap); // element, never HTML: names come from other pilots
             });
         }
-        if (f.pos) {
+        detailLive = { id: member.pilotId, facts, time, marker: null, pos: null };
+        placeDetailPlane(f.pos);
+        setTimeout(() => detailMap?.invalidateSize(), 50);
+        // Opening the detail view asks for a newer position, like opening the crew board.
+        if (Date.now() - fetchedAt >= OPEN_REFRESH_MS) void refresh('detail-open');
+    }
+
+    function positionText(f) {
+        return f.pos?.at ? `Position von ${timeText(f.pos.at)} Uhr` : 'Keine Position gemeldet';
+    }
+    function placeDetailPlane(pos) {
+        if (!detailMap || !detailLive || !pos) return;
+        detailLive.pos = pos;
+        if (!detailLive.marker) {
             const html = window.GAMapLivePresentation?.aircraftHtml?.() || '<div class="crew-flight-detail-dot"></div>';
-            const marker = L.marker([f.pos.lat, f.pos.lon], {
+            detailLive.marker = L.marker([pos.lat, pos.lon], {
                 icon: L.divIcon({ html, className: 'live-plane-marker crew-flight-detail-plane', iconSize: [0, 0], iconAnchor: [0, 0] }),
                 interactive: false, keyboard: false, zIndexOffset: 1000
             });
-            const rotate = () => {
-                const svg = marker.getElement()?.querySelector('svg');
-                if (svg && Number.isFinite(f.pos.hdg)) svg.style.transform = `rotate(${f.pos.hdg}deg)`;
-            };
-            marker.on('add', rotate);
-            marker.addTo(detailMap);
-            rotate();
-        }
-        setTimeout(() => detailMap?.invalidateSize(), 50);
+            detailLive.marker.on('add', rotateDetailPlane);
+            detailLive.marker.addTo(detailMap);
+        } else detailLive.marker.setLatLng([pos.lat, pos.lon]);
+        rotateDetailPlane();
+    }
+    function rotateDetailPlane() {
+        const svg = detailLive?.marker?.getElement()?.querySelector('svg');
+        const hdg = detailLive?.pos?.hdg;
+        if (svg && Number.isFinite(hdg)) svg.style.transform = `rotate(${hdg}deg)`;
+    }
+    // A newer status arrived while the detail view is open: move the plane and update the facts.
+    function updateOpenDetail() {
+        if (!detailLive || !detailMap) return;
+        const f = members.find(m => sameId(m.pilotId, detailLive.id))?.flight;
+        if (!f) return;
+        detailLive.facts.textContent = detailFacts(f);
+        detailLive.time.textContent = positionText(f);
+        if (!f.pos) return;
+        const hadPos = !!detailLive.pos;
+        placeDetailPlane(f.pos);
+        const at = L.latLng(f.pos.lat, f.pos.lon);
+        if (!hadPos) detailMap.setView(at, 10);
+        else if (!detailMap.getBounds().contains(at)) detailMap.panTo(at);
     }
 
     function renderFlightNote(board, member, index, seen) {
