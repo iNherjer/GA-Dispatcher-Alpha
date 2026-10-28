@@ -16,6 +16,10 @@ Werte und Uhrzeit in der offenen Ansicht; Ebenen-Menü dort wieder zugeklappt.
 
 Nur Alpha-Runtime umstellen, Stable unverändert.
 
+EXE (Windows-x64, pkg 6.18.1 / Node18, Cross-Build `--no-bytecode --public --public-packages '*'` aus sauberem
+Worktree von `ca73e4bdf`): 174655513 Bytes; SHA-256 `e033be6a7e5f3e5d36d0de8ebb16cbfc5c95e9a7fe861346abd2c6fc010b6dce`.
+Öffentlicher Download geprüft.
+
 ## Prüfung
 
 - `tracker-crew-presence` 10 Tests (2 neu: Menü-Platzhalter erzeugt keinen Flug; Kamerawechsel meldet nach 10 s,
