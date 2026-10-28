@@ -950,6 +950,7 @@ function renderNotes() {
             try { triggerCloudSave(true); } catch (_) {}
         }
         notes.forEach(note => createNoteDOM(note, false));
+        window.gaPplQuiz?.renderBoard(board);
     } else {
         renderCrewHomebaseDirectory(board);
         // Render Crew Roster
@@ -1212,7 +1213,7 @@ function makeDraggable(element, noteId, isGroup) {
     let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
     element.onmousedown = dragMouseDown; element.ontouchstart = dragMouseDown;
     function dragMouseDown(e) {
-        if (e.target.closest?.('.post-it-del, .post-it-edit, .flight-load-btn, .flight-replay-btn, .crew-homebase-visit-btn, .crew-share-toggle, .crew-flight-detail-btn, .crew-refresh-btn')) return;
+        if (e.target.closest?.('.post-it-del, .post-it-edit, .flight-load-btn, .flight-replay-btn, .crew-homebase-visit-btn, .crew-share-toggle, .crew-flight-detail-btn, .crew-refresh-btn, .ppl-quiz-ui, .ppl-quiz-body')) return;
         e.preventDefault();
         const clientX = e.touches ? e.touches[0].clientX : e.clientX, clientY = e.touches ? e.touches[0].clientY : e.clientY;
         pos3 = clientX; pos4 = clientY;
