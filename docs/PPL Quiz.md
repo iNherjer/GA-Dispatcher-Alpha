@@ -8,8 +8,12 @@ Stand 28.10.2026
 - Pro Kalendertag (Ortszeit) gibt es einen Zettel mit 5, 10 oder 15 Fragen. Sie werden einzeln angezeigt und lassen sich über die Nummernpunkte direkt anspringen.
 - Nach jeder Antwort erscheinen sofort die Erklärung und ein Link zur Quelle.
 - Sind alle Fragen beantwortet, kommt eine Auswertung mit dem Knopf **„N neue ziehen“**. Fragen, die heute schon beantwortet wurden, kommen dabei nicht noch einmal.
+- **↻** neben dem Zahnrad bricht den laufenden Zettel ab und zieht neue Fragen. Vorher kommt immer eine Rückfrage; schon gegebene Antworten bleiben in der Statistik.
+- **Tägliche Aufgaben** (Standard: an): Jeden Tag gibt es automatisch einen neuen Zettel, und der Quiz-Zettel hängt dann wieder an der privaten Pinnwand, auch wenn er am Vortag geschlossen wurde. Das gilt nur für alle, die das Quiz schon einmal eingeschaltet haben.
+- Ohne tägliche Aufgaben bleibt der Zettel zu, bis man ihn über **🎓 Quiz** öffnet. Der laufende Zettel läuft dann über Tage weiter; neue Fragen gibt es mit ↻ oder nach der Auswertung.
 - Das **Zahnrad** öffnet die Einstellungen:
   - Anzahl der Fragen
+  - „Tägliche Aufgaben“
   - Fächer
   - „Falsche am nächsten Tag erneut“
   - „Rechenaufgaben einmischen“
@@ -35,7 +39,7 @@ Rechenvarianten belegen höchstens 20 % eines Zettels. Sonst würden die zwölf 
 ```json
 {
   "v": 1, "on": true,
-  "cfg": { "n": 10, "cats": null, "retry": true, "calc": true },
+  "cfg": { "n": 10, "cats": null, "retry": true, "calc": true, "daily": true },
   "p": { "010-001": [3, 2, 1, 20389, 0] },
   "b": { "d": 20389, "ids": ["010-001"], "ans": { "010-001": "0" }, "cur": 0 },
   "pos": { "x": 50, "y": 4 }

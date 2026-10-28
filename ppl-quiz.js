@@ -24,7 +24,7 @@
     // p[id] = [attempts, correct, streak, lastDay, lastWrong]
     // b = { d: day, ids: [...], ans: { id: answerKey }, cur: index }
     function defaults() {
-        return { v: 1, on: false, cfg: { n: 10, cats: null, retry: true, calc: true }, p: {}, b: null, pos: null };
+        return { v: 1, on: false, cfg: { n: 10, cats: null, retry: true, calc: true, daily: true }, p: {}, b: null, pos: null };
     }
     function load() {
         try {
@@ -37,6 +37,7 @@
             s.cfg.cats = Array.isArray(cfg.cats) ? cfg.cats.filter(c => typeof c === 'string') : null;
             s.cfg.retry = cfg.retry !== false;
             s.cfg.calc = cfg.calc !== false;
+            s.cfg.daily = cfg.daily !== false;
             if (raw.p && typeof raw.p === 'object') {
                 for (const [id, row] of Object.entries(raw.p)) {
                     if (Array.isArray(row) && row.length === 5 && row.every(Number.isFinite)) s.p[id] = row;
@@ -154,7 +155,28 @@
     }
     function ensureBatch() {
         const b = state.b;
-        if (!b || b.d !== today() || !b.ids.length || b.ids.some(id => !byId[id])) newBatch(false);
+        const stale = state.cfg.daily && b && b.d !== today();
+        if (!b || stale || !b.ids.length || b.ids.some(id => !byId[id])) newBatch(false);
+    }
+    // Daily mode: a new day brings a new note and shows the quiz on the pinboard again.
+    function dailyDue() {
+        // Only for people who have used the quiz before (a batch exists).
+        return state.cfg.daily && !!state.b && state.b.d !== today();
+    }
+    function applyDailyOpen() {
+        if (dailyDue() && !state.on) { state.on = true; save(); }
+    }
+    function restart() {
+        const b = state.b;
+        const answered = b ? Object.keys(b.ans).length : 0;
+        const text = answered
+            ? 'Laufendes Quiz abbrechen und neue Fragen ziehen? Bereits gegebene Antworten bleiben in der Statistik.'
+            : 'Diesen Zettel verwerfen und neue Fragen ziehen?';
+        if (!confirm(text)) return;
+        view = 'quiz';
+        newBatch(true);
+        if (!state.b.ids.length) newBatch(false);
+        draw();
     }
     function batchUntouched() {
         return state.b && Object.keys(state.b.ans).length === 0;
@@ -334,18 +356,22 @@
         catSec.append(grid);
 
         const optSec = section('Optionen');
-        const toggle = (label, key) => {
+        const toggle = (label, key, affectsQuestions = true) => {
             const row = button('ppl-quiz-toggle' + (state.cfg[key] ? ' is-on' : ''), '', () => {
                 state.cfg[key] = !state.cfg[key];
-                if (batchUntouched()) newBatch(false); else save();
+                if (affectsQuestions && batchUntouched()) newBatch(false); else save();
                 draw();
             });
             row.append(el('span', '', label), el('span', 'ppl-quiz-toggle-state', state.cfg[key] ? 'AN' : 'AUS'));
             optSec.append(row);
         };
+        toggle('Tägliche Aufgaben', 'daily', false);
         toggle('Falsche am nächsten Tag erneut', 'retry');
         toggle('Rechenaufgaben einmischen', 'calc');
-        optSec.append(el('p', 'ppl-quiz-hint', 'Änderungen gelten ab dem nächsten Zettel, solange der aktuelle schon angefangen ist.'));
+        optSec.append(el('p', 'ppl-quiz-hint', state.cfg.daily
+            ? 'Täglich: Jeden Tag ein neuer Zettel, der Quiz-Zettel hängt dann automatisch an der Pinnwand.'
+            : 'Ohne tägliche Aufgaben bleibt der Zettel zu, bis du ihn über 🎓 Quiz öffnest. Neue Fragen gibt es mit ↻.'));
+        optSec.append(el('p', 'ppl-quiz-hint', 'Änderungen an Anzahl und Fächern gelten ab dem nächsten Zettel, solange der aktuelle schon angefangen ist.'));
 
         const statSec = section('Statistik');
         const rows = catStats();
@@ -389,6 +415,7 @@
             const done = state.b.ids.filter(id => state.b.ans[id] !== undefined).length;
             head.append(el('span', 'ppl-quiz-count', `${done}/${state.b.ids.length}`));
         }
+        if (catalog && view === 'quiz') head.append(button('ppl-quiz-gear ppl-quiz-restart', '↻', restart, 'Quiz abbrechen und neue Fragen ziehen'));
         head.append(button('ppl-quiz-gear', view === 'settings' ? '✕' : '⚙', () => { view = view === 'settings' ? 'quiz' : 'settings'; draw(); }, view === 'settings' ? 'Einstellungen schließen' : 'Einstellungen und Statistik'));
         card.append(head);
 
@@ -416,6 +443,8 @@
 
     function renderBoard(board) {
         card = null;
+        applyDailyOpen();
+        updateButton();
         if (!state.on || !board) return;
         card = el('div', 'post-it ppl-quiz-card');
         const pos = state.pos || { x: 50, y: 4 };
@@ -454,6 +483,7 @@
         updateButton();
         if (card?.isConnected) draw();
     });
+    applyDailyOpen();
     document.addEventListener('DOMContentLoaded', updateButton);
 
     window.gaPplQuiz = { renderBoard, toggle, isOn: () => state.on };

@@ -200,3 +200,6 @@ button.ppl-quiz-ui { -webkit-tap-highlight-color: transparent; }
     #pinboardOverlay .ppl-quiz-card .ppl-quiz-stat { grid-template-columns: 9em 1fr 6.5em; }
     #pinboardOverlay .ppl-quiz-card .ppl-quiz-bar { height: 8px; }
 }
+
+.ppl-quiz-restart { font-size: 1.5cqw; }
+.ppl-quiz-restart:hover { transform: rotate(-60deg); }
