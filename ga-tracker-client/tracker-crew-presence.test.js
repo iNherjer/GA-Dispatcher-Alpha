@@ -175,3 +175,33 @@ test('shutdown reports offline', async () => {
   await s.presence.stop();
   assert.deepEqual(s.posts.at(-1).body, { offline: true });
 });
+
+test('menu placeholder position (in the air, no speed) never starts a flight', async () => {
+  const s = setup();
+  s.presence.observe({ inMenu: true });
+  s.presence.observe({ inMenu: true, lat: 0.5, lon: 0.5, onGround: false, gsKts: 0, altFt: 221 });
+  await s.presence.tick();
+  assert.equal(s.posts.at(-1).body.flight, null);
+  s.advance(5 * 60 * 1000); await s.presence.tick();
+  assert.equal(s.posts.at(-1).body.flight, null, 'still no flight from the menu');
+});
+
+test('a held switch between menu and sim reports at once, a short one does not', async () => {
+  const s = setup();
+  s.presence.observe({ inMenu: true });
+  await s.presence.tick();
+  assert.equal(s.posts.length, 1);
+  s.advance(20000);
+  s.sample();                       // sim loaded: camera left the menu
+  s.advance(5000); await s.presence.tick();
+  assert.equal(s.posts.length, 1, 'switch must hold 10 s first');
+  s.advance(6000); await s.presence.tick();
+  assert.equal(s.posts.length, 2, 'beat right after the switch held');
+  s.advance(15000); await s.presence.tick();
+  assert.equal(s.posts.length, 2, 'only once per switch');
+  s.presence.observe({ inMenu: true }); // back to the menu
+  s.advance(3000);
+  s.sample();                       // short loading flicker
+  s.advance(15000); await s.presence.tick();
+  assert.equal(s.posts.length, 2, 'a flicker shorter than 10 s sends nothing');
+});

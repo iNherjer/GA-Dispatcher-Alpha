@@ -21,6 +21,7 @@ const FREE_FLIGHT_END_STILL_MS = 60 * 1000;
 const STALE_SAMPLE_MS = 2 * 60 * 1000;
 const MAX_MISSION_BYTES = 60 * 1024;        // compressed request body
 const MAX_MISSION_RAW_BYTES = 2 * 1024 * 1024;
+const MENU_HOLD_MS = 10 * 1000;               // menu/sim switch must hold this long before it triggers a beat
 const PHASE_HOLD_MS = 30 * 1000;              // a new phase must hold this long (VS jitter in manual flight)
 const FREE_ROUTE_MAX_OFF_NM = 15;             // a saved Direct To route farther away than this is not this flight's route
 
@@ -49,6 +50,9 @@ function createCrewPresence(options = {}) {
   let blockedUntil = 0;
   let sample = null;
   let sampleAt = 0;
+  let inMenu = false;      // camera shows the main menu, world map or a loading screen
+  let menuChangedAt = 0;
+  let menuReported = null; // menu state of the last beat
   let current = null;      // flight being reported { kind, id, takeoffAt, landedAt, endedAt, leg, progress, ... }
   let airborne = { takeoffAt: 0, landedAt: 0, stillSince: 0 };
   let lastBeat = null;
@@ -86,10 +90,14 @@ function createCrewPresence(options = {}) {
     return profileReading;
   }
 
-  // Called with every telemetry sample; only updates local state.
+  // Called with every telemetry sample; only updates local state. In the menu the sim
+  // reports a placeholder position (often in the air), which must not start a flight.
   function observe(flight) {
     if (!flight || typeof flight !== 'object') return;
     const t = now();
+    const menu = !!flight.inMenu;
+    if (menu !== inMenu) { inMenu = menu; menuChangedAt = t; }
+    if (menu) return;
     sample = { lat: Number(flight.lat), lon: Number(flight.lon), altFt: Number(flight.altFt), hdg: Number(flight.hdg), onGround: !!flight.onGround, gsKts: Number(flight.gsKts ?? flight.gs) || 0, vsFpm: Number(flight.vsFpm) || 0 };
     sampleAt = t;
     if (!sample.onGround) {
@@ -236,8 +244,11 @@ function createCrewPresence(options = {}) {
         }
         offlineSent = false;
         if (share.flight) await uploadMission(flight);
-        if (!core.shouldBeat(lastBeat, flight, t)) return;
+        // Switching between menu and sim (camera) reports at once, once the switch has held.
+        const menuSwitch = menuReported !== null && menuReported !== inMenu && t - menuChangedAt >= MENU_HOLD_MS;
+        if (!menuSwitch && !core.shouldBeat(lastBeat, flight, t)) return;
         if (await post({ source: 'tracker', share, flight })) {
+          menuReported = inMenu;
           if (core.flightEvent(lastBeat?.flight || null, flight)) {
             log(`CREW_PRESENCE_FLIGHT id=${flight?.id || '-'} phase=${flight?.phase || '-'} progress=${flight?.progress ?? '-'} ended=${flight?.endedAt ? 1 : 0}`);
           }

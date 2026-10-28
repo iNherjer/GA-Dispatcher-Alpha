@@ -7476,7 +7476,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                   snapshot: null
                 });
               }
-              if (lat !== 0) trackerCrewPresence?.observe({ lat, lon, altFt: alt, hdg, onGround: !!onGround, gsKts: groundSpeedKts, vsFpm });
+              if (missionTelemetryInMenu) trackerCrewPresence?.observe({ inMenu: true });
+              else if (lat !== 0) trackerCrewPresence?.observe({ lat, lon, altFt: alt, hdg, onGround: !!onGround, gsKts: groundSpeedKts, vsFpm });
               if (ws && ws.readyState === WebSocket.OPEN && currentTelemetryHibernateState.shouldSendTelemetry) {
                 // GPS-Paket senden; Traffic wird alle 2s als Feld eingebettet (Relay-kompatibler Weg)
                 const flight = {
