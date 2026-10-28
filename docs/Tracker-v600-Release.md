@@ -12,6 +12,10 @@
   und Tag, Free-Limit 100.000).
 - EFB: Checklisten werden auch beim erneuten Öffnen der Schublade auf der Liste abgerufen.
 
+EXE (Windows-x64, pkg 6.18.1 / Node18, Cross-Build `--no-bytecode --public --public-packages '*'` aus sauberem
+Worktree von `7d0267036`): 174665291 Bytes; SHA-256 `47e62060cab8646c15809748bbd63630bb67cc1abc28ffebb05cb2437fd7bf63`.
+Öffentlicher Download geprüft.
+
 Nur Alpha-Runtime umstellen, Stable unverändert. Details: `docs/Mission Runtime Authority Contract.md`.
 
 ## Prüfung
