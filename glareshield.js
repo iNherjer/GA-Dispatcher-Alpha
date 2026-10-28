@@ -18,6 +18,7 @@
         { id: 'win95', slider: 4, name: 'Win95', sub: 'Fensteroptik mit Taskleiste' }
     ];
     // Geometrie (px): Eckradius, Ohrtiefe, Ohrbreite, Bogenansatz, Nahtabstand, Randzone
+    var arcFrame = 0, ovMaxCache = null, lastOv = null, lastCorner = '', lastBoxW = 0;
     var R = 24, DROP = 54, T = 20, S = 84, STITCH = 10, KAPPA = 0.552, EDGE = 72, FXH = 130;
 
     var container, glare, drawer, clip, tab, setsEl, screws = [];
@@ -108,8 +109,9 @@
         setMaterial(savedMat >= 0 && savedMat < MATS.length ? savedMat : 0, 0, true);
         var savedK = parseFloat(read(ARC_KEY));
         arcK = savedK >= 0 && savedK <= 1 ? savedK : 0;
-        if (window.ResizeObserver) { ro = new ResizeObserver(function () { buildArc(); }); ro.observe(glare); ro.observe(container); }
-        else window.addEventListener('resize', buildArc);
+        // Nur echte Größenänderungen neu rechnen; die Breite, die die Biegung selbst ändert, nicht
+        if (window.ResizeObserver) { ro = new ResizeObserver(function () { if (Math.round(container.offsetWidth) !== lastBoxW) { ovMaxCache = null; buildArc(); } }); ro.observe(container); }
+        else window.addEventListener('resize', function () { ovMaxCache = null; buildArc(); });
         built = true;
         return true;
     }
@@ -167,8 +169,10 @@
         if (!built || !active()) return;
         // Überstand zuerst setzen: er ändert die Breite des Glareshields (gerade bündig mit dem Rahmen,
         // wächst über die ersten 20 % der Biegung auf den vollen Wert)
-        var ovMax = parseFloat(getComputedStyle(container).getPropertyValue('--gs-ov-max')) || 0;
-        container.style.setProperty('--gs-ov', f1(ovMax * Math.min(1, arcK / 0.2)) + 'px');
+        if (ovMaxCache === null) ovMaxCache = parseFloat(getComputedStyle(container).getPropertyValue('--gs-ov-max')) || 0;
+        var ov = f1(ovMaxCache * Math.min(1, arcK / 0.2)) + 'px';
+        if (ov !== lastOv) { container.style.setProperty('--gs-ov', ov); lastOv = ov; }
+        lastBoxW = Math.round(container.offsetWidth);
         var W = Math.round(glare.clientWidth), h = H();
         if (!W) return;
         var D = h + DROP, k = arcK, r = T / 2, ry = r * k, Dt = D - r - h;
@@ -205,13 +209,18 @@
         // Panel folgt oben der Kontur: deren Ecken sind Ellipsenviertel (Sx breit, Dy hoch), also rundet
         // das Panel seine oberen Ecken genauso. Das schneidet den Rahmen über dem Bogen ab, und der Schatten
         // folgt der Form, statt von einem Zuschnitt gekappt zu werden.
-        var cornerX = f1(R + (S - R) * k + glare.offsetLeft), cornerY = f1(top.Dy);
-        container.style.clipPath = '';
-        container.style.borderTopLeftRadius = container.style.borderTopRightRadius = k > 0 ? cornerX + 'px ' + cornerY + 'px' : '';
+        var corner = k > 0 ? f1(R + (S - R) * k + glare.offsetLeft) + 'px ' + f1(top.Dy) + 'px' : '';
+        if (corner !== lastCorner) { container.style.borderTopLeftRadius = container.style.borderTopRightRadius = corner; lastCorner = corner; }
         container.style.setProperty('--gs-shift', f1(DROP * k) + 'px');
         container.classList.toggle('gs-arc', k > 0 || !!(start && start.edge && start.axis));
     }
-    function setK(k) { arcK = Math.max(0, Math.min(1, k)); buildArc(); }
+    // Beim Ziehen höchstens einmal pro Bildschirmframe rechnen (Safari meldet jede Mausbewegung einzeln)
+    function setK(k, perFrame) {
+        arcK = Math.max(0, Math.min(1, k));
+        if (perFrame) { if (!arcFrame) arcFrame = requestAnimationFrame(function () { arcFrame = 0; buildArc(); }); return; }
+        if (arcFrame) { cancelAnimationFrame(arcFrame); arcFrame = 0; }
+        buildArc();
+    }
     function animateK(target) {
         cancelAnimationFrame(anim);
         var from = arcK, t0 = performance.now(), dur = 240;
@@ -302,7 +311,7 @@
         }
         if (start.axis === 'y' && start.edge) {
             cancelAnimationFrame(anim);
-            setK(start.k0 + dy / DROP);
+            setK(start.k0 + dy / DROP, true);
         } else if (start.axis === 'y') {
             var h = drawerHeight();
             drawer.classList.add('dragging');
@@ -347,11 +356,13 @@
             container.style.setProperty('--gs-bt', (parseFloat(cs.borderTopWidth) || 0) + 'px');
             container.style.setProperty('--gs-bl', (parseFloat(cs.borderLeftWidth) || 0) + 'px');
             container.style.setProperty('--gs-br', (parseFloat(cs.borderRightWidth) || 0) + 'px');
+            ovMaxCache = null;
         }
         if (!on) {
             if (open) setOpen(false);
             container.style.clipPath = '';
             container.style.borderTopLeftRadius = container.style.borderTopRightRadius = '';
+            lastCorner = ''; lastOv = null; ovMaxCache = null;
             container.classList.remove('gs-arc', 'gs-peek');
             return;
         }
