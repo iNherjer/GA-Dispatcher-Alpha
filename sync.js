@@ -15702,7 +15702,7 @@ function _syncPruneLocalStorageForQuota(options = {}) {
     if (options.replaceActiveMission) {
         exact.push('ga_active_mission', 'ga_active_mission_contract', 'ga_active_passenger', 'ga_active_mission_runtime');
     }
-    const prefixes = ['ga_obs_combo_', 'ga_lms_', 'ga_target_geo_context_v4_'];
+    const prefixes = ['ga_obs_combo_', 'ga_lms_', 'ga_target_geo_context_v4_', 'ga_elev_cache_'];
     let removed = 0;
     exact.forEach(key => {
         try {

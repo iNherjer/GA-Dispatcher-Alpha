@@ -112,7 +112,7 @@ function pinboardPruneLocalStorageForQuota(options = {}) {
         'ga_om_cache_v2'
     ];
     if (options.replacePinboard) exact.push('ga_pinboard');
-    const prefixes = ['ga_obs_combo_', 'ga_lms_'];
+    const prefixes = ['ga_obs_combo_', 'ga_lms_', 'ga_elev_cache_'];
     let removed = 0;
     exact.forEach(key => {
         try {
