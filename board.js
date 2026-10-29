@@ -828,20 +828,23 @@ async function pinboardRestoreFlightData(flightData) {
         return false;
     }
     try {
-        pinboardStoreActiveMissionStateForRestore(flightData);
-        const restored = await restoreMissionState(flightData, { source: 'pinboard' });
-        if (restored !== false) window.gaMarkLocalMissionSelection?.(flightData, 'pinboard');
-        if (restored === false) {
-            alert("Dieser Pinnwand-Flug konnte nicht geladen werden.");
-            return false;
-        }
-        // A pinboard restore is a new planned mission selection.  Publish the
-        // refreshed mission timestamp and Tracker seed immediately so the EFB
-        // can start it exactly like a freshly generated mission.
-        if (typeof window.queueActiveMissionCloudSave === 'function') {
-            window.queueActiveMissionCloudSave('pinboard-mission-restored', { delayMs: 0 });
+        // A pinned mission opens as a draft; cloud and tracker change on "Mission akzeptieren".
+        const draft = await window.gaOpenLoadedMissionAsDraft?.(flightData, 'pinboard');
+        if (draft?.handled) {
+            if (!draft.ok) return false;
         } else {
-            triggerCloudSave(true);
+            pinboardStoreActiveMissionStateForRestore(flightData);
+            const restored = await restoreMissionState(flightData, { source: 'pinboard' });
+            if (restored === false) {
+                alert("Dieser Pinnwand-Flug konnte nicht geladen werden.");
+                return false;
+            }
+            // Route-only plan or the accepted mission itself: no slot change, save directly.
+            if (typeof window.queueActiveMissionCloudSave === 'function') {
+                window.queueActiveMissionCloudSave('pinboard-mission-restored', { delayMs: 0 });
+            } else {
+                triggerCloudSave(true);
+            }
         }
         if (document.getElementById('pinboardOverlay')?.classList.contains('active')) togglePinboard();
         setTimeout(() => {
@@ -1302,16 +1305,18 @@ window.importMission = async function() {
             return;
         }
         if (state.localStorageFallbackId) throw new Error('Code enthaelt nur einen lokalen Speicherverweis');
+        const draft = await window.gaOpenLoadedMissionAsDraft?.(state, 'flight-code');
+        if (draft?.handled) {
+            if (draft.ok) alert("✅ Flug als Entwurf geladen. Mit „Mission akzeptieren“ übernehmen.");
+            return;
+        }
         window.storeActiveMissionStateSafely(state, { refreshActiveMissionTimestamp: false });
         const restored = await restoreMissionState(state, { source: 'import' });
-        if (restored !== false) {
-            window.gaMarkLocalMissionSelection?.(state, 'flight-code');
-            window.queueActiveMissionCloudSave?.('flight-code-imported', { delayMs: 0 });
-        }
         if (restored === false) {
             alert("❌ Dieser Flug konnte nicht geladen werden.");
             return;
         }
+        window.queueActiveMissionCloudSave?.('flight-code-imported', { delayMs: 0 });
         alert("✅ Flug erfolgreich geladen!");
     } catch(e) {
         alert("❌ Ungültiger oder beschädigter Code.");
@@ -2556,18 +2561,21 @@ window.importMSFS = function(event) {
                     return;
                 }
             } catch(err) { console.warn("Backup Code fehlerhaft, parse regulär."); }
+            let msfsDraftLoaded = false;
             if (backupState) {
                 try {
                     if (backupState.localStorageFallbackId) throw new Error('Backup enthaelt nur einen lokalen Speicherverweis');
-                    window.storeActiveMissionStateSafely(backupState, { refreshActiveMissionTimestamp: false });
-                    const restored = await restoreMissionState(backupState, { source: 'msfs-import' });
-                    if (restored !== false) {
-                        window.gaMarkLocalMissionSelection?.(backupState, 'msfs-import');
+                    const draft = await window.gaOpenLoadedMissionAsDraft?.(backupState, 'msfs-import');
+                    if (draft?.handled && !draft.ok) return;
+                    msfsDraftLoaded = !!draft?.handled;
+                    if (!draft?.handled) {
+                        window.storeActiveMissionStateSafely(backupState, { refreshActiveMissionTimestamp: false });
+                        const restored = await restoreMissionState(backupState, { source: 'msfs-import' });
+                        if (restored === false) {
+                            alert("❌ Der gespeicherte Dispatcher-Flug konnte nicht geladen werden.");
+                            return;
+                        }
                         window.queueActiveMissionCloudSave?.('msfs-import-restored', { delayMs: 0 });
-                    }
-                    if (restored === false) {
-                        alert("❌ Der gespeicherte Dispatcher-Flug konnte nicht geladen werden.");
-                        return;
                     }
                 } catch(err) {
                     console.warn("Backup Restore fehlgeschlagen:", err);
@@ -2575,7 +2583,7 @@ window.importMSFS = function(event) {
                     return;
                 }
                 closeTransferModal();
-                alert("✅ Eigener Flugplan inkl. KI-Briefing erfolgreich wiederhergestellt!");
+                alert(msfsDraftLoaded ? "✅ Flugplan inkl. KI-Briefing als Entwurf geladen. Mit „Mission akzeptieren“ übernehmen." : "✅ Eigener Flugplan inkl. KI-Briefing erfolgreich wiederhergestellt!");
                 setTimeout(() => {
                     if (typeof map !== 'undefined' && map && routeWaypoints.length >= 2) {
                         map.fitBounds(L.latLngBounds(routeWaypoints), { padding: [40, 40] });

@@ -10054,6 +10054,42 @@ window.gaMissionDraftCommandBlocked = command => {
     return /^mission_/.test(type);
 };
 
+// Flights loaded from the pinboard, a flight code or an MSFS backup open as a
+// draft that replaces a draft on screen. Cloud and tracker keep the accepted
+// mission until "Mission akzeptieren"; "nicht annehmen" returns to it.
+// Route-only plans and the already accepted mission keep the direct path.
+window.gaOpenLoadedMissionAsDraft = async function(state, source = 'pinboard') {
+    const md = state?.currentMissionData;
+    if (!md || typeof md !== 'object' || window.missionIsFreeflightOnly?.(state)) return { handled: false };
+    let accepted = null;
+    try { accepted = JSON.parse(localStorage.getItem('ga_active_mission') || 'null'); } catch (_) {}
+    const acceptedId = accepted?.currentMissionData?.missionId || null;
+    const session = missionDraftSession();
+    if (!session.active() && acceptedId && md.missionId && acceptedId === md.missionId) return { handled: false };
+    if (window.gaIsDispatchBusy?.() || ['generating', 'preparing', 'committing'].includes(session.status())) {
+        alert('Gerade wird eine Mission erstellt oder übernommen. Bitte kurz warten und dann erneut laden.');
+        return { handled: true, ok: false };
+    }
+    if (session.active()) {
+        _abortDispatchRun('Entwurf durch geladenen Flug ersetzt');
+        _dispatchRunId++;
+        if (!session.discard()) return { handled: true, ok: false };
+    }
+    window.gaMissionDraftCloudNotice = '';
+    session.begin({ previousMissionId: acceptedId });
+    const restored = await restoreMissionState(state, { source: String(source) + '-draft', allowDraft: true });
+    if (restored === false || !(await session.read())) {
+        await window.rejectMissionDraft?.();
+        return { handled: true, ok: false };
+    }
+    session.phase('review');
+    updateMissionAcceptanceUi();
+    window.refreshMissionRuntimeUi?.();
+    const indicator = document.getElementById('searchIndicator');
+    if (indicator) indicator.innerText = 'Flug als Entwurf geladen. Mit „Mission akzeptieren“ ersetzt er den bisherigen Auftrag in Cloud und Tracker.';
+    return { handled: true, ok: true };
+};
+
 window.rejectMissionDraft = async function() {
     const session = missionDraftSession();
     if (!session.active() || session.status() === 'committing' || session.status() === 'preparing') return false;
