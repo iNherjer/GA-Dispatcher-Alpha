@@ -17185,7 +17185,7 @@ async function triggerCloudSave(immediate = false, options = {}) {
         const missionRunning = (trackerControl?.executionAuthority === 'tracker' && _trackerRunStarted(trackerControl))
             || !!_rememberedTrackerExecutionRun();
         const runWarning = missionRunning
-            ? "\n\n⚠️ Gerade läuft eine Mission. Der Push setzt sie im Tracker zurück: Der laufende Flug wird beendet und die Mission startet neu als geplant. Das hilft, wenn sich etwas verschluckt hat – sonst lieber abbrechen."
+            ? "\n\n⚠️ Gerade läuft eine Mission. Der Push setzt sie im Tracker zurück: Der laufende Flug wird beendet und die Mission startet neu als geplant."
             : "";
         if (!confirm("⬆️ CLOUD UPLOAD\nMöchtest du deinen aktuellen, lokalen Stand hochladen und das bisherige Cloud-Backup überschreiben?" + runWarning)) {
             return { ok: false, skipped: true, reason: 'manual-cancelled' };
