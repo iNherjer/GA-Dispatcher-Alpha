@@ -179,6 +179,7 @@
     const viewPointers = new Map();
     let viewGesture = null;
     let embeddedViewStatePostPending = false;
+    const DISC_LOAD_TIMEOUT_MS = 5000;
     let rotationFramePending = false;
     let windDotUserSet = false;
     let dragFramePending = false;
@@ -477,6 +478,9 @@
                 // nested iframe. The tracker host therefore owns the visible
                 // controls and the transparent dial interaction surface.
                 localControls: false,
+                // The host shows its buttons only once the visible disc has its
+                // final control positions; before that they would jump.
+                discReady: document.body.classList.contains(state.side === 'wind' ? 'e6b-wind-resolved' : 'e6b-front-resolved'),
                 side: state.side,
                 scale: viewState.scale,
                 x: viewState.x,
@@ -550,14 +554,19 @@
         return `${base}?v=${WORKBENCH_WIND_JSON_VERSION}`;
     }
 
+    // The URLs carry a version, so the embedded EFB may use the HTTP cache.
+    function workbenchJsonCacheMode() {
+        return embeddedMode ? 'default' : 'no-store';
+    }
+
     function fetchWorkbenchFrontDisc() {
-        return fetch(workbenchFrontJsonUrl(), { cache: 'no-store' })
+        return fetch(workbenchFrontJsonUrl(), { cache: workbenchJsonCacheMode() })
             .then(response => response.ok ? response.json() : null)
             .catch(() => null);
     }
 
     function fetchWorkbenchWindDisc() {
-        return fetch(workbenchWindJsonUrl(), { cache: 'no-store' })
+        return fetch(workbenchWindJsonUrl(), { cache: workbenchJsonCacheMode() })
             .then(response => response.ok ? response.json() : null)
             .catch(() => null);
     }
@@ -1173,6 +1182,7 @@
         const rotor = qs('#e6bWorkbenchFrontRotorArt');
         const valid = validWorkbenchFrontDisc(snapshot);
 
+        document.body.classList.add('e6b-front-resolved');
         document.body.classList.toggle('e6b-workbench-front-active', valid);
         document.body.classList.toggle('e6b-workbench-front-missing-active', !valid);
         activeWorkbenchFrontSnapshot = valid ? snapshot : null;
@@ -1189,22 +1199,26 @@
         injectWorkbenchSvg(fixed, snapshot.svgs.back, 'fixed');
         injectWorkbenchSvg(rotor, snapshot.svgs.front, 'rotor');
         syncEmbeddedLocalChrome();
+        scheduleEmbeddedViewStatePost();
     }
 
+    // Render each disc once: the published JSON wins; saved, preloaded and
+    // bundled discs are only fallbacks. Rendering a fallback first doubled the
+    // Coherent SVG preparation and made the host buttons jump.
     function loadWorkbenchFrontDisc() {
-        const saved = readWorkbenchFrontDisc();
-        const preloaded = window.GAE6B_EFB_DISCS && window.GAE6B_EFB_DISCS.front;
-        const initial = validWorkbenchFrontDisc(saved)
-            ? saved
-            : (validWorkbenchFrontDisc(preloaded) ? preloaded : null);
-        applyWorkbenchFrontDisc(initial);
-        fetchWorkbenchFrontDisc().then(snapshot => {
+        return fetchWorkbenchFrontDisc().then(snapshot => {
             if (validWorkbenchFrontDisc(snapshot)) {
                 applyWorkbenchFrontDisc(snapshot);
                 reportE6B('info', 'workbench', 'front-ready', 'E6B-Vorderseite geladen');
                 return;
             }
-            if (!initial) {
+            const saved = readWorkbenchFrontDisc();
+            const preloaded = window.GAE6B_EFB_DISCS && window.GAE6B_EFB_DISCS.front;
+            if (validWorkbenchFrontDisc(saved)) {
+                applyWorkbenchFrontDisc(saved);
+            } else if (validWorkbenchFrontDisc(preloaded)) {
+                applyWorkbenchFrontDisc(preloaded);
+            } else {
                 applyWorkbenchFrontDisc(bundledWorkbenchFrontDisc());
                 reportE6B('warn', 'workbench', 'front-fallback', 'E6B-Vorderseite nutzt eingebauten Fallback');
             }
@@ -1332,6 +1346,7 @@
         const rotorFront = qs('#e6bWorkbenchWindRotorArt');
         const valid = validWorkbenchWindDisc(snapshot);
 
+        document.body.classList.add('e6b-wind-resolved');
         document.body.classList.toggle('e6b-workbench-wind-active', valid);
         document.body.classList.toggle('e6b-workbench-wind-missing-active', !valid);
         activeWorkbenchWindSnapshot = valid ? snapshot : null;
@@ -1354,22 +1369,45 @@
         applyWorkbenchWindGeometry(snapshot);
         applyRotations();
         syncEmbeddedLocalChrome();
+        scheduleEmbeddedViewStatePost();
     }
 
-    function loadWorkbenchWindDisc() {
-        const saved = readWorkbenchWindDisc();
-        const preloaded = window.GAE6B_EFB_DISCS && window.GAE6B_EFB_DISCS.wind;
-        if (validWorkbenchWindDisc(saved)) applyWorkbenchWindDisc(saved);
-        else if (validWorkbenchWindDisc(preloaded)) applyWorkbenchWindDisc(preloaded);
-        fetchWorkbenchWindDisc().then(snapshot => {
-            if (validWorkbenchWindDisc(snapshot)) {
-                applyWorkbenchWindDisc(snapshot);
-                reportE6B('info', 'workbench', 'wind-ready', 'E6B-Windseite geladen');
-            } else if (!validWorkbenchWindDisc(saved) && !validWorkbenchWindDisc(preloaded)) {
-                applyWorkbenchWindDisc(null);
-                reportE6B('warn', 'workbench', 'wind-missing', 'E6B-Windseite konnte nicht geladen werden');
+    // Optional `after` lets the hidden wind side wait until the front is drawn.
+    // setTimeout, not requestAnimationFrame: a hidden iframe gets no frames.
+    function loadWorkbenchWindDisc(after) {
+        return Promise.all([fetchWorkbenchWindDisc(), after]).then(results => new Promise(resolve => {
+            const snapshot = results[0];
+            setTimeout(() => {
+                if (validWorkbenchWindDisc(snapshot)) {
+                    applyWorkbenchWindDisc(snapshot);
+                    reportE6B('info', 'workbench', 'wind-ready', 'E6B-Windseite geladen');
+                } else {
+                    const saved = readWorkbenchWindDisc();
+                    const preloaded = window.GAE6B_EFB_DISCS && window.GAE6B_EFB_DISCS.wind;
+                    if (validWorkbenchWindDisc(saved)) applyWorkbenchWindDisc(saved);
+                    else if (validWorkbenchWindDisc(preloaded)) applyWorkbenchWindDisc(preloaded);
+                    else {
+                        applyWorkbenchWindDisc(null);
+                        reportE6B('warn', 'workbench', 'wind-missing', 'E6B-Windseite konnte nicht geladen werden');
+                    }
+                }
+                resolve();
+            }, 0);
+        }));
+    }
+
+    // Safety net: a hanging request must never keep the buttons (incl. close) hidden.
+    function scheduleDiscLoadTimeout() {
+        setTimeout(() => {
+            if (!document.body.classList.contains('e6b-front-resolved')) {
+                applyWorkbenchFrontDisc(bundledWorkbenchFrontDisc());
+                reportE6B('warn', 'workbench', 'front-timeout', 'E6B-Vorderseite laedt zu lange, eingebauter Fallback');
             }
-        });
+            if (!document.body.classList.contains('e6b-wind-resolved')) {
+                document.body.classList.add('e6b-wind-resolved');
+                scheduleEmbeddedViewStatePost();
+            }
+        }, DISC_LOAD_TIMEOUT_MS);
     }
 
     function numberFromInput(id, fallback) {
@@ -2655,8 +2693,8 @@
 
     function init() {
         try {
-            loadWorkbenchFrontDisc();
-            loadWorkbenchWindDisc();
+            loadWorkbenchWindDisc(loadWorkbenchFrontDisc());
+            scheduleDiscLoadTimeout();
             stripCalibrationDomForEmbedded();
             if (calibrationMode) {
                 renderWindowPlanSectors();

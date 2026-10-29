@@ -356,6 +356,17 @@ body.e6b-workbench-wind-active .e6b-workbench-wind-missing {
     display: none;
 }
 
+/* No "save workbench" hint while a disc is still loading. */
+body.e6b-embedded .e6b-workbench-front-missing,
+body.e6b-embedded .e6b-workbench-wind-missing {
+    display: none;
+}
+
+body.e6b-embedded.e6b-front-resolved.e6b-workbench-front-missing-active .e6b-workbench-front-missing,
+body.e6b-embedded.e6b-wind-resolved.e6b-workbench-wind-missing-active .e6b-workbench-wind-missing {
+    display: flex;
+}
+
 .e6b-embedded-chrome {
     display: none;
     position: absolute;

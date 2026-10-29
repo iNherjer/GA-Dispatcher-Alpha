@@ -1070,6 +1070,15 @@ nicht mehr sekundenweise an den Parent gespiegelt. Ebenso werden Route und
 Flugzeugmarker nur bei veraenderter Geometrie, Position oder Richtung neu
 gerendert. Diese Aenderungen bleiben rein lokal und read-only.
 
+Tracker v602 baut jede E6B-Scheibe nur noch einmal auf: Das veroeffentlichte
+Workbench-JSON wird zuerst geladen; gespeicherter, vorgeladener und
+eingebauter Stand sind nur noch Rueckfaelle. Die Windseite folgt nach der
+Vorderseite. `ga-e6b-view-state` traegt additiv `discReady`; solange die
+sichtbare Seite nicht fertig ist, haelt der Host seine Buttons verborgen, damit
+sie nicht von Ersatz- auf Endpositionen springen. Nach 5 Sekunden greift ein
+Sicherheitsnetz (eingebaute Vorderseite, Buttons sichtbar). Aeltere Frames ohne
+`discReady` verhalten sich wie bisher.
+
 Tracker v331 ergaenzt den Authority-Untervertrag optional um `mapProfile`.
 Die Web-App sanitisiert und reduziert das bereits berechnete Terrainprofil
 vor dem Resume-Upload auf hoechstens 96 Punkte. Es wird getrennt vom

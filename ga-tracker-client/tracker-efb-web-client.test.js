@@ -18,15 +18,15 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   const page = createTrackerEfbWebClientPage();
   assert.equal(EFB_WEB_CLIENT_PATH, '/efb/v1/');
   assert.equal(EFB_WEB_CLIENT_PROBE_PATH, '/efb/v1/probe/');
-  assert.equal(EFB_WEB_ASSET_REVISION, '59401');
+  assert.equal(EFB_WEB_ASSET_REVISION, '60201');
   assert.match(page, /data-efb-view-version="9"/);
-  assert.match(page, /app-styles\.css\?v=59401/);
-  assert.match(page, /host\.css\?v=59401/);
-  assert.match(page, /map-shell-core\.js\?v=59401/);
-  assert.match(page, /map-utility-tools\.js\?v=59401/);
-  assert.match(page, /mission-control-ui-core\.js\?v=59401/);
-  assert.match(page, /cockpit-session-client\.js\?v=59401/);
-  assert.match(page, /host\.js\?v=59401/);
+  assert.match(page, /app-styles\.css\?v=60201/);
+  assert.match(page, /host\.css\?v=60201/);
+  assert.match(page, /map-shell-core\.js\?v=60201/);
+  assert.match(page, /map-utility-tools\.js\?v=60201/);
+  assert.match(page, /mission-control-ui-core\.js\?v=60201/);
+  assert.match(page, /cockpit-session-client\.js\?v=60201/);
+  assert.match(page, /host\.js\?v=60201/);
   assert.match(page, /id="mapTableOverlay"/);
   assert.match(page, /id="mapProfileStrip"/);
   assert.match(page, /id="mapStopwatchDevice"/);
@@ -35,21 +35,21 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   assert.match(page, /id="mapMissionToggleBtn"/);
   assert.match(page, /id="mapGroundCargoBtn"/);
   assert.match(page, /id="mapMissionResetBtn"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=59401"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/mission-control-ui-core\.js\?v=59401"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=59401"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=59401"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=60201"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/mission-control-ui-core\.js\?v=60201"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=60201"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=60201"/);
   assert.match(page, /id="gaEfbBootStatus"/);
   assert.match(page, /window\.toggleMapTable = function/);
   assert.doesNotMatch(page, /<script defer/);
   const scriptOrder = [
     '/efb/v1/assets/leaflet.js',
-    '/efb/v1/assets/map-shell-core.js?v=59401',
-    '/efb/v1/assets/map-utility-tools.js?v=59401',
-    '/efb/v1/assets/mission-control-ui-core.js?v=59401',
-    '/efb/v1/assets/cockpit-session-client.js?v=59401',
-    '/efb/v1/assets/map-zoom-control.js?v=59401',
-    '/efb/v1/assets/host.js?v=59401'
+    '/efb/v1/assets/map-shell-core.js?v=60201',
+    '/efb/v1/assets/map-utility-tools.js?v=60201',
+    '/efb/v1/assets/mission-control-ui-core.js?v=60201',
+    '/efb/v1/assets/cockpit-session-client.js?v=60201',
+    '/efb/v1/assets/map-zoom-control.js?v=60201',
+    '/efb/v1/assets/host.js?v=60201'
   ].map((asset) => page.indexOf(`<script src="${asset}"`));
   assert.deepEqual(scriptOrder, [...scriptOrder].sort((a, b) => a - b));
   assert.equal(scriptOrder.every((index) => index > 0), true);
@@ -488,7 +488,7 @@ test('E6B document forwards iframe diagnostics before loading its runtime', () =
   const page = getTrackerEfbWebClientAsset('/efb/v1/e6b/e6b-flight-computer.html').body.toString('utf8');
   assert.match(page, /ga-e6b-diagnostic/);
   assert.match(page, /unhandledrejection/);
-  assert.match(page, /workbenchjson02/);
+  assert.match(page, /singlerender01/);
   assert.ok(page.indexOf('inline-diagnostics') < page.indexOf('e6b-core.js'));
 });
 

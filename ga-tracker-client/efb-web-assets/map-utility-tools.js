@@ -772,7 +772,9 @@ function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {l
         const inputSurface = ensureE6BInputSurface();
         if (inputSurface) inputSurface.classList.toggle('wind-side', e6bChromeState.side === 'wind');
         const panel = el('mapE6BDevice');
-        if (panel) panel.classList.toggle('e6b-iframe-controls', data.localControls === true);
+        // Hide the host buttons until the visible disc reports its final control
+        // positions (discReady); older E6B frames do not send the field.
+        if (panel) panel.classList.toggle('e6b-iframe-controls', data.localControls === true || data.discReady === false);
         applyE6BChromePosition();
     }
 
