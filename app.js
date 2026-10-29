@@ -10134,6 +10134,45 @@ window.rejectMissionDraft = async function() {
     return true;
 };
 
+// After the scene is accepted, two large dispatch-only parts are cleared before saving:
+// - placementGeometry: the OSM apron/taxiway/hangar context (often 250 KB per copy) that
+//   only scene composition reads; a re-composition fetches it again. Sim command and
+//   tracker use osmPlacement and placementCandidates, which stay.
+// - targetSceneComposerDebug: keeps what restore (aiRaw, normalized) and the debug report
+//   read; full tool results and the fallback arrival plan copy are dropped.
+function slimMissionSceneComposerDebug(debug) {
+    if (!debug || typeof debug !== 'object' || debug.slimmed) return debug || null;
+    const text = (value, max = 300) => {
+        if (value === undefined || value === null) return value;
+        const str = typeof value === 'string' ? value : (() => { try { return JSON.stringify(value); } catch (_) { return String(value); } })();
+        return str.length > max ? `${str.slice(0, max)}…` : str;
+    };
+    return {
+        slimmed: true,
+        source: debug.source || null,
+        promptVersion: debug.promptVersion || null,
+        error: debug.error || '',
+        aiRaw: debug.aiRaw === undefined ? null : debug.aiRaw,
+        normalized: debug.normalized === undefined ? null : debug.normalized,
+        toolCalls: Array.isArray(debug.toolCalls) ? debug.toolCalls.map(call => ({ name: call?.name || '?' })) : [],
+        attempts: Array.isArray(debug.attempts)
+            ? debug.attempts.map(attempt => ({ turn: attempt?.turn, error: text(attempt?.error), result: text(attempt?.result) }))
+            : [],
+        localizationNotes: Array.isArray(debug.localizationNotes) ? debug.localizationNotes.slice(0, 6) : [],
+        validationNotes: Array.isArray(debug.validationNotes) ? debug.validationNotes.slice(0, 6) : []
+    };
+}
+
+function pruneAcceptedMissionSceneBallast(md, activeContract = null) {
+    if (!md || typeof md !== 'object' || md.sceneAccepted !== true) return;
+    if (!/^accepted/.test(String(md.sceneCompositionStatus || ''))) return;
+    [md, md.missionContract, activeContract].forEach(holder => {
+        if (!holder || typeof holder !== 'object') return;
+        if (holder.aptArrivalPlan && typeof holder.aptArrivalPlan === 'object') delete holder.aptArrivalPlan.placementGeometry;
+        if (holder.targetSceneComposerDebug) holder.targetSceneComposerDebug = slimMissionSceneComposerDebug(holder.targetSceneComposerDebug);
+    });
+}
+
 function saveMissionState() {
     if (document.getElementById("briefingBox").style.display !== "block") return;
     if (typeof window.isMissionProposalPending === 'function' && window.isMissionProposalPending()) return;
@@ -10159,6 +10198,7 @@ function saveMissionState() {
         attachMissionStorageIdentity(window.activePassenger, currentMissionData);
         currentMissionData.routeWaypoints = storedRouteWaypoints;
         currentMissionData.missionRouteWaypoints = storedMissionRouteWaypoints;
+        pruneAcceptedMissionSceneBallast(currentMissionData, window.activeMissionContract);
     }
 
     const state = {
