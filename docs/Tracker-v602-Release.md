@@ -13,6 +13,10 @@
   Fingermitte, zweiter Finger darf neben der Scheibe liegen.
 - `EFB_WEB_ASSET_REVISION` 60201.
 
+EXE (Windows-x64, pkg 6.18.1 / Node18, Cross-Build `--no-bytecode --public --public-packages '*'` aus sauberem
+Worktree von `8e1f2e378`): 174672459 Bytes; SHA-256 `7334b8b2d24fb037aad0e5d412163a59e428a2ee6d10f7ce5ecef4b76d8bb76e`.
+Öffentlicher Download geprüft.
+
 Nur Alpha-Runtime umstellen, Stable unverändert.
 
 ## Prüfung
