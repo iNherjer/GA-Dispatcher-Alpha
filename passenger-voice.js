@@ -127,7 +127,10 @@ window.paxVoiceGetDebugState = function() {
 
 window.paxVoiceBuildDebugReport = function() {
     const missionSnap = window.vpMissionDebugSnapshot || (() => {
-        try { return JSON.parse(localStorage.getItem('ga_mission_debug_snapshot') || 'null'); } catch (_) { return null; }
+        try {
+            const snap = JSON.parse(localStorage.getItem('ga_mission_debug_snapshot') || 'null');
+            return snap && !snap.persistedStub ? snap : null;
+        } catch (_) { return null; }
     })();
     const logEntries = (typeof window.paxVoiceGetLogEntries === 'function') ? window.paxVoiceGetLogEntries() : [];
     const state = (typeof window.paxVoiceGetDebugState === 'function') ? window.paxVoiceGetDebugState() : {};

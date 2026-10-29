@@ -240,7 +240,15 @@ const VP_OBS_POOL_MAX_LIN = 60000;
 const VP_OBS_POOL_TTL_MS = 0; // 0 = rolling cache ohne Zeitablauf
 const VP_OBS_POOL_PERSIST_MAX_OBS = 2500;
 const VP_OBS_POOL_PERSIST_MAX_LIN = 5000;
-const VP_OBS_POOL_MAX_BYTES = 650_000;
+// Phones share Safari's ~5 MB localStorage with the active mission; tiles of
+// a trimmed snapshot are refetched (see vpObsPoolPartialTiles), so a smaller
+// persisted pool only costs a quick hosted reload.
+const VP_OBS_POOL_MAX_BYTES = (() => {
+    try {
+        if (window.matchMedia && window.matchMedia('(pointer: coarse) and (max-width: 900px)').matches) return 300_000;
+    } catch (_) { }
+    return 650_000;
+})();
 const VP_OBS_COMBO_PREFIX = 'ga_obs_combo_';
 const VP_OBS_COMBO_MAX_ENTRIES = 8;
 const VP_OBS_TILE_COVERAGE_KEY = 'ga_obs_tile_cov_v1';
@@ -285,6 +293,10 @@ window.vpOverpassRouteLastSuccess = window.vpOverpassRouteLastSuccess || {};
 window.vpOverpassGlobalInFlight = window.vpOverpassGlobalInFlight || null;
 window.vpOverpassTileBackoff = window.vpOverpassTileBackoff || new Map();
 let vpObsPoolHydrated = false;
+// Tiles whose features were only partly persisted. Their coverage marker is
+// not trusted after a reload, so they are loaded again instead of staying
+// half empty.
+const vpObsPoolPartialTiles = new Set();
 let vpObsPoolPersistTimer = null;
 let vpObsTileCoverageHydrated = false;
 let vpObsTileCoveragePersistTimer = null;
@@ -678,15 +690,50 @@ function vpPruneObsPool(now = Date.now()) {
     if (changed) vpRebuildObsPoolTileIndex();
 }
 
+function vpCountObsItemsByTile(target, items) {
+    items.forEach(item => {
+        const tk = String(item && item.tileKey || '');
+        if (tk) target.set(tk, Number(target.get(tk) || 0) + 1);
+    });
+    return target;
+}
+
+function vpObsPoolTileTotals() {
+    const total = new Map();
+    vpCountObsItemsByTile(total, vpObsPool.obs);
+    vpCountObsItemsByTile(total, vpObsPool.lin);
+    return total;
+}
+
+function vpObsPoolPartialTileKeys(obsKept, linKept, total = vpObsPoolTileTotals()) {
+    const kept = new Map();
+    const count = (target, item) => {
+        const tk = String(item && item.tileKey || '');
+        if (tk) target.set(tk, Number(target.get(tk) || 0) + 1);
+    };
+    obsKept.forEach(item => count(kept, item));
+    linKept.forEach(item => count(kept, item));
+    const partial = [];
+    for (const [tk, n] of total.entries()) {
+        if (Number(kept.get(tk) || 0) < n) partial.push(tk);
+    }
+    // Tiles that were already partial and are not reloaded yet stay partial.
+    vpObsPoolPartialTiles.forEach(tk => { if (!partial.includes(tk)) partial.push(tk); });
+    return partial;
+}
+
 function vpEncodeObsPoolWithBudget() {
     const obsArr = vpTakeNewestValues(vpObsPool.obs, VP_OBS_POOL_PERSIST_MAX_OBS);
     const linArr = vpTakeNewestValues(vpObsPool.lin, VP_OBS_POOL_PERSIST_MAX_LIN);
     let obsCount = Math.min(obsArr.length, VP_OBS_POOL_PERSIST_MAX_OBS);
     let linCount = Math.min(linArr.length, VP_OBS_POOL_PERSIST_MAX_LIN);
     let raw = '';
+    const tileTotals = vpObsPoolTileTotals();
 
     while (true) {
-        const payload = { obs: obsArr.slice(0, obsCount), lin: linArr.slice(0, linCount) };
+        const obsKept = obsArr.slice(0, obsCount);
+        const linKept = linArr.slice(0, linCount);
+        const payload = { obs: obsKept, lin: linKept, partialTiles: vpObsPoolPartialTileKeys(obsKept, linKept, tileTotals) };
         raw = JSON.stringify(payload);
         if (raw.length <= VP_OBS_POOL_MAX_BYTES) return { raw, obsCount, linCount };
         if (obsCount <= 200 && linCount <= 400) return { raw, obsCount, linCount };
@@ -710,6 +757,9 @@ function vpHydrateObsPool() {
         const parsed = JSON.parse(raw);
         const obs = Array.isArray(parsed && parsed.obs) ? parsed.obs : [];
         const lin = Array.isArray(parsed && parsed.lin) ? parsed.lin : [];
+        if (Array.isArray(parsed && parsed.partialTiles)) {
+            parsed.partialTiles.forEach(tk => { if (typeof tk === 'string' && tk) vpObsPoolPartialTiles.add(tk); });
+        }
         for (const item of obs) {
             const key = vpObsKey(item);
             if (!key) continue;
@@ -769,7 +819,11 @@ function vpPersistObsPoolSoon() {
                 const linSnapshot = Array.from(vpObsPool.lin.values())
                     .sort((a, b) => Number(b.ts || 0) - Number(a.ts || 0))
                     .slice(0, 800);
-                const fallbackRaw = JSON.stringify({ obs: obsSnapshot, lin: linSnapshot });
+                const fallbackRaw = JSON.stringify({
+                    obs: obsSnapshot,
+                    lin: linSnapshot,
+                    partialTiles: vpObsPoolPartialTileKeys(obsSnapshot, linSnapshot)
+                });
                 localStorage.setItem(VP_OBS_POOL_STORAGE_KEY, fallbackRaw);
                 if (window.gaPerfEnd) window.gaPerfEnd(perf, { ok: true, fallback: true, bytes: fallbackRaw.length });
             } catch (_) {
@@ -1089,6 +1143,7 @@ function vpClearTileFailed(tileKey) {
 
 function vpGetRouteTileCoverageProbe(elevData) {
     vpHydrateObsTileCoverage();
+    vpHydrateObsPool();
     const keys = vpCollectRouteTileKeys(elevData);
     const now = Date.now();
     const missing = [];
@@ -1096,7 +1151,7 @@ function vpGetRouteTileCoverageProbe(elevData) {
     for (const key of keys) {
         const meta = vpObsTileCoverage.get(key);
         const ts = Number((meta && meta.ts) || 0);
-        if (!ts) {
+        if (!ts || vpObsPoolPartialTiles.has(key)) {
             missing.push(key);
             continue;
         }
@@ -1138,6 +1193,7 @@ function vpMarkTileKeysCovered(keys, source = 'unknown') {
     if (!keys) return;
     for (const key of keys) {
         if (typeof key !== 'string' || !key) continue;
+        vpObsPoolPartialTiles.delete(key);
         const prev = vpObsTileCoverage.get(key);
         vpObsTileCoverage.set(key, {
             ts: now,
@@ -4301,6 +4357,7 @@ window.vpBuildWeatherDebugReport = function() {
     let missionSnap = window.vpMissionDebugSnapshot || null;
     if (!missionSnap) {
         try { missionSnap = JSON.parse(localStorage.getItem('ga_mission_debug_snapshot') || 'null'); } catch (_) { missionSnap = null; }
+        if (missionSnap && missionSnap.persistedStub) missionSnap = null;
     }
     if (!missionSnap) {
         lines.push('- (keine aktive Mission oder noch kein Snapshot)');
@@ -5079,7 +5136,10 @@ window.vpBuildMissionPhaseDebugReport = function() {
         ? window.gaMissionPhaseDebugGet()
         : (window.gaMissionPhaseDebug || null);
     const missionSnap = window.vpMissionDebugSnapshot || (() => {
-        try { return JSON.parse(localStorage.getItem('ga_mission_debug_snapshot') || 'null'); } catch (_) { return null; }
+        try {
+            const snap = JSON.parse(localStorage.getItem('ga_mission_debug_snapshot') || 'null');
+            return snap && !snap.persistedStub ? snap : null;
+        } catch (_) { return null; }
     })();
     const events = Array.isArray(dbg?.events) ? dbg.events : [];
     const contract = missionSnap?.contract && typeof missionSnap.contract === 'object' ? missionSnap.contract : null;

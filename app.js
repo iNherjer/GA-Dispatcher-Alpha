@@ -8424,6 +8424,30 @@ function activeMissionStateIds(state = {}) {
     ]);
 }
 
+// The full mission debug snapshot (often several 100 KB) lives only in memory;
+// it is rebuilt on every restore. localStorage keeps the time and ids that the
+// restore expiry check reads after a reload (activeMissionDebugSnapshotTimestamp).
+function gaPersistMissionDebugSnapshot(snapshot) {
+    window.vpMissionDebugSnapshot = snapshot || null;
+    try {
+        if (!snapshot || typeof snapshot !== 'object') {
+            localStorage.removeItem('ga_mission_debug_snapshot');
+            return;
+        }
+        localStorage.setItem('ga_mission_debug_snapshot', JSON.stringify({
+            persistedStub: true,
+            ts: snapshot.ts || null,
+            savedAt: snapshot.savedAt || null,
+            createdAt: snapshot.createdAt || null,
+            time: snapshot.time || null,
+            missionId: snapshot.missionId || null,
+            missionKey: snapshot.missionKey || null,
+            id: snapshot.id || null
+        }));
+    } catch (_) {}
+}
+window.gaPersistMissionDebugSnapshot = gaPersistMissionDebugSnapshot;
+
 function activeMissionDebugSnapshotTimestamp(state = {}) {
     let snap = null;
     try {
@@ -8897,8 +8921,7 @@ function refreshMissionDebugSnapshotFromRestoredState(state = {}, options = {}) 
         },
         fireHazard: md.fireHazard || contract?.fireHazard || null
     };
-    window.vpMissionDebugSnapshot = snapshot;
-    try { localStorage.setItem('ga_mission_debug_snapshot', JSON.stringify(snapshot)); } catch (_) {}
+    gaPersistMissionDebugSnapshot(snapshot);
     try { console.debug('[MISSION SNAPSHOT] restored:', snapshot); } catch (_) {}
     return snapshot;
 }
@@ -27978,8 +28001,8 @@ function applyMissionTargetSceneComposition(composition = {}, reason = 'accept')
         window.gaMissionSceneDebug = { ...(window.gaMissionSceneDebug || {}), ...debugInfo, ts: Date.now() };
     }
     try {
-        const snapshotRaw = localStorage.getItem('ga_mission_debug_snapshot');
-        const snapshot = snapshotRaw ? JSON.parse(snapshotRaw) : (window.vpMissionDebugSnapshot || {});
+        const snapshotRaw = window.vpMissionDebugSnapshot ? null : localStorage.getItem('ga_mission_debug_snapshot');
+        const snapshot = window.vpMissionDebugSnapshot || (snapshotRaw ? JSON.parse(snapshotRaw) : {});
         snapshot.sceneAccepted = true;
         snapshot.sceneCompositionStatus = currentMissionData.sceneCompositionStatus;
         snapshot.targetScene = targetScene;
@@ -27995,8 +28018,7 @@ function applyMissionTargetSceneComposition(composition = {}, reason = 'accept')
             contractTargetScene: targetScene,
             aptArrivalPlan
         };
-        window.vpMissionDebugSnapshot = snapshot;
-        localStorage.setItem('ga_mission_debug_snapshot', JSON.stringify(snapshot));
+        gaPersistMissionDebugSnapshot(snapshot);
     } catch (_) {}
     saveMissionState();
     window.MissionAirportInformationBrowser?.render(currentMissionData);
@@ -47404,8 +47426,7 @@ async function generateMission(options = {}) {
             },
             fireHazard: missionFireHazard || null
         };
-        window.vpMissionDebugSnapshot = missionDebugSnapshot;
-        localStorage.setItem('ga_mission_debug_snapshot', JSON.stringify(missionDebugSnapshot));
+        gaPersistMissionDebugSnapshot(missionDebugSnapshot);
         console.debug('[MISSION SNAPSHOT]', missionDebugSnapshot);
         if (typeof window.vpRefreshWeatherDebugReport === 'function') window.vpRefreshWeatherDebugReport();
     } catch (_) {}
