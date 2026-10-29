@@ -27,11 +27,20 @@ liefert alles Offene mit aus.
 
 ## Offen
 
+### 2026-10-29 · Routen-Hindernis-Cache auf Handys kleiner
+- **Artefakt:** Tracker-EXE (nur die generierte EFB-Kopie von `profile.js`); Web ist seit `77fa27e0f` live
+- **Dateien:** `profile.js` (`VP_OBS_COMBO_MAX_ENTRIES`), generiert `ga-tracker-client/efb-web-assets/profile.js`
+- **Was:** Auf Handys (`pointer: coarse`, bis 900 px) bleiben höchstens 3 statt 8 `ga_obs_combo_*`-Einträge.
+- **Warum:** Jede Routenänderung erzeugt einen eigenen Eintrag (30–90 KB); Safari-localStorage ~5 MB.
+- **Tests:** Browser mit Handy-Simulation; im EFB keine Verhaltensänderung (dort weiter 8).
+- **Doku beim Release:** keine.
+- **Pruefen im Feld:** -
+
 ## Ausgeliefert
 
 ### 2026-10-29 · Debug-Log schlüsselt ga_active_mission auf — ausgeliefert in Tracker v604 (29.10.2026)
 - **Artefakt:** Tracker-EXE (EFB-Kopie von `profile.js`); Web ist mit diesem Push live (`sw.js` v2290)
-- **Dateien:** `profile.js` (`vpBuildActiveMissionStorageBreakdownLines`; Routen-Cache `VP_OBS_COMBO_MAX_ENTRIES` auf Handys 3 statt 8, im EFB unverändert 8), generiert `ga-tracker-client/efb-web-assets/profile.js`
+- **Dateien:** `profile.js` (`vpBuildActiveMissionStorageBreakdownLines`), generiert `ga-tracker-client/efb-web-assets/profile.js`
 - **Was:** Der Speicherabschnitt im Debug-Log zeigt die größten Felder von `ga_active_mission`, von
   `currentMissionData` und vom Missionsvertrag sowie, ob der Vertrag mehrfach identisch gespeichert ist.
 - **Warum:** Ursachenanalyse für 1,78 MB `ga_active_mission` auf dem iPhone (Safari-Limit ~5 MB).
