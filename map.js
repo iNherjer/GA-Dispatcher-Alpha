@@ -7810,6 +7810,17 @@ async function loadStoredAirportOverlayDatabase() {
 
     storedAirportOverlayState.loadPromise = (async () => {
         try {
+            // Share the app-wide load: one ~19 MB download and one parse instead of two.
+            if (typeof loadGlobalAirports === 'function') {
+                try { await loadGlobalAirports(); } catch (_) { }
+                if (typeof globalAirports === 'object' && globalAirports && Object.keys(globalAirports).length > 0) {
+                    storedAirportOverlayState.items = globalAirports;
+                    storedAirportOverlayState.lastError = '';
+                    openAipOverlayRenderState.airportKey = '';
+                    renderKnownAirportOverlaySources();
+                    return globalAirports;
+                }
+            }
             const response = await fetch('./airports.json', { cache: 'default' });
             if (!response.ok) throw new Error(`airports_json_http_${response.status}`);
             const parsed = await response.json();

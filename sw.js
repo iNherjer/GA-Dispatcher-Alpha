@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v2287';
+const CACHE = 'ga-dispatcher-v2288';
 
 const STATIC = [
     './',
@@ -331,6 +331,14 @@ function isQuizDataRequest(url) {
         && (url.pathname.endsWith('/data/ppl-quiz-catalog.json') || url.pathname.includes('/data/ppl-quiz-media/'));
 }
 
+// Airport database (~19 MB): own cache that survives app releases. The app requests it
+// with ?v=<data version>; a new version replaces the old entry. Requests without ?v=
+// are served from whatever version is cached (offline fallback) and never stored.
+const DATA_CACHE = 'ga-data-v1';
+function isAirportDataRequest(url) {
+    return url.origin === self.location.origin && url.pathname.endsWith('/airports.json');
+}
+
 const APP_SHELL_NETWORK_FIRST_EXTENSIONS = ['.html', '.js', '.css'];
 
 function isNetworkFirstRequest(url) {
@@ -357,7 +365,7 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
     e.waitUntil(
         caches.keys().then(keys =>
-            Promise.all(keys.filter(k => k !== CACHE && k !== QUIZ_CACHE && k !== 'private-region.v1' && k !== 'ga-airport-information-v1').map(k => caches.delete(k)))
+            Promise.all(keys.filter(k => k !== CACHE && k !== QUIZ_CACHE && k !== DATA_CACHE && k !== 'private-region.v1' && k !== 'ga-airport-information-v1').map(k => caches.delete(k)))
         ).then(() => self.clients.claim())
     );
 });
@@ -389,6 +397,33 @@ self.addEventListener('fetch', e => {
                 await cache.put(assetUrl.href, response.clone());
             }
             return response;
+        }));
+        return;
+    }
+
+    if (e.request.method === 'GET' && isAirportDataRequest(url)) {
+        e.respondWith(caches.open(DATA_CACHE).then(async cache => {
+            const versioned = url.searchParams.has('v');
+            const cached = versioned
+                ? await cache.match(e.request)
+                : await cache.match(e.request, { ignoreSearch: true });
+            if (cached) return cached;
+            try {
+                const response = await fetch(e.request);
+                if (versioned && response && response.status === 200) {
+                    // Keep only the current data version.
+                    const base = url.origin + url.pathname;
+                    for (const old of await cache.keys()) {
+                        if (old.url !== e.request.url && old.url.split('?')[0] === base) await cache.delete(old);
+                    }
+                    await cache.put(e.request, response.clone());
+                }
+                return response;
+            } catch (error) {
+                const stale = await cache.match(e.request, { ignoreSearch: true });
+                if (stale) return stale;
+                throw error;
+            }
         }));
         return;
     }

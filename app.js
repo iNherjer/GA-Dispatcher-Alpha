@@ -11715,10 +11715,12 @@ async function loadGlobalAirports() {
         ];
 
         // 1) Erst SW/Browser-Cache direkt prüfen (robust bei Netzproblemen).
+        // Nur die aktuelle Datenversion zählt; ältere Stände liefert der Service
+        // Worker weiter unten nur noch als Offline-Rückfall.
         if (typeof caches !== 'undefined' && caches && typeof caches.match === 'function') {
-            for (const url of urls) {
+            for (const url of urls.slice(0, 1)) {
                 try {
-                    const cached = await caches.match(url, { ignoreSearch: true });
+                    const cached = await caches.match(url);
                     const parsed = await tryParseResponse(cached);
                     if (parsed) {
                         globalAirports = parsed;
