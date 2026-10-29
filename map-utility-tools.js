@@ -2248,6 +2248,19 @@ function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {l
             closeCalculator.addEventListener('click', () => closeMapUtilityTool('calculator'));
             closeCalculator.dataset.bound = '1';
         }
+        // The E6B iframe is lazy and hidden, so it would only start loading on
+        // open. Start it as soon as the pointer or focus reaches its button.
+        const e6bToolButton = el('mapToolE6B');
+        if (e6bToolButton && e6bToolButton.dataset.e6bPrewarm !== '1') {
+            const prewarmE6B = () => {
+                const frame = el('mapE6BFrame');
+                if (frame && frame.loading === 'lazy') frame.loading = 'eager';
+            };
+            ['pointerenter', 'pointerdown', 'focus'].forEach(type => {
+                e6bToolButton.addEventListener(type, prewarmE6B, { passive: true });
+            });
+            e6bToolButton.dataset.e6bPrewarm = '1';
+        }
         if (closeE6B && closeE6B.dataset.bound !== '1') {
             closeE6B.addEventListener('click', () => closeMapUtilityTool('e6b'));
             closeE6B.dataset.bound = '1';

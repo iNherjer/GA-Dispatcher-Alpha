@@ -1,3 +1,18 @@
+/* These values change on every drag frame and are read only by the element
+   that sets them. Without inheritance the browser does not restyle the ~2800
+   SVG nodes below on each frame. Browsers without @property ignore this. */
+@property --e6b-view-x { syntax: '*'; inherits: false; }
+@property --e6b-view-y { syntax: '*'; inherits: false; }
+@property --e6b-view-scale { syntax: '*'; inherits: false; }
+@property --e6b-rotation { syntax: '*'; inherits: false; }
+@property --e6b-front-origin-x { syntax: '*'; inherits: false; }
+@property --e6b-front-origin-y { syntax: '*'; inherits: false; }
+@property --e6b-wind-origin-x { syntax: '*'; inherits: false; }
+@property --e6b-wind-origin-y { syntax: '*'; inherits: false; }
+@property --e6b-wind-slide-y { syntax: '*'; inherits: false; }
+@property --e6b-wind-dot-x { syntax: '*'; inherits: false; }
+@property --e6b-wind-dot-y { syntax: '*'; inherits: false; }
+
 :root {
     --paper: #f1eccb;
     --ink: #101010;
@@ -360,8 +375,26 @@ body.e6b-workbench-wind-active .e6b-workbench-wind-missing {
     pointer-events: none;
 }
 
+/* No browser page zoom from a finger beside the disc; the E6B pinches itself. */
+body.e6b-embedded .e6b-stage {
+    touch-action: none;
+}
+
 body.e6b-embedded .e6b-embedded-chrome {
     display: block;
+    visibility: hidden;
+}
+
+/* Show the buttons only once the visible disc has its final positions. */
+body.e6b-embedded.e6b-front-resolved .showing-front .e6b-embedded-chrome,
+body.e6b-embedded.e6b-wind-resolved .showing-wind .e6b-embedded-chrome {
+    visibility: visible;
+}
+
+/* No "save workbench" hint while the disc is still loading. */
+body:not(.e6b-front-resolved) .e6b-workbench-front-missing,
+body:not(.e6b-wind-resolved) .e6b-workbench-wind-missing {
+    display: none;
 }
 
 .e6b-embedded-btn {

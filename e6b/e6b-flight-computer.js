@@ -96,8 +96,10 @@
         appliedWindWidth: 0
     };
     const viewPointers = new Map();
+    const stagePointerIds = new Set();
     let viewGesture = null;
     let embeddedViewStatePostPending = false;
+    const DISC_LOAD_TIMEOUT_MS = 5000;
     let rotationFramePending = false;
     let windDotUserSet = false;
     let dragFramePending = false;
@@ -256,7 +258,12 @@
         const pair = getViewPointerPair();
         if (!pair) return;
         const mid = pointerMidpoint(pair[0], pair[1]);
+        const stack = getActiveViewStack();
+        const rect = stack ? stack.getBoundingClientRect() : null;
         viewGesture = {
+            anchor: rect && rect.width > 0 && rect.height > 0
+                ? { x: (mid.x - rect.left) / rect.width, y: (mid.y - rect.top) / rect.height }
+                : null,
             startDistance: Math.max(1, pointerDistance(pair[0], pair[1])),
             startMidX: mid.x,
             startMidY: mid.y,
@@ -275,11 +282,56 @@
         if (!viewGesture) return false;
         const mid = pointerMidpoint(pair[0], pair[1]);
         const distance = Math.max(1, pointerDistance(pair[0], pair[1]));
-        const nextScale = viewGesture.startScale * (distance / viewGesture.startDistance);
-        const nextX = viewGesture.startX + (mid.x - viewGesture.startMidX);
-        const nextY = viewGesture.startY + (mid.y - viewGesture.startMidY);
-        setViewTransform(nextScale, nextX, nextY);
+        const limits = embeddedMode ? EMBEDDED_VIEW_SCALE : PREVIEW_VIEW_SCALE;
+        const nextScale = clamp(viewGesture.startScale * (distance / viewGesture.startDistance), limits.min, limits.max);
+        setViewTransform(nextScale, viewState.x, viewState.y);
+        // Keep the disc point that was under the fingers at the start under
+        // their midpoint. Measured after the zoom, because the embedded
+        // resolution steps resize the disc from its top-left corner.
+        const stack = getActiveViewStack();
+        const anchor = viewGesture.anchor;
+        if (stack && anchor) {
+            const rect = stack.getBoundingClientRect();
+            const dx = mid.x - (rect.left + anchor.x * rect.width);
+            const dy = mid.y - (rect.top + anchor.y * rect.height);
+            if (Math.abs(dx) > 0.01 || Math.abs(dy) > 0.01) {
+                setViewTransform(nextScale, viewState.x + dx, viewState.y + dy);
+            }
+        }
         return true;
+    }
+
+    // A second finger often lands beside the disc. The stage takes such touch
+    // pointers so the pinch still starts; pointers on a disc stay with it.
+    function handleStagePointerDown(event) {
+        if (!viewTransformMode || event.pointerType === 'mouse') return;
+        if (event.target && event.target.closest && event.target.closest('.e6b-stack, button, input')) return;
+        const stage = event.currentTarget;
+        viewPointers.set(event.pointerId, pointerSnapshot(event));
+        stagePointerIds.add(event.pointerId);
+        if (stage && typeof stage.setPointerCapture === 'function') {
+            try { stage.setPointerCapture(event.pointerId); } catch (_) {}
+        }
+        if (viewPointers.size >= 2) startViewGesture();
+        event.preventDefault();
+    }
+
+    function handleStagePointerMove(event) {
+        if (!stagePointerIds.has(event.pointerId)) return;
+        viewPointers.set(event.pointerId, pointerSnapshot(event));
+        if (viewGesture || viewPointers.size >= 2) updateViewGesture();
+        event.preventDefault();
+    }
+
+    function handleStagePointerEnd(event) {
+        if (!stagePointerIds.has(event.pointerId)) return;
+        stagePointerIds.delete(event.pointerId);
+        viewPointers.delete(event.pointerId);
+        const stage = event.currentTarget;
+        if (stage && typeof stage.releasePointerCapture === 'function') {
+            try { stage.releasePointerCapture(event.pointerId); } catch (_) {}
+        }
+        if (viewGesture) endViewGestureIfNeeded();
     }
 
     function endViewGestureIfNeeded() {
@@ -440,9 +492,15 @@
         return `${base}?v=${WORKBENCH_WIND_JSON_VERSION}`;
     }
 
+    // The URLs carry a version, so the embedded app may use the HTTP cache.
+    // The standalone workbench keeps reading the file fresh while it is edited.
+    function workbenchJsonCacheMode() {
+        return embeddedMode ? 'default' : 'no-store';
+    }
+
     async function fetchWorkbenchFrontDisc() {
         try {
-            const response = await fetch(workbenchFrontJsonUrl(), { cache: 'no-store' });
+            const response = await fetch(workbenchFrontJsonUrl(), { cache: workbenchJsonCacheMode() });
             if (!response.ok) return null;
             return await response.json();
         } catch (_) {
@@ -452,7 +510,7 @@
 
     async function fetchWorkbenchWindDisc() {
         try {
-            const response = await fetch(workbenchWindJsonUrl(), { cache: 'no-store' });
+            const response = await fetch(workbenchWindJsonUrl(), { cache: workbenchJsonCacheMode() });
             if (!response.ok) return null;
             return await response.json();
         } catch (_) {
@@ -1078,6 +1136,7 @@
         const rotor = qs('#e6bWorkbenchFrontRotorArt');
         const valid = validWorkbenchFrontDisc(snapshot);
 
+        document.body.classList.add('e6b-front-resolved');
         document.body.classList.toggle('e6b-workbench-front-active', valid);
         document.body.classList.toggle('e6b-workbench-front-missing-active', !valid);
         activeWorkbenchFrontSnapshot = valid ? snapshot : null;
@@ -1096,11 +1155,17 @@
         syncEmbeddedLocalChrome();
     }
 
+    // Render each disc once: the published JSON wins, the saved workbench state
+    // and the bundled disc are only fallbacks. Rendering a fallback first made
+    // the art and its buttons visibly jump when the JSON replaced it.
     function loadWorkbenchFrontDisc() {
-        const saved = readWorkbenchFrontDisc();
-        applyWorkbenchFrontDisc(validWorkbenchFrontDisc(saved) ? saved : bundledWorkbenchFrontDisc());
-        fetchWorkbenchFrontDisc().then(snapshot => {
-            if (validWorkbenchFrontDisc(snapshot)) applyWorkbenchFrontDisc(snapshot);
+        return fetchWorkbenchFrontDisc().then(snapshot => {
+            if (validWorkbenchFrontDisc(snapshot)) {
+                applyWorkbenchFrontDisc(snapshot);
+                return;
+            }
+            const saved = readWorkbenchFrontDisc();
+            applyWorkbenchFrontDisc(validWorkbenchFrontDisc(saved) ? saved : bundledWorkbenchFrontDisc());
         });
     }
 
@@ -1225,6 +1290,7 @@
         const rotorFront = qs('#e6bWorkbenchWindRotorArt');
         const valid = validWorkbenchWindDisc(snapshot);
 
+        document.body.classList.add('e6b-wind-resolved');
         document.body.classList.toggle('e6b-workbench-wind-active', valid);
         document.body.classList.toggle('e6b-workbench-wind-missing-active', !valid);
         activeWorkbenchWindSnapshot = valid ? snapshot : null;
@@ -1249,13 +1315,32 @@
         syncEmbeddedLocalChrome();
     }
 
-    function loadWorkbenchWindDisc() {
-        const saved = readWorkbenchWindDisc();
-        if (validWorkbenchWindDisc(saved)) applyWorkbenchWindDisc(saved);
-        fetchWorkbenchWindDisc().then(snapshot => {
-            if (validWorkbenchWindDisc(snapshot)) applyWorkbenchWindDisc(snapshot);
-            else if (!validWorkbenchWindDisc(saved)) applyWorkbenchWindDisc(null);
-        });
+    // Optional `after` lets the hidden wind side wait until the front is drawn.
+    function loadWorkbenchWindDisc(after) {
+        // setTimeout, not requestAnimationFrame: a hidden, prewarmed iframe gets no frames.
+        return Promise.all([fetchWorkbenchWindDisc(), after]).then(([snapshot]) => new Promise(resolve => {
+            setTimeout(() => {
+                if (validWorkbenchWindDisc(snapshot)) {
+                    applyWorkbenchWindDisc(snapshot);
+                } else {
+                    const saved = readWorkbenchWindDisc();
+                    applyWorkbenchWindDisc(validWorkbenchWindDisc(saved) ? saved : null);
+                }
+                resolve();
+            }, 0);
+        }));
+    }
+
+    // Safety net: a hanging request must never keep the buttons (incl. close) hidden.
+    function scheduleDiscLoadTimeout() {
+        setTimeout(() => {
+            if (!document.body.classList.contains('e6b-front-resolved')) {
+                applyWorkbenchFrontDisc(bundledWorkbenchFrontDisc());
+            }
+            if (!document.body.classList.contains('e6b-wind-resolved')) {
+                document.body.classList.add('e6b-wind-resolved');
+            }
+        }, DISC_LOAD_TIMEOUT_MS);
     }
 
     function numberFromInput(id, fallback) {
@@ -2470,7 +2555,13 @@
             stack.addEventListener('pointerleave', () => clearWindCursor(stack));
         });
         const stage = qs('.e6b-stage');
-        if (stage) stage.addEventListener('wheel', handleViewWheel, { passive: false });
+        if (stage) {
+            stage.addEventListener('wheel', handleViewWheel, { passive: false });
+            stage.addEventListener('pointerdown', handleStagePointerDown);
+            stage.addEventListener('pointermove', handleStagePointerMove);
+            stage.addEventListener('pointerup', handleStagePointerEnd);
+            stage.addEventListener('pointercancel', handleStagePointerEnd);
+        }
         window.addEventListener('resize', () => setViewTransform(viewState.scale, viewState.x, viewState.y));
         if (!embeddedMode) {
             window.addEventListener('focus', () => {
@@ -2505,8 +2596,8 @@
     }
 
     function init() {
-        loadWorkbenchFrontDisc();
-        loadWorkbenchWindDisc();
+        loadWorkbenchWindDisc(loadWorkbenchFrontDisc());
+        scheduleDiscLoadTimeout();
         stripCalibrationDomForEmbedded();
         if (calibrationMode) {
             renderWindowPlanSectors();
