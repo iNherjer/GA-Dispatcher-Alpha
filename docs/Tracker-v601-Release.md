@@ -11,6 +11,10 @@
 - Stimmig mit dem Tracker: Jede neue Revision desselben Slots bricht im Tracker den alten Lauf ab und lädt die
   Mission neu als geplant (`tracker-cloud-mission-reconcile.js`).
 
+EXE (Windows-x64, pkg 6.18.1 / Node18, Cross-Build `--no-bytecode --public --public-packages '*'` aus sauberem
+Worktree von `930efbdc2`): 174665703 Bytes; SHA-256 `4ec8becc09807fdfcbdd3964b340987e44ef34ad384ad4462657d8b689e442fd`.
+Öffentlicher Download geprüft.
+
 Nur Alpha-Runtime umstellen, Stable unverändert.
 
 ## Prüfung
