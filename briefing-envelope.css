@@ -1,6 +1,8 @@
 html:has(.briefing-envelope-box) { scrollbar-gutter: stable; }
 /* A single WebP is split into reusable front/flap layers without extra downloads. */
 body #briefingBox.briefing-envelope-box { background: transparent !important; border: 0 !important; box-shadow: none !important; padding: 0 !important; overflow: visible; }
+/* The dispatch status occupies layer 30; the unfolded flap must cover it. */
+body #briefingBox.briefing-envelope-box:has(.briefing-envelope.is-moving) { position: relative; z-index: 31; }
 .briefing-envelope { position: relative; width: 100%; aspect-ratio: 1280 / 776; isolation: isolate; margin: 28px 0 26px; container-type: inline-size; }
 .briefing-envelope-art { position: absolute; inset: 0 0 auto; width: 100%; aspect-ratio: 1280 / 776; pointer-events: none; filter: drop-shadow(4px 8px 6px #0008); }
 .briefing-envelope-art img { display: block; width: 100%; height: 100%; }
