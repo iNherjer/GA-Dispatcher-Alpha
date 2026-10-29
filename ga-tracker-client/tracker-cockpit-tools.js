@@ -77,9 +77,16 @@ function createCockpitTools(options) {
         return { ...result, navigation: navigation(), map: snapshot() };
       }
       try {
-        const points = request.intent === 'navigation_adopt' ? routeEdit.normalize(data.points) : routeEdit.apply(current.points, data.edit, current.resetPoints);
+        const adopt = request.intent === 'navigation_adopt';
+        const points = adopt ? routeEdit.normalize(data.points) : routeEdit.apply(current.points, data.edit, current.resetPoints);
+        // The app sends its dispatch route along; edits made before adoption are not a reset target.
+        let adoptResetPoints = points;
+        if (adopt && Array.isArray(data.resetPoints) && data.resetPoints.length >= 2) {
+          try { adoptResetPoints = routeEdit.normalize(data.resetPoints); } catch (_) {}
+        }
         commit({ schema: 'ga.navigation-route.v1', id: current.id || randomUUID(), revision: current.revision + 1,
-          resetPoints: request.intent === 'navigation_adopt' ? points : current.resetPoints,
+          planId: adopt ? '' : route?.planId || '',
+          resetPoints: adopt ? adoptResetPoints : current.resetPoints,
           briefing: request.intent === 'navigation_adopt' ? null : route?.briefing || null,
           updatedAt: now(), departureIcao: String(data.departureIcao || route?.departureIcao || points[0].icao || '').slice(0, 12),
           destinationIcao: String(data.destinationIcao || route?.destinationIcao || points[points.length - 1].icao || '').slice(0, 12), points });
@@ -130,8 +137,11 @@ function createCockpitTools(options) {
       const nav = freeflight.normalize(value);
       const key = createHash('sha256').update(JSON.stringify(nav)).digest('hex');
       if (key === cloudSource) return { ok: true, changed: false };
+      // Re-reading the same plan after edits keeps its dispatch route as reset target.
+      const samePlan = !!(nav.planId && route?.planId === nav.planId && route.resetPoints?.length >= 2);
+      const resetPoints = nav.resetPoints || (samePlan ? route.resetPoints : nav.points);
       commit({ schema: 'ga.navigation-route.v1', id: randomUUID(), revision: Number(route?.revision || 0) + 1,
-        updatedAt: now(), points: nav.points, resetPoints: nav.points, departureIcao: nav.departureIcao,
+        planId: nav.planId, updatedAt: now(), points: nav.points, resetPoints, departureIcao: nav.departureIcao,
         destinationIcao: nav.destinationIcao, briefing: nav.briefing, cloudSource: key });
       return { ok: true, changed: true };
     } catch (error) { return { ok: false, error: error.message }; }

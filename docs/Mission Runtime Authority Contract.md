@@ -1895,3 +1895,15 @@ GPS-Folgewert; keine Missionsrevision allein durch Startdaten. Gepackter
 Node18-ARM64-Prozess bestaetigt neuen IPC-Pfad und Entzug durch null-Sample:
 MISSION_PACKAGED_INDEPENDENT_READINESS_OK, MISSION_PACKAGED_PROCESS_SMOKE_OK,
 Worker-Exit0. Windows-/MSFS-Abnahme separat.
+
+## 29.10.2026 – Route Reset auf die Dispatch-Route (Web v2289, Tracker v604)
+
+Route Reset springt auf die Route zurück, wie sie beim Dispatch, bei Direct To oder beim SAR-Wechsel zum Krankenhaus
+entstanden ist (`window._routeResetWaypoints`, gespeichert als `routeResetWaypoints` im Missionsstand). Kartenänderungen
+überschreiben sie nie; `_missionRouteWaypoints` folgt weiter der bearbeiteten Route, weil Seed, Export und Fortschritt
+sie so lesen. Vor dem Entfernen eigener Wegpunkte fragt die App nach. Ohne Tracker bleibt die normale Cloud-Synchronisation.
+
+Freiflug mit Tracker: `navigation_adopt` nimmt optional `resetPoints` (die Dispatch-Route der App). `adoptCloud` behält
+bei derselben `planId` die bisherigen `resetPoints`, wenn der Plan nach Bearbeitungen erneut aus der Cloud kommt.
+`freeflightNavigation` (`ga.freeflight-navigation.v1`) führt die Dispatch-Route optional als `resetPoints`; ältere
+Tracker verwerfen das Feld. Missionsläufe setzen weiterhin auf die ursprüngliche Missionsroute des Laufs zurück.

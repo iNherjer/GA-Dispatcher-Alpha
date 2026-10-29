@@ -276,3 +276,65 @@ window.addEventListener('orientationchange', _closeFloatingMenus);
 // Keep outside dismissal after interactions inside either menu.
 document.addEventListener('click', _closeVpSettingsOnOutside, true);
 document.addEventListener('click', _closeMapVoiceOnOutside, true);
+
+// ── Kartentisch-Kopf als Symbol-Kacheln (Smartphone) ─────────────────────────
+// Die Buttontexte setzen andere Skripte laufend neu (z. B. "📊 Profil (An)").
+// Hier wird nur das führende Symbol in data-tile-icon gespiegelt und der volle
+// Text als Tooltip/Vorlesetext hinterlegt; die Darstellung macht styles.css.
+(function initMapToolbarTiles() {
+  var ROW_SELECTOR = '#mapToolbarInner > div:not(.map-toolbar-title-row)';
+  var TILE_BUTTONS = '#mapToolbarInner > div:not(.map-toolbar-title-row) > .pb-btn, #mapToolbarInner > div:not(.map-toolbar-title-row) > div > .pb-btn';
+  function leadingIcon(text) {
+    var trimmed = String(text || '').trim();
+    if (!trimmed) return '';
+    if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+      var first = new Intl.Segmenter(undefined, {
+        granularity: 'grapheme'
+      }).segment(trimmed)[Symbol.iterator]().next();
+      return first.value ? first.value.segment : '';
+    }
+    return Array.from(trimmed)[0] || '';
+  }
+  function syncTile(btn) {
+    var label = String(btn.textContent || '').replace(/\s+/g, ' ').trim();
+    var icon = leadingIcon(label);
+    if (btn.dataset.tileIcon !== icon) btn.dataset.tileIcon = icon;
+    // Nur selbst gesetzte Texte nachführen; Tooltips aus anderen Skripten bleiben.
+    var autoLabel = btn.dataset.tileAutoLabel;
+    if (!btn.hasAttribute('aria-label') || btn.getAttribute('aria-label') === autoLabel) {
+      btn.setAttribute('aria-label', label);
+      btn.dataset.tileAutoLabel = label;
+    }
+    var autoTitle = btn.dataset.tileAutoTitle;
+    if (!btn.title || btn.title === autoTitle) {
+      btn.title = label;
+      btn.dataset.tileAutoTitle = label;
+    }
+  }
+  function start() {
+    if (document.body && document.body.classList.contains('ga-efb-tracker-host')) return;
+    var row = document.querySelector(ROW_SELECTOR);
+    if (!row) return;
+    row.classList.add('map-toolbar-tile-row');
+    var buttons = Array.from(document.querySelectorAll(TILE_BUTTONS));
+    buttons.forEach(syncTile);
+    if (typeof MutationObserver !== 'function') return;
+    var observer = new MutationObserver(records => {
+      var touched = new Set();
+      records.forEach(record => {
+        var node = record.target.nodeType === 1 ? record.target : record.target.parentElement;
+        var btn = node && node.closest ? node.closest('.pb-btn') : null;
+        if (btn && buttons.includes(btn)) touched.add(btn);
+      });
+      touched.forEach(syncTile);
+    });
+    buttons.forEach(btn => observer.observe(btn, {
+      childList: true,
+      characterData: true,
+      subtree: true
+    }));
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, {
+    once: true
+  });else start();
+})();

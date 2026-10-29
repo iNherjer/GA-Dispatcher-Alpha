@@ -68,3 +68,24 @@ test('named reporting points and protected mission point flags survive the map p
  assert.equal(map.route.waypoints[1].rppAirportIcao,'EDTL');assert.equal(map.route.waypoints[1].isPOI,true);
  assert.throws(()=>core.apply(map.route.waypoints,{action:'remove',index:1}),/mission_point_locked/);
 });
+test('private route reset returns to the dispatch route sent with adoption, not to earlier app edits',async()=>{
+ const tools=createCockpitTools({getRun:()=>null,getFlight:()=>null});
+ const dispatch=[points[0],points[2]];
+ const seed=await tools.execute({intent:'navigation_adopt',expectedRevision:0,payload:{routeId:'',points,resetPoints:dispatch}});assert.equal(seed.ok,true);
+ const reset=await tools.execute({intent:'navigation_edit',expectedRevision:1,payload:{routeId:seed.navigation.id,edit:{action:'reset'}}});
+ assert.equal(reset.ok,true);assert.deepEqual(reset.navigation.points.map(p=>p.name),['Start','Ziel']);
+ const plain=createCockpitTools({getRun:()=>null,getFlight:()=>null});
+ const old=await plain.execute({intent:'navigation_adopt',expectedRevision:0,payload:{routeId:'',points}});
+ assert.equal(old.navigation.resetPoints.length,3);
+});
+test('cloud freeflight keeps its dispatch route when the same plan is read again after edits',()=>{
+ const tools=createCockpitTools({getRun:()=>null,getFlight:()=>null});
+ const plan=pts=>({schema:'ga.freeflight-navigation.v1',version:1,planId:'freeflight-1',points:pts,departureIcao:'EDTF',destinationIcao:'EDTW',briefing:{title:'Freiflug',story:''}});
+ assert.equal(tools.adoptCloud(plan([points[0],points[2]])).changed,true);
+ assert.equal(tools.adoptCloud(plan(points)).changed,true);
+ assert.deepEqual(tools.navigation().resetPoints.map(p=>p.name),['Start','Ziel']);
+ assert.equal(tools.adoptCloud({...plan(points),planId:'freeflight-2'}).changed,true);
+ assert.equal(tools.navigation().resetPoints.length,3);
+ assert.equal(tools.adoptCloud({...plan(points),planId:'freeflight-3',resetPoints:[points[0],points[2]]}).changed,true);
+ assert.deepEqual(tools.navigation().resetPoints.map(p=>p.name),['Start','Ziel']);
+});

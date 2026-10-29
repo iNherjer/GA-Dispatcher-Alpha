@@ -27,7 +27,9 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-### 2026-10-29 · Debug-Log schlüsselt ga_active_mission auf
+## Ausgeliefert
+
+### 2026-10-29 · Debug-Log schlüsselt ga_active_mission auf — ausgeliefert in Tracker v604 (29.10.2026)
 - **Artefakt:** Tracker-EXE (EFB-Kopie von `profile.js`); Web ist mit diesem Push live (`sw.js` v2290)
 - **Dateien:** `profile.js` (`vpBuildActiveMissionStorageBreakdownLines`), generiert `ga-tracker-client/efb-web-assets/profile.js`
 - **Was:** Der Speicherabschnitt im Debug-Log zeigt die größten Felder von `ga_active_mission`, von
@@ -36,8 +38,6 @@ liefert alles Offene mit aus.
 - **Tests:** Browser mit künstlicher Mission; nur Diagnose, keine Laufzeitwirkung.
 - **Doku beim Release:** Tracker-Release-Notiz ergänzen.
 - **Pruefen im Feld:** Debug-Log im EFB zeigt den Abschnitt „Aufschluesselung ga_active_mission“.
-
-## Ausgeliefert
 
 ### 2026-10-29 · Tracker-Lauf meldet seine Cloud-Aktivierung — ausgeliefert in Tracker v601 (29.10.2026)
 - **Artefakt:** Tracker-EXE

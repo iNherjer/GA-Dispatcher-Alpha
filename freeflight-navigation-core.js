@@ -12,6 +12,10 @@
     const result = { schema: SCHEMA, version: 1, planId: String(value.planId || ''), points,
       departureIcao: String(value.departureIcao || ''), destinationIcao: String(value.destinationIcao || ''),
       briefing: { title: String(value.briefing?.title || 'Freiflug'), story: String(value.briefing?.story || '') } };
+    // Optional: route as created by dispatch, the target of Route Reset.
+    if (Array.isArray(value.resetPoints) && value.resetPoints.length >= 2) {
+      try { result.resetPoints = routes.normalize(value.resetPoints); } catch (_) {}
+    }
     if (result.planId.length > 180 || result.departureIcao.length > 12 || result.destinationIcao.length > 12
         || result.briefing.title.length > 1024 || result.briefing.story.length > 32768
         || encodeURIComponent(JSON.stringify(result)).replace(/%[A-F0-9]{2}/g, 'x').length > 65536)
@@ -24,6 +28,7 @@
     if (!(md.freeflightOnly === true || md.routeOnly === true || md.noMissionRuntime === true
       || md._appliedProfile === 'freeflight_planning' || md._requestedProfile === 'freeflight_planning')) return null;
     return normalize({ schema: SCHEMA, version: 1, planId: md.freeflightPlanId || md.missionId || md.id || '', points: state.routeWaypoints || md.routeWaypoints,
+      resetPoints: state.routeResetWaypoints || null,
       departureIcao: state.currentStartICAO || md.start, destinationIcao: state.currentDestICAO || md.dest,
       briefing: { title: md.mission || md.title || 'Freiflug', story: state.mStory || md.missionStory || md.s || '' } });
   }
@@ -34,7 +39,7 @@
         freeflightOnly: true, routeOnly: true, noMissionRuntime: true, directToEfbOnly: false,
         taskDomain: 'freeflight_planning', _appliedProfile: 'freeflight_planning',
         start: nav.departureIcao, dest: nav.destinationIcao, routeWaypoints: nav.points },
-      routeWaypoints: nav.points, missionRouteWaypoints: nav.points,
+      routeWaypoints: nav.points, missionRouteWaypoints: nav.points, routeResetWaypoints: nav.resetPoints || null,
       currentStartICAO: nav.departureIcao, currentDestICAO: nav.destinationIcao,
       currentSName: nav.points[0].name || nav.departureIcao, currentDName: nav.points.at(-1).name || nav.destinationIcao,
       mTitle: escape(nav.briefing.title), mStory: nav.briefing.story, mPay: '-', mWeight: '-',
