@@ -1,11 +1,14 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v2273';
+const CACHE = 'ga-dispatcher-v2282';
 
 const STATIC = [
     './',
     './index.html',
     './legal.html',
     './styles.css',
+    './briefing-envelope.css',
+    './briefing-envelope.js',
+    './assets/ui/briefing/envelope.webp',
     './assets/fonts/Doto-Black-latin.woff2',
     './assets/fonts/DSEG14Classic-Bold.woff2',
     './assets/fonts/DSEG14Classic-Regular.woff2',

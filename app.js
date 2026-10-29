@@ -10605,6 +10605,7 @@ async function restoreMissionState(state, options = {}) {
         record: currentMissionData?.destinationAirport || null
     });
 
+    window.gaBriefingEnvelope?.receive();
     document.getElementById("briefingBox").style.display = "block";
     if (typeof window.updateMissionAcceptanceUi === 'function') window.updateMissionAcceptanceUi();
     renderMainRoute(); setDrumCounter('distDrum', currentMissionData?.dist || state.currentMissionData?.dist || 0);
@@ -47508,6 +47509,7 @@ async function generateMission(options = {}) {
     const depLinks = document.getElementById("wikiDepLinks"); if (depLinks) depLinks.style.display = airportRealIcao(start) ? "block" : "none";
     const destSwitchRow = document.getElementById("destSwitchRow"); if (destSwitchRow) destSwitchRow.style.display = missionActsLikePoi ? "none" : "flex";
 
+    window.gaBriefingEnvelope?.receive();
     document.getElementById("briefingBox").style.display = "block";
 
     syncAirportFieldValue('destLoc', '', { resolved: false });
