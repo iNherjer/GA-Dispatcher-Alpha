@@ -7881,9 +7881,24 @@ function _activeAptArrivalPlan(mdArg = null, contractArg = null) {
     };
 }
 
+// Without a checked stand no static reception scene stands in the sim (same flag
+// the app and tracker use before spawning). The contact then drives up to the
+// parked aircraft, so nobody is visibly waiting before that.
+function _aptArrivalHasStaticScene(plan = null) {
+    const p = plan || _activeAptArrivalPlan();
+    if (!p) return false;
+    return !(p.snapStatus?.spawnAllowed === false
+        || (!p.snapStatus && String(p.source || '') === 'airport-representative-offset'));
+}
+
+function _aptArrivalPickupContact(plan = null) {
+    const p = plan || _activeAptArrivalPlan();
+    return String(p?.expectedBy || p?.roleLabel || '').trim() || 'die Abholung';
+}
+
 function _aptArrivalCue(plan = null) {
     const p = plan || _activeAptArrivalPlan();
-    if (!p) return '';
+    if (!p || !_aptArrivalHasStaticScene(p)) return '';
     const expectedBy = String(p.expectedBy || p.roleLabel || p.role || '').trim();
     const visibleCue = String(p.visibleCue || '').trim();
     if (expectedBy && visibleCue) return `${expectedBy}, erkennbar an ${visibleCue}`;
@@ -7893,9 +7908,7 @@ function _aptArrivalCue(plan = null) {
 function _aptArrivalLocationLabel(plan = null) {
     const p = plan || _activeAptArrivalPlan();
     if (!p) return 'Empfangspunkt';
-    // Without a checked place no static scene stands; the pickup drives up to the aircraft.
-    if (p.snapStatus?.spawnAllowed === false
-        || (!p.snapStatus && String(p.source || '') === 'airport-representative-offset')) return 'direkt am Flugzeug';
+    if (!_aptArrivalHasStaticScene(p)) return 'am Abstellplatz';
     const semantic = String(p.semantic || p.anchorType || '').toLowerCase();
     const cues = Array.isArray(p.cues) ? p.cues.join(' ').toLowerCase() : '';
     const policy = Array.isArray(p.snapPolicy?.prefer) ? p.snapPolicy.prefer.join(' ').toLowerCase() : '';
@@ -7945,6 +7958,9 @@ function _aptArrivalContextLine(md = null, contract = null) {
     if (idea) return `PRIVATER ANLASS: ${idea.occasion} Persönlicher Grund: ${idea.personalReason} Nach dem Parken: ${idea.firstStep} Bleibe bei diesem Vorhaben; eine dekorative Vorfeldszene begründet keine zusätzliche Verabredung oder Abholung.`;
     const plan = _activeAptArrivalPlan(md, contract);
     if (!plan) return '';
+    if (!_aptArrivalHasStaticScene(plan)) {
+        return `APT-ARRIVAL: ${String(plan.roleLabel || plan.role || 'Abholung').trim()} | Ort: am Abstellplatz | Abholung: ${_aptArrivalPickupContact(plan)} kommt erst nach dem Abstellen zum Flugzeug; vorher wartet dort niemand sichtbar | Nicht behaupten, die Abholung oder ein Fahrzeug schon zu sehen; keine Erkennungsmerkmale beschreiben.`;
+    }
     const cue = _aptArrivalCue(plan);
     const label = String(plan.roleLabel || plan.role || 'Empfangsszene').trim();
     const location = _aptArrivalLocationLabel(plan);
@@ -7965,6 +7981,13 @@ function _aptArrivalApproachHint() {
     const idea = _privateOutingStoryContext();
     if (idea) return ` Vorfreude auf denselben privaten Anlass: ${idea.occasion} Erzähle aus deiner Perspektive; nach dem Parken ist vorgesehen: ${idea.firstStep}`;
     const plan = _activeAptArrivalPlan();
+    if (plan && !_aptArrivalHasStaticScene(plan)) {
+        const contact = _aptArrivalPickupContact(plan);
+        if (_activeTaskDomain() === 'private_outing') {
+            return ` APT-Arrival-Hinweis: Am Ziel kommt ${contact} nach dem Abstellen zum Flugzeug, danach beginnt der Ausflug. Erwaehne das kurz als Vorfreude, ohne zu behaupten, die Abholung schon zu sehen. Keine Uebergabe- oder Frachtmeldung.`;
+        }
+        return ` APT-Arrival-Hinweis: Erwaehne kurz und vorausschauend, dass ${contact} nach dem Abstellen zum Flugzeug kommt. Behaupte nicht, schon jemanden oder ein Fahrzeug zu sehen, und beschreibe kein Erkennungsmerkmal. Kein langer Debrief und keine Objektliste.`;
+    }
     const cue = _aptArrivalCue(plan);
     if (!cue) return '';
     if (_activeTaskDomain() === 'private_outing') {
@@ -7979,6 +8002,11 @@ function _aptArrivalAfterLandingHint() {
     const idea = _privateOutingStoryContext();
     if (idea) return `Gib kurzes persönliches Feedback zur Landung. Danach geht euer Vorhaben weiter: ${idea.firstStep}`;
     const plan = _activeAptArrivalPlan();
+    if (plan && !_aptArrivalHasStaticScene(plan)) {
+        const contact = _aptArrivalPickupContact(plan);
+        const after = _activeTaskDomain() === 'private_outing' ? ' und danach beginnt der private Ausflug' : '';
+        return `Nach der Landung: Gib nur ein kurzes Feedback zur Landung und sag, dass wir zum Abstellplatz rollen sollen; ${contact} kommt dann zum Flugzeug${after}. Behaupte nicht, die Abholung schon zu sehen. Keine Verabschiedung, keine Flugzusammenfassung, keine Objektliste.`;
+    }
     const cue = _aptArrivalCue(plan);
     if (!cue) return '';
     const place = _aptArrivalLocationLabel(plan);
@@ -7994,6 +8022,13 @@ function _aptArrivalFarewellHint() {
     const idea = _privateOutingStoryContext();
     if (idea) return `Der gemeinsame Hinflug ist beendet. Leite natürlich zum gleichen Vorhaben über: ${idea.firstStep} Persönlicher Grund: ${idea.personalReason}`;
     const plan = _activeAptArrivalPlan();
+    if (plan && !_aptArrivalHasStaticScene(plan)) {
+        const contact = _aptArrivalPickupContact(plan);
+        if (_activeTaskDomain() === 'private_outing') {
+            return `Wir stehen jetzt am Abstellplatz; ${contact} kommt gleich zum Flugzeug, danach kann der private Ausflug beginnen. Die Abholung ist noch nicht zu sehen. Du darfst dem Piloten kurz danken und in den Tagesplan am Ziel ueberleiten.`;
+        }
+        return `Wir stehen jetzt am Abstellplatz; ${contact} kommt gleich zum Flugzeug und ist noch nicht zu sehen. Das ist jetzt der eigentliche Abschied. Du darfst den Flug kurz zusammenfassen und erwaehnen, dass du gleich abgeholt wirst.`;
+    }
     const cue = _aptArrivalCue(plan);
     if (!cue) return '';
     const place = _aptArrivalLocationLabel(plan);

@@ -10182,10 +10182,16 @@ function saveMissionState() {
         || missionUsesPoiPresentation(currentMissionData)
     );
 
-    const imgDepEl = document.getElementById("wikiDepImage");
-    const imgDepUrl = (imgDepEl && imgDepEl.style.backgroundImage !== 'url("")') ? imgDepEl.style.backgroundImage : "";
-    const imgDestEl = document.getElementById("wikiDestImage");
-    const imgDestUrl = (imgDestEl && imgDestEl.style.backgroundImage !== 'url("")') ? imgDestEl.style.backgroundImage : "";
+    // Only a photo that is shown belongs to this briefing; a hidden one may be left over from a previous mission.
+    const visibleBriefingPhoto = (imgId, containerId) => {
+        const img = document.getElementById(imgId);
+        const container = document.getElementById(containerId);
+        if (!img || !container || container.style.display === 'none') return "";
+        const url = img.style.backgroundImage || "";
+        return (url && url !== 'url("")' && url !== 'none') ? url : "";
+    };
+    const imgDepUrl = visibleBriefingPhoto("wikiDepImage", "wikiDepImageContainer");
+    const imgDestUrl = visibleBriefingPhoto("wikiDestImage", "wikiDestImageContainer");
     const storedRouteWaypoints = cloneRouteWaypointsForStorage(routeWaypoints);
     const storedMissionRouteWaypoints = cloneRouteWaypointsForStorage(
         (window._missionRouteWaypoints && window._missionRouteWaypoints.length >= 2)
@@ -27431,6 +27437,10 @@ async function scenePlannerV3ExecuteTool(call = {}, ctx = {}) {
         const aptCtx = ctx.aptArrivalGeoContext || ctx.aptArrivalPlan?.placementGeometry || (ctx.aptArrivalPlan ? await fetchAptArrivalGeoContext(ctx.aptArrivalPlan) : null);
         return {
             aptArrivalPlan: scenePlannerV3CompactAptPlan(ctx.aptArrivalPlan),
+            ...(ctx.aptArrivalPlan && !['parking', 'apron', 'surface', 'hangarFront']
+                .some(key => Array.isArray(ctx.aptArrivalPlan.placementCandidates?.[key]) && ctx.aptArrivalPlan.placementCandidates[key].length > 0) ? {
+                placementNote: 'Keine sicheren Stellplatz-Kandidaten angeboten: preferredPlacement weglassen. Es entsteht keine Empfangsszene; die Abholung kommt nach dem Abstellen zum Flugzeug.'
+            } : {}),
             arrivalPlacementGeometry: aptCtx && ctx.aptArrivalPlan ? aptArrivalComposerGeometry(aptCtx,ctx.aptArrivalPlan) : null,
             aptArrivalGeoContext: aptCtx ? {
                 source: aptCtx.source || '',
@@ -27455,7 +27465,7 @@ Arbeitsweise:
 1. Rufe zuerst get_scene_context_bundle auf.
 2. Nutze die Tool-Daten als Wahrheit. Erfinde keine andere Lage.
 3. POI: Plane targetScene fuer das gepruefte Ziel. Nutze requirements mit feature/count/arrangement/placement und, wenn sinnvoll, forwardM/rightM relativ zum sceneAnchor/mainTarget.
-4. APT: targetScene muss none bleiben. Plane stattdessen aptArrivalPlan: Waehle selbst preferredPlacement aus den angebotenen Kandidaten (osm_hangar_front, osm_parking_position, osm_apron oder osm_surface). osm_hangar_front liegt bahnseitig vor einem kartierten Hangar und ist bevorzugt, sofern Betreiber/Name zur Mission passen (z. B. keine Rettungsstation fuer eine Reporterabholung). Gibt es einen kartierten General-Aviation-Bereich (generalAviation in der Geometrie), bevorzuge Kandidaten dort. osm_surface umfasst kartierte Parkplatz-/Grasflaechen im Flughafenbereich oder nahe kartierten Hangars. Beruecksichtige Gebaeude und die ganze Aufstellung, nicht nur den Anker. Schreibe headingDeg und alle item-Offsets passend zur gewaehlten Flaeche. Bei headingDeg=0 ist forwardM Norden und rightM Osten. Ein Hangarname allein belegt keine freie Wiese oder Zufahrt.
+4. APT: targetScene muss none bleiben. Plane stattdessen aptArrivalPlan: Waehle selbst preferredPlacement aus den angebotenen Kandidaten (osm_hangar_front, osm_parking_position, osm_apron oder osm_surface). Werden keine Kandidaten angeboten, lass preferredPlacement weg. osm_hangar_front liegt bahnseitig vor einem kartierten Hangar und ist bevorzugt, sofern Betreiber/Name zur Mission passen (z. B. keine Rettungsstation fuer eine Reporterabholung). Gibt es einen kartierten General-Aviation-Bereich (generalAviation in der Geometrie), bevorzuge Kandidaten dort. osm_surface umfasst kartierte Parkplatz-/Grasflaechen im Flughafenbereich oder nahe kartierten Hangars. Beruecksichtige Gebaeude und die ganze Aufstellung, nicht nur den Anker. Schreibe headingDeg und alle item-Offsets passend zur gewaehlten Flaeche. Bei headingDeg=0 ist forwardM Norden und rightM Osten. Ein Hangarname allein belegt keine freie Wiese oder Zufahrt.
 4b. BUSH: targetScene bleibt ebenfalls none. Fuer Strip-Missionen darf aptArrivalPlan eine kleine Handoff-/Dropoff-Szene mit Quad/Utility-Fahrzeug am Striprand beschreiben. Fuer Recon-Return ohne Ziel-Landung muss aptArrivalPlan none bleiben.
 5. Fahrzeuge nur auf angebotenen geeigneten Stellflaechen; kartierte Grasflaechen sind fuer kleine Abhol-/Bush-Szenen zulaessig, Befestigung und Zufahrt bleiben bei fehlenden Daten unbekannt. Wasserobjekte nur an Wasser/Ufer. Bei Badesee/Teich/kleinem Binnensee nur kleine Boote. Keine Deko.
 6. Wenn targetScene.kind="none", muessen features=[], requirements=[], roles=[], density="none" und layout="" sein. Keine impliziten Autos/Personen als Deko fuer Historiker-, Lern- oder Sightseeing-Fluege.
@@ -27566,8 +27576,13 @@ function sanitizeScenePlannerV3AptArrivalPlan(raw = null, basePlan = null) {
         const value = scenePlannerV3CleanText(src[key], key === 'narrativeHint' ? 180 : 90);
         if (value) out[key] = value;
     });
-    const placement = scenePlannerV3PreferredAptPlacement(basePlan, src.preferredPlacement || src.placement);
-    if ((src.preferredPlacement || src.placement) && !placement) throw new Error('apt_arrival_scene_invalid: gewaehlter Stellplatz ist kein angebotener Kandidat');
+    // Without a checked stand the plan offers no candidates and stays a pickup
+    // without a static scene; there is nothing for the planner to choose.
+    const offeredCandidates = basePlan.placementCandidates || {};
+    const placementOffered = ['parking', 'apron', 'surface', 'hangarFront']
+        .some(key => Array.isArray(offeredCandidates[key]) && offeredCandidates[key].length > 0);
+    const placement = placementOffered ? scenePlannerV3PreferredAptPlacement(basePlan, src.preferredPlacement || src.placement) : null;
+    if (placementOffered && (src.preferredPlacement || src.placement) && !placement) throw new Error('apt_arrival_scene_invalid: gewaehlter Stellplatz ist kein angebotener Kandidat');
     if (placement) Object.assign(out, placement);
     const allowedRoles = new Set([
         ...baseRoleSet,
@@ -44429,6 +44444,10 @@ async function generateMission(options = {}) {
     for (const imageContainerId of ['wikiDepImageContainer', 'wikiDestImageContainer']) {
         const imageContainer = document.getElementById(imageContainerId);
         if (imageContainer) imageContainer.style.display = 'none';
+    }
+    for (const imageId of ['wikiDepImage', 'wikiDestImage']) {
+        const image = document.getElementById(imageId);
+        if (image) image.style.backgroundImage = "url('')";
     }
     currentDepFreq = '';
     currentDestFreq = '';

@@ -179,3 +179,15 @@ test('strip-only grass eligibility never leaks to a regular airport context',()=
  assert.equal(result.source,'osm_runway_side');assert.equal(result.snapStatus.runwayCenterEstimated,true);
  assert.ok(env.aptArrivalNavM(48,8,result.lat,result.lon).distM>330);
  });
+test('without offered stands a Composer stand choice is ignored and the pickup stays without scene',async()=>{
+ const sparse=c.buildAptArrivalPlan({dest:{lat:48.901667,lon:8.328333,icao:''},heading:350});
+ c.fetchAptArrivalGeoContext=async()=>null;
+ const pickup=await c.resolveAptArrivalPlanPlacement(sparse);
+ c.fetchAptArrivalGeoContext=async()=>geo;
+ assert.equal(pickup.snapStatus.spawnAllowed,false);
+ const result=c.sanitizeScenePlannerV3AptArrivalPlan({preferredPlacement:{source:'osm_parking_position',index:0,reason:'erfunden'},items:pickup.items},clone(pickup));
+ assert.equal(result.lat,pickup.lat);assert.equal(result.lon,pickup.lon);
+ assert.equal(result.snapStatus.spawnAllowed,false);
+ // With offered stands an invented choice is still rejected.
+ assert.throws(()=>c.sanitizeScenePlannerV3AptArrivalPlan({preferredPlacement:{source:'osm_parking_position',index:99}},clone(base)),/kein angebotener Kandidat/);
+});
