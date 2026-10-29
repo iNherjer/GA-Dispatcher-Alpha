@@ -464,8 +464,10 @@ function updateGroupBadgeUI() {
     const mainBadge = document.getElementById('mainPinboardBadge');
     const tabBadge = document.getElementById('groupBadge');
     const hasNew = newBadges.length > 0 || window.gaCrewPresence?.hasNewFlight?.() === true;
+    // The daily PPL quiz lives on the private board: it marks the main button only, not the crew tab.
+    const mainHasNew = hasNew || window.gaPplQuiz?.hasNew?.() === true;
 
-    if (mainBadge) mainBadge.style.display = hasNew ? 'inline-block' : 'none';
+    if (mainBadge) mainBadge.style.display = mainHasNew ? 'inline-block' : 'none';
     if (tabBadge && currentBoardMode !== 'group') {
         tabBadge.style.display = hasNew ? 'inline-block' : 'none';
     } else if (tabBadge && currentBoardMode === 'group') {
@@ -477,6 +479,7 @@ function switchPinboardMode(mode) {
         alert("Bitte zuerst unten in den Einstellungen einer Crew beitreten!"); return;
     }
     currentBoardMode = mode;
+    window.gaPplQuiz?.updateButton?.();
     document.getElementById('tabPrivate').classList.toggle('active', mode === 'private');
     document.getElementById('tabGroup').classList.toggle('active', mode === 'group');
     updateGroupBadgeUI();

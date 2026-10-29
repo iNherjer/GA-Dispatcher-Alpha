@@ -24,7 +24,7 @@
     // p[id] = [attempts, correct, streak, lastDay, lastWrong]
     // b = { d: day, ids: [...], ans: { id: answerKey }, cur: index }
     function defaults() {
-        return { v: 1, on: false, cfg: { n: 10, cats: null, retry: true, calc: true, daily: true }, p: {}, b: null, pos: null };
+        return { v: 1, on: false, cfg: { n: 5, cats: null, retry: true, calc: true, daily: true }, p: {}, b: null, pos: null, seen: 0 };
     }
     function load() {
         try {
@@ -33,7 +33,7 @@
             const s = defaults();
             s.on = raw.on === true;
             const cfg = raw.cfg || {};
-            s.cfg.n = COUNTS.includes(cfg.n) ? cfg.n : 10;
+            s.cfg.n = COUNTS.includes(cfg.n) ? cfg.n : 5;
             s.cfg.cats = Array.isArray(cfg.cats) ? cfg.cats.filter(c => typeof c === 'string') : null;
             s.cfg.retry = cfg.retry !== false;
             s.cfg.calc = cfg.calc !== false;
@@ -47,6 +47,7 @@
             if (b && Number.isInteger(b.d) && Array.isArray(b.ids) && b.ans && typeof b.ans === 'object') {
                 s.b = { d: b.d, ids: b.ids.filter(id => typeof id === 'string'), ans: b.ans, cur: Number.isInteger(b.cur) ? b.cur : 0 };
             }
+            if (Number.isInteger(raw.seen)) s.seen = raw.seen;
             if (raw.pos && Number.isFinite(raw.pos.x) && Number.isFinite(raw.pos.y)) s.pos = { x: raw.pos.x, y: raw.pos.y };
             return s;
         } catch (_) {
@@ -165,6 +166,19 @@
     }
     function applyDailyOpen() {
         if (dailyDue() && !state.on) { state.on = true; save(); }
+    }
+    // Daily mode: badge on the pinboard buttons until the private board was opened today.
+    function hasNew() {
+        return state.cfg.daily && !!state.b && state.seen !== today();
+    }
+    function pinboardVisible() {
+        return !!document.getElementById('pinboardOverlay')?.classList.contains('active');
+    }
+    function markSeen() {
+        if (state.seen === today()) return;
+        state.seen = today();
+        save();
+        updateButton();
     }
     function restart() {
         const b = state.b;
@@ -457,6 +471,7 @@
         board.appendChild(card);
         draw();
         if (!catalog) start();
+        if (pinboardVisible()) markSeen();
     }
 
     function toggle() {
@@ -473,8 +488,28 @@
 
     function updateButton() {
         const btn = document.getElementById('pplQuizToggleBtn');
-        if (btn) btn.classList.toggle('is-on', state.on);
+        if (btn) {
+            // The quiz only lives on the private board.
+            const groupMode = typeof currentBoardMode !== 'undefined' && currentBoardMode === 'group';
+            btn.style.display = groupMode ? 'none' : '';
+            btn.classList.toggle('is-on', state.on);
+            btn.classList.toggle('has-new', hasNew());
+        }
+        if (typeof updateGroupBadgeUI === 'function') updateGroupBadgeUI();
     }
+
+    // The app may stay open over midnight: check the day when it comes back and once a minute.
+    let lastDay = today();
+    function checkDay() {
+        const day = today();
+        if (day === lastDay) return;
+        lastDay = day;
+        if (pinboardVisible() && typeof renderNotes === 'function') renderNotes();
+        else updateButton();
+    }
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) checkDay(); });
+    window.addEventListener('focus', checkDay);
+    setInterval(checkDay, 60000);
 
     // Other tabs or a future cloud sync may change the stored state.
     window.addEventListener('storage', event => {
@@ -486,5 +521,5 @@
     applyDailyOpen();
     document.addEventListener('DOMContentLoaded', updateButton);
 
-    window.gaPplQuiz = { renderBoard, toggle, isOn: () => state.on };
+    window.gaPplQuiz = { renderBoard, toggle, isOn: () => state.on, hasNew, updateButton };
 })();

@@ -176,6 +176,11 @@ button.ppl-quiz-ui { -webkit-tap-highlight-color: transparent; }
 
 .pb-btn.ppl-quiz-toggle-btn { background: #fbf7e4; color: #111; font-weight: bold; border: 1px solid #222; }
 .pb-btn.ppl-quiz-toggle-btn.is-on { background: #7fcf8a; }
+.pb-btn.ppl-quiz-toggle-btn.has-new { position: relative; }
+.pb-btn.ppl-quiz-toggle-btn.has-new::after {
+    content: ''; position: absolute; top: 3px; right: 3px; width: 8px; height: 8px;
+    border-radius: 50%; background: #ff4444; box-shadow: 0 0 0 1px #fff;
+}
 
 /* Small screens: the board scrolls sideways, so the note may use more of its width. */
 @media (max-width: 899px) {
