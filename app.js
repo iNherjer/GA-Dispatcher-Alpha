@@ -10889,6 +10889,7 @@ function handleSliderChange(type, val) {
         drumVal = val.toString().padStart(2, '0');
         syncToNavCom('gphRadioDisplay', drumVal);
     }
+    if (type === 'tas') syncToNavCom('tasRadioDisplay', val);
     setDrumCounter(type + 'Drum', drumVal);
     if (type !== 'alt') recalculatePerformance();
     syncToNavCom(type + 'Radio', val);
