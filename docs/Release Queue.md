@@ -27,7 +27,9 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-### 2026-10-29 · Tracker-Lauf meldet seine Cloud-Aktivierung
+## Ausgeliefert
+
+### 2026-10-29 · Tracker-Lauf meldet seine Cloud-Aktivierung — ausgeliefert in Tracker v601 (29.10.2026)
 - **Artefakt:** Tracker-EXE
 - **Dateien:** `ga-tracker-client/mission-authority-core.js` (`publicRun` → `cloudActivation`); Web-Gegenstück in
   `sync.js` ist mit diesem Push live
@@ -44,8 +46,6 @@ liefert alles Offene mit aus.
 - **Pruefen im Feld:** Mission annehmen und im Tracker beginnen; auf einem zweiten Gerät ohne Tracker erscheint
   „Mission läuft noch“. Mission löschen, aus der Pinnwand neu annehmen: der Hinweis verschwindet beim nächsten
   Cloud-Abgleich, auch wenn beides innerhalb weniger Minuten passiert.
-
-## Ausgeliefert
 
 ### 2026-10-21 · Testflug-Funde EDTF→EDTW: Startfreigabe, PAX-Fragen, Ladung, Ankunftsplatzierung — ausgeliefert in Tracker v583 (21.10.2026)
 - **Artefakt:** Tracker-EXE (inkl. EFB-Host); die Web-App-Teile sind mit diesem Push live (`sw.js` v2185)
