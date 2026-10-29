@@ -215,3 +215,7 @@ button.ppl-quiz-ui { -webkit-tap-highlight-color: transparent; }
 @media (max-width: 899px) {
     .ppl-quiz-media { max-height: 72px; }
 }
+
+/* Hidden on the crew board; must beat the phone header rule that forces display on .pb-btn. */
+#pinboardOverlay .pinboard-header .pb-actions .pb-btn.ppl-quiz-toggle-btn[hidden],
+.pb-btn.ppl-quiz-toggle-btn[hidden] { display: none !important; }

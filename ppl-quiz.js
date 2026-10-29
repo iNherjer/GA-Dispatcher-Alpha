@@ -516,7 +516,7 @@
         if (btn) {
             // The quiz only lives on the private board.
             const groupMode = typeof currentBoardMode !== 'undefined' && currentBoardMode === 'group';
-            btn.style.display = groupMode ? 'none' : '';
+            btn.hidden = groupMode;
             btn.classList.toggle('is-on', state.on);
             btn.classList.toggle('has-new', hasNew());
         }
