@@ -12,7 +12,9 @@
 - Aus der Warteschlange: Debug-Log schlüsselt `ga_active_mission` auf (EFB-Kopie `profile.js`).
 - `EFB_WEB_ASSET_REVISION` 60401.
 
-Volle Tracker-Testsuite: 1525 Tests, 0 Fehler.
+EXE (Windows-x64, pkg 6.18.1 / Node18, Cross-Build `--no-bytecode --public --public-packages '*'` aus sauberem
+Worktree von `84b153b63`): 174460600 Bytes; SHA-256 `acbdce91b459ff96f285eb6c9b19c812c0bd7a9ae1dc03b4fb7b13395f965846`.
+Öffentlicher Download geprüft. Volle Tracker-Testsuite: 1525 Tests, 0 Fehler.
 
 Nur Alpha-Runtime umstellen, Stable unverändert.
 
