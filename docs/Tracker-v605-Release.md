@@ -18,7 +18,9 @@
   die EFB-Kopie enthält auch den Stand aus `e5f8d6b10`.
 - `EFB_WEB_ASSET_REVISION` 60501.
 
-EXE: siehe unten (wird nach dem Build ergänzt).
+EXE (Windows-x64, pkg 6.18.1 / Node18, Cross-Build `--no-bytecode --public --public-packages '*'` aus sauberem
+Worktree von `009e0cf0e`): 174694634 Bytes; SHA-256 `a974c261d3a34cbc842016688be3735cab72c423f219bf0eb607f530263344f5`.
+Öffentlicher Download geprüft. Volle Tracker-Testsuite: 1532 Tests, 1530 bestanden, 0 Fehler.
 
 Nur Alpha-Runtime umstellen, Stable unverändert.
 
