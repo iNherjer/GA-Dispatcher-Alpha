@@ -66,15 +66,22 @@ Rechenvarianten belegen höchstens 20 % eines Zettels. Sonst würden die zwölf 
 - Die Erklärungstexte des Moduls verweisen nur auf „Antwort A“ und werden deshalb nicht übernommen; bei falscher Antwort zeigt das Quiz die richtige Antwort.
 - Die zwei Kartensymbole (Fragen 117 und 118) liegen in `data/ppl-quiz-media/`.
 
+## Bildfragen
+
+- Edition 16 bringt 54 Bildfragen (je sechs pro PPL-Fach, IDs `0x0-085` bis `0x0-091`) als Ergänzungspaket ohne eigenes Fach. Sie landen in ihren normalen Fächern.
+- Zwölf Bilder wurden am 29.10.2026 neu gezeichnet, weil die gelieferten Fassungen fehlerhaft oder schwach waren (Prüfnotizen in `analysis/ppl-quiz-katalog-pruefung-2026-10-28.md`). Bei 020-086 zeigt das Bild seitdem einen klassischen Horizont mit fester Skala und Himmelszeiger; die Erklärtexte wurden angepasst.
+- Bilder ab 800 px Breite gelten als Diagramm: Sie füllen die Notizbreite und öffnen sich beim Antippen bildschirmfüllend (Tippen oder Escape schließt). Kleine Symbole wie bei BZF bleiben klein im Text.
+- Bildpfade tragen `?v=<Prüfsumme>`. Ändert sich ein Bild, lädt der Service Worker es einmal neu; sonst kommt es aus dem Quiz-Cache.
+
 ## Neuen Katalog übernehmen
 
 Das Austauschformat 1.x aus dem Theorie-Trainer (`PPL_A_Fragenkatalog_Edition_N.json`) wird umgewandelt:
 
 ```bash
-node tools/ppl-quiz-build-catalog.mjs "/Pfad/PPL_A_Fragenkatalog_Edition_15.json" "/Pfad/PPL_A_BZF_Fragenkatalog_Edition_13.json"
+node tools/ppl-quiz-build-catalog.mjs "/Pfad/PPL_A_Fragenkatalog_Edition_15.json" "/Pfad/PPL_A_BZF_Fragenkatalog_Edition_13.json" "/Pfad/PPL_A_Neue_Bildfragen_Edition_16_neu.json"
 ```
 
-- Weitere Dateien nach dem PPL-Katalog sind Zusatzmodule (`type: question_batch`) und werden je ein eigenes Fach. Ziel abweichend mit `--out=pfad.json`.
+- Weitere Dateien nach dem PPL-Katalog sind Zusatzmodule (`type: question_batch`). Mit eigenem `category` (BZF) werden sie ein eigenes Fach, ohne `category` (Bildfragen) ergänzen sie die vorhandenen Fächer, und die höchste Editionsnummer gilt für den Katalog. Ziel abweichend mit `--out=pfad.json`.
 - Das Skript bricht ab bei doppelten IDs, nicht genau einer richtigen Antwort, gleichen Antworttexten oder unbekannten Fächern bzw. Quellen.
 - Fragen-IDs müssen über Editionen hinweg gleich bleiben, sonst verliert der Lernstand seine Zuordnung.
 - Entfernte IDs werden im Lernstand einfach ignoriert.

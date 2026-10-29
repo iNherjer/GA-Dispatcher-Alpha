@@ -215,6 +215,34 @@ button.ppl-quiz-ui { -webkit-tap-highlight-color: transparent; }
 @media (max-width: 899px) {
     .ppl-quiz-media { max-height: 72px; }
 }
+/* Picture questions: the diagram spans the note; tap opens the full-screen view. */
+.ppl-quiz-media.is-diagram {
+    width: 100%;
+    max-width: 100%;
+    max-height: none;
+    height: auto;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    background: #fff;
+    cursor: zoom-in;
+}
+.ppl-quiz-zoom {
+    position: fixed;
+    inset: 0;
+    z-index: 200000; /* above the pinboard overlay (120000) */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(10, 16, 24, 0.85);
+    cursor: zoom-out;
+}
+.ppl-quiz-zoom img {
+    max-width: 100%;
+    max-height: 100%;
+    background: #fff;
+    border-radius: 6px;
+    box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+}
 
 /* Hidden on the crew board; must beat the phone header rule that forces display on .pb-btn. */
 #pinboardOverlay .pinboard-header .pb-actions .pb-btn.ppl-quiz-toggle-btn[hidden],

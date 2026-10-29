@@ -7,7 +7,7 @@
 
     const STATE_KEY = 'ga_ppl_quiz_v1';
     // Set by tools/ppl-quiz-build-catalog.mjs; a new value makes devices download the catalog once.
-    const CATALOG_VERSION = '15-434cf8e3';
+    const CATALOG_VERSION = '16-9018fbaf';
     const CATALOG_URL = 'data/ppl-quiz-catalog.json?v=' + CATALOG_VERSION;
     const COUNTS = [5, 10, 15];
     // Days until a question is due again after 1, 2, 3, 4, 5+ correct answers in a row.
@@ -231,6 +231,22 @@
         if (text !== undefined && text !== null) node.textContent = String(text);
         return node;
     }
+    // Pictures already known to be large diagrams, so a redraw shows them at full size at once.
+    const diagramSrcs = new Set();
+    // Full-screen view of a quiz picture; any tap or Escape closes it.
+    function openZoom(src, alt) {
+        if (document.querySelector('.ppl-quiz-zoom')) return;
+        const layer = el('div', 'ppl-quiz-zoom');
+        const big = el('img');
+        big.src = src;
+        big.alt = alt || '';
+        layer.append(big);
+        const close = () => { layer.remove(); document.removeEventListener('keydown', onKey, true); };
+        const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+        layer.addEventListener('click', e => { e.stopPropagation(); close(); });
+        document.addEventListener('keydown', onKey, true);
+        document.body.append(layer);
+    }
     function button(cls, text, onClick, title) {
         const node = el('button', 'ppl-quiz-ui ' + cls, text);
         node.type = 'button';
@@ -267,7 +283,19 @@
             const img = el('img', 'ppl-quiz-media');
             img.src = q.m[0];
             img.alt = q.m[1] || '';
-            img.loading = 'lazy';
+            // Large diagrams (picture questions) span the note and open enlarged on tap;
+            // small symbols (BZF) stay inline.
+            if (diagramSrcs.has(q.m[0])) img.classList.add('is-diagram');
+            img.addEventListener('load', () => {
+                const big = img.naturalWidth >= 800;
+                img.classList.toggle('is-diagram', big);
+                if (big) diagramSrcs.add(q.m[0]);
+            });
+            img.addEventListener('click', e => {
+                if (!img.classList.contains('is-diagram')) return;
+                e.stopPropagation();
+                openZoom(img.src, img.alt);
+            });
             body.append(img);
         }
 

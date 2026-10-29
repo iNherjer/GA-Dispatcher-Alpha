@@ -4,8 +4,9 @@
 //
 //   node tools/ppl-quiz-build-catalog.mjs <PPL_A_Fragenkatalog_Edition_N.json> [<Zusatzmodul.json> ...] [--out=data/ppl-quiz-catalog.json]
 //
-// Additional modules (type "question_batch", e.g. the official BZF I/II catalogue) become one
-// extra subject each. Their questions keep their own IDs, source and licence notice.
+// Additional modules (type "question_batch") either bring their own subject (e.g. the official
+// BZF I/II catalogue, with its own IDs, source and licence notice) or, without a category, add
+// questions to the existing subjects (e.g. the Edition 16 picture questions).
 //
 // The app keeps learning progress per question ID, so IDs must stay stable between editions.
 // The script refuses catalogs that break the basic contract (one correct answer, four
@@ -66,10 +67,11 @@ function convert(q, opts = {}) {
         const bytes = Buffer.from(image.dataUrl.split(',')[1], 'base64');
         const sha = createHash('sha256').update(bytes).digest('hex');
         if (image.sha256 && image.sha256 !== sha) errors.push(`${q.id}: Bild-Prüfsumme passt nicht`);
-        const name = image.filename || `${q.id}.png`;
+        const name = (image.filename || `${q.id}.png`).split('/').pop();
         mkdirSync(mediaDir, { recursive: true });
         writeFileSync(join(mediaDir, name), bytes);
-        out.m = ['data/ppl-quiz-media/' + name, image.alt || ''];
+        // ?v=<hash> lets the service worker cache each image until its content changes.
+        out.m = ['data/ppl-quiz-media/' + name + '?v=' + sha.slice(0, 8), image.alt || ''];
         mediaCount++;
     }
     return out;
@@ -77,9 +79,19 @@ function convert(q, opts = {}) {
 
 const questions = full.questions.map(q => convert(q));
 
+let edition = full.edition;
 for (const path of modulePaths) {
     const mod = JSON.parse(readFileSync(path, 'utf8'));
-    if (mod.type !== 'question_batch' || !mod.category?.id) throw new Error(`${path}: kein Fragenmodul mit eigenem Fach`);
+    if (mod.type !== 'question_batch') throw new Error(`${path}: kein Fragenmodul`);
+    // Supplement batch for the existing subjects (e.g. the Edition 16 picture questions):
+    // questions keep their own categories; the catalog takes over the newer edition number.
+    if (!mod.category?.id) {
+        if (mod.catalogId && mod.catalogId !== full.catalogId) throw new Error(`${path}: anderer Katalog ${mod.catalogId}`);
+        for (const s of mod.sources || []) sources[s.id] = [s.title, s.url];
+        for (const q of mod.questions) questions.push(convert(q));
+        if (mod.edition > edition) edition = mod.edition;
+        continue;
+    }
     const official = mod.questions.every(q => q.bankSegment === 'official');
     categories.push([mod.category.id, official ? 'BZF I/II (amtlich)' : mod.category.name]);
     for (const s of mod.sources || []) {
@@ -106,7 +118,7 @@ const out = {
     format: 1,
     catalogId: full.catalogId,
     catalogVersion: full.catalogVersion,
-    edition: full.edition,
+    edition,
     checkedAt: full.checkedAt,
     note: 'PPL: eigenständig formulierte Lernfragen, keine offiziellen ECQB-Fragen. Quellenabgleich durch KI, unabhängige Fachfreigabe ausstehend.',
     categories,
@@ -121,7 +133,7 @@ const bytes = Buffer.byteLength(json);
 
 // The app loads the catalog as ...json?v=<version> from a long-lived cache. Stamp the new
 // version into ppl-quiz.js so devices fetch it once after the next release.
-const version = `${full.edition}-${createHash('sha256').update(json).digest('hex').slice(0, 8)}`;
+const version = `${edition}-${createHash('sha256').update(json).digest('hex').slice(0, 8)}`;
 const appPath = join(dirname(outputPath), '..', 'ppl-quiz.js');
 try {
     const app = readFileSync(appPath, 'utf8');
