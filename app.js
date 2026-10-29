@@ -7538,9 +7538,9 @@ function bootAppOnce() {
         if(syncInput) syncInput.value = savedSyncId;
     }
 
-    // Sync Toggle Status laden (Standardmäßig auf AUS / false)
+    // Sync Toggle Status laden (standardmäßig AN; aus nur nach bewusstem Ausschalten)
     const syncTggl = document.getElementById('syncToggle');
-    if (syncTggl) { syncTggl.checked = (localStorage.getItem('ga_sync_enabled') === 'true'); }
+    if (syncTggl) { syncTggl.checked = (localStorage.getItem('ga_sync_enabled') !== 'false'); }
 
     // Lade Gruppen-Settings
     const gName = localStorage.getItem('ga_group_name');

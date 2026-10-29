@@ -259,9 +259,26 @@ function _lastFullTrackerTelemetryAt() {
     window.gaRunWhenAwake = (key, fn) => window.gaIdleSleep ? window.gaIdleSleep.runWhenAwake(key, fn) : false;
 })();
 
+// Auto-Sync is on unless the pilot switched it off ('false' stored).
+function gaAutoSyncSetting() {
+    try { return localStorage.getItem('ga_sync_enabled') !== 'false'; } catch (_) { return true; }
+}
+window.gaAutoSyncSetting = gaAutoSyncSetting;
+
+const AUTO_SYNC_OFF_WARNING = "Auto-Sync ausschalten?\n\n"
+    + "Dann passiert ohne Push nichts mehr automatisch:\n"
+    + "• Neue oder aus der Pinnwand geladene Missionen und Flugpläne kommen nicht beim Tracker und im EFB an.\n"
+    + "• Änderungen von anderen Geräten werden nicht geladen.\n"
+    + "• Deine lokalen Daten werden nicht in der Cloud gesichert.\n\n"
+    + "Löschen und Abschließen von Missionen sowie ☁️ Push / Pull funktionieren weiterhin.";
+
 function saveSyncToggle() {
     const t = document.getElementById('syncToggle');
     const label = document.getElementById('autoSyncLabel');
+    if (t && !t.checked && !confirm(AUTO_SYNC_OFF_WARNING)) {
+        t.checked = true;
+        return;
+    }
     if (t) {
         localStorage.setItem('ga_sync_enabled', t.checked);
         if (label) label.style.color = t.checked ? '#4caf50' : '#888';
@@ -15615,7 +15632,7 @@ function setSyncLoginState(isLoggedIn) {
         // Sync & GPS starten falls gewünscht
         const t = document.getElementById('syncToggle');
         if (t) {
-            const savedToggle = localStorage.getItem('ga_sync_enabled') === 'true';
+            const savedToggle = gaAutoSyncSetting();
             t.checked = savedToggle;
             const label = document.getElementById('autoSyncLabel');
             if (label) label.style.color = savedToggle ? '#4caf50' : '#888';

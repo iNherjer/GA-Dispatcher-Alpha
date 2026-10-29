@@ -333,3 +333,12 @@ Missionsdaten, jetzt 0; Leerlauf vorher 4 Abfragen pro Minute, jetzt 0; Anpinnen
 nur mit der Pinnwand. Offen: „Annehmen“ schreibt zweimal (Entwurfs-Status im Seed wird
 direkt korrigiert), einmalig ein weiterer Commit nach Neustart (`cargoObjectRevision`).
 Tests: `tools/sync-field-merge.test.mjs`.
+
+## Auto-Sync standardmäßig an (29.10.2026)
+
+`ga_sync_enabled` gilt als an, solange nicht ausdrücklich `'false'` gespeichert ist (vorher nur bei `'true'`).
+Ausschalten fragt mit Warnung nach: Ohne Auto-Sync kommen neue oder aus der Pinnwand geladene Missionen und
+Flugpläne nicht beim Tracker/EFB an (kein Upload, also auch kein Cloud-Anstoß ab Tracker v600), Änderungen anderer
+Geräte werden nicht geladen, lokale Daten nicht gesichert. Löschen/Abschließen und Push/Pull bleiben möglich.
+Wer Auto-Sync früher bewusst ausgeschaltet hat, bleibt aus. Abgemeldet zeigt die App den Schalter aus und gesperrt,
+ohne die Einstellung zu ändern.

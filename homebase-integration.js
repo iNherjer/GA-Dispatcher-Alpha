@@ -85,7 +85,7 @@
   }
 
   function getHomebaseSyncContext() {
-    const enabled = localStorage.getItem('ga_sync_enabled') === 'true';
+    const enabled = localStorage.getItem('ga_sync_enabled') !== 'false';
     const pilotId = typeof window.getSyncId === 'function' ? window.getSyncId() : (localStorage.getItem('ga_sync_id') || '');
     const pin = typeof window.getSyncPin === 'function' ? window.getSyncPin() : (localStorage.getItem('ga_sync_pin') || '');
     return { enabled, pilotId: String(pilotId || '').trim(), pin: String(pin || '').trim() };
