@@ -1,5 +1,5 @@
 'use strict';
-const { projectStartReadiness } = require('./tracker-mission-start-readiness');
+const { projectStartReadiness, START_READINESS_MAX_AGE_MS } = require('./tracker-mission-start-readiness');
 const { createMissionIpc, difference, missionRequestTimeout } = require('./tracker-mission-ipc.js');
 const { recordGeneratedText } = require('./tracker-mission-poi-voice.js');
 const { createMissionAuthorityManager } = require('./mission-authority-core.js');
@@ -29,6 +29,21 @@ function runMissionWorker() {
     if (typeof sample.vsFpm === 'number' && Number.isFinite(sample.vsFpm)) d.minVs = Math.min(d.minVs ?? sample.vsFpm, sample.vsFpm);
   }
   const log = line => ipc.event('log', line);
+  // One line per change of the start gate, so a flickering start can be traced
+  // to its reason, the packet gap and the hand-over delay into this process.
+  let lastReadinessKey = null;
+  const logReadinessChange = (readiness, sample, previousSample) => {
+    if (!readiness) return;
+    const key = `${readiness.ready === true}:${readiness.reason || ''}`;
+    const handoverMs = sample && Number.isFinite(sample.observedAt) ? Date.now() - sample.observedAt : null;
+    if (handoverMs !== null && handoverMs > 1000) log(`MISSION_START_READINESS_HANDOVER_DELAY delayMs=${handoverMs}`);
+    if (key === lastReadinessKey) return;
+    lastReadinessKey = key;
+    const gapMs = sample && previousSample && Number.isFinite(sample.observedAt) && Number.isFinite(previousSample.observedAt)
+      ? sample.observedAt - previousSample.observedAt : null;
+    const gs = sample && Number.isFinite(sample.gsKts) ? Math.round(sample.gsKts * 100) / 100 : 'n/a';
+    log(`MISSION_START_READINESS ready=${readiness.ready === true ? 1 : 0} reason=${readiness.reason || 'none'} stableForMs=${Math.round(readiness.stableForMs || 0)} gapMs=${gapMs ?? 'n/a'} gsKts=${gs} camera=${sample?.cameraState ?? 'n/a'}`);
+  };
   const publish = () => {
     if (!authority) return;
     publishScheduled = false;
@@ -111,8 +126,10 @@ function runMissionWorker() {
     },
     readiness(sample, generation) {
       if (generation !== simulatorGeneration) return false;
+      const previousSample = readinessPosition;
       readinessPosition = sample ? {...sample, alt:sample.altFt} : null;
       const result = runtime.observeStartReadiness(sample);
+      logReadinessChange(result, sample, previousSample);
       publish(); return result;
     },
     telemetry(sample, motion, context) {
@@ -130,7 +147,7 @@ function runMissionWorker() {
       const simulatorCall = (name, ...args) => { publish(); return ipc.request('callback', name, args, generation); };
       bridge = runtime.attachSimulator({
         getLivePosition: () => readinessPosition && runtime.publicState().startReadiness?.worldReady
-          && Date.now()-readinessPosition.observedAt >= 0 && Date.now()-readinessPosition.observedAt <= 2500
+          && Date.now()-readinessPosition.observedAt >= 0 && Date.now()-readinessPosition.observedAt <= START_READINESS_MAX_AGE_MS
           ? readinessPosition : livePosition,
         // Freigabe (Journal-Eintrag) direkt im Worker statt per Rueckfrage aus
         // dem Hauptprozess: spart pro Effekt eine komplette Prozess-Runde.

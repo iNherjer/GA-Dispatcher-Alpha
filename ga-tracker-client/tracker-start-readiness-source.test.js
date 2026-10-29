@@ -51,7 +51,7 @@ test('pause, menu, airborne, movement and bad packets revoke the permission',asy
 });
 test('system events never renew old position evidence; reconnect and retired handles start untrusted',async()=>{
   const f=await fixture();f.running();for(let n=0;n<4;n++){f.advance(1000);f.frame();}
-  assert.equal(f.gate.snapshot().ready,true);f.advance(3000);f.event(3,0);
+  assert.equal(f.gate.snapshot().ready,true);f.advance(6100);f.event(3,0);
   assert.equal(f.gate.snapshot().ready,false);assert.equal(f.source.position(),null);
   const old=f.handles[0];old.emit('close');assert.equal(f.retries.size,1);
   const reconnect=[...f.retries.values()][0];f.retries.clear();reconnect();await new Promise(resolve=>setImmediate(resolve));

@@ -18,6 +18,10 @@ const { createCameraTelemetry } = require('./tracker-camera-telemetry');
 const { createClockTelemetry } = require('./tracker-clock-telemetry.js');
 const { createSlewTelemetry } = require('./tracker-slew-telemetry.js');
 const { createStartReadinessSource } = require('./tracker-start-readiness-source.js');
+const { createReadinessGapMonitor, createLoopDelayProbe } = require('./tracker-start-readiness-gap-monitor.js');
+// One event-loop delay probe per tracker process (diagnostic for late readiness packets).
+let trackerLoopDelayProbe;
+const getTrackerLoopDelayProbe = () => (trackerLoopDelayProbe === undefined ? (trackerLoopDelayProbe = createLoopDelayProbe()) : trackerLoopDelayProbe);
 const WebSocket = require('ws');
 const readline = require('readline');
 const fs = require('fs');
@@ -6783,7 +6787,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
 }
 
 function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, setTrackerTelemetryWakeHandler = null, setTrackerCommandWakeFilter = null, isDirectHangarAckCommand = null, getHomebaseFallback = null, updateEfbState = null, missionAuthorityManager = null, trackerMissionShadow = null, missionExecutionRuntime = null, trackerCockpitControl = null, missionTransfer = null, getCloudAuthoritySnapshot = null, getHomebaseCloud = null) {
-  let independentReadiness = null;
+  let independentReadiness = null, readinessGapMonitor = null;
   open('VFR-Multitool-v206', 5)
     .then(({ handle }) => {
       const radioTuning = require('./tracker-radio-tuning').createRadioTuning(handle, {SimConnectDataType, SimConnectPeriod, SimConnectConstants, EventFlag});
@@ -6829,10 +6833,14 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         cleanupMission: request => missionSmokeController.cleanupExecutionRun(request),
         setAircraftPosition: request => missionSmokeController.setUserAircraftPosition(request)
       }) || null;
-      if (missionExecutionRuntime?.enabled) independentReadiness = createStartReadinessSource({
-        open, float64Type: SimConnectDataType.FLOAT64, secondPeriod: SimConnectPeriod.SECOND,
-        onSample: sample => missionExecutionRuntime.observeStartReadiness(sample), log: debugLog
-      });
+      if (missionExecutionRuntime?.enabled) {
+        readinessGapMonitor = createReadinessGapMonitor({ log: debugLog, loopDelay: getTrackerLoopDelayProbe() });
+        independentReadiness = createStartReadinessSource({
+          open, float64Type: SimConnectDataType.FLOAT64, secondPeriod: SimConnectPeriod.SECOND,
+          onSample: sample => missionExecutionRuntime.observeStartReadiness(sample), log: debugLog,
+          gapMonitor: readinessGapMonitor
+        });
+      }
       const sendHomebaseAck = (payload = {}) => {
         const ws = getWs();
         if (!ws || ws.readyState !== WebSocket.OPEN) return;
@@ -7310,6 +7318,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         if (recv.requestID === REQ_ID) {
           const now = Date.now();
           lastTelemetrySourceAt = now;
+          readinessGapMonitor?.noteMainTelemetry();
           {
             const telemetryProcessingStarted = process.hrtime.bigint();
             try {

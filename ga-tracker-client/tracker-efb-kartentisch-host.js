@@ -2994,7 +2994,7 @@
     syncFlightPlanRecallButton(planning);
     var readiness = payload && payload.control && payload.control.startReadiness;
     if (model && ['prepare_mission', 'start_boarding', 'confirm_load', 'start_mission'].indexOf(model.intent) >= 0
-      && readiness && (!Number.isFinite(readiness.observedAt) || Date.now() - readiness.observedAt < 0 || Date.now() - readiness.observedAt > 2500)) {
+      && readiness && (!Number.isFinite(readiness.observedAt) || Date.now() - readiness.observedAt < 0 || Date.now() - readiness.observedAt > 6000)) {
       model = Object.assign({}, model, {kind:'wait', intent:'', disabled:true, closeHidden:true,
         text:'Warte auf aktuelle Simulatordaten und Startfreigabe.', button:'Bitte warten...'});
     }

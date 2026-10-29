@@ -29,7 +29,8 @@ test('planned ground-data waits stay visible without an intent and never offer s
       const readyState = {...state,allowedActions:['prepare_mission'],startReadiness:{ready:true,cameraState:2,reason:'',observedAt:Date.now()}};
       const ready = ui.bannerModel(readyState);
       assert.equal(ready.intent,'prepare_mission');assert.equal(ready.disabled,false);
-      assert.equal(ui.bannerModel({...readyState,startReadiness:{...readyState.startReadiness,observedAt:Date.now()-3000}}).disabled,true);
+      assert.equal(ui.bannerModel({...readyState,startReadiness:{...readyState.startReadiness,observedAt:Date.now()-3000}}).disabled,false,'a late 1 Hz packet keeps the start');
+      assert.equal(ui.bannerModel({...readyState,startReadiness:{...readyState.startReadiness,observedAt:Date.now()-6500}}).disabled,true);
     }
   }
 });

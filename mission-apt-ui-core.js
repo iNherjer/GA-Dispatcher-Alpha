@@ -84,8 +84,9 @@
         var flags = object(control.flags);
         var readiness = object(control.startReadiness);
         var sampleAge = Date.now() - readiness.observedAt;
+        // Same limit as the tracker start gate (START_READINESS_MAX_AGE_MS).
         var waitingReason = readiness.ready === true
-            && (!Number.isFinite(readiness.observedAt) || sampleAge < 0 || sampleAge > 2500)
+            && (!Number.isFinite(readiness.observedAt) || sampleAge < 0 || sampleAge > 6000)
             ? 'telemetry_stale' : readiness.ready === false ? readiness.reason : '';
         var waitingForGroundData = (readiness.cameraState == null
                 || (Number.isInteger(readiness.cameraState) && readiness.cameraState >= 2 && readiness.cameraState <= 8))

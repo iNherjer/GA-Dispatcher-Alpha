@@ -26,7 +26,7 @@ test('external live views work, but DialogMode does not masquerade as main menu'
   const f=fixture();f.sample({cameraState:3,dialogMode:1});for(let n=0;n<6;n++)f.tick(500,{cameraState:3,dialogMode:1});assert.equal(f.guard.snapshot().ready,true);
 });
 test('telemetry silence, teleport, backward clock and detach never retain the start action',()=>{
-  const f=fixture();f.ready();f.advance(2501);assert.equal(f.guard.snapshot().ready,false);
+  const f=fixture();f.ready();f.advance(6001);assert.equal(f.guard.snapshot().ready,false);
   assert.equal(f.sample().ready,false);f.ready();assert.equal(f.tick(500,{lat:52}).ready,false);
   f.ready();assert.equal(f.sample({observedAt:f.at()-500}).ready,false);f.guard.reset();assert.equal(f.guard.snapshot().ready,false);
 });
@@ -34,6 +34,21 @@ test('projection hides every start action and expires even without new telemetry
  const f=fixture();const control={phase:'planned',nextStep:'prepare_mission',allowedActions:['abort_mission','prepare_mission','start_boarding','confirm_load','start_mission']};
  const blocked=projectStartReadiness(control,f.guard.snapshot(),f.at());assert.deepEqual(blocked.allowedActions,['abort_mission']);assert.equal(blocked.nextStep,null);
  const ready=f.ready();assert.deepEqual(projectStartReadiness(control,ready,f.at()).allowedActions,control.allowedActions);
- assert.deepEqual(projectStartReadiness(control,ready,f.at()+2501).allowedActions,['abort_mission']);
+ assert.deepEqual(projectStartReadiness(control,ready,f.at()+3000).allowedActions,control.allowedActions,'late packet keeps start');
+ assert.deepEqual(projectStartReadiness(control,ready,f.at()+6001).allowedActions,['abort_mission']);
  assert.equal(control.allowedActions.length,5);
+});
+
+test('late packets from a loaded simulator neither revoke readiness nor restart the stillness check',()=>{
+  const f=fixture();f.sample();
+  // 1 Hz packets with 3.5 s hiccups, aircraft parked: ready after 3 s of evidence, and stays ready.
+  f.tick(1000);f.tick(3500);assert.equal(f.guard.snapshot().ready,true,'stillness counted across a late packet');
+  f.advance(3500);assert.equal(f.guard.snapshot().ready,true,'no "waiting for data" between late packets');
+  assert.equal(f.sample().ready,true);assert.equal(f.tick(1000).reason,'');
+  // A real gap beyond the limit still drops and restarts the check.
+  f.advance(6500);assert.equal(f.guard.snapshot().reason,'telemetry_stale');
+  assert.equal(f.sample().reason,'ground_stabilizing');
+  // Movement still restarts it.
+  f.tick(1000);f.tick(1000);f.tick(1000);assert.equal(f.guard.snapshot().ready,true);
+  assert.equal(f.tick(1000,{lat:51.5001}).ready,false);
 });

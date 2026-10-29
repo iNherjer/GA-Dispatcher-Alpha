@@ -1,5 +1,6 @@
 'use strict';
 const { isMsfsMenuPosition } = require('./tracker-telemetry-hibernate-core');
+const { START_READINESS_MAX_AGE_MS } = require('./tracker-mission-start-readiness');
 
 // A separate, read-only SimConnect connection. Every datum used by the start
 // gate belongs to one required-field packet, never the optional GPS bundle.
@@ -14,11 +15,12 @@ const FIELDS = [
   ['PLANE HEADING DEGREES TRUE', 'degrees', 'hdg']
 ];
 function createStartReadinessSource({ open, float64Type, secondPeriod, onSample,
-  now = Date.now, log = () => {}, schedule = setTimeout, cancel = clearTimeout }) {
+  now = Date.now, log = () => {}, schedule = setTimeout, cancel = clearTimeout, gapMonitor = null }) {
   let stopped = false, generation = 0, handle = null, retry = null;
   let lastError = null, snapshot = null;
   const invalidate = reason => {
     snapshot = null;
+    gapMonitor?.reset();
     onSample(null);
     if (reason !== lastError) log(`MISSION_START_SOURCE status=unavailable reason=${reason}`);
     lastError = reason;
@@ -30,6 +32,7 @@ function createStartReadinessSource({ open, float64Type, secondPeriod, onSample,
       connection = (await open('VFR-Multitool Mission Start Readiness', 5)).handle;
       if (stopped || token !== generation) { connection.close(); return; }
       handle = connection;
+      gapMonitor?.reset();
       let sim = null, paused = null, latest = null, failed = false;
       const emit = () => {
         if (stopped || token !== generation || failed || !latest) return;
@@ -84,7 +87,9 @@ function createStartReadinessSource({ open, float64Type, secondPeriod, onSample,
             lat: values.lat, lon: values.lon, altFt: values.altFt, hdg: values.hdg,
             onGround: values.ground === 1, gsKts: values.gsKts };
           if (lastError !== null) log('MISSION_START_SOURCE status=receiving');
-          lastError = null; emit();
+          lastError = null;
+          try { gapMonitor?.notePacket(); } catch (_) {}
+          emit();
         } catch (error) { latest = null; invalidate(error.message); }
       });
       for (const [name, units] of FIELDS) sends.add(connection.addToDataDefinition(1, name, units, float64Type));
@@ -104,7 +109,7 @@ function createStartReadinessSource({ open, float64Type, secondPeriod, onSample,
   void connect();
   return { position() {
     const s = snapshot;
-    if (!s || now() - s.observedAt < 0 || now() - s.observedAt > 2500 || s.simRunning !== 1
+    if (!s || now() - s.observedAt < 0 || now() - s.observedAt > START_READINESS_MAX_AGE_MS || s.simRunning !== 1
       || s.simPaused || s.slewActive || s.inMenuOrMap || s.cameraState < 2 || s.cameraState > 8
       || Math.abs(s.lat) > 90 || Math.abs(s.lon) > 180 || isMsfsMenuPosition(s.lat, s.lon, {paused:true})) return null;
     return { lat:s.lat, lon:s.lon, alt:Math.round(s.altFt), hdg:s.hdg };

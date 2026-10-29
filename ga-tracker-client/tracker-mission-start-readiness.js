@@ -2,9 +2,14 @@
 const { isMsfsMenuPosition } = require('./tracker-telemetry-hibernate-core');
 const { haversineNm } = require('../mission-location-core');
 const START_INTENTS = new Set(['prepare_mission', 'start_boarding', 'confirm_load', 'start_mission']);
+// A loaded simulator delivers the 1 Hz readiness packet late right after a
+// flight loads. 2.5 s made start flicker between "waiting for data" and a
+// restarted stillness check. Pause, menu and SimStop still revoke at once
+// through their own system events, independent of this age.
+const START_READINESS_MAX_AGE_MS = 6000;
 // Camera enum values 2..8 are live aircraft views, including external/VR views.
 // Waiting, world map, hangar, menu, cinematics and transitions are not ready.
-function createMissionStartReadiness({ now = Date.now, stableMs = 3000, maxAgeMs = 2500 } = {}) {
+function createMissionStartReadiness({ now = Date.now, stableMs = 3000, maxAgeMs = START_READINESS_MAX_AGE_MS } = {}) {
   let sample = null, since = null, anchor = null, reason = 'simulator_not_ready';
   const reset = () => { sample = null; since = null; anchor = null; reason = 'simulator_not_ready'; };
   const observe = value => {
@@ -42,9 +47,9 @@ function createMissionStartReadiness({ now = Date.now, stableMs = 3000, maxAgeMs
 }
 function projectStartReadiness(control, readiness, now = Date.now()) {
   if (!control || !readiness) return control;
-  if ((readiness.ready || readiness.worldReady) && (!Number.isFinite(readiness.observedAt) || now - readiness.observedAt < 0 || now - readiness.observedAt > 2500)) readiness = { ...readiness, ready: false, worldReady: false, reason: 'telemetry_stale' };
+  if ((readiness.ready || readiness.worldReady) && (!Number.isFinite(readiness.observedAt) || now - readiness.observedAt < 0 || now - readiness.observedAt > START_READINESS_MAX_AGE_MS)) readiness = { ...readiness, ready: false, worldReady: false, reason: 'telemetry_stale' };
   const allowedActions = (control.allowedActions || []).filter(action => readiness.ready || !START_INTENTS.has(action));
   return { ...control, startReadiness: readiness, allowedActions,
     nextStep: START_INTENTS.has(control.nextStep) && !readiness.ready ? null : control.nextStep };
 }
-module.exports = { createMissionStartReadiness, projectStartReadiness, START_INTENTS };
+module.exports = { createMissionStartReadiness, projectStartReadiness, START_INTENTS, START_READINESS_MAX_AGE_MS };

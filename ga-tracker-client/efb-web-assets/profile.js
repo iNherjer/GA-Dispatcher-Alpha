@@ -6391,6 +6391,9 @@ window.vpBuildWeatherDebugReport = function () {
       var conf = Number.isFinite(Number(aptArrival.confidence)) ? Number(aptArrival.confidence).toFixed(2) : '-';
       var itemCount = Array.isArray(aptArrival.items) ? aptArrival.items.length : 0;
       lines.push(`- APT Arrival Plan: ${aptArrival.roleLabel || aptArrival.role || '-'} | ${aptArrival.anchorType || '-'} | ${pos} | source=${aptArrival.source || '-'} | conf=${conf} | items=${itemCount}`);
+      var snap = aptArrival.snapStatus || null;
+      var sceneBuilt = snap ? snap.spawnAllowed !== false : aptArrival.source !== 'airport-representative-offset';
+      lines.push(`- APT Empfangsszene: ${sceneBuilt ? 'ja' : 'nein, Abholung kommt zum Flugzeug'} | status=${(snap === null || snap === void 0 ? void 0 : snap.status) || 'ungeprueft'} | grund=${(snap === null || snap === void 0 ? void 0 : snap.reason) || '-'}`);
       if (aptArrival.expectedBy || aptArrival.visibleCue) {
         lines.push(`- APT Erwartung: ${aptArrival.expectedBy || '-'} | cue=${aptArrival.visibleCue || '-'}`);
       }

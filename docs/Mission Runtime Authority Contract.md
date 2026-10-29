@@ -1845,8 +1845,17 @@ laufende Generierung behalten ihre bestehenden Schutzregeln.
 Missionsfortschritt. Freigabe erfordert laufende Simulation, frische isolierte
 INT32-`CAMERA STATE`-Telemetrie (Live-Flugansichten 2–8), keine Pause/kein Slew,
 eine plausible Position ausserhalb 0/0 und 0/90 und drei Sekunden bestaetigten
-Stillstand am Boden: GS <= 0,5 kt, Positionsabweichung <= 3 m, maximal 2,5 s
-Abstand/Alter der Samples. Menü-/Warte-/Hangar-/Lade-Kamerazustaende suspendieren
+Stillstand am Boden: GS <= 0,5 kt, Positionsabweichung <= 3 m, maximal 6 s
+Abstand/Alter der Samples (`START_READINESS_MAX_AGE_MS`; vorher 2,5 s, das liess
+den Start direkt nach dem Laden zwischen "Warte auf Simulatordaten" und neu
+gestarteter Stillstandspruefung flackern, weil der ausgelastete Sim das
+1-Hz-Paket verspaetet liefert). Pause, Menue und SimStop entziehen die Freigabe
+weiter sofort ueber eigene System-Events. App- und EFB-Banner nutzen dieselbe
+Grenze. Diagnose im Tracker-Log: `MISSION_START_READINESS` (jeder Wechsel mit
+Grund, Paketabstand, GS), `MISSION_START_SOURCE_LATE` (verspaetetes Paket mit
+`likely=tracker_busy|simulator_stall|readiness_link` aus Event-Loop-Verzoegerung
+des Trackers und Luecke der bildbasierten Haupt-Telemetrie) und
+`MISSION_START_READINESS_HANDOVER_DELAY` (Uebergabe in den Missionsprozess > 1 s). Menü-/Warte-/Hangar-/Lade-Kamerazustaende suspendieren
 auch die Missions-Telemetrie, selbst wenn MSFS noch Sim=1 meldet. DialogMode
 allein sperrt nicht, da auch ein offenes Cockpit-EFB DialogMode ausloest.
 Die Cockpit-Telemetrie wird auch ohne Tracker-Authority fuer die ausstehende

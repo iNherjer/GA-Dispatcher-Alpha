@@ -136,7 +136,7 @@ test('planning banner stays disabled through stale telemetry and expired bridge 
 });
 
 test('an old start model becomes a disabled wait without retaining its intent',()=>{
- const h=harness();h.context.missionSnapshot.control.startReadiness={ready:true,observedAt:Date.now()-3000,cameraState:2};
+ const h=harness();h.context.missionSnapshot.control.startReadiness={ready:true,observedAt:Date.now()-6500,cameraState:2};
  h.context.renderMissionActionBanner(h.context.missionSnapshot);
  assert.equal(h.banner.style.display,'flex');assert.equal(h.banner._gaMissionActionModel.kind,'wait');
  assert.equal(h.banner._gaMissionActionModel.intent,'');assert.equal(h.nodes.missionStartBannerBtn.disabled,true);
