@@ -12,6 +12,10 @@
   Ablaufprüfung (`gaPersistMissionDebugSnapshot`). Spart auf dem iPhone rund 0,8 MB localStorage.
 - `EFB_WEB_ASSET_REVISION` 60301.
 
+EXE (Windows-x64, pkg 6.18.1 / Node18, Cross-Build `--no-bytecode --public --public-packages '*'` aus sauberem
+Worktree von `3451a89b7`): 174675129 Bytes; SHA-256 `02095ca3e814ac8c43ea107c64132a886b21b27d869aa7f638bbc405c00b3c34`.
+Öffentlicher Download geprüft. Volle Tracker-Testsuite: 1521 grün, 0 Fehler.
+
 Nur Alpha-Runtime umstellen, Stable unverändert.
 
 ## Prüfung
