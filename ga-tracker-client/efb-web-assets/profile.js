@@ -5993,6 +5993,66 @@ function vpBuildStorageDiagnosticsLines() {
       lines.push(`  * ${index + 1}. ${safeKey}: ${vpFormatBytes(entry.bytes)} (${share}%) | ${entry.category}`);
     });
   }
+  lines.push.apply(lines, _toConsumableArray(vpBuildActiveMissionStorageBreakdownLines()));
+  return lines;
+}
+
+// Where the size of ga_active_mission comes from: largest top-level fields, the
+// largest parts of currentMissionData and contract copies stored more than once.
+// Sizes use the same UTF-16 estimate as the key list above.
+function vpBuildActiveMissionStorageBreakdownLines() {
+  var lines = ['- Aufschluesselung ga_active_mission:'];
+  var raw = '';
+  var state = null;
+  try {
+    raw = localStorage.getItem('ga_active_mission') || '';
+    state = raw ? JSON.parse(raw) : null;
+  } catch (error) {
+    lines.push(`  * nicht lesbar: ${String((error === null || error === void 0 ? void 0 : error.message) || error).slice(0, 120)}`);
+    return lines;
+  }
+  if (!state || typeof state !== 'object') {
+    lines.push('  * -');
+    return lines;
+  }
+  var size = value => {
+    if (value === undefined) return 0;
+    try {
+      return (JSON.stringify(value) || '').length * 2;
+    } catch (_) {
+      return 0;
+    }
+  };
+  var top = (obj, count) => Object.keys(obj).map(key => ({
+    key,
+    bytes: size(obj[key])
+  })).sort((a, b) => b.bytes - a.bytes).slice(0, count).map(item => `${item.key} ${vpFormatBytes(item.bytes)}`).join(' | ');
+  lines.push(`  * gesamt ${vpFormatBytes(raw.length * 2)} | Felder: ${top(state, 10) || '-'}`);
+  var md = state.currentMissionData && typeof state.currentMissionData === 'object' ? state.currentMissionData : null;
+  if (md) {
+    lines.push(`  * currentMissionData: ${top(md, 12) || '-'}`);
+    var contract = md.missionContract && typeof md.missionContract === 'object' ? md.missionContract : null;
+    if (contract) lines.push(`  * missionContract: ${top(contract, 10) || '-'}`);
+  }
+  var contractJson = value => {
+    if (!value || typeof value !== 'object') return '';
+    try {
+      return JSON.stringify(value);
+    } catch (_) {
+      return '';
+    }
+  };
+  var copies = [];
+  var inMission = contractJson(md === null || md === void 0 ? void 0 : md.missionContract);
+  var inState = contractJson(state.activeMissionContract);
+  var separate = '';
+  try {
+    separate = localStorage.getItem('ga_active_mission_contract') || '';
+  } catch (_) {}
+  if (inMission) copies.push(`currentMissionData.missionContract ${vpFormatBytes(inMission.length * 2)}`);
+  if (inState) copies.push(`activeMissionContract ${vpFormatBytes(inState.length * 2)}${inState === inMission ? ' (identisch)' : ''}`);
+  if (separate) copies.push(`ga_active_mission_contract ${vpFormatBytes(separate.length * 2)}${separate === inMission || separate === inState ? ' (identisch)' : ''}`);
+  lines.push(`  * Vertragskopien: ${copies.join(' | ') || '-'}`);
   return lines;
 }
 try {
