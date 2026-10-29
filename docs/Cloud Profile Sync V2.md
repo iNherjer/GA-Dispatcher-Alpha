@@ -342,3 +342,15 @@ Flugpläne nicht beim Tracker/EFB an (kein Upload, also auch kein Cloud-Anstoß 
 Geräte werden nicht geladen, lokale Daten nicht gesichert. Löschen/Abschließen und Push/Pull bleiben möglich.
 Wer Auto-Sync früher bewusst ausgeschaltet hat, bleibt aus. Abgemeldet zeigt die App den Schalter aus und gesperrt,
 ohne die Einstellung zu ändern.
+
+## Bewusst gewählte Mission aktiviert den Cloud-Slot (29.10.2026)
+
+Fund: Nach einem Löschen (Kontrollvermerk `deleted`) oder bei einer anderen aktiven Cloud-Mission lehnte der Server
+den automatischen Upload einer aus der Pinnwand geladenen Mission mit 409 `mission_change_required` ab. Die Cloud blieb
+leer, beim nächsten Öffnen gewann der leere Stand; erst ein manueller Push (mit `activate`) half.
+Jetzt merkt sich die App eine bewusste Auswahl auf diesem Gerät (`window.gaMarkLocalMissionSelection`: Pinnwand,
+Flug-Code, MSFS-Import) und schickt beim nächsten automatischen Upload genau dieser Mission `missionChange: activate`
+mit der aktuellen Kontrollrevision. Die Auswahl gilt 10 Minuten und endet mit dem erfolgreichen Upload. Andere
+automatische Uploads einer abweichenden Mission bleiben abgewiesen (Schutz vor veraltetem Gerätestand).
+Test: `tools/sync-local-mission-selection.test.mjs`; im lokalen Prüfgestell nachgestellt (gelöscht → Pinnwand laden →
+neu öffnen: Mission bleibt; veraltete Mission ohne Auswahl: weiter 409).

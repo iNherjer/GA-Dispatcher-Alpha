@@ -830,6 +830,7 @@ async function pinboardRestoreFlightData(flightData) {
     try {
         pinboardStoreActiveMissionStateForRestore(flightData);
         const restored = await restoreMissionState(flightData, { source: 'pinboard' });
+        if (restored !== false) window.gaMarkLocalMissionSelection?.(flightData, 'pinboard');
         if (restored === false) {
             alert("Dieser Pinnwand-Flug konnte nicht geladen werden.");
             return false;
@@ -1303,6 +1304,10 @@ window.importMission = async function() {
         if (state.localStorageFallbackId) throw new Error('Code enthaelt nur einen lokalen Speicherverweis');
         window.storeActiveMissionStateSafely(state, { refreshActiveMissionTimestamp: false });
         const restored = await restoreMissionState(state, { source: 'import' });
+        if (restored !== false) {
+            window.gaMarkLocalMissionSelection?.(state, 'flight-code');
+            window.queueActiveMissionCloudSave?.('flight-code-imported', { delayMs: 0 });
+        }
         if (restored === false) {
             alert("❌ Dieser Flug konnte nicht geladen werden.");
             return;
@@ -2556,6 +2561,10 @@ window.importMSFS = function(event) {
                     if (backupState.localStorageFallbackId) throw new Error('Backup enthaelt nur einen lokalen Speicherverweis');
                     window.storeActiveMissionStateSafely(backupState, { refreshActiveMissionTimestamp: false });
                     const restored = await restoreMissionState(backupState, { source: 'msfs-import' });
+                    if (restored !== false) {
+                        window.gaMarkLocalMissionSelection?.(backupState, 'msfs-import');
+                        window.queueActiveMissionCloudSave?.('msfs-import-restored', { delayMs: 0 });
+                    }
                     if (restored === false) {
                         alert("❌ Der gespeicherte Dispatcher-Flug konnte nicht geladen werden.");
                         return;

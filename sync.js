@@ -16172,6 +16172,32 @@ function _syncMissionIdentityValues(state = null) {
     return out;
 }
 
+// A mission the pilot deliberately picked on this device (pinboard, flight code,
+// MSFS import) may replace the server-controlled cloud mission slot. Ordinary
+// automatic uploads may not: they could carry an outdated mission.
+let pendingLocalMissionSelection = null;
+window.gaMarkLocalMissionSelection = function(state, source = 'local') {
+    const ids = _syncMissionIdentityValues(state);
+    pendingLocalMissionSelection = ids.length && getSyncId()
+        ? { pilot: getSyncId().toUpperCase(), ids, source: String(source).slice(0, 40), at: Date.now() }
+        : null;
+};
+function _syncLocalSelectionActivation(cloud, payload) {
+    const selection = pendingLocalMissionSelection;
+    const control = cloud?.missionControl;
+    // Only fresh choices: hours later another device may have picked a newer mission.
+    if (!selection || selection.pilot !== getSyncId().toUpperCase() || !payload?.activeMission
+        || Date.now() - selection.at > 10 * 60 * 1000) return null;
+    if (!_syncMissionIdentityValues(payload.activeMission).some(id => selection.ids.includes(id))) return null;
+    if (!control || window.GAMissionCloudControlCore?.matchesProfile?.(control, payload) !== false) return null;
+    return { action: 'activate', expectedMissionRevision: control.revision,
+        operationId: `${selection.source}:${selection.ids[0]}:${control.revision}` };
+}
+function _syncClearLocalSelectionFor(payload) {
+    const selection = pendingLocalMissionSelection;
+    if (selection && _syncMissionIdentityValues(payload?.activeMission).some(id => selection.ids.includes(id))) pendingLocalMissionSelection = null;
+}
+
 function _syncMissionStatesShareIdentity(a = null, b = null) {
     const aIds = _syncMissionIdentityValues(a);
     const bIds = _syncMissionIdentityValues(b);
@@ -17216,6 +17242,7 @@ async function triggerCloudSave(immediate = false, options = {}) {
         let uploadPayload = { ...payloadToCompare, lastModified: uploadSyncTime };
         let expectedRevision;
         let missionChange = null;
+        let selectionCloud = null;
         const completedClearKey = 'ga_completed_mission_clear_v1:' + id.toUpperCase();
         let completedClear = null;
         try { completedClear = JSON.parse(localStorage.getItem(completedClearKey) || 'null'); } catch (_) {}
@@ -17241,11 +17268,13 @@ async function triggerCloudSave(immediate = false, options = {}) {
         } else if (immediate !== 'manual' && _syncLocalMissionChoice()?.missionOnly === true) {
             const uploadEpoch = window.gaDispatchGeneration?.();
             const cloud = await client.read();
+            selectionCloud = cloud;
             if (getSyncId() !== id || _syncMissionRestoreBlocked(uploadEpoch) || JSON.stringify(_syncActiveMissionPayload()) !== JSON.stringify(activeMission)) return { ok: false, skipped: true, reason: 'mission-changed-during-upload' };
             if (window.gaMissionDraftActive?.() || window.gaIsDispatchBusy?.()) return { ok: false, skipped: true, reason: 'local-mission-draft' };
             if (!cloud.migrated || !cloud.profile) throw new Error('Cloud-Schutz: Cloud-Stand nicht vollständig lesbar.');
             const remoteMission = cloud.profile.activeMission || null;
-            if ((remoteMission || activeMission) && !_syncMissionStatesShareIdentity(remoteMission, activeMission)) {
+            const selectedLocally = !!_syncLocalSelectionActivation(cloud, { activeMission, activeMissionTrackerSeed: payloadToCompare.activeMissionTrackerSeed });
+            if (!selectedLocally && (remoteMission || activeMission) && !_syncMissionStatesShareIdentity(remoteMission, activeMission)) {
                 updateSyncStatus('Cloud-Mission wurde geändert; zuerst den aktuellen Cloud-Stand laden.', true);
                 return { ok: false, skipped: true, reason: 'cloud-mission-replaced' };
             }
@@ -17259,6 +17288,7 @@ async function triggerCloudSave(immediate = false, options = {}) {
         } else if (immediate !== 'manual' && fieldMergeReady) {
             // Automatic upload: write against the fresh cloud state, field by field.
             const cloud = await client.read();
+            selectionCloud = cloud;
             if (getSyncId() !== id || _syncMissionRestoreBlocked(uploadEpoch)) return { ok: false, skipped: true, reason: 'mission-changed-during-upload' };
             if (cloud.migrated && cloud.profile) {
                 uploadPayload = { ...cloud.profile, ..._syncMergeProfileFields(cloud.profile, payloadToCompare),
@@ -17268,9 +17298,13 @@ async function triggerCloudSave(immediate = false, options = {}) {
             }
         }
         if (getSyncId() !== id || window.gaCloudOpeningPending || _syncMissionRestoreBlocked(uploadEpoch)) return { ok: false, skipped: true, reason: 'mission-changed-during-upload' };
+        if (immediate !== 'manual' && !missionChange && expectedRevision !== undefined) {
+            missionChange = _syncLocalSelectionActivation(selectionCloud, uploadPayload);
+        }
         const transfer = await client.write(uploadPayload, { force: immediate === 'manual', expectedRevision, legacyTime: localSyncTime,
             ...(immediate === 'manual' ? { missionChange: { action: activeMission ? 'activate' : 'clear' } } : missionChange ? { missionChange } : {}) });
         if (missionChange && localStorage.getItem(completedClearKey) === JSON.stringify(completedClear)) localStorage.removeItem(completedClearKey);
+        _syncClearLocalSelectionFor(uploadPayload);
         window.gaKnockTrackerCloudMission?.(uploadPayload, missionChange ? missionChange.action : (immediate === 'manual' ? 'manual' : 'save'), !!missionChange || immediate === 'manual');
         if (immediate === 'manual') _syncSetLocalMissionChoice(null);
         if (getSyncId() !== id) throw new Error('Pilot während Upload gewechselt; lokaler Stand bleibt unverändert.');
