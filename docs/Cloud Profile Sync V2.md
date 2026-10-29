@@ -359,3 +359,12 @@ Routen ohne Mission (Freiflug/Direct-to) und das erneute Laden der bereits angen
 Test: `tools/loaded-mission-draft.test.mjs`; im lokalen Prüfgestell nachgestellt (Laden: 0 Uploads, Cloud alt;
 Annehmen: `activate`, übersteht Neuöffnen; zweiter Flug ersetzt Entwurf; Entwurf übersteht Neuladen; Ablehnen kehrt
 zurück, Cloud unverändert).
+
+## Gemerkter Tracker-Lauf endet mit Cloud-Löschen oder neuer Aktivierung (29.10.2026)
+
+Fund: Auf einem Gerät ohne laufenden Tracker zeigte die App nach dem Start „Mission läuft noch“, obwohl die Mission
+zwischendurch gelöscht und (aus der Pinnwand, gleiche Missions-ID) neu angenommen war. Grund: Der gemerkte Lauf
+(`ga_tracker_execution_run_v1`) wurde nur verworfen, wenn der Tracker selbst „kein Lauf“ meldet. Jetzt prüft jeder
+Cloud-Lesevorgang (`_syncReadProfileResponse`) den Kontrollvermerk: `deleted` oder eine Aktivierung mehr als 5 Minuten
+nach dem Merken (Puffer für Uhrabweichung) beendet den gemerkten Lauf, außer der Tracker projiziert genau diesen Lauf
+gerade. Test: `tools/tracker-run-cloud-forget.test.mjs`; im Prüfgestell nachgestellt.

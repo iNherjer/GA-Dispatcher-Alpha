@@ -16096,8 +16096,30 @@ function _syncProfileClient() {
     _profileSyncSession = { identity, client };
     return client;
 }
+// A tracker run remembered on this device ("Mission läuft noch") ends with a
+// cloud clear or a later activation: the tracker aborts or replaces that run.
+// Without a running tracker nothing else told this device, so the hint stayed
+// after the mission was cleared elsewhere and accepted again (same mission ID).
+// 5 min margin: the device clock and the server clock may differ.
+function _syncForgetTrackerRunReplacedInCloud(control) {
+    if (!control || typeof control !== 'object') return false;
+    _rememberedTrackerExecutionRun(); // loads the stored run
+    const run = window.gaTrackerExecutionRun;
+    if (!run?.runId || window.gaTrackerExecutionControl?.runId === run.runId) return false;
+    const updatedAt = Number(control.updatedAt), rememberedAt = Number(run.at);
+    const replaced = control.status === 'deleted'
+        || (Number.isFinite(updatedAt) && Number.isFinite(rememberedAt) && updatedAt > rememberedAt + 5 * 60 * 1000);
+    if (!replaced) return false;
+    _forgetTrackerExecutionRun();
+    _missionPhaseDebugPush?.('tracker_run_forgotten_cloud', { runId: run.runId, missionId: run.missionId,
+        controlStatus: control.status, controlRevision: control.revision });
+    try { _updateMissionStartBanner(); } catch (_) {}
+    return true;
+}
+
 async function _syncReadProfileResponse() {
     const result = await _syncProfileClient().read();
+    if (result.migrated) _syncForgetTrackerRunReplacedInCloud(result.missionControl);
     if (result.migrated) return new Response(JSON.stringify({ ...result.profile, _syncRevision: result.revision, _missionControl: result.missionControl || null }), { status: 200 });
     return fetch(SYNC_URL + encodeURIComponent(getSyncId()) + '?pin=' + encodeURIComponent(getSyncPin()), {
         headers: { 'X-Pilot-PIN': getSyncPin() }
