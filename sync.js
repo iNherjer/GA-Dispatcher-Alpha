@@ -1967,6 +1967,7 @@ window.gaNavigationEdit = function(edit) {
         const points = window.gaGetNavigationRoute?.();
         if (points?.length >= 2 && !_activeMissionRuntimeId('')) {
             navigationRequest('navigation_adopt', { routeId: navigationReceived.id, points,
+                resetPoints: window.gaGetRouteResetBaseline?.() || undefined,
                 departureIcao: currentStartICAO, destinationIcao: currentDestICAO }, navigationReceived.revision)
                 .then(result => { if (result.navigation) navigationClient.receive(result.navigation);
                     if (result.ok) navigationClient.edit(edit); else alert('Die Route hat sich geändert. Bitte erneut prüfen.'); })
@@ -14016,6 +14017,7 @@ window.missionSarHeliRewriteRouteToHospital = function(reason = 'sar-heli-patien
         md.routeWaypoints = nextRoute;
         md.missionRouteWaypoints = nextRoute;
     }
+    window.gaSetRouteResetBaseline?.(nextRoute);
     md.dest = String(hospital.ref?.icao || 'HOSP').toUpperCase();
     md.targetName = hospital.name;
     md.targetLat = hospital.lat;
@@ -15206,7 +15208,7 @@ function _completeMissionCloseCleanupLocal(record = null, reason = 'debrief-clos
         localStorage.removeItem('ga_active_mission_contract');
         localStorage.removeItem('ga_active_passenger');
         localStorage.removeItem('ga_active_mission_runtime');
-        try { currentMissionData = null; routeWaypoints = []; window._missionRouteWaypoints = null; } catch (_) {}
+        try { currentMissionData = null; routeWaypoints = []; window._missionRouteWaypoints = null; window._routeResetWaypoints = null; } catch (_) {}
         window.activeMissionContract = null;
         window.activePassenger = null;
         const briefing = document.getElementById('briefingBox');
@@ -16692,7 +16694,7 @@ async function _syncApplyActiveMissionFromCloud(activeMission = null, options = 
     localStorage.removeItem('ga_active_passenger');
     try { currentMissionData = null; } catch (_) {}
     try { routeWaypoints = []; } catch (_) {}
-    try { window._missionRouteWaypoints = null; } catch (_) {}
+    try { window._missionRouteWaypoints = null; window._routeResetWaypoints = null; } catch (_) {}
     window.activeMissionContract = null;
     window.activePassenger = null;
     if (typeof window.clearMissionDebugSnapshot === 'function') {

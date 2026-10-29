@@ -8802,7 +8802,7 @@ function clearExpiredActiveMissionPersistence(reason = 'active-mission-expired',
     rememberActiveMissionStateMemoryFallback(null);
     try { currentMissionData = null; } catch (_) {}
     try { routeWaypoints = []; } catch (_) {}
-    try { window._missionRouteWaypoints = null; } catch (_) {}
+    try { window._missionRouteWaypoints = null; window._routeResetWaypoints = null; } catch (_) {}
     window.activeMissionContract = null;
     window.activePassenger = null;
     const briefing = document.getElementById("briefingBox");
@@ -9874,6 +9874,9 @@ function compactActiveMissionStateForQuotaStorage(state = {}) {
         currentMissionData: currentMissionDataCompact,
         routeWaypoints: routeCompact,
         missionRouteWaypoints: missionRouteCompact,
+        routeResetWaypoints: Array.isArray(state.routeResetWaypoints) && state.routeResetWaypoints.length >= 2
+            ? compactRouteWaypointsForQuotaStorage(state.routeResetWaypoints)
+            : null,
         currentStartICAO: state.currentStartICAO || '',
         currentDestICAO: state.currentDestICAO || '',
         currentSName: state.currentSName || '',
@@ -10185,6 +10188,7 @@ function saveMissionState() {
         currentMissionData: currentMissionData,
         routeWaypoints: storedRouteWaypoints,
         missionRouteWaypoints: storedMissionRouteWaypoints,
+        routeResetWaypoints: window.gaGetRouteResetBaseline?.() || null,
         currentStartICAO: currentStartICAO,
         currentDestICAO: currentDestICAO,
         currentSName: currentSName,
@@ -10466,6 +10470,10 @@ async function restoreMissionState(state, options = {}) {
             : (currentMissionData.missionRouteWaypoints || routeWaypoints)));
     const restoredMissionRoute = cloneRouteWaypointsForStorage(restoredMissionRouteSource);
     window._missionRouteWaypoints = restoredMissionRoute.length >= 2 ? restoredMissionRoute : cloneRouteWaypointsForStorage(routeWaypoints);
+    // Ältere Stände ohne eigene Dispatch-Route fallen auf die gespeicherte Missionsroute zurück.
+    window.gaSetRouteResetBaseline?.(Array.isArray(state.routeResetWaypoints) && state.routeResetWaypoints.length >= 2
+        ? state.routeResetWaypoints
+        : window._missionRouteWaypoints);
     currentMissionData.routeWaypoints = cloneRouteWaypointsForStorage(routeWaypoints);
     currentMissionData.missionRouteWaypoints = cloneRouteWaypointsForStorage(window._missionRouteWaypoints);
     const restoredFreeflightOnly = !!(typeof window.missionIsFreeflightOnly === 'function' && (
@@ -10760,7 +10768,7 @@ function clearAppMissionState(options = {}) {
     const briefingBox = document.getElementById('briefingBox');
     if (briefingBox) briefingBox.style.display = 'none';
     rememberActiveMissionStateMemoryFallback(null);
-    currentMissionData = null; routeWaypoints = []; window._missionRouteWaypoints = null;
+    currentMissionData = null; routeWaypoints = []; window._missionRouteWaypoints = null; window._routeResetWaypoints = null;
     window.activeMissionContract = null;
     window.activePassenger = null;
     clearMissionDebugSnapshot(options.reason || 'reset-app');

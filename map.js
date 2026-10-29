@@ -5494,16 +5494,36 @@ window.gaScheduleRouteMapLayoutRefresh = function(reason = 'route', options = {}
     if (typeof updateMiniMap === 'function') updateMiniMap();
 };
 
+// Zielroute für Route Reset: die Dispatch-Route; ohne gemerkte Route nur Start und Ziel.
+function routeResetTargetPoints() {
+    const baseline = window.gaGetRouteResetBaseline?.();
+    if (baseline) return normalizeMapRouteWaypoints(baseline);
+    if (!Array.isArray(routeWaypoints) || routeWaypoints.length < 2) return null;
+    return [routeWaypoints[0], routeWaypoints[routeWaypoints.length - 1]];
+}
+
+function routeResetConfirmText(current, target) {
+    const key = p => `${Number(p?.lat).toFixed(5)},${Number(p?.lng ?? p?.lon).toFixed(5)}`;
+    const targetKeys = new Set(target.map(key));
+    const removed = current.filter(p => !targetKeys.has(key(p))).length;
+    const detail = removed === 1
+        ? '1 eigener Wegpunkt wird entfernt.'
+        : (removed > 1 ? `${removed} eigene Wegpunkte werden entfernt.` : 'Verschobene Wegpunkte werden zurückgesetzt.');
+    return `Route auf den Dispatch-Stand zurücksetzen?\n${detail}`;
+}
+
 function resetMainRoute() {
-    if (window.gaNavigationEdit?.({ action: 'reset' })) return;
-    if (typeof window.clearPinnedFlightReplay === 'function') window.clearPinnedFlightReplay();
-    if (window._missionRouteWaypoints && window._missionRouteWaypoints.length >= 2) {
-        routeWaypoints = normalizeMapRouteWaypoints(window._missionRouteWaypoints);
-    } else if (routeWaypoints.length > 2) {
-        routeWaypoints = [routeWaypoints[0], routeWaypoints[routeWaypoints.length - 1]];
-    } else {
+    const target = routeResetTargetPoints();
+    const current = Array.isArray(routeWaypoints) ? routeWaypoints : [];
+    if (!target || mainRouteProfileRefreshKey(target) === mainRouteProfileRefreshKey(current)) {
+        fitMapToRouteWaypoints([40, 40]);
+        if (typeof showMapToast === 'function') showMapToast('Route entspricht dem Dispatch-Stand');
         return;
     }
+    if (!window.confirm(routeResetConfirmText(current, target))) return;
+    if (window.gaNavigationEdit?.({ action: 'reset', points: target })) return;
+    if (typeof window.clearPinnedFlightReplay === 'function') window.clearPinnedFlightReplay();
+    routeWaypoints = target;
     renderMainRoute();
     fitMapToRouteWaypoints([40, 40]);
 }
@@ -8699,6 +8719,19 @@ function _missionRouteDistanceNmForMap(points = []) {
     return total;
 }
 
+// Route Reset springt auf die Route zurück, wie sie beim Dispatch (oder Direct To,
+// Missions-Laden) entstanden ist. Kartenänderungen überschreiben diese Route nie.
+function setRouteResetBaseline(points) {
+    window._routeResetWaypoints = Array.isArray(points) && points.length >= 2
+        ? JSON.parse(JSON.stringify(points))
+        : null;
+}
+window.gaSetRouteResetBaseline = setRouteResetBaseline;
+window.gaGetRouteResetBaseline = function() {
+    const points = window._routeResetWaypoints;
+    return Array.isArray(points) && points.length >= 2 ? JSON.parse(JSON.stringify(points)) : null;
+};
+
 function _syncCurrentMissionRouteFromMap() {
     const storedRoute = JSON.parse(JSON.stringify(routeWaypoints || []));
     window._missionRouteWaypoints = storedRoute;
@@ -8768,6 +8801,7 @@ function updateMap(lat1, lon1, lat2, lon2, s, d) {
                 currentMissionData.routeWaypoints = JSON.parse(JSON.stringify(storedRoute));
                 currentMissionData.missionRouteWaypoints = JSON.parse(JSON.stringify(storedRoute));
             }
+            setRouteResetBaseline(storedRoute);
             renderMainRoute();
             if (typeof updateRoutePerformance === 'function') updateRoutePerformance();
             if (typeof updateMiniMap === 'function') updateMiniMap();
@@ -8801,6 +8835,7 @@ function updateMap(lat1, lon1, lat2, lon2, s, d) {
                 { lat: lat1, lng: lon1, lon: lon1, name: `Rückkehr: ${homeName}`, isPoiChainReturnHome: true }
             ];
             _syncCurrentMissionRouteFromMap();
+            setRouteResetBaseline(routeWaypoints);
             renderMainRoute();
             if (typeof updateRoutePerformance === 'function') updateRoutePerformance();
             if (typeof updateMiniMap === 'function') updateMiniMap();
@@ -8842,6 +8877,7 @@ function updateMap(lat1, lon1, lat2, lon2, s, d) {
         ];
     }
     _syncCurrentMissionRouteFromMap();
+    setRouteResetBaseline(routeWaypoints);
 
     renderMainRoute();
     if (typeof updateRoutePerformance === 'function') updateRoutePerformance();
