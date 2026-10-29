@@ -373,3 +373,11 @@ Saubere Zuordnung (ab dem nächsten Tracker-Release, siehe `docs/Release Queue.m
 `cloudActivation: { epoch, revision }` (aus `resumeBundle.cloudMissionControl`). Die App speichert sie mit dem gemerkten
 Lauf; jede andere Aktivierung oder ein Löschen in der Cloud beendet ihn sofort. Die Zeitregel bleibt nur für Läufe
 ohne diese Angabe.
+
+## Manueller Push während einer laufenden Mission (29.10.2026)
+
+Der manuelle ☁️ Push schickt immer `missionChange: activate` (bzw. `clear` ohne Mission). Das ist eine neue
+Aktivierung: Der Tracker beendet einen laufenden Lauf und lädt die Mission neu als geplant. Auto-Sync schickt keinen
+Vermerk (außer `clear` nach abgeschlossenem Flug) und lässt laufende Flüge unberührt. Bewusst beibehalten als
+Rettungsweg, wenn sich etwas verschluckt hat; die Bestätigung warnt jetzt, wenn gerade eine Mission läuft (Tracker
+meldet einen begonnenen Lauf oder ein gemerkter Lauf passt zur aktiven Mission).

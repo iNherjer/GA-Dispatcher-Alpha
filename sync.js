@@ -17179,7 +17179,15 @@ async function triggerCloudSave(immediate = false, options = {}) {
     if (!immediate) return { ok: false, skipped: true, reason: 'soft-sync-disabled' };
     if (immediate !== 'manual' && t && !t.checked) return { ok: false, skipped: true, reason: 'auto-sync-disabled' };
     if (immediate === 'manual') {
-        if (!confirm("⬆️ CLOUD UPLOAD\nMöchtest du deinen aktuellen, lokalen Stand hochladen und das bisherige Cloud-Backup überschreiben?")) {
+        // A manual push re-activates the mission in the cloud; the tracker then
+        // restarts a running flight as planned (also useful when it got stuck).
+        const trackerControl = window.gaTrackerExecutionControl;
+        const missionRunning = (trackerControl?.executionAuthority === 'tracker' && _trackerRunStarted(trackerControl))
+            || !!_rememberedTrackerExecutionRun();
+        const runWarning = missionRunning
+            ? "\n\n⚠️ Gerade läuft eine Mission. Der Push setzt sie im Tracker zurück: Der laufende Flug wird beendet und die Mission startet neu als geplant. Das hilft, wenn sich etwas verschluckt hat – sonst lieber abbrechen."
+            : "";
+        if (!confirm("⬆️ CLOUD UPLOAD\nMöchtest du deinen aktuellen, lokalen Stand hochladen und das bisherige Cloud-Backup überschreiben?" + runWarning)) {
             return { ok: false, skipped: true, reason: 'manual-cancelled' };
         }
         setNavComLed('navcomSaveBtn', 'syncing');
