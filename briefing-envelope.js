@@ -37,6 +37,16 @@
     clip.title = 'Briefing in den Umschlag legen';
     clip.setAttribute('aria-label', clip.title);
     oldClip?.replaceWith(clip);
+    // Keep the moving clip above the envelope while the sheets remain behind it.
+    const clipOverlay = document.createElement('div');
+    clipOverlay.className = 'briefing-envelope-clip-overlay';
+    clipOverlay.setAttribute('aria-hidden', 'true');
+    const clipCopy = clip.cloneNode(false);
+    clipCopy.className = 'briefing-envelope-clip-copy';
+    clipCopy.tabIndex = -1;
+    clipOverlay.inert = true;
+    clipOverlay.appendChild(clipCopy);
+    carriage.appendChild(clipOverlay);
     let opened = false;
     let busy = false;
     let revision = 0;
@@ -55,6 +65,9 @@
         frame.style.height = '';
         paper.style.height = '';
         paper.style.top = '';
+        clipOverlay.style.top = '';
+        clipOverlay.style.transform = '';
+        clipOverlay.style.opacity = '';
         stack.style.transform = '';
         stack.style.opacity = '';
         trigger.style.opacity = '';
@@ -89,6 +102,7 @@
         // The viewport and envelope share one moving parent. Its bottom stays
         // physically inside the envelope, with no separate mask animation.
         paper.style.top = `${-g.paperOrigin}px`;
+        clipOverlay.style.top = `${-g.paperOrigin}px`;
         paper.style.height = `${g.paperOrigin + g.envelopeHeight * .90}px`;
     }
     function extract(g, reverse) {
@@ -97,6 +111,7 @@
             [frame, [{ height: `${g.envelopeHeight}px` }, { height: `${g.paperHeight}px` }]],
             [carriage, [{ transform: 'translateY(0px)' }, { transform: `translateY(${g.paperHeight}px)` }]],
             [stack, [{ transform: g.inside }, { transform: g.outside }]],
+            [clipOverlay, [{ transform: g.inside }, { transform: g.outside }]],
             ...art.map(element => [element, [{ opacity: 1 }, { opacity: 1, offset: .85 }, { opacity: 0 }]])
         ];
         return Promise.all(frames.map(([element, keys]) => {
@@ -124,11 +139,14 @@
         frame.style.height = `${g.envelopeHeight}px`;
         preparePaper(g);
         stack.style.transform = g.inside;
+        clipOverlay.style.transform = g.inside;
         stack.style.opacity = '0';
+        clipOverlay.style.opacity = '0';
         await Promise.all([
             animate(flap, [{ transform: 'perspective(900px) rotateX(0deg)', opacity: 1 }, { transform: 'perspective(900px) rotateX(-180deg)', opacity: 1 }], 420),
             animate(trigger, [{ opacity: 1 }, { opacity: 0 }], 220),
-            animate(stack, [{ opacity: 0 }, { opacity: 1 }], 420)
+            animate(stack, [{ opacity: 0 }, { opacity: 1 }], 420),
+            animate(clipOverlay, [{ opacity: 0 }, { opacity: 1 }], 420)
         ]);
         if (ticket !== revision) return;
         frame.classList.remove('is-peeking');
@@ -167,7 +185,8 @@
         await Promise.all([
             animate(flap, [{ transform: 'perspective(900px) rotateX(-180deg)', opacity: 1 }, { transform: 'perspective(900px) rotateX(0deg)', opacity: 1 }], 420),
             animate(trigger, [{ opacity: 0 }, { opacity: 1 }], 220),
-            animate(stack, [{ opacity: 1 }, { opacity: 0 }], 420)
+            animate(stack, [{ opacity: 1 }, { opacity: 0 }], 420),
+            animate(clipOverlay, [{ opacity: 1 }, { opacity: 0 }], 420)
         ]);
         if (ticket !== revision) return;
         settle(false);

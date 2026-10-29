@@ -28,7 +28,7 @@ body #briefingBox .briefing-envelope #notesStack[hidden], .briefing-envelope-tri
 body #briefingBox .briefing-envelope #notesStack { transform-origin: top center; }
 .briefing-envelope:is(.is-open, .is-released) { aspect-ratio: auto; }
 .briefing-envelope:is(.is-open, .is-released) .briefing-envelope-art { display: none; }
-body #briefingBox .paperclip { display: block !important; pointer-events: auto !important; cursor: pointer; border: 0 !important; padding: 0 !important; background-color: transparent !important; box-shadow: none !important; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 60'%3E%3Cpath d='M10 40 V12 a4 4 0 0 1 8 0 v32 a6 6 0 0 1-12 0 V10 a8 8 0 0 1 16 0 v32' fill='none' stroke='%23889' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") !important; position: absolute; top: -18px; left: 20px; width: 25px; height: 60px; z-index: 30; }
+body #briefingBox :is(.paperclip, .briefing-envelope-clip-copy) { display: block !important; pointer-events: auto !important; cursor: pointer; border: 0 !important; padding: 0 !important; background-color: transparent !important; box-shadow: none !important; background-repeat: no-repeat; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 60'%3E%3Cpath d='M10 40 V12 a4 4 0 0 1 8 0 v32 a6 6 0 0 1-12 0 V10 a8 8 0 0 1 16 0 v32' fill='none' stroke='%23889' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") !important; position: absolute; top: -18px; left: 20px; width: 25px; height: 60px; z-index: 30; }
 body #briefingBox .paperclip:focus-visible { outline: 2px dashed #765636; outline-offset: 2px; }
 
 /* Keep the paper raster on the same compositing layer after the fan settles. */
@@ -40,3 +40,8 @@ body #briefingBox .briefing-envelope.is-fanning .mission-note-page { transition:
 @media (prefers-reduced-motion: reduce) {
     body #briefingBox .briefing-envelope.is-fanning .mission-note-page { transition: none !important; }
 }
+
+.briefing-envelope-clip-overlay { display: none; transform-origin: top center; pointer-events: none; }
+.briefing-envelope.is-moving .briefing-envelope-clip-overlay { display: block; position: absolute; left: 0; width: 100%; z-index: 6; }
+body #briefingBox .briefing-envelope.is-moving #notesStack > .paperclip { visibility: hidden; }
+body #briefingBox .briefing-envelope-clip-copy { transform: rotate(-15deg); pointer-events: none !important; filter: drop-shadow(2px 2px 2px #0008); }

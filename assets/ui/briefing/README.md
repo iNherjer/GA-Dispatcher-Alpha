@@ -21,3 +21,5 @@ Der Papier-Viewport verwendet zusätzlich `clip-path: inset(0)` und einen eigene
 Umschlag und Papier-Viewport liegen jetzt in einem gemeinsamen bewegten Träger. Die untere Papiergrenze ist relativ zum Umschlag fest und wird nicht mehr separat animiert. Der Stapel wird innerhalb dieses Trägers gegenläufig verschoben und skaliert; alle Extraktionsanimationen teilen denselben Startzeitpunkt. Damit bleiben Umschlag und Verdeckung auch bei ausgelassenen Frames verbunden.
 
 Die Papierseiten behalten mit `will-change: transform` und ausgeblendeter Rückseite ihre Compositing-Ebene nach dem Auffächern. Dadurch entfällt die anschließende Raster-Neuausrichtung der feinen Papierlinien beim Wechsel zurück in den statischen Zustand.
+
+Während der Bewegung wird die Klammer rein visuell auf einer eigenen Ebene oberhalb des Umschlags gespiegelt, mit derselben Gegenbewegung und Skalierung wie der Stapel. Die bedienbare Originalklammer bleibt außerhalb der Animation am Papier; die Darstellungskopie ist inert und für Screenreader verborgen.
