@@ -6,7 +6,9 @@
     'use strict';
 
     const STATE_KEY = 'ga_ppl_quiz_v1';
-    const CATALOG_URL = 'data/ppl-quiz-catalog.json';
+    // Set by tools/ppl-quiz-build-catalog.mjs; a new value makes devices download the catalog once.
+    const CATALOG_VERSION = '15-434cf8e3';
+    const CATALOG_URL = 'data/ppl-quiz-catalog.json?v=' + CATALOG_VERSION;
     const COUNTS = [5, 10, 15];
     // Days until a question is due again after 1, 2, 3, 4, 5+ correct answers in a row.
     const INTERVALS = [1, 3, 7, 14, 30];
@@ -261,6 +263,13 @@
         const given = b.ans[q.id];
         body.append(el('div', 'ppl-quiz-topic', catName(q.c) + (q.t ? ' · ' + q.t : '')));
         body.append(el('div', 'ppl-quiz-question', q.q));
+        if (q.m) {
+            const img = el('img', 'ppl-quiz-media');
+            img.src = q.m[0];
+            img.alt = q.m[1] || '';
+            img.loading = 'lazy';
+            body.append(img);
+        }
 
         const list = el('div', 'ppl-quiz-answers');
         answerOrder(q).forEach((a, i) => {
@@ -285,6 +294,7 @@
             const right = q.a.find(a => a[0] === q.k);
             if (!ok && chosen?.[2]) box.append(el('span', '', chosen[2] + ' '));
             if (right?.[2]) box.append(el('span', '', (ok ? '' : 'Richtig: ') + right[2]));
+            else if (!ok && right) box.append(el('span', '', 'Richtig ist: ' + right[1]));
             const src = q.s?.[0];
             const meta = catalog.sources[src?.[0]];
             if (src && meta) {
@@ -297,6 +307,8 @@
                 box.append(' ', link);
             }
             body.append(box);
+            const notice = catalog.notices?.[q.c];
+            if (notice) body.append(noticeLine(notice));
             const nextOpen = b.ids.findIndex((id, i) => i > b.cur && b.ans[id] === undefined);
             const firstOpen = b.ids.findIndex(id => b.ans[id] === undefined);
             const target = nextOpen >= 0 ? nextOpen : firstOpen;
@@ -306,6 +318,18 @@
                 : button('ppl-quiz-btn is-primary', 'Auswertung ›', () => { b.cur = b.ids.length; save(); draw(); }));
             body.append(nav);
         }
+    }
+
+    // Licence attribution for official catalogues (e.g. BZF, CC BY-ND 4.0).
+    function noticeLine(notice) {
+        const line = el('p', 'ppl-quiz-notice', notice.short + ' · ');
+        line.title = notice.full || '';
+        const src = el('a', 'ppl-quiz-ui', 'Original');
+        src.href = notice.source; src.target = '_blank'; src.rel = 'noopener';
+        const lic = el('a', 'ppl-quiz-ui', 'Lizenz');
+        lic.href = notice.license; lic.target = '_blank'; lic.rel = 'noopener';
+        line.append(src, ' · ', lic);
+        return line;
     }
 
     function drawSummary(body) {
@@ -415,6 +439,7 @@
         }));
 
         body.append(el('p', 'ppl-quiz-foot', `Katalog Edition ${catalog.edition} (${catalog.questions.length} Fragen, Stand ${catalog.checkedAt}). ${catalog.note}`));
+        Object.values(catalog.notices || {}).forEach(notice => body.append(noticeLine(notice)));
     }
 
     function draw() {
@@ -520,6 +545,10 @@
     });
     applyDailyOpen();
     document.addEventListener('DOMContentLoaded', updateButton);
+    // Preload the catalog in the background for people who use the quiz, so the note opens at once.
+    if (state.on || dailyDue()) {
+        window.addEventListener('load', () => setTimeout(() => { loadCatalog().catch(() => {}); }, 3000), { once: true });
+    }
 
     window.gaPplQuiz = { renderBoard, toggle, isOn: () => state.on, hasNew, updateButton };
 })();

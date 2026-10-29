@@ -208,3 +208,10 @@ button.ppl-quiz-ui { -webkit-tap-highlight-color: transparent; }
 
 .ppl-quiz-restart { font-size: 1.5cqw; }
 .ppl-quiz-restart:hover { transform: rotate(-60deg); }
+
+.ppl-quiz-media { display: block; max-width: 30%; max-height: 9cqw; margin: 0.4cqw 0 0.6cqw; object-fit: contain; }
+.ppl-quiz-notice { margin: 0.5cqw 0 0; font-size: 0.62em; line-height: 1.3; opacity: 0.6; }
+.ppl-quiz-notice a { color: inherit; }
+@media (max-width: 899px) {
+    .ppl-quiz-media { max-height: 72px; }
+}

@@ -36,7 +36,8 @@ Rechenvarianten belegen höchstens 20 % eines Zettels. Sonst würden die zwölf 
 
 ## Daten
 
-- Katalog: `data/ppl-quiz-catalog.json`. Er wird erst geladen, wenn das Quiz eingeschaltet ist. Der Service Worker holt ihn zuerst aus dem Netz und fällt offline auf den Cache zurück (`NETWORK_FIRST_PATHS` in `sw.js`).
+- Katalog: `data/ppl-quiz-catalog.json`, geladen als `?v=<CATALOG_VERSION>` (Konstante in `ppl-quiz.js`, vom Umwandlungsskript gesetzt). Der Service Worker legt Katalog und Bilder in einen eigenen Cache `ga-ppl-quiz-v1`, der Releases übersteht: Heruntergeladen wird nur einmal pro Katalogversion, ältere Versionen werden dabei entfernt.
+- Für Nutzer mit eingeschaltetem Quiz oder fälligem Tageszettel lädt die App den Katalog etwa 3 s nach dem Start im Hintergrund vor. Wer das Quiz nie benutzt hat, lädt ihn nicht.
 - Lernstand: `localStorage['ga_ppl_quiz_v1']`. Nur Fragen-IDs und Zahlen, kein Fragentext:
 
 ```json
@@ -57,15 +58,24 @@ Rechenvarianten belegen höchstens 20 % eines Zettels. Sonst würden die zwölf 
   - Tage: lokale Tagesnummer seit 1970.
 - **Noch kein Cloud-Sync.** Für einen späteren Abgleich ist das Format schon passend: pro ID den Eintrag mit dem höheren Versuchszähler bzw. dem neueren Tag nehmen. Hochladen nur nach einem abgeschlossenen Zettel, nicht nach jeder Antwort.
 
+## BZF-Fragen
+
+- Seit Edition 15 enthält der Katalog zusätzlich die 261 amtlichen Kenntnisfragen BZF I/II der Bundesnetzagentur (gültig ab 01.05.2024) als eigenes Fach „BZF I/II (amtlich)“. Es lässt sich im Zahnrad wie die PPL-Fächer an- und abwählen.
+- Wortlaut, Originalnummern und Schlüssel sind unverändert; die Übertragung wurde gegen das Original-PDF geprüft. Im amtlichen Katalog ist die richtige Antwort immer A. Das Quiz mischt die Antworten wie bei allen Fragen.
+- Lizenz CC BY-ND 4.0: Der Zuschreibungsvermerk mit Link zu Original und Lizenz steht unter jeder beantworteten BZF-Frage und unten in den Einstellungen (`notices` im Katalog). Er darf nicht entfernt werden.
+- Die Erklärungstexte des Moduls verweisen nur auf „Antwort A“ und werden deshalb nicht übernommen; bei falscher Antwort zeigt das Quiz die richtige Antwort.
+- Die zwei Kartensymbole (Fragen 117 und 118) liegen in `data/ppl-quiz-media/`.
+
 ## Neuen Katalog übernehmen
 
 Das Austauschformat 1.x aus dem Theorie-Trainer (`PPL_A_Fragenkatalog_Edition_N.json`) wird umgewandelt:
 
 ```bash
-node tools/ppl-quiz-build-catalog.mjs "/Pfad/PPL_A_Fragenkatalog_Edition_6.json"
+node tools/ppl-quiz-build-catalog.mjs "/Pfad/PPL_A_Fragenkatalog_Edition_15.json" "/Pfad/PPL_A_BZF_Fragenkatalog_Edition_13.json"
 ```
 
+- Weitere Dateien nach dem PPL-Katalog sind Zusatzmodule (`type: question_batch`) und werden je ein eigenes Fach. Ziel abweichend mit `--out=pfad.json`.
 - Das Skript bricht ab bei doppelten IDs, nicht genau einer richtigen Antwort, gleichen Antworttexten oder unbekannten Fächern bzw. Quellen.
 - Fragen-IDs müssen über Editionen hinweg gleich bleiben, sonst verliert der Lernstand seine Zuordnung.
 - Entfernte IDs werden im Lernstand einfach ignoriert.
-- Danach wie bei jedem Push die `sw.js`-Cache-Version erhöhen.
+- Das Skript trägt die neue `CATALOG_VERSION` in `ppl-quiz.js` ein. Danach wie bei jedem Push die `sw.js`-Cache-Version und die Versionskennung von `ppl-quiz.js` in `index.html` erhöhen.

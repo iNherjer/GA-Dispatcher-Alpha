@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v2264';
+const CACHE = 'ga-dispatcher-v2265';
 
 const STATIC = [
     './',
@@ -317,9 +317,16 @@ const NETWORK_ONLY = [
 ];
 
 const NETWORK_FIRST_PATHS = [
-    '/data/gafor-sector-dataset-de.json',
-    '/data/ppl-quiz-catalog.json'
+    '/data/gafor-sector-dataset-de.json'
 ];
+
+// PPL quiz catalog and its images: own cache that survives releases. The app requests the
+// catalog with ?v=<version>, so it is downloaded once per catalog version, not on every start.
+const QUIZ_CACHE = 'ga-ppl-quiz-v1';
+function isQuizDataRequest(url) {
+    return url.origin === self.location.origin
+        && (url.pathname.endsWith('/data/ppl-quiz-catalog.json') || url.pathname.includes('/data/ppl-quiz-media/'));
+}
 
 const APP_SHELL_NETWORK_FIRST_EXTENSIONS = ['.html', '.js', '.css'];
 
@@ -347,7 +354,7 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
     e.waitUntil(
         caches.keys().then(keys =>
-            Promise.all(keys.filter(k => k !== CACHE && k !== 'private-region.v1' && k !== 'ga-airport-information-v1').map(k => caches.delete(k)))
+            Promise.all(keys.filter(k => k !== CACHE && k !== QUIZ_CACHE && k !== 'private-region.v1' && k !== 'ga-airport-information-v1').map(k => caches.delete(k)))
         ).then(() => self.clients.claim())
     );
 });
@@ -377,6 +384,24 @@ self.addEventListener('fetch', e => {
             const response = await fetch(e.request);
             if (response && response.status === 200) {
                 await cache.put(assetUrl.href, response.clone());
+            }
+            return response;
+        }));
+        return;
+    }
+
+    if (e.request.method === 'GET' && isQuizDataRequest(url)) {
+        e.respondWith(caches.open(QUIZ_CACHE).then(async cache => {
+            const cached = await cache.match(e.request);
+            if (cached) return cached;
+            const response = await fetch(e.request);
+            if (response && response.status === 200) {
+                // Keep only the current version of each file.
+                const base = url.origin + url.pathname;
+                for (const old of await cache.keys()) {
+                    if (old.url !== e.request.url && old.url.split('?')[0] === base) await cache.delete(old);
+                }
+                await cache.put(e.request, response.clone());
             }
             return response;
         }));
