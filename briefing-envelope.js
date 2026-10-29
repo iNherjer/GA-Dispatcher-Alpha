@@ -52,6 +52,11 @@
     let revision = 0;
     let identity = '';
     let animations = [];
+    // The mini map can only lay out once the sheets are visible; while sealed
+    // its own retries give up, so redraw it whenever the envelope opens.
+    const refreshMiniMap = () => {
+        try { if (typeof updateMiniMap === 'function') updateMiniMap(); } catch (_) {}
+    };
     const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const animate = (element, frames, duration, easing = 'cubic-bezier(.22,.7,.25,1)', startTime) => {
         const run = element.animate(frames, { duration: reduced() ? 0 : duration, easing, fill: 'forwards' });
@@ -142,6 +147,7 @@
         clipOverlay.style.transform = g.inside;
         stack.style.opacity = '0';
         clipOverlay.style.opacity = '0';
+        refreshMiniMap();
         await Promise.all([
             animate(flap, [{ transform: 'perspective(900px) rotateX(0deg)', opacity: 1 }, { transform: 'perspective(900px) rotateX(-180deg)', opacity: 1 }], 420),
             animate(trigger, [{ opacity: 1 }, { opacity: 0 }], 220),
@@ -160,6 +166,7 @@
         await fanSheets(false);
         if (ticket !== revision) return;
         settle(true);
+        refreshMiniMap();
         clip.focus({ preventScroll: true });
     }
     async function close() {
