@@ -31,7 +31,7 @@ liefert alles Offene mit aus.
 
 ### 2026-10-29 · Debug-Log schlüsselt ga_active_mission auf — ausgeliefert in Tracker v604 (29.10.2026)
 - **Artefakt:** Tracker-EXE (EFB-Kopie von `profile.js`); Web ist mit diesem Push live (`sw.js` v2290)
-- **Dateien:** `profile.js` (`vpBuildActiveMissionStorageBreakdownLines`), generiert `ga-tracker-client/efb-web-assets/profile.js`
+- **Dateien:** `profile.js` (`vpBuildActiveMissionStorageBreakdownLines`; Routen-Cache `VP_OBS_COMBO_MAX_ENTRIES` auf Handys 3 statt 8, im EFB unverändert 8), generiert `ga-tracker-client/efb-web-assets/profile.js`
 - **Was:** Der Speicherabschnitt im Debug-Log zeigt die größten Felder von `ga_active_mission`, von
   `currentMissionData` und vom Missionsvertrag sowie, ob der Vertrag mehrfach identisch gespeichert ist.
 - **Warum:** Ursachenanalyse für 1,78 MB `ga_active_mission` auf dem iPhone (Safari-Limit ~5 MB).

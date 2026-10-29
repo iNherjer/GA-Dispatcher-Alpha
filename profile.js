@@ -250,7 +250,14 @@ const VP_OBS_POOL_MAX_BYTES = (() => {
     return 650_000;
 })();
 const VP_OBS_COMBO_PREFIX = 'ga_obs_combo_';
-const VP_OBS_COMBO_MAX_ENTRIES = 8;
+// Each route variant (every waypoint edit) gets its own entry. Phones keep the current
+// route plus two to switch back to; a missing entry is rebuilt from the obstacle pool.
+const VP_OBS_COMBO_MAX_ENTRIES = (() => {
+    try {
+        if (window.matchMedia && window.matchMedia('(pointer: coarse) and (max-width: 900px)').matches) return 3;
+    } catch (_) { }
+    return 8;
+})();
 const VP_OBS_TILE_COVERAGE_KEY = 'ga_obs_tile_cov_v1';
 const VP_OBS_TILE_EDGE_NM = 25;
 const VP_OBS_TILE_STEP_LAT = VP_OBS_TILE_EDGE_NM / 60; // ~0.4167°
@@ -888,7 +895,7 @@ function vpStoreObsComboRouteCache(cacheKey, obs, lin) {
     } catch (e) {
         // Quota voll: alte Route-Caches aggressiv aufraeumen und einmal retry.
         try {
-            vpPruneObsComboRouteCache(6);
+            vpPruneObsComboRouteCache(Math.min(6, VP_OBS_COMBO_MAX_ENTRIES - 1));
             localStorage.setItem(key, payload);
             vpPruneObsComboRouteCache(VP_OBS_COMBO_MAX_ENTRIES);
             if (window.gaPerfEnd) window.gaPerfEnd(perf, { ok: true, retry: true, bytes: payload.length });
