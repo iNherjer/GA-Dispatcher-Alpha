@@ -401,6 +401,12 @@ function effectAckSummary(ack = {}) {
   };
 }
 
+function publicCloudActivation(control) {
+  const epoch = cleanString(control?.epoch, 100);
+  const revision = Number(control?.revision);
+  return epoch && Number.isSafeInteger(revision) && revision > 0 ? { epoch, revision } : null;
+}
+
 function publicRun(run, options = {}) {
   if (!run?.missionId || !run?.runId) return null;
   const result = {
@@ -427,7 +433,9 @@ function publicRun(run, options = {}) {
     lastReason: cleanString(run.lastReason, 240) || null,
     lastSnapshotSequence: Math.max(0, Math.round(Number(run.lastSnapshotSequence) || 0)),
     effectCount: Array.isArray(run.effects) ? run.effects.length : 0,
-    lastEffect: Array.isArray(run.effects) && run.effects.length ? publicEffect(run.effects[run.effects.length - 1]) : null
+    lastEffect: Array.isArray(run.effects) && run.effects.length ? publicEffect(run.effects[run.effects.length - 1]) : null,
+    // The cloud activation this run was loaded from; the app ties its remembered run to it.
+    cloudActivation: publicCloudActivation(run.resumeBundle?.cloudMissionControl)
   };
   if (options.includeBundle === true) {
     result.resumeBundle = jsonClone(run.resumeBundle);

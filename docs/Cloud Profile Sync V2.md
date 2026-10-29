@@ -368,3 +368,8 @@ zwischendurch gelöscht und (aus der Pinnwand, gleiche Missions-ID) neu angenomm
 Cloud-Lesevorgang (`_syncReadProfileResponse`) den Kontrollvermerk: `deleted` oder eine Aktivierung mehr als 5 Minuten
 nach dem Merken (Puffer für Uhrabweichung) beendet den gemerkten Lauf, außer der Tracker projiziert genau diesen Lauf
 gerade. Test: `tools/tracker-run-cloud-forget.test.mjs`; im Prüfgestell nachgestellt.
+
+Saubere Zuordnung (ab dem nächsten Tracker-Release, siehe `docs/Release Queue.md`): Der Tracker meldet pro Lauf
+`cloudActivation: { epoch, revision }` (aus `resumeBundle.cloudMissionControl`). Die App speichert sie mit dem gemerkten
+Lauf; jede andere Aktivierung oder ein Löschen in der Cloud beendet ihn sofort. Die Zeitregel bleibt nur für Läufe
+ohne diese Angabe.

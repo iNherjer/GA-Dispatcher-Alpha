@@ -14,6 +14,7 @@ function load(run, liveRunId = null) {
         function _forgetTrackerExecutionRun() { forgotten++; window.gaTrackerExecutionRun = null; }
         function _missionPhaseDebugPush() {}
         function _updateMissionStartBanner() { banner++; }
+        ${declaration(source, '_trackerRunCloudActivation')}
         ${declaration(source, '_syncForgetTrackerRunReplacedInCloud')}
         this.forget = _syncForgetTrackerRunReplacedInCloud;`, context);
     return context;
@@ -36,4 +37,15 @@ test('the activation that started the run, clock skew and a live run keep it', (
     c = load({ ...run }, 'r1');
     assert.equal(c.forget({ status: 'deleted', updatedAt: 1, revision: 4 }), false);
     assert.equal(c.forgotten, 0);
+});
+
+test('with its cloud activation the run ends exactly when the slot shows another activation', () => {
+    const tied = { ...run, cloudActivation: { epoch: 'e1', revision: 7 } };
+    let c = load({ ...tied });
+    // Same activation, even long after: still the running mission.
+    assert.equal(c.forget({ status: 'active', epoch: 'e1', revision: 7, updatedAt: run.at + 86400000 }), false);
+    // Re-activated shortly after (no time margin needed any more).
+    assert.equal(c.forget({ status: 'active', epoch: 'e1', revision: 8, updatedAt: run.at + 1000 }), true);
+    c = load({ ...tied });
+    assert.equal(c.forget({ status: 'active', epoch: 'e2', revision: 1, updatedAt: run.at - 1000 }), true);
 });

@@ -2082,13 +2082,24 @@ window.gaRememberTrackerCargoAutoOpenedRun = function(key = '') {
 // authority, so the App never shows its own local presentation for it while
 // the tracker is still connecting.
 const TRACKER_EXECUTION_RUN_KEY = 'ga_tracker_execution_run_v1';
-function _rememberTrackerExecutionRun(control = null) {
+function _trackerRunCloudActivation(value) {
+    const epoch = String(value?.epoch || '').slice(0, 100);
+    const revision = Number(value?.revision);
+    return epoch && Number.isSafeInteger(revision) && revision > 0 ? { epoch, revision } : null;
+}
+function _rememberTrackerExecutionRun(control = null, activeRun = null) {
     if (!control?.missionId || !control?.runId || control.executionAuthority !== 'tracker') return;
     const missionId = _normalizeMissionRuntimeId(control.missionId);
     const runId = String(control.runId).slice(0, 220);
     const previous = window.gaTrackerExecutionRun;
-    if (previous?.missionId === missionId && previous?.runId === runId) return;
-    window.gaTrackerExecutionRun = { missionId, runId, at: Date.now() };
+    const sameRun = previous?.missionId === missionId && previous?.runId === runId;
+    // Tracker v601+: the cloud activation the run was loaded from.
+    const activation = _trackerRunCloudActivation(activeRun?.runId === runId ? activeRun.cloudActivation : null)
+        || (sameRun ? _trackerRunCloudActivation(previous.cloudActivation) : null);
+    if (sameRun && activation?.epoch === previous.cloudActivation?.epoch
+        && activation?.revision === previous.cloudActivation?.revision) return;
+    window.gaTrackerExecutionRun = { missionId, runId, at: sameRun ? previous.at : Date.now(),
+        ...(activation ? { cloudActivation: activation } : {}) };
     try { localStorage.setItem(TRACKER_EXECUTION_RUN_KEY, JSON.stringify(window.gaTrackerExecutionRun)); } catch (_) {}
 }
 function _forgetTrackerExecutionRun() {
@@ -2242,7 +2253,7 @@ function _applyTrackerExecutionControl(control = null, activeRun = null, reason 
     const missionId = _normalizeMissionRuntimeId(control.missionId || activeRun?.missionId || '');
     if (!missionId || missionId !== _activeMissionRuntimeId('')) return false;
     const previousControl = window.gaTrackerExecutionControl;
-    _rememberTrackerExecutionRun(control);
+    _rememberTrackerExecutionRun(control, activeRun);
     if (control.cargoWindowCloseId && control.cargoWindowCloseId !== previousControl?.cargoWindowCloseId) {
         window.closeMissionCargoDialog?.({ trackerProjection: true });
     }
@@ -16096,19 +16107,23 @@ function _syncProfileClient() {
     _profileSyncSession = { identity, client };
     return client;
 }
-// A tracker run remembered on this device ("Mission läuft noch") ends with a
-// cloud clear or a later activation: the tracker aborts or replaces that run.
-// Without a running tracker nothing else told this device, so the hint stayed
-// after the mission was cleared elsewhere and accepted again (same mission ID).
-// 5 min margin: the device clock and the server clock may differ.
+// A tracker run remembered on this device ("Mission läuft noch") ends as soon as
+// the cloud slot shows another activation or a clear: the tracker aborts or
+// replaces that run. Without a running tracker nothing else told this device, so
+// the hint stayed after the mission was cleared and accepted again (same ID).
+// Runs reported without their activation (tracker < v601, runs not loaded from
+// the cloud) fall back to time: an activation more than 5 min after the run was
+// remembered (margin for device vs. server clock).
 function _syncForgetTrackerRunReplacedInCloud(control) {
     if (!control || typeof control !== 'object') return false;
     _rememberedTrackerExecutionRun(); // loads the stored run
     const run = window.gaTrackerExecutionRun;
     if (!run?.runId || window.gaTrackerExecutionControl?.runId === run.runId) return false;
+    const activation = _trackerRunCloudActivation(run.cloudActivation);
     const updatedAt = Number(control.updatedAt), rememberedAt = Number(run.at);
     const replaced = control.status === 'deleted'
-        || (Number.isFinite(updatedAt) && Number.isFinite(rememberedAt) && updatedAt > rememberedAt + 5 * 60 * 1000);
+        || (activation ? control.epoch !== activation.epoch || Number(control.revision) !== activation.revision
+            : Number.isFinite(updatedAt) && Number.isFinite(rememberedAt) && updatedAt > rememberedAt + 5 * 60 * 1000);
     if (!replaced) return false;
     _forgetTrackerExecutionRun();
     _missionPhaseDebugPush?.('tracker_run_forgotten_cloud', { runId: run.runId, missionId: run.missionId,

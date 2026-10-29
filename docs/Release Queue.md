@@ -27,6 +27,24 @@ liefert alles Offene mit aus.
 
 ## Offen
 
+### 2026-10-29 · Tracker-Lauf meldet seine Cloud-Aktivierung
+- **Artefakt:** Tracker-EXE
+- **Dateien:** `ga-tracker-client/mission-authority-core.js` (`publicRun` → `cloudActivation`); Web-Gegenstück in
+  `sync.js` ist mit diesem Push live
+- **Was:** Die Lauf-Meldung an die App enthält `cloudActivation: { epoch, revision }` aus
+  `resumeBundle.cloudMissionControl`. Die App merkt sich den Lauf zusammen mit dieser Aktivierung und verwirft ihn,
+  sobald die Cloud eine andere Aktivierung oder ein Löschen zeigt, ohne Zeitvergleich.
+- **Warum:** Auf einem Gerät ohne laufenden Tracker blieb „Mission läuft noch“ stehen, wenn dieselbe Mission gelöscht
+  und (z. B. aus der Pinnwand) neu angenommen wurde. Die Zwischenlösung vergleicht Zeiten mit 5 Minuten Puffer; sie
+  bleibt nur als Rückfall für Läufe ohne Aktivierung (ältere Tracker, nicht aus der Cloud geladene Läufe).
+- **Tests:** `tools/tracker-run-cloud-forget.test.mjs`; Tracker-Tests zu `mission-authority-core`/`getPublicSnapshot`
+  (417 grün).
+- **Doku beim Release:** `docs/Cloud Profile Sync V2.md` Abschnitt vom 29.10.2026 ist aktualisiert; Tracker-Release-Notiz
+  ergänzen.
+- **Pruefen im Feld:** Mission annehmen und im Tracker beginnen; auf einem zweiten Gerät ohne Tracker erscheint
+  „Mission läuft noch“. Mission löschen, aus der Pinnwand neu annehmen: der Hinweis verschwindet beim nächsten
+  Cloud-Abgleich, auch wenn beides innerhalb weniger Minuten passiert.
+
 ## Ausgeliefert
 
 ### 2026-10-21 · Testflug-Funde EDTF→EDTW: Startfreigabe, PAX-Fragen, Ladung, Ankunftsplatzierung — ausgeliefert in Tracker v583 (21.10.2026)
