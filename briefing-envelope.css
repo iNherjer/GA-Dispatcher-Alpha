@@ -31,6 +31,9 @@ body #briefingBox .briefing-envelope #notesStack { transform-origin: top center;
 body #briefingBox .paperclip { display: block !important; pointer-events: auto !important; cursor: pointer; border: 0 !important; padding: 0 !important; background-color: transparent !important; box-shadow: none !important; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 60'%3E%3Cpath d='M10 40 V12 a4 4 0 0 1 8 0 v32 a6 6 0 0 1-12 0 V10 a8 8 0 0 1 16 0 v32' fill='none' stroke='%23889' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E") !important; position: absolute; top: -18px; left: 20px; width: 25px; height: 60px; z-index: 30; }
 body #briefingBox .paperclip:focus-visible { outline: 2px dashed #765636; outline-offset: 2px; }
 
+/* Keep the paper raster on the same compositing layer after the fan settles. */
+body #briefingBox .briefing-envelope .mission-note-page { will-change: transform; backface-visibility: hidden; }
+
 /* Keep every sheet aligned inside the envelope; release the fan afterwards. */
 body #briefingBox .briefing-envelope.is-stacked .mission-note-page { transform: none !important; transition: none !important; }
 body #briefingBox .briefing-envelope.is-fanning .mission-note-page { transition: transform 360ms cubic-bezier(.22,.7,.25,1) !important; }
