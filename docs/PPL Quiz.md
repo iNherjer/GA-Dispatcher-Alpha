@@ -26,7 +26,7 @@ Stand 29.10.2026
 ## Auswahl der Tagesfragen (`pickBatch` in `ppl-quiz.js`)
 
 1. Falsch beantwortete Fragen von früheren Tagen, wenn die Option an ist. Die ältesten kommen zuerst, und es kommen alle (bis zur Zettelgröße).
-2. Fällige Wiederholungen, höchstens die Hälfte der restlichen Plätze. Abstände nach 1, 2, 3, 4, 5+ richtigen Antworten in Folge: 1, 3, 7, 14, 30 Tage. Das ist dasselbe Intervallmodell wie im Theorie-Trainer.
+2. Fällige Wiederholungen, höchstens die Hälfte der restlichen Plätze. Abstände nach 1, 2, 3, 4, 5+ richtigen Antworten in Folge: 5, 10, 20, 40, 60 Tage. Seit 30.10.2026 beginnt die Folge bei 5 statt 1 Tag (vorher 1, 3, 7, 14, 30 wie im Theorie-Trainer), damit eine gerade richtig beantwortete Frage nicht schon am nächsten Tag neue Fragen verdrängt. Falsche Antworten kommen unabhängig davon am nächsten Tag.
 3. Ungesehene Fragen, zufällig gemischt.
 4. Was sonst noch frei ist.
 

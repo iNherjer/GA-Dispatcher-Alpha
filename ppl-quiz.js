@@ -11,7 +11,8 @@
     const CATALOG_URL = 'data/ppl-quiz-catalog.json?v=' + CATALOG_VERSION;
     const COUNTS = [5, 10, 15];
     // Days until a question is due again after 1, 2, 3, 4, 5+ correct answers in a row.
-    const INTERVALS = [1, 3, 7, 14, 30];
+    // Wrong answers return the next day on their own (lastWrong), so the first gap can be longer.
+    const INTERVALS = [5, 10, 20, 40, 60];
     const MASTERED_STREAK = 3;
     const LETTERS = ['A', 'B', 'C', 'D'];
 
