@@ -15,6 +15,8 @@ function surfaces(spec={},req={}) {
  return req.surface ? (allowed.includes(req.surface)?[req.surface]:[]) : [allowed[0]];
 }
 function radius(spec={},feature='') {return Number(spec.placementRadiusM)||({people:1.5,missing_person:1.5,pavilion:3,road_vehicles:5,generator:3,pallet_stack:2,cones:1}[feature])||5;}
+// Planning radii are conservative envelopes; centres may sit at 80 % of both radii.
+const minGap=(a,b)=>Math.ceil(Number(((a+b)*8).toFixed(6)))/10;
 
 const local=(p,o)=>({x:(p.lon-o.lon)*111320*Math.cos(o.lat*Math.PI/180),y:(p.lat-o.lat)*111320});
 function inside(p,poly){let yes=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],b=poly[j];if((a.y>p.y)!==(b.y>p.y)&&p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)yes=!yes;}return yes;}
@@ -147,19 +149,24 @@ function countLimit(req,catalog){return catalog.targetSceneFeatures?.[req.featur
 function objectBudget(scene,catalog){return scene.requirements?.some(r=>catalog.targetSceneFeatures?.[r.feature]?.animal===true)?40:scene.density==='busy'?18:scene.density==='sparse'?9:14;}
 function offsets(req){const f=Number(req.forwardM),r=Number(req.rightM),spacing=Number(req.spacingM)||10;if(req.count>6&&req.arrangement==='cluster'){const cols=Math.ceil(Math.sqrt(req.count)),rows=Math.ceil(req.count/cols);return Array.from({length:req.count},(_,i)=>({x:r+(i%cols-(cols-1)/2)*spacing,y:f+(Math.floor(i/cols)-(rows-1)/2)*spacing}));}const pattern=[[0,0],[1,0],[0,1],[1,1],[-1,0],[0,-1]];return Array.from({length:req.count},(_,i)=>({x:r+(req.arrangement==='line'?i*spacing:(pattern[i]?.[1]||0)*spacing),y:f+(req.arrangement==='line'?0:(pattern[i]?.[0]||0)*spacing)}));}
 // Give the composer verified local alternatives; never move saved or generated items silently.
+// Earlier groups stay fixed; a later group yields. The first alternatives fit together.
 function correctionOptions(scene,geo,catalog){
  if(!geo||geo.status!=='mapped')return [];
- const reqs=scene?.requirements||[],result=[];
+ const reqs=scene?.requirements||[],result=[],placed=[];
+ const valid=q=>q&&Number.isFinite(q.forwardM)&&Number.isFinite(q.rightM)&&Number.isInteger(q.count)&&q.count>=1&&q.count<=countLimit(q,catalog);
  for(const [index,req] of reqs.entries()){
-  const spec=catalog.targetSceneFeatures?.[req.feature];if(!spec||!Number.isFinite(req.forwardM)||!Number.isFinite(req.rightM)||!Number.isInteger(req.count)||req.count<1||req.count>countLimit(req,catalog))continue;
-  const r=radius(spec,req.feature),surface=surfaces(spec,req)[0];if(!surface)continue;
-  const others=reqs.flatMap((q,i)=>i===index||!Number.isInteger(q.count)||q.count<1||q.count>countLimit(q,catalog)?[]:offsets(q).map(p=>({...p,r:radius(catalog.targetSceneFeatures?.[q.feature]||{},q.feature)})));
-  const fits=q=>{const points=offsets(q);return points.every((p,i)=>!siteError(scene,q,p,geo)&&!placementError(p,r,geo,surface,q.siteId)&&others.every(o=>Math.hypot(p.x-o.x,p.y-o.y)>=r+o.r+1)&&points.every((o,j)=>i===j||Math.hypot(p.x-o.x,p.y-o.y)>=2*r+1));};
-  if(fits(req))continue;
-  const spacingM=Math.max(Number(req.spacingM)||10,2*r+1),candidates=[];
+  const spec=catalog.targetSceneFeatures?.[req.feature];
+  if(!spec||!valid(req))continue;
+  const r=radius(spec,req.feature),surface=surfaces(spec,req)[0];
+  if(!surface){placed.push(...offsets(req).map(p=>({...p,r})));continue;}
+  const fits=q=>{const points=offsets(q);return points.every((p,i)=>!siteError(scene,q,p,geo)&&!placementError(p,r,geo,surface,q.siteId)&&placed.every(o=>Math.hypot(p.x-o.x,p.y-o.y)>=minGap(r,o.r))&&points.every((o,j)=>i===j||Math.hypot(p.x-o.x,p.y-o.y)>=minGap(r,r)));};
+  if(fits(req)){placed.push(...offsets(req).map(p=>({...p,r})));continue;}
+  const spacingM=Math.max(Number(req.spacingM)||10,minGap(r,r)),candidates=[];
   for(let dy=-60;dy<=60;dy+=5)for(let dx=-60;dx<=60;dx+=5){const q={...req,spacingM,forwardM:req.forwardM+dy,rightM:req.rightM+dx};if(fits(q))candidates.push({forwardM:q.forwardM,rightM:q.rightM,spacingM,distance:Math.hypot(dx,dy)});}
   candidates.sort((a,b)=>a.distance-b.distance);
-  result.push({requirement:index+1,siteId:req.siteId,count:req.count,arrangement:req.arrangement,minimumSpacingM:2*r+1,alternatives:candidates.slice(0,3).map(({distance,...p})=>p),note:'Alternativen gelten relativ zu den übrigen unveränderten Gruppen. Einzeln übernehmen und erneut prüfen; keine neue Nutzung.'});
+  const alternatives=candidates.slice(0,3).map(({distance,...p})=>p);
+  placed.push(...offsets(alternatives[0]?{...req,...alternatives[0]}:req).map(p=>({...p,r})));
+  result.push({requirement:index+1,siteId:req.siteId,count:req.count,arrangement:req.arrangement,minimumSpacingM:minGap(r,r),alternatives,note:alternatives.length?'Frühere Gruppen bleiben fest. Die jeweils erste Alternative aller Gruppen passt gemeinsam; übrige Alternativen nur einzeln. Keine neue Nutzung.':'Keine passende Position in 60 m Umkreis: Gruppe verkleinern (count), auf freien Slot einer anderen siteId mit gleicher Nutzung legen oder weglassen.'});
  }
  return result;
 }
@@ -175,10 +182,10 @@ function validate(scene,geo,catalog){
  const size=radius(spec,r.feature),allowed=surfaces(spec,r);
  if(!allowed.length){errors.push(`Requirement ${i+1}: unzulässige Oberfläche`);continue;}
  if(spec.primaryRole&&r.role!==spec.primaryRole){errors.push(`Requirement ${i+1}: Suchziel benötigt ${spec.primaryRole}`);continue;}
- for(const p of offsets(r)){const issue=(scene.placementVersion===VERSION?siteError(scene,r,p,geo):'')||placementError(p,size,geo,allowed[0],scene.placementVersion===VERSION?r.siteId:null);if(issue)errors.push(`Requirement ${i+1} (${p.y},${p.x}): ${issue}`);for(const prev of points)if(Math.hypot(p.x-prev.x,p.y-prev.y)<size+prev.radius+1)errors.push(`Requirements ${prev.req+1}/${i+1}: Objektabstand zu klein (mindestens ${size+prev.radius+1} m)`);points.push({...p,radius:size,req:i});}
+ for(const p of offsets(r)){const issue=(scene.placementVersion===VERSION?siteError(scene,r,p,geo):'')||placementError(p,size,geo,allowed[0],scene.placementVersion===VERSION?r.siteId:null);if(issue)errors.push(`Requirement ${i+1} (${p.y},${p.x}): ${issue}`);for(const prev of points)if(Math.hypot(p.x-prev.x,p.y-prev.y)<minGap(size,prev.radius))errors.push(`Requirements ${prev.req+1}/${i+1}: Objektabstand zu klein (mindestens ${minGap(size,prev.radius)} m)`);points.push({...p,radius:size,req:i});}
  }
  const baseBudget=scene.density==='busy'?18:scene.density==='sparse'?9:14;const nonAnimals=points.filter(p=>catalog.targetSceneFeatures?.[reqs[p.req].feature]?.animal!==true).length;if(nonAnimals>baseBudget)errors.push(`Ausstattungsbudget ${baseBudget} überschritten (${nonAnimals})`);const budget=objectBudget(scene,catalog);if(points.length>budget)errors.push(`Objektbudget ${budget} überschritten (${points.length})`);
  return [...new Set(errors)].slice(0,12);
 }
-const api={VERSION,countLimit,objectBudget,correctionOptions,workAreas,hasPlacementSite,siteOptions,siteError,enroll,surfaces,radius,enabled,local,inside,edgeDistance,geometry,placementError,offsets,validate};root.MissionPoiScenePlacementCore=api;root.MissionReporterSceneCore=api;if(typeof module==='object')module.exports=api;
+const api={VERSION,minGap,countLimit,objectBudget,correctionOptions,workAreas,hasPlacementSite,siteOptions,siteError,enroll,surfaces,radius,enabled,local,inside,edgeDistance,geometry,placementError,offsets,validate};root.MissionPoiScenePlacementCore=api;root.MissionReporterSceneCore=api;if(typeof module==='object')module.exports=api;
 })(typeof window==='object'?window:globalThis);

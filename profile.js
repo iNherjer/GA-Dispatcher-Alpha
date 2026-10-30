@@ -4814,6 +4814,8 @@ window.vpBuildWeatherDebugReport = function() {
         const toolNames = Array.isArray(sceneComposer.toolCalls) ? sceneComposer.toolCalls.map(c => c.name || '?').slice(0, 5).join(',') : '-';
         lines.push(`- Scene Composer: ${sceneComposer.source || '-'} | prompt=${sceneComposer.promptVersion || '-'} | tools=${toolNames || '-'} | error=${sceneComposer.error || '-'}`);
         if (Array.isArray(sceneComposer.attempts) && sceneComposer.attempts.length) lines.push(`- Scene Composer Versuche: ${sceneComposer.attempts.map(a => `${a.turn}: ${flattenText(a.error || a.result || '-', 220)}`).join(' | ')}`);
+        if (sceneComposer.omissionReason) lines.push(`- Scene Composer ohne Szene: ${flattenText(sceneComposer.omissionReason, 200)}${sceneComposer.composerError ? ` | Ursache=${flattenText(sceneComposer.composerError, 220)}` : ''}`);
+        if (Array.isArray(sceneComposer.attempts) && sceneComposer.attempts.some(a => a.raw)) sceneComposer.attempts.filter(a => a.raw).forEach(a => lines.push(`  * Versuch ${a.turn} Plan: ${flattenText(a.raw, 900)}`));
         if (Array.isArray(sceneComposer.localizationNotes) && sceneComposer.localizationNotes.length) lines.push(`- Scene Composer Lokalisierung: ${sceneComposer.localizationNotes.slice(0, 4).map(n => flattenText(n, 90)).join(' | ')}`);
         if (Array.isArray(sceneComposer.validationNotes) && sceneComposer.validationNotes.length) lines.push(`- Scene Composer Validierung: ${sceneComposer.validationNotes.slice(0, 4).map(n => flattenText(n, 90)).join(' | ')}`);
     }

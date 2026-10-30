@@ -242,3 +242,29 @@ Writer und Composer dürfen passende Tiere und größere Herden einsetzen. Biolo
 Tiergruppen erlauben bis 20 Tiere pro Gruppe und bis 40 Objekte insgesamt. Nichttiergruppen behalten höchstens sechs Objekte pro Gruppe und das bisherige Dichtebudget. Größere Tiergruppen erhalten eine zentrierte Gruppenanordnung; Flächen-, Gebäude-, Abstands- und Kollisionsprüfungen bleiben wirksam. Alle katalogisierten Tiere werden zunächst als bodengebundene Objekte behandelt; Flug-, Schwimm- oder Herdenverhalten wird dadurch nicht zugesichert.
 
 Prüfung: `node --test tools/mission-animal-scene-assets.test.mjs` prüft Katalogübernahme, eine Herde mit 20 Schafen bis zur tatsächlichen Objektliste, Artentrennung, räumliche Ablehnung und Erhalt der Gruppenangaben im App-Sanitizer. Biologie bleibt bis zur gesonderten Freigabe im dokumentierten Testpfad (`ga_bio_briefing_v1`). Keine neuen Tracker- oder Voice-Auslöser.
+
+## Korrekturstand 30.10.2026: Szene darf entfallen, Abstände gelockert
+
+Auslöser: Geo-Mission Schwarzenbach-Talsperre. Der Composer scheiterte in allen
+Runden am Objektabstand (Transporter/Ausrüstung auf kleinem Parkplatz), die
+Mission blieb Entwurf und war nicht fliegbar.
+
+- **Optionale Szene entfällt statt zu blockieren.** Scheitert die Platzierung
+  (Validierung, Zeitlimit, fehlende Geometrie, kein API-Key), wird die Mission
+  ohne Zielobjekte angenommen: `kind=none`, `debug.omissionReason`, ursprünglicher
+  Fehler in `debug.composerError`. Die Anzeige sagt das ausdrücklich. Ausnahme:
+  `taskDomain=search_and_rescue` bzw. `sarSearchScene` – Suchziele bleiben
+  verbindlich, die Mission bleibt Entwurf. Fire/SAR-Briefing-Composer unverändert.
+  Damit ist die Regel vom 29.09. („Fehlerhafte Koordinaten bleiben Fehler“) für
+  optionale Szenen ersetzt; fehlerhafte Koordinaten werden weiterhin nie
+  verschoben oder als Szene ausgeliefert.
+- **Abstände:** Mittelpunktabstand mindestens `0,8 × (rA + rB)` statt `rA + rB + 1 m`
+  (`minGap` im Kern; z. B. zwei Fahrzeuge 8 m statt 11 m, Personen 2,4 m statt 4 m).
+  Planungsradien bleiben bewusst großzügig. Prompt-Texte entsprechend angepasst.
+- **Korrekturhinweise abgestimmt:** `correctionOptions` hält frühere Gruppen fest;
+  nur spätere Gruppen weichen aus. Die jeweils erste Alternative aller Gruppen
+  passt gemeinsam. Berechnet wird auf der bereinigten, tatsächlich geprüften Szene
+  (`err.validatedScene`), damit Indizes zur Fehlermeldung passen.
+- **Diagnose:** Jeder Fehlversuch speichert den geprüften Plan kompakt in
+  `attempts[].raw`; der Diagnosebericht zeigt ihn je Versuch sowie den Grund,
+  wenn die Szene entfallen ist.

@@ -104,18 +104,30 @@ test('river centerlines are not obstacles for boats inside a mapped water polygo
  assert.ok(core.placementError({x:0,y:0},5,ring,'road'));
 });
 
-test('failed shared scene composition keeps the draft; neither random fallback nor acceptance runs',async()=>{
+test('failed optional scene is accepted without objects; required SAR scene keeps the draft',async()=>{
  const {declaration}=await import('./gemini-migration-harness.mjs');
  const source=fs.readFileSync('app.js','utf8'),start=source.indexOf('window.acceptMissionDraft = async function()'),end=source.indexOf('\n};',start)+3;
- for(const failure of ['invalid-layout','throw']){
-  let saves=0;
-  const md={isPOI:true,missionType:'poi',sceneAccepted:false,missionContract:{taskDomain:'inspection_infra'}};
+ for(const task of ['inspection_infra','search_and_rescue'])for(const failure of ['invalid-layout','throw']){
+  let saves=0,applied=null;
+  const md={isPOI:true,missionType:'poi',sceneAccepted:false,missionContract:{taskDomain:task}};
   const env=vm.createContext({window:{MissionReporterSceneCore:core},missionDraftSession:()=>({active:()=>false}),currentMissionData:md,document:{getElementById:()=>({})},updateMissionAcceptanceUi:()=>{},fetchMissionTargetGeoContext:async()=>({reporterPlacement:geo}),buildMissionTruth:()=>({}),
    composeMissionTargetSceneWithGemini:async()=>{if(failure==='throw')throw Error('failure');return {debug:{error:failure}};},
-   applyMissionTargetSceneComposition:()=>{throw Error('must not accept');},deriveMissionTargetSceneFromIntent:()=>{throw Error('must not substitute random objects');},saveMissionState:()=>saves++});
-  vm.runInContext(declaration(source,'prepareMissionDraftScene'),env);
-  vm.runInContext(source.slice(start,end),env);assert.equal(await env.window.acceptMissionDraft(),false);assert.equal(md.sceneAccepted,false);assert.equal(md.sceneCompositionStatus,'draft');assert.equal(saves,1);
+   applyMissionTargetSceneComposition:c=>{applied=c;md.sceneAccepted=true;},deriveMissionTargetSceneFromIntent:()=>{throw Error('must not substitute random objects');},saveMissionState:()=>saves++});
+  for(const name of ['missionDraftSceneRequired','missionDraftSceneOmission','prepareMissionDraftScene'])vm.runInContext(declaration(source,name),env);
+  vm.runInContext(source.slice(start,end),env);
+  const ok=await env.window.acceptMissionDraft();
+  if(task==='search_and_rescue'){assert.equal(ok,false);assert.equal(md.sceneAccepted,false);assert.equal(md.sceneCompositionStatus,'draft');assert.equal(saves,1);continue;}
+  assert.equal(ok,true);assert.equal(applied.targetScene.kind,'none');assert.equal(applied.targetScene.requirements.length,0);
+  assert.ok(applied.debug.omissionReason);assert.equal(applied.debug.error,'');assert.equal(applied.debug.composerError,failure==='throw'?'failure':failure);
  }
+});
+
+test('coordinated corrections: earlier groups stay fixed and all first alternatives fit together',()=>{
+ const scene={kind:'industry_site',placementVersion:core.VERSION,placementIntent:{use:'industrial_site'},requirements:[{...req(0,-40),siteId:'way/1'},{...req(2,-38),siteId:'way/1'},{...req(1,-41),siteId:'way/1'}]};
+ const options=core.correctionOptions(scene,geo,cat);
+ assert.ok(options.every(o=>o.requirement>1));
+ const fixed={...scene,requirements:scene.requirements.map((r,i)=>({...r,...(options.find(o=>o.requirement===i+1)?.alternatives[0]||{})}))};
+ assert.deepEqual(core.validate(fixed,geo,cat),[]);
 });
 
 test('v3 preserves land use, actual paving and capacity; meadow cannot masquerade as portal frontage',()=>{
@@ -172,5 +184,5 @@ test('correction suggestions repair real clearance and group spacing without mut
  const original=JSON.stringify(scene),options=core.correctionOptions(scene,geo,cat);
  assert.equal(JSON.stringify(scene),original);assert.equal(options.length,2);
  for(const option of options){assert.ok(option.alternatives.length);const q={...scene.requirements[option.requirement-1],...option.alternatives[0]};assert.deepEqual(core.validate({...scene,requirements:[q]},geo,cat),[]);}
- assert.equal(options[1].minimumSpacingM,4);
+ assert.equal(options[1].minimumSpacingM,2.4);
 });

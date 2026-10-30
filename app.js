@@ -27270,7 +27270,7 @@ function scenePlannerV3ReporterContext(md = {}, contract = {}, geo = null, truth
             },
             compositionRules: [
                 'Wähle zuerst placementIntent: {use: industrial_site|settlement_space|portal_access|open_field|nature|water_scene|road_scene, anchorId: nur bei portal_access, requiresPaved: boolean, reason: Bezug zur gewählten Handlung}. Die Verwendung folgt dem Auftrag, nicht der bequemsten freien Fläche. Für Portalgeschehen portal_access und ein kartiertes tunnel_end wählen. Nur parking/pedestrian/road bis 120 m um dieses Ende sind passend. Eine Wiese über der Tunnelröhre ist keine Portalfläche. Verlangte Befestigung darf nicht erfunden werden. Wenn kein geeigneter Ort belegt ist, kind=none mit konkretem Grund; keine Ersatzszene an anderem Ort erfinden.',
-                'Jedes requirement braucht siteId aus sites. Wähle zuerst die größten Objekte auf slots mit clearanceM >= placementRadiusM; Abstand zu jedem anderen Objekt mindestens Summe der Radien + 1 m. Menschen dürfen kleine Slots nutzen. Für Gruppen muss jede Einzelposition passen; lieber count=1 auf passenden Slots als übervolle Gruppen. Eine gemeinsame siteId allein garantiert keinen räumlichen Zusammenhang: eine Industriefläche kann mehrere getrennte Höfe umfassen. Objektwünsche passend verkleinern, den räumlichen Zweck bewahren.',
+                'Jedes requirement braucht siteId aus sites. Wähle zuerst die größten Objekte auf slots mit clearanceM >= placementRadiusM; Mittelpunktabstand zu jedem anderen Objekt mindestens 0,8 × Summe der Radien. Menschen dürfen kleine Slots nutzen. Für Gruppen muss jede Einzelposition passen; lieber count=1 auf passenden Slots als übervolle Gruppen. Eine gemeinsame siteId allein garantiert keinen räumlichen Zusammenhang: eine Industriefläche kann mehrere getrennte Höfe umfassen. Objektwünsche passend verkleinern, den räumlichen Zweck bewahren.',
                 'Interpretiere die gewählte Handlung: ein erkennbarer Mittelpunkt, dazu passende Arbeits-, Besucher- oder Fahrzeuggruppen. Keine neue Geschichte.',
                 'Plane zuerst die räumliche Hauptform mit großen Einzelobjekten (count=1 je Baukörper/Fahrzeug). Danach die zur gewählten Handlung passenden Personen und Ausrüstung funktional zuordnen. Besucher, Infostände oder Einsatzkräfte nur, wenn der konkrete Auftrag sie trägt. Die Kandidaten sind Hilfspunkte, kein Raster für jedes Einzelobjekt. Auch bei reduzierter Ausstattung soll das erzählte Geschehen erkennbar bleiben; eine einzelne Person ist keine Personengruppe.',
                 'Wähle für eine gemeinsame Handlung zunächst einen workArea-Bereich mit Platz für den Mittelpunkt. Ordne Personen, Pavillon, Material und zugehörige Fahrzeuge in dessen räumlicher Nähe an. workAreas bieten zusammenliegende Kartenpunkte, keine garantierten freien Höfe. Entfernte Teilgruppen brauchen einen konkreten getrennten Arbeitszweck aus der bestehenden Geschichte; fehlender Platz allein rechtfertigt keine verstreute Szene. Reduziere dann optionale Ausstattung. Erfinde keine Zufahrt aus der Punktverbindung.',
@@ -27278,11 +27278,11 @@ function scenePlannerV3ReporterContext(md = {}, contract = {}, geo = null, truth
                 'targetScene.objectPolicy="explicit-requirements": Nur die ausdrücklich geplanten requirements werden aufgebaut, keine Standardausstattung nach kind.',
                 'Jede Gruppe erhält requirements mit feature, count, arrangement surface und forwardM/rightM in Metern relativ zum sceneAnchor und headingDeg. notes erläutert ihre Funktion. Für verschiedene Gruppen desselben Features separate requirements verwenden.',
                 'Liefere nur targetScene, localizationNotes und validationNotes. Keine APT-Ankunft für POI. Wenn die Hauptszene auf keiner geeigneten Fläche möglich ist, lasse die optionale Szene begründet weg. Das ist besser als eine andere Handlung auf der nächstbesten Fläche.',
-                'Maximal 18 requirements. Tier-Features mit animal=true erlauben bis 20 Tiere pro Gruppe und insgesamt bis 40 Objekte in einer Tierszene. Andere Features behalten höchstens sechs Objekte pro Gruppe und das Ausstattungsbudget 18 bei busy, 14 bei normal, neun bei sparse. Tierart aus der gewählten Geschichte exakt bewahren: species-spezifische Features verwenden, keine gemischten generischen Wild-/Weidetierrollen. Standardtiere gelten als verfügbar; Gruppen großzügig nutzen, wenn die biologische Frage es trägt. Jedes Tier muss auf die belegte Oberfläche passen und genügend Abstand haben. Größere cluster bilden ein zentriertes Raster mit ceil(sqrt(count)) Spalten; spacingM mindestens zwei Planungsradien plus 1 m. Keine Gruppe über mehrere unzusammenhängende Flächen verteilen.',
+                'Maximal 18 requirements. Tier-Features mit animal=true erlauben bis 20 Tiere pro Gruppe und insgesamt bis 40 Objekte in einer Tierszene. Andere Features behalten höchstens sechs Objekte pro Gruppe und das Ausstattungsbudget 18 bei busy, 14 bei normal, neun bei sparse. Tierart aus der gewählten Geschichte exakt bewahren: species-spezifische Features verwenden, keine gemischten generischen Wild-/Weidetierrollen. Standardtiere gelten als verfügbar; Gruppen großzügig nutzen, wenn die biologische Frage es trägt. Jedes Tier muss auf die belegte Oberfläche passen und genügend Abstand haben. Größere cluster bilden ein zentriertes Raster mit ceil(sqrt(count)) Spalten; spacingM mindestens 1,6 Planungsradien. Keine Gruppe über mehrere unzusammenhängende Flächen verteilen.',
                 'line verteilt weitere Objekte entlang rightM nach Osten, unabhängig vom Objekt-Heading. cluster verwendet lokale Rasterpunkte. Für andere Ausrichtungen/Formen count=1 und individuelle Offsets nutzen.',
                 'Wähle cluster für mehrere Objekte an einem Gruppenmittelpunkt; Einzelfahrzeuge lassen sich mit count=1 gezielt anordnen. Nutze spacingM (2 bis 30 Meter) für Abstände innerhalb einer Gruppe, passend zur Objektgröße. forwardM zeigt entlang headingDeg, rightM nach rechts; ohne eindeutigen Anker/Heading keine präzise Lage behaupten.',
                 'Für jedes requirement role aus den Rollen des gewählten Features angeben. Seecontainer benötigen shipping_container; cargo_material ist ein gemischter Pool. U-Formen als einzelne count=1-Objekte mit eigenen Positionen/Heading planen. Alle Koordinaten im placementGeometry-Rahmen: forwardM=y (Norden), rightM=x (Osten).',
-                'Planungsradien und zugelassene Oberflächen stehen am Feature im Katalog. Zwischen zwei Objekten mindestens Summe der Radien plus 1 m. Keine exakten Modellabmessungen. Die App prüft Abstände, Gebäude, Wasser, Straßen und Flächengrenzen. candidates sind mögliche Mittelpunkte mit 9 m Kartenabstand, keine garantierten freien Flächen. Wähle zusammenhängende Positionen in derselben Nutzungsfläche. Mehrere Gruppen nie auf (0,0) stapeln.',
+                'Planungsradien und zugelassene Oberflächen stehen am Feature im Katalog. Mittelpunktabstand zweier Objekte mindestens 0,8 × Summe der Radien. Keine exakten Modellabmessungen. Die App prüft Abstände, Gebäude, Wasser, Straßen und Flächengrenzen. candidates sind mögliche Mittelpunkte mit 9 m Kartenabstand, keine garantierten freien Flächen. Wähle zusammenhängende Positionen in derselben Nutzungsfläche. Mehrere Gruppen nie auf (0,0) stapeln.',
                 'Zieltyp, TaskDomain und Plan bleiben verbindlich. Kein neuer Anlass, kein automatischer Festplatz oder Einsatz. Bei plan.sceneKind=none keine Zusatzobjekte erfinden. SAR-Suchziele aus objectFamilies erhalten; missing_person benötigt sar.person_target, aircraft_wreck benötigt aircraft.wreck. Support bleibt getrennt und darf das Suchziel nicht bereits gefunden haben.',
                 'Ist eine Platzierung nicht belegbar, reduziere nur optionale Ausstattung. Erforderliche Suchobjekte nicht weglassen. Benenne ein Platzierungsproblem, wenn sie nicht darstellbar sind.'
             ]
@@ -27678,12 +27678,13 @@ function sanitizeScenePlannerV3Result(raw = null, fallback = {}, ctx = {}) {
         : sanitizeMissionTargetSceneSpec(null, { isPOI: false, taskDomain, targetGeoContext: null, missionPlanV2: ctx.missionPlanV2 || null });
     if (reporter) {
         const directive = missionPlanV2SceneDirective(ctx.missionPlanV2);
-        if (directive?.sceneKind === 'none' && targetScene.kind !== 'none') throw new Error('reporter_scene_invalid: Der Missionsplan sieht keine Zielobjekte vor');
+        const fail = msg => { const e = new Error(msg); e.validatedScene = targetScene; throw e; };
+        if (directive?.sceneKind === 'none' && targetScene.kind !== 'none') fail('reporter_scene_invalid: Der Missionsplan sieht keine Zielobjekte vor');
         const required = taskDomain === 'search_and_rescue' ? (directive?.objectFamilies || fallback.targetScene?.features || []) : [];
         const missing = required.filter(feature => !(targetScene.requirements || []).some(req=>req.feature===feature));
-        if (missing.length) throw new Error('reporter_scene_invalid: Erforderliche Suchobjekte fehlen: ' + missing.join(', '));
+        if (missing.length) fail('reporter_scene_invalid: Erforderliche Suchobjekte fehlen: ' + missing.join(', '));
         const issues = window.MissionReporterSceneCore.validate(targetScene, ctx.targetGeoContext?.reporterPlacement, window.MISSION_SCENE_ASSETS);
-        if (issues.length) throw new Error('reporter_scene_invalid: ' + issues.join('; '));
+        if (issues.length) fail('reporter_scene_invalid: ' + issues.join('; '));
     }
     const aptArrivalPlan = !isPOI
         ? sanitizeScenePlannerV3AptArrivalPlan(parsed.aptArrivalPlan || parsed.arrivalPlan || null, ctx.aptArrivalPlan || null)
@@ -27823,12 +27824,15 @@ async function composeMissionScenePlanV3WithGemini({ missionData = null, mission
                         const arrivalInvalid = String(err.message).startsWith('apt_arrival_scene_invalid:');
                         if (!arrivalInvalid && (!reporter || !String(err.message).startsWith('reporter_scene_invalid:'))) throw err;
                         lastError = err.message;
-                        attempts.push({turn:turn+1,error:lastError});
+                        const triedScene = err.validatedScene || parsed.targetScene;
+                        // Compact checked plan per round for the diagnosis report.
+                        const raw = Array.isArray(triedScene?.requirements) ? triedScene.requirements.slice(0, 18).map((r, i) => `${i + 1}:${r?.feature || '?'}x${r?.count ?? '?'}${r?.arrangement ? '/' + r.arrangement : ''}@${r?.forwardM ?? '?'},${r?.rightM ?? '?'}${r?.spacingM ? ' s' + r.spacingM : ''}${r?.siteId ? ' ' + r.siteId : ''}`).join(' ; ').slice(0, 900) : '';
+                        attempts.push({turn:turn+1,error:lastError,raw});
                         modelContents.push({role:'model',parts:[{text:JSON.stringify(parsed)}]});
                         modelContents.push({role:'user',parts:[{text:'Korrigiere die räumliche Planung anhand der vorhandenen Geometrie: ' + err.message + '. Waehle eine angebotene Flaeche, passe headingDeg und alle Offsets an. Erhalte Rollen und Auftrag. Kein erfundener Ersatzstandort. ' + (arrivalInvalid
                             ? JSON.stringify({ candidates:scenePlannerV3CompactAptPlan(contextBase.aptArrivalPlan)?.placementCandidates,
                                 geometry:aptArrivalComposerGeometry(contextBase.aptArrivalPlan.placementGeometry,contextBase.aptArrivalPlan) })
-                            : JSON.stringify(window.MissionReporterSceneCore.correctionOptions({...parsed.targetScene,placementVersion:window.MissionReporterSceneCore.VERSION},contextBase.targetGeoContext?.reporterPlacement,window.MISSION_SCENE_ASSETS)))}]});
+                            : JSON.stringify(window.MissionReporterSceneCore.correctionOptions(err.validatedScene || {...parsed.targetScene,placementVersion:window.MissionReporterSceneCore.VERSION},contextBase.targetGeoContext?.reporterPlacement,window.MISSION_SCENE_ASSETS)))}]});
                         continue;
                     }
                 }
@@ -28097,6 +28101,21 @@ function applyMissionTargetSceneComposition(composition = {}, reason = 'accept')
     return true;
 }
 
+// Optional POI scenes are atmosphere; only search targets make a scene mandatory.
+function missionDraftSceneRequired(md = currentMissionData) {
+    const task = String(window.activePassenger?.taskDomain || md?.missionContract?.taskDomain || '').toLowerCase();
+    return task === 'search_and_rescue' || !!md?.sarSearchScene;
+}
+
+function missionDraftSceneOmission(debug = {}) {
+    const omissionReason = 'Die optionale Zielszene ließ sich nicht regelgerecht platzieren und entfällt. Der Auftrag bleibt unverändert.';
+    return {
+        targetScene: {kind:'none',features:[],requirements:[],roles:[],density:'none',notes:omissionReason},
+        aptArrivalPlan: null,
+        debug: {...debug, source: debug.source || 'local-fallback', omissionReason, composerError: debug.error || '', error: ''}
+    };
+}
+
 async function prepareMissionDraftScene() {
     if (!currentMissionData || currentMissionData.sceneAccepted !== false) {
         updateMissionAcceptanceUi();
@@ -28134,6 +28153,12 @@ async function prepareMissionDraftScene() {
             missionContract: currentMissionData.missionContract || window.activeMissionContract || null,
             passenger: window.activePassenger || null
         });
+        if (window.MissionReporterSceneCore?.enabled(currentMissionData, currentMissionData.missionContract) && composition?.debug?.error
+            && !missionDraftSceneRequired(currentMissionData)) {
+            applyMissionTargetSceneComposition(missionDraftSceneOmission(composition.debug), 'mission-accepted-scene-omitted');
+            if (indicator) indicator.innerText = 'Mission akzeptiert ohne Zielszene: Objekte ließen sich nicht passend platzieren. Der Auftrag bleibt unverändert.';
+            return true;
+        }
         if (window.MissionReporterSceneCore?.enabled(currentMissionData, currentMissionData.missionContract) && composition?.debug?.error) {
             currentMissionData.sceneCompositionStatus = 'draft';
             currentMissionData.targetSceneComposerDebug = composition.debug;
@@ -28149,6 +28174,13 @@ async function prepareMissionDraftScene() {
         }
         return true;
     } catch (err) {
+        if (window.MissionReporterSceneCore?.enabled(currentMissionData, currentMissionData.missionContract)
+            && !window.MissionSarBriefingCore?.owns(currentMissionData) && !window.MissionFireBriefingCore?.owns(currentMissionData)
+            && !missionDraftSceneRequired(currentMissionData)) {
+            applyMissionTargetSceneComposition(missionDraftSceneOmission({error:String(err?.message || err)}), 'mission-accepted-scene-omitted');
+            if (indicator) indicator.innerText = 'Mission akzeptiert ohne Zielszene: Szenenplanung fehlgeschlagen. Der Auftrag bleibt unverändert.';
+            return true;
+        }
         if (window.MissionSarBriefingCore?.owns(currentMissionData) || window.MissionFireBriefingCore?.owns(currentMissionData) || window.MissionReporterSceneCore?.enabled(currentMissionData, currentMissionData.missionContract)) {
             currentMissionData.sceneCompositionStatus = 'draft';
             currentMissionData.targetSceneComposerDebug = {error:String(err?.message || err)};
