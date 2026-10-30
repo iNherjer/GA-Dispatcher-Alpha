@@ -21,6 +21,9 @@ Diese Worker-Datei ergänzt den bestehenden `ga-proxy` um:
 - `GET /api/homebase-group/:groupName` (freigegebene Crew-Homebases der eigenen Gruppe laden)
 - `GET /api/testboard-v1` (mit `X-Pilot-ID`/`X-Pilot-PIN`, alle Testergebnisse aus `testboard.html`; Durable Object `GA_TESTBOARD`)
 - `POST /api/testboard-v1` (eigenes Ergebnis für eine Funktion setzen: `{ feature, status: ok|bug|'', note, nick }`)
+- `POST /api/testboard-v1/reports` (Problemmeldung mit Beschreibung, Gerätedaten und Debug-Log aus „Problem melden“ der App; höchstens 500 Meldungen)
+- `GET /api/testboard-v1/reports/:id` (eine Meldung inklusive Log)
+- `POST /api/testboard-v1/reports/:id/done` (`{ done }`, Meldung als erledigt markieren)
 - `GET /api/tracker/download` (stabile Weiterleitung auf den aktuellen versionierten Tracker-Release)
 - `GET /api/tracker/download?format=json` (aktuelle Tracker-Version, Größe und SHA-256)
 

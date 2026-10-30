@@ -2748,7 +2748,7 @@ export default {
       return handleCrewPresence(request, env, verifySyncProfileAuth, readCrewGroupForPresence);
     }
 
-    if (requestUrl.pathname === "/api/testboard-v1") {
+    if (requestUrl.pathname === "/api/testboard-v1" || requestUrl.pathname.startsWith("/api/testboard-v1/")) {
       return handleTestBoard(request, env, verifySyncProfileAuth);
     }
 

@@ -8,7 +8,8 @@ function storage() {
         records,
         async get(key) { return records.has(key) ? structuredClone(records.get(key)) : undefined; },
         async put(key, value) { records.set(key, structuredClone(value)); },
-        async list({ prefix }) { return new Map([...records].filter(([k]) => k.startsWith(prefix))); }
+        async list({ prefix }) { return new Map([...records].filter(([k]) => k.startsWith(prefix))); },
+        async delete(keys) { for (const k of [].concat(keys)) records.delete(k); }
     };
 }
 
@@ -24,7 +25,7 @@ const auth = async request => {
     if (request.headers.get('X-Pilot-PIN') !== '1234') return { ok: false, response: new Response('{}', { status: 401 }) };
     return { ok: true, ownerId: id.toUpperCase() };
 };
-const req = (pilot, body, pin = '1234') => new Request('https://x/api/testboard-v1', {
+const req = (pilot, body, pin = '1234', path = '') => new Request('https://x/api/testboard-v1' + path, {
     method: body ? 'POST' : 'GET',
     headers: { 'X-Pilot-ID': pilot, 'X-Pilot-PIN': pin },
     body: body ? JSON.stringify(body) : undefined
@@ -67,4 +68,34 @@ test('repeated polls reuse the cached login', async () => {
     await handleTestBoard(req('carla'), e, auth);
     await handleTestBoard(req('carla'), e, auth);
     assert.equal(authCalls, 1);
+});
+
+test('problem reports: create with log, list without log, fetch full, mark done', async () => {
+    const e = env();
+    let res = await handleTestBoard(req('anna', { text: '  ', log: 'x' }, '1234', '/reports'), e, auth);
+    assert.equal(res.status, 400);
+    res = await handleTestBoard(req('anna', { text: 'Karte bleibt grau', log: 'line1\nline2', meta: 'Version v2299', nick: 'Anna', feature: 'bad id!' }, '1234', '/reports'), e, auth);
+    assert.equal(res.status, 200);
+    const { report } = await res.json();
+    assert.equal(report.log, undefined);
+    assert.equal(report.hasLog, true);
+    const list = await (await handleTestBoard(req('ben'), e, auth)).json();
+    assert.equal(list.reports.length, 1);
+    assert.equal(list.reports[0].log, undefined);
+    assert.equal(list.reports[0].pilotId, 'ANNA');
+    assert.equal(list.reports[0].feature, '');
+    const full = await (await handleTestBoard(req('ben', null, '1234', '/reports/' + report.id), e, auth)).json();
+    assert.equal(full.report.log, 'line1\nline2');
+    const done = await (await handleTestBoard(req('ben', { done: true }, '1234', '/reports/' + report.id + '/done'), e, auth)).json();
+    assert.equal(done.report.done, true);
+    assert.equal(done.report.doneBy, 'BEN');
+    assert.equal((await handleTestBoard(req('ben', null, '1234', '/reports/../x'), e, auth)).status, 404);
+    assert.equal((await handleTestBoard(req('ben', null, '1234', '/reports/nope'), e, auth)).status, 404);
+});
+
+test('large app logs are accepted up to the report limit', async () => {
+    const e = env();
+    const res = await handleTestBoard(req('anna', { text: 'Absturz', log: 'y'.repeat(90 * 1024) }, '1234', '/reports'), e, auth);
+    assert.equal(res.status, 200);
+    assert.equal((await handleTestBoard(req('anna', { text: 'x', log: 'y'.repeat(100 * 1024) }, '1234', '/reports'), e, auth)).status, 413);
 });

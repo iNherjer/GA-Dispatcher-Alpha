@@ -529,7 +529,7 @@ Richtige Pilot-ID, erfolgreiche Anmeldung, Auto-Sync und Crew-Code kontrollieren
 
 ### Hilfe und Rückmeldung
 
-Die [geführte Einrichtung](onboarding.html) erklärt die ersten Schritte. Das integrierte **Tutorial** bleibt über die App erreichbar. **Problem per E-Mail** bereitet einen gekürzten Diagnosebericht vor; erst du versendest den Entwurf. Für Ideen und Fragen gibt es die [Discord-Community](https://discord.gg/xzXQXey2N8).
+Die [geführte Einrichtung](onboarding.html) erklärt die ersten Schritte. Das integrierte **Tutorial** bleibt über die App erreichbar. **Problem melden** öffnet das [Testboard](testboard.html) mit Pilot-ID, Gerätedaten und Debug-Log; gesendet wird erst, wenn du dort auf Senden drückst. Ohne Pilot-ID entsteht wie bisher ein E-Mail-Entwurf. Für Ideen und Fragen gibt es die [Discord-Community](https://discord.gg/xzXQXey2N8).
 
 ### Datenquellen und Grenzen
 

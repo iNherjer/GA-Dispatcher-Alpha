@@ -61,6 +61,22 @@ textarea{min-height:64px;resize:vertical}
 .rep{font-size:13px;padding:6px 9px;border-radius:3px;background:var(--bugbg);overflow-wrap:anywhere}
 .rep b{color:var(--bug)} .rep time{font:11px var(--mono);color:var(--muted);margin:0 4px}
 .hint{font-size:12px;color:var(--muted)}
+.report-form{display:grid;gap:10px;scroll-margin-top:16px}
+.report-form h2,.reports-head h2{font-size:17px}
+.report-form select{background:var(--paper);border:1px solid var(--line);border-radius:3px;padding:8px 10px;font-size:14px;width:100%}
+.attach{font-size:13px;color:var(--muted)} .attach summary{cursor:pointer}
+pre.log{margin:6px 0 0;max-height:320px;overflow:auto;background:var(--paper);border:1px solid var(--line);border-radius:3px;padding:8px;font:11px/1.45 var(--mono);white-space:pre-wrap;overflow-wrap:anywhere}
+.reports-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+.reports-head label{font-size:13px;color:var(--muted);display:flex;gap:6px;align-items:center}
+.reports-head input{width:auto}
+.brow{padding:12px 14px;border-bottom:1px solid var(--line);display:grid;gap:6px;min-width:0}
+.brow:last-child{border-bottom:0}
+.brow.done{opacity:.6}
+.bmeta{font:11px/1.5 var(--mono);color:var(--muted);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.badge{font:600 10px/1 var(--mono);letter-spacing:.08em;padding:3px 6px;border-radius:3px;background:var(--bug);color:var(--panel)}
+.btext{white-space:pre-wrap;overflow-wrap:anywhere}
+.bactions{display:flex;gap:8px;flex-wrap:wrap}
+.btn.small{padding:5px 10px;font-size:12px}
 @media (max-width:540px){.row{grid-template-columns:1fr}.filters{margin-left:0}}
 </style>
 </head>
@@ -95,6 +111,24 @@ textarea{min-height:64px;resize:vertical}
     </div>
     <div class="me" id="me"></div>
     <div class="msg err" id="err" hidden></div>
+
+    <form class="card report-form" id="melden">
+      <h2>Problem melden</h2>
+      <label class="msg" for="rep-text">Was ist passiert? Was hast du davor gemacht?</label>
+      <textarea id="rep-text" maxlength="4000" required placeholder="z. B. Nach dem Laden der Mission bleibt die Startfreigabe rot, obwohl der Tracker verbunden ist."></textarea>
+      <label class="msg" for="rep-feature">Betroffene Funktion (optional)</label>
+      <select id="rep-feature"><option value="">– nicht zugeordnet –</option></select>
+      <details class="attach" id="rep-attach" hidden><summary id="rep-attach-sum"></summary><pre class="log" id="rep-attach-log"></pre></details>
+      <span class="hint" id="rep-noattach">Ohne Debug-Log. Für das Log den Button <b>Problem melden</b> unten in der App verwenden.</span>
+      <div class="bar"><button class="btn primary" type="submit" id="rep-send">Senden</button><span class="msg" id="rep-msg"></span></div>
+    </form>
+
+    <section id="reports">
+      <header class="reports-head"><h2 id="reports-title">Gemeldete Probleme</h2>
+        <label for="rep-showdone"><input type="checkbox" id="rep-showdone"> Erledigte zeigen</label></header>
+      <div id="report-list"></div>
+    </section>
+
     <div id="list" style="display:grid;gap:16px"></div>
   </div>
 </main>
@@ -130,6 +164,9 @@ const day = t => { try { return new Date(t).toLocaleDateString('de-DE', { day:'2
 const store = { get(k){ try { return localStorage.getItem(k) || ''; } catch (_) { return ''; } }, set(k,v){ try { v ? localStorage.setItem(k,v) : localStorage.removeItem(k); } catch (_) {} } };
 
 let auth = null, me = '', mine = {}, testers = [], filter = 'all', timers = {}, pollTimer = null;
+let reports = [], pending = null, openLogs = {}, showDone = false;
+const lastSeen = Number(store.get('ga_testboard_seen')) || 0;
+const featureName = id => FEATURES.find(f => f.id === id)?.name || '';
 
 // Same browser as the app: reuse its sign-in. Otherwise the testboard keeps its own.
 function savedAuth() {
@@ -138,8 +175,8 @@ function savedAuth() {
   return id && pin ? { id, pin } : null;
 }
 
-async function call(body) {
-  const res = await fetch(API, {
+async function call(body, path = '') {
+  const res = await fetch(API + path, {
     method: body ? 'POST' : 'GET',
     headers: { 'X-Pilot-ID': auth.id, 'X-Pilot-PIN': auth.pin, ...(body ? { 'Content-Type': 'application/json' } : {}) },
     body: body ? JSON.stringify(body) : undefined
@@ -155,6 +192,8 @@ async function load() {
   try {
     const data = await call();
     testers = data.testers || [];
+    reports = data.reports || [];
+    renderReports();
     const own = testers.find(t => String(t.pilotId).toLowerCase() === auth.id.toLowerCase());
     if (own) me = own.pilotId;
     const typing = document.activeElement?.tagName === 'TEXTAREA';
@@ -234,6 +273,89 @@ function setNote(fid, value) {
   timers[fid] = setTimeout(async () => { const ok = await send(fid); const h2 = $('hint-' + fid); if (h2) h2.textContent = ok ? 'Gespeichert.' : 'Nicht gespeichert.'; }, 900);
 }
 
+// ---- problem reports ----
+function takePending() {
+  try {
+    const raw = localStorage.getItem('ga_testboard_pending_report');
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    // Only a fresh hand-over from the app (last 30 minutes) counts.
+    return data && Date.now() - Number(data.at) < 30 * 60 * 1000 ? data : null;
+  } catch (_) { return null; }
+}
+
+function setupReportForm() {
+  const sel = $('rep-feature');
+  AREAS.forEach(([a], i) => {
+    const g = document.createElement('optgroup'); g.label = a;
+    FEATURES.filter(f => f.area === i).forEach(f => { const o = document.createElement('option'); o.value = f.id; o.textContent = f.name; g.appendChild(o); });
+    sel.appendChild(g);
+  });
+  pending = takePending();
+  if (pending) {
+    const lines = String(pending.log || '').split('\n').length;
+    $('rep-attach').hidden = false; $('rep-noattach').hidden = true;
+    $('rep-attach-sum').textContent = `Wird angehängt: Pilot-ID, Gerätedaten und Debug-Log (${lines} Zeilen) – anzeigen`;
+    $('rep-attach-log').textContent = (pending.meta || '') + '\n\n' + (pending.log || '');
+  }
+  $('melden').onsubmit = async ev => {
+    ev.preventDefault();
+    const text = $('rep-text').value.trim();
+    if (!text) return;
+    $('rep-send').disabled = true; $('rep-msg').className = 'msg'; $('rep-msg').textContent = 'Sendet …';
+    try {
+      await call({ text, feature: $('rep-feature').value, meta: pending?.meta || `Browser: ${navigator.userAgent}`, log: pending?.log || '', nick: store.get('ga_testboard_nick') }, '/reports');
+      try { localStorage.removeItem('ga_testboard_pending_report'); } catch (_) {}
+      pending = null; $('rep-attach').hidden = true; $('rep-noattach').hidden = false;
+      $('rep-text').value = ''; $('rep-feature').value = '';
+      $('rep-msg').textContent = 'Gesendet. Danke!';
+      load();
+    } catch (e) {
+      $('rep-msg').className = 'msg err'; $('rep-msg').textContent = 'Nicht gesendet (' + e.message + '). Bitte noch einmal versuchen.';
+    } finally { $('rep-send').disabled = false; }
+  };
+  $('rep-showdone').onchange = () => { showDone = $('rep-showdone').checked; renderReports(); };
+  if (location.hash === '#melden') setTimeout(() => { $('melden').scrollIntoView(); $('rep-text').focus(); }, 50);
+}
+
+function renderReports() {
+  const open = reports.filter(r => !r.done);
+  const fresh = open.filter(r => r.at > lastSeen && String(r.pilotId).toLowerCase() !== auth.id.toLowerCase()).length;
+  $('reports-title').textContent = `Gemeldete Probleme · ${open.length} offen` + (fresh ? ` · ${fresh} neu` : '');
+  const shown = showDone ? reports : open;
+  $('report-list').innerHTML = shown.length ? shown.map(r => {
+    const isNew = !r.done && r.at > lastSeen && String(r.pilotId).toLowerCase() !== auth.id.toLowerCase();
+    let when = ''; try { when = new Date(r.at).toLocaleString('de-DE', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }); } catch (_) {}
+    const log = openLogs[r.id];
+    return `<div class="brow ${r.done ? 'done' : ''}">
+      <div class="bmeta">${isNew ? '<span class="badge">NEU</span>' : ''}<b>${esc(r.nick || r.pilotId)}</b><span>${esc(r.pilotId)}</span><span>${when}</span>${r.feature ? `<span>· ${esc(featureName(r.feature))}</span>` : ''}${r.done ? '<span>· erledigt</span>' : ''}</div>
+      <div class="btext">${esc(r.text)}</div>
+      <div class="bactions">
+        <button class="btn small" type="button" data-log="${r.id}">${log ? 'Log ausblenden' : (r.hasLog ? 'Log und Gerätedaten anzeigen' : 'Gerätedaten anzeigen')}</button>
+        <button class="btn small" type="button" data-done="${r.id}">${r.done ? 'Wieder öffnen' : 'Erledigt'}</button>
+      </div>
+      ${log ? `<pre class="log">${esc(log)}</pre>` : ''}
+    </div>`;
+  }).join('') : '<div class="brow msg">Keine offenen Meldungen.</div>';
+  $('report-list').querySelectorAll('[data-log]').forEach(b => b.onclick = () => toggleLog(b.dataset.log));
+  $('report-list').querySelectorAll('[data-done]').forEach(b => b.onclick = () => toggleDone(b.dataset.done));
+}
+
+async function toggleLog(id) {
+  if (openLogs[id]) { delete openLogs[id]; renderReports(); return; }
+  try {
+    const { report } = await call(null, '/reports/' + id);
+    openLogs[id] = (report.meta || '') + (report.log ? '\n\n' + report.log : '');
+  } catch (e) { openLogs[id] = 'Log konnte nicht geladen werden (' + e.message + ').'; }
+  renderReports();
+}
+
+async function toggleDone(id) {
+  const r = reports.find(x => x.id === id); if (!r) return;
+  try { const res = await call({ done: !r.done }, '/reports/' + id + '/done'); Object.assign(r, res.report); renderReports(); }
+  catch (e) { showError('Status nicht gespeichert (' + e.message + ').'); }
+}
+
 function startPolling() {
   clearInterval(pollTimer);
   pollTimer = setInterval(() => { if (document.visibilityState === 'visible') load(); }, 30000);
@@ -246,6 +368,9 @@ async function start(a) {
   render();
   const ok = await load();
   if (!ok) { auth = null; $('board').hidden = true; showLogin('Pilot-ID oder PIN stimmt nicht.'); return; }
+  setupReportForm();
+  // Reports seen now stop counting as new on the next visit.
+  store.set('ga_testboard_seen', String(Date.now()));
   $('me').innerHTML = `Angemeldet als <b>${esc(store.get('ga_testboard_nick') || me)}</b> · <button id="logout" type="button">Abmelden</button>`;
   $('logout').onclick = () => { ['ga_testboard_id','ga_testboard_pin','ga_testboard_nick'].forEach(k => store.set(k, '')); location.reload(); };
   startPolling();

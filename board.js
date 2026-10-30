@@ -2281,8 +2281,49 @@ window.openBugReportEmailDraft = function() {
     return href;
 };
 
+// Problem melden: hand device info and the full debug log to the testboard
+// (same origin, via localStorage) and open its report form. Without a Pilot-ID/PIN
+// the e-mail draft stays the way to report.
+function _bugBuildTestboardReport() {
+    const swVersion = document.getElementById('swVersionDisplay')?.innerText?.trim() || '';
+    const meta = [
+        `Zeit: ${new Date().toISOString()}`,
+        `Version: ${swVersion || 'unbekannt'}`,
+        `URL: ${String(location.href || '')}`,
+        `Browser: ${String(navigator.userAgent || '')}`,
+        `Sprache: ${String(navigator.language || '')}`,
+        `Zeitzone: ${Intl.DateTimeFormat().resolvedOptions().timeZone || ''}`,
+        `Viewport: ${window.innerWidth || 0}x${window.innerHeight || 0} @${window.devicePixelRatio || 1}`,
+        `Online: ${navigator.onLine ? 'ja' : 'nein'}`
+    ].join('\n');
+    const logs = _bugGetDebugLogs().map(_bugEmailLogLine);
+    const weatherDebug = _bugGetWeatherDebugText();
+    const pax = _bugGetPaxTranscripts().slice(-120).map(e => `[${e.ts || ''}] ${e.type || 'log'}: ${_bugEmailTrimText(e.msg || e.text || '', 400)}`);
+    const parts = ['--- Debug Log ---', logs.length ? logs.join('\n') : 'Keine Debug-Log-Einträge vorhanden.'];
+    if (weatherDebug) parts.push('', '--- Weather/Debug Panel ---', weatherDebug);
+    if (pax.length) parts.push('', '--- Pax Log ---', pax.join('\n'));
+    let log = parts.join('\n');
+    if (log.length > 78000) log = '--- gekürzt, Anfang fehlt ---\n' + log.slice(-78000);
+    return { at: Date.now(), meta, log };
+}
+
+window.openBugReportTestboard = function() {
+    const pilot = typeof getSyncId === 'function' ? String(getSyncId() || '').trim() : '';
+    const pin = typeof getSyncPin === 'function' ? String(getSyncPin() || '').trim() : '';
+    if (!pilot || !pin) return window.openBugReportEmailDraft();
+    try {
+        localStorage.setItem('ga_testboard_pending_report', JSON.stringify(_bugBuildTestboardReport()));
+    } catch (_) {
+        return window.openBugReportEmailDraft();
+    }
+    const url = 'testboard.html#melden';
+    const win = window.open(url, '_blank', 'noopener');
+    if (!win) location.href = url;
+    return url;
+};
+
 window.openBugReportModal = function() {
-    return window.openBugReportEmailDraft();
+    return window.openBugReportTestboard();
 };
 
 window.closeBugReportModal = function() {
@@ -2290,7 +2331,7 @@ window.closeBugReportModal = function() {
 };
 
 window.sendBugReport = async function() {
-    return window.openBugReportEmailDraft();
+    return window.openBugReportTestboard();
 };
 
 function escapeMSFSXml(value) {
