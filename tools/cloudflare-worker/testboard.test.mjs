@@ -7,7 +7,10 @@ function storage() {
     return {
         records,
         async get(key) { return records.has(key) ? structuredClone(records.get(key)) : undefined; },
-        async put(key, value) { records.set(key, structuredClone(value)); },
+        async put(key, value) {
+            if (typeof key === 'object') { for (const [k, v] of Object.entries(key)) records.set(k, structuredClone(v)); return; }
+            records.set(key, structuredClone(value));
+        },
         async list({ prefix }) { return new Map([...records].filter(([k]) => k.startsWith(prefix))); },
         async delete(keys) { for (const k of [].concat(keys)) records.delete(k); }
     };
@@ -98,4 +101,31 @@ test('large app logs are accepted up to the report limit', async () => {
     const res = await handleTestBoard(req('anna', { text: 'Absturz', log: 'y'.repeat(90 * 1024) }, '1234', '/reports'), e, auth);
     assert.equal(res.status, 200);
     assert.equal((await handleTestBoard(req('anna', { text: 'x', log: 'y'.repeat(100 * 1024) }, '1234', '/reports'), e, auth)).status, 413);
+});
+
+test('the list never reads stored logs; old inline logs still work', async () => {
+    const e = env();
+    await handleTestBoard(req('anna', { text: 'Neu', log: 'L'.repeat(1000) }, '1234', '/reports'), e, auth);
+    const stored = e.board.storage.records;
+    const reportKey = [...stored.keys()].find(k => k.startsWith('b:'));
+    assert.equal(stored.get(reportKey).log, undefined);
+    assert.equal(stored.get('l:' + reportKey.slice(2)).length, 1000);
+    stored.set('b:legacy-1', { id: 'legacy-1', at: 1, done: false, pilotId: 'X', text: 'Alt', log: 'inline' });
+    const list = await (await handleTestBoard(req('ben'), e, auth)).json();
+    assert.ok(list.reports.every(r => r.log === undefined && r.hasLog === true));
+    const legacy = await (await handleTestBoard(req('ben', null, '1234', '/reports/legacy-1'), e, auth)).json();
+    assert.equal(legacy.report.log, 'inline');
+    const fresh = await (await handleTestBoard(req('ben', null, '1234', '/reports/' + reportKey.slice(2)), e, auth)).json();
+    assert.equal(fresh.report.log.length, 1000);
+});
+
+test('pruning removes old reports together with their logs', async () => {
+    const e = env();
+    const stored = e.board.storage.records;
+    for (let i = 0; i < 500; i++) { stored.set('b:old-' + i, { id: 'old-' + i, at: i, text: 't', hasLog: true }); stored.set('l:old-' + i, 'log'); }
+    await handleTestBoard(req('anna', { text: 'Nummer 501', log: 'x' }, '1234', '/reports'), e, auth);
+    assert.equal([...stored.keys()].filter(k => k.startsWith('b:')).length, 500);
+    assert.equal(stored.has('b:old-0'), false);
+    assert.equal(stored.has('l:old-0'), false);
+    assert.equal(stored.has('l:old-1'), true);
 });

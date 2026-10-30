@@ -25,7 +25,9 @@ const AUTH_CACHE_MS = 10 * 60 * 1000;
 const AUTH_CACHE_MAX = 500;
 const lower = value => String(value || '').trim().toLowerCase();
 const cleanText = (value, max) => String(value ?? '').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '').slice(0, max);
-const summary = ({ log, ...report }) => ({ ...report, hasLog: !!log });
+// Logs live under their own key ('l:<id>'), so the list never reads them.
+// Reports stored before that kept the log inline; summary() strips it for those.
+const summary = ({ log, ...report }) => ({ ...report, hasLog: !!(log || report.hasLog) });
 
 export class TestBoard {
     constructor(ctx) { this.ctx = ctx; this.storage = ctx.storage; }
@@ -58,12 +60,12 @@ export class TestBoard {
     async addReport(body) {
         const now = Date.now();
         const id = now.toString(36) + '-' + Math.random().toString(36).slice(2, 8);
-        const report = { id, at: now, done: false, pilotId: body.pilotId, nick: body.nick, text: body.text, feature: body.feature, meta: body.meta, log: body.log };
-        await this.storage.put('b:' + id, report);
+        const report = { id, at: now, done: false, pilotId: body.pilotId, nick: body.nick, text: body.text, feature: body.feature, meta: body.meta, hasLog: !!body.log };
+        await this.storage.put(body.log ? { ['b:' + id]: report, ['l:' + id]: body.log } : { ['b:' + id]: report });
         // Keep the store bounded: drop the oldest reports beyond the limit.
         const all = await this.storage.list({ prefix: 'b:' });
         if (all.size > MAX_REPORTS) {
-            const old = [...all.values()].sort((a, b) => a.at - b.at).slice(0, all.size - MAX_REPORTS).map(r => 'b:' + r.id);
+            const old = [...all.values()].sort((a, b) => a.at - b.at).slice(0, all.size - MAX_REPORTS).flatMap(r => ['b:' + r.id, 'l:' + r.id]);
             await this.storage.delete(old);
         }
         return reply({ ok: true, report: summary(report) });
@@ -77,7 +79,10 @@ export class TestBoard {
                 if (request.method === 'POST' && !parts[1]) return await this.addReport(await request.json());
                 const report = await this.storage.get('b:' + parts[1]);
                 if (!report) return reply({ error: 'report_missing' }, 404);
-                if (request.method === 'GET') return reply({ ok: true, report });
+                if (request.method === 'GET') {
+                    const log = report.log ?? (await this.storage.get('l:' + parts[1])) ?? '';
+                    return reply({ ok: true, report: { ...report, log } });
+                }
                 const body = await request.json();
                 report.done = body.done === true;
                 report.doneBy = report.done ? body.pilotId : '';
