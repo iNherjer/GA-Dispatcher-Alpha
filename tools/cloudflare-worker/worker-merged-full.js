@@ -5,6 +5,8 @@ import { handleFlightLogbook } from './flight-logbook.mjs';
 export { FlightLogbook } from './flight-logbook.mjs';
 import { handleCrewPresence } from './crew-presence.mjs';
 export { CrewPresence } from './crew-presence.mjs';
+import { handleTestBoard } from './testboard.mjs';
+export { TestBoard } from './testboard.mjs';
 import { handleAudioSettings } from './audio-settings.mjs';
 const OPENAIP_KEY = "049026a617e1380ac056e1fd3cc237ae";
 const DEFAULT_OBS_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/tiles";
@@ -2744,6 +2746,10 @@ export default {
 
     if (requestUrl.pathname.startsWith("/api/crew-presence-v1/")) {
       return handleCrewPresence(request, env, verifySyncProfileAuth, readCrewGroupForPresence);
+    }
+
+    if (requestUrl.pathname === "/api/testboard-v1") {
+      return handleTestBoard(request, env, verifySyncProfileAuth);
     }
 
     if (requestUrl.pathname.startsWith("/api/flightlog-v1/")) {

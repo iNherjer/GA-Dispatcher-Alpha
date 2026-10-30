@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#193c34">
+<meta name="robots" content="noindex">
+<title>Testboard · VFR Multitool</title>
+<link rel="icon" type="image/png" href="favicon-dark-64.png">
+<style>
+/* Prüfkarte: Bereiche untereinander, jede Zeile = eine Funktion. Farben wie readme.html. */
+:root{--paper:#f6f4ed;--panel:#fffef9;--ink:#1d302b;--muted:#626d64;--green:#193c34;--lime:#d9ef90;--line:#d9ded2;
+  --ok:#2c7a4b;--okbg:#e2f0dc;--bug:#b3361e;--bugbg:#f8e3dc;
+  --mono:ui-monospace,SFMono-Regular,Consolas,monospace;--sans:Inter,"Avenir Next",Avenir,"Segoe UI",sans-serif}
+@media (prefers-color-scheme:dark){:root{--paper:#121a17;--panel:#1a2420;--ink:#e3ebe4;--muted:#93a198;--line:#2c3a34;
+  --ok:#7fcf98;--okbg:#1c3326;--bug:#f0907a;--bugbg:#3a211b;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 var(--sans);-webkit-font-smoothing:antialiased}
+[hidden]{display:none!important}
+button,input,textarea{font:inherit;color:inherit}
+:focus-visible{outline:3px solid #498e67;outline-offset:2px}
+.top{background:var(--green);color:#c9d9cb;padding-top:env(safe-area-inset-top,0px)}
+.wrap{max-width:900px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.top .wrap{padding-block:22px}
+.eyebrow{font:600 10px/1.6 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--lime)}
+h1{margin:6px 0 8px;color:#fffef9;font-size:clamp(28px,5vw,38px);letter-spacing:-.03em;line-height:1.1}
+.top p{margin:0;max-width:64ch;font-size:14px}
+.top a{color:var(--lime)}
+main.wrap{padding-block:20px 60px;display:grid;gap:18px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:16px}
+.login{display:grid;gap:10px}
+.login .fields{display:flex;flex-wrap:wrap;gap:10px}
+.login label{display:grid;gap:4px;font:600 10px/1.6 var(--mono);letter-spacing:.1em;text-transform:uppercase;flex:1 1 160px}
+input,textarea{background:var(--paper);border:1px solid var(--line);border-radius:3px;padding:9px 10px;font-size:14px;width:100%}
+.btn{border:1px solid var(--ink);background:transparent;border-radius:3px;padding:8px 14px;font-weight:600;font-size:13px;cursor:pointer}
+.btn.primary{background:var(--green);color:#fffef9;border-color:var(--green)}
+.msg{font-size:13px;color:var(--muted)} .msg.err{color:var(--bug)}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.stat{font:12px/1.4 var(--mono);padding:6px 10px;border:1px solid var(--line);border-radius:3px;background:var(--panel);font-variant-numeric:tabular-nums}
+.filters{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
+.fbtn{border:1px solid var(--line);background:var(--panel);border-radius:3px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer}
+.fbtn[aria-pressed="true"]{background:var(--green);color:#fffef9;border-color:var(--green)}
+.me{font-size:13px;color:var(--muted)} .me button{background:none;border:0;padding:0;text-decoration:underline;cursor:pointer;color:var(--muted);font-size:13px}
+section{background:var(--panel);border:1px solid var(--line);border-radius:4px;overflow:hidden}
+section>header{display:flex;justify-content:space-between;gap:10px;align-items:baseline;padding:12px 14px;border-bottom:1px solid var(--line)}
+h2{margin:0;font-size:17px;letter-spacing:-.02em}
+.num{font:11px var(--mono);color:var(--muted)}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;padding:10px 14px;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.row.mine-ok{box-shadow:inset 3px 0 var(--ok)} .row.mine-bug{box-shadow:inset 3px 0 var(--bug)}
+.name{font-weight:600}
+.tally{font:11px var(--mono);color:var(--muted);margin-top:2px}
+.tally .o{color:var(--ok)} .tally .x{color:var(--bug)}
+.btns{display:flex;gap:6px;align-self:start}
+.sbtn{border:1px solid var(--line);background:var(--panel);border-radius:3px;padding:6px 11px;font-size:13px;font-weight:600;cursor:pointer}
+.sbtn:disabled{opacity:.5;cursor:default}
+.sbtn[data-s="ok"][aria-pressed="true"]{background:var(--okbg);border-color:var(--ok);color:var(--ok)}
+.sbtn[data-s="bug"][aria-pressed="true"]{background:var(--bugbg);border-color:var(--bug);color:var(--bug)}
+.detail{grid-column:1/-1;display:grid;gap:6px;min-width:0}
+textarea{min-height:64px;resize:vertical}
+.rep{font-size:13px;padding:6px 9px;border-radius:3px;background:var(--bugbg);overflow-wrap:anywhere}
+.rep b{color:var(--bug)} .rep time{font:11px var(--mono);color:var(--muted);margin:0 4px}
+.hint{font-size:12px;color:var(--muted)}
+@media (max-width:540px){.row{grid-template-columns:1fr}.filters{margin-left:0}}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap">
+  <div class="eyebrow">VFR Multitool · Tester</div>
+  <h1>Testboard</h1>
+  <p>Jede Funktion ausprobieren und <b>Läuft</b> oder <b>Fehler</b> wählen. Bei Fehlern kurz beschreiben: was passiert ist, Gerät, Tracker-Version und wie man es nachstellt. Alle Tester sehen dieselbe Liste. <a href="./">Zur App</a></p>
+</div></header>
+
+<main class="wrap">
+  <form class="card login" id="login" hidden>
+    <strong>Mit Pilot-ID anmelden</strong>
+    <span class="msg">Dieselbe Pilot-ID und derselbe PIN wie in der App (Cloud-Sync). Kein weiteres Konto nötig.</span>
+    <div class="fields">
+      <label for="in-id">Pilot-ID<input id="in-id" autocomplete="username" required></label>
+      <label for="in-pin">PIN<input id="in-pin" type="password" autocomplete="current-password" required></label>
+      <label for="in-nick">Anzeigename (optional)<input id="in-nick" maxlength="40"></label>
+    </div>
+    <div class="bar"><button class="btn primary" type="submit">Anmelden</button><span class="msg" id="login-msg"></span></div>
+  </form>
+
+  <div id="board" hidden style="display:grid;gap:16px">
+    <div class="bar">
+      <span class="stat" id="st-mine">Du: –</span>
+      <span class="stat" id="st-all">Alle: –</span>
+      <div class="filters" role="group" aria-label="Filter">
+        <button class="fbtn" id="f-all" data-f="all" aria-pressed="true">Alle</button>
+        <button class="fbtn" id="f-open" data-f="open" aria-pressed="false">Von mir offen</button>
+        <button class="fbtn" id="f-bug" data-f="bug" aria-pressed="false">Mit Fehlern</button>
+      </div>
+    </div>
+    <div class="me" id="me"></div>
+    <div class="msg err" id="err" hidden></div>
+    <div id="list" style="display:grid;gap:16px"></div>
+  </div>
+</main>
+
+<script>
+(() => {
+const API = 'https://ga-proxy.einherjer.workers.dev/api/testboard-v1';
+const AREAS = [
+ ["Einrichtung",["Pilot-ID anlegen und Cloud-Sync","KI-Schlüssel für Briefings","Anmeldung/Schlüssel im Tracker"]],
+ ["Flugzeug & Darstellung",["Flugzeug-Presets (Bibliothek, Schnellwahl)","Oberflächen und Größen","Flugplätze suchen und merken","Glareshield-Designs","NavCom-Designs (Klassik/Bendix/KX)","Analog-Skins (Tower/Fernschreiber)"]],
+ ["Dispatch & Missionen",["Zufallsauftrag","Vorschläge","Eigenes Ziel","Flugplatz-Auftrag","POI-Auftrag","Bush-Auftrag","Auftragsanforderungen verständlich"]],
+ ["Briefing & Übergabe",["Briefing-Inhalt","Flugcode","PDF-Export","MSFS-Flugplandatei","Laden über EFB auf der Weltkarte","Direkt an MSFS/Avionik senden"]],
+ ["Mission, Passagiere & Verladung",["Mission starten / nächster Schritt","Startfreigabe nach Flugladen","Verlade-Manager","Boarding","Gepäck","Ankunft","Bordbestand und Bordbuch"]],
+ ["Unterbrechen & Flugbuch",["Laufenden Auftrag wieder aufnehmen","Gespeicherten Flug über Weltkarte fortsetzen","Wiederaufnahme vs. Neustart","Abschluss und Debrief","Rotes Flugbuch / Krümelweg"]],
+ ["Kartentisch, Route & Funk",["Kartentisch allgemein","Route bearbeiten / Wegpunkte","Route Reset auf Dispatch-Route","Direct To ohne Auftrag","Radio/Frequenzen übernehmen","Nearest und Platzinfos"]],
+ ["Wetter, Luftraum & Gelände",["Wetter und VFR-Index","Lufträume","Höhenprofil","Terrain Avoid und Warnungen"]],
+ ["Checklisten & Rechner",["Checklisten","Zeichnen und Messen","VFR-Rechner und E6B","Zeit, Timer und Watch"]],
+ ["Audio",["Warnungen","Passagierstimmen","PC-Ausgang und Musiksteuerung","Funk-Pause per Taste/Joystick","Sprechende Programme erkennen"]],
+ ["Tracker",["Installieren und verbinden","Statusanzeigen","Autostart / Tray","Flugabend-Autostart","Updates Stable/Alpha","AccuSim Telemetry Bridge"]],
+ ["MSFS-2024-EFB",["Cockpit-Paket installieren","Funktionen im Cockpit","Toolbar","VR"]],
+ ["Homebase",["Startpunkt, Hangar, Ausstattung","Türen, Licht, Mitarbeitende","Mit Crew teilen","Als Startplatz installieren","Homebase ohne offene Web-App"]],
+ ["Pinnwand & Crew",["Private Pinnwand","Crew einrichten","Crew Board","Crew-Status / Online"]],
+ ["Sonstiges",["Hilfe und Rückmeldung","Sonstiger Fehler (bitte beschreiben)"]]
+];
+// Feature ids are stored in the worker: keep names stable, or old results lose their row.
+const slug = s => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/ß/g,'ss').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,56);
+const FEATURES = [];
+AREAS.forEach(([a, items], i) => items.forEach(n => FEATURES.push({ id: slug(a) + '--' + slug(n), area: i, name: n })));
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+const day = t => { try { return new Date(t).toLocaleDateString('de-DE', { day:'2-digit', month:'2-digit' }); } catch (_) { return ''; } };
+const store = { get(k){ try { return localStorage.getItem(k) || ''; } catch (_) { return ''; } }, set(k,v){ try { v ? localStorage.setItem(k,v) : localStorage.removeItem(k); } catch (_) {} } };
+
+let auth = null, me = '', mine = {}, testers = [], filter = 'all', timers = {}, pollTimer = null;
+
+// Same browser as the app: reuse its sign-in. Otherwise the testboard keeps its own.
+function savedAuth() {
+  const id = store.get('ga_testboard_id') || store.get('ga_sync_id');
+  const pin = store.get('ga_testboard_pin') || store.get('ga_sync_pin');
+  return id && pin ? { id, pin } : null;
+}
+
+async function call(body) {
+  const res = await fetch(API, {
+    method: body ? 'POST' : 'GET',
+    headers: { 'X-Pilot-ID': auth.id, 'X-Pilot-PIN': auth.pin, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    body: body ? JSON.stringify(body) : undefined
+  });
+  let data = null; try { data = await res.json(); } catch (_) {}
+  if (!res.ok) { const e = new Error(data?.error || 'HTTP ' + res.status); e.status = res.status; throw e; }
+  return data;
+}
+
+function showError(text) { $('err').textContent = text; $('err').hidden = !text; }
+
+async function load() {
+  try {
+    const data = await call();
+    testers = data.testers || [];
+    const own = testers.find(t => String(t.pilotId).toLowerCase() === auth.id.toLowerCase());
+    if (own) me = own.pilotId;
+    const typing = document.activeElement?.tagName === 'TEXTAREA';
+    if (!typing) { mine = own?.features || mine; render(); }
+    showError('');
+    return true;
+  } catch (e) {
+    if (e.status === 401) return false;
+    showError('Liste konnte nicht geladen werden (' + e.message + '). Neuer Versuch in 30 Sekunden.');
+    return true;
+  }
+}
+
+function tally(fid) {
+  let o = 0, x = 0; const reps = [];
+  for (const t of testers) {
+    const r = t.pilotId === me ? mine[fid] : t.features?.[fid];
+    if (!r) continue;
+    if (r.s === 'ok') o++;
+    if (r.s === 'bug') { x++; if (t.pilotId !== me) reps.push({ who: t.nick || t.pilotId, ...r }); }
+  }
+  if (!testers.some(t => t.pilotId === me) && mine[fid]) { if (mine[fid].s === 'ok') o++; else x++; }
+  return { o, x, reps };
+}
+
+function render() {
+  const focused = document.activeElement?.id;
+  let html = '';
+  AREAS.forEach(([a], i) => {
+    const rows = FEATURES.filter(f => f.area === i).filter(f =>
+      filter === 'open' ? !mine[f.id]?.s : filter === 'bug' ? tally(f.id).x > 0 : true);
+    if (!rows.length) return;
+    html += `<section><header><h2>${esc(a)}</h2><span class="num">${String(i+1).padStart(2,'0')}</span></header>`;
+    for (const f of rows) {
+      const m = mine[f.id] || {}, t = tally(f.id);
+      html += `<div class="row ${m.s ? 'mine-' + m.s : ''}"><div><div class="name">${esc(f.name)}</div>
+        <div class="tally"><span class="o">✓ ${t.o}</span> · <span class="x">✗ ${t.x}</span></div></div>
+        <div class="btns"><button class="sbtn" id="ok-${f.id}" data-f="${f.id}" data-s="ok" aria-pressed="${m.s==='ok'}">Läuft</button>
+        <button class="sbtn" id="bug-${f.id}" data-f="${f.id}" data-s="bug" aria-pressed="${m.s==='bug'}">Fehler</button></div>`;
+      if (m.s === 'bug' || t.reps.length) {
+        html += '<div class="detail">';
+        if (m.s === 'bug') html += `<textarea id="note-${f.id}" data-f="${f.id}" maxlength="2000" placeholder="Was ist passiert? Gerät, Version, Schritte zum Nachstellen …">${esc(m.note)}</textarea><span class="hint" id="hint-${f.id}">Wird automatisch gespeichert.</span>`;
+        html += t.reps.map(r => `<div class="rep"><b>${esc(r.who)}</b><time>${day(r.at)}</time>${esc(r.note || '(keine Beschreibung)')}</div>`).join('');
+        html += '</div>';
+      }
+      html += '</div>';
+    }
+    html += '</section>';
+  });
+  $('list').innerHTML = html || '<div class="card msg">Nichts in diesem Filter.</div>';
+  $('list').querySelectorAll('.sbtn').forEach(b => b.onclick = () => setStatus(b.dataset.f, b.dataset.s));
+  $('list').querySelectorAll('textarea').forEach(t => t.oninput = () => setNote(t.dataset.f, t.value));
+  if (focused && $(focused)) { const el = $(focused); el.focus(); if (el.tagName === 'TEXTAREA') el.setSelectionRange(el.value.length, el.value.length); }
+  const done = Object.values(mine).filter(r => r?.s).length;
+  const bugs = FEATURES.filter(f => tally(f.id).x > 0).length;
+  $('st-mine').textContent = `Du: ${done}/${FEATURES.length} geprüft`;
+  $('st-all').textContent = `Alle: ${Math.max(testers.length, done ? 1 : 0)} Tester · ${bugs} Funktionen mit Fehlern`;
+}
+
+async function send(fid) {
+  const r = mine[fid];
+  try {
+    await call({ feature: fid, status: r?.s || '', note: r?.note || '', nick: store.get('ga_testboard_nick') });
+    return true;
+  } catch (e) { showError('Speichern fehlgeschlagen (' + e.message + '). Bitte erneut klicken.'); return false; }
+}
+function setStatus(fid, s) {
+  if (mine[fid]?.s === s) delete mine[fid];
+  else mine[fid] = { s, note: s === 'bug' ? (mine[fid]?.note || '') : '', at: Date.now() };
+  render(); send(fid);
+}
+function setNote(fid, value) {
+  if (!mine[fid]) return;
+  mine[fid].note = value;
+  clearTimeout(timers[fid]);
+  const h = $('hint-' + fid); if (h) h.textContent = 'Speichert …';
+  timers[fid] = setTimeout(async () => { const ok = await send(fid); const h2 = $('hint-' + fid); if (h2) h2.textContent = ok ? 'Gespeichert.' : 'Nicht gespeichert.'; }, 900);
+}
+
+function startPolling() {
+  clearInterval(pollTimer);
+  pollTimer = setInterval(() => { if (document.visibilityState === 'visible') load(); }, 30000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') load(); });
+}
+
+async function start(a) {
+  auth = a; me = a.id;
+  $('login').hidden = true; $('board').hidden = false;
+  render();
+  const ok = await load();
+  if (!ok) { auth = null; $('board').hidden = true; showLogin('Pilot-ID oder PIN stimmt nicht.'); return; }
+  $('me').innerHTML = `Angemeldet als <b>${esc(store.get('ga_testboard_nick') || me)}</b> · <button id="logout" type="button">Abmelden</button>`;
+  $('logout').onclick = () => { ['ga_testboard_id','ga_testboard_pin','ga_testboard_nick'].forEach(k => store.set(k, '')); location.reload(); };
+  startPolling();
+}
+
+function showLogin(msg) {
+  $('login').hidden = false;
+  $('login-msg').textContent = msg || '';
+  $('login-msg').className = msg ? 'msg err' : 'msg';
+}
+
+$('login').onsubmit = ev => {
+  ev.preventDefault();
+  const id = $('in-id').value.trim(), pin = $('in-pin').value.trim();
+  if (!id || !pin) return;
+  store.set('ga_testboard_id', id); store.set('ga_testboard_pin', pin);
+  store.set('ga_testboard_nick', $('in-nick').value.trim().slice(0, 40));
+  start({ id, pin });
+};
+document.querySelectorAll('.fbtn').forEach(b => b.onclick = () => {
+  filter = b.dataset.f;
+  document.querySelectorAll('.fbtn').forEach(x => x.setAttribute('aria-pressed', x === b));
+  render();
+});
+
+const a = savedAuth();
+a ? start(a) : showLogin('');
+})();
+</script>
+</body>
+</html>

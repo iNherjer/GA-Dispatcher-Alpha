@@ -28,6 +28,10 @@ class_name = "FlightLogbook"
 name = "GA_CREW_PRESENCE"
 class_name = "CrewPresence"
 
+[[durable_objects.bindings]]
+name = "GA_TESTBOARD"
+class_name = "TestBoard"
+
 [[migrations]]
 tag = "profile-sync-v1"
 new_sqlite_classes = ["ProfileSync"]
@@ -39,3 +43,7 @@ new_sqlite_classes = ["FlightLogbook"]
 [[migrations]]
 tag = "crew-presence-v1"
 new_sqlite_classes = ["CrewPresence"]
+
+[[migrations]]
+tag = "testboard-v1"
+new_sqlite_classes = ["TestBoard"]
