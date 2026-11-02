@@ -12,4 +12,9 @@ noch nicht in der Flotte, und die Erkennung nahm die einzige Maschine mit dem Ke
 
 Hängende Belegung aus dem Test: auf der Pinnwand „Freigeben“ oder sie endet beim Verlassen der Maschine.
 
-Nur Alpha-Runtime umstellen, Stable unverändert.
+EXE (Worktree `ef98799a1`, `node_modules` verlinkt): 174734004 Bytes, SHA-256
+`c25801985c652c2e510ce2d9b24291ff5839b08599efdd2ccc9f674c4f8515cb`, Download geprüft. Tests: Tracker 1537/1540
+(2 übersprungen, 1 zeitabhängiger Audio-Test im Gesamtlauf, einzeln 3× grün), Desktop 145/145, Worker vollständig.
+Worker 0bdc0c6a deployt.
+
+Alpha-Runtime auf v610, Stable unverändert.
