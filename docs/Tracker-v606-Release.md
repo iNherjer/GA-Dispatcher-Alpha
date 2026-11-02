@@ -25,6 +25,13 @@
 
 Siehe `docs/Crew Fleet Where I Left It.md`.
 
+EXE (Windows-x64, pkg 6.18.1 / Node18, Cross-Build `--no-bytecode --public --public-packages '*'` aus sauberem
+Worktree von `1f9ad451d`): 174702329 Bytes; SHA-256 `f2743d1d9ad8b5a4ca4aec2cb551a2cbcd76c88bcdca5e65c998599cdfa67a4c`.
+Öffentlicher Download geprüft. Volle Tracker-Testsuite: 1534 Tests, 1531 bestanden, 2 übersprungen, 1 Fehler
+(`tracker-mission-fire-integration.test.js`, nur im Gesamtlauf; einzeln dreimal grün, im Lauf davor grün).
+EFB-Kopien von `styles.css`/`profile.js` aus `fdbd6aef6` und `d5949280d` mit ausgeliefert, `EFB_WEB_ASSET_REVISION` 60601.
+Worker 8fe923b1 deployt (02.11.2026).
+
 Nur Alpha-Runtime umstellen, Stable unverändert.
 
 ## Im Feld prüfen
