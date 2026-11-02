@@ -155,6 +155,33 @@ Regeln in `wili-fleet-core.js` (`applyLock`, `activeLock`), Server in `crew-flee
 - App: `crew-fleet-client.js` vergleicht beim Laden über den Crew-Status-Abruf (alle 3 min, solange sichtbar);
   Band oben mit „Pinnwand“ (öffnet das Crew-Brett) und ×.
 
+### Crew verlassen (Desktop 1.6.34)
+
+- Die Desktop-App erkennt den Austritt am Crew-Namen im Profil (höchstens alle 6 h gelesen) oder an einer
+  403-Antwort der Flotte. Dann endet der Abgleich (keine Uploads, keine Abrufe, Verbindung geschlossen).
+- Maschinen anderer Halter bleiben im Mod-Hangar (der Import löscht nie), werden aber ein letztes Mal in
+  `backup.txt` geschrieben: wieder eingeblendet (`hidden: false`) und mit Namenszusatz „· ex <Crew>“
+  (`customName`). Hinweis im Modul: im Mod „Import Backup“ drücken, danach bei Bedarf dort löschen.
+- In der Cloud bleibt alles stehen: eigene Maschinen des Ausgetretenen bleiben in der Vereinsflotte,
+  seine Sperren laufen nach 12 h ab.
+
+### Entwurf (02.11.2026, wartet auf Abstimmung in der Crew): privat und Vereinsmaschine
+
+| | Privat (Standard) | Vereinsmaschine |
+|---|---|---|
+| In die Crew-Cloud | nein | ja |
+| Bei anderen in Mod-Hangar und Pinnwand | nein | ja |
+| Reservieren, Belegen, Mitfliegen | – | ja |
+| Halter verlässt die Crew | bleibt bei ihm | bleibt in der Crew |
+
+- Desktop-Liste „Meine Maschinen“ mit Schalter „Vereinsmaschine“; nur markierte gehen hoch. Neue Positionen
+  geflogener fremder Vereinsmaschinen gehen weiterhin hoch.
+- Zurück auf privat: Löschvermerk in der Cloud; die Apps der anderen melden „nicht mehr in der Vereinsflotte –
+  im Mod REMOVE“. Bereits geteilte Maschinen gelten beim Umstieg als Vereinsmaschine.
+- Offen: Wer darf eine Vereinsmaschine auf privat stellen (Vorschlag: Halter, solange in der Crew; danach
+  Crew-Admin)? Schreibende Aufrufe sollen die Mitgliedschaft nach einem Austritt sofort prüfen (heute bis
+  30 min Zwischenspeicher im Worker).
+
 Noch nicht gebaut: Löschvermerk (Maschine aus der Flotte nehmen).
 
 Bekannt: Das Kennzeichen-Decal fehlt an vom Mod gespawnten Maschinen in MSFS 2024 (Grenze des Mods/Sims laut

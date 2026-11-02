@@ -188,6 +188,7 @@ class WiliFleetSync extends EventEmitter {
       lastUpload: this.ledger.lastUpload || 0,
       lastDownload: this.ledger.lastDownload || 0,
       push: this.socketOpen,
+      formerCrew: this.ledger.formerCrew || null,
       remoteNewer: this.remoteNewer,
       pending: (this.ledger.pending || []).map(entry => ({ key: entry.key, title: entry.title, tail: entry.tail })),
       aircraft: cloud
@@ -427,6 +428,7 @@ class WiliFleetSync extends EventEmitter {
     if (this.busy) return this.busy;
     if (!this.settings().enabled) return { ok: false, message: 'Vereinsflotte ist ausgeschaltet.' };
     if (!this.refreshMod()) { this.setState('no-mod', 'Mod-Ordner nicht gefunden.'); return { ok: false, message: this.message }; }
+    if (/^manual/.test(reason) && !this.ledger.crew) this.ledger.crewCheckedAt = 0;
     this.busy = (async () => {
       this.setState('syncing', 'Abgleich läuft …');
       try {
@@ -467,12 +469,17 @@ class WiliFleetSync extends EventEmitter {
   }
 
   async crew(credentials, force = false) {
-    if (!force && this.ledger.crew && this.now() - this.ledger.crewCheckedAt < CREW_REFRESH_MS) return this.ledger.crew;
+    // Also "no crew" is kept for a while; a button press checks at once (see run()).
+    if (!force && this.ledger.crewCheckedAt && this.now() - this.ledger.crewCheckedAt < CREW_REFRESH_MS) {
+      if (!this.ledger.crew) throw Object.assign(new Error('Du bist in keiner Crew. Tritt im Web unter „Crew“ einer bei.'), { phase: 'no-crew' });
+      return this.ledger.crew;
+    }
     const crew = String(await this.readCrewName(credentials) || '').trim().toUpperCase().slice(0, 80);
     if (crew !== this.ledger.crew) {
       // Another crew: its records and revision are unrelated to the old ones.
       this.log(`WILI crew ${this.ledger.crew || '-'} -> ${crew || '-'}`);
-      Object.assign(this.ledger, { crew, rev: 0, sent: {}, cloud: {}, pending: [], hidden: {} });
+      this.leaveCrew();
+      Object.assign(this.ledger, { crew, rev: 0, sent: {}, cloud: {}, hidden: {} });
       if (this.socket && this.socketCrew !== crew) { this.closeSocket(); this.connectSocket().catch(() => {}); }
     }
     this.ledger.crewCheckedAt = this.now();
@@ -493,7 +500,13 @@ class WiliFleetSync extends EventEmitter {
       // Not a member (any more): read the crew name once again, it may have changed.
       if (response.status === 403 && attempt === 0) continue;
       if (response.status === 401) throw Object.assign(new Error('Pilot-ID oder PIN wurden abgelehnt.'), { phase: 'no-account' });
-      if (response.status === 403) throw Object.assign(new Error('Kein Mitglied dieser Crew.'), { phase: 'no-crew' });
+      if (response.status === 403) {
+        // Removed from the crew while the profile still names it: same as leaving.
+        this.leaveCrew();
+        Object.assign(this.ledger, { crew: '', crewCheckedAt: this.now(), rev: 0, sent: {}, cloud: {}, hidden: {} });
+        this.closeSocket();
+        throw Object.assign(new Error('Kein Mitglied dieser Crew mehr. Der Abgleich ist beendet.'), { phase: 'no-crew' });
+      }
       if (!response.ok) throw new Error(`Crew-Cloud antwortet mit HTTP ${response.status}${data?.error ? ` (${data.error})` : ''}.`);
       return data;
     }
@@ -551,6 +564,8 @@ class WiliFleetSync extends EventEmitter {
   }
 
   async fetchCloud() {
+    // Caches from 1.6.32/1.6.33 did not keep the owner: load everything once.
+    if (Object.values(this.ledger.cloud || {}).some(entry => entry.ownerPilotId === undefined)) this.ledger.rev = 0;
     const data = await this.call('GET', null, `?since=${Number(this.ledger.rev) || 0}`);
     this.ledger.lastDownload = this.now();
     if (data?.unchanged) return { unchanged: true };
@@ -560,7 +575,7 @@ class WiliFleetSync extends EventEmitter {
       if (!core.validKey(record?.key)) continue;
       this.ledger.cloud[record.key] = {
         key: record.key, pos: record.pos || null, log: record.log || null, rev: record.rev,
-        ownerNick: record.ownerNick || '', lastNick: record.lastNick || '', updatedAt: record.updatedAt || 0,
+        ownerPilotId: record.ownerPilotId || '', ownerNick: record.ownerNick || '', lastNick: record.lastNick || '', updatedAt: record.updatedAt || 0,
         lock: record.lock || null, conflict: record.conflict || null
       };
     }
@@ -614,6 +629,46 @@ class WiliFleetSync extends EventEmitter {
       }
     }
     if (!changed.length || dryRun) return changed.length;
+    return this.writeBackup(records, parsed, content, changed);
+  }
+
+  // Leaving the crew (or being removed): sync ends; aircraft of the others stay in the mod
+  // (an import never deletes) but are shown again and named "... · ex <crew>".
+  leaveCrew() {
+    const crew = this.ledger.crew;
+    const cloud = Object.values(this.ledger.cloud || {});
+    if (!crew || !cloud.length || !this.mod) return 0;
+    const me = this.getCredentials()?.pilotId || '';
+    let read;
+    try { read = this.readBackup(); } catch (_) { return 0; }
+    const { content, parsed } = read;
+    if (!content || !parsed.header) return 0;
+    const records = new Map([...parsed.records.values()].map(record => [record.key, recordFromFile(record)]));
+    const suffix = ` · ex ${crew}`;
+    const changed = [];
+    for (const entry of cloud) {
+      if (!entry.ownerPilotId || lower(entry.ownerPilotId) === lower(me)) continue;
+      const local = records.get(entry.key);
+      if (!local?.pos) continue;
+      const name = String(local.pos.customName || local.pos.tail || local.pos.title || '').slice(0, 160);
+      if (name.endsWith(suffix) && local.pos.hidden !== true) continue;
+      const marked = { ...local, pos: { ...local.pos, hidden: false, customName: name.endsWith(suffix) ? name : name + suffix, savedAt: (Number(local.pos.savedAt) || 0) + 1 } };
+      records.set(entry.key, marked);
+      changed.push(marked);
+    }
+    this.ledger.formerCrew = { crew, at: this.now(), aircraft: changed.map(record => record.pos.tail || record.pos.title) };
+    if (!changed.length) return 0;
+    try {
+      const written = this.writeBackup(records, parsed, content, changed);
+      this.log(`WILI left_crew crew=${crew} marked=${written}`);
+      return written;
+    } catch (error) {
+      this.log(`WILI left_crew_failed ${error?.message || error}`);
+      return 0;
+    }
+  }
+
+  writeBackup(records, parsed, content, changed) {
     if (content) this.keepCopy(content);
     const next = core.serializeBackup(records.values(), { modVersion: parsed.header?.modVersion || '2.0.0', exportedAt: this.now() });
     const target = this.backupPath();

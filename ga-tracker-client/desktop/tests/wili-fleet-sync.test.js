@@ -316,3 +316,34 @@ test('a hidden aircraft is shown again when the use ran out without an export', 
   assert.equal(deina.hidden, false);
   assert.equal(deina.lat, 48.2769);
 });
+
+test('leaving the crew ends the sync and marks the aircraft of the others, shown again', async () => {
+  const server = await worker();
+  const alice = pilot('ALICE', server);
+  alice.write(backup([{ key: DEINA, pos: pos(COMANCHE, 'DEINA', { savedAt: 2000, customName: 'DEINA' }), log: log() }]));
+  await alice.sync.sync();
+  let crew = 'EDTW';
+  const bob = pilot('BOB', server);
+  bob.sync.readCrewName = async () => crew;
+  bob.write(backup([{ key: LEGACY, pos: pos('A2A Lancair Legacy', 'N315WP'), log: log() }]));
+  await bob.sync.sync();
+  // Alice flies DEINA: hidden at Bob.
+  await server.action('ALICE', 'event', { event: 'takeoff', title: COMANCHE, tail: 'DEINA' });
+  await bob.sync.sync('poll');
+  assert.equal(bob.read().records.get(DEINA).pos.hidden, true);
+  // Bob leaves the crew.
+  crew = '';
+  bob.advance(7 * 60 * 60 * 1000);
+  const result = await bob.sync.sync('poll');
+  assert.equal(result.ok, false);
+  assert.equal(bob.sync.publicState().phase, 'no-crew');
+  const deina = bob.read().records.get(DEINA).pos;
+  assert.equal(deina.hidden, false, 'visible again');
+  assert.equal(deina.customName, 'DEINA · ex EDTW');
+  assert.equal(bob.read().records.get(LEGACY).pos.customName, undefined, 'own aircraft untouched');
+  assert.deepEqual(bob.sync.publicState().formerCrew.aircraft, ['DEINA']);
+  assert.deepEqual(bob.sync.publicState().pending.map(entry => entry.tail), ['DEINA']);
+  server.calls.length = 0;
+  await bob.sync.sync('poll');
+  assert.equal(server.calls.length, 0, 'no more crew traffic');
+});
