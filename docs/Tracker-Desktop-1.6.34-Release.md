@@ -15,3 +15,8 @@ Basis: Desktop 1.6.33. Tracker-Runtime unverändert.
 
 - 143 Desktop-Tests, neu: Austritt mit ausgeblendeter fremder Maschine, eigene bleibt unverändert, danach kein
   Crew-Verkehr.
+
+## Aktivierung
+
+Release `tracker-desktop-v1.6.34` (Worktree `df23e5eef`, `node_modules` kopiert), Installer 100308227 Bytes,
+öffentlicher Download geprüft (SHA-512 wie `latest.yml`). `latest.yml`/`alpha.yml` am 02.11.2026 aktiviert.
