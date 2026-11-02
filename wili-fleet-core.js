@@ -239,21 +239,30 @@
         return current ? LOCK_LABEL[current.state] : LOCK_LABEL.free;
     }
 
-    // Finds the fleet aircraft the tracker flies. The mod keys by tail and sim title;
-    // a tail alone or the title near the parking spot also counts when unambiguous.
+    // Finds the fleet aircraft the tracker flies. The mod keys by tail and sim title, but the
+    // sim may report another title (livery suffix) or the livery's registration as ATC ID.
+    // Order: tail + title, unique tail, similar title near the parking spot, the only aircraft
+    // parked right where the flight started (the mod puts it there).
+    const plainTitle = value => lower(value).replace(/[^a-z0-9]+/g, '');
+    function similarTitle(a, b) {
+        const x = plainTitle(a), y = plainTitle(b);
+        return Boolean(x && y) && (x === y || (Math.min(x.length, y.length) >= 6 && (x.includes(y) || y.includes(x))));
+    }
     function matchAircraft(records, { title = '', tail = '', lat, lon } = {}) {
         const list = [...records];
-        const t = lower(title), r = lower(tail);
-        const byTail = r ? list.filter(record => lower(record.pos?.tail) === r || lower(String(record.key).replace(/^tail:/, '').split('|')[0]) === r) : [];
-        const exact = byTail.find(record => lower(record.pos?.title || titleFromKey(record.key)) === t);
+        const r = lower(tail);
+        const titleOf = record => record.pos?.title || titleFromKey(record.key);
+        const tails = record => [record.pos?.tail, record.pos?.livery, record.pos?.liveryName, String(record.key).replace(/^tail:/, '').split('|')[0]].map(lower).filter(Boolean);
+        const byTail = r ? list.filter(record => tails(record).includes(r)) : [];
+        const exact = byTail.find(record => similarTitle(titleOf(record), title));
         if (exact) return exact.key;
         if (byTail.length === 1) return byTail[0].key;
-        if (t && Number.isFinite(lat) && Number.isFinite(lon)) {
-            const near = list.filter(record => lower(record.pos?.title || titleFromKey(record.key)) === t
-                && Number.isFinite(record.pos?.lat) && distanceKm(record.pos, { lat, lon }) < 1);
-            if (near.length === 1) return near[0].key;
-        }
-        return null;
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+        const placed = list.filter(record => Number.isFinite(record.pos?.lat) && Number.isFinite(record.pos?.lon));
+        const near = placed.filter(record => similarTitle(titleOf(record), title) && distanceKm(record.pos, { lat, lon }) < 1);
+        if (near.length === 1) return near[0].key;
+        const here = placed.filter(record => distanceKm(record.pos, { lat, lon }) < 0.15);
+        return here.length === 1 ? here[0].key : null;
     }
 
     function distanceKm(a, b) {

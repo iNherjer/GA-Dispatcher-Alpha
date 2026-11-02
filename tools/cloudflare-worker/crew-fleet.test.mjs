@@ -215,3 +215,16 @@ test('websocket route needs an upgrade and actions need POST', async () => {
     assert.equal(get.status, 405);
     assert.equal((await act(env, 'ALICE', 'event')({ event: 'boom' })).status, 400);
 });
+
+test('the sim may report the livery registration, another title or only the parking spot', async () => {
+    const env = { GA_CREW_FLEET: namespace() };
+    await client(env, 'ALICE')({ records: [{ key: KEY, pos: pos(), log: log() }] });
+    const byLivery = await act(env, 'BOB', 'event')({ event: 'takeoff', title: 'A2A Piper PA-24-250 Comanche N8351P', tail: 'N8351P' });
+    assert.equal(byLivery.body.key, KEY);
+    await act(env, 'BOB', 'release')({ key: KEY });
+    const bySpot = await act(env, 'BOB', 'event')({ event: 'takeoff', title: 'Comanche Livery 7', tail: '', lat: 48.27692, lon: 8.43088 });
+    assert.equal(bySpot.body.key, KEY);
+    await act(env, 'BOB', 'release')({ key: KEY });
+    const elsewhere = await act(env, 'BOB', 'event')({ event: 'takeoff', title: 'Cessna 172', tail: 'D-EXYZ', lat: 50, lon: 9 });
+    assert.equal(elsewhere.body.matched, false);
+});
