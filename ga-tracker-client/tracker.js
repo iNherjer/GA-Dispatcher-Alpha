@@ -43,6 +43,23 @@ const { createCrewFleetWatch } = require('./tracker-crew-fleet-watch.js');
 // Crew status beats (online/current flight); fed by the telemetry loop.
 let trackerCrewPresence = null;
 let trackerCrewFleetWatch = null;
+let trackerShutdownFlush = async () => {};
+let trackerShuttingDown = null;
+// Orderly end (desktop "stop", Ctrl+C, SIGTERM): crew fleet aircraft left, crew status offline,
+// mission state and logs flushed. Windows kills without a signal, so the desktop app asks first.
+function shutdownTracker(reason) {
+  if (trackerShuttingDown) return trackerShuttingDown;
+  trackerShuttingDown = (async () => {
+    try { debugLog(`TRACKER_SHUTDOWN reason=${reason}`); } catch (_) {}
+    trackerCrewFleetWatch?.stop();
+    await Promise.race([trackerCrewPresence?.stop(), new Promise(resolve => setTimeout(resolve, 2500))]).catch(() => {});
+    await trackerShutdownFlush().catch(() => {});
+    await Promise.all([writeDebugLog.flush(), missionTestLog.flush()]).catch(() => {});
+    process.exit(0);
+  })();
+  return trackerShuttingDown;
+}
+for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => { void shutdownTracker(signal); });
 const { verifyTrackerCredentials } = require('./tracker-auth.js');
 const { createTrackerRelayHello } = require('./tracker-efb-relay-core.js');
 const {
@@ -123,8 +140,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v610';
-const TRACKER_VERSION_CODE = 610;
+const TRACKER_VERSION = 'v611';
+const TRACKER_VERSION_CODE = 611;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -5157,7 +5174,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       try { await (missionProcess ? missionProcess.close() : missionExecutionRuntime.flush()); }
       catch (error) { debugLog(`MISSION_POI_SHUTDOWN_FLUSH_ERROR error=${error.message}`); }
     };
-    for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, async () => { trackerCrewFleetWatch?.stop(); await Promise.race([trackerCrewPresence?.stop(), new Promise(resolve => setTimeout(resolve, 2000))]); await flushPoi(); await Promise.all([writeDebugLog.flush(), missionTestLog.flush()]); process.exit(0); });
+    trackerShutdownFlush = flushPoi;
   }
   const recoveredMissionRun = missionAuthorityManager.getActiveRun({ includeBundle: true });
   if (recoveredMissionRun?.resumeBundle) {
@@ -5881,6 +5898,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       profileData: require('./tracker-profile-data').createProfileData(navigationData),
       desktopControlToken: TRACKER_DESKTOP_CONTROL_TOKEN,
       hardResetMission: hardResetTrackerMission,
+      shutdown: () => shutdownTracker('desktop-stop'),
       log: debugLog
     });
     _efbHttpServer.start().then((address) => {

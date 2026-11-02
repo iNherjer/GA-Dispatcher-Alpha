@@ -760,3 +760,23 @@ test('NAVCOM settings use bounded loopback-only commands and return before cloud
   assert.equal((await send('invalid')).statusCode,400);
   assert.equal(mode,'direct');
 });
+
+test('desktop shutdown is token-gated, answers first and then signs off', async (t) => {
+  const hello = createTrackerEfbHttpHello({ trackerVersion: 'v610', trackerVersionCode: 610 });
+  let calls = 0;
+  const server = createTrackerEfbHttpServer({
+    host: '127.0.0.1', port: 0, hello,
+    desktopControlToken: 'desktop-control-test-token',
+    shutdown: async () => { calls += 1; }
+  });
+  t.after(() => server.stop());
+  const address = await server.start();
+  const rejected = await request(address, '/api/v1/tracker/shutdown', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+  assert.equal(rejected.statusCode, 403);
+  const accepted = await request(address, '/api/v1/tracker/shutdown', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-GA-Tracker-Desktop-Control': 'desktop-control-test-token' }, body: '{}'
+  });
+  assert.equal(accepted.statusCode, 202);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(calls, 1);
+});

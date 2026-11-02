@@ -917,6 +917,8 @@ if (!singleInstanceLock) {
     bridgeShutdownInProgress = true;
     wiliFleetSync?.stop();
     Promise.allSettled([
+      // The engine signs off from the crew before the app is gone (at most a few seconds).
+      stopTrackerAndWait(),
       windowsInput.close(),
       windowsMedia.close(),
       mediaServer.close(),

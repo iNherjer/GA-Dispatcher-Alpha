@@ -8,6 +8,10 @@ const { createTrackerStatus, statusFromLine } = require('./status-parser');
 
 const DEFAULT_EFB_HTTP_PORT = 49880;
 const TRACKER_MISSION_HARD_RESET_PATH = '/api/v1/tracker/mission/hard-reset';
+const TRACKER_SHUTDOWN_PATH = '/api/v1/tracker/shutdown';
+// The engine signs off (crew status offline, crew fleet aircraft left, logs) before it exits;
+// a hard kill skips that (Windows has no SIGTERM), so it is only the fallback.
+const GRACEFUL_STOP_MS = 4000;
 
 function cleanLogLine(line) {
   return String(line || '')
@@ -170,16 +174,43 @@ class TrackerProcess extends EventEmitter {
 
   stop() {
     if (!this.child) return { ok: true, alreadyStopped: true };
+    if (this.stopRequested) return { ok: true, stopping: true };
     this.stopRequested = true;
-    this.status = { ...this.status, process: 'stopping', detail: 'Tracker wird beendet …' };
+    this.status = { ...this.status, process: 'stopping', detail: 'Tracker meldet sich ab …' };
     this.emitState();
-    try {
-      this.child.kill();
-      return { ok: true };
-    } catch (error) {
-      this.addLog(`Tracker konnte nicht beendet werden: ${error.message}`, 'error');
-      return { ok: false, message: error.message };
-    }
+    const child = this.child;
+    const kill = () => {
+      clearTimeout(timer);
+      if (this.child !== child) return;
+      try { child.kill(); } catch (error) { this.addLog(`Tracker konnte nicht beendet werden: ${error.message}`, 'error'); }
+    };
+    const timer = setTimeout(kill, GRACEFUL_STOP_MS);
+    timer.unref?.();
+    child.once('exit', () => clearTimeout(timer));
+    this.requestShutdown().then(accepted => { if (!accepted) kill(); });
+    return { ok: true };
+  }
+
+  requestShutdown() {
+    const token = String(this.desktopControlToken || '').trim();
+    if (!token) return Promise.resolve(false);
+    const body = JSON.stringify({ source: 'tracker-desktop' });
+    return new Promise((resolve) => {
+      const request = http.request({
+        host: '127.0.0.1',
+        port: this.localControlPort || DEFAULT_EFB_HTTP_PORT,
+        path: TRACKER_SHUTDOWN_PATH,
+        method: 'POST',
+        timeout: 1500,
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), 'X-GA-Tracker-Desktop-Control': token }
+      }, (response) => {
+        response.resume();
+        resolve(response.statusCode >= 200 && response.statusCode < 300);
+      });
+      request.on('timeout', () => request.destroy());
+      request.on('error', () => resolve(false));
+      request.end(body);
+    });
   }
 
   audioRequest(kind, payload = {}) {

@@ -37,6 +37,7 @@ const EFB_COCKPIT_SESSION_HEARTBEAT_PATH = '/api/v1/cockpit/sessions/heartbeat';
 const EFB_COCKPIT_SESSION_RELEASE_PATH = '/api/v1/cockpit/sessions/release';
 const EFB_MISSION_INTENT_PATH = '/api/v1/mission/intents';
 const TRACKER_MISSION_HARD_RESET_PATH = '/api/v1/tracker/mission/hard-reset';
+const TRACKER_SHUTDOWN_PATH = '/api/v1/tracker/shutdown';
 const MAX_EFB_CLIENT_LOG_BYTES = 8192;
 const MAX_EFB_VOICE_REQUEST_BYTES = 16384;
 const MAX_EFB_COCKPIT_REQUEST_BYTES = 16384;
@@ -274,6 +275,7 @@ function createTrackerEfbHttpServer(options = {}) {
   const cockpitControl = options.cockpitControl && typeof options.cockpitControl === 'object' ? options.cockpitControl : null;
   const desktopControlToken = String(options.desktopControlToken || '').trim();
   const hardResetMission = typeof options.hardResetMission === 'function' ? options.hardResetMission : null;
+  const shutdown = typeof options.shutdown === 'function' ? options.shutdown : null;
   const log = typeof options.log === 'function' ? options.log : () => {};
   let server = null;
   const loggedAssets = new Set();
@@ -455,6 +457,17 @@ function createTrackerEfbHttpServer(options = {}) {
         log(`EFB_CLIENT_REJECT status=${statusCode} error=${sanitizeLogField(error?.message || error, 120)}`);
         jsonResponse(response, statusCode, { error: statusCode === 413 ? 'payload_too_large' : 'invalid_payload' });
       }
+      return;
+    }
+    // Desktop app stops the engine: answer first, then sign off and exit.
+    if (request.method === 'POST' && pathname === TRACKER_SHUTDOWN_PATH) {
+      request.resume();
+      if (!shutdown || !hasDesktopControlToken(request, desktopControlToken)) {
+        jsonResponse(response, shutdown ? 403 : 503, { error: shutdown ? 'tracker_desktop_control_rejected' : 'tracker_shutdown_unavailable' });
+        return;
+      }
+      jsonResponse(response, 202, { hello, message: createMessage('tracker.shutdown', { accepted: true }) });
+      setImmediate(() => { void shutdown(); });
       return;
     }
     if (request.method === 'POST' && pathname === TRACKER_MISSION_HARD_RESET_PATH) {
