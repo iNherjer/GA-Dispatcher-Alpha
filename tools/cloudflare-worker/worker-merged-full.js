@@ -6,6 +6,8 @@ export { FlightLogbook } from './flight-logbook.mjs';
 import { handleCrewPresence } from './crew-presence.mjs';
 export { CrewPresence } from './crew-presence.mjs';
 import { handleTestBoard } from './testboard.mjs';
+import { handleCrewFleet } from './crew-fleet.mjs';
+export { CrewFleet } from './crew-fleet.mjs';
 export { TestBoard } from './testboard.mjs';
 import { handleAudioSettings } from './audio-settings.mjs';
 const OPENAIP_KEY = "049026a617e1380ac056e1fd3cc237ae";
@@ -2746,6 +2748,10 @@ export default {
 
     if (requestUrl.pathname.startsWith("/api/crew-presence-v1/")) {
       return handleCrewPresence(request, env, verifySyncProfileAuth, readCrewGroupForPresence);
+    }
+
+    if (requestUrl.pathname.startsWith("/api/crew-fleet-v1/")) {
+      return handleCrewFleet(request, env, verifySyncProfileAuth, readCrewGroupForPresence);
     }
 
     if (requestUrl.pathname === "/api/testboard-v1" || requestUrl.pathname.startsWith("/api/testboard-v1/")) {

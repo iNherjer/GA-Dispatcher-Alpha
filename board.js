@@ -1052,7 +1052,7 @@ function nearestHomebaseAirport(spawn) {
 // Refresh button on the crew roster: everything that otherwise waits for its next poll at
 // once. Own profile (queued uploads such as hidden notes, sharing switches, badges; then the
 // cloud copy), own status beat, crew notes, members' status, homebases (also asks a connected
-// tracker to refresh its crew). At most every 15 s; never writes the crew record.
+// tracker to refresh its crew), crew fleet status. At most every 15 s; never writes the crew record.
 let crewRefreshBusyUntil = 0;
 function crewRefreshButton() {
     const button = pinboardCreateAction('button', 'crew-refresh-btn', '🔄', async () => {
@@ -1072,7 +1072,8 @@ function crewRefreshButton() {
                 (async () => {
                     await window.gaCrewPresence?.beatNow?.();
                     await window.gaCrewPresence?.refresh('crew-board-refresh', { fresh: true });
-                })()
+                })(),
+                window.gaCrewFleet?.refresh?.('crew-board-refresh', { force: true })
             ]);
         } finally {
             if (currentBoardMode === 'group') renderNotes();

@@ -226,3 +226,98 @@
 .crew-refresh-btn.is-busy { animation: crew-refresh-spin 1s linear 1; }
 @keyframes crew-refresh-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .crew-refresh-btn.is-busy { animation: none; } }
+
+/* Crew fleet (crew-fleet-client.js): aircraft of the crew from "Where I Left It". */
+.post-it.crew-fleet-card {
+    background: #e3efe0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4cqw;
+}
+.crew-fleet-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4cqw;
+    font-size: 1.15cqw;
+    border-bottom: 2px solid #9fbf98;
+    padding-bottom: 0.3cqw;
+}
+.crew-fleet-map-btn {
+    padding: 0.1cqw 0.35cqw;
+    border: 1px solid #7d9c76;
+    border-radius: 0.3cqw;
+    background: rgba(255, 255, 255, 0.7);
+    font-size: 1cqw;
+    cursor: pointer;
+}
+.crew-fleet-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4cqw;
+    padding-right: 0.2cqw;
+    cursor: default;
+    overscroll-behavior: contain;
+}
+.crew-fleet-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15cqw;
+    padding: 0.35cqw 0.45cqw;
+    border: 1px solid #b7cdb1;
+    border-radius: 0.35cqw;
+    background: rgba(255, 255, 255, 0.75);
+}
+.crew-fleet-row-head { display: flex; align-items: center; justify-content: space-between; gap: 0.3cqw; }
+.crew-fleet-tail { font-size: 1.1cqw; overflow-wrap: anywhere; }
+.crew-fleet-chip {
+    flex: none;
+    padding: 0.1cqw 0.35cqw;
+    border-radius: 0.3cqw;
+    background: #1e7b34;
+    color: #fff;
+    font-size: 0.75cqw;
+    white-space: nowrap;
+}
+.crew-fleet-chip.is-reserved { background: #b4650b; }
+.crew-fleet-chip.is-flying { background: #1a5fb4; }
+.crew-fleet-chip.is-landed { background: #666; }
+.crew-fleet-type,
+.crew-fleet-facts {
+    font-size: 0.8cqw;
+    font-weight: normal;
+    color: #444;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.crew-fleet-conflict { font-size: 0.8cqw; color: #a3271a; }
+.crew-fleet-btn {
+    align-self: flex-start;
+    margin-top: 0.1cqw;
+    padding: 0.15cqw 0.45cqw;
+    border: 1px solid #7d9c76;
+    border-radius: 0.3cqw;
+    background: #fff;
+    color: #333;
+    font: bold 0.85cqw 'Courier New', Courier, monospace;
+    cursor: pointer;
+}
+.crew-fleet-btn:disabled { opacity: 0.6; cursor: default; }
+.crew-fleet-btn:focus-visible,
+.crew-fleet-map-btn:focus-visible { outline: 2px solid #1a5fb4; outline-offset: 1px; }
+.crew-flight-aircraft {
+    font-size: 0.9cqw;
+    font-weight: normal;
+    color: #555;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.crew-fleet-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 13px; color: #444; }
+.crew-fleet-legend > span { display: inline-flex; align-items: center; gap: 5px; }
+.crew-fleet-legend-dot { width: 11px; height: 11px; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px #999; }
+.crew-fleet-tip { font: 12px/1.3 'Courier New', Courier, monospace; }

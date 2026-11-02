@@ -523,6 +523,74 @@
           <p class="asset-note">Die vollständigen Bridge-Einstellungen öffnen weiterhin im separaten Bridge-Fenster.</p>
         </div>
       </details>
+
+      <details class="module-panel" data-module-panel>
+        <summary>
+          <span class="module-heading">
+            <span class="module-kicker">CREW · OPTIONAL</span>
+            <strong>Vereinsflotte</strong>
+            <small id="wiliModuleSummary">Where I Left It · ausgeschaltet</small>
+          </span>
+          <span class="summary-side">
+            <span id="wiliBadge" class="mini-badge">Aus</span>
+            <span class="chevron" aria-hidden="true"></span>
+          </span>
+        </summary>
+        <div class="module-content">
+          <section class="settings-group">
+            <p class="eyebrow">MOD · WHERE I LEFT IT</p>
+            <h2>Abgestellte Maschinen mit der Crew teilen</h2>
+            <p class="subtle">Der MSFS-2024-Mod „Where I Left It“ merkt sich, wo deine Flugzeuge stehen. Hier teilst du seinen Hangar mit deiner Crew: Maschinen der anderen erscheinen in deinem Hangar, und wenn du eine davon fliegst, steht sie danach auch beim Halter am neuen Platz.</p>
+            <div class="inline-actions">
+              <button id="wiliModPageButton" class="text-button panel-action" type="button">Mod auf flightsim.to öffnen</button>
+              <button id="wiliModFolderButton" class="text-button panel-action" type="button">Mod-Ordner öffnen</button>
+            </div>
+            <label class="toggle-row">
+              <span>
+                <strong>Vereinsflotte aktivieren</strong>
+                <small>Liest und schreibt die backup.txt des Mods. Vor dem Überschreiben wird eine Kopie im Tracker-Datenordner (wili-backups) abgelegt.</small>
+              </span>
+              <span class="toggle-control">
+                <input id="wiliEnabledCheckbox" type="checkbox">
+                <span class="toggle-track" aria-hidden="true"></span>
+              </span>
+            </label>
+            <label class="toggle-row">
+              <span>
+                <strong>Autosync</strong>
+                <small>Lädt eine geänderte backup.txt selbst hoch und holt neue Crew-Stände (alle 10 Minuten, solange der Tracker läuft, sonst stündlich). Aus: Hochladen und Laden nur über die Knöpfe unten.</small>
+              </span>
+              <span class="toggle-control">
+                <input id="wiliAutoSyncCheckbox" type="checkbox">
+                <span class="toggle-track" aria-hidden="true"></span>
+              </span>
+            </label>
+          </section>
+
+          <section id="wiliStatusGroup" class="settings-group" hidden>
+            <p class="eyebrow">ABGLEICH</p>
+            <p id="wiliMessage" class="subtle">Status wird geprüft.</p>
+            <p id="wiliPath" class="path-line"></p>
+            <p id="wiliTimes" class="path-line"></p>
+            <div id="wiliPending" class="wili-pending" role="status" hidden>
+              <strong id="wiliPendingTitle">Bereit zum Import</strong>
+              <small>Im Sim: EFB → Where I Left It → Backup → „Import Backup“ drücken.</small>
+              <span id="wiliPendingList"></span>
+            </div>
+            <div class="asset-actions">
+              <button id="wiliSyncButton" class="primary-button" type="button">Jetzt abgleichen</button>
+              <button id="wiliUploadButton" class="secondary-button" type="button">Backup hochladen</button>
+              <button id="wiliDownloadButton" class="secondary-button" type="button">Crew-Stand laden</button>
+            </div>
+            <p class="asset-note">Hochgeladen wird, was der Mod exportiert hat: Nach dem Abstellen im Mod unter Backup „Export Backup“ drücken. Mit Autosync geht die Datei danach von selbst in die Crew-Cloud.</p>
+          </section>
+
+          <section id="wiliFleetGroup" class="settings-group" hidden>
+            <p class="eyebrow">CREW-FLOTTE</p>
+            <ul id="wiliFleetList" class="wili-fleet-list" aria-label="Maschinen der Crew"></ul>
+          </section>
+        </div>
+      </details>
     </section>
   </main>
 

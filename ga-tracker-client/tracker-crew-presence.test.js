@@ -205,3 +205,54 @@ test('a held switch between menu and sim reports at once, a short one does not',
   s.advance(15000); await s.presence.tick();
   assert.equal(s.posts.length, 2, 'a flicker shorter than 10 s sends nothing');
 });
+
+test('crew fleet: one takeoff and one parked event per flight, with the aircraft and its parking spot', async () => {
+  const s = setup();
+  s.presence.setAircraft({ title: 'A2A Piper PA-24-250 Comanche', tail: 'DEINA' });
+  s.sample({ lat: 48.2769, lon: 8.4309 });
+  await s.presence.tick();
+  s.advance(20000);
+  s.sample({ onGround: false, gsKts: 90, vsFpm: 600, lat: 48.3 });
+  s.advance(1000);
+  s.sample({ onGround: false, gsKts: 95, vsFpm: 0, lat: 48.31 });
+  await s.presence.tick();
+  await new Promise(resolve => setImmediate(resolve));
+  const fleet = () => s.posts.filter(post => /crew-fleet-v1\/EDTW\/event$/.test(post.url)).map(post => post.body);
+  assert.equal(fleet().length, 1);
+  assert.deepEqual(fleet()[0], { event: 'takeoff', title: 'A2A Piper PA-24-250 Comanche', tail: 'DEINA', lat: 48.2769, lon: 8.4309 });
+  // Landing, rolling out, standing still 60 s: parked once.
+  s.advance(30 * 60 * 1000);
+  s.sample({ onGround: true, gsKts: 40, lat: 49.3, lon: 8.45 });
+  s.advance(10000);
+  s.sample({ onGround: true, gsKts: 0, lat: 49.3, lon: 8.45 });
+  s.advance(61000);
+  s.sample({ onGround: true, gsKts: 0, lat: 49.3, lon: 8.45 });
+  s.advance(1000);
+  s.sample({ onGround: true, gsKts: 0, lat: 49.3, lon: 8.45 });
+  s.advance(15000);
+  await s.presence.tick();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(fleet().length, 2);
+  assert.equal(fleet()[1].event, 'parked');
+  assert.equal(fleet()[1].lat, 49.3);
+  const beat = s.posts.filter(post => /crew-presence-v1\/EDTW$/.test(post.url)).at(-1).body;
+  assert.equal(beat.flight.aircraft, 'DEINA · A2A Piper PA-24-250 Comanche');
+});
+
+test('crew fleet hidden on the crew board or unknown aircraft: no fleet events', async () => {
+  const s = setup({ profile: { groupName: 'edtw', crewShare: { fleet: false, at: 1 } } });
+  s.presence.setAircraft({ title: 'A2A Piper PA-24-250 Comanche', tail: 'DEINA' });
+  s.sample();
+  await s.presence.tick();
+  s.sample({ onGround: false, gsKts: 90 });
+  s.advance(15000);
+  await s.presence.tick();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(s.posts.filter(post => post.url.includes('crew-fleet')).length, 0);
+  const t = setup();
+  t.sample();
+  t.sample({ onGround: false, gsKts: 90 });
+  await t.presence.tick();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(t.posts.filter(post => post.url.includes('crew-fleet')).length, 0, 'no aircraft identity yet');
+});

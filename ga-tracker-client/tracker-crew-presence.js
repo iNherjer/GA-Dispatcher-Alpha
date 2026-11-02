@@ -7,6 +7,11 @@
 // phase change, landing, end) at most once a minute. Crew and sharing switches
 // come from the cloud profile (field:groupName, field:crewShare), read every
 // 10 minutes. Rules shared with web app and worker: crew-presence-core.js.
+//
+// Crew fleet (Where I Left It, worker crew-fleet.mjs): with the aircraft identity from the
+// sim, the tracker reports "takeoff" and "parked" (standing still 60 s after landing) once
+// per flight. The worker matches the aircraft against the crew fleet and marks it flying /
+// landed. Off when the pilot switched the crew fleet off on the crew board (crewShare.fleet).
 const core = require('../crew-presence-core.js');
 const cloudSync = require('../cloud-sync-client');
 const { requestJson } = require('./tracker-navcom-preferences');
@@ -14,6 +19,8 @@ const zlib = require('node:zlib');
 
 const DEFAULT_PRESENCE_URL = 'https://ga-proxy.einherjer.workers.dev/api/crew-presence-v1/';
 const DEFAULT_PROFILE_URL = 'https://ga-proxy.einherjer.workers.dev/api/sync-v2/';
+const DEFAULT_FLEET_URL = 'https://ga-proxy.einherjer.workers.dev/api/crew-fleet-v1/';
+const MAX_FLEET_QUEUE = 6;
 const TICK_MS = 15000;
 const PROFILE_REFRESH_MS = 10 * 60 * 1000;
 const BACKOFF_MS = 10 * 60 * 1000;
@@ -32,6 +39,7 @@ function createCrewPresence(options = {}) {
   const pin = String(options.pin || '').trim();
   const request = typeof options.request === 'function' ? options.request : requestJson;
   const presenceUrl = String(options.presenceUrl || DEFAULT_PRESENCE_URL);
+  const fleetUrl = String(options.fleetUrl || DEFAULT_FLEET_URL);
   const profileUrl = String(options.profileUrl || DEFAULT_PROFILE_URL);
   const log = typeof options.log === 'function' ? options.log : () => {};
   const now = typeof options.now === 'function' ? options.now : Date.now;
@@ -60,6 +68,13 @@ function createCrewPresence(options = {}) {
   let sending = null;
   let timer = null;
   let stopped = false;
+  let aircraft = null;        // { title, tail } of the aircraft in the sim
+  let fleetShow = true;       // crew board: crew fleet not hidden
+  let lastGroundPos = null;   // parking spot before the takeoff, to find the fleet aircraft
+  let fleetAirborne = false;
+  let fleetStillSince = 0;
+  const fleetQueue = [];
+  let fleetSending = null;
 
   async function readProfile() {
     if (typeof options.readProfile === 'function') return options.readProfile();
@@ -82,6 +97,7 @@ function createCrewPresence(options = {}) {
       }
       const nextShare = core.normalizeShare(profile?.crewShare);
       if (nextShare.at >= share.at) share = nextShare;
+      fleetShow = share.fleet !== false;
       profileReadAt = now();
     }).catch(error => {
       profileReadAt = now() - PROFILE_REFRESH_MS + 60000; // retry in a minute
@@ -100,6 +116,7 @@ function createCrewPresence(options = {}) {
     if (menu) return;
     sample = { lat: Number(flight.lat), lon: Number(flight.lon), altFt: Number(flight.altFt), hdg: Number(flight.hdg), onGround: !!flight.onGround, gsKts: Number(flight.gsKts ?? flight.gs) || 0, vsFpm: Number(flight.vsFpm) || 0 };
     sampleAt = t;
+    observeFleet(t);
     if (!sample.onGround) {
       // A touch-and-go keeps the flight; a new flight starts only after the last one ended.
       airborne = { takeoffAt: airborne.takeoffAt || t, landedAt: 0, stillSince: 0 };
@@ -110,6 +127,57 @@ function createCrewPresence(options = {}) {
   }
 
   const resetAirborne = () => { airborne = { takeoffAt: 0, landedAt: 0, stillSince: 0 }; };
+
+  // One "takeoff" and one "parked" per flight, independent of missions and sharing switches.
+  function observeFleet(t) {
+    if (!aircraft?.title) return;
+    const queue = event => {
+      fleetQueue.push({ event, title: aircraft.title, tail: aircraft.tail || '', lat: sample.lat, lon: sample.lon, ...(event === 'takeoff' && lastGroundPos ? lastGroundPos : {}) });
+      if (fleetQueue.length > MAX_FLEET_QUEUE) fleetQueue.shift();
+    };
+    if (!sample.onGround) {
+      if (!fleetAirborne) { fleetAirborne = true; queue('takeoff'); }
+      fleetStillSince = 0;
+      return;
+    }
+    if (!fleetAirborne) { lastGroundPos = { lat: sample.lat, lon: sample.lon }; return; }
+    fleetStillSince = sample.gsKts < 3 ? (fleetStillSince || t) : 0;
+    if (fleetStillSince && t - fleetStillSince >= FREE_FLIGHT_END_STILL_MS) {
+      queue('parked');
+      fleetAirborne = false;
+      fleetStillSince = 0;
+      lastGroundPos = { lat: sample.lat, lon: sample.lon };
+    }
+  }
+
+  function sendFleetEvents() {
+    if (fleetSending || !fleetQueue.length || !groupName || !fleetShow) return fleetSending;
+    fleetSending = (async () => {
+      while (fleetQueue.length) {
+        const event = fleetQueue[0];
+        let response;
+        try {
+          response = await request(fleetUrl + encodeURIComponent(groupName) + '/event', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Pilot-ID': pilotId, 'X-Pilot-PIN': pin },
+            body: JSON.stringify(event)
+          });
+        } catch (error) {
+          log(`CREW_FLEET_ERROR code=cloud_unavailable error=${error?.message || error}`);
+          return; // stays queued, next tick tries again
+        }
+        fleetQueue.shift();
+        let data = null;
+        try { data = await response.json(); } catch (_) {}
+        if (!response.ok) log(`CREW_FLEET_ERROR code=status status=${response.status} event=${event.event}`);
+        else if (data?.matched) log(`CREW_FLEET_EVENT event=${event.event} key="${data.key}" ${data.refused ? `refused holder="${data.holder?.nick || ''}" state=${data.holder?.state || ''}` : `state=${data.lock?.state || 'free'}`}`);
+      }
+    })().finally(() => { fleetSending = null; });
+    return fleetSending;
+  }
+
+  const aircraftLabel = () => (aircraft?.title ? (aircraft.tail ? `${aircraft.tail} · ${aircraft.title}` : aircraft.title) : '');
+  const withAircraft = flight => (aircraftLabel() ? { ...flight, aircraft: aircraftLabel() } : flight);
 
   // Start or update the flight that belongs to the current mission run or free flight.
   function routeFlight(route, t, missionId) {
@@ -179,11 +247,11 @@ function createCrewPresence(options = {}) {
     }
     if (current?.endedAt) {
       const replaced = !!missionId || airborne.takeoffAt > 0;
-      if (!replaced && t - current.endedAt <= core.LANDED_VISIBLE_MS) return core.cleanFlight({ ...current, phase: 'landed' });
+      if (!replaced && t - current.endedAt <= core.LANDED_VISIBLE_MS) return core.cleanFlight(withAircraft({ ...current, phase: 'landed' }));
       current = null;
     }
     const flight = routeFlight(route, t, missionId);
-    return flight ? core.cleanFlight({ ...flight, phase: flight.endedAt ? 'landed' : flight.phase }) : null;
+    return flight ? core.cleanFlight(withAircraft({ ...flight, phase: flight.endedAt ? 'landed' : flight.phase })) : null;
   }
 
   async function post(body) {
@@ -234,6 +302,7 @@ function createCrewPresence(options = {}) {
     if (t < blockedUntil) return;
     await refreshProfile(false);
     if (!groupName) return;
+    void sendFleetEvents();
     const flight = buildFlight(t);
     sending = (async () => {
       try {
@@ -265,6 +334,13 @@ function createCrewPresence(options = {}) {
     available,
     observe,
     tick,
+    setAircraft(identity) {
+      aircraft = identity?.title ? { title: String(identity.title).slice(0, 200), tail: String(identity.tail || '').slice(0, 40) } : null;
+      // Another aircraft was loaded: a running fleet flight of the old one does not continue.
+      fleetAirborne = false;
+      fleetStillSince = 0;
+      lastGroundPos = null;
+    },
     // App told us about a crew change (join/leave) before the profile sync ran.
     setGroup(name) {
       const next = normalizeGroupName(name);
@@ -289,7 +365,7 @@ function createCrewPresence(options = {}) {
       if (!available || !groupName || !lastBeat) return;
       try { await post({ offline: true }); } catch (_) {}
     },
-    publicState: () => ({ groupName, share: { ...share }, lastBeatAt: lastBeat?.at || 0, flight: lastBeat?.flight || null })
+    publicState: () => ({ groupName, share: { ...share }, lastBeatAt: lastBeat?.at || 0, flight: lastBeat?.flight || null, aircraft, fleetShow, fleetQueue: fleetQueue.length })
   };
 }
 

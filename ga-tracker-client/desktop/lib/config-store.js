@@ -310,6 +310,17 @@ class TrackerConfigStore {
     return this.writeDesktop({ ...this.readDesktop(), autostart: safeObject(autostart) });
   }
 
+  // Crew fleet over the mod "Where I Left It": off by default, autosync is a separate opt-in.
+  readWiliFleet() {
+    const value = safeObject(this.readDesktop().wiliFleet);
+    return { enabled: value.enabled === true, autoSync: value.autoSync === true };
+  }
+
+  writeWiliFleet(settings) {
+    const value = safeObject(settings);
+    return this.writeDesktop({ ...this.readDesktop(), wiliFleet: { enabled: value.enabled === true, autoSync: value.autoSync === true } });
+  }
+
   migrateLegacyPreferences() {
     const tracker = this.read();
     const legacy = safeObject(tracker.trackerDesktop);

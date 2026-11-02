@@ -55,6 +55,21 @@ zwischen `Stable` und `Alpha` gewechselt werden.
   Optional schließt die App beim Beenden nur Programme, die der Autostart in
   dieser Sitzung selbst gestartet hat; der Sim wird nie geschlossen. Einstellungen liegen in `desktop-settings.json` unter `autostart`.
 
+- optionales Modul `Vereinsflotte` (standardmäßig aus): teilt den Hangar des
+  MSFS-2024-Mods „Where I Left It“ mit der Crew über `backup.txt` im
+  Mod-Ordner `...\WASM\MSFS2024\community-whereileftit\work` (Store und
+  Steam werden gefunden). Mit `Autosync` lädt die App eine geänderte
+  `backup.txt` selbst hoch (nur geänderte Maschinen) und holt Crew-Stände alle
+  10 Minuten, solange der Tracker läuft, sonst stündlich; ohne Autosync gibt es
+  die Knöpfe `Backup hochladen` und `Crew-Stand laden`. Neue Crew-Stände werden
+  nach den Regeln des Mods in `backup.txt` gemischt; vorher landet eine Kopie in
+  `wili-backups` (die letzten 5). Der Pilot drückt danach im Mod „Import
+  Backup“; die App erkennt den Import an `state.txt`. Abgleich-Stand in
+  `wili-fleet-sync.json`, Protokoll in `vereinsflotte-log.txt`, Einstellungen
+  in `desktop-settings.json` unter `wiliFleet`. Der Crew-Name kommt aus dem
+  Cloud-Profil (höchstens alle 6 Stunden gelesen). Gemeinsame Regeln:
+  `wili-fleet-core.js` (Repo-Wurzel, per `scripts/sync-audio-player.js` nach
+  `lib/` kopiert).
 Persoenliche Tracker-/Homebase-Daten bleiben unter
 `Dokumente/VFR Multitool/Tracker`. Programmzustand, geladene Tracker-Versionen und
 Asset-Downloadcaches liegen dagegen unter `%LOCALAPPDATA%/VFR Multitool`.

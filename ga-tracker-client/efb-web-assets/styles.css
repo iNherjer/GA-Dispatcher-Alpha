@@ -13821,8 +13821,13 @@ body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) 
     width: 180px !important;
 }
 
+/* Footer below the panel: lift it above the map/glass layer (body::before)
+   and use the same font as the other designs, so it stays readable. */
 body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .version-info {
     color: rgba(231, 241, 250, 0.58);
+    position: relative;
+    z-index: 1;
+    font-family: Arial, sans-serif;
 }
 
 body:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .discord-link {

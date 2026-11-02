@@ -53,6 +53,12 @@ export class CrewPresence {
             const now = Date.now();
             const action = url.pathname.split('/').filter(Boolean)[0] || '';
             if (action === 'mission') return await this.mission(request, url, now);
+            // Revision of the crew fleet (crew-fleet.mjs); the board loads the fleet only when it changed.
+            if (action === 'fleet-rev' && request.method === 'POST') {
+                const rev = Number((await request.json())?.rev);
+                if (Number.isSafeInteger(rev) && rev !== this.fleetRev) { this.fleetRev = rev; await this.storage.put('fleetRev', rev); }
+                return reply({ ok: true });
+            }
             if (request.method === 'GET') {
                 const members = new Set(url.searchParams.getAll('m').map(lower));
                 const rows = await this.storage.list({ prefix: 'p:' });
@@ -62,7 +68,8 @@ export class CrewPresence {
                     const view = core.publicView(record, now);
                     if (view && (view.online || view.flight)) list.push(view);
                 }
-                return reply({ ok: true, now, members: list });
+                if (this.fleetRev === undefined) this.fleetRev = Number(await this.storage.get('fleetRev')) || 0;
+                return reply({ ok: true, now, members: list, fleetRev: this.fleetRev });
             }
             if (request.method !== 'POST') return reply({ error: 'method' }, 405);
             const beat = await request.json();

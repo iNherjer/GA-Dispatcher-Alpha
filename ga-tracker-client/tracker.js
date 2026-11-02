@@ -38,6 +38,7 @@ const {
 const { createHomebaseCloudScene } = require('./tracker-homebase-cloud.js');
 const { createHomebaseCrewScene } = require('./tracker-homebase-crew.js');
 const { createCrewPresence } = require('./tracker-crew-presence.js');
+const { createAircraftIdentity } = require('./tracker-aircraft-identity.js');
 // Crew status beats (online/current flight); fed by the telemetry loop.
 let trackerCrewPresence = null;
 const { verifyTrackerCredentials } = require('./tracker-auth.js');
@@ -120,8 +121,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v605';
-const TRACKER_VERSION_CODE = 605;
+const TRACKER_VERSION = 'v606';
+const TRACKER_VERSION_CODE = 606;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -7227,6 +7228,10 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         requestId: SLEW_REQ_ID, int32Type: SimConnectDataType.INT32,
         period: SimConnectPeriod.VISUAL_FRAME, intervalFrames: GPS_SOURCE_INTERVAL_FRAMES,
         log: debugLog });
+      const aircraftIdentity = createAircraftIdentity({ handle, definitionId: 212, requestId: 212,
+        stringType256: SimConnectDataType.STRING256, stringType32: SimConnectDataType.STRING32,
+        period: SimConnectPeriod.SECOND, log: debugLog,
+        onChange: identity => trackerCrewPresence?.setAircraft(identity) });
       const cameraTelemetry = createCameraTelemetry({ handle, definitionId: 211, requestId: 211,
         int32Type: SimConnectDataType.INT32, period: SimConnectPeriod.VISUAL_FRAME,
         intervalFrames: GPS_SOURCE_INTERVAL_FRAMES, log: debugLog });
@@ -7751,6 +7756,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         slewTelemetry.dispose();
         clockTelemetry.dispose();
         cameraTelemetry.dispose();
+        aircraftIdentity.dispose();
         handle.removeListener('exception', onGpsDefinitionException);
         clearInterval(telemetryDiagnosticTimer);
         clearInterval(runtimePollInterval);

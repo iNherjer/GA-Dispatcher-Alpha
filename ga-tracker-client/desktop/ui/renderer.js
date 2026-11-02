@@ -93,6 +93,24 @@ const elements = {
   autostartWaitList: document.getElementById('autostartWaitList'),
   autostartDivider: document.getElementById('autostartDivider'),
   autostartListMessage: document.getElementById('autostartListMessage'),
+  wiliModuleSummary: document.getElementById('wiliModuleSummary'),
+  wiliBadge: document.getElementById('wiliBadge'),
+  wiliModPageButton: document.getElementById('wiliModPageButton'),
+  wiliModFolderButton: document.getElementById('wiliModFolderButton'),
+  wiliEnabledCheckbox: document.getElementById('wiliEnabledCheckbox'),
+  wiliAutoSyncCheckbox: document.getElementById('wiliAutoSyncCheckbox'),
+  wiliStatusGroup: document.getElementById('wiliStatusGroup'),
+  wiliMessage: document.getElementById('wiliMessage'),
+  wiliPath: document.getElementById('wiliPath'),
+  wiliTimes: document.getElementById('wiliTimes'),
+  wiliPending: document.getElementById('wiliPending'),
+  wiliPendingTitle: document.getElementById('wiliPendingTitle'),
+  wiliPendingList: document.getElementById('wiliPendingList'),
+  wiliSyncButton: document.getElementById('wiliSyncButton'),
+  wiliUploadButton: document.getElementById('wiliUploadButton'),
+  wiliDownloadButton: document.getElementById('wiliDownloadButton'),
+  wiliFleetGroup: document.getElementById('wiliFleetGroup'),
+  wiliFleetList: document.getElementById('wiliFleetList'),
   startButton: document.getElementById('startButton'),
   stopButton: document.getElementById('stopButton'),
   aptTestLogButton: document.getElementById('aptTestLogButton'),
@@ -793,6 +811,105 @@ function renderAutostart(autostart) {
   elements.autostartWaitList.replaceChildren(...later.map((entry, index) => autostartItem(entry, index, run, later, first.length)));
 }
 
+let wiliActionPending = '';
+let wiliActionMessage = null;
+
+function wiliAge(ms) {
+  if (!ms) return 'noch nie';
+  const minutes = Math.max(0, Math.round((Date.now() - ms) / 60000));
+  if (minutes < 1) return 'gerade eben';
+  if (minutes < 60) return `vor ${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  return hours < 48 ? `vor ${hours} h` : `vor ${Math.round(hours / 24)} Tagen`;
+}
+
+function renderWiliFleet(data = {}) {
+  const enabled = data.enabled === true;
+  const autoSync = data.autoSync === true;
+  const phase = String(data.phase || 'off');
+  const busy = data.busy === true || Boolean(wiliActionPending);
+  setChecked(elements.wiliEnabledCheckbox, enabled);
+  setChecked(elements.wiliAutoSyncCheckbox, autoSync);
+  elements.wiliAutoSyncCheckbox.disabled = !enabled;
+  elements.wiliModFolderButton.hidden = !data.modDir;
+  const pending = Array.isArray(data.pending) ? data.pending : [];
+  const aircraft = Array.isArray(data.aircraft) ? data.aircraft : [];
+
+  let badge = 'Aus', badgeClass = '';
+  if (enabled) {
+    if (busy) { badge = 'Abgleich'; badgeClass = 'working'; }
+    else if (['error', 'no-mod', 'no-crew', 'no-account'].includes(phase)) { badge = phase === 'error' ? 'Fehler' : 'Prüfen'; badgeClass = 'error'; }
+    else if (pending.length) { badge = `${pending.length} Import`; badgeClass = 'choice-required'; }
+    else if (!autoSync && data.remoteNewer) { badge = `${data.remoteNewer} neu`; badgeClass = 'choice-required'; }
+    else { badge = autoSync ? 'Auto' : 'Manuell'; badgeClass = 'current'; }
+  }
+  elements.wiliBadge.textContent = badge;
+  setClass(elements.wiliBadge, 'mini-badge', badgeClass);
+  elements.wiliModuleSummary.textContent = !enabled
+    ? 'Where I Left It · ausgeschaltet'
+    : `${data.crew ? `Crew ${data.crew}` : 'Crew unbekannt'} · ${aircraft.length} Maschine${aircraft.length === 1 ? '' : 'n'}${autoSync ? ' · Autosync' : ''}`;
+
+  elements.wiliStatusGroup.hidden = !enabled;
+  elements.wiliFleetGroup.hidden = !enabled || !aircraft.length;
+  if (!enabled) return;
+  const message = wiliActionMessage || data.message || (data.modFound ? 'Bereit.' : 'Mod-Ordner wird gesucht …');
+  elements.wiliMessage.textContent = message;
+  elements.wiliMessage.className = `subtle ${['error', 'no-mod', 'no-crew', 'no-account'].includes(phase) && !wiliActionMessage ? 'wili-error' : ''}`.trim();
+  elements.wiliPath.textContent = data.modDir ? `${data.modSource}: ${data.modDir}` : '';
+  elements.wiliTimes.textContent = `Hochgeladen ${wiliAge(data.lastUpload)} · Crew-Stand ${wiliAge(data.lastDownload)} · ${data.push ? 'Live-Verbindung aktiv' : 'Abfrage ohne Live-Verbindung'}`;
+  elements.wiliPending.hidden = !pending.length;
+  elements.wiliPendingTitle.textContent = `${pending.length} Maschine${pending.length === 1 ? '' : 'n'} bereit zum Import`;
+  elements.wiliPendingList.textContent = pending.map((entry) => (entry.tail ? `${entry.tail} (${entry.title})` : entry.title)).join(' · ');
+
+  elements.wiliSyncButton.hidden = !autoSync;
+  elements.wiliUploadButton.hidden = autoSync;
+  elements.wiliDownloadButton.hidden = autoSync;
+  for (const button of [elements.wiliSyncButton, elements.wiliUploadButton, elements.wiliDownloadButton]) button.disabled = busy || !data.modFound;
+  elements.wiliSyncButton.textContent = wiliActionPending === 'sync' ? 'Gleicht ab …' : 'Jetzt abgleichen';
+  elements.wiliUploadButton.textContent = wiliActionPending === 'upload' ? 'Lädt hoch …' : 'Backup hochladen';
+  elements.wiliDownloadButton.textContent = wiliActionPending === 'download' ? 'Lädt …' : 'Crew-Stand laden';
+
+  elements.wiliFleetList.replaceChildren(...aircraft.map((entry) => {
+    const item = document.createElement('li');
+    const head = document.createElement('span');
+    head.className = 'wili-fleet-head';
+    const name = document.createElement('strong');
+    name.textContent = entry.tail ? `${entry.tail} · ${entry.title}` : entry.title;
+    const status = document.createElement('span');
+    status.className = `wili-status wili-status-${entry.status || 'free'}`;
+    status.textContent = entry.status && entry.status !== 'free'
+      ? `${entry.statusLabel} · ${entry.mine ? 'du' : (entry.holderNick || 'Crew')}`
+      : (entry.statusLabel || 'Frei');
+    head.append(name, status);
+    const detail = document.createElement('small');
+    const parts = [];
+    if (entry.conflictNick) parts.push(`⚠ auch von ${entry.conflictNick} geflogen`);
+    if (entry.ownerNick) parts.push(`Halter ${entry.ownerNick}`);
+    if (entry.lastNick && entry.lastNick !== entry.ownerNick) parts.push(`zuletzt ${entry.lastNick}`);
+    if (Number.isFinite(entry.lat) && Number.isFinite(entry.lon)) parts.push(`${entry.lat.toFixed(4)}, ${entry.lon.toFixed(4)}`);
+    if (entry.savedAt) parts.push(`abgestellt ${wiliAge(entry.savedAt)}`);
+    detail.textContent = parts.join(' · ');
+    item.append(head, detail);
+    return item;
+  }));
+}
+
+async function runWiliAction(kind, action) {
+  wiliActionPending = kind;
+  wiliActionMessage = null;
+  renderWiliFleet(latestState?.wiliFleet);
+  try {
+    const result = await action();
+    wiliActionMessage = result?.message || null;
+  } catch (error) {
+    wiliActionMessage = String(error?.message || error);
+  } finally {
+    wiliActionPending = '';
+    renderWiliFleet(latestState?.wiliFleet);
+    setTimeout(() => { wiliActionMessage = null; renderWiliFleet(latestState?.wiliFleet); }, 15000);
+  }
+}
+
 function render(state) {
   latestState = state;
   const tracker = state?.tracker || {};
@@ -850,6 +967,7 @@ function render(state) {
   renderEfbPackage(state?.efbPackage, runtimeChannel);
   renderBridge(state?.bridge);
   renderAutostart(state?.autostart);
+  renderWiliFleet(state?.wiliFleet);
   renderAutomaticUpdateBanner(state, settings);
   renderUpdateDialog(state);
   renderDesktopInstallDialog(state);
@@ -987,6 +1105,13 @@ function showAutostartAddResult(result, droppedCount = 0) {
 }
 
 elements.autostartEnabledCheckbox.addEventListener('change', () => window.trackerDesktop.setAutostartOptions({ enabled: elements.autostartEnabledCheckbox.checked }));
+elements.wiliEnabledCheckbox.addEventListener('change', () => window.trackerDesktop.setWiliFleetOptions({ enabled: elements.wiliEnabledCheckbox.checked }));
+elements.wiliAutoSyncCheckbox.addEventListener('change', () => window.trackerDesktop.setWiliFleetOptions({ autoSync: elements.wiliAutoSyncCheckbox.checked }));
+elements.wiliModPageButton.addEventListener('click', () => window.trackerDesktop.openWiliModPage());
+elements.wiliModFolderButton.addEventListener('click', () => window.trackerDesktop.openWiliModFolder());
+elements.wiliSyncButton.addEventListener('click', () => runWiliAction('sync', () => window.trackerDesktop.syncWiliFleet()));
+elements.wiliUploadButton.addEventListener('click', () => runWiliAction('upload', () => window.trackerDesktop.uploadWiliFleet()));
+elements.wiliDownloadButton.addEventListener('click', () => runWiliAction('download', () => window.trackerDesktop.downloadWiliFleet()));
 elements.autostartCloseOnExitCheckbox.addEventListener('change', () => window.trackerDesktop.setAutostartOptions({ closeOnExit: elements.autostartCloseOnExitCheckbox.checked }));
 elements.autostartDetectSimButton.addEventListener('click', async () => {
   autostartDetectPending = true;

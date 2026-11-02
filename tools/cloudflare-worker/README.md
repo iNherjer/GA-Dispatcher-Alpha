@@ -24,6 +24,11 @@ Diese Worker-Datei ergänzt den bestehenden `ga-proxy` um:
 - `POST /api/testboard-v1/reports` (Problemmeldung mit Beschreibung, Gerätedaten und Debug-Log aus „Problem melden“ der App; höchstens 500 Meldungen)
 - `GET /api/testboard-v1/reports/:id` (eine Meldung inklusive Log)
 - `POST /api/testboard-v1/reports/:id/done` (`{ done }`, Meldung als erledigt markieren)
+- `GET /api/crew-fleet-v1/:crew?since=<rev>` (mit `X-Pilot-ID`/`X-Pilot-PIN` und Crew-Mitgliedschaft; Vereinsflotte aus dem Mod „Where I Left It“, Durable Object `GA_CREW_FLEET`; antwortet `{ unchanged: true }`, solange sich seit `rev` nichts geändert hat, sonst nur die geänderten Maschinen)
+- `POST /api/crew-fleet-v1/:crew` (`{ records: [{ key, pos, log }] }`, höchstens 120 je Aufruf; Zusammenführen je Maschine nach `wili-fleet-core.js`, unveränderte Maschinen kosten keinen Speicher-Schreibzugriff)
+- `POST /api/crew-fleet-v1/:crew/reserve` / `release` (`{ key }`; 409 mit `holder`, wenn jemand anderes die Maschine reserviert hat, fliegt oder gelandet ist; Sperre 12 h)
+- `POST /api/crew-fleet-v1/:crew/event` (Tracker: `{ event: takeoff|parked, title, tail, lat, lon }`; setzt „In der Luft“/„Gelandet“)
+- `GET /api/crew-fleet-v1/:crew/ws` (WebSocket der Desktop-App, Hibernation; `{ type: 'fleet', rev }` bei jeder Änderung, „ping“ → „pong“ ohne Aufwecken). Jede Änderung schreibt `fleetRev` in das Crew-Status-DO; `GET /api/crew-presence-v1/:crew` liefert es mit.
 - `GET /api/tracker/download` (stabile Weiterleitung auf den aktuellen versionierten Tracker-Release)
 - `GET /api/tracker/download?format=json` (aktuelle Tracker-Version, Größe und SHA-256)
 

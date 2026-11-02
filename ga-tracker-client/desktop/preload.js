@@ -66,6 +66,12 @@ contextBridge.exposeInMainWorld('trackerDesktop', {
   detectSimulators: () => ipcRenderer.invoke('autostart:detect-sims'),
   chooseSimulator: (key) => ipcRenderer.invoke('autostart:choose-sim', { key }),
   launchAutostart: () => ipcRenderer.invoke('autostart:launch-all'),
+  setWiliFleetOptions: (options) => ipcRenderer.invoke('wili:set-options', options),
+  syncWiliFleet: () => ipcRenderer.invoke('wili:sync'),
+  uploadWiliFleet: () => ipcRenderer.invoke('wili:upload'),
+  downloadWiliFleet: () => ipcRenderer.invoke('wili:download'),
+  openWiliModPage: () => ipcRenderer.invoke('wili:open-mod-page'),
+  openWiliModFolder: () => ipcRenderer.invoke('wili:open-mod-folder'),
   openDataFolder: () => ipcRenderer.invoke('system:open-data-folder'),
   showAptTestLog: () => ipcRenderer.invoke('system:show-apt-test-log'),
   onStateChanged: (callback) => {

@@ -23,6 +23,7 @@ const {
 const { startupDecision } = require('./lib/startup-policy');
 const { verifyCredentials } = require('./lib/auth-client');
 const { AutostartLauncher } = require('./lib/autostart-launcher');
+const { MOD_PAGE_URL: WILI_MOD_PAGE_URL, WiliFleetSync } = require('./lib/wili-fleet-sync');
 const { BridgeManager } = require('./lib/bridge-manager');
 const { EfbPackageManager } = require('./lib/efb-package-manager');
 const { HomebaseAssetManager } = require('./lib/homebase-manager');
@@ -81,6 +82,7 @@ let homebaseManager = null;
 let efbPackageManager = null;
 let bridgeManager = null;
 let autostartLauncher = null;
+let wiliFleetSync = null;
 let trackerStartupAllowed = false;
 let finalQuitReady = false;
 let bridgeShutdownInProgress = false;
@@ -126,7 +128,8 @@ function currentState() {
     homebaseAssets: homebaseManager?.publicState() || null,
     efbPackage: efbPackageManager?.publicState() || null,
     bridge: bridgeManager?.publicState() || null,
-    autostart: autostartLauncher?.publicState() || null
+    autostart: autostartLauncher?.publicState() || null,
+    wiliFleet: wiliFleetSync?.publicState() || null
   };
 }
 
@@ -522,6 +525,21 @@ function registerIpc() {
   ipcMain.handle('autostart:choose-sim', (_event, payload) => autostartLauncher.chooseSimulator(String(payload?.key || '')));
   // The tracker is part of the ordered autostart list (fixed entry).
   ipcMain.handle('autostart:launch-all', () => autostartLauncher.launchAll());
+  ipcMain.handle('wili:set-options', (_event, payload) => wiliFleetSync.setOptions({
+    enabled: typeof payload?.enabled === 'boolean' ? payload.enabled : undefined,
+    autoSync: typeof payload?.autoSync === 'boolean' ? payload.autoSync : undefined
+  }));
+  ipcMain.handle('wili:sync', () => wiliFleetSync.sync('manual'));
+  ipcMain.handle('wili:upload', () => wiliFleetSync.upload());
+  ipcMain.handle('wili:download', () => wiliFleetSync.download());
+  // Fixed URL only: the renderer cannot open arbitrary links.
+  ipcMain.handle('wili:open-mod-page', async () => { await shell.openExternal(WILI_MOD_PAGE_URL); return { ok: true }; });
+  ipcMain.handle('wili:open-mod-folder', async () => {
+    const dir = wiliFleetSync.publicState().modDir;
+    if (!dir) return { ok: false, message: 'Mod-Ordner nicht gefunden.' };
+    const error = await shell.openPath(dir);
+    return { ok: !error, message: error || '' };
+  });
   ipcMain.handle('settings:save-credentials', async (_event, payload) => {
     const pilotId = String(payload?.pilotId || '').trim();
     const pin = String(payload?.pin || '').trim();
@@ -828,6 +846,24 @@ async function startApplication() {
   });
   autostartLauncher.on('state', broadcastState);
   void autostartLauncher.loadIcons();
+  const wiliLogPath = path.join(configStore.dataDirectory, 'vereinsflotte-log.txt');
+  wiliFleetSync = new WiliFleetSync({
+    dataDirectory: configStore.dataDirectory,
+    appData: process.env.APPDATA || app.getPath('appData'),
+    localAppData: localAppDataBase,
+    getSettings: () => configStore.readWiliFleet(),
+    saveSettings: (settings) => configStore.writeWiliFleet(settings),
+    getCredentials: () => configStore.credentials(),
+    isTrackerRunning: () => Boolean(trackerProcess?.child),
+    log: (line) => {
+      try {
+        if (fs.existsSync(wiliLogPath) && fs.statSync(wiliLogPath).size > 512 * 1024) fs.writeFileSync(wiliLogPath, '');
+        fs.appendFileSync(wiliLogPath, `[${new Date().toISOString()}] ${line}\n`);
+      } catch (_) {}
+    }
+  });
+  wiliFleetSync.on('state', broadcastState);
+  wiliFleetSync.start();
 
   registerIpc();
   const launchDecision = startupDecision(configStore.publicSettings(), configStore.hasCredentials());
@@ -879,6 +915,7 @@ if (!singleInstanceLock) {
     event.preventDefault();
     if (bridgeShutdownInProgress) return;
     bridgeShutdownInProgress = true;
+    wiliFleetSync?.stop();
     Promise.allSettled([
       windowsInput.close(),
       windowsMedia.close(),

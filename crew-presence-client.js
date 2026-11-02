@@ -79,6 +79,8 @@
                 members = Array.isArray(data?.members) ? data.members : [];
                 fetchedAt = Date.now();
                 fetchedGroup = group;
+                // The crew fleet loads only when its revision changed (crew-fleet-client.js).
+                window.gaCrewFleet?.noteRev?.(Number(data?.fleetRev));
                 onChange(reason);
             } catch (_) {}
             return members;
@@ -205,7 +207,8 @@
                 rerenderBoard();
             }, homebase === null ? 'KEINE' : ''),
             toggleRow('🟢 Online-Status', share.online, () => setShare({ online: !share.online })),
-            toggleRow('✈️ Aktueller Flug', share.flight, () => setShare({ flight: !share.flight }))
+            toggleRow('✈️ Aktueller Flug', share.flight, () => setShare({ flight: !share.flight })),
+            toggleRow('🛩️ Vereinsflotte', share.fleet, () => setShare({ fleet: !share.fleet }))
         );
         placeNote(note, 'crew-share-settings', 80, 64, 2);
         board.appendChild(note);
@@ -341,7 +344,7 @@
         close.setAttribute('aria-label', 'Schließen');
         close.addEventListener('click', closeDetail);
         head.append(title, close);
-        const sub = el('div', 'crew-flight-detail-sub', f.title || (f.kind === 'free' ? 'Freier Flug' : 'Auftrag'));
+        const sub = el('div', 'crew-flight-detail-sub', [f.title || (f.kind === 'free' ? 'Freier Flug' : 'Auftrag'), f.aircraft ? `🛩️ ${f.aircraft}` : ''].filter(Boolean).join(' · '));
         const facts = el('div', 'crew-flight-detail-facts', detailFacts(f));
         const mapBox = el('div', 'crew-flight-detail-map');
         const foot = el('div', 'crew-flight-detail-foot');
@@ -463,6 +466,7 @@
         note.append(el('div', 'crew-flight-route', `${dep} ➔ ${dest}`));
         const title = f.title || (f.kind === 'free' ? 'Freier Flug' : 'Auftrag');
         note.append(el('div', 'crew-flight-title', title));
+        if (f.aircraft) note.append(el('div', 'crew-flight-aircraft', `🛩️ ${f.aircraft}`));
         const status = el('div', 'crew-flight-status');
         status.append(el('span', 'crew-flight-phase', core.phaseLabel(f.phase) || '—'));
         const time = f.takeoffAt ? `Start ${timeText(f.takeoffAt)}` : (f.startedAt ? `seit ${timeText(f.startedAt)}` : '');
@@ -488,6 +492,7 @@
         flights.sort((a, b) => Number(!!a.flight.endedAt) - Number(!!b.flight.endedAt));
         flights.slice(0, 6).forEach((member, index) => renderFlightNote(board, member, index, seen));
         markFlightsSeen();
+        window.gaCrewFleet?.renderBoard?.(board);
         if (Date.now() - fetchedAt >= OPEN_REFRESH_MS) void refresh('board-open');
     }
 
@@ -504,6 +509,7 @@
         fetchedGroup = '';
         lastBeat = null;
         blockedUntil = 0;
+        window.gaCrewFleet?.reset?.();
     }
 
     setInterval(tick, TICK_MS);
@@ -511,7 +517,7 @@
     setTimeout(tick, 5000);
 
     window.gaCrewPresence = {
-        statusFor, renderBoard, hasNewFlight, refresh, getShare, setShare, openDetail,
+        statusFor, renderBoard, hasNewFlight, refresh, getShare, setShare, openDetail, buildLayers,
         beatNow: () => beat(true),
         applyShareFromCloud, sharePayload, reset
     };

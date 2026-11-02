@@ -40,7 +40,8 @@
     function normalizeShare(value) {
         const src = value && typeof value === 'object' ? value : {};
         const at = Math.max(0, Math.round(finite(src.at) || 0));
-        return { online: src.online !== false, flight: src.flight !== false, at };
+        // fleet: crew fleet (Where I Left It) on the crew board and tracker fleet events.
+        return { online: src.online !== false, flight: src.flight !== false, fleet: src.fleet !== false, at };
     }
 
     // Server side: combine an incoming beat with the stored record.
