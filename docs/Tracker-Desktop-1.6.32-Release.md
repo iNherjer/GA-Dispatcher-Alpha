@@ -23,5 +23,9 @@ Basis: Desktop 1.6.31. Tracker-Runtime unverändert (Alpha v606 kommt getrennt �
 
 ## Aktivierung
 
-Offen: Release-Artefakt veröffentlichen, öffentlichen Download prüfen, dann `latest.yml`/`alpha.yml`
-(gilt für alle Desktop-Nutzer) erst nach Freigabe.
+Release `tracker-desktop-v1.6.32` veröffentlicht (02.11.2026, Build aus sauberem Worktree von `1f9ad451d`,
+`node_modules` kopiert, nicht verlinkt – mit Link fehlt `electron-updater` im Paket). Installer 100306591 Bytes,
+öffentlicher Download geprüft (SHA-512 wie `latest.yml`). `app.asar` enthält `electron-updater` und die neuen Module.
+
+`channel/desktop/latest.yml` und `alpha.yml` noch **nicht** umgestellt: der Desktop-Kanal gilt für alle Nutzer,
+Umstellung erst nach Freigabe. Bis dahin Installer manuell aus dem Release.
