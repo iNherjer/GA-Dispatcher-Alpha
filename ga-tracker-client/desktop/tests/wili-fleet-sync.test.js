@@ -442,3 +442,39 @@ test('an aircraft removed by its owner is hidden and marked at the others, kept 
   await bob.sync.sync();
   assert.equal(server.calls.filter(call => call.startsWith('POST')).length, 0);
 });
+
+test('a removed aircraft comes back when a pilot takes it out of his mod hangar and adds it again', async () => {
+  const server = await worker();
+  const alice = pilot('ALICE', server);
+  const bob = pilot('BOB', server);
+  const settings = 'settings|ask|tail|1|25||10|5';
+  alice.write(backup([{ key: DEINA, pos: pos(COMANCHE, 'DEINA', { savedAt: 2000, customName: 'DEINA' }), log: log() }]));
+  alice.writeState([settings, stateLine(DEINA, COMANCHE, 'DEINA', 48.2769, 8.4309)], 2000);
+  await alice.sync.sync();
+  bob.write(backup([]));
+  bob.writeState([settings], 2000);
+  await bob.sync.sync();
+  bob.writeState([settings, stateLine(DEINA, COMANCHE, 'DEINA', 48.2769, 8.4309)], 3000);
+  await server.action('ALICE', 'remove', { key: DEINA });
+  await alice.sync.sync('poll');
+  await bob.sync.sync('poll');
+  // Alice keeps flying her copy: it stays out of the fleet.
+  alice.writeState([settings, stateLine(DEINA, COMANCHE, 'DEINA', 49.0, 8.4)], 4000);
+  server.calls.length = 0;
+  await alice.sync.onLocalChange();
+  assert.equal(server.calls.length, 0);
+  // Bob deletes the marked copy in the mod (REMOVE) and adds the aircraft again.
+  bob.writeState([settings], 5000);
+  await bob.sync.onLocalChange();
+  bob.writeState([settings, stateLine(DEINA, COMANCHE, 'DEINA', 48.5, 8.5)], 6000);
+  await bob.sync.onLocalChange();
+  const record = (await (await server.request('https://ga-proxy.einherjer.workers.dev/api/crew-fleet-v1/EDTW', { headers: { 'X-Pilot-ID': 'ALICE', 'X-Pilot-PIN': server.pins.ALICE } })).json()).records[0];
+  assert.equal(record.removed, undefined);
+  assert.equal(record.ownerPilotId, 'BOB');
+  assert.equal(record.pos.lat, 48.5);
+  assert.equal(record.pos.customName, 'DEINA', 'the "· entfernt" mark is gone');
+  // Alice's app takes it as a normal crew aircraft again.
+  await alice.sync.sync('poll');
+  assert.equal(alice.sync.publicState().aircraft.length, 1);
+  assert.equal(alice.sync.ledger.removed[DEINA], undefined);
+});

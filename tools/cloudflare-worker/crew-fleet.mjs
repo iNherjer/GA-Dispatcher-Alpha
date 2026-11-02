@@ -8,7 +8,9 @@
 //   POST /api/crew-fleet-v1/<crew>/reserve      { key }  (crew board) -> 409 when used by someone else
 //   POST /api/crew-fleet-v1/<crew>/release      { key }
 //   POST /api/crew-fleet-v1/<crew>/remove       { key }  owner only: out of the fleet for good; a marker
-//        (removed: true) stays 30 days so every client hides it; uploads of that key are refused
+//        (removed: true) stays 30 days so every client hides it; uploads of that key are refused,
+//        except { restore: true } from a desktop app that saw the pilot add it to his mod hangar
+//        again: the aircraft is back with that pilot as owner
 //   POST /api/crew-fleet-v1/<crew>/event        { event: claim|unclaim|takeoff|parked|left, title, tail, lat, lon }  (tracker)
 //   GET  /api/crew-fleet-v1/<crew>/ws           WebSocket (desktop app): { type: 'fleet', rev } on every
 //        change. Hibernating: an idle connection costs nothing; "ping" is answered without waking.
@@ -136,8 +138,15 @@ export class CrewFleet {
         let ignored = 0;
         for (const upload of body.records) {
             const stored = state.records.get(upload.key);
-            // Taken out of the fleet by its owner: never comes back through an upload.
-            if (core.isRemoved(stored)) { removed.push(upload.key); continue; }
+            // Taken out of the fleet: only an explicit re-add brings it back, as a new record.
+            if (core.isRemoved(stored)) {
+                if (!upload.restore || !upload.pos) { removed.push(upload.key); continue; }
+                changed.push({
+                    key: upload.key, pos: upload.pos, log: upload.log, updatedAt: now,
+                    ownerPilotId: pilot.pilotId, ownerNick: pilot.nick, lastPilotId: pilot.pilotId, lastNick: pilot.nick, lock: null
+                });
+                continue;
+            }
             if (!stored && state.records.size + changed.length >= core.MAX_RECORDS) { ignored++; continue; }
             // Someone else reserved or flies this aircraft: their state counts, this copy does not.
             if (stored && core.blockedFor(stored.lock, pilot.pilotId, now)) { blocked.push(upload.key); continue; }
@@ -225,7 +234,7 @@ export function cleanUpload(body) {
         const pos = entry.pos == null ? null : core.cleanPos(entry.pos);
         const log = entry.log == null ? null : core.cleanLog(entry.log);
         if ((entry.pos != null && !pos) || (entry.log != null && !log) || (!pos && !log)) return null;
-        records.push({ key: String(entry.key), pos, log });
+        records.push({ key: String(entry.key), pos, log, ...(entry.restore === true ? { restore: true } : {}) });
     }
     return records;
 }

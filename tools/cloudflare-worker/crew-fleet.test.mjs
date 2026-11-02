@@ -311,3 +311,18 @@ test('removal markers older than 30 days disappear', async () => {
         Date.now = realNow;
     }
 });
+
+test('a removed aircraft comes back only through an explicit re-add, with the re-adding pilot as owner', async () => {
+    const env = { GA_CREW_FLEET: namespace() };
+    await client(env, 'ALICE')({ records: [{ key: KEY, pos: pos(), log: log() }] });
+    await act(env, 'ALICE', 'remove')({ key: KEY });
+    const plain = await client(env, 'BOB')({ records: [{ key: KEY, pos: pos({ savedAt: 5000 }) }] });
+    assert.deepEqual(plain.body.removed, [KEY]);
+    const back = await client(env, 'BOB')({ records: [{ key: KEY, pos: pos({ lat: 49, savedAt: 6000 }), restore: true }] });
+    assert.equal(back.body.changed, 1);
+    const record = (await client(env, 'ALICE')()).body.records[0];
+    assert.equal(record.removed, undefined);
+    assert.equal(record.ownerPilotId, 'BOB');
+    assert.equal(record.pos.lat, 49);
+    assert.equal((await act(env, 'ALICE', 'remove')({ key: KEY })).status, 403, 'now Bob is the owner');
+});

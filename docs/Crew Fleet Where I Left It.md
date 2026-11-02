@@ -206,7 +206,11 @@ Dateiformat. Was der Mod laut `state.txt` schon am selben Platz zeigt, wird nich
   (7 Tage). Beim Halter bleibt sie unverändert als eigene Maschine; seine App lädt sie nie wieder hoch.
 - Hinweis „… aus der Flotte entfernt“ (App sofort, EFB mit dem nächsten Tracker-Build).
 - Flotten-Zettel: zuletzt bewegte Maschinen oben (`pos.savedAt`), Höhe für vier, der Rest scrollt.
-- Wieder in die Flotte holen: noch nicht vorgesehen (Entwurf privat/Vereinsmaschine).
+- Wieder in die Flotte (Desktop 1.6.38): Wer eine gelöschte Maschine im Mod-Hangar entfernt (REMOVE) und neu
+  aufnimmt, holt sie zurück – auch ein anderer Pilot als der frühere Halter; er wird neuer Halter. Die Desktop-App
+  merkt sich je gelöschter Maschine, ob sie aus der `state.txt` verschwunden ist (`gone`); taucht sie danach am Boden
+  wieder auf, lädt sie die Position mit `restore: true` hoch (Name ohne „· entfernt“). Weiterfliegen einer alten
+  Kopie holt sie nie zurück. Ein „Wiederherstellen“-Knopf ist bewusst nicht gebaut.
 
 Bekannt: Das Kennzeichen-Decal fehlt an vom Mod gespawnten Maschinen in MSFS 2024 (Grenze des Mods/Sims laut
 Mod-Seite); User testet weiter.

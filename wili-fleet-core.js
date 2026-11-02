@@ -305,7 +305,8 @@
     }
 
     // Removed by its owner: the record stays as a marker (removed: true) for 30 days, so every
-    // client learns it; it is never uploaded again.
+    // client learns it; it is never uploaded again - unless a pilot takes it out of his mod
+    // hangar and adds it again ("re-added"): then it is back, with him as owner.
     const REMOVED_KEEP_MS = 30 * 24 * 60 * 60 * 1000;
     const isRemoved = record => record?.removed === true;
 
@@ -319,6 +320,10 @@
             const tail = record.pos?.tail || String(record.key).replace(/^tail:/, '').split('|')[0] || titleFromKey(record.key);
             if (isRemoved(record)) {
                 if (old && !isRemoved(old) && !mine(record.removedBy)) notes.push(`${tail} aus der Flotte entfernt${record.removedNick ? ` (${record.removedNick})` : ''}`);
+                continue;
+            }
+            if (isRemoved(old)) {
+                if (!mine(record.ownerPilotId)) notes.push(`${tail} wieder in der Flotte${record.ownerNick ? ` (${record.ownerNick})` : ''}`);
                 continue;
             }
             if (!old) {

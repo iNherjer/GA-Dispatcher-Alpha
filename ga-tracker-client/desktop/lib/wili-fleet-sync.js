@@ -392,7 +392,10 @@ class WiliFleetSync extends EventEmitter {
     if (!this.mod) return;
     this.fileStamp = this.stamp();
     this.checkPendingImport();
+    const readds = this.removedReadds(); // also notes "gone" while not syncing automatically
+    this.writeLedger();
     if (!this.settings().autoSync || this.now() < this.blockedUntil) return;
+    if (readds.length) { await this.run('readd', () => this.doReadd()); return; }
     const { content } = this.readBackup();
     if (content && contentHash(content) !== this.ledger.backupHash) { await this.sync('backup-changed'); return; }
     // Only the mod's save file changed: send new ground positions, nothing else.
@@ -452,6 +455,51 @@ class WiliFleetSync extends EventEmitter {
       this.log(`WILI state_upload records=${sent}`);
     }
     return { uploaded: sent, message: sent ? `${sent} neue Position(en) aus dem Mod-Speicherstand hochgeladen.` : '' };
+  }
+
+  // Removed aircraft the pilot took out of his mod hangar and then added again: back to the fleet.
+  // Only the hangar change counts, flying an old copy never brings it back.
+  removedReadds() {
+    const entries = Object.values(this.ledger.removed || {});
+    if (!entries.length) return [];
+    const { records, mtime } = this.readState();
+    if (!records) return [];
+    const readds = [];
+    for (const entry of entries) {
+      const rec = records.get(entry.key);
+      if (!rec) { entry.gone = true; continue; }
+      if (entry.gone && rec.onGround) readds.push({ entry, rec, mtime });
+    }
+    return readds;
+  }
+
+  async doReadd() {
+    const readds = this.removedReadds();
+    if (!readds.length) return { readded: 0, message: '' };
+    let local = new Map();
+    try { local = this.readBackup().parsed.records; } catch (_) {}
+    const uploads = readds.map(({ entry, rec, mtime }) => {
+      const base = local.get(entry.key)?.pos ? core.cleanPos(local.get(entry.key).pos) : null;
+      const name = String(base?.customName || '').replace(/ · (entfernt|ex .+)$/, '');
+      const pos = {
+        ...(base || {}), name: rec.title, title: rec.title, livery: rec.livery, liveryName: rec.livery, tail: rec.tail,
+        lat: rec.lat, lon: rec.lon, altFt: rec.altFt, aglFt: rec.aglFt, hdgTrue: rec.hdgTrue, pitch: rec.pitch, bank: rec.bank,
+        onGround: true, hidden: false, savedAt: Math.max(Math.round(mtime) - STATE_TIME_MARGIN_MS, (Number(base?.savedAt) || 0) + 1),
+        ...(name ? { customName: name } : {})
+      };
+      if (!name) delete pos.customName;
+      return { key: entry.key, pos, log: null, restore: true };
+    });
+    await this.call('POST', { records: uploads });
+    for (const upload of uploads) {
+      delete this.ledger.removed[upload.key];
+      if (this.ledger.hidden) delete this.ledger.hidden[upload.key];
+      if (!this.ledger.stateSent) this.ledger.stateSent = {};
+      this.ledger.stateSent[upload.key] = core.canonical(upload.pos);
+    }
+    this.ledger.lastUpload = this.now();
+    this.log(`WILI readd records=${uploads.length}`);
+    return { readded: uploads.length, message: `${uploads.map(upload => upload.pos.tail || upload.pos.title).join(', ')} wieder in der Vereinsflotte.` };
   }
 
   // Drops pending imports once the mod's state.txt shows the aircraft at the new place.
@@ -580,8 +628,9 @@ class WiliFleetSync extends EventEmitter {
   }
 
   async doUpload() {
+    const readd = await this.doReadd();
     const { content, parsed } = this.readBackup();
-    if (!content) return { message: 'Noch keine backup.txt – im Mod unter Backup „Export Backup“ drücken.', uploaded: 0 };
+    if (!content) return { message: readd.message || 'Noch keine backup.txt – im Mod unter Backup „Export Backup“ drücken.', uploaded: readd.readded };
     if (parsed.problems.includes('header_missing') || parsed.problems.includes('format_unknown')) {
       throw new Error(`backup.txt hat ein unbekanntes Format${parsed.header?.modVersion ? ` (Mod ${parsed.header.modVersion})` : ''}. Nichts hochgeladen.`);
     }
@@ -632,7 +681,7 @@ class WiliFleetSync extends EventEmitter {
       ? ` Nicht übernommen (von jemand anderem belegt): ${blocked.map(key => this.ledger.cloud[key]?.pos?.tail || core.titleFromKey(key)).join(', ')}.`
       : '';
     if (blocked.length) this.log(`WILI upload_blocked keys=${blocked.length}`);
-    return { uploaded, blocked, message: (uploaded ? `${uploaded} Maschine(n) hochgeladen.` : 'Keine lokalen Änderungen.') + refusedText };
+    return { uploaded: uploaded + readd.readded, blocked, message: [readd.message, uploaded ? `${uploaded} Maschine(n) hochgeladen.` : (readd.readded ? '' : 'Keine lokalen Änderungen.')].filter(Boolean).join(' ') + refusedText };
   }
 
   async fetchCloud() {
@@ -644,15 +693,20 @@ class WiliFleetSync extends EventEmitter {
     const records = Array.isArray(data?.records) ? data.records : [];
     if (data?.full) this.ledger.cloud = {};
     if (!this.ledger.removed) this.ledger.removed = {};
+    const inMod = this.readState().records;
     for (const record of records) {
       if (!core.validKey(record?.key)) continue;
+      // Back in the fleet (someone added it again): normal from now on.
+      if (!core.isRemoved(record) && this.ledger.removed[record.key]) delete this.ledger.removed[record.key];
       // Taken out of the fleet by its owner: not shown, never uploaded again.
       if (core.isRemoved(record)) {
         delete this.ledger.cloud[record.key];
         if (!this.ledger.removed[record.key]) {
           this.ledger.removed[record.key] = {
             key: record.key, title: record.pos?.title || core.titleFromKey(record.key), tail: record.pos?.tail || '',
-            ownerPilotId: record.ownerPilotId || '', removedNick: record.removedNick || '', at: record.removedAt || this.now(), applied: false
+            ownerPilotId: record.ownerPilotId || '', removedNick: record.removedNick || '', at: record.removedAt || this.now(), applied: false,
+            // Not in the mod hangar now: adding it later counts as a re-add.
+            gone: Boolean(inMod) && !inMod.has(record.key)
           };
         }
         continue;
