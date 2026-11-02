@@ -27,5 +27,4 @@ Release `tracker-desktop-v1.6.32` veröffentlicht (02.11.2026, Build aus saubere
 `node_modules` kopiert, nicht verlinkt – mit Link fehlt `electron-updater` im Paket). Installer 100306591 Bytes,
 öffentlicher Download geprüft (SHA-512 wie `latest.yml`). `app.asar` enthält `electron-updater` und die neuen Module.
 
-`channel/desktop/latest.yml` und `alpha.yml` noch **nicht** umgestellt: der Desktop-Kanal gilt für alle Nutzer,
-Umstellung erst nach Freigabe. Bis dahin Installer manuell aus dem Release.
+`channel/desktop/latest.yml` und `alpha.yml` nach Freigabe des Users am 02.11.2026 aktiviert.
