@@ -281,8 +281,32 @@
         document.addEventListener('keydown', onMapKey);
         close.focus();
         const layers = window.gaCrewPresence?.buildLayers?.();
-        map = L.map(mapBox, { layers: [layers?.topo || L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; OpenStreetMap' })], maxZoom: 18 });
-        if (layers) L.control.layers(layers.base, layers.overlays, { collapsed: true }).addTo(map);
+        // Same layer choice and shading as the crew flight detail map (shared preference key).
+        const prefs = readJson('ga_crew_flight_map_layers_v1', {});
+        const start = layers ? (layers.base[prefs.base] || layers.topo) : L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; OpenStreetMap' });
+        map = L.map(mapBox, { layers: [start], maxZoom: 18 });
+        if (layers) {
+            (prefs.overlays || []).forEach(name => layers.overlays[name]?.addTo(map));
+            L.control.layers(layers.base, layers.overlays, { collapsed: true }).addTo(map);
+            map.on('baselayerchange overlayadd overlayremove', () => {
+                const active = Object.entries(layers.base).find(([, layer]) => map.hasLayer(layer))?.[0];
+                const on = Object.entries(layers.overlays).filter(([, layer]) => map.hasLayer(layer)).map(([name]) => name);
+                try { localStorage.setItem('ga_crew_flight_map_layers_v1', JSON.stringify({ base: active, overlays: on })); } catch (_) {}
+            });
+            // With the VFR overlay the topo map fades to 50 % so the airspaces stand out;
+            // from zoom 15 the overlay hides and the topo map is full again.
+            const vfr = layers.overlays['✈️ VFR-Overlay'];
+            const dfs = layers.overlays['🇩🇪 ICAO-Karte (DFS)'];
+            const shade = () => {
+                if (!map) return;
+                const hidden = map.getZoom() >= 15;
+                const vfrOn = vfr && map.hasLayer(vfr);
+                if (vfrOn) vfr.setOpacity(hidden ? 0 : 0.65);
+                if (map.hasLayer(layers.topo)) layers.topo.setOpacity(vfrOn && !hidden && !(dfs && map.hasLayer(dfs)) ? 0.5 : 1);
+            };
+            map.on('baselayerchange overlayadd overlayremove zoomend', shade);
+            map.whenReady(shade);
+        }
         mapLayer = L.layerGroup().addTo(map);
         drawMarkers(true);
         setTimeout(() => map?.invalidateSize(), 50);

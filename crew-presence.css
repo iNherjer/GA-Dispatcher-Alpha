@@ -365,3 +365,31 @@
     cursor: pointer;
 }
 .crew-fleet-notice button:focus-visible { outline: 2px solid #8cc4ff; outline-offset: 2px; }
+
+/* Phone: the board scrolls sideways; the fleet note grows with its list like the other crew notes. */
+@media (max-width: 767px) {
+    #pinboardOverlay .post-it.crew-fleet-card {
+        width: clamp(250px, 32cqw, 340px) !important;
+        height: auto !important;
+        min-height: clamp(160px, 22cqw, 240px) !important;
+        max-height: 88% !important;
+        gap: 8px;
+        font-size: 14px !important;
+    }
+    #pinboardOverlay .crew-fleet-title { font-size: 15px; padding-bottom: 6px; }
+    #pinboardOverlay .crew-fleet-map-btn { min-width: 40px; min-height: 34px; font-size: 18px; }
+    #pinboardOverlay .crew-fleet-list { gap: 8px; }
+    #pinboardOverlay .crew-fleet-row { gap: 3px; padding: 8px 10px; border-radius: 6px; }
+    #pinboardOverlay .crew-fleet-tail { font-size: 15px; }
+    #pinboardOverlay .crew-fleet-chip { font-size: 11px; padding: 2px 7px; border-radius: 5px; }
+    #pinboardOverlay .crew-fleet-type,
+    #pinboardOverlay .crew-fleet-facts,
+    #pinboardOverlay .crew-fleet-conflict {
+        font-size: 12px;
+        white-space: normal;
+        overflow: visible;
+        overflow-wrap: anywhere;
+    }
+    #pinboardOverlay .crew-fleet-btn { min-height: 32px; padding: 4px 12px; font-size: 13px; border-radius: 5px; }
+    #pinboardOverlay .crew-flight-aircraft { font-size: 12px; }
+}
