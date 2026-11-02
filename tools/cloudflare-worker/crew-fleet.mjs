@@ -7,7 +7,7 @@
 //        -> { ok, rev, changed, ignored, blocked: [keys used by someone else] }
 //   POST /api/crew-fleet-v1/<crew>/reserve      { key }  (crew board) -> 409 when used by someone else
 //   POST /api/crew-fleet-v1/<crew>/release      { key }
-//   POST /api/crew-fleet-v1/<crew>/event        { event: takeoff|parked, title, tail, lat, lon }  (tracker)
+//   POST /api/crew-fleet-v1/<crew>/event        { event: claim|unclaim|takeoff|parked, title, tail, lat, lon }  (tracker)
 //   GET  /api/crew-fleet-v1/<crew>/ws           WebSocket (desktop app): { type: 'fleet', rev } on every
 //        change. Hibernating: an idle connection costs nothing; "ping" is answered without waking.
 // Every change also stores the revision in the crew presence object, so the crew board sees
@@ -24,7 +24,7 @@ const MAX_SOCKETS = 200;
 const AUTH_CACHE_MS = 30 * 60 * 1000;
 const AUTH_CACHE_MAX = 500;
 const ACTIONS = new Set(['reserve', 'release', 'event']);
-const EVENTS = new Set(['takeoff', 'parked']);
+const EVENTS = new Set(['claim', 'unclaim', 'takeoff', 'parked']);
 const lower = value => String(value || '').trim().toLowerCase();
 const text = (value, max) => String(value ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max);
 

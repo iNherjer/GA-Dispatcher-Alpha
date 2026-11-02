@@ -9,9 +9,10 @@
 // 10 minutes. Rules shared with web app and worker: crew-presence-core.js.
 //
 // Crew fleet (Where I Left It, worker crew-fleet.mjs): with the aircraft identity from the
-// sim, the tracker reports "takeoff" and "parked" (standing still 60 s after landing) once
-// per flight. The worker matches the aircraft against the crew fleet and marks it flying /
-// landed. Off when the pilot switched the crew fleet off on the crew board (crewShare.fleet).
+// sim, the tracker reports "claim" when a live flight with this aircraft starts (also on the
+// ground), "takeoff", "parked" (standing still 60 s after landing) and "unclaim" when the live
+// flight ends without a takeoff. The worker matches the aircraft against the crew fleet and
+// marks it busy / flying / landed / free. Off when the pilot switched the crew fleet off on the crew board (crewShare.fleet).
 const core = require('../crew-presence-core.js');
 const cloudSync = require('../cloud-sync-client');
 const { requestJson } = require('./tracker-navcom-preferences');
@@ -75,6 +76,7 @@ function createCrewPresence(options = {}) {
   let fleetStillSince = 0;
   const fleetQueue = [];
   let fleetSending = null;
+  let fleetClaim = null;      // { flightId, tookOff } of the live flight that claimed the aircraft
 
   async function readProfile() {
     if (typeof options.readProfile === 'function') return options.readProfile();
@@ -131,12 +133,9 @@ function createCrewPresence(options = {}) {
   // One "takeoff" and one "parked" per flight, independent of missions and sharing switches.
   function observeFleet(t) {
     if (!aircraft?.title) return;
-    const queue = event => {
-      fleetQueue.push({ event, title: aircraft.title, tail: aircraft.tail || '', lat: sample.lat, lon: sample.lon, ...(event === 'takeoff' && lastGroundPos ? lastGroundPos : {}) });
-      if (fleetQueue.length > MAX_FLEET_QUEUE) fleetQueue.shift();
-    };
+    const queue = event => queueFleet(event, event === 'takeoff' && lastGroundPos ? lastGroundPos : null);
     if (!sample.onGround) {
-      if (!fleetAirborne) { fleetAirborne = true; queue('takeoff'); }
+      if (!fleetAirborne) { fleetAirborne = true; if (fleetClaim) fleetClaim.tookOff = true; queue('takeoff'); }
       fleetStillSince = 0;
       return;
     }
@@ -147,6 +146,26 @@ function createCrewPresence(options = {}) {
       fleetAirborne = false;
       fleetStillSince = 0;
       lastGroundPos = { lat: sample.lat, lon: sample.lon };
+    }
+  }
+
+  function queueFleet(event, where = null) {
+    if (!aircraft?.title) return;
+    const pos = where || (sample ? { lat: sample.lat, lon: sample.lon } : {});
+    fleetQueue.push({ event, title: aircraft.title, tail: aircraft.tail || '', ...pos });
+    if (fleetQueue.length > MAX_FLEET_QUEUE) fleetQueue.shift();
+  }
+
+  // The live flight on the crew board claims the aircraft; it ends without a takeoff: unclaim.
+  function updateFleetClaim(flight) {
+    const live = flight && !flight.endedAt && aircraft?.title ? flight.id : '';
+    if (live && fleetClaim?.flightId !== live) {
+      if (fleetClaim && !fleetClaim.tookOff) queueFleet('unclaim');
+      fleetClaim = { flightId: live, tookOff: fleetAirborne };
+      queueFleet('claim', sample?.onGround && lastGroundPos ? lastGroundPos : null);
+    } else if (!live && fleetClaim) {
+      if (!fleetClaim.tookOff) queueFleet('unclaim');
+      fleetClaim = null;
     }
   }
 
@@ -302,8 +321,9 @@ function createCrewPresence(options = {}) {
     if (t < blockedUntil) return;
     await refreshProfile(false);
     if (!groupName) return;
-    void sendFleetEvents();
     const flight = buildFlight(t);
+    updateFleetClaim(flight);
+    void sendFleetEvents();
     sending = (async () => {
       try {
         if (!share.online && !share.flight) {
@@ -340,6 +360,7 @@ function createCrewPresence(options = {}) {
       fleetAirborne = false;
       fleetStillSince = 0;
       lastGroundPos = null;
+      fleetClaim = null;
     },
     // App told us about a crew change (join/leave) before the profile sync ran.
     setGroup(name) {

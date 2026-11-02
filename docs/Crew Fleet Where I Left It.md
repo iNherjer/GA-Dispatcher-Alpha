@@ -117,6 +117,7 @@ Regeln in `wili-fleet-core.js` (`applyLock`, `activeLock`), Server in `crew-flee
 | Zustand | Ausgelöst durch | Endet |
 |---|---|---|
 | Reserviert | „Reservieren“ auf dem Crew-Brett | 12 h, „Freigeben“, oder Start → In der Luft |
+| Belegt (ab v608) | Tracker meldet `claim`: Live-Flug mit dieser Maschine (auch am Boden) | 12 h, „Freigeben“, Start → In der Luft, oder `unclaim` (Flug endet ohne Start) → Frei |
 | In der Luft | Tracker meldet `takeoff` mit dieser Maschine | 12 h, „Freigeben“, oder `parked` → Gelandet |
 | Gelandet | Tracker meldet `parked` (60 s Stillstand nach Landung) | 12 h, „Freigeben“, oder nächster Upload (Mod-Export) dieses Piloten → Frei |
 
@@ -124,7 +125,7 @@ Regeln in `wili-fleet-core.js` (`applyLock`, `activeLock`), Server in `crew-flee
   (`blocked`), ein Start wird als Konflikt am Datensatz vermerkt (`conflict`, Crew-Brett zeigt „⚠️ auch von X
   geflogen – zählt nicht“).
 - Desktop: gesperrte Maschinen nicht hochladen; weicht die lokale Kopie ab, wird der Stand des Belegenden mit
-  `savedAt` knapp über dem lokalen geschrieben (Mod übernimmt ihn). In der Luft/Gelandet bei jemand anderem:
+  `savedAt` knapp über dem lokalen geschrieben (Mod übernimmt ihn). Belegt/In der Luft/Gelandet bei jemand anderem:
   `hidden: true` (Test 02.11.2026: Mod blendet die Maschine aus), danach wieder sichtbar am neuen Platz.
   Von der App ausgeblendete Kopien gehen nie hoch (`ledger.hidden`).
 - Maschine erkennen (`matchAircraft`): Kennzeichen + Titel, sonst eindeutiges Kennzeichen, sonst Titel innerhalb

@@ -286,6 +286,7 @@
     white-space: nowrap;
 }
 .crew-fleet-chip.is-reserved { background: #b4650b; }
+.crew-fleet-chip.is-busy { background: #6b3fa0; }
 .crew-fleet-chip.is-flying { background: #1a5fb4; }
 .crew-fleet-chip.is-landed { background: #666; }
 .crew-fleet-type,

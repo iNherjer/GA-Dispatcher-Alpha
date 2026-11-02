@@ -149,11 +149,12 @@
             until: lock?.until || 0,
             owner: record.ownerNick || '',
             last: record.lastNick || '',
-            conflict: record.conflict?.nick && lock ? record.conflict.nick : ''
+            conflict: record.conflict?.nick && lock ? record.conflict.nick : '',
+            conflictFlown: record.conflict?.event === 'takeoff'
         };
     }
     function sortedViews() {
-        const order = { flying: 0, landed: 1, reserved: 2, free: 3 };
+        const order = { flying: 0, busy: 1, landed: 2, reserved: 3, free: 4 };
         return [...records.values()].map(view)
             .sort((a, b) => order[a.state] - order[b.state] || a.tail.localeCompare(b.tail));
     }
@@ -177,7 +178,7 @@
         if (v.state !== 'free' && v.until) facts.push(`bis ${untilText(v.until)}`);
         else if (v.last) facts.push(`zuletzt ${v.last}`);
         if (facts.length) row.append(el('div', 'crew-fleet-facts', facts.join(' · ')));
-        if (v.conflict) row.append(el('div', 'crew-fleet-conflict', `⚠️ auch von ${v.conflict} geflogen – zählt nicht`));
+        if (v.conflict) row.append(el('div', 'crew-fleet-conflict', `⚠️ auch von ${v.conflict} ${v.conflictFlown ? 'geflogen' : 'genutzt'} – zählt nicht`));
         let action = null;
         if (v.state === 'free') action = ['reserve', 'Reservieren'];
         else if (v.mine) action = ['release', 'Freigeben'];
@@ -218,7 +219,7 @@
     // --- Map of all aircraft ---
     let map = null;
     let mapLayer = null;
-    const STATE_COLOR = { free: '#1e7b34', reserved: '#b4650b', flying: '#1a5fb4', landed: '#666' };
+    const STATE_COLOR = { free: '#1e7b34', reserved: '#b4650b', busy: '#6b3fa0', flying: '#1a5fb4', landed: '#666' };
 
     function closeMap() {
         if (map) { try { map.remove(); } catch (_) {} map = null; mapLayer = null; }
@@ -266,7 +267,7 @@
         close.addEventListener('click', closeMap);
         head.append(title, close);
         const legend = el('div', 'crew-fleet-legend');
-        for (const state of ['free', 'reserved', 'flying', 'landed']) {
+        for (const state of ['free', 'reserved', 'busy', 'flying', 'landed']) {
             const item = el('span', '');
             const dot = el('span', 'crew-fleet-legend-dot');
             dot.style.background = STATE_COLOR[state];

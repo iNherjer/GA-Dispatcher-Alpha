@@ -217,9 +217,11 @@ test('crew fleet: one takeoff and one parked event per flight, with the aircraft
   s.sample({ onGround: false, gsKts: 95, vsFpm: 0, lat: 48.31 });
   await s.presence.tick();
   await new Promise(resolve => setImmediate(resolve));
-  const fleet = () => s.posts.filter(post => /crew-fleet-v1\/EDTW\/event$/.test(post.url)).map(post => post.body);
+  const all = () => s.posts.filter(post => /crew-fleet-v1\/EDTW\/event$/.test(post.url)).map(post => post.body);
+  const fleet = () => all().filter(body => body.event !== 'claim');
   assert.equal(fleet().length, 1);
   assert.deepEqual(fleet()[0], { event: 'takeoff', title: 'A2A Piper PA-24-250 Comanche', tail: 'DEINA', lat: 48.2769, lon: 8.4309 });
+  assert.equal(all().filter(body => body.event === 'claim').length, 1, 'the free flight claims the aircraft once it exists');
   // Landing, rolling out, standing still 60 s: parked once.
   s.advance(30 * 60 * 1000);
   s.sample({ onGround: true, gsKts: 40, lat: 49.3, lon: 8.45 });
@@ -255,4 +257,26 @@ test('crew fleet hidden on the crew board or unknown aircraft: no fleet events',
   await t.presence.tick();
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(t.posts.filter(post => post.url.includes('crew-fleet')).length, 0, 'no aircraft identity yet');
+});
+
+test('crew fleet: a mission flight claims the aircraft on the ground and frees it when aborted before takeoff', async () => {
+  const s = setup();
+  s.presence.setAircraft({ title: 'A2A Piper PA-24-250 Comanche', tail: 'DEINA' });
+  s.setRoute({ ...mission, missionState: null });
+  s.sample({ lat: 48.2769, lon: 8.4309 });
+  await s.presence.tick();
+  await new Promise(resolve => setImmediate(resolve));
+  const events = () => s.posts.filter(post => post.url.includes('crew-fleet')).map(post => post.body.event);
+  assert.deepEqual(events(), ['claim']);
+  const claim = s.posts.find(post => post.url.includes('crew-fleet')).body;
+  assert.equal(claim.lat, 48.2769, 'claimed at the parking spot');
+  s.advance(15000);
+  await s.presence.tick();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(events(), ['claim'], 'once per flight');
+  s.setRoute(null);
+  s.advance(15000);
+  await s.presence.tick();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(events(), ['claim', 'unclaim']);
 });

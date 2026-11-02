@@ -14,6 +14,8 @@
  *
  * Use of an aircraft (lock), held by one pilot at a time:
  *   reserved - by hand on the crew board, 12 h
+ *   busy     - the tracker reports a live flight with this aircraft (still on the ground), 12 h;
+ *              free again when that flight ends without a takeoff
  *   flying   - the tracker saw this aircraft take off, 12 h
  *   landed   - parked after the flight, 12 h or until that pilot's next upload (mod export)
  * Every state blocks the aircraft for the others; "free" when it ran out or was released.
@@ -34,8 +36,9 @@
     const MAX_ARRAY = 40;
     const MAX_RECORDS = 400;
     const LOCK_MS = 12 * 60 * 60 * 1000;
-    const LOCK_STATES = ['reserved', 'flying', 'landed'];
-    const LOCK_LABEL = { free: 'Frei', reserved: 'Reserviert', flying: 'In der Luft', landed: 'Gelandet' };
+    const LOCK_STATES = ['reserved', 'busy', 'flying', 'landed'];
+    const LOCK_LABEL = { free: 'Frei', reserved: 'Reserviert', busy: 'Belegt', flying: 'In der Luft', landed: 'Gelandet' };
+    const NOTE_LABEL = { reserved: 'reserviert', busy: 'belegt', flying: 'in der Luft', landed: 'gelandet' };
 
     const finite = (value, fallback = 0) => (Number.isFinite(Number(value)) ? Number(value) : fallback);
     const text = (value, max = MAX_TEXT) => String(value ?? '').replace(/[\u0000-\u001f]/g, ' ').slice(0, max);
@@ -219,7 +222,7 @@
     const blockedFor = (lock, pilotId, now) => { const holder = lockHolder(lock, now); return Boolean(holder) && holder !== lower(pilotId); };
 
     // Applies a lock action for one pilot. Returns { lock, changed, refused, holder }.
-    // Actions: reserve, release (by hand), takeoff, parked (tracker), uploaded (mod export).
+    // Actions: reserve, release (by hand), claim, unclaim, takeoff, parked (tracker), uploaded (mod export).
     function applyLock(lock, action, pilot, now = Date.now()) {
         const current = activeLock(lock, now);
         const mine = current && lower(current.pilotId) === lower(pilot.pilotId);
@@ -228,6 +231,10 @@
         const free = () => ({ lock: null, changed: Boolean(current) || Boolean(lock), refused: false });
         if (action === 'reserve') return current && !mine ? refuse() : (mine && current.state !== 'reserved' ? { lock: current, changed: false, refused: false } : set('reserved'));
         if (action === 'release') return current && !mine ? refuse() : free();
+        // Live flight with this aircraft: in use from the ground on; a running flight stays as it is.
+        if (action === 'claim') return current && !mine ? refuse() : (mine && ['flying', 'landed'].includes(current.state) ? { lock: current, changed: false, refused: false } : (mine && current.state === 'busy' ? { lock: current, changed: false, refused: false } : set('busy')));
+        // Live flight ended without a takeoff (aborted): free again.
+        if (action === 'unclaim') return mine && current.state === 'busy' ? free() : { lock: current, changed: false, refused: false };
         if (action === 'takeoff') return current && !mine ? refuse() : set('flying');
         if (action === 'parked') return current && !mine ? refuse() : (mine && current.state === 'flying' ? set('landed') : { lock: current, changed: false, refused: false });
         if (action === 'uploaded') return mine && current.state === 'landed' ? free() : { lock: current, changed: false, refused: false };
@@ -287,10 +294,10 @@
             const lockNow = activeLock(record.lock, now), lockOld = activeLock(old.lock, now);
             const lockChanged = (lockNow?.state || 'free') !== (lockOld?.state || 'free') || lower(lockNow?.pilotId) !== lower(lockOld?.pilotId);
             if (record.conflict?.at && record.conflict.at !== old.conflict?.at && !mine(record.conflict.pilotId)) {
-                notes.push(`${tail} auch von ${record.conflict.nick || 'Crew'} geflogen`);
+                notes.push(`${tail} auch von ${record.conflict.nick || 'Crew'} ${record.conflict.event === 'takeoff' ? 'geflogen' : 'genutzt'}`);
             } else if (lockChanged) {
                 const actor = lockNow || lockOld;
-                if (!mine(actor.pilotId)) notes.push(lockNow ? `${tail} ${({ reserved: 'reserviert', flying: 'in der Luft', landed: 'gelandet' })[lockNow.state]} (${lockNow.nick || 'Crew'})` : `${tail} wieder frei`);
+                if (!mine(actor.pilotId)) notes.push(lockNow ? `${tail} ${NOTE_LABEL[lockNow.state]} (${lockNow.nick || 'Crew'})` : `${tail} wieder frei`);
             } else if (record.pos && old.pos && !samePlace(old.pos, record.pos) && !mine(record.lastPilotId)) {
                 notes.push(`${tail} neuer Standort${record.lastNick ? ` (${record.lastNick})` : ''}`);
             }

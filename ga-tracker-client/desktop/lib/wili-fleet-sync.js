@@ -14,7 +14,7 @@
 //
 // Aircraft used by another pilot (reserved, flying, landed - see wili-fleet-core.js) are not
 // uploaded; a local copy that differs is reset to that pilot's state on the next import.
-// While another pilot flies it or has landed it elsewhere, the aircraft is written with the
+// While another pilot uses it (busy), flies it or has landed it elsewhere, the aircraft is written with the
 // mod's "hidden" flag (tested 02.11.2026: the mod then does not show it on the ramp); once
 // free again it comes back at its new place.
 const { EventEmitter } = require('node:events');
@@ -34,7 +34,7 @@ const POLL_IDLE_MS = 60 * 60 * 1000;
 const PING_MS = 60 * 1000;
 const RECONNECT_MIN_MS = 30 * 1000;
 const RECONNECT_MAX_MS = 10 * 60 * 1000;
-const HIDDEN_STATES = new Set(['flying', 'landed']);
+const HIDDEN_STATES = new Set(['busy', 'flying', 'landed']);
 const CREW_REFRESH_MS = 6 * 60 * 60 * 1000;
 const ERROR_BACKOFF_MS = 15 * 60 * 1000;
 const WATCH_DEBOUNCE_MS = 3000;

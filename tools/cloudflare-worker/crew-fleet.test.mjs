@@ -228,3 +228,19 @@ test('the sim may report the livery registration, another title or only the park
     const elsewhere = await act(env, 'BOB', 'event')({ event: 'takeoff', title: 'Cessna 172', tail: 'D-EXYZ', lat: 50, lon: 9 });
     assert.equal(elsewhere.body.matched, false);
 });
+
+test('a live flight claims the aircraft as busy on the ground; aborted it is free again', async () => {
+    const env = { GA_CREW_FLEET: namespace() };
+    await client(env, 'ALICE')({ records: [{ key: KEY, pos: pos(), log: log() }] });
+    const claim = await act(env, 'BOB', 'event')({ event: 'claim', title: 'A2A Piper PA-24-250 Comanche', tail: 'DEINA' });
+    assert.equal(claim.body.lock.state, 'busy');
+    const other = await act(env, 'ALICE', 'reserve')({ key: KEY });
+    assert.equal(other.status, 409);
+    assert.equal(other.body.holder.state, 'busy');
+    await act(env, 'BOB', 'event')({ event: 'unclaim', title: 'A2A Piper PA-24-250 Comanche', tail: 'DEINA' });
+    assert.equal((await client(env, 'ALICE')()).body.records[0].lock, null);
+    await act(env, 'BOB', 'event')({ event: 'claim', title: 'A2A Piper PA-24-250 Comanche', tail: 'DEINA' });
+    await act(env, 'BOB', 'event')({ event: 'takeoff', title: 'A2A Piper PA-24-250 Comanche', tail: 'DEINA' });
+    await act(env, 'BOB', 'event')({ event: 'unclaim', title: 'A2A Piper PA-24-250 Comanche', tail: 'DEINA' });
+    assert.equal((await client(env, 'ALICE')()).body.records[0].lock.state, 'flying', 'unclaim never frees a flying aircraft');
+});

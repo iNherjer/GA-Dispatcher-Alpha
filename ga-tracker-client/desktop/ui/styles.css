@@ -1328,5 +1328,6 @@ dialog::backdrop {
   white-space: nowrap;
 }
 .wili-status-reserved { color: var(--amber); border-color: rgba(255, 197, 104, 0.45); }
+.wili-status-busy { color: #c9a7ff; border-color: rgba(201, 167, 255, 0.45); }
 .wili-status-flying { color: var(--blue); border-color: rgba(84, 184, 255, 0.45); }
 .wili-status-landed { color: var(--muted); }
