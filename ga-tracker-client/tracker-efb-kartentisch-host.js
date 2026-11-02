@@ -3655,6 +3655,45 @@
     updateCompass();
     renderProgress();
   }
+  // Vereinsflotte: another pilot changed the crew fleet (tracker-crew-fleet-watch.js).
+  // Shown once per change for 30 s, closable with x.
+  var fleetNoticeShownId = '';
+  var fleetNoticeTimer = null;
+  function hideFleetNotice() {
+    var node = byId('gaFleetNotice');
+    if (node) node.style.display = 'none';
+    clearTimeout(fleetNoticeTimer);
+  }
+  function renderFleetNotice(notice) {
+    if (!notice || !notice.id || !notice.text || notice.id === fleetNoticeShownId) return;
+    fleetNoticeShownId = notice.id;
+    var node = byId('gaFleetNotice');
+    if (!node) {
+      node = document.createElement('div');
+      node.id = 'gaFleetNotice';
+      node.setAttribute('role', 'status');
+      node.style.cssText = 'position:fixed;left:50%;top:72px;transform:translateX(-50%);z-index:10007;display:none;align-items:flex-start;gap:10px;'
+        + 'max-width:min(560px,calc(100% - 24px));padding:10px 12px;background:#172536;color:#fff;border:1px solid #3d6f9e;border-radius:8px;'
+        + 'box-shadow:0 4px 14px rgba(0,0,0,.45);font:600 14px/1.35 system-ui,sans-serif;';
+      var text = document.createElement('span');
+      text.id = 'gaFleetNoticeText';
+      text.style.cssText = 'flex:1;min-width:0;overflow-wrap:anywhere;';
+      var close = document.createElement('button');
+      close.type = 'button';
+      close.setAttribute('aria-label', 'Hinweis schließen');
+      close.textContent = '\u00d7';
+      close.style.cssText = 'flex:none;border:0;background:transparent;color:#fff;font:700 20px/1 system-ui,sans-serif;cursor:pointer;padding:0 2px;';
+      close.addEventListener('click', hideFleetNotice);
+      node.appendChild(text);
+      node.appendChild(close);
+      document.body.appendChild(node);
+    }
+    byId('gaFleetNoticeText').textContent = '\uD83D\uDEE9\uFE0F ' + notice.text;
+    node.style.display = 'flex';
+    clearTimeout(fleetNoticeTimer);
+    fleetNoticeTimer = setTimeout(hideFleetNotice, 30000);
+  }
+
   var flightPollFailures = 0, lastFlightPollSuccessAt = 0;
   function poll() {
     if (pollingClosed) return;
@@ -3811,6 +3850,7 @@
       poll();
       pollAuxiliary('/api/v1/status', function (status) {
         if (status && status.display) applyUiPreferences(status.display);
+        if (status) renderFleetNotice(status.crewFleetNotice);
         if (trackerOnline) setTrackerState(status && status.simulatorConnected ? 'Tracker + Simulator verbunden' : 'Tracker verbunden | warte auf Simulator', false);
       }, 1000);
       pollAuxiliary('/api/v1/map', renderMapPayload, 1000);

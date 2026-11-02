@@ -143,7 +143,21 @@ Regeln in `wili-fleet-core.js` (`applyLock`, `activeLock`), Server in `crew-flee
   Abrufe, keine Tracker-Meldungen.
 - Live-Flug-Zettel zeigen die Maschine (`flight.aircraft`).
 
+### Hinweis bei Änderungen (Tracker v607, Web v2306)
+
+- Ändert ein anderer Pilot die Flotte (reserviert, in der Luft, gelandet, wieder frei, neuer Standort, neue
+  Maschine, Konflikt), erscheint „🛩️ Vereinsflotte geändert: … Bitte aktualisieren.“ – 30 s, mit × schließbar.
+  Eigene Änderungen nie (`changeNotes`/`noticeText` in `wili-fleet-core.js`).
+- EFB: `tracker-crew-fleet-watch.js` hält eine ruhende WebSocket-Verbindung zur Flotte (wie die Desktop-App),
+  lädt bei jeder Änderung nur das Geänderte und legt den Hinweis in den Tracker-Status (`crewFleetNotice`), den das
+  EFB jede Sekunde abfragt. Anzeige im Kartentisch-Host (`gaFleetNotice`).
+- App: `crew-fleet-client.js` vergleicht beim Laden über den Crew-Status-Abruf (alle 3 min, solange sichtbar);
+  Band oben mit „Pinnwand“ (öffnet das Crew-Brett) und ×.
+
 Noch nicht gebaut: Löschvermerk (Maschine aus der Flotte nehmen).
+
+Bekannt: Das Kennzeichen-Decal fehlt an vom Mod gespawnten Maschinen in MSFS 2024 (Grenze des Mods/Sims laut
+Mod-Seite); User testet weiter.
 
 Bekannte Grenze: Zwei Crew-Mitglieder mit gleichem Kennzeichen und gleichem Sim-Titel
 (z. B. Standardlackierung) teilen sich für den Mod dieselbe Maschine.

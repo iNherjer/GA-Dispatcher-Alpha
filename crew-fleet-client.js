@@ -6,13 +6,15 @@
  * Traffic: no own polling. The crew presence poll (every 3 min while visible) carries the
  * fleet revision; the fleet is loaded only when it changed, when the board opens (at most
  * every 30 s, answered "unchanged" when nothing happened) and with the 🔄 button.
- * Switched off under "Meine Freigaben" (crewShare.fleet): no note, no requests. */
+ * Switched off under "Meine Freigaben" (crewShare.fleet): no note, no requests.
+ * When another pilot changes the fleet, a notice shows for 30 s (closable). */
 (function () {
     'use strict';
     const core = window.GAWiliFleetCore;
     if (!core) return;
 
     const OPEN_REFRESH_MS = 30 * 1000;
+    const NOTICE_MS = 30 * 1000;
     const BACKOFF_MS = 10 * 60 * 1000;
 
     let records = new Map();
@@ -61,10 +63,11 @@
                 fetchedAt = Date.now();
                 fetchedGroup = group;
                 if (data?.unchanged) return;
+                const changed = (Array.isArray(data?.records) ? data.records : []).filter(record => core.validKey(record?.key));
+                // The first load after opening the app is not a change.
+                if (rev > 0) showNotice(core.noticeText(core.changeNotes(records, changed, pilotId())));
                 if (data?.full) records = new Map();
-                for (const record of Array.isArray(data?.records) ? data.records : []) {
-                    if (core.validKey(record?.key)) records.set(record.key, record);
-                }
+                for (const record of changed) records.set(record.key, record);
                 rev = Number(data?.rev) || 0;
                 rerender(reason);
             } catch (_) {}
@@ -285,5 +288,34 @@
     }
     function updateOpenMap() { drawMarkers(false); }
 
-    window.gaCrewFleet = { renderBoard, refresh, noteRev, reset, openMap };
+    // --- Notice: another pilot changed the fleet ---
+    let noticeTimer = null;
+    function hideNotice() {
+        clearTimeout(noticeTimer);
+        document.getElementById('crewFleetNotice')?.remove();
+    }
+    function openCrewBoard() {
+        hideNotice();
+        if (!document.getElementById('pinboardOverlay')?.classList.contains('active') && typeof togglePinboard === 'function') togglePinboard();
+        if (typeof switchPinboardMode === 'function') switchPinboardMode('group');
+    }
+    function showNotice(text) {
+        if (!text) return;
+        hideNotice();
+        const box = el('div', 'crew-fleet-notice');
+        box.id = 'crewFleetNotice';
+        box.setAttribute('role', 'status');
+        const open = el('button', 'crew-fleet-notice-open', 'Pinnwand');
+        open.type = 'button';
+        open.addEventListener('click', openCrewBoard);
+        const close = el('button', 'crew-fleet-notice-close', '×');
+        close.type = 'button';
+        close.setAttribute('aria-label', 'Hinweis schließen');
+        close.addEventListener('click', hideNotice);
+        box.append(el('span', 'crew-fleet-notice-text', `🛩️ ${text}`), open, close);
+        document.body.append(box);
+        noticeTimer = setTimeout(hideNotice, NOTICE_MS);
+    }
+
+    window.gaCrewFleet = { renderBoard, refresh, noteRev, reset, openMap, showNotice };
 })();

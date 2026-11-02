@@ -321,3 +321,43 @@
 .crew-fleet-legend > span { display: inline-flex; align-items: center; gap: 5px; }
 .crew-fleet-legend-dot { width: 11px; height: 11px; border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px #999; }
 .crew-fleet-tip { font: 12px/1.3 'Courier New', Courier, monospace; }
+.crew-fleet-notice {
+    position: fixed;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 135000; /* above the pinboard (120000) and the detail views (130000) */
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: max-content;
+    max-width: calc(100% - 32px);
+    box-sizing: border-box;
+    padding: 10px 12px;
+    border: 1px solid #3d6f9e;
+    border-radius: 8px;
+    background: #172536;
+    color: #fff;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.45);
+    font: 600 14px/1.35 system-ui, sans-serif;
+}
+.crew-fleet-notice-text { min-width: 0; overflow-wrap: anywhere; }
+.crew-fleet-notice-open {
+    flex: none;
+    padding: 4px 10px;
+    border: 1px solid #5d8fbe;
+    border-radius: 6px;
+    background: #23415f;
+    color: #fff;
+    font: 600 13px system-ui, sans-serif;
+    cursor: pointer;
+}
+.crew-fleet-notice-close {
+    flex: none;
+    border: 0;
+    background: transparent;
+    color: #fff;
+    font: 700 20px/1 system-ui, sans-serif;
+    cursor: pointer;
+}
+.crew-fleet-notice button:focus-visible { outline: 2px solid #8cc4ff; outline-offset: 2px; }

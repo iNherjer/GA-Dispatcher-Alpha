@@ -39,8 +39,10 @@ const { createHomebaseCloudScene } = require('./tracker-homebase-cloud.js');
 const { createHomebaseCrewScene } = require('./tracker-homebase-crew.js');
 const { createCrewPresence } = require('./tracker-crew-presence.js');
 const { createAircraftIdentity } = require('./tracker-aircraft-identity.js');
+const { createCrewFleetWatch } = require('./tracker-crew-fleet-watch.js');
 // Crew status beats (online/current flight); fed by the telemetry loop.
 let trackerCrewPresence = null;
+let trackerCrewFleetWatch = null;
 const { verifyTrackerCredentials } = require('./tracker-auth.js');
 const { createTrackerRelayHello } = require('./tracker-efb-relay-core.js');
 const {
@@ -121,8 +123,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v606';
-const TRACKER_VERSION_CODE = 606;
+const TRACKER_VERSION = 'v607';
+const TRACKER_VERSION_CODE = 607;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -5155,7 +5157,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       try { await (missionProcess ? missionProcess.close() : missionExecutionRuntime.flush()); }
       catch (error) { debugLog(`MISSION_POI_SHUTDOWN_FLUSH_ERROR error=${error.message}`); }
     };
-    for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, async () => { await Promise.race([trackerCrewPresence?.stop(), new Promise(resolve => setTimeout(resolve, 2000))]); await flushPoi(); await Promise.all([writeDebugLog.flush(), missionTestLog.flush()]); process.exit(0); });
+    for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, async () => { trackerCrewFleetWatch?.stop(); await Promise.race([trackerCrewPresence?.stop(), new Promise(resolve => setTimeout(resolve, 2000))]); await flushPoi(); await Promise.all([writeDebugLog.flush(), missionTestLog.flush()]); process.exit(0); });
   }
   const recoveredMissionRun = missionAuthorityManager.getActiveRun({ includeBundle: true });
   if (recoveredMissionRun?.resumeBundle) {
@@ -5768,6 +5770,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       port: configuredPort,
       hello: TRACKER_EFB_HTTP_HELLO,
       getStatus: () => ({
+        crewFleetNotice: trackerCrewFleetWatch?.notice?.() || null,
         trackerVersion: TRACKER_VERSION,
         trackerVersionCode: TRACKER_VERSION_CODE,
         runtimeChannel: TRACKER_RUNTIME_CHANNEL,
@@ -6190,6 +6193,19 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     }
   });
   trackerCrewPresence.start();
+  // Vereinsflotte: Hinweis im EFB, wenn andere Piloten den Flottenstand aendern.
+  trackerCrewFleetWatch = createCrewFleetWatch({
+    pilotId: syncId,
+    pin,
+    request: require('./tracker-navcom-preferences').requestJson,
+    WebSocket,
+    getCrew: () => {
+      const state = trackerCrewPresence?.publicState?.() || {};
+      return { groupName: state.groupName, fleetShow: state.fleetShow };
+    },
+    log: debugLog
+  });
+  trackerCrewFleetWatch.start();
   const homebaseCrewAccess = homebaseCrew?.available ? {
     capability: homebaseCrew.capability,
     sceneFor: (position) => homebaseCrew.sceneFor(position),

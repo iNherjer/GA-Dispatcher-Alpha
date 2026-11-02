@@ -263,8 +263,40 @@
         return 12742 * Math.asin(Math.min(1, Math.sqrt(h)));
     }
 
+    // What other pilots changed between two states of the crew fleet, as short lines for a
+    // notice ("DEINA in der Luft (Tester)"). Own changes are never reported.
+    function changeNotes(previous, changed, me, now = Date.now()) {
+        const notes = [];
+        const mine = id => lower(id) && lower(id) === lower(me);
+        for (const record of changed || []) {
+            const old = previous.get(record.key);
+            const tail = record.pos?.tail || String(record.key).replace(/^tail:/, '').split('|')[0] || titleFromKey(record.key);
+            if (!old) {
+                if (!mine(record.lastPilotId)) notes.push(`${tail} neu in der Flotte${record.lastNick ? ` (${record.lastNick})` : ''}`);
+                continue;
+            }
+            const lockNow = activeLock(record.lock, now), lockOld = activeLock(old.lock, now);
+            const lockChanged = (lockNow?.state || 'free') !== (lockOld?.state || 'free') || lower(lockNow?.pilotId) !== lower(lockOld?.pilotId);
+            if (record.conflict?.at && record.conflict.at !== old.conflict?.at && !mine(record.conflict.pilotId)) {
+                notes.push(`${tail} auch von ${record.conflict.nick || 'Crew'} geflogen`);
+            } else if (lockChanged) {
+                const actor = lockNow || lockOld;
+                if (!mine(actor.pilotId)) notes.push(lockNow ? `${tail} ${({ reserved: 'reserviert', flying: 'in der Luft', landed: 'gelandet' })[lockNow.state]} (${lockNow.nick || 'Crew'})` : `${tail} wieder frei`);
+            } else if (record.pos && old.pos && !samePlace(old.pos, record.pos) && !mine(record.lastPilotId)) {
+                notes.push(`${tail} neuer Standort${record.lastNick ? ` (${record.lastNick})` : ''}`);
+            }
+        }
+        return notes;
+    }
+
+    function noticeText(notes) {
+        if (!notes.length) return '';
+        const shown = notes.slice(0, 3).join(' · ');
+        return `Vereinsflotte geändert: ${shown}${notes.length > 3 ? ` · +${notes.length - 3} weitere` : ''}. Bitte aktualisieren.`;
+    }
+
     return {
-        HEADER, FORMAT, MAX_RECORDS, MAX_FLIGHTS, LOCK_MS, LOCK_LABEL,
+        HEADER, FORMAT, MAX_RECORDS, MAX_FLIGHTS, LOCK_MS, LOCK_LABEL, changeNotes, noticeText,
         activeLock, lockHolder, blockedFor, applyLock, lockLabel, matchAircraft, distanceKm,
         validKey, cleanPos, cleanLog, canonical, recordSignature,
         mergePos, mergeLog, mergeRecord, uniteFlights,
