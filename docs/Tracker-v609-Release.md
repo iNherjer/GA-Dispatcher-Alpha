@@ -12,4 +12,9 @@
   was der Mod schon so zeigt, wird nicht als Import vorbereitet.
 - `EFB_WEB_ASSET_REVISION` 60901.
 
-Nur Alpha-Runtime umstellen, Stable unverändert.
+Tracker-EXE (Worktree `479201a8b`, `node_modules` verlinkt): 174733699 Bytes, SHA-256
+`e2ca88202d6c5dc7df9a21cda36f88fb924e6be3764fd432eadb9bd66f94f4c4`. Desktop 1.6.35 (`node_modules` kopiert):
+100309529 Bytes, SHA-512 wie `latest.yml`. Downloads geprüft. Tests: Tracker 1537/1539 (2 übersprungen),
+Desktop 145/145, Worker vollständig. Worker 92fe0bbc deployt.
+
+Alpha-Runtime auf v609, Stable unverändert. Desktop-Autoupdate 1.6.35 aktiviert.
