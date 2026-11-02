@@ -117,9 +117,9 @@ Regeln in `wili-fleet-core.js` (`applyLock`, `activeLock`), Server in `crew-flee
 | Zustand | Ausgelöst durch | Endet |
 |---|---|---|
 | Reserviert | „Reservieren“ auf dem Crew-Brett | 12 h, „Freigeben“, oder Start → In der Luft |
-| Belegt (ab v608) | Tracker meldet `claim`: Live-Flug mit dieser Maschine (auch am Boden) | 12 h, „Freigeben“, Start → In der Luft, oder `unclaim` (Flug endet ohne Start) → Frei |
+| Belegt (ab v608) | Tracker meldet `claim`: Live-Flug mit dieser Maschine (auch am Boden) | 12 h, „Freigeben“, Start → In der Luft, `left` → Frei |
 | In der Luft | Tracker meldet `takeoff` mit dieser Maschine | 12 h, „Freigeben“, oder `parked` → Gelandet |
-| Gelandet | Tracker meldet `parked` (60 s Stillstand nach Landung) | 12 h, „Freigeben“, oder nächster Upload (Mod-Export) dieses Piloten → Frei |
+| Gelandet | Tracker meldet `parked` (60 s Stillstand nach Landung) | 12 h, „Freigeben“, `left` → Frei (ab v609; vorher Mod-Export) |
 
 - Jeder Zustand sperrt die Maschine für alle anderen: keine Reservierung, Uploads werden abgelehnt
   (`blocked`), ein Start wird als Konflikt am Datensatz vermerkt (`conflict`, Crew-Brett zeigt „⚠️ auch von X
@@ -130,6 +130,19 @@ Regeln in `wili-fleet-core.js` (`applyLock`, `activeLock`), Server in `crew-flee
   Von der App ausgeblendete Kopien gehen nie hoch (`ledger.hidden`).
 - Maschine erkennen (`matchAircraft`): Kennzeichen + Titel, sonst eindeutiges Kennzeichen, sonst Titel innerhalb
   1 km vom Abstellplatz vor dem Start. Tracker liest `TITLE` und `ATC ID` (`tracker-aircraft-identity.js`).
+
+`left` (Tracker v609): der Pilot verlässt die Maschine – andere Maschine geladen, 60 s Hauptmenü/Weltkarte,
+Sim getrennt oder Tracker beendet. Erst dann sind Belegt/In der Luft/Gelandet wieder frei, vorher könnte er
+weiterfliegen. Der Worker findet die Maschine dabei über die aktive Belegung des Piloten. Ein Export gibt
+nicht mehr frei. `unclaim` sendet der Tracker nicht mehr (Worker versteht es weiter).
+
+### Positionen ohne Export (Desktop 1.6.35)
+
+Speichert der Mod (`state.txt`) und steht eine bekannte Maschine am Boden an einem neuen Platz (> 15 m oder
+> 5° Kurs), lädt die Desktop-App diese Position sofort hoch – nur die Position, `savedAt` = Dateizeit − 10 s,
+Sprit/Zuladung/Flugbuch vom letzten Export. Ein späterer Export ist neuer und ergänzt den Rest. Ignoriert:
+in der Luft, ausgeblendet, von jemand anderem belegt, unbekannte Maschinen (kommen nur per Export), fremdes
+Dateiformat. Was der Mod laut `state.txt` schon am selben Platz zeigt, wird nicht als Import vorbereitet.
 
 ### Sofort-Abgleich und Crew-Brett
 

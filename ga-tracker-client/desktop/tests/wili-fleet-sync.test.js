@@ -71,7 +71,12 @@ function pilot(name, server, { crew = 'EDTW', autoSync = true, createSocket = nu
     advance: ms => { clock += ms; },
     write: content => fs.writeFileSync(path.join(modDir, 'backup.txt'), content),
     read: () => core.parseBackup(fs.readFileSync(path.join(modDir, 'backup.txt'), 'utf8')),
-    writeState: lines => fs.writeFileSync(path.join(modDir, 'state.txt'), lines.join('\n') + '\n')
+    // The file time follows the test clock, like a real save of the mod.
+    writeState: (lines, at = clock) => {
+      const file = path.join(modDir, 'state.txt');
+      fs.writeFileSync(file, lines.join('\n') + '\n');
+      fs.utimesSync(file, at / 1000, at / 1000);
+    }
   };
 }
 
@@ -291,10 +296,14 @@ test('an aircraft flown by someone else is hidden at the others and comes back a
   server.calls.length = 0;
   await alice.sync.sync();
   assert.equal(server.calls.filter(call => call.startsWith('POST')).length, 0);
-  // Bob lands, parks and exports: free again, visible at EDRY for Alice.
+  // Bob lands, parks and exports: still hidden for Alice while he sits in it.
   await server.action('BOB', 'event', { event: 'parked', title: COMANCHE, tail: 'DEINA' });
   bob.write(backup([{ key: DEINA, pos: pos(COMANCHE, 'DEINA', { lat: 49.3, savedAt: Date.now() }), log: log() }]));
   await bob.sync.sync();
+  await alice.sync.sync('poll');
+  assert.equal(alice.read().records.get(DEINA).pos.hidden, true, 'landed, pilot still in the aircraft');
+  // He leaves the aircraft: free again, visible at EDRY for Alice.
+  await server.action('BOB', 'event', { event: 'left', title: COMANCHE, tail: 'DEINA' });
   await alice.sync.sync('poll');
   deina = alice.read().records.get(DEINA).pos;
   assert.equal(deina.hidden, false);
@@ -346,4 +355,60 @@ test('leaving the crew ends the sync and marks the aircraft of the others, shown
   server.calls.length = 0;
   await bob.sync.sync('poll');
   assert.equal(server.calls.length, 0, 'no more crew traffic');
+});
+
+const stateLine = (key, title, tail, lat, lon, hdg = 323, onGround = 1, hidden = 0) =>
+  `rec|${encodeURIComponent(key)}|${title}|${tail}|${tail}|${lat}|${lon}|2202|3|${hdg}|0|0|${onGround}|${hidden}`;
+
+test('a new ground position from the mod save goes up without an export; an export still refines it', async () => {
+  const server = await worker();
+  const alice = pilot('ALICE', server);
+  const bob = pilot('BOB', server);
+  alice.write(backup([{ key: DEINA, pos: pos(COMANCHE, 'DEINA', { savedAt: 2000, fuel: [['LEFT MAIN', 30]] }), log: log() }]));
+  await alice.sync.sync();
+  bob.write(backup([]));
+  await bob.sync.sync();
+  // Alice flew to EDRY; the mod saved, no export.
+  alice.writeState(['settings|ask|tail|1|25||10|5', stateLine(DEINA, COMANCHE, 'DEINA', 49.3, 8.45, 30)], 500_000);
+  server.calls.length = 0;
+  await alice.sync.onLocalChange();
+  assert.deepEqual(server.calls, ['POST '], 'only the position, no download');
+  await bob.sync.sync('poll');
+  let deina = bob.read().records.get(DEINA).pos;
+  assert.equal(deina.lat, 49.3);
+  assert.equal(deina.hdgTrue, 30);
+  assert.equal(deina.savedAt, 490_000, 'file time minus 10 s');
+  assert.deepEqual(deina.fuel, [['LEFT MAIN', 30]], 'fuel stays from the last export');
+  // The same save again: nothing new.
+  server.calls.length = 0;
+  await alice.sync.onLocalChange();
+  assert.equal(server.calls.length, 0);
+  // Alice exports later: fuel and payload follow.
+  alice.write(backup([{ key: DEINA, pos: pos(COMANCHE, 'DEINA', { lat: 49.3, lon: 8.45, hdgTrue: 30, savedAt: 495_000, fuel: [['LEFT MAIN', 12]] }), log: log() }]));
+  await alice.sync.sync();
+  await bob.sync.sync('poll');
+  deina = bob.read().records.get(DEINA).pos;
+  assert.deepEqual(deina.fuel, [['LEFT MAIN', 12]]);
+});
+
+test('mod saves in the air, of hidden or unknown aircraft are ignored; own aircraft are not re-imported', async () => {
+  const server = await worker();
+  const alice = pilot('ALICE', server);
+  alice.write(backup([{ key: DEINA, pos: pos(COMANCHE, 'DEINA', { savedAt: 2000 }), log: log() }]));
+  await alice.sync.sync();
+  alice.writeState(['settings|ask|tail|1|25||10|5', stateLine(DEINA, COMANCHE, 'DEINA', 49.0, 8.4, 90, 0), stateLine('tail:NEW|Robin', 'Robin', 'NEW', 49.0, 8.4)], 500_000);
+  server.calls.length = 0;
+  await alice.sync.onLocalChange();
+  assert.equal(server.calls.length, 0, 'airborne and unknown aircraft do not go up');
+  alice.writeState(['settings|ask|tail|1|25||10|5', stateLine(DEINA, COMANCHE, 'DEINA', 49.3, 8.45)], 600_000);
+  await alice.sync.onLocalChange();
+  const before = fs.readFileSync(path.join(alice.modDir, 'backup.txt'), 'utf8');
+  await alice.sync.sync('poll');
+  assert.equal(fs.readFileSync(path.join(alice.modDir, 'backup.txt'), 'utf8'), before, 'the mod already shows it: no import needed');
+  assert.equal(alice.sync.publicState().pending.length, 0);
+  // Unknown format: ignored.
+  alice.writeState(['something else'], 700_000);
+  server.calls.length = 0;
+  await alice.sync.onLocalChange();
+  assert.equal(server.calls.length, 0);
 });

@@ -259,7 +259,7 @@ test('crew fleet hidden on the crew board or unknown aircraft: no fleet events',
   assert.equal(t.posts.filter(post => post.url.includes('crew-fleet')).length, 0, 'no aircraft identity yet');
 });
 
-test('crew fleet: a mission flight claims the aircraft on the ground and frees it when aborted before takeoff', async () => {
+test('crew fleet: a mission flight claims the aircraft on the ground; it stays claimed until the pilot leaves it', async () => {
   const s = setup();
   s.presence.setAircraft({ title: 'A2A Piper PA-24-250 Comanche', tail: 'DEINA' });
   s.setRoute({ ...mission, missionState: null });
@@ -268,15 +268,44 @@ test('crew fleet: a mission flight claims the aircraft on the ground and frees i
   await new Promise(resolve => setImmediate(resolve));
   const events = () => s.posts.filter(post => post.url.includes('crew-fleet')).map(post => post.body.event);
   assert.deepEqual(events(), ['claim']);
-  const claim = s.posts.find(post => post.url.includes('crew-fleet')).body;
-  assert.equal(claim.lat, 48.2769, 'claimed at the parking spot');
-  s.advance(15000);
-  await s.presence.tick();
-  await new Promise(resolve => setImmediate(resolve));
-  assert.deepEqual(events(), ['claim'], 'once per flight');
+  assert.equal(s.posts.find(post => post.url.includes('crew-fleet')).body.lat, 48.2769, 'claimed at the parking spot');
+  // Mission aborted, pilot still sits in the aircraft: still claimed.
   s.setRoute(null);
   s.advance(15000);
   await s.presence.tick();
   await new Promise(resolve => setImmediate(resolve));
-  assert.deepEqual(events(), ['claim', 'unclaim']);
+  assert.deepEqual(events(), ['claim']);
+  // Main menu for a minute: left.
+  s.presence.observe({ inMenu: true });
+  s.advance(30000);
+  await s.presence.tick();
+  assert.deepEqual(events(), ['claim'], 'a short menu visit does not count');
+  s.advance(31000);
+  await s.presence.tick();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(events(), ['claim', 'left']);
+  const left = s.posts.filter(post => post.url.includes('crew-fleet')).at(-1).body;
+  assert.equal(left.tail, 'DEINA');
+});
+
+test('crew fleet: another aircraft, a closed sim or a stopped tracker leave the used aircraft', async () => {
+  const s = setup();
+  const events = () => s.posts.filter(post => post.url.includes('crew-fleet')).map(post => `${post.body.event}:${post.body.tail}`);
+  s.presence.setAircraft({ title: 'A2A Piper PA-24-250 Comanche', tail: 'DEINA' });
+  s.setRoute({ ...mission, missionState: null });
+  s.sample();
+  await s.presence.tick();
+  s.presence.setAircraft({ title: 'Cessna 172', tail: 'D-EXYZ' });
+  s.advance(15000);
+  await s.presence.tick();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(events().slice(0, 2), ['claim:DEINA', 'left:DEINA']);
+  const t = setup();
+  t.presence.setAircraft({ title: 'A2A Piper PA-24-250 Comanche', tail: 'DEINA' });
+  t.setRoute({ ...mission, missionState: null });
+  t.sample();
+  await t.presence.tick();
+  await new Promise(resolve => setImmediate(resolve));
+  await t.presence.stop();
+  assert.deepEqual(t.posts.filter(post => post.url.includes('crew-fleet')).map(post => post.body.event), ['claim', 'left']);
 });

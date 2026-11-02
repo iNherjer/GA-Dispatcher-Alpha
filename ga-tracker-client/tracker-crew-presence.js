@@ -10,9 +10,10 @@
 //
 // Crew fleet (Where I Left It, worker crew-fleet.mjs): with the aircraft identity from the
 // sim, the tracker reports "claim" when a live flight with this aircraft starts (also on the
-// ground), "takeoff", "parked" (standing still 60 s after landing) and "unclaim" when the live
-// flight ends without a takeoff. The worker matches the aircraft against the crew fleet and
-// marks it busy / flying / landed / free. Off when the pilot switched the crew fleet off on the crew board (crewShare.fleet).
+// ground), "takeoff", "parked" (standing still 60 s after landing) and "left" when the pilot
+// leaves the aircraft (another aircraft, 60 s in the main menu / world map, sim closed,
+// tracker stopped). The worker matches the aircraft against the crew fleet and marks it
+// busy / flying / landed, and free again only after "left": until then he could fly on. Off when the pilot switched the crew fleet off on the crew board (crewShare.fleet).
 const core = require('../crew-presence-core.js');
 const cloudSync = require('../cloud-sync-client');
 const { requestJson } = require('./tracker-navcom-preferences');
@@ -22,6 +23,7 @@ const DEFAULT_PRESENCE_URL = 'https://ga-proxy.einherjer.workers.dev/api/crew-pr
 const DEFAULT_PROFILE_URL = 'https://ga-proxy.einherjer.workers.dev/api/sync-v2/';
 const DEFAULT_FLEET_URL = 'https://ga-proxy.einherjer.workers.dev/api/crew-fleet-v1/';
 const MAX_FLEET_QUEUE = 6;
+const FLEET_MENU_LEAVE_MS = 60 * 1000;
 const TICK_MS = 15000;
 const PROFILE_REFRESH_MS = 10 * 60 * 1000;
 const BACKOFF_MS = 10 * 60 * 1000;
@@ -77,6 +79,7 @@ function createCrewPresence(options = {}) {
   const fleetQueue = [];
   let fleetSending = null;
   let fleetClaim = null;      // { flightId, tookOff } of the live flight that claimed the aircraft
+  let fleetHeld = null;       // { title, tail } of the aircraft this pilot uses (claimed or flown)
 
   async function readProfile() {
     if (typeof options.readProfile === 'function') return options.readProfile();
@@ -149,23 +152,33 @@ function createCrewPresence(options = {}) {
     }
   }
 
-  function queueFleet(event, where = null) {
-    if (!aircraft?.title) return;
+  function queueFleet(event, where = null, identity = aircraft) {
+    if (!identity?.title) return;
     const pos = where || (sample ? { lat: sample.lat, lon: sample.lon } : {});
-    fleetQueue.push({ event, title: aircraft.title, tail: aircraft.tail || '', ...pos });
+    fleetQueue.push({ event, title: identity.title, tail: identity.tail || '', ...pos });
     if (fleetQueue.length > MAX_FLEET_QUEUE) fleetQueue.shift();
+    if (event === 'claim' || event === 'takeoff') fleetHeld = { title: identity.title, tail: identity.tail || '' };
   }
 
-  // The live flight on the crew board claims the aircraft; it ends without a takeoff: unclaim.
-  function updateFleetClaim(flight) {
-    const live = flight && !flight.endedAt && aircraft?.title ? flight.id : '';
+  // The pilot is no longer in the aircraft he used: the crew may take it.
+  function leaveFleetAircraft(reason) {
+    if (!fleetHeld) return;
+    log(`CREW_FLEET_LEFT reason=${reason} title="${fleetHeld.title}" tail="${fleetHeld.tail}"`);
+    queueFleet('left', null, fleetHeld);
+    fleetHeld = null;
+    fleetClaim = null;
+    fleetAirborne = false;
+    fleetStillSince = 0;
+  }
+
+  // The live flight on the crew board claims the aircraft. It stays claimed after the flight
+  // ended (aborted or landed) until the pilot leaves the aircraft.
+  function updateFleetClaim(flight, t) {
+    if (inMenu && fleetHeld && t - menuChangedAt >= FLEET_MENU_LEAVE_MS) leaveFleetAircraft('menu');
+    const live = flight && !flight.endedAt && !inMenu && aircraft?.title ? flight.id : '';
     if (live && fleetClaim?.flightId !== live) {
-      if (fleetClaim && !fleetClaim.tookOff) queueFleet('unclaim');
       fleetClaim = { flightId: live, tookOff: fleetAirborne };
       queueFleet('claim', sample?.onGround && lastGroundPos ? lastGroundPos : null);
-    } else if (!live && fleetClaim) {
-      if (!fleetClaim.tookOff) queueFleet('unclaim');
-      fleetClaim = null;
     }
   }
 
@@ -322,7 +335,7 @@ function createCrewPresence(options = {}) {
     await refreshProfile(false);
     if (!groupName) return;
     const flight = buildFlight(t);
-    updateFleetClaim(flight);
+    updateFleetClaim(flight, t);
     void sendFleetEvents();
     sending = (async () => {
       try {
@@ -355,7 +368,10 @@ function createCrewPresence(options = {}) {
     observe,
     tick,
     setAircraft(identity) {
-      aircraft = identity?.title ? { title: String(identity.title).slice(0, 200), tail: String(identity.tail || '').slice(0, 40) } : null;
+      const next = identity?.title ? { title: String(identity.title).slice(0, 200), tail: String(identity.tail || '').slice(0, 40) } : null;
+      // Another aircraft or none (sim closed): the used one is left.
+      if (fleetHeld && (next?.title !== fleetHeld.title || (next?.tail || '') !== fleetHeld.tail)) leaveFleetAircraft(next ? 'other-aircraft' : 'sim-closed');
+      aircraft = next;
       // Another aircraft was loaded: a running fleet flight of the old one does not continue.
       fleetAirborne = false;
       fleetStillSince = 0;
@@ -383,6 +399,11 @@ function createCrewPresence(options = {}) {
       stopped = true;
       if (timer) cancel(timer);
       timer = null;
+      // Tracker ends: the aircraft is left; send at once (best effort, bounded by the caller).
+      leaveFleetAircraft('tracker-stopped');
+      if (fleetQueue.length && groupName && fleetShow) {
+        try { await sendFleetEvents(); } catch (_) {}
+      }
       if (!available || !groupName || !lastBeat) return;
       try { await post({ offline: true }); } catch (_) {}
     },

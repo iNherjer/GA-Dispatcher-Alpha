@@ -14,10 +14,12 @@
  *
  * Use of an aircraft (lock), held by one pilot at a time:
  *   reserved - by hand on the crew board, 12 h
- *   busy     - the tracker reports a live flight with this aircraft (still on the ground), 12 h;
- *              free again when that flight ends without a takeoff
+ *   busy     - the tracker reports a live flight with this aircraft (still on the ground), 12 h
  *   flying   - the tracker saw this aircraft take off, 12 h
- *   landed   - parked after the flight, 12 h or until that pilot's next upload (mod export)
+ *   landed   - parked after the flight, 12 h
+ * busy, flying and landed end when the tracker reports that the pilot left the aircraft
+ * (sim closed, main menu / world map, another aircraft, tracker stopped): until then he
+ * could fly on.
  * Every state blocks the aircraft for the others; "free" when it ran out or was released.
  * See docs/Crew Fleet Where I Left It.md. */
 (function (root, factory) {
@@ -197,6 +199,26 @@
         return positions;
     }
 
+    // Full aircraft lines of state.txt (mod 2.0.0):
+    // rec|<key>|title|livery|tail|lat|lon|altFt|aglFt|hdgTrue|pitch|bank|onGround|hidden
+    // Returns null when the file does not look like that (other mod version): then it is ignored.
+    function parseStateRecords(content) {
+        const lines = String(content || '').split(/\r?\n/).filter(line => line.trim());
+        if (!lines.length || !lines[0].startsWith('settings|')) return null;
+        const records = new Map();
+        for (const line of lines.slice(1)) {
+            const parts = line.split('|');
+            if (parts[0] !== 'rec') continue;
+            if (parts.length < 14) return null;
+            const key = decode(parts[1]);
+            const values = parts.slice(5, 12).map(Number);
+            if (!key || !validKey(key) || values.some(value => !Number.isFinite(value)) || Math.abs(values[0]) > 90 || Math.abs(values[1]) > 180) return null;
+            const [lat, lon, altFt, aglFt, hdgTrue, pitch, bank] = values;
+            records.set(key, { key, title: parts[2], livery: parts[3], tail: parts[4], lat, lon, altFt, aglFt, hdgTrue, pitch, bank, onGround: parts[12] === '1', hidden: parts[13] === '1' });
+        }
+        return records;
+    }
+
     function samePlace(a, b) {
         return Boolean(a && b) && Math.abs(a.lat - b.lat) < 2e-6 && Math.abs(a.lon - b.lon) < 2e-6
             && (a.hidden === undefined || b.hidden === undefined || Boolean(a.hidden) === Boolean(b.hidden));
@@ -222,7 +244,8 @@
     const blockedFor = (lock, pilotId, now) => { const holder = lockHolder(lock, now); return Boolean(holder) && holder !== lower(pilotId); };
 
     // Applies a lock action for one pilot. Returns { lock, changed, refused, holder }.
-    // Actions: reserve, release (by hand), claim, unclaim, takeoff, parked (tracker), uploaded (mod export).
+    // Actions: reserve, release (by hand), claim, unclaim, takeoff, parked, left (tracker).
+    // "uploaded" (mod export) no longer ends the use; it is kept as a no-op for older callers.
     function applyLock(lock, action, pilot, now = Date.now()) {
         const current = activeLock(lock, now);
         const mine = current && lower(current.pilotId) === lower(pilot.pilotId);
@@ -237,7 +260,8 @@
         if (action === 'unclaim') return mine && current.state === 'busy' ? free() : { lock: current, changed: false, refused: false };
         if (action === 'takeoff') return current && !mine ? refuse() : set('flying');
         if (action === 'parked') return current && !mine ? refuse() : (mine && current.state === 'flying' ? set('landed') : { lock: current, changed: false, refused: false });
-        if (action === 'uploaded') return mine && current.state === 'landed' ? free() : { lock: current, changed: false, refused: false };
+        // The pilot left the aircraft: free again (a manual reservation stays).
+        if (action === 'left') return mine && ['busy', 'flying', 'landed'].includes(current.state) ? free() : { lock: current, changed: false, refused: false };
         return { lock: current, changed: false, refused: false };
     }
 
@@ -316,6 +340,6 @@
         activeLock, lockHolder, blockedFor, applyLock, lockLabel, matchAircraft, distanceKm,
         validKey, cleanPos, cleanLog, canonical, recordSignature,
         mergePos, mergeLog, mergeRecord, uniteFlights,
-        parseBackup, serializeBackup, parseStatePositions, samePlace, titleFromKey
+        parseBackup, serializeBackup, parseStatePositions, parseStateRecords, samePlace, titleFromKey
     };
 });

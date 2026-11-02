@@ -14,6 +14,10 @@
 //
 // Aircraft used by another pilot (reserved, flying, landed - see wili-fleet-core.js) are not
 // uploaded; a local copy that differs is reset to that pilot's state on the next import.
+// Without an export: when the mod saves (state.txt) and a known aircraft stands on the ground
+// at a new place, that position goes up at once (save time = file time minus 10 s, so a later
+// export with fuel, payload and flight book still wins). New aircraft only come with an export.
+//
 // While another pilot uses it (busy), flies it or has landed it elsewhere, the aircraft is written with the
 // mod's "hidden" flag (tested 02.11.2026: the mod then does not show it on the ramp); once
 // free again it comes back at its new place.
@@ -35,6 +39,9 @@ const PING_MS = 60 * 1000;
 const RECONNECT_MIN_MS = 30 * 1000;
 const RECONNECT_MAX_MS = 10 * 60 * 1000;
 const HIDDEN_STATES = new Set(['busy', 'flying', 'landed']);
+const STATE_TIME_MARGIN_MS = 10 * 1000;
+const STATE_MIN_MOVE_KM = 0.015;
+const STATE_MIN_TURN_DEG = 5;
 const CREW_REFRESH_MS = 6 * 60 * 60 * 1000;
 const ERROR_BACKOFF_MS = 15 * 60 * 1000;
 const WATCH_DEBOUNCE_MS = 3000;
@@ -385,8 +392,64 @@ class WiliFleetSync extends EventEmitter {
     this.checkPendingImport();
     if (!this.settings().autoSync || this.now() < this.blockedUntil) return;
     const { content } = this.readBackup();
-    if (!content || contentHash(content) === this.ledger.backupHash) return;
-    await this.sync('backup-changed');
+    if (content && contentHash(content) !== this.ledger.backupHash) { await this.sync('backup-changed'); return; }
+    // Only the mod's save file changed: send new ground positions, nothing else.
+    if (this.stateUploads().length) await this.run('state-changed', () => this.doStateUpload());
+  }
+
+  readState() {
+    try {
+      const file = this.statePath();
+      const content = this.fs.readFileSync(file, 'utf8');
+      return { records: core.parseStateRecords(content), mtime: this.fs.statSync(file).mtimeMs };
+    } catch (_) {
+      return { records: null, mtime: 0 };
+    }
+  }
+
+  // Known aircraft that the mod's last save shows on the ground at a new place.
+  stateUploads() {
+    const { records, mtime } = this.readState();
+    if (!records || !mtime) return [];
+    const me = this.getCredentials()?.pilotId || '';
+    let local = new Map();
+    try { local = this.readBackup().parsed.records; } catch (_) {}
+    const savedAt = Math.round(mtime) - STATE_TIME_MARGIN_MS;
+    const uploads = [];
+    for (const rec of records.values()) {
+      if (!rec.onGround || rec.hidden || this.ledger.hidden?.[rec.key]) continue;
+      const cloud = this.ledger.cloud[rec.key];
+      if (cloud && core.blockedFor(cloud.lock, me, this.now())) continue;
+      const own = local.get(rec.key)?.pos ? core.cleanPos(local.get(rec.key).pos) : null;
+      const base = [own, cloud?.pos].filter(Boolean).sort((a, b) => (Number(b.savedAt) || 0) - (Number(a.savedAt) || 0))[0];
+      if (!base || savedAt <= (Number(base.savedAt) || 0)) continue;
+      const turn = Math.abs((((rec.hdgTrue - (Number(base.hdgTrue) || 0)) % 360) + 540) % 360 - 180);
+      if (core.distanceKm(base, rec) < STATE_MIN_MOVE_KM && turn < STATE_MIN_TURN_DEG && base.hidden !== true) continue;
+      const pos = { ...base, lat: rec.lat, lon: rec.lon, altFt: rec.altFt, aglFt: rec.aglFt, hdgTrue: rec.hdgTrue, pitch: rec.pitch, bank: rec.bank, onGround: true, hidden: false, savedAt };
+      const signature = core.canonical(pos);
+      if (this.ledger.stateSent?.[rec.key] === signature) continue;
+      uploads.push({ key: rec.key, pos, signature });
+    }
+    return uploads;
+  }
+
+  async doStateUpload() {
+    const uploads = this.stateUploads();
+    if (!uploads.length) return { uploaded: 0, message: '' };
+    const answer = await this.call('POST', { records: uploads.map(entry => ({ key: entry.key, pos: entry.pos })) });
+    const refused = new Set(Array.isArray(answer?.blocked) ? answer.blocked : []);
+    if (!this.ledger.stateSent) this.ledger.stateSent = {};
+    let sent = 0;
+    for (const entry of uploads) {
+      if (refused.has(entry.key)) continue;
+      this.ledger.stateSent[entry.key] = entry.signature;
+      sent++;
+    }
+    if (sent) {
+      this.ledger.lastUpload = this.now();
+      this.log(`WILI state_upload records=${sent}`);
+    }
+    return { uploaded: sent, message: sent ? `${sent} neue Position(en) aus dem Mod-Speicherstand hochgeladen.` : '' };
   }
 
   // Drops pending imports once the mod's state.txt shows the aircraft at the new place.
@@ -406,8 +469,9 @@ class WiliFleetSync extends EventEmitter {
   sync(reason = 'manual') {
     return this.run(reason, async () => {
       const up = await this.doUpload();
+      const fromState = this.settings().autoSync ? await this.doStateUpload() : { uploaded: 0, message: '' };
       const down = await this.doDownload();
-      const message = [up.uploaded ? up.message : '', down.message].filter(Boolean).join(' ');
+      const message = [up.uploaded ? up.message : '', fromState.message, down.message].filter(Boolean).join(' ');
       return { uploaded: up.uploaded, written: down.written, message: up.blocked?.length ? `${up.message} ${down.message}` : message };
     });
   }
@@ -479,7 +543,7 @@ class WiliFleetSync extends EventEmitter {
       // Another crew: its records and revision are unrelated to the old ones.
       this.log(`WILI crew ${this.ledger.crew || '-'} -> ${crew || '-'}`);
       this.leaveCrew();
-      Object.assign(this.ledger, { crew, rev: 0, sent: {}, cloud: {}, hidden: {} });
+      Object.assign(this.ledger, { crew, rev: 0, sent: {}, cloud: {}, hidden: {}, stateSent: {} });
       if (this.socket && this.socketCrew !== crew) { this.closeSocket(); this.connectSocket().catch(() => {}); }
     }
     this.ledger.crewCheckedAt = this.now();
@@ -601,6 +665,7 @@ class WiliFleetSync extends EventEmitter {
     if (content && !parsed.header) throw new Error('backup.txt hat ein unbekanntes Format. Nichts geschrieben.');
     const records = new Map([...parsed.records.values()].map(record => [record.key, recordFromFile(record)]));
     const me = this.getCredentials()?.pilotId || '';
+    const shown = this.readState().records || new Map();
     const changed = [];
     for (const cloud of cloudRecords) {
       const local = records.get(cloud.key);
@@ -623,6 +688,9 @@ class WiliFleetSync extends EventEmitter {
         if (hide) this.ledger.hidden[cloud.key] = true;
         else delete this.ledger.hidden[cloud.key];
       }
+      // The mod already shows it there (e.g. own aircraft sent from state.txt): nothing to import.
+      const inMod = shown.get(cloud.key);
+      if (inMod && merged.pos && core.samePlace(inMod, merged.pos) && core.distanceKm(inMod, merged.pos) < STATE_MIN_MOVE_KM) continue;
       if (!local || core.recordSignature(merged) !== core.recordSignature(local)) {
         records.set(cloud.key, merged);
         changed.push(merged);

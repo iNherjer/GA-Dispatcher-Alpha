@@ -166,11 +166,15 @@ test('takeoff, parking and the export walk through flying, landed and free', asy
     record = (await client(env, 'BOB')()).body.records[0];
     assert.equal(record.lock.state, 'landed');
     assert.equal(record.conflict, null);
-    // Bob exports after parking: the aircraft is free again, with his new position.
+    // Bob exports after parking: new position, but he still sits in the aircraft.
     await client(env, 'BOB')({ records: [{ key: KEY, pos: pos({ lat: 49.3, savedAt: 5000 }) }] });
     record = (await client(env, 'ALICE')()).body.records[0];
-    assert.equal(record.lock, null);
+    assert.equal(record.lock.state, 'landed', 'an export does not end the use');
     assert.equal(record.pos.lat, 49.3);
+    // He leaves the aircraft (menu): free, found without title or tail.
+    await act(env, 'BOB', 'event')({ event: 'left', title: '', tail: '' });
+    record = (await client(env, 'ALICE')()).body.records[0];
+    assert.equal(record.lock, null);
     assert.equal(record.lastNick, 'Bob');
     const unknown = await act(env, 'BOB', 'event')({ event: 'takeoff', title: 'Cessna 172', tail: 'D-EXYZ' });
     assert.equal(unknown.body.matched, false);
@@ -243,4 +247,18 @@ test('a live flight claims the aircraft as busy on the ground; aborted it is fre
     await act(env, 'BOB', 'event')({ event: 'takeoff', title: 'A2A Piper PA-24-250 Comanche', tail: 'DEINA' });
     await act(env, 'BOB', 'event')({ event: 'unclaim', title: 'A2A Piper PA-24-250 Comanche', tail: 'DEINA' });
     assert.equal((await client(env, 'ALICE')()).body.records[0].lock.state, 'flying', 'unclaim never frees a flying aircraft');
+});
+
+test('leaving the aircraft frees busy, flying and landed, never a manual reservation', async () => {
+    const env = { GA_CREW_FLEET: namespace() };
+    await client(env, 'ALICE')({ records: [{ key: KEY, pos: pos(), log: log() }] });
+    await act(env, 'BOB', 'event')({ event: 'claim', title: 'A2A Piper PA-24-250 Comanche', tail: 'DEINA' });
+    await act(env, 'BOB', 'event')({ event: 'left', title: 'A2A Piper PA-24-250 Comanche', tail: 'DEINA' });
+    assert.equal((await client(env, 'ALICE')()).body.records[0].lock, null);
+    await act(env, 'BOB', 'reserve')({ key: KEY });
+    await act(env, 'BOB', 'event')({ event: 'left', title: 'A2A Piper PA-24-250 Comanche', tail: 'DEINA' });
+    assert.equal((await client(env, 'ALICE')()).body.records[0].lock.state, 'reserved');
+    const other = await act(env, 'ALICE', 'event')({ event: 'left', title: 'A2A Piper PA-24-250 Comanche', tail: 'DEINA' });
+    assert.equal(other.body.refused, undefined, 'someone else leaving changes nothing');
+    assert.equal((await client(env, 'ALICE')()).body.records[0].lock.state, 'reserved');
 });

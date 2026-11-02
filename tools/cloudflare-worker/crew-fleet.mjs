@@ -7,7 +7,7 @@
 //        -> { ok, rev, changed, ignored, blocked: [keys used by someone else] }
 //   POST /api/crew-fleet-v1/<crew>/reserve      { key }  (crew board) -> 409 when used by someone else
 //   POST /api/crew-fleet-v1/<crew>/release      { key }
-//   POST /api/crew-fleet-v1/<crew>/event        { event: claim|unclaim|takeoff|parked, title, tail, lat, lon }  (tracker)
+//   POST /api/crew-fleet-v1/<crew>/event        { event: claim|unclaim|takeoff|parked|left, title, tail, lat, lon }  (tracker)
 //   GET  /api/crew-fleet-v1/<crew>/ws           WebSocket (desktop app): { type: 'fleet', rev } on every
 //        change. Hibernating: an idle connection costs nothing; "ping" is answered without waking.
 // Every change also stores the revision in the crew presence object, so the crew board sees
@@ -24,7 +24,7 @@ const MAX_SOCKETS = 200;
 const AUTH_CACHE_MS = 30 * 60 * 1000;
 const AUTH_CACHE_MAX = 500;
 const ACTIONS = new Set(['reserve', 'release', 'event']);
-const EVENTS = new Set(['claim', 'unclaim', 'takeoff', 'parked']);
+const EVENTS = new Set(['claim', 'unclaim', 'takeoff', 'parked', 'left']);
 const lower = value => String(value || '').trim().toLowerCase();
 const text = (value, max) => String(value ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max);
 
@@ -115,16 +115,14 @@ export class CrewFleet {
             // Someone else reserved or flies this aircraft: their state counts, this copy does not.
             if (stored && core.blockedFor(stored.lock, pilot.pilotId, now)) { blocked.push(upload.key); continue; }
             const merged = core.mergeRecord(stored, upload);
-            // The holder's export after landing ends the use of the aircraft.
-            const lock = core.applyLock(stored?.lock, 'uploaded', pilot, now);
             const sameContent = stored && core.recordSignature(merged) === core.recordSignature(stored);
-            if (sameContent && !lock.changed) { ignored++; continue; }
+            if (sameContent) { ignored++; continue; }
             changed.push({
                 ...(stored || {}),
-                key: upload.key, pos: merged.pos, log: merged.log, updatedAt: sameContent ? stored.updatedAt : now,
+                key: upload.key, pos: merged.pos, log: merged.log, updatedAt: now,
                 ownerPilotId: stored?.ownerPilotId || pilot.pilotId, ownerNick: stored?.ownerNick || pilot.nick,
-                lastPilotId: sameContent ? stored.lastPilotId : pilot.pilotId, lastNick: sameContent ? stored.lastNick : pilot.nick,
-                lock: lock.lock
+                lastPilotId: pilot.pilotId, lastNick: pilot.nick,
+                lock: stored?.lock || null
             });
         }
         if (changed.length) await this.save(state, changed);
@@ -141,7 +139,14 @@ export class CrewFleet {
     }
 
     async flightEvent(state, body, pilot, now) {
-        const key = core.matchAircraft(state.records.values(), body);
+        // "left": the aircraft this pilot uses right now, even when the sim already shows a menu.
+        const held = body.event === 'left'
+            ? [...state.records.values()].filter(record => {
+                const lock = core.activeLock(record.lock, now);
+                return lock && ['busy', 'flying', 'landed'].includes(lock.state) && String(lock.pilotId).toLowerCase() === String(pilot.pilotId).toLowerCase();
+            })
+            : [];
+        const key = held.length === 1 ? held[0].key : core.matchAircraft(state.records.values(), body);
         if (!key) return reply({ ok: true, matched: false });
         const stored = state.records.get(key);
         const result = core.applyLock(stored.lock, body.event, pilot, now);
