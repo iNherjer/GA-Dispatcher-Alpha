@@ -169,6 +169,7 @@
     function aircraftRow(v) {
         const row = el('div', `crew-fleet-row is-${v.state}`);
         const head = el('div', 'crew-fleet-row-head');
+        // One line: tail, status right next to it, the action at the right edge.
         head.append(el('span', 'crew-fleet-tail', v.tail || v.title), el('span', `crew-fleet-chip is-${v.state}`, statusText(v)));
         row.append(head);
         row.append(el('div', 'crew-fleet-type', v.title));
@@ -187,7 +188,7 @@
             button.type = 'button';
             button.disabled = Boolean(busyKey);
             button.addEventListener('click', event => { event.stopPropagation(); void lockAction(v.key, action[0]); });
-            row.append(button);
+            head.append(button);
         }
         return row;
     }

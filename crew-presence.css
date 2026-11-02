@@ -274,10 +274,13 @@
     border-radius: 0.35cqw;
     background: rgba(255, 255, 255, 0.75);
 }
-.crew-fleet-row-head { display: flex; align-items: center; justify-content: space-between; gap: 0.3cqw; }
-.crew-fleet-tail { font-size: 1.3cqw; overflow-wrap: anywhere; }
+.crew-fleet-row-head { display: flex; align-items: center; gap: 0.4cqw; min-width: 0; }
+.crew-fleet-tail { flex: none; font-size: 1.3cqw; }
 .crew-fleet-chip {
-    flex: none;
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
     padding: 0.1cqw 0.35cqw;
     border-radius: 0.3cqw;
     background: #1e7b34;
@@ -300,8 +303,8 @@
 }
 .crew-fleet-conflict { font-size: 0.95cqw; color: #a3271a; }
 .crew-fleet-btn {
-    align-self: flex-start;
-    margin-top: 0.1cqw;
+    flex: none;
+    margin-left: auto;
     padding: 0.15cqw 0.45cqw;
     border: 1px solid #7d9c76;
     border-radius: 0.3cqw;
@@ -390,6 +393,7 @@
         overflow: visible;
         overflow-wrap: anywhere;
     }
-    #pinboardOverlay .crew-fleet-btn { min-height: 32px; padding: 4px 12px; font-size: 13px; border-radius: 5px; }
+    #pinboardOverlay .crew-fleet-row-head { gap: 6px; }
+    #pinboardOverlay .crew-fleet-btn { min-height: 30px; padding: 3px 10px; font-size: 12px; border-radius: 5px; }
     #pinboardOverlay .crew-flight-aircraft { font-size: 12px; }
 }
