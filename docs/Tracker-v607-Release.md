@@ -14,6 +14,12 @@
 
 - `crew-fleet-client.js`: gleiches Hinweisband in der App mit „Pinnwand“-Knopf (öffnet das Crew-Brett).
 
+EXE (Windows-x64, pkg 6.18.1 / Node18, `--no-bytecode --public --public-packages '*'` aus sauberem Worktree von
+`3b3b394ce`, `node_modules` als Link wie bei v605/v606 – mit kopierten `node_modules` packt pkg rund 225 KB weniger,
+Ursache ungeklärt, deshalb nicht verwendet): 174728046 Bytes; SHA-256
+`16f463703a15b121409fcdda8a04d2b4dcc75d64c74e25d52e4a028a64996483`. Öffentlicher Download geprüft.
+Volle Tracker-Testsuite: 1537 Tests, 1535 bestanden, 2 übersprungen, 0 Fehler.
+
 Nur Alpha-Runtime umstellen, Stable unverändert.
 
 ## Im Feld prüfen
