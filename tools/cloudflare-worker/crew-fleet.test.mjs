@@ -226,7 +226,7 @@ test('the sim may report the livery registration, another title or only the park
     const byLivery = await act(env, 'BOB', 'event')({ event: 'takeoff', title: 'A2A Piper PA-24-250 Comanche N8351P', tail: 'N8351P' });
     assert.equal(byLivery.body.key, KEY);
     await act(env, 'BOB', 'release')({ key: KEY });
-    const bySpot = await act(env, 'BOB', 'event')({ event: 'takeoff', title: 'Comanche Livery 7', tail: '', lat: 48.27692, lon: 8.43088 });
+    const bySpot = await act(env, 'BOB', 'event')({ event: 'takeoff', title: 'A2A Piper PA-24-250 Comanche Livery 7', tail: 'D-ELSE', lat: 48.27692, lon: 8.43088 });
     assert.equal(bySpot.body.key, KEY);
     await act(env, 'BOB', 'release')({ key: KEY });
     const elsewhere = await act(env, 'BOB', 'event')({ event: 'takeoff', title: 'Cessna 172', tail: 'D-EXYZ', lat: 50, lon: 9 });
@@ -261,4 +261,12 @@ test('leaving the aircraft frees busy, flying and landed, never a manual reserva
     const other = await act(env, 'ALICE', 'event')({ event: 'left', title: 'A2A Piper PA-24-250 Comanche', tail: 'DEINA' });
     assert.equal(other.body.refused, undefined, 'someone else leaving changes nothing');
     assert.equal((await client(env, 'ALICE')()).body.records[0].lock.state, 'reserved');
+});
+
+test('the same registration on another type never matches by registration alone', async () => {
+    const env = { GA_CREW_FLEET: namespace() };
+    await client(env, 'ALICE')({ records: [{ key: KEY, pos: pos(), log: log() }] });
+    const dakota = await act(env, 'ALICE', 'event')({ event: 'takeoff', title: 'Piper PA28-236 Dakota - Standard', tail: 'DEINA', lat: 48.2770, lon: 8.4310 });
+    assert.equal(dakota.body.matched, false, 'the Comanche stays free');
+    assert.equal((await client(env, 'ALICE')()).body.records[0].lock, null);
 });

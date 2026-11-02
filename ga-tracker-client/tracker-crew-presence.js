@@ -121,6 +121,8 @@ function createCrewPresence(options = {}) {
     if (menu) return;
     sample = { lat: Number(flight.lat), lon: Number(flight.lon), altFt: Number(flight.altFt), hdg: Number(flight.hdg), onGround: !!flight.onGround, gsKts: Number(flight.gsKts ?? flight.gs) || 0, vsFpm: Number(flight.vsFpm) || 0 };
     sampleAt = t;
+    // Slew moves the aircraft without flying it: no takeoff, landing or fleet event.
+    if (flight.slewing === true) return;
     observeFleet(t);
     if (!sample.onGround) {
       // A touch-and-go keeps the flight; a new flight starts only after the last one ended.

@@ -123,8 +123,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v609';
-const TRACKER_VERSION_CODE = 609;
+const TRACKER_VERSION = 'v610';
+const TRACKER_VERSION_CODE = 610;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -7564,7 +7564,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                 });
               }
               if (missionTelemetryInMenu) trackerCrewPresence?.observe({ inMenu: true });
-              else if (lat !== 0) trackerCrewPresence?.observe({ lat, lon, altFt: alt, hdg, onGround: !!onGround, gsKts: groundSpeedKts, vsFpm });
+              else if (lat !== 0) trackerCrewPresence?.observe({ lat, lon, altFt: alt, hdg, onGround: !!onGround, gsKts: groundSpeedKts, vsFpm, slewing: slew.active === true });
               if (ws && ws.readyState === WebSocket.OPEN && currentTelemetryHibernateState.shouldSendTelemetry) {
                 // GPS-Paket senden; Traffic wird alle 2s als Feld eingebettet (Relay-kompatibler Weg)
                 const flight = {

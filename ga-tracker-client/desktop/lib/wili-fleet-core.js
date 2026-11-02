@@ -272,8 +272,9 @@
 
     // Finds the fleet aircraft the tracker flies. The mod keys by tail and sim title, but the
     // sim may report another title (livery suffix) or the livery's registration as ATC ID.
-    // Order: tail + title, unique tail, similar title near the parking spot, the only aircraft
-    // parked right where the flight started (the mod puts it there).
+    // The title must always fit: one pilot may use the same registration on several types
+    // (test 02.11.2026: Comanche and Dakota both "DEINA"). Order: tail + similar title, then a
+    // similar title near the parking spot (sim reports the livery registration).
     const plainTitle = value => lower(value).replace(/[^a-z0-9]+/g, '');
     function similarTitle(a, b) {
         const x = plainTitle(a), y = plainTitle(b);
@@ -285,14 +286,14 @@
         const titleOf = record => record.pos?.title || titleFromKey(record.key);
         const tails = record => [record.pos?.tail, record.pos?.livery, record.pos?.liveryName, String(record.key).replace(/^tail:/, '').split('|')[0]].map(lower).filter(Boolean);
         const byTail = r ? list.filter(record => tails(record).includes(r)) : [];
-        const exact = byTail.find(record => similarTitle(titleOf(record), title));
-        if (exact) return exact.key;
-        if (byTail.length === 1) return byTail[0].key;
+        const exact = byTail.filter(record => similarTitle(titleOf(record), title));
+        if (exact.length === 1) return exact[0].key;
         if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
         const placed = list.filter(record => Number.isFinite(record.pos?.lat) && Number.isFinite(record.pos?.lon));
         const near = placed.filter(record => similarTitle(titleOf(record), title) && distanceKm(record.pos, { lat, lon }) < 1);
         if (near.length === 1) return near[0].key;
-        const here = placed.filter(record => distanceKm(record.pos, { lat, lon }) < 0.15);
+        // Same type several times: the one parked right where the flight started.
+        const here = near.filter(record => distanceKm(record.pos, { lat, lon }) < 0.15);
         return here.length === 1 ? here[0].key : null;
     }
 

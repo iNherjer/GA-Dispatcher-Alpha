@@ -128,8 +128,9 @@ Regeln in `wili-fleet-core.js` (`applyLock`, `activeLock`), Server in `crew-flee
   `savedAt` knapp über dem lokalen geschrieben (Mod übernimmt ihn). Belegt/In der Luft/Gelandet bei jemand anderem:
   `hidden: true` (Test 02.11.2026: Mod blendet die Maschine aus), danach wieder sichtbar am neuen Platz.
   Von der App ausgeblendete Kopien gehen nie hoch (`ledger.hidden`).
-- Maschine erkennen (`matchAircraft`): Kennzeichen + Titel, sonst eindeutiges Kennzeichen, sonst Titel innerhalb
-  1 km vom Abstellplatz vor dem Start. Tracker liest `TITLE` und `ATC ID` (`tracker-aircraft-identity.js`).
+- Maschine erkennen (`matchAircraft`, ab 02.11.2026 nachmittags): der Titel muss immer passen (ähnlich, Zusätze erlaubt) –
+  Kennzeichen + Titel, sonst Titel innerhalb 1 km vom Abstellplatz vor dem Start. Kennzeichen oder Standort allein
+  reichen nicht (Test: Comanche und Dakota beide „DEINA“). Slew zählt nicht als Flug (Tracker v610). Tracker liest `TITLE` und `ATC ID` (`tracker-aircraft-identity.js`).
 
 `left` (Tracker v609): der Pilot verlässt die Maschine – andere Maschine geladen, 60 s Hauptmenü/Weltkarte,
 Sim getrennt oder Tracker beendet. Erst dann sind Belegt/In der Luft/Gelandet wieder frei, vorher könnte er

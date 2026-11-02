@@ -309,3 +309,18 @@ test('crew fleet: another aircraft, a closed sim or a stopped tracker leave the 
   await t.presence.stop();
   assert.deepEqual(t.posts.filter(post => post.url.includes('crew-fleet')).map(post => post.body.event), ['claim', 'left']);
 });
+
+test('slew is not a flight: no takeoff for the crew board or the fleet', async () => {
+  const s = setup();
+  s.presence.setAircraft({ title: 'Piper PA28-236 Dakota - Standard', tail: 'DEINA' });
+  s.sample();
+  await s.presence.tick();
+  s.sample({ onGround: false, gsKts: 120, slewing: true, lat: 49.1 });
+  s.advance(60000);
+  s.sample({ onGround: true, gsKts: 0, slewing: false, lat: 49.1 });
+  s.advance(60000);
+  await s.presence.tick();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(s.posts.filter(post => post.url.includes('crew-fleet')).length, 0);
+  assert.equal(s.posts.filter(post => /crew-presence-v1\/EDTW$/.test(post.url)).at(-1).body.flight, null);
+});
