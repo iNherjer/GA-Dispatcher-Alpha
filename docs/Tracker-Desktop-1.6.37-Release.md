@@ -10,3 +10,9 @@
   „· entfernt“ anhängen, Hinweis zum Löschen im Hangar.
 
 Tracker unverändert (der EFB-Hinweis zum Löschen kommt mit dem nächsten Tracker-Build).
+
+## Aktivierung
+
+Release `tracker-desktop-v1.6.37` (Worktree `8d687ff09`), Installer 100310374 Bytes, Download geprüft
+(SHA-512 wie `latest.yml`). Worker a52e33da deployt. Tests: Desktop 146/146, Worker vollständig.
+`latest.yml`/`alpha.yml` aktiviert.
