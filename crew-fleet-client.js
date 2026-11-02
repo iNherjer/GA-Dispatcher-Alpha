@@ -67,7 +67,11 @@
                 // The first load after opening the app is not a change.
                 if (rev > 0) showNotice(core.noticeText(core.changeNotes(records, changed, pilotId())));
                 if (data?.full) records = new Map();
-                for (const record of changed) records.set(record.key, record);
+                // Removed by its owner: gone from the note and the map.
+                for (const record of changed) {
+                    if (core.isRemoved(record)) records.delete(record.key);
+                    else records.set(record.key, record);
+                }
                 rev = Number(data?.rev) || 0;
                 rerender(reason);
             } catch (_) {}
@@ -88,6 +92,26 @@
     function rerender() {
         updateOpenMap();
         if (boardShowsCrew() && typeof renderNotes === 'function') renderNotes();
+    }
+
+    async function removeAircraft(v) {
+        if (busyKey) return;
+        if (!confirm(`${v.tail || ''} ${v.title} endgültig aus der Vereinsflotte löschen?\n\nBei den anderen wird sie im Mod ausgeblendet und als „entfernt“ markiert. In deinem eigenen Hangar bleibt sie.`)) return;
+        busyKey = v.key;
+        rerender();
+        try {
+            const res = await fetch(baseUrl() + encodeURIComponent(groupName()) + '/remove', { method: 'POST', headers: headers(), body: JSON.stringify({ key: v.key }) });
+            const data = await res.json().catch(() => null);
+            if (res.status === 409) alert(`Die Maschine wird gerade genutzt (${data?.holder?.nick || 'Crew'}). Löschen geht, wenn sie frei ist.`);
+            else if (res.status === 403) alert('Nur der Halter kann eine Maschine aus der Vereinsflotte löschen.');
+            else if (!res.ok) alert('Die Maschine konnte nicht gelöscht werden. Bitte später erneut versuchen.');
+        } catch (_) {
+            alert('Die Crew-Cloud ist gerade nicht erreichbar.');
+        } finally {
+            busyKey = '';
+            await refresh('remove', { force: true });
+            rerender();
+        }
     }
 
     async function lockAction(key, action) {
@@ -146,6 +170,8 @@
             state: lock?.state || 'free',
             holder: lock?.nick || '',
             mine: Boolean(lock) && sameId(lock.pilotId, pilotId()),
+            owned: sameId(record.ownerPilotId, pilotId()),
+            moved: Number(record.pos?.savedAt) || Number(record.updatedAt) || 0,
             until: lock?.until || 0,
             owner: record.ownerNick || '',
             last: record.lastNick || '',
@@ -154,9 +180,9 @@
         };
     }
     function sortedViews() {
-        const order = { flying: 0, busy: 1, landed: 2, reserved: 3, free: 4 };
+        // The most recently moved aircraft on top; the note shows four, the rest scrolls.
         return [...records.values()].map(view)
-            .sort((a, b) => order[a.state] - order[b.state] || a.tail.localeCompare(b.tail));
+            .sort((a, b) => b.moved - a.moved || a.tail.localeCompare(b.tail));
     }
     function statusText(v) {
         if (v.state === 'free') return core.LOCK_LABEL.free;
@@ -190,6 +216,16 @@
             button.addEventListener('click', event => { event.stopPropagation(); void lockAction(v.key, action[0]); });
             head.append(button);
         }
+        // The owner may take his aircraft out of the fleet for good.
+        if (v.owned && (v.state === 'free' || v.mine)) {
+            const remove = el('button', 'crew-fleet-del', '🗑');
+            remove.type = 'button';
+            remove.title = 'Aus der Vereinsflotte löschen';
+            remove.setAttribute('aria-label', `${v.tail || v.title} aus der Vereinsflotte löschen`);
+            remove.disabled = Boolean(busyKey);
+            remove.addEventListener('click', event => { event.stopPropagation(); void removeAircraft(v); });
+            head.append(remove);
+        }
         return row;
     }
 
@@ -215,6 +251,15 @@
         note.append(title, list);
         placeNote(note, 'crew-fleet', 62, 33, -1.5);
         board.appendChild(note);
+        // Room for four aircraft; more scroll inside the note. Measured once laid out (fonts) and
+        // again when the rows change size.
+        const fit = () => {
+            const rows = list.children;
+            if (!list.isConnected || rows.length <= 4) return;
+            list.style.maxHeight = `${rows[3].offsetTop + rows[3].offsetHeight - rows[0].offsetTop + 2}px`;
+        };
+        requestAnimationFrame(fit);
+        if (typeof ResizeObserver === 'function') new ResizeObserver(fit).observe(list.children[0] || list);
     }
 
     // --- Map of all aircraft ---

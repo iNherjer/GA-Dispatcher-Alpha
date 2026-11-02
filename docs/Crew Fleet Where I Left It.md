@@ -196,7 +196,17 @@ Dateiformat. Was der Mod laut `state.txt` schon am selben Platz zeigt, wird nich
   Crew-Admin)? Schreibende Aufrufe sollen die Mitgliedschaft nach einem Austritt sofort prüfen (heute bis
   30 min Zwischenspeicher im Worker).
 
-Noch nicht gebaut: Löschvermerk (Maschine aus der Flotte nehmen).
+### Maschine löschen und Liste (03.11.2026, Worker + Web v2316 + Desktop 1.6.37)
+
+- Nur der Halter (`ownerPilotId`) löscht über 🗑 auf dem Flotten-Zettel (`POST …/remove`), nicht während
+  jemand anderes sie nutzt. In der Cloud bleibt 30 Tage ein Vermerk `removed: true` (ohne Position/Flugbuch),
+  damit jeder Client es erfährt; danach verschwindet er. Uploads dieses Schlüssels lehnt der Worker ab
+  (`removed` in der Antwort), Reservieren/Erkennung ignorieren ihn.
+- Desktop der anderen: Maschine im Mod ausgeblendet und „· entfernt“ im Namen, Hinweis „im Hangar löschen“
+  (7 Tage). Beim Halter bleibt sie unverändert als eigene Maschine; seine App lädt sie nie wieder hoch.
+- Hinweis „… aus der Flotte entfernt“ (App sofort, EFB mit dem nächsten Tracker-Build).
+- Flotten-Zettel: zuletzt bewegte Maschinen oben (`pos.savedAt`), Höhe für vier, der Rest scrollt.
+- Wieder in die Flotte holen: noch nicht vorgesehen (Entwurf privat/Vereinsmaschine).
 
 Bekannt: Das Kennzeichen-Decal fehlt an vom Mod gespawnten Maschinen in MSFS 2024 (Grenze des Mods/Sims laut
 Mod-Seite); User testet weiter.

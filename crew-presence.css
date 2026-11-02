@@ -231,7 +231,8 @@
 .post-it.crew-fleet-card {
     /* Larger than the standard square post-it: a list with status and buttons. */
     width: 22cqw !important;
-    height: 21cqw !important;
+    height: auto !important;
+    min-height: 12cqw !important;
     background: #e3efe0;
     display: flex;
     flex-direction: column;
@@ -255,7 +256,8 @@
     cursor: pointer;
 }
 .crew-fleet-list {
-    flex: 1;
+    position: relative; /* row offsets for the four-row height (crew-fleet-client.js) */
+    flex: none;
     min-height: 0;
     overflow-y: auto;
     display: flex;
@@ -396,4 +398,19 @@
     #pinboardOverlay .crew-fleet-row-head { gap: 6px; }
     #pinboardOverlay .crew-fleet-btn { min-height: 30px; padding: 3px 10px; font-size: 12px; border-radius: 5px; }
     #pinboardOverlay .crew-flight-aircraft { font-size: 12px; }
+}
+.crew-fleet-del {
+    flex: none;
+    padding: 0.1cqw 0.3cqw;
+    border: 1px solid #c9a3a3;
+    border-radius: 0.3cqw;
+    background: #fff;
+    font-size: 0.95cqw;
+    line-height: 1;
+    cursor: pointer;
+}
+.crew-fleet-del:disabled { opacity: 0.6; cursor: default; }
+.crew-fleet-del:focus-visible { outline: 2px solid #1a5fb4; outline-offset: 1px; }
+@media (max-width: 767px) {
+    #pinboardOverlay .crew-fleet-del { min-width: 30px; min-height: 30px; font-size: 14px; border-radius: 5px; }
 }

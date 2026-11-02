@@ -14,7 +14,8 @@ function storage() {
             if (typeof key === 'object') for (const [k, v] of Object.entries(key)) records.set(k, structuredClone(v));
             else records.set(key, structuredClone(value));
         },
-        list: async ({ prefix }) => { counts.list++; return new Map([...records].filter(([k]) => k.startsWith(prefix)).map(([k, v]) => [k, structuredClone(v)])); }
+        list: async ({ prefix }) => { counts.list++; return new Map([...records].filter(([k]) => k.startsWith(prefix)).map(([k, v]) => [k, structuredClone(v)])); },
+        delete: async keys => (Array.isArray(keys) ? keys : [keys]).forEach(k => records.delete(k))
     };
 }
 function namespace() {
@@ -269,4 +270,44 @@ test('the same registration on another type never matches by registration alone'
     const dakota = await act(env, 'ALICE', 'event')({ event: 'takeoff', title: 'Piper PA28-236 Dakota - Standard', tail: 'DEINA', lat: 48.2770, lon: 8.4310 });
     assert.equal(dakota.body.matched, false, 'the Comanche stays free');
     assert.equal((await client(env, 'ALICE')()).body.records[0].lock, null);
+});
+
+test('only the owner removes an aircraft; it stays out, also when uploaded again', async () => {
+    const env = { GA_CREW_FLEET: namespace() };
+    await client(env, 'ALICE')({ records: [{ key: KEY, pos: pos(), log: log() }] });
+    assert.equal((await act(env, 'BOB', 'remove')({ key: KEY })).status, 403, 'not the owner');
+    await act(env, 'BOB', 'event')({ event: 'claim', title: 'A2A Piper PA-24-250 Comanche', tail: 'DEINA' });
+    const inUse = await act(env, 'ALICE', 'remove')({ key: KEY });
+    assert.equal(inUse.status, 409, 'not while someone else uses it');
+    await act(env, 'BOB', 'event')({ event: 'left', title: '', tail: '' });
+    const { rev } = (await client(env, 'BOB')()).body;
+    assert.equal((await act(env, 'ALICE', 'remove')({ key: KEY })).status, 200);
+    const delta = (await client(env, 'BOB')(null, rev)).body.records;
+    assert.equal(delta.length, 1);
+    assert.equal(delta[0].removed, true, 'clients learn it from the marker');
+    assert.equal(delta[0].removedNick, 'Ali');
+    assert.equal(delta[0].log, null);
+    const again = await client(env, 'ALICE')({ records: [{ key: KEY, pos: pos({ savedAt: 99999 }), log: log() }] });
+    assert.deepEqual(again.body.removed, [KEY]);
+    assert.equal((await client(env, 'ALICE')()).body.records[0].removed, true);
+    assert.equal((await act(env, 'BOB', 'reserve')({ key: KEY })).status, 404);
+    const flown = await act(env, 'BOB', 'event')({ event: 'takeoff', title: 'A2A Piper PA-24-250 Comanche', tail: 'DEINA' });
+    assert.equal(flown.body.matched, false);
+});
+
+test('removal markers older than 30 days disappear', async () => {
+    const env = { GA_CREW_FLEET: namespace() };
+    const realNow = Date.now;
+    try {
+        let t = realNow();
+        Date.now = () => t;
+        await client(env, 'ALICE')({ records: [{ key: KEY, pos: pos(), log: log() }, { key: 'tail:X|Robin DR400', pos: pos({ title: 'Robin DR400', tail: 'X' }) }] });
+        await act(env, 'ALICE', 'remove')({ key: KEY });
+        t += 31 * 24 * 60 * 60 * 1000;
+        await act(env, 'ALICE', 'remove')({ key: 'tail:X|Robin DR400' });
+        const keys = (await client(env, 'ALICE')()).body.records.map(record => record.key);
+        assert.deepEqual(keys, ['tail:X|Robin DR400']);
+    } finally {
+        Date.now = realNow;
+    }
 });

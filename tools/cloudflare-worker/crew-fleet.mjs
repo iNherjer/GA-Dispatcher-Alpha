@@ -7,6 +7,8 @@
 //        -> { ok, rev, changed, ignored, blocked: [keys used by someone else] }
 //   POST /api/crew-fleet-v1/<crew>/reserve      { key }  (crew board) -> 409 when used by someone else
 //   POST /api/crew-fleet-v1/<crew>/release      { key }
+//   POST /api/crew-fleet-v1/<crew>/remove       { key }  owner only: out of the fleet for good; a marker
+//        (removed: true) stays 30 days so every client hides it; uploads of that key are refused
 //   POST /api/crew-fleet-v1/<crew>/event        { event: claim|unclaim|takeoff|parked|left, title, tail, lat, lon }  (tracker)
 //   GET  /api/crew-fleet-v1/<crew>/ws           WebSocket (desktop app): { type: 'fleet', rev } on every
 //        change. Hibernating: an idle connection costs nothing; "ping" is answered without waking.
@@ -23,7 +25,7 @@ const MAX_UPLOAD_RECORDS = 120;
 const MAX_SOCKETS = 200;
 const AUTH_CACHE_MS = 30 * 60 * 1000;
 const AUTH_CACHE_MAX = 500;
-const ACTIONS = new Set(['reserve', 'release', 'event']);
+const ACTIONS = new Set(['reserve', 'release', 'remove', 'event']);
 const EVENTS = new Set(['claim', 'unclaim', 'takeoff', 'parked', 'left']);
 const lower = value => String(value || '').trim().toLowerCase();
 const text = (value, max) => String(value ?? '').replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, max);
@@ -97,6 +99,7 @@ export class CrewFleet {
             const state = await this.load();
             const pilot = { pilotId: body.pilotId, nick: body.nick };
             if (route === 'reserve' || route === 'release') return await this.lockAction(state, route, body.key, pilot, now);
+            if (route === 'remove') return await this.remove(state, body.key, pilot, now);
             if (route === 'event') return await this.flightEvent(state, body, pilot, now);
             return await this.upsert(state, body, pilot, now);
         } catch (error) {
@@ -105,12 +108,36 @@ export class CrewFleet {
         }
     }
 
+    async remove(state, key, pilot, now) {
+        const stored = state.records.get(key);
+        if (!stored) return reply({ error: 'aircraft_unknown' }, 404);
+        if (core.isRemoved(stored)) return reply({ ok: true, rev: state.rev, saved: false });
+        if (String(stored.ownerPilotId || '').toLowerCase() !== String(pilot.pilotId || '').toLowerCase()) return reply({ error: 'not_owner' }, 403);
+        const lock = core.activeLock(stored.lock, now);
+        if (core.blockedFor(stored.lock, pilot.pilotId, now)) return reply({ error: 'aircraft_in_use', holder: { nick: lock.nick, state: lock.state } }, 409);
+        await this.save(state, [{
+            key, removed: true, removedAt: now, removedBy: pilot.pilotId, removedNick: pilot.nick,
+            ownerPilotId: stored.ownerPilotId, ownerNick: stored.ownerNick,
+            pos: stored.pos ? { title: stored.pos.title, tail: stored.pos.tail || '' } : null, log: null, lock: null
+        }]);
+        // Markers older than 30 days are gone for good.
+        const old = [...state.records.values()].filter(record => core.isRemoved(record) && now - Number(record.removedAt || 0) > core.REMOVED_KEEP_MS);
+        if (old.length && typeof this.storage.delete === 'function') {
+            for (const record of old) state.records.delete(record.key);
+            await this.storage.delete(old.map(record => 'r:' + record.key));
+        }
+        return reply({ ok: true, rev: state.rev, saved: true });
+    }
+
     async upsert(state, body, pilot, now) {
         const changed = [];
         const blocked = [];
+        const removed = [];
         let ignored = 0;
         for (const upload of body.records) {
             const stored = state.records.get(upload.key);
+            // Taken out of the fleet by its owner: never comes back through an upload.
+            if (core.isRemoved(stored)) { removed.push(upload.key); continue; }
             if (!stored && state.records.size + changed.length >= core.MAX_RECORDS) { ignored++; continue; }
             // Someone else reserved or flies this aircraft: their state counts, this copy does not.
             if (stored && core.blockedFor(stored.lock, pilot.pilotId, now)) { blocked.push(upload.key); continue; }
@@ -126,12 +153,12 @@ export class CrewFleet {
             });
         }
         if (changed.length) await this.save(state, changed);
-        return reply({ ok: true, rev: state.rev, saved: changed.length > 0, changed: changed.length, ignored, blocked });
+        return reply({ ok: true, rev: state.rev, saved: changed.length > 0, changed: changed.length, ignored, blocked, removed });
     }
 
     async lockAction(state, action, key, pilot, now) {
         const stored = state.records.get(key);
-        if (!stored) return reply({ error: 'aircraft_unknown' }, 404);
+        if (!stored || core.isRemoved(stored)) return reply({ error: 'aircraft_unknown' }, 404);
         const result = core.applyLock(stored.lock, action, pilot, now);
         if (result.refused) return reply({ error: 'aircraft_in_use', holder: { nick: result.holder.nick, state: result.holder.state } }, 409);
         if (result.changed) await this.save(state, [{ ...stored, lock: result.lock }]);
@@ -141,12 +168,12 @@ export class CrewFleet {
     async flightEvent(state, body, pilot, now) {
         // "left": the aircraft this pilot uses right now, even when the sim already shows a menu.
         const held = body.event === 'left'
-            ? [...state.records.values()].filter(record => {
+            ? [...state.records.values()].filter(record => !core.isRemoved(record)).filter(record => {
                 const lock = core.activeLock(record.lock, now);
                 return lock && ['busy', 'flying', 'landed'].includes(lock.state) && String(lock.pilotId).toLowerCase() === String(pilot.pilotId).toLowerCase();
             })
             : [];
-        const key = held.length === 1 ? held[0].key : core.matchAircraft(state.records.values(), body);
+        const key = held.length === 1 ? held[0].key : core.matchAircraft([...state.records.values()].filter(record => !core.isRemoved(record)), body);
         if (!key) return reply({ ok: true, matched: false });
         const stored = state.records.get(key);
         const result = core.applyLock(stored.lock, body.event, pilot, now);

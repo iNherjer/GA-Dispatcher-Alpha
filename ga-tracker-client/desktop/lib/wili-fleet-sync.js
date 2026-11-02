@@ -196,6 +196,8 @@ class WiliFleetSync extends EventEmitter {
       lastDownload: this.ledger.lastDownload || 0,
       push: this.socketOpen,
       formerCrew: this.ledger.formerCrew || null,
+      removed: Object.values(this.ledger.removed || {}).filter(entry => entry.marked && this.now() - (Number(entry.at) || 0) < 7 * 24 * 60 * 60 * 1000)
+        .map(entry => ({ key: entry.key, title: entry.title, tail: entry.tail, removedNick: entry.removedNick })),
       remoteNewer: this.remoteNewer,
       pending: (this.ledger.pending || []).map(entry => ({ key: entry.key, title: entry.title, tail: entry.tail })),
       aircraft: cloud
@@ -417,7 +419,7 @@ class WiliFleetSync extends EventEmitter {
     const savedAt = Math.round(mtime) - STATE_TIME_MARGIN_MS;
     const uploads = [];
     for (const rec of records.values()) {
-      if (!rec.onGround || rec.hidden || this.ledger.hidden?.[rec.key]) continue;
+      if (!rec.onGround || rec.hidden || this.ledger.hidden?.[rec.key] || this.ledger.removed?.[rec.key]) continue;
       const cloud = this.ledger.cloud[rec.key];
       if (cloud && core.blockedFor(cloud.lock, me, this.now())) continue;
       const own = local.get(rec.key)?.pos ? core.cleanPos(local.get(rec.key).pos) : null;
@@ -543,7 +545,7 @@ class WiliFleetSync extends EventEmitter {
       // Another crew: its records and revision are unrelated to the old ones.
       this.log(`WILI crew ${this.ledger.crew || '-'} -> ${crew || '-'}`);
       this.leaveCrew();
-      Object.assign(this.ledger, { crew, rev: 0, sent: {}, cloud: {}, hidden: {}, stateSent: {} });
+      Object.assign(this.ledger, { crew, rev: 0, sent: {}, cloud: {}, hidden: {}, stateSent: {}, removed: {} });
       if (this.socket && this.socketCrew !== crew) { this.closeSocket(); this.connectSocket().catch(() => {}); }
     }
     this.ledger.crewCheckedAt = this.now();
@@ -591,6 +593,7 @@ class WiliFleetSync extends EventEmitter {
       if (!clean.pos && !clean.log) continue;
       const signature = core.recordSignature(clean);
       if (this.ledger.sent[clean.key] === signature) continue;
+      if (this.ledger.removed?.[clean.key]) continue;
       const cloud = this.ledger.cloud[clean.key];
       // Used by someone else: their state counts; the next import resets this copy.
       // Hidden by this app: never sent, the next import shows it again.
@@ -609,6 +612,11 @@ class WiliFleetSync extends EventEmitter {
       const batch = changed.slice(i, i + UPLOAD_BATCH);
       const answer = await this.call('POST', { records: batch.map(entry => entry.record) });
       const refused = new Set(Array.isArray(answer?.blocked) ? answer.blocked : []);
+      for (const key of Array.isArray(answer?.removed) ? answer.removed : []) {
+        if (!this.ledger.removed) this.ledger.removed = {};
+        if (!this.ledger.removed[key]) this.ledger.removed[key] = { key, title: core.titleFromKey(key), tail: '', ownerPilotId: '', removedNick: '', at: this.now(), applied: true };
+        refused.add(key);
+      }
       for (const entry of batch) {
         if (refused.has(entry.record.key)) blocked.push(entry.record.key);
         else this.ledger.sent[entry.record.key] = entry.signature;
@@ -635,8 +643,20 @@ class WiliFleetSync extends EventEmitter {
     if (data?.unchanged) return { unchanged: true };
     const records = Array.isArray(data?.records) ? data.records : [];
     if (data?.full) this.ledger.cloud = {};
+    if (!this.ledger.removed) this.ledger.removed = {};
     for (const record of records) {
       if (!core.validKey(record?.key)) continue;
+      // Taken out of the fleet by its owner: not shown, never uploaded again.
+      if (core.isRemoved(record)) {
+        delete this.ledger.cloud[record.key];
+        if (!this.ledger.removed[record.key]) {
+          this.ledger.removed[record.key] = {
+            key: record.key, title: record.pos?.title || core.titleFromKey(record.key), tail: record.pos?.tail || '',
+            ownerPilotId: record.ownerPilotId || '', removedNick: record.removedNick || '', at: record.removedAt || this.now(), applied: false
+          };
+        }
+        continue;
+      }
       this.ledger.cloud[record.key] = {
         key: record.key, pos: record.pos || null, log: record.log || null, rev: record.rev,
         ownerPilotId: record.ownerPilotId || '', ownerNick: record.ownerNick || '', lastNick: record.lastNick || '', updatedAt: record.updatedAt || 0,
@@ -660,7 +680,8 @@ class WiliFleetSync extends EventEmitter {
   // for the mod, so running it on every sync costs nothing but a local file read.
   mergeCloudIntoBackup({ dryRun = false } = {}) {
     const cloudRecords = Object.values(this.ledger.cloud || {}).map(entry => ({ key: entry.key, pos: entry.pos, log: entry.log, lock: entry.lock }));
-    if (!cloudRecords.length) return 0;
+    const removedPending = Object.values(this.ledger.removed || {}).filter(entry => !entry.applied);
+    if (!cloudRecords.length && !removedPending.length) return 0;
     const { content, parsed } = this.readBackup();
     if (content && !parsed.header) throw new Error('backup.txt hat ein unbekanntes Format. Nichts geschrieben.');
     const records = new Map([...parsed.records.values()].map(record => [record.key, recordFromFile(record)]));
@@ -695,6 +716,20 @@ class WiliFleetSync extends EventEmitter {
         records.set(cloud.key, merged);
         changed.push(merged);
       }
+    }
+    // Removed from the fleet by another owner: hidden in the mod and named "· entfernt";
+    // deleting it in the mod hangar (REMOVE) is up to the pilot. The owner keeps his own.
+    for (const entry of removedPending) {
+      const local = records.get(entry.key);
+      if (!local?.pos || (entry.ownerPilotId && lower(entry.ownerPilotId) === lower(me))) {
+        if (!dryRun) entry.applied = true;
+        continue;
+      }
+      const name = String(local.pos.customName || local.pos.tail || local.pos.title || '').slice(0, 160);
+      const marked = { ...local, pos: { ...local.pos, hidden: true, customName: name.endsWith(' · entfernt') ? name : `${name} · entfernt`, savedAt: (Number(local.pos.savedAt) || 0) + 1 } };
+      records.set(entry.key, marked);
+      changed.push(marked);
+      if (!dryRun) { entry.applied = true; entry.marked = true; }
     }
     if (!changed.length || dryRun) return changed.length;
     return this.writeBackup(records, parsed, content, changed);

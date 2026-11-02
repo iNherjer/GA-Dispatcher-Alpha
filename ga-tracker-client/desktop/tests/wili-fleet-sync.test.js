@@ -412,3 +412,33 @@ test('mod saves in the air, of hidden or unknown aircraft are ignored; own aircr
   await alice.sync.onLocalChange();
   assert.equal(server.calls.length, 0);
 });
+
+test('an aircraft removed by its owner is hidden and marked at the others, kept by the owner, never uploaded again', async () => {
+  const server = await worker();
+  const alice = pilot('ALICE', server);
+  const bob = pilot('BOB', server);
+  alice.write(backup([{ key: DEINA, pos: pos(COMANCHE, 'DEINA', { savedAt: 2000, customName: 'DEINA' }), log: log() }]));
+  await alice.sync.sync();
+  bob.write(backup([]));
+  await bob.sync.sync();
+  assert.equal(bob.read().records.get(DEINA).pos.hidden, false);
+  assert.equal((await server.action('ALICE', 'remove', { key: DEINA })).status, 200);
+  await bob.sync.sync('poll');
+  const atBob = bob.read().records.get(DEINA).pos;
+  assert.equal(atBob.hidden, true);
+  assert.equal(atBob.customName, 'DEINA · entfernt');
+  assert.deepEqual(bob.sync.publicState().removed.map(entry => entry.tail), ['DEINA']);
+  assert.equal(bob.sync.publicState().aircraft.length, 0);
+  // Alice keeps her own aircraft untouched and does not send it again.
+  await alice.sync.sync('poll');
+  assert.equal(alice.read().records.get(DEINA).pos.customName, 'DEINA');
+  alice.write(backup([{ key: DEINA, pos: pos(COMANCHE, 'DEINA', { savedAt: 9000, customName: 'DEINA' }), log: log() }], 9100));
+  server.calls.length = 0;
+  await alice.sync.sync();
+  assert.equal(server.calls.filter(call => call.startsWith('POST')).length, 0);
+  // Bob exports the marked copy: it does not come back either.
+  bob.write(backup([{ key: DEINA, pos: { ...atBob, savedAt: 9999 }, log: log() }], 9999));
+  server.calls.length = 0;
+  await bob.sync.sync();
+  assert.equal(server.calls.filter(call => call.startsWith('POST')).length, 0);
+});

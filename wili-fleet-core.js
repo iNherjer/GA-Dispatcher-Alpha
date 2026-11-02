@@ -304,6 +304,11 @@
         return 12742 * Math.asin(Math.min(1, Math.sqrt(h)));
     }
 
+    // Removed by its owner: the record stays as a marker (removed: true) for 30 days, so every
+    // client learns it; it is never uploaded again.
+    const REMOVED_KEEP_MS = 30 * 24 * 60 * 60 * 1000;
+    const isRemoved = record => record?.removed === true;
+
     // What other pilots changed between two states of the crew fleet, as short lines for a
     // notice ("DEINA in der Luft (Tester)"). Own changes are never reported.
     function changeNotes(previous, changed, me, now = Date.now()) {
@@ -312,6 +317,10 @@
         for (const record of changed || []) {
             const old = previous.get(record.key);
             const tail = record.pos?.tail || String(record.key).replace(/^tail:/, '').split('|')[0] || titleFromKey(record.key);
+            if (isRemoved(record)) {
+                if (old && !isRemoved(old) && !mine(record.removedBy)) notes.push(`${tail} aus der Flotte entfernt${record.removedNick ? ` (${record.removedNick})` : ''}`);
+                continue;
+            }
             if (!old) {
                 if (!mine(record.lastPilotId)) notes.push(`${tail} neu in der Flotte${record.lastNick ? ` (${record.lastNick})` : ''}`);
                 continue;
@@ -337,7 +346,7 @@
     }
 
     return {
-        HEADER, FORMAT, MAX_RECORDS, MAX_FLIGHTS, LOCK_MS, LOCK_LABEL, changeNotes, noticeText,
+        HEADER, FORMAT, MAX_RECORDS, MAX_FLIGHTS, LOCK_MS, LOCK_LABEL, REMOVED_KEEP_MS, isRemoved, changeNotes, noticeText,
         activeLock, lockHolder, blockedFor, applyLock, lockLabel, matchAircraft, distanceKm,
         validKey, cleanPos, cleanLog, canonical, recordSignature,
         mergePos, mergeLog, mergeRecord, uniteFlights,

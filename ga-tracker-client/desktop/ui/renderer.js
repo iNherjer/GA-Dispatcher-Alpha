@@ -855,7 +855,10 @@ function renderWiliFleet(data = {}) {
   const former = data.formerCrew && phase === 'no-crew'
     ? ` Crew ${data.formerCrew.crew} verlassen${data.formerCrew.aircraft?.length ? `: ${data.formerCrew.aircraft.length} fremde Maschine${data.formerCrew.aircraft.length === 1 ? '' : 'n'} mit „· ex ${data.formerCrew.crew}“ gekennzeichnet (${data.formerCrew.aircraft.join(', ')}) – im Mod „Import Backup“ drücken, danach bei Bedarf dort löschen.` : '.'}`
     : '';
-  const message = (wiliActionMessage || data.message || (data.modFound ? 'Bereit.' : 'Mod-Ordner wird gesucht …')) + former;
+  const removed = Array.isArray(data.removed) && data.removed.length
+    ? ` Aus der Vereinsflotte entfernt: ${data.removed.map((entry) => entry.tail || entry.title).join(', ')} – im Mod ausgeblendet („· entfernt“), bitte dort im Hangar löschen.`
+    : '';
+  const message = (wiliActionMessage || data.message || (data.modFound ? 'Bereit.' : 'Mod-Ordner wird gesucht …')) + former + removed;
   elements.wiliMessage.textContent = message;
   elements.wiliMessage.className = `subtle ${['error', 'no-mod', 'no-crew', 'no-account'].includes(phase) && !wiliActionMessage ? 'wili-error' : ''}`.trim();
   elements.wiliPath.textContent = data.modDir ? `${data.modSource}: ${data.modDir}` : '';
