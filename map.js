@@ -986,10 +986,7 @@ function applyMapHintEffects(key) {
                     wxOverlayFetchController.abort();
                     wxOverlayFetchController = null;
                 }
-                if (wxMapWeatherFetchController) {
-                    wxMapWeatherFetchController.abort();
-                    wxMapWeatherFetchController = null;
-                }
+                resetMapMetarRequests();
             } catch (_) {}
             if (typeof clearMapOpenMeteoOverlays === 'function') clearMapOpenMeteoOverlays();
             if (typeof vpClearVfrLayer === 'function') vpClearVfrLayer();
@@ -9106,6 +9103,7 @@ async function refreshMapTableLayout() {
 
         updateSnapButtonUI();
         if (snapMode) fetchOpenAIPData();
+        window.scheduleMapWeatherOverlayUpdate?.();
     }
     if (typeof initProfileResize === 'function') initProfileResize();
     if (typeof vpMapProfileVisible !== 'undefined' && vpMapProfileVisible && typeof renderMapProfile === 'function') renderMapProfile();
@@ -9520,11 +9518,19 @@ async function fetchOpenAIPData() {
 window.vpShowMapMetar = localStorage.getItem('ga_show_map_metar') !== 'false';
 window.vpMapWeatherSource = normalizeMapWeatherSource(localStorage.getItem('ga_map_weather_source') || localStorage.getItem('ga_weather_source') || 'metar');
 let wxMapWeatherData = null;
-let wxMapWeatherFetchController = null;
-let wxMapWeatherInFlight = false;
+let wxMapMetarRequest = null;
+let wxMapMetarRetry = null;
 let wxMapWeatherLastKey = '';
 let wxMapWeatherLastFetchAt = 0;
 const WX_MAP_METAR_CACHE_TTL_MS = 10 * 60 * 1000;
+const WX_MAP_METAR_RETRY_MS = 45 * 1000;
+
+function resetMapMetarRequests() {
+    wxMapMetarRequest?.controller.abort();
+    wxMapMetarRequest = null;
+    if (wxMapMetarRetry) clearTimeout(wxMapMetarRetry.timer);
+    wxMapMetarRetry = null;
+}
 
 window.toggleMapMetars = function() {
     const next = !window.vpShowMapMetar;
@@ -9618,6 +9624,7 @@ const WX_WEATHER_DOMAIN_ROUTE_NM = 50;
 const WX_WEATHER_DOMAIN_GPS_NM = 50;
 
 window.resetMapWeatherVisualsForSourceSwitch = function() {
+    resetMapMetarRequests();
     try {
         if (wxOverlayFetchTimer) {
             clearTimeout(wxOverlayFetchTimer);
@@ -9917,35 +9924,56 @@ async function ensureMapWeatherData(forceFetch = false) {
     if (getMapWeatherSource() !== 'metar') return null;
     if (!window.vpShowMapMetar || window.mapHints.weather === false) return null;
     if (typeof routeWaypoints === 'undefined' || !Array.isArray(routeWaypoints) || routeWaypoints.length < 2) return null;
-    if (typeof fetchRouteWeather !== 'function') return null;
+    if (typeof fetchRouteWeatherMetar !== 'function') return null;
 
-    const now = Date.now();
     const key = buildMapWeatherRouteKey();
-    if (!forceFetch && key && key === wxMapWeatherLastKey && Array.isArray(wxMapWeatherData) && wxMapWeatherData.length > 0 && (now - wxMapWeatherLastFetchAt) < WX_MAP_METAR_CACHE_TTL_MS) {
+    const hasFreshMapData = () => key === wxMapWeatherLastKey && wxMapWeatherData?.length
+        && (Date.now() - wxMapWeatherLastFetchAt) < WX_MAP_METAR_CACHE_TTL_MS;
+    if (!forceFetch && hasFreshMapData()) {
         return wxMapWeatherData;
     }
-    if (wxMapWeatherInFlight) return wxMapWeatherData;
-
-    if (wxMapWeatherFetchController) wxMapWeatherFetchController.abort();
-    wxMapWeatherFetchController = new AbortController();
-    const signal = wxMapWeatherFetchController.signal;
-    wxMapWeatherInFlight = true;
-
-    try {
-        const elev = (typeof vpElevationData !== 'undefined' && Array.isArray(vpElevationData)) ? vpElevationData : [];
-        const next = await fetchRouteWeather(routeWaypoints, elev, signal, { source: 'metar', autoFallback: false });
-        if (signal.aborted) return wxMapWeatherData;
-        wxMapWeatherData = Array.isArray(next) ? next : null;
-        wxMapWeatherLastKey = key;
-        wxMapWeatherLastFetchAt = Date.now();
-        if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers(false);
+    if (wxMapMetarRequest?.key === key || wxMapMetarRetry?.key === key) return wxMapWeatherData;
+    if (window.gaShouldPauseNetwork?.('map-weather')) {
+        window.gaRunWhenAwake?.('map-weather', () => window.scheduleMapWeatherOverlayUpdate(false));
         return wxMapWeatherData;
+    }
+
+    resetMapMetarRequests();
+    const request = { key, controller: new AbortController() };
+    wxMapMetarRequest = request;
+    const { signal } = request.controller;
+    let next = null;
+    try {
+        // The map needs route coordinates, not terrain or the profile's source/fallback state.
+        const points = routeWaypoints.map(p => ({ lat: p.lat, lon: p.lng ?? p.lon }));
+        const { samplePts } = vpBuildInterpolatedRoutePoints(points);
+        const cacheKey = vpBuildMetarRouteCacheKey(routeWaypoints, samplePts);
+        const cached = vpGetMetarRouteCache(cacheKey);
+        next = await (cached ?? fetchRouteWeatherMetar(routeWaypoints, samplePts, signal, { fastFail: true }));
+        if (!cached && !signal.aborted) vpSetMetarRouteCache(cacheKey, next);
     } catch (e) {
         if (!e || e.name !== 'AbortError') console.warn('[MapWX] METAR Kartenwetter fehlgeschlagen:', e);
-        return wxMapWeatherData;
     } finally {
-        wxMapWeatherInFlight = false;
+        if (wxMapMetarRequest === request) wxMapMetarRequest = null;
     }
+    if (signal.aborted || key !== buildMapWeatherRouteKey()) return wxMapWeatherData;
+
+    if (Array.isArray(next) && next.length > 0) {
+        wxMapWeatherLastKey = key;
+        wxMapWeatherData = next;
+        wxMapWeatherLastFetchAt = Date.now();
+    } else {
+        if (!hasFreshMapData()) wxMapWeatherData = null;
+        const timer = setTimeout(() => {
+            wxMapMetarRetry = null;
+            if (document.getElementById('mapTableOverlay')?.classList.contains('active')) {
+                window.scheduleMapWeatherOverlayUpdate(true);
+            }
+        }, WX_MAP_METAR_RETRY_MS);
+        wxMapMetarRetry = { key, timer };
+    }
+    if (typeof renderWeatherMarkers === 'function') renderWeatherMarkers(false);
+    return wxMapWeatherData;
 }
 
 window.scheduleMapWeatherOverlayUpdate = function(forceFetch = false) {
@@ -10139,14 +10167,9 @@ window.renderWeatherMarkers = function(forceFetch = false) {
 
     if (!window.vpShowMapMetar) return;
     if (window.mapHints && window.mapHints.weather === false) return;
-    if (forceFetch) ensureMapWeatherData(true);
-    const sourceData = (Array.isArray(wxMapWeatherData) && wxMapWeatherData.length > 0)
-        ? wxMapWeatherData
-        : ((window.vpWeatherSource === 'metar' && typeof vpWeatherData !== 'undefined' && Array.isArray(vpWeatherData)) ? vpWeatherData : null);
-    if (!sourceData || sourceData.length === 0) {
-        ensureMapWeatherData(forceFetch);
-        return;
-    }
+    const sourceData = wxMapWeatherLastKey === buildMapWeatherRouteKey() ? wxMapWeatherData : null;
+    void ensureMapWeatherData(forceFetch);
+    if (!sourceData?.length) return;
     const cloudsToggleEnabled = (typeof localStorage !== 'undefined')
         ? (localStorage.getItem('ga_show_clouds') !== 'false')
         : true;
