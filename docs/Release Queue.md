@@ -27,6 +27,15 @@ liefert alles Offene mit aus.
 
 ## Offen
 
+### 2026-11-03 · Vollbild-Pinnwand/Kartentisch bei Seitengröße ≠ 100 % (Web) — EFB-Kopie wartet
+- **Artefakt:** nur die generierte EFB-Kopie `ga-tracker-client/efb-web-assets/styles.css`; Web ist mit diesem Push live
+- **Dateien:** `styles.css`, `index.html` (Stylesheet-Version), generiert `efb-web-assets/styles.css`
+- **Was:** Unter `body.app-ui-scaled` teilen Pinnwand, Kartentisch, Vollbild-Kartentisch und `--drawer-mobile-shift` vw/vh durch `--ga-ui-scale`.
+- **Warum:** Bei Seitengröße 75 % auf dem Handy füllten die Vollbild-Panels nur ~75 % des Bildschirms.
+- **Tests:** Browser 375×812 bei 75/100/125 %: Kartentisch und Pinnwand 375×812; EFB-Sync- und Web-Client-Tests grün.
+- **Doku beim Release:** keine. Im EFB ohne Wirkung (dort keine `app-ui-scaled`-Klasse).
+- **Pruefen im Feld:** Handy mit Seitengröße < 100 %: Pinnwand und Kartentisch öffnen, Vollbild-Karte.
+
 ## Ausgeliefert
 
 ### 2026-11-03 · Langer Klick öffnet „Was ist hier?“ am Mauspunkt — ausgeliefert in Tracker v614 Alpha (03.11.2026)

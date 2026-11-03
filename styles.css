@@ -6019,6 +6019,13 @@ body.map-is-fullscreen {
     min-height: 100dvh !important;
 }
 
+/* Page size (body zoom): keep the full-screen map table at the real screen size. */
+body.app-ui-scaled.map-is-fullscreen #mapTableOverlay {
+    width: calc(100vw / var(--ga-ui-scale, 1)) !important;
+    height: calc(100vh / var(--ga-ui-scale, 1)) !important;
+    height: calc(100dvh / var(--ga-ui-scale, 1)) !important;
+}
+
 body.map-is-fullscreen #mapTableOverlay {
     background: #111 !important;
     left: 0 !important;
@@ -6318,6 +6325,11 @@ body.map-is-fullscreen .map-profile-strip {
         background: #080808 !important;
     }
 
+    /* Page size (body zoom): shift the page by the real screen width. */
+    body.app-ui-scaled {
+        --drawer-mobile-shift: calc(100vw / var(--ga-ui-scale, 1));
+    }
+
     body.pinboard-open .container {
         transform: translateX(calc(-1 * var(--drawer-mobile-shift)));
     }
@@ -6333,6 +6345,15 @@ body.map-is-fullscreen .map-profile-strip {
         width: 100vw !important;
         height: 100vh !important;
         height: 100dvh !important;
+    }
+
+    /* Page size below/above 100 % (body zoom): vw/vh are scaled with the body, so
+       full-screen panels would only cover part of the screen. Divide by the zoom. */
+    body.app-ui-scaled #pinboardOverlay,
+    body.app-ui-scaled #mapTableOverlay {
+        width: calc(100vw / var(--ga-ui-scale, 1)) !important;
+        height: calc(100vh / var(--ga-ui-scale, 1)) !important;
+        height: calc(100dvh / var(--ga-ui-scale, 1)) !important;
     }
 
     #pinboardOverlay {
