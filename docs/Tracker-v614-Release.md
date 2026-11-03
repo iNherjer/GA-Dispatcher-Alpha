@@ -28,3 +28,8 @@ In der Web-App gleicher Fehler bei Seitengröße ≠ 100 % (`body.style.zoom`), 
 - Im MSFS-EFB noch nicht geprüft.
 
 Stable bleibt unverändert (v605).
+
+Tracker-EXE (Worktree `c27e5a2cc`, `node_modules` verlinkt, `--no-bytecode --public --public-packages "*"`):
+174760569 Bytes, SHA-256 `82efd4b72c01263697821fb6fff4391dd0593d328a9789c9810ffecf1c2dc48d`. PE x64, eingebettete
+Version v614, Asset-Revision 61401 und Fix geprüft; öffentlicher Download geprüft.
+Tests: Tracker 1540/1542 (2 übersprungen). Alpha-Runtime auf v614, Stable unverändert (v605).
