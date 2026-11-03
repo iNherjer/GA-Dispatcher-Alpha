@@ -153,6 +153,63 @@ committed sind oder der Release in einem separaten sauberen Worktree gebaut wird
 3. Desktop-Test durchfuehren: Alpha starten, auf Stable zurueckschalten und pruefen, dass die getrennte Stable-Runtime weiterhin startet.
 4. Der dauerhafte App-Link `/api/tracker/download` liest den Stable-Kanal; `index.html` muss bei kuenftigen Tracker-Releases nicht erneut angepasst werden.
 
+### 2b) Tracker-Alpha-Release Schritt fuer Schritt (verbindlich fuer alle Agenten)
+
+Gilt fuer Codex, Claude und jeden weiteren Agenten. Stand 03.11.2026, erprobt mit v612–v614.
+
+1. **Freigabe:** Build und Release nur nach ausdruecklichem OK des Users (siehe `docs/Release Queue.md`).
+2. **Basis und Version:**
+   - `git fetch origin main`, `git status -sb`, `git rev-list --left-right --count HEAD...origin/main`.
+   - Naechste Version = hoechster veroeffentlichter Tracker-Tag + 1
+     (`git ls-remote --tags origin 'refs/tags/v6*'`, `ga-tracker-client/channel/alpha.json`).
+     Pruefen, dass der Tag noch nicht existiert. Nie eine Version wiederverwenden.
+   - `docs/Release Queue.md` lesen; offene Eintraege gehen mit.
+3. **Versionsstellen im Release-Commit:**
+   - `ga-tracker-client/tracker.js`: `TRACKER_VERSION` und `TRACKER_VERSION_CODE`.
+   - `ga-tracker-client/tracker-efb-web-client.js`: `EFB_WEB_ASSET_REVISION` = `<code>01`
+     (z. B. v614 → `61401`), sonst laden EFBs alte Dateien aus dem Cache. Die Erwartungen in
+     `tracker-efb-web-client.test.js` mitziehen.
+   - `sw.js` Cache-Version +1.
+   - Wenn geteilte Web-Dateien geaendert wurden: `node ga-tracker-client/sync-efb-web-assets.js`
+     und die generierten `efb-web-assets/*` mit committen.
+   - `docs/Tracker-v<code>-Release.md` anlegen; Eintrag in `docs/Release Queue.md` unter „Ausgeliefert“.
+4. **Tests vor dem Commit:** `cd ga-tracker-client && node --test *.test.js` (Referenz v614:
+   1540/1542, 2 uebersprungen). Neue Fehler gegen einen sauberen Stand von `origin/main`
+   vergleichen (`git archive origin/main | tar -x -C <tmp>`), bevor sie als „alt“ gelten.
+5. **Release-Commit:** nur die eigenen Dateien explizit stagen (nie `git add -A`), committen,
+   `git push origin main`.
+6. **EXE im sauberen Worktree des Release-Commits bauen**, nie im gemischten Hauptordner:
+
+   ```bash
+   git worktree add --detach <tmp>/wt-v<code> <release-commit>
+   ln -s "$PWD/ga-tracker-client/node_modules" <tmp>/wt-v<code>/ga-tracker-client/node_modules
+   cd <tmp>/wt-v<code>/ga-tracker-client
+   npm run build:tracker -- --no-bytecode --public --public-packages "*"
+   ```
+
+   - Auf diesem Apple-Silicon-Mac (ohne Rosetta) scheitert der Bytecode-Build mit
+     „spawn Unknown system error -86“; deshalb immer mit den Optionen oben.
+   - Danach muss `git status` im Worktree sauber sein (der Prebuild-Sync darf nichts aendern).
+7. **EXE pruefen:** `file` meldet „PE32+ … x86-64“; Groesse und SHA-256 notieren; in den Bytes
+   `const TRACKER_VERSION = 'v<code>'`, die neue Asset-Revision und den eigentlichen Fix suchen.
+8. **Tag und Release:**
+   - `git tag v<code> <release-commit>` und `git push origin refs/tags/v<code>`.
+   - Publisher **aus dem Worktree** starten (er akzeptiert nur Dateien im eigenen Repository),
+     erst mit `--dry-run`, dann echt:
+     `node tools/publish-github-release.mjs --repo iNherjer/GA-Dispatcher-Alpha --tag v<code>
+     --title "Tracker v<code> Alpha" --asset ga-tracker-client/VFR-Multitool-Tracker.exe
+     --notes "…" --latest false`.
+9. **Oeffentlichen Download pruefen:** Asset per `curl -L` laden, Groesse und SHA-256 muessen
+   exakt dem Build entsprechen.
+10. **Alpha-Kanal:** erst danach `ga-tracker-client/channel/alpha.json` (Version, Code, Tag, URL,
+    Groesse, SHA-256, `publishedAt`) setzen, Groesse/SHA in die Release-Doku eintragen, Commit
+    „Activate Tracker v<code> on alpha after public download verification“, pushen und
+    `raw.githubusercontent.com/.../channel/alpha.json` kontrollieren.
+    `channel/stable.json` bleibt unveraendert (Stable stand am 03.11.2026 auf v605).
+11. **Aufraeumen:** `node_modules`-Link entfernen, `git worktree remove --force <tmp>/wt-v<code>`.
+12. **Hauptordner nachziehen** (siehe Abschnitt 5) und dem User Version, Tag, Groesse, SHA-256,
+    Tests und „im MSFS-EFB noch nicht geprueft“ melden.
+
 ## 3) Prioritaet
 
 Wenn `tracker.js` geaendert wurde, gilt beides:
@@ -287,3 +344,36 @@ PKG_CACHE_PATH=/tmp/ga-poi-pkg-cache ga-tracker-client/node_modules/.bin/pkg too
 
 Erfolg: `MISSION_PACKAGED_PROCESS_SMOKE_OK`, danach Worker-Exit 0. Dieser Test
 prueft den pkg-Bootstrap; er ersetzt keinen Windows-/SimConnect-Feldtest.
+
+## 5) Mehrere Agenten im selben Repository (Codex, Claude)
+
+Mehrere Agenten arbeiten parallel. Am 03.11.2026 lagen Zwischenstaende eines Agenten
+uncommittet im Hauptordner, waehrend ein anderer dort nachziehen wollte; ein Tracker-Release
+kam parallel. Deshalb gilt:
+
+1. **Eigene Arbeit in einem eigenen Worktree**, nicht uncommittet im Hauptordner
+   (`/Users/jofaist/Desktop/GA dispatcher alpha`). Wer doch im Hauptordner arbeitet, committet
+   und pusht seine Dateien, bevor er die Arbeit abgibt, oder sagt dem User ausdruecklich,
+   welche Dateien offen liegen bleiben.
+2. **Vor jedem Commit, Merge oder Release frisch pruefen:** `git fetch origin main`,
+   `git status --short`, Aenderungszeiten (`stat`) bei unerwarteten Dateien. Einen eine Stunde
+   alten Stand nicht als aktuell behandeln.
+3. **Fremde Aenderungen nie verwerfen, ueberschreiben, stashen oder mit committen.** Nur eigene
+   Dateien bzw. Hunks explizit stagen (`git add -- <dateien>`, bei geteilten Dateien wie
+   `index.html`/`sw.js` hunkweise).
+4. **Tracker-Releases nicht parallel:** Vor einem Release pruefen, ob ein anderer Agent gerade
+   eine Version vorbereitet (Tags, `alpha.json`, offene Worktrees unter `~/.codex/worktrees/`,
+   `git worktree list`). Bei Unklarheit den User fragen. Eine Versionsnummer gilt erst als
+   vergeben, wenn ihr Tag auf `origin` liegt.
+5. **Hauptordner nachziehen** nach einem Push nur per `git merge --ff-only origin/main`.
+   Ueberschneiden sich lokale Aenderungen mit dem neuen Stand:
+   - zuerst alles sichern: `git diff > analysis/local-backups/<name>-<datum>.patch`
+     (+ Kopie betroffener Dateien),
+   - nur Dateien zuruecksetzen, deren Inhalt nachweislich in `origin/main` enthalten ist
+     (`git diff origin/main -- <datei>` leer oder nur aelterer Zwischenstand),
+   - fremde, nicht enthaltene Aenderungen nach dem Fast-Forward mit `git apply -3` wieder
+     auflegen und mit `git restore --staged` ungestaged lassen,
+   - in der Uebergabe nennen, was liegen geblieben ist.
+6. **Uebergabe an den User:** Commit-SHAs, Version/Tag, was live ist, was nicht getestet ist und
+   welche fremden lokalen Aenderungen unberuehrt blieben.
+
