@@ -29,6 +29,15 @@ liefert alles Offene mit aus.
 
 ## Ausgeliefert
 
+### 2026-11-03 · EFB-Dateien der englischen UI-Übersetzung — ausgeliefert in Tracker v612 Alpha (03.11.2026)
+- **Artefakt:** Tracker-EXE (generierte EFB-Kopien); Web ist seit `935be0a0d` (v2318) und `2e07ce0ef` (v2319) live
+- **Dateien:** `ga-tracker-client/efb-web-assets/*` (generiert), `ga-tracker-client/efb-media-source/media-player-watch*.js`
+- **Was:** EFB-Kopien neu erzeugt; ohne `GAI18n` bleibt das EFB exakt deutsch. `EFB_WEB_ASSET_REVISION` 61201.
+- **Warum:** Web-Übersetzung Phase 0/1; Watch-Quellen müssen der Web-Fassung entsprechen.
+- **Tests:** Tracker 1539/1541 (2 übersprungen), EFB-Sync- und Web-Client-Tests grün.
+- **Doku beim Release:** `docs/Tracker-v612-Release.md`.
+- **Pruefen im Feld:** Watch (Zurück/Halten), „Was ist hier?“ mit METAR, Kartentisch allgemein.
+
 ### 2026-10-29 · Routen-Hindernis-Cache auf Handys kleiner — ausgeliefert in Tracker v605 (29.10.2026)
 - **Artefakt:** Tracker-EXE (nur die generierte EFB-Kopie von `profile.js`); Web ist seit `77fa27e0f` live
 - **Dateien:** `profile.js` (`VP_OBS_COMBO_MAX_ENTRIES`), generiert `ga-tracker-client/efb-web-assets/profile.js`
