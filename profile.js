@@ -3046,6 +3046,12 @@ async function fetchRouteWeatherMetar(routePts, elevData, signal, options = {}) 
         vpMetarProxyBackoff.delete(key);
     }
 
+    function vpBuildMetarBboxUrl({ minLat, minLon, maxLat, maxLon }) {
+        // AviationWeather rejects bounding boxes with raw floating-point coordinates.
+        const bbox = [minLat, minLon, maxLat, maxLon].map(coord => coord.toFixed(5)).join(',');
+        return `https://aviationweather.gov/api/data/metar?bbox=${bbox}&format=json`;
+    }
+
     async function safeFetchMetarJson(urlObj, retryCount = retries) {
         const proxyDefs = [
             { key: 'ga_worker', mk: (u) => `https://ga-proxy.einherjer.workers.dev/api/metar?src=${encodeURIComponent(u)}` },
@@ -3135,7 +3141,7 @@ async function fetchRouteWeatherMetar(routePts, elevData, signal, options = {}) 
             const cached = vpGetMetarChunkCache(chunk.key, nowTs);
             if (Array.isArray(cached)) return { arr: cached, fromCache: true };
         }
-        const url = `https://aviationweather.gov/api/data/metar?bbox=${chunk.minLat},${chunk.minLon},${chunk.maxLat},${chunk.maxLon}&format=json`;
+        const url = vpBuildMetarBboxUrl(chunk);
         const arr = await safeFetchMetarJson(url, retries);
         if (arr === null) {
             const stale = vpGetMetarChunkCache(chunk.key, nowTs, true);
@@ -3200,7 +3206,7 @@ async function fetchRouteWeatherMetar(routePts, elevData, signal, options = {}) 
                         if (vpMetarPrefetchInFlight.has(d.key)) continue;
                         vpMetarPrefetchInFlight.add(d.key);
                         try {
-                            const url = `https://aviationweather.gov/api/data/metar?bbox=${d.minLat},${d.minLon},${d.maxLat},${d.maxLon}&format=json`;
+                            const url = vpBuildMetarBboxUrl(d);
                             const arr = await safeFetchMetarJson(url, 1);
                             if (arr === null) continue;
                             const safeArr = Array.isArray(arr) ? arr : [];

@@ -407,7 +407,8 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false,
             if ((!metarDataList || metarDataList.length === 0) && hasCoordinates) {
                 const latMin = lat - 0.6, latMax = lat + 0.6;
                 const lonMin = lon - 0.8, lonMax = lon + 0.8;
-                const fbUrl = `https://aviationweather.gov/api/data/metar?bbox=${latMin},${lonMin},${latMax},${lonMax}&format=json`;
+                const bbox = [latMin, lonMin, latMax, lonMax].map(coord => coord.toFixed(5)).join(',');
+                const fbUrl = `https://aviationweather.gov/api/data/metar?bbox=${bbox}&format=json`;
                 const fbData = await _fetchMetarArrayViaVariants(fbUrl, {
                     includeCodeTabs: true,
                     includeDirect: false,
