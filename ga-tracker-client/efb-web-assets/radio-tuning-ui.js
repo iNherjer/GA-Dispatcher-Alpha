@@ -16,11 +16,20 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     var saved = localStorage.getItem('ga-navcom-mode-v1');
     if (modes.indexOf(saved) >= 0) mode = saved;
   } catch (_) {}
-  var labels = {
+  // UI language (i18n-core.js, web only). In the EFB there is no GAI18n: the German text is used.
+  function rtText(key, german, vars) {
+    var i18n = typeof window !== 'undefined' ? window.GAI18n : null;
+    if (i18n) return i18n.t(key, vars, german);
+    return String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, function (m, n) {
+      return vars && Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m;
+    });
+  }
+  var labelsDe = {
     off: 'AUS',
     direct: 'Gerät 1 aktiv',
     select: 'Auswahl'
   };
+  var label = m => rtText('radio.mode.' + m, labelsDe[m]);
   function each(nodes, fn) {
     Array.prototype.forEach.call(nodes, fn);
   }
@@ -50,7 +59,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
   function refresh() {
     document.body.setAttribute('data-navcom-mode', mode);
     var button = document.getElementById('navcomModeBtn');
-    if (button && button.textContent !== 'NAVCOM: ' + labels[mode]) button.textContent = 'NAVCOM: ' + labels[mode];
+    if (button && button.textContent !== 'NAVCOM: ' + label(mode)) button.textContent = 'NAVCOM: ' + label(mode);
     each(document.querySelectorAll('.ga-radio-value'), node => {
       bindNativeInput(node);
       node.tabIndex = mode === 'off' ? -1 : 0;
@@ -76,7 +85,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       toast.setAttribute('role', 'status');
       document.body.appendChild(toast);
     }
-    toast.textContent = message;
+    toast.textContent = window.GAI18n ? window.GAI18n.phrase(message) : message;
     toast.hidden = false;
     clearTimeout(notify.timer);
     notify.timer = setTimeout(() => {
@@ -140,7 +149,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
           case 5:
             target = result.target;
             close();
-            notify(target.kind === 'XPDR' ? 'Transponder: ' + target.value : target.kind + target.index + ' ' + (target.slot === 'active' ? 'aktiv' : 'Standby') + ': ' + target.value + (target.kind === 'ADF' ? ' kHz' : ' MHz'));
+            notify(target.kind === 'XPDR' ? 'Transponder: ' + target.value : target.kind + target.index + ' ' + (target.slot === 'active' ? rtText('radio.toast.active', 'aktiv') : 'Standby') + ': ' + target.value + (target.kind === 'ADF' ? ' kHz' : ' MHz'));
             _context.n = 7;
             break;
           case 6:
@@ -168,8 +177,8 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     dialog.className = 'ga-radio-dialog';
     dialog.setAttribute('role', 'dialog');
     dialog.setAttribute('aria-modal', 'false');
-    dialog.setAttribute('aria-label', 'Frequenz übernehmen');
-    dialog.innerHTML = '<div class="ga-radio-heading"><b>' + core.escape(spec.value) + (spec.kind === 'XPDR' ? '' : spec.kind === 'ADF' ? ' kHz' : ' MHz') + '</b><button type="button" class="pb-btn ga-radio-close" aria-label="Schließen">✕</button></div><div class="ga-radio-choices"></div><button type="button" class="pb-btn ga-radio-back">Zurück</button>';
+    dialog.setAttribute('aria-label', rtText('radio.dialog.aria', 'Frequenz übernehmen'));
+    dialog.innerHTML = '<div class="ga-radio-heading"><b>' + core.escape(spec.value) + (spec.kind === 'XPDR' ? '' : spec.kind === 'ADF' ? ' kHz' : ' MHz') + '</b><button type="button" class="pb-btn ga-radio-close" aria-label="' + rtText('radio.dialog.close', 'Schließen') + '">✕</button></div><div class="ga-radio-choices"></div><button type="button" class="pb-btn ga-radio-back">' + rtText('radio.dialog.back', 'Zurück') + '</button>';
     document.body.appendChild(dialog);
     var rect = node.getBoundingClientRect();
     // The native EFB scales the whole body. Convert screen coordinates back
@@ -206,7 +215,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       heading.textContent = (spec.kind === 'XPDR' ? 'XPDR' : spec.kind + index) + ' · ' + headingText;
       back.style.visibility = 'visible';
       back.onclick = deviceStep;
-      choices.innerHTML = '<button type="button" class="pb-btn">' + (spec.kind === 'XPDR' ? 'Code setzen' : 'Aktiv') + '</button><button type="button" class="pb-btn">Standby</button>';
+      choices.innerHTML = '<button type="button" class="pb-btn">' + (spec.kind === 'XPDR' ? rtText('radio.dialog.setCode', 'Code setzen') : rtText('radio.dialog.active', 'Aktiv')) + '</button><button type="button" class="pb-btn">Standby</button>';
       var buttons = choices.querySelectorAll('button');
       buttons[1].style.visibility = spec.kind === 'XPDR' ? 'hidden' : 'visible';
       buttons[0].onclick = () => send(spec, index, 'active');

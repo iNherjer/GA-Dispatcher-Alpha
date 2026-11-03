@@ -3,6 +3,10 @@
 // Catalog: data/ppl-quiz-catalog.json (built by tools/ppl-quiz-build-catalog.mjs).
 // Docs: docs/PPL Quiz.md
 (function () {
+// UI language (i18n-core.js, web only): _pqT = exact German sentence -> i18n/en-phrases.js,
+// _pqK = key with placeholders. Without GAI18n (EFB) the German text stays exactly as before.
+function _pqT(text) { var i18n = (typeof window !== 'undefined') ? window.GAI18n : null; return i18n ? i18n.phrase(text) : text; }
+function _pqK(key, german, vars) { var i18n = (typeof window !== 'undefined') ? window.GAI18n : null; if (i18n) return i18n.t(key, vars, german); return vars ? String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, function (m, n) { return Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m; }) : german; }
     'use strict';
 
     const STATE_KEY = 'ga_ppl_quiz_v1';
@@ -187,8 +191,8 @@
         const b = state.b;
         const answered = b ? Object.keys(b.ans).length : 0;
         const text = answered
-            ? 'Laufendes Quiz abbrechen und neue Fragen ziehen? Bereits gegebene Antworten bleiben in der Statistik.'
-            : 'Diesen Zettel verwerfen und neue Fragen ziehen?';
+            ? _pqT('Laufendes Quiz abbrechen und neue Fragen ziehen? Bereits gegebene Antworten bleiben in der Statistik.')
+            : _pqT('Diesen Zettel verwerfen und neue Fragen ziehen?');
         if (!confirm(text)) return;
         view = 'quiz';
         newBatch(true);
@@ -461,7 +465,7 @@
         statSec.append(table);
         statSec.append(el('p', 'ppl-quiz-hint', 'Balken: hell = gesehen, dunkel = gefestigt. Zahl: gesehen/gesamt · Trefferquote.'));
         statSec.append(button('ppl-quiz-btn is-danger', 'Statistik zurücksetzen', () => {
-            if (!confirm('Lernstand des PPL-Quiz wirklich zurücksetzen? Alle Antworten und die Statistik werden gelöscht.')) return;
+            if (!confirm(_pqT('Lernstand des PPL-Quiz wirklich zurücksetzen? Alle Antworten und die Statistik werden gelöscht.'))) return;
             state.p = {};
             newBatch(false);
             draw();
@@ -530,7 +534,7 @@
 
     function toggle() {
         if (typeof currentBoardMode !== 'undefined' && currentBoardMode === 'group') {
-            alert('Das Quiz hängt auf dem privaten Brett. Bitte zuerst auf „Privat“ wechseln.');
+            alert(_pqT('Das Quiz hängt auf dem privaten Brett. Bitte zuerst auf „Privat“ wechseln.'));
             return;
         }
         state.on = !state.on;

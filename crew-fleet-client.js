@@ -96,17 +96,17 @@
 
     async function removeAircraft(v) {
         if (busyKey) return;
-        if (!confirm(`${v.tail || ''} ${v.title} endgültig aus der Vereinsflotte löschen?\n\nBei den anderen wird sie im Mod ausgeblendet und als „entfernt“ markiert. In deinem eigenen Hangar bleibt sie.`)) return;
+        if (!confirm(tr('fleet.remove.confirm', '{tail} {title} endgültig aus der Vereinsflotte löschen?\n\nBei den anderen wird sie im Mod ausgeblendet und als „entfernt“ markiert. In deinem eigenen Hangar bleibt sie.', { tail: v.tail || '', title: v.title }))) return;
         busyKey = v.key;
         rerender();
         try {
             const res = await fetch(baseUrl() + encodeURIComponent(groupName()) + '/remove', { method: 'POST', headers: headers(), body: JSON.stringify({ key: v.key }) });
             const data = await res.json().catch(() => null);
-            if (res.status === 409) alert(`Die Maschine wird gerade genutzt (${data?.holder?.nick || 'Crew'}). Löschen geht, wenn sie frei ist.`);
-            else if (res.status === 403) alert('Nur der Halter kann eine Maschine aus der Vereinsflotte löschen.');
-            else if (!res.ok) alert('Die Maschine konnte nicht gelöscht werden. Bitte später erneut versuchen.');
+            if (res.status === 409) alert(tr('fleet.remove.inUse', 'Die Maschine wird gerade genutzt ({nick}). Löschen geht, wenn sie frei ist.', { nick: data?.holder?.nick || 'Crew' }));
+            else if (res.status === 403) alert(tr('fleet.remove.notOwner', 'Nur der Halter kann eine Maschine aus der Vereinsflotte löschen.'));
+            else if (!res.ok) alert(tr('fleet.remove.failed', 'Die Maschine konnte nicht gelöscht werden. Bitte später erneut versuchen.'));
         } catch (_) {
-            alert('Die Crew-Cloud ist gerade nicht erreichbar.');
+            alert(tr('fleet.remove.offline', 'Die Crew-Cloud ist gerade nicht erreichbar.'));
         } finally {
             busyKey = '';
             await refresh('remove', { force: true });
@@ -123,16 +123,25 @@
                 method: 'POST', headers: headers(), body: JSON.stringify({ key })
             });
             const data = await res.json().catch(() => null);
-            if (res.status === 409) alert(`Diese Maschine ist gerade ${core.LOCK_LABEL[data?.holder?.state]?.toLowerCase() || 'belegt'} (${data?.holder?.nick || 'Crew'}).`);
-            else if (!res.ok) alert('Die Maschine konnte nicht geändert werden. Bitte später erneut versuchen.');
+            if (res.status === 409) alert(tr('fleet.alert.locked', 'Diese Maschine ist gerade {state} ({nick}).', { state: lockText(data?.holder?.state)?.toLowerCase() || tr('fleet.alert.lockedFallback', 'belegt'), nick: data?.holder?.nick || 'Crew' }));
+            else if (!res.ok) alert(tr('fleet.alert.failed', 'Die Maschine konnte nicht geändert werden. Bitte später erneut versuchen.'));
         } catch (_) {
-            alert('Die Crew-Cloud ist gerade nicht erreichbar.');
+            alert(tr('fleet.alert.offline', 'Die Crew-Cloud ist gerade nicht erreichbar.'));
         } finally {
             busyKey = '';
             await refresh('lock-action', { force: true });
             rerender();
         }
     }
+
+    // --- UI language (i18n-core.js) ---
+    // wili-fleet-core.js is shared with the tracker and the worker and stays German
+    // (LOCK_LABEL, noticeText); only the display here is translated.
+    function tr(key, german, vars) {
+        if (window.GAI18n) return window.GAI18n.t(key, vars, german);
+        return String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, (m, n) => (vars && Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m));
+    }
+    function lockText(state) { const german = core.LOCK_LABEL[state]; return german ? tr(`fleet.lock.${state}`, german) : german; }
 
     // --- Helpers for the view ---
     function el(tag, cls, text) {
@@ -151,9 +160,9 @@
     function ageText(ms) {
         if (!ms) return '';
         const minutes = Math.max(0, Math.round((Date.now() - ms) / 60000));
-        if (minutes < 60) return `vor ${minutes} min`;
+        if (minutes < 60) return tr('fleet.age.minutes', 'vor {n} min', { n: minutes });
         const hours = Math.round(minutes / 60);
-        return hours < 48 ? `vor ${hours} h` : `vor ${Math.round(hours / 24)} T`;
+        return hours < 48 ? tr('fleet.age.hours', 'vor {n} h', { n: hours }) : tr('fleet.age.days', 'vor {n} T', { n: Math.round(hours / 24) });
     }
     function placeText(pos) {
         const lat = Number(pos?.lat), lon = Number(pos?.lon);
@@ -185,11 +194,12 @@
             .sort((a, b) => b.moved - a.moved || a.tail.localeCompare(b.tail));
     }
     function statusText(v) {
-        if (v.state === 'free') return core.LOCK_LABEL.free;
-        return `${core.LOCK_LABEL[v.state]} · ${v.mine ? 'du' : (v.holder || 'Crew')}`;
+        if (v.state === 'free') return lockText('free');
+        return `${lockText(v.state)} · ${v.mine ? tr('fleet.you', 'du') : (v.holder || 'Crew')}`;
     }
     function untilText(ms) {
-        try { return new Date(ms).toLocaleString('de-DE', { weekday: 'short', hour: '2-digit', minute: '2-digit' }); } catch (_) { return ''; }
+        const locale = window.GAI18n && window.GAI18n.getLanguage() === 'en' ? 'en-GB' : 'de-DE';
+        try { return new Date(ms).toLocaleString(locale, { weekday: 'short', hour: '2-digit', minute: '2-digit' }); } catch (_) { return ''; }
     }
 
     function aircraftRow(v) {
@@ -202,13 +212,15 @@
         const facts = [];
         const place = placeText(v.pos);
         if (place) facts.push(`📍 ${place}`);
-        if (v.state !== 'free' && v.until) facts.push(`bis ${untilText(v.until)}`);
-        else if (v.last) facts.push(`zuletzt ${v.last}`);
+        if (v.state !== 'free' && v.until) facts.push(tr('fleet.until', 'bis {time}', { time: untilText(v.until) }));
+        else if (v.last) facts.push(tr('fleet.last', 'zuletzt {nick}', { nick: v.last }));
         if (facts.length) row.append(el('div', 'crew-fleet-facts', facts.join(' · ')));
-        if (v.conflict) row.append(el('div', 'crew-fleet-conflict', `⚠️ auch von ${v.conflict} ${v.conflictFlown ? 'geflogen' : 'genutzt'} – zählt nicht`));
+        if (v.conflict) row.append(el('div', 'crew-fleet-conflict', v.conflictFlown
+            ? tr('fleet.conflictFlown', '⚠️ auch von {nick} geflogen – zählt nicht', { nick: v.conflict })
+            : tr('fleet.conflictUsed', '⚠️ auch von {nick} genutzt – zählt nicht', { nick: v.conflict })));
         let action = null;
-        if (v.state === 'free') action = ['reserve', 'Reservieren'];
-        else if (v.mine) action = ['release', 'Freigeben'];
+        if (v.state === 'free') action = ['reserve', tr('fleet.reserve', 'Reservieren')];
+        else if (v.mine) action = ['release', tr('fleet.release', 'Freigeben')];
         if (action) {
             const button = el('button', 'crew-fleet-btn', busyKey === v.key ? '…' : action[1]);
             button.type = 'button';
@@ -220,8 +232,8 @@
         if (v.owned && (v.state === 'free' || v.mine)) {
             const remove = el('button', 'crew-fleet-del', '🗑');
             remove.type = 'button';
-            remove.title = 'Aus der Vereinsflotte löschen';
-            remove.setAttribute('aria-label', `${v.tail || v.title} aus der Vereinsflotte löschen`);
+            remove.title = tr('fleet.remove.title', 'Aus der Vereinsflotte löschen');
+            remove.setAttribute('aria-label', tr('fleet.remove.aria', '{name} aus der Vereinsflotte löschen', { name: v.tail || v.title }));
             remove.disabled = Boolean(busyKey);
             remove.addEventListener('click', event => { event.stopPropagation(); void removeAircraft(v); });
             head.append(remove);
@@ -237,11 +249,11 @@
         const note = el('div', 'post-it crew-fleet-card');
         note.append(el('div', 'post-it-pin'));
         const title = el('div', 'crew-fleet-title');
-        title.append(el('span', '', `🛩️ VEREINSFLOTTE (${views.length})`));
+        title.append(el('span', '', tr('fleet.boardTitle', '🛩️ VEREINSFLOTTE ({count})', { count: views.length })));
         const mapButton = el('button', 'crew-fleet-map-btn', '🗺️');
         mapButton.type = 'button';
-        mapButton.title = 'Alle Maschinen auf der Karte';
-        mapButton.setAttribute('aria-label', 'Alle Maschinen auf der Karte');
+        mapButton.title = tr('fleet.mapButton', 'Alle Maschinen auf der Karte');
+        mapButton.setAttribute('aria-label', tr('fleet.mapButton', 'Alle Maschinen auf der Karte'));
         mapButton.addEventListener('click', event => { event.stopPropagation(); openMap(); });
         title.append(mapButton);
         const list = el('div', 'crew-fleet-list');
@@ -284,7 +296,7 @@
             points.push([lat, lon]);
             const tip = el('div', 'crew-fleet-tip');
             tip.append(el('strong', '', v.tail || v.title), el('div', '', v.title), el('div', '', statusText(v)));
-            if (v.owner) tip.append(el('div', '', `Halter ${v.owner}`));
+            if (v.owner) tip.append(el('div', '', tr('fleet.owner', 'Halter {nick}', { nick: v.owner })));
             L.circleMarker([lat, lon], { radius: 7, color: '#fff', weight: 2, fillColor: STATE_COLOR[v.state], fillOpacity: 1 })
                 .bindTooltip(tip, { direction: 'top', offset: [0, -6] }).addTo(mapLayer); // element, never HTML: names come from other pilots
         }
@@ -305,11 +317,11 @@
         panel.setAttribute('aria-modal', 'true');
         panel.setAttribute('aria-labelledby', 'crewFleetMapTitle');
         const head = el('div', 'crew-flight-detail-head');
-        const title = el('h2', 'crew-flight-detail-title', `🛩️ Vereinsflotte ${groupName()}`);
+        const title = el('h2', 'crew-flight-detail-title', tr('fleet.mapTitle', '🛩️ Vereinsflotte {crew}', { crew: groupName() }));
         title.id = 'crewFleetMapTitle';
         const close = el('button', 'crew-flight-detail-close', '×');
         close.type = 'button';
-        close.setAttribute('aria-label', 'Schließen');
+        close.setAttribute('aria-label', tr('crew.detail.close', 'Schließen'));
         close.addEventListener('click', closeMap);
         head.append(title, close);
         const legend = el('div', 'crew-fleet-legend');
@@ -317,7 +329,7 @@
             const item = el('span', '');
             const dot = el('span', 'crew-fleet-legend-dot');
             dot.style.background = STATE_COLOR[state];
-            item.append(dot, document.createTextNode(core.LOCK_LABEL[state]));
+            item.append(dot, document.createTextNode(lockText(state)));
             legend.append(item);
         }
         const mapBox = el('div', 'crew-flight-detail-map');
@@ -376,12 +388,12 @@
         const box = el('div', 'crew-fleet-notice');
         box.id = 'crewFleetNotice';
         box.setAttribute('role', 'status');
-        const open = el('button', 'crew-fleet-notice-open', 'Pinnwand');
+        const open = el('button', 'crew-fleet-notice-open', tr('fleet.notice.open', 'Pinnwand'));
         open.type = 'button';
         open.addEventListener('click', openCrewBoard);
         const close = el('button', 'crew-fleet-notice-close', '×');
         close.type = 'button';
-        close.setAttribute('aria-label', 'Hinweis schließen');
+        close.setAttribute('aria-label', tr('fleet.notice.close', 'Hinweis schließen'));
         close.addEventListener('click', hideNotice);
         box.append(el('span', 'crew-fleet-notice-text', `🛩️ ${text}`), open, close);
         document.body.append(box);

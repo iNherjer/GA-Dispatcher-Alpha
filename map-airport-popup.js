@@ -1,4 +1,8 @@
 // Shared standalone popup implementation; host adapters supply local data only.
+// UI language (i18n-core.js, web only): _apT = exact German sentence -> i18n/en-phrases.js,
+// _apK = key with placeholders. Without GAI18n (EFB) the German text stays exactly as before.
+function _apT(text) { var i18n = (typeof window !== 'undefined') ? window.GAI18n : null; return i18n ? i18n.phrase(text) : text; }
+function _apK(key, german, vars) { var i18n = (typeof window !== 'undefined') ? window.GAI18n : null; if (i18n) return i18n.t(key, vars, german); return vars ? String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, function (m, n) { return Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m; }) : german; }
 function _buildAptPopup(label, name, elev, icaoForRunways, options = {}) {
     const rwCacheKey = icaoForRunways || (label === 'DEP' ? currentStartICAO : currentDestICAO);
     const wxContainerId = options.wxContainerId || (label === 'DEP' ? 'wxPopupDep' : 'wxPopupDest');
@@ -26,14 +30,14 @@ function _buildAptPopup(label, name, elev, icaoForRunways, options = {}) {
         html += `<div style="font-size:11px; line-height:${detailLineHeight};">`;
         html += compactLayout
             ? `<span class="ga-airport-altitude-line">📍 <b>${elevRnd} ft<span class="ga-airport-altitude-desktop-only"> MSL</span></b> · 🔄 <span class="ga-airport-altitude-desktop-only">TPA </span><b><span class="ga-airport-altitude-desktop-only">~</span>${tpa} ft</b></span>`
-            : `📍 Platz: <b>${elevRnd} ft MSL</b><br>🔄 Platzrunde: <b>~${tpa} ft MSL</b>`;
+            : `📍 ${_apT('Platz:')} <b>${elevRnd} ft MSL</b><br>🔄 ${_apT('Platzrunde:')} <b>~${tpa} ft MSL</b>`;
         html += `</div>`;
     }
 
     const runwayHtml = (() => {
         if (!rwCacheKey || typeof runwayCache === 'undefined' || !runwayCache[rwCacheKey] || runwayCache[rwCacheKey] === 'Keine Daten gefunden') {
             return runwayContainerId
-                ? `<div id="${runwayContainerId}" class="ga-airport-popup-loading" style="font-size:11px; line-height:${detailLineHeight}; color:#666;">Pisten laden…</div>`
+                ? `<div id="${runwayContainerId}" class="ga-airport-popup-loading" style="font-size:11px; line-height:${detailLineHeight}; color:#666;">${_apT('Pisten laden…')}</div>`
                 : '';
         }
 
@@ -44,7 +48,7 @@ function _buildAptPopup(label, name, elev, icaoForRunways, options = {}) {
         if (rwys.length === 0) return '';
         const lines = compactLayout
             ? `🛫 ${rwys.join('<br>🛫 ')}`
-            : `🛫 Pisten:<br>${rwys.map(r => `&nbsp;&nbsp;${r}`).join('<br>')}`;
+            : `🛫 ${_apT('Pisten:')}<br>${rwys.map(r => `&nbsp;&nbsp;${r}`).join('<br>')}`;
         return runwayContainerId
             ? `<div id="${runwayContainerId}" style="font-size:11px; line-height:${detailLineHeight};">${lines}</div>`
             : `<div style="font-size:11px; line-height:${detailLineHeight};">${lines}</div>`;
@@ -65,7 +69,7 @@ function _buildAptPopup(label, name, elev, icaoForRunways, options = {}) {
 
     if (showAip) {
         html += `<hr style="border-color:#ccc; margin:${dividerMargin};">`;
-        html += `<a data-ga-airport-aip="${escapePopupText(icaoSafe)}" data-country="${escapePopupText(countryCode)}" href="${aipUrl}" target="_blank" rel="noopener noreferrer" style="display:block; font-size:11px; text-decoration:none; color:#0b1f65; font-weight:bold;">📄 AIP VFR ${window.gaAirportPopupHost?.openAip ? 'im PC-Browser öffnen' : 'öffnen'} ↗</a>`;
+        html += `<a data-ga-airport-aip="${escapePopupText(icaoSafe)}" data-country="${escapePopupText(countryCode)}" href="${aipUrl}" target="_blank" rel="noopener noreferrer" style="display:block; font-size:11px; text-decoration:none; color:#0b1f65; font-weight:bold;">📄 AIP VFR ${window.gaAirportPopupHost?.openAip ? _apT('im PC-Browser öffnen') : _apT('öffnen')} ↗</a>`;
         if (typeof AIP_CHART_UI_ENABLED !== 'undefined' && AIP_CHART_UI_ENABLED) {
             html += `<div style="margin-top:6px; border:1px solid #ddd; border-radius:5px; padding:6px; background:#f8f8f8;">`;
             html += `<div class="aip-overlay-status" data-aip-icao="${icaoSafe}" style="font-size:10px; color:#444; margin-bottom:6px;">Overlay aus</div>`;
@@ -83,7 +87,7 @@ function _buildAptPopup(label, name, elev, icaoForRunways, options = {}) {
 
     html += `<hr style="border-color:#ccc; margin:${dividerMargin};">`;
     html += `<div id="${wxContainerId}" style="min-height:${compactLayout ? '24px' : '36px'};">`;
-    html += `<div style="font-size:10px; color:#aaa; text-align:center; padding:${compactLayout ? '4px' : '8px'} 0;">Wetter lädt…</div>`;
+    html += `<div style="font-size:10px; color:#aaa; text-align:center; padding:${compactLayout ? '4px' : '8px'} 0;">${_apT('Wetter lädt…')}</div>`;
     html += `</div>`;
 
     if (showDirectTo) {
@@ -336,10 +340,10 @@ function abbreviateMapFrequencyLabel(label) {
 
 function buildPopupFrequencyLines(icao) {
     if (!icao || typeof freqCache === 'undefined' || !Array.isArray(freqCache[icao])) {
-        return '<span class="ga-airport-popup-loading" style="color:#666;">Frequenzen laden…</span>';
+        return '<span class="ga-airport-popup-loading" style="color:#666;">' + _apT('Frequenzen laden…') + '</span>';
     }
     if (freqCache[icao].length === 0) {
-        return '<span class="ga-airport-popup-loading" style="color:#666;">Keine Frequenzen verfügbar</span>';
+        return '<span class="ga-airport-popup-loading" style="color:#666;">' + _apT('Keine Frequenzen verfügbar') + '</span>';
     }
     return freqCache[icao]
         .slice(0, 6)
@@ -384,11 +388,11 @@ document.addEventListener('click', function(event) {
     link.dataset.opening = 'true';
     const original = link.dataset.linkLabel || link.textContent;
     link.dataset.linkLabel = original;
-    link.textContent = 'Browser wird geöffnet…';
+    link.textContent = _apT('Browser wird geöffnet…');
     Promise.resolve().then(() => window.gaAirportPopupHost[link.dataset.gaAirportWeather ? 'openWeather' : 'openAip']({
         icao: link.dataset.gaAirportWeather || link.dataset.gaAirportAip, country: link.dataset.country
     })).then(() => { link.textContent = original; }, () => {
-        link.textContent = 'Öffnen fehlgeschlagen – erneut versuchen';
+        link.textContent = _apT('Öffnen fehlgeschlagen – erneut versuchen');
     }).finally(() => { delete link.dataset.opening; });
 });
 

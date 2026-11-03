@@ -53,7 +53,7 @@
                 const fail = error => {
                     if (!current()) return;
                     console.warn('[Basemap]', style, error?.message || error);
-                    if (this._statusNode) this._statusNode.textContent = 'Basiskarte nicht verfügbar. Bitte andere Karte wählen.';
+                    if (this._statusNode) this._statusNode.textContent = ((typeof window !== 'undefined' && window.GAI18n) ? window.GAI18n.phrase('Basiskarte nicht verfügbar. Bitte andere Karte wählen.') : 'Basiskarte nicht verfügbar. Bitte andere Karte wählen.');
                 };
                 loadLibraries().then(() => {
                     if (!current()) return;

@@ -443,19 +443,22 @@ window.getMissionAircraftCapabilitySnapshot = getMissionAircraftCapabilitySnapsh
 function setAircraftPresetStatus(msg, color = '#888') {
     const el = document.getElementById('aircraftPresetStatus');
     if (!el) return;
-    el.innerText = String(msg || '');
+    el.innerText = _appUiPhrase(String(msg || ''));
     el.style.color = color;
 }
 
 function formatBoardingMeters(value) {
-    return `${Math.abs(Number(value) || 0).toFixed(1).replace('.', ',')} m`;
+    const fixed = Math.abs(Number(value) || 0).toFixed(1);
+    return `${window.GAI18n && GAI18n.getLanguage() === 'en' ? fixed : fixed.replace('.', ',')} m`;
 }
 
 function describeBoardingPoint(point) {
     const forward = Number(point?.forwardM || 0);
     const right = Number(point?.rightM || 0);
-    const fLabel = forward >= 0 ? `vorn ${formatBoardingMeters(forward)}` : `hinten ${formatBoardingMeters(forward)}`;
-    const rLabel = right >= 0 ? `rechts ${formatBoardingMeters(right)}` : `links ${formatBoardingMeters(right)}`;
+    const dist = { m: formatBoardingMeters(forward) };
+    const side = { m: formatBoardingMeters(right) };
+    const fLabel = forward >= 0 ? _appUiText('boarding.readout.forward', dist, 'vorn {m}') : _appUiText('boarding.readout.back', dist, 'hinten {m}');
+    const rLabel = right >= 0 ? _appUiText('boarding.readout.right', side, 'rechts {m}') : _appUiText('boarding.readout.left', side, 'links {m}');
     return `${fLabel} / ${rLabel}`;
 }
 
@@ -474,6 +477,13 @@ function boardingRoutePointList(config) {
         ...afterCargo.map(item => ({ key: `waypoint:${item.index}`, label: `Wegpunkt ${item.index + 1}`, point: item.point, fixed: false })),
         { key: 'target', label: 'Boarding', point: cfg.target, fixed: true }
     ];
+}
+
+// Display name in the editor. item.label itself stays German: it goes into the mission scene (pathLabels).
+function boardingPointDisplayLabel(item) {
+    const match = String(item?.key || '').match(/^waypoint:(\d+)$/);
+    if (match) return _appUiText('boarding.waypointN', { n: Number(match[1]) + 1 }, 'Wegpunkt {n}');
+    return String(item?.label || '');
 }
 
 function getBoardingPointRef(boarding, key) {
@@ -526,12 +536,12 @@ function updateBoardingPresetEditorUI(config = null) {
         route.forEach(item => {
             const option = document.createElement('option');
             option.value = item.key;
-            option.textContent = item.label;
+            option.textContent = boardingPointDisplayLabel(item);
             pointSelect.appendChild(option);
         });
         pointSelect.value = selected?.key || 'spawn';
     }
-    if (selectedReadout) selectedReadout.textContent = selected ? `${selected.label}: ${describeBoardingPoint(selected.point)}` : '-';
+    if (selectedReadout) selectedReadout.textContent = selected ? `${boardingPointDisplayLabel(selected)}: ${describeBoardingPoint(selected.point)}` : '-';
     const selectedIsWaypoint = /^waypoint:\d+$/.test(selected?.key || '');
     if (deleteBtn) deleteBtn.disabled = !selectedIsWaypoint;
     if (moveBackBtn) moveBackBtn.disabled = !selectedIsWaypoint;
@@ -557,7 +567,7 @@ function updateAircraftPresetBoarding(slotId, updater, statusText) {
     saveAircraftPresets();
     updateBoardingPresetEditorUI(aircraftPresets[resolvedSlot].boarding);
     updateAircraftPresetButtonsUI();
-    setAircraftPresetStatus(statusText || `${getAircraftPresetSlotLabel(resolvedSlot)} Boarding gespeichert`, '#4caf50');
+    setAircraftPresetStatus(statusText || _appUiText('presets.status.boardingSaved', { name: getAircraftPresetSlotLabel(resolvedSlot) }, '{name} Boarding gespeichert'), '#4caf50');
     scheduleAircraftPresetCloudSync();
     if (typeof window.scheduleBoardingMarkerRefresh === 'function') window.scheduleBoardingMarkerRefresh('preset-adjust');
 }
@@ -744,15 +754,19 @@ function updateNavComAircraftButtons() {
 function describeAircraftPresetSummary(preset) {
     const aircraftClass = getAircraftClassOption(preset.aircraftClass);
     const tagLabels = (preset.aircraftTags || [])
-        .map(tagId => AIRCRAFT_TAG_OPTIONS.find(option => option.id === tagId)?.label)
+        .map(tagId => {
+            const label = AIRCRAFT_TAG_OPTIONS.find(option => option.id === tagId)?.label;
+            return label ? _appUiText(`presets.tag.${tagId}`, null, label) : label;
+        })
         .filter(Boolean);
+    // The "<n> TAS" and "<n> GPH" parts stay as they are: the Tower skin reads them from this tooltip.
     return [
         preset.name,
-        aircraftClass.label,
+        _appUiText(`presets.class.${aircraftClass.id}`, null, aircraftClass.label),
         `${preset.tas} TAS`,
         `${String(preset.gph).padStart(2, '0')} GPH`,
-        `${preset.pax} Sitze`,
-        `${preset.maxPayloadKg} kg Zuladung`,
+        _appUiText('presets.summary.seats', { seats: preset.pax }, '{seats} Sitze'),
+        _appUiText('presets.summary.payload', { kg: preset.maxPayloadKg }, '{kg} kg Zuladung'),
         ...tagLabels
     ].join(' · ');
 }
@@ -762,18 +776,20 @@ function updateAircraftPresetButtonsUI() {
     aircraftQuickSlots.forEach((presetId, index) => {
         const preset = getAircraftPreset(presetId);
         const summary = describeAircraftPresetSummary(preset);
-        const hint = 'Rechtsklick/Langdruck: Preset zuweisen';
+        const hint = _appUiText('presets.quickSlot.hint', null, 'Rechtsklick/Langdruck: Preset zuweisen');
+        const slotTitle = _appUiText('presets.quickSlot.title', { slot: index + 1, summary, hint }, 'Schnellwahl {slot}: {summary} · {hint}');
+        const slotAria = _appUiText('presets.quickSlot.aria', { slot: index + 1, name: preset.name }, 'Schnellwahl {slot}: {name} auswählen. Rechtsklick oder Langdruck, um ein anderes Preset zuzuweisen.');
         document.querySelectorAll(`.btn-preset[data-quick-slot="${index}"]`).forEach(btn => {
             btn.textContent = preset.name;
-            btn.title = `Schnellwahl ${index + 1}: ${summary} · ${hint}`;
-            btn.setAttribute('aria-label', `Schnellwahl ${index + 1}: ${preset.name} auswählen. Rechtsklick oder Langdruck, um ein anderes Preset zuzuweisen.`);
+            btn.title = slotTitle;
+            btn.setAttribute('aria-label', slotAria);
         });
         document.querySelectorAll(`.audio-btn[data-quick-slot="${index}"]`).forEach(btn => {
             const led = btn.querySelector('.audio-led');
             btn.textContent = preset.name;
             if (led) btn.appendChild(led);
-            btn.title = `Schnellwahl ${index + 1}: ${summary} · ${hint}`;
-            btn.setAttribute('aria-label', `Schnellwahl ${index + 1}: ${preset.name} auswählen. Rechtsklick oder Langdruck, um ein anderes Preset zuzuweisen.`);
+            btn.title = slotTitle;
+            btn.setAttribute('aria-label', slotAria);
         });
     });
     if (typeof updateOpsAircraftSwitches === 'function') updateOpsAircraftSwitches();
@@ -802,7 +818,7 @@ function updateSettingsPresetButtons() {
 
         const meta = document.createElement('span');
         meta.className = 'settings-preset-item-meta';
-        meta.textContent = `${preset.tas} kt · ${preset.gph} GPH · ${preset.pax} Sitze`;
+        meta.textContent = _appUiText('presets.meta', { tas: preset.tas, gph: preset.gph, seats: preset.pax }, '{tas} kt · {gph} GPH · {seats} Sitze');
         button.appendChild(meta);
 
         const slots = aircraftQuickSlots
@@ -811,7 +827,7 @@ function updateSettingsPresetButtons() {
         if (slots.length) {
             const badges = document.createElement('span');
             badges.className = 'settings-preset-item-slots';
-            badges.title = `Liegt auf Schnellwahl ${slots.join(', ')}`;
+            badges.title = _appUiText('presets.onQuickSlots', { slots: slots.join(', ') }, 'Liegt auf Schnellwahl {slots}');
             slots.forEach(slot => {
                 const badge = document.createElement('span');
                 badge.textContent = String(slot);
@@ -819,7 +835,9 @@ function updateSettingsPresetButtons() {
             });
             button.appendChild(badges);
         }
-        button.setAttribute('aria-label', `${preset.name} bearbeiten${slots.length ? ` (Schnellwahl ${slots.join(', ')})` : ''}`);
+        button.setAttribute('aria-label', slots.length
+            ? _appUiText('presets.editWithSlots', { name: preset.name, slots: slots.join(', ') }, '{name} bearbeiten (Schnellwahl {slots})')
+            : _appUiText('presets.edit', { name: preset.name }, '{name} bearbeiten'));
         button.addEventListener('click', event => openAircraftPresetEditor(presetId, event, button));
         list.appendChild(button);
     });
@@ -831,8 +849,8 @@ function updateSettingsPresetButtons() {
     add.disabled = full;
     add.setAttribute('aria-haspopup', 'dialog');
     add.textContent = full
-        ? `Maximum erreicht (${AIRCRAFT_PRESET_MAX})`
-        : `+ Neues Preset (${aircraftPresetOrder.length}/${AIRCRAFT_PRESET_MAX})`;
+        ? _appUiText('presets.max', { max: AIRCRAFT_PRESET_MAX }, 'Maximum erreicht ({max})')
+        : _appUiText('presets.add', { count: aircraftPresetOrder.length, max: AIRCRAFT_PRESET_MAX }, '+ Neues Preset ({count}/{max})');
     add.addEventListener('click', event => createAircraftPreset(event, add));
     list.appendChild(add);
 
@@ -884,7 +902,7 @@ function commitAircraftPresetUpdate(slotId, candidate, options = {}) {
     updateAircraftPresetButtonsUI();
     if (options.selectSettingsSlot !== false) selectAircraftPresetSlotFromSettings(resolvedSlot);
     if (selectedAC === resolvedSlot) applyPreset(next.tas, next.gph, next.pax, resolvedSlot);
-    setAircraftPresetStatus(options.statusText || `${next.name} gespeichert`, '#4caf50');
+    setAircraftPresetStatus(options.statusText || _appUiText('presets.status.saved', { name: next.name }, '{name} gespeichert'), '#4caf50');
     scheduleAircraftPresetCloudSync();
     return next;
 }
@@ -1009,7 +1027,7 @@ function saveAircraftPresetFromEditor(event = null) {
         }
         saveAircraftPresets();
         updateAircraftPresetButtonsUI();
-        setAircraftPresetStatus(`${aircraftPresets[newId].name} angelegt`, '#4caf50');
+        setAircraftPresetStatus(_appUiText('presets.status.created', { name: aircraftPresets[newId].name }, '{name} angelegt'), '#4caf50');
         scheduleAircraftPresetCloudSync();
         document.querySelector(`#settingsPresetButtons [data-preset-slot="${CSS.escape(newId)}"]`)?.focus?.({ preventScroll: true });
         return false;
@@ -1022,7 +1040,7 @@ function saveAircraftPresetFromEditor(event = null) {
     const next = commitAircraftPresetUpdate(slotId, readAircraftPresetEditorCandidate(getAircraftPreset(slotId)), {
         selectSettingsSlot: false
     });
-    setAircraftPresetStatus(`${next.name} gespeichert`, '#4caf50');
+    setAircraftPresetStatus(_appUiText('presets.status.saved', { name: next.name }, '{name} gespeichert'), '#4caf50');
     closeAircraftPresetEditor(null, { restoreFocus: true });
     return false;
 }
@@ -1054,7 +1072,7 @@ function deleteAircraftPreset(presetId) {
     }
     updateAircraftPresetButtonsUI();
     selectAircraftPresetSlotFromSettings(activeAircraftPresetSettingsSlot);
-    setAircraftPresetStatus(`${name} gelöscht`, '#e0a040');
+    setAircraftPresetStatus(_appUiText('presets.status.deleted', { name }, '{name} gelöscht'), '#e0a040');
     scheduleAircraftPresetCloudSync();
     return true;
 }
@@ -1066,8 +1084,8 @@ function deleteAircraftPresetFromEditor(event = null) {
     if (aircraftPresetEditorCreating || !hasAircraftPreset(presetId)) return;
     const name = getAircraftPreset(presetId).name;
     const slots = aircraftQuickSlots.map((id, index) => (id === presetId ? index + 1 : null)).filter(Boolean);
-    const slotNote = slots.length ? `\nEs liegt auf Schnellwahl ${slots.join(', ')} und wird dort ersetzt.` : '';
-    if (!confirm(`Preset „${name}“ wirklich löschen?${slotNote}`)) return;
+    const slotNote = slots.length ? `\n${_appUiText('dialog.app.presetSlotNote', { slots: slots.join(', ') }, 'Es liegt auf Schnellwahl {slots} und wird dort ersetzt.')}` : '';
+    if (!confirm(_appUiText('dialog.app.presetWirklichLoschen', { name: name, slotNote: slotNote }, 'Preset „{name}“ wirklich löschen?{slotNote}'))) return;
     closeAircraftPresetEditor(null, { restoreFocus: false });
     deleteAircraftPreset(presetId);
     document.querySelector('#settingsPresetButtons .settings-preset-add')?.focus?.({ preventScroll: true });
@@ -1131,7 +1149,7 @@ function renderAircraftQuickSlotMenu() {
 
         const meta = document.createElement('span');
         meta.className = 'airport-result-meta';
-        meta.textContent = `${preset.tas} kt · ${preset.gph} GPH · ${preset.pax} Sitze`;
+        meta.textContent = _appUiText('presets.meta', { tas: preset.tas, gph: preset.gph, seats: preset.pax }, '{tas} kt · {gph} GPH · {seats} Sitze');
 
         const check = document.createElement('span');
         check.className = 'aircraft-quick-slot-check';
@@ -1266,7 +1284,7 @@ function assignAircraftQuickSlot(index, presetId) {
     activeAircraftQuickSlotIndex = slotIndex;
     applyAircraftPresetSlot(presetId);
     updateAircraftPresetButtonsUI();
-    setAircraftPresetStatus(`Schnellwahl ${slotIndex + 1}: ${getAircraftPreset(presetId).name}`, '#4caf50');
+    setAircraftPresetStatus(_appUiText('presets.status.quickSlot', { slot: slotIndex + 1, name: getAircraftPreset(presetId).name }, 'Schnellwahl {slot}: {name}'), '#4caf50');
     scheduleAircraftPresetCloudSync();
 }
 window.assignAircraftQuickSlot = assignAircraftQuickSlot;
@@ -2585,6 +2603,35 @@ const SETTINGS_HELP_CONTENT = {
     }
 };
 
+// Help texts in another language come from the i18n dictionaries (i18n/en-help.js).
+// Keys: help.<helpKey>.kicker|title|intro and help.<helpKey>.<slug of the German term>.term|text,
+// so inserting or reordering German items does not shift the translations.
+// German returns the original object unchanged; a missing translation keeps the German text.
+function _settingsHelpSlug(term) {
+    return String(term || '').toLowerCase().replace(/ß/g, 'ss').normalize('NFKD')
+        .replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+}
+
+function _localizedSettingsHelp(helpKey, data) {
+    const i18n = window.GAI18n;
+    if (!data || !i18n || i18n.getLanguage() === 'de') return data;
+    const tr = (key, fallback) => i18n.t(`help.${helpKey}.${key}`, null, fallback);
+    return {
+        ...data,
+        kicker: data.kicker ? tr('kicker', data.kicker) : data.kicker,
+        title: data.title ? tr('title', data.title) : data.title,
+        intro: data.intro ? tr('intro', data.intro) : data.intro,
+        items: (data.items || []).map(item => {
+            const slug = _settingsHelpSlug(item.term);
+            return {
+                ...item,
+                term: tr(`${slug}.term`, item.term),
+                text: typeof item.text === 'function' ? item.text : tr(`${slug}.text`, item.text)
+            };
+        })
+    };
+}
+
 let activeSettingsHelp = null;
 
 function _appendSettingsHelpText(parent, tagName, className, text) {
@@ -2615,7 +2662,7 @@ function _buildSettingsHelpPopover(data) {
     const closeBtn = document.createElement('button');
     closeBtn.type = 'button';
     closeBtn.className = 'settings-help-close-btn';
-    closeBtn.setAttribute('aria-label', 'Hilfe schliessen');
+    closeBtn.setAttribute('aria-label', window.GAI18n ? GAI18n.t('help.close', null, 'Hilfe schliessen') : 'Hilfe schliessen');
     closeBtn.textContent = '×';
     closeBtn.addEventListener('click', closeSettingsHelp);
     head.appendChild(closeBtn);
@@ -2674,7 +2721,7 @@ function showSettingsHelp(helpKey, event) {
         event.stopPropagation();
     }
 
-    const data = SETTINGS_HELP_CONTENT[helpKey];
+    const data = _localizedSettingsHelp(helpKey, SETTINGS_HELP_CONTENT[helpKey]);
     const anchor = event?.currentTarget || null;
     if (!data) return;
 
@@ -4944,6 +4991,20 @@ function _optionByValue(mode, value) {
     return _activeMissionPickerOptions(mode).find(o => !o.disabled && o.value === value) || null;
 }
 
+// Display labels of a picker option in the UI language (i18n/en-picker.js, keyed by value).
+// MISSION_PICKER_OPTIONS itself stays German; only the shown text changes.
+function _missionPickerDisplayLabels(opt) {
+    const i18n = window.GAI18n;
+    if (!opt || !i18n || i18n.getLanguage() === 'de') return opt;
+    const base = `picker.${opt.value || 'byTarget'}`;
+    return {
+        ...opt,
+        classic: opt.classic ? i18n.t(`${base}.classic`, null, opt.classic) : opt.classic,
+        radioShort: opt.radioShort ? i18n.t(`${base}.radioShort`, null, opt.radioShort) : opt.radioShort,
+        radioFull: opt.radioFull ? i18n.t(`${base}.radioFull`, null, opt.radioFull) : opt.radioFull
+    };
+}
+
 function _populateMissionTypeSelects(mode, preferredValue = null) {
     const classic = document.getElementById('targetType');
     const radio = document.getElementById('targetTypeRadio');
@@ -4966,7 +5027,8 @@ function _populateMissionTypeSelects(mode, preferredValue = null) {
     const options = _activeMissionPickerOptions(mode);
     classic.innerHTML = '';
     radio.innerHTML = '';
-    options.forEach(opt => {
+    options.forEach(rawOpt => {
+        const opt = _missionPickerDisplayLabels(rawOpt);
         const c = document.createElement('option');
         c.value = opt.value || '';
         c.disabled = !!opt.disabled;
@@ -7551,7 +7613,7 @@ function bootAppOnce() {
         const stat = document.getElementById('groupStatus');
         if (inpN) inpN.value = gName;
         if (inpU) inpU.value = gNick;
-        if (stat) { stat.innerText = "Verbunden als " + gNick; stat.style.color = "var(--green)"; }
+        if (stat) { stat.innerText = window.GAI18n ? GAI18n.t('crew.status.connectedAs', { nick: gNick }, 'Verbunden als {nick}') : 'Verbunden als ' + gNick; stat.style.color = "var(--green)"; }
     }
 
     setTimeout(() => {
@@ -7815,12 +7877,12 @@ function requestDispatchApiKey({ startup = false, invalid = false } = {}) {
     const form = document.getElementById('dispatchApiKeyForm');
     const keyInput = document.getElementById('dispatchApiKeyPassword');
     if (!dialog || !form || !keyInput) return Promise.resolve('cancel');
-    document.getElementById('dispatchApiKeyTitle').textContent = invalid ? 'API-Key nicht gültig' : 'API-Key fehlt';
+    document.getElementById('dispatchApiKeyTitle').textContent = invalid ? _appUiPhrase('API-Key nicht gültig') : _appUiPhrase('API-Key fehlt');
     document.getElementById('dispatchApiKeyProvider').textContent = AI_PROVIDER_LABELS[provider];
     document.getElementById('dispatchApiKeyDismissOption').hidden = !startup;
     document.getElementById('dispatchApiKeyDismiss').checked = false;
-    document.getElementById('dispatchApiKeySubmit').textContent = startup ? 'Key übernehmen' : 'Mit KI fortfahren';
-    document.getElementById('dispatchApiKeyCancel').textContent = startup ? 'Schließen' : 'Abbrechen';
+    document.getElementById('dispatchApiKeySubmit').textContent = startup ? _appUiPhrase('Key übernehmen') : _appUiPhrase('Mit KI fortfahren');
+    document.getElementById('dispatchApiKeyCancel').textContent = startup ? _appUiPhrase('Schließen') : _appUiPhrase('Abbrechen');
     document.getElementById('dispatchApiKeyUsername').value = `GA Dispatcher ${AI_PROVIDER_LABELS[provider]} API-Key`;
     keyInput.value = '';
     keyInput.type = 'password';
@@ -7850,14 +7912,14 @@ function requestDispatchApiKey({ startup = false, invalid = false } = {}) {
             // Never submit the key as a form request or include it in a URL.
             event.preventDefault();
             const key = keyInput.value.trim();
-            if (!key) { error.textContent = 'Bitte einen API-Key eingeben.'; keyInput.focus(); return; }
+            if (!key) { error.textContent = _appUiPhrase('Bitte einen API-Key eingeben.'); keyInput.focus(); return; }
             const settingsInput = document.getElementById(provider === 'openai' ? 'openAiApiKeyInput' : 'apiKeyInput');
-            if (!settingsInput) { error.textContent = 'Die API-Key-Einstellungen sind nicht verfügbar.'; return; }
+            if (!settingsInput) { error.textContent = _appUiPhrase('Die API-Key-Einstellungen sind nicht verfügbar.'); return; }
             if (document.getElementById('dispatchApiKeyRemember').checked) {
                 try {
                     localStorage.setItem(provider === 'openai' ? OPENAI_API_KEY_STORAGE_KEY : 'ga_gemini_key', key);
                 } catch (_) {
-                    error.textContent = 'Lokales Speichern ist nicht möglich. Deaktiviere die Speicheroption, um für diese Sitzung fortzufahren.';
+                    error.textContent = _appUiPhrase('Lokales Speichern ist nicht möglich. Deaktiviere die Speicheroption, um für diese Sitzung fortzufahren.');
                     return;
                 }
             }
@@ -7997,6 +8059,27 @@ function _clearApiKeyValidationCache(provider = 'gemini') {
     try { localStorage.removeItem(_apiKeyValidationCacheKey(provider)); } catch (_) {}
 }
 
+// UI language (i18n-core.js). Without GAI18n, or with German selected, the German text is shown as is.
+function _appUiText(key, vars, german) {
+    if (window.GAI18n) return GAI18n.t(key, vars, german);
+    return String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, (m, n) => (vars && Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m));
+}
+function _appUiPhrase(text) {
+    return window.GAI18n ? GAI18n.phrase(text) : text;
+}
+// On a language switch, redraw pure display parts of the settings panel. Status lines are not
+// redrawn: their next update arrives in the new language (redrawing them could trigger sync work).
+if (typeof window !== 'undefined' && window.GAI18n) {
+    GAI18n.onChange(() => {
+        try { updateAircraftPresetButtonsUI(); } catch (_) {}
+        try { updateBoardingPresetEditorUI(); } catch (_) {}
+        // Dispatch area: picker labels, Ops 1940 copies of the selects, RDM/PICK tooltips.
+        try { refreshMissionPickerOptions(document.getElementById('targetType')?.value || null); } catch (_) {}
+        try { updateOps1940Panel(); } catch (_) {}
+        try { window.updateMissionProposalModeButtonUi?.(); } catch (_) {}
+    });
+}
+
 function setApiKeyValidationStatus(message, tone = 'neutral', provider = 'gemini') {
     const statusEl = document.getElementById(normalizeAiProvider(provider) === 'openai' ? 'openAiApiKeyStatus' : 'apiKeyStatus');
     if (!statusEl) return;
@@ -8006,14 +8089,14 @@ function setApiKeyValidationStatus(message, tone = 'neutral', provider = 'gemini
         ok: '#4caf50',
         error: '#ff6b6b'
     };
-    statusEl.textContent = String(message || '').trim();
+    statusEl.textContent = _appUiPhrase(String(message || '').trim());
     statusEl.style.color = colorByTone[tone] || colorByTone.neutral;
 }
 
 function _restoreApiKeyValidationStatus(provider, key) {
     const normalized = normalizeAiProvider(provider);
     if (!key) {
-        setApiKeyValidationStatus(`${AI_PROVIDER_LABELS[normalized]} API-Key fehlt.`, 'neutral', normalized);
+        setApiKeyValidationStatus(_appUiText('settings.apiKey.missing', { provider: AI_PROVIDER_LABELS[normalized] }, '{provider} API-Key fehlt.'), 'neutral', normalized);
         return;
     }
     const cache = _readApiKeyValidationCache(normalized);
@@ -8022,9 +8105,9 @@ function _restoreApiKeyValidationStatus(provider, key) {
     if (sameKey && Number.isFinite(ageMs) && ageMs >= 0 && ageMs < API_KEY_VALIDATION_TTL_MS) {
         const minutesAgo = Math.max(1, Math.round(ageMs / 60000));
         if (cache.ok === true) {
-            setApiKeyValidationStatus(`Zuletzt vor ${minutesAgo} min geprueft (ok).`, 'ok', normalized);
+            setApiKeyValidationStatus(_appUiText('settings.apiKey.checkedAgo', { minutes: minutesAgo }, 'Zuletzt vor {minutes} min geprueft (ok).'), 'ok', normalized);
         } else {
-            setApiKeyValidationStatus(`Letzte Pruefung vor ${minutesAgo} min fehlgeschlagen.`, 'error', normalized);
+            setApiKeyValidationStatus(_appUiText('settings.apiKey.failedAgo', { minutes: minutesAgo }, 'Letzte Pruefung vor {minutes} min fehlgeschlagen.'), 'error', normalized);
         }
         return { ok: cache.ok, status: cache.status };
     } else {
@@ -8040,7 +8123,7 @@ async function queueApiKeyValidation(rawKey, provider = 'gemini') {
     _apiKeyValidationRunId[normalizedProvider] = runId;
     if (!apiKey) {
         _clearApiKeyValidationCache(normalizedProvider);
-        setApiKeyValidationStatus(`${AI_PROVIDER_LABELS[normalizedProvider]} API-Key fehlt.`, 'neutral', normalizedProvider);
+        setApiKeyValidationStatus(_appUiText('settings.apiKey.missing', { provider: AI_PROVIDER_LABELS[normalizedProvider] }, '{provider} API-Key fehlt.'), 'neutral', normalizedProvider);
         return { ok: null, reason: 'empty' };
     }
 
@@ -8084,9 +8167,9 @@ async function queueApiKeyValidation(rawKey, provider = 'gemini') {
         } catch (_) {}
         const suffix = apiMessage ? ` (${apiMessage})` : '';
         if (res.status === 400 || res.status === 401 || res.status === 403) {
-            setApiKeyValidationStatus(`API-Key ungueltig oder ohne ${AI_PROVIDER_LABELS[normalizedProvider]}-Berechtigung${suffix}`, 'error', normalizedProvider);
+            setApiKeyValidationStatus(_appUiText('settings.apiKey.invalid', { provider: AI_PROVIDER_LABELS[normalizedProvider], detail: suffix }, 'API-Key ungueltig oder ohne {provider}-Berechtigung{detail}'), 'error', normalizedProvider);
         } else {
-            setApiKeyValidationStatus(`API-Key Pruefung fehlgeschlagen (HTTP ${res.status})${suffix}`, 'error', normalizedProvider);
+            setApiKeyValidationStatus(_appUiText('settings.apiKey.httpFailed', { status: res.status, detail: suffix }, 'API-Key Pruefung fehlgeschlagen (HTTP {status}){detail}'), 'error', normalizedProvider);
         }
         _writeApiKeyValidationCache({
             sig: keySig,
@@ -8123,7 +8206,7 @@ function saveApiKey(shouldValidate = true, provider = 'gemini') {
     localStorage.setItem(storageKey, key);
     if (key !== previousKey) {
         _clearApiKeyValidationCache(normalizedProvider);
-        if (!key) setApiKeyValidationStatus(`${AI_PROVIDER_LABELS[normalizedProvider]} API-Key fehlt.`, 'neutral', normalizedProvider);
+        if (!key) setApiKeyValidationStatus(_appUiText('settings.apiKey.missing', { provider: AI_PROVIDER_LABELS[normalizedProvider] }, '{provider} API-Key fehlt.'), 'neutral', normalizedProvider);
         else setApiKeyValidationStatus('API-Key geaendert. Warte auf Pruefung...', 'neutral', normalizedProvider);
     }
     updateAiCostEstimate();
@@ -8228,7 +8311,7 @@ async function confirmMissionOverwriteIfNeeded() {
     // Legacy follow-up callers confirm preview generation, never a shared replacement.
     if (window.gaMissionDraftPhase?.() === 'committing' || window.gaMissionDraftPhase?.() === 'preparing') return false;
     if (!window.gaMissionDraftActive?.()) return true;
-    return confirm('Den aktuellen lokalen Entwurf verwerfen und eine neue Mission als Entwurf generieren? Die angenommene Mission in Cloud und Tracker bleibt bis zur Annahme erhalten.');
+    return confirm(_appUiPhrase('Den aktuellen lokalen Entwurf verwerfen und eine neue Mission als Entwurf generieren? Die angenommene Mission in Cloud und Tracker bleibt bis zur Annahme erhalten.'));
 }
 
 window.confirmMissionOverwriteIfNeeded = confirmMissionOverwriteIfNeeded;
@@ -8716,7 +8799,7 @@ window.resetExpiredActiveMissionStateToPlanned = resetExpiredActiveMissionStateT
 function resetExpiredActiveMissionToPlanned(state = {}, reason = 'active-mission-runtime-expired', options = {}) {
     if (!state || typeof state !== 'object') return false;
     if (options.complianceReleased !== true && window.missionComplianceBlockReset?.()) {
-        try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
+        try { alert(_appUiPhrase('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.')); } catch (_) {}
         return false;
     }
     const info = options.expiryInfo || activeMissionRestoreExpiryInfo(state);
@@ -8783,7 +8866,7 @@ window.resetExpiredActiveMissionToPlanned = resetExpiredActiveMissionToPlanned;
 
 function clearExpiredActiveMissionPersistence(reason = 'active-mission-expired', options = {}) {
     if (options.complianceReleased !== true && window.missionComplianceBlockReset?.()) {
-        try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
+        try { alert(_appUiPhrase('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.')); } catch (_) {}
         return false;
     }
     const info = options.expiryInfo || null;
@@ -10093,7 +10176,7 @@ window.gaOpenLoadedMissionAsDraft = async function(state, source = 'pinboard') {
     const session = missionDraftSession();
     if (!session.active() && acceptedId && md.missionId && acceptedId === md.missionId) return { handled: false };
     if (window.gaIsDispatchBusy?.() || ['generating', 'preparing', 'committing'].includes(session.status())) {
-        alert('Gerade wird eine Mission erstellt oder übernommen. Bitte kurz warten und dann erneut laden.');
+        alert(_appUiPhrase('Gerade wird eine Mission erstellt oder übernommen. Bitte kurz warten und dann erneut laden.'));
         return { handled: true, ok: false };
     }
     if (session.active()) {
@@ -10407,7 +10490,7 @@ async function restoreMissionState(state, options = {}) {
     let staleRuntimeResetToPlanned = options.runtimeResetToPlanned === true;
     let staleRuntimeExpiryInfo = options.runtimeResetExpiryInfo || null;
     if (!options.presentationOnly && !resumeRuntime && options.complianceReleased !== true && window.missionComplianceBlockReset?.()) {
-        try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
+        try { alert(_appUiPhrase('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.')); } catch (_) {}
         return false;
     }
     if (!state || typeof state !== 'object') {
@@ -10782,7 +10865,7 @@ function clearAppMissionState(options = {}) {
         return false;
     }
     if (options.complianceReleased !== true && window.missionComplianceBlockReset?.()) {
-        try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
+        try { alert(_appUiPhrase('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.')); } catch (_) {}
         return false;
     }
     const nextStart = String(options.nextStart || '').trim();
@@ -10867,11 +10950,11 @@ function clearAppMissionState(options = {}) {
 window.clearAppMissionState = clearAppMissionState;
 
 async function resetApp() {
-    if (!confirm('Aktuelle Mission wirklich löschen?\n\nDer Tracker-Lauf und seine Szenen werden beendet, der Cloud-Missionsslot und ein lokaler Entwurf werden geleert. Andere Profildaten bleiben erhalten.')) return false;
+    if (!confirm(_appUiPhrase('Aktuelle Mission wirklich löschen?\n\nDer Tracker-Lauf und seine Szenen werden beendet, der Cloud-Missionsslot und ein lokaler Entwurf werden geleert. Andere Profildaten bleiben erhalten.'))) return false;
     _abortDispatchRun('Mission löschen');
     _dispatchRunId++;
     const result = await window.gaClearSharedMission?.();
-    if (!result?.ok) { alert('Mission konnte nicht vollständig gelöscht werden: ' + (result?.error || 'Keine Bestätigung.')); return false; }
+    if (!result?.ok) { alert(_appUiText('dialog.app.missionKonnteNichtVollstandig', { v: result?.error || _appUiPhrase('Keine Bestätigung.') }, 'Mission konnte nicht vollständig gelöscht werden: {v}')); return false; }
     return true;
 }
 /* =========================================================
@@ -11050,7 +11133,7 @@ function applyPreset(t, g, s, n) {
 
 function copyCoords(elementId) {
     const txt = document.getElementById(elementId).innerText;
-    if (txt && txt !== "-") { navigator.clipboard.writeText(txt).then(() => alert("Koordinaten kopiert:\n" + txt)); }
+    if (txt && txt !== "-") { navigator.clipboard.writeText(txt).then(() => alert(_appUiText('dialog.app.koordinatenKopiert', { txt: txt }, 'Koordinaten kopiert:\n{txt}'))); }
 }
 
 function checkBearing(b, dirPref) {
@@ -11063,7 +11146,7 @@ function checkBearing(b, dirPref) {
 }
 
 function resetBtn(btn) {
-    if (btn) { btn.disabled = false; btn.innerText = "Auftrag generieren"; }
+    if (btn) { btn.disabled = false; btn.innerText = _appUiPhrase("Auftrag generieren"); }
     const rBtn = document.getElementById('radioGenerateBtn');
     if (rBtn) {
         rBtn.classList.remove('disabled');
@@ -28214,7 +28297,7 @@ window.acceptMissionDraft = async function() {
     const session = missionDraftSession();
     if (!session.active()) return prepareMissionDraftScene(); // Existing accepted/legacy scene behavior.
     if (window.gaIsDispatchBusy?.() || ['generating','preparing','committing'].includes(session.status())) return false;
-    if (!confirm('Mission akzeptieren und den bisherigen Auftrag ersetzen?\n\nDie neue Mission ersetzt den bisherigen Cloud-Auftrag. Ein erreichbarer Tracker beendet den alten Lauf sofort; andernfalls bereinigt er ihn bei seiner nächsten Verbindung und übernimmt die neue Mission. „Mission beginnen“ bleibt ein eigener Schritt.')) return false;
+    if (!confirm(_appUiPhrase('Mission akzeptieren und den bisherigen Auftrag ersetzen?\n\nDie neue Mission ersetzt den bisherigen Cloud-Auftrag. Ein erreichbarer Tracker beendet den alten Lauf sofort; andernfalls bereinigt er ihn bei seiner nächsten Verbindung und übernimmt die neue Mission. „Mission beginnen“ bleibt ein eigener Schritt.'))) return false;
     session.phase('preparing'); updateMissionAcceptanceUi();
     try {
         if (!await prepareMissionDraftScene()) return false;
@@ -42776,10 +42859,12 @@ window.gaMissionProposalMode = function gaMissionProposalMode(enabled) {
 window.updateMissionProposalModeButtonUi = function updateMissionProposalModeButtonUi() {
     const btn = document.getElementById('btnMissionProposalMode');
     const active = missionProposalModeEnabled();
-    const activeTitle = 'Vorschlagsauswahl aktiv: passende APT- und POI-Missionen zeigen vorab auswählbare Optionen.';
-    const inactiveTitle = 'Zufallsmodus: Missionen werden direkt wie bisher zufällig generiert.';
+    const activeTitle = _appUiText('dispatch.proposal.activeTitle', null, 'Vorschlagsauswahl aktiv: passende APT- und POI-Missionen zeigen vorab auswählbare Optionen.');
+    const inactiveTitle = _appUiText('dispatch.proposal.inactiveTitle', null, 'Zufallsmodus: Missionen werden direkt wie bisher zufällig generiert.');
+    const pickTitle = _appUiText('dispatch.proposal.pickTitle', null, 'PICK: zuerst 2-3 Vorschläge auswählen.');
+    const rdmTitle = _appUiText('dispatch.proposal.rdmTitle', null, 'RDM: direkt eine zufällige Mission erzeugen.');
     if (btn) {
-        btn.textContent = active ? 'Vorschläge Ein' : 'Vorschläge Aus';
+        btn.textContent = active ? _appUiText('dispatch.proposal.on', null, 'Vorschläge Ein') : _appUiText('dispatch.proposal.off', null, 'Vorschläge Aus');
         btn.title = active ? activeTitle : inactiveTitle;
         btn.style.background = active ? '#283d6a' : '#1f2638';
         btn.style.borderColor = active ? '#7fa8ff' : '#4f5f86';
@@ -42791,8 +42876,8 @@ window.updateMissionProposalModeButtonUi = function updateMissionProposalModeBut
         navcomSwitch.setAttribute('aria-checked', active ? 'true' : 'false');
         navcomSwitch.setAttribute('data-mode', active ? 'pick' : 'rdm');
         navcomSwitch.title = active
-            ? 'PICK: zuerst 2-3 Vorschläge auswählen.'
-            : 'RDM: direkt eine zufällige Mission erzeugen.';
+            ? pickTitle
+            : rdmTitle;
     }
     const analogLabel = document.getElementById('analogProposalModeLabel');
     if (analogLabel) {
@@ -42801,8 +42886,8 @@ window.updateMissionProposalModeButtonUi = function updateMissionProposalModeBut
         analogLabel.setAttribute('aria-checked', active ? 'true' : 'false');
         analogLabel.setAttribute('data-mode', active ? 'pick' : 'rdm');
         analogLabel.title = active
-            ? 'PICK: zuerst 2-3 Vorschläge auswählen.'
-            : 'RDM: direkt eine zufällige Mission erzeugen.';
+            ? pickTitle
+            : rdmTitle;
     }
     const modernControl = document.querySelector('.modern-proposal-mode-control');
     const modernLabel = document.getElementById('modernProposalModeLabel');
@@ -42810,8 +42895,8 @@ window.updateMissionProposalModeButtonUi = function updateMissionProposalModeBut
     if (modernControl) {
         modernControl.classList.toggle('is-active', active);
         modernControl.title = active
-            ? 'PICK: zuerst 2-3 Vorschläge auswählen.'
-            : 'RDM: direkt eine zufällige Mission erzeugen.';
+            ? pickTitle
+            : rdmTitle;
     }
     if (modernLabel) {
         modernLabel.textContent = active ? 'PICK' : 'RDM';
@@ -42821,8 +42906,8 @@ window.updateMissionProposalModeButtonUi = function updateMissionProposalModeBut
         modernCheckbox.setAttribute('aria-checked', active ? 'true' : 'false');
         modernCheckbox.setAttribute('data-mode', active ? 'pick' : 'rdm');
         modernCheckbox.title = active
-            ? 'PICK: zuerst 2-3 Vorschläge auswählen.'
-            : 'RDM: direkt eine zufällige Mission erzeugen.';
+            ? pickTitle
+            : rdmTitle;
     }
     const opsRdm = document.getElementById('opsProposalModeRdm');
     const opsPick = document.getElementById('opsProposalModePick');
@@ -42830,13 +42915,13 @@ window.updateMissionProposalModeButtonUi = function updateMissionProposalModeBut
         opsRdm.classList.toggle('is-active', !active);
         opsRdm.setAttribute('aria-pressed', active ? 'false' : 'true');
         opsRdm.setAttribute('data-mode', 'rdm');
-        opsRdm.title = 'RDM: direkt eine zufällige Mission erzeugen.';
+        opsRdm.title = rdmTitle;
     }
     if (opsPick) {
         opsPick.classList.toggle('is-active', active);
         opsPick.setAttribute('aria-pressed', active ? 'true' : 'false');
         opsPick.setAttribute('data-mode', 'pick');
-        opsPick.title = 'PICK: zuerst 2-3 Vorschläge auswählen.';
+        opsPick.title = pickTitle;
     }
 };
 
@@ -44298,7 +44383,7 @@ async function generateMission(options = {}) {
     if (!trackerExecutionReplacement && window.missionComplianceBlockReset?.()) {
         const indicator = document.getElementById('searchIndicator');
         if (indicator) indicator.innerText = 'Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.';
-        try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
+        try { alert(_appUiPhrase('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.')); } catch (_) {}
         setMissionGenerationProgress({ visible: false, force: true });
         return false;
     }
@@ -44449,7 +44534,7 @@ async function generateMission(options = {}) {
     try {
     const btn = document.getElementById('generateBtn');
     const rBtn = document.getElementById('radioGenerateBtn');
-    if (btn) { btn.disabled = true; btn.innerText = "Sucht Route & Daten..."; }
+    if (btn) { btn.disabled = true; btn.innerText = _appUiPhrase("Sucht Route & Daten..."); }
     setDispatchLampState('working');
     if (rBtn) {
         rBtn.classList.add('disabled');
@@ -44562,7 +44647,7 @@ async function generateMission(options = {}) {
     if (!start) {
         setDispatchLampState('error');
         setMissionGenerationProgress('error', { error: true });
-        alert("Startplatz unbekannt!"); resetBtn(btn);
+        alert(_appUiPhrase('Startplatz unbekannt!')); resetBtn(btn);
         if (window.meterInterval) clearInterval(window.meterInterval);
         if (needle) needle.style.transform = `translateX(-50%) rotate(-45deg)`; return;
     }
@@ -47807,7 +47892,7 @@ function logCurrentFlight() {
     // Missionsabschluss erzeugt, damit kein voller Missions-/Telemetrieblock
     // mehr im Local Storage landet.
     if (typeof window.completeMissionClose === 'function' && window.completeMissionClose('legacy-log-button', { skipConfirm: true })) return;
-    alert('Das Flugbuch wird beim finalen Missionsabschluss automatisch geschrieben.');
+    alert(_appUiPhrase('Das Flugbuch wird beim finalen Missionsabschluss automatisch geschrieben.'));
 }
 
 // Presentation state only; flight records remain owned by the existing logbook store.
@@ -48016,7 +48101,7 @@ function renderLog() {
     document.getElementById('logbookCaption').textContent = `${log.length} ${log.length === 1 ? 'Flug' : 'Flüge'} · ${logbookView.open ? 'Eintrag für Details anklicken' : 'Anklicken zum Öffnen'}`;
 }
 window.renderLog = renderLog;
-function clearLog() { if (confirm("Gesamtes Logbuch löschen? Freie Flüge und Flugwege in der Cloud werden ebenfalls gelöscht.")) { localStorage.removeItem('ga_logbook'); localStorage.removeItem('last_icao_dest'); window.GAFlightLogbook?.clearCloud(); renderLog(); triggerCloudSave(true); } }
+function clearLog() { if (confirm(_appUiPhrase('Gesamtes Logbuch löschen? Freie Flüge und Flugwege in der Cloud werden ebenfalls gelöscht.'))) { localStorage.removeItem('ga_logbook'); localStorage.removeItem('last_icao_dest'); window.GAFlightLogbook?.clearCloud(); renderLog(); triggerCloudSave(true); } }
 function toggleLogbookFreeFlights() { const book = window.GAFlightLogbook; if (book) book.setShowFree(!book.showFree()); }
 window.toggleLogbookFreeFlights = toggleLogbookFreeFlights;
 
@@ -48613,7 +48698,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // === FORCE UPDATE (V53) ===
 window.forceAppUpdate = async function() {
-    if (!confirm("Möchtest du ein Update erzwingen? Der Zwischenspeicher wird geleert und die App neu geladen.")) return;
+    if (!confirm(_appUiPhrase('Möchtest du ein Update erzwingen? Der Zwischenspeicher wird geleert und die App neu geladen.'))) return;
     if (window.__gaForceUpdateRunning) return;
     window.__gaForceUpdateRunning = true;
     const versionEl = document.getElementById('swVersionDisplay');

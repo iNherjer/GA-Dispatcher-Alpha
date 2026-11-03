@@ -1,4 +1,9 @@
 // Generated from media-player-watch.js by sync-efb-web-assets.js. Do not edit.
+// UI language (i18n-core.js, web only): exact German sentences -> i18n/en-phrases.js. In the EFB there is no GAI18n.
+function _mpT(text) {
+  var i18n = typeof window !== 'undefined' ? window.GAI18n : null;
+  return i18n ? i18n.phrase(text) : text;
+}
 (function (root) {
   'use strict';
 
@@ -21,7 +26,7 @@
     var host = options.host || document.body,
       layer = document.createElement('div');
     layer.className = 'ga-media-layer';
-    layer.innerHTML = '<button type="button" class="ga-media-launcher" aria-label="Mediensteuerung öffnen"><svg class="ga-media-clef" viewBox="0 0 24 44" aria-hidden="true" focusable="false"><path d="M12.5 39c0 3.5-5 3.7-5.4.7-.3-2.2 2.6-3 3.7-1.3M11.4 40.5L14.2 5.6c.2-3.4 4.4-3 3.6 1.4-.8 4.6-10.6 9.4-11.2 17-.5 6.2 6.2 8.6 10.2 5.6 3.4-2.6 2.2-8.6-2.6-8.4-4 .2-5 5.4-1.6 6.6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button><section class="ga-media-device ga-media-watch" role="region" aria-label="Watch Mediensteuerung" hidden><div class="ga-watch-case"><div class="ga-watch-screen"><header class="ga-watch-header"><button class="ga-watch-button ga-watch-back" type="button" data-watch="face" aria-label="Uhr anzeigen">' + icon('close') + '</button><time class="ga-watch-clock" aria-label="Regionale Uhrzeit">--:--</time></header><div class="ga-watch-source">Windows</div><div class="ga-watch-title"><span></span></div><div class="ga-watch-artist"><span></span></div><div class="ga-watch-transport"><button class="ga-watch-button" type="button" data-watch="previous" aria-label="Vorheriger Titel">' + icon('previous') + '</button><button class="ga-watch-button ga-watch-toggle" type="button" data-watch="toggle" aria-label="Abspielen oder pausieren">' + icon('play') + '</button><button class="ga-watch-button" type="button" data-watch="next" aria-label="Nächster Titel">' + icon('next') + '</button></div><footer class="ga-watch-footer"><button class="ga-watch-button ga-watch-small" type="button" data-watch="sources" aria-label="Musik-App auswählen" aria-expanded="false">' + icon('source') + '</button><div class="ga-watch-volume" role="img" aria-label="Lautstärke"><svg viewBox="0 0 68 68" aria-hidden="true"><circle class="ga-watch-ring-base" cx="34" cy="34" r="28"/><circle class="ga-watch-ring" cx="34" cy="34" r="28"/></svg><span>' + icon('speaker') + '</span><output>0%</output></div><button class="ga-watch-button ga-watch-small" type="button" data-watch="more" aria-label="Gerätegröße einstellen" aria-expanded="false">' + icon('more') + '</button></footer><div class="ga-watch-sheet" hidden></div></div></div><div class="ga-watch-crown" role="slider" tabindex="0" aria-label="Musiklautstärke per Krone" aria-valuemin="0" aria-valuemax="100" title="Nach oben ziehen: lauter · Nach unten: leiser"></div><i class="ga-watch-side" aria-hidden="true"></i></section>';
+    layer.innerHTML = '<button type="button" class="ga-media-launcher" aria-label="' + _mpT('Mediensteuerung öffnen') + '"><svg class="ga-media-clef" viewBox="0 0 24 44" aria-hidden="true" focusable="false"><path d="M12.5 39c0 3.5-5 3.7-5.4.7-.3-2.2 2.6-3 3.7-1.3M11.4 40.5L14.2 5.6c.2-3.4 4.4-3 3.6 1.4-.8 4.6-10.6 9.4-11.2 17-.5 6.2 6.2 8.6 10.2 5.6 3.4-2.6 2.2-8.6-2.6-8.4-4 .2-5 5.4-1.6 6.6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button><section class="ga-media-device ga-media-watch" role="region" aria-label="' + _mpT('Watch Mediensteuerung') + '" hidden><div class="ga-watch-case"><div class="ga-watch-screen"><header class="ga-watch-header"><button class="ga-watch-button ga-watch-back" type="button" data-watch="face" aria-label="' + _mpT('Uhr anzeigen') + '">' + icon('close') + ('</button><time class="ga-watch-clock" aria-label="' + _mpT('Regionale Uhrzeit') + '">--:--</time></header><div class="ga-watch-source">Windows</div><div class="ga-watch-title"><span></span></div><div class="ga-watch-artist"><span></span></div><div class="ga-watch-transport"><button class="ga-watch-button" type="button" data-watch="previous" aria-label="' + _mpT('Vorheriger Titel') + '">') + icon('previous') + ('</button><button class="ga-watch-button ga-watch-toggle" type="button" data-watch="toggle" aria-label="' + _mpT('Abspielen oder pausieren') + '">') + icon('play') + ('</button><button class="ga-watch-button" type="button" data-watch="next" aria-label="' + _mpT('Nächster Titel') + '">') + icon('next') + ('</button></div><footer class="ga-watch-footer"><button class="ga-watch-button ga-watch-small" type="button" data-watch="sources" aria-label="' + _mpT('Musik-App auswählen') + '" aria-expanded="false">') + icon('source') + ('</button><div class="ga-watch-volume" role="img" aria-label="' + _mpT('Lautstärke') + '"><svg viewBox="0 0 68 68" aria-hidden="true"><circle class="ga-watch-ring-base" cx="34" cy="34" r="28"/><circle class="ga-watch-ring" cx="34" cy="34" r="28"/></svg><span>') + icon('speaker') + ('</span><output>0%</output></div><button class="ga-watch-button ga-watch-small" type="button" data-watch="more" aria-label="' + _mpT('Gerätegröße einstellen') + '" aria-expanded="false">') + icon('more') + ('</button></footer><div class="ga-watch-sheet" hidden></div></div></div><div class="ga-watch-crown" role="slider" tabindex="0" aria-label="' + _mpT('Musiklautstärke per Krone') + '" aria-valuemin="0" aria-valuemax="100" title="' + _mpT('Nach oben ziehen: lauter · Nach unten: leiser') + '"></div><i class="ga-watch-side" aria-hidden="true"></i></section>');
     layer.querySelectorAll('button,input,select,textarea,label').forEach(function (control) {
       control.classList.add('ga-skin-control');
     });
@@ -49,7 +54,7 @@
       sheetKey = '';
     var face = root.GAMediaWatchFace ? root.GAMediaWatchFace.create(device.querySelector('.ga-watch-screen'), options) : null;
     device.querySelectorAll('[data-watch="face"],[data-watch="clock-back"],[data-watch="music"]').forEach(function (button) {
-      button.title = 'Kurz: zurück · Gedrückt halten: Watch schließen';
+      button.title = _mpT('Kurz: zurück · Gedrückt halten: Watch schließen');
     });
     if (options.storageKey) try {
       var saved = JSON.parse(localStorage.getItem(options.storageKey) || '{}');
@@ -112,7 +117,7 @@
       var value = volume(),
         percent = Math.round(value * 100);
       device.querySelector('.ga-watch-ring').style.strokeDashoffset = String(175.93 * (1 - value));
-      device.querySelector('.ga-watch-volume').setAttribute('aria-label', 'Lautstärke ' + percent + ' Prozent');
+      device.querySelector('.ga-watch-volume').setAttribute('aria-label', _mpT('Lautstärke') + ' ' + percent + ' Prozent');
       device.querySelector('.ga-watch-volume output').textContent = percent + '%';
       crown.setAttribute('aria-valuenow', String(percent));
       crown.setAttribute('aria-valuetext', percent + ' Prozent');
@@ -145,13 +150,13 @@
     }
     function refreshCrown() {
       var c = face && face.crownState();
-      crown.setAttribute('aria-label', c ? c.kind === 'timer' ? 'Timerdauer in Sekunden per Krone' : 'Krone bei Stoppuhr ohne Funktion' : 'Musiklautstärke per Krone');
+      crown.setAttribute('aria-label', c ? c.kind === 'timer' ? _mpT('Timerdauer in Sekunden per Krone') : _mpT('Krone bei Stoppuhr ohne Funktion') : _mpT('Musiklautstärke per Krone'));
       crown.setAttribute('aria-valuemin', String(c ? c.min : 0));
       crown.setAttribute('aria-valuemax', String(c ? c.max : 100));
       crown.setAttribute('aria-valuenow', String(c ? c.value : Math.round(volume() * 100)));
       crown.setAttribute('aria-valuetext', c ? c.value + ' Sekunden' : Math.round(volume() * 100) + ' Prozent');
       crown.setAttribute('aria-disabled', String(c ? !c.enabled : !available()));
-      crown.title = c ? 'Nach oben ziehen: mehr Sekunden · Nach unten: weniger Sekunden' : 'Nach oben ziehen: lauter · Nach unten: leiser';
+      crown.title = c ? 'Nach oben ziehen: mehr Sekunden · Nach unten: weniger Sekunden' : _mpT('Nach oben ziehen: lauter · Nach unten: leiser');
     }
     function clock() {
       if (destroyed || !open || !enabled) return;
@@ -172,11 +177,11 @@
         time = known ? ('0' + Math.floor((seconds % 86400 + 86400) % 86400 / 3600)).slice(-2) + ':' + ('0' + Math.floor(seconds / 60 % 60)).slice(-2) : '--:--',
         node = device.querySelector('time');
       node.textContent = time;
-      node.title = known ? (value.source === 'simulator' ? 'Simulator' : 'Gerätezeit') + (value.fallback ? ' · lokale Gerätezeit' : ' · Ortszeit an der Flugposition') : 'Regionale Uhrzeit: gültige Simulator-Zeitdaten fehlen';
+      node.title = known ? (value.source === 'simulator' ? 'Simulator' : _mpT('Gerätezeit')) + (value.fallback ? ' ' + _mpT('· lokale Gerätezeit') : ' ' + _mpT('· Ortszeit an der Flugposition')) : _mpT('Regionale Uhrzeit: gültige Simulator-Zeitdaten fehlen');
     }
     function renderSheet() {
       device.querySelector('.ga-watch-screen').classList.toggle('ga-watch-has-sheet', !!sheetView);
-      device.querySelector('.ga-watch-back').setAttribute('aria-label', sheetView ? 'Zurück' : 'Uhr anzeigen');
+      device.querySelector('.ga-watch-back').setAttribute('aria-label', sheetView ? _mpT('Zurück') : _mpT('Uhr anzeigen'));
       sheet.hidden = !sheetView;
       sheet.classList.toggle('ga-watch-size-sheet', sheetView === 'more');
       device.querySelector('[data-watch="sources"]').setAttribute('aria-expanded', String(sheetView === 'sources'));
@@ -187,7 +192,7 @@
       while (sheet.firstChild) sheet.removeChild(sheet.firstChild);
       if (!sheetView) return;
       var heading = document.createElement('strong');
-      heading.textContent = sheetView === 'sources' ? 'Musik-App' : Math.round(scale * 100) + '%';
+      heading.textContent = sheetView === 'sources' ? _mpT('Musik-App') : Math.round(scale * 100) + '%';
       sheet.appendChild(heading);
       function row(label, action, disabled) {
         var button = document.createElement('button');
@@ -195,10 +200,10 @@
         button.type = 'button';
         if (label === 'Zurück') {
           button.setAttribute('data-watch-back', '');
-          button.title = 'Gedrückt halten: Watch schließen';
+          button.title = _mpT('Gedrückt halten: Watch schließen');
         }
-        button.textContent = sheetView === 'more' ? label.charAt(0) === '−' ? '−' : '+' : label;
-        button.setAttribute('aria-label', label);
+        button.textContent = sheetView === 'more' ? label.charAt(0) === '−' ? '−' : '+' : _mpT(label);
+        button.setAttribute('aria-label', _mpT(label));
         button.disabled = !!disabled;
         button.addEventListener('click', action);
         sheet.appendChild(button);
@@ -207,7 +212,7 @@
         var players = state.players || [];
         if (!players.length) {
           var empty = document.createElement('p');
-          empty.textContent = 'Keine Musik-App verbunden';
+          empty.textContent = _mpT('Keine Musik-App verbunden');
           sheet.appendChild(empty);
         }
         players.forEach(function (p) {
@@ -268,7 +273,7 @@
         x: p.clientX,
         y: p.clientY
       };
-      button.title = 'Gedrückt halten: Watch schließen';
+      button.title = _mpT('Gedrückt halten: Watch schließen');
       holdTimer = setTimeout(function () {
         var target = hold && hold.button;
         if (!target || !device.contains(target) || !open || !enabled || destroyed) return;
@@ -441,7 +446,7 @@
       }
       state = value || {};
       device.querySelector('.ga-watch-source').textContent = state.player || 'Windows';
-      [['.ga-watch-title', state.title || 'Kein Titel'], ['.ga-watch-artist', state.artist || 'Kein Interpret']].forEach(function (pair) {
+      [['.ga-watch-title', state.title || _mpT('Kein Titel')], ['.ga-watch-artist', state.artist || _mpT('Kein Interpret')]].forEach(function (pair) {
         var el = device.querySelector(pair[0]);
         el.firstChild.textContent = pair[1];
         el.classList.toggle('is-overflow', el.firstChild.scrollWidth > el.clientWidth);

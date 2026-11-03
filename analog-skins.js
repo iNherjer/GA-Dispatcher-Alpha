@@ -15,6 +15,8 @@
     function read(key) { try { return localStorage.getItem(key); } catch (_) { return null; } }
     function write(key, value) { try { localStorage.setItem(key, value); } catch (_) {} }
     function $(id) { return document.getElementById(id); }
+    // UI language (i18n-core.js). Without GAI18n, or with German selected, the German text is used.
+    function tr(key, german) { var i = window.GAI18n; return i ? i.t(key, null, german) : german; }
     function pad(n) { return String(n).padStart(2, '0'); }
 
     function currentSkin() {
@@ -33,34 +35,34 @@
         return '<div class="tw-f tw-num" data-range="' + range + '"' + (padTo ? ' data-pad="' + padTo + '"' : '') +
             ' tabindex="0" role="slider" aria-label="' + label + '"><span class="tw-k">' + label + '</span><span class="tw-v"></span></div>';
     }
-    var DESK =
-        '<div class="tw-desk" id="towerDesk">' +
+    function deskHtml() {
+        return '<div class="tw-desk" id="towerDesk">' +
         '<div class="tw-coffee" aria-hidden="true"></div>' +
-        '<div class="tw-nameplate">FLUGLEITUNG <span data-tw="place">----</span></div>' +
-        '<div class="tw-cards preset-row" data-slot="cards" role="group" aria-label="Flugzeug wählen"></div>' +
-        '<section class="tw-clipboard" aria-label="Flugauftrag">' +
+        '<div class="tw-nameplate">' + tr('skins.tower.nameplate', 'FLUGLEITUNG') + ' <span data-tw="place">----</span></div>' +
+        '<div class="tw-cards preset-row" data-slot="cards" role="group" aria-label="' + tr('skins.chooseAircraft', 'Flugzeug wählen') + '"></div>' +
+        '<section class="tw-clipboard" aria-label="' + tr('skins.tower.order', 'Flugauftrag') + '">' +
         '<div class="tw-clip" aria-hidden="true"></div>' +
         '<div class="tw-sheet">' +
-        '<div class="tw-letterhead"><h2>FLUGAUFTRAG</h2><div class="tw-org">Flugleitung <span data-tw="place">----</span><br><span data-tw="date"></span></div></div>' +
+        '<div class="tw-letterhead"><h2>' + tr('skins.tower.orderTitle', 'FLUGAUFTRAG') + '</h2><div class="tw-org">' + tr('skins.tower.org', 'Flugleitung') + ' <span data-tw="place">----</span><br><span data-tw="date"></span></div></div>' +
         '<div class="tw-form">' +
         '<div class="tw-f tw-slot" data-slot="start"></div>' +
         '<div class="tw-f tw-slot" data-slot="dest"></div>' +
         '<div class="tw-f tw-slot tw-span2 tw-typ" data-slot="type"></div>' +
-        numField('altSlider', 'Reiseflughöhe ft') +
+        numField('altSlider', tr('skins.tower.alt', 'Reiseflughöhe ft')) +
         numField('tasSlider', 'TAS kt') +
-        numField('rateSlider', 'Steigrate ft/min') +
-        numField('gphSlider', 'Verbrauch GPH', 2) +
+        numField('rateSlider', tr('skins.tower.rate', 'Steigrate ft/min')) +
+        numField('gphSlider', tr('skins.tower.gph', 'Verbrauch GPH'), 2) +
         '<div class="tw-f tw-slot" data-slot="seats"></div>' +
         '<div class="tw-f tw-slot" data-slot="apt"></div>' +
         '</div>' +
-        '<div class="tw-cleared" aria-hidden="true">FREIGEGEBEN<small data-tw="clearedTime"></small></div>' +
+        '<div class="tw-cleared" aria-hidden="true">' + tr('skins.tower.cleared', 'FREIGEGEBEN') + '<small data-tw="clearedTime"></small></div>' +
         '</div>' +
         '<div class="tw-pencil" aria-hidden="true"></div>' +
         '</section>' +
         '<div class="tw-lower">' +
-        '<section class="tw-chart" aria-label="Richtung und Distanz">' +
-        '<div class="tw-chart-title"><span>Richtung · Distanz</span><span>NM</span></div>' +
-        '<svg class="tw-map" viewBox="0 0 240 200" role="img" aria-label="Kartenausschnitt mit Entfernungsringen; tippen wählt Richtung und Distanz">' +
+        '<section class="tw-chart" aria-label="' + tr('skins.tower.chart', 'Richtung und Distanz') + '">' +
+        '<div class="tw-chart-title"><span>' + tr('skins.tower.chartTitle', 'Richtung · Distanz') + '</span><span>NM</span></div>' +
+        '<svg class="tw-map" viewBox="0 0 240 200" role="img" aria-label="' + tr('skins.tower.map', 'Kartenausschnitt mit Entfernungsringen; tippen wählt Richtung und Distanz') + '">' +
         '<defs><pattern id="twHatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><line x1="0" y1="0" x2="0" y2="6" stroke="#33363b" stroke-width="1.2" opacity=".55"/></pattern></defs>' +
         '<rect width="240" height="200" fill="#eef0de"/>' +
         '<path d="M0 40 Q40 30 70 48 T140 40 T240 52 V0 H0 Z" fill="#dfe8c6"/>' +
@@ -73,32 +75,33 @@
         '<g fill="none" stroke="#33363b" stroke-dasharray="3 3" stroke-width="1" opacity=".65"><circle cx="120" cy="100" r="34"/><circle cx="120" cy="100" r="60"/><circle cx="120" cy="100" r="88"/></g>' +
         '<circle class="tw-ring" cx="120" cy="100" r="0" fill="none" stroke="#33363b" stroke-width="2.6" opacity=".85"/>' +
         '<g font-family="Courier New, monospace" font-size="8" fill="#4c4a44" text-anchor="middle"><text x="120" y="63">50</text><text x="120" y="37">100</text><text x="120" y="9">250</text></g>' +
-        '<g font-family="Caveat, cursive" font-size="17" font-weight="700" fill="#33363b" text-anchor="middle"><text x="120" y="196">S</text><text x="232" y="106">O</text><text x="9" y="106">W</text></g>' +
+        '<g font-family="Caveat, cursive" font-size="17" font-weight="700" fill="#33363b" text-anchor="middle"><text x="120" y="196">S</text><text x="232" y="106">' + tr('skins.eastShort', 'O') + '</text><text x="9" y="106">W</text></g>' +
         '<path d="M120 2 l4 9 h-8 z" fill="#33363b"/>' +
         '<circle cx="120" cy="100" r="8" fill="none" stroke="#c2261d" stroke-width="2"/>' +
         '<line x1="114" y1="104" x2="126" y2="96" stroke="#c2261d" stroke-width="2.4"/>' +
         '<text x="133" y="114" font-family="Courier New, monospace" font-size="8" font-weight="700" fill="#c2261d" data-tw="place">----</text>' +
         '</svg>' +
-        '<div class="tw-chips"><button type="button" class="tw-chip" data-reset="dir"><span>Richtung</span><b data-tw="dir">egal</b></button>' +
-        '<button type="button" class="tw-chip" data-reset="dist"><span>Distanz</span><b data-tw="dist">egal</b></button></div>' +
+        '<div class="tw-chips"><button type="button" class="tw-chip" data-reset="dir"><span>' + tr('skins.direction', 'Richtung') + '</span><b data-tw="dir">' + tr('skins.any', 'egal') + '</b></button>' +
+        '<button type="button" class="tw-chip" data-reset="dist"><span>' + tr('skins.distance', 'Distanz') + '</span><b data-tw="dist">' + tr('skins.any', 'egal') + '</b></button></div>' +
         '</section>' +
-        '<section class="tw-radio" aria-label="Handfunkgerät">' +
+        '<section class="tw-radio" aria-label="' + tr('skins.tower.radio', 'Handfunkgerät') + '">' +
         '<div class="tw-rbody">' +
         '<span class="tw-txled" aria-hidden="true"></span>' +
-        '<button type="button" class="tw-ptt" data-act="dispatch" aria-label="PTT: Auftrag erteilen" title="PTT: Auftrag erteilen"></button>' +
+        '<button type="button" class="tw-ptt" data-act="dispatch" aria-label="' + tr('skins.tower.ptt', 'PTT: Auftrag erteilen') + '" title="' + tr('skins.tower.ptt', 'PTT: Auftrag erteilen') + '"></button>' +
         '<div class="tw-lcd" aria-live="polite">' +
         '<div class="tw-row"><span data-tw="place">----</span><span class="tw-bars"><i></i><i></i><i></i><i></i></span></div>' +
-        '<div class="tw-row tw-big"><span data-tw="lcd">BEREIT</span></div>' +
+        '<div class="tw-row tw-big"><span data-tw="lcd">' + tr('skins.tower.lcdReady', 'BEREIT') + '</span></div>' +
         '<div class="tw-row"><span data-tw="utc">--:--Z</span><span class="tw-txflag">TX</span></div>' +
         '</div>' +
         '<button type="button" class="tw-rkey tw-k1" data-act="transfer" title="Transfer Hub (Import/Export)">MEM</button>' +
-        '<button type="button" class="tw-rkey tw-k2" data-act="reset" title="Briefing verwerfen &amp; Reset">CLR</button>' +
-        '<button type="button" class="tw-rkey tw-k3" data-act="dispatch" title="Auftrag generieren">TX</button>' +
+        '<button type="button" class="tw-rkey tw-k2" data-act="reset" title="' + tr('skins.reset', 'Briefing verwerfen &amp; Reset') + '">CLR</button>' +
+        '<button type="button" class="tw-rkey tw-k3" data-act="dispatch" title="' + tr('skins.generate', 'Auftrag generieren') + '">TX</button>' +
         '</div>' +
-        '<div class="tw-ptt-hint">PTT = Auftrag</div>' +
+        '<div class="tw-ptt-hint">' + tr('skins.tower.pttHint', 'PTT = Auftrag') + '</div>' +
         '</section>' +
         '</div>' +
         '</div>';
+    }
 
     /* ------------------------------------------------------------------
        Aufbau / Rückbau
@@ -138,7 +141,7 @@
         var anchor = host.querySelector(':scope > .ops-route-fields');
         if (!anchor) return;
         var tpl = document.createElement('template');
-        tpl.innerHTML = DESK;
+        tpl.innerHTML = deskHtml();
         desk = tpl.content.firstElementChild;
         host.insertBefore(desk, anchor);
 
@@ -336,8 +339,8 @@
         var di = Math.max(0, DIST_VALUES.indexOf(dist));
         desk.querySelector('.tw-sector').setAttribute('d', WEDGE[dir] ? arc(WEDGE[dir][0], WEDGE[dir][1], di ? RINGS[di] : 96) : '');
         desk.querySelector('.tw-ring').setAttribute('r', di ? RINGS[di] : 0);
-        setText('dir', DIR_LABEL[dir] || 'egal');
-        setText('dist', DIST_LABEL[dist] || 'egal');
+        setText('dir', tr('skins.dir.' + (DIR_LABEL[dir] ? dir : 'any'), DIR_LABEL[dir] || 'egal'));
+        setText('dist', tr('skins.dist.' + (DIST_LABEL[dist] ? dist : 'any'), DIST_LABEL[dist] || 'egal'));
 
         // Flugzeugkarten: Kurzinfo aus dem Preset-Tooltip (Name · Klasse · TAS · GPH · Sitze …)
         Array.prototype.forEach.call(desk.querySelectorAll('[data-slot="cards"] .btn-preset'), function (btn) {
@@ -355,10 +358,10 @@
         var done = !!(gen && ['dispatch-lamp-ai-g3', 'dispatch-lamp-ai-g25', 'dispatch-lamp-ai-lite', 'dispatch-lamp-local'].some(function (c) { return gen.classList.contains(c); }));
         var radio = desk.querySelector('.tw-radio');
         radio.classList.toggle('tw-tx', working);
-        if (working) setText('lcd', 'SENDE …');
-        else if (wasWorking && done) { stamp(); setText('lcd', 'FREIGABE'); lcdHold = Date.now() + 4000; }
-        else if (error) setText('lcd', 'FEHLER');
-        else if (Date.now() > lcdHold) setText('lcd', 'BEREIT');
+        if (working) setText('lcd', tr('skins.tower.lcdSending', 'SENDE …'));
+        else if (wasWorking && done) { stamp(); setText('lcd', tr('skins.tower.lcdCleared', 'FREIGABE')); lcdHold = Date.now() + 4000; }
+        else if (error) setText('lcd', tr('skins.tower.lcdError', 'FEHLER'));
+        else if (Date.now() > lcdHold) setText('lcd', tr('skins.tower.lcdReady', 'BEREIT'));
         wasWorking = working;
 
         var needle = $('meterNeedle');
@@ -382,48 +385,51 @@
     function txRotaryHtml(name, label) {
         return '<div class="tx-rotary" data-rot="' + name + '" tabindex="0" role="button" aria-label="' + label + '"><div class="tx-knob"></div></div>';
     }
-    var TELEX =
-        '<div class="tx-desk" id="telexDesk">' +
-        '<div class="tx-paper-window" aria-label="Flugplan-Telegramm"><div class="tx-paper"></div></div>' +
+    function telexHtml() {
+        return '<div class="tx-desk" id="telexDesk">' +
+        '<div class="tx-paper-window" aria-label="' + tr('skins.telex.paper', 'Flugplan-Telegramm') + '"><div class="tx-paper"></div></div>' +
         '<div class="tx-machine">' +
         '<div class="tx-hood">' +
         '<div class="tx-carriage" aria-hidden="true"><div class="tx-ribbon"></div><div class="tx-head"></div><div class="tx-bar"></div></div>' +
-        '<button type="button" class="tx-sound" aria-pressed="false" title="Tippgeräusch an/aus"><span class="tx-sw"></span>TON</button>' +
-        '<div class="tx-plate">FS · FLUGPLAN</div>' +
-        '<div class="tx-lamps"><span class="tx-lamp tx-lamp-line"><i></i>LEITUNG</span><span class="tx-lamp tx-amber tx-lamp-send"><i></i>SENDEN</span></div>' +
+        '<button type="button" class="tx-sound" aria-pressed="false" title="' + tr('skins.telex.soundTitle', 'Tippgeräusch an/aus') + '"><span class="tx-sw"></span>' + tr('skins.telex.sound', 'TON') + '</button>' +
+        '<div class="tx-plate">' + tr('skins.telex.plate', 'FS · FLUGPLAN') + '</div>' +
+        '<div class="tx-lamps"><span class="tx-lamp tx-lamp-line"><i></i>' + tr('skins.telex.line', 'LEITUNG') + '</span><span class="tx-lamp tx-amber tx-lamp-send"><i></i>' + tr('skins.telex.sending', 'SENDEN') + '</span></div>' +
         '</div>' +
         '<div class="tx-panel">' +
         '<section class="tx-group tx-route" aria-label="Route"><span class="tx-gl">Route</span>' +
         '<div class="tx-win" data-slot="start"></div>' +
-        '<button type="button" class="tx-key tx-swap" data-tx="swap" title="Start und Ziel tauschen">⇄</button>' +
+        '<button type="button" class="tx-key tx-swap" data-tx="swap" title="' + tr('skins.telex.swap', 'Start und Ziel tauschen') + '">⇄</button>' +
         '<div class="tx-win" data-slot="dest"></div></section>' +
-        '<section class="tx-group tx-ac" aria-label="Flugzeug"><span class="tx-gl">Flugzeug</span>' + txRotaryHtml('ac', 'Flugzeug wählen') + '</section>' +
-        '<section class="tx-group tx-type" aria-label="Auftrag"><span class="tx-gl">Auftrag</span>' +
+        '<section class="tx-group tx-ac" aria-label="' + tr('skins.telex.aircraft', 'Flugzeug') + '"><span class="tx-gl">' + tr('skins.telex.aircraft', 'Flugzeug') + '</span>' + txRotaryHtml('ac', tr('skins.chooseAircraft', 'Flugzeug wählen')) + '</section>' +
+        '<section class="tx-group tx-type" aria-label="' + tr('skins.telex.order', 'Auftrag') + '"><span class="tx-gl">' + tr('skins.telex.order', 'Auftrag') + '</span>' +
         '<span class="tx-lever"><span class="tx-l-rdm">RDM</span><span class="tx-lever-slot" data-slot="pick"></span><span class="tx-l-pick">PICK</span></span>' +
-        '<div class="tx-typeslot" data-slot="type"></div>' + txRotaryHtml('type', 'Auftrag weiterschalten') + '</section>' +
-        '<section class="tx-group tx-counters" aria-label="Flugzeugwerte"><span class="tx-gl">Werte <small>· seitlich wischen oder links/rechts tippen</small></span>' +
-        txCounter('tasSlider', 'TAS KT', 3) + txCounter('altSlider', 'HÖHE FT', 5) + txCounter('rateSlider', 'V/S FPM', 4) +
-        txCounter('gphSlider', 'GPH', 2) + txCounter('maxSeats', 'SITZE', 1) + '</section>' +
-        '<section class="tx-group tx-dir" aria-label="Richtung"><span class="tx-gl">Richtung</span>' + txRotaryHtml('dir', 'Richtung wählen') + '</section>' +
-        '<section class="tx-group tx-dist" aria-label="Distanz"><span class="tx-gl">Distanz <small>NM</small></span>' + txRotaryHtml('dist', 'Distanz wählen') + '</section>' +
-        '<section class="tx-group tx-apt" aria-label="Platztypen"><span class="tx-gl">Platztypen</span>' +
-        '<button type="button" class="tx-key tx-aptkey" data-tx="apt">VERKEHR+GA</button><span class="tx-apthint">öffnet die Klappe</span></section>' +
-        '<section class="tx-keys" aria-label="Senden">' +
-        '<button type="button" class="tx-key tx-big tx-send" data-tx="dispatch">SENDEN</button>' +
-        '<button type="button" class="tx-key tx-big" data-tx="transfer" title="Transfer Hub (Import/Export)">SPEICHER</button>' +
-        '<button type="button" class="tx-key tx-big tx-clear" data-tx="reset" title="Briefing verwerfen &amp; Reset">LÖSCHEN</button>' +
+        '<div class="tx-typeslot" data-slot="type"></div>' + txRotaryHtml('type', tr('skins.telex.nextOrder', 'Auftrag weiterschalten')) + '</section>' +
+        '<section class="tx-group tx-counters" aria-label="' + tr('skins.telex.values', 'Flugzeugwerte') + '"><span class="tx-gl">' + tr('skins.telex.valuesTitle', 'Werte') + ' <small>' + tr('skins.telex.valuesHint', '· seitlich wischen oder links/rechts tippen') + '</small></span>' +
+        txCounter('tasSlider', 'TAS KT', 3) + txCounter('altSlider', tr('skins.telex.alt', 'HÖHE FT'), 5) + txCounter('rateSlider', 'V/S FPM', 4) +
+        txCounter('gphSlider', 'GPH', 2) + txCounter('maxSeats', tr('skins.telex.seats', 'SITZE'), 1) + '</section>' +
+        '<section class="tx-group tx-dir" aria-label="' + tr('skins.direction', 'Richtung') + '"><span class="tx-gl">' + tr('skins.direction', 'Richtung') + '</span>' + txRotaryHtml('dir', tr('skins.telex.chooseDir', 'Richtung wählen')) + '</section>' +
+        '<section class="tx-group tx-dist" aria-label="' + tr('skins.distance', 'Distanz') + '"><span class="tx-gl">' + tr('skins.distance', 'Distanz') + ' <small>NM</small></span>' + txRotaryHtml('dist', tr('skins.telex.chooseDist', 'Distanz wählen')) + '</section>' +
+        '<section class="tx-group tx-apt" aria-label="' + tr('skins.airportTypes', 'Platztypen') + '"><span class="tx-gl">' + tr('skins.airportTypes', 'Platztypen') + '</span>' +
+        '<button type="button" class="tx-key tx-aptkey" data-tx="apt">VERKEHR+GA</button><span class="tx-apthint">' + tr('skins.telex.aptHint', 'öffnet die Klappe') + '</span></section>' +
+        '<section class="tx-keys" aria-label="' + tr('skins.telex.send', 'Senden') + '">' +
+        '<button type="button" class="tx-key tx-big tx-send" data-tx="dispatch">' + tr('skins.telex.sendKey', 'SENDEN') + '</button>' +
+        '<button type="button" class="tx-key tx-big" data-tx="transfer" title="Transfer Hub (Import/Export)">' + tr('skins.telex.memory', 'SPEICHER') + '</button>' +
+        '<button type="button" class="tx-key tx-big tx-clear" data-tx="reset" title="' + tr('skins.reset', 'Briefing verwerfen &amp; Reset') + '">' + tr('skins.telex.clear', 'LÖSCHEN') + '</button>' +
         '</section>' +
         '</div>' +
         '<div class="tx-scrim" hidden></div>' +
-        '<section class="tx-flap" role="dialog" aria-modal="true" aria-label="Platztypen" hidden>' +
-        '<h3>PLATZTYPEN · MEHRFACHAUSWAHL</h3><div class="tx-flap-grid"></div>' +
-        '<div class="tx-flap-keys"><button type="button" class="tx-key" data-tx="aptall">ALLE</button><button type="button" class="tx-key tx-send" data-tx="aptok">OK</button></div>' +
+        '<section class="tx-flap" role="dialog" aria-modal="true" aria-label="' + tr('skins.airportTypes', 'Platztypen') + '" hidden>' +
+        '<h3>' + tr('skins.telex.flapTitle', 'PLATZTYPEN · MEHRFACHAUSWAHL') + '</h3><div class="tx-flap-grid"></div>' +
+        '<div class="tx-flap-keys"><button type="button" class="tx-key" data-tx="aptall">' + tr('skins.telex.all', 'ALLE') + '</button><button type="button" class="tx-key tx-send" data-tx="aptok">OK</button></div>' +
         '</section>' +
         '</div>' +
         '</div>';
+    }
 
     var TX_DIR = [['any', 'RND', 'EGAL'], ['N', 'N', 'NORD'], ['E', 'O', 'OST'], ['S', 'S', 'SUED'], ['W', 'W', 'WEST']];
     var TX_DIST = [['any', 'RND', 'RNDM'], ['short', '50', '10-50NM'], ['medium', '100', '50-100NM'], ['long', '250', '100-250NM']];
+    // Shown label of a rotary/telegram entry: idx 1 = knob, idx 2 = telegram word.
+    function txLbl(kind, row, idx) { return tr('skins.telex.' + kind + '.' + row[0] + '.' + idx, row[idx]); }
     var tx = null; // Laufzeitzustand des Fernschreibers
 
     function telexReset() {
@@ -437,7 +443,7 @@
         var anchor = host.querySelector(':scope > .ops-route-fields');
         if (!anchor) return;
         var tpl = document.createElement('template');
-        tpl.innerHTML = TELEX;
+        tpl.innerHTML = telexHtml();
         desk = tpl.content.firstElementChild;
         host.insertBefore(desk, anchor);
         adopt($('startLoc') && $('startLoc').parentElement, slot('start'));
@@ -495,7 +501,7 @@
             rt: '-N' + txPad(txVal('tasSlider'), 4) + 'A' + txPad(Math.round(alt / 100), 3) + ' DCT',
             ds: '-' + (dest ? txIcao(dest) : 'ZZZZ') + '0130',
             tp: '-TYP/' + txTypeText() + ' ' + (txPick() ? 'PICK' : 'RDM'),
-            dd: '-DIR/' + TX_DIR[txDirIdx()][2] + ' DIST/' + TX_DIST[txDistIdx()][2],
+            dd: '-DIR/' + txLbl('dir', TX_DIR[txDirIdx()], 2) + ' DIST/' + txLbl('dist', TX_DIST[txDistIdx()], 2),
             pf: '-POB/' + txPad(txVal('maxSeats') || 1, 3) + ' FF/' + txPad(txVal('gphSlider'), 2) + 'GPH VS/' + txVal('rateSlider'),
             ap: '-APT/' + txAptSummary() + (dest ? '' : ' DEST/RNDM') + ')',
             nn: 'NNNN'
@@ -640,8 +646,8 @@
         tx.running = true;
         var paper = txPaper(), now = new Date(), c = txCall();
         var texts = ok
-            ? ['', 'ZCZC GAD002', 'ACK ' + txDtg(now) + ' ' + txIcao(txVal('startLoc')) + 'ZPZX', 'FPL ' + c.call + ' FREIGEGEBEN ' + txHhmm(now) + 'Z', 'NNNN']
-            : ['', 'ZCZC GAD002', 'NAK ' + txDtg(now) + ' ' + txIcao(txVal('startLoc')) + 'ZPZX', 'FPL ' + c.call + ' NICHT ANGENOMMEN', 'NNNN'];
+            ? ['', 'ZCZC GAD002', 'ACK ' + txDtg(now) + ' ' + txIcao(txVal('startLoc')) + 'ZPZX', 'FPL ' + c.call + ' ' + tr('skins.telex.ackCleared', 'FREIGEGEBEN') + ' ' + txHhmm(now) + 'Z', 'NNNN']
+            : ['', 'ZCZC GAD002', 'NAK ' + txDtg(now) + ' ' + txIcao(txVal('startLoc')) + 'ZPZX', 'FPL ' + c.call + ' ' + tr('skins.telex.nak', 'NICHT ANGENOMMEN'), 'NNNN'];
         var chain = Promise.resolve();
         texts.forEach(function (text) {
             chain = chain.then(function () {
@@ -720,7 +726,7 @@
             api.groups.forEach(function (g) {
                 var b = document.createElement('button');
                 b.type = 'button'; b.className = 'tx-tsw'; b.dataset.id = g.id; b.setAttribute('role', 'switch');
-                b.innerHTML = '<span class="tx-tbase"></span><span><b>' + g.label + '</b><small>' + (g.description || '') + '</small></span>';
+                b.innerHTML = '<span class="tx-tbase"></span><span><b>' + tr('airportTypes.group.' + g.id + '.label', g.label) + '</b><small>' + (g.description ? tr('airportTypes.group.' + g.id + '.description', g.description) : '') + '</small></span>';
                 b.addEventListener('click', function () {
                     var sel = api.getSelected();
                     var on = sel.indexOf(g.id) >= 0;
@@ -755,7 +761,7 @@
         // Drehschalter
         [['dir', TX_DIR, 240], ['dist', TX_DIST, 220]].forEach(function (cfg) {
             var el = txRotary(cfg[0]);
-            txLayoutRotary(el, cfg[1].map(function (d) { return d[1]; }), cfg[2]);
+            txLayoutRotary(el, cfg[1].map(function (d) { return txLbl(cfg[0], d, 1); }), cfg[2]);
             var id = cfg[0] === 'dir' ? 'dirPref' : 'distRange';
             var pick = function (i) { setSelect(id, cfg[1][i][0]); syncTelex(); };
             el.addEventListener('click', function (e) {
@@ -949,7 +955,7 @@
         var next = SKINS[(SKINS.indexOf(currentSkin()) + 1) % SKINS.length];
         write(SKIN_KEY, next);
         apply();
-        showIndicator('Design: ' + SKIN_LABEL[next]);
+        showIndicator('Design: ' + tr('skins.name.' + next, SKIN_LABEL[next]));
         return next;
     }
     function cycleTopRightScrew() {
@@ -967,6 +973,10 @@
         }
         setInterval(function () { if (built && !document.hidden) sync(); }, 400);
         if (document.fonts && document.fonts.ready) document.fonts.ready.then(function () { sync(); });
+        // Language switch: rebuild the desk in the new language (same path as a skin change).
+        if (window.GAI18n && typeof window.GAI18n.onChange === 'function') {
+            window.GAI18n.onChange(function () { if (built) { teardown(); apply(); } });
+        }
     }
 
     window.gaCycleAnalogSkin = cycleAnalogSkin;

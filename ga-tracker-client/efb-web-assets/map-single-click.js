@@ -3,6 +3,19 @@ function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
 /* Shared Standalone airport/navpoint selection and tooltip/panel modes. */
+// UI language (i18n-core.js, web only): _scT = exact German sentence -> i18n/en-phrases.js,
+// _scK = key with placeholders. Without GAI18n (EFB) the German text stays exactly as before.
+function _scT(text) {
+  var i18n = typeof window !== 'undefined' ? window.GAI18n : null;
+  return i18n ? i18n.phrase(text) : text;
+}
+function _scK(key, german, vars) {
+  var i18n = typeof window !== 'undefined' ? window.GAI18n : null;
+  if (i18n) return i18n.t(key, vars, german);
+  return vars ? String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, function (m, n) {
+    return Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m;
+  }) : german;
+}
 function setMapSingleClickMode(mode) {
   var _ref = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {},
     _ref$persist = _ref.persist,
@@ -39,7 +52,7 @@ function getOpenAipAirportTooltip(airport) {
   return `
         <span class="ga-airport-hover-tooltip">
             <b>${escapePopupText(icao || 'APT')}</b> · ${escapePopupText(name)}
-            ${runwayLabels.length ? `<br><span>PISTE&nbsp; ${escapePopupText(runwayLabels.join(' · '))}</span>` : ''}
+            ${runwayLabels.length ? `<br><span>${_scT('PISTE')}&nbsp; ${escapePopupText(runwayLabels.join(' · '))}</span>` : ''}
             ${frequencies.length ? `<br><span>FREQ&nbsp;&nbsp; ${GARadioTuningCore.text(frequencies[0], 'COM')}</span>` : ''}
         </span>`;
 }
@@ -205,7 +218,7 @@ function getMapNavigationPointTooltip(point) {
     return `
             <span class="ga-airport-hover-tooltip ga-map-point-hover-tooltip">
                 <b>VRP</b> · ${escapePopupText(name)}
-                ${airportIcao ? `<br><span>FLUGPLATZ&nbsp; ${escapePopupText(airportIcao)}</span>` : ''}
+                ${airportIcao ? `<br><span>${_scT('FLUGPLATZ')}&nbsp; ${escapePopupText(airportIcao)}</span>` : ''}
             </span>`;
   }
   var nav = normalizeOpenAipNavaidForPopup(point);
@@ -215,7 +228,7 @@ function getMapNavigationPointTooltip(point) {
   return `
         <span class="ga-airport-hover-tooltip ga-map-point-hover-tooltip">
             <b>${escapePopupText(title)}</b> · ${escapePopupText(nav.name)}
-            <br><span>${escapePopupText(getOpenAipNavaidTypeLabel(nav.type))}${frequency ? `&nbsp; ${GARadioTuningCore.text(frequency, GARadioTuningCore.navaidKind(getOpenAipNavaidTypeLabel(nav.type)))}` : ''}</span>
+            <br><span>${escapePopupText(_scT(getOpenAipNavaidTypeLabel(nav.type)))}${frequency ? `&nbsp; ${GARadioTuningCore.text(frequency, GARadioTuningCore.navaidKind(getOpenAipNavaidTypeLabel(nav.type)))}` : ''}</span>
         </span>`;
 }
 var mapSingleClickTooltipLayer = null;
@@ -295,7 +308,7 @@ function scheduleMapInfoTapResolution(latlng) {
   };
   tasks.forEach(task => task.then(retry, () => {}));
   if (!getAirportDatabaseForMapClicks() || !Array.isArray(window.gaMapSingleClickHost ? cachedNavData : openAipStaticNavaidState.items) || !Array.isArray(window.gaMapSingleClickHost ? cachedNavData : openAipStaticReportingPointState.items)) {
-    showMapToast('Flugplatz- und Funkfeuerdaten laden – Auswahl wird automatisch nachgeholt', 2400);
+    showMapToast(_scT('Flugplatz- und Funkfeuerdaten laden – Auswahl wird automatisch nachgeholt'), 2400);
   }
 }
 var navaidInfoPopupLayer = null;
@@ -313,7 +326,7 @@ function openNavaidInfoPopup(navaid) {
   var title = nav.identifier ? `${escapePopupText(nav.identifier)} · ${escapePopupText(nav.name)}` : escapePopupText(nav.name);
   var typeLabel = getOpenAipNavaidTypeLabel(nav.type);
   var sourceLabel = getOpenAipPopupSourceLabel(nav.source);
-  var lines = [`<div style="font-size:11px; line-height:1.65;"><b>Typ:</b> ${escapePopupText(typeLabel)}`, nav.frequencyValue ? `<b>Frequenz:</b> ${GARadioTuningCore.html(nav.frequencyValue, GARadioTuningCore.navaidKind(getOpenAipNavaidTypeLabel(nav.type)))}${nav.frequencyUnit ? ` ${escapePopupText(nav.frequencyUnit)}` : ''}` : '<b>Frequenz:</b> Keine Angabe', nav.channel ? `<b>Kanal:</b> ${escapePopupText(nav.channel)}` : '', nav.rangeValue ? `<b>Reichweite:</b> ${escapePopupText(nav.rangeValue)}${nav.rangeUnit ? ` ${escapePopupText(nav.rangeUnit)}` : ''}` : '', nav.country ? `<b>Land:</b> ${escapePopupText(nav.country)}` : '', `<b>Position:</b> ${nav.lat.toFixed(5)}, ${nav.lon.toFixed(5)}`, `<span style="color:#666;">Quelle: ${escapePopupText(sourceLabel)}</span></div>`].filter(Boolean).join('<br>');
+  var lines = [`<div style="font-size:11px; line-height:1.65;"><b>${_scT('Typ:')}</b> ${escapePopupText(_scT(typeLabel))}`, nav.frequencyValue ? `<b>${_scT('Frequenz:')}</b> ${GARadioTuningCore.html(nav.frequencyValue, GARadioTuningCore.navaidKind(getOpenAipNavaidTypeLabel(nav.type)))}${nav.frequencyUnit ? ` ${escapePopupText(nav.frequencyUnit)}` : ''}` : '<b>' + _scT('Frequenz:') + '</b> ' + _scT('Keine Angabe'), nav.channel ? `<b>${_scT('Kanal:')}</b> ${escapePopupText(nav.channel)}` : '', nav.rangeValue ? `<b>${_scT('Reichweite:')}</b> ${escapePopupText(nav.rangeValue)}${nav.rangeUnit ? ` ${escapePopupText(nav.rangeUnit)}` : ''}` : '', nav.country ? `<b>${_scT('Land:')}</b> ${escapePopupText(nav.country)}` : '', `<b>Position:</b> ${nav.lat.toFixed(5)}, ${nav.lon.toFixed(5)}`, `<span style="color:#666;">${_scT('Quelle:')} ${escapePopupText(sourceLabel)}</span></div>`].filter(Boolean).join('<br>');
   var content = `
         <div style="font-family:'Courier New',monospace; min-width:190px; color:#111;">
             <b style="font-size:13px;">${title}</b>
@@ -343,10 +356,10 @@ function openReportingPointInfoPopup(point) {
             <b style="font-size:13px;">VRP ${escapePopupText(name)}</b>
             <hr style="border-color:#ccc; margin:5px 0;">
             <div style="font-size:11px; line-height:1.65;">
-                ${airportIcao ? `<b>Flugplatz:</b> ${escapePopupText(airportIcao)}<br>` : ''}
+                ${airportIcao ? `<b>${_scT('Flugplatz:')}</b> ${escapePopupText(airportIcao)}<br>` : ''}
                 <b>Position:</b> ${lat.toFixed(5)}, ${lon.toFixed(5)}
                 ${description ? `<br><span style="color:#555;">${escapePopupText(description)}</span>` : ''}
-                <br><span style="color:#666;">Quelle: ${escapePopupText(sourceLabel)}</span>
+                <br><span style="color:#666;">${_scT('Quelle:')} ${escapePopupText(sourceLabel)}</span>
             </div>
         </div>`;
   if (!reportingPointInfoPopupLayer) reportingPointInfoPopupLayer = L.popup({

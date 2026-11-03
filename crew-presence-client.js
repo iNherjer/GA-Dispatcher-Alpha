@@ -150,6 +150,16 @@
         if (typeof updateGroupBadgeUI === 'function') updateGroupBadgeUI();
     }
 
+    // --- UI language (i18n-core.js) ---
+    // crew-presence-core.js is shared with the worker and stays German; only the display here
+    // is translated. Without GAI18n, or with German selected, the German text is used.
+    function tr(key, german, vars) {
+        if (window.GAI18n) return window.GAI18n.t(key, vars, german);
+        return String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, (m, n) => (vars && Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m));
+    }
+    function uiLocale() { return window.GAI18n && window.GAI18n.getLanguage() === 'en' ? 'en-GB' : 'de-DE'; }
+    function phaseText(phase) { const german = core.phaseLabel(phase); return german ? tr(`crew.phase.${phase}`, german) : ''; }
+
     // --- Roster status ---
     function statusFor(id) {
         if (sameId(id, pilotId())) {
@@ -186,7 +196,7 @@
     function toggleRow(label, on, onToggle, disabledText = '') {
         const row = el('button', 'crew-share-toggle' + (on ? ' is-on' : ''));
         row.type = 'button';
-        row.append(el('span', 'crew-share-label', label), el('span', 'crew-share-state', disabledText || (on ? 'AN' : 'AUS')));
+        row.append(el('span', 'crew-share-label', label), el('span', 'crew-share-state', disabledText || (on ? tr('crew.share.on', 'AN') : tr('crew.share.off', 'AUS'))));
         row.setAttribute('aria-pressed', on ? 'true' : 'false');
         if (disabledText) row.disabled = true;
         else row.addEventListener('click', onToggle);
@@ -196,19 +206,19 @@
     function renderSettingsNote(board) {
         const share = getShare();
         const note = el('div', 'post-it crew-share-card');
-        note.append(el('div', 'post-it-pin'), el('div', 'crew-share-title', '⚙️ MEINE FREIGABEN'));
+        note.append(el('div', 'post-it-pin'), el('div', 'crew-share-title', tr('crew.share.title', '⚙️ MEINE FREIGABEN')));
         const homebase = homebaseShareState();
         note.append(
             toggleRow('🏠 Homebase', homebase === true, async (event) => {
                 const button = event.currentTarget;
                 button.disabled = true;
                 const result = await window.homebaseSetCrewShare?.(homebase !== true);
-                if (!result?.ok) alert(result?.message || 'Die Homebase-Freigabe konnte nicht geändert werden.');
+                if (!result?.ok) alert(result?.message || tr('crew.share.homebaseFailed', 'Die Homebase-Freigabe konnte nicht geändert werden.'));
                 rerenderBoard();
-            }, homebase === null ? 'KEINE' : ''),
-            toggleRow('🟢 Online-Status', share.online, () => setShare({ online: !share.online })),
-            toggleRow('✈️ Aktueller Flug', share.flight, () => setShare({ flight: !share.flight })),
-            toggleRow('🛩️ Vereinsflotte', share.fleet, () => setShare({ fleet: !share.fleet }))
+            }, homebase === null ? tr('crew.share.none', 'KEINE') : ''),
+            toggleRow(tr('crew.share.online', '🟢 Online-Status'), share.online, () => setShare({ online: !share.online })),
+            toggleRow(tr('crew.share.flight', '✈️ Aktueller Flug'), share.flight, () => setShare({ flight: !share.flight })),
+            toggleRow(tr('crew.share.fleet', '🛩️ Vereinsflotte'), share.fleet, () => setShare({ fleet: !share.fleet }))
         );
         placeNote(note, 'crew-share-settings', 80, 64, 2);
         board.appendChild(note);
@@ -216,7 +226,7 @@
 
     function timeText(ms) {
         if (!ms) return '';
-        try { return new Date(ms).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }); } catch (_) { return ''; }
+        try { return new Date(ms).toLocaleTimeString(uiLocale(), { hour: '2-digit', minute: '2-digit' }); } catch (_) { return ''; }
     }
 
     // Thin bar; the side-view aircraft from the height profile marks flown | remaining.
@@ -272,13 +282,13 @@
     function onDetailKey(event) { if (event.key === 'Escape') closeDetail(); }
 
     function detailFacts(f) {
-        const facts = [`Status: ${core.phaseLabel(f.phase) || '—'}`];
-        if (f.takeoffAt) facts.push(`Start ${timeText(f.takeoffAt)}`);
-        if (f.progress !== null && f.progress !== undefined) facts.push(`${Math.round(f.progress * 100)} % der Route`);
+        const facts = [tr('crew.detail.status', 'Status: {phase}', { phase: phaseText(f.phase) || '—' })];
+        if (f.takeoffAt) facts.push(tr('crew.flight.takeoff', 'Start {time}', { time: timeText(f.takeoffAt) }));
+        if (f.progress !== null && f.progress !== undefined) facts.push(tr('crew.detail.progress', '{percent} % der Route', { percent: Math.round(f.progress * 100) }));
         if (f.pos) {
-            if (Number.isFinite(f.pos.altFt)) facts.push(`${f.pos.altFt.toLocaleString('de-DE')} ft`);
+            if (Number.isFinite(f.pos.altFt)) facts.push(`${f.pos.altFt.toLocaleString(uiLocale())} ft`);
             if (Number.isFinite(f.pos.gsKts)) facts.push(`GS ${f.pos.gsKts} kt`);
-            if (Number.isFinite(f.pos.hdg)) facts.push(`Kurs ${String(f.pos.hdg).padStart(3, '0')}°`);
+            if (Number.isFinite(f.pos.hdg)) facts.push(tr('crew.detail.heading', 'Kurs {hdg}°', { hdg: String(f.pos.hdg).padStart(3, '0') }));
         }
         return facts.join(' · ');
     }
@@ -299,7 +309,7 @@
 
     async function flyItYourself(member, button) {
         button.disabled = true;
-        button.textContent = 'Lade Auftrag …';
+        button.textContent = tr('crew.fly.loading', 'Lade Auftrag …');
         try {
             const res = await fetch(baseUrl() + encodeURIComponent(groupName()) + '/mission/' + encodeURIComponent(member.pilotId), { headers: headers(), cache: 'no-store' });
             handleStatus(res.status);
@@ -307,20 +317,20 @@
             const state = await missionFromResponse(data);
             if (!state) {
                 alert(data?.encoding && typeof DecompressionStream !== 'function'
-                    ? 'Dieser Browser kann den Auftrag nicht entpacken. Bitte einen aktuellen Browser verwenden.'
-                    : 'Für diesen Flug ist kein Auftrag verfügbar. Er wird geteilt, sobald der Tracker des Piloten (ab v597) den Flug meldet.');
+                    ? tr('crew.fly.unpackFailed', 'Dieser Browser kann den Auftrag nicht entpacken. Bitte einen aktuellen Browser verwenden.')
+                    : tr('crew.fly.notShared', 'Für diesen Flug ist kein Auftrag verfügbar. Er wird geteilt, sobald der Tracker des Piloten (ab v597) den Flug meldet.'));
                 return;
             }
             const busy = typeof window.gaMissionDraftActive === 'function' && window.gaMissionDraftActive();
             const active = !!localStorage.getItem('ga_active_mission');
-            if ((busy || active) && !confirm('Dein aktueller Auftrag wird durch diesen Auftrag ersetzt. Fortfahren?')) return;
+            if ((busy || active) && !confirm(tr('crew.fly.replaceConfirm', 'Dein aktueller Auftrag wird durch diesen Auftrag ersetzt. Fortfahren?'))) return;
             closeDetail();
             if (typeof pinboardRestoreFlightData === 'function') await pinboardRestoreFlightData(core.restoreSharedMissionState(state));
         } catch (_) {
-            alert('Der Auftrag konnte nicht geladen werden.');
+            alert(tr('crew.fly.loadFailed', 'Der Auftrag konnte nicht geladen werden.'));
         } finally {
             button.disabled = false;
-            button.textContent = '✈️ Diesen Auftrag selbst fliegen';
+            button.textContent = tr('crew.fly.button', '✈️ Diesen Auftrag selbst fliegen');
         }
     }
 
@@ -337,21 +347,21 @@
         panel.setAttribute('aria-modal', 'true');
         panel.setAttribute('aria-labelledby', 'crewFlightDetailTitle');
         const head = el('div', 'crew-flight-detail-head');
-        const title = el('h2', 'crew-flight-detail-title', `✈️ ${member.nick || member.pilotId}: ${core.placeLabel(f.dep, f.depName)} ➔ ${core.placeLabel(f.dest, f.destName, f.kind === 'free' ? 'frei' : '—')}`);
+        const title = el('h2', 'crew-flight-detail-title', `✈️ ${member.nick || member.pilotId}: ${core.placeLabel(f.dep, f.depName)} ➔ ${core.placeLabel(f.dest, f.destName, f.kind === 'free' ? tr('crew.flight.freeDest', 'frei') : '—')}`);
         title.id = 'crewFlightDetailTitle';
         const close = el('button', 'crew-flight-detail-close', '×');
         close.type = 'button';
-        close.setAttribute('aria-label', 'Schließen');
+        close.setAttribute('aria-label', tr('crew.detail.close', 'Schließen'));
         close.addEventListener('click', closeDetail);
         head.append(title, close);
-        const sub = el('div', 'crew-flight-detail-sub', [f.title || (f.kind === 'free' ? 'Freier Flug' : 'Auftrag'), f.aircraft ? `🛩️ ${f.aircraft}` : ''].filter(Boolean).join(' · '));
+        const sub = el('div', 'crew-flight-detail-sub', [f.title || (f.kind === 'free' ? tr('crew.flight.free', 'Freier Flug') : tr('crew.flight.mission', 'Auftrag')), f.aircraft ? `🛩️ ${f.aircraft}` : ''].filter(Boolean).join(' · '));
         const facts = el('div', 'crew-flight-detail-facts', detailFacts(f));
         const mapBox = el('div', 'crew-flight-detail-map');
         const foot = el('div', 'crew-flight-detail-foot');
         const time = el('span', 'crew-flight-detail-time', positionText(f));
         foot.append(time);
         if (f.kind === 'mission' && !sameId(member.pilotId, pilotId())) {
-            const fly = el('button', 'crew-flight-detail-fly', '✈️ Diesen Auftrag selbst fliegen');
+            const fly = el('button', 'crew-flight-detail-fly', tr('crew.fly.button', '✈️ Diesen Auftrag selbst fliegen'));
             fly.type = 'button';
             fly.addEventListener('click', () => flyItYourself(member, fly));
             foot.append(fly);
@@ -401,7 +411,7 @@
             L.polyline(line, { color: '#ff00ff', weight: 3, opacity: 0.85 }).addTo(detailMap);
             route.forEach((p, i) => {
                 const end = i === 0 || i === route.length - 1;
-                const label = p.name || (i === 0 ? 'Start' : i === route.length - 1 ? 'Ziel' : `Wegpunkt ${i}`);
+                const label = p.name || (i === 0 ? tr('crew.route.dep', 'Start') : i === route.length - 1 ? tr('crew.route.dest', 'Ziel') : tr('crew.route.waypoint', 'Wegpunkt {n}', { n: i }));
                 L.circleMarker([p.lat, p.lon], end
                     ? { radius: 6, color: '#fff', weight: 2, fillColor: i ? '#c0392b' : '#1e7b34', fillOpacity: 1 }
                     : { radius: 4, color: '#ff00ff', weight: 2, fillColor: '#fff', fillOpacity: 1 })
@@ -416,7 +426,7 @@
     }
 
     function positionText(f) {
-        return f.pos?.at ? `Position von ${timeText(f.pos.at)} Uhr` : 'Keine Position gemeldet';
+        return f.pos?.at ? tr('crew.detail.positionAt', 'Position von {time} Uhr', { time: timeText(f.pos.at) }) : tr('crew.detail.noPosition', 'Keine Position gemeldet');
     }
     function placeDetailPlane(pos) {
         if (!detailMap || !detailLive || !pos) return;
@@ -457,19 +467,19 @@
         const ended = f.endedAt > 0;
         const note = el('div', 'post-it crew-flight-card' + (ended ? ' is-landed' : ''));
         const fresh = !seen.has(flightKey(member)) || (freshUntil.get(flightKey(member)) || 0) > Date.now();
-        if (!ended && !sameId(member.pilotId, pilotId()) && fresh) note.append(el('div', 'post-it-new-badge', 'NEU'));
+        if (!ended && !sameId(member.pilotId, pilotId()) && fresh) note.append(el('div', 'post-it-new-badge', tr('pinboard.newBadge', 'NEU')));
         note.append(el('div', 'post-it-pin'));
-        const who = sameId(member.pilotId, pilotId()) ? `${member.nick || 'Ich'} (du)` : (member.nick || member.pilotId);
+        const who = sameId(member.pilotId, pilotId()) ? tr('crew.flight.me', '{nick} (du)', { nick: member.nick || tr('crew.flight.meFallback', 'Ich') }) : (member.nick || member.pilotId);
         note.append(el('div', 'crew-flight-who', `✈️ ${who}`));
         const dep = core.placeLabel(f.dep, f.depName);
-        const dest = core.placeLabel(f.dest, f.destName, f.kind === 'free' ? 'frei' : '—');
+        const dest = core.placeLabel(f.dest, f.destName, f.kind === 'free' ? tr('crew.flight.freeDest', 'frei') : '—');
         note.append(el('div', 'crew-flight-route', `${dep} ➔ ${dest}`));
-        const title = f.title || (f.kind === 'free' ? 'Freier Flug' : 'Auftrag');
+        const title = f.title || (f.kind === 'free' ? tr('crew.flight.free', 'Freier Flug') : tr('crew.flight.mission', 'Auftrag'));
         note.append(el('div', 'crew-flight-title', title));
         if (f.aircraft) note.append(el('div', 'crew-flight-aircraft', `🛩️ ${f.aircraft}`));
         const status = el('div', 'crew-flight-status');
-        status.append(el('span', 'crew-flight-phase', core.phaseLabel(f.phase) || '—'));
-        const time = f.takeoffAt ? `Start ${timeText(f.takeoffAt)}` : (f.startedAt ? `seit ${timeText(f.startedAt)}` : '');
+        status.append(el('span', 'crew-flight-phase', phaseText(f.phase) || '—'));
+        const time = f.takeoffAt ? tr('crew.flight.takeoff', 'Start {time}', { time: timeText(f.takeoffAt) }) : (f.startedAt ? tr('crew.flight.since', 'seit {time}', { time: timeText(f.startedAt) }) : '');
         if (time) status.append(el('span', 'crew-flight-time', time));
         note.append(status);
         if (f.progress !== null && f.progress !== undefined) note.append(progressBar(f.progress));

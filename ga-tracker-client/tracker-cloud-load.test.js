@@ -108,7 +108,8 @@ test('App failed cloud load never reopens confirmation on telemetry or a newer t
   const end = syncSource.indexOf('function _handleTrackerMissionAuthoritySnapshot', start);
   const scheduled = [];
   let prompts = 0, submissions = 0;
-  const context = { window: {}, _syncMissionRestoreBlocked: () => false, _syncActiveMissionPayload: () => null,
+  // _syncUiText: UI language helper from sync.js, German pass-through as without GAI18n.
+  const context = { window: {}, _syncUiText: (key, vars, german) => String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, (m, n) => (vars && n in vars ? String(vars[n]) : m)), _syncMissionRestoreBlocked: () => false, _syncActiveMissionPayload: () => null,
     _syncSetLocalMissionChoice: () => {},
     setTimeout: callback => scheduled.push(callback), confirm: () => { prompts++; return true; },
     _submitTrackerExecutionIntent: async () => { submissions++; return { ok: false, error: 'authority_timeout' }; } };

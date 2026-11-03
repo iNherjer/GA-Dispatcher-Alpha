@@ -1,3 +1,5 @@
+// UI language (i18n-core.js, web only): exact German sentences -> i18n/en-phrases.js. In the EFB there is no GAI18n.
+function _mpT(text) { var i18n = (typeof window !== 'undefined') ? window.GAI18n : null; return i18n ? i18n.phrase(text) : text; }
 (function (root) {
   'use strict';
   var symbols = {
@@ -21,13 +23,13 @@
     if(options.skin === 'ipod') return root.GAMediaIPodUI.create(options);
     var host = options.host || document.body;
     var layer = document.createElement('div'); layer.className='ga-media-layer';
-    layer.innerHTML='<button class="ga-media-launcher" type="button" aria-label="Mediensteuerung öffnen" title="Mediensteuerung öffnen"><svg class="ga-media-clef" viewBox="0 0 24 44" aria-hidden="true" focusable="false"><path d="M12.5 39c0 3.5-5 3.7-5.4.7-.3-2.2 2.6-3 3.7-1.3M11.4 40.5L14.2 5.6c.2-3.4 4.4-3 3.6 1.4-.8 4.6-10.6 9.4-11.2 17-.5 6.2 6.2 8.6 10.2 5.6 3.4-2.6 2.2-8.6-2.6-8.4-4 .2-5 5.4-1.6 6.6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>'+
-      '<section class="ga-media-device" role="region" aria-label="Winamp Mediensteuerung" hidden>'+
-      '<header class="ga-media-header"><span class="ga-media-bolt" aria-hidden="true">ϟ</span><span class="ga-media-header-line"></span><span class="ga-media-brand">WINAMP</span><span class="ga-media-header-line"></span><button class="ga-media-close" type="button" aria-label="Mediensteuerung schließen">×</button></header>'+
+    layer.innerHTML=('<button class="ga-media-launcher" type="button" aria-label="' + _mpT('Mediensteuerung öffnen') + '" title="' + _mpT('Mediensteuerung öffnen') + '"><svg class="ga-media-clef" viewBox="0 0 24 44" aria-hidden="true" focusable="false"><path d="M12.5 39c0 3.5-5 3.7-5.4.7-.3-2.2 2.6-3 3.7-1.3M11.4 40.5L14.2 5.6c.2-3.4 4.4-3 3.6 1.4-.8 4.6-10.6 9.4-11.2 17-.5 6.2 6.2 8.6 10.2 5.6 3.4-2.6 2.2-8.6-2.6-8.4-4 .2-5 5.4-1.6 6.6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>')+
+      ('<section class="ga-media-device" role="region" aria-label="' + _mpT('Winamp Mediensteuerung') + '" hidden>')+
+      ('<header class="ga-media-header"><span class="ga-media-bolt" aria-hidden="true">ϟ</span><span class="ga-media-header-line"></span><span class="ga-media-brand">WINAMP</span><span class="ga-media-header-line"></span><button class="ga-media-close" type="button" aria-label="' + _mpT('Mediensteuerung schließen') + '">×</button></header>')+
       '<div class="ga-media-main"><div class="ga-media-display ga-media-clock"><div class="ga-media-clock-top"><svg class="ga-media-state-icon" viewBox="0 0 24 24" aria-hidden="true"></svg><svg class="ga-media-digits" viewBox="0 0 138 48" role="img" aria-label="Abspielzeit"></svg></div><div class="ga-media-signal"><span>PC AUDIO</span><div class="ga-media-leds" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div>'+
-      '<div class="ga-media-now"><div class="ga-media-display ga-media-track"><div class="ga-media-marquee"><span class="ga-media-title"></span><span class="ga-media-title ga-media-copy" aria-hidden="true"></span></div></div><div class="ga-media-status-row"><div class="ga-media-app-switcher" role="group" aria-label="Musik-App auswählen"><button class="ga-media-app-key" type="button" data-source-step="-1" aria-label="Vorherige Musik-App" title="Vorherige Musik-App">◀</button><span class="ga-media-source"></span><button class="ga-media-app-key" type="button" data-source-step="1" aria-label="Nächste Musik-App" title="Nächste Musik-App">▶</button></div><span class="ga-media-status"></span></div><div class="ga-media-mixer"><label class="ga-media-label">VOL</label><input class="ga-media-volume" aria-label="Musiklautstärke" type="range" min="0" max="100"><output class="ga-media-volume-text"></output></div></div></div>'+
-      '<div class="ga-media-seek-row" role="progressbar" aria-label="Wiedergabefortschritt"><div class="ga-media-progress"></div><div class="ga-media-position"></div><input class="ga-media-seek" type="range" min="0" max="1000" step="1" aria-label="Wiedergabeposition" disabled></div>'+
-      '<footer class="ga-media-footer"><div class="ga-media-transport">'+key('previous','Vorheriger Titel')+key('play','Abspielen')+key('pause','Pause')+key('next','Nächster Titel')+'</div><div class="ga-media-zoom"><span class="ga-media-zoom-label">ZOOM<output>100%</output></span><button class="ga-media-key" type="button" data-zoom="-1" aria-label="Gerät verkleinern">−</button><button class="ga-media-key" type="button" data-zoom="1" aria-label="Gerät vergrößern">+</button></div><span class="ga-media-footer-mark" aria-hidden="true">ϟ</span></footer></section>';
+      ('<div class="ga-media-now"><div class="ga-media-display ga-media-track"><div class="ga-media-marquee"><span class="ga-media-title"></span><span class="ga-media-title ga-media-copy" aria-hidden="true"></span></div></div><div class="ga-media-status-row"><div class="ga-media-app-switcher" role="group" aria-label="' + _mpT('Musik-App auswählen') + '"><button class="ga-media-app-key" type="button" data-source-step="-1" aria-label="' + _mpT('Vorherige Musik-App') + '" title="' + _mpT('Vorherige Musik-App') + '">◀</button><span class="ga-media-source"></span><button class="ga-media-app-key" type="button" data-source-step="1" aria-label="' + _mpT('Nächste Musik-App') + '" title="' + _mpT('Nächste Musik-App') + '">▶</button></div><span class="ga-media-status"></span></div><div class="ga-media-mixer"><label class="ga-media-label">VOL</label><input class="ga-media-volume" aria-label="' + _mpT('Musiklautstärke') + '" type="range" min="0" max="100"><output class="ga-media-volume-text"></output></div></div></div>')+
+      '<div class="ga-media-seek-row" role="progressbar" aria-label="' + _mpT('Wiedergabefortschritt') + '"><div class="ga-media-progress"></div><div class="ga-media-position"></div><input class="ga-media-seek" type="range" min="0" max="1000" step="1" aria-label="' + _mpT('Wiedergabeposition') + '" disabled></div>'+
+      '<footer class="ga-media-footer"><div class="ga-media-transport">'+key('previous',_mpT('Vorheriger Titel'))+key('play',_mpT('Abspielen'))+key('pause','Pause')+key('next',_mpT('Nächster Titel'))+('</div><div class="ga-media-zoom"><span class="ga-media-zoom-label">ZOOM<output>100%</output></span><button class="ga-media-key" type="button" data-zoom="-1" aria-label="' + _mpT('Gerät verkleinern') + '">−</button><button class="ga-media-key" type="button" data-zoom="1" aria-label="' + _mpT('Gerät vergrößern') + '">+</button></div><span class="ga-media-footer-mark" aria-hidden="true">ϟ</span></footer></section>');
     layer.querySelectorAll('button,input,select,textarea,label').forEach(function(control){control.classList.add('ga-skin-control');});
     host.appendChild(layer);
     var device=layer.querySelector('.ga-media-device'), launcher=layer.querySelector('.ga-media-launcher');
@@ -81,25 +83,25 @@
     ['contextmenu','selectstart'].forEach(function(type){layer.addEventListener(type,function(event){event.preventDefault();event.stopPropagation();});});
     function update(value) {
       state=value||{};
-      var title=[state.artist,state.title].filter(Boolean).join(' — ')||'Kein Titel';
+      var title=[state.artist,state.title].filter(Boolean).join(' — ')||_mpT('Kein Titel');
       device.querySelectorAll('.ga-media-title').forEach(function(el){el.textContent=title;});
       var track=device.querySelector('.ga-media-track');track.classList.toggle('is-overflow',device.querySelector('.ga-media-title').scrollWidth>track.clientWidth-18);
       var source=device.querySelector('.ga-media-source');
-      source.textContent=state.player||'WINDOWS';source.title=state.player||'Windows-Musikplayer';
+      source.textContent=state.player||'WINDOWS';source.title=state.player||_mpT('Windows-Musikplayer');
       device.querySelectorAll('[data-source-step]').forEach(function(el){el.disabled=state.connected===false||(state.players||[]).length<2;});
-      device.querySelector('.ga-media-status').textContent=(state.connected===false?'OFFLINE':state.ducking?'ABSENKUNG':state.playing?'PLAYING':'PAUSE')+(state.positionKind==='estimated'?' · ZEIT GESCHÄTZT':'');
+      device.querySelector('.ga-media-status').textContent=(state.connected===false?'OFFLINE':state.ducking?'ABSENKUNG':state.playing?'PLAYING':'PAUSE')+(state.positionKind==='estimated'?(' ' + _mpT('· ZEIT GESCHÄTZT')):'');
       device.querySelector('.ga-media-state-icon').innerHTML=symbols[state.playing?'play':'pause'];
-      var digits=device.querySelector('.ga-media-digits');digits.innerHTML=clock(state.positionSeconds);digits.setAttribute('aria-label',Number.isFinite(state.positionSeconds)?Math.floor(state.positionSeconds/60)+':'+('0'+Math.floor(state.positionSeconds%60)).slice(-2):'Abspielzeit nicht verfügbar');
-      digits.title=state.positionKind==='estimated'?'Geschätzte Wiedergabezeit seit Beobachtung; keine bestätigte Titelposition.':'Vom Windows-Player gemeldete Titelposition';
-      if(state.positionKind==='estimated')digits.setAttribute('aria-label','Geschätzte Zeit seit Beobachtung: '+digits.getAttribute('aria-label'));
+      var digits=device.querySelector('.ga-media-digits');digits.innerHTML=clock(state.positionSeconds);digits.setAttribute('aria-label',Number.isFinite(state.positionSeconds)?Math.floor(state.positionSeconds/60)+':'+('0'+Math.floor(state.positionSeconds%60)).slice(-2):_mpT('Abspielzeit nicht verfügbar'));
+      digits.title=state.positionKind==='estimated'?_mpT('Geschätzte Wiedergabezeit seit Beobachtung; keine bestätigte Titelposition.'):_mpT('Vom Windows-Player gemeldete Titelposition');
+      if(state.positionKind==='estimated')digits.setAttribute('aria-label',(_mpT('Geschätzte Zeit seit Beobachtung:') + ' ')+digits.getAttribute('aria-label'));
       if(document.activeElement!==volume)volume.value=Math.round((Number.isFinite(state.volume)?state.volume:0)*100);
       volume.disabled=state.volumeAvailable===false;device.querySelector('.ga-media-volume-text').textContent=state.volumeAvailable===false?'–':volume.value+'%';
       device.querySelectorAll('[data-command]').forEach(function(el){var action=el.dataset.command;el.disabled=state.connected===false||state.controls&&state.controls[action]===false;});
       if(seekKey!==seekIdentity()||!seekAvailable())seekDraft=null;
-      seekInput.disabled=!seekAvailable();seekInput.title=seekAvailable()?'Wiedergabeposition ändern':'Spulen für diesen Player nicht verfügbar';
+      seekInput.disabled=!seekAvailable();seekInput.title=seekAvailable()?_mpT('Wiedergabeposition ändern'):_mpT('Spulen für diesen Player nicht verfügbar');
       var positionSeconds=seekDraft===null?state.positionSeconds:seekDraft;drawProgress(positionSeconds,state.durationSeconds);
       if(seekDraft===null)seekInput.value=Number.isFinite(positionSeconds)&&state.durationSeconds>0?Math.round(positionSeconds/state.durationSeconds*1000):0;
-      seekInput.setAttribute('aria-valuetext',Number.isFinite(positionSeconds)?Math.floor(positionSeconds/60)+':'+('0'+Math.floor(positionSeconds%60)).slice(-2):'Nicht verfügbar');
+      seekInput.setAttribute('aria-valuetext',Number.isFinite(positionSeconds)?Math.floor(positionSeconds/60)+':'+('0'+Math.floor(positionSeconds%60)).slice(-2):_mpT('Nicht verfügbar'));
     }
     function resize(){layout();save();}root.addEventListener('resize',resize);
     layout();update(options.state);

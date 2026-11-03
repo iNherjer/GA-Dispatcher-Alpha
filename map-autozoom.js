@@ -1,3 +1,10 @@
+// UI language (i18n-core.js, web only). In the EFB there is no GAI18n: the German text is used.
+function _azText(key, german, vars) {
+    var i18n = (typeof window !== 'undefined') ? window.GAI18n : null;
+    if (i18n) return i18n.t(key, vars, german);
+    return String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, function (m, n) { return (vars && Object.prototype.hasOwnProperty.call(vars, n)) ? String(vars[n]) : m; });
+}
+
 // Standalone follow and autozoom, shared with the tracker-hosted EFB.
 const MAP_AUTOZOOM_LOOKAHEAD_KEY = 'ga_map_autozoom_lookahead_min';
 const MAP_AUTOZOOM_DEFAULT_LOOKAHEAD_MIN = 8;
@@ -678,9 +685,9 @@ window.refreshMapAutoZoomUi = function() {
     const status = document.getElementById('mapAutoZoomStatus');
     if (status) {
         if (!isMapAutoZoomEnabled()) {
-            status.textContent = 'Aus';
+            status.textContent = _azText('map.autozoom.off', 'Aus');
         } else if (!isAutoFollow) {
-            status.textContent = 'Follow aus';
+            status.textContent = _azText('map.autozoom.followOff', 'Follow aus');
         } else if (lastMapAutoZoomSample) {
             const currentZoom = Number.isFinite(lastMapAutoZoomSample.currentZoom)
                 ? `Z${lastMapAutoZoomSample.currentZoom.toFixed(1)}`
@@ -689,10 +696,10 @@ window.refreshMapAutoZoomUi = function() {
                 ? lastMapAutoZoomSample.targetZoom.toFixed(1)
                 : '--';
             const phase = lastMapAutoZoomSample.phase || lastMapAutoZoomSample.targetPhase || '';
-            const hold = lastMapAutoZoomSample.manualHoldZoom ? ` manuell Z${lastMapAutoZoomSample.manualHoldZoom.toFixed(1)}` : '';
+            const hold = lastMapAutoZoomSample.manualHoldZoom ? ' ' + _azText('map.autozoom.manual', 'manuell Z{zoom}', { zoom: lastMapAutoZoomSample.manualHoldZoom.toFixed(1) }) : '';
             status.textContent = `${currentZoom} -> Z${targetZoom}${phase ? ` ${phase}` : ''}${hold}`;
         } else {
-            status.textContent = 'Bereit';
+            status.textContent = _azText('map.autozoom.ready', 'Bereit');
         }
     }
 };
@@ -1039,4 +1046,9 @@ function updateAutoFollowFromTelemetry({lat, lon, alt, gs: autoFollowGs, hdg, no
             }
         }
     }
+}
+
+// Language switch (web): redraw the status line. Display only.
+if (typeof window !== 'undefined' && window.GAI18n && typeof window.GAI18n.onChange === 'function') {
+    window.GAI18n.onChange(function () { try { window.refreshMapAutoZoomUi(); } catch (_) {} });
 }

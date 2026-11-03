@@ -15,6 +15,14 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
 
   var STORAGE_KEY = 'ga_display_clock_v1';
   var MAX_AGE_MS = 8000;
+  // UI language (i18n-core.js, web only). In the EFB there is no GAI18n: the German text is used.
+  function _dcText(key, german, vars) {
+    var i18n = typeof window !== 'undefined' ? window.GAI18n : null;
+    if (i18n) return i18n.t(key, vars, german);
+    return String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, function (m, n) {
+      return vars && Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m;
+    });
+  }
   var finite = value => typeof value === 'number' && Number.isFinite(value);
   var wrap = seconds => (seconds % 86400 + 86400) % 86400;
   function normalize() {
@@ -110,11 +118,11 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
       setText('mapStopwatchUtc', format(utc, 0, true));
       setText('mapStopwatchLocal', format(local, 0, true));
       setText('mapStopwatchLocalLabel', local.fallback ? 'UTC (Fallback)' : 'LOCAL');
-      setText('mapStopwatchClockSource', utc.source === 'simulator' ? 'Simulator' : utc.fallback ? 'Gerät · Fallback' : 'Gerät');
+      setText('mapStopwatchClockSource', utc.source === 'simulator' ? 'Simulator' : utc.fallback ? _dcText('map.clock.deviceFallback', 'Gerät · Fallback') : _dcText('map.clock.device', 'Gerät'));
     }
     function refresh() {
       var clock = current();
-      var basis = (clock.source === 'simulator' ? 'SIM' : 'GER') + ' ' + (clock.zone === 'utc' ? 'UTC' : 'Lokal');
+      var basis = (clock.source === 'simulator' ? 'SIM' : _dcText('map.clock.deviceShort', 'GER')) + ' ' + (clock.zone === 'utc' ? 'UTC' : _dcText('map.clock.local', 'Lokal'));
       setText('mapClockStatus', format(clock, 0, true) + ' · ' + basis + (clock.fallback ? ' · Fallback' : ''));
       setText('routeProgressTimeBasis', basis + (clock.fallback ? ' ↩' : ''));
       var source = win.document.getElementById('mapClockSource');

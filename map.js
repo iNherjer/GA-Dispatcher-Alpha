@@ -159,6 +159,22 @@ const VP_VFR_REF_FINE_TRIM_FT_DE = {
     '00': -180, '01': -180, '02': -140, '03': -120, '04': -120, '05': -110, '06': -100, '07': -80, '09': -80, '11': -100, '12': -110,
     '14': 120, '33': 220, '35': 200, '37': 220, '38': 200, '41': 180, '44': 160
 };
+// UI language (i18n-core.js). Without GAI18n, or with German selected, the German text is used.
+function _mapUiPhrase(text) {
+    return (typeof window !== 'undefined' && window.GAI18n) ? window.GAI18n.phrase(text) : text;
+}
+function _mapUiText(key, german, vars) {
+    if (typeof window !== 'undefined' && window.GAI18n) return window.GAI18n.t(key, vars, german);
+    return String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, (m, n) => (vars && Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m));
+}
+function _mapUiOnOff(on) { return on ? _mapUiText('map.on', 'An') : _mapUiText('map.off', 'Aus'); }
+function _mapUiLang() { return (typeof window !== 'undefined' && window.GAI18n) ? window.GAI18n.getLanguage() : 'de'; }
+// Country names: German list below; in English the browser's own region names.
+function _mapUiCountryName(item) {
+    if (_mapUiLang() === 'de' || !item) return item ? item.name : '';
+    try { return new Intl.DisplayNames(['en'], { type: 'region' }).of(item.code) || item.name; } catch (_) { return item.name; }
+}
+
 const VP_VFR_MODEL_META = {
     internal: {
         label: 'Eigenes Modell (Kacheln)',
@@ -380,7 +396,7 @@ function updateObsTileOverlayButtonUi() {
     const btn = document.getElementById('btnToggleObsTileOverlay');
     if (!btn) return;
     const on = !!window.vpObsTileOverlayEnabled;
-    btn.textContent = `Tiles Overlay ${on ? 'An' : 'Aus'}`;
+    btn.textContent = `Tiles Overlay ${_mapUiOnOff(on)}`;
     btn.style.background = on ? '#245a8f' : '#1b334a';
     btn.style.borderColor = on ? '#5ea8ff' : '#3a6388';
     btn.style.color = on ? '#dff0ff' : '#9fd0ff';
@@ -935,10 +951,10 @@ function updateMapWeatherSourceBtn() {
     if (!btn) return;
     const isOpenMeteo = getMapWeatherSource() === 'openmeteo';
     btn.classList.toggle('active', isOpenMeteo);
-    btn.textContent = `🌐 Kartenquelle: ${isOpenMeteo ? 'OPEN METEO' : 'METAR'}`;
+    btn.textContent = _mapUiText('map.weatherSource.button', '🌐 Kartenquelle: {source}', { source: isOpenMeteo ? 'OPEN METEO' : 'METAR' });
     btn.title = isOpenMeteo
-        ? 'Karte nutzt Open-Meteo (klicken = METAR)'
-        : 'Karte nutzt METAR (klicken = Open-Meteo)';
+        ? _mapUiText('map.weatherSource.openMeteoTitle', 'Karte nutzt Open-Meteo (klicken = METAR)')
+        : _mapUiText('map.weatherSource.metarTitle', 'Karte nutzt METAR (klicken = Open-Meteo)');
 }
 
 window.toggleMapWeatherSource = function() {
@@ -3819,18 +3835,21 @@ function vpPopulateVfrCountrySelect() {
     const select = document.getElementById('vfrCountrySelect');
     if (!select) return;
     const expected = VP_VFR_INDEX_COUNTRIES.length + 1;
-    if (select.options.length === expected) return;
+    if (select.options.length === expected && (select.dataset.lang || 'de') === _mapUiLang()) return;
+    const keep = select.value;
     select.innerHTML = '';
     const autoOpt = document.createElement('option');
     autoOpt.value = 'auto';
-    autoOpt.textContent = 'Auto (Planungsland)';
+    autoOpt.textContent = _mapUiText('map.vfr.countryAuto', 'Auto (Planungsland)');
     select.appendChild(autoOpt);
     VP_VFR_INDEX_COUNTRIES.forEach(item => {
         const opt = document.createElement('option');
         opt.value = item.code;
-        opt.textContent = `${item.code} - ${item.name}`;
+        opt.textContent = `${item.code} - ${_mapUiCountryName(item)}`;
         select.appendChild(opt);
     });
+    select.dataset.lang = _mapUiLang();
+    if (keep) select.value = keep;
 }
 
 function vpUpdateVfrUi() {
@@ -3848,8 +3867,8 @@ function vpUpdateVfrUi() {
     }
     const planningLabel = document.getElementById('vfrPlanningCountryLabel');
     if (planningLabel) {
-        const plannedName = plannedMeta ? `${plannedMeta.code} - ${plannedMeta.name}` : 'unbekannt';
-        planningLabel.textContent = `Planungsland: ${plannedName}`;
+        const plannedName = plannedMeta ? `${plannedMeta.code} - ${_mapUiCountryName(plannedMeta)}` : 'unbekannt';
+        planningLabel.textContent = _mapUiText('map.vfr.planningCountry', 'Planungsland: {name}', { name: plannedMeta ? plannedName : _mapUiText('map.vfr.unknown', 'unbekannt') });
     }
     const modelSelect = document.getElementById('vfrModelSelect');
     if (modelSelect) modelSelect.value = vpVfrIndexState.vfrModel;
@@ -3860,13 +3879,15 @@ function vpUpdateVfrUi() {
     const modelInfo = document.getElementById('vfrModelInfo');
     if (modelInfo) {
         const meta = vpGetVfrModelMeta(vpVfrIndexState.vfrModel);
-        modelInfo.innerHTML = `<span style="color:#c6d8ea;">${escapePopupText(meta.summary)}</span><br>+ ${escapePopupText(meta.pros)}<br>- ${escapePopupText(meta.cons)}`;
+        const metaKey = Object.keys(VP_VFR_MODEL_META).find(k => VP_VFR_MODEL_META[k] === meta) || 'robust_sector';
+        const metaText = field => _mapUiText(`map.vfrModel.${metaKey}.${field}`, meta[field]);
+        modelInfo.innerHTML = `<span style="color:#c6d8ea;">${escapePopupText(metaText('summary'))}</span><br>+ ${escapePopupText(metaText('pros'))}<br>- ${escapePopupText(metaText('cons'))}`;
     }
     const ampelWindowSelect = document.getElementById('vfrAmpelWindowSelect');
     if (ampelWindowSelect) ampelWindowSelect.value = vpVfrIndexState.ampelWindowMode;
     const ampelWindowBtn = document.getElementById('vfrAmpelWindowCycleBtn');
     if (ampelWindowBtn) {
-        ampelWindowBtn.textContent = `Zeitfenster: ${vpGetVfrAmpelWindowModeLabel(vpVfrIndexState.ampelWindowMode)}`;
+        ampelWindowBtn.textContent = _mapUiText('map.vfr.window', 'Zeitfenster: {mode}', { mode: vpGetVfrAmpelWindowModeLabel(vpVfrIndexState.ampelWindowMode) });
         ampelWindowBtn.style.background = vpNormalizeVfrAmpelWindowMode(vpVfrIndexState.ampelWindowMode) === 'utc6' ? '#2f5f94' : '#2E8B57';
         ampelWindowBtn.style.color = '#fff';
     }
@@ -3874,30 +3895,30 @@ function vpUpdateVfrUi() {
     const status = document.getElementById('vfrIndexStatus');
     if (status) {
         if (!isMapWeatherMasterEnabled()) {
-            status.textContent = 'Status: Wetter Aus';
+            status.textContent = _mapUiText('map.vfr.statusWeatherOff', 'Status: Wetter Aus');
             status.style.color = '#9bb5d1';
         } else if (window.mapHints.vfrIndex === false) {
-            status.textContent = 'Status: Aus';
+            status.textContent = _mapUiText('map.vfr.statusOff', 'Status: Aus');
             status.style.color = '#9bb5d1';
         } else if (map && Number(map.getZoom()) < vpGetVfrMinVisibleZoomForModel(vpVfrIndexState.vfrModel)) {
-            status.textContent = `Status: ausgeblendet (Zoom < ${vpGetVfrMinVisibleZoomForModel(vpVfrIndexState.vfrModel)})`;
+            status.textContent = _mapUiText('map.vfr.statusHiddenLow', 'Status: ausgeblendet (Zoom < {zoom})', { zoom: vpGetVfrMinVisibleZoomForModel(vpVfrIndexState.vfrModel) });
             status.style.color = '#9bb5d1';
         } else if (vpIsVfrIndexHiddenByHighZoom()) {
-            status.textContent = `Status: ausgeblendet (Zoom >= ${VP_VFR_INDEX_MAX_VISIBLE_ZOOM})`;
+            status.textContent = _mapUiText('map.vfr.statusHiddenHigh', 'Status: ausgeblendet (Zoom >= {zoom})', { zoom: VP_VFR_INDEX_MAX_VISIBLE_ZOOM });
             status.style.color = '#9bb5d1';
         } else if (vpVfrIndexState.inFlight) {
-            status.textContent = `Status: Lade ${active}...`;
+            status.textContent = _mapUiText('map.vfr.statusLoading', 'Status: Lade {country}...', { country: active });
             status.style.color = '#f1c64a';
         } else if (vpVfrIndexState.lastError) {
-            status.textContent = `Status: Fehler - ${vpVfrIndexState.lastError}`;
+            status.textContent = _mapUiText('map.vfr.statusError', 'Status: Fehler - {error}', { error: vpVfrIndexState.lastError });
             status.style.color = '#f38f8f';
         } else if (vpVfrIndexState.lastUpdatedAt > 0) {
             const t = new Date(vpVfrIndexState.lastUpdatedAt).toLocaleTimeString();
-            const countLabel = vpVfrIndexState.lastRenderMode === 'gafor_sector' ? 'Sektoren' : 'Punkte';
+            const countLabel = vpVfrIndexState.lastRenderMode === 'gafor_sector' ? _mapUiText('map.vfr.sectors', 'Sektoren') : _mapUiText('map.vfr.points', 'Punkte');
             status.textContent = `${active} - ${vpVfrIndexState.lastPointCount} ${countLabel} (${t})`;
             status.style.color = '#95d89d';
         } else {
-            status.textContent = `Status: ${active} bereit`;
+            status.textContent = _mapUiText('map.vfr.statusReady', 'Status: {country} bereit', { country: active });
             status.style.color = '#9bb5d1';
         }
     }
@@ -3905,14 +3926,14 @@ function vpUpdateVfrUi() {
     const nextHint = document.getElementById('vfrNextFetchHint');
     const lastFetch = Number(vpVfrIndexState.lastFetchAtByCountry[active] || 0);
     const rem = Math.max(0, VP_VFR_INDEX_MIN_UPDATE_MS - (Date.now() - lastFetch));
-    if (nextHint) nextHint.textContent = rem > 0 ? `auto in ${vpFormatVfrRemaining(rem)}` : 'auto bereit';
+    if (nextHint) nextHint.textContent = rem > 0 ? _mapUiText('map.vfr.autoIn', 'auto in {time}', { time: vpFormatVfrRemaining(rem) }) : _mapUiText('map.vfr.autoReady', 'auto bereit');
 
     const refreshBtn = document.getElementById('vfrRefreshBtn');
     if (refreshBtn) refreshBtn.disabled = !!vpVfrIndexState.inFlight;
     const ampelBtn = document.getElementById('vfrAmpelToggleBtn');
     if (ampelBtn) {
         const on = vpVfrIndexState.showSectorAmpel !== false;
-        ampelBtn.textContent = `Ampel (${on ? 'An' : 'Aus'})`;
+        ampelBtn.textContent = _mapUiText('map.vfr.ampel', 'Ampel ({state})', { state: _mapUiOnOff(on) });
         ampelBtn.style.background = on ? '#2E8B57' : '#444';
         ampelBtn.style.color = '#fff';
     }
@@ -5507,9 +5528,9 @@ function routeResetConfirmText(current, target) {
     const targetKeys = new Set(target.map(key));
     const removed = current.filter(p => !targetKeys.has(key(p))).length;
     const detail = removed === 1
-        ? '1 eigener Wegpunkt wird entfernt.'
-        : (removed > 1 ? `${removed} eigene Wegpunkte werden entfernt.` : 'Verschobene Wegpunkte werden zurückgesetzt.');
-    return `Route auf den Dispatch-Stand zurücksetzen?\n${detail}`;
+        ? _mapUiPhrase('1 eigener Wegpunkt wird entfernt.')
+        : (removed > 1 ? _mapUiText('map.routeReset.removedMany', '{removed} eigene Wegpunkte werden entfernt.', { removed }) : _mapUiPhrase('Verschobene Wegpunkte werden zurückgesetzt.'));
+    return `${_mapUiPhrase('Route auf den Dispatch-Stand zurücksetzen?')}\n${detail}`;
 }
 
 function resetMainRoute() {
@@ -5770,13 +5791,13 @@ function renderMainRoute() {
                 if (window.missionComplianceBlockReset?.()) {
                     marker.setLatLng(origLatLng);
                     renderMainRoute();
-                    try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
+                    try { alert(_mapUiPhrase('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.')); } catch (_) {}
                     return;
                 }
 
                 // === NEU: SPEZIELLE POI LOGIK (Auto-Name & Fallback) ===
                 if (isPOI) {
-                    if (confirm("Möchtest du das Ziel für den Rundflug an diese Position verschieben?")) {
+                    if (confirm(_mapUiPhrase('Möchtest du das Ziel für den Rundflug an diese Position verschieben?'))) {
 
                         const mDestName = document.getElementById("mDestName");
                         if (mDestName) mDestName.innerText = "Ermittle Ort...";
@@ -6114,7 +6135,7 @@ function renderGpsStartBriefing(destAirport, startPoint) {
 
 async function applyAirportDirectTo(airport, options = {}) {
     if (window.missionComplianceBlockReset?.()) {
-        try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
+        try { alert(_mapUiPhrase('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.')); } catch (_) {}
         return false;
     }
     if (typeof window.confirmMissionAuthorityReplacement === 'function'
@@ -6125,7 +6146,7 @@ async function applyAirportDirectTo(airport, options = {}) {
     let sharedNavigation = null;
     if (window.gaNavigationAvailable?.()) {
         try { sharedNavigation = await window.gaNavigationDirectTo(destAirport, options); }
-        catch (_) { alert('Tracker nicht erreichbar.'); return false; }
+        catch (_) { alert(_mapUiPhrase('Tracker nicht erreichbar.')); return false; }
         if (!sharedNavigation) return false;
     }
     const forceGpsStart = Boolean(options.forceGpsStart);
@@ -6143,7 +6164,7 @@ async function applyAirportDirectTo(airport, options = {}) {
             startData = await getAirportData(currentStartICAO);
         }
     } else if (!startPoint) {
-        alert('Ohne bestehenden Flugplan brauche ich eine aktive Tracker-Verbindung, damit die aktuelle GPS-Position als Start gesetzt werden kann.');
+        alert(_mapUiPhrase('Ohne bestehenden Flugplan brauche ich eine aktive Tracker-Verbindung, damit die aktuelle GPS-Position als Start gesetzt werden kann.'));
         return false;
     }
 
@@ -6219,7 +6240,7 @@ async function applyAirportDirectTo(airport, options = {}) {
 
 window.confirmAirportDirectTo = async function(icao, lat, lon, encodedName = '') {
     const name = encodedName ? decodeURIComponent(encodedName) : icao;
-    if (!confirm(`${icao} als Ziel übernehmen?`)) return false;
+    if (!confirm(_mapUiText('map.directTo.confirm', '{icao} als Ziel übernehmen?', { icao }))) return false;
 
     // Wenn Live-GPS vorhanden ist, wird automatisch GPS als Start priorisiert.
     const forceGpsStart = isGpsLive();
@@ -6228,7 +6249,7 @@ window.confirmAirportDirectTo = async function(icao, lat, lon, encodedName = '')
 
 window.createCrewHomebaseVisitRoute = async function(homebase = {}) {
     if (window.missionComplianceBlockReset?.()) {
-        try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
+        try { alert(_mapUiPhrase('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.')); } catch (_) {}
         return false;
     }
     if (typeof window.confirmMissionAuthorityReplacement === 'function'
@@ -6238,16 +6259,16 @@ window.createCrewHomebaseVisitRoute = async function(homebase = {}) {
     const departureIcao = window.getAirportFieldCanonicalValue?.('startLoc')
         || String(document.getElementById('startLoc')?.value || document.getElementById('startLocRadio')?.value || '').trim().toUpperCase();
     if (!departureIcao) {
-        alert('Bitte zuerst im DEP-Feld einen Startflugplatz eintragen.');
+        alert(_mapUiPhrase('Bitte zuerst im DEP-Feld einen Startflugplatz eintragen.'));
         return false;
     }
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-        alert('Für diese Homebase fehlen gültige Koordinaten.');
+        alert(_mapUiPhrase('Für diese Homebase fehlen gültige Koordinaten.'));
         return false;
     }
     const startData = await getAirportData(departureIcao);
     if (!startData || !Number.isFinite(Number(startData.lat)) || !Number.isFinite(Number(startData.lon))) {
-        alert(`Startflugplatz ${departureIcao} wurde nicht gefunden.`);
+        alert(_mapUiText('dialog.map.startflugplatzWurdeNichtGefunden', 'Startflugplatz {departureIcao} wurde nicht gefunden.', { departureIcao: departureIcao }));
         return false;
     }
 
@@ -6291,7 +6312,7 @@ window.createCrewHomebaseVisitRoute = async function(homebase = {}) {
         targetName,
         'crew-homebase-visit'
     );
-    showMapToast(`Route zu ${targetName}`);
+    showMapToast(_mapUiText('map.toast.routeTo', 'Route zu {name}', { name: targetName }));
     return true;
 };
 
@@ -8246,8 +8267,8 @@ function configureMapAttributionControl(targetMap) {
     container.classList.add('ga-map-attribution');
     container.setAttribute('tabindex', '0');
     container.setAttribute('role', 'group');
-    container.setAttribute('aria-label', 'Kartenquellen und Lizenzen anzeigen');
-    container.setAttribute('title', 'Kartenquellen und Lizenzen');
+    container.setAttribute('aria-label', _mapUiText('map.attribution.aria', 'Kartenquellen und Lizenzen anzeigen'));
+    container.setAttribute('title', _mapUiText('map.attribution.title', 'Kartenquellen und Lizenzen'));
     const collapse = () => {
         container.classList.remove('is-expanded');
         container.setAttribute('aria-expanded', 'false');
@@ -9398,11 +9419,11 @@ function updateSnapButtonUI() {
     [btn, hintBtn].forEach((el) => {
         if (!el) return;
         if (snapMode) {
-            el.innerText = '🧲 Snapping (An)';
+            el.innerText = `🧲 Snapping (${_mapUiOnOff(true)})`;
             el.style.background = '#4da6ff';
             el.style.color = '#fff';
         } else {
-            el.innerText = '🧲 Snapping (Aus)';
+            el.innerText = `🧲 Snapping (${_mapUiOnOff(false)})`;
             el.style.background = '#444';
             el.style.color = '#fff';
         }
@@ -9513,7 +9534,7 @@ window.toggleMapMetars = function() {
     saveMapHintSetting('weather');
     const btn = document.getElementById('mapMetarBtn');
     if (btn) {
-        btn.innerText = window.vpShowMapMetar ? '🌤️ METARs (An)' : '🌤️ METARs (Aus)';
+        btn.innerText = `🌤️ METARs (${_mapUiOnOff(!!window.vpShowMapMetar)})`;
         btn.style.background = window.vpShowMapMetar ? '#4da6ff' : '#444';
         btn.style.color = window.vpShowMapMetar ? '#111' : '#fff';
     }
@@ -10273,7 +10294,7 @@ function toggleFreeflightMode() {
     const btn = document.getElementById('freeflightBtn');
     if (freeflightMode) {
         if (mapDrawState.enabled) toggleMapDrawMode(false);
-        btn.innerText = '✈️ Direct To (An)';
+        btn.innerText = `✈️ Direct To (${_mapUiOnOff(true)})`;
         btn.classList.add('active');
         if (measureMode) toggleMeasureMode();
         document.getElementById('map').style.cursor = 'crosshair';
@@ -10290,7 +10311,7 @@ function toggleFreeflightMode() {
         if (polyline) polyline.setStyle({ opacity: 0.15 });
         routeMarkers.forEach(m => { if (m.getElement) { const el = m.getElement(); if (el) el.style.opacity = '0.15'; } });
     } else {
-        btn.innerText = '✈️ Direct To (Aus)';
+        btn.innerText = `✈️ Direct To (${_mapUiOnOff(false)})`;
         btn.classList.remove('active');
         btn.style.background = '#444';
         btn.style.color = '#fff';
@@ -10429,7 +10450,7 @@ function handleFreeflightMapClick(e) {
         const apt = findNearestAirport(e.latlng, getAirportTapRadiusPx(34));
         if (apt) {
             ffWaypoints = [{ lat: apt.lat, lng: apt.lon, name: apt.icao, icao: apt.icao }];
-            showMapToast('Start: ' + apt.icao + (apt.name && apt.name !== apt.icao ? ' — ' + apt.name : ''));
+            showMapToast(_mapUiText('map.toast.start', 'Start: {name}', { name: apt.icao + (apt.name && apt.name !== apt.icao ? ' — ' + apt.name : '') }));
         } else {
             ffWaypoints = [{ lat: e.latlng.lat, lng: e.latlng.lng, name: 'Start' }];
             showMapToast('Startpunkt gesetzt');
@@ -10451,7 +10472,7 @@ function handleFreeflightMapClick(e) {
 
 window.freeflightDirectTo = function(icao, lat, lon, destName = '') {
     if (window.missionComplianceBlockReset?.()) {
-        try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
+        try { alert(_mapUiPhrase('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.')); } catch (_) {}
         return false;
     }
     if (typeof window.confirmMissionAuthorityReplacement === 'function'
@@ -10523,7 +10544,7 @@ window.freeflightDirectTo = function(icao, lat, lon, destName = '') {
     ffNeedsStart = false;
     freeflightMode = false;
     const btn = document.getElementById('freeflightBtn');
-    if (btn) { btn.innerText = '✈️ Direct To (Aus)'; btn.classList.remove('active'); btn.style.background = '#444'; btn.style.color = '#fff'; }
+    if (btn) { btn.innerText = `✈️ Direct To (${_mapUiOnOff(false)})`; btn.classList.remove('active'); btn.style.background = '#444'; btn.style.color = '#fff'; }
     document.getElementById('map').style.cursor = '';
 
     // Hauptroute rendern (regulaerer Bearbeitungsmodus)
@@ -10595,4 +10616,19 @@ function renderFreeflightRoute() {
             .addTo(map);
         ffMarkers.push(infoTooltip);
     }
+}
+
+// Language switch (web): redraw toggle labels and the VFR index panel. Display only.
+if (typeof window !== 'undefined' && window.GAI18n && typeof window.GAI18n.onChange === 'function') {
+    window.GAI18n.onChange(() => {
+        try { updateSnapButtonUI(); } catch (_) {}
+        try { updateMapWeatherSourceBtn(); } catch (_) {}
+        try { vpPopulateVfrCountrySelect(); vpUpdateVfrUi(); } catch (_) {}
+        try {
+            const metarBtn = document.getElementById('mapMetarBtn');
+            if (metarBtn) metarBtn.innerText = `🌤️ METARs (${_mapUiOnOff(!!window.vpShowMapMetar)})`;
+            const ffBtn = document.getElementById('freeflightBtn');
+            if (ffBtn) ffBtn.innerText = `✈️ Direct To (${_mapUiOnOff(!!freeflightMode)})`;
+        } catch (_) {}
+    });
 }

@@ -2,7 +2,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const source=fs.readFileSync(require.resolve('../board.js'),'utf8');
 function fixture(raw) {
  const alerts=[], writes=[];
- const c={window:{},localStorage:{getItem:()=>JSON.stringify(raw),setItem(){throw Error('quota');}},alert:x=>alerts.push(x),
+ const c={_boardUiPhrase:x=>x,window:{},localStorage:{getItem:()=>JSON.stringify(raw),setItem(){throw Error('quota');}},alert:x=>alerts.push(x),
   navigator:{clipboard:{writeText:async x=>writes.push(x)}},btoa:x=>Buffer.from(x,'binary').toString('base64'),atob:x=>Buffer.from(x,'base64').toString('binary'),encodeURIComponent,decodeURIComponent};
  vm.createContext(c);const start=source.indexOf('window.exportMission =');const end=source.indexOf('// ==========================================',start);
  vm.runInContext(source.slice(start,end),c);return {c,alerts,writes};

@@ -1,3 +1,10 @@
+// UI language (i18n-core.js, web only). In the EFB there is no GAI18n: the German text is used.
+function _taText(key, german, vars) {
+    var i18n = (typeof window !== 'undefined') ? window.GAI18n : null;
+    if (i18n) return i18n.t(key, vars, german);
+    return String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, function (m, n) { return (vars && Object.prototype.hasOwnProperty.call(vars, n)) ? String(vars[n]) : m; });
+}
+
 // Standalone Terrarium overlay, shared with the tracker-hosted EFB.
 const TERRAIN_AVOID_WARN_DEFAULT_FT = 500;
 const TERRAIN_AVOID_SAFE_DEFAULT_FT = 1000;
@@ -77,25 +84,25 @@ function updateTerrainAvoidThresholdUi() {
     if (safeLabel) safeLabel.textContent = `${Math.round(terrainAvoidSafeFt)} ft`;
     if (statusLabel) {
         if (!on) {
-            statusLabel.textContent = 'Live-Layer aus';
+            statusLabel.textContent = _taText('map.terrain.statusOff', 'Live-Layer aus');
             statusLabel.style.color = '#9a9a9a';
         } else if (terrainAvoidPausedReason === 'landed') {
-            statusLabel.textContent = 'Pausiert am Boden - startet in der Luft';
+            statusLabel.textContent = _taText('map.terrain.pausedGround', 'Pausiert am Boden - startet in der Luft');
             statusLabel.style.color = '#d2ab7a';
         } else if (terrainAvoidPausedReason === 'sim-end') {
-            statusLabel.textContent = 'Pausiert nach Sim-Ende - startet in neuer SIM oder in der Luft';
+            statusLabel.textContent = _taText('map.terrain.pausedSimEnd', 'Pausiert nach Sim-Ende - startet in neuer SIM oder in der Luft');
             statusLabel.style.color = '#d2ab7a';
         } else if (!available || terrainAvoidPausedReason === 'source') {
-            statusLabel.textContent = 'Pausiert - keine Referenzhöhe';
+            statusLabel.textContent = _taText('map.terrain.pausedNoRef', 'Pausiert - keine Referenzhöhe');
             statusLabel.style.color = '#d2ab7a';
         } else if (planningFallback) {
-            statusLabel.textContent = 'CRZ-Fallback aktiv (Live-Höhe fehlt)';
+            statusLabel.textContent = _taText('map.terrain.crzFallback', 'CRZ-Fallback aktiv (Live-Höhe fehlt)');
             statusLabel.style.color = '#9fc3e3';
         } else if (!liveSource) {
-            statusLabel.textContent = 'Planungsmodus aktiv (CRZ-Höhe)';
+            statusLabel.textContent = _taText('map.terrain.planning', 'Planungsmodus aktiv (CRZ-Höhe)');
             statusLabel.style.color = '#9fc3e3';
         } else {
-            statusLabel.textContent = 'Live-Layer aktiv';
+            statusLabel.textContent = _taText('map.terrain.live', 'Live-Layer aktiv');
             statusLabel.style.color = '#9fe3b3';
         }
     }
@@ -527,3 +534,8 @@ window.scheduleTerrainAvoidOverlayUpdate = function(forceFetch = false) {
         }
     }, delay);
 };
+
+// Language switch (web): redraw the status line. Display only.
+if (typeof window !== 'undefined' && window.GAI18n && typeof window.GAI18n.onChange === 'function') {
+    window.GAI18n.onChange(function () { try { updateTerrainAvoidThresholdUi(); } catch (_) {} });
+}

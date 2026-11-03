@@ -2,6 +2,10 @@
 // Debug tool: injects synthetic telemetry through the same path as Live GPS.
 
 (function () {
+// UI language (i18n-core.js, web only): _smT = exact German sentence -> i18n/en-phrases.js,
+// _smK = key with placeholders. Without GAI18n (EFB) the German text stays exactly as before.
+function _smT(text) { var i18n = (typeof window !== 'undefined') ? window.GAI18n : null; return i18n ? i18n.phrase(text) : text; }
+function _smK(key, german, vars) { var i18n = (typeof window !== 'undefined') ? window.GAI18n : null; if (i18n) return i18n.t(key, vars, german); return vars ? String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, function (m, n) { return Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m; }) : german; }
     'use strict';
 
     const TICK_MS = 250;
@@ -41,7 +45,7 @@
 
         const lastGps = window.lastLiveGpsPos;
         if (!window.simModeActive && window.liveTrackerConnected && lastGps && (Date.now() - lastGps.t < 8000)) {
-            alert('Live-GPS ist aktiv - bitte erst den Tracker stoppen.');
+            alert(_smT('Live-GPS ist aktiv - bitte erst den Tracker stoppen.'));
             return false;
         }
 
@@ -55,7 +59,7 @@
 
         const init = _initialPosition(autoHandoffSnapshot);
         if (!init) {
-            alert('Manual Sim braucht eine Karte, Route oder letzte Position als Startpunkt.');
+            alert(_smT('Manual Sim braucht eine Karte, Route oder letzte Position als Startpunkt.'));
             return false;
         }
 

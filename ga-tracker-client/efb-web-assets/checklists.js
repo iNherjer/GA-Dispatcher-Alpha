@@ -4,11 +4,6 @@ function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present,
 function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); } r ? i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n : (o("next", 0), o("throw", 1), o("return", 2)); }, _regeneratorDefine2(e, r, n, t); }
 function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.value; } catch (n) { return void e(n); } i.done ? t(u) : Promise.resolve(u).then(r, o); }
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
-function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
-function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
-function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
-function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == typeof i ? i : i + ""; }
-function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != typeof i) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
 function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t.return && (u = t.return(), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
@@ -20,6 +15,11 @@ function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t.return || t.return(); } finally { if (u) throw o; } } }; }
 function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
 function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
+function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
+function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == typeof i ? i : i + ""; }
+function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != typeof i) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 (function () {
   'use strict';
 
@@ -385,14 +385,52 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
   function escapeAttr(value) {
     return escapeHtml(value);
   }
+
+  // UI language (i18n-core.js, web only). In the EFB there is no GAI18n: the German text is used.
+  function tx(key, german, vars) {
+    var i18n = window.GAI18n;
+    if (i18n) return i18n.t(key, vars, german);
+    return String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, (m, n) => vars && Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m);
+  }
+  function txPhrase(text) {
+    return window.GAI18n ? window.GAI18n.phrase(text) : text;
+  }
+  function uiLang() {
+    return window.GAI18n ? window.GAI18n.getLanguage() : 'de';
+  }
+
+  // Built-in lists in the UI language. Ids (and with them the ticks) stay the same.
+  var localizedBuiltinCache = {
+    lang: 'de',
+    lists: null
+  };
+  function localizedBuiltins() {
+    var lang = uiLang();
+    if (lang === 'de') return BUILTIN_CHECKLISTS;
+    if (localizedBuiltinCache.lang === lang && localizedBuiltinCache.lists) return localizedBuiltinCache.lists;
+    var lists = BUILTIN_CHECKLISTS.map(list => _objectSpread(_objectSpread({}, list), {}, {
+      title: tx(`cl.builtin.${list.id}.title`, list.title),
+      chapters: list.chapters.map(chapter => _objectSpread(_objectSpread({}, chapter), {}, {
+        title: tx(`cl.builtin.${list.id}.${chapter.id}`, chapter.title),
+        items: chapter.items.map(item => _objectSpread(_objectSpread({}, item), {}, {
+          text: tx(`cl.builtin.${item.id}`, item.text)
+        }))
+      }))
+    }));
+    localizedBuiltinCache = {
+      lang,
+      lists
+    };
+    return lists;
+  }
   function itemCount(checklist) {
     return ((checklist === null || checklist === void 0 ? void 0 : checklist.chapters) || []).reduce((sum, chapter) => sum + (chapter.items || []).length, 0);
   }
   function sourceLabel(checklist) {
     if ((checklist === null || checklist === void 0 ? void 0 : checklist.source) === 'tracker') return 'Tracker';
-    if ((checklist === null || checklist === void 0 ? void 0 : checklist.source) === 'builtin') return 'Standard';
+    if ((checklist === null || checklist === void 0 ? void 0 : checklist.source) === 'builtin') return tx('cl.source.builtin', 'Standard');
     if ((checklist === null || checklist === void 0 ? void 0 : checklist.source) === 'community') return 'Community';
-    return checklist !== null && checklist !== void 0 && checklist.published ? 'Eigene Liste · Veröffentlicht' : 'Eigene Liste';
+    return checklist !== null && checklist !== void 0 && checklist.published ? tx('cl.source.ownPublished', 'Eigene Liste · Veröffentlicht') : tx('cl.source.own', 'Eigene Liste');
   }
   function normalizeChapter(chapter, index, preserveIds) {
     var rawItems = Array.isArray(chapter === null || chapter === void 0 ? void 0 : chapter.items) ? chapter.items : [];
@@ -499,7 +537,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
   }
   function baseChecklists() {
     var _window$gaChecklistHo, _window$gaChecklistHo2;
-    return [].concat(BUILTIN_CHECKLISTS, _toConsumableArray((((_window$gaChecklistHo = window.gaChecklistHost) === null || _window$gaChecklistHo === void 0 || (_window$gaChecklistHo2 = _window$gaChecklistHo.checklists) === null || _window$gaChecklistHo2 === void 0 ? void 0 : _window$gaChecklistHo2.call(_window$gaChecklistHo)) || []).filter(c => !customLists.some(own => own.id === c.id))), _toConsumableArray(customLists.slice().sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0))), _toConsumableArray(subscribedCommunityLists()));
+    return [].concat(_toConsumableArray(localizedBuiltins()), _toConsumableArray((((_window$gaChecklistHo = window.gaChecklistHost) === null || _window$gaChecklistHo === void 0 || (_window$gaChecklistHo2 = _window$gaChecklistHo.checklists) === null || _window$gaChecklistHo2 === void 0 ? void 0 : _window$gaChecklistHo2.call(_window$gaChecklistHo)) || []).filter(c => !customLists.some(own => own.id === c.id))), _toConsumableArray(customLists.slice().sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0))), _toConsumableArray(subscribedCommunityLists()));
   }
   function orderedChecklistIds() {
     var list = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : baseChecklists();
@@ -664,10 +702,11 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
   function renderStatus() {
     if (!statusEl) return;
     statusEl.className = `map-side-drawer-status${state.statusTone ? ` is-${state.statusTone}` : ''}`;
-    statusEl.textContent = state.statusText || '';
+    // Callers pass German sentences; the web translates exact matches (i18n/en-phrases.js).
+    statusEl.textContent = txPhrase(state.statusText || '');
   }
   function setTitle(text) {
-    if (titleEl) titleEl.textContent = text || 'Kartenwerkzeuge';
+    if (titleEl) titleEl.textContent = txPhrase(text || 'Kartenwerkzeuge');
   }
   function getRoutePoints() {
     try {
@@ -983,7 +1022,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     if (!pin) return;
     pin.setAttribute('aria-pressed', String(drawerPinned));
     pin.classList.toggle('is-active', drawerPinned);
-    pin.title = drawerPinned ? 'Menü bleibt offen' : 'Menü offen halten';
+    pin.title = drawerPinned ? tx('cl.drawer.pinned', 'Menü bleibt offen') : tx('cl.drawer.pin', 'Menü offen halten');
   }
   function setDrawerOpen(open) {
     if (!drawerEl) return;
@@ -1036,7 +1075,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     lastRenderedView = state.view;
     if (((_window$gaChecklistHo3 = window.gaChecklistHost) === null || _window$gaChecklistHo3 === void 0 || (_window$gaChecklistHo4 = _window$gaChecklistHo3.supportsTool) === null || _window$gaChecklistHo4 === void 0 ? void 0 : _window$gaChecklistHo4.call(_window$gaChecklistHo3, state.view)) === false) {
       setTitle(state.view === 'weather' ? 'Wetter' : 'Kartenwerkzeuge');
-      bodyEl.innerHTML = toolTopline(state.view) + renderToolEmpty('Diese Funktion ist im EFB noch nicht verfügbar. Niederschlagsradar ist im Layer-Menü wählbar.');
+      bodyEl.innerHTML = toolTopline(state.view) + renderToolEmpty(tx('cl.efb.notAvailable', 'Diese Funktion ist im EFB noch nicht verfügbar. Niederschlagsradar ist im Layer-Menü wählbar.'));
       return;
     }
     if (state.view !== 'place' && state.view !== 'airport-info') {
@@ -1052,7 +1091,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
       bodyEl.querySelectorAll('[data-action]').forEach(button => {
         if (window.gaChecklistHost.supportsAction(button.dataset.action) !== false) return;
         button.disabled = true;
-        button.title = 'Diese Aktion ist im EFB noch nicht verfügbar.';
+        button.title = tx('cl.efb.actionNotAvailable', 'Diese Aktion ist im EFB noch nicht verfügbar.');
       });
     }
   }
@@ -1067,7 +1106,10 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
                     <span class="checklist-tool-icon" aria-hidden="true">✅</span>
                     <span>
                         <span class="checklist-tool-name">Checklist</span>
-                        <span class="checklist-tool-count">${count} sichtbar · ${communityMeta.length} Community</span>
+                        <span class="checklist-tool-count">${tx('cl.home.listCount', '{count} sichtbar · {community} Community', {
+      count,
+      community: communityMeta.length
+    })}</span>
                     </span>
                     <span class="checklist-tool-arrow" aria-hidden="true">›</span>
                 </button>
@@ -1082,8 +1124,8 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
                 <button class="checklist-tool-tile compact" type="button" data-action="open-tool" data-tool="weather">
                     <span class="checklist-tool-icon" aria-hidden="true">🌦️</span>
                     <span>
-                        <span class="checklist-tool-name">Wetter</span>
-                        <span class="checklist-tool-count">${route.length >= 2 ? 'Übersicht • Route' : 'Route planen für Enroute-Wetter'}</span>
+                        <span class="checklist-tool-name">${tx('cl.tool.weather', 'Wetter')}</span>
+                        <span class="checklist-tool-count">${route.length >= 2 ? tx('cl.home.weatherRoute', 'Übersicht • Route') : tx('cl.home.weatherNoRoute', 'Route planen für Enroute-Wetter')}</span>
                     </span>
                     <span class="checklist-tool-arrow" aria-hidden="true">›</span>
                 </button>
@@ -1091,23 +1133,25 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
                     <span class="checklist-tool-icon" aria-hidden="true">📻</span>
                     <span>
                         <span class="checklist-tool-name">Radio</span>
-                        <span class="checklist-tool-count">${route.length >= 2 ? 'Start · Enroute · Ziel' : 'Frequenzen nach Route'}</span>
+                        <span class="checklist-tool-count">${route.length >= 2 ? tx('cl.home.radioRoute', 'Start · Enroute · Ziel') : tx('cl.home.radioNoRoute', 'Frequenzen nach Route')}</span>
                     </span>
                     <span class="checklist-tool-arrow" aria-hidden="true">›</span>
                 </button>
                 <button class="checklist-tool-tile compact" type="button" data-action="open-tool" data-tool="warnings">
                     <span class="checklist-tool-icon" aria-hidden="true">⚠️</span>
                     <span>
-                        <span class="checklist-tool-name">Warnungen</span>
-                        <span class="checklist-tool-count">${route.length >= 2 ? `${getProblemAirspaces().length || 'Route'} · Lufträume` : 'Route planen für Lufträume'}</span>
+                        <span class="checklist-tool-name">${tx('cl.tool.warnings', 'Warnungen')}</span>
+                        <span class="checklist-tool-count">${route.length >= 2 ? tx('cl.home.warningsRoute', '{count} · Lufträume', {
+      count: getProblemAirspaces().length || 'Route'
+    }) : tx('cl.home.warningsNoRoute', 'Route planen für Lufträume')}</span>
                     </span>
                     <span class="checklist-tool-arrow" aria-hidden="true">›</span>
                 </button>
                 <button class="checklist-tool-tile compact" type="button" data-action="open-tool" data-tool="place">
                     <span class="checklist-tool-icon" aria-hidden="true">🛬</span>
                     <span>
-                        <span class="checklist-tool-name">Platz</span>
-                        <span class="checklist-tool-count">Start und Ziel · AIP Links</span>
+                        <span class="checklist-tool-name">${tx('cl.tool.place', 'Platz')}</span>
+                        <span class="checklist-tool-count">${tx('cl.home.placeSub', 'Start und Ziel · AIP Links')}</span>
                     </span>
                     <span class="checklist-tool-arrow" aria-hidden="true">›</span>
                 </button>
@@ -1115,14 +1159,14 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
                     <span class="checklist-tool-icon" aria-hidden="true">📍</span>
                     <span>
                         <span class="checklist-tool-name">Nearest</span>
-                        <span class="checklist-tool-count">${live ? '50 NM um Flugzeug' : 'braucht Live-Position'}</span>
+                        <span class="checklist-tool-count">${live ? tx('cl.home.nearestLive', '50 NM um Flugzeug') : tx('cl.home.nearestNoLive', 'braucht Live-Position')}</span>
                     </span>
                     <span class="checklist-tool-arrow" aria-hidden="true">›</span>
                 </button>
                 <button class="checklist-tool-tile compact" type="button" data-action="open-tool" data-tool="cargo">
                     <span class="checklist-tool-icon" aria-hidden="true">LDG</span>
                     <span>
-                        <span class="checklist-tool-name">Ladung</span>
+                        <span class="checklist-tool-name">${tx('cl.tool.cargo', 'Ladung')}</span>
                         <span class="checklist-tool-count">${cargoHomeSummary()}</span>
                     </span>
                     <span class="checklist-tool-arrow" aria-hidden="true">›</span>
@@ -1131,7 +1175,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
         `;
   }
   function toolTopline(tool) {
-    var label = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 'Zurück';
+    var label = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : tx('cl.back', 'Zurück');
     return `
             <div class="checklist-topline route-tool-topline">
                 <button class="checklist-back-btn" type="button" data-action="home">${label}</button>
@@ -1139,7 +1183,15 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
         `;
   }
   function renderToolEmpty(text) {
-    return `<div class="route-tool-empty">${escapeHtml(text)}</div>`;
+    return `<div class="route-tool-empty">${escapeHtml(txPhrase(text))}</div>`;
+  }
+
+  // Weather values stay German in the data: weatherRiskRank() scans r.wx for METAR-like
+  // codes and the Gemini prompt uses the rows. Only the shown text is translated here.
+  function wxShow(value) {
+    var text = txPhrase(String(value || ''));
+    if (uiLang() === 'de') return text;
+    return text.replace(/0\/8 keine relevanten Wolken/g, '0/8 no relevant clouds').replace(/0\/8 kaum Wolken/g, '0/8 hardly any clouds').replace(/ ca\. /g, ' approx. ');
   }
   function missionText(value) {
     var max = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 560;
@@ -2483,9 +2535,13 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     var ms = weatherDateMs(value);
     if (!ms) return '';
     var ageMin = Math.max(0, Math.round((Date.now() - ms) / 60000));
-    if (ageMin < 90) return `${ageMin} min alt`;
+    if (ageMin < 90) return tx('cl.wx.ageMin', '{n} min alt', {
+      n: ageMin
+    });
     var ageHours = Math.round(ageMin / 60);
-    return `${ageHours} h alt`;
+    return tx('cl.wx.ageHours', '{n} h alt', {
+      n: ageHours
+    });
   }
   function weatherCardTone(row) {
     if (!(row !== null && row !== void 0 && row.source) || row.source === 'Keine Daten') return 'warn';
@@ -2506,13 +2562,13 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
   }
   function weatherStationTitle(row) {
     var station = String((row === null || row === void 0 ? void 0 : row.station) || '').trim().toUpperCase();
-    var name = String((row === null || row === void 0 ? void 0 : row.name) || (row === null || row === void 0 ? void 0 : row.label) || station || 'Wetterpunkt').trim();
+    var name = txPhrase(String((row === null || row === void 0 ? void 0 : row.name) || (row === null || row === void 0 ? void 0 : row.label) || station || tx('cl.wx.point', 'Wetterpunkt')).trim());
     if (station && !name.toUpperCase().includes(station)) return `${name} (${station})`;
-    return name || station || 'Wetterpunkt';
+    return name || station || tx('cl.wx.point', 'Wetterpunkt');
   }
   function weatherSourceTitle(row) {
     var source = String((row === null || row === void 0 ? void 0 : row.source) || 'Wetter').split('+')[0].trim().toUpperCase();
-    var label = source.includes('METAR') ? 'METAR' : source.includes('OPEN') ? 'Modell' : source || 'Wetter';
+    var label = source.includes('METAR') ? 'METAR' : source.includes('OPEN') ? tx('cl.wx.model', 'Modell') : source || tx('cl.tool.weather', 'Wetter');
     return `${label} from ${formatUtcWeatherTime(row === null || row === void 0 ? void 0 : row.observedAt)}`;
   }
   function renderWeatherFact(label, value) {
@@ -2545,17 +2601,17 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
                     </div>
                     <div class="route-weather-facts">
                         ${renderWeatherFact('Wind', (row === null || row === void 0 ? void 0 : row.wind) || '—')}
-                        ${renderWeatherFact('Temperatur', tempLine)}
-                        ${renderWeatherFact('Luftdruck', row === null || row === void 0 ? void 0 : row.pressure)}
-                        ${renderWeatherFact('Sichtweite', (row === null || row === void 0 ? void 0 : row.vis) || '—')}
-                        ${renderWeatherFact('Wolken', (row === null || row === void 0 ? void 0 : row.clouds) || '—', {
+                        ${renderWeatherFact(tx('cl.wx.temperature', 'Temperatur'), tempLine)}
+                        ${renderWeatherFact(tx('cl.wx.pressure', 'Luftdruck'), row === null || row === void 0 ? void 0 : row.pressure)}
+                        ${renderWeatherFact(tx('cl.wx.visibility', 'Sichtweite'), (row === null || row === void 0 ? void 0 : row.vis) || '—')}
+                        ${renderWeatherFact(tx('cl.wx.clouds', 'Wolken'), wxShow((row === null || row === void 0 ? void 0 : row.clouds) || '—'), {
       danger: wxDanger && /BKN|OVC|VV|8\/8|5-7\/8/i.test(String((row === null || row === void 0 ? void 0 : row.clouds) || ''))
     })}
-                        ${renderWeatherFact('WX', row !== null && row !== void 0 && row.wx && row.wx !== 'NIL' ? row.wx : 'NIL', {
+                        ${renderWeatherFact('WX', row !== null && row !== void 0 && row.wx && row.wx !== 'NIL' ? wxShow(row.wx) : 'NIL', {
       danger: wxDanger && (row === null || row === void 0 ? void 0 : row.wx) && row.wx !== 'NIL'
     })}
                     </div>
-                    <div class="route-weather-source">${escapeHtml((row === null || row === void 0 ? void 0 : row.source) || 'Keine Daten')}${row !== null && row !== void 0 && row.station ? ` · ${escapeHtml(row.station)}` : ''}</div>
+                    <div class="route-weather-source">${escapeHtml(txPhrase((row === null || row === void 0 ? void 0 : row.source) || 'Keine Daten'))}${row !== null && row !== void 0 && row.station ? ` · ${escapeHtml(row.station)}` : ''}</div>
                 </article>
             </section>
         `;
@@ -2926,18 +2982,18 @@ ${routeLines}`;
             ${toolTopline('weather')}
             ${assessment ? `
                 <div class="route-tool-summary is-${escapeAttr(assessment.tone)}">
-                    <div class="route-tool-summary-label">${escapeHtml(assessment.label)}</div>
-                    <div class="route-tool-summary-text">${escapeHtml(assessment.text)}</div>
+                    <div class="route-tool-summary-label">${escapeHtml(txPhrase(assessment.label))}</div>
+                    <div class="route-tool-summary-text">${escapeHtml(txPhrase(assessment.text))}</div>
                 </div>
             ` : ''}
             ${ai && (ai.loading || ai.text || ai.error) ? `
                 <div class="route-tool-ai">
-                    <div class="route-tool-summary-label">KI-Einschätzung</div>
-                    <div class="route-tool-summary-text">${escapeHtml(ai.loading ? 'KI formuliert die Lage...' : ai.text || ai.error || '')}</div>
+                    <div class="route-tool-summary-label">${tx('cl.wx.aiTitle', 'KI-Einschätzung')}</div>
+                    <div class="route-tool-summary-text">${escapeHtml(ai.loading ? tx('cl.wx.aiLoading', 'KI formuliert die Lage...') : ai.text || txPhrase(ai.error || ''))}</div>
                     ${ai.source ? `<div class="route-tool-row-meta">${escapeHtml(ai.source)}</div>` : ''}
                 </div>
             ` : ''}
-            ${entry.error ? `<div class="route-tool-warning">${escapeHtml(entry.error)}</div>` : ''}
+            ${entry.error ? `<div class="route-tool-warning">${escapeHtml(txPhrase(entry.error))}</div>` : ''}
             <div class="route-tool-list">${body}</div>
         `;
   }
@@ -3075,7 +3131,7 @@ ${routeLines}`;
         var cls = Number(as.icaoClass);
         var groupable = !isCtr && [0, 7, 26].includes(Number(as.type)) && [2, 3].includes(cls);
         var frequencyKey = freqs.map(f => String(f.value).trim().replace(/\s*MHz$/i, '').trim().replace(',', '.')).sort().join('|');
-        var name = as.name || 'Luftraum';
+        var name = as.name || tx('cl.airspace', 'Luftraum');
         var key = groupable ? `${name.trim().toUpperCase()}|${frequencyKey}` : `row:${idx}`;
         var existing = groups.get(key);
         if (existing) {
@@ -3094,14 +3150,16 @@ ${routeLines}`;
           frequencies: freqs,
           count: 1,
           classes: groupable ? [cls === 2 ? 'C' : 'D'] : [],
-          meta: `Enroute · ${Number(as.type) === 33 ? 'FIS' : isCtr ? 'CTR' : 'Luftraum'}`,
+          meta: `Enroute · ${Number(as.type) === 33 ? 'FIS' : isCtr ? 'CTR' : tx('cl.airspace', 'Luftraum')}`,
           values: freqs.map(f => `${f.name || f.label || 'INFO'} ${f.value}`).join(' · ')
         };
         groups.set(key, row);
         rows.push(row);
       });
       return rows.sort((a, b) => a.routeOrder - b.routeOrder || a.idx - b.idx).map(row => _objectSpread(_objectSpread({}, row), {}, {
-        meta: row.classes.length ? `Enroute · ${row.classes.sort().join('/')} · ${row.count} Luftraum${row.count === 1 ? '' : 'sektoren'}` : row.meta
+        meta: row.classes.length ? `Enroute · ${row.classes.sort().join('/')} · ${row.count === 1 ? tx('cl.airspace.count1', '1 Luftraum') : tx('cl.airspace.countN', '{count} Luftraumsektoren', {
+          count: row.count
+        })}` : row.meta
       }));
     } catch (_) {
       return [];
@@ -3128,7 +3186,7 @@ ${routeLines}`;
   }
   function airspaceNameForDrawer(as) {
     if (typeof getAirspaceDisplayName === 'function') return getAirspaceDisplayName(as);
-    return (as === null || as === void 0 ? void 0 : as.name) || 'Luftraum';
+    return (as === null || as === void 0 ? void 0 : as.name) || tx('cl.airspace', 'Luftraum');
   }
   function formatAirspaceLimit(lim) {
     if (!lim) return '?';
@@ -3150,7 +3208,7 @@ ${routeLines}`;
   function locateButton(action) {
     var attrs = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
     var label = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 'Auf Karte zeigen';
-    return `<button class="route-tool-locate-btn" type="button" data-action="${escapeAttr(action)}" ${attrs} title="${escapeAttr(label)}" aria-label="${escapeAttr(label)}"><svg class="route-tool-locate-icon" width="26" height="26" viewBox="0 0 26 26" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M16 16 L24 24"></path></svg></button>`;
+    return `<button class="route-tool-locate-btn" type="button" data-action="${escapeAttr(action)}" ${attrs} title="${escapeAttr(txPhrase(label))}" aria-label="${escapeAttr(txPhrase(label))}"><svg class="route-tool-locate-icon" width="26" height="26" viewBox="0 0 26 26" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M16 16 L24 24"></path></svg></button>`;
   }
   function ensureWarningsTool() {
     return _ensureWarningsTool.apply(this, arguments);
@@ -3246,7 +3304,7 @@ ${routeLines}`;
                 <div class="route-tool-row route-tool-warning-row" style="--airspace-color:${escapeAttr(style.color || 'var(--drawer-warn)')}">
                     <div class="route-tool-row-main">
                         <div class="route-tool-row-title"><span class="route-tool-airspace-dot"></span>${escapeHtml(style.icon || '⚠️')} ${escapeHtml(airspaceNameForDrawer(row.as))}</div>
-                        <div class="route-tool-row-meta">${escapeHtml(style.category || 'Luftraum')}${limit ? ` · ${escapeHtml(limit)}` : ''}</div>
+                        <div class="route-tool-row-meta">${escapeHtml(txPhrase(style.category || 'Luftraum'))}${limit ? ` · ${escapeHtml(limit)}` : ''}</div>
                         ${freqs ? `<div class="route-tool-row-value">${GARadioTuningCore.text(freqs, 'COM')}</div>` : ''}
                     </div>
                     <div class="route-tool-row-actions">
@@ -3257,7 +3315,7 @@ ${routeLines}`;
     }).join('') : renderToolEmpty(entry.loading ? 'Lufträume werden geladen...' : 'Keine problematischen Lufträume entlang der Route gefunden.');
     bodyEl.innerHTML = `
             ${toolTopline('warnings')}
-            ${entry.error && !entry.loading ? `<div class="route-tool-warning">${escapeHtml(entry.error)}</div>` : ''}
+            ${entry.error && !entry.loading ? `<div class="route-tool-warning">${escapeHtml(txPhrase(entry.error))}</div>` : ''}
             <div class="route-tool-list">${list}</div>
         `;
   }
@@ -3540,7 +3598,7 @@ ${routeLines}`;
             <div class="route-tool-context">
                 <button class="checklist-mini-btn primary" type="button" data-action="nearest-direct" data-airport="${escapeAttr(encoded)}">Direct To</button>
                 <button class="checklist-mini-btn" type="button" data-action="airport-info" data-airport="${escapeAttr(encoded)}">Info</button>
-                <button class="checklist-mini-btn" type="button" data-action="locate-airport" data-airport="${escapeAttr(encoded)}">🔎 Karte</button>
+                <button class="checklist-mini-btn" type="button" data-action="locate-airport" data-airport="${escapeAttr(encoded)}">${tx('cl.radio.mapButton', '🔎 Karte')}</button>
             </div>
         ` : '';
   }
@@ -3554,7 +3612,7 @@ ${routeLines}`;
   function renderRadioFrequencyRows(freqs) {
     var kind = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 'COM';
     return freqs.map(f => {
-      var label = f.label || f.name || 'Frequenz';
+      var label = f.label || f.name || tx('cl.radio.frequency', 'Frequenz');
       var target = /XPDR|SQK|SQUAWK|TRANSP/i.test(label) ? 'XPDR' : kind;
       return `<div class="route-tool-freq"><span>${escapeHtml(label)}</span><b>${radioFrequencyHtml(f.value, target)}</b></div>`;
     }).join('');
@@ -3582,14 +3640,16 @@ ${routeLines}`;
       if (valid) {
         var bearing = (Number(nav.brng) % 360 + 360) % 360;
         arrow.querySelector('g').setAttribute('transform', 'rotate(' + bearing + ' 10 10)');
-        node.title = Math.round(bearing) + '° zum Ziel · Norden oben';
-      } else node.title = 'Keine aktuelle Flugzeugposition';
+        node.title = tx('cl.radio.bearing', '{deg}° zum Ziel · Norden oben', {
+          deg: Math.round(bearing)
+        });
+      } else node.title = tx('cl.radio.noPosition', 'Keine aktuelle Flugzeugposition');
     });
   }
   function renderFreqBlock(label, apt) {
     var menuKey = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : '';
     var freqs = getFreqLines(apt === null || apt === void 0 ? void 0 : apt.icao);
-    var heading = apt !== null && apt !== void 0 && apt.icao ? `${label} · ${apt.icao}` : label;
+    var heading = apt !== null && apt !== void 0 && apt.icao ? `${txPhrase(label)} · ${apt.icao}` : txPhrase(label);
     var key = menuKey || `radio_${String(label || '').toLowerCase()}_${(apt === null || apt === void 0 ? void 0 : apt.icao) || 'none'}`;
     var canOpenMenu = !!(apt !== null && apt !== void 0 && apt.icao);
     return `
@@ -3598,14 +3658,14 @@ ${routeLines}`;
                     <button class="route-tool-airport-main route-tool-airport-main-heading" type="button" data-action="radio-airport-menu" data-key="${escapeAttr(key)}">
                         <span>
                             <span class="route-tool-section-title">${escapeHtml(heading)}</span>
-                            <span class="route-tool-section-sub">${escapeHtml((apt === null || apt === void 0 ? void 0 : apt.name) || '')}</span>
+                            <span class="route-tool-section-sub">${escapeHtml(txPhrase((apt === null || apt === void 0 ? void 0 : apt.name) || ''))}</span>
                         </span>
                         ${radioNavigationBadge(apt)}<span class="checklist-tool-arrow" aria-hidden="true">›</span>
                     </button>
                     ${renderAirportContext(key, apt)}
                 ` : `
                     <div class="route-tool-section-title">${escapeHtml(heading)}</div>
-                    <div class="route-tool-section-sub">${escapeHtml((apt === null || apt === void 0 ? void 0 : apt.name) || '')}</div>
+                    <div class="route-tool-section-sub">${escapeHtml(txPhrase((apt === null || apt === void 0 ? void 0 : apt.name) || ''))}</div>
                 `}
                 ${freqs.length ? renderRadioFrequencyRows(freqs) : renderToolEmpty('Frequenzen werden automatisch geladen.')}
             </div>
@@ -3638,7 +3698,7 @@ ${routeLines}`;
                 `).join('') : renderToolEmpty(entry.loading ? 'Lufträume/FIS werden geladen...' : 'Keine Enroute-Frequenzen gefunden.')}
             </div>
             <div class="route-tool-section">
-                <div class="route-tool-section-title">Plätze entlang der Route</div>
+                <div class="route-tool-section-title">${tx('cl.radio.airportsAlong', 'Plätze entlang der Route')}</div>
                 ${data !== null && data !== void 0 && (_data$airports = data.airports) !== null && _data$airports !== void 0 && _data$airports.length ? data.airports.map(a => {
       var freqs = getFreqLines(a.icao);
       var key = `radio_${a.icao}_${Math.round(a.routeDist * 10)}`;
@@ -3647,19 +3707,23 @@ ${routeLines}`;
                         <button class="route-tool-airport-main" type="button" data-action="radio-airport-menu" data-key="${escapeAttr(key)}">
                             <span>
                                 <span class="route-tool-row-title">${escapeHtml(a.icao)} · ${escapeHtml(a.name)}</span>
-                                <span class="route-tool-row-meta">${fmtNm(a.routeDist)} NM neben Route</span>
+                                <span class="route-tool-row-meta">${tx('cl.radio.offRoute', '{nm} NM neben Route', {
+        nm: fmtNm(a.routeDist)
+      })}</span>
                             </span>
                             ${radioNavigationBadge(a)}<span class="checklist-tool-arrow" aria-hidden="true">›</span>
                         </button>
-                        ${freqs.length ? `<div class="route-tool-radio-freqs">${renderRadioFrequencyRows(freqs)}</div>` : '<div class="route-tool-row-meta">Frequenzen werden bei Bedarf geladen.</div>'}
+                        ${freqs.length ? `<div class="route-tool-radio-freqs">${renderRadioFrequencyRows(freqs)}</div>` : `<div class="route-tool-row-meta">${tx('cl.radio.freqOnDemand', 'Frequenzen werden bei Bedarf geladen.')}</div>`}
                         ${open ? renderAirportContext(key, a) : ''}
                     </div>`;
     }).join('') : renderToolEmpty(entry.loading ? 'Nahe Plätze werden geladen...' : 'Keine nahen Plätze gefunden.')}
             </div>
             <div class="route-tool-section">
-                <div class="route-tool-section-title">Funkfeuer</div>
-                ${data !== null && data !== void 0 && (_data$navaids = data.navaids) !== null && _data$navaids !== void 0 && _data$navaids.length ? data.navaids.map(n => `<div class="route-tool-row"><div class="route-tool-row-title radio-target-title"><span>${escapeHtml((n.typeLabel || 'Funkfeuer').replace(/^DVOR/, 'VOR'))} ${escapeHtml(n.ident || '')} ${escapeHtml(n.name)}</span>${radioNavigationBadge(n)}</div><div class="route-tool-row-meta">${fmtNm(n.routeDist)} NM neben Route</div>${n.freq ? renderRadioFrequencyRows([{
-      label: 'Frequenz',
+                <div class="route-tool-section-title">${tx('cl.radio.navaids', 'Funkfeuer')}</div>
+                ${data !== null && data !== void 0 && (_data$navaids = data.navaids) !== null && _data$navaids !== void 0 && _data$navaids.length ? data.navaids.map(n => `<div class="route-tool-row"><div class="route-tool-row-title radio-target-title"><span>${escapeHtml((n.typeLabel || tx('cl.radio.navaid', 'Funkfeuer')).replace(/^DVOR/, 'VOR'))} ${escapeHtml(n.ident || '')} ${escapeHtml(n.name)}</span>${radioNavigationBadge(n)}</div><div class="route-tool-row-meta">${tx('cl.radio.offRoute', '{nm} NM neben Route', {
+      nm: fmtNm(n.routeDist)
+    })}</div>${n.freq ? renderRadioFrequencyRows([{
+      label: tx('cl.radio.frequency', 'Frequenz'),
       value: n.freq
     }], n.radioKind) : ''}</div>`).join('') : renderToolEmpty(entry.loading ? 'Funkfeuer werden geladen...' : 'Keine Funkfeuer entlang der Route gefunden.')}
             </div>
@@ -3816,7 +3880,7 @@ ${routeLines}`;
     var lat = Number((_apt$lat = apt === null || apt === void 0 ? void 0 : apt.lat) !== null && _apt$lat !== void 0 ? _apt$lat : el.dataset.lat);
     var lon = Number((_apt$lon = apt === null || apt === void 0 ? void 0 : apt.lon) !== null && _apt$lon !== void 0 ? _apt$lon : el.dataset.lon);
     if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-      el.textContent = 'Keine Kartenposition';
+      el.textContent = tx('cl.place.noMapPosition', 'Keine Kartenposition');
       return null;
     }
     var interactive = !!options.interactive;
@@ -3835,7 +3899,7 @@ ${routeLines}`;
     });
     var layers = makePlaceMapLayers();
     if (!layers) {
-      el.textContent = 'Karte nicht verfügbar';
+      el.textContent = tx('cl.place.mapUnavailable', 'Karte nicht verfügbar');
       return null;
     }
     var entry = {
@@ -3888,20 +3952,20 @@ ${routeLines}`;
   function openExpandedPlaceMap(apt) {
     if (!apt) return;
     closeExpandedPlaceMap();
-    var title = `${apt.icao || 'Platz'} · ${apt.name || 'Karte'}`;
+    var title = `${apt.icao || tx('cl.tool.place', 'Platz')} · ${apt.name || tx('cl.place.map', 'Karte')}`;
     var wrapper = document.createElement('div');
     wrapper.className = 'route-tool-map-modal';
     wrapper.innerHTML = `
             <div class="route-tool-map-modal-panel" role="dialog" aria-modal="true" aria-label="${escapeAttr(title)}">
                 <div class="route-tool-map-modal-head">
                     <div>
-                        <div class="route-tool-place-label">Kartenausschnitt</div>
+                        <div class="route-tool-place-label">${tx('cl.place.mapSection', 'Kartenausschnitt')}</div>
                         <div class="route-tool-place-title">${escapeHtml(title)}</div>
                     </div>
                     <div class="route-tool-map-modal-actions">
                         <button class="route-tool-map-toggle" type="button" data-place-map-modal-layer="vfr">VFR</button>
                         <button class="route-tool-map-toggle" type="button" data-place-map-modal-layer="sat">Sat</button>
-                        <button class="route-tool-map-close" type="button" aria-label="Karte schließen">Schließen</button>
+                        <button class="route-tool-map-close" type="button" aria-label="${tx('cl.place.closeMap', 'Karte schließen')}">${tx('cl.close', 'Schließen')}</button>
                     </div>
                 </div>
                 <div id="routeToolExpandedPlaceMap" class="route-tool-expanded-map"></div>
@@ -3946,8 +4010,8 @@ ${routeLines}`;
             <div class="route-tool-place-card">
                 <div class="route-tool-place-head">
                     <div>
-                        <div class="route-tool-place-label">${escapeHtml(label)}</div>
-                        <div class="route-tool-place-title">${escapeHtml((apt === null || apt === void 0 ? void 0 : apt.icao) || '—')} · ${escapeHtml((apt === null || apt === void 0 ? void 0 : apt.name) || '—')}</div>
+                        <div class="route-tool-place-label">${escapeHtml(txPhrase(label))}</div>
+                        <div class="route-tool-place-title">${escapeHtml((apt === null || apt === void 0 ? void 0 : apt.icao) || '—')} · ${escapeHtml(txPhrase((apt === null || apt === void 0 ? void 0 : apt.name) || '—'))}</div>
                     </div>
                     ${detailAction && apt !== null && apt !== void 0 && apt.icao ? `<button class="checklist-mini-btn route-tool-inline-btn" type="button" data-action="airport-info" data-airport="${escapeAttr(encoded)}">Info</button>` : ''}
                 </div>
@@ -3956,32 +4020,32 @@ ${routeLines}`;
                         <div class="route-tool-place-map-toolbar">
                             <button class="route-tool-map-toggle ${mapState.vfr ? 'is-active' : ''}" type="button" data-action="place-map-layer" data-layer="vfr" aria-pressed="${mapState.vfr ? 'true' : 'false'}">VFR</button>
                             <button class="route-tool-map-toggle ${mapState.sat ? 'is-active' : ''}" type="button" data-action="place-map-layer" data-layer="sat" aria-pressed="${mapState.sat ? 'true' : 'false'}">Sat</button>
-                            ${hasCoords ? `<button class="route-tool-map-expand" type="button" data-action="place-map-expand" data-airport="${escapeAttr(encoded)}" aria-label="Karte vergrößern">⛶</button>` : ''}
+                            ${hasCoords ? `<button class="route-tool-map-expand" type="button" data-action="place-map-expand" data-airport="${escapeAttr(encoded)}" aria-label="${tx('cl.place.enlargeMap', 'Karte vergrößern')}">⛶</button>` : ''}
                         </div>
                         <div id="${escapeAttr(mapId)}" class="route-tool-mini-map route-tool-place-map-host" data-airport="${escapeAttr(encoded)}" data-lat="${escapeAttr(apt === null || apt === void 0 ? void 0 : apt.lat)}" data-lon="${escapeAttr(apt === null || apt === void 0 ? void 0 : apt.lon)}">
-                            <span>${hasCoords ? 'Karte lädt…' : 'Keine Kartenposition'}</span>
+                            <span>${hasCoords ? tx('cl.place.mapLoading', 'Karte lädt…') : tx('cl.place.noMapPosition', 'Keine Kartenposition')}</span>
                         </div>
                     </div>
                 </div>
                 <div data-place-details>
                 <div class="route-tool-place-block">
-                    <div class="route-tool-place-block-title">Frequenzen</div>
+                    <div class="route-tool-place-block-title">${tx('cl.place.frequencies', 'Frequenzen')}</div>
                     ${freqs.length ? `<div class="route-tool-frequency-chips">${freqs.map(f => `<span>${escapeHtml(f.label)} <b>${GARadioTuningCore.html(f.value, /XPDR|SQK|SQUAWK|TRANSP/i.test(f.label) ? 'XPDR' : 'COM')}</b></span>`).join('')}</div>` : renderToolEmpty('Keine Frequenzen im Cache.')}
                 </div>
                 <div class="route-tool-place-block">
-                    <div class="route-tool-place-block-title">Pisten</div>
-                    ${rwyRows.length ? rwyRows.map(row => `<div class="route-tool-runway-row"><span>${escapeHtml(row.ident)}</span><b>${escapeHtml(row.detail || 'Details offen')}</b></div>`).join('') : renderToolEmpty('Keine Pistendaten im Cache.')}
+                    <div class="route-tool-place-block-title">${tx('cl.place.runways', 'Pisten')}</div>
+                    ${rwyRows.length ? rwyRows.map(row => `<div class="route-tool-runway-row"><span>${escapeHtml(row.ident)}</span><b>${escapeHtml(row.detail || tx('cl.place.detailsOpen', 'Details offen'))}</b></div>`).join('') : renderToolEmpty('Keine Pistendaten im Cache.')}
                 </div>
                 </div>
                     <div class="route-tool-place-facts">
-                        <div class="route-tool-place-chip"><span>Koordinaten</span><b>${escapeHtml(coords)}</b></div>
+                        <div class="route-tool-place-chip"><span>${tx('cl.place.coordinates', 'Koordinaten')}</span><b>${escapeHtml(coords)}</b></div>
                         <div class="route-tool-place-chip"><span>Elevation</span><b>${(apt === null || apt === void 0 ? void 0 : apt.elevation) != null ? `${Math.round(apt.elevation)} ft` : '—'}</b></div>
                     </div>
                 <div class="route-tool-place-block">
-                    <div class="route-tool-place-block-title">Wetter</div>
-                    <div id="${escapeAttr(wxId)}" class="route-tool-weather-widget">Wetter lädt bei Bedarf…</div>
+                    <div class="route-tool-place-block-title">${tx('cl.tool.weather', 'Wetter')}</div>
+                    <div id="${escapeAttr(wxId)}" class="route-tool-weather-widget">${tx('cl.place.weatherOnDemand', 'Wetter lädt bei Bedarf…')}</div>
                 </div>
-                ${aip ? `<a class="route-tool-link" data-action="airport-aip" data-airport="${escapeAttr(encoded)}" href="${escapeAttr(aip)}" target="_blank" rel="noopener noreferrer">AIP öffnen ↗</a>` : ''}
+                ${aip ? `<a class="route-tool-link" data-action="airport-aip" data-airport="${escapeAttr(encoded)}" href="${escapeAttr(aip)}" target="_blank" rel="noopener noreferrer">${tx('cl.place.openAip', 'AIP öffnen ↗')}</a>` : ''}
             </div>
         `;
   }
@@ -4154,7 +4218,7 @@ ${routeLines}`;
       return `<span class="route-tool-nearest-runway"><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><line x1="${16 - dx}" y1="${16 + dy}" x2="${16 + dx}" y2="${16 - dy}" stroke="currentColor" stroke-width="1.5" /></svg><b>${escapeHtml(label)}</b></span>`;
     }).join('');
     var freqs = airportDisplayFrequencies(apt);
-    return `<span class="route-tool-nearest-details"><span class="route-tool-nearest-runways">${runways || 'Pisten: keine Angaben'}</span><span class="route-tool-nearest-frequencies">${freqs.length ? freqs.map(f => `<span class="route-tool-nearest-frequency">${escapeHtml(f.label)} <b>${GARadioTuningCore.html(f.value, /XPDR|SQK|SQUAWK|TRANSP/i.test(f.label) ? 'XPDR' : 'COM')}</b></span>`).join('') : 'Frequenz: keine Angaben'}</span></span>`;
+    return `<span class="route-tool-nearest-details"><span class="route-tool-nearest-runways">${runways || tx('cl.nearest.noRunways', 'Pisten: keine Angaben')}</span><span class="route-tool-nearest-frequencies">${freqs.length ? freqs.map(f => `<span class="route-tool-nearest-frequency">${escapeHtml(f.label)} <b>${GARadioTuningCore.html(f.value, /XPDR|SQK|SQUAWK|TRANSP/i.test(f.label) ? 'XPDR' : 'COM')}</b></span>`).join('') : tx('cl.nearest.noFrequency', 'Frequenz: keine Angaben')}</span></span>`;
   }
   var nextAirportSelection = null;
   var nextAirportRequests = new Map();
@@ -4236,7 +4300,7 @@ ${routeLines}`;
                         <div class="route-tool-context">
                             <button class="checklist-mini-btn primary" type="button" data-action="nearest-direct" data-airport="${escapeAttr(encoded)}">Direct To</button>
                             <button class="checklist-mini-btn" type="button" data-action="airport-info" data-airport="${escapeAttr(encoded)}">Info</button>
-                            <button class="checklist-mini-btn" type="button" data-action="locate-airport" data-airport="${escapeAttr(encoded)}">🔎 Karte</button>
+                            <button class="checklist-mini-btn" type="button" data-action="locate-airport" data-airport="${escapeAttr(encoded)}">${tx('cl.radio.mapButton', '🔎 Karte')}</button>
                         </div>
                     ` : ''}
                 </div>
@@ -4244,7 +4308,7 @@ ${routeLines}`;
     }).join('') : renderToolEmpty(entry.loading ? 'Nearest wird geladen...' : 'Keine Flugplätze im Umkreis von 50 NM gefunden.');
     bodyEl.innerHTML = `
             ${toolTopline('nearest')}
-            ${entry.error && !entry.loading ? `<div class="route-tool-warning">${escapeHtml(entry.error)}</div>` : ''}
+            ${entry.error && !entry.loading ? `<div class="route-tool-warning">${escapeHtml(txPhrase(entry.error))}</div>` : ''}
             <div class="route-tool-list">${list}</div>
         `;
   }
@@ -4266,7 +4330,7 @@ ${routeLines}`;
     ensurePlaceTool(false);
     renderPlaceBody(`
             <div class="checklist-topline route-tool-topline">
-                <button class="checklist-back-btn" type="button" data-action="open-tool" data-tool="${escapeAttr(state.placeInfoReturn || 'place')}">Zurück</button>
+                <button class="checklist-back-btn" type="button" data-action="open-tool" data-tool="${escapeAttr(state.placeInfoReturn || 'place')}">${tx('cl.back', 'Zurück')}</button>
                 <button class="checklist-action-btn" type="button" data-action="nearest-direct" data-airport="${escapeAttr(encodeURIComponent(JSON.stringify(apt)))}">Direct To</button>
             </div>
             ${placeCard('Info', apt, false)}
@@ -4301,18 +4365,21 @@ ${routeLines}`;
                 <div class="checklist-list-card ${checklist.source === 'builtin' ? 'is-builtin' : ''}">
                     <button class="checklist-list-main" type="button" data-action="open-checklist" data-id="${escapeAttr(checklist.id)}">
                         <span class="checklist-list-title">${escapeHtml(checklist.title)}${badge}</span>
-                        <span class="checklist-list-meta">${sourceLabel(checklist)} · ${checklist.chapters.length} Kapitel · ${itemCount(checklist)} Punkte · ${progress}/${total}</span>
+                        <span class="checklist-list-meta">${sourceLabel(checklist)} · ${tx('cl.list.meta', '{chapters} Kapitel · {items} Punkte', {
+        chapters: checklist.chapters.length,
+        items: itemCount(checklist)
+      })} · ${progress}/${total}</span>
                     </button>
                 </div>
             `;
-    }).join('') || '<div class="checklist-manager-empty">Keine Checklisten sichtbar. Im Zahnrad-Menü kannst du Listen einblenden.</div>';
+    }).join('') || `<div class="checklist-manager-empty">${tx('cl.list.empty', 'Keine Checklisten sichtbar. Im Zahnrad-Menü kannst du Listen einblenden.')}</div>`;
     bodyEl.innerHTML = `
             <div class="checklist-topline">
-                <button class="checklist-back-btn" type="button" data-action="home">Zurück</button>
-                <button class="checklist-action-btn primary" type="button" data-action="new">Neue Checkliste</button>
+                <button class="checklist-back-btn" type="button" data-action="home">${tx('cl.back', 'Zurück')}</button>
+                <button class="checklist-action-btn primary" type="button" data-action="new">${tx('cl.list.new', 'Neue Checkliste')}</button>
                 <button class="checklist-action-btn" type="button" data-action="import-open">Import</button>
-                <button class="checklist-icon-btn" type="button" data-action="manager" title="Checklists verwalten">⚙</button>
-                ${(_window$gaChecklistHo1 = window.gaChecklistHost) !== null && _window$gaChecklistHo1 !== void 0 && _window$gaChecklistHo1.refreshChecklists ? '<button class="checklist-icon-btn" type="button" data-action="checklist-cloud-refresh" title="Checklisten aus der Cloud aktualisieren">↻</button>' : ''}
+                <button class="checklist-icon-btn" type="button" data-action="manager" title="${tx('cl.list.manage', 'Checklists verwalten')}">⚙</button>
+                ${(_window$gaChecklistHo1 = window.gaChecklistHost) !== null && _window$gaChecklistHo1 !== void 0 && _window$gaChecklistHo1.refreshChecklists ? `<button class="checklist-icon-btn" type="button" data-action="checklist-cloud-refresh" title="${tx('cl.list.cloudRefresh', 'Checklisten aus der Cloud aktualisieren')}">↻</button>` : ''}
             </div>
             <div class="checklist-list">${cards}</div>
         `;
@@ -4320,9 +4387,9 @@ ${routeLines}`;
   }
   function renderManager() {
     setTitle('Checklist Auswahl');
-    var builtinRows = BUILTIN_CHECKLISTS.map(checklist => managerRow(checklist, 'toggle-visible')).join('');
-    var ownRows = customLists.length ? customLists.map(checklist => managerRow(checklist, 'toggle-visible')).join('') : '<div class="checklist-manager-empty">Noch keine eigenen Checklisten.</div>';
-    var visibleRows = visibleChecklists().map((checklist, index, arr) => reorderRow(checklist, index, arr.length)).join('') || '<div class="checklist-manager-empty">Keine sichtbaren Checklisten.</div>';
+    var builtinRows = localizedBuiltins().map(checklist => managerRow(checklist, 'toggle-visible')).join('');
+    var ownRows = customLists.length ? customLists.map(checklist => managerRow(checklist, 'toggle-visible')).join('') : `<div class="checklist-manager-empty">${tx('cl.manager.noOwn', 'Noch keine eigenen Checklisten.')}</div>`;
+    var visibleRows = visibleChecklists().map((checklist, index, arr) => reorderRow(checklist, index, arr.length)).join('') || `<div class="checklist-manager-empty">${tx('cl.manager.noVisible', 'Keine sichtbaren Checklisten.')}</div>`;
     var ownIds = customCommunityIds();
     var communityRows = communityMeta.filter(meta => !ownIds.has(meta.id)).map(meta => {
       var subscribed = !!communitySubscriptions[meta.id];
@@ -4331,27 +4398,30 @@ ${routeLines}`;
                     <input type="checkbox" data-action="toggle-community-sub" data-id="${escapeAttr(meta.id)}" ${subscribed ? 'checked' : ''}>
                     <div class="checklist-manager-main">
                         <div class="checklist-manager-name">${escapeHtml(meta.title)}</div>
-                        <div class="checklist-manager-meta">Community · ${meta.chapterCount} Kapitel · ${meta.itemCount} Punkte</div>
+                        <div class="checklist-manager-meta">Community · ${tx('cl.list.meta', '{chapters} Kapitel · {items} Punkte', {
+        chapters: meta.chapterCount,
+        items: meta.itemCount
+      })}</div>
                     </div>
-                    <button class="checklist-mini-btn" type="button" data-action="copy-community" data-id="${escapeAttr(meta.id)}">Kopie</button>
+                    <button class="checklist-mini-btn" type="button" data-action="copy-community" data-id="${escapeAttr(meta.id)}">${tx('cl.manager.copy', 'Kopie')}</button>
                 </div>
             `;
-    }).join('') || '<div class="checklist-manager-empty">Keine Community-Listen gefunden.</div>';
+    }).join('') || `<div class="checklist-manager-empty">${tx('cl.manager.noCommunity', 'Keine Community-Listen gefunden.')}</div>`;
     bodyEl.innerHTML = `
             <div class="checklist-topline">
-                <button class="checklist-back-btn" type="button" data-action="open-list">Zurück</button>
-                <button class="checklist-action-btn" type="button" data-action="refresh-community">Community aktualisieren</button>
+                <button class="checklist-back-btn" type="button" data-action="open-list">${tx('cl.back', 'Zurück')}</button>
+                <button class="checklist-action-btn" type="button" data-action="refresh-community">${tx('cl.manager.refreshCommunity', 'Community aktualisieren')}</button>
             </div>
             <div class="checklist-manager-section">
-                <div class="checklist-manager-title">REIHENFOLGE</div>
+                <div class="checklist-manager-title">${tx('cl.manager.order', 'REIHENFOLGE')}</div>
                 ${visibleRows}
             </div>
             <div class="checklist-manager-section">
-                <div class="checklist-manager-title">STANDARD</div>
+                <div class="checklist-manager-title">${tx('cl.manager.builtin', 'STANDARD')}</div>
                 ${builtinRows}
             </div>
             <div class="checklist-manager-section">
-                <div class="checklist-manager-title">EIGENE</div>
+                <div class="checklist-manager-title">${tx('cl.manager.own', 'EIGENE')}</div>
                 ${ownRows}
             </div>
             <div class="checklist-manager-section">
@@ -4377,13 +4447,15 @@ ${routeLines}`;
   }
   function managerRow(checklist, action) {
     var checked = isChecklistVisible(checklist);
-    var badge = checklist.published ? ' · veröffentlicht' : '';
+    var badge = checklist.published ? ' · ' + tx('cl.manager.published', 'veröffentlicht') : '';
     return `
             <div class="checklist-manager-row">
                 <input type="checkbox" data-action="${action}" data-id="${escapeAttr(checklist.id)}" ${checked ? 'checked' : ''}>
                 <div class="checklist-manager-main">
                     <div class="checklist-manager-name">${escapeHtml(checklist.title)}</div>
-                    <div class="checklist-manager-meta">${sourceLabel(checklist)}${badge} · ${itemCount(checklist)} Punkte</div>
+                    <div class="checklist-manager-meta">${sourceLabel(checklist)}${badge} · ${tx('cl.manager.items', '{items} Punkte', {
+      items: itemCount(checklist)
+    })}</div>
                 </div>
             </div>
         `;
@@ -4431,11 +4503,14 @@ ${routeLines}`;
     }).join('');
     bodyEl.innerHTML = `
             <div class="checklist-viewer-title">${escapeHtml(checklist.title)}${checklist.published && checklist.source === 'custom' ? '<span class="checklist-badge">PUBLIC</span>' : ''}</div>
-            <span class="checklist-progress-meta">${sourceLabel(checklist)} · ${done}/${total} erledigt</span>
+            <span class="checklist-progress-meta">${sourceLabel(checklist)} · ${tx('cl.viewer.done', '{done}/{total} erledigt', {
+      done,
+      total
+    })}</span>
             <div class="checklist-viewer-controls">
-                <button class="checklist-mini-btn" type="button" data-action="open-list">Zurück</button>
+                <button class="checklist-mini-btn" type="button" data-action="open-list">${tx('cl.back', 'Zurück')}</button>
                 <button class="checklist-mini-btn" type="button" data-action="reset-progress" data-id="${escapeAttr(checklist.id)}">Reset</button>
-                <button class="checklist-icon-btn" type="button" data-action="toggle-actions" title="Aktionen">⚙</button>
+                <button class="checklist-icon-btn" type="button" data-action="toggle-actions" title="${tx('cl.viewer.actions', 'Aktionen')}">⚙</button>
             </div>
             ${state.actionMenuOpen ? viewerActionMenu(checklist) : ''}
             <div class="checklist-tabs">${tabs}</div>
@@ -4443,20 +4518,20 @@ ${routeLines}`;
         `;
   }
   function viewerActionMenu(checklist) {
-    var edit = checklist.editable ? `<button class="checklist-mini-btn" type="button" data-action="edit" data-id="${escapeAttr(checklist.id)}">Bearbeiten</button>` : '';
-    var del = checklist.editable ? `<button class="checklist-mini-btn danger" type="button" data-action="delete" data-id="${escapeAttr(checklist.id)}">Löschen</button>` : '';
-    var unsub = checklist.source === 'community' ? `<button class="checklist-mini-btn danger" type="button" data-action="unsubscribe-community" data-id="${escapeAttr(checklist.communityId)}">Abbestellen</button>` : '';
+    var edit = checklist.editable ? `<button class="checklist-mini-btn" type="button" data-action="edit" data-id="${escapeAttr(checklist.id)}">${tx('cl.viewer.edit', 'Bearbeiten')}</button>` : '';
+    var del = checklist.editable ? `<button class="checklist-mini-btn danger" type="button" data-action="delete" data-id="${escapeAttr(checklist.id)}">${tx('cl.viewer.delete', 'Löschen')}</button>` : '';
+    var unsub = checklist.source === 'community' ? `<button class="checklist-mini-btn danger" type="button" data-action="unsubscribe-community" data-id="${escapeAttr(checklist.communityId)}">${tx('cl.viewer.unsubscribe', 'Abbestellen')}</button>` : '';
     var publish = checklist.source === 'custom' ? `
             <label class="checklist-publish-row">
                 <input type="checkbox" data-action="toggle-publish-viewer" data-id="${escapeAttr(checklist.id)}" ${checklist.published ? 'checked' : ''}>
-                Veröffentlichen
+                ${tx('cl.publish', 'Veröffentlichen')}
             </label>
         ` : '';
     return `
             <div class="checklist-action-menu">
                 ${publish}
                 ${edit}
-                <button class="checklist-mini-btn" type="button" data-action="copy" data-id="${escapeAttr(checklist.id)}">Als Kopie hinzufügen</button>
+                <button class="checklist-mini-btn" type="button" data-action="copy" data-id="${escapeAttr(checklist.id)}">${tx('cl.viewer.copy', 'Als Kopie hinzufügen')}</button>
                 <button class="checklist-mini-btn" type="button" data-action="export" data-id="${escapeAttr(checklist.id)}">Export</button>
                 ${unsub}
                 ${del}
@@ -4474,7 +4549,7 @@ ${routeLines}`;
     var publishRow = `
             <label class="checklist-publish-row">
                 <input type="checkbox" data-field="published" ${draft.published ? 'checked' : ''}>
-                Veröffentlichen
+                ${tx('cl.publish', 'Veröffentlichen')}
             </label>
         `;
     var chapters = draft.chapters.map((chapter, chapterIndex) => {
@@ -4501,20 +4576,20 @@ ${routeLines}`;
                         </div>
                     </div>
                     ${items}
-                    <button class="checklist-editor-btn checklist-editor-add-row" type="button" data-action="add-item" data-chapter-index="${chapterIndex}">Punkt hinzufügen</button>
+                    <button class="checklist-editor-btn checklist-editor-add-row" type="button" data-action="add-item" data-chapter-index="${chapterIndex}">${tx('cl.editor.addItem', 'Punkt hinzufügen')}</button>
                 </div>
             `;
     }).join('');
     bodyEl.innerHTML = `
             <div class="checklist-editor-field">
-                <label class="checklist-editor-label" for="checklistEditorTitle">Titel</label>
+                <label class="checklist-editor-label" for="checklistEditorTitle">${tx('cl.editor.title', 'Titel')}</label>
                 <input id="checklistEditorTitle" class="checklist-editor-input" maxlength="96" value="${escapeAttr(draft.title)}" data-field="title">
             </div>
             ${publishRow}
             <div class="checklist-editor-actions">
-                <button class="checklist-editor-btn primary" type="button" data-action="save-editor">Speichern</button>
-                <button class="checklist-editor-btn" type="button" data-action="add-chapter">Kapitel hinzufügen</button>
-                <button class="checklist-editor-btn" type="button" data-action="cancel-editor">Zurück</button>
+                <button class="checklist-editor-btn primary" type="button" data-action="save-editor">${tx('cl.editor.save', 'Speichern')}</button>
+                <button class="checklist-editor-btn" type="button" data-action="add-chapter">${tx('cl.editor.addChapter', 'Kapitel hinzufügen')}</button>
+                <button class="checklist-editor-btn" type="button" data-action="cancel-editor">${tx('cl.back', 'Zurück')}</button>
             </div>
             <div class="checklist-editor-chapters">${chapters}</div>
         `;
@@ -4524,8 +4599,8 @@ ${routeLines}`;
     bodyEl.innerHTML = `
             <textarea id="checklistImportText" class="checklist-import-textarea" spellcheck="false"></textarea>
             <div class="checklist-import-actions">
-                <button class="checklist-editor-btn primary" type="button" data-action="import-run">Importieren</button>
-                <button class="checklist-editor-btn" type="button" data-action="open-list">Zurück</button>
+                <button class="checklist-editor-btn primary" type="button" data-action="import-run">${tx('cl.import.run', 'Importieren')}</button>
+                <button class="checklist-editor-btn" type="button" data-action="open-list">${tx('cl.back', 'Zurück')}</button>
             </div>
         `;
   }
@@ -4586,7 +4661,7 @@ ${routeLines}`;
     var now = Date.now();
     return {
       id: makeId('custom'),
-      title: 'Neue Checkliste',
+      title: tx('cl.list.newTitle', 'Neue Checkliste'),
       source: 'custom',
       editable: true,
       published: false,
@@ -4607,7 +4682,9 @@ ${routeLines}`;
     var now = Date.now();
     return {
       id: makeId('custom'),
-      title: `${source.title} Kopie`.slice(0, 96),
+      title: tx('cl.copyTitle', '{title} Kopie', {
+        title: source.title
+      }).slice(0, 96),
       source: 'custom',
       editable: true,
       published: false,
@@ -4648,18 +4725,26 @@ ${routeLines}`;
     if (draft !== null && draft !== void 0 && draft.published && !getCredentials()) return 'Veröffentlichen braucht Pilot-ID/PIN Login.';
     var chapters = Array.isArray(draft === null || draft === void 0 ? void 0 : draft.chapters) ? draft.chapters : [];
     if (!chapters.length) return 'Mindestens ein Kapitel nötig.';
-    if (chapters.length > MAX_CHAPTERS) return `Maximal ${MAX_CHAPTERS} Kapitel.`;
+    if (chapters.length > MAX_CHAPTERS) return tx('cl.validate.maxChapters', 'Maximal {max} Kapitel.', {
+      max: MAX_CHAPTERS
+    });
     var total = 0;
     for (var i = 0; i < chapters.length; i += 1) {
       var _chapters$i, _chapters$i2;
-      if (!cleanText((_chapters$i = chapters[i]) === null || _chapters$i === void 0 ? void 0 : _chapters$i.title, 64)) return `Kapitel ${i + 1}: Titel fehlt.`;
+      if (!cleanText((_chapters$i = chapters[i]) === null || _chapters$i === void 0 ? void 0 : _chapters$i.title, 64)) return tx('cl.validate.chapterTitle', 'Kapitel {n}: Titel fehlt.', {
+        n: i + 1
+      });
       var items = Array.isArray((_chapters$i2 = chapters[i]) === null || _chapters$i2 === void 0 ? void 0 : _chapters$i2.items) ? chapters[i].items : [];
       var nonEmpty = items.filter(item => cleanText(item === null || item === void 0 ? void 0 : item.text));
-      if (!nonEmpty.length) return `Kapitel ${i + 1}: Mindestens ein Punkt nötig.`;
+      if (!nonEmpty.length) return tx('cl.validate.chapterItem', 'Kapitel {n}: Mindestens ein Punkt nötig.', {
+        n: i + 1
+      });
       total += nonEmpty.length;
     }
     if (total < 1) return 'Mindestens ein Punkt nötig.';
-    if (total > MAX_ITEMS) return `Maximal ${MAX_ITEMS} Punkte.`;
+    if (total > MAX_ITEMS) return tx('cl.validate.maxItems', 'Maximal {max} Punkte.', {
+      max: MAX_ITEMS
+    });
     return '';
   }
   function saveEditorDraft() {
@@ -4736,7 +4821,7 @@ ${routeLines}`;
           case 8:
             _context10.p = 8;
             _t10 = _context10.v;
-            setStatus(`Lokal gespeichert. ${communityStatusMessage(_t10)}`, 'warn');
+            setStatus(`${txPhrase('Lokal gespeichert.')} ${txPhrase(communityStatusMessage(_t10))}`, 'warn');
           case 9:
             return _context10.a(2);
         }
@@ -4765,7 +4850,9 @@ ${routeLines}`;
             }
             return _context11.a(2);
           case 1:
-            if (confirm(`Checkliste "${checklist.title}" löschen?`)) {
+            if (confirm(tx('cl.confirmDelete', 'Checkliste "{title}" löschen?', {
+              title: checklist.title
+            }))) {
               _context11.n = 2;
               break;
             }
@@ -4881,7 +4968,9 @@ ${routeLines}`;
   function addChapter() {
     var draft = state.editorDraft;
     if (!draft || draft.chapters.length >= MAX_CHAPTERS) {
-      setStatus(`Maximal ${MAX_CHAPTERS} Kapitel.`, 'error');
+      setStatus(tx('cl.validate.maxChapters', 'Maximal {max} Kapitel.', {
+        max: MAX_CHAPTERS
+      }), 'error');
       return;
     }
     draft.chapters.push({
@@ -4980,7 +5069,7 @@ ${routeLines}`;
           case 5:
             _context12.p = 5;
             _t13 = _context12.v;
-            window.prompt('Share-Code', code);
+            window.prompt(txPhrase('Share-Code'), code);
             setStatus('Share-Code bereit.', 'good');
           case 6:
             return _context12.a(2);
@@ -6252,7 +6341,9 @@ ${routeLines}`;
       if (!_apt2) return;
       if (typeof window.gaFocusAirportOnMap === 'function') {
         window.gaFocusAirportOnMap(_apt2);
-        setStatus(`${_apt2.icao || 'Platz'} auf Karte markiert.`, 'good');
+        setStatus(tx('cl.place.marked', '{name} auf Karte markiert.', {
+          name: _apt2.icao || tx('cl.tool.place', 'Platz')
+        }), 'good');
       } else {
         setStatus('Kartenfokus nicht verfügbar.', 'error');
       }
@@ -6509,5 +6600,15 @@ ${routeLines}`;
       render();
     } else openTool(view);
   };
+
+  // Language switch (web): redraw the open drawer. gaChecklistRefresh skips editor and import,
+  // so typed text is never lost.
+  if (window.GAI18n && typeof window.GAI18n.onChange === 'function') {
+    window.GAI18n.onChange(() => {
+      try {
+        window.gaChecklistRefresh();
+      } catch (_) {}
+    });
+  }
   document.addEventListener('DOMContentLoaded', init);
 })();

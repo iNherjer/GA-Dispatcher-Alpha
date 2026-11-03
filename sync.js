@@ -275,7 +275,7 @@ const AUTO_SYNC_OFF_WARNING = "Auto-Sync ausschalten?\n\n"
 function saveSyncToggle() {
     const t = document.getElementById('syncToggle');
     const label = document.getElementById('autoSyncLabel');
-    if (t && !t.checked && !confirm(AUTO_SYNC_OFF_WARNING)) {
+    if (t && !t.checked && !confirm(_syncUiPhrase(AUTO_SYNC_OFF_WARNING))) {
         t.checked = true;
         return;
     }
@@ -895,7 +895,7 @@ window.markMissionAsFreeflightOnly = _markMissionAsFreeflightOnly;
 
 window.prepareFreeflightBriefingState = function(md = null, options = {}) {
     if (window.missionComplianceBlockReset?.()) {
-        try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
+        try { alert(_syncUiPhrase('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.')); } catch (_) {}
         return false;
     }
     if (typeof window.confirmMissionAuthorityReplacement === 'function'
@@ -1211,8 +1211,8 @@ function _missionLocalExecutionBlocked(action = 'start') {
     });
     try {
         alert(awaiting
-            ? 'Diese Mission wird vom Tracker geführt. Bitte warten, bis der Tracker verbunden ist.'
-            : 'Missionen werden vom Tracker ausgeführt. Bitte den aktuellen Tracker verbinden – ohne Tracker nur im Sim-Modus.');
+            ? _syncUiPhrase('Diese Mission wird vom Tracker geführt. Bitte warten, bis der Tracker verbunden ist.')
+            : _syncUiPhrase('Missionen werden vom Tracker ausgeführt. Bitte den aktuellen Tracker verbinden – ohne Tracker nur im Sim-Modus.'));
     } catch (_) {}
     _updateMissionRuntimeUi();
     return true;
@@ -1925,7 +1925,7 @@ function navigationRender(nav) {
 const navigationClient = window.GAMapNavigationClient.create({
     request: (intent, payload, revision) => navigationRequest(intent, payload, revision),
     render: navigationRender,
-    error: () => alert('Die Route wurde inzwischen geändert oder die Verbindung ist unterbrochen. Bitte die aktuelle Route prüfen.'),
+    error: () => alert(_syncUiPhrase('Die Route wurde inzwischen geändert oder die Verbindung ist unterbrochen. Bitte die aktuelle Route prüfen.')),
     refresh: () => navigationRead()
 });
 async function navigationRequest(intent, payload = {}, expectedRevision = 0) {
@@ -1947,7 +1947,7 @@ window.gaNavigationEdit = function(edit) {
     if (!window.gaNavigationAvailable()) {
         // A previously shared route cannot silently become a local fork during a gap.
         if (navigationReceived?.points?.length && navigationCanDisplay(navigationReceived)) {
-            alert('Tracker nicht verbunden. Bitte vor der Routenänderung die Verbindung wiederherstellen.');
+            alert(_syncUiPhrase('Tracker nicht verbunden. Bitte vor der Routenänderung die Verbindung wiederherstellen.'));
             navigationRender(navigationReceived);
             if (typeof renderMainRoute === 'function') renderMainRoute();
             return true;
@@ -1960,7 +1960,7 @@ window.gaNavigationEdit = function(edit) {
     }
     if (window.missionComplianceBlockReset?.()) {
         if (typeof renderMainRoute === 'function') renderMainRoute();
-        alert('Die laufende Behördenkontrolle muss zuerst abgeschlossen werden.'); return true;
+        alert(_syncUiPhrase('Die laufende Behördenkontrolle muss zuerst abgeschlossen werden.')); return true;
     }
     if (navigationReceived.points.length < 2) {
         // Explicit editing of an existing private App route seeds the empty Tracker.
@@ -1970,8 +1970,8 @@ window.gaNavigationEdit = function(edit) {
                 resetPoints: window.gaGetRouteResetBaseline?.() || undefined,
                 departureIcao: currentStartICAO, destinationIcao: currentDestICAO }, navigationReceived.revision)
                 .then(result => { if (result.navigation) navigationClient.receive(result.navigation);
-                    if (result.ok) navigationClient.edit(edit); else alert('Die Route hat sich geändert. Bitte erneut prüfen.'); })
-                .catch(() => alert('Tracker nicht erreichbar.'));
+                    if (result.ok) navigationClient.edit(edit); else alert(_syncUiPhrase('Die Route hat sich geändert. Bitte erneut prüfen.')); })
+                .catch(() => alert(_syncUiPhrase('Tracker nicht erreichbar.')));
         }
         return true;
     }
@@ -1990,7 +1990,7 @@ window.gaNavigationDirectTo = async function(airport, options) {
     const result = await navigationRequest('airport_direct_to', { airport, forceGpsStart: !!options?.forceGpsStart }, nav?.revision || 0);
     if (!result.ok) {
         if (result.navigation) navigationClient.receive(result.navigation);
-        alert('Direct To konnte nicht übernommen werden. Bitte den aktuellen Tracker-Routenstand prüfen.');
+        alert(_syncUiPhrase('Direct To konnte nicht übernommen werden. Bitte den aktuellen Tracker-Routenstand prüfen.'));
         return null;
     }
     return result.navigation;
@@ -2844,7 +2844,7 @@ async function _submitTrackerExecutionIntent(intent, payload = {}, options = {})
             const presentation = typeof window.GAMissionControlUiCore?.formatIntentResult === 'function'
                 ? window.GAMissionControlUiCore.formatIntentResult(result)
                 : { text: 'Tracker-Aktion nicht möglich.' };
-            try { alert(presentation.text); } catch (_) {}
+            try { alert(_syncUiPhrase(presentation.text)); } catch (_) {}
         }
         return result;
     };
@@ -2855,7 +2855,7 @@ async function _submitTrackerExecutionIntent(intent, payload = {}, options = {})
             _publishMissionControlIntentStatus(result, false);
             if (result?.ok !== true && result?.stage && options.silent !== true) {
                 const presentation = window.GAMissionControlUiCore?.formatIntentResult?.(result);
-                try { alert(presentation?.text || 'Die Missionsübergabe konnte nicht bestätigt werden. Der gespeicherte Lauf bleibt erhalten.'); } catch (_) {}
+                try { alert(_syncUiPhrase(presentation?.text || 'Die Missionsübergabe konnte nicht bestätigt werden. Der gespeicherte Lauf bleibt erhalten.')); } catch (_) {}
             }
             return result;
         } catch (error) {
@@ -2991,7 +2991,7 @@ window.gaAbortTrackerMission = async function(options = {}) {
                 { forceLocalCleanup: true }
             );
             if (!localCleared) {
-                try { alert('Die Tracker-Mission wurde beendet, aber der lokale App-Stand konnte nicht vollständig geleert werden. Bitte Clear erneut ausführen.'); } catch (_) {}
+                try { alert(_syncUiPhrase('Die Tracker-Mission wurde beendet, aber der lokale App-Stand konnte nicht vollständig geleert werden. Bitte Clear erneut ausführen.')); } catch (_) {}
                 return { ...pendingResult, ok: false, status: 'error', error: 'mission_local_cleanup_failed' };
             }
         }
@@ -3021,14 +3021,14 @@ window.gaAbortTrackerMission = async function(options = {}) {
                 }
             );
             if (options.forceLocalCleanup === true && !localCleared) {
-                try { alert('Die Tracker-Mission wurde beendet, aber der lokale App-Stand konnte nicht vollständig geleert werden. Bitte Clear erneut ausführen.'); } catch (_) {}
+                try { alert(_syncUiPhrase('Die Tracker-Mission wurde beendet, aber der lokale App-Stand konnte nicht vollständig geleert werden. Bitte Clear erneut ausführen.')); } catch (_) {}
                 return { ...result, ok: false, status: 'error', error: 'mission_local_cleanup_failed' };
             }
             return result;
         }
         const message = result?.error === 'mission_revision_conflict'
-            ? 'Eine andere Ansicht hat den Missionsstand bereits geändert. Bitte den aktualisierten Stand erneut prüfen.'
-            : `Tracker-Mission konnte nicht abgebrochen werden: ${result?.error || result?.status || 'unbekannter Fehler'}`;
+            ? _syncUiPhrase('Eine andere Ansicht hat den Missionsstand bereits geändert. Bitte den aktualisierten Stand erneut prüfen.')
+            : _syncUiText('dialog.sync.abortFailed', { error: result?.error || result?.status || _syncUiPhrase('unbekannter Fehler') }, 'Tracker-Mission konnte nicht abgebrochen werden: {error}');
         try { alert(message); } catch (_) {}
         return result || { ok: false, status: 'error', error: 'mission_abort_failed' };
     })();
@@ -3077,7 +3077,7 @@ async function _restoreResumedMissionAuthority(run, reason = 'mission-start-resu
     if (!['ok', 'noop'].includes(ack.status) || authoritativeRun?.missionId !== run.missionId
         || authoritativeRun?.runId !== run.runId) {
         _missionPhaseDebugPush('authority_resume_failed', { reason, error: ack.error || 'mission_resume_snapshot_unavailable' });
-        try { alert('Der gespeicherte Missionslauf konnte nicht gelesen werden. Bitte die Tracker-Verbindung prüfen und erneut versuchen.'); } catch (_) {}
+        try { alert(_syncUiPhrase('Der gespeicherte Missionslauf konnte nicht gelesen werden. Bitte die Tracker-Verbindung prüfen und erneut versuchen.')); } catch (_) {}
         return false;
     }
     if (_syncMissionRestoreBlocked(restoreEpoch, authoritativeRun) || _syncTrackerRestoreBlocked(authoritativeRun)) return false;
@@ -3108,7 +3108,7 @@ async function _restoreResumedMissionAuthority(run, reason = 'mission-start-resu
         _missionPhaseDebugPush('authority_resumed_runtime_restored', { reason, missionId: run.missionId, runId: run.runId });
     } else if (authoritativeRun.phase && authoritativeRun.phase !== 'planned') {
         _missionPhaseDebugPush('authority_resume_failed', { reason, error: 'mission_resume_runtime_missing', phase: authoritativeRun.phase });
-        try { alert('Für den begonnenen Tracker-Lauf fehlt ein gültiger Wiederaufnahmestand. Der Lauf wurde nicht zurückgesetzt.'); } catch (_) {}
+        try { alert(_syncUiPhrase('Für den begonnenen Tracker-Lauf fehlt ein gültiger Wiederaufnahmestand. Der Lauf wurde nicht zurückgesetzt.')); } catch (_) {}
         return false;
     }
     return true;
@@ -5767,7 +5767,7 @@ function _offerTrackerCloudMission(snapshot) {
     setTimeout(async () => {
         try {
             if (window.gaIsDispatchBusy?.() === true || _syncMissionRestoreBlocked(null, _syncActiveMissionPayload())) { trackerCloudMissionOfferKey = ''; return; }
-            if (!confirm(`Neue Cloud-Mission „${candidate.title || candidate.missionId}“ erkannt.\n\nDie laufende Mission abbrechen und die neue Mission laden? Der bisherige Fortschritt geht verloren.`)) return;
+            if (!confirm(_syncUiText('dialog.sync.neueCloudMissionErkannt', { v: candidate.title || candidate.missionId }, 'Neue Cloud-Mission „{v}“ erkannt.\n\nDie laufende Mission abbrechen und die neue Mission laden? Der bisherige Fortschritt geht verloren.'))) return;
             _syncSetLocalMissionChoice(null);
             const result = await _submitTrackerExecutionIntent('activate_cloud_mission', {
                 cloudUpdatedAt: candidate.updatedAt,
@@ -5907,7 +5907,7 @@ window.resumeTrackerMissionOnThisDevice = async function(options = {}) {
             ownerClientId: authoritativeRun?.ownerClientId || null,
             localMissionId: _activeMissionRuntimeId('') || null
         });
-        try { alert(message); } catch (_) {}
+        try { alert(_syncUiPhrase(message)); } catch (_) {}
         return false;
     }
 
@@ -5966,9 +5966,7 @@ window.resumeTrackerMissionOnThisDevice = async function(options = {}) {
             const title = String(localRecovery.missionTitle || label);
             const phase = String(bundle.runtime?.startPhase || bundle.runtime?.runtime?.phase || 'geplant');
             if (!confirm(
-                `Der ältere Tracker-Lauf enthält noch keinen Übergabe-Snapshot.\n\n`
-                + `Auf diesem Gerät liegt dieselbe Mission „${title}“ (lokaler Stand: ${phase}). `
-                + 'Diesen Stand jetzt einmalig als Tracker-Wahrheit übernehmen?'
+                _syncUiText('dialog.sync.derAltereTrackerLauf', { title: title, phase: phase }, 'Der ältere Tracker-Lauf enthält noch keinen Übergabe-Snapshot.\n\nAuf diesem Gerät liegt dieselbe Mission „{title}“ (lokaler Stand: {phase}). Diesen Stand jetzt einmalig als Tracker-Wahrheit übernehmen?')
             )) return false;
         } else {
             const promptContext = String(options.promptContext || '').trim();
@@ -5996,7 +5994,7 @@ window.resumeTrackerMissionOnThisDevice = async function(options = {}) {
         }, 12000);
     if (_syncMissionRestoreBlocked(restoreEpoch, authoritativeRun) || _syncTrackerRestoreBlocked(authoritativeRun)) return false;
     if (takeoverAck.status !== 'ok' || !takeoverAck.authoritativeRun?.runId) {
-        try { alert('Die Mission konnte nicht übernommen werden. Der Stand hat sich zwischenzeitlich geändert; bitte erneut versuchen.'); } catch (_) {}
+        try { alert(_syncUiPhrase('Die Mission konnte nicht übernommen werden. Der Stand hat sich zwischenzeitlich geändert; bitte erneut versuchen.')); } catch (_) {}
         return false;
     }
     const ownedAuthority = _writeMissionAuthorityState({
@@ -6007,7 +6005,7 @@ window.resumeTrackerMissionOnThisDevice = async function(options = {}) {
     if (localRecovery?.ok) {
         const local = ownedAuthority;
         if (!local?.missionId || !local?.runId || !local?.clientId) {
-            try { alert('Der lokale Authority-Stand konnte nicht angelegt werden. Bitte lokalen Speicher freigeben und erneut versuchen.'); } catch (_) {}
+            try { alert(_syncUiPhrase('Der lokale Authority-Stand konnte nicht angelegt werden. Bitte lokalen Speicher freigeben und erneut versuchen.')); } catch (_) {}
             return false;
         }
         const stateHash = _missionAuthorityResumeBundleHash(bundle);
@@ -6035,7 +6033,7 @@ window.resumeTrackerMissionOnThisDevice = async function(options = {}) {
                 snapshotSequence
             });
             _queueMissionAuthoritySnapshot('legacy-device-handoff-recovery-retry', { immediate: true });
-            try { alert('Die Mission wurde übernommen, aber der Rettungsstand wurde noch nicht bestätigt. Bitte diese App mit dem Tracker verbunden lassen und die Übergabe erneut öffnen.'); } catch (_) {}
+            try { alert(_syncUiPhrase('Die Mission wurde übernommen, aber der Rettungsstand wurde noch nicht bestätigt. Bitte diese App mit dem Tracker verbunden lassen und die Übergabe erneut öffnen.')); } catch (_) {}
             return false;
         }
         missionAuthorityLastSnapshotHash = stateHash;
@@ -6141,25 +6139,25 @@ window.confirmMissionAuthorityReplacement = function(label = 'diese Aktion', rea
         if (_missionExecutionAuthorityIsTracker()) {
             let confirmed = false;
             try {
-                confirmed = confirm(`Auf dem Tracker läuft noch Mission ${window.missionRuntimeResumeConflict?.trackerMissionId || ''}.\n\nDiese Mission auf allen Ansichten abbrechen und danach ${label} erneut starten?`);
+                confirmed = confirm(_syncUiText('dialog.sync.aufDemTrackerLauft', { v: window.missionRuntimeResumeConflict?.trackerMissionId || '', label: label }, 'Auf dem Tracker läuft noch Mission {v}.\n\nDiese Mission auf allen Ansichten abbrechen und danach {label} erneut starten?'));
             } catch (_) {}
             if (confirmed) {
                 window.gaAbortTrackerMission?.({ skipConfirm: true, reason }).then(result => {
                     if (result?.ok === true) {
-                        try { alert(`Die Tracker-Mission wurde abgebrochen. Du kannst ${label} jetzt erneut starten.`); } catch (_) {}
+                        try { alert(_syncUiText('dialog.sync.dieTrackerMissionWurde', { label: label }, 'Die Tracker-Mission wurde abgebrochen. Du kannst {label} jetzt erneut starten.')); } catch (_) {}
                     }
                 });
             }
             return false;
         }
-        try { alert('Auf dem Tracker läuft eine andere Mission. Übernimm oder beende diese Mission, bevor du eine neue Route startest.'); } catch (_) {}
+        try { alert(_syncUiPhrase('Auf dem Tracker läuft eine andere Mission. Übernimm oder beende diese Mission, bevor du eine neue Route startest.')); } catch (_) {}
         return false;
     }
     const local = _readMissionAuthorityState();
     if (!local?.missionId || !local?.runId) return true;
     if (window.missionAuthorityReleasePending?.runId === local.runId) return true;
     try {
-        if (!confirm(`Mission ${local.missionId} läuft noch.\n\nMission ausdrücklich abbrechen und ${label} starten?`)) return false;
+        if (!confirm(_syncUiText('dialog.sync.missionLauftNochMission', { missionId: local.missionId, label: label }, 'Mission {missionId} läuft noch.\n\nMission ausdrücklich abbrechen und {label} starten?'))) return false;
     } catch (_) {
         return false;
     }
@@ -6169,7 +6167,7 @@ window.confirmMissionAuthorityReplacement = function(label = 'diese Aktion', rea
             reason
         }).then(result => {
             if (result?.ok === true) {
-                try { alert(`Die Tracker-Mission wurde abgebrochen. Du kannst ${label} jetzt erneut starten.`); } catch (_) {}
+                try { alert(_syncUiText('dialog.sync.dieTrackerMissionWurde2', { label: label }, 'Die Tracker-Mission wurde abgebrochen. Du kannst {label} jetzt erneut starten.')); } catch (_) {}
             }
         });
         return false;
@@ -14580,7 +14578,7 @@ window.missionRuntimeReset = function(options = {}) {
             reason: options?.reason || 'mission-runtime-reset',
             block: 'tracker-execution-authority'
         });
-        try { alert('Diese Mission läuft autoritativ im Tracker. Nutze „Mission abbrechen“, damit alle verbundenen Ansichten gemeinsam bereinigt werden.'); } catch (_) {}
+        try { alert(_syncUiPhrase('Diese Mission läuft autoritativ im Tracker. Nutze „Mission abbrechen“, damit alle verbundenen Ansichten gemeinsam bereinigt werden.')); } catch (_) {}
         return false;
     }
     if (options?.complianceReleased !== true && options?.forceComplianceReset !== true && window.missionComplianceBlockReset?.()) {
@@ -14588,7 +14586,7 @@ window.missionRuntimeReset = function(options = {}) {
             reason: options?.reason || 'mission-runtime-reset',
             block: 'authority-inspection'
         });
-        try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
+        try { alert(_syncUiPhrase('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.')); } catch (_) {}
         _updateMissionRuntimeUi();
         return false;
     }
@@ -14601,7 +14599,7 @@ window.missionRuntimeReset = function(options = {}) {
             block: 'foreign-tracker-authority',
             trackerMissionId: window.missionRuntimeResumeConflict?.trackerMissionId || null
         });
-        try { alert('Auf dem Tracker läuft eine andere Missionsinstanz. Übernimm sie zuerst auf dieses Gerät oder beende sie auf dem derzeit führenden Gerät.'); } catch (_) {}
+        try { alert(_syncUiPhrase('Auf dem Tracker läuft eine andere Missionsinstanz. Übernimm sie zuerst auf dieses Gerät oder beende sie auf dem derzeit führenden Gerät.')); } catch (_) {}
         _updateMissionRuntimeUi();
         return false;
     }
@@ -15405,7 +15403,7 @@ window.handleMissionStartBannerAction = async function() {
             return;
         }
         if (phase === 'planned') {
-            if (_missionRequiresSarSearchAuthority() && (!window.liveTrackerCapabilities?.includes('mission.sar-search.v2') || window.simModeActive)) {try {alert('Diese SAR-Mission benötigt einen verbundenen Tracker mit neuer SAR-Suchlogik. Bitte den aktuellen Alpha-Tracker verwenden.');} catch (_) {} return false;}
+            if (_missionRequiresSarSearchAuthority() && (!window.liveTrackerCapabilities?.includes('mission.sar-search.v2') || window.simModeActive)) {try {alert(_syncUiPhrase('Diese SAR-Mission benötigt einen verbundenen Tracker mit neuer SAR-Suchlogik. Bitte den aktuellen Alpha-Tracker verwenden.'));} catch (_) {} return false;}
             if (_missionStartUsesTrackerExecution()) {
                 const result = await window.gaTrackerExecutionSubmitIntent?.('prepare_mission');
                 return result?.ok === true;
@@ -15414,7 +15412,7 @@ window.handleMissionStartBannerAction = async function() {
             const authorityReady = await _ensureMissionAuthorityForStart('mission-start-prepare');
             if (!authorityReady) {
                 const runningId = window.missionRuntimeResumeConflict?.trackerMissionId || 'eine andere Mission';
-                try { alert(`Der Tracker führt bereits ${runningId}. Die laufende Mission kann hier übernommen oder zuerst beendet werden.`); } catch (_) {}
+                try { alert(_syncUiText('dialog.sync.derTrackerFuhrtBereits', { runningId: runningId }, 'Der Tracker führt bereits {runningId}. Die laufende Mission kann hier übernommen oder zuerst beendet werden.')); } catch (_) {}
                 _updateMissionRuntimeUi();
                 return false;
             }
@@ -15546,13 +15544,13 @@ async function triggerLoginFlow(isAutoLogin = false) {
     const pin = getSyncPin();
 
     if (!id || !pin) {
-        if (!isAutoLogin) alert("Bitte Pilot-ID und PIN eingeben.");
+        if (!isAutoLogin) alert(_syncUiPhrase("Bitte Pilot-ID und PIN eingeben."));
         return;
     }
 
     const loginBtn = document.getElementById('loginSyncBtn');
     if (loginBtn) {
-        loginBtn.innerText = "🔑 Prüfe...";
+        loginBtn.innerText = _syncUiPhrase("🔑 Prüfe...");
         loginBtn.disabled = true;
     }
 
@@ -15569,11 +15567,11 @@ async function triggerLoginFlow(isAutoLogin = false) {
             const authData = await res.json();
             const canonicalId = applyCanonicalSyncId(authData?.pilotId || id, { authenticated: true });
             localStorage.setItem('ga_saved_pin', pin);
-            if (!isAutoLogin) alert(`✅ Erfolgreich angemeldet als ${canonicalId}!`);
+            if (!isAutoLogin) alert(_syncUiText('sync.login.success', { id: canonicalId }, '✅ Erfolgreich angemeldet als {id}!'));
             setSyncLoginState(true);
         } else if (res.status === 401) {
             if (!isAutoLogin) {
-                alert("❌ Der PIN für diese Pilot-ID ist falsch.");
+                alert(_syncUiPhrase("❌ Der PIN für diese Pilot-ID ist falsch."));
             } else {
                 localStorage.removeItem('ga_saved_id');
                 localStorage.removeItem('ga_saved_pin');
@@ -15596,24 +15594,24 @@ async function triggerLoginFlow(isAutoLogin = false) {
                 const registerData = await registerRes.json();
                 const canonicalId = applyCanonicalSyncId(registerData?.pilotId || id, { authenticated: true });
                 localStorage.setItem('ga_saved_pin', pin);
-                alert(`✅ Neuer Pilot ${canonicalId} erfolgreich registriert!`);
+                alert(_syncUiText('sync.login.registered', { id: canonicalId }, '✅ Neuer Pilot {id} erfolgreich registriert!'));
                 setSyncLoginState(true);
             } else {
                 throw new Error("Registrierung fehlgeschlagen");
             }
         } else if (res.status === 409) {
-            if (!isAutoLogin) alert("❌ Diese Pilot-ID ist nicht eindeutig. Bitte den Support kontaktieren.");
+            if (!isAutoLogin) alert(_syncUiPhrase("❌ Diese Pilot-ID ist nicht eindeutig. Bitte den Support kontaktieren."));
             setSyncLoginState(false);
         } else {
             throw new Error("Server-Fehler");
         }
     } catch (e) {
         console.error("[Login] Fehler:", e);
-        if (!isAutoLogin) alert("⚠️ Verbindung zum Sync-Server fehlgeschlagen.");
+        if (!isAutoLogin) alert(_syncUiPhrase("⚠️ Verbindung zum Sync-Server fehlgeschlagen."));
         setSyncLoginState(false);
     } finally {
         if (loginBtn) {
-            loginBtn.innerText = "🔑 Login / Verknüpfen";
+            loginBtn.innerText = _syncUiPhrase("🔑 Login / Verknüpfen");
             loginBtn.disabled = false;
         }
     }
@@ -15628,8 +15626,8 @@ function setSyncLoginState(isLoggedIn) {
 
     if (isLoggedIn) {
         if (led) { led.style.background = "#00ff41"; led.style.boxShadow = "0 0 8px #00ff41"; }
-        if (txt) { txt.innerText = "Verbunden"; txt.style.color = "#00ff41"; }
-        if (syncStatus) syncStatus.innerText = "Bereit (" + syncId + ")";
+        if (txt) { txt.innerText = _syncUiPhrase("Verbunden"); txt.style.color = "#00ff41"; }
+        if (syncStatus) syncStatus.innerText = _syncUiText('sync.status.ready', { id: syncId }, 'Bereit ({id})');
         
         // Buttons aktivieren, Login-Button bleibt immer aktiv
         document.querySelectorAll('.sync-req-btn').forEach(btn => btn.disabled = false);
@@ -15640,7 +15638,7 @@ function setSyncLoginState(isLoggedIn) {
 
         // Hint aktualisieren
         const hint = document.getElementById('loginHint');
-        if (hint) hint.innerText = "Du bist als " + syncId + " angemeldet. Daten werden synchronisiert.";
+        if (hint) hint.innerText = _syncUiText('sync.login.hintSignedIn', { id: syncId }, 'Du bist als {id} angemeldet. Daten werden synchronisiert.');
 
         // Sync & GPS starten falls gewünscht
         const t = document.getElementById('syncToggle');
@@ -15655,7 +15653,7 @@ function setSyncLoginState(isLoggedIn) {
     } else {
         if (led) { led.style.background = "#d93829"; led.style.boxShadow = "0 0 5px #d93829"; }
         if (txt) { txt.innerText = "Offline"; txt.style.color = "#888"; }
-        if (syncStatus) syncStatus.innerText = "Anmeldung erforderlich";
+        if (syncStatus) syncStatus.innerText = _syncUiPhrase("Anmeldung erforderlich");
         
         // Buttons deaktivieren, Login-Button bleibt immer aktiv
         document.querySelectorAll('.sync-req-btn').forEach(btn => {
@@ -15667,15 +15665,25 @@ function setSyncLoginState(isLoggedIn) {
         if (toggle) { toggle.disabled = true; toggle.checked = false; }
 
         const hint = document.getElementById('loginHint');
-        if (hint) hint.innerText = "Bitte logge dich ein, um Cloud-Sync zu nutzen.";
+        if (hint) hint.innerText = _syncUiPhrase("Bitte logge dich ein, um Cloud-Sync zu nutzen.");
     }
+}
+// UI language (i18n-core.js). Without GAI18n, or with German selected, the German text is shown as is.
+function _syncUiText(key, vars, german) {
+    if (window.GAI18n) return GAI18n.t(key, vars, german);
+    return String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, (m, n) => (vars && Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m));
+}
+function _syncUiPhrase(text) {
+    return window.GAI18n ? GAI18n.phrase(text) : text;
 }
 function updateSyncStatus(msg, isError = false) {
     const el = document.getElementById('syncStatus');
     if (el) {
-        el.innerText = msg;
+        // Callers pass German sentences; only the display is translated (exact matches in i18n/en-phrases.js).
+        const shown = _syncUiPhrase(msg);
+        el.innerText = shown;
         el.style.color = isError ? "var(--red)" : "var(--green)";
-        setTimeout(() => { if(el.innerText === msg) el.style.color = "#888"; }, 4000);
+        setTimeout(() => { if(el.innerText === shown) el.style.color = "#888"; }, 4000);
     }
 }
 function flashSyncIndicator(direction) {
@@ -16300,7 +16308,7 @@ function _syncShouldPromptBeforeReplacingLocalMission(cloudMission = null, local
 
 function _syncConfirmReplaceRunningLocalMission(cloudMission = null, localMission = null, options = {}) {
     if (window.missionComplianceBlockReset?.()) {
-        try { alert('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.'); } catch (_) {}
+        try { alert(_syncUiPhrase('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.')); } catch (_) {}
         return false;
     }
     if (!_syncShouldPromptBeforeReplacingLocalMission(cloudMission, localMission)) return true;
@@ -17187,9 +17195,9 @@ async function triggerCloudSave(immediate = false, options = {}) {
         const missionRunning = (trackerControl?.executionAuthority === 'tracker' && _trackerRunStarted(trackerControl))
             || !!_rememberedTrackerExecutionRun();
         const runWarning = missionRunning
-            ? "\n\n⚠️ Gerade läuft eine Mission. Der Push setzt sie im Tracker zurück: Der laufende Flug wird beendet und die Mission startet neu als geplant."
+            ? `\n\n${_syncUiPhrase("⚠️ Gerade läuft eine Mission. Der Push setzt sie im Tracker zurück: Der laufende Flug wird beendet und die Mission startet neu als geplant.")}`
             : "";
-        if (!confirm("⬆️ CLOUD UPLOAD\nMöchtest du deinen aktuellen, lokalen Stand hochladen und das bisherige Cloud-Backup überschreiben?" + runWarning)) {
+        if (!confirm(_syncUiText('dialog.sync.cloudUploadMochtestDeinen', { runWarning: runWarning }, '⬆️ CLOUD UPLOAD\nMöchtest du deinen aktuellen, lokalen Stand hochladen und das bisherige Cloud-Backup überschreiben?{runWarning}'))) {
             return { ok: false, skipped: true, reason: 'manual-cancelled' };
         }
         setNavComLed('navcomSaveBtn', 'syncing');
@@ -17384,9 +17392,9 @@ async function triggerCloudSave(immediate = false, options = {}) {
 async function forceSyncLoad() {
     if (window.gaIsDispatchBusy?.()) { updateSyncStatus('Mission wird generiert; Cloud-Laden bitte danach erneut versuchen.'); return; }
     const restoreEpoch = window.gaDispatchGeneration?.() || 0;
-    if (!confirm("⬇️ CLOUD DOWNLOAD\nMöchtest du deinen Spielstand aus der Cloud laden? Alle lokalen Änderungen (die nicht hochgeladen wurden) gehen dabei verloren!")) return;
+    if (!confirm(_syncUiPhrase('⬇️ CLOUD DOWNLOAD\nMöchtest du deinen Spielstand aus der Cloud laden? Alle lokalen Änderungen (die nicht hochgeladen wurden) gehen dabei verloren!'))) return;
     const id = getSyncId();
-    if (!id) { alert("Bitte zuerst eine Pilot-ID eingeben oder generieren (🎲)."); return; }
+    if (!id) { alert(_syncUiPhrase('Bitte zuerst eine Pilot-ID eingeben oder generieren (🎲).')); return; }
 
     setNavComLed('navcomLoadBtn', 'syncing');
     updateSyncStatus("Lade Daten...");
@@ -17394,14 +17402,14 @@ async function forceSyncLoad() {
     try {
         const res = await _syncReadProfileResponse();
         if (res.status === 401) {
-            alert("Zugriff verweigert: PIN falsch!");
+            alert(_syncUiPhrase('Zugriff verweigert: PIN falsch!'));
             updateSyncStatus("PIN falsch", true);
             setNavComLed('navcomLoadBtn', 'error');
             setTimeout(() => setNavComLed('navcomLoadBtn', 'off'), 3000);
             return;
         }
         if (res.status === 404) {
-            alert("Zu dieser ID wurden keine Daten gefunden.");
+            alert(_syncUiPhrase('Zu dieser ID wurden keine Daten gefunden.'));
             updateSyncStatus("Nicht gefunden", true);
             setNavComLed('navcomLoadBtn', 'error');
             setTimeout(() => setNavComLed('navcomLoadBtn', 'off'), 3000);
@@ -17479,7 +17487,7 @@ async function forceSyncLoad() {
         try { console.error("[Sync] Cloud load failed:", e); } catch (_) {}
         const msg = String(e?.message || '');
         updateSyncStatus(msg.startsWith('HTTP ') ? `Cloud: ${msg}` : "Cloud: Lade-Fehler", true);
-        alert("Fehler beim Laden aus der Cloud." + (msg ? "\n\nDetails: " + msg : ""));
+        alert(_syncUiText('dialog.sync.fehlerBeimLadenAus', { v: msg ? "\n\nDetails: " + msg : "" }, 'Fehler beim Laden aus der Cloud.{v}'));
         setNavComLed('navcomLoadBtn', 'error');
         setTimeout(() => setNavComLed('navcomLoadBtn', 'off'), 3000);
     }
@@ -17499,7 +17507,7 @@ async function silentSyncLoad(options = {}) {
     try {
         const res = await _syncReadProfileResponse();
         if (res.status === 401) {
-            alert("Zugriff verweigert: PIN falsch!");
+            alert(_syncUiPhrase('Zugriff verweigert: PIN falsch!'));
             updateSyncStatus("PIN falsch", true);
             return;
         }
@@ -17589,7 +17597,7 @@ async function silentGroupSync() {
             let newBadges = JSON.parse(localStorage.getItem('ga_group_new')) || [];
             let changed = false;
             if (data.kicked && data.kicked.includes(getSyncId())) {
-                alert("❌ Du wurdest vom Admin aus der Crew entfernt.");
+                alert(_syncUiPhrase('❌ Du wurdest vom Admin aus der Crew entfernt.'));
                 leaveGroup(true);
                 return;
             }
@@ -17716,7 +17724,7 @@ async function checkCloudAfterIdle() {
     try {
         const res = await _syncReadProfileResponse();
         if (res.status === 401) {
-            alert("Zugriff verweigert: PIN falsch!");
+            alert(_syncUiPhrase('Zugriff verweigert: PIN falsch!'));
             updateSyncStatus("PIN falsch", true);
             return;
         }
@@ -18374,12 +18382,9 @@ function _maybePromptTrackerUpdate(pkt) {
     const outdated = !Number.isFinite(code) || code < MIN_TRACKER_VERSION_CODE;
     if (!outdated || trackerVersionPromptShown) return;
     trackerVersionPromptShown = true;
-    updateSyncStatus(`Tracker veraltet (${reportedLabel}) – Update auf ${MIN_TRACKER_VERSION_LABEL} empfohlen.`, true);
+    updateSyncStatus(_syncUiText('sync.status.trackerOutdated', { reported: reportedLabel, min: MIN_TRACKER_VERSION_LABEL }, 'Tracker veraltet ({reported}) – Update auf {min} empfohlen.'), true);
     alert(
-        `Neue Tracker-Version verfügbar.\n\n` +
-        `Erkannt: ${reportedLabel}\n` +
-        `Empfohlen: mindestens ${MIN_TRACKER_VERSION_LABEL}\n\n` +
-        `Bitte den Tracker aktualisieren.`
+        _syncUiText('dialog.sync.neueTrackerVersionVerfugbar', { reportedLabel: reportedLabel, MIN_TRACKER_VERSION_LABEL: MIN_TRACKER_VERSION_LABEL }, 'Neue Tracker-Version verfügbar.\n\nErkannt: {reportedLabel}\nEmpfohlen: mindestens {MIN_TRACKER_VERSION_LABEL}\n\nBitte den Tracker aktualisieren.')
     );
 }
 

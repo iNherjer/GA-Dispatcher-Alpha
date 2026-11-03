@@ -2413,7 +2413,7 @@ window.vpHardReloadRouteProfile = function(reason = 'route-change') {
     const zd = document.getElementById('vpZoomDisplay');
     if (zd) zd.textContent = '0%';
     const status = document.getElementById('verticalProfileStatus');
-    if (status) status.textContent = 'Lade Terrain...';
+    if (status) status.textContent = _vpUiText('profile.status.loadingTerrain', 'Lade Terrain...');
 
     const mapTable = document.getElementById('mapTableOverlay');
     if (mapTable && mapTable.classList.contains('active') && !document.body.classList.contains('profile-hidden')) {
@@ -2422,7 +2422,7 @@ window.vpHardReloadRouteProfile = function(reason = 'route-change') {
         const btn = document.getElementById('vpToggleBtn');
         if (strip) strip.style.display = '';
         if (btn) {
-            btn.textContent = '📊 Profil (An)';
+            btn.textContent = `${_vpUiText('profile.toggle.vpToggleBtn', '📊 Profil')} (${vpToggleStatusText(true)})`;
             btn.style.background = '#2E8B57';
         }
         if (typeof initProfileResize === 'function') initProfileResize();
@@ -2460,7 +2460,7 @@ function triggerVerticalProfileUpdate() {
         }
 
         const status = document.getElementById('verticalProfileStatus');
-        if (status) status.textContent = 'Lade Terrain...';
+        if (status) status.textContent = _vpUiText('profile.status.loadingTerrain', 'Lade Terrain...');
 
         try {
             // 1. Höhendaten (Blockierend, da alles andere darauf aufbaut)
@@ -2508,7 +2508,7 @@ function triggerVerticalProfileUpdate() {
             
             if (typeof window.throttledRenderProfiles === 'function') window.throttledRenderProfiles();
 
-            if (status) status.textContent = 'Lade Wetter & Umgebung...';
+            if (status) status.textContent = _vpUiText('profile.status.loadingWeather', 'Lade Wetter & Umgebung...');
             
             // 3. PARALLELER FETCH: Wetter & Overpass
             const fetchWetter = async () => {
@@ -2570,10 +2570,10 @@ function triggerVerticalProfileUpdate() {
                 if (btnCl) btnCl.classList.remove('vp-loading-pulse');
                 if (status && vpWeatherSource === 'openmeteo') {
                     status.textContent = (window.vpWeatherFallbackMode === 'openmeteo_to_metar')
-                        ? 'Open-Meteo nicht verfügbar – Fallback: METAR'
+                        ? _vpUiText('profile.status.openMeteoFallback', 'Open-Meteo nicht verfügbar – Fallback: METAR')
                         : ((window.vpWeatherFallbackMode === 'metar_to_openmeteo')
-                            ? 'METAR nicht verfügbar – Fallback: Open-Meteo'
-                            : 'Open-Meteo aktiv');
+                            ? _vpUiText('profile.status.metarFallback', 'METAR nicht verfügbar – Fallback: Open-Meteo')
+                            : _vpUiText('profile.status.openMeteoActive', 'Open-Meteo aktiv'));
                 }
                 
                 window.vpBgNeedsUpdate = true; 
@@ -2810,12 +2810,12 @@ function triggerVerticalProfileUpdate() {
                     : ((window.vpWeatherFallbackMode === 'metar_to_openmeteo') ? ' • Fallback Open-Meteo' : ' • METAR');
                 const terrainInfo = window.vpElevationFallbackActive ? ' • Terrain Fallback' : '';
                 const elevCount = Array.isArray(vpElevationData) ? vpElevationData.length : 0;
-                status.textContent = elevCount + ' Punkte & API-Daten geladen' + wxInfo + terrainInfo;
+                status.textContent = _vpUiText('profile.status.loaded', '{count} Punkte & API-Daten geladen', { count: elevCount }) + wxInfo + terrainInfo;
             }
             
         } catch(e) {
             if (e && e.name !== 'AbortError') console.error('Profile Fetch Error:', e);
-            if (status) status.textContent = 'API Error / Abgebrochen';
+            if (status) status.textContent = _vpUiText('profile.status.apiError', 'API Error / Abgebrochen');
         } finally {
             const bC = document.getElementById('btnToggleClouds'); if(bC) bC.classList.remove('vp-loading-pulse');
             const bO = document.getElementById('btnToggleObstacles'); if(bO) bO.classList.remove('vp-loading-pulse');
@@ -5189,7 +5189,7 @@ window.vpCopyWeatherDebugReport = async function() {
             setTimeout(() => { btn.textContent = oldText || 'Kopieren'; }, 1600);
         }
         console.warn('[Debug] Copy failed:', err);
-        alert(`Debug-Log konnte nicht kopiert werden: ${err?.message || err}`);
+        alert(_vpUiText('dialog.profile.debugLogKonnteNicht', 'Debug-Log konnte nicht kopiert werden: {v}', { v: err?.message || err }));
     }
 };
 
@@ -8348,7 +8348,7 @@ function toggleMapProfile() {
     const btn = document.getElementById('vpToggleBtn');
     if (strip) strip.style.display = vpMapProfileVisible ? '' : 'none';
     if (btn) {
-        btn.textContent = vpMapProfileVisible ? '📊 Profil (An)' : '📊 Profil (Aus)';
+        btn.textContent = `${_vpUiText('profile.toggle.vpToggleBtn', '📊 Profil')} (${vpToggleStatusText(vpMapProfileVisible)})`;
         btn.style.background = vpMapProfileVisible ? '#2E8B57' : '#444';
     }
     if (vpMapProfileVisible) {
@@ -8372,7 +8372,7 @@ function vpEnsureMapProfileVisible(reason = 'route') {
     const btn = document.getElementById('vpToggleBtn');
     if (strip) strip.style.display = '';
     if (btn) {
-        btn.textContent = '📊 Profil (An)';
+        btn.textContent = `${_vpUiText('profile.toggle.vpToggleBtn', '📊 Profil')} (${vpToggleStatusText(true)})`;
         btn.style.background = '#2E8B57';
     }
     if (typeof initProfileResize === 'function') initProfileResize();
@@ -10103,15 +10103,24 @@ function vpSyncLinearMasterFlag() {
     vpShowLinear = !!(vpShowRoads || vpShowRivers || vpShowPowerInfra);
 }
 
+// UI language (i18n-core.js, web only). In the EFB there is no GAI18n: the German text is used.
+function _vpUiPhrase(text) {
+    return (typeof window !== 'undefined' && window.GAI18n) ? window.GAI18n.phrase(text) : text;
+}
+function _vpUiText(key, german, vars) {
+    if (typeof window !== 'undefined' && window.GAI18n) return window.GAI18n.t(key, vars, german);
+    return String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, (m, n) => (vars && Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m));
+}
+
 function vpToggleStatusText(on) {
-    return on ? 'An' : 'Aus';
+    return on ? _vpUiText('map.on', 'An') : _vpUiText('map.off', 'Aus');
 }
 
 function updateVpToggleBtn(id, on, label) {
     const btn = document.getElementById(id);
     if (!btn) return;
     btn.classList.toggle('active', !!on);
-    btn.textContent = `${label} (${vpToggleStatusText(on)})`;
+    btn.textContent = `${_vpUiText(`profile.toggle.${id}`, label)} (${vpToggleStatusText(on)})`;
 }
 
 function updateLinearButtons() {
@@ -10136,9 +10145,10 @@ function updateAirspaceBtn() {
     const btn = document.getElementById('btnToggleAirspaces');
     if (!btn) return;
     btn.classList.toggle('active', vpAirspaceMode !== 0);
-    if (vpAirspaceMode === 1) btn.textContent = '🛡️ Lufträume (An · BG)';
-    else if (vpAirspaceMode === 2) btn.textContent = '🛡️ Lufträume (An · FG)';
-    else btn.textContent = '🛡️ Lufträume (Aus)';
+    const label = _vpUiText('profile.toggle.btnToggleAirspaces', '🛡️ Lufträume');
+    if (vpAirspaceMode === 1) btn.textContent = `${label} (${vpToggleStatusText(true)} · BG)`;
+    else if (vpAirspaceMode === 2) btn.textContent = `${label} (${vpToggleStatusText(true)} · FG)`;
+    else btn.textContent = `${label} (${vpToggleStatusText(false)})`;
 }
 
 function updateWeatherSourceBtn() {
@@ -10146,24 +10156,24 @@ function updateWeatherSourceBtn() {
     if (!btn) return;
     const isOpenMeteo = vpWeatherSource === 'openmeteo';
     btn.classList.toggle('active', isOpenMeteo);
-    btn.textContent = `🌐 Quelle: ${isOpenMeteo ? 'OPEN METEO' : 'METAR'}`;
+    btn.textContent = _vpUiText('profile.weatherSource.button', '🌐 Quelle: {source}', { source: isOpenMeteo ? 'OPEN METEO' : 'METAR' });
     btn.title = isOpenMeteo
-        ? 'Aktuell: Open-Meteo (nochmal klicken = METAR)'
-        : 'Aktuell: METAR (nochmal klicken = Open-Meteo)';
+        ? _vpUiText('profile.weatherSource.openMeteoTitle', 'Aktuell: Open-Meteo (nochmal klicken = METAR)')
+        : _vpUiText('profile.weatherSource.metarTitle', 'Aktuell: METAR (nochmal klicken = Open-Meteo)');
 }
 
 function updateIsobarsBtn() {
     const btn = document.getElementById('btnToggleIsobars');
     if (!btn) return;
     btn.classList.toggle('active', vpShowIsobars);
-    btn.textContent = `🧭 Isobaren (${vpShowIsobars ? 'An' : 'Aus'})`;
+    btn.textContent = `${_vpUiText('profile.toggle.btnToggleIsobars', '🧭 Isobaren')} (${vpToggleStatusText(vpShowIsobars)})`;
 }
 
 function updateWindComponentsBtn() {
     const btn = document.getElementById('btnToggleWindComponents');
     if (!btn) return;
     btn.classList.toggle('active', vpShowWindComponents);
-    btn.textContent = `💨 Windkomponenten (${vpShowWindComponents ? 'An' : 'Aus'})`;
+    btn.textContent = `${_vpUiText('profile.toggle.btnToggleWindComponents', '💨 Windkomponenten')} (${vpToggleStatusText(vpShowWindComponents)})`;
 }
 
 function updateCloudsBtn() {
@@ -10524,7 +10534,7 @@ window.vpRetryFailedObsTiles = function() {
 
 window.promptForAlt = function() {
     const current = document.getElementById('altMapInput').textContent;
-    const res = prompt("Gewünschte Flughöhe (ALT) eingeben:", current);
+    const res = prompt(_vpUiPhrase('Gewünschte Flughöhe (ALT) eingeben:'), current);
     if (res !== null && !isNaN(parseInt(res))) {
         let val = parseInt(res);
         val = Math.max(1500, Math.min(13500, val));
@@ -10533,7 +10543,7 @@ window.promptForAlt = function() {
 };
 window.promptForRate = function() {
     const current = document.getElementById('rateMapInput').textContent;
-    const res = prompt("Gewünschte Steig-/Sinkrate (V/S) in ft/min eingeben:", current);
+    const res = prompt(_vpUiPhrase('Gewünschte Steig-/Sinkrate (V/S) in ft/min eingeben:'), current);
     if (res !== null && !isNaN(parseInt(res))) {
         let val = parseInt(res);
         val = Math.max(200, Math.min(1500, val));
@@ -10546,7 +10556,7 @@ window.promptForRate = function() {
    ========================================================= */
 window.exportFor2DSim = function() {
     if (!vpElevationData || vpElevationData.length < 2) {
-        alert("Bitte generiere zuerst eine Route im Dispatcher!");
+        alert(_vpUiPhrase('Bitte generiere zuerst eine Route im Dispatcher!'));
         return;
     }
 
@@ -10699,7 +10709,7 @@ window.exportFor2DSim = function() {
         // Öffnet den Simulator in einem neuen Tab (Pfad ggf. anpassen, falls game.html woanders liegt)
         window.open('game.html', '_blank');
     } catch (e) {
-        alert("Fehler beim Transfer! Bitte Cookies/Local Storage im Browser erlauben.");
+        alert(_vpUiPhrase('Fehler beim Transfer! Bitte Cookies/Local Storage im Browser erlauben.'));
         console.error(e);
     }
 };
@@ -11435,4 +11445,16 @@ function vpUpdateLiveProfilePosition(lat, lon, alt, hdg, liveMapVisualActive) {
         }
     }
 
+}
+
+// Language switch (web): redraw the profile toggle labels. Display only.
+if (typeof window !== 'undefined' && window.GAI18n && typeof window.GAI18n.onChange === 'function') {
+    window.GAI18n.onChange(() => {
+        [updateLinearButtons, updateAirspaceBtn, updateWeatherSourceBtn, updateIsobarsBtn, updateWindComponentsBtn,
+            updateCloudsBtn, updateLandmarksBtn, updateObstaclesBtn, updateTrafficProfileBtn].forEach(fn => { try { fn(); } catch (_) {} });
+        try {
+            const btn = document.getElementById('vpToggleBtn');
+            if (btn && typeof vpMapProfileVisible !== 'undefined') btn.textContent = `${_vpUiText('profile.toggle.vpToggleBtn', '📊 Profil')} (${vpToggleStatusText(vpMapProfileVisible)})`;
+        } catch (_) {}
+    });
 }

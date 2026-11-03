@@ -296,13 +296,28 @@ function pinboardTrySavePrivateNotes(notes, alertText = '') {
         return pinboardSavePrivateNotes(notes).notes || notes;
     } catch (err) {
         try { console.error('[Pinboard] Pinnwand konnte nicht gespeichert werden:', err); } catch (_) {}
-        if (alertText) alert(alertText);
+        if (alertText) alert(_boardUiPhrase(alertText));
         return null;
     }
 }
 
 function getGroupName() { return localStorage.getItem('ga_group_name') || ""; }
 function getGroupNick() { return localStorage.getItem('ga_group_nick') || getSyncId() || "Pilot"; }
+
+// UI language (i18n-core.js). Without GAI18n, or with German selected, the German text is shown as is.
+function _boardUiText(key, vars, german) {
+    if (window.GAI18n) return GAI18n.t(key, vars, german);
+    return String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, (m, n) => (vars && Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m));
+}
+function _boardUiPhrase(text) {
+    return window.GAI18n ? GAI18n.phrase(text) : text;
+}
+// Language switch: redraw an open pinboard (display only, no save).
+if (typeof window !== 'undefined' && window.GAI18n) {
+    GAI18n.onChange(() => {
+        try { if (document.getElementById('pinboardOverlay')?.classList.contains('active')) renderNotes(); } catch (_) {}
+    });
+}
 
 async function joinGroup() {
     const gName = document.getElementById('groupNameInput').value.trim().toUpperCase();
@@ -312,16 +327,16 @@ async function joinGroup() {
     const syncId = getSyncId();
     const syncPin = getSyncPin();
 
-    if(!gName) { alert("Bitte einen Gruppen-Code (z.B. EDTK) eingeben!"); return; }
+    if(!gName) { alert(_boardUiPhrase("Bitte einen Gruppen-Code (z.B. EDTK) eingeben!")); return; }
     if(!syncId || !syncPin) { 
-        alert("🔒 Zugriff verweigert: Bitte lege zuerst oben im Sync-Bereich eine Pilot-ID und einen PIN fest!"); 
+        alert(_boardUiPhrase("🔒 Zugriff verweigert: Bitte lege zuerst oben im Sync-Bereich eine Pilot-ID und einen PIN fest!")); 
         return; 
     }
     
     // Fallback: Falls kein Nickname eingegeben wurde, nutze die Pilot-ID (oder einen Teil davon)
     if (!gNick) gNick = syncId;
 
-    document.getElementById('groupStatus').innerText = "Verbinde...";
+    document.getElementById('groupStatus').innerText = _boardUiPhrase("Verbinde...");
 
     try {
         // Wir fragen die Gruppe ab. Die Berechtigung wird über die Pilot-ID + PIN geprüft.
@@ -331,8 +346,8 @@ async function joinGroup() {
         });
 
         if (res.status === 401) {
-            alert("❌ Authentifizierungs-Fehler!\n\nDeine Pilot-ID oder dein PIN ist falsch. Bitte prüfe die Eingaben oben im Sync-Bereich.");
-            document.getElementById('groupStatus').innerText = "Auth-Fehler";
+            alert(_boardUiPhrase("❌ Authentifizierungs-Fehler!\n\nDeine Pilot-ID oder dein PIN ist falsch. Bitte prüfe die Eingaben oben im Sync-Bereich."));
+            document.getElementById('groupStatus').innerText = _boardUiPhrase("Auth-Fehler");
             return;
         }
 
@@ -341,8 +356,8 @@ async function joinGroup() {
         
         // Kick-Prüfung (jetzt über die Pilot-ID, nicht nur über den Nick!)
         if (data.kicked && data.kicked.includes(syncId)) {
-            alert("Diese Pilot-ID wurde aus der Crew gebannt!");
-            document.getElementById('groupStatus').innerText = "Gebannt";
+            alert(_boardUiPhrase("Diese Pilot-ID wurde aus der Crew gebannt!"));
+            document.getElementById('groupStatus').innerText = _boardUiPhrase("Gebannt");
             return;
         }
 
@@ -351,15 +366,15 @@ async function joinGroup() {
         localStorage.setItem('ga_group_nick', gNick);
         window.gaCrewPresence?.reset();
         
-        document.getElementById('groupStatus').innerText = "Verbunden als " + gNick;
+        document.getElementById('groupStatus').innerText = _boardUiText('crew.status.connectedAs', { nick: gNick }, 'Verbunden als {nick}');
         document.getElementById('groupStatus').style.color = "var(--green)";
 
         forceGroupSync();
         window.homebaseGroupRefresh?.('group-joined');
         triggerCloudSave(true);
-        alert("🤝 Du bist der Crew '" + gName + "' beigetreten!");
+        alert(_boardUiText('crew.joined', { crew: gName }, "🤝 Du bist der Crew '{crew}' beigetreten!"));
     } catch(e) {
-        alert("Verbindungsfehler zum Crew-Server.");
+        alert(_boardUiPhrase("Verbindungsfehler zum Crew-Server."));
         document.getElementById('groupStatus').innerText = "Offline";
     }
 }
@@ -403,14 +418,14 @@ function leaveGroup(isBanned = false) {
     window.homebaseGroupClear?.();
     window.gaCrewPresence?.reset();
     document.getElementById('groupNameInput').value = "";
-    document.getElementById('groupStatus').innerText = "Nicht verbunden";
+    document.getElementById('groupStatus').innerText = _boardUiPhrase("Nicht verbunden");
     document.getElementById('groupStatus').style.color = "#888";
     if(currentBoardMode === 'group') switchPinboardMode('private');
     triggerCloudSave(true);
-    if(!isBanned) alert("🚪 Crew verlassen.");
+    if(!isBanned) alert(_boardUiPhrase("🚪 Crew verlassen."));
 }
 async function kickGroupUser(targetSyncId) {
-    if(!confirm(`Möchtest du dieses Mitglied wirklich aus der Crew kicken?`)) return;
+    if(!confirm(_boardUiPhrase('Möchtest du dieses Mitglied wirklich aus der Crew kicken?'))) return;
     const gName = getGroupName();
     try {
         const res = await fetch(SYNC_URL + "GROUP_" + gName, {
@@ -439,7 +454,7 @@ function updateGroupUIFromSync(gName, gNick) {
         const stat = document.getElementById('groupStatus');
         if (inpN) inpN.value = gName;
         if (inpU) inpU.value = gNick;
-        if (stat) { stat.innerText = "Verbunden als " + gNick; stat.style.color = "var(--green)"; }
+        if (stat) { stat.innerText = _boardUiText('crew.status.connectedAs', { nick: gNick }, 'Verbunden als {nick}'); stat.style.color = "var(--green)"; }
         silentGroupSync();
     } else {
         leaveGroup(true); // Lautlos aufräumen
@@ -476,7 +491,7 @@ function updateGroupBadgeUI() {
 }
 function switchPinboardMode(mode) {
     if(mode === 'group' && !getGroupName()) {
-        alert("Bitte zuerst unten in den Einstellungen einer Crew beitreten!"); return;
+        alert(_boardUiPhrase("Bitte zuerst unten in den Einstellungen einer Crew beitreten!")); return;
     }
     currentBoardMode = mode;
     window.gaPplQuiz?.updateButton?.();
@@ -486,7 +501,7 @@ function switchPinboardMode(mode) {
     renderNotes();
 }
 function toggleTutorialNotes() {
-    if (currentBoardMode === 'group') { alert("Tipps können nur auf dem privaten Brett geladen werden."); return; }
+    if (currentBoardMode === 'group') { alert(_boardUiPhrase("Tipps können nur auf dem privaten Brett geladen werden.")); return; }
     let notes = JSON.parse(localStorage.getItem('ga_pinboard')) || [];
     const hasTutorial = notes.some(isTutorialTipNote);
     if (hasTutorial) notes = notes.filter(n => !isTutorialTipNote(n));
@@ -496,14 +511,16 @@ function toggleTutorialNotes() {
 }
 function clearPinboard() {
     if (currentBoardMode === 'group') {
-        alert("Du kannst nicht das gesamte Crew-Brett löschen. Bitte lösche deine Zettel einzeln."); return;
+        alert(_boardUiPhrase("Du kannst nicht das gesamte Crew-Brett löschen. Bitte lösche deine Zettel einzeln.")); return;
     }
-    if (confirm("🗑️ Möchtest du wirklich ALLE Zettel von deinem privaten Brett in den Müll werfen?")) {
+    if (confirm(_boardUiPhrase("🗑️ Möchtest du wirklich ALLE Zettel von deinem privaten Brett in den Müll werfen?"))) {
         const notes = JSON.parse(localStorage.getItem('ga_pinboard') || '[]');
         const protectedNotes = notes.filter(note => pinboardAuthoritySanctionActive(note));
         localStorage.setItem('ga_pinboard', JSON.stringify(protectedNotes));
         if (protectedNotes.length) {
-            alert(`${protectedNotes.length} Behoerdeneintrag${protectedNotes.length === 1 ? '' : 'e'} bleiben bis zum Ablauf der 7-Tage-Frist bestehen.`);
+            alert(protectedNotes.length === 1
+                ? _boardUiText('pinboard.authorityKeptOne', null, '1 Behoerdeneintrag bleiben bis zum Ablauf der 7-Tage-Frist bestehen.')
+                : _boardUiText('pinboard.authorityKept', { count: protectedNotes.length }, '{count} Behoerdeneintraege bleiben bis zum Ablauf der 7-Tage-Frist bestehen.'));
         }
         renderNotes(); triggerCloudSave();
     }
@@ -566,7 +583,7 @@ function togglePinboard(forceInternal) {
     }
 }
 function addNote() {
-    const text = prompt("Was möchtest du ans Brett pinnen?");
+    const text = prompt(_boardUiPhrase("Was möchtest du ans Brett pinnen?"));
     const clean = String(text || '').trim().slice(0, 250);
     if (!clean) return;
     const newNote = { id: Date.now(), text: clean, x: 30 + Math.random() * 15, y: 30 + Math.random() * 15, rot: Math.floor(Math.random() * 9) - 4 };
@@ -590,7 +607,7 @@ function deleteNote(id, isGroup) {
         let gNotes = groupDataCache.notes || [];
         const note = gNotes.find(n => n.id === id);
         if (note && note.author === getGroupNick()) {
-            if(!confirm("Zettel für ALLE Crew-Mitglieder löschen?")) return;
+            if(!confirm(_boardUiPhrase("Zettel für ALLE Crew-Mitglieder löschen?"))) return;
             groupDataCache.notes = gNotes.filter(n => n.id !== id);
             renderNotes(); triggerGroupSave(true);
         } else {
@@ -604,10 +621,10 @@ function deleteNote(id, isGroup) {
         let notes = JSON.parse(localStorage.getItem('ga_pinboard')) || [];
         const note = notes.find(entry => String(entry?.id) === String(id));
         if (pinboardAuthoritySanctionActive(note)) {
-            alert('Dieser Behoerdeneintrag kann waehrend der 7-Tage-Frist nicht geloescht werden.');
+            alert(_boardUiPhrase('Dieser Behoerdeneintrag kann waehrend der 7-Tage-Frist nicht geloescht werden.'));
             return;
         }
-        if (!confirm("Zettel wirklich abreißen?")) return;
+        if (!confirm(_boardUiPhrase("Zettel wirklich abreißen?"))) return;
         notes = notes.filter(n => n.id !== id);
         if (!pinboardTrySavePrivateNotes(notes, "Die Pinnwand konnte nicht gespeichert werden. Bitte lösche alte Flüge und versuche es erneut.")) return;
         renderNotes(); triggerCloudSave();
@@ -618,7 +635,7 @@ function editNote(id, isGroup) {
         let gNotes = groupDataCache.notes || [];
         const noteIndex = gNotes.findIndex(n => n.id === id);
         if (noteIndex > -1 && gNotes[noteIndex].author === getGroupNick()) {
-            const newText = prompt("Notiz bearbeiten:", gNotes[noteIndex].text);
+            const newText = prompt(_boardUiPhrase("Notiz bearbeiten:"), gNotes[noteIndex].text);
             const clean = String(newText || '').trim().slice(0, 250);
             if (newText !== null && clean !== "") {
                 gNotes[noteIndex].text = clean;
@@ -630,10 +647,10 @@ function editNote(id, isGroup) {
         const noteIndex = notes.findIndex(n => n.id === id);
         if (noteIndex > -1) {
             if (pinboardAuthoritySanctionActive(notes[noteIndex])) {
-                alert('Dieser Behoerdeneintrag kann waehrend der 7-Tage-Frist nicht bearbeitet werden.');
+                alert(_boardUiPhrase('Dieser Behoerdeneintrag kann waehrend der 7-Tage-Frist nicht bearbeitet werden.'));
                 return;
             }
-            const newText = prompt("Notiz bearbeiten:", notes[noteIndex].text);
+            const newText = prompt(_boardUiPhrase("Notiz bearbeiten:"), notes[noteIndex].text);
             const clean = String(newText || '').trim().slice(0, 250);
             if (newText !== null && clean !== "") {
                 notes[noteIndex].text = clean;
@@ -645,15 +662,15 @@ function editNote(id, isGroup) {
 }
 function pinCurrentFlight(target) {
     if (document.getElementById("briefingBox").style.display !== "block" || !currentMissionData) {
-        if (target === 'private' || target === 'group') alert("Es ist kein aktuelles Briefing vorhanden. Bitte zuerst einen Flug erstellen oder laden.");
+        if (target === 'private' || target === 'group') alert(_boardUiPhrase("Es ist kein aktuelles Briefing vorhanden. Bitte zuerst einen Flug erstellen oder laden."));
         return;
     }
     if (target === 'group' && !getGroupName()) {
-        alert("Bitte zuerst unten in den Einstellungen einer Crew beitreten!");
+        alert(_boardUiPhrase("Bitte zuerst unten in den Einstellungen einer Crew beitreten!"));
         return;
     }
     if (typeof window.isMissionDraftPending === 'function' && window.isMissionDraftPending()) {
-        alert("Mission ist noch ein Entwurf. Bitte erst akzeptieren, dann speichern oder mit der Crew teilen.");
+        alert(_boardUiPhrase("Mission ist noch ein Entwurf. Bitte erst akzeptieren, dann speichern oder mit der Crew teilen."));
         return;
     }
     let pinnedMissionContract = window.activeMissionContract || currentMissionData?.missionContract || null;
@@ -703,7 +720,7 @@ function pinCurrentFlight(target) {
         executePin(target);
     } else if(getGroupName()) {
         document.getElementById('pinModalOverlay').style.display = 'flex';
-        document.getElementById('btnPinGroup').innerText = `👥 An die Crew (${getGroupName()})`;
+        document.getElementById('btnPinGroup').innerText = _boardUiText('pinboard.pinToCrewNamed', { crew: getGroupName() }, '👥 An die Crew ({crew})');
     } else {
         executePin('private');
     }
@@ -774,7 +791,7 @@ async function executePin(target) {
     if(target === 'private') {
         let notes = JSON.parse(localStorage.getItem('ga_pinboard')) || [];
         if (notes.filter(n => n.type === 'flight').length >= 10) {
-            alert("Dein privates Board ist voll! (Max 10 Flüge)."); closePinModal(); return;
+            alert(_boardUiPhrase("Dein privates Board ist voll! (Max 10 Flüge).")); closePinModal(); return;
         }
         const pinNote = await pinboardCompressFlightNote(pendingPinNote);
         notes = JSON.parse(localStorage.getItem('ga_pinboard')) || [];
@@ -785,17 +802,17 @@ async function executePin(target) {
             triggerCloudSave(true);
         } catch (err) {
             try { console.error('[Pinboard] Flug konnte nicht gespeichert werden:', err); } catch (_) {}
-            alert("Der Flug konnte nicht gespeichert werden. Der lokale Speicher ist voll oder blockiert. Bitte lösche alte Pinnwand-Flüge und versuche es erneut.");
+            alert(_boardUiPhrase("Der Flug konnte nicht gespeichert werden. Der lokale Speicher ist voll oder blockiert. Bitte lösche alte Pinnwand-Flüge und versuche es erneut."));
             return;
         }
-        if (!document.getElementById('pinboardOverlay').classList.contains('active')) alert("📌 Flugauftrag privat gespeichert!");
+        if (!document.getElementById('pinboardOverlay').classList.contains('active')) alert(_boardUiPhrase("📌 Flugauftrag privat gespeichert!"));
     } else if (target === 'group') {
         pendingPinNote.author = getGroupNick();
         let gNotes = groupDataCache.notes || [];
         gNotes.push(pendingPinNote);
         groupDataCache.notes = gNotes;
         triggerGroupSave(true);
-        if (!document.getElementById('pinboardOverlay').classList.contains('active')) alert("👥 Flugauftrag mit der Crew geteilt!");
+        if (!document.getElementById('pinboardOverlay').classList.contains('active')) alert(_boardUiPhrase("👥 Flugauftrag mit der Crew geteilt!"));
     }
     if(document.getElementById('pinboardOverlay').classList.contains('active')) renderNotes();
     closePinModal();
@@ -814,7 +831,7 @@ async function loadPinnedFlight(id, isGroup) {
         try { console.warn('[Pinboard] Komprimierte Flugdaten konnten nicht gelesen werden:', error); } catch (_) {}
     }
     if (!flightData) {
-        alert("Dieser Pinnwand-Flug enthaelt keine gespeicherten Flugdaten mehr. Bitte den Flug neu anpinnen oder aus einem neueren Cloud-Backup laden.");
+        alert(_boardUiPhrase("Dieser Pinnwand-Flug enthaelt keine gespeicherten Flugdaten mehr. Bitte den Flug neu anpinnen oder aus einem neueren Cloud-Backup laden."));
         try { console.warn('[Pinboard] Flight note without flightData cannot be restored:', note); } catch (_) {}
         return;
     }
@@ -824,7 +841,7 @@ async function loadPinnedFlight(id, isGroup) {
 // Loads a saved mission state as a new planned mission (pinned flights, crew flights).
 async function pinboardRestoreFlightData(flightData) {
     if (typeof window.isMissionDraftPending === 'function' && window.isMissionDraftPending(flightData)) {
-        alert("Dieser angepinnte Flug ist nur ein Entwurf und kann nicht geladen werden.");
+        alert(_boardUiPhrase("Dieser angepinnte Flug ist nur ein Entwurf und kann nicht geladen werden."));
         return false;
     }
     try {
@@ -836,7 +853,7 @@ async function pinboardRestoreFlightData(flightData) {
             pinboardStoreActiveMissionStateForRestore(flightData);
             const restored = await restoreMissionState(flightData, { source: 'pinboard' });
             if (restored === false) {
-                alert("Dieser Pinnwand-Flug konnte nicht geladen werden.");
+                alert(_boardUiPhrase("Dieser Pinnwand-Flug konnte nicht geladen werden."));
                 return false;
             }
             // Route-only plan or the accepted mission itself: no slot change, save directly.
@@ -856,7 +873,7 @@ async function pinboardRestoreFlightData(flightData) {
         return true;
     } catch (err) {
         console.error('[Pinboard] Flight restore failed:', err);
-        alert("Dieser Pinnwand-Flug konnte nicht geladen werden.");
+        alert(_boardUiPhrase("Dieser Pinnwand-Flug konnte nicht geladen werden."));
         return false;
     }
 }
@@ -919,12 +936,12 @@ function pinboardAppendRichFlightMarkup(container, markup) {
 }
 
 function pinboardAppendNoteChrome(container, note, isGroup) {
-    if (note.isNew) container.appendChild(pinboardCreateElement('div', 'post-it-new-badge', 'NEU'));
+    if (note.isNew) container.appendChild(pinboardCreateElement('div', 'post-it-new-badge', _boardUiText('pinboard.newBadge', null, 'NEU')));
     container.appendChild(pinboardCreateElement('div', 'post-it-pin'));
 
     if (note.type === 'authority_sanction') {
-        const lock = pinboardCreateElement('div', 'post-it-authority-lock', '🔒 7 TAGE');
-        lock.title = 'Dieser Behoerdeneintrag wird nach sieben Tagen automatisch entfernt.';
+        const lock = pinboardCreateElement('div', 'post-it-authority-lock', _boardUiText('pinboard.authorityLock', null, '🔒 7 TAGE'));
+        lock.title = _boardUiText('pinboard.authorityLockTitle', null, 'Dieser Behoerdeneintrag wird nach sieben Tagen automatisch entfernt.');
         container.appendChild(lock);
         return;
     }
@@ -970,7 +987,7 @@ function renderNotes() {
         const amIAdmin = (groupDataCache.members || []).find(m => m.syncId === getSyncId())?.isAdmin;
         const pin = pinboardCreateElement('div', 'post-it-pin');
         const rosterTitle = pinboardCreateElement('div', 'roster-title');
-        rosterTitle.append(pinboardCreateElement('span', '', `👥 CREW: ${String(getGroupName())}`), crewRefreshButton());
+        rosterTitle.append(pinboardCreateElement('span', '', _boardUiText('pinboard.rosterTitle', { crew: String(getGroupName()) }, '👥 CREW: {crew}')), crewRefreshButton());
         rosterTitle.style.cssText = 'display:flex; justify-content:space-between; align-items:flex-start; gap:4px; font-weight:bold; font-size:1.4cqw; border-bottom:2px solid #aaa; padding-bottom:4px; margin-bottom:4px;';
         const rosterList = pinboardCreateElement('div', 'roster-list');
 
@@ -992,11 +1009,11 @@ function renderNotes() {
             displayName.appendChild(document.createTextNode(String(m.nick || m.syncId || 'Pilot')));
 
             const presence = window.gaCrewPresence?.statusFor(m.syncId) || { label: isMe ? 'Online' : 'Aktiv', cls: '' };
-            const status = pinboardCreateElement('span', `roster-status ${presence.cls}`, presence.label);
+            const status = pinboardCreateElement('span', `roster-status ${presence.cls}`, _boardUiPhrase(presence.label));
             status.style.cssText = 'display:flex; align-items:center;';
             if (amIAdmin && !isMe) {
                 const targetSyncId = m.syncId;
-                const kickButton = pinboardCreateAction('span', '', '👢', () => kickGroupUser(targetSyncId), 'Mitglied kicken');
+                const kickButton = pinboardCreateAction('span', '', '👢', () => kickGroupUser(targetSyncId), _boardUiText('pinboard.kick', null, 'Mitglied kicken'));
                 kickButton.style.cssText = 'cursor:pointer; font-size:1cqw; margin-left:6px; transition:transform 0.2s;';
                 status.appendChild(kickButton);
             }
@@ -1078,9 +1095,9 @@ function crewRefreshButton() {
         } finally {
             if (currentBoardMode === 'group') renderNotes();
         }
-    }, 'Crew jetzt aktualisieren');
+    }, _boardUiText('pinboard.crewRefresh', null, 'Crew jetzt aktualisieren'));
     button.type = 'button';
-    button.setAttribute('aria-label', 'Crew jetzt aktualisieren');
+    button.setAttribute('aria-label', _boardUiText('pinboard.crewRefresh', null, 'Crew jetzt aktualisieren'));
     if (Date.now() < crewRefreshBusyUntil) {
         button.disabled = true;
         setTimeout(() => { button.disabled = false; button.classList.remove('is-busy'); }, crewRefreshBusyUntil - Date.now());
@@ -1104,22 +1121,22 @@ function renderCrewHomebaseDirectory(board) {
     note.style.transform = 'rotate(2deg)';
     const pin = pinboardCreateElement('div', 'post-it-pin');
     const title = pinboardCreateElement('div', 'homebase-directory-title', '🏠 HOMEBASES');
-    const subtitle = pinboardCreateElement('div', 'homebase-directory-subtitle', 'Crew-Ziele für private Besuche');
+    const subtitle = pinboardCreateElement('div', 'homebase-directory-subtitle', _boardUiText('pinboard.homebases.subtitle', null, 'Crew-Ziele für private Besuche'));
     const list = pinboardCreateElement('div', 'homebase-directory-list');
     const entries = (Array.isArray(window.homebaseGroupDirectory) ? window.homebaseGroupDirectory : [])
         .filter((entry) => entry?.hasHomebase && entry?.crewShareEnabled === true);
     if (!entries.length) {
-        list.appendChild(pinboardCreateElement('div', 'homebase-directory-empty', 'Noch keine Homebases freigegeben.'));
+        list.appendChild(pinboardCreateElement('div', 'homebase-directory-empty', _boardUiText('pinboard.homebases.empty', null, 'Noch keine Homebases freigegeben.')));
     }
     entries.forEach((entry) => {
         const row = pinboardCreateElement('div', 'homebase-directory-row');
         const who = pinboardCreateElement('span', 'homebase-directory-owner', String(entry?.nick || entry?.pilotId || 'Pilot'));
         const airport = nearestHomebaseAirport(entry?.spawn);
-        const destination = airport || 'Koordinaten';
+        const destination = airport || _boardUiText('pinboard.homebases.coordinates', null, 'Koordinaten');
         const label = pinboardCreateElement('span', 'homebase-directory-apt', destination);
         row.append(who, label);
         if (entry?.hasHomebase && Number.isFinite(Number(entry?.spawn?.lat)) && Number.isFinite(Number(entry?.spawn?.lon))) {
-            const visit = pinboardCreateAction('button', 'crew-homebase-visit-btn', 'Besuchen', async () => {
+            const visit = pinboardCreateAction('button', 'crew-homebase-visit-btn', _boardUiText('pinboard.homebases.visit', null, 'Besuchen'), async () => {
                 const ok = await window.createCrewHomebaseVisitRoute?.(entry);
                 if (ok && document.getElementById('pinboardOverlay')?.classList.contains('active')) togglePinboard(true);
             });
@@ -1144,17 +1161,23 @@ function createNoteDOM(note, isGroup) {
     pinboardAppendNoteChrome(div, note, isGroup);
     if (note.type === 'flight') {
         pinboardAppendRichFlightMarkup(div, note.text);
-        div.appendChild(pinboardCreateAction('button', 'flight-load-btn', '📂 Flug laden', () => loadPinnedFlight(note.id, isGroup)));
+        div.appendChild(pinboardCreateAction('button', 'flight-load-btn', _boardUiText('pinboard.loadFlight', null, '📂 Flug laden'), () => loadPinnedFlight(note.id, isGroup)));
     } else if (note.type === 'authority_sanction') {
-        const heading = pinboardCreateElement('strong', 'authority-sanction-heading', 'BEHOERDENEINTRAG');
+        const heading = pinboardCreateElement('strong', 'authority-sanction-heading', _boardUiText('pinboard.authorityHeading', null, 'BEHOERDENEINTRAG'));
         const noteText = pinboardCreateElement('span', 'authority-sanction-text', String(note.text || '').replace(/^BEHOERDENEINTRAG\s*/i, '').trim());
         noteText.style.whiteSpace = 'pre-wrap';
         const remainingMs = Math.max(0, Number(note.expiresAt || 0) - Date.now());
         const remainingDays = Math.max(1, Math.ceil(remainingMs / 86400000));
-        const expiry = pinboardCreateElement('small', 'authority-sanction-expiry', `Automatische Entfernung in ${remainingDays} ${remainingDays === 1 ? 'Tag' : 'Tagen'}.`);
+        const expiry = pinboardCreateElement('small', 'authority-sanction-expiry', remainingDays === 1
+            ? _boardUiText('pinboard.authorityExpiryOne', null, 'Automatische Entfernung in 1 Tag.')
+            : _boardUiText('pinboard.authorityExpiry', { days: remainingDays }, 'Automatische Entfernung in {days} Tagen.'));
         div.append(heading, noteText, expiry);
     } else {
-        const noteText = pinboardCreateElement('span', '', String(note.text || ''));
+        // Tip notes are stored in German; the shown text follows the UI language (by tip id).
+        const shownText = isTutorialTipNote(note)
+            ? _boardUiText(`pinboard.tip.${note.id}`, null, String(note.text || ''))
+            : String(note.text || '');
+        const noteText = pinboardCreateElement('span', '', shownText);
         noteText.style.whiteSpace = 'pre-wrap';
         div.appendChild(noteText);
     }
@@ -1275,11 +1298,11 @@ window.addEventListener('homebase-directory-changed', () => {
 // =========================================================
 window.exportMission = async function() {
     if (typeof window.isMissionDraftPending === 'function' && window.isMissionDraftPending()) {
-        alert("Mission ist noch ein Entwurf. Bitte erst akzeptieren, dann exportieren.");
+        alert(_boardUiPhrase('Mission ist noch ein Entwurf. Bitte erst akzeptieren, dann exportieren.'));
         return;
     }
     const data = localStorage.getItem('ga_active_mission');
-    if (!data) { alert("Kein aktiver Flug zum Exportieren."); return; }
+    if (!data) { alert(_boardUiPhrase('Kein aktiver Flug zum Exportieren.')); return; }
     let fullState;
     try {
         fullState = JSON.parse(data);
@@ -1288,39 +1311,39 @@ window.exportMission = async function() {
             fullState = await window.resolveActiveMissionStorageState(fullState);
         }
         if (!fullState || fullState.localStorageFallbackId) throw new Error('Unvollstaendiger Missionsstand');
-    } catch (_) { alert('Der vollstaendige Missionsstand konnte nicht geladen werden. Es wurde kein gekuerzter Flug-Code exportiert.'); return; }
+    } catch (_) { alert(_boardUiPhrase('Der vollstaendige Missionsstand konnte nicht geladen werden. Es wurde kein gekuerzter Flug-Code exportiert.')); return; }
     const code = btoa(encodeURIComponent(JSON.stringify(fullState)));
     navigator.clipboard.writeText(code).then(() => {
-        alert("🔗 Flug-Code kopiert!\n\nDu kannst ihn nun im Chat teilen oder über 'Code laden' (Pinnwand) auf einem anderen Gerät importieren.");
-    }).catch(() => alert("Fehler beim Kopieren."));
+        alert(_boardUiPhrase("🔗 Flug-Code kopiert!\n\nDu kannst ihn nun im Chat teilen oder über 'Code laden' (Pinnwand) auf einem anderen Gerät importieren."));
+    }).catch(() => alert(_boardUiPhrase('Fehler beim Kopieren.')));
 };
 
 window.importMission = async function() {
-    const code = prompt("Füge hier den kopierten Flug-Code ein:");
+    const code = prompt(_boardUiPhrase('Füge hier den kopierten Flug-Code ein:'));
     if (!code) return;
     try {
         const decoded = decodeURIComponent(atob(code));
         const state = JSON.parse(decoded);
         if (typeof window.isMissionDraftPending === 'function' && window.isMissionDraftPending(state)) {
-            alert("Dieser Flug-Code enthaelt nur einen Entwurf. Bitte auf dem erzeugenden Rechner erst akzeptieren und dann erneut exportieren.");
+            alert(_boardUiPhrase('Dieser Flug-Code enthaelt nur einen Entwurf. Bitte auf dem erzeugenden Rechner erst akzeptieren und dann erneut exportieren.'));
             return;
         }
         if (state.localStorageFallbackId) throw new Error('Code enthaelt nur einen lokalen Speicherverweis');
         const draft = await window.gaOpenLoadedMissionAsDraft?.(state, 'flight-code');
         if (draft?.handled) {
-            if (draft.ok) alert("✅ Flug als Entwurf geladen. Mit „Mission akzeptieren“ übernehmen.");
+            if (draft.ok) alert(_boardUiPhrase('✅ Flug als Entwurf geladen. Mit „Mission akzeptieren“ übernehmen.'));
             return;
         }
         window.storeActiveMissionStateSafely(state, { refreshActiveMissionTimestamp: false });
         const restored = await restoreMissionState(state, { source: 'import' });
         if (restored === false) {
-            alert("❌ Dieser Flug konnte nicht geladen werden.");
+            alert(_boardUiPhrase('❌ Dieser Flug konnte nicht geladen werden.'));
             return;
         }
         window.queueActiveMissionCloudSave?.('flight-code-imported', { delayMs: 0 });
-        alert("✅ Flug erfolgreich geladen!");
+        alert(_boardUiPhrase('✅ Flug erfolgreich geladen!'));
     } catch(e) {
-        alert("❌ Ungültiger oder beschädigter Code.");
+        alert(_boardUiPhrase('❌ Ungültiger oder beschädigter Code.'));
     }
 };
 
@@ -1997,10 +2020,10 @@ async function captureMetarWidget(containerId) {
 
 window.generateBriefingPDF = async function() {
     if (!currentMissionData || document.getElementById("briefingBox").style.display !== "block") {
-        alert('Kein aktives Briefing vorhanden.'); return;
+        alert(_boardUiPhrase('Kein aktives Briefing vorhanden.')); return;
     }
     if (typeof window.isMissionDraftPending === 'function' && window.isMissionDraftPending()) {
-        alert('Mission ist noch ein Entwurf. Bitte erst akzeptieren, dann als Briefing Pack exportieren.');
+        alert(_boardUiPhrase('Mission ist noch ein Entwurf. Bitte erst akzeptieren, dann als Briefing Pack exportieren.'));
         return;
     }
 
@@ -2011,7 +2034,7 @@ window.generateBriefingPDF = async function() {
         await ensureBriefingPdfLibraries();
     } catch (e) {
         if (indicator) indicator.innerText = 'PDF-Bibliothek konnte nicht geladen werden.';
-        alert('PDF-Bibliothek konnte nicht geladen werden. Bitte Verbindung prüfen und erneut versuchen.');
+        alert(_boardUiPhrase('PDF-Bibliothek konnte nicht geladen werden. Bitte Verbindung prüfen und erneut versuchen.'));
         return;
     }
 
@@ -2070,7 +2093,7 @@ window.generateBriefingPDF = async function() {
     } catch (e) {
         console.error('PDF generation failed:', e);
         if (indicator) indicator.innerText = '\u274C PDF-Erstellung fehlgeschlagen.';
-        alert('PDF konnte nicht erstellt werden: ' + e.message);
+        alert(_boardUiText('dialog.board.pdfKonnteNichtErstellt', { message: e.message }, 'PDF konnte nicht erstellt werden: {message}'));
     }
 };
 
@@ -2526,9 +2549,9 @@ function buildMSFSFlightPlanXml(options = {}) {
 }
 
 window.exportMSFS = function() {
-    if (!currentMissionData || routeWaypoints.length < 2) { alert("Kein aktiver Flugplan!"); return; }
+    if (!currentMissionData || routeWaypoints.length < 2) { alert(_boardUiPhrase('Kein aktiver Flugplan!')); return; }
     if (typeof window.isMissionDraftPending === 'function' && window.isMissionDraftPending()) {
-        alert("Mission ist noch ein Entwurf. Bitte erst akzeptieren, dann als MSFS-Plan exportieren.");
+        alert(_boardUiPhrase('Mission ist noch ein Entwurf. Bitte erst akzeptieren, dann als MSFS-Plan exportieren.'));
         return;
     }
     const cruiseAlt = Number(document.getElementById('altSlider')?.value) || 4500;
@@ -2599,7 +2622,7 @@ window.importMSFS = function(event) {
                 const decoded = decodeURIComponent(atob(backupMatch[1]));
                 backupState = JSON.parse(decoded);
                 if (typeof window.isMissionDraftPending === 'function' && window.isMissionDraftPending(backupState)) {
-                    alert("Der MSFS-Plan enthaelt nur einen Dispatcher-Entwurf. Bitte erst akzeptieren und neu exportieren.");
+                    alert(_boardUiPhrase('Der MSFS-Plan enthaelt nur einen Dispatcher-Entwurf. Bitte erst akzeptieren und neu exportieren.'));
                     return;
                 }
             } catch(err) { console.warn("Backup Code fehlerhaft, parse regulär."); }
@@ -2614,18 +2637,18 @@ window.importMSFS = function(event) {
                         window.storeActiveMissionStateSafely(backupState, { refreshActiveMissionTimestamp: false });
                         const restored = await restoreMissionState(backupState, { source: 'msfs-import' });
                         if (restored === false) {
-                            alert("❌ Der gespeicherte Dispatcher-Flug konnte nicht geladen werden.");
+                            alert(_boardUiPhrase('❌ Der gespeicherte Dispatcher-Flug konnte nicht geladen werden.'));
                             return;
                         }
                         window.queueActiveMissionCloudSave?.('msfs-import-restored', { delayMs: 0 });
                     }
                 } catch(err) {
                     console.warn("Backup Restore fehlgeschlagen:", err);
-                    alert("❌ Der gespeicherte Dispatcher-Flug konnte nicht geladen werden.");
+                    alert(_boardUiPhrase('❌ Der gespeicherte Dispatcher-Flug konnte nicht geladen werden.'));
                     return;
                 }
                 closeTransferModal();
-                alert(msfsDraftLoaded ? "✅ Flugplan inkl. KI-Briefing als Entwurf geladen. Mit „Mission akzeptieren“ übernehmen." : "✅ Eigener Flugplan inkl. KI-Briefing erfolgreich wiederhergestellt!");
+                alert(msfsDraftLoaded ? _boardUiPhrase("✅ Flugplan inkl. KI-Briefing als Entwurf geladen. Mit „Mission akzeptieren“ übernehmen.") : _boardUiPhrase("✅ Eigener Flugplan inkl. KI-Briefing erfolgreich wiederhergestellt!"));
                 setTimeout(() => {
                     if (typeof map !== 'undefined' && map && routeWaypoints.length >= 2) {
                         map.fitBounds(L.latLngBounds(routeWaypoints), { padding: [40, 40] });
@@ -2639,7 +2662,7 @@ window.importMSFS = function(event) {
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(content, "text/xml");
         const waypoints = xmlDoc.getElementsByTagName("ATCWaypoint");
-        if (!waypoints || waypoints.length < 2) { alert("Keine gültigen Wegpunkte in dieser .pln gefunden."); return; }
+        if (!waypoints || waypoints.length < 2) { alert(_boardUiPhrase('Keine gültigen Wegpunkte in dieser .pln gefunden.')); return; }
 
         let newRoute = [];
         let startIcao = xmlDoc.getElementsByTagName("DepartureID")[0]?.textContent || "START";
@@ -2658,7 +2681,7 @@ window.importMSFS = function(event) {
             }
         }
 
-        if (newRoute.length < 2) { alert("Koordinaten konnten nicht gelesen werden."); return; }
+        if (newRoute.length < 2) { alert(_boardUiPhrase('Koordinaten konnten nicht gelesen werden.')); return; }
 
         const cruiseAltTag = xmlDoc.getElementsByTagName("CruisingAlt")[0];
         let cruiseAlt = cruiseAltTag ? parseInt(cruiseAltTag.textContent) : 4500;
@@ -2667,7 +2690,7 @@ window.importMSFS = function(event) {
         pendingMSFSImport = { newRoute, startIcao, destIcao, cruiseAlt };
         
         closeTransferModal();
-        document.getElementById('importActionText').innerText = `Externe Route (${newRoute.length} Wegpunkte) erkannt!\nWie möchtest du diesen Flugplan laden?`;
+        document.getElementById('importActionText').innerText = _boardUiText('importModal.detected', { count: newRoute.length }, 'Externe Route ({count} Wegpunkte) erkannt!\nWie möchtest du diesen Flugplan laden?');
         document.getElementById('importActionModalOverlay').style.display = 'flex';
     };
     reader.readAsText(file);

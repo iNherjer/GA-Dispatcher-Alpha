@@ -5,7 +5,14 @@
     const modes = ['off', 'direct', 'select'];
     let mode = 'off', dialog = null, source = null, busy = false;
     try { const saved = localStorage.getItem('ga-navcom-mode-v1'); if (modes.indexOf(saved) >= 0) mode = saved; } catch (_) {}
-    const labels = {off:'AUS', direct:'Gerät 1 aktiv', select:'Auswahl'};
+    // UI language (i18n-core.js, web only). In the EFB there is no GAI18n: the German text is used.
+    function rtText(key, german, vars) {
+        var i18n = (typeof window !== 'undefined') ? window.GAI18n : null;
+        if (i18n) return i18n.t(key, vars, german);
+        return String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, function (m, n) { return (vars && Object.prototype.hasOwnProperty.call(vars, n)) ? String(vars[n]) : m; });
+    }
+    const labelsDe = {off:'AUS', direct:'Gerät 1 aktiv', select:'Auswahl'};
+    const label = m => rtText('radio.mode.' + m, labelsDe[m]);
     function each(nodes, fn) { Array.prototype.forEach.call(nodes, fn); }
     const nativeEfb = document.body && document.body.classList.contains('ga-efb-tracker-host');
     function radioNode(target) {
@@ -31,7 +38,7 @@
     function refresh() {
         document.body.setAttribute('data-navcom-mode', mode);
         const button = document.getElementById('navcomModeBtn');
-        if (button && button.textContent !== 'NAVCOM: ' + labels[mode]) button.textContent = 'NAVCOM: ' + labels[mode];
+        if (button && button.textContent !== 'NAVCOM: ' + label(mode)) button.textContent = 'NAVCOM: ' + label(mode);
         each(document.querySelectorAll('.ga-radio-value'), node => {
             bindNativeInput(node);
             node.tabIndex = mode === 'off' ? -1 : 0;
@@ -48,7 +55,7 @@
         if (typeof window.showMapToast === 'function') { window.showMapToast(message, 4500); return; }
         let toast = document.getElementById('gaRadioStatus');
         if (!toast) { toast = document.createElement('div'); toast.id = 'gaRadioStatus'; toast.className = 'ga-radio-status'; toast.setAttribute('role', 'status'); document.body.appendChild(toast); }
-        toast.textContent = message;
+        toast.textContent = window.GAI18n ? window.GAI18n.phrase(message) : message;
         toast.hidden = false;
         clearTimeout(notify.timer); notify.timer = setTimeout(() => { toast.hidden = true; }, 5000);
     }
@@ -71,14 +78,14 @@
             if (!result || !result.ok || !result.confirmed) throw new Error(result && result.error || 'radio_not_confirmed');
             const target = result.target;
             close();
-            notify(target.kind === 'XPDR' ? 'Transponder: ' + target.value : target.kind + target.index + ' ' + (target.slot === 'active' ? 'aktiv' : 'Standby') + ': ' + target.value + (target.kind === 'ADF' ? ' kHz' : ' MHz'));
+            notify(target.kind === 'XPDR' ? 'Transponder: ' + target.value : target.kind + target.index + ' ' + (target.slot === 'active' ? rtText('radio.toast.active', 'aktiv') : 'Standby') + ': ' + target.value + (target.kind === 'ADF' ? ' kHz' : ' MHz'));
         } catch (error) { notify(errors[error.message] || 'Übernahme nicht bestätigt. Bitte Verbindung und Cockpitgerät prüfen.'); }
         finally { busy = false; if (dialog) each(dialog.querySelectorAll('button'), b => { b.disabled = false; }); }
     }
     function open(node, spec) {
         close(); source = node;
-        dialog = document.createElement('div'); dialog.className = 'ga-radio-dialog'; dialog.setAttribute('role','dialog'); dialog.setAttribute('aria-modal','false'); dialog.setAttribute('aria-label','Frequenz übernehmen');
-        dialog.innerHTML = '<div class="ga-radio-heading"><b>' + core.escape(spec.value) + (spec.kind === 'XPDR' ? '' : spec.kind === 'ADF' ? ' kHz' : ' MHz') + '</b><button type="button" class="pb-btn ga-radio-close" aria-label="Schließen">✕</button></div><div class="ga-radio-choices"></div><button type="button" class="pb-btn ga-radio-back">Zurück</button>';
+        dialog = document.createElement('div'); dialog.className = 'ga-radio-dialog'; dialog.setAttribute('role','dialog'); dialog.setAttribute('aria-modal','false'); dialog.setAttribute('aria-label',rtText('radio.dialog.aria', 'Frequenz übernehmen'));
+        dialog.innerHTML = '<div class="ga-radio-heading"><b>' + core.escape(spec.value) + (spec.kind === 'XPDR' ? '' : spec.kind === 'ADF' ? ' kHz' : ' MHz') + '</b><button type="button" class="pb-btn ga-radio-close" aria-label="' + rtText('radio.dialog.close', 'Schließen') + '">✕</button></div><div class="ga-radio-choices"></div><button type="button" class="pb-btn ga-radio-back">' + rtText('radio.dialog.back', 'Zurück') + '</button>';
         document.body.appendChild(dialog);
         const rect = node.getBoundingClientRect();
         // The native EFB scales the whole body. Convert screen coordinates back
@@ -108,7 +115,7 @@
         function slotStep(index) {
             heading.textContent = (spec.kind === 'XPDR' ? 'XPDR' : spec.kind + index) + ' · ' + headingText;
             back.style.visibility = 'visible'; back.onclick = deviceStep;
-            choices.innerHTML = '<button type="button" class="pb-btn">' + (spec.kind === 'XPDR' ? 'Code setzen' : 'Aktiv') + '</button><button type="button" class="pb-btn">Standby</button>';
+            choices.innerHTML = '<button type="button" class="pb-btn">' + (spec.kind === 'XPDR' ? rtText('radio.dialog.setCode', 'Code setzen') : rtText('radio.dialog.active', 'Aktiv')) + '</button><button type="button" class="pb-btn">Standby</button>';
             const buttons = choices.querySelectorAll('button');
             buttons[1].style.visibility = spec.kind === 'XPDR' ? 'hidden' : 'visible';
             buttons[0].onclick = () => send(spec,index,'active');

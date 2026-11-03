@@ -3,6 +3,10 @@
 // Injiziert Positionen in dieselben Funktionen wie das Live-GPS (updateLivePlanePosition).
 
 (function () {
+// UI language (i18n-core.js, web only): _srT = exact German sentence -> i18n/en-phrases.js,
+// _srK = key with placeholders. Without GAI18n (EFB) the German text stays exactly as before.
+function _srT(text) { var i18n = (typeof window !== 'undefined') ? window.GAI18n : null; return i18n ? i18n.phrase(text) : text; }
+function _srK(key, german, vars) { var i18n = (typeof window !== 'undefined') ? window.GAI18n : null; if (i18n) return i18n.t(key, vars, german); return vars ? String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, function (m, n) { return Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m; }) : german; }
     'use strict';
 
     let simActive        = false;
@@ -53,7 +57,7 @@
         // Kein Sim-Modus wenn aktiv GPS-Daten vom Tracker ankommen (letzte 8 Sekunden)
         const lastGps = window.lastLiveGpsPos;
         if (!opts.allowSimGps && !window.simManualModeActive && lastGps && (Date.now() - lastGps.t < 8000)) {
-            alert('Live-GPS ist aktiv – bitte erst den Tracker stoppen.');
+            alert(_srT('Live-GPS ist aktiv – bitte erst den Tracker stoppen.'));
             return false;
         }
         if (simActive && !resumeFromManual) { _stop(); return true; }
@@ -61,7 +65,7 @@
 
         simRouteCache = _buildRoute();
         if (!simRouteCache || simRouteCache.totalDist < 0.5) {
-            alert('Bitte zuerst eine Route mit mindestens 2 Wegpunkten planen.');
+            alert(_srT('Bitte zuerst eine Route mit mindestens 2 Wegpunkten planen.'));
             return false;
         }
 
@@ -70,12 +74,12 @@
             const lat = Number(manualResumePoint?.lat);
             const lon = Number(manualResumePoint?.lon);
             if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-                alert('Manual-Sim hat keine gueltige Position fuer den Auto-Handoff.');
+                alert(_srT('Manual-Sim hat keine gueltige Position fuer den Auto-Handoff.'));
                 return false;
             }
             resumeDistNM = _nearestDist(simRouteCache, lat, lon);
             if (resumeDistNM === null) {
-                alert('Manual-Sim-Position liegt zu weit von der Route entfernt.');
+                alert(_srT('Manual-Sim-Position liegt zu weit von der Route entfernt.'));
                 return false;
             }
         }

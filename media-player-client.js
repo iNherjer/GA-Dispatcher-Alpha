@@ -1,16 +1,18 @@
+// UI language (i18n-core.js, web only): exact German sentences -> i18n/en-phrases.js. In the EFB there is no GAI18n.
+function _mpT(text) { var i18n = (typeof window !== 'undefined') ? window.GAI18n : null; return i18n ? i18n.phrase(text) : text; }
 (function(root){
  'use strict';
  function install(){
   var host=document.getElementById('mapTableOverlay'),menu=document.getElementById('mapVoiceMenu');
   if(!host||!menu||!root.GAMediaPlayerUI)return;
   var container=document.createElement('div');container.className='ga-media-settings';
-  container.innerHTML='<label><input type="checkbox" class="ga-media-enable"> Mediensteuerung</label><label>Skin <select class="ga-media-skin" aria-label="Medien-Skin"><option value="winamp">Winamp</option><option value="ipod">iPod</option><option value="watch">Watch</option></select></label><label class="ga-media-player-choice" hidden>Musik-App <select class="ga-media-select" aria-label="Windows-Medienplayer"><option value="">Keine Musik-App aktiv</option></select></label><label><input type="checkbox" class="ga-media-duck" checked> Bei Ansagen leiser</label><label>Restlautstärke <select class="ga-media-factor"><option value="0.1">10 %</option><option value="0.2">20 %</option><option value="0.35">35 %</option><option value="0.5">50 %</option></select></label><div class="ga-media-message" role="status"></div>';
+  container.innerHTML=('<label><input type="checkbox" class="ga-media-enable"> ' + _mpT('Mediensteuerung') + '</label><label>Skin <select class="ga-media-skin" aria-label="Medien-Skin"><option value="winamp">Winamp</option><option value="ipod">iPod</option><option value="watch">Watch</option></select></label><label class="ga-media-player-choice" hidden>' + _mpT('Musik-App') + ' <select class="ga-media-select" aria-label="Windows-Medienplayer"><option value="">' + _mpT('Keine Musik-App aktiv') + '</option></select></label><label><input type="checkbox" class="ga-media-duck" checked> ' + _mpT('Bei Ansagen leiser') + '</label><label>' + _mpT('Restlautstärke') + ' <select class="ga-media-factor"><option value="0.1">10 %</option><option value="0.2">20 %</option><option value="0.35">35 %</option><option value="0.5">50 %</option></select></label><div class="ga-media-message" role="status"></div>');
   menu.insertBefore(container,menu.firstChild);
   var check=container.querySelector('.ga-media-enable'),select=container.querySelector('.ga-media-select'),duck=container.querySelector('.ga-media-duck'),factor=container.querySelector('.ga-media-factor'),message=container.querySelector('.ga-media-message');
   var enabled=false,open=false,watching=false,epoch=0,state=null,revision=-1,lastReceived=0,lastReachable=0,pendingAction=false,pendingVolume=null,pendingSeek=null,skin='winamp',audible=new Set(),closed=false,nextWatchAt=0,watchTimer=null;
   try{var saved=JSON.parse(localStorage.getItem('ga.media.web.v1')||'{}');enabled=saved.enabled===true;skin=['ipod','watch'].indexOf(saved.skin)>=0?saved.skin:'winamp';}catch(_){}
   check.checked=enabled;container.querySelector('.ga-media-skin').value=skin;
-  var errors={tracker_not_connected:'Tracker nicht verbunden.',media_desktop_unavailable:'Mediensteuerung benötigt die vorbereitete Windows-Tracker-App und Runtime.',authority_timeout:'Keine Tracker-Bestätigung.',media_rate_limited:'Mediensteuerung kurz ausgelastet.'};
+  var errors={tracker_not_connected:_mpT('Tracker nicht verbunden.'),media_desktop_unavailable:_mpT('Mediensteuerung benötigt die vorbereitete Windows-Tracker-App und Runtime.'),authority_timeout:_mpT('Keine Tracker-Bestätigung.'),media_rate_limited:_mpT('Mediensteuerung kurz ausgelastet.')};
   function hasMediaControl(){return typeof root.gaMediaControlAvailable==='function'?root.gaMediaControlAvailable():(root.liveTrackerCapabilities||[]).includes('media.control.v1');}
   function send(payload){return typeof root.gaMediaRequest==='function'?root.gaMediaRequest(payload):Promise.resolve({ok:false,error:'tracker_not_connected'});}
   function render(){
@@ -24,17 +26,17 @@
    ui.update(display);
   }
   function receive(result){
-   if(!result.ok){message.textContent=errors[result.error]||result.error||'Player nicht erreichbar.';state=Object.assign({},state,{ok:false});render();return;}
+   if(!result.ok){message.textContent=errors[result.error]||result.error||_mpT('Player nicht erreichbar.');state=Object.assign({},state,{ok:false});render();return;}
    lastReachable=Date.now();
-   if(result.changed===false){if(state){if(!state.ok)message.textContent='Windows-Player verbunden.';state=Object.assign({},state,{ok:true});render();}return;}
+   if(result.changed===false){if(state){if(!state.ok)message.textContent=_mpT('Windows-Player verbunden.');state=Object.assign({},state,{ok:true});render();}return;}
    if(state&&result.serverId===state.serverId&&Number.isSafeInteger(result.revision)&&result.revision<revision)return;
    state=result;revision=Number.isSafeInteger(result.revision)?result.revision:-1;lastReceived=Date.now()-Math.min(20000,Math.max(0,Number(result.sampleAgeMs)||0));
    var players=result.players||[],values=players.map(function(p){return p.source;}).join('\n');
-   if(Array.from(select.options).map(function(p){return p.value;}).join('\n')!==values){while(select.firstChild)select.removeChild(select.firstChild);if(!players.length)select.add(new Option('Keine Musik-App aktiv',''));players.forEach(function(p){select.add(new Option(p.name,p.source));});}
+   if(Array.from(select.options).map(function(p){return p.value;}).join('\n')!==values){while(select.firstChild)select.removeChild(select.firstChild);if(!players.length)select.add(new Option(_mpT('Keine Musik-App aktiv'),''));players.forEach(function(p){select.add(new Option(p.name,p.source));});}
    select.value=result.source||'';select.disabled=!players.length;
    container.querySelector('.ga-media-player-choice').hidden=players.length<2;
    duck.checked=result.duckEnabled!==false;factor.value=String(result.duckFactor||0.2);
-   message.textContent=players.length?(result.ducking?'Musik für Ansage abgesenkt.':'Windows-Player verbunden.'):'Player am Windows-PC öffnen und einen Titel starten.';
+   message.textContent=players.length?(result.ducking?_mpT('Musik für Ansage abgesenkt.'):_mpT('Windows-Player verbunden.')):_mpT('Player am Windows-PC öffnen und einen Titel starten.');
    render();
   }
   async function action(payload){

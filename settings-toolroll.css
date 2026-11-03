@@ -107,7 +107,8 @@ body:not(.theme-win95) .settings-shell.settings-toolroll input:not([type=range])
 }
 body:not(.theme-win95) .settings-shell.settings-toolroll select option { color: #f4dfb9; background: #302218; }
 body:not(.theme-win95) .settings-shell.settings-toolroll .appearance-switch { border: 0; gap: 4px; overflow: visible; }
-body:not(.theme-win95) .settings-shell.settings-toolroll #appearanceSwitch.appearance-switch button[aria-pressed="true"] {
+body:not(.theme-win95) .settings-shell.settings-toolroll #appearanceSwitch.appearance-switch button[aria-pressed="true"],
+body:not(.theme-win95) .settings-shell.settings-toolroll #languageSwitch.appearance-switch button[aria-pressed="true"] {
     color: #2a1a10 !important;
     background: linear-gradient(#e2c78f, #b8955a) !important;
     border-color: #f0dcb0 !important;

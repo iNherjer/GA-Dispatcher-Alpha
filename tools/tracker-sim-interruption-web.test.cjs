@@ -28,6 +28,8 @@ function sandbox(storage = new Map()) {
   const timers = [];
   const zoneRenders = [];
   const context = {
+    // UI language helper from sync.js (German pass-through, as without GAI18n).
+    _syncUiPhrase: text => text,
     console, JSON, Array, String, Number, Date, Math, Boolean,
     setTimeout: (fn, ms) => { timers.push({ fn, ms }); return timers.length; },
     clearTimeout: () => {},

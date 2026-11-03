@@ -1386,7 +1386,7 @@ function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {l
         if (button) {
             const next = scale >= 2 ? 0.5 : scale + 0.5;
             button.textContent = `${Math.round(next * 100)}%`;
-            button.title = `Größe ${Math.round(scale * 100)}%; auf ${Math.round(next * 100)}% ändern`;
+            button.title = (window.GAI18n ? window.GAI18n.t('map.tools.scaleTitle', { current: Math.round(scale * 100), next: Math.round(next * 100) }, 'Größe {current}%; auf {next}% ändern') : `Größe ${Math.round(scale * 100)}%; auf ${Math.round(next * 100)}% ändern`);
         }
         if (persist) {
             try { localStorage.setItem(`${STORAGE_PREFIX}${tool}_scale`, String(scale * 100)); } catch (_) {}
@@ -1554,7 +1554,7 @@ function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {l
         if (!active || !sin) return;
         sin.dataset.calc = 'formulaNext';
         sin.textContent = 'TAB';
-        sin.title = 'Nächste Variable';
+        sin.title = window.GAI18n ? window.GAI18n.t('map.calc.nextVariable', null, 'Nächste Variable') : 'Nächste Variable';
     }
 
     function clearActiveFormulaLine() {
@@ -2088,15 +2088,24 @@ function mtEfbRect(element) { var r = element.getBoundingClientRect(); return {l
         overlay.classList.remove('is-open');
     }
 
+    // Help popup in the UI language (i18n/en-formula.js). German: the original entry unchanged.
+    function localizedFormulaHelp(key, data) {
+        const i18n = window.GAI18n;
+        if (!data || !i18n || i18n.getLanguage() === 'de') return data;
+        const tr = (field, german) => i18n.t(`formula.${key}.${field}`, null, german);
+        const body = (Array.isArray(data.body) ? data.body : [data.body]).map((text, i) => (text ? tr(`body.${i}`, text) : text));
+        return { ...data, title: data.title ? tr('title', data.title) : data.title, formula: data.formula ? tr('formula', data.formula) : data.formula, body };
+    }
+
     function openFormulaHelp(trigger) {
         const key = trigger?.dataset?.helpKey;
-        const data = key ? FORMULA_HELP[key] : null;
+        const data = key ? localizedFormulaHelp(key, FORMULA_HELP[key]) : null;
         const overlay = el('mapFormulaHelpOverlay');
         const title = el('mapFormulaHelpTitle');
         const formula = el('mapFormulaHelpFormula');
         const body = el('mapFormulaHelpBody');
         if (!data || !overlay || !title || !formula || !body) return;
-        title.textContent = data.title || 'Formelhilfe';
+        title.textContent = data.title || (window.GAI18n ? window.GAI18n.t('formula.fallbackTitle', null, 'Formelhilfe') : 'Formelhilfe');
         formula.textContent = data.formula || '';
         const paragraphs = (Array.isArray(data.body) ? data.body : [data.body])
             .filter(Boolean)

@@ -4,6 +4,15 @@ function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t =
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
 function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == typeof i ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != typeof i) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
+// UI language (i18n-core.js, web only). In the EFB there is no GAI18n: the German text is used.
+function _azText(key, german, vars) {
+  var i18n = typeof window !== 'undefined' ? window.GAI18n : null;
+  if (i18n) return i18n.t(key, vars, german);
+  return String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, function (m, n) {
+    return vars && Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m;
+  });
+}
+
 // Standalone follow and autozoom, shared with the tracker-hosted EFB.
 var MAP_AUTOZOOM_LOOKAHEAD_KEY = 'ga_map_autozoom_lookahead_min';
 var MAP_AUTOZOOM_DEFAULT_LOOKAHEAD_MIN = 8;
@@ -646,17 +655,19 @@ window.refreshMapAutoZoomUi = function () {
   var status = document.getElementById('mapAutoZoomStatus');
   if (status) {
     if (!isMapAutoZoomEnabled()) {
-      status.textContent = 'Aus';
+      status.textContent = _azText('map.autozoom.off', 'Aus');
     } else if (!isAutoFollow) {
-      status.textContent = 'Follow aus';
+      status.textContent = _azText('map.autozoom.followOff', 'Follow aus');
     } else if (lastMapAutoZoomSample) {
       var currentZoom = Number.isFinite(lastMapAutoZoomSample.currentZoom) ? `Z${lastMapAutoZoomSample.currentZoom.toFixed(1)}` : 'Z--';
       var targetZoom = Number.isFinite(lastMapAutoZoomSample.targetZoom) ? lastMapAutoZoomSample.targetZoom.toFixed(1) : '--';
       var phase = lastMapAutoZoomSample.phase || lastMapAutoZoomSample.targetPhase || '';
-      var hold = lastMapAutoZoomSample.manualHoldZoom ? ` manuell Z${lastMapAutoZoomSample.manualHoldZoom.toFixed(1)}` : '';
+      var hold = lastMapAutoZoomSample.manualHoldZoom ? ' ' + _azText('map.autozoom.manual', 'manuell Z{zoom}', {
+        zoom: lastMapAutoZoomSample.manualHoldZoom.toFixed(1)
+      }) : '';
       status.textContent = `${currentZoom} -> Z${targetZoom}${phase ? ` ${phase}` : ''}${hold}`;
     } else {
-      status.textContent = 'Bereit';
+      status.textContent = _azText('map.autozoom.ready', 'Bereit');
     }
   }
 };
@@ -1018,4 +1029,13 @@ function updateAutoFollowFromTelemetry(_ref1) {
       }
     }
   }
+}
+
+// Language switch (web): redraw the status line. Display only.
+if (typeof window !== 'undefined' && window.GAI18n && typeof window.GAI18n.onChange === 'function') {
+  window.GAI18n.onChange(function () {
+    try {
+      window.refreshMapAutoZoomUi();
+    } catch (_) {}
+  });
 }

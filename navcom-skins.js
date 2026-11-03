@@ -22,6 +22,18 @@
     function read(key) { try { return localStorage.getItem(key); } catch (_) { return null; } }
     function write(key, value) { try { localStorage.setItem(key, value); } catch (_) {} }
     function $(id) { return document.getElementById(id); }
+    // UI language (i18n-core.js). Tooltips in the templates are German sentences; they are
+    // translated through the phrase table when a unit is built. German: nothing changes.
+    function tr(key, german) { var i = window.GAI18n; return i ? i.t(key, null, german) : german; }
+    function phrase(text) { var i = window.GAI18n; return i ? i.phrase(text) : text; }
+    function translateTitles(root) {
+        if (!root || !window.GAI18n || window.GAI18n.getLanguage() === 'de') return;
+        var els = [root].concat(Array.prototype.slice.call(root.querySelectorAll('[title]')));
+        els.forEach(function (el) {
+            var t = el.getAttribute && el.getAttribute('title');
+            if (t) el.setAttribute('title', phrase(t));
+        });
+    }
     function stackEl() { return $('navcomInputs'); }
 
     function currentSkin() {
@@ -180,6 +192,7 @@
         var tpl = document.createElement('template');
         tpl.innerHTML = html;
         var unit = tpl.content.firstElementChild;
+        translateTitles(unit);
         anchor.parentNode.insertBefore(unit, anchor);
         return unit;
     }
@@ -448,7 +461,7 @@
         var next = SKINS[(SKINS.indexOf(skin) + 1) % SKINS.length];
         write(SKIN_KEY, next);
         applySkin();
-        showIndicator('Design: ' + SKIN_LABEL[next]);
+        showIndicator('Design: ' + tr('skins.name.' + next, SKIN_LABEL[next]));
         lampTest();
         return next;
     }
@@ -460,7 +473,7 @@
         var next = list[(list.indexOf(currentDisplay(skin)) + 1) % list.length];
         write('ga_navcom_display_' + skin, next);
         applySkin();
-        showIndicator('Anzeige: ' + DISPLAY_LABEL[next]);
+        showIndicator(tr('skins.navcom.display', 'Anzeige') + ': ' + tr('skins.navcom.color.' + next, DISPLAY_LABEL[next]));
         lampTest();
         var key = $('navcomTestBtn');
         if (key) { key.classList.add('active'); setTimeout(function () { key.classList.remove('active'); }, 700); }
@@ -494,12 +507,22 @@
         if (markers) {
             markers.setAttribute('role', 'button');
             markers.setAttribute('tabindex', '0');
-            markers.setAttribute('title', 'Anzeigefarbe wechseln (Lampentest)');
+            markers.setAttribute('title', phrase('Anzeigefarbe wechseln (Lampentest)'));
             markers.addEventListener('click', cycleNavcomDisplay);
             markers.addEventListener('keydown', function (e) {
                 if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cycleNavcomDisplay(); }
             });
         }
+    }
+
+    // Language switch: rebuild Bendix/KX units so their tooltips follow; refresh the marker tooltip.
+    if (window.GAI18n && typeof window.GAI18n.onChange === 'function') {
+        window.GAI18n.onChange(function () {
+            var stack = stackEl();
+            if (stack && built !== 'classic') { teardown(stack); applySkin(); }
+            var markers = stack && stack.querySelector('.marker-lights');
+            if (markers && markers.hasAttribute('title')) markers.setAttribute('title', phrase('Anzeigefarbe wechseln (Lampentest)'));
+        });
     }
 
     window.gaCycleNavcomSkin = cycleNavcomSkin;

@@ -1,4 +1,8 @@
 // Shared standalone popup implementation; host adapters supply local data only.
+// UI language (i18n-core.js, web only): _mcT = exact German sentence -> i18n/en-phrases.js,
+// _mcK = key with placeholders. Without GAI18n (EFB) the German text stays exactly as before.
+function _mcT(text) { var i18n = (typeof window !== 'undefined') ? window.GAI18n : null; return i18n ? i18n.phrase(text) : text; }
+function _mcK(key, german, vars) { var i18n = (typeof window !== 'undefined') ? window.GAI18n : null; if (i18n) return i18n.t(key, vars, german); return vars ? String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, function (m, n) { return Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m; }) : german; }
 const MAP_CONTEXT_LONG_PRESS_MS = 650;
 const MAP_CONTEXT_MOVE_TOLERANCE_PX = 12;
 const MAP_CONTEXT_RELEVANT_AIRSPACE_TYPES = new Set([0, 1, 2, 3, 4, 5, 6, 7, 26, 27, 28, 33]);
@@ -151,11 +155,11 @@ function getMapContextAirspaceDescriptor(airspace) {
 function getMapContextAirspaceDisplayTitle(airspace) {
     const descriptor = getMapContextAirspaceDescriptor(airspace);
     const rawName = String(airspace?.name || '').trim();
-    if (!rawName) return descriptor;
+    if (!rawName) return _mcT(descriptor);
     const typeToken = descriptor.split(/\s+/)[0];
     const typePrefix = new RegExp(`^${typeToken.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s·:_-]*`, 'i');
     const cleanedName = rawName.replace(typePrefix, '').trim();
-    return cleanedName ? `${descriptor} · ${cleanedName}` : descriptor;
+    return cleanedName ? `${_mcT(descriptor)} · ${cleanedName}` : _mcT(descriptor);
 }
 
 function isMapContextGenericEchoArea(airspace) {
@@ -553,11 +557,11 @@ function getMapContextRunwayWindroseData(feature) {
 function renderMapContextWeather(state, options = {}) {
     const runway = options?.runway || null;
     if (state.loading.weather && !runway) {
-        return '<div class="ga-map-context-loading">Punktwetter wird geladen…</div>';
+        return '<div class="ga-map-context-loading">' + _mcT('Punktwetter wird geladen…') + '</div>';
     }
     const weather = state.weather;
     if (!weather && !runway) {
-        return '<div class="ga-map-context-muted">Punktwetter derzeit nicht verfügbar.</div>';
+        return '<div class="ga-map-context-muted">' + _mcT('Punktwetter derzeit nicht verfügbar.') + '</div>';
     }
     const windDir = Number(weather?.wdir);
     const windKt = Number(weather?.wspd);
@@ -571,7 +575,7 @@ function renderMapContextWeather(state, options = {}) {
         ? (windKt <= 0.4
             ? 'CALM · 0 kt'
             : `${Math.round(windDir).toString().padStart(3, '0')}° / ${Math.round(windKt)} kt`)
-        : (state.loading.weather ? 'WIRD GELADEN' : '–');
+        : (state.loading.weather ? _mcT('WIRD GELADEN') : '–');
     const visibilityKm = Number.isFinite(visibilityM) ? visibilityM / 1000 : null;
     let roseTicks = '';
     for (let heading = 0; heading < 360; heading += 30) {
@@ -580,7 +584,7 @@ function renderMapContextWeather(state, options = {}) {
         const ty = 80 + 61 * Math.sin(angleRad);
         const label = heading === 0
             ? 'N'
-            : (heading === 90 ? 'O' : (heading === 180 ? 'S' : (heading === 270 ? 'W' : String(heading / 10))));
+            : (heading === 90 ? _mcK('mapContext.compass.east', 'O') : (heading === 180 ? 'S' : (heading === 270 ? 'W' : String(heading / 10))));
         const fontSize = heading % 90 === 0 ? 15 : 10;
         const tickLength = heading % 90 === 0 ? 9 : 6;
         roseTicks += `
@@ -608,26 +612,26 @@ function renderMapContextWeather(state, options = {}) {
                   text-anchor="middle">${escapePopupText(runway.end1)}</text>
         </g>` : '';
     const sourceText = runway
-        ? `Piste ${runway.end1}/${runway.end2} aus internen Daten · ${weather
-            ? 'Wind am Kartenpunkt'
-            : (state.loading.weather ? 'Wind wird ergänzt…' : 'Wind derzeit nicht verfügbar')}`
-        : 'Aktueller Stundenwert am Kartenpunkt';
+        ? _mcK('mapContext.wx.runwaySource', 'Piste {end1}/{end2} aus internen Daten · {wind}', { end1: runway.end1, end2: runway.end2, wind: weather
+            ? _mcT('Wind am Kartenpunkt')
+            : (state.loading.weather ? _mcT('Wind wird ergänzt…') : _mcT('Wind derzeit nicht verfügbar')) })
+        : _mcT('Aktueller Stundenwert am Kartenpunkt');
     const ariaLabel = runway
-        ? `Piste ${runway.end1}/${runway.end2}; Wind ${windText}`
-        : `Windrose ${windText}`;
+        ? _mcK('mapContext.wx.runwayAria', 'Piste {end1}/{end2}; Wind {wind}', { end1: runway.end1, end2: runway.end2, wind: windText })
+        : _mcK('mapContext.wx.roseAria', 'Windrose {wind}', { wind: windText });
     return `
         <div class="ga-map-context-weather-card">
             <div class="ga-map-context-weather-header">
-                <b>${runway ? 'PISTE · PUNKTWETTER' : 'PUNKTWETTER'}</b>
+                <b>${runway ? _mcT('PISTE · PUNKTWETTER') : _mcT('PUNKTWETTER')}</b>
                 <span>OPEN‑METEO</span>
             </div>
             <div class="ga-map-context-weather-layout">
                 <div class="ga-map-context-weather-values">
                     <span><small>WIND</small><b class="is-wind">${escapePopupText(windText)}</b></span>
-                    <span><small>SICHT</small><b>${Number.isFinite(visibilityKm) ? `${visibilityKm >= 10 ? Math.round(visibilityKm) : visibilityKm.toFixed(1)} km` : '–'}</b></span>
+                    <span><small>${_mcT('SICHT')}</small><b>${Number.isFinite(visibilityKm) ? `${visibilityKm >= 10 ? Math.round(visibilityKm) : visibilityKm.toFixed(1)} km` : '–'}</b></span>
                     <span><small>TEMP</small><b>${Number.isFinite(tempC) ? `${Math.round(tempC)} °C` : '–'}</b></span>
-                    <span><small>BEDECKUNG</small><b>${Number.isFinite(totalCloud) ? `${Math.round(totalCloud)} %` : '–'}</b></span>
-                    <span class="is-wide"><small>WOLKEN L/M/H</small><b>${[lowCloud, midCloud, highCloud].some(Number.isFinite)
+                    <span><small>${_mcT('BEDECKUNG')}</small><b>${Number.isFinite(totalCloud) ? `${Math.round(totalCloud)} %` : '–'}</b></span>
+                    <span class="is-wide"><small>${_mcT('WOLKEN L/M/H')}</small><b>${[lowCloud, midCloud, highCloud].some(Number.isFinite)
                         ? `${Number.isFinite(lowCloud) ? Math.round(lowCloud) : '–'}/${Number.isFinite(midCloud) ? Math.round(midCloud) : '–'}/${Number.isFinite(highCloud) ? Math.round(highCloud) : '–'} %`
                         : '–'}</b></span>
                 </div>
@@ -646,10 +650,10 @@ function renderMapContextWeather(state, options = {}) {
 
 function renderMapContextAirspaces(state) {
     if (state.loading.airspaces) {
-        return '<div class="ga-map-context-loading">Lufträume werden geprüft…</div>';
+        return '<div class="ga-map-context-loading">' + _mcT('Lufträume werden geprüft…') + '</div>';
     }
     if (!Array.isArray(state.airspaces) || state.airspaces.length === 0) {
-        return '<div class="ga-map-context-muted">Kein relevanter OpenAIP-Luftraum an diesem Punkt gefunden.</div>';
+        return '<div class="ga-map-context-muted">' + _mcT('Kein relevanter OpenAIP-Luftraum an diesem Punkt gefunden.') + '</div>';
     }
     const cards = state.airspaces.map((airspace) => {
         const id = String(airspace.__mapContextId || '');
@@ -666,7 +670,7 @@ function renderMapContextAirspaces(state) {
                 </span>`).join('')
             : `
                 <span class="ga-map-context-frequency-row">
-                    <span class="ga-map-context-frequency-label">FUNK</span>
+                    <span class="ga-map-context-frequency-label">${_mcT('FUNK')}</span>
                     <span class="ga-map-context-frequency-value">—</span>
                 </span>`;
         const activation = mapContextAirspaceActivationText(airspace);
@@ -677,13 +681,13 @@ function renderMapContextAirspaces(state) {
                     aria-pressed="${selected ? 'true' : 'false'}"
                     style="--ga-map-context-airspace-color:${escapePopupText(style.mapColor || style.color || '#4da6ff')}">
                 <span class="ga-map-context-airspace-title"><i></i><b>${escapePopupText(name)}</b></span>
-                <span class="ga-map-context-airspace-meta">${escapePopupText(style.category || 'Luftraum')}; ${escapePopupText(lower)}–${escapePopupText(upper)}</span>
+                <span class="ga-map-context-airspace-meta">${escapePopupText(_mcT(style.category || 'Luftraum'))}; ${escapePopupText(lower)}–${escapePopupText(upper)}</span>
                 <span class="ga-map-context-airspace-meta ga-map-context-airspace-frequency">${frequencyRows}</span>
-                ${activation ? `<span class="ga-map-context-airspace-meta">${escapePopupText(activation)}</span>` : ''}
-                ${selected ? '<span class="ga-map-context-airspace-action">Markiert · erneut antippen zum Lösen</span>' : ''}
+                ${activation ? `<span class="ga-map-context-airspace-meta">${escapePopupText(_mcT(activation))}</span>` : ''}
+                ${selected ? '<span class="ga-map-context-airspace-action">' + _mcT('Markiert · erneut antippen zum Lösen') + '</span>' : ''}
             </button>`;
     }).join('');
-    return `${cards}<div class="ga-map-context-source">Zeiten ggf. in AIP/NOTAM prüfen.</div>`;
+    return `${cards}<div class="ga-map-context-source">${_mcT('Zeiten ggf. in AIP/NOTAM prüfen.')}</div>`;
 }
 
 function mapContextLimitMslFt(airspace, limit, boundary, terrainFt) {
@@ -1082,7 +1086,7 @@ function renderMapContextHeightBand(state) {
         const isControlZone = Number(airspace?.type) === 4;
         const shortLabel = isControlZone
             ? 'CTR'
-            : (classLetter || getMapContextAirspaceDescriptor(airspace).split(/\s+/)[0]);
+            : (classLetter || _mcT(getMapContextAirspaceDescriptor(airspace).split(/\s+/)[0]));
         const topPct = Math.max(0, Math.min(100, 100 - ((band.upperFt / maxFt) * 100)));
         const bottomPct = Math.max(0, Math.min(100, 100 - ((band.lowerFt / maxFt) * 100)));
         const heightPct = Math.max(2.8, bottomPct - topPct);
@@ -1100,7 +1104,7 @@ function renderMapContextHeightBand(state) {
             <button type="button"
                     class="ga-map-context-height-airspace${selected ? ' is-selected' : ''}"
                     data-map-context-airspace-id="${escapePopupText(id)}"
-                    aria-label="${escapePopupText(`${name}, ${mapContextFormatLimit(airspace.lowerLimit)} bis ${mapContextFormatLimit(airspace.upperLimit)}`)}"
+                    aria-label="${escapePopupText(`${name}, ${mapContextFormatLimit(airspace.lowerLimit)} ${_mcT('bis')} ${mapContextFormatLimit(airspace.upperLimit)}`)}"
                     aria-pressed="${selected ? 'true' : 'false'}"
                     title="${escapePopupText(`${name} · ${mapContextFormatLimit(airspace.lowerLimit)}–${mapContextFormatLimit(airspace.upperLimit)}`)}"
                     style="top:${topPct.toFixed(2)}%;height:${heightPct.toFixed(2)}%;${efbPaint}--ga-map-context-airspace-color:${escapePopupText(style.mapColor || style.color || '#4da6ff')};--ga-map-context-class-size:${classSizePx.toFixed(1)}px;--ga-map-context-band-layer:${getMapContextHeightBandLayer(airspace)}">
@@ -1119,8 +1123,8 @@ function renderMapContextHeightBand(state) {
         : terrainFt;
     const featureTopPct = Math.max(1, Math.min(98, 100 - ((featureElevation / maxFt) * 100)));
     const featureMarkerLabel = state.feature?.kind === 'airport'
-        ? 'Flugplatz markieren'
-        : (state.feature?.kind === 'vrp' ? 'VFR-Meldepunkt markieren' : 'Navaid markieren');
+        ? _mcT('Flugplatz markieren')
+        : (state.feature?.kind === 'vrp' ? _mcT('VFR-Meldepunkt markieren') : _mcT('Navaid markieren'));
     const featureMarker = state.feature ? `
         <button type="button"
                 class="ga-map-context-height-feature${state.selectedFeatureId === state.feature.id ? ' is-selected' : ''}"
@@ -1137,8 +1141,8 @@ function renderMapContextHeightBand(state) {
               data-map-context-own-altitude
               style="top:${ownAltitudeTopPct.toFixed(2)}%"
               role="img"
-              aria-label="Eigene Flughöhe ${Math.round(currentAltitudeFt)} Fuß MSL"
-              title="Eigene Flughöhe · ${Math.round(currentAltitudeFt).toLocaleString('de-DE')} ft MSL"></span>` : '';
+              aria-label="${_mcK('mapContext.ownAlt.aria', 'Eigene Flughöhe {ft} Fuß MSL', { ft: Math.round(currentAltitudeFt) })}"
+              title="${_mcT('Eigene Flughöhe')} · ${Math.round(currentAltitudeFt).toLocaleString('de-DE')} ft MSL"></span>` : '';
     const loading = state.loading.airspaces || state.loading.terrain;
     const atmosphere = renderMapContextAtmosphere(
         getMapContextAtmosphereData(state, terrainFt),
@@ -1147,7 +1151,7 @@ function renderMapContextHeightBand(state) {
     );
     return `
         <div class="ga-map-context-height-band${loading ? ' is-loading' : ''}">
-            <div class="ga-map-context-height-title">HÖHE <small>FT MSL</small></div>
+            <div class="ga-map-context-height-title">${_mcT('HÖHE')} <small>FT MSL</small></div>
             <div class="ga-map-context-height-plot">
                 <div class="ga-map-context-height-sky"></div>
                 ${atmosphere}
@@ -1159,7 +1163,7 @@ function renderMapContextHeightBand(state) {
                     <div class="ga-map-context-height-terrain" style="height:${terrainHeightPct.toFixed(2)}%"></div>
                     <span class="ga-map-context-height-ground-label" style="top:${terrainTopPct.toFixed(2)}%">${escapePopupText(terrainLabel)}</span>
                 </div>
-                ${loading ? '<span class="ga-map-context-height-loading">lädt…</span>' : ''}
+                ${loading ? '<span class="ga-map-context-height-loading">' + _mcT('lädt…') + '</span>' : ''}
             </div>
         </div>`;
 }
@@ -1189,10 +1193,10 @@ function buildMapContextAirportWidget(state, selected) {
             <button type="button" class="ga-map-context-feature${selected ? ' is-selected' : ''}"
                     data-map-context-feature-id="${escapePopupText(feature.id)}"
                     aria-pressed="${selected ? 'true' : 'false'}">
-                <span class="ga-map-context-feature-kind">FLUGPLATZ</span>
-                <b>${escapePopupText(title || 'Flugplatz')}</b>
+                <span class="ga-map-context-feature-kind">${_mcT('FLUGPLATZ')}</span>
+                <b>${escapePopupText(title || _mcT('Flugplatz'))}</b>
                 ${details.map(detail => `<span>${feature.frequencies?.length && detail === feature.frequencies.join('; ') ? GARadioTuningCore.text(detail, 'COM') : escapePopupText(detail)}</span>`).join('')}
-                ${selected ? '<span class="ga-map-context-feature-action">Karte + Höhenband markiert</span>' : ''}
+                ${selected ? '<span class="ga-map-context-feature-action">' + _mcT('Karte + Höhenband markiert') + '</span>' : ''}
             </button>`;
     }
 
@@ -1225,9 +1229,9 @@ function buildMapContextAirportWidget(state, selected) {
             <button type="button" class="ga-map-context-feature ga-map-context-feature-selector${selected ? ' is-selected' : ''}"
                     data-map-context-feature-id="${escapePopupText(feature.id)}"
                     aria-pressed="${selected ? 'true' : 'false'}">
-                <span class="ga-map-context-feature-kind">FLUGPLATZ · VOLLANSICHT</span>
+                <span class="ga-map-context-feature-kind">${_mcT('FLUGPLATZ · VOLLANSICHT')}</span>
                 <b>${escapePopupText(title)}</b>
-                ${selected ? '<span class="ga-map-context-feature-action">Markiert · erneut antippen zum Lösen</span>' : ''}
+                ${selected ? '<span class="ga-map-context-feature-action">' + _mcT('Markiert · erneut antippen zum Lösen') + '</span>' : ''}
             </button>
             <div class="ga-map-context-airport-full"
                  style="min-width:0;overflow:hidden;padding:5px;color:#10202d;background:#edf7fb;border:1px solid rgba(250,204,21,.72);border-radius:7px;">
@@ -1243,7 +1247,7 @@ function captureMapContextAirportWidgetState(state) {
     if (!weatherElement) return;
     if (weatherElement.querySelector('[data-ga-metar-loading="true"]')) return;
     const html = String(weatherElement.innerHTML || '').trim();
-    if (html && !/(Wetter lädt|Sucht lokales Wetter|Punktwetter wird geladen)/i.test(html)) {
+    if (html && !/(Wetter lädt|Sucht lokales Wetter|Punktwetter wird geladen|Weather loading|Searching local weather|Loading point weather)/i.test(html)) {
         state.airportWidgetWeatherHtml = html;
     }
 }
@@ -1258,7 +1262,7 @@ function renderMapContextAirportWeatherPlaceholder(state) {
             { responsiveEmbed: true }
         );
     }
-    return '<div class="ga-map-context-loading" data-ga-metar-loading="true">METAR wird geladen…</div>';
+    return '<div class="ga-map-context-loading" data-ga-metar-loading="true">' + _mcT('METAR wird geladen…') + '</div>';
 }
 
 function hydrateMapContextAirportWidget(state) {
@@ -1323,7 +1327,7 @@ function hydrateMapContextAirportWidget(state) {
 
 function renderMapContextFeature(state) {
     if (state.loading.feature && !state.feature) {
-        return '<div class="ga-map-context-loading">Objekte am Punkt werden geprüft…</div>';
+        return '<div class="ga-map-context-loading">' + _mcT('Objekte am Punkt werden geprüft…') + '</div>';
     }
     const feature = state.feature;
     if (!feature) return '';
@@ -1337,23 +1341,23 @@ function renderMapContextFeature(state) {
         : [feature.identifier, feature.name].filter(Boolean).join(' · ');
     const details = isReportingPoint
         ? [
-            feature.airportIcao ? `Zugehöriger Flugplatz ${feature.airportIcao}` : '',
+            feature.airportIcao ? `${_mcT('Zugehöriger Flugplatz')} ${feature.airportIcao}` : '',
             feature.description
         ].filter(Boolean)
         : [
-            feature.typeLabel,
-            feature.frequencies?.length ? `Funk ${feature.frequencies.join('; ')}` : '',
-            feature.channel ? `Kanal ${feature.channel}` : '',
-            feature.range ? `Reichweite ${feature.range}` : ''
+            _mcT(feature.typeLabel),
+            feature.frequencies?.length ? `${_mcT('Funk')} ${feature.frequencies.join('; ')}` : '',
+            feature.channel ? `${_mcT('Kanal')} ${feature.channel}` : '',
+            feature.range ? `${_mcT('Reichweite')} ${feature.range}` : ''
         ].filter(Boolean);
     return `
         <button type="button" class="ga-map-context-feature${selected ? ' is-selected' : ''}"
                 data-map-context-feature-id="${escapePopupText(feature.id)}"
                 aria-pressed="${selected ? 'true' : 'false'}">
-            <span class="ga-map-context-feature-kind">${isReportingPoint ? 'VRP · VFR-MELDEPUNKT' : 'NAVAID'}</span>
-            <b>${escapePopupText(title || (isReportingPoint ? 'VFR-Meldepunkt' : 'Navaid'))}</b>
-            ${details.map(detail => `<span>${!isReportingPoint && feature.frequencies?.length && detail === `Funk ${feature.frequencies.join('; ')}` ? GARadioTuningCore.text(detail, GARadioTuningCore.navaidKind(feature.typeLabel)) : escapePopupText(detail)}</span>`).join('')}
-            ${selected ? '<span class="ga-map-context-feature-action">Markiert · erneut antippen zum Lösen</span>' : ''}
+            <span class="ga-map-context-feature-kind">${isReportingPoint ? _mcT('VRP · VFR-MELDEPUNKT') : 'NAVAID'}</span>
+            <b>${escapePopupText(title || (isReportingPoint ? _mcT('VFR-Meldepunkt') : 'Navaid'))}</b>
+            ${details.map(detail => `<span>${!isReportingPoint && feature.frequencies?.length && detail === `${_mcT('Funk')} ${feature.frequencies.join('; ')}` ? GARadioTuningCore.text(detail, GARadioTuningCore.navaidKind(feature.typeLabel)) : escapePopupText(detail)}</span>`).join('')}
+            ${selected ? '<span class="ga-map-context-feature-action">' + _mcT('Markiert · erneut antippen zum Lösen') + '</span>' : ''}
         </button>`;
 }
 
@@ -1429,14 +1433,14 @@ function renderMapContextInfoPopup(state, options = {}) {
         state.content.style.setProperty('--ga-map-context-map-height', `${Math.round(mapHeight)}px`);
     }
     const terrain = state.loading.terrain
-        ? '<div class="ga-map-context-loading">Topografie wird geladen…</div>'
+        ? '<div class="ga-map-context-loading">' + _mcT('Topografie wird geladen…') + '</div>'
         : (state.terrainFt != null && Number.isFinite(Number(state.terrainFt))
-            ? `<div class="ga-map-context-summary"><span><b>Gelände</b> ${Math.round(Number(state.terrainFt))} ft MSL / ${Math.round(Number(state.terrainFt) / 3.28084)} m</span></div>`
-            : '<div class="ga-map-context-muted">Geländehöhe nicht verfügbar.</div>');
+            ? `<div class="ga-map-context-summary"><span><b>${_mcT('Gelände')}</b> ${Math.round(Number(state.terrainFt))} ft MSL / ${Math.round(Number(state.terrainFt) / 3.28084)} m</span></div>`
+            : '<div class="ga-map-context-muted">' + _mcT('Geländehöhe nicht verfügbar.') + '</div>');
     state.content.innerHTML = `
         <div class="ga-map-context-panel">
             <div class="ga-map-context-heading">
-                <span class="ga-map-context-kicker">WAS IST HIER?</span>
+                <span class="ga-map-context-kicker">${_mcT('WAS IST HIER?')}</span>
                 <b>${state.latlng.lat.toFixed(5)}, ${state.latlng.lng.toFixed(5)}</b>
             </div>
             <div class="ga-map-context-body">
@@ -1444,15 +1448,15 @@ function renderMapContextInfoPopup(state, options = {}) {
                 <div class="ga-map-context-details">
                     ${renderMapContextFeature(state)}
                     <section>
-                        <h4>Lufträume</h4>
+                        <h4>${_mcT('Lufträume')}</h4>
                         ${renderMapContextAirspaces(state)}
                     </section>
                     <section>
-                        <h4>Punkt</h4>
+                        <h4>${_mcT('Punkt')}</h4>
                         ${terrain}
                     </section>
                     <section>
-                        <h4>Wetter</h4>
+                        <h4>${_mcT('Wetter')}</h4>
                         ${renderMapContextWeather(state)}
                     </section>
                 </div>
@@ -1559,8 +1563,8 @@ window.gaUpdateMapContextOwnAltitude = function(altitudeFt) {
     if (!marker || !Number.isFinite(nextBandData.currentAltitudeFt)) return;
     const topPct = Math.max(1, Math.min(99, 100 - ((nextBandData.currentAltitudeFt / nextBandData.maxFt) * 100)));
     marker.style.top = `${topPct.toFixed(2)}%`;
-    marker.setAttribute('aria-label', `Eigene Flughöhe ${Math.round(nextBandData.currentAltitudeFt)} Fuß MSL`);
-    marker.title = `Eigene Flughöhe · ${Math.round(nextBandData.currentAltitudeFt).toLocaleString('de-DE')} ft MSL`;
+    marker.setAttribute('aria-label', _mcK('mapContext.ownAlt.aria', 'Eigene Flughöhe {ft} Fuß MSL', { ft: Math.round(nextBandData.currentAltitudeFt) }));
+    marker.title = `${_mcT('Eigene Flughöhe')} · ${Math.round(nextBandData.currentAltitudeFt).toLocaleString('de-DE')} ft MSL`;
 };
 
 function openMapContextInfo(latlng, source = 'longpress') {

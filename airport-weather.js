@@ -1,3 +1,10 @@
+// UI language (i18n-core.js, web only). In the EFB there is no GAI18n: the German text is used.
+function _awText(key, german, vars) {
+    var i18n = (typeof window !== 'undefined') ? window.GAI18n : null;
+    if (i18n) return i18n.t(key, vars, german);
+    return String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, function (m, n) { return (vars && Object.prototype.hasOwnProperty.call(vars, n)) ? String(vars[n]) : m; });
+}
+
 function getAirportWeatherCache() { return window.gaAirportWeatherHost?.cache || gpsState; }
 // Shared standalone airport METAR widget and station cache.
 function _parseMetarPayloadToArray(txt) {
@@ -255,7 +262,7 @@ function _renderMetarCompassTicks() {
         const tx = 80 + 61 * Math.cos(angleRad);
         const ty = 80 + 61 * Math.sin(angleRad);
         const label = isCardinal
-            ? (heading === 0 ? 'N' : (heading === 90 ? 'O' : (heading === 180 ? 'S' : 'W')))
+            ? (heading === 0 ? 'N' : (heading === 90 ? _awText('mapContext.compass.east', 'O') : (heading === 180 ? 'S' : 'W')))
             : String(heading / 10);
         ticks += `<text x="${tx}" y="${ty}" font-family="sans-serif" font-size="${isCardinal ? 14 : 10}" fill="${isCardinal ? '#111' : '#333'}" font-weight="bold" text-anchor="middle" dominant-baseline="central">${label}</text>`;
     }
@@ -292,12 +299,12 @@ window.renderAirportMetarLoadingWidget = function(icao, runwayText, options = {}
             <div style="position:absolute;bottom:6px;left:6px;width:6px;height:6px;background:#ddd;border-radius:50%;box-shadow:inset 0 0 2px #555;"></div>
             <div style="color:#8a1a12;font-size:12px;font-weight:bold;margin-bottom:5px;border-bottom:2px dashed #c2bba8;padding-bottom:4px;font-family:${weatherFont};display:flex;justify-content:space-between;align-items:center;gap:6px;letter-spacing:.5px;">
                 <span>▶ STATION: ${_escapeMetarWidgetText(String(icao || '').trim().toUpperCase())}</span>
-                <span class="ga-weather-loading-status" style="color:#8a6b12;font-size:10px;padding:1px 5px;border:2px solid #c69b28;border-radius:4px;background:rgba(255,255,255,.7);">LÄDT</span>
+                <span class="ga-weather-loading-status" style="color:#8a6b12;font-size:10px;padding:1px 5px;border:2px solid #c69b28;border-radius:4px;background:rgba(255,255,255,.7);">${_awText('airportWx.loadingShort', 'LÄDT')}</span>
             </div>
             <div class="ga-weather-layout${responsiveEmbed ? ' ga-weather-layout-responsive' : ''}"
                  style="display:flex;justify-content:space-between;align-items:stretch;gap:5px;${responsiveEmbed ? 'flex-direction:column;' : ''}">
                 <div style="display:flex;flex-direction:column;gap:3px;font-family:${weatherFont};flex-shrink:1;min-width:0;">
-                    <div><div style="${labelStyle}">WIND</div><div style="${valueStyle}color:#1a73e8;">WIRD GELADEN</div></div>
+                    <div><div style="${labelStyle}">WIND</div><div style="${valueStyle}color:#1a73e8;">${_awText('airportWx.loading', 'WIRD GELADEN')}</div></div>
                     <div style="display:flex;gap:7px;">
                         <div><div style="${labelStyle}">VIS</div><div style="${valueStyle}">--</div></div>
                         <div><div style="${labelStyle}">WX</div><div style="${valueStyle}">--</div></div>
@@ -312,7 +319,7 @@ window.renderAirportMetarLoadingWidget = function(icao, runwayText, options = {}
                     </div>
                 </div>
                 <div class="ga-weather-windrose"
-                     aria-label="${runway ? `Piste ${_escapeMetarWidgetText(runway.end1)}/${_escapeMetarWidgetText(runway.end2)}` : 'Piste wird geladen'}"
+                     aria-label="${runway ? _awText('airportWx.runway', 'Piste {rwy}', { rwy: `${_escapeMetarWidgetText(runway.end1)}/${_escapeMetarWidgetText(runway.end2)}` }) : _awText('airportWx.runwayLoading', 'Piste wird geladen')}"
                      style="position:relative;width:min(100%,148px);height:auto;aspect-ratio:1;flex:0 1 auto;align-self:center;margin:2px auto 0;border:4px solid #a8a291;border-radius:50%;background:#fcfaf5;box-shadow:inset 0 2px 8px rgba(0,0,0,.1),0 2px 6px rgba(0,0,0,.2);">
                     <svg viewBox="0 0 160 160" style="position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;">
                         ${_renderMetarCompassTicks()}
@@ -338,11 +345,11 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false,
         if (isRetro || isOps1940) {
             container.style.boxShadow = 'none';
             container.style.background = 'transparent';
-            container.innerHTML = '<div style="padding:20px; text-align:center; color:#555; font-family: \'Caveat\', cursive; font-size:22px; transform: rotate(-1deg);">Sucht lokales Wetter...</div>';
+            container.innerHTML = '<div style="padding:20px; text-align:center; color:#555; font-family: \'Caveat\', cursive; font-size:22px; transform: rotate(-1deg);">' + _awText('airportWx.searching', 'Sucht lokales Wetter...') + '</div>';
         } else {
             container.style.boxShadow = '';
             container.style.background = '';
-            container.innerHTML = '<div style="padding:20px; text-align:center; color:#888; font-size:12px; background:#1a1a1a; border-radius:6px;">Sucht lokales Wetter...</div>';
+            container.innerHTML = '<div style="padding:20px; text-align:center; color:#888; font-size:12px; background:#1a1a1a; border-radius:6px;">' + _awText('airportWx.searching', 'Sucht lokales Wetter...') + '</div>';
         }
     }
 
@@ -483,16 +490,16 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false,
             if (isRetro) {
                 container.innerHTML = `
                     <div style="padding:15px; text-align:center; font-family: 'Caveat', cursive; transform: rotate(1deg);">
-                        <div style="color:#d93829; font-weight:bold; font-size: 22px; margin-bottom:5px;">Kein METAR in der Nähe von ${weatherLocationLabel}</div>
-                        <div style="font-size:18px; color:#555; margin-bottom:12px;">Kein automatisches Wetter verfügbar.</div>
-                        ${looksLikeIcao ? `<a data-ga-airport-weather="${icaoNorm}" href="https://metar-taf.com/de/${icaoNorm}" target="_blank" style="display:inline-block; color:#0b1f65; font-size:20px; font-weight:bold; text-decoration:underline;">Manuell suchen ➔</a>` : ''}
+                        <div style="color:#d93829; font-weight:bold; font-size: 22px; margin-bottom:5px;">${_awText('airportWx.noMetarNear', 'Kein METAR in der Nähe von {place}', { place: weatherLocationLabel })}</div>
+                        <div style="font-size:18px; color:#555; margin-bottom:12px;">${_awText('airportWx.noAuto', 'Kein automatisches Wetter verfügbar.')}</div>
+                        ${looksLikeIcao ? `<a data-ga-airport-weather="${icaoNorm}" href="https://metar-taf.com/de/${icaoNorm}" target="_blank" style="display:inline-block; color:#0b1f65; font-size:20px; font-weight:bold; text-decoration:underline;">${_awText('airportWx.manualSearch', 'Manuell suchen ➔')}</a>` : ''}
                     </div>`;
             } else {
                 container.innerHTML = `
                     <div style="background:#1a1a1a; border-radius:6px; padding:15px; text-align:center; border: 1px solid #333;">
-                        <div style="color:#d93829; font-weight:bold; margin-bottom:5px;">Kein METAR in der Nähe von ${weatherLocationLabel}</div>
-                        <div style="font-size:11px; color:#888; margin-bottom:12px;">Für diesen Bereich steht kein automatisches Wetter zur Verfügung.</div>
-                        ${looksLikeIcao ? `<a data-ga-airport-weather="${icaoNorm}" href="https://metar-taf.com/de/${icaoNorm}" target="_blank" style="display:inline-block; background:#4da6ff; color:#111; padding:6px 12px; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; transition: background 0.2s;">Manuell suchen ➔</a>` : ''}
+                        <div style="color:#d93829; font-weight:bold; margin-bottom:5px;">${_awText('airportWx.noMetarNear', 'Kein METAR in der Nähe von {place}', { place: weatherLocationLabel })}</div>
+                        <div style="font-size:11px; color:#888; margin-bottom:12px;">${_awText('airportWx.noAutoArea', 'Für diesen Bereich steht kein automatisches Wetter zur Verfügung.')}</div>
+                        ${looksLikeIcao ? `<a data-ga-airport-weather="${icaoNorm}" href="https://metar-taf.com/de/${icaoNorm}" target="_blank" style="display:inline-block; background:#4da6ff; color:#111; padding:6px 12px; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; transition: background 0.2s;">${_awText('airportWx.manualSearch', 'Manuell suchen ➔')}</a>` : ''}
                     </div>`;
             }
             return;
@@ -500,7 +507,7 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false,
 
         const metar = metarDataList[0];
         if (!metar || typeof metar !== 'object') {
-            container.innerHTML = `<div style="padding:10px; text-align:center; color:#d93829; font-size:12px; background:#1a1a1a;">Kein verwertbares METAR für ${icao} gefunden.</div>`;
+            container.innerHTML = `<div style="padding:10px; text-align:center; color:#d93829; font-size:12px; background:#1a1a1a;">${_awText('airportWx.noUsable', 'Kein verwertbares METAR für {icao} gefunden.', { icao })}</div>`;
             return;
         }
         const raw = typeof metar.rawOb === 'string'
@@ -580,7 +587,7 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false,
 
                 // dx="-2" gleicht den kursiven Schwung (Slant) von Caveat aus, der sonst wie eine Rechtsrotation wirkt
                 if (i % 90 === 0) {
-                    let letter = i === 0 ? 'N' : (i === 90 ? 'O' : (i === 180 ? 'S' : 'W'));
+                    let letter = i === 0 ? 'N' : (i === 90 ? _awText('mapContext.compass.east', 'O') : (i === 180 ? 'S' : 'W'));
                     svgTicks += `<text x="${tx}" y="${ty}" dx="-2" font-family="'Caveat', cursive" font-size="22" fill="#222" font-weight="bold" text-anchor="middle" dominant-baseline="central" transform="rotate(${i} ${tx} ${ty})">${letter}</text>`;
                 } else {
                     svgTicks += `<text x="${tx}" y="${ty}" dx="-1.5" font-family="'Caveat', cursive" font-size="14" fill="#666" font-weight="bold" text-anchor="middle" dominant-baseline="central" transform="rotate(${i} ${tx} ${ty})">${i / 10}</text>`;
@@ -641,7 +648,7 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false,
                     svgTicks += `<text x="${tx}" y="${ty}" font-family="sans-serif" font-size="10" fill="#333" font-weight="bold" text-anchor="middle" dominant-baseline="central" transform="rotate(${i} ${tx} ${ty})">${i / 10}</text>`;
                 } else if (isCard) {
                     const angleRad = (i - 90) * Math.PI / 180, tx = 80 + 61 * Math.cos(angleRad), ty = 80 + 61 * Math.sin(angleRad);
-                    let letter = i === 0 ? 'N' : (i === 90 ? 'O' : (i === 180 ? 'S' : 'W'));
+                    let letter = i === 0 ? 'N' : (i === 90 ? _awText('mapContext.compass.east', 'O') : (i === 180 ? 'S' : 'W'));
                     svgTicks += `<text x="${tx}" y="${ty}" font-family="sans-serif" font-size="14" fill="#111" font-weight="bold" text-anchor="middle" dominant-baseline="central" transform="rotate(${i} ${tx} ${ty})">${letter}</text>`;
                 }
             }
@@ -680,7 +687,7 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false,
             let pPad = isMini ? '10px' : (isResponsiveEmbed ? '10px' : '15px 15px 20px 15px');
             const weatherFont = isOps1940 ? "'Caveat', cursive" : "'Courier New', Courier, monospace";
             const weatherOuterFont = isOps1940 ? "'Caveat', cursive" : "'Arial', sans-serif";
-            const rawTextSafe = raw && raw.trim() ? raw : 'RAW nicht verfügbar';
+            const rawTextSafe = raw && raw.trim() ? raw : _awText('airportWx.noRaw', 'RAW nicht verfügbar');
             const miniDecoded = `${visib} · ${wx} · ${temp} / ${dewp} · ${cover}`;
 
             container.innerHTML = `
@@ -750,9 +757,9 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false,
         const isRetro = document.body.classList.contains('theme-retro');
         const isOps1940 = document.body.classList.contains('theme-ops1940');
         if (isRetro || isOps1940) {
-            container.innerHTML = `<div style="padding:10px; text-align:center; color:#d93829; font-family: 'Caveat', cursive; font-size:20px; transform: rotate(-1deg);">Fehler beim Laden des METARs: <br/>${err.message || err}</div>`;
+            container.innerHTML = `<div style="padding:10px; text-align:center; color:#d93829; font-family: 'Caveat', cursive; font-size:20px; transform: rotate(-1deg);">${_awText('airportWx.loadError', 'Fehler beim Laden des METARs:')} <br/>${err.message || err}</div>`;
         } else {
-            container.innerHTML = `<div style="padding:10px; text-align:center; color:#d93829; font-size:12px; background:#1a1a1a;">Fehler beim Laden des METARs: <br/>${err.message || err}</div>`;
+            container.innerHTML = `<div style="padding:10px; text-align:center; color:#d93829; font-size:12px; background:#1a1a1a;">${_awText('airportWx.loadError', 'Fehler beim Laden des METARs:')} <br/>${err.message || err}</div>`;
         }
     }
 }

@@ -9,7 +9,8 @@ const box=(west,east,south=-1,north=1)=>({type:'Polygon',coordinates:[[[west,sou
 const route=[{lat:0,lon:0},{lat:0,lon:10}];
 function rows(items, testRoute=route){
  const activeAirspaces=items.map(as=>({...as,geometry:as.geometry || box(1,2)}));
- const context={activeAirspaces,getRoutePoints:()=>testRoute,pickAirportForAirspaceFallback:()=>({icao:'EDDS'}),getFreqLines:()=>[{label:'ATIS',value:'126.130'}]};
+ // tx(): UI language helper from checklists.js, German pass-through as without GAI18n.
+ const context={tx:(key,german,vars)=>String(german).replace(/\{([a-zA-Z0-9_]+)\}/g,(m,n)=>vars&&n in vars?String(vars[n]):m),activeAirspaces,getRoutePoints:()=>testRoute,pickAirportForAirspaceFallback:()=>({icao:'EDDS'}),getFreqLines:()=>[{label:'ATIS',value:'126.130'}]};
  vm.createContext(context);vm.runInContext(source.slice(start,end)+';result=airspaceFreqRows();',context);
  return JSON.parse(JSON.stringify(context.result));
 }

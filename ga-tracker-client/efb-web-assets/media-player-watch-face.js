@@ -1,4 +1,9 @@
 // Generated from media-player-watch-face.js by sync-efb-web-assets.js. Do not edit.
+// UI language (i18n-core.js, web only): exact German sentences -> i18n/en-phrases.js. In the EFB there is no GAI18n.
+function _mpT(text) {
+  var i18n = typeof window !== 'undefined' ? window.GAI18n : null;
+  return i18n ? i18n.phrase(text) : text;
+}
 /* Analog Watch face. SVG-only rendering for Coherent; SunCalc v1.9.0 (BSD-2-Clause). */
 (function (root, factory) {
   var api = factory();
@@ -75,7 +80,7 @@
       return '<button type="button" class="ga-watch-button ga-skin-control ' + (cls || '') + '" data-watch="' + action + '" aria-label="' + label + '">' + content + '</button>';
     }
     var timerIcon = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="14" r="8"/><path d="M9 2h6M12 2v4M12 9v5l3 2M18 6l2-2"/></svg>';
-    panel.innerHTML = button('timing', 'Stoppuhr und Timer', timerIcon, 'ga-watch-time-tool') + '<div class="ga-watch-temperature" role="img" title="Lokale Bodentemperatur aus dem Wetter"><strong>—</strong><small>°C</small></div><svg class="ga-watch-dial" viewBox="0 0 240 240" role="img" aria-label="Analoge Ortszeit"><circle cx="120" cy="120" r="101" class="ga-watch-night"/><path class="ga-watch-day"/><g class="ga-watch-marks"></g><line class="ga-watch-hour" x1="120" y1="126" x2="120" y2="73"/><line class="ga-watch-minute" x1="120" y1="133" x2="120" y2="47"/><line class="ga-watch-second" x1="120" y1="135" x2="120" y2="39"/><circle cx="120" cy="120" r="4" fill="#ddd"/></svg><div class="ga-watch-sun-label">SR — · SS —</div><div class="ga-watch-qnh" role="img" title="Lokaler Luftdruck auf Meereshöhe aus dem Wetter"><strong>—</strong><small>hPa</small></div>' + button('music', 'Zur Musiksteuerung', '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13M9 8l11-2"/><ellipse cx="6" cy="18" rx="3" ry="2"/><ellipse cx="17" cy="16" rx="3" ry="2"/></svg>', 'ga-watch-music-return') + '<div class="ga-watch-face-actions">' + button('more', 'Gerätegröße einstellen', '···') + button('close', 'Mediensteuerung schließen', '×') + '</div><div class="ga-watch-timing" hidden></div>';
+    panel.innerHTML = button('timing', _mpT('Stoppuhr und Timer'), timerIcon, 'ga-watch-time-tool') + ('<div class="ga-watch-temperature" role="img" title="' + _mpT('Lokale Bodentemperatur aus dem Wetter') + '"><strong>—</strong><small>°C</small></div><svg class="ga-watch-dial" viewBox="0 0 240 240" role="img" aria-label="' + _mpT('Analoge Ortszeit') + '"><circle cx="120" cy="120" r="101" class="ga-watch-night"/><path class="ga-watch-day"/><g class="ga-watch-marks"></g><line class="ga-watch-hour" x1="120" y1="126" x2="120" y2="73"/><line class="ga-watch-minute" x1="120" y1="133" x2="120" y2="47"/><line class="ga-watch-second" x1="120" y1="135" x2="120" y2="39"/><circle cx="120" cy="120" r="4" fill="#ddd"/></svg><div class="ga-watch-sun-label">SR — · SS —</div><div class="ga-watch-qnh" role="img" title="' + _mpT('Lokaler Luftdruck auf Meereshöhe aus dem Wetter') + '"><strong>—</strong><small>hPa</small></div>') + button('music', _mpT('Zur Musiksteuerung'), '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18V5l11-2v13M9 8l11-2"/><ellipse cx="6" cy="18" rx="3" ry="2"/><ellipse cx="17" cy="16" rx="3" ry="2"/></svg>', 'ga-watch-music-return') + '<div class="ga-watch-face-actions">' + button('more', _mpT('Gerätegröße einstellen'), '···') + button('close', _mpT('Mediensteuerung schließen'), '×') + '</div><div class="ga-watch-timing" hidden></div>';
     screen.appendChild(panel);
     var marks = panel.querySelector('.ga-watch-marks');
     function svg(tag, attrs, text) {
@@ -111,7 +116,7 @@
       }, String(hour));
     }
     var timing = panel.querySelector('.ga-watch-timing');
-    timing.innerHTML = '<div class="ga-watch-time-tabs">' + button('clock-stopwatch', 'Stoppuhr', 'Stoppuhr') + button('clock-timer', 'Timer', 'Timer') + '</div><output class="ga-watch-elapsed">00:00.0</output><div class="ga-watch-duration">' + button('clock-less', 'Timer eine Minute kürzer', '−') + '<span>Minuten<small>Krone: Sekunden</small></span>' + button('clock-more', 'Timer eine Minute länger', '+') + '</div><div class="ga-watch-time-controls">' + button('clock-toggle', 'Zeitmessung starten oder stoppen', 'Start') + button('clock-reset', 'Zeitmessung zurücksetzen', 'Reset') + '</div>' + button('clock-back', 'Zur Uhr', 'Zur Uhr');
+    timing.innerHTML = '<div class="ga-watch-time-tabs">' + button('clock-stopwatch', _mpT('Stoppuhr'), _mpT('Stoppuhr')) + button('clock-timer', _mpT('Timer'), _mpT('Timer')) + '</div><output class="ga-watch-elapsed">00:00.0</output><div class="ga-watch-duration">' + button('clock-less', _mpT('Timer eine Minute kürzer'), '−') + ('<span>Minuten<small>' + _mpT('Krone: Sekunden') + '</small></span>') + button('clock-more', _mpT('Timer eine Minute länger'), '+') + '</div><div class="ga-watch-time-controls">' + button('clock-toggle', _mpT('Zeitmessung starten oder stoppen'), 'Start') + button('clock-reset', _mpT('Zeitmessung zurücksetzen'), 'Reset') + '</div>' + button('clock-back', _mpT('Zur Uhr'), _mpT('Zur Uhr'));
     function context() {
       if (options.getEnvironment) return options.getEnvironment();
       if (root.GADisplayClock && root.GADisplayClock.context) return root.GADisplayClock.context();
@@ -204,7 +209,7 @@
         panel.querySelector('.ga-watch-hour').setAttribute('transform', 'rotate(' + wrap(s / 120, 360) + ' 120 120)');
         panel.querySelector('.ga-watch-minute').setAttribute('transform', 'rotate(' + wrap(s / 10, 360) + ' 120 120)');
         panel.querySelector('.ga-watch-second').setAttribute('transform', 'rotate(' + wrap(s * 6, 360) + ' 120 120)');
-        panel.querySelector('.ga-watch-dial').setAttribute('aria-label', 'Ortszeit ' + hm(s));
+        panel.querySelector('.ga-watch-dial').setAttribute('aria-label', _mpT('Ortszeit') + ' ' + hm(s));
       }
       var f = c.flight,
         solarKey = JSON.stringify([Math.floor((c.instantMs + c.offsetSeconds * 1000) / DAY), c.offsetSeconds, f && Math.round(f.lat * 100) / 100, f && Math.round(f.lon * 100) / 100]);
@@ -226,7 +231,7 @@
           snapshot = service && service.snapshot();
         paintTime(snapshot);
         timing.querySelector('.ga-watch-duration').hidden = mode !== 'timer';
-        timing.querySelector('.ga-watch-duration small').textContent = snapshot && snapshot.timerRunning ? 'Zum Einstellen pausieren' : 'Krone: Sekunden';
+        timing.querySelector('.ga-watch-duration small').textContent = snapshot && snapshot.timerRunning ? _mpT('Zum Einstellen pausieren') : _mpT('Krone: Sekunden');
         timing.querySelector('[data-watch="clock-toggle"]').textContent = snapshot && (mode === 'stopwatch' ? snapshot.running : snapshot.timerRunning) ? 'Pause' : snapshot && snapshot.alarm && mode === 'timer' ? 'OK' : 'Start';
         timing.querySelector('[data-watch="clock-stopwatch"]').setAttribute('aria-pressed', String(mode === 'stopwatch'));
         timing.querySelector('[data-watch="clock-timer"]').setAttribute('aria-pressed', String(mode === 'timer'));

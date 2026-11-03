@@ -66,6 +66,18 @@
     GROUPS.forEach(group => group.openAipTypes.forEach(type => TYPE_TO_GROUP.set(type, group.id)));
     let selectedIds = null;
 
+    // UI language (i18n-core.js). GROUPS stays German (API, self tests); only the display is translated.
+    function uiLang() {
+        return globalScope.GAI18n ? globalScope.GAI18n.getLanguage() : 'de';
+    }
+    function tr(key, vars, german) {
+        if (globalScope.GAI18n) return globalScope.GAI18n.t(key, vars, german);
+        return String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, (m, n) => (vars && Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m));
+    }
+    function groupText(group, field) {
+        return group[field] ? tr(`airportTypes.group.${group.id}.${field}`, null, group[field]) : group[field];
+    }
+
     function storage() {
         try {
             return globalScope.localStorage || null;
@@ -168,21 +180,23 @@
 
     function summary(options = {}) {
         const groups = selectedGroups();
-        if (groups.length === GROUPS.length) return options.compact ? 'ALLE' : 'Alle Platztypen';
-        if (groups.length === 1) return groups[0][options.compact ? 'shortLabel' : 'label'];
+        if (groups.length === GROUPS.length) return options.compact ? tr('airportTypes.summary.allCompact', null, 'ALLE') : tr('airportTypes.summary.all', null, 'Alle Platztypen');
+        if (groups.length === 1) return groupText(groups[0], options.compact ? 'shortLabel' : 'label');
         if (groups.length === 2) {
-            return groups.map(group => group.shortLabel).join(' + ');
+            return groups.map(group => groupText(group, 'shortLabel')).join(' + ');
         }
-        return options.compact ? `${groups.length} TYPEN` : `${groups.length} Platztypen`;
+        return options.compact
+            ? tr('airportTypes.summary.countCompact', { count: groups.length }, '{count} TYPEN')
+            : tr('airportTypes.summary.count', { count: groups.length }, '{count} Platztypen');
     }
 
     function radioSummary() {
         const groups = selectedGroups();
         const ids = groups.map(group => group.id);
         if (groups.length === GROUPS.length) return 'ALL';
-        if (ids.length === 2 && ids.includes('traffic') && ids.includes('ga')) return 'V+GA';
+        if (ids.length === 2 && ids.includes('traffic') && ids.includes('ga')) return tr('airportTypes.radio.trafficGa', null, 'V+GA');
         if (ids.length === 1) {
-            return {
+            const german = {
                 traffic: 'VERK',
                 ga: 'GA',
                 glider: 'SEGL',
@@ -191,24 +205,35 @@
                 heli: 'HELI',
                 water: 'WASS',
                 strips: 'STRIP'
-            }[ids[0]] || groups[0].shortLabel;
+            }[ids[0]];
+            return german ? tr(`airportTypes.radio.${ids[0]}`, null, german) : groupText(groups[0], 'shortLabel');
         }
-        return `${groups.length} TYP`;
+        return tr('airportTypes.radio.count', { count: groups.length }, '{count} TYP');
     }
 
     function renderOptions() {
         const doc = globalScope.document;
         const host = doc?.getElementById('airportTypePickerOptions');
-        if (!host || host.dataset.rendered === '1') return;
-        host.innerHTML = GROUPS.map(group => `
+        if (!host) return;
+        const markup = () => GROUPS.map(group => `
             <label class="airport-type-option" data-airport-type="${group.id}">
                 <input type="checkbox" value="${group.id}">
                 <span class="airport-type-option-copy">
-                    <strong>${group.label}</strong>
-                    <small>${group.description}</small>
+                    <strong>${groupText(group, 'label')}</strong>
+                    <small>${groupText(group, 'description')}</small>
                 </span>
             </label>
         `).join('');
+        if (host.dataset.rendered === '1') {
+            // Already bound: only redraw the labels after a language switch.
+            if (host.dataset.lang !== uiLang()) {
+                host.innerHTML = markup();
+                host.dataset.lang = uiLang();
+            }
+            return;
+        }
+        host.innerHTML = markup();
+        host.dataset.lang = uiLang();
         host.addEventListener('change', event => {
             const checked = Array.from(host.querySelectorAll('input[type="checkbox"]:checked'))
                 .map(input => input.value);
@@ -242,11 +267,11 @@
             const value = button.querySelector('[data-airport-type-summary]');
             if (value) value.textContent = label;
             else button.textContent = label;
-            button.setAttribute('aria-label', `Platztypen auswählen. Aktiv: ${full}`);
-            button.title = `Aktiv: ${full}`;
+            button.setAttribute('aria-label', tr('airportTypes.buttonAria', { active: full }, 'Platztypen auswählen. Aktiv: {active}'));
+            button.title = tr('airportTypes.buttonTitle', { active: full }, 'Aktiv: {active}');
         });
         const count = doc.getElementById('airportTypePickerCount');
-        if (count) count.textContent = `${selected.size} von ${GROUPS.length} aktiv`;
+        if (count) count.textContent = tr('airportTypes.count', { active: selected.size, total: GROUPS.length }, '{active} von {total} aktiv');
     }
 
     function setDialogOpen(open) {
@@ -320,4 +345,7 @@
     });
 
     globalScope.gaAirportTypes = api;
+    if (globalScope.GAI18n && typeof globalScope.GAI18n.onChange === 'function') {
+        globalScope.GAI18n.onChange(() => { try { updateUi(); } catch (_) {} });
+    }
 })(typeof window !== 'undefined' ? window : globalThis);

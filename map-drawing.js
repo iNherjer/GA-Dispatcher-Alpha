@@ -123,7 +123,7 @@ function syncMapDrawUi() {
     if (settingsToolBtn) settingsToolBtn.classList.toggle('active', mapDrawState.menuOpen);
     if (measureToolBtn) {
         measureToolBtn.classList.toggle('active', !!measureMode);
-        measureToolBtn.title = `Messen (${measureMode ? 'An' : 'Aus'})`;
+        measureToolBtn.title = _mdrMeasureLabel(measureMode);
     }
     if (stopwatchToolBtn) {
         const open = typeof window.isMapUtilityToolOpen === 'function' && window.isMapUtilityToolOpen('stopwatch');
@@ -1096,14 +1096,14 @@ function toggleMeasureMode() {
     if (measureMode) {
         if (mapDrawState.enabled) toggleMapDrawMode(false);
         if (btn) {
-            btn.innerText = '📏 Messen (An)';
+            btn.innerText = '📏 ' + _mdrMeasureLabel(true);
             btn.style.background = 'var(--piper-yellow)';
             btn.style.color = '#000';
         }
         document.getElementById('map').style.cursor = 'crosshair';
     } else {
         if (btn) {
-            btn.innerText = '📏 Messen (Aus)';
+            btn.innerText = '📏 ' + _mdrMeasureLabel(false);
             btn.style.background = '#444';
             btn.style.color = '#fff';
         }
@@ -1152,13 +1152,32 @@ function clearMeasure() {
 }
 
 
+// UI language (i18n-core.js, web only). In the EFB there is no GAI18n: the German text is used.
+function _mdrMeasureLabel(on) {
+    const i18n = typeof window !== 'undefined' ? window.GAI18n : null;
+    const state = on ? (i18n ? i18n.t('map.on', null, 'An') : 'An') : (i18n ? i18n.t('map.off', null, 'Aus') : 'Aus');
+    return (i18n ? i18n.t('map.tools.measure', null, 'Messen') : 'Messen') + ` (${state})`;
+}
+
 function showMapToast(message, durationMs) {
     if (!durationMs) durationMs = 3000;
     const container = document.getElementById('mapArea') || document.body;
     const toast = document.createElement('div');
     toast.className = 'ff-toast';
-    toast.textContent = message;
+    // Callers pass German sentences; the web translates exact matches (i18n/en-phrases.js). EFB: unchanged.
+    toast.textContent = (typeof window !== 'undefined' && window.GAI18n) ? window.GAI18n.phrase(message) : message;
     toast.style.animationDuration = durationMs + 'ms';
     container.appendChild(toast);
     setTimeout(() => { if (toast.parentNode) toast.parentNode.removeChild(toast); }, durationMs + 100);
+}
+
+// Language switch (web): redraw the drawing tool labels. Display only.
+if (typeof window !== 'undefined' && window.GAI18n && typeof window.GAI18n.onChange === 'function') {
+    window.GAI18n.onChange(() => {
+        try { syncMapDrawUi(); } catch (_) {}
+        try {
+            const btn = document.getElementById('measureBtn');
+            if (btn) btn.innerText = '📏 ' + _mdrMeasureLabel(!!measureMode);
+        } catch (_) {}
+    });
 }

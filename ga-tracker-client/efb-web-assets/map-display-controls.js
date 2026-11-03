@@ -70,6 +70,18 @@ var MAP_SINGLE_CLICK_MODE_LABELS = {
   panels: 'Tafeln'
 };
 var mapSingleClickMode = 'off';
+
+// UI language (i18n-core.js, web only). In the EFB there is no GAI18n: the German text is used.
+function _mdcText(key, german, vars) {
+  if (typeof window !== 'undefined' && window.GAI18n) return window.GAI18n.t(key, vars, german);
+  return String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, (m, n) => vars && Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m);
+}
+function _mdcOnOff(on) {
+  return on ? _mdcText('map.on', 'An') : _mdcText('map.off', 'Aus');
+}
+function _mdcSingleClickLabel(mode) {
+  return _mdcText(`map.singleClick.${mode}`, MAP_SINGLE_CLICK_MODE_LABELS[mode]);
+}
 window.mapHints = window.mapHints || _objectSpread({}, MAP_HINT_DEFAULTS);
 Object.keys(MAP_HINT_DEFAULTS).forEach(key => {
   if (!(key in window.mapHints)) window.mapHints[key] = MAP_HINT_DEFAULTS[key];
@@ -225,17 +237,21 @@ function refreshMapHintMenuUi() {
     var btn = document.getElementById(ids[key]);
     if (!btn) return;
     var on = window.mapHints[key] !== false;
-    btn.textContent = `${labels[key]} (${on ? 'An' : 'Aus'})`;
+    btn.textContent = `${_mdcText(`map.hint.${key}`, labels[key])} (${_mdcOnOff(on)})`;
     btn.style.background = on ? '#2E8B57' : '#444';
     btn.style.color = '#fff';
   });
   var singleClickButton = document.getElementById('hintToggleAirportSingleClick');
   if (singleClickButton) {
     var singleClickMode = getMapSingleClickMode();
-    singleClickButton.textContent = `🛩️ Einzelklick: ${MAP_SINGLE_CLICK_MODE_LABELS[singleClickMode]}`;
+    singleClickButton.textContent = _mdcText('map.singleClick.button', '🛩️ Einzelklick: {mode}', {
+      mode: _mdcSingleClickLabel(singleClickMode)
+    });
     singleClickButton.style.background = singleClickMode === 'panels' ? '#2E8B57' : singleClickMode === 'tooltip' ? '#8a6717' : '#444';
     singleClickButton.style.color = '#fff';
-    singleClickButton.setAttribute('aria-label', `Einzelklick für Flugplätze, VRPs und Navaids: ${MAP_SINGLE_CLICK_MODE_LABELS[singleClickMode]}`);
+    singleClickButton.setAttribute('aria-label', _mdcText('map.singleClick.aria', 'Einzelklick für Flugplätze, VRPs und Navaids: {mode}', {
+      mode: _mdcSingleClickLabel(singleClickMode)
+    }));
   }
   if (typeof updateSnapButtonUI === 'function') updateSnapButtonUI();
   Object.keys(MAP_HINT_SUBMENU_DEFAULTS).forEach(k => {
@@ -444,8 +460,11 @@ function updateRouteLegLabelModeButton() {
     duration: 'Dauer',
     both: 'Distanz + Dauer'
   };
-  btn.textContent = `📏 Legs: ${labels[routeLegLabelMode] || labels.distance}`;
-  btn.title = 'Leg-Anzeige wechseln: Distanz, Dauer oder beides. Dauer basiert auf dem Speed-Setting im Hauptmenü.';
+  var mode = labels[routeLegLabelMode] ? routeLegLabelMode : 'distance';
+  btn.textContent = _mdcText('map.legs.button', '📏 Legs: {mode}', {
+    mode: _mdcText(`map.legs.${mode}`, labels[mode])
+  });
+  btn.title = _mdcText('map.legs.title', 'Leg-Anzeige wechseln: Distanz, Dauer oder beides. Dauer basiert auf dem Speed-Setting im Hauptmenü.');
 }
 window.cycleRouteLegLabelMode = function () {
   var currentIdx = ROUTE_LEG_LABEL_MODES.indexOf(routeLegLabelMode);
@@ -502,4 +521,16 @@ function getTasForRouteEstimate() {
   var _document$getElementB;
   if (window.gaProfileDataProvider && Number.isFinite(window.gaProfileDataProvider.tasKts)) return window.gaProfileDataProvider.tasKts;
   return parseInt(((_document$getElementB = document.getElementById('tasSlider')) === null || _document$getElementB === void 0 ? void 0 : _document$getElementB.value) || 160, 10) || 160;
+}
+
+// Language switch (web): redraw the menu labels. Display only.
+if (typeof window !== 'undefined' && window.GAI18n && typeof window.GAI18n.onChange === 'function') {
+  window.GAI18n.onChange(() => {
+    try {
+      refreshMapHintMenuUi();
+    } catch (_) {}
+    try {
+      updateRouteLegLabelModeButton();
+    } catch (_) {}
+  });
 }

@@ -1,5 +1,9 @@
 /* Shared App / EFB debrief presentation. */
 (function () {
+// UI language (i18n-core.js, web only): _fdT = exact German sentence -> i18n/en-phrases.js,
+// _fdK = key with placeholders. Without GAI18n (EFB) the German text stays exactly as before.
+function _fdT(text) { var i18n = (typeof window !== 'undefined') ? window.GAI18n : null; return i18n ? i18n.phrase(text) : text; }
+function _fdK(key, german, vars) { var i18n = (typeof window !== 'undefined') ? window.GAI18n : null; if (i18n) return i18n.t(key, vars, german); return vars ? String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, function (m, n) { return Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m; }) : german; }
 'use strict';
 let debriefOverlayEl = null;
 let currentDebriefRecord = null;
@@ -64,7 +68,7 @@ function ensureDebriefOverlay() {
         try { await window.generateDebriefPDF(currentDebriefRecord); }
         catch (err) {
             console.error('[Debrief] PDF export failed:', err);
-            alert('Das Debrief-PDF konnte nicht erstellt werden.');
+            alert(_fdT('Das Debrief-PDF konnte nicht erstellt werden.'));
         } finally {
             pdfBtn.disabled = false;
             pdfBtn.textContent = oldText;

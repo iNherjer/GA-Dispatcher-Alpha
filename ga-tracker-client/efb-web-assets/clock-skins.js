@@ -7,6 +7,21 @@
     _selected = 'stopwatch',
     KEY = 'ga.clock.skin.v1',
     choices = null;
+  // UI language (i18n-core.js, web only). In the EFB there is no GAI18n: the German text is used.
+  function csText(key, german, vars) {
+    var i18n = typeof window !== 'undefined' ? window.GAI18n : null;
+    if (i18n) return i18n.t(key, vars, german);
+    return String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, function (m, n) {
+      return vars && Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m;
+    });
+  }
+  function uiLangCs() {
+    return root.GAI18n ? root.GAI18n.getLanguage() : 'de';
+  }
+  function skinLabel(id) {
+    var p = providers[id];
+    return p ? csText('clock.skin.' + id, p.label) : '';
+  }
   try {
     _selected = root.localStorage.getItem(KEY) || 'stopwatch';
   } catch (_) {}
@@ -18,14 +33,14 @@
       provider = current();
     if (!provider) return;
     if (select) {
-      var signature = Object.keys(providers).join('|');
+      var signature = Object.keys(providers).join('|') + '|' + uiLangCs();
       if (select._clockOptions !== signature) {
         select._clockOptions = signature;
         while (select.firstChild) select.removeChild(select.firstChild);
         Object.keys(providers).forEach(function (id) {
           var option = root.document.createElement('option');
           option.value = id;
-          option.textContent = providers[id].label;
+          option.textContent = skinLabel(id);
           select.appendChild(option);
         });
       }
@@ -35,13 +50,13 @@
       if (!choices) {
         choices = root.document.createElement('div');
         choices.setAttribute('role', 'group');
-        choices.setAttribute('aria-label', 'Uhrenskin');
+        choices.setAttribute('aria-label', csText('clock.skin.aria', 'Uhrenskin'));
         choices.style.display = 'flex';
         select.parentNode.insertBefore(choices, select);
         select.style.display = 'none';
       }
-      if (choices._clockOptions !== Object.keys(providers).join('|')) {
-        choices._clockOptions = Object.keys(providers).join('|');
+      if (choices._clockOptions !== Object.keys(providers).join('|') + '|' + uiLangCs()) {
+        choices._clockOptions = Object.keys(providers).join('|') + '|' + uiLangCs();
         while (choices.firstChild) choices.removeChild(choices.firstChild);
         Object.keys(providers).forEach(function (id) {
           var b = root.document.createElement('button');
@@ -49,7 +64,7 @@
           b.className = 'pb-btn';
           b.style.flex = '1';
           b.style.margin = '0 2px 6px 0';
-          b.textContent = providers[id].label;
+          b.textContent = skinLabel(id);
           b.dataset.clockSkin = id;
           b.onclick = function () {
             choose(id);
@@ -64,8 +79,11 @@
     }
     var button = root.document.getElementById('mapToolStopwatch');
     if (button) {
-      if (button.title !== provider.label) button.title = provider.label;
-      var label = provider.label + ' öffnen';
+      var shownLabel = csText('clock.skin.' + (providers[_selected] === provider ? _selected : 'stopwatch'), provider.label);
+      if (button.title !== shownLabel) button.title = shownLabel;
+      var label = csText('clock.skin.open', '{name} öffnen', {
+        name: shownLabel
+      });
       if (button.getAttribute('aria-label') !== label) button.setAttribute('aria-label', label);
       button.classList.toggle('active', !!provider.isOpen());
     }
@@ -180,4 +198,8 @@
     refresh();
   }
   if (root.document.readyState === 'loading') root.document.addEventListener('DOMContentLoaded', install);else install();
+  // UI language (web only): redraw the labels when the language changes.
+  if (root.GAI18n && typeof root.GAI18n.onChange === 'function') root.GAI18n.onChange(function () {
+    refresh();
+  });
 })(window);

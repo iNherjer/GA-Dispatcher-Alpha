@@ -1,19 +1,26 @@
+// UI language (i18n-core.js, web only). In the EFB there is no GAI18n: the German text is used.
+function _zcText(key, german, vars) {
+    var i18n = (typeof window !== 'undefined') ? window.GAI18n : null;
+    if (i18n) return i18n.t(key, vars, german);
+    return String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, function (m, n) { return (vars && Object.prototype.hasOwnProperty.call(vars, n)) ? String(vars[n]) : m; });
+}
+
 // A spring-style zoom control: displacement controls speed, release stops it.
 function installMapDragZoomControl(targetMap) {
     const container = targetMap.getContainer();
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'map-drag-zoom';
-    button.title = 'Ziehen: Zoom · Antippen: Follow und Autozoom umschalten';
-    button.setAttribute('aria-label', 'Kartenzoom: halten und ziehen. Antippen schaltet Follow und Autozoom um. Pfeiltasten zoomen ebenfalls.');
+    button.title = _zcText('map.zoomControl.title', 'Ziehen: Zoom · Antippen: Follow und Autozoom umschalten');
+    button.setAttribute('aria-label', _zcText('map.zoomControl.aria', 'Kartenzoom: halten und ziehen. Antippen schaltet Follow und Autozoom um. Pfeiltasten zoomen ebenfalls.'));
     button.innerHTML = '<svg viewBox="0 0 24 48" aria-hidden="true"><path d="m9 7 3-3 3 3M9 41l3 3 3-3"/><g class="map-drag-zoom-magnifier"><circle cx="10" cy="22" r="6"/><path d="m14.5 26.5 5 5"/></g><path class="map-drag-zoom-location" d="m4 23 16-9-7 19-2-9z"/></svg>';
     const refreshFollowIndicator = () => {
         const following = typeof isAutoFollow !== 'undefined' && isAutoFollow;
         button.classList.toggle('is-following', following);
         button.setAttribute('aria-pressed', String(following));
         button.title = following
-            ? 'Follow aktiv · Antippen: Follow aus · Ziehen: Zoom'
-            : 'Antippen: Follow und Autozoom an · Ziehen: Zoom';
+            ? _zcText('map.zoomControl.following', 'Follow aktiv · Antippen: Follow aus · Ziehen: Zoom')
+            : _zcText('map.zoomControl.notFollowing', 'Antippen: Follow und Autozoom an · Ziehen: Zoom');
     };
     refreshFollowIndicator();
     window.addEventListener('ga-map-follow-changed', refreshFollowIndicator);

@@ -3,6 +3,10 @@
  * flight-debrief.js (also used by the EFB) stays unchanged.
  * Concept: docs/Flugbuch Kruemelweg Konzept.md */
 (function () {
+// UI language (i18n-core.js, web only): _flvT = exact German sentence -> i18n/en-phrases.js,
+// _flvK = key with placeholders. Without GAI18n (EFB) the German text stays exactly as before.
+function _flvT(text) { var i18n = (typeof window !== 'undefined') ? window.GAI18n : null; return i18n ? i18n.phrase(text) : text; }
+function _flvK(key, german, vars) { var i18n = (typeof window !== 'undefined') ? window.GAI18n : null; if (i18n) return i18n.t(key, vars, german); return vars ? String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, function (m, n) { return Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m; }) : german; }
 'use strict';
 
 const BASE_URL = 'https://ga-proxy.einherjer.workers.dev/api/flightlog-v1/';
@@ -880,7 +884,7 @@ function addDeleteButton(entry) {
 }
 async function deleteEntry(entry, button) {
     const label = entry?.kind === 'free' ? 'diesen freien Flug' : 'diesen Missionseintrag';
-    if (!confirm(`Möchtest du ${label} samt Flugweg aus dem Flugbuch löschen? Das gilt für alle Geräte.`)) return;
+    if (!confirm(_flvK('dialog.logbook.mochtestSamtFlugwegAus', 'Möchtest du {label} samt Flugweg aus dem Flugbuch löschen? Das gilt für alle Geräte.', { label: label }))) return;
     if (button) button.disabled = true;
     const runId = trackRunIdFor(entry);
     try {
@@ -898,7 +902,7 @@ async function deleteEntry(entry, button) {
         refresh({ force: true });
     } catch (error) {
         if (button) button.disabled = false;
-        alert(`Löschen in der Cloud fehlgeschlagen (${error?.message || error}). Bitte später erneut versuchen.`);
+        alert(_flvK('dialog.logbook.loschenDerCloudFehlgeschlagen', 'Löschen in der Cloud fehlgeschlagen ({v}). Bitte später erneut versuchen.', { v: error?.message || error }));
     }
 }
 

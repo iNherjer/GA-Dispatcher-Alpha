@@ -11,8 +11,20 @@ function asyncGeneratorStep(n, t, e, r, o, a, c) { try { var i = n[a](c), u = i.
 function _asyncToGenerator(n) { return function () { var t = this, e = arguments; return new Promise(function (r, o) { var a = n.apply(t, e); function _next(n) { asyncGeneratorStep(a, r, o, _next, _throw, "next", n); } function _throw(n) { asyncGeneratorStep(a, r, o, _next, _throw, "throw", n); } _next(void 0); }); }; }
 /* Shared App / EFB debrief presentation. */
 (function () {
+  // UI language (i18n-core.js, web only): _fdT = exact German sentence -> i18n/en-phrases.js,
+  // _fdK = key with placeholders. Without GAI18n (EFB) the German text stays exactly as before.
+  function _fdT(text) {
+    var i18n = typeof window !== 'undefined' ? window.GAI18n : null;
+    return i18n ? i18n.phrase(text) : text;
+  }
+  function _fdK(key, german, vars) {
+    var i18n = typeof window !== 'undefined' ? window.GAI18n : null;
+    if (i18n) return i18n.t(key, vars, german);
+    return vars ? String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, function (m, n) {
+      return Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m;
+    }) : german;
+  }
   'use strict';
-
   var debriefOverlayEl = null;
   var currentDebriefRecord = null;
   var currentDebriefAwaitingCleanup = false;
@@ -130,7 +142,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
             _context2.p = 4;
             _t3 = _context2.v;
             console.error('[Debrief] PDF export failed:', _t3);
-            alert('Das Debrief-PDF konnte nicht erstellt werden.');
+            alert(_fdT('Das Debrief-PDF konnte nicht erstellt werden.'));
           case 5:
             _context2.p = 5;
             pdfBtn.disabled = false;
