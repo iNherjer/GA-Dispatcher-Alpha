@@ -8874,3 +8874,14 @@ heruntergeladen: 174023633 Bytes, SHA-256
 `eecd0d935bb0f2c14cf7e5fbadc23fed05721f3495ee208434f726d98b3fc616`.
 Alpha-Zeiger auf dieses Artefakt gesetzt, Aktivierungs-Cache v2149. Stable und
 Community-Paket unverändert. Simulator-/Coherent-/VR-Feldtest bleibt offen.
+
+## Tracker v613 Alpha: Kontrast im Karten-Wetterpopup (03.11.2026)
+
+Im dunklen Flugplatzpopup sind Stationsname, Wind und QNH heller. Die farbigen
+Flugkategorien stehen auf dunklem Grund und bleiben unterscheidbar. Der
+Browser-Test des EFB-Markups misst mindestens 6,27:1 Textkontrast. Das EFB
+behält den tatsächlichen Zielflugplatz im Popup, die Web-App zeigt bei einem
+POI-Rundflug am gemeinsamen Start- und Rückkehrplatz DEP.
+
+EFB-Asset-Revision 61301. Die Windows-x64-EXE enthält die geprüften CSS- und
+JavaScript-Assets. Die Abnahme im MSFS-EFB steht noch aus.

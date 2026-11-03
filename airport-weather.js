@@ -692,7 +692,7 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false,
             const miniDecoded = `${visib} · ${wx} · ${temp} / ${dewp} · ${cover}`;
 
             container.innerHTML = `
-                <div class="ga-weather-card" style="${isMini ? 'background:none; border:none; box-shadow:none; padding:4px 0;' : `background:#f0eada; border-radius:12px; padding:${pPad}; border: 3px solid #c2bba8; box-shadow: 0 4px 8px rgba(0,0,0,0.2), inset 0 2px 5px rgba(255,255,255,0.5);`} font-family:${weatherOuterFont}; color: #333; position:relative; overflow:hidden;">
+                <div class="ga-weather-card${isMini ? ' ga-weather-card-mini' : ''}" style="${isMini ? 'background:none; border:none; box-shadow:none; padding:4px 0;' : `background:#f0eada; border-radius:12px; padding:${pPad}; border: 3px solid #c2bba8; box-shadow: 0 4px 8px rgba(0,0,0,0.2), inset 0 2px 5px rgba(255,255,255,0.5);`} font-family:${weatherOuterFont}; color: #333; position:relative; overflow:hidden;">
 
                     ${!isMini ? `
                     <div style="position:absolute; top:6px; left:6px; width:6px; height:6px; background:#ddd; border-radius:50%; box-shadow: inset 0 0 2px #555;"></div>
@@ -702,14 +702,14 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false,
                     ` : ''}
 
                     <div style="color:#8a1a12; font-size:${isResponsiveEmbed ? 12 : 14}px; font-weight:bold; margin-bottom:${isMini ? 6 : (isResponsiveEmbed ? 5 : 12)}px; ${isMini ? '' : 'border-bottom:2px dashed #c2bba8;'} padding-bottom:${isMini ? 0 : (isResponsiveEmbed ? 4 : 8)}px; font-family:${weatherFont}; display:flex; justify-content:space-between; align-items:center; letter-spacing:0.5px;">
-                        <span>${modernHeaderText}</span>
-                        <span style="color:${catColor}; font-size:${isResponsiveEmbed ? 12 : 14}px; padding:${isResponsiveEmbed ? '1px 5px' : '2px 8px'}; border:2px solid ${catColor}; border-radius:4px; background:rgba(255,255,255,0.7); box-shadow:0 1px 2px rgba(0,0,0,0.1);">${catText}</span>
+                        <span class="ga-weather-station">${modernHeaderText}</span>
+                        <span class="ga-weather-category" data-category="${_escapeMetarWidgetText(catText)}" style="color:${catColor}; font-size:${isResponsiveEmbed ? 12 : 14}px; padding:${isResponsiveEmbed ? '1px 5px' : '2px 8px'}; border:2px solid ${catColor}; border-radius:4px; background:rgba(255,255,255,0.7); box-shadow:0 1px 2px rgba(0,0,0,0.1);">${catText}</span>
                     </div>
                     ${!isMini && !isResponsiveEmbed ? `<div style="background:#e6e0ce; color:#333; font-family:${weatherFont}; padding:10px; border-radius:4px; font-size:11.5px; margin-bottom:18px; border: 1px inset #c2bba8; line-height: 1.4; letter-spacing: 0.5px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.1);">${rawTextSafe}</div>` : ''}
                     ${isMini ? `<div style="background:#ece6d6; color:#2f2f2f; font-family:${weatherFont}; padding:6px 8px; border-radius:4px; font-size:10px; margin-bottom:8px; border:1px solid #c8c0ac; line-height:1.35; word-break:break-word;">${rawTextSafe}<br><span style="color:#555;">${miniDecoded}</span></div>` : ''}
                     <div class="ga-weather-layout${isResponsiveEmbed ? ' ga-weather-layout-responsive' : ''}" style="display:flex; justify-content:space-between; align-items:${isResponsiveEmbed ? 'stretch' : 'center'}; gap:${isResponsiveEmbed ? 5 : 8}px;${isResponsiveEmbed ? ' flex-direction:column;' : ''}">
                         <div style="display:flex; flex-direction:column; gap:${gap}px; font-family:${weatherFont}; flex-shrink: 1; min-width: 0;">
-                            <div><div style="color:#666; font-size:${fLbl}px; font-weight:bold; letter-spacing:1px;">WIND</div><div style="color:#1a73e8; font-size:${fVal}px; font-weight:bold; white-space: nowrap;">${windText}</div></div>
+                            <div><div class="ga-weather-field-label" style="color:#666; font-size:${fLbl}px; font-weight:bold; letter-spacing:1px;">WIND</div><div class="ga-weather-wind-value" style="color:#1a73e8; font-size:${fVal}px; font-weight:bold; white-space: nowrap;">${windText}</div></div>
                             ${!isMini ? `
                             <div style="display:flex; gap:${rowGap}px;">
                                 <div><div style="color:#666; font-size:${fLbl}px; font-weight:bold; letter-spacing:1px;">VIS</div><div style="color:#111; font-size:${fVal}px; font-weight:bold; white-space: nowrap;">${visib}</div></div>
@@ -720,7 +720,7 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false,
                                 <div><div style="color:#666; font-size:${fLbl}px; font-weight:bold; letter-spacing:1px;">DEWP</div><div style="color:#111; font-size:${fVal}px; font-weight:bold; white-space: nowrap;">${dewp}</div></div>
                             </div>` : ''}
                             <div style="display:flex; gap:${rowGap}px;">
-                                <div><div style="color:#666; font-size:${fLbl}px; font-weight:bold; letter-spacing:1px;">QNH</div><div style="color:#111; font-size:${fVal}px; font-weight:bold; white-space: nowrap;">${qnhStr}</div></div>
+                                <div><div class="ga-weather-field-label" style="color:#666; font-size:${fLbl}px; font-weight:bold; letter-spacing:1px;">QNH</div><div class="ga-weather-pressure-value" style="color:#111; font-size:${fVal}px; font-weight:bold; white-space: nowrap;">${qnhStr}</div></div>
                                 ${!isMini ? `<div><div style="color:#666; font-size:${fLbl}px; font-weight:bold; letter-spacing:1px;">COVER</div><div style="color:#111; font-size:${fVal}px; font-weight:bold; white-space: nowrap;">${cover}</div></div>` : ''}
                             </div>
                         </div>

@@ -1579,6 +1579,26 @@ body.ga-efb-tracker-host .ga-airport-popup .ga-popup-frequency-row { color: #eef
 body.ga-efb-tracker-host .ga-airport-popup .ga-popup-frequency-label,
 body.ga-efb-tracker-host .ga-airport-popup .ga-popup-frequency-value { color: #b9e6ff; }
 body.ga-efb-tracker-host .ga-airport-popup-loading { color: #b8cbd9 !important; }
+body.ga-efb-tracker-host .ga-airport-popup .ga-weather-card-mini .ga-weather-station,
+body.ga-efb-tracker-host .ga-airport-popup .ga-weather-card-mini .ga-weather-pressure-value {
+  color: #eef5ff !important;
+}
+body.ga-efb-tracker-host .ga-airport-popup .ga-weather-card-mini .ga-weather-field-label {
+  color: #b8cbd9 !important;
+}
+body.ga-efb-tracker-host .ga-airport-popup .ga-weather-card-mini .ga-weather-wind-value {
+  color: #91d9ff !important;
+}
+body.ga-efb-tracker-host .ga-airport-popup .ga-weather-card-mini .ga-weather-category {
+  --ga-weather-category-color: #eef5ff;
+  color: var(--ga-weather-category-color) !important;
+  border-color: var(--ga-weather-category-color) !important;
+  background: #253545 !important;
+}
+body.ga-efb-tracker-host .ga-airport-popup .ga-weather-card-mini [data-category="VFR"] { --ga-weather-category-color: #9ce7ab; }
+body.ga-efb-tracker-host .ga-airport-popup .ga-weather-card-mini [data-category="MVFR"] { --ga-weather-category-color: #91caff; }
+body.ga-efb-tracker-host .ga-airport-popup .ga-weather-card-mini [data-category="IFR"] { --ga-weather-category-color: #ff9c9c; }
+body.ga-efb-tracker-host .ga-airport-popup .ga-weather-card-mini [data-category="LIFR"] { --ga-weather-category-color: #f5a9f4; }
 body.ga-efb-tracker-host .ga-map-context-airport-full {
   color: #eef5ff !important;
   background: #17212b !important;

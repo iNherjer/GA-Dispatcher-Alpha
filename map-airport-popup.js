@@ -396,6 +396,16 @@ document.addEventListener('click', function(event) {
     }).finally(() => { delete link.dataset.opening; });
 });
 
+function isPoiReturnAirportRoute(points) {
+    if (!Array.isArray(points) || points.length < 3) return false;
+    const start = points[0];
+    const end = points[points.length - 1];
+    const samePlace = Math.abs(start.lat - end.lat) <= 0.0001
+        && Math.abs((start.lng ?? start.lon) - (end.lng ?? end.lon)) <= 0.0001;
+    return samePlace && (end.isPoiChainReturnHome === true
+        || points.slice(1, -1).some(point => point.isPOI === true || point.isPoiChainEndpoint === true));
+}
+
 function bindRouteAirportPopup(marker, isStart, latlng) {
         if (isStart) {
             marker.bindPopup('');
@@ -435,15 +445,18 @@ function bindRouteAirportPopup(marker, isStart, latlng) {
                         || (typeof missionUsesPoiTaskRecipe === 'function' && missionUsesPoiTaskRecipe(currentMissionData))
                     )
                 );
+                const poiReturn = missionLikePoi && isPoiReturnAirportRoute(routeWaypoints);
                 const icao = missionLikePoi ? currentStartICAO : currentDestICAO;
                 const elev = missionLikePoi ? currentDepElev : currentDestElev;
+                const name = poiReturn ? (currentSName || icao) : currentDName;
                 const destCountry = getAirportCountryCode(icao);
-                marker.getPopup().setContent(_buildAptPopup('DEST', currentDName, elev, icao, {
+                marker.getPopup().setContent(_buildAptPopup(poiReturn ? 'DEP' : 'DEST', name, elev, icao, {
+                    wxContainerId: 'wxPopupDest',
                     runwayContainerId: 'wxPopupDestRwy',
                     freqContainerId: 'wxPopupDestFreq',
                     countryCode: destCountry,
-                    showDirectTo: Boolean(icao && icao !== currentDestICAO),
-                    directToName: currentDName,
+                    showDirectTo: Boolean(!poiReturn && icao && icao !== currentDestICAO),
+                    directToName: name,
                     lat: latlng.lat,
                     lon: latlng.lng || latlng.lon
                 }));

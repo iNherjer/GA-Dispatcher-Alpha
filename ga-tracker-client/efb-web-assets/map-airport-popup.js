@@ -337,6 +337,14 @@ document.addEventListener('click', function (event) {
     delete link.dataset.opening;
   });
 });
+function isPoiReturnAirportRoute(points) {
+  var _start$lng, _end$lng;
+  if (!Array.isArray(points) || points.length < 3) return false;
+  var start = points[0];
+  var end = points[points.length - 1];
+  var samePlace = Math.abs(start.lat - end.lat) <= 0.0001 && Math.abs(((_start$lng = start.lng) !== null && _start$lng !== void 0 ? _start$lng : start.lon) - ((_end$lng = end.lng) !== null && _end$lng !== void 0 ? _end$lng : end.lon)) <= 0.0001;
+  return samePlace && (end.isPoiChainReturnHome === true || points.slice(1, -1).some(point => point.isPOI === true || point.isPoiChainEndpoint === true));
+}
 function bindRouteAirportPopup(marker, isStart, latlng) {
   if (isStart) {
     marker.bindPopup('');
@@ -369,15 +377,18 @@ function bindRouteAirportPopup(marker, isStart, latlng) {
     marker.bindPopup('');
     marker.on('popupopen', () => {
       var missionLikePoi = !!(currentMissionData && (currentMissionData.poiName || currentMissionData.poiPresentation || typeof missionUsesPoiTaskRecipe === 'function' && missionUsesPoiTaskRecipe(currentMissionData)));
+      var poiReturn = missionLikePoi && isPoiReturnAirportRoute(routeWaypoints);
       var icao = missionLikePoi ? currentStartICAO : currentDestICAO;
       var elev = missionLikePoi ? currentDepElev : currentDestElev;
+      var name = poiReturn ? currentSName || icao : currentDName;
       var destCountry = getAirportCountryCode(icao);
-      marker.getPopup().setContent(_buildAptPopup('DEST', currentDName, elev, icao, {
+      marker.getPopup().setContent(_buildAptPopup(poiReturn ? 'DEP' : 'DEST', name, elev, icao, {
+        wxContainerId: 'wxPopupDest',
         runwayContainerId: 'wxPopupDestRwy',
         freqContainerId: 'wxPopupDestFreq',
         countryCode: destCountry,
-        showDirectTo: Boolean(icao && icao !== currentDestICAO),
-        directToName: currentDName,
+        showDirectTo: Boolean(!poiReturn && icao && icao !== currentDestICAO),
+        directToName: name,
         lat: latlng.lat,
         lon: latlng.lng || latlng.lon
       }));

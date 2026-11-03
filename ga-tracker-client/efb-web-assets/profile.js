@@ -4193,6 +4193,7 @@ function _fetchRouteWeatherMetar() {
       vpProxyIsCoolingDown,
       vpProxyMarkFailed,
       vpProxyMarkOk,
+      vpBuildMetarBboxUrl,
       safeFetchMetarJson,
       _safeFetchMetarJson,
       CHUNK_NM,
@@ -4407,6 +4408,15 @@ function _fetchRouteWeatherMetar() {
           };
           safeFetchMetarJson = function _safeFetchMetarJson2(_x58) {
             return _safeFetchMetarJson.apply(this, arguments);
+          };
+          vpBuildMetarBboxUrl = function _vpBuildMetarBboxUrl(_ref47) {
+            var minLat = _ref47.minLat,
+              minLon = _ref47.minLon,
+              maxLat = _ref47.maxLat,
+              maxLon = _ref47.maxLon;
+            // AviationWeather rejects bounding boxes with raw floating-point coordinates.
+            var bbox = [minLat, minLon, maxLat, maxLon].map(coord => coord.toFixed(5)).join(',');
+            return `https://aviationweather.gov/api/data/metar?bbox=${bbox}&format=json`;
           };
           vpProxyMarkOk = function _vpProxyMarkOk(key) {
             if (!key) return;
@@ -4645,7 +4655,7 @@ function _fetchRouteWeatherMetar() {
         case 5:
           nowTs = Date.now();
           fetchChunkData = /*#__PURE__*/function () {
-            var _ref47 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21(chunk) {
+            var _ref48 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21(chunk) {
               var bypassCache,
                 cached,
                 url,
@@ -4672,7 +4682,7 @@ function _fetchRouteWeatherMetar() {
                       fromCache: true
                     });
                   case 1:
-                    url = `https://aviationweather.gov/api/data/metar?bbox=${chunk.minLat},${chunk.minLon},${chunk.maxLat},${chunk.maxLon}&format=json`;
+                    url = vpBuildMetarBboxUrl(chunk);
                     _context26.n = 2;
                     return safeFetchMetarJson(url, retries);
                   case 2:
@@ -4728,11 +4738,11 @@ function _fetchRouteWeatherMetar() {
               }, _callee21);
             }));
             return function fetchChunkData(_x59) {
-              return _ref47.apply(this, arguments);
+              return _ref48.apply(this, arguments);
             };
           }();
           promises = chunkDefs.map(/*#__PURE__*/function () {
-            var _ref48 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22(chunk) {
+            var _ref49 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22(chunk) {
               var cached;
               return _regenerator().w(function (_context27) {
                 while (1) switch (_context27.n) {
@@ -4752,7 +4762,7 @@ function _fetchRouteWeatherMetar() {
               }, _callee22);
             }));
             return function (_x60) {
-              return _ref48.apply(this, arguments);
+              return _ref49.apply(this, arguments);
             };
           }());
           _context33.n = 6;
@@ -4803,7 +4813,7 @@ function _fetchRouteWeatherMetar() {
               prefetchDefs = farDefs.filter(d => !primaryKeys.has(d.key)).filter(d => !Array.isArray(vpGetMetarChunkCache(d.key, nowPrefetch))).filter(d => !vpMetarPrefetchInFlight.has(d.key)).slice(0, VP_METAR_PREFETCH_MAX_CHUNKS);
               if (prefetchDefs.length > 0) {
                 runPrefetch = /*#__PURE__*/function () {
-                  var _ref49 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23() {
+                  var _ref50 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23() {
                     var _iterator84, _step84, _d3, url, arr, safeArr, _t21, _t22;
                     return _regenerator().w(function (_context28) {
                       while (1) switch (_context28.p = _context28.n) {
@@ -4831,7 +4841,7 @@ function _fetchRouteWeatherMetar() {
                         case 4:
                           vpMetarPrefetchInFlight.add(_d3.key);
                           _context28.p = 5;
-                          url = `https://aviationweather.gov/api/data/metar?bbox=${_d3.minLat},${_d3.minLon},${_d3.maxLat},${_d3.maxLon}&format=json`;
+                          url = vpBuildMetarBboxUrl(_d3);
                           _context28.n = 6;
                           return safeFetchMetarJson(url, 1);
                         case 6:
@@ -4878,7 +4888,7 @@ function _fetchRouteWeatherMetar() {
                     }, _callee23, null, [[5, 8, 9, 10], [1, 13, 14, 15]]);
                   }));
                   return function runPrefetch() {
-                    return _ref49.apply(this, arguments);
+                    return _ref50.apply(this, arguments);
                   };
                 }();
                 setTimeout(() => {
@@ -4926,7 +4936,7 @@ function _fetchRouteWeatherMetar() {
           stepNM = 15;
           zones = [];
           _loop12 = /*#__PURE__*/_regenerator().m(function _loop12() {
-            var bestPt, minDiff, _iterator86, _step86, pt, diff, closestMetar, minMetarDist, _ref50, _closestMetar$mslp, clouds, raw, stnElevFt, cloudRegex, match, lowestBase, agl, msl, hasRain, hasSnow, hasTS, metarFltCat, estimatedCloud, mslPressureRaw, mslPressureHpa, pressureProfile, pressureAnomalyFt, base1000, wkt, wdir, visuals, _c, _d4, f;
+            var bestPt, minDiff, _iterator86, _step86, pt, diff, closestMetar, minMetarDist, _ref51, _closestMetar$mslp, clouds, raw, stnElevFt, cloudRegex, match, lowestBase, agl, msl, hasRain, hasSnow, hasTS, metarFltCat, estimatedCloud, mslPressureRaw, mslPressureHpa, pressureProfile, pressureAnomalyFt, base1000, wkt, wdir, visuals, _c, _d4, f;
             return _regenerator().w(function (_context32) {
               while (1) switch (_context32.n) {
                 case 0:
@@ -4992,7 +5002,7 @@ function _fetchRouteWeatherMetar() {
                         lowestBase = estimatedCloud.baseMsl;
                       }
                     }
-                    mslPressureRaw = Number((_ref50 = (_closestMetar$mslp = closestMetar.mslp) !== null && _closestMetar$mslp !== void 0 ? _closestMetar$mslp : closestMetar.slp) !== null && _ref50 !== void 0 ? _ref50 : closestMetar.altim);
+                    mslPressureRaw = Number((_ref51 = (_closestMetar$mslp = closestMetar.mslp) !== null && _closestMetar$mslp !== void 0 ? _closestMetar$mslp : closestMetar.slp) !== null && _ref51 !== void 0 ? _ref51 : closestMetar.altim);
                     mslPressureHpa = Number.isFinite(mslPressureRaw) && mslPressureRaw >= 850 && mslPressureRaw <= 1100 ? mslPressureRaw : null;
                     pressureProfile = [];
                     if (Number.isFinite(mslPressureHpa)) {
@@ -7582,9 +7592,9 @@ function vpFetchOpenMeteoPoint(_x25, _x26) {
 }
 function _vpFetchOpenMeteoPoint() {
   _vpFetchOpenMeteoPoint = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee30(lat, lon) {
-    var _ref51,
+    var _ref52,
       signal,
-      _ref51$includePressur,
+      _ref52$includePressur,
       includePressure,
       cacheKey,
       keyParts,
@@ -7598,7 +7608,7 @@ function _vpFetchOpenMeteoPoint() {
     return _regenerator().w(function (_context37) {
       while (1) switch (_context37.p = _context37.n) {
         case 0:
-          _ref51 = _args36.length > 2 && _args36[2] !== undefined ? _args36[2] : {}, signal = _ref51.signal, _ref51$includePressur = _ref51.includePressure, includePressure = _ref51$includePressur === void 0 ? false : _ref51$includePressur;
+          _ref52 = _args36.length > 2 && _args36[2] !== undefined ? _args36[2] : {}, signal = _ref52.signal, _ref52$includePressur = _ref52.includePressure, includePressure = _ref52$includePressur === void 0 ? false : _ref52$includePressur;
           if (!(!Number.isFinite(lat) || !Number.isFinite(lon))) {
             _context37.n = 1;
             break;
