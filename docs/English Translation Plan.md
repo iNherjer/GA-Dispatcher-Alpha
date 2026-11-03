@@ -246,8 +246,9 @@ Bereich pro Schritt), damit nichts kaputtgeht und Rückfallpunkte klar bleiben.
   `data-i18n-orig` gemerkt und beim Zurückschalten exakt wiederhergestellt.
   Schlüssel ohne englischen Text lassen das Element deutsch.
 - Wörterbücher: `i18n/de.js` (nur Texte, die aus JS kommen), `i18n/en.js`.
-- Sprachschalter unter Einstellungen → Darstellung. Für Tester verborgen: sichtbar
-  nur auf lokalen Entwicklungsadressen oder mit `localStorage.ga_i18n_preview = '1'`.
+- Sprachschalter unter Einstellungen → Darstellung. Seit Web v2319 (03.11.2026) für alle
+  sichtbar. Davor nur lokal oder mit `localStorage.ga_i18n_preview = '1'`; die Sperre lässt sich
+  über `data-i18n-preview-only` am Element wieder einschalten.
 - Probe-Bereich: Einstellungen → Darstellung ist zweisprachig.
 - Bewusst keine globale Kurzfunktion `t` (mögliche Namenskonflikte), Aufruf über
   `GAI18n.t`.

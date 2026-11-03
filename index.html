@@ -1120,8 +1120,9 @@
                 <button type="button" class="ui-scale-step-btn" id="uiScalePlusBtn" onclick="adjustAppUiScale(5)" aria-label="Skalierung größer" data-i18n-aria-label="settings.appearance.pageSizeLarger">+</button>
             </div>
         </div>
-        <!-- Language: hidden for testers until the UI translation is ready (i18n-core.js previewEnabled). -->
-        <div class="appearance-control language-control" data-i18n-preview-only style="display:none">
+        <!-- Language switch, visible for everyone since web v2319. To hide it again, add
+             data-i18n-preview-only style="display:none" (see previewEnabled in i18n-core.js). -->
+        <div class="appearance-control language-control">
             <span class="ui-scale-label" data-i18n="settings.language.label">Sprache</span>
             <div class="appearance-switch" id="languageSwitch" role="group" aria-label="Sprache" data-i18n-aria-label="settings.language.label">
                 <button type="button" data-language-option="de" aria-pressed="true" onclick="GAI18n.setLanguage('de')" lang="de">Deutsch</button>
