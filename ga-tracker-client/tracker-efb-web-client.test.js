@@ -18,15 +18,15 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   const page = createTrackerEfbWebClientPage();
   assert.equal(EFB_WEB_CLIENT_PATH, '/efb/v1/');
   assert.equal(EFB_WEB_CLIENT_PROBE_PATH, '/efb/v1/probe/');
-  assert.equal(EFB_WEB_ASSET_REVISION, '61301');
+  assert.equal(EFB_WEB_ASSET_REVISION, '61401');
   assert.match(page, /data-efb-view-version="9"/);
-  assert.match(page, /app-styles\.css\?v=61301/);
-  assert.match(page, /host\.css\?v=61301/);
-  assert.match(page, /map-shell-core\.js\?v=61301/);
-  assert.match(page, /map-utility-tools\.js\?v=61301/);
-  assert.match(page, /mission-control-ui-core\.js\?v=61301/);
-  assert.match(page, /cockpit-session-client\.js\?v=61301/);
-  assert.match(page, /host\.js\?v=61301/);
+  assert.match(page, /app-styles\.css\?v=61401/);
+  assert.match(page, /host\.css\?v=61401/);
+  assert.match(page, /map-shell-core\.js\?v=61401/);
+  assert.match(page, /map-utility-tools\.js\?v=61401/);
+  assert.match(page, /mission-control-ui-core\.js\?v=61401/);
+  assert.match(page, /cockpit-session-client\.js\?v=61401/);
+  assert.match(page, /host\.js\?v=61401/);
   assert.match(page, /id="mapTableOverlay"/);
   assert.match(page, /id="mapProfileStrip"/);
   assert.match(page, /id="mapStopwatchDevice"/);
@@ -35,21 +35,21 @@ test('tracker-hosted EFB page uses the original Kartentisch DOM and shared app m
   assert.match(page, /id="mapMissionToggleBtn"/);
   assert.match(page, /id="mapGroundCargoBtn"/);
   assert.match(page, /id="mapMissionResetBtn"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=61301"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/mission-control-ui-core\.js\?v=61301"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=61301"/);
-  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=61301"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/map-utility-tools\.js\?v=61401"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/mission-control-ui-core\.js\?v=61401"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/cockpit-session-client\.js\?v=61401"/);
+  assert.match(page, /src="\/efb\/v1\/assets\/host\.js\?v=61401"/);
   assert.match(page, /id="gaEfbBootStatus"/);
   assert.match(page, /window\.toggleMapTable = function/);
   assert.doesNotMatch(page, /<script defer/);
   const scriptOrder = [
     '/efb/v1/assets/leaflet.js',
-    '/efb/v1/assets/map-shell-core.js?v=61301',
-    '/efb/v1/assets/map-utility-tools.js?v=61301',
-    '/efb/v1/assets/mission-control-ui-core.js?v=61301',
-    '/efb/v1/assets/cockpit-session-client.js?v=61301',
-    '/efb/v1/assets/map-zoom-control.js?v=61301',
-    '/efb/v1/assets/host.js?v=61301'
+    '/efb/v1/assets/map-shell-core.js?v=61401',
+    '/efb/v1/assets/map-utility-tools.js?v=61401',
+    '/efb/v1/assets/mission-control-ui-core.js?v=61401',
+    '/efb/v1/assets/cockpit-session-client.js?v=61401',
+    '/efb/v1/assets/map-zoom-control.js?v=61401',
+    '/efb/v1/assets/host.js?v=61401'
   ].map((asset) => page.indexOf(`<script src="${asset}"`));
   assert.deepEqual(scriptOrder, [...scriptOrder].sort((a, b) => a - b));
   assert.equal(scriptOrder.every((index) => index > 0), true);
@@ -482,6 +482,22 @@ test('EFB map long-press input normalizes mouse, pointer and touch coordinates',
     x: 51, y: 61, key: 'touch:3', inputType: 'touch'
   });
   assert.equal(mapContextEventPoint({ type: 'touchcancel', touches: [], changedTouches: [] }), null);
+});
+
+test('EFB map long-press converts screen pixels with the EFB UI scale', () => {
+  const hostSource = getTrackerEfbWebClientAsset('/efb/v1/assets/host.js').body.toString('utf8').replace(/\r\n/g, '\n');
+  const pointSource = hostSource.match(/function mapContextPressContainerPoint\(x, y, rect, uiScale\) \{[\s\S]*?\n  \}\n/)?.[0];
+  assert.ok(pointSource);
+  assert.match(hostSource, /mapContextPressContainerPoint\(start\.x, start\.y, rect, window\.GAEfbUiScale\)/);
+  const toPoint = new Function(`return (${pointSource});`)();
+  const rect = { left: 100, top: 50 };
+  const scale = factor => ({ delta: value => value / factor });
+  // Scale 1 and no helper: plain offset as before.
+  assert.deepEqual(toPoint(300, 250, rect, scale(1)), { x: 200, y: 200 });
+  assert.deepEqual(toPoint(300, 250, rect, null), { x: 200, y: 200 });
+  // Scaled EFB: 200 screen pixels are 250 or 160 Leaflet pixels.
+  assert.deepEqual(toPoint(300, 250, rect, scale(0.8)), { x: 250, y: 250 });
+  assert.deepEqual(toPoint(300, 250, rect, scale(1.25)), { x: 160, y: 160 });
 });
 
 test('E6B document forwards iframe diagnostics before loading its runtime', () => {

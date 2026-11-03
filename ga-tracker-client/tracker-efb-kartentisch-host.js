@@ -3521,6 +3521,16 @@
     mapContextPress = null;
   }
 
+  // Client coordinates are screen pixels. The EFB scales the whole body (GAEfbUiScale, CSS
+  // transform), while Leaflet container points are unscaled. Same conversion as the other
+  // EFB drag code; without the scale helper the plain offset stays as before.
+  function mapContextPressContainerPoint(x, y, rect, uiScale) {
+    var dx = x - rect.left;
+    var dy = y - rect.top;
+    if (uiScale && typeof uiScale.delta === 'function') return { x: uiScale.delta(dx), y: uiScale.delta(dy) };
+    return { x: dx, y: dy };
+  }
+
   function mapContextInputType(event) {
     var eventType = String(event && event.type || '');
     return eventType.indexOf('touch') === 0
@@ -3573,7 +3583,8 @@
       var start = { x: input.x, y: input.y, key: input.key, inputType: input.inputType, startedAt: Date.now() };
       start.timer = window.setTimeout(function () {
         if (!mapContextPress || mapContextPress.key !== start.key) return;
-        var point = L.point(start.x - rect.left, start.y - rect.top);
+        var offset = mapContextPressContainerPoint(start.x, start.y, rect, window.GAEfbUiScale);
+        var point = L.point(offset.x, offset.y);
         mapContextSuppressClickUntil = Date.now() + 900;
         clearMapContextPress();
         openMapContextInfo(map.containerPointToLatLng(point), 'longpress');

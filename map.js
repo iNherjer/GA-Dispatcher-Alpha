@@ -10385,9 +10385,8 @@ function bindMapContextInteractions() {
     const onNativeContextMenu = (event) => {
         preventNativeMapSelection(event);
         if (isMapContextGestureBlocked(event)) return;
-        const rect = container.getBoundingClientRect();
-        const point = L.point(event.clientX - rect.left, event.clientY - rect.top);
-        openMapContextInfo(map.containerPointToLatLng(point), 'contextmenu');
+        // Leaflet converts client pixels with the container's own scale (page size / body zoom).
+        openMapContextInfo(map.mouseEventToLatLng(event), 'contextmenu');
     };
     const cancel = () => clearMapContextPress();
     const onPointerDown = (event) => {
@@ -10402,9 +10401,8 @@ function bindMapContextInteractions() {
         const pointerId = event.pointerId;
         const timer = setTimeout(() => {
             if (!mapContextPressState || mapContextPressState.pointerId !== pointerId) return;
-            const rect = container.getBoundingClientRect();
-            const point = L.point(start.x - rect.left, start.y - rect.top);
-            const latlng = map.containerPointToLatLng(point);
+            // Leaflet converts client pixels with the container's own scale (page size / body zoom).
+            const latlng = map.mouseEventToLatLng({ clientX: start.x, clientY: start.y });
             clearMapContextPress();
             clearNativeMapSelection();
             openMapContextInfo(latlng, 'longpress');

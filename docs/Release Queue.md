@@ -29,6 +29,15 @@ liefert alles Offene mit aus.
 
 ## Ausgeliefert
 
+### 2026-11-03 · Langer Klick öffnet „Was ist hier?“ am Mauspunkt — ausgeliefert in Tracker v614 Alpha (03.11.2026)
+- **Artefakt:** Tracker-EXE (`tracker-efb-kartentisch-host.js`); Web-Teil (`map.js`) mit demselben Push live
+- **Dateien:** `ga-tracker-client/tracker-efb-kartentisch-host.js`, `map.js`, Tests in `tracker-efb-web-client.test.js`
+- **Was:** Umrechnung der Mausposition berücksichtigt EFB-UI-Skalierung bzw. Web-Seitengröße.
+- **Warum:** Punkt lag bei skaliertem EFB versetzt (Feldtest EDDS).
+- **Tests:** Tracker 1540/1542 (2 übersprungen), Browser-Test Web 80/100/120 %.
+- **Doku beim Release:** `docs/Tracker-v614-Release.md`.
+- **Pruefen im Feld:** Langer Klick im EFB auf einen Flugplatz, auch bei geänderter EFB-Größe.
+
 ### 2026-11-03 · EFB-Dateien der englischen UI-Übersetzung — ausgeliefert in Tracker v612 Alpha (03.11.2026)
 - **Artefakt:** Tracker-EXE (generierte EFB-Kopien); Web ist seit `935be0a0d` (v2318) und `2e07ce0ef` (v2319) live
 - **Dateien:** `ga-tracker-client/efb-web-assets/*` (generiert), `ga-tracker-client/efb-media-source/media-player-watch*.js`
