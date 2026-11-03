@@ -21,9 +21,9 @@ Anlass (03.11.2026): Die Web-App hat seit v2318/v2319 eine umschaltbare englisch
 - „Was ist hier?“ an einem Flugplatz: METAR erscheint und bleibt beim erneuten Öffnen.
 - Funk-Dialog, Checklisten, Höhenprofil, Popups.
 
-Stable bleibt auf v611.
+Stable bleibt unverändert (v605).
 
 Tracker-EXE (Worktree `d5ca9f9da`, `node_modules` verlinkt, `--no-bytecode --public --public-packages "*"`):
 174757213 Bytes, SHA-256 `c570fda780a4f816220170c6f58bd5e2989cf9782cb3d062d6339f1948755210`. PE x64, eingebettete
 Version v612, Asset-Revision 61201 und neue EFB-Dateien geprüft; öffentlicher Download geprüft.
-Tests: Tracker 1539/1541 (2 übersprungen). Alpha-Runtime auf v612, Stable unverändert (v611).
+Tests: Tracker 1539/1541 (2 übersprungen). Alpha-Runtime auf v612, Stable unverändert (v605).
