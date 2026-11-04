@@ -343,6 +343,29 @@ im JS vorkommen. Deutsche Rückfalltexte in Übersetzungsaufrufen zählen als
 - Offen: Statuszeile `searchIndicator` (Missionsphase), „KI Mode“-Knopf und
   Pinnwand-Knopf (Kind-Elemente), Skins `analog-skins.js` / `navcom-skins.js`.
 
+### Phase 1 – Flugbuch, Debrief, Einstellungs-Grafik (2026-11-04)
+
+- **Einstellungs-Rolle:** `roll-head-suede-v2-en.webp` mit „Settings“-Prägung. Neues Attribut
+  `data-i18n-src` (Bildpfad aus dem Wörterbuch, Original wird gemerkt) und `data-i18n-alt`.
+- **Logbuch-Tabelle** (`renderLog()` in `app.js`): Spalten, Freie-Flüge-Schalter, Leer-Hinweis,
+  Seitenangabe, Unterzeile; Markup-Knöpfe über `logbook.*`. Wird beim Sprachwechsel neu gezeichnet.
+- **Flugbuch-Ansicht** (`flight-logbook-view.js`): Flugweg-Status, Linienfarbe/Legende, Karten-
+  Marker, Höhenprofil-Anzeige, Luftraumliste, Missionsergebnis, Löschen, PDF-Flugwegseite.
+- **Debrief** (`flight-debrief.js`) und **Debrief-PDF** (`board.js`): Kennzahlen, Abschnitte,
+  Bewertungssätze (Höhe, Komfort, Ladung, Flug), Knöpfe. Kopftexte werden beim Öffnen neu gesetzt.
+- **Datenbezüge:**
+  - Namen der Kartenebenen bleiben deutsch (in den Ebenen-Einstellungen gespeichert).
+  - Die Flugbuch-Ansicht erkennt Debrief-Abschnitte am Titel: Regex kennt jetzt auch
+    „Passenger comfort|Cargo safety“.
+  - PDF filtert die Ergebniszeile über `row.key === 'result'` statt über den Text.
+  - Passagier-Stimmung (`mission-comfort-core.js`) bleibt im Kern deutsch, Anzeige über Sätze.
+- Geprüft: Rückverwandlung gegen Sicherung (bis auf die genannten Stellen identisch), jeder
+  eingewickelte Text hat Englisch, Browser: Debrief und Logbuch DE/EN/DE, Deutsch identisch.
+  Die Flugweg-Karte selbst wurde nicht live geöffnet (braucht einen Cloud-Flug).
+- Offen: englische Deckel-Grafik „Logbook“ (`assets/ui/logbook/closed-tall-v2.webp` trägt
+  „Flugbuch“); dann `data-i18n-src="logbook.cover.image"` + Eintrag in `i18n/en.js`.
+  Missionstitel und Abschiedsworte des Passagiers sind generierte Inhalte (Variante C).
+
 ### Phase 1 – Zahlen- und Datumsformate (2026-11-04)
 
 - `GAI18n.locale()` liefert `de-DE` bzw. `en-GB`; `formatNumber()` nutzt es. Auf Englisch

@@ -841,24 +841,24 @@
     <div class="logbook">
         <div class="logbook-stage" id="logbookStage" onkeydown="if (event.key === 'Escape') toggleLogbook(false)">
             <div class="logbook-cover-mask">
-            <button class="logbook-cover" id="logbookCover" type="button" onclick="toggleLogbook(true)" aria-expanded="false" aria-controls="logbookReading" aria-label="Flugbuch herausziehen und öffnen">
-                <img src="assets/ui/logbook/closed-tall-v2.webp" alt="Rotes ledergebundenes Flugbuch" width="1340" height="1171">
+            <button class="logbook-cover" id="logbookCover" type="button" onclick="toggleLogbook(true)" aria-expanded="false" aria-controls="logbookReading" aria-label="Flugbuch herausziehen und öffnen" data-i18n-aria-label="logbook.cover.open">
+                <img src="assets/ui/logbook/closed-tall-v2.webp" alt="Rotes ledergebundenes Flugbuch" data-i18n-alt="logbook.cover.alt" width="1340" height="1171">
             </button>
             </div>
             <div class="logbook-pocket" aria-hidden="true"><img src="assets/ui/homebase/pocket.webp" alt="" width="2172" height="724"></div>
             <div class="logbook-reading" id="logbookReading" hidden>
                 <div class="logbook-spread" id="logContent"></div>
-                <button class="logbook-paper-action logbook-close" type="button" onclick="toggleLogbook(false)">Zuklappen</button>
-                <button class="logbook-paper-action logbook-clear" type="button" onclick="clearLog()" aria-label="Gesamtes Flugbuch leeren">Leeren</button>
+                <button class="logbook-paper-action logbook-close" type="button" onclick="toggleLogbook(false)" data-i18n="logbook.close">Zuklappen</button>
+                <button class="logbook-paper-action logbook-clear" type="button" onclick="clearLog()" aria-label="Gesamtes Flugbuch leeren" data-i18n-aria-label="logbook.clearAria" data-i18n="logbook.clear">Leeren</button>
                 <button class="logbook-paper-action logbook-free-toggle" id="logbookFreeToggle" type="button" onclick="toggleLogbookFreeFlights()" aria-pressed="true" title="Freie Flüge ausblenden">Freie Flüge: an</button>
-                <nav class="logbook-navigation" aria-label="Flugbuchseiten">
-                    <button id="logbookPrev" type="button" onclick="turnLogbookPage(-1)" aria-label="Vorherige Seiten">&lt;</button>
+                <nav class="logbook-navigation" aria-label="Flugbuchseiten" data-i18n-aria-label="logbook.pagesNav">
+                    <button id="logbookPrev" type="button" onclick="turnLogbookPage(-1)" aria-label="Vorherige Seiten" data-i18n-aria-label="logbook.prev">&lt;</button>
                     <span id="logbookPageLabel" class="logbook-status" role="status" aria-live="polite"></span>
-                    <button id="logbookNext" type="button" onclick="turnLogbookPage(1)" aria-label="Nächste Seiten">&gt;</button>
+                    <button id="logbookNext" type="button" onclick="turnLogbookPage(1)" aria-label="Nächste Seiten" data-i18n-aria-label="logbook.next">&gt;</button>
                 </nav>
             </div>
         </div>
-        <p class="logbook-caption" id="logbookCaption">Anklicken zum Öffnen</p>
+        <p class="logbook-caption" id="logbookCaption" data-i18n-initial>Anklicken zum Öffnen</p>
     </div>
 
     <section class="homebase-blueprint-launch" aria-labelledby="homebaseMainTitle">

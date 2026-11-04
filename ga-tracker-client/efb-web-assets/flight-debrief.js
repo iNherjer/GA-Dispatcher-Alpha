@@ -82,7 +82,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
             }
             record = currentDebriefRecord;
             finishBtn.disabled = true;
-            finishBtn.textContent = 'Mission wird aufgeräumt…';
+            finishBtn.textContent = _fdT('Mission wird aufgeräumt…');
             cleaned = false;
             _context.p = 1;
             if (!(typeof window.completeMissionCloseCleanup === 'function')) {
@@ -117,8 +117,8 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
               break;
             }
             finishBtn.disabled = false;
-            finishBtn.textContent = 'Schließen fehlgeschlagen – erneut versuchen';
-            finishBtn.title = 'Tracker-Verbindung und aktuellen Missionsstand prüfen.';
+            finishBtn.textContent = _fdT('Schließen fehlgeschlagen – erneut versuchen');
+            finishBtn.title = _fdT('Tracker-Verbindung und aktuellen Missionsstand prüfen.');
             return _context.a(2);
           case 8:
             currentDebriefAwaitingCleanup = false;
@@ -142,7 +142,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
           case 1:
             pdfBtn.disabled = true;
             oldText = pdfBtn.textContent;
-            pdfBtn.textContent = 'PDF wird erstellt…';
+            pdfBtn.textContent = _fdT('PDF wird erstellt…');
             _context2.p = 2;
             _context2.n = 3;
             return window.generateDebriefPDF(currentDebriefRecord);
@@ -179,53 +179,82 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       var enrouteSamples = Math.max(0, Math.round(Number((record === null || record === void 0 ? void 0 : record.enrouteSampleCount) || 0)));
       var cruiseSamples = Math.max(0, Math.round(Number((record === null || record === void 0 ? void 0 : record.cruiseSampleCount) || 0)));
       var cruiseDurationSec = Math.max(0, Math.round(Number((record === null || record === void 0 ? void 0 : record.cruiseDurationSec) || 0)));
-      var text = 'Für eine belastbare Bewertung gab es zu wenige stabile Streckenflug-Proben.';
+      var text = _fdT('Für eine belastbare Bewertung gab es zu wenige stabile Streckenflug-Proben.');
       if (enrouteSamples <= 0 && record !== null && record !== void 0 && record.telemetryStatus) {
-        text = 'Es wurde kein Abschnitt sicher als Streckenflug erkannt; deshalb wird die Höhenkonstanz nicht bewertet.';
+        text = _fdT('Es wurde kein Abschnitt sicher als Streckenflug erkannt; deshalb wird die Höhenkonstanz nicht bewertet.');
       } else if (enrouteSamples > 0) {
-        text = `Es wurden ${enrouteSamples} Streckenflug-Proben erkannt, davon aber nur ${cruiseSamples} über ${cruiseDurationSec} Sekunden als stabiler Höhenflug.`;
+        text = _fdK('debrief.altitude.samples', 'Es wurden {enrouteSamples} Streckenflug-Proben erkannt, davon aber nur {cruiseSamples} über {cruiseDurationSec} Sekunden als stabiler Höhenflug.', {
+          enrouteSamples,
+          cruiseSamples,
+          cruiseDurationSec
+        });
       }
       return {
-        value: 'Nicht verfügbar',
+        value: _fdT('Nicht verfügbar'),
         text
       };
     }
-    var rating = sd <= 75 ? 'sehr konstant' : sd <= 150 ? 'konstant' : sd <= 300 ? 'wechselhaft' : 'deutlich wechselhaft';
+    var rating = sd <= 75 ? _fdT('sehr konstant') : sd <= 150 ? _fdT('konstant') : sd <= 300 ? _fdT('wechselhaft') : _fdT('deutlich wechselhaft');
     return {
       value: `± ${Math.round(sd)} ft`,
-      text: `Die Flughöhe war im waagerechten Streckenflug ${rating} (Standardabweichung ${Math.round(sd)} ft${range == null ? '' : `, Spannweite ${Math.round(range)} ft`}).`
+      text: _fdK('debrief.altitude.text', 'Die Flughöhe war im waagerechten Streckenflug {rating} (Standardabweichung {sd} ft{range}).', {
+        rating,
+        sd: Math.round(sd),
+        range: range == null ? '' : _fdK('debrief.altitude.range', ', Spannweite {range} ft', {
+          range: Math.round(range)
+        })
+      })
     };
   }
   function _debriefComfortText(record) {
     var comfort = record === null || record === void 0 ? void 0 : record.comfort;
-    if (!comfort || _debriefFinite(comfort.score) == null) return 'Für diesen Auftrag wurde kein Passagier-Komfortindex geführt.';
+    if (!comfort || _debriefFinite(comfort.score) == null) return _fdT('Für diesen Auftrag wurde kein Passagier-Komfortindex geführt.');
     var causes = [];
-    if (Number(comfort.pilotSevere || 0) > 0) causes.push('deutliche pilotenseitige Belastungsspitzen');else if (Number(comfort.pilotEvents || 0) > 0) causes.push('einzelne Manöverbelastungen');
-    if (Number(comfort.weatherSevere || 0) > 0) causes.push('anspruchsvolles Wetter');else if (Number(comfort.weatherEvents || 0) > 0) causes.push('spürbare Wettereinflüsse');
-    return `Die Passagiere waren ${comfort.mood || 'bewertet'}: ${Math.round(Number(comfort.score))} von 100 Komfortpunkten${causes.length ? `; prägend waren ${causes.join(' und ')}` : ''}.`;
+    if (Number(comfort.pilotSevere || 0) > 0) causes.push(_fdT('deutliche pilotenseitige Belastungsspitzen'));else if (Number(comfort.pilotEvents || 0) > 0) causes.push(_fdT('einzelne Manöverbelastungen'));
+    if (Number(comfort.weatherSevere || 0) > 0) causes.push(_fdT('anspruchsvolles Wetter'));else if (Number(comfort.weatherEvents || 0) > 0) causes.push(_fdT('spürbare Wettereinflüsse'));
+    return _fdK('debrief.comfort.text', 'Die Passagiere waren {mood}: {score} von 100 Komfortpunkten{causes}.', {
+      mood: _fdT(comfort.mood || 'bewertet'),
+      score: Math.round(Number(comfort.score)),
+      causes: causes.length ? _fdK('debrief.comfort.causes', '; prägend waren {list}', {
+        list: causes.join(_fdT(' und '))
+      }) : ''
+    });
   }
   function _debriefCargoText(record) {
     var cargo = record === null || record === void 0 ? void 0 : record.cargo;
-    if (!cargo) return 'Für diesen Auftrag war keine separate Frachtbewertung erforderlich.';
+    if (!cargo) return _fdT('Für diesen Auftrag war keine separate Frachtbewertung erforderlich.');
     var issues = [].concat(_toConsumableArray(cargo.missingRequired || []), _toConsumableArray(cargo.droppedRequired || []), _toConsumableArray(cargo.notDeliveredRequired || []), _toConsumableArray(cargo.damagedRequired || []));
     var condition = _debriefFinite(cargo.conditionPct);
-    if (cargo.failed) return `Die Ladung wurde nicht vollständig sicher zugestellt${issues.length ? `: ${issues.slice(0, 3).join(', ')}` : '.'}`;
-    if (condition == null) return 'Die vorgeschriebene Ladung wurde vollständig und ohne registrierten Verlust transportiert.';
-    var rating = condition >= 95 ? 'sehr sicher' : condition >= 80 ? 'sicher' : condition >= 60 ? 'mit spürbarer Beanspruchung' : 'kritisch beansprucht';
-    return `Die Ladung wurde ${rating} transportiert. Ermittelter Zustand: ${Math.round(condition)} %.`;
+    if (cargo.failed) return _fdK('debrief.cargo.failed', 'Die Ladung wurde nicht vollständig sicher zugestellt{issues}', {
+      issues: issues.length ? `: ${issues.slice(0, 3).join(', ')}` : '.'
+    });
+    if (condition == null) return _fdT('Die vorgeschriebene Ladung wurde vollständig und ohne registrierten Verlust transportiert.');
+    var rating = condition >= 95 ? _fdT('sehr sicher') : condition >= 80 ? _fdT('sicher') : condition >= 60 ? _fdT('mit spürbarer Beanspruchung') : _fdT('kritisch beansprucht');
+    return _fdK('debrief.cargo.text', 'Die Ladung wurde {rating} transportiert. Ermittelter Zustand: {pct} %.', {
+      rating,
+      pct: Math.round(condition)
+    });
   }
   function _debriefFlightText(record, altitude) {
     var g = _debriefFinite(record === null || record === void 0 ? void 0 : record.maxGForce);
     var bank = _debriefFinite(record === null || record === void 0 ? void 0 : record.maxBankDeg);
     var agl = _debriefFinite(record === null || record === void 0 ? void 0 : record.minEnrouteAglFt);
     var parts = [];
-    if (g != null) parts.push(`Die höchste gemessene Last betrug ${g.toFixed(2)} g`);
-    if (bank != null) parts.push(`der größte Bankwinkel ${bank.toFixed(1)}°`);
-    if (agl != null) parts.push(`die geringste direkte AGL-Höhe auf Strecke ${Math.round(agl)} ft`);
-    var metrics = parts.length ? `${parts.join(', ')}.` : 'Für Belastung und Streckenhöhe lagen keine belastbaren Live-Daten vor.';
+    if (g != null) parts.push(_fdK('debrief.flight.g', 'Die höchste gemessene Last betrug {g} g', {
+      g: g.toFixed(2)
+    }));
+    if (bank != null) parts.push(_fdK('debrief.flight.bank', 'der größte Bankwinkel {bank}°', {
+      bank: bank.toFixed(1)
+    }));
+    if (agl != null) parts.push(_fdK('debrief.flight.agl', 'die geringste direkte AGL-Höhe auf Strecke {agl} ft', {
+      agl: Math.round(agl)
+    }));
+    var metrics = parts.length ? `${parts.join(', ')}.` : _fdT('Für Belastung und Streckenhöhe lagen keine belastbaren Live-Daten vor.');
     if (!parts.length && record !== null && record !== void 0 && record.telemetryStatus) {
       var samples = Math.max(0, Math.round(Number(record.telemetrySampleCount || 0)));
-      metrics = samples > 0 ? `Der Recorder erhielt ${samples} Live-Proben, aber keine auswertbaren G-, Bank- oder Streckenhöhenwerte.` : 'Der Recorder erhielt während dieses Fluges keine auswertbaren Live-Proben.';
+      metrics = samples > 0 ? _fdK('debrief.flight.samples', 'Der Recorder erhielt {samples} Live-Proben, aber keine auswertbaren G-, Bank- oder Streckenhöhenwerte.', {
+        samples
+      }) : _fdT('Der Recorder erhielt während dieses Fluges keine auswertbaren Live-Proben.');
     }
     return `${metrics} ${altitude.text}`;
   }
@@ -264,7 +293,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     currentDebriefAwaitingCleanup = options.awaitingCleanup === true;
     while (body.firstChild) body.removeChild(body.firstChild);
     var dep = String(record.depLabel || record.start || 'START');
-    var arr = String(record.arrLabel || record.dest || 'LANDUNG');
+    var arr = String(record.arrLabel || record.dest || _fdT('LANDUNG'));
     var dateText = String(_fdDateText(Number(record.createdAt || record.endedAt || record.endTs) || 0, record.dateLabel || record.date || new Date(record.createdAt || Date.now()).toLocaleString('de-DE')));
     var mission = String(record.missionTitle || record.mission || 'Mission');
     var route = document.createElement('div');
@@ -272,7 +301,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     route.textContent = `${dep} ➔ ${arr}`;
     var meta = document.createElement('div');
     meta.className = 'flight-debrief-meta';
-    meta.textContent = `${dateText} · ${record.failed ? 'NICHT ERFÜLLT' : 'ERFÜLLT'}`;
+    meta.textContent = `${dateText} · ${record.failed ? _fdT('NICHT ERFÜLLT') : _fdT('ERFÜLLT')}`;
     var assignment = document.createElement('div');
     assignment.className = 'flight-debrief-assignment';
     assignment.textContent = mission;
@@ -287,16 +316,16 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     var bank = _debriefFinite(record.maxBankDeg);
     var agl = _debriefFinite(record.minEnrouteAglFt);
     var altitude = _debriefAltitudeAssessment(record);
-    _appendDebriefMetric(grid, 'Flugzeit', duration == null ? '–' : `${Math.max(1, Math.round(duration / 60))} min`);
-    _appendDebriefMetric(grid, 'Distanz', distance == null ? '–' : `${distance.toFixed(1)} NM`);
-    _appendDebriefMetric(grid, 'Höchstes G', g == null ? '–' : `${g.toFixed(2)} g`);
-    _appendDebriefMetric(grid, 'Max. Bank', bank == null ? '–' : `${bank.toFixed(1)}°`);
-    _appendDebriefMetric(grid, 'Höhenkonstanz', altitude.value);
-    _appendDebriefMetric(grid, 'Min. AGL Strecke', agl == null ? '–' : `${Math.round(agl)} ft`);
+    _appendDebriefMetric(grid, _fdT('Flugzeit'), duration == null ? '–' : `${Math.max(1, Math.round(duration / 60))} min`);
+    _appendDebriefMetric(grid, _fdT('Distanz'), distance == null ? '–' : `${distance.toFixed(1)} NM`);
+    _appendDebriefMetric(grid, _fdT('Höchstes G'), g == null ? '–' : `${g.toFixed(2)} g`);
+    _appendDebriefMetric(grid, _fdT('Max. Bank'), bank == null ? '–' : `${bank.toFixed(1)}°`);
+    _appendDebriefMetric(grid, _fdT('Höhenkonstanz'), altitude.value);
+    _appendDebriefMetric(grid, _fdT('Min. AGL Strecke'), agl == null ? '–' : `${Math.round(agl)} ft`);
     body.appendChild(grid);
-    _appendDebriefSection(body, 'Flugdurchführung', _debriefFlightText(record, altitude));
-    _appendDebriefSection(body, 'Passagierkomfort', _debriefComfortText(record));
-    _appendDebriefSection(body, 'Ladungssicherheit', _debriefCargoText(record));
+    _appendDebriefSection(body, _fdT('Flugdurchführung'), _debriefFlightText(record, altitude));
+    _appendDebriefSection(body, _fdT('Passagierkomfort'), _debriefComfortText(record));
+    _appendDebriefSection(body, _fdT('Ladungssicherheit'), _debriefCargoText(record));
     var closeBtn = ov.querySelector('#flightDebriefCloseBtn');
     var finishBtn = ov.querySelector('#flightDebriefFinishBtn');
     var pdfBtn = ov.querySelector('#flightDebriefPdfBtn');
@@ -304,8 +333,13 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     if (closeBtn) closeBtn.style.display = currentDebriefAwaitingCleanup ? 'none' : '';
     if (finishBtn) {
       finishBtn.disabled = false;
-      finishBtn.textContent = currentDebriefAwaitingCleanup ? 'Debrief schließen & Mission aufräumen' : 'Schließen';
+      finishBtn.textContent = currentDebriefAwaitingCleanup ? _fdT('Debrief schließen & Mission aufräumen') : _fdT('Schließen');
     }
+    // Static overlay texts are built once; refresh them for the current UI language.
+    var kicker = ov.querySelector('.flight-debrief-kicker');
+    if (kicker) kicker.textContent = _fdT('VFR MULTITOOL · MISSIONSABSCHLUSS');
+    if (closeBtn) closeBtn.setAttribute('aria-label', _fdT('Debrief schließen'));
+    if (pdfBtn && !pdfBtn.disabled) pdfBtn.textContent = _fdT('PDF herunterladen');
     ov.style.display = 'flex';
   };
   window.GAFlightDebrief = Object.freeze({

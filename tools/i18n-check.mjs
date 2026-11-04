@@ -42,7 +42,7 @@ function loadDictionaries() {
 function htmlKeys(file) {
     const html = fs.readFileSync(path.join(ROOT, file), 'utf8');
     const keys = new Map();
-    const re = /data-i18n(?:-title|-aria-label|-placeholder|-src)?="([^"]+)"/g;
+    const re = /data-i18n(?:-title|-aria-label|-placeholder|-src|-alt)?="([^"]+)"/g;
     let m;
     while ((m = re.exec(html))) {
         if (!keys.has(m[1])) keys.set(m[1], `${file}:${lineAt(html, m.index)}`);

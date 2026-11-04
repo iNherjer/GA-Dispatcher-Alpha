@@ -1697,7 +1697,7 @@ window.buildDebriefPdfDocument = async function(record) {
     const totalPages = 1 + (flightPathPage?.pages || 0);
     drawNotebookBackground(doc, 1, totalPages, 'Mission Debrief');
     const dep = String(record.depLabel || record.start || 'START');
-    const arr = String(record.arrLabel || record.dest || 'LANDUNG');
+    const arr = String(record.arrLabel || record.dest || _boardUiPhrase('LANDUNG'));
     const altitude = window.GAFlightDebrief.altitudeAssessment(record);
     const duration = window.GAFlightDebrief.finite(record.durationSec);
     const distance = window.GAFlightDebrief.finite(record.distanceNm ?? record.dist);
@@ -1708,26 +1708,26 @@ window.buildDebriefPdfDocument = async function(record) {
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(8);
     doc.setTextColor(135, 45, 35);
-    doc.text('MISSIONSABSCHLUSS · FLIGHT DEBRIEF', 32, 28);
+    doc.text(_boardUiPhrase('MISSIONSABSCHLUSS · FLIGHT DEBRIEF'), 32, 28);
     doc.setFontSize(20);
     doc.setTextColor(11, 31, 101);
     doc.text(stripEmojis(`${dep}  >  ${arr}`), 32, 39);
     doc.setFont('Helvetica', 'normal');
     doc.setFontSize(9);
     doc.setTextColor(90, 85, 75);
-    doc.text(stripEmojis(String(record.dateLabel || record.date || '')), 32, 47);
+    doc.text(stripEmojis(String((typeof _appLogbookDateText === 'function' && _appLogbookDateText(record)) || record.dateLabel || record.date || '')), 32, 47);
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(12);
     doc.setTextColor(45, 45, 40);
     let y = pdfWrappedText(doc, stripEmojis(String(record.missionTitle || record.mission || 'Mission')), 32, 58, 155, 6) + 7;
 
     const metrics = [
-        ['FLUGZEIT', duration == null ? '-' : `${Math.max(1, Math.round(duration / 60))} min`],
-        ['DISTANZ', distance == null ? '-' : `${distance.toFixed(1)} NM`],
-        ['HOECHSTES G', g == null ? '-' : `${g.toFixed(2)} g`],
+        [_boardUiPhrase('FLUGZEIT'), duration == null ? '-' : `${Math.max(1, Math.round(duration / 60))} min`],
+        [_boardUiPhrase('DISTANZ'), distance == null ? '-' : `${distance.toFixed(1)} NM`],
+        [_boardUiPhrase('HOECHSTES G'), g == null ? '-' : `${g.toFixed(2)} g`],
         ['MAX. BANK', bank == null ? '-' : `${bank.toFixed(1)} deg`],
-        ['HOEHENKONSTANZ', altitude.value.replace('±', '+/-')],
-        ['MIN. AGL STRECKE', agl == null ? '-' : `${Math.round(agl)} ft`]
+        [_boardUiPhrase('HOEHENKONSTANZ'), altitude.value.replace('±', '+/-')],
+        [_boardUiPhrase('MIN. AGL STRECKE'), agl == null ? '-' : `${Math.round(agl)} ft`]
     ];
     const colW = 51;
     metrics.forEach((metric, index) => {
@@ -1744,9 +1744,9 @@ window.buildDebriefPdfDocument = async function(record) {
         doc.text(stripEmojis(metric[1]), x + 3, yy + 11.5);
     });
     y += 45;
-    y = _drawDebriefPdfSection(doc, 'Flugdurchfuehrung', window.GAFlightDebrief.flightText(record, altitude), y);
-    y = _drawDebriefPdfSection(doc, 'Passagierkomfort', window.GAFlightDebrief.comfortText(record), y);
-    y = _drawDebriefPdfSection(doc, 'Ladungssicherheit', window.GAFlightDebrief.cargoText(record), y);
+    y = _drawDebriefPdfSection(doc, _boardUiPhrase('Flugdurchfuehrung'), window.GAFlightDebrief.flightText(record, altitude), y);
+    y = _drawDebriefPdfSection(doc, _boardUiPhrase('Passagierkomfort'), window.GAFlightDebrief.comfortText(record), y);
+    y = _drawDebriefPdfSection(doc, _boardUiPhrase('Ladungssicherheit'), window.GAFlightDebrief.cargoText(record), y);
     if (flightPathPage?.drawOutcome) {
         try { y = flightPathPage.drawOutcome(doc, y, { section: _drawDebriefPdfSection }); }
         catch (error) { console.warn('[Debrief PDF] Missionsergebnis fehlgeschlagen:', error); }
@@ -1758,7 +1758,7 @@ window.buildDebriefPdfDocument = async function(record) {
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(13);
     doc.setTextColor(record.failed ? 150 : 30, record.failed ? 45 : 105, record.failed ? 35 : 55);
-    doc.text(record.failed ? 'MISSION NICHT ERFUELLT' : 'MISSION ERFUELLT', 109.5, Math.min(276, y + 13), { align: 'center' });
+    doc.text(record.failed ? _boardUiPhrase('MISSION NICHT ERFUELLT') : _boardUiPhrase('MISSION ERFUELLT'), 109.5, Math.min(276, y + 13), { align: 'center' });
     if (flightPathPage) {
         try { flightPathPage.draw(doc, { background: (d, page, total) => drawNotebookBackground(d, page, total, 'Mission Debrief') }); }
         catch (error) { console.warn('[Debrief PDF] Flugweg-Seite fehlgeschlagen:', error); }

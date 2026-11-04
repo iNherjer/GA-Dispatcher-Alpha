@@ -17,7 +17,8 @@
         'data-i18n-aria-label': 'aria-label',
         'data-i18n-placeholder': 'placeholder',
         // Language-specific images (e.g. the embossed settings roll): key -> image path.
-        'data-i18n-src': 'src'
+        'data-i18n-src': 'src',
+        'data-i18n-alt': 'alt'
     });
     const dictionaries = { de: {}, en: {} };
     const listeners = new Set();

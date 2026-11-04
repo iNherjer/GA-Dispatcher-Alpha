@@ -8086,6 +8086,8 @@ if (typeof window !== 'undefined' && window.GAI18n) {
         try { refreshMissionPickerOptions(document.getElementById('targetType')?.value || null); } catch (_) {}
         try { updateOps1940Panel(); } catch (_) {}
         try { window.updateMissionProposalModeButtonUi?.(); } catch (_) {}
+        // Logbook table, page label and caption (cloud refresh inside is throttled).
+        try { if (typeof renderLog === 'function') renderLog(); } catch (_) {}
     });
 }
 
@@ -48034,8 +48036,8 @@ function renderLog() {
     const freeToggle = document.getElementById('logbookFreeToggle');
     if (freeToggle && flightLogbook) {
         const showing = flightLogbook.showFree();
-        freeToggle.textContent = showing ? 'Freie Flüge: an' : 'Freie Flüge: aus';
-        freeToggle.title = showing ? 'Freie Flüge ausblenden' : 'Freie Flüge einblenden';
+        freeToggle.textContent = showing ? _appUiPhrase('Freie Flüge: an') : _appUiPhrase('Freie Flüge: aus');
+        freeToggle.title = showing ? _appUiPhrase('Freie Flüge ausblenden') : _appUiPhrase('Freie Flüge einblenden');
         freeToggle.setAttribute('aria-pressed', showing ? 'true' : 'false');
     }
     const container = document.getElementById('logContent');
@@ -48048,7 +48050,7 @@ function renderLog() {
     table.className = 'logbook-table';
     const header = document.createElement('div');
     header.className = 'logbook-table-header';
-    const labels = ['Datum', 'Muster', 'Route', '', 'Dauer', 'NM', 'Notiz'];
+    const labels = [_appUiPhrase('Datum'), _appUiPhrase('Muster'), 'Route', '', _appUiPhrase('Dauer'), 'NM', _appUiPhrase('Notiz')];
     labels.forEach(label => {
         const cell = document.createElement('span');
         cell.textContent = label;
@@ -48067,7 +48069,7 @@ function renderLog() {
             const distance = rawDistance == null || rawDistance === '' ? NaN : Number(rawDistance);
             const rawDate = String(_appLogbookDateText(e) || e.date || e.dateLabel || '—');
             const date = rawDate.split(',')[0].trim();
-            const route = [e.start || e.depLabel || 'START', e.poiName, e.dest || e.arrLabel || 'LANDUNG'].filter(Boolean).join(' → ');
+            const route = [e.start || e.depLabel || 'START', e.poiName, e.dest || e.arrLabel || _appUiPhrase('LANDUNG')].filter(Boolean).join(' → ');
             const values = [date, e.ac || e.aircraft || '—', route, '', minutes == null ? '—' : `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}`, Number.isFinite(distance) ? distance.toFixed(1) : '—', e.mission || e.missionTitle || 'Mission'];
             values.forEach((value, index) => {
                 const cell = document.createElement('span');
@@ -48095,7 +48097,7 @@ function renderLog() {
     if (!log.length) {
         const empty = document.createElement('span');
         empty.className = 'logbook-empty-note';
-        empty.textContent = 'Dein nächster Flug beginnt hier.';
+        empty.textContent = _appUiPhrase('Dein nächster Flug beginnt hier.');
         container.appendChild(empty);
     }
     for (let side = 0; side < 2; side++) {
@@ -48106,8 +48108,8 @@ function renderLog() {
     }
     document.getElementById('logbookPrev').disabled = logbookView.spread === 0;
     document.getElementById('logbookNext').disabled = logbookView.spread === spreads - 1;
-    document.getElementById('logbookPageLabel').textContent = `Seiten ${logbookView.spread * 2 + 1}–${logbookView.spread * 2 + 2} von ${spreads * 2}`;
-    document.getElementById('logbookCaption').textContent = `${log.length} ${log.length === 1 ? 'Flug' : 'Flüge'} · ${logbookView.open ? 'Eintrag für Details anklicken' : 'Anklicken zum Öffnen'}`;
+    document.getElementById('logbookPageLabel').textContent = _appUiText('logbook.pages', { from: logbookView.spread * 2 + 1, to: logbookView.spread * 2 + 2, total: spreads * 2 }, 'Seiten {from}–{to} von {total}');
+    document.getElementById('logbookCaption').textContent = `${log.length} ${log.length === 1 ? _appUiPhrase('Flug') : _appUiPhrase('Flüge')} · ${logbookView.open ? _appUiPhrase('Eintrag für Details anklicken') : _appUiPhrase('Anklicken zum Öffnen')}`;
 }
 window.renderLog = renderLog;
 function clearLog() { if (confirm(_appUiPhrase('Gesamtes Logbuch löschen? Freie Flüge und Flugwege in der Cloud werden ebenfalls gelöscht.'))) { localStorage.removeItem('ga_logbook'); localStorage.removeItem('last_icao_dest'); window.GAFlightLogbook?.clearCloud(); renderLog(); triggerCloudSave(true); } }

@@ -170,10 +170,10 @@ function freeEntries() {
             createdAt,
             date: createdAt ? new Date(createdAt).toLocaleString(_flvLocale()) : '—',
             start: placeLabel(e.depPosition, 'START'),
-            dest: placeLabel(e.arrPosition, 'LANDUNG'),
+            dest: placeLabel(e.arrPosition, _flvT('LANDUNG')),
             ac: e.aircraft || e.ac || '',
-            mission: 'Freier Flug',
-            missionTitle: 'Freier Flug'
+            mission: _flvT('Freier Flug'),
+            missionTitle: _flvT('Freier Flug')
         };
     });
 }
@@ -223,14 +223,14 @@ function openEntry(entry) {
     if (!body) return;
     if (entry?.result === 'aborted') {
         const meta = body.querySelector('.flight-debrief-meta');
-        if (meta) meta.textContent = `${entry.dateLabel || entry.date || ''} · ABGEBROCHEN`;
+        if (meta) meta.textContent = `${entry.dateLabel || entry.date || ''} · ${_flvT('ABGEBROCHEN')}`;
     }
     if (entry?.kind === 'free') {
         const meta = body.querySelector('.flight-debrief-meta');
-        if (meta) meta.textContent = `${entry.date || ''} · FREIER FLUG`;
+        if (meta) meta.textContent = `${entry.date || ''} · ${_flvT('FREIER FLUG')}`;
         // Passenger and cargo sections describe missions only.
         body.querySelectorAll('.flight-debrief-section').forEach(section => {
-            if (/Passagierkomfort|Ladungssicherheit/.test(section.querySelector('h3')?.textContent || '')) section.remove();
+            if (/Passagierkomfort|Ladungssicherheit|Passenger comfort|Cargo safety/.test(section.querySelector('h3')?.textContent || '')) section.remove();
         });
     }
     addDeleteButton(entry);
@@ -239,24 +239,24 @@ function openEntry(entry) {
     const section = document.createElement('section');
     section.className = 'flight-debrief-section flight-track-section';
     const heading = document.createElement('h3');
-    heading.textContent = 'Flugweg';
+    heading.textContent = _flvT('Flugweg');
     const status = document.createElement('p');
     status.className = 'flight-track-status';
     section.append(heading, status);
     const anchor = body.querySelector('.flight-outcome-section') || body.querySelector('.flight-debrief-metrics');
     if (anchor?.nextSibling) body.insertBefore(section, anchor.nextSibling); else body.appendChild(section);
     if (!runId) {
-        status.textContent = state.loadedAt ? 'Für diesen Flug liegt kein Flugweg vor.' : 'Flugweg wird gesucht…';
+        status.textContent = state.loadedAt ? _flvT('Für diesen Flug liegt kein Flugweg vor.') : _flvT('Flugweg wird gesucht…');
         if (!state.loadedAt) refresh({ force: true }).then(() => { if (trackRunIdFor(entry) && section.isConnected) openEntry(entry); });
         return;
     }
-    status.textContent = 'Flugweg wird geladen…';
+    status.textContent = _flvT('Flugweg wird geladen…');
     getTrack(runId).then(track => {
         if (!section.isConnected) return;
-        if (!track) { status.textContent = 'Flugweg nicht gefunden.'; return; }
+        if (!track) { status.textContent = _flvT('Flugweg nicht gefunden.'); return; }
         renderTrack(section, status, track, runId);
     }).catch(error => {
-        if (section.isConnected) status.textContent = `Flugweg konnte nicht geladen werden (${error?.message || error}).`;
+        if (section.isConnected) status.textContent = _flvK('logbook.track.loadError', 'Flugweg konnte nicht geladen werden ({error}).', { error: error?.message || error });
     });
 }
 
@@ -438,7 +438,7 @@ function analyseAirspaces(items, samples) {
         if (!lateral.length) return;
         const style = airspaceColor(as);
         results.push({ as, name: airspaceName(as), style, lateral, inside,
-            flownThrough: inside.length > 0, relation: below >= above ? 'unterflogen' : 'überflogen',
+            flownThrough: inside.length > 0, relation: below >= above ? _flvT('unterflogen') : _flvT('überflogen'),
             limits: `${limitText(as.lowerLimit)} – ${limitText(as.upperLimit)}` });
     });
     return results;
@@ -466,8 +466,8 @@ let lastRendered = null; // model of the flight path currently shown, used by th
 function renderTrack(section, status, track, runId) {
     const codec = window.GAFlightTrackCodecCore;
     let points;
-    try { points = codec.decodeTrack(track); } catch (_) { status.textContent = 'Flugweg ist beschädigt.'; return; }
-    if (points.length < 2) { status.textContent = 'Flugweg zu kurz.'; return; }
+    try { points = codec.decodeTrack(track); } catch (_) { status.textContent = _flvT('Flugweg ist beschädigt.'); return; }
+    if (points.length < 2) { status.textContent = _flvT('Flugweg zu kurz.'); return; }
     const along = codec.alongTrackNm(points);
     const totalNm = along[along.length - 1];
     const alts = points.map(p => p.altFt);
@@ -475,8 +475,8 @@ function renderTrack(section, status, track, runId) {
     const minAlt = Math.min(...alts, ...(grounds.length ? grounds : alts));
     const maxAlt = Math.max(...alts);
     const segments = points.filter(p => p.segmentStart).length;
-    status.textContent = `${points.length} Wegpunkte · Genauigkeit ±${track.tol?.[0] ?? 15} m / ±${track.tol?.[1] ?? 30} ft`
-        + (segments > 1 ? ` · ${segments} Abschnitte (Pause oder Umsetzen)` : '');
+    status.textContent = _flvK('logbook.track.summary', '{points} Wegpunkte · Genauigkeit ±{tolM} m / ±{tolFt} ft', { points: points.length, tolM: track.tol?.[0] ?? 15, tolFt: track.tol?.[1] ?? 30 })
+        + (segments > 1 ? _flvK('logbook.track.segments', ' · {segments} Abschnitte (Pause oder Umsetzen)', { segments }) : '');
 
     const mapEl = document.createElement('div');
     mapEl.className = 'flight-track-map';
@@ -484,10 +484,10 @@ function renderTrack(section, status, track, runId) {
     profileWrap.className = 'flight-track-profile';
     const readout = document.createElement('div');
     readout.className = 'flight-track-readout';
-    readout.textContent = 'Über das Profil oder die Linie fahren, um Werte zu sehen.';
+    readout.textContent = _flvT('Über das Profil oder die Linie fahren, um Werte zu sehen.');
     const airspaceBox = document.createElement('div');
     airspaceBox.className = 'flight-track-airspaces';
-    airspaceBox.textContent = 'Lufträume werden geprüft…';
+    airspaceBox.textContent = _flvT('Lufträume werden geprüft…');
     // Color mode switch and legend (applies to map line and profile line).
     const segs = segmentMetrics(points, codec);
     let colorMode = readColorMode();
@@ -496,14 +496,14 @@ function renderTrack(section, status, track, runId) {
     const modeBar = document.createElement('div');
     modeBar.className = 'flight-track-colormode';
     modeBar.setAttribute('role', 'group');
-    modeBar.setAttribute('aria-label', 'Linienfarbe');
+    modeBar.setAttribute('aria-label', _flvT('Linienfarbe'));
     const modeLabel = document.createElement('span');
-    modeLabel.textContent = 'Linienfarbe:';
+    modeLabel.textContent = _flvT('Linienfarbe:');
     modeBar.appendChild(modeLabel);
     const modeButtons = Object.entries(COLOR_MODES).map(([mode, meta]) => {
         const button = document.createElement('button');
         button.type = 'button';
-        button.textContent = meta.label;
+        button.textContent = _flvT(meta.label);
         button.dataset.mode = mode;
         button.addEventListener('click', () => setColorMode(mode));
         modeBar.appendChild(button);
@@ -524,7 +524,7 @@ function renderTrack(section, status, track, runId) {
         legendPointer.style.setProperty('--pointer-color', colorFor(scale, value));
         const shown = colorMode === 'vs' ? Math.round(value / 10) * 10 : Math.round(value);
         legendPointerLabel.textContent = `${colorMode === 'vs' && shown > 0 ? '+' : ''}${fmt(shown)} ${COLOR_MODES[colorMode].unit}`
-            + (value < scale.min || value > scale.max ? ' (außerhalb der Skala)' : '');
+            + (value < scale.min || value > scale.max ? ` ${_flvT('(außerhalb der Skala)')}` : '');
     }
     function renderLegend() {
         modeButtons.forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === colorMode ? 'true' : 'false'));
@@ -532,7 +532,7 @@ function renderTrack(section, status, track, runId) {
         const ticks = scaleTicks(scale);
         const unit = COLOR_MODES[colorMode].unit;
         const low = document.createElement('span');
-        low.textContent = colorMode === 'vs' ? `Sinken ${ticks[0]}` : ticks[0];
+        low.textContent = colorMode === 'vs' ? `${_flvT('Sinken')} ${ticks[0]}` : ticks[0];
         const bar = document.createElement('span');
         bar.className = 'flight-track-legend-bar';
         bar.style.background = gradientFor(scale);
@@ -541,12 +541,12 @@ function renderTrack(section, status, track, runId) {
         mid.textContent = ticks[1];
         bar.appendChild(mid);
         const high = document.createElement('span');
-        high.textContent = colorMode === 'vs' ? `${ticks[2]} ${unit} Steigen` : `${ticks[2]} ${unit}`;
+        high.textContent = colorMode === 'vs' ? `${ticks[2]} ${unit} ${_flvT('Steigen')}` : `${ticks[2]} ${unit}`;
         const note = document.createElement('span');
         note.className = 'flight-track-legend-note';
-        note.textContent = colorMode === 'alt' ? 'Skala: tiefster bis höchster Punkt dieses Flugs'
-            : colorMode === 'gs' ? 'Skala: 0 bis zur Reisegeschwindigkeit dieses Flugs (einzelne Spitzen gekappt)'
-            : 'Skala: symmetrisch, Grau = nahezu Horizontalflug (< 100 ft/min)';
+        note.textContent = colorMode === 'alt' ? _flvT('Skala: tiefster bis höchster Punkt dieses Flugs')
+            : colorMode === 'gs' ? _flvT('Skala: 0 bis zur Reisegeschwindigkeit dieses Flugs (einzelne Spitzen gekappt)')
+            : _flvT('Skala: symmetrisch, Grau = nahezu Horizontalflug (< 100 ft/min)');
         // pointer for the value at the selected position
         legendPointer = document.createElement('span');
         legendPointer.className = 'flight-track-legend-pointer';
@@ -606,8 +606,8 @@ function renderTrack(section, status, track, runId) {
         });
         const dot = (p, color, title) => L.circleMarker([p.lat, p.lon], { pane: 'gaTrackLine', radius: 6, color: '#fff', weight: 2, fillColor: color, fillOpacity: 1 }).bindTooltip(title).addTo(map);
         dot(points[0], '#2e7d32', 'Start');
-        dot(points[points.length - 1], '#c62828', 'Ende');
-        (track.marks?.touchdowns || []).forEach(i => points[i] && dot(points[i], '#f9a825', 'Aufsetzen'));
+        dot(points[points.length - 1], '#c62828', _flvT('Ende'));
+        (track.marks?.touchdowns || []).forEach(i => points[i] && dot(points[i], '#f9a825', _flvT('Aufsetzen')));
         marker = L.circleMarker([points[0].lat, points[0].lon], { pane: 'gaTrackLine', radius: 7, color: '#111', weight: 2, fillColor: '#fff', fillOpacity: 1, opacity: 0 }).addTo(map);
         const bounds = L.latLngBounds(points.map(p => [p.lat, p.lon]));
         map.fitBounds(bounds, { padding: [18, 18] });
@@ -623,7 +623,7 @@ function renderTrack(section, status, track, runId) {
             if (px <= 24) select(xsOf(best), points[best]);
         });
     } else {
-        mapEl.textContent = 'Karte nicht verfügbar.';
+        mapEl.textContent = _flvT('Karte nicht verfügbar.');
     }
 
     function drawMapAirspaces() {
@@ -636,7 +636,7 @@ function renderTrack(section, status, track, runId) {
                 pane: 'gaTrackAirspace', color: r.style.color, weight: strong ? r.style.weight + 1 : r.style.weight,
                 fillColor: r.style.color, fillOpacity: strong ? Math.max(0.16, r.style.fillOpacity) : r.style.fillOpacity * 0.6,
                 dashArray: r.style.dashArray || (strong ? null : '4,4'), interactive: true
-            }).bindTooltip(`${r.name} · ${r.limits}${strong ? ' · durchflogen' : ` · ${r.relation}`}`, { sticky: true, className: 'airspace-tooltip' }));
+            }).bindTooltip(`${r.name} · ${r.limits}${strong ? ` · ${_flvT('durchflogen')}` : ` · ${r.relation}`}`, { sticky: true, className: 'airspace-tooltip' }));
             layers.forEach(layer => layer.addTo(airspaceLayer));
             airspacePolys.set(r, layers);
         });
@@ -667,7 +667,7 @@ function renderTrack(section, status, track, runId) {
         svg = document.createElementNS(ns, 'svg');
         svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
         svg.setAttribute('role', 'img');
-        svg.setAttribute('aria-label', `Höhenprofil, ${fmt(yMin)} bis ${fmt(yMax)} ft`);
+        svg.setAttribute('aria-label', _flvK('logbook.profile.aria', 'Höhenprofil, {min} bis {max} ft', { min: fmt(yMin), max: fmt(yMax) }));
         const el = (name, attrs, parent = svg) => { const node = document.createElementNS(ns, name); Object.entries(attrs).forEach(([k, v]) => node.setAttribute(k, v)); parent.appendChild(node); return node; };
         const step = [100, 250, 500, 1000, 2000, 5000].find(s => (yMax - yMin) / s <= 6) || 5000;
         for (let v = Math.ceil(yMin / step) * step; v <= yMax; v += step) {
@@ -752,18 +752,18 @@ function renderTrack(section, status, track, runId) {
         cursorDot.setAttribute('cx', X(x)); cursorDot.setAttribute('cy', Y(p.altFt)); cursorDot.setAttribute('visibility', 'visible');
         if (marker) { marker.setLatLng([p.lat, p.lon]); marker.setStyle({ opacity: 1 }); }
         const gs = speedAt(p);
-        const parts = [`Höhe ${fmt(p.altFt)} ft`];
-        if (p.gndFt !== null && p.gndFt !== undefined) parts.push(`über Grund ${fmt(Math.max(0, p.altFt - p.gndFt))} ft`);
+        const parts = [`${_flvT('Höhe')} ${fmt(p.altFt)} ft`];
+        if (p.gndFt !== null && p.gndFt !== undefined) parts.push(`${_flvT('über Grund')} ${fmt(Math.max(0, p.altFt - p.gndFt))} ft`);
         if (gs !== null && Number.isFinite(gs)) parts.push(`GS ${Math.round(gs)} kt`);
         const segAt = segs.find(seg => seg.i === Math.max(1, Math.min(points.length - 1, (p.idx ?? points.indexOf(p)) + 1))) || null;
         showLegendValue({ alt: p.altFt, gs: Number.isFinite(gs) ? gs : null, vs: segAt && Number.isFinite(segAt.vs) ? segAt.vs : null });
         if (segAt && Number.isFinite(segAt.vs)) parts.push(`${segAt.vs >= 0 ? '+' : ''}${fmt(Math.round(segAt.vs / 10) * 10)} ft/min`);
         parts.push(useTime ? `${Math.round(p.sec / 60)} min` : `${x.toFixed(1)} NM`);
-        parts.push(`${clockText(p.time)} Uhr`);
-        if (p.onGround) parts.push('am Boden');
+        parts.push(_flvK('logbook.readout.clock', '{time} Uhr', { time: clockText(p.time) }));
+        if (p.onGround) parts.push(_flvT('am Boden'));
         const index = k ?? sampleIndexAt(x);
         const inside = airspaces.filter(r => r.inside.some(run => index >= run.from && index <= run.to)).map(r => r.name);
-        if (inside.length) parts.push(`in ${inside.join(', ')}`);
+        if (inside.length) parts.push(_flvK('logbook.readout.inside', 'in {names}', { names: inside.join(', ') }));
         readout.textContent = parts.join(' · ');
     }
 
@@ -773,7 +773,7 @@ function renderTrack(section, status, track, runId) {
         const passed = airspaces.filter(r => !r.flownThrough && r.as.type !== 33);
         const info = airspaces.filter(r => r.as.type === 33);
         const heading = document.createElement('h4');
-        heading.textContent = through.length ? `Durchflogene Lufträume (${through.length})` : 'Keine Luftraumdurchflüge';
+        heading.textContent = through.length ? _flvK('logbook.airspaces.through', 'Durchflogene Lufträume ({count})', { count: through.length }) : _flvT('Keine Luftraumdurchflüge');
         airspaceBox.appendChild(heading);
         const list = (rows, kind) => {
             if (!rows.length) return;
@@ -818,19 +818,19 @@ function renderTrack(section, status, track, runId) {
         list(through, 'through');
         if (passed.length) {
             const sub = document.createElement('h4');
-            sub.textContent = `Unter- oder überflogen (${passed.length})`;
+            sub.textContent = _flvK('logbook.airspaces.passed', 'Unter- oder überflogen ({count})', { count: passed.length });
             airspaceBox.appendChild(sub);
             list(passed, 'passed');
         }
         if (info.length) {
             const sub = document.createElement('p');
             sub.className = 'flight-track-airspace-note';
-            sub.textContent = `Außerdem im Gebiet: ${info.map(r => r.name).join(', ')}`;
+            sub.textContent = _flvK('logbook.airspaces.info', 'Außerdem im Gebiet: {names}', { names: info.map(r => r.name).join(', ') });
             airspaceBox.appendChild(sub);
         }
         const note = document.createElement('p');
         note.className = 'flight-track-airspace-note';
-        note.textContent = 'Lufträume nach heutigem Datenstand (OpenAIP), nicht zum Flugzeitpunkt. Zeitlich aktivierte Gebiete sind ohne Aktivierungsstatus berücksichtigt.';
+        note.textContent = _flvT('Lufträume nach heutigem Datenstand (OpenAIP), nicht zum Flugzeitpunkt. Zeitlich aktivierte Gebiete sind ohne Aktivierungsstatus berücksichtigt.');
         airspaceBox.appendChild(note);
     }
 
@@ -853,7 +853,7 @@ function renderTrack(section, status, track, runId) {
         drawProfile();
         renderAirspaceList();
     }).catch(error => {
-        if (section.isConnected) airspaceBox.textContent = `Lufträume nicht verfügbar (${error?.message || error}).`;
+        if (section.isConnected) airspaceBox.textContent = _flvK('logbook.airspaces.error', 'Lufträume nicht verfügbar ({error}).', { error: error?.message || error });
     });
 }
 
@@ -882,12 +882,12 @@ function addDeleteButton(entry) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'flight-debrief-btn secondary flight-debrief-delete';
-    button.textContent = 'Eintrag löschen';
+    button.textContent = _flvT('Eintrag löschen');
     button.addEventListener('click', () => deleteEntry(entry, button));
     actions.insertBefore(button, actions.firstChild);
 }
 async function deleteEntry(entry, button) {
-    const label = entry?.kind === 'free' ? 'diesen freien Flug' : 'diesen Missionseintrag';
+    const label = entry?.kind === 'free' ? _flvT('diesen freien Flug') : _flvT('diesen Missionseintrag');
     if (!confirm(_flvK('dialog.logbook.mochtestSamtFlugwegAus', 'Möchtest du {label} samt Flugweg aus dem Flugbuch löschen? Das gilt für alle Geräte.', { label: label }))) return;
     if (button) button.disabled = true;
     const runId = trackRunIdFor(entry);
@@ -922,29 +922,29 @@ function missionOutcome(record) {
     const reasons = [];
     const cargo = record.cargo || null;
     if (cargo) {
-        if (listText(cargo.missingRequired)) reasons.push(`nicht geladen: ${listText(cargo.missingRequired)}`);
-        if (listText(cargo.droppedRequired)) reasons.push(`abgeworfen/verloren: ${listText(cargo.droppedRequired)}`);
-        if (listText(cargo.notDeliveredRequired)) reasons.push(`nicht abgeliefert: ${listText(cargo.notDeliveredRequired)}`);
-        if (listText(cargo.damagedRequired)) reasons.push(`beschädigt: ${listText(cargo.damagedRequired)}`);
+        if (listText(cargo.missingRequired)) reasons.push(_flvK('logbook.outcome.notLoaded', 'nicht geladen: {list}', { list: listText(cargo.missingRequired) }));
+        if (listText(cargo.droppedRequired)) reasons.push(_flvK('logbook.outcome.dropped', 'abgeworfen/verloren: {list}', { list: listText(cargo.droppedRequired) }));
+        if (listText(cargo.notDeliveredRequired)) reasons.push(_flvK('logbook.outcome.notDelivered', 'nicht abgeliefert: {list}', { list: listText(cargo.notDeliveredRequired) }));
+        if (listText(cargo.damagedRequired)) reasons.push(_flvK('logbook.outcome.damaged', 'beschädigt: {list}', { list: listText(cargo.damagedRequired) }));
     }
     const aborted = record.result === 'aborted';
-    rows.push({ label: 'Ergebnis', value: aborted ? 'Abgebrochen' : (failed ? 'Nicht erfüllt' : 'Erfüllt'), tone: failed ? 'bad' : 'good' });
-    if (failed && reasons.length) rows.push({ label: 'Grund', value: reasons.join(' · '), tone: 'bad' });
-    else if (aborted) rows.push({ label: 'Grund', value: 'Mission vor dem Abschluss abgebrochen', tone: 'bad' });
-    else if (failed) rows.push({ label: 'Grund', value: 'Auftrag nicht vollständig abgeschlossen', tone: 'bad' });
+    rows.push({ key: 'result', label: _flvT('Ergebnis'), value: aborted ? _flvT('Abgebrochen') : (failed ? _flvT('Nicht erfüllt') : _flvT('Erfüllt')), tone: failed ? 'bad' : 'good' });
+    if (failed && reasons.length) rows.push({ label: _flvT('Grund'), value: reasons.join(' · '), tone: 'bad' });
+    else if (aborted) rows.push({ label: _flvT('Grund'), value: _flvT('Mission vor dem Abschluss abgebrochen'), tone: 'bad' });
+    else if (failed) rows.push({ label: _flvT('Grund'), value: _flvT('Auftrag nicht vollständig abgeschlossen'), tone: 'bad' });
     const planned = String(record.plannedDest || '').trim();
     const landed = String(record.dest || record.arrLabel || '').trim();
     if (landed) {
         const differs = planned && planned !== landed && planned !== 'POI';
-        rows.push({ label: 'Landung', value: differs ? `${landed} (geplant: ${planned})` : `${landed}${planned ? ' wie geplant' : ''}`, tone: differs ? 'warn' : '' });
+        rows.push({ label: _flvT('Landung'), value: differs ? _flvK('logbook.outcome.landedPlanned', '{landed} (geplant: {planned})', { landed, planned }) : `${landed}${planned ? ` ${_flvT('wie geplant')}` : ''}`, tone: differs ? 'warn' : '' });
     }
     if (cargo && Number(cargo.requiredTotal) > 0) {
-        const condition = Number.isFinite(Number(cargo.conditionPct)) ? ` · Zustand ${Math.round(Number(cargo.conditionPct))} %` : '';
-        rows.push({ label: 'Ladung', value: `${cargo.requiredLoaded}/${cargo.requiredTotal} Pflichtteile${condition}`, tone: cargo.failed ? 'bad' : '' });
+        const condition = Number.isFinite(Number(cargo.conditionPct)) ? _flvK('logbook.outcome.condition', ' · Zustand {pct} %', { pct: Math.round(Number(cargo.conditionPct)) }) : '';
+        rows.push({ label: _flvT('Ladung'), value: _flvK('logbook.outcome.cargo', '{loaded}/{total} Pflichtteile{condition}', { loaded: cargo.requiredLoaded, total: cargo.requiredTotal, condition }), tone: cargo.failed ? 'bad' : '' });
     }
     const sar = record.sarSearchSummary;
-    if (sar?.text || sar?.outcome) rows.push({ label: 'Suche', value: String(sar.text || sar.outcome), tone: '' });
-    if (record.simulated) rows.push({ label: 'Hinweis', value: 'Im Sim-Modus geflogen', tone: '' });
+    if (sar?.text || sar?.outcome) rows.push({ label: _flvT('Suche'), value: String(sar.text || sar.outcome), tone: '' });
+    if (record.simulated) rows.push({ label: _flvT('Hinweis'), value: _flvT('Im Sim-Modus geflogen'), tone: '' });
     const comfort = record.comfort || null;
     const score = Number(comfort?.score);
     const passenger = comfort && Number.isFinite(score)
@@ -972,7 +972,7 @@ function renderOutcomeSection(body, record) {
     const section = document.createElement('section');
     section.className = `flight-debrief-section flight-outcome-section${outcome.failed ? ' is-failed' : ''}`;
     const heading = document.createElement('h3');
-    heading.textContent = 'Missionsergebnis';
+    heading.textContent = _flvT('Missionsergebnis');
     section.appendChild(heading);
     const list = document.createElement('dl');
     list.className = 'flight-outcome-rows';
@@ -986,13 +986,13 @@ function renderOutcomeSection(body, record) {
     });
     if (outcome.passenger) {
         const dt = document.createElement('dt');
-        dt.textContent = 'Passagier';
+        dt.textContent = _flvT('Passagier');
         const dd = document.createElement('dd');
         const stars = document.createElement('span');
         stars.className = 'flight-outcome-stars';
         stars.textContent = starText(outcome.passenger.stars);
-        stars.setAttribute('aria-label', `${outcome.passenger.stars} von 5 Sternen`);
-        dd.append(stars, ` ${outcome.passenger.mood || 'bewertet'} · Komfort ${outcome.passenger.score}/100`);
+        stars.setAttribute('aria-label', _flvK('logbook.outcome.starsAria', '{stars} von 5 Sternen', { stars: outcome.passenger.stars }));
+        dd.append(stars, _flvK('logbook.outcome.passengerLine', ' {mood} · Komfort {score}/100', { mood: _flvT(outcome.passenger.mood || 'bewertet'), score: outcome.passenger.score }));
         list.append(dt, dd);
     }
     section.appendChild(list);
@@ -1104,7 +1104,7 @@ async function renderMapImage(model) {
     dot(model.points[0], '#2e7d32');
     dot(model.points[model.points.length - 1], '#c62828');
     ctx.font = '11px Helvetica, Arial, sans-serif'; ctx.fillStyle = 'rgba(40,40,40,.75)';
-    ctx.fillText('Karte © OpenTopoMap (CC-BY-SA), Daten © OpenStreetMap, Lufträume OpenAIP', 8, H - 8);
+    ctx.fillText(_flvT('Karte © OpenTopoMap (CC-BY-SA), Daten © OpenStreetMap, Lufträume OpenAIP'), 8, H - 8);
     try { return { data: canvas.toDataURL('image/jpeg', 0.88), width: W, height: H }; } catch (_) { return null; }
 }
 
@@ -1129,9 +1129,9 @@ async function preparePdf(record) {
         drawOutcome(doc, y, helpers = {}) {
             if (!outcome) return y;
             doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(11, 31, 101);
-            doc.text('Missionsergebnis', 32, y); y += 6;
-            const rows = outcome.rows.filter(row => row.label !== 'Ergebnis');
-            if (outcome.passenger) rows.push({ label: 'Passagier', value: `${outcome.passenger.stars}/5 Sterne · ${outcome.passenger.mood} · Komfort ${outcome.passenger.score}/100` });
+            doc.text(pdfText(_flvT('Missionsergebnis')), 32, y); y += 6;
+            const rows = outcome.rows.filter(row => row.key !== 'result');
+            if (outcome.passenger) rows.push({ label: _flvT('Passagier'), value: _flvK('logbook.pdf.passenger', '{stars}/5 Sterne · {mood} · Komfort {score}/100', { stars: outcome.passenger.stars, mood: _flvT(outcome.passenger.mood), score: outcome.passenger.score }) });
             rows.forEach(row => {
                 doc.setFont('Helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(115, 85, 55);
                 doc.text(pdfText(row.label), 32, y);
@@ -1146,7 +1146,7 @@ async function preparePdf(record) {
             if (farewell) {
                 const text = `"${farewell.text}"${farewell.who ? ` - ${farewell.who}` : ''}`;
                 y = typeof helpers.section === 'function'
-                    ? helpers.section(doc, 'Worte des Passagiers', pdfText(text), y)
+                    ? helpers.section(doc, pdfText(_flvT('Worte des Passagiers')), pdfText(text), y)
                     : y;
             }
             return y;
@@ -1157,7 +1157,7 @@ async function preparePdf(record) {
             if (typeof helpers.background === 'function') helpers.background(doc, 2, 2);
             let y = 28;
             doc.setFont('Helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(11, 31, 101);
-            doc.text('FLUGWEG & LUFTRAEUME', 32, y); y += 4;
+            doc.text(pdfText(_flvT('FLUGWEG & LUFTRAEUME')), 32, y); y += 4;
             doc.setDrawColor(11, 31, 101); doc.setLineWidth(0.5); doc.line(32, y, 190, y); y += 6;
             if (mapImage) {
                 const w = 158, h = w * mapImage.height / mapImage.width;
@@ -1169,7 +1169,7 @@ async function preparePdf(record) {
                 const ticks = scaleTicks(model.scale);
                 const unit = COLOR_MODES[model.colorMode].unit;
                 doc.setFont('Helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(60, 60, 60);
-                doc.text(pdfText(`Linienfarbe: ${COLOR_MODES[model.colorMode].label}`), 32, y + 3);
+                doc.text(pdfText(`${_flvT('Linienfarbe:')} ${_flvT(COLOR_MODES[model.colorMode].label)}`), 32, y + 3);
                 const barX = 80, barW = 60;
                 for (let i = 0; i < 30; i++) {
                     const value = model.scale.min + (model.scale.max - model.scale.min) * (i + 0.5) / 30;
@@ -1197,12 +1197,12 @@ async function preparePdf(record) {
                 const through = (model.airspaces || []).filter(r => r.flownThrough && r.as.type !== 33);
                 const passed = (model.airspaces || []).filter(r => !r.flownThrough && r.as.type !== 33);
                 doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(11, 31, 101);
-                doc.text(pdfText(through.length ? `Durchflogene Luftraeume (${through.length})` : 'Keine Luftraumdurchfluege'), 32, y); y += 5;
+                doc.text(pdfText(through.length ? _flvK('logbook.pdf.through', 'Durchflogene Luftraeume ({count})', { count: through.length }) : _flvT('Keine Luftraumdurchfluege')), 32, y); y += 5;
                 through.forEach(r => {
                     const spans = r.inside.map(run => `${clockText(model.samples[run.from].time)}-${clockText(model.samples[run.to].time)}`).join(', ');
                     line(r.name, `${r.limits} · ${spans}`);
                 });
-                if (passed.length) line('Unter-/ueberflogen', passed.map(r => `${r.name} (${r.limits}, ${r.relation})`).join('; '));
+                if (passed.length) line(_flvT('Unter-/ueberflogen'), passed.map(r => `${r.name} (${r.limits}, ${r.relation})`).join('; '));
                 y += 2;
             }
         }

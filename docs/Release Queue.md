@@ -27,6 +27,15 @@ liefert alles Offene mit aus.
 
 ## Offen
 
+### 2026-11-04 · Debrief übersetzbar — EFB-Kopie wartet
+- **Artefakt:** generierte EFB-Kopie `efb-web-assets/flight-debrief.js`; Web live mit diesem Push
+- **Dateien:** `flight-debrief.js` (+ Web: `flight-logbook-view.js`, `app.js`, `board.js`, `index.html`)
+- **Was:** Debrief-Texte über `_fdT/_fdK`; ohne `GAI18n` (EFB) exakt deutsch.
+- **Warum:** Englische Oberfläche (Flugbuch/Debrief).
+- **Tests:** EFB-Sync/Web-Client 26/26, Gegenprobe identisch.
+- **Doku beim Release:** keine. Im EFB ohne sichtbare Änderung.
+- **Pruefen im Feld:** -
+
 ### 2026-11-04 · Zahlen-/Datumsformat der UI-Sprache — EFB-Kopien warten
 - **Artefakt:** generierte EFB-Kopien `efb-web-assets/map-context-popup.js`, `efb-web-assets/flight-debrief.js`; Web live mit diesem Push
 - **Dateien:** `i18n-core.js`, `map-context-popup.js`, `flight-logbook-view.js`, `flight-debrief.js`, `app.js`
