@@ -21,3 +21,9 @@ Use case: product-mockup. Asset type: transparent PNG header for a vintage civil
 Use case: product-mockup. Asset type: vertically extendable leather tool-roll body texture for web settings panel, separate from a closed roll header. One flat unrolled vertical rectangular warm chestnut/cognac leather backing sheet with thin tan stitched leather edging along LEFT and RIGHT only. Front-facing orthographic straight-on, width:height 1:2, no perspective. Full sheet fills canvas except very narrow transparent side margins, opaque warm brown leather interior. Top and bottom continue seamlessly with matching material and brightness so the image can be tiled vertically; no horizontal seams, no hem or folded top/bottom cap. Photorealistic soft worn grain, rubbed patches and gentle folds near the side edges, darker suede shadows along edge seams, soft upper-left grazing illumination, restrained contrast in central 85% for readable UI. Empty plain central leather area, no tools, no pocket divider lines, no straps, no buckles, NO TEXT, no logos. UI will overlay individual stitched pockets holding live controls, so do not paint tools or controls. Material matches a vintage mechanic chestnut brown leather tool roll, not glossy or orange. Transparent outside left/right sheet contours. No background or external cast shadow.
 
 Die gesamte Lederbahn einschließlich Bedienelementen gleitet beim Öffnen hinter dem Kopf nach unten. Dadurch wird das untere Ende mit Darstellung zuerst sichtbar; die endgültige Reihenfolge bleibt erhalten. Kopf und Bahn überlappen während der ganzen Animation um 26 px.
+
+## Englische Fassung (04.11.2026)
+
+- `roll-head-suede-v2-en.webp` (2000×715, transparent): gleiche Rolle mit „Settings“-Prägung.
+- Wechsel über `data-i18n-src="settings.rollHead.image"` am `<img class="settings-roll-head">`;
+  der Pfad steht in `i18n/en.js`. Auf Deutsch bleibt `roll-head-suede-v2.webp`.

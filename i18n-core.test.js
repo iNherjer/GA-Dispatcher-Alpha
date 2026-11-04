@@ -157,3 +157,14 @@ test('number and date locale follows the UI language', () => {
     assert.equal(i18n.locale(), 'en-GB');
     assert.equal(i18n.formatNumber(5000), '5,000');
 });
+
+test('language-specific images swap src and restore the German original', () => {
+    const { els, win } = fakeDom([{ attrs: { 'data-i18n-src': 'roll.image', src: 'de.webp' } }]);
+    i18n.register('en', { 'roll.image': 'en.webp' });
+    i18n.install(win);
+    assert.equal(els[0].getAttribute('src'), 'de.webp', 'German start leaves the image alone');
+    i18n.setLanguage('en');
+    assert.equal(els[0].getAttribute('src'), 'en.webp');
+    i18n.setLanguage('de');
+    assert.equal(els[0].getAttribute('src'), 'de.webp');
+});

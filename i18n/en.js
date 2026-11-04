@@ -424,6 +424,9 @@
         "cl.radio.navaids": "Navaids",
         "cl.place.coordinates": "Coordinates",
 
+        // Settings roll: embossed "Settings" on the leather roll (assets/ui/settings/README.md)
+        "settings.rollHead.image": "assets/ui/settings/roll-head-suede-v2-en.webp",
+
         // Dialogs and API key dialog
         "dialog.app.presetWirklichLoschen": "Really delete preset “{name}”?{slotNote}",
         "dialog.app.presetSlotNote": "It is on quick slot {slots} and will be replaced there.",

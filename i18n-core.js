@@ -15,7 +15,9 @@
     const ATTRS = Object.freeze({
         'data-i18n-title': 'title',
         'data-i18n-aria-label': 'aria-label',
-        'data-i18n-placeholder': 'placeholder'
+        'data-i18n-placeholder': 'placeholder',
+        // Language-specific images (e.g. the embossed settings roll): key -> image path.
+        'data-i18n-src': 'src'
     });
     const dictionaries = { de: {}, en: {} };
     const listeners = new Set();
