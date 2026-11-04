@@ -362,8 +362,8 @@ im JS vorkommen. Deutsche Rückfalltexte in Übersetzungsaufrufen zählen als
 - Geprüft: Rückverwandlung gegen Sicherung (bis auf die genannten Stellen identisch), jeder
   eingewickelte Text hat Englisch, Browser: Debrief und Logbuch DE/EN/DE, Deutsch identisch.
   Die Flugweg-Karte selbst wurde nicht live geöffnet (braucht einen Cloud-Flug).
-- Offen: englische Deckel-Grafik „Logbook“ (`assets/ui/logbook/closed-tall-v2.webp` trägt
-  „Flugbuch“); dann `data-i18n-src="logbook.cover.image"` + Eintrag in `i18n/en.js`.
+- Flugbuch-Deckel: `closed-tall-v2-en.webp` („Logbook“, 1345×1169) über
+  `data-i18n-src="logbook.cover.image"`; die Flugweg-Karte wurde vom User auf Englisch geprüft.
   Missionstitel und Abschiedsworte des Passagiers sind generierte Inhalte (Variante C).
 
 ### Phase 1 – Zahlen- und Datumsformate (2026-11-04)

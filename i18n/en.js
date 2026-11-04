@@ -459,6 +459,7 @@
         "debrief.flight.samples": "The recorder received {samples} live samples, but no usable G, bank or en-route height values.",
         "logbook.pages": "Pages {from}–{to} of {total}",
         "logbook.cover.open": "Pull out and open the logbook",
+        "logbook.cover.image": "assets/ui/logbook/closed-tall-v2-en.webp",
         "logbook.cover.alt": "Red leather-bound logbook",
         "logbook.close": "Close",
         "logbook.clearAria": "Clear the entire logbook",
