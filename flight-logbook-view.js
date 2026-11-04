@@ -7,6 +7,10 @@
 // _flvK = key with placeholders. Without GAI18n (EFB) the German text stays exactly as before.
 function _flvT(text) { var i18n = (typeof window !== 'undefined') ? window.GAI18n : null; return i18n ? i18n.phrase(text) : text; }
 function _flvK(key, german, vars) { var i18n = (typeof window !== 'undefined') ? window.GAI18n : null; if (i18n) return i18n.t(key, vars, german); return vars ? String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, function (m, n) { return Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m; }) : german; }
+// Number and date format of the UI language. Stored labels (e.date, dateLabel) stay German;
+// in English the date is shown from the timestamp instead.
+function _flvLocale() { var i18n = (typeof window !== 'undefined') ? window.GAI18n : null; return i18n && typeof i18n.locale === 'function' ? i18n.locale() : 'de-DE'; }
+function _flvDateText(ms, storedGerman) { if (_flvLocale() === 'de-DE' || !ms) return storedGerman; try { return new Date(ms).toLocaleString(_flvLocale()); } catch (_) { return storedGerman; } }
 'use strict';
 
 const BASE_URL = 'https://ga-proxy.einherjer.workers.dev/api/flightlog-v1/';
@@ -164,7 +168,7 @@ function freeEntries() {
             ...e,
             kind: 'free',
             createdAt,
-            date: createdAt ? new Date(createdAt).toLocaleString('de-DE') : '—',
+            date: createdAt ? new Date(createdAt).toLocaleString(_flvLocale()) : '—',
             start: placeLabel(e.depPosition, 'START'),
             dest: placeLabel(e.arrPosition, 'LANDUNG'),
             ac: e.aircraft || e.ac || '',
@@ -179,7 +183,7 @@ function freeEntries() {
 function cloudMissionEntries() {
     return state.entries.filter(e => e?.kind === 'mission' && e.hasLogbookRecord === true).map(e => {
         const createdAt = Number(e.createdAt || e.endedAt || e.endTs) || 0;
-        return { ...e, kind: 'mission', createdAt, date: e.date || (createdAt ? new Date(createdAt).toLocaleString('de-DE') : '—') };
+        return { ...e, kind: 'mission', createdAt, date: _flvDateText(createdAt, e.date || (createdAt ? new Date(createdAt).toLocaleString('de-DE') : '—')) };
     });
 }
 
@@ -256,7 +260,7 @@ function openEntry(entry) {
     });
 }
 
-function fmt(n) { return Math.round(n).toLocaleString('de-DE'); }
+function fmt(n) { return Math.round(n).toLocaleString(_flvLocale()); }
 function altitudeColor(t) {
     // low = blue, high = red
     const hue = Math.round(220 - 220 * Math.max(0, Math.min(1, t)));
@@ -452,7 +456,7 @@ async function loadAirspaces(runId, points) {
     return list;
 }
 
-function clockText(ms) { return new Date(ms).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }); }
+function clockText(ms) { return new Date(ms).toLocaleTimeString(_flvLocale(), { hour: '2-digit', minute: '2-digit' }); }
 function durationText(sec) {
     const s = Math.max(0, Math.round(sec));
     return s >= 60 ? `${Math.floor(s / 60)} min ${String(s % 60).padStart(2, '0')} s` : `${s} s`;

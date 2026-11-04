@@ -142,8 +142,11 @@
         return () => listeners.delete(fn);
     }
 
+    // Locale for numbers and dates shown in the UI. Stored values stay German.
+    function locale() { return current === 'en' ? 'en-GB' : 'de-DE'; }
+
     function formatNumber(value, options) {
-        try { return new Intl.NumberFormat(current === 'en' ? 'en-GB' : 'de-DE', options).format(value); }
+        try { return new Intl.NumberFormat(locale(), options).format(value); }
         catch (_) { return String(value); }
     }
 
@@ -184,7 +187,7 @@
     return {
         LANGUAGES, DEFAULT_LANGUAGE, STORAGE_KEY,
         t, has, register, registerPhrases, phrase, getLanguage, setLanguage, onChange, apply, install,
-        formatNumber, normalizeLanguage, previewEnabled,
+        formatNumber, locale, normalizeLanguage, previewEnabled,
         dictionaries, phrases, _resetForTests,
         _setLanguageForTests(lang) { current = normalizeLanguage(lang); }
     };

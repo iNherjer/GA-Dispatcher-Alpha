@@ -4,6 +4,9 @@
 // _fdK = key with placeholders. Without GAI18n (EFB) the German text stays exactly as before.
 function _fdT(text) { var i18n = (typeof window !== 'undefined') ? window.GAI18n : null; return i18n ? i18n.phrase(text) : text; }
 function _fdK(key, german, vars) { var i18n = (typeof window !== 'undefined') ? window.GAI18n : null; if (i18n) return i18n.t(key, vars, german); return vars ? String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, function (m, n) { return Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m; }) : german; }
+// Date shown in the UI language. The stored dateLabel stays German; in English it is shown
+// from the timestamp. Without GAI18n (EFB) unchanged.
+function _fdDateText(ms, storedGerman) { var i18n = (typeof window !== 'undefined') ? window.GAI18n : null; if (!i18n || typeof i18n.locale !== 'function' || i18n.locale() === 'de-DE' || !ms) return storedGerman; try { return new Date(ms).toLocaleString(i18n.locale()); } catch (_) { return storedGerman; } }
 'use strict';
 let debriefOverlayEl = null;
 let currentDebriefRecord = null;
@@ -187,7 +190,7 @@ window.showFlightDebrief = function(record, options = {}) {
     while (body.firstChild) body.removeChild(body.firstChild);
     const dep = String(record.depLabel || record.start || 'START');
     const arr = String(record.arrLabel || record.dest || 'LANDUNG');
-    const dateText = String(record.dateLabel || record.date || new Date(record.createdAt || Date.now()).toLocaleString('de-DE'));
+    const dateText = String(_fdDateText(Number(record.createdAt || record.endedAt || record.endTs) || 0, record.dateLabel || record.date || new Date(record.createdAt || Date.now()).toLocaleString('de-DE')));
     const mission = String(record.missionTitle || record.mission || 'Mission');
     const route = document.createElement('div');
     route.className = 'flight-debrief-route';

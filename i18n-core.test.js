@@ -149,3 +149,11 @@ test('a start in English notifies listeners once; a start in German does not', (
     i18n.install(en.win);
     assert.deepEqual(heard, ['en']);
 });
+
+test('number and date locale follows the UI language', () => {
+    assert.equal(i18n.locale(), 'de-DE');
+    assert.equal(i18n.formatNumber(5000), '5.000');
+    i18n._setLanguageForTests('en');
+    assert.equal(i18n.locale(), 'en-GB');
+    assert.equal(i18n.formatNumber(5000), '5,000');
+});

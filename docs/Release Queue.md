@@ -27,6 +27,15 @@ liefert alles Offene mit aus.
 
 ## Offen
 
+### 2026-11-04 · Zahlen-/Datumsformat der UI-Sprache — EFB-Kopien warten
+- **Artefakt:** generierte EFB-Kopien `efb-web-assets/map-context-popup.js`, `efb-web-assets/flight-debrief.js`; Web live mit diesem Push
+- **Dateien:** `i18n-core.js`, `map-context-popup.js`, `flight-logbook-view.js`, `flight-debrief.js`, `app.js`
+- **Was:** Anzeige von Zahlen und Datum im Format der UI-Sprache; ohne `GAI18n` (EFB) unverändert `de-DE`.
+- **Warum:** Englische Oberfläche zeigte „5.000 ft“ und deutsche Datumsangaben.
+- **Tests:** i18n-core 12/12, Tracker 1540/1542 (zeitabhängige Integrationstests einzeln grün), Browser DE/EN/DE.
+- **Doku beim Release:** keine. Im EFB ohne Wirkung.
+- **Pruefen im Feld:** -
+
 ### 2026-11-03 · Vollbild-Pinnwand/Kartentisch bei Seitengröße ≠ 100 % (Web) — EFB-Kopie wartet
 - **Artefakt:** nur die generierte EFB-Kopie `ga-tracker-client/efb-web-assets/styles.css`; Web ist mit diesem Push live
 - **Dateien:** `styles.css`, `index.html` (Stylesheet-Version), generiert `efb-web-assets/styles.css`

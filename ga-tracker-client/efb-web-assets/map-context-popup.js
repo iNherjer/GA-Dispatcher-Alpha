@@ -28,6 +28,11 @@ function _mcK(key, german, vars) {
     return Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m;
   }) : german;
 }
+// Number format of the UI language (de-DE without GAI18n, e.g. in the EFB).
+function _mcLocale() {
+  var i18n = typeof window !== 'undefined' ? window.GAI18n : null;
+  return i18n && typeof i18n.locale === 'function' ? i18n.locale() : 'de-DE';
+}
 var MAP_CONTEXT_LONG_PRESS_MS = 650;
 var MAP_CONTEXT_MOVE_TOLERANCE_PX = 12;
 var MAP_CONTEXT_RELEVANT_AIRSPACE_TYPES = new Set([0, 1, 2, 3, 4, 5, 6, 7, 26, 27, 28, 33]);
@@ -873,7 +878,7 @@ function formatMapContextBandTick(valueFt) {
   var rounded = Math.round(Number(valueFt) || 0);
   if (rounded === 0) return 'MSL';
   if (rounded >= 10000 && rounded % 1000 === 0) return `${rounded / 1000}k`;
-  return rounded.toLocaleString('de-DE');
+  return rounded.toLocaleString(_mcLocale());
 }
 function getMapContextHeightScaleTicks(bands, maxFt) {
   var transitions = [];
@@ -1211,7 +1216,7 @@ function renderMapContextHeightBand(state) {
   }).join('');
   var terrainHeightPct = Math.max(2.2, Math.min(92, terrainFt / maxFt * 100));
   var terrainTopPct = Math.max(1, Math.min(98, 100 - terrainHeightPct));
-  var terrainLabel = state.terrainFt != null && Number.isFinite(Number(state.terrainFt)) ? `${Math.round(terrainFt).toLocaleString('de-DE')}′` : 'GND';
+  var terrainLabel = state.terrainFt != null && Number.isFinite(Number(state.terrainFt)) ? `${Math.round(terrainFt).toLocaleString(_mcLocale())}′` : 'GND';
   var featureElevation = Number.isFinite(Number((_state$feature2 = state.feature) === null || _state$feature2 === void 0 ? void 0 : _state$feature2.elevationFt)) ? Number(state.feature.elevationFt) : terrainFt;
   var featureTopPct = Math.max(1, Math.min(98, 100 - featureElevation / maxFt * 100));
   var featureMarkerLabel = ((_state$feature3 = state.feature) === null || _state$feature3 === void 0 ? void 0 : _state$feature3.kind) === 'airport' ? _mcT('Flugplatz markieren') : ((_state$feature4 = state.feature) === null || _state$feature4 === void 0 ? void 0 : _state$feature4.kind) === 'vrp' ? _mcT('VFR-Meldepunkt markieren') : _mcT('Navaid markieren');
@@ -1232,7 +1237,7 @@ function renderMapContextHeightBand(state) {
               aria-label="${_mcK('mapContext.ownAlt.aria', 'Eigene Flughöhe {ft} Fuß MSL', {
     ft: Math.round(currentAltitudeFt)
   })}"
-              title="${_mcT('Eigene Flughöhe')} · ${Math.round(currentAltitudeFt).toLocaleString('de-DE')} ft MSL"></span>` : '';
+              title="${_mcT('Eigene Flughöhe')} · ${Math.round(currentAltitudeFt).toLocaleString(_mcLocale())} ft MSL"></span>` : '';
   var loading = state.loading.airspaces || state.loading.terrain;
   var atmosphere = renderMapContextAtmosphere(getMapContextAtmosphereData(state, terrainFt), maxFt, terrainFt);
   return `
@@ -1613,7 +1618,7 @@ window.gaUpdateMapContextOwnAltitude = function (altitudeFt) {
   marker.setAttribute('aria-label', _mcK('mapContext.ownAlt.aria', 'Eigene Flughöhe {ft} Fuß MSL', {
     ft: Math.round(nextBandData.currentAltitudeFt)
   }));
-  marker.title = `${_mcT('Eigene Flughöhe')} · ${Math.round(nextBandData.currentAltitudeFt).toLocaleString('de-DE')} ft MSL`;
+  marker.title = `${_mcT('Eigene Flughöhe')} · ${Math.round(nextBandData.currentAltitudeFt).toLocaleString(_mcLocale())} ft MSL`;
 };
 function openMapContextInfo(latlng) {
   var _map$getContainer2, _map3;

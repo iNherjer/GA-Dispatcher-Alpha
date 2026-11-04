@@ -24,6 +24,17 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
       return Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m;
     }) : german;
   }
+  // Date shown in the UI language. The stored dateLabel stays German; in English it is shown
+  // from the timestamp. Without GAI18n (EFB) unchanged.
+  function _fdDateText(ms, storedGerman) {
+    var i18n = typeof window !== 'undefined' ? window.GAI18n : null;
+    if (!i18n || typeof i18n.locale !== 'function' || i18n.locale() === 'de-DE' || !ms) return storedGerman;
+    try {
+      return new Date(ms).toLocaleString(i18n.locale());
+    } catch (_) {
+      return storedGerman;
+    }
+  }
   'use strict';
   var debriefOverlayEl = null;
   var currentDebriefRecord = null;
@@ -254,7 +265,7 @@ function _asyncToGenerator(n) { return function () { var t = this, e = arguments
     while (body.firstChild) body.removeChild(body.firstChild);
     var dep = String(record.depLabel || record.start || 'START');
     var arr = String(record.arrLabel || record.dest || 'LANDUNG');
-    var dateText = String(record.dateLabel || record.date || new Date(record.createdAt || Date.now()).toLocaleString('de-DE'));
+    var dateText = String(_fdDateText(Number(record.createdAt || record.endedAt || record.endTs) || 0, record.dateLabel || record.date || new Date(record.createdAt || Date.now()).toLocaleString('de-DE')));
     var mission = String(record.missionTitle || record.mission || 'Mission');
     var route = document.createElement('div');
     route.className = 'flight-debrief-route';

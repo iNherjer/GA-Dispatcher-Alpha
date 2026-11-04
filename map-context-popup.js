@@ -3,6 +3,8 @@
 // _mcK = key with placeholders. Without GAI18n (EFB) the German text stays exactly as before.
 function _mcT(text) { var i18n = (typeof window !== 'undefined') ? window.GAI18n : null; return i18n ? i18n.phrase(text) : text; }
 function _mcK(key, german, vars) { var i18n = (typeof window !== 'undefined') ? window.GAI18n : null; if (i18n) return i18n.t(key, vars, german); return vars ? String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, function (m, n) { return Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m; }) : german; }
+// Number format of the UI language (de-DE without GAI18n, e.g. in the EFB).
+function _mcLocale() { var i18n = (typeof window !== 'undefined') ? window.GAI18n : null; return i18n && typeof i18n.locale === 'function' ? i18n.locale() : 'de-DE'; }
 const MAP_CONTEXT_LONG_PRESS_MS = 650;
 const MAP_CONTEXT_MOVE_TOLERANCE_PX = 12;
 const MAP_CONTEXT_RELEVANT_AIRSPACE_TYPES = new Set([0, 1, 2, 3, 4, 5, 6, 7, 26, 27, 28, 33]);
@@ -809,7 +811,7 @@ function formatMapContextBandTick(valueFt) {
     const rounded = Math.round(Number(valueFt) || 0);
     if (rounded === 0) return 'MSL';
     if (rounded >= 10000 && rounded % 1000 === 0) return `${rounded / 1000}k`;
-    return rounded.toLocaleString('de-DE');
+    return rounded.toLocaleString(_mcLocale());
 }
 
 function getMapContextHeightScaleTicks(bands, maxFt) {
@@ -1116,7 +1118,7 @@ function renderMapContextHeightBand(state) {
     const terrainHeightPct = Math.max(2.2, Math.min(92, (terrainFt / maxFt) * 100));
     const terrainTopPct = Math.max(1, Math.min(98, 100 - terrainHeightPct));
     const terrainLabel = state.terrainFt != null && Number.isFinite(Number(state.terrainFt))
-        ? `${Math.round(terrainFt).toLocaleString('de-DE')}′`
+        ? `${Math.round(terrainFt).toLocaleString(_mcLocale())}′`
         : 'GND';
     const featureElevation = Number.isFinite(Number(state.feature?.elevationFt))
         ? Number(state.feature.elevationFt)
@@ -1142,7 +1144,7 @@ function renderMapContextHeightBand(state) {
               style="top:${ownAltitudeTopPct.toFixed(2)}%"
               role="img"
               aria-label="${_mcK('mapContext.ownAlt.aria', 'Eigene Flughöhe {ft} Fuß MSL', { ft: Math.round(currentAltitudeFt) })}"
-              title="${_mcT('Eigene Flughöhe')} · ${Math.round(currentAltitudeFt).toLocaleString('de-DE')} ft MSL"></span>` : '';
+              title="${_mcT('Eigene Flughöhe')} · ${Math.round(currentAltitudeFt).toLocaleString(_mcLocale())} ft MSL"></span>` : '';
     const loading = state.loading.airspaces || state.loading.terrain;
     const atmosphere = renderMapContextAtmosphere(
         getMapContextAtmosphereData(state, terrainFt),
@@ -1564,7 +1566,7 @@ window.gaUpdateMapContextOwnAltitude = function(altitudeFt) {
     const topPct = Math.max(1, Math.min(99, 100 - ((nextBandData.currentAltitudeFt / nextBandData.maxFt) * 100)));
     marker.style.top = `${topPct.toFixed(2)}%`;
     marker.setAttribute('aria-label', _mcK('mapContext.ownAlt.aria', 'Eigene Flughöhe {ft} Fuß MSL', { ft: Math.round(nextBandData.currentAltitudeFt) }));
-    marker.title = `${_mcT('Eigene Flughöhe')} · ${Math.round(nextBandData.currentAltitudeFt).toLocaleString('de-DE')} ft MSL`;
+    marker.title = `${_mcT('Eigene Flughöhe')} · ${Math.round(nextBandData.currentAltitudeFt).toLocaleString(_mcLocale())} ft MSL`;
 };
 
 function openMapContextInfo(latlng, source = 'longpress') {

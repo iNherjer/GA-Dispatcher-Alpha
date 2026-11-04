@@ -8064,6 +8064,15 @@ function _appUiText(key, vars, german) {
     if (window.GAI18n) return GAI18n.t(key, vars, german);
     return String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, (m, n) => (vars && Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m));
 }
+// Logbook date in the UI language. Stored labels (e.date, dateLabel) stay German; in English the
+// date is shown from the timestamp. Returns '' in German so the stored label is used unchanged.
+function _appLogbookDateText(entry) {
+    const locale = window.GAI18n && typeof GAI18n.locale === 'function' ? GAI18n.locale() : 'de-DE';
+    const ms = Number(entry?.createdAt || entry?.endedAt || entry?.endTs) || 0;
+    if (locale === 'de-DE' || !ms) return '';
+    try { return new Date(ms).toLocaleString(locale); } catch (_) { return ''; }
+}
+
 function _appUiPhrase(text) {
     return window.GAI18n ? GAI18n.phrase(text) : text;
 }
@@ -48056,7 +48065,7 @@ function renderLog() {
             const minutes = Number.isFinite(seconds) ? Math.max(1, Math.round(seconds / 60)) : null;
             const rawDistance = e.distanceNm ?? e.dist;
             const distance = rawDistance == null || rawDistance === '' ? NaN : Number(rawDistance);
-            const rawDate = String(e.date || e.dateLabel || '—');
+            const rawDate = String(_appLogbookDateText(e) || e.date || e.dateLabel || '—');
             const date = rawDate.split(',')[0].trim();
             const route = [e.start || e.depLabel || 'START', e.poiName, e.dest || e.arrLabel || 'LANDUNG'].filter(Boolean).join(' → ');
             const values = [date, e.ac || e.aircraft || '—', route, '', minutes == null ? '—' : `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, '0')}`, Number.isFinite(distance) ? distance.toFixed(1) : '—', e.mission || e.missionTitle || 'Mission'];

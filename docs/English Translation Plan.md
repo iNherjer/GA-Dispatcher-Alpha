@@ -343,6 +343,23 @@ im JS vorkommen. Deutsche Rückfalltexte in Übersetzungsaufrufen zählen als
 - Offen: Statuszeile `searchIndicator` (Missionsphase), „KI Mode“-Knopf und
   Pinnwand-Knopf (Kind-Elemente), Skins `analog-skins.js` / `navcom-skins.js`.
 
+### Phase 1 – Zahlen- und Datumsformate (2026-11-04)
+
+- `GAI18n.locale()` liefert `de-DE` bzw. `en-GB`; `formatNumber()` nutzt es. Auf Englisch
+  „5,500 ft“ und „03/11/2026“, auf Deutsch unverändert „5.500 ft“ und „03.11.2026“.
+- Umgestellt (nur Anzeige): Höhenband, eigene Flughöhe und Geländelabel in „Was ist hier?“
+  (`_mcLocale`), Flugweg-Ansicht im Flugbuch (`fmt`, `clockText`, Datum freier Flüge),
+  Datum in Debrief und Logbuch-Tabelle. Der Crew-Status nutzte die Sprache schon.
+- **Gespeicherte Labels bleiben deutsch:** `dateLabel`/`date` in Flugbuch-Einträgen
+  (Tracker, Sim, Cloud). Auf Englisch zeigen Debrief, Logbuch-Tabelle und Flugbuch-Ansicht
+  das Datum aus dem Zeitstempel (`createdAt`/`endedAt`/`endTs`); fehlt er, bleibt das Label.
+- Bewusst deutsch: Datums-/Zeitangaben im Gemini-Prompt (`app.js` Missionszeit),
+  Fehlerbericht, Debug-/Exportzeilen, Missions-Panel in `checklists.js` (Missionsphase),
+  Missions-Cores.
+- Uhrzeiten mit Stunde:Minute sind in beiden Formaten gleich („14:05“).
+- Gefunden: Die Flugbuch-/Debrief-Ansicht (`flight-logbook-view.js`, Logbuch-Tabelle in
+  `app.js`, `flight-debrief.js`) ist bis auf zwei Rückfragen noch nicht übersetzt.
+
 ### Phase 1 – Restliche Dialoge (2026-11-02, lokal)
 
 - **API-Key-Fenster** (`#dispatchApiKeyDialog` in `index.html`, `requestDispatchApiKey()` in
