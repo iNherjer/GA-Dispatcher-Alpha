@@ -2225,7 +2225,7 @@
       ? Object.assign({}, payload.flight, { lat: normalized.lat, lon: normalized.lon }) : null, normalized.capturedAt);
     window.lastLiveTerrainFt = Number.isFinite(Number(payload.flight && payload.flight.aglFt))
       ? flight.altFt - Number(payload.flight.aglFt) : null;
-    if(Array.isArray(payload.traffic)) window.vpTrafficData = window.GAMapLivePresentation.filterTraffic(payload.traffic, payload);
+    if(Array.isArray(payload.traffic)) window.vpTrafficData = window.GAMapLivePresentation.filterTraffic(payload.traffic, payload).filter(function(ac){ return !ac.gnd; });
     recordLiveTrail(flight.lat, flight.lon);
     if (!planeMarker) {
       planeMarker = L.marker([flight.lat, flight.lon], { icon: planeIcon(), pane: 'gaAircraftPane', zIndexOffset: 9999, interactive: false }).addTo(map);

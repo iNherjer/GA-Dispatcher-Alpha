@@ -31,6 +31,15 @@ _Derzeit keine offenen Einträge._
 
 ## Ausgeliefert
 
+### 2026-11-05 · Traffic-Anzeige neu (Geisterkontakte, Symbole, Warnstufen) — ausgeliefert in Tracker v616 Alpha / Web v2347 (05.11.2026)
+- **Artefakt:** Tracker-EXE (Engine + EFB-Dateien); Web live mit diesem Push
+- **Dateien:** `tracker.js`, `tracker-efb-kartentisch-host.js`, `tracker-efb-web-client.js`, `efb-web-assets/*` (Sync); Web: `sync.js`, `map-live-presentation.js`, `map-display-controls.js`, `index.html`, `i18n/en.js`
+- **Was:** stabile Objekt-ID statt Nähe-Zuordnung, leere Liste und 15-s-Ablauf, nur Luftfahrzeuge, Bodenverkehr ohne Warnung, Warnstufen, neue Symbole je Klasse, Größe/Umrandung im Anzeige-Menü.
+- **Warum:** gestapelte stehende Kontakte und unbrauchbare Warnfarbe.
+- **Tests:** siehe `docs/Tracker-v616-Release.md`.
+- **Doku beim Release:** `docs/Tracker-v616-Release.md`.
+- **Pruefen im Feld:** Log `IDs wie zuvor x/y`, Mitspieler sichtbar, Symbolklassen bei KI-Modellen.
+
 ### 2026-11-05 · Sprache für EFB/Toolbar aus der Desktop-App — ausgeliefert in Tracker v615 Alpha / Desktop 1.6.39 (05.11.2026)
 - **Artefakt:** Tracker-EXE (Engine + EFB-Dateien) **und** Desktop-App
 - **Dateien:** `tracker.js`, `tracker-efb-display-settings.js`, `tracker-efb-web-client.js`, `tracker-efb-kartentisch-host.js`, `sync-efb-web-assets.js`, `package.json`, neu `efb-web-assets/i18n-core.js` + `efb-web-assets/i18n/*`; Desktop: `lib/config-store.js`, `lib/tracker-process.js`, `main.js`, `preload.js`, `ui/index.html`, `ui/renderer.js`, `ui/styles.css`

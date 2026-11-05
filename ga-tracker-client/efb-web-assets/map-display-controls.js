@@ -309,6 +309,10 @@ window.toggleMapHintsMenu = function (force) {
     if (planeMenu) planeMenu.style.display = 'none';
     var planeBtn = document.getElementById('btnTogglePlaneIconMenu');
     if (planeBtn) planeBtn.classList.remove('active');
+    var trafficMenu = document.getElementById('vpTrafficIconMenu');
+    if (trafficMenu) trafficMenu.style.display = 'none';
+    var trafficBtn = document.getElementById('btnToggleTrafficIconMenu');
+    if (trafficBtn) trafficBtn.classList.remove('active');
   }
 };
 var PLANE_ICON_COLOR_KEY = 'ga_plane_color';
@@ -385,6 +389,104 @@ function initPlaneIconSettingsUi() {
       });
     });
   }
+  initTrafficIconSettingsUi();
+}
+
+// Traffic icons: size and black outline, shown next to the aircraft icon menu.
+var TRAFFIC_ICON_SIZE_KEY = 'ga_traffic_icon_size';
+var TRAFFIC_ICON_OUTLINE_KEY = 'ga_traffic_icon_outline';
+var TRAFFIC_ICON_DEFAULT_SIZE = 28;
+var TRAFFIC_ICON_DEFAULT_OUTLINE = 1.5;
+var TRAFFIC_ICON_MIN_SIZE = 16;
+var TRAFFIC_ICON_MAX_SIZE = 56;
+var TRAFFIC_ICON_MAX_OUTLINE = 3;
+var trafficIconSettings = {
+  size: TRAFFIC_ICON_DEFAULT_SIZE,
+  outline: TRAFFIC_ICON_DEFAULT_OUTLINE
+};
+function normalizeTrafficIconSize(value) {
+  var n = parseInt(value, 10);
+  if (!Number.isFinite(n)) return null;
+  return Math.min(TRAFFIC_ICON_MAX_SIZE, Math.max(TRAFFIC_ICON_MIN_SIZE, n));
+}
+function normalizeTrafficIconOutline(value) {
+  if (value === null || value === undefined || value === '') return null;
+  var n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.min(TRAFFIC_ICON_MAX_OUTLINE, Math.max(0, Math.round(n * 2) / 2));
+}
+window.getTrafficIconSettings = function () {
+  return {
+    size: trafficIconSettings.size,
+    outline: trafficIconSettings.outline
+  };
+};
+function applyTrafficIconSettings() {
+  var _normalizeTrafficIcon, _normalizeTrafficIcon2;
+  var _ref2 = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
+    size = _ref2.size,
+    outline = _ref2.outline,
+    _ref2$persist = _ref2.persist,
+    persist = _ref2$persist === void 0 ? false : _ref2$persist;
+  var nextSize = (_normalizeTrafficIcon = normalizeTrafficIconSize(size)) !== null && _normalizeTrafficIcon !== void 0 ? _normalizeTrafficIcon : trafficIconSettings.size;
+  var nextOutline = (_normalizeTrafficIcon2 = normalizeTrafficIconOutline(outline)) !== null && _normalizeTrafficIcon2 !== void 0 ? _normalizeTrafficIcon2 : trafficIconSettings.outline;
+  var changed = nextSize !== trafficIconSettings.size || nextOutline !== trafficIconSettings.outline;
+  trafficIconSettings = {
+    size: nextSize,
+    outline: nextOutline
+  };
+  if (persist) {
+    try {
+      localStorage.setItem(TRAFFIC_ICON_SIZE_KEY, String(nextSize));
+      localStorage.setItem(TRAFFIC_ICON_OUTLINE_KEY, String(nextOutline));
+    } catch (_) {}
+  }
+  var sizeSlider = document.getElementById('vpTrafficSizeSlider');
+  if (sizeSlider) sizeSlider.value = String(nextSize);
+  var sizeLabel = document.getElementById('vpTrafficSizeValue');
+  if (sizeLabel) sizeLabel.textContent = `${nextSize} px`;
+  var outlineSlider = document.getElementById('vpTrafficOutlineSlider');
+  if (outlineSlider) outlineSlider.value = String(nextOutline);
+  var outlineLabel = document.getElementById('vpTrafficOutlineValue');
+  if (outlineLabel) outlineLabel.textContent = `${nextOutline.toFixed(1)} px`;
+  if (changed && typeof window.refreshTrafficIcons === 'function') window.refreshTrafficIcons();
+}
+function initTrafficIconSettingsUi() {
+  var storedSize = null,
+    storedOutline = null;
+  try {
+    storedSize = normalizeTrafficIconSize(localStorage.getItem(TRAFFIC_ICON_SIZE_KEY));
+    storedOutline = normalizeTrafficIconOutline(localStorage.getItem(TRAFFIC_ICON_OUTLINE_KEY));
+  } catch (_) {}
+  applyTrafficIconSettings({
+    size: storedSize !== null && storedSize !== void 0 ? storedSize : TRAFFIC_ICON_DEFAULT_SIZE,
+    outline: storedOutline !== null && storedOutline !== void 0 ? storedOutline : TRAFFIC_ICON_DEFAULT_OUTLINE
+  });
+  var sizeSlider = document.getElementById('vpTrafficSizeSlider');
+  if (sizeSlider && !sizeSlider.dataset.boundTrafficIcon) {
+    sizeSlider.dataset.boundTrafficIcon = '1';
+    sizeSlider.addEventListener('input', e => applyTrafficIconSettings({
+      size: e.target.value,
+      persist: true
+    }));
+  }
+  var outlineSlider = document.getElementById('vpTrafficOutlineSlider');
+  if (outlineSlider && !outlineSlider.dataset.boundTrafficIcon) {
+    outlineSlider.dataset.boundTrafficIcon = '1';
+    outlineSlider.addEventListener('input', e => applyTrafficIconSettings({
+      outline: e.target.value,
+      persist: true
+    }));
+  }
+}
+function toggleVpTrafficIconMenu(e) {
+  if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+  var menu = document.getElementById('vpTrafficIconMenu');
+  var btn = document.getElementById('btnToggleTrafficIconMenu');
+  if (!menu || !btn) return;
+  var open = menu.style.display === 'block';
+  menu.style.display = open ? 'none' : 'block';
+  btn.classList.toggle('active', !open);
 }
 function toggleVpPlaneIconMenu(e) {
   if (e && typeof e.stopPropagation === 'function') e.stopPropagation();

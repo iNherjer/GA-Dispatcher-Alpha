@@ -140,8 +140,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v615';
-const TRACKER_VERSION_CODE = 615;
+const TRACKER_VERSION = 'v616';
+const TRACKER_VERSION_CODE = 616;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -7672,7 +7672,9 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                   gpsMsg.trackerMissionStatus = trackerMissionStatus;
                 }
                 if (trackerMissionAuthority) gpsMsg.trackerMissionAuthority = trackerMissionAuthority;
-                if (latestTrafficSnapshot && latestTrafficSnapshot.length > 0) {
+                if (Array.isArray(latestTrafficSnapshot)) {
+                  // Auch eine leere Liste senden, damit verschwundene Kontakte im Web
+                  // sofort entfallen statt als stehende Geister zu bleiben.
                   gpsMsg.traffic = latestTrafficSnapshot;
                   latestTrafficSnapshot = null; // einmalig senden, dann löschen
                 }
@@ -7699,33 +7701,80 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       handle.addToDataDefinition(TRAFFIC_DEF_ID, 'PLANE ALTITUDE', 'feet', SimConnectDataType.FLOAT64);
       handle.addToDataDefinition(TRAFFIC_DEF_ID, 'PLANE HEADING DEGREES TRUE', 'degrees', SimConnectDataType.FLOAT64);
       handle.addToDataDefinition(TRAFFIC_DEF_ID, 'GROUND VELOCITY', 'knots', SimConnectDataType.FLOAT64);
+      handle.addToDataDefinition(TRAFFIC_DEF_ID, 'VERTICAL SPEED', 'feet per minute', SimConnectDataType.FLOAT64);
+      handle.addToDataDefinition(TRAFFIC_DEF_ID, 'SIM ON GROUND', 'bool', SimConnectDataType.FLOAT64);
+      // Fuer das Kartensymbol: 0 Kolben, 1 Jet, 2 keins, 3 Heli-Turbine, 5 Turboprop
+      handle.addToDataDefinition(TRAFFIC_DEF_ID, 'ENGINE TYPE', 'enum', SimConnectDataType.FLOAT64);
+      handle.addToDataDefinition(TRAFFIC_DEF_ID, 'NUMBER OF ENGINES', 'number', SimConnectDataType.FLOAT64);
+      handle.addToDataDefinition(TRAFFIC_DEF_ID, 'ATC HEAVY', 'bool', SimConnectDataType.FLOAT64);
+      handle.addToDataDefinition(TRAFFIC_DEF_ID, 'CATEGORY', null, SimConnectDataType.STRING32);
+      handle.addToDataDefinition(TRAFFIC_DEF_ID, 'ATC ID', null, SimConnectDataType.STRING32);
+      handle.addToDataDefinition(TRAFFIC_DEF_ID, 'ATC MODEL', null, SimConnectDataType.STRING64);
 
+      // Die Abfrage umfasst alle Sim-Objekte (Typ ALL), weil der Bodenverkehr fuer
+      // freie Ankunftsplaetze auch Fahrzeuge braucht. Angezeigt werden davon nur
+      // Flugzeuge und Hubschrauber (KI und Mitspieler); Boote, Fahrzeuge und
+      // Szenenobjekte erschienen frueher als Geisterkontakte.
+      const TRAFFIC_GROUND_RADIUS_NM = 5;
+      const TRAFFIC_MAX_AIRBORNE = 20;
+      const TRAFFIC_MAX_GROUND = 20;
       let trafficBuffer = {};
       let latestEfbTrafficSnapshot = []; // Retained for EFB polling; no additional relay traffic.
-      let latestTrafficSnapshot = null; // wird beim nächsten GPS-Tick eingebettet
+      let latestTrafficSnapshot = null; // wird beim nächsten GPS-Tick eingebettet (auch leer)
       let ownLat = 0, ownLon = 0; // wird aus GPS-Tick aktualisiert
+      let previousTrafficIds = new Set();
+      let lastTrafficIdLogAt = 0;
+
+      const trafficReadString32 = (d) => (typeof d.readString32 === 'function' ? String(d.readString32() || '').trim() : '');
+      const trafficReadString64 = (d) => (typeof d.readString64 === 'function' ? String(d.readString64() || '').trim() : '');
+      const trafficIsAircraft = (category) => !category || /^(airplane|helicopter)$/i.test(category);
+      // Symbolklasse: heli, single, twin, jet (heavy = grosser Jet)
+      const trafficKind = (category, engineType, engines, heavy) => {
+        if (/^helicopter$/i.test(category) || engineType === 3) return 'heli';
+        if (engineType === 1) return heavy ? 'heavy' : 'jet';
+        if (engines >= 2) return 'twin';
+        if (engines === 1) return 'single';
+        return '';
+      };
+      // ATC MODEL kommt meist als "TT:ATCCOM.AC_MODEL_C172.0.text" oder direkt "C172".
+      const trafficModelCode = (raw) => {
+        const text = String(raw || '').trim();
+        const m = text.match(/AC_MODEL[_ ]?([A-Z0-9]{2,5})\b/i);
+        if (m) return m[1].toUpperCase();
+        return /^[A-Z0-9]{2,5}$/i.test(text) ? text.toUpperCase() : '';
+      };
 
       handle.on('simObjectDataByType', (recv) => {
         if (recv.requestID !== TRAFFIC_REQ_ID) return;
         try {
           const d = recv.data;
-          let tLat, tLon, tAlt, tHdg, tGs;
-          if (typeof d.readFloat64 === 'function') {
-            tLat = d.readFloat64(); tLon = d.readFloat64(); tAlt = d.readFloat64(); tHdg = d.readFloat64(); tGs = d.readFloat64();
-          } else if (typeof d.readDouble === 'function') {
-            tLat = d.readDouble(); tLon = d.readDouble(); tAlt = d.readDouble(); tHdg = d.readDouble(); tGs = d.readDouble();
-          } else return;
+          const read = typeof d.readFloat64 === 'function' ? () => d.readFloat64()
+            : typeof d.readDouble === 'function' ? () => d.readDouble() : null;
+          if (!read) return;
+          const tLat = read(), tLon = read(), tAlt = read(), tHdg = read(), tGs = read(), tVs = read(), tGnd = read();
+          const tEngineType = Math.round(read()), tEngines = Math.round(read()), tHeavy = read() >= 0.5;
+          const category = trafficReadString32(d);
+          const callsign = trafficReadString32(d);
+          const model = trafficModelCode(trafficReadString64(d));
           if (tLat === 0 && tLon === 0) return; // Skip invalid positions
-          // Stabiler Key aus gerundeter Position (SimConnect vergibt bei jedem Request neue Object-IDs)
-          // 0.001° ≈ 100 m – auch Formation-Flieger mit >100m Abstand erhalten eigene Zellen
-          const stableKey = `${Math.round(tLat * 1000)}_${Math.round(tLon * 1000)}`;
-          trafficBuffer[stableKey] = {
-            id: stableKey,
+          // SimConnect-Objekt-ID ist fuer die Lebensdauer eines Objekts stabil. Nur
+          // wenn sie fehlt, dient die gerundete Position als Notbehelf.
+          const objectId = Number(recv.objectID);
+          const key = Number.isFinite(objectId) && objectId > 0
+            ? `o${objectId}` : `p${Math.round(tLat * 1000)}_${Math.round(tLon * 1000)}`;
+          trafficBuffer[key] = {
+            id: key,
             lat: parseFloat(tLat.toFixed(5)),
             lon: parseFloat(tLon.toFixed(5)),
             alt: Math.round(tAlt),
             hdg: Math.round(tHdg),
-            gs: Math.round(tGs)
+            gs: Math.round(tGs),
+            vs: Math.round(tVs),
+            onGround: tGnd >= 0.5,
+            category,
+            callsign,
+            model,
+            kind: trafficKind(category, tEngineType, tEngines, tHeavy)
           };
         } catch(e) { /* Lesefehler ignorieren */ }
       });
@@ -7743,34 +7792,51 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
           return;
         }
         trafficBuffer = {};
-        // SIMCONNECT_SIMOBJECT_TYPE_AIRCRAFT = 1, Radius 50 NM = 92600m
+        // SIMCONNECT_SIMOBJECT_TYPE_ALL = 1, Radius 50 NM = 92600m
         handle.requestDataOnSimObjectType(TRAFFIC_REQ_ID, TRAFFIC_DEF_ID, 92600, 1);
 
         // 500ms warten damit alle simObjectDataByType-Events ankommen, dann filtern & als Snapshot merken
         setTimeout(() => {
           const all = Object.values(trafficBuffer);
+          const cosLat = Math.cos(ownLat * Math.PI / 180);
+          const distNm = (ac) => Math.hypot((ac.lat - ownLat) * 60, (ac.lon - ownLon) * 60 * cosLat);
           const notOwnship = (ac) => {
             const dLat = Math.abs(ac.lat - ownLat), dLon = Math.abs(ac.lon - ownLon);
             if (dLat < 0.0015 && dLon < 0.0015) return false; // eigene Position ~0.1 NM
             return true;
           };
-          latestGroundTrafficSnapshot = all.filter(ac => ac.gs < 10 && notOwnship(ac)).slice(0, 80);
-          // Filter: nur fliegende Flieger (GS > 10 kts), eigenes Objekt per Position ausschließen
-          const moving = all.filter(ac => ac.gs >= 10 && notOwnship(ac));
-          // Die 20 nächsten nach einfachem Winkelabstand sortieren
-          const nearest = moving
-            .map(ac => {
-              const dLat = ac.lat - ownLat, dLon = ac.lon - ownLon;
-              return { ...ac, _d: dLat * dLat + dLon * dLon };
-            })
-            .sort((a, b) => a._d - b._d)
-            .slice(0, 20)
-            .map(({ _d, ...ac }) => ac);
+          // Bodenbelegung fuer Ankunftsplaetze: unveraendert alle Objekttypen.
+          latestGroundTrafficSnapshot = all.filter(ac => ac.gs < 10 && notOwnship(ac)).slice(0, 80)
+            .map(({ lat, lon, alt, hdg, gs, id }) => ({ id, lat, lon, alt, hdg, gs }));
 
-          latestTrafficSnapshot = nearest;
-          latestEfbTrafficSnapshot = nearest;
-          if (nearest.length > 0)
-            trackerLog(`[TRAFFIC] ${all.length} gesamt → ${moving.length} fliegend → ${nearest.length} gesendet`);
+          const aircraft = all.filter(ac => trafficIsAircraft(ac.category) && notOwnship(ac))
+            .map(ac => ({ ac, d: distNm(ac) }))
+            .sort((a, b) => a.d - b.d);
+          const compact = ({ ac }) => {
+            const out = { id: ac.id, lat: ac.lat, lon: ac.lon, alt: ac.alt, hdg: ac.hdg, gs: ac.gs };
+            if (ac.vs) out.vs = ac.vs;
+            if (ac.onGround) out.gnd = 1;
+            if (ac.callsign) out.cs = ac.callsign.slice(0, 12);
+            if (ac.kind) out.k = ac.kind;
+            if (ac.model) out.m = ac.model;
+            return out;
+          };
+          const airborne = aircraft.filter(x => !x.ac.onGround).slice(0, TRAFFIC_MAX_AIRBORNE).map(compact);
+          const ground = aircraft.filter(x => x.ac.onGround && x.d <= TRAFFIC_GROUND_RADIUS_NM)
+            .slice(0, TRAFFIC_MAX_GROUND).map(compact);
+          const shown = airborne.concat(ground);
+
+          latestTrafficSnapshot = shown;
+          latestEfbTrafficSnapshot = shown;
+
+          const ids = new Set(shown.map(ac => ac.id));
+          const now = Date.now();
+          if (shown.length > 0 && now - lastTrafficIdLogAt >= 60000) {
+            lastTrafficIdLogAt = now;
+            const kept = [...ids].filter(id => previousTrafficIds.has(id)).length;
+            trackerLog(`[TRAFFIC] ${all.length} Objekte → ${aircraft.length} Luftfahrzeuge → ${airborne.length} in der Luft + ${ground.length} am Boden gesendet | IDs wie zuvor ${kept}/${ids.size}`);
+          }
+          previousTrafficIds = ids;
         }, 500);
       }, TRAFFIC_POLL_MS);
 

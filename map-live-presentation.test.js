@@ -70,6 +70,25 @@ test('both profiles exclude ownship but retain nearby vertically separated traff
     assert.deepEqual(presentation.filterTraffic(traffic,own).map(p=>p.id),['near','far-level']);
 });
 
+test('traffic levels: ground never warns, close or converging traffic alerts', () => {
+    const own = { lat: 48, lon: 7, alt: 3000, hdg: 90, gs: 100 };
+    const level = (ac, o = own) => presentation.classifyTraffic(ac, o).level;
+    // on the ground right next to us: shown, but no warning
+    assert.equal(level({ lat: 48.005, lon: 7.005, alt: 3000, gnd: 1 }), 'ground');
+    // 0.6 NM away at the same altitude
+    assert.equal(level({ lat: 48.01, lon: 7, alt: 3200, hdg: 90, gs: 100 }), 'alert');
+    // same distance but 2000 ft above
+    assert.equal(level({ lat: 48.01, lon: 7, alt: 5000, hdg: 90, gs: 100 }), 'other');
+    // head-on 1.5 NM ahead, closing at 200 kt -> CPA in ~27 s
+    assert.equal(level({ lat: 48, lon: 7 + 1.5 / (60 * Math.cos(48 * Math.PI / 180)), alt: 3300, hdg: 270, gs: 100 }), 'alert');
+    // same spot but flying away from us
+    assert.equal(level({ lat: 48, lon: 7 + 1.5 / (60 * Math.cos(48 * Math.PI / 180)), alt: 3300, hdg: 90, gs: 150 }), 'proximate');
+    // 10 NM away, same altitude
+    assert.equal(level({ lat: 48 + 10 / 60, lon: 7, alt: 3000, hdg: 0, gs: 100 }), 'other');
+    // own aircraft on the ground: nothing warns
+    assert.equal(level({ lat: 48.01, lon: 7, alt: 3000 }, { ...own, onGround: true }), 'other');
+});
+
 test('breadcrumb sampling is immediate above 20m and trims only after 12000 points', () => {
   const { appendTrailPoint } = require('./map-live-presentation');
   const points = [[48,7]], distance = (a,b) => (b[0]-a[0])*100;
@@ -156,4 +175,14 @@ test('EFB SVG output keeps Leaflet geometry processing and other renderers untou
     renderer._setPath(layer, 'M0 0L1.001 1'); assert.equal(writes, 4);
     regular._setPath(layer, 'M0 0L1.001 1'); assert.equal(writes, 5);
     assert.equal(native._setPath, regular._setPath, 'Leaflet prototype is unchanged');
+});
+
+test('traffic symbols: known kinds get their own shape, unknown falls back to single', () => {
+    assert.equal(presentation.trafficSymbolKind({ k: 'heli' }), 'heli');
+    assert.equal(presentation.trafficSymbolKind({ k: 'twin' }), 'twin');
+    assert.equal(presentation.trafficSymbolKind({}), 'single');
+    assert.equal(presentation.trafficSymbolKind({ k: 'boat' }), 'single');
+    const heli = presentation.trafficSymbolSvg('heli', '#00ccff', 22);
+    assert.match(heli, /<circle/);
+    assert.ok(presentation.trafficSymbolSvg('heavy', '#00ccff', 20).includes('width="25"'));
 });
