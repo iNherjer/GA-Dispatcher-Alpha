@@ -263,9 +263,15 @@ nach den restlichen Web-UI-Bereichen, nicht dazwischen.
   `confirm`-Rückfrage per Babel-Bereichen in `_dT(…)` gewickelt (Rest der Datei unverändert),
   Vorlagen mit Zahlen/Namen als `_dK`-Schlüssel. Sprache aus `settings.uiLanguage`, Neuzeichnen
   per `GAI18n.onChange`.
-- **Noch deutsch im Desktop-Fenster:** Meldungen aus dem Hauptprozess (`update.message`,
-  `assets.message`, `bridge.message`, Where-I-Left-It-Meldungen, Fehlermeldungen von `main.js`)
-  und zwei seltene Vereinsflotten-Sätze (Crew verlassen / entfernt).
+- Meldungen aus dem Hauptprozess (`main.js`, `lib/*.js`): Der Hauptprozess bleibt deutsch und
+  unverändert; das Fenster übersetzt sie in `window.gaDesktopT` (`desktop/ui/i18n-en.js`):
+  169 feste Sätze plus 64 Muster für Sätze mit Versionen, Pfaden oder Ursachen (aus dem
+  Quelltext erzeugt; ein eingesetzter Teil, der selbst eine bekannte Meldung ist, wird
+  mitübersetzt). Nur auf Englisch aktiv. Nativer Autostart-Dateidialog folgt `uiLanguage`.
+  **Neue Meldung im Hauptprozess = Satz oder Muster in `i18n-en.js` ergänzen**, sonst bleibt
+  sie auf Englisch deutsch sichtbar.
+- Noch deutsch: Protokollzeilen (Diagnose), zwei seltene Vereinsflotten-Sätze (Crew verlassen /
+  entfernt) und ein Satz mit Mehrzahlbildung im Autostart („n Programm(e) konnte(n) …“).
 - Geprüft: EFB (echter Server ohne Sim) und Desktop-Fenster (Ersatz-Schnittstelle) DE→EN→DE
   identisch, keine deutschen Reste in den übersetzten Bereichen; Web-Audio-Menü DE/EN.
   Tests: Tracker 1541/1541 (2 übersprungen), Desktop 150/150 (3 übersprungen).

@@ -512,10 +512,12 @@ function registerIpc() {
   });
   ipcMain.handle('autostart:add-paths', (_event, payload) => autostartLauncher.addPaths(payload?.paths));
   ipcMain.handle('autostart:browse', async () => {
+    // Native dialog: follows the window language (switch top right).
+    const english = configStore.publicSettings().uiLanguage === 'en';
     const result = await dialog.showOpenDialog(mainWindow, {
-      title: 'Programme für den Autostart wählen',
+      title: english ? 'Choose programs for the autostart' : 'Programme für den Autostart wählen',
       properties: ['openFile', 'multiSelections'],
-      filters: [{ name: 'Programme und Verknüpfungen', extensions: ['exe', 'lnk', 'bat', 'cmd'] }]
+      filters: [{ name: english ? 'Programs and shortcuts' : 'Programme und Verknüpfungen', extensions: ['exe', 'lnk', 'bat', 'cmd'] }]
     });
     if (result.canceled) return { ok: true, added: 0, rejected: [] };
     return autostartLauncher.addPaths(result.filePaths);

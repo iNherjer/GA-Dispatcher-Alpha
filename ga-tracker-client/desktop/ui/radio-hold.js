@@ -1,7 +1,7 @@
 (function () {
   'use strict';
   // UI language (i18n-core.js + i18n-en.js); German shows the original text.
-  const _dT = text => (window.GAI18n ? window.GAI18n.phrase(text) : text);
+  const _dT = text => (window.gaDesktopT ? window.gaDesktopT(text) : window.GAI18n ? window.GAI18n.phrase(text) : text);
   const _dK = (key, german, vars) => (window.GAI18n ? window.GAI18n.t(key, vars, german)
     : String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, (m, n) => (vars && Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m)));
   const api = window.trackerDesktop;

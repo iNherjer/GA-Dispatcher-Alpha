@@ -406,3 +406,451 @@
       " (Funk-Pause wirkt nur auf PC-Ausgabe)": " (radio pause only affects PC output)"
   });
 })(typeof globalThis !== 'undefined' ? globalThis : this);
+
+// Messages from the main process (main.js, lib/*.js) arrive as finished German sentences.
+// Exact ones are phrases; ones with versions, paths or causes use patterns. A captured part
+// that is itself a known message (an error cause) is translated as well. English only.
+(function (root) {
+  if (!root.GAI18n) return;
+  root.GAI18n.registerPhrases('en', {
+  "nicht installiert": "not installed",
+  "Der laufende Tracker konnte nicht rechtzeitig beendet werden.": "The running tracker could not be stopped in time.",
+  "Tracker konnte nicht beendet werden.": "Tracker could not be stopped.",
+  "Der Tracker-Kanal kann während einer laufenden Updateprüfung nicht gewechselt werden.": "The tracker channel cannot be switched during a running update check.",
+  "App-Update wird geprüft …": "Checking app update …",
+  "App-Update prüfen": "Check app update",
+  "Programm-Erkennung benötigt Windows.": "Program detection needs Windows.",
+  "Dieses Programm kann nicht gewählt werden.": "This program cannot be selected.",
+  "Mod-Ordner nicht gefunden.": "Mod folder not found.",
+  "Ausdrückliche Bestätigung fehlt.": "Explicit confirmation missing.",
+  "Das APT-Testlog entsteht automatisch, sobald Tracker v366 oder neuer gestartet wurde.": "The APT test log is created automatically as soon as tracker v366 or newer has been started.",
+  "Das App-Update ist geprüft und zur Installation bereit.": "The app update is verified and ready to install.",
+  "Zeitüberschreitung bei der Konto-Prüfung": "Timeout while checking the account",
+  "Pilot-ID nicht gefunden.": "Pilot ID not found.",
+  "Der PIN für diese Pilot-ID ist falsch.": "The PIN for this pilot ID is wrong.",
+  "Tracker-Start nicht verfügbar.": "Tracker start not available.",
+  "Startet vor bzw. mit dem Sim, damit das EFB in der Weltkarte verfügbar ist": "Starts before or with the sim so that the EFB is available on the world map",
+  "Diese Sim-Version wurde nicht erkannt.": "This sim version was not detected.",
+  "Datei nicht gefunden.": "File not found.",
+  "Pilot-ID und PIN fehlen.": "Pilot ID and PIN missing.",
+  "Tracker konnte nicht gestartet werden.": "Tracker could not be started.",
+  "Autostart ist nur unter Windows verfügbar.": "Autostart is only available on Windows.",
+  "Der Autostart läuft bereits.": "The autostart is already running.",
+  "Der Autostart wartet noch auf SimConnect.": "The autostart is still waiting for SimConnect.",
+  "Autostart ist ausgeschaltet.": "Autostart is switched off.",
+  "SimConnect wurde nicht bereit, die wartenden Programme wurden nicht gestartet.": "SimConnect did not become ready; the waiting programs were not started.",
+  "Wartende Programme wurden nicht gestartet.": "Waiting programs were not started.",
+  "Bridge-Steuerung antwortet nicht.": "Bridge control does not respond.",
+  "Bridge-Antwort ist zu groß.": "Bridge response is too large.",
+  "Bridge-Antwort gehört zu einer anderen Anfrage.": "Bridge response belongs to another request.",
+  "Bridge hat die Verbindung ohne Antwort beendet.": "Bridge closed the connection without a response.",
+  "Das aktuelle Bridge-Release ist nicht als stabile Version veröffentlicht.": "The current bridge release is not published as a stable version.",
+  "Bridge-Release besitzt keinen gültigen Versionstag.": "Bridge release has no valid version tag.",
+  "Bridge-Release enthält keinen Installer.": "Bridge release contains no installer.",
+  "Bridge-Installer besitzt eine ungültige Dateigröße.": "Bridge installer has an invalid file size.",
+  "Bridge-Release enthält keine gültige SHA-256-Prüfsumme.": "Bridge release contains no valid SHA-256 checksum.",
+  "Bridge-Installer besitzt keine gültige Downloadadresse.": "Bridge installer has no valid download address.",
+  "Bridge-Installer verweist nicht auf das erwartete unveränderliche GitHub-Release.": "Bridge installer does not point to the expected immutable GitHub release.",
+  "Bridge-Status wird geprüft.": "Checking bridge status.",
+  "Bridge-Steuerprotokoll ist zu alt.": "Bridge control protocol is too old.",
+  "Bridge läuft und wird vom Tracker überwacht.": "Bridge is running and monitored by the tracker.",
+  "Bridge ist erreichbar und bereit.": "Bridge is reachable and ready.",
+  "Bridge-Installation wird geprüft.": "Checking bridge installation.",
+  "Die optionale AccuSim-DRSM-Bridge ist nicht installiert.": "The optional AccuSim DRSM bridge is not installed.",
+  "Bridge-Releaseinformationen sind kein gültiges JSON.": "Bridge release information is not valid JSON.",
+  "Aktuelles Bridge-Release wird ermittelt.": "Determining the current bridge release.",
+  "Bridge-Installer ist unvollständig.": "Bridge installer is incomplete.",
+  "Prüfsumme des Bridge-Installers stimmt nicht.": "Bridge installer checksum does not match.",
+  "Bridge-Installer wird geöffnet. Bitte die Installation bestätigen.": "Opening the bridge installer. Please confirm the installation.",
+  "Bridge ist nicht installiert.": "Bridge is not installed.",
+  "Bridge wird ohne Oberfläche gestartet.": "Starting bridge without a window.",
+  "Bridge wurde gestartet, aber der lokale Steuerkanal antwortet nicht.": "Bridge was started, but the local control channel does not respond.",
+  "Bridge wurde beendet.": "Bridge was stopped.",
+  "Cloud-Konflikt: Neuere Version vorhanden. Bitte Cloud-Stand laden oder bewusst manuell überschreiben.": "Cloud conflict: a newer version exists. Please load the cloud state or overwrite manually on purpose.",
+  "Cloud-Upload läuft bereits; Änderungen bleiben vorgemerkt.": "Cloud upload already running; changes stay queued.",
+  "Cloud-Konflikt: Cloud-Stand zuerst laden oder bewusst manuell überschreiben.": "Cloud conflict: load the cloud state first or overwrite manually on purpose.",
+  "API-Key fehlt oder ist zu lang.": "API key missing or too long.",
+  "Der Windows-Schutz für Zugangsdaten ist derzeit nicht verfügbar.": "Windows protection for credentials is currently not available.",
+  "Pilot-ID fehlt oder ist zu lang.": "Pilot ID missing or too long.",
+  "Konto-Prüfung fehlt.": "Account check missing.",
+  "Gespeicherte Zugangsdaten konnten nicht geprüft werden.": "Stored credentials could not be checked.",
+  "Nicht unterstuetzte EFB-Kanalversion.": "Unsupported EFB channel version.",
+  "EFB-Kanaldatei enthaelt keinen gueltigen Kanal.": "EFB channel file contains no valid channel.",
+  "EFB-Kanaldatei passt nicht zum gewaehlten Kanal.": "EFB channel file does not match the chosen channel.",
+  "In diesem Kanal ist noch kein EFB-Paket freigegeben.": "No EFB package has been released in this channel yet.",
+  "EFB-Kanal enthaelt keine gueltige Archiv-URL.": "EFB channel contains no valid archive URL.",
+  "EFB-Kanal enthaelt keine gueltige numerische Paketversion.": "EFB channel contains no valid numeric package version.",
+  "EFB-Release-Tag passt nicht zur Paketversion.": "EFB release tag does not match the package version.",
+  "EFB-Archivname passt nicht zur Paketversion.": "EFB archive name does not match the package version.",
+  "EFB-Archivgroesse ist ungueltig.": "EFB archive size is invalid.",
+  "EFB-Kanal enthaelt keine gueltige SHA-256-Pruefsumme.": "EFB channel contains no valid SHA-256 checksum.",
+  "EFB-Archiv muss direkt und sicher von GitHub geladen werden.": "EFB archive must be downloaded directly and securely from GitHub.",
+  "EFB-Archiv verweist nicht auf das erwartete unveraenderliche Release.": "EFB archive does not point to the expected immutable release.",
+  "manifest.json enthaelt keine gueltige EFB-Paketversion.": "manifest.json contains no valid EFB package version.",
+  "layout.json enthaelt keine EFB-Dateiliste.": "layout.json contains no EFB file list.",
+  "EFB-App-Status wird geprueft.": "Checking EFB app status.",
+  "VFR Multitool EFB ist nicht installiert.": "VFR Multitool EFB is not installed.",
+  "Der EFB-Paketmanager arbeitet bereits.": "The EFB package manager is already working.",
+  "EFB-App wird neu geladen und repariert.": "Downloading and repairing the EFB app.",
+  "EFB-App wird geladen und installiert.": "Downloading and installing the EFB app.",
+  "SHA-256 des EFB-Pakets stimmt nicht.": "SHA-256 of the EFB package does not match.",
+  "EFB-Archiv enthaelt Dateien ausserhalb des erwarteten Paketordners.": "EFB archive contains files outside the expected package folder.",
+  "Entpacktes EFB-Paket ist unvollstaendig.": "Extracted EFB package is incomplete.",
+  "Kopiertes EFB-Paket ist unvollstaendig.": "Copied EFB package is incomplete.",
+  "Installiertes EFB-Paket konnte nicht validiert werden.": "Installed EFB package could not be validated.",
+  "VFR Multitool EFB wird aus dem Community-Ordner entfernt.": "Removing VFR Multitool EFB from the Community folder.",
+  "VFR Multitool EFB wurde entfernt.": "VFR Multitool EFB was removed.",
+  "VFR Multitool EFB war nicht installiert.": "VFR Multitool EFB was not installed.",
+  "Homebase-Assetstatus wird geprüft.": "Checking Homebase asset status.",
+  "Homebase-Assetpaket wird verarbeitet …": "Processing Homebase asset package …",
+  "Die Homebase-Assetinstallation ist unvollständig.": "The Homebase asset installation is incomplete.",
+  "Homebase Assets sind nicht installiert.": "Homebase assets are not installed.",
+  "Der Homebase Asset Manager arbeitet bereits.": "The Homebase asset manager is already working.",
+  "Homebase-Releasekanal wird geprüft …": "Checking Homebase release channel …",
+  "Homebase Assets werden neu geladen und repariert …": "Downloading and repairing Homebase assets …",
+  "Homebase Assets werden geladen und installiert …": "Downloading and installing Homebase assets …",
+  "Gemeinsames Homebase-Assetpaket wird entfernt …": "Removing the shared Homebase asset package …",
+  "Homebase Assets wurden entfernt. Persönliche Homebase-Daten bleiben erhalten.": "Homebase assets were removed. Personal Homebase data is kept.",
+  "Homebase Assets waren nicht installiert.": "Homebase assets were not installed.",
+  "Der PIN muss aus 4 bis 8 Ziffern bestehen.": "The PIN must have 4 to 8 digits.",
+  "Nicht unterstützte Tracker-Kanalversion.": "Unsupported tracker channel version.",
+  "Tracker-Version und Versionscode passen nicht zusammen.": "Tracker version and version code do not match.",
+  "Tracker-Release-Tag passt nicht zur Version.": "Tracker release tag does not match the version.",
+  "Tracker-Kanal enthält keine gültige SHA-256-Prüfsumme.": "Tracker channel contains no valid SHA-256 checksum.",
+  "Tracker-Asset muss direkt von GitHub geladen werden.": "Tracker asset must be downloaded directly from GitHub.",
+  "Tracker-Asset verweist nicht auf das erwartete unveränderliche Release.": "Tracker asset does not point to the expected immutable release.",
+  "Zeitüberschreitung beim Tracker-Download.": "Timeout while downloading the tracker.",
+  "Tracker-Runtime wird vorbereitet.": "Preparing tracker runtime.",
+  "Ein Tracker-Download läuft bereits.": "A tracker download is already running.",
+  "SHA-256 des geladenen Trackers stimmt nicht.": "SHA-256 of the downloaded tracker does not match.",
+  "Installierte Tracker-Runtime konnte nicht validiert werden.": "Installed tracker runtime could not be validated.",
+  "Derzeit wartet kein Tracker-Update auf eine Auswahl.": "No tracker update is currently waiting for a choice.",
+  "Tracker-Updatekanal wird geprüft …": "Checking tracker update channel …",
+  "Tracker wird für den ersten Start vorbereitet …": "Preparing tracker for the first start …",
+  "Tracker ist nicht gestartet.": "Tracker is not started.",
+  "Tracker-Runtime fehlt oder wurde noch nicht vollständig geladen.": "Tracker runtime is missing or not fully downloaded yet.",
+  "Tracker wird gestartet …": "Starting tracker …",
+  "Tracker wurde beendet.": "Tracker was stopped.",
+  "Audio-Anfrage ist zu groß.": "Audio request is too large.",
+  "Ungültige Audio-Anfrage.": "Invalid audio request.",
+  "Audio-Antwort ist zu groß.": "Audio response is too large.",
+  "Zentrale Audioausgabe benötigt den Alpha-Tracker mit APT-Ausführung.": "Central audio output needs the Alpha tracker with APT execution.",
+  "Ungültige Audio-Antwort.": "Invalid audio response.",
+  "Tracker antwortet nicht.": "Tracker does not respond.",
+  "Der Tracker muss für den Missionsreset laufen.": "The tracker must be running for the mission reset.",
+  "Die lokale Tracker-Steuerung ist noch nicht bereit.": "The local tracker control is not ready yet.",
+  "Tracker-Mission wurde zurückgesetzt und der App-Stand wird neu geladen.": "Tracker mission was reset and the app state is being reloaded.",
+  "Der Tracker konnte den Missionsreset noch nicht sicher ausführen.": "The tracker could not perform the mission reset safely yet.",
+  "Die lokale Missionssteuerung ist noch nicht bereit.": "The local mission control is not ready yet.",
+  "Der Tracker konnte den Missionsreset nicht sicher ausführen.": "The tracker could not perform the mission reset safely.",
+  "Die lokale Tracker-Steuerung ist nicht erreichbar. Bitte Tracker und MSFS-Verbindung prüfen.": "The local tracker control is unreachable. Please check the tracker and the MSFS connection.",
+  "Updateprüfung für die Desktop-App steht bereit.": "Update check for the desktop app is ready.",
+  "Die Desktop-App ist aktuell.": "The desktop app is up to date.",
+  "Das App-Update ist geprüft. Es wird beim nächsten Beenden oder nach einem Neustart installiert.": "The app update is verified. It will be installed on the next exit or after a restart.",
+  "App-Updates sind nur im installierten Windows-Build verfügbar.": "App updates are only available in the installed Windows build.",
+  "Die App-Aktualisierung läuft bereits.": "The app update is already running.",
+  "Derzeit steht kein App-Update zum Download bereit.": "No app update is currently available for download.",
+  "Desktop-App wird geladen und geprüft …": "Downloading and verifying desktop app …",
+  "Derzeit wartet kein App-Update auf eine Auswahl.": "No app update is currently waiting for a choice.",
+  "App-Update wurde bis zur nächsten Prüfung zurückgestellt.": "App update was postponed until the next check.",
+  "Automatische App-Updates sind aktiviert. Update wird geladen …": "Automatic app updates are enabled. Downloading update …",
+  "Dieses App-Update wird geladen …": "Downloading this app update …",
+  "Das App-Update ist noch nicht installationsbereit.": "The app update is not ready to install yet.",
+  "Tracker und Bridge werden beendet; danach startet die Installation …": "Stopping tracker and bridge; then the installation starts …",
+  "In der Luft": "In the air",
+  "in der Luft": "in the air",
+  "Mod-Ordner nicht gefunden. Ist „Where I Left It“ installiert und der Sim einmal damit gelaufen?": "Mod folder not found. Is “Where I Left It” installed and has the sim run with it once?",
+  "Crew-Stand unverändert.": "Crew state unchanged.",
+  "Vereinsflotte ist ausgeschaltet.": "Club fleet is switched off.",
+  "Abgleich läuft …": "Syncing …",
+  "Bitte zuerst unter „Konto“ Pilot-ID und PIN hinterlegen.": "Please first enter pilot ID and PIN under “Account”.",
+  "Kein Mitglied dieser Crew mehr. Der Abgleich ist beendet.": "No longer a member of this crew. Syncing has ended.",
+  "Noch keine backup.txt – im Mod unter Backup „Export Backup“ drücken.": "No backup.txt yet – press “Export Backup” under Backup in the mod.",
+  "Keine lokalen Änderungen.": "No local changes.",
+  "Crew-Stand geladen, nichts Neues für dich.": "Crew state loaded, nothing new for you.",
+  "backup.txt hat ein unbekanntes Format. Nichts geschrieben.": "backup.txt has an unknown format. Nothing written.",
+  "Eingabe-Helfer ist nicht verfügbar.": "Input helper is not available.",
+  "Kein Button erkannt.": "No button detected.",
+  "Eingabe konnte nicht gelernt werden.": "Input could not be learned.",
+  "Button-Erkennung benötigt Windows.": "Button detection needs Windows.",
+  "Eingabe-Helfer wurde beendet.": "Input helper was stopped.",
+  "Windows-Mediensteuerung ist nicht verfügbar.": "Windows media control is not available.",
+  "Ungültiger Medienbefehl.": "Invalid media command.",
+  "Mediensteuerung benötigt den Windows-Tracker.": "Media control needs the Windows tracker.",
+  "Mediensteuerung wurde beendet.": "Media control was stopped.",
+  "Ungültiger Player.": "Invalid player.",
+  "Ungültige Lautstärke.": "Invalid volume.",
+  "Windows-Mediensteuerung wird wiederhergestellt.": "Restoring Windows media control.",
+  "Windows-Mediensteuerung antwortet nicht.": "Windows media control does not respond."
+});
+  var patterns = [
+  [
+    "^Entwicklungsmodus: tracker\\.js wird direkt gestartet\\. Zielkanal: (.+?)\\.$",
+    "Development mode: tracker.js is started directly. Target channel: $1."
+  ],
+  [
+    "^Bitte Pilot-ID eingeben\\. (.+)$",
+    "Please enter a pilot ID. $1"
+  ],
+  [
+    "^Konto-Prüfung nicht erreichbar: (.+)$",
+    "Account check unreachable: $1"
+  ],
+  [
+    "^Konto-Prüfung fehlgeschlagen \\(HTTP (.+?)\\)\\.$",
+    "Account check failed (HTTP $1)."
+  ],
+  [
+    "^Bridge (.+?) ist installiert und derzeit nicht gestartet\\.$",
+    "Bridge $1 is installed and currently not started."
+  ],
+  [
+    "^Bridge (.+?) wurde erkannt\\. Für den Tracker-Hintergrundmodus ist mindestens v(.+?) erforderlich\\.$",
+    "Bridge $1 was detected. Tracker background mode needs at least v$2."
+  ],
+  [
+    "^Bridge (.+?) ist verfügbar\\.$",
+    "Bridge $1 is available."
+  ],
+  [
+    "^Bridge-Updateprüfung fehlgeschlagen: (.+)$",
+    "Bridge update check failed: $1"
+  ],
+  [
+    "^Bridge (.+?) wird geladen\\.$",
+    "Downloading bridge $1."
+  ],
+  [
+    "^Bridge (.+?) wird geladen … (.+?) %$",
+    "Downloading bridge $1 … $2 %"
+  ],
+  [
+    "^Bridge muss mindestens auf v(.+?) aktualisiert werden\\.$",
+    "Bridge must be updated to at least v$1."
+  ],
+  [
+    "^EFB-Layoutgroesse stimmt nicht: (.+)$",
+    "EFB layout size does not match: $1"
+  ],
+  [
+    "^EFB-App-Datei fehlt im Layout: (.+)$",
+    "EFB app file missing in the layout: $1"
+  ],
+  [
+    "^EFB-App-Datei fehlt: (.+)$",
+    "EFB app file missing: $1"
+  ],
+  [
+    "^EFB-(.+?)-Kanal wird geprueft\\.$",
+    "Checking EFB $1 channel."
+  ],
+  [
+    "^VFR Multitool EFB (.+?) ist installiert\\.$",
+    "VFR Multitool EFB $1 is installed."
+  ],
+  [
+    "^Die EFB-Installation ist unvollstaendig: (.+)$",
+    "The EFB installation is incomplete: $1"
+  ],
+  [
+    "^EFB-Kanal ist kein gueltiges JSON: (.+)$",
+    "EFB channel is not valid JSON: $1"
+  ],
+  [
+    "^VFR Multitool EFB (.+?) ist im (.+?)-Kanal verfuegbar\\.$",
+    "VFR Multitool EFB $1 is available in the $2 channel."
+  ],
+  [
+    "^VFR Multitool EFB (.+?) ist aktuell\\.$",
+    "VFR Multitool EFB $1 is up to date."
+  ],
+  [
+    "^VFR Multitool EFB (.+?) kann installiert werden\\.$",
+    "VFR Multitool EFB $1 can be installed."
+  ],
+  [
+    "^VFR Multitool EFB (.+?) ist bereits aktuell\\.$",
+    "VFR Multitool EFB $1 is already up to date."
+  ],
+  [
+    "^EFB-Paket (.+?) wird heruntergeladen\\.$",
+    "Downloading EFB package $1."
+  ],
+  [
+    "^EFB-Downloadgroesse stimmt nicht: (.+?) statt (.+?)\\.$",
+    "EFB download size does not match: $1 instead of $2."
+  ],
+  [
+    "^VFR Multitool EFB (.+?) wurde geprueft und installiert\\.$",
+    "VFR Multitool EFB $1 was verified and installed."
+  ],
+  [
+    "^Online-Prüfung fehlgeschlagen: (.+)$",
+    "Online check failed: $1"
+  ],
+  [
+    "^Homebase Assets (.+?) sind verfügbar\\.$",
+    "Homebase assets $1 are available."
+  ],
+  [
+    "^Homebase Assets (.+?) können installiert werden\\.$",
+    "Homebase assets $1 can be installed."
+  ],
+  [
+    "^Homebase Assets (.+?) sind bereits aktuell\\.$",
+    "Homebase assets $1 are already up to date."
+  ],
+  [
+    "^Homebase Assets (.+?) wurden geprüft und installiert\\.$",
+    "Homebase assets $1 were verified and installed."
+  ],
+  [
+    "^(.+?) enthält keine gültige URL\\.$",
+    "$1 contains no valid URL."
+  ],
+  [
+    "^(.+?) muss eine sichere HTTPS-URL sein\\.$",
+    "$1 must be a secure HTTPS URL."
+  ],
+  [
+    "^Tracker-Runtime (.+?) ist für diesen Bootstrapper zu alt\\.$",
+    "Tracker runtime $1 is too old for this bootstrapper."
+  ],
+  [
+    "^Ungültige Tracker-Dateigröße: (.+)$",
+    "Invalid tracker file size: $1"
+  ],
+  [
+    "^Downloadserver antwortete mit HTTP (.+?)\\.$",
+    "Download server answered with HTTP $1."
+  ],
+  [
+    "^Download ist größer als erlaubt: (.+?) Bytes\\.$",
+    "Download is larger than allowed: $1 bytes."
+  ],
+  [
+    "^Download überschreitet (.+?) Bytes\\.$",
+    "Download exceeds $1 bytes."
+  ],
+  [
+    "^Tracker-Kanal ist kein gültiges JSON: (.+)$",
+    "Tracker channel is not valid JSON: $1"
+  ],
+  [
+    "^Tracker (.+?) wird von origin geladen …$",
+    "Downloading tracker $1 from origin …"
+  ],
+  [
+    "^Tracker (.+?) wird geladen … (.+?) %$",
+    "Downloading tracker $1 … $2 %"
+  ],
+  [
+    "^Tracker-Dateigröße stimmt nicht: (.+?) statt (.+?)\\.$",
+    "Tracker file size does not match: $1 instead of $2."
+  ],
+  [
+    "^Tracker (.+?) ist installiert und geprüft\\.$",
+    "Tracker $1 is installed and verified."
+  ],
+  [
+    "^Tracker (.+?) ist verfügbar\\.$",
+    "Tracker $1 is available."
+  ],
+  [
+    "^Update (.+?) wurde bis zum nächsten Start zurückgestellt\\.$",
+    "Update $1 was postponed until the next start."
+  ],
+  [
+    "^Tracker-Updateprüfung fehlgeschlagen: (.+?) Die vorhandene Version (.+?) wird weiter verwendet\\.$",
+    "Tracker update check failed: $1 The existing version $2 is still used."
+  ],
+  [
+    "^Tracker konnte nicht geladen werden: (.+)$",
+    "Tracker could not be loaded: $1"
+  ],
+  [
+    "^Tracker (.+?) ist aktuell\\.$",
+    "Tracker $1 is up to date."
+  ],
+  [
+    "^Update fehlgeschlagen; Tracker (.+?) bleibt verfügbar: (.+)$",
+    "Update failed; tracker $1 stays available: $2"
+  ],
+  [
+    "^Tracker konnte nicht gestartet werden: (.+)$",
+    "Tracker could not be started: $1"
+  ],
+  [
+    "^Tracker konnte nicht beendet werden: (.+)$",
+    "Tracker could not be stopped: $1"
+  ],
+  [
+    "^Desktop-App v(.+?) wird automatisch geladen …$",
+    "Downloading desktop app v$1 automatically …"
+  ],
+  [
+    "^Desktop-App v(.+?) ist verfügbar\\.$",
+    "Desktop app v$1 is available."
+  ],
+  [
+    "^Desktop-App wird geladen und geprüft … (.+?) %$",
+    "Downloading and verifying desktop app … $1 %"
+  ],
+  [
+    "^App-Update konnte nicht geladen werden: (.+)$",
+    "App update could not be downloaded: $1"
+  ],
+  [
+    "^App-Update konnte nicht gestartet werden: (.+)$",
+    "App update could not be started: $1"
+  ],
+  [
+    "^Vereinsflotte geändert: (.+?)(.+?)\\. Bitte aktualisieren\\.$",
+    "Club fleet changed: $1$2. Please refresh."
+  ],
+  [
+    "^(.+?) wieder in der Vereinsflotte\\.$",
+    "$1 is back in the club fleet."
+  ],
+  [
+    "^(.+?) Maschine\\(n\\) neu in der Crew – „Crew-Stand laden“ drücken\\.$",
+    "$1 aircraft new in the crew – press “Load crew state”."
+  ],
+  [
+    "^Profil nicht lesbar \\(HTTP (.+?)\\)\\.$",
+    "Profile not readable (HTTP $1)."
+  ],
+  [
+    "^Crew-Cloud antwortet mit HTTP (.+?)(.+?)\\.$",
+    "Crew cloud answers with HTTP $1$2."
+  ],
+  [
+    "^ Nicht übernommen \\(von jemand anderem belegt\\): (.+?)\\.$",
+    " Not accepted (taken by someone else): $1."
+  ],
+  [
+    "^(.+?) Maschine\\(n\\) bereit – im Mod „Import Backup“ drücken\\.$",
+    "$1 aircraft ready – press “Import Backup” in the mod."
+  ],
+  [
+    "^(.+) ist bereits eingetragen\\.$",
+    "$1 is already listed."
+  ],
+  [
+    "^(.+) ist bereits belegt\\.$",
+    "$1 is already assigned."
+  ]
+].map(function (entry) { return [new RegExp(entry[0]), entry[1]]; });
+  function exact(text) { return root.GAI18n.phrase(text); }
+  root.gaDesktopT = function (text) {
+    if (typeof text !== 'string' || root.GAI18n.getLanguage() === 'de') return text;
+    var direct = exact(text);
+    if (direct !== text) return direct;
+    for (var i = 0; i < patterns.length; i++) {
+      var match = patterns[i][0].exec(text);
+      if (!match) continue;
+      return patterns[i][1].replace(/\$(\d)/g, function (_m, n) { var part = match[Number(n)] || ''; return exact(part.trim()) !== part.trim() ? exact(part.trim()) : part; });
+    }
+    return text;
+  };
+})(typeof globalThis !== 'undefined' ? globalThis : this);

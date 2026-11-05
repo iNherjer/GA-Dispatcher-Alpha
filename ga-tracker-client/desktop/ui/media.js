@@ -1,7 +1,7 @@
 (function () {
   'use strict';
   // UI language (i18n-core.js + i18n-en.js); German shows the original text.
-  const _dT = text => (window.GAI18n ? window.GAI18n.phrase(text) : text);
+  const _dT = text => (window.gaDesktopT ? window.gaDesktopT(text) : window.GAI18n ? window.GAI18n.phrase(text) : text);
   const api = window.trackerDesktop;
   const request = payload => typeof api?.mediaRequest === 'function' ? api.mediaRequest(payload)
     : Promise.resolve({ ok: false, error: 'Mediensteuerung benötigt die aktualisierte Windows-Tracker-App.' });

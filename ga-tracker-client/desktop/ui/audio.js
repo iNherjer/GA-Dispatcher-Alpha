@@ -1,7 +1,7 @@
 (function () {
   'use strict';
   // UI language (i18n-core.js + i18n-en.js); German shows the original text.
-  const _dT = text => (window.GAI18n ? window.GAI18n.phrase(text) : text);
+  const _dT = text => (window.gaDesktopT ? window.gaDesktopT(text) : window.GAI18n ? window.GAI18n.phrase(text) : text);
   const api = window.trackerDesktop;
   const $ = id => document.getElementById(id);
   let audio = null, outputId = '', stopped = false, saving = Promise.resolve(), playbackText = '', lastError = '';
