@@ -106,6 +106,7 @@ pre.log{margin:6px 0 0;max-height:320px;overflow:auto;background:var(--paper);bo
       <div class="filters" role="group" aria-label="Filter">
         <button class="fbtn" id="f-all" data-f="all" aria-pressed="true">Alle</button>
         <button class="fbtn" id="f-open" data-f="open" aria-pressed="false">Von mir offen</button>
+        <button class="fbtn" id="f-untested" data-f="untested" aria-pressed="false" title="Punkte, für die noch niemand ein Ergebnis eingetragen hat">Ungetestet</button>
         <button class="fbtn" id="f-bug" data-f="bug" aria-pressed="false">Mit Fehlern</button>
       </div>
     </div>
@@ -145,6 +146,21 @@ const AREAS = [
  ["Unterbrechen & Flugbuch",["Laufenden Auftrag wieder aufnehmen","Gespeicherten Flug über Weltkarte fortsetzen","Wiederaufnahme vs. Neustart","Abschluss und Debrief","Rotes Flugbuch / Krümelweg"]],
  ["Kartentisch, Route & Funk",["Kartentisch allgemein","Route bearbeiten / Wegpunkte","Route Reset auf Dispatch-Route","Direct To ohne Auftrag","Radio/Frequenzen übernehmen","Nearest und Platzinfos"]],
  ["Wetter, Luftraum & Gelände",["Wetter und VFR-Index","Lufträume","Höhenprofil","Terrain Avoid und Warnungen"]],
+ ["Traffic",[
+  "Keine stehenden oder gestapelten Geisterkontakte",
+  "Kontakte verschwinden, wenn sie aus der Reichweite fliegen",
+  "Keine Boote oder Fahrzeuge als Traffic",
+  "KI-Verkehr wird angezeigt",
+  "Mitspieler-Flugzeuge werden angezeigt",
+  "Flugzeuge am Boden grau, ohne Warnung",
+  "Orange Warnung bei naher Annäherung",
+  "Keine Warnung, solange ich selbst am Boden stehe",
+  "Symbol passt: 1-mot, 2-mot, Jet, Heavy, Heli",
+  "Rufzeichen und Muster im Label",
+  "Relative Höhe und Steig-/Sinkpfeil",
+  "Anzeige → Traffic Icons: Größe und Umrandung",
+  "Traffic im Höhenprofil (nur in der Luft)",
+  "Tracker-Log „IDs wie zuvor x/y“ (Ausschnitt melden)"]],
  ["Checklisten & Rechner",["Checklisten","Zeichnen und Messen","VFR-Rechner und E6B","Zeit, Timer und Watch"]],
  ["Audio",["Warnungen","Passagierstimmen","PC-Ausgang und Musiksteuerung","Funk-Pause per Taste/Joystick","Sprechende Programme erkennen"]],
  ["Tracker",["Installieren und verbinden","Statusanzeigen","Autostart / Tray","Flugabend-Autostart","Updates Stable/Alpha","AccuSim Telemetry Bridge"]],
@@ -247,7 +263,9 @@ function render() {
   let html = '';
   AREAS.forEach(([a], i) => {
     const rows = FEATURES.filter(f => f.area === i).filter(f =>
-      filter === 'open' ? !mine[f.id]?.s : filter === 'bug' ? tally(f.id).x > 0 : true);
+      filter === 'open' ? !mine[f.id]?.s
+      : filter === 'untested' ? (() => { const t = tally(f.id); return t.o === 0 && t.x === 0; })()
+      : filter === 'bug' ? tally(f.id).x > 0 : true);
     if (!rows.length) return;
     html += `<section><header><h2>${esc(a)}</h2><span class="num">${String(i+1).padStart(2,'0')}</span></header>`;
     for (const f of rows) {
