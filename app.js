@@ -7397,7 +7397,7 @@ function initLazyPayPalDonateButton() {
         link.target = '_blank';
         link.rel = 'noopener noreferrer';
         link.dataset.paypalDonateFallback = '1';
-        link.textContent = 'Mit PayPal unterstützen';
+        link.textContent = _appUiPhrase('Mit PayPal unterstützen');
         link.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;width:176px;min-height:38px;margin-top:4px;border:1px solid #6f9bc4;border-radius:6px;background:#1c3550;color:#e6f3ff;font:700 12px/1.2 sans-serif;text-decoration:none;';
         buttonHost.appendChild(link);
         block.dataset.paypalState = 'fallback';

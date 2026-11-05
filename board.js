@@ -1394,6 +1394,8 @@ function gatherBriefingData() {
         destFreq: document.getElementById('wikiDestFreqText')?.innerText || '',
         isPOI: document.getElementById('destRwyContainer')?.style.display === 'none',
         date: new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+        // Shown in the PDF; `date` stays German because the file name uses it.
+        displayDate: new Date().toLocaleDateString(window.GAI18n ? GAI18n.locale() : 'de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }),
         time: new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }),
         totalDist: Math.round(dist),
         totalTime: totalMinutes,
@@ -1663,7 +1665,7 @@ function drawNotebookBackground(doc, pageNum, totalPages, footerLabel = 'Briefin
     doc.setDrawColor(180, 175, 160); doc.setLineWidth(0.3);
     [55, H / 2, H - 55].forEach(y => doc.circle(9, y, 3.5));
     doc.setFont('Helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(120, 115, 100);
-    doc.text(`Seite ${pageNum} / ${totalPages}`, W - 15, H - 12, { align: 'right' });
+    doc.text(_boardUiText('pdf.pageOf', { page: pageNum, total: totalPages }, 'Seite {page} / {total}'), W - 15, H - 12, { align: 'right' });
     doc.setFontSize(7); doc.setTextColor(170, 165, 150);
     doc.text(`VFR Multitool \u2013 ${footerLabel}`, W / 2, H - 6, { align: 'center' });
 }
@@ -1787,7 +1789,7 @@ function drawMissionBriefingPage(doc, data, mapImage) {
     doc.setDrawColor(11, 31, 101); doc.setLineWidth(0.5); doc.line(32, y, 190, y); y += 10;
 
     doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(80, 80, 80);
-    const routeStr = data.isPOI ? `${data.depICAO} > ${data.destName} (Rundflug)` : `${data.depICAO} (${data.depName}) > ${data.destICAO} (${data.destName})`;
+    const routeStr = data.isPOI ? `${data.depICAO} > ${data.destName} ${_boardUiPhrase('(Rundflug)')}` : `${data.depICAO} (${data.depName}) > ${data.destICAO} (${data.destName})`;
     const routeLines = doc.splitTextToSize(routeStr, 155);
     routeLines.forEach((line, i) => doc.text(line, 32, y + (i * 6)));
     y += routeLines.length * 6 + 6;
@@ -1800,16 +1802,16 @@ function drawMissionBriefingPage(doc, data, mapImage) {
     doc.setFont('Helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(217, 56, 41); doc.text('PAYLOAD:', 32, y);
     doc.setTextColor(40, 40, 40); doc.setFont('Helvetica', 'normal'); doc.text(data.payload, 62, y); y += 7;
 
-    doc.setFont('Helvetica', 'bold'); doc.setTextColor(217, 56, 41); doc.text('FRACHT:', 32, y);
+    doc.setFont('Helvetica', 'bold'); doc.setTextColor(217, 56, 41); doc.text(_boardUiPhrase('FRACHT:'), 32, y);
     doc.setTextColor(40, 40, 40); doc.setFont('Helvetica', 'normal'); doc.text(data.cargo, 62, y); y += 14;
 
     doc.setDrawColor(180, 175, 160); doc.setFillColor(248, 243, 228); doc.setLineWidth(0.3);
     doc.roundedRect(32, y - 4, 158, 50, 2, 2, 'FD'); y += 4;
     
     const col1 = 38, col2 = 110;
-    doc.setFont('Helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(217, 56, 41); doc.text('STRECKE:', col1, y);
+    doc.setFont('Helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(217, 56, 41); doc.text(_boardUiPhrase('STRECKE:'), col1, y);
     doc.setTextColor(40, 40, 40); doc.text(data.distance, col1 + 35, y);
-    doc.setTextColor(217, 56, 41); doc.text('KURS:', col2, y);
+    doc.setTextColor(217, 56, 41); doc.text(_boardUiPhrase('KURS:'), col2, y);
     doc.setTextColor(40, 40, 40); doc.text(data.heading, col2 + 25, y); y += 8;
     doc.setTextColor(217, 56, 41); doc.text('ETE CA:', col1, y);
     doc.setTextColor(40, 40, 40); doc.text(data.totalTimeStr, col1 + 35, y);
@@ -1821,8 +1823,8 @@ function drawMissionBriefingPage(doc, data, mapImage) {
     doc.setTextColor(40, 40, 40); doc.text(`${data.tas} kts`, col2 + 25, y); y += 8;
     doc.setTextColor(217, 56, 41); doc.text('GPH:', col1, y);
     doc.setTextColor(40, 40, 40); doc.text(`${data.gph} gal/h`, col1 + 35, y);
-    doc.setTextColor(217, 56, 41); doc.text('DATUM:', col2, y);
-    doc.setTextColor(40, 40, 40); doc.text(`${data.date} ${data.time}`, col2 + 25, y); y += 24;
+    doc.setTextColor(217, 56, 41); doc.text(_boardUiPhrase('DATUM:'), col2, y);
+    doc.setTextColor(40, 40, 40); doc.text(`${data.displayDate || data.date} ${data.time}`, col2 + 25, y); y += 24;
 
     if (mapImage) {
         doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(11, 31, 101); doc.text('ROUTE MAP', 32, y); y += 4;
@@ -1920,10 +1922,10 @@ function drawRouteNavigationPage(doc, data, legs) {
 
     let finalAirspaces = activeAirspaces || [];
     if (finalAirspaces.length === 0) {
-        doc.setFont('Helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(40, 140, 40); doc.text('Route frei - keine Konflikte erkannt.', 34, y);
+        doc.setFont('Helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(40, 140, 40); doc.text(_boardUiPhrase('Route frei - keine Konflikte erkannt.'), 34, y);
     } else {
         for (let i = 0; i < finalAirspaces.length; i++) {
-            if (y > 278) { doc.setFont('Helvetica', 'italic'); doc.setFontSize(7); doc.setTextColor(120, 120, 120); doc.text(`... und ${finalAirspaces.length - i} weitere`, 38, y); break; }
+            if (y > 278) { doc.setFont('Helvetica', 'italic'); doc.setFontSize(7); doc.setTextColor(120, 120, 120); doc.text(_boardUiText('pdf.moreAirspaces', { count: finalAirspaces.length - i }, '... und {count} weitere'), 38, y); break; }
             const a = finalAirspaces[i]; const style = getAirspaceStyle(a); const displayName = getAirspaceDisplayName(a);
             const rgb = hexToRgb(style.color);
             if (rgb) { doc.setFillColor(rgb.r, rgb.g, rgb.b); doc.circle(35, y - 1.2, 1.2, 'F'); }
@@ -1949,7 +1951,7 @@ function drawRouteNavigationPage(doc, data, legs) {
 
 function drawAirportInfoPage(doc, type, data, photo, detailMap, metarImg) {
     let y = 30; const isDep = (type === 'dep'); const isPOI = (!isDep && data.isPOI);
-    doc.setFont('Helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor(11, 31, 101); doc.text(isPOI ? 'ZIELPUNKT INFO' : (isDep ? 'DEPARTURE AIRPORT' : 'DESTINATION AIRPORT'), 32, y); y += 4;
+    doc.setFont('Helvetica', 'bold'); doc.setFontSize(18); doc.setTextColor(11, 31, 101); doc.text(isPOI ? _boardUiPhrase('ZIELPUNKT INFO') : (isDep ? 'DEPARTURE AIRPORT' : 'DESTINATION AIRPORT'), 32, y); y += 4;
     doc.setDrawColor(11, 31, 101); doc.setLineWidth(0.5); doc.line(32, y, 190, y); y += 14;
 
     const photoYStart = y - 2;
@@ -1963,15 +1965,15 @@ function drawAirportInfoPage(doc, type, data, photo, detailMap, metarImg) {
 
     if (!isPOI) {
         let blockY = y;
-        doc.setFont('Helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(217, 56, 41); doc.text('RUNWAYS', 32, blockY); doc.text('FREQUENZEN', 115, blockY);
+        doc.setFont('Helvetica', 'bold'); doc.setFontSize(12); doc.setTextColor(217, 56, 41); doc.text('RUNWAYS', 32, blockY); doc.text(_boardUiPhrase('FREQUENZEN'), 115, blockY);
         let rwyY = blockY + 7, freqY = blockY + 7;
         const rwy = isDep ? data.depRwy : data.destRwy, freq = isDep ? data.depFreq : data.destFreq;
         doc.setFont('Helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(40, 40, 40);
         if (rwy && rwy !== 'Sucht Pisten-Infos...' && rwy !== 'Keine Daten gefunden') { rwy.split(/\s*(?:\||\n|<br\s*\/?>)\s*/i).filter(r => r.trim()).forEach(r => { doc.text(stripEmojis(r.trim()), 34, rwyY); rwyY += 6; }); }
-        else { doc.setTextColor(120, 120, 120); doc.text('Keine Pistendaten verfuegbar.', 34, rwyY); rwyY += 6; }
+        else { doc.setTextColor(120, 120, 120); doc.text(_boardUiPhrase('Keine Pistendaten verfuegbar.'), 34, rwyY); rwyY += 6; }
         doc.setTextColor(11, 31, 101);
         if (freq && !freq.includes('Sucht Frequenz') && freq.trim() !== '') { stripEmojis(freq).split('\n').filter(l => l.trim()).forEach(line => { doc.text(line.trim(), 117, freqY); freqY += 6; }); }
-        else { doc.setTextColor(120, 120, 120); doc.text('Keine Frequenzdaten verfuegbar.', 117, freqY); freqY += 6; }
+        else { doc.setTextColor(120, 120, 120); doc.text(_boardUiPhrase('Keine Frequenzdaten verfuegbar.'), 117, freqY); freqY += 6; }
         y = Math.max(rwyY, freqY) + 4;
         doc.setDrawColor(100, 100, 100); doc.setLineDashPattern([2, 2], 0); doc.line(32, y, 190, y); doc.setLineDashPattern([], 0); y += 8;
     }
@@ -1980,13 +1982,13 @@ function drawAirportInfoPage(doc, type, data, photo, detailMap, metarImg) {
     doc.setFont('Helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(50, 50, 50);
     const desc = isDep ? data.depDesc : data.destDesc;
     if (desc && desc !== 'Warte auf Daten...') { const trimmedDesc = desc.length > 600 ? desc.substring(0, 600) + '...' : desc; y = pdfWrappedText(doc, trimmedDesc, 32, y, 155, 5.5); }
-    else { doc.text('Keine weiteren Informationen verfuegbar.', 32, y); y += 6; }
+    else { doc.text(_boardUiPhrase('Keine weiteren Informationen verfuegbar.'), 32, y); y += 6; }
 
     if (detailMap || metarImg) {
         y = Math.max(y + 6, 170); doc.setDrawColor(100, 100, 100); doc.setLineDashPattern([2, 2], 0); doc.line(32, y, 190, y); doc.setLineDashPattern([], 0); y += 6;
         const hasMetar = metarImg && metarImg.data && !isPOI; const mapAvailW = hasMetar ? 95 : 155; const maxH = Math.min(100, 280 - y);
         if (detailMap) {
-            doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(11, 31, 101); doc.text(isPOI ? 'KARTE' : `PLATZKARTE`, 32, y); const mapLabelY = y; y += 5;
+            doc.setFont('Helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(11, 31, 101); doc.text(isPOI ? _boardUiPhrase('KARTE') : _boardUiPhrase('PLATZKARTE'), 32, y); const mapLabelY = y; y += 5;
             const mapRatio = 700 / 360; let mapW, mapH; if (mapAvailW / maxH < mapRatio) { mapW = mapAvailW; mapH = mapW / mapRatio; } else { mapH = maxH; mapW = mapH * mapRatio; }
             doc.setFillColor(230, 225, 210); doc.rect(31, y - 1, mapW + 2, mapH + 2, 'F'); doc.setDrawColor(160, 155, 140); doc.setLineWidth(0.4); doc.rect(31, y - 1, mapW + 2, mapH + 2, 'S'); doc.addImage(detailMap, 'JPEG', 32, y, mapW, mapH);
             if (hasMetar) {
@@ -2263,7 +2265,7 @@ function _bugBuildEmailReportBody() {
     const logs = _bugGetDebugLogs().slice(-90).map(_bugEmailLogLine);
     const weatherDebug = _bugGetWeatherDebugText();
     const lines = [
-        'Bitte hier kurz beschreiben, was passiert ist:',
+        _boardUiPhrase('Bitte hier kurz beschreiben, was passiert ist:'),
         '',
         '',
         '--- App / Gerät ---',

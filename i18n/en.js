@@ -4,6 +4,19 @@
     if (!root.GAI18n) return;
     root.GAI18n.register('en', {
         // Dispatch area (index.html .container)
+        'footer.reportProblem': '🐞 Report a problem',
+        'footer.reportProblemTitle': 'Opens the testboard with pilot ID, device data and debug log. Nothing is sent until you press Send there. Without a pilot ID an e-mail draft opens.',
+        'footer.legal': 'Legal',
+        'footer.imprint': 'Imprint',
+        'footer.privacy': 'Privacy',
+        'footer.dataLicenses': 'Data & licences',
+        'footer.donateAria': 'Voluntary support',
+        'footer.donatePrompt': 'Would you like to support the project?',
+        'footer.donateNoteTitle': 'Note on voluntary support',
+        'footer.donateNote': 'Your contribution supports development and running costs. It is voluntary and not an order, licence, support contract or consideration. It creates no claims to refunds, individual support, feature work, prioritisation, updates, availability or other services, to the extent permitted by law. Statutory rights and the PayPal terms remain unaffected. No donation receipt is issued.',
+        'footer.discordTitle': 'Join our Discord for feedback & ideas!',
+        'pdf.pageOf': 'Page {page} / {total}',
+        'pdf.moreAirspaces': '... and {count} more',
         'dispatch.win95.minimize': 'Minimize main menu',
         'dispatch.win95.close': 'Close main menu',
         'dispatch.win95.mainAria': 'VFR Multitool main window',

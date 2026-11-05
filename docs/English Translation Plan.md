@@ -399,6 +399,26 @@ im JS vorkommen. Deutsche Rückfalltexte in Übersetzungsaufrufen zählen als
 - Offen: Statuszeile `searchIndicator` (Missionsphase), „KI Mode“-Knopf und
   Pinnwand-Knopf (Kind-Elemente), Skins `analog-skins.js` / `navcom-skins.js`.
 
+### Phase 1 – Briefing-PDF, Fehlerbericht, Fußbereich (2026-11-05)
+
+- Briefing Pack (`board.js`): feste Überschriften und Leer-Texte über die Satz-Tabelle
+  (FREQUENZEN, FRACHT, STRECKE, KURS, DATUM, ZIELPUNKT INFO, PLATZKARTE, „Route frei …“),
+  „Seite x / y“ (`pdf.pageOf`, gilt auch für das Debrief-PDF), „… und n weitere“.
+  Englische Beschriftungen (PAYLOAD, RUNWAYS, ROUTE & NAVIGATION …) waren schon englisch.
+- Datum im PDF über `displayDate` in der UI-Sprache; **`date` bleibt deutsch**, weil der
+  Dateiname daraus gebaut wird (en-GB hätte Schrägstriche).
+- Missionstitel, Geschichte, Zuladung und Briefing-Felder kommen aus dem Briefing-Bereich
+  und bleiben bis zur Missionsphase deutsch. Die Vergleiche auf Ladetexte
+  („Sucht Pisten-Infos...“, „Warte auf Daten...“, „Sucht lokales“) bleiben unverändert,
+  weil diese Felder noch nicht übersetzt sind. **Beim Übersetzen des Briefing-Bereichs
+  diese Vergleiche mitziehen.**
+- Statuszeile beim Export („Erstelle Briefing Pack PDF...“) bleibt deutsch (Missionsphase,
+  exakte Textvergleiche).
+- Fehlerbericht: Knopf + Tooltip, erste Zeile des E-Mail-Entwurfs. Geräte-/Debug-Teil und
+  Betreff bleiben deutsch (für den Entwickler). Die Testboard-Seite ist eine Begleitseite.
+- Fußbereich: Rechtliches-Links (Ziel bleiben die deutschen Rechtsseiten), Spendenblock
+  inkl. Hinweistext (Übersetzung zur Information), PayPal-Ersatzlink, Discord-Tooltip.
+
 ### Phase 1 – UI-Reste: Knöpfe, Uhr, Wegpunkt, VFR-Index (2026-11-05)
 
 - NavCom „KI Mode“ (Text in `<span data-i18n>`, LED bleibt Kind-Element), Win95-Desktop-Symbole
