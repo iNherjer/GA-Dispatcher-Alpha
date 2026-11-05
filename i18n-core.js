@@ -18,7 +18,9 @@
         'data-i18n-placeholder': 'placeholder',
         // Language-specific images (e.g. the embossed settings roll): key -> image path.
         'data-i18n-src': 'src',
-        'data-i18n-alt': 'alt'
+        'data-i18n-alt': 'alt',
+        // Language-specific links (e.g. the English guide): key -> URL.
+        'data-i18n-href': 'href'
     });
     const dictionaries = { de: {}, en: {} };
     const listeners = new Set();

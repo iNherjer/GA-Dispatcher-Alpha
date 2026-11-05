@@ -1,4 +1,4 @@
-"""Export the guide, onboarding and welcome as portable HTML files. No network."""
+"""Export the guide, onboarding and welcome (German and English) as portable HTML files. No network."""
 
 from pathlib import Path
 import base64
@@ -10,6 +10,9 @@ PAGES = {
     "readme.html": "VFR-Multitool-Anleitung.html",
     "onboarding.html": "VFR-Multitool-Onboarding.html",
     "willkommen.html": "VFR-Multitool-Info.html",
+    "guide.html": "VFR-Multitool-Guide.html",
+    "setup.html": "VFR-Multitool-Setup.html",
+    "welcome.html": "VFR-Multitool-Welcome.html",
 }
 
 
@@ -27,7 +30,7 @@ def export_page(source_name, target_name):
         destination = PAGES.get(name, APP_URL + name)
         return f'href="{destination}{fragment}"'
 
-    source = re.sub(r'href="((?:readme|onboarding|willkommen|index|legal)\.html)(#[^"]*)?"', local_link, source)
+    source = re.sub(r'href="((?:readme|onboarding|willkommen|guide|setup|welcome|index|legal)\.html)(#[^"]*)?"', local_link, source)
     target = ROOT / "exports" / target_name
     target.parent.mkdir(exist_ok=True)
     target.write_text(source, encoding="utf-8")

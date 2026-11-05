@@ -1,7 +1,7 @@
 {
  "note": "German literals accepted as known. Created by node tools/i18n-check.mjs --update-baseline.",
  "created": "2026-11-05",
- "total": 7788,
+ "total": 7813,
  "files": {
   "aircraft-mission-capability-core.js": [
    "10a2db52a2",
@@ -2482,6 +2482,18 @@
    "5073119022",
    "8b600910e3",
    "b461d3e4b7"
+  ],
+  "guide.html": [
+   "26b70a3cc4",
+   "287001ae3c",
+   "30cde4dc2f",
+   "742624a2f7",
+   "764d7148f2",
+   "9a86f1f759",
+   "a0b3ec2949",
+   "b965b3fccc",
+   "c07ce73367",
+   "d05ad2a0c8"
   ],
   "homebase-integration.js": [
    "0721af9e5f",
@@ -6929,7 +6941,6 @@
    "6f2965d471",
    "6fcf1fe2f3",
    "7048f66ff2",
-   "707dcadc00",
    "70e957d7a6",
    "73cba95872",
    "742624a2f7",
@@ -7049,6 +7060,7 @@
    "b9fb718f03",
    "ba66b8e689",
    "bc87365f7c",
+   "bd8a195459",
    "be95b231ea",
    "beafa89e92",
    "beed45b5f8",
@@ -7138,6 +7150,7 @@
    "f7a30524d7",
    "f7c90a8916",
    "f818e90980",
+   "f8f1be89de",
    "f9571a55e0",
    "fa6e5e51f0",
    "fcbd646006",
@@ -7149,6 +7162,20 @@
   "relay-failover-core.js": [
    "132e2a98e4",
    "5c19434506"
+  ],
+  "setup.html": [
+   "2fdcfa5083",
+   "39477f7651",
+   "404e76da73",
+   "544540897d",
+   "63d3c4fd33",
+   "6a60aafcb5",
+   "6dd6bd58e9",
+   "c850d79dd2",
+   "cf8a83e60d",
+   "d9aec2e833",
+   "e2ed3a1fc4",
+   "f592c687e8"
   ],
   "sim-manual-flight.js": [
    "58583b5615",

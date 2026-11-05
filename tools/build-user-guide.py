@@ -1,4 +1,4 @@
-"""Build readme.html from README.md. Requires markdown-it-py; no network I/O."""
+"""Build readme.html from README.md and guide.html from README.en.md. Requires markdown-it-py; no network I/O."""
 
 from collections import Counter
 from html import escape
@@ -19,8 +19,15 @@ def slug(text):
     return re.sub(r"[^a-z0-9]+", "-", plain).strip("-") or "kapitel"
 
 
-def main():
-    source = (ROOT / "README.md").read_text(encoding="utf-8").split("<!-- maintenance:start -->")[0]
+# (markdown source, page template, output page)
+GUIDES = [
+    ("README.md", "tools/user-guide-template.html", "readme.html"),
+    ("README.en.md", "tools/user-guide-template-en.html", "guide.html"),
+]
+
+
+def build(source_name, template_name, target_name):
+    source = (ROOT / source_name).read_text(encoding="utf-8").split("<!-- maintenance:start -->")[0]
     markdown = MarkdownIt("commonmark", {"html": False})
     tokens = markdown.parse(source)
     headings = Counter()
@@ -58,7 +65,7 @@ def main():
         body = markdown.renderer.render(tokens[begin:end], markdown.options, {})
         chapters.append(f'<section class="chapter" id="{escape(section_id)}" aria-labelledby="{escape(heading_id)}">{body}</section>')
         toc.append(f'<li><a href="#{escape(section_id)}" data-chapter="{escape(section_id)}">{escape(title)}</a></li>')
-    template = (ROOT / "tools/user-guide-template.html").read_text(encoding="utf-8")
+    template = (ROOT / template_name).read_text(encoding="utf-8")
     result = template.replace("<!-- GUIDE_INTRO -->", intro).replace("<!-- GUIDE_CONTENT -->", "\n".join(chapters)).replace("<!-- GUIDE_TOC -->", "\n".join(toc))
     ids = re.findall(r'\bid="([^"]+)"', result)
     if len(ids) != len(set(ids)):
@@ -66,8 +73,13 @@ def main():
     for anchor in re.findall(r'href="#([^"]+)"', result):
         if unquote(anchor) not in ids:
             raise ValueError(f"Broken guide anchor: {anchor}")
-    (ROOT / "readme.html").write_text(result, encoding="utf-8")
-    print(f"Created readme.html: {len(chapters)} chapters, {len(ids)} anchors")
+    (ROOT / target_name).write_text(result, encoding="utf-8")
+    print(f"Created {target_name}: {len(chapters)} chapters, {len(ids)} anchors")
+
+
+def main():
+    for source_name, template_name, target_name in GUIDES:
+        build(source_name, template_name, target_name)
 
 
 if __name__ == "__main__":

@@ -545,7 +545,7 @@ Je nach Funktion werden eigene Flugplatzdaten, Karten, OpenAIP-/Aero-Daten, Wett
 
 ## Projektpflege
 
-Die Browser-Anleitung `readme.html` wird aus den Nutzerkapiteln dieser README und `tools/user-guide-template.html` erzeugt. Aktualisieren: `python3 tools/build-user-guide.py`. Der Generator benötigt `markdown-it-py` und prüft Überschriften und interne Verweise. Anschließend erzeugt `python3 tools/export-info-pages.py` die portablen Fassungen von Anleitung, Onboarding und Willkommen. Die erzeugte HTML-Anleitung enthält alle Kapitel bereits im Dokument; zum Lesen wird kein Markdown-Download und keine Bibliothek im Browser benötigt.
+Die Browser-Anleitung `readme.html` wird aus den Nutzerkapiteln dieser README und `tools/user-guide-template.html` erzeugt. Die englische `guide.html` entsteht im selben Lauf aus `README.en.md` und `tools/user-guide-template-en.html`; Änderungen an den Nutzerkapiteln bitte in beiden Dateien nachziehen. `welcome.html` und `setup.html` sind die englischen Fassungen von `willkommen.html` und `onboarding.html` (eigene Dateien, gleiches CSS und Skript). Aktualisieren: `python3 tools/build-user-guide.py`. Der Generator benötigt `markdown-it-py` und prüft Überschriften und interne Verweise. Anschließend erzeugt `python3 tools/export-info-pages.py` die portablen Fassungen von Anleitung, Onboarding und Willkommen. Die erzeugte HTML-Anleitung enthält alle Kapitel bereits im Dokument; zum Lesen wird kein Markdown-Download und keine Bibliothek im Browser benötigt.
 
 ### Flugplatz-Datenbasis
 

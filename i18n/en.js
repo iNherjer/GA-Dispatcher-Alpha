@@ -79,6 +79,7 @@
         'dispatch.screw.paint': 'Change panel paint',
         'dispatch.screw.design': 'Change design',
         'dispatch.manual': 'Multitool manual',
+        'dispatch.manualHref': 'guide.html',
         'dispatch.manualOpen': 'Open the Multitool manual',
         'dispatch.help': 'Help for the dispatch area',
         'dispatch.ops.panel': 'Ops 1940 mission selection',

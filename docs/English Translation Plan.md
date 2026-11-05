@@ -399,6 +399,25 @@ im JS vorkommen. Deutsche Rückfalltexte in Übersetzungsaufrufen zählen als
 - Offen: Statuszeile `searchIndicator` (Missionsphase), „KI Mode“-Knopf und
   Pinnwand-Knopf (Kind-Elemente), Skins `analog-skins.js` / `navcom-skins.js`.
 
+### Phase 1 – Englische Infoseiten (2026-11-05)
+
+Entschieden (User): **eigene englische Seiten**, die deutschen bleiben unberührt.
+- `welcome.html` (← `willkommen.html`), `setup.html` (← `onboarding.html`): eigene Dateien mit
+  gleichem CSS/Skript; Skripttexte übersetzt. Die Einrichtungs-Checkliste nutzt denselben
+  Speicherschlüssel wie die deutsche Seite (Häkchen gelten für beide).
+- Handbuch: `README.en.md` + `tools/user-guide-template-en.html` → `guide.html`;
+  `tools/build-user-guide.py` baut beide Fassungen. **Änderungen an den Nutzerkapiteln in
+  `README.md` und `README.en.md` nachziehen.**
+- Tracker-Begriffe stehen auf Deutsch mit englischer Bedeutung in Klammern, weil der
+  Windows-Tracker noch deutsch ist; App-Begriffe so, wie die englische App sie zeigt.
+  Screenshots bleiben vorerst deutsch (Hinweis auf den Seiten).
+- Verknüpfung: „English“/„Deutsch“-Links in der Kopfzeile aller sechs Seiten; der
+  ?-Knopf der App führt auf Englisch zu `guide.html` (neues Attribut `data-i18n-href`
+  in `i18n-core.js`). `tools/export-info-pages.py` exportiert auch die englischen Seiten.
+- Rechtsseiten (`legal.html`) bleiben deutsch und verbindlich; englische Links tragen „(German)“.
+- Nebenbei: `readme.html` hatte den Testboard-Link aus `README.md` noch nicht – ist mit
+  dem Neubau drin.
+
 ### Phase 1 – Tutorial und Homebase-Karte (2026-11-05)
 
 - `tutorial.js`: 22 Schritte. Titel über die Satz-Tabelle, Texte als englische HTML-Blöcke

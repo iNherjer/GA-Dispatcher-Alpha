@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#193c34">
+<meta name="description" content="The current guide to the VFR Multitool: dispatch, missions, loading, logbook, map, radio, audio, tracker, autostart, cockpit EFB and Homebase explained clearly.">
+<title>Guide · VFR Multitool</title>
+<link rel="icon" type="image/png" href="favicon-dark-64.png">
+<style>
+:root{--paper:#f6f4ed;--ink:#1d302b;--muted:#626d64;--green:#193c34;--lime:#d9ef90;--line:#d9ded2;--mono:ui-monospace,SFMono-Regular,Consolas,monospace;--sans:Inter,"Avenir Next",Avenir,"Segoe UI",sans-serif}*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:105px}body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.8 var(--sans);-webkit-font-smoothing:antialiased}a{color:inherit;text-underline-offset:4px}button,input{font:inherit}button{cursor:pointer}a:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid #498e67;outline-offset:4px}[hidden]{display:none!important}h1,h2,h3,p,figure{margin:0}h1,h2,h3{line-height:1.15;letter-spacing:-.035em}.wrap{width:min(1260px,calc(100% - 80px));margin-inline:auto}.skip{position:fixed;top:-80px;left:12px;z-index:50;background:var(--lime);padding:12px}.skip:focus{top:12px}.eyebrow{font:600 10px/1.6 var(--mono);letter-spacing:.12em;text-transform:uppercase}.topbar{background:var(--paper);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}.nav{height:80px;display:flex;align-items:center;justify-content:space-between;gap:25px}.brand{display:flex;gap:13px;align-items:center;text-decoration:none;font-size:15px;font-weight:800;letter-spacing:-.025em}.brand svg{width:36px;height:36px}.brand small{display:block;font:10px/1.6 var(--mono);color:var(--muted);letter-spacing:.12em;font-weight:400}.navlinks{display:flex;gap:24px;align-items:center;font-size:12px}.navlinks a{text-decoration:none}.navlinks a:hover{text-decoration:underline}.navlinks .app-link{padding:9px 15px;border:1px solid var(--ink);border-radius:3px;font-weight:600}.hero{padding:36px 0 28px;display:grid;grid-template-columns:1fr .45fr;gap:60px;align-items:center}.hero h1{font-size:clamp(42px,4.2vw,58px);margin:14px 0 20px}.hero h1 em{font-family:Georgia,serif;color:#527759;font-weight:400}.intro p{color:var(--muted);font-size:14px;margin-top:13px;max-width:80ch}.intro p a{color:#315c47;font-weight:600}.intro p:first-child{color:var(--ink);font-size:16px}.hero-note{background:var(--green);padding:25px 27px;border-radius:4px;color:#c7d9cb;transform:rotate(1deg)}.hero-note .eyebrow{color:var(--lime)}.hero-note h2{color:#fffef9;font-size:27px;margin:17px 0 14px}.hero-note p{font-size:12px;line-height:1.7}.hero-note a{display:inline-block;margin-top:17px;font-size:12px;font-weight:600;color:var(--lime)}.coverage{border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:17px 0;margin-bottom:35px;display:flex;gap:25px;justify-content:space-between;font:10px/1.6 var(--mono);color:#5d7153}.coverage span:before{content:"+";margin-right:9px}.layout{display:grid;grid-template-columns:255px minmax(0,1fr);gap:60px;align-items:start;padding-bottom:65px}.sidebar{position:sticky;top:105px}.search-label{font:600 10px/1.6 var(--mono);letter-spacing:.1em;text-transform:uppercase;display:block;margin-bottom:9px}.search-box{display:flex;border:1px solid #bac7b0;border-radius:3px;background:#fffef9}.search-box input{border:0;background:transparent;min-width:0;width:100%;padding:11px 12px;color:var(--ink);font-size:12px;outline-offset:1px}.search-box button{background:transparent;border:0;padding:8px 12px;color:var(--muted);font-size:17px}.search-result{font:9px/1.7 var(--mono);color:var(--muted);margin:9px 0 17px;min-height:16px}.toc summary{font:600 10px/1.7 var(--mono);letter-spacing:.1em;cursor:pointer;padding-bottom:12px;border-bottom:1px solid var(--line)}.toc nav{max-height:calc(100vh - 300px);overflow:auto;scrollbar-width:thin;padding-top:11px;padding-right:7px}.toc ol{list-style:none;padding:0;margin:0}.toc li+li{margin-top:3px}.toc a{display:block;font-size:11px;line-height:1.5;padding:9px 10px;text-decoration:none;border:1px solid transparent;border-radius:3px}.toc a:hover{background:#e9edde}.toc a[aria-current=location]{background:#e3ead8;border-color:#cad7ba}.sidebar-note{border-top:1px solid var(--line);font:9px/1.7 var(--mono);color:var(--muted);margin-top:17px;padding-top:14px}.manual{min-width:0}.chapter{padding-top:4px;scroll-margin-top:0}.chapter+.chapter{border-top:1px solid var(--line);margin-top:48px;padding-top:39px}.chapter h2{font-size:clamp(29px,3vw,39px);margin-bottom:23px;max-width:28ch}.chapter h3{font-size:21px;margin-top:29px;margin-bottom:13px;scroll-margin-top:0}.chapter p{font-size:14px;margin-top:15px;max-width:85ch}.chapter>p:first-of-type{margin-top:0}.chapter ul,.chapter ol{margin:17px 0 0;padding-left:22px;font-size:14px}.chapter li{padding-left:4px;margin-top:9px}.chapter strong{font-weight:650}.chapter a{color:#315f49}.chapter code{font:12px/1.6 var(--mono);background:#e5e9dd;padding:3px 5px;border-radius:3px;color:#315a46;overflow-wrap:anywhere}.chapter img{max-width:100%;height:auto;display:block;border:1px solid #c1cbb8;border-radius:4px;margin-top:25px}.chapter blockquote{background:#e9edde;border-left:3px solid #8ba269;margin:22px 0;padding:15px 20px}.chapter blockquote p{margin:0;color:#516748}.no-results{padding:30px;background:#e9edde;border:1px solid var(--line);border-radius:4px}.no-results h2{font-size:27px;margin-bottom:14px}.no-results p{font-size:14px;color:var(--muted)}.no-results button{margin-top:20px;border:1px solid #a7b89a;border-radius:3px;padding:10px 16px;background:transparent;color:var(--ink);font-size:12px}.back-top{display:inline-block;font-size:11px;margin-top:35px;color:var(--muted)}footer{background:var(--green);color:#c9d9cb;padding:26px 0;font-size:11px}.footer-row{display:flex;align-items:center;justify-content:space-between;gap:35px}footer strong{color:#fffef9;font-size:12px}footer p{margin-top:5px;max-width:70ch}.footer-links{display:flex;gap:18px;white-space:nowrap}.js-search{display:none}.js .js-search{display:block}.no-js-note{font-size:12px;color:var(--muted);padding:15px;border:1px solid var(--line);margin-bottom:25px}
+@media(max-width:1050px){.wrap{width:calc(100% - 48px)}.layout{grid-template-columns:220px minmax(0,1fr);gap:35px}.hero{gap:35px;grid-template-columns:1fr .5fr}.hero-note{padding:22px}.hero h1{font-size:52px}.coverage{font-size:9px;gap:14px}}
+@media(max-width:800px){.wrap{width:calc(100% - 36px)}.nav{height:68px;gap:10px}.brand{font-size:12px;gap:9px}.brand small{font-size:8px}.brand svg{width:30px;height:30px}.navlinks{gap:12px;font-size:10px}.navlinks .welcome-link,.navlinks .setup-link{display:none}.navlinks .app-link{padding:8px 10px}.hero{grid-template-columns:1fr;gap:24px;padding:32px 0 27px}.hero h1{font-size:clamp(43px,9vw,60px);margin-bottom:20px}.hero .intro p{font-size:13px}.hero .intro p:first-child{font-size:15px}.hero-note{transform:none;padding:20px 22px}.hero-note h2{font-size:25px;margin:12px 0}.hero-note a{margin-top:12px}.coverage{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:25px}.layout{grid-template-columns:1fr;gap:27px;padding-bottom:40px}.sidebar{position:static}.search-result{margin-bottom:15px}.toc nav{max-height:360px}.toc a{font-size:12px;padding:10px}.sidebar-note{display:none}.chapter h2{font-size:31px}.chapter h3{font-size:21px;margin-top:27px}.chapter p,.chapter ul,.chapter ol{font-size:14px}.chapter+.chapter{margin-top:37px;padding-top:31px}.chapter li{margin-top:10px}.footer-row{flex-direction:column;align-items:start;gap:20px}.footer-links{font-size:10px}}
+@media(max-width:380px){.navlinks>a:not(.app-link){display:none}.navlinks .app-link{font-size:10px}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+@media print{.topbar,.sidebar,.coverage,.back-top,.no-results{display:none!important}.chapter[hidden]{display:block!important}.wrap{width:100%}.layout{display:block}.hero{padding:0 0 20px}.hero h1{font-size:42px}.chapter h2{font-size:27px;break-after:avoid}.chapter h3{break-after:avoid}.chapter+.chapter{margin-top:25px;padding-top:20px}.chapter img{max-height:350px;object-fit:contain;width:auto}.hero-note,footer{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style>
+</head>
+<body>
+<!-- Generated from README.en.md by tools/build-user-guide.py. Edit the source, then rebuild. -->
+<a class="skip" href="#handbuch-inhalt">Skip to the guide</a>
+<header class="topbar"><nav class="nav wrap" aria-label="Main navigation"><a class="brand" href="#anfang"><svg viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="4" fill="#193c34"/><path d="m20 7 2 12 11 5v3l-11-3-1 8h-2l-1-8-11 3v-3l11-5z" fill="#d9ef90"/></svg><span>VFR MULTITOOL<small>THE GUIDE</small></span></a><div class="navlinks"><a class="welcome-link" href="welcome.html">Discover</a><a class="setup-link" href="setup.html">Setup</a><a href="#guide-search">Search</a><a href="readme.html" lang="de">Deutsch</a><a class="app-link" href="index.html">Open Multitool ↗</a></div></nav></header>
+<main class="wrap" id="anfang"><section class="hero" aria-labelledby="handbuch-titel"><div><p class="eyebrow">Guide · As of October 2026</p><h1 id="handbuch-titel">Your Multitool.<br><em>Well explained.</em></h1><div class="intro"><p>The VFR Multitool accompanies your VFR flights in Microsoft Flight Simulator: from the flight idea through planning and missions to the live map in the cockpit. This guide explains the larger features and how to use them.</p>
+<p><strong>As of: 27 October 2026 · Origin / Alpha.</strong> This guide describes the Origin version. Stable may offer a different feature set. The release notes in the app and the tracker are authoritative.</p>
+<p><a href="index.html" target="_blank" rel="noopener noreferrer">Open Multitool</a> · <a href="welcome.html">Welcome</a> · <a href="setup.html">Guided setup</a> · <a href="readme.html">Deutsche Anleitung</a></p>
+<p>The tool is meant for the flight simulator. Maps, weather and warnings are not a basis for real-world flights.</p>
+<p><strong>Language note:</strong> the interface can be switched to English under <strong>Settings</strong>. Missions, briefings, passenger voices, the Windows tracker and the screenshots are still German for now. Tracker labels are quoted in German with the English meaning in brackets.</p>
+</div></div><aside class="hero-note"><p class="eyebrow">From flight idea to landing</p><h2>Get in.<br>Look it up.<br>Keep flying.</h2><p>Here you find how things work and how they fit together. For the first sign-in, AI keys and the tracker connection, the setup page guides you step by step.</p><a href="setup.html">To the guided setup ↗</a></aside></section><div class="coverage"><span>PLANNING &amp; MISSIONS</span><span>MAP, WEATHER &amp; RADIO</span><span>TRACKER, AUDIO &amp; EFB</span><span>HOMEBASE &amp; CREW</span></div>
+<noscript><p class="no-js-note">All chapters are fully readable. With JavaScript you can also use the search.</p></noscript>
+<div class="layout"><aside class="sidebar"><div class="js-search"><label class="search-label" for="guide-search">Search the guide</label><div class="search-box"><input type="search" id="guide-search" placeholder="e.g. radio pause or loading" autocomplete="off" aria-controls="handbuch-inhalt"><button type="button" id="clear-search" aria-label="Clear search" hidden>×</button></div><p class="search-result" id="search-result" role="status" aria-live="polite">All 16 chapters</p></div><details class="toc" id="guide-toc" open><summary>Contents</summary><nav aria-label="Guide chapters"><ol><li><a href="#1-quick-start-and-orientation" data-chapter="1-quick-start-and-orientation">1. Quick start and orientation</a></li>
+<li><a href="#2-setting-up-pilot-id-cloud-and-ai" data-chapter="2-setting-up-pilot-id-cloud-and-ai">2. Setting up pilot ID, cloud and AI</a></li>
+<li><a href="#3-aircraft-appearance-and-airfield-search" data-chapter="3-aircraft-appearance-and-airfield-search">3. Aircraft, appearance and airfield search</a></li>
+<li><a href="#4-dispatch-and-mission-types" data-chapter="4-dispatch-and-mission-types">4. Dispatch and mission types</a></li>
+<li><a href="#5-briefing-and-flight-plan-handover" data-chapter="5-briefing-and-flight-plan-handover">5. Briefing and flight plan handover</a></li>
+<li><a href="#6-mission-passengers-and-loading" data-chapter="6-mission-passengers-and-loading">6. Mission, passengers and loading</a></li>
+<li><a href="#7-interrupting-resuming-and-logbook" data-chapter="7-interrupting-resuming-and-logbook">7. Interrupting, resuming and logbook</a></li>
+<li><a href="#8-map-table-route-and-radio" data-chapter="8-map-table-route-and-radio">8. Map table, route and radio</a></li>
+<li><a href="#9-weather-airspace-and-terrain" data-chapter="9-weather-airspace-and-terrain">9. Weather, airspace and terrain</a></li>
+<li><a href="#10-checklists-calculators-and-clocks" data-chapter="10-checklists-calculators-and-clocks">10. Checklists, calculators and clocks</a></li>
+<li><a href="#11-voices-music-and-radio-pause" data-chapter="11-voices-music-and-radio-pause">11. Voices, music and radio pause</a></li>
+<li><a href="#12-tracker-autostart-and-updates" data-chapter="12-tracker-autostart-and-updates">12. Tracker, autostart and updates</a></li>
+<li><a href="#13-msfs-2024-efb-toolbar-and-vr" data-chapter="13-msfs-2024-efb-toolbar-and-vr">13. MSFS 2024 EFB, toolbar and VR</a></li>
+<li><a href="#14-designing-your-homebase" data-chapter="14-designing-your-homebase">14. Designing your Homebase</a></li>
+<li><a href="#15-pinboard-and-crew-board" data-chapter="15-pinboard-and-crew-board">15. Pinboard and crew board</a></li>
+<li><a href="#16-help-data-and-frequent-questions" data-chapter="16-help-data-and-frequent-questions">16. Help, data and frequent questions</a></li></ol></nav></details><p class="sidebar-note">The search filters whole chapters. All content stays readable in the loaded document even without internet; linked apps and live features need their own connection.</p></aside><div class="manual" id="handbuch-inhalt"><div class="no-results" id="no-results" hidden><h2>No matching chapter.</h2><p>Try a shorter term such as “radio”, “cargo” or “tracker”.</p><button type="button" id="show-all">Show all chapters</button></div><section class="chapter" id="1-quick-start-and-orientation" aria-labelledby="1-quick-start-and-orientation-titel"><h2 id="1-quick-start-and-orientation-titel">1. Quick start and orientation</h2>
+<p>You can use the Multitool in three ways:</p>
+<ul>
+<li><strong>Plan:</strong> choose departure, destination and aircraft, view the briefing, edit and export the route. This already works in the browser.</li>
+<li><strong>Fly freely:</strong> set your own destination on the map table with <strong>Direct To</strong>. With the tracker, the map follows your aircraft; no mission is needed.</li>
+<li><strong>Fly a mission:</strong> generate, review and accept a job. For the actual mission flow in the simulator you need the connected Windows tracker.</li>
+</ul>
+<h3 id="your-first-job">Your first job</h3>
+<ol>
+<li>Enter your departure airfield under <strong>Start / DEP</strong>, for example <code>EDTW</code>, and pick the matching search result.</li>
+<li>Choose an aircraft preset or set speed, fuel flow, cruise altitude and climb/descent rate.</li>
+<li>Choose mission type, distance and direction. An empty destination lets the dispatcher search.</li>
+<li>Click <strong>Generate job / DISPATCH</strong>. Review the briefing and choose <strong>Accept mission</strong>.</li>
+<li>Connect tracker and MSFS. With the EFB package installed you can already open the VFR Multitool in the EFB on the <strong>world map</strong> and send the prepared flight to the simulator’s flight planning. Check the takeover and load the flight in the simulator.</li>
+<li>Stand on the ground in the loaded cockpit and choose <strong>Start mission</strong> on the map table.</li>
+<li>Work through the steps shown for boarding, loading and the job.</li>
+</ol>
+<p>For the complete first-time setup use the <a href="setup.html">setup page</a>. This guide is for looking things up afterwards.</p>
+<h3 id="where-do-i-find-what">Where do I find what?</h3>
+<ul>
+<li><strong>Main page:</strong> dispatch, aircraft presets, briefing, logbook, Homebase and settings.</li>
+<li><strong>Map table:</strong> route, live position, elevation profile, display and audio menu as well as tools.</li>
+<li><strong>Side menu on the map table:</strong> checklists, mission, weather, radio, warnings, airfield information, nearest and cargo.</li>
+<li><strong>Windows tracker:</strong> connection, audio output, autostart, updates and add-on packages.</li>
+<li><strong>MSFS 2024 EFB and toolbar:</strong> cockpit access to map, mission and tools via the running tracker.</li>
+</ul>
+</section>
+<section class="chapter" id="2-setting-up-pilot-id-cloud-and-ai" aria-labelledby="2-setting-up-pilot-id-cloud-and-ai-titel"><h2 id="2-setting-up-pilot-id-cloud-and-ai-titel">2. Setting up pilot ID, cloud and AI</h2>
+<h3 id="pilot-id-and-cloud-sync">Pilot ID and cloud sync</h3>
+<p><strong>Here:</strong> main page → <strong>Settings</strong> → <strong>Pilot Identity &amp; Sync</strong>.</p>
+<p>The pilot ID is your shared profile. A <strong>PIN of 4 to 8 digits</strong> protects access.</p>
+<ol>
+<li>Enter your own, unique pilot ID and a PIN.</li>
+<li>Click <strong>Login</strong>. A still free ID is registered this way; for an existing ID you need its PIN.</li>
+<li>Enable <strong>Auto-Sync</strong> if saved content should be matched automatically.</li>
+<li>Use the same ID and PIN on tablet, second device and in the tracker.</li>
+</ol>
+<p><strong>Push</strong> writes the current state to the cloud. <strong>Pull</strong> fetches the cloud state to the device. If states differ, first check which device holds the data you want.</p>
+<p>With auto-sync enabled, newly created drafts and accepted jobs are saved across devices. An upload that has not been confirmed yet stays queued and is retried. A reloaded briefing is not automatically a started mission.</p>
+<h3 id="ai-for-briefings">AI for briefings</h3>
+<p><strong>Here:</strong> Settings → <strong>AI Dispatcher</strong>.</p>
+<p>The optional AI adds individual briefings, passengers, cargo and backgrounds to jobs. Without AI, map planning and locally generated jobs remain available.</p>
+<ul>
+<li><strong>Provider:</strong> Gemini or ChatGPT (OpenAI). The key must belong to the chosen provider.</li>
+<li><strong>API key:</strong> enter it in the field shown for Gemini or OpenAI and check the status message.</li>
+<li><strong>AI on/off:</strong> decides whether the AI is used.</li>
+<li><strong>Profile:</strong> Auto, economical, quality or high quality. Auto suits the start; the economical profile is meant for frequent trying out.</li>
+</ul>
+<p>You create Gemini keys in <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer">Google AI Studio</a>, OpenAI keys on the <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer">OpenAI platform</a>. Official help: <a href="https://ai.google.dev/gemini-api/docs/api-key" target="_blank" rel="noopener noreferrer">Gemini API keys</a> and <a href="https://developers.openai.com/api/docs/quickstart" target="_blank" rel="noopener noreferrer">OpenAI API quickstart</a>.</p>
+<p>The providers handle quotas and billing. AI briefings and AI voices can cause separate usage. Check the usage with the provider; a chat login alone does not replace an API key.</p>
+<h3 id="why-enter-keys-and-sign-in-again-in-the-tracker">Why enter keys and sign-in again in the tracker?</h3>
+<p>The <strong>pilot ID + PIN</strong> assign the connection to your pilot. The <strong>web API key</strong> enables AI briefings in the respective browser. The <strong>voice key in the tracker</strong> enables the central AI speech output, also for EFB and toolbar.</p>
+<p>Browser and tracker store these accesses separately. The web key is not synced via your pilot profile. On another web device you enter it again. The start dialog offers to remember it for further visits on this device; local website storage is not encrypted. The tracker protects its stored voice key with your Windows account.</p>
+<p>Do not share PIN and API keys via pinboards or screenshots. The content needed for AI requests is sent to your chosen provider.</p>
+</section>
+<section class="chapter" id="3-aircraft-appearance-and-airfield-search" aria-labelledby="3-aircraft-appearance-and-airfield-search-titel"><h2 id="3-aircraft-appearance-and-airfield-search-titel">3. Aircraft, appearance and airfield search</h2>
+<h3 id="aircraft-presets">Aircraft presets</h3>
+<p>You can create up to 10 aircraft presets. The three preset buttons on the main page and in the NavCom are quick-select slots (initially C172, Comanche and Aerostar). A click selects the preset on the button; right-click or long press opens a list from which you assign a different preset to the button. You create, edit and delete presets under <strong>Settings → Aircraft / Presets</strong>: <strong>+</strong> creates a new one, a click on a preset opens the editor.</p>
+<ul>
+<li><strong>TAS:</strong> planned cruise speed in knots; affects flight time and planning.</li>
+<li><strong>GPH:</strong> planned fuel flow in US gallons per hour; basis of the fuel estimate.</li>
+<li><strong>Cruise ALT:</strong> desired cruise altitude for route, profile and hints.</li>
+<li><strong>V/S:</strong> planned climb/descent rate for the climb and descent profile.</li>
+<li><strong>Seats, payload and aircraft class:</strong> help the dispatcher choose matching jobs and loads.</li>
+<li><strong>Mission profiles:</strong> for example private/travel, charter, cargo, utility, bush/STOL or training. They limit the automatic random rotation; a specific mission remains selectable.</li>
+</ul>
+<p>If times or cargo amounts don’t fit, check the aircraft values first. Boarding door and relative waypoints can be adjusted per preset if the scene in the simulator doesn’t match the aircraft.</p>
+<h3 id="interfaces-and-sizes">Interfaces and sizes</h3>
+<p>Under <strong>Settings → Appearance</strong> you can choose Modern, Analog, NavCom, Ops 1940 and Win95. They operate the same basic data.</p>
+<ul>
+<li><strong>Analog:</strong> a mechanical-looking panel. The screw at the top right changes the design (classic, tower, teleprinter), the screw at the top left the paint.</li>
+<li><strong>NavCom:</strong> radio stack with rotary knobs and DATA and DISPATCH controls. The screw at the top right changes the design (classic, Bendix, KX); you change the display colour via O/M/I, the TEST key or, on the KX, via PULL TEST.</li>
+<li><strong>Ops 1940:</strong> instrument-style mission selection and briefing display.</li>
+<li><strong>Win95:</strong> window and desktop design in the classic PC style.</li>
+</ul>
+<p>In Analog and NavCom the <strong>glareshield</strong> forms the top edge of the panel: swiping sideways changes the material, dragging up or down at the outside bends it, dragging down in the middle opens a design list.</p>
+<p>Use <strong>page size</strong> to adapt the controls to tablet, monitor or VR. Clock and media skins can be chosen independently. On iPad/iPhone you can add the web app to the home screen via Safari.</p>
+<h3 id="searching-and-saving-airfields">Searching and saving airfields</h3>
+<p>Departure and destination can be selected by identifier, name and search suggestions. The self-hosted data covers airfields worldwide, including ones without a classic ICAO code. With similar names, check the place shown and pick the result deliberately.</p>
+<p>With the <strong>star</strong> in the airfield search you save favourites. They appear when you open a matching field and are offered first in the results. There are favourite stars on the map too; their display can be switched under <strong>Display → Favourites</strong>.</p>
+<p>The <strong>airfield types</strong> filter limits the offered and automatically chosen fields. For civil heliports, <strong>Heli</strong> must be enabled explicitly. Different departure/destination types can be combined by selecting several categories.</p>
+</section>
+<section class="chapter" id="4-dispatch-and-mission-types" aria-labelledby="4-dispatch-and-mission-types-titel"><h2 id="4-dispatch-and-mission-types-titel">4. Dispatch and mission types</h2>
+<h3 id="random-suggestions-or-your-own-destination">Random, suggestions or your own destination</h3>
+<ul>
+<li><strong>Empty destination / RNDM / ----:</strong> the dispatcher searches for a destination.</li>
+<li><strong>Set a destination:</strong> plan a specific connection, as far as it fits the chosen profile.</li>
+<li><strong>RDM:</strong> generate randomly right away.</li>
+<li><strong>PICK:</strong> see suggestions first and have one of them worked out.</li>
+<li><strong>Distance and direction:</strong> narrow the search area. Very tight settings can limit the choice a lot.</li>
+<li><strong>Region:</strong> where offered in the chosen view, narrow down between regional and international destinations.</li>
+</ul>
+<p>The aircraft values and the chosen mission profile influence the selection. A draft can be reviewed before you accept it.</p>
+<h3 id="airfield-poi-and-bush-jobs">Airfield, POI and bush jobs</h3>
+<p><strong>APT</strong> usually leads from one airfield to another: club, private, charter, cargo, training, medical transfer, fragile cargo, animal transport, reporter or sightseeing.</p>
+<p><strong>POI</strong> puts a task at a place at the centre: training, infrastructure inspection, chain survey, photo/film, mapping/survey, reporter, sightseeing, learning guide, historian, bio/environment, geo/relief, SAR/rescue or fire watch.</p>
+<p><strong>Bush</strong> stands for remote landing sites and backcountry flights: supply, charter, adventure, exploration with return as well as passenger or cargo pickup with return flight.</p>
+<p>You can also search by target categories such as bridges, roads, dams, radio masts, industry, castles, waters, mountains or towns. <strong>Free flight/planning</strong> delivers a planning route without a mission flow.</p>
+<h3 id="what-does-a-job-require">What does a job require?</h3>
+<p>Read the specific briefing: a photo task is different from a visual inspection, an area survey or a pickup. Not every POI flight requires a photo, not every job ends at the first destination and not every mission carries passengers.</p>
+<p>Training, mapping and other work jobs may require certain altitudes, areas, times or individual confirmations. You find the current conditions during the flight in <strong>Mission Control</strong>.</p>
+</section>
+<section class="chapter" id="5-briefing-and-flight-plan-handover" aria-labelledby="5-briefing-and-flight-plan-handover-titel"><h2 id="5-briefing-and-flight-plan-handover-titel">5. Briefing and flight plan handover</h2>
+<h3 id="what-is-in-the-briefing">What is in the briefing?</h3>
+<ul>
+<li><strong>Job:</strong> title, background, passengers, cargo, distance, course and estimated flight time.</li>
+<li><strong>Nav log:</strong> waypoints, frequencies, courses, distances, times and fuel estimate.</li>
+<li><strong>Departure and destination:</strong> available runway, weather, frequency, AIP and place information.</li>
+<li><strong>Elevation profile:</strong> terrain, altitude planning and available hints along the route.</li>
+</ul>
+<p>In the nav log the airspace filter can limit the warnings to your planned altitude. A source link helps to open additional airfield or weather information.</p>
+<h3 id="flight-code-pdf-and-msfs-file">Flight code, PDF and MSFS file</h3>
+<p>Via <strong>DATA / 💾 / Transfer</strong> you can copy or load flight codes and import MSFS flight plans or export them as <code>.pln</code>. The PDF function creates a briefing to take along or print.</p>
+<p>Accept a mission draft before you pin, share or pass it on for the flight. A pure planning import is not yet a started job.</p>
+<h3 id="load-via-the-efb-already-on-the-world-map">Load via the EFB already on the world map</h3>
+<p>You can take over the prepared flight already on the <strong>MSFS 2024 world map</strong>:</p>
+<ol>
+<li>Prepare the job in the Multitool and choose <strong>Accept mission</strong>.</li>
+<li>Keep the tracker running and open the <strong>VFR Multitool in the EFB</strong> on the world map. The EFB package must be installed for this.</li>
+<li>In the planning note, choose to send the flight plan to ATC. Wait for the confirmation and check the start position and aircraft in the simulator.</li>
+<li>Load the flight in the simulator. As soon as you are ready on the ground in the cockpit, choose <strong>Start mission</strong>.</li>
+</ol>
+<p>This brings the planning into the simulator before you even enter the cockpit. The world map transfer alone does not start a mission and does not load passengers or cargo.</p>
+<h3 id="send-directly-to-msfs-and-avionics">Send directly to MSFS and avionics</h3>
+<p>With a matching tracker and cockpit package you can also send the route from the EFB or the toolbar to the <strong>simulator’s flight planning</strong>. The planning notes offer the matching transfer path. A closed planning banner can be brought back via the toolbar.</p>
+<p>Mission Control offers the transfer to <strong>MSFS</strong> as well as to <strong>MSFS and avionics</strong>. For the avionics, switch the device on and let it boot first. Not every aircraft takes over a plan in the same way; look at the confirmation and check the route in the device.</p>
+<p>If the confirmation of the takeover is missing, don’t assume the transfer succeeded.</p>
+</section>
+<section class="chapter" id="6-mission-passengers-and-loading" aria-labelledby="6-mission-passengers-and-loading-titel"><h2 id="6-mission-passengers-and-loading-titel">6. Mission, passengers and loading</h2>
+<h3 id="starting-and-finding-the-next-step">Starting and finding the next step</h3>
+<p>After <strong>Accept mission</strong> the job is prepared. In normal simulator operation the <strong>tracker</strong> runs the mission flow; web app, EFB and toolbar show the same state and the actions allowed there.</p>
+<ol>
+<li>Connect the tracker and load the cockpit completely.</li>
+<li>Stop on the ground and choose <strong>Start mission</strong>.</li>
+<li>Carry out boarding and loading as instructed.</li>
+<li>Only set off on the actual flight after clearance.</li>
+</ol>
+<p><strong>Mission Control</strong> in the side menu of the map table shows task, phase, distance, working altitude, working time or area/chain progress. Added to that are mandatory conditions, passenger mood, cargo state and deviation hints.</p>
+<h3 id="load-manager">Load manager</h3>
+<p>The load manager bundles <strong>loading</strong>, <strong>pickup</strong> and <strong>unloading</strong>. It shows the people and items relevant to the current station as well as what is on board.</p>
+<ol>
+<li>Load, pick up or unload mandatory items at the right destination.</li>
+<li><strong>Sign</strong> the list and wait for the signature.</li>
+<li>Then <strong>confirm</strong> the loading separately.</li>
+</ol>
+<p>A change after signing requires a new signature. A departure signature does not automatically apply to pickup or arrival. Closing the window does not discard the edited state. You can reopen the dialog via the cargo area.</p>
+<p>Loading is locked in the simulator menu and on the world map. If a job doesn’t continue, check mandatory items, signature and confirmation as well as the next expected action.</p>
+<h3 id="boarding-baggage-and-arrival">Boarding, baggage and arrival</h3>
+<p>Depending on the job, people, baggage, cargo and matching scenes appear in the simulator. Boarding and disembarking are part of the flow; an open target point alone does not complete a pickup.</p>
+<p>For pickup jobs a return flight may follow after loading. On arrival the intended items and people must be handed over before completion and debrief are released. Wait for ongoing boarding/disembarking actions or farewell announcements.</p>
+<p>Passenger texts and optional voices accompany the mission phase and flying behaviour. Available conversation and task actions appear in the mission/passenger areas. New entries may be marked by a hint; you don’t need to keep all areas open all the time.</p>
+<h3 id="on-board-equipment-and-aircraft-log">On-board equipment and aircraft log</h3>
+<p>Aircraft log, first-aid kit, fire extinguisher and wheel chocks can be managed on the ground at a standstill, also independently of a mission. They are separate from the mandatory mission baggage. Items left behind can count as lost after departure.</p>
+<p>The <strong>aircraft log</strong> belongs to the equipment carried. The red <strong>logbook on the main page</strong>, on the other hand, shows completed flights and their evaluation.</p>
+</section>
+<section class="chapter" id="7-interrupting-resuming-and-logbook" aria-labelledby="7-interrupting-resuming-and-logbook-titel"><h2 id="7-interrupting-resuming-and-logbook-titel">7. Interrupting, resuming and logbook</h2>
+<h3 id="resuming-a-running-job">Resuming a running job</h3>
+<p>After a simulator disconnect or a tracker restart, the running mission state can be kept. The interface shows a saved or interrupted job; boarding and loading actions wait in the meantime.</p>
+<p>Start MSFS again and load a flight. In the current flow, resuming is the normal case: the loaded cockpit picks the mission up again as soon as the conditions at the save point are met. Short connection interruptions can recover on their own.</p>
+<ul>
+<li><strong>Interruption on the ground:</strong> park the aircraft at the departure, destination or save point shown and let it stand still briefly.</li>
+<li><strong>Interruption in the air:</strong> fly to the marked zone and keep flying normally for the time shown. If offered, you can be moved to the save point.</li>
+</ul>
+<h3 id="resuming-a-saved-flight-via-the-world-map">Resuming a saved flight via the world map</h3>
+<p>You can also prepare a saved, interrupted flight again on the <strong>world map</strong>:</p>
+<ol>
+<li>Start the tracker and open the <strong>VFR Multitool in the EFB</strong> on the MSFS 2024 world map.</li>
+<li>On the interrupted job, choose to load the save point as soon as the action is offered. This hands the re-entry to the simulator’s flight planning; after an interruption in the air this can be an air start at the save point.</li>
+<li>Note the confirmation and hints, choose the matching aircraft and load the flight in the simulator.</li>
+<li>Follow the resume hints in the cockpit. As soon as the conditions at the save point are met, your previous job continues. If needed, then load the flight plan into the avionics.</li>
+</ol>
+<p>You don’t need to create a new job or reset the mission for this.</p>
+<p>A world map position sent for re-entry and the route for the avionics serve different purposes. Check the start position and then the flight plan in the cockpit. A save point does not load a particular aircraft model by itself.</p>
+<h3 id="resume-or-restart">Resume or restart?</h3>
+<p><strong>Resume</strong> is meant to keep your running job. <strong>Restart / reset mission</strong> begins the flow again; <strong>cancel</strong> ends the job. Don’t choose reset just because the tracker is temporarily missing.</p>
+<p>Jobs that are planned and accepted but not started have no age limit. The browser recovery of a started job and the stored tracker run are different backups; follow the tracker status currently shown. A browser time limit is not a general expiry date for every tracker save point.</p>
+<h3 id="completion-and-debrief">Completion and debrief</h3>
+<p>Once the job is done and the handover completed, <strong>Completion &amp; debrief</strong> or <strong>End mission</strong> becomes available. The evaluation shows the recorded flight data; for multi-part flights, the existing segments are merged for the mission evaluation.</p>
+<p>The final mission completion writes the entry to the logbook automatically. An intermediate stop is not yet the final mission completion.</p>
+<h3 id="the-red-logbook">The red logbook</h3>
+<p>Open the red leather logbook on the main page. It shows date, aircraft, route, duration, distance and a job note. You page with the side buttons; an existing entry opens its details or the debrief.</p>
+<p>Clearing the whole logbook is a separate action with confirmation. Pure Direct To flights have no mission completion and are therefore not automatically the same as a logged mission flight.</p>
+</section>
+<section class="chapter" id="8-map-table-route-and-radio" aria-labelledby="8-map-table-route-and-radio-titel"><h2 id="8-map-table-route-and-radio-titel">8. Map table, route and radio</h2>
+<h3 id="the-map-day-to-day">The map day to day</h3>
+<p>The <strong>map table</strong> works with a job, an imported route and free flight. The full-screen icon gives the map more room. On small displays you can collapse the upper toolbar.</p>
+<ul>
+<li>Move, add and remove waypoints; <strong>Route Reset</strong> undoes manual changes.</li>
+<li><strong>Snapping</strong> helps to snap to airfields, navaids and reporting points.</li>
+<li><strong>Auto-follow</strong> follows your live position; <strong>auto-zoom</strong> adjusts the view with look-ahead.</li>
+<li>Route bar, telemetry, current position and waypoint info can be shown under <strong>Display</strong>.</li>
+<li>You choose map styles and layers in the map menu. Availability and display differ between browser and cockpit.</li>
+</ul>
+<p><img src="assets/welcome/kartentisch.png" alt="Map table with route, airspace and elevation profile in the Black Forest. Sample view without a live flight; German interface." loading="lazy" decoding="async" /></p>
+<p>In the browser there are also the reduced OpenFreeMap styles <strong>Positron (light)</strong>, <strong>Dark</strong> and <strong>Fiord</strong>. They need WebGL and internet. EFB and toolbar use their supported raster base maps; a browser map choice does not automatically mean the same map style there.</p>
+<h3 id="direct-to-without-a-job">Direct To without a job</h3>
+<ol>
+<li>Open the map table and switch on <strong>Direct To</strong>.</li>
+<li>Choose an airfield or a map point as the destination.</li>
+<li>With live GPS the connection starts at your current position; otherwise an existing planning start is used.</li>
+</ol>
+<p>No boarding, cargo or mission start is needed for this. For story, tasks, pickups and mission scenes, choose a real dispatch.</p>
+<h3 id="taking-over-radio-and-frequencies">Taking over radio and frequencies</h3>
+<p>The radio area offers available frequencies for route and airfields; the waypoint info supports orientation towards the next leg. ATIS can be shown too when the data is available.</p>
+<p>Under <strong>Display → NAVCOM</strong> you decide how offered frequencies are operated:</p>
+<ul>
+<li><strong>OFF:</strong> no direct radio takeover.</li>
+<li><strong>Device 1 active:</strong> direct takeover to the first matching device.</li>
+<li><strong>Selection:</strong> choose target device and, where available, active or standby deliberately.</li>
+</ul>
+<p>With a matching tracker, supported COM, NAV, ADF and transponder values can be transferred to the simulator. Check the feedback and the actual device; not every individual aircraft avionics supports all standard functions.</p>
+<p>The NAVCOM operating mode is synced with your profile. Changing the operating mode alone does not change a frequency.</p>
+<h3 id="nearest-and-airfield-information">Nearest and airfield information</h3>
+<p><strong>Nearest</strong> searches for nearby airfields using the live position. <strong>Airfield</strong> bundles available departure/destination info and AIP links. On the map you can select airfields and points for more information. Missing data is no confirmation that there is no frequency, restriction or peculiarity on site.</p>
+</section>
+<section class="chapter" id="9-weather-airspace-and-terrain" aria-labelledby="9-weather-airspace-and-terrain-titel"><h2 id="9-weather-airspace-and-terrain-titel">9. Weather, airspace and terrain</h2>
+<h3 id="weather-and-vfr-index">Weather and VFR index</h3>
+<p>Under <strong>Display</strong> you can enable weather layers with available METAR/model information, wind and clouds. The weather side menu adds the details along your route.</p>
+<p>The <strong>VFR index</strong> offers a regional overview with planning country, model choice and time window. You can switch between the offered model views, choose the traffic-light window and refresh the data.</p>
+<p>Pay attention to source, time and covered area. A weather model and an airfield METAR don’t answer the same question. The map display is no proof that MSFS is simulating exactly this weather right now.</p>
+<h3 id="elevation-profile">Elevation profile</h3>
+<p>The profile shows the flight from the side: terrain, available obstacles, airspace limits, weather and traffic where present. Cruise altitude and climb/descent rate influence the planned altitude curve and TOC/TOD.</p>
+<p>You can zoom horizontally, scale the altitude axis automatically or manually and change the profile height with the handle. <strong>RTE</strong> follows the planned route; <strong>HDG</strong> looks in the current flight direction when live data is available.</p>
+<h3 id="terrain-avoid-and-warnings">Terrain avoid and warnings</h3>
+<p><strong>Terrain avoid</strong> colours the terrain by your live altitude or the planning altitude used. Warning and clearance thresholds can be set. Check for a sensible altitude before you judge the display.</p>
+<p>Airspace, terrain, frequency and waypoint hints can be enabled separately. The warnings side menu helps with the current airspace information. Traffic comes from the available simulator data and is not a complete picture of every online network.</p>
+</section>
+<section class="chapter" id="10-checklists-calculators-and-clocks" aria-labelledby="10-checklists-calculators-and-clocks-titel"><h2 id="10-checklists-calculators-and-clocks-titel">10. Checklists, calculators and clocks</h2>
+<h3 id="checklists">Checklists</h3>
+<p><strong>Here:</strong> map table → side menu → <strong>Checklist</strong>.</p>
+<p>There are built-in lists, your own checklists and community lists. You can create your own chapters and items, reorder them and import or pass on lists by code. Community lists can be subscribed to or copied as a basis; your own publications are managed separately.</p>
+<p>Keep the list library and the ticks apart: the library can also be provided to the matching tracker/EFB; the current ticking progress belongs to the respective view. Don’t rely on every ticked box appearing identically on all devices right away.</p>
+<h3 id="drawing-measuring-vfr-calculator-and-e6b">Drawing, measuring, VFR calculator and E6B</h3>
+<p>Via the map tools you reach pen, eraser, colours, line width and the measuring tool. Drawings are meant for notes and sketches; they don’t change the flight route automatically.</p>
+<p>The <strong>VFR calculator</strong> helps with time, fuel, wind, descent and units, among other things. The formula help explains the relationships used. The <strong>E6B</strong> adds the classic interactive flight computer with calculator and wind side.</p>
+<h3 id="time-timer-and-watch">Time, timer and watch</h3>
+<p>Under <strong>Display → Time</strong> you choose the clock view, the time source <strong>simulator / device</strong> and <strong>UTC / local</strong>. If usable simulator time data is missing, the interface shows the device fallback.</p>
+<p>Via the clock tool you open the stopwatch or <strong>A Watch</strong>. Timer and time measurement can be used independently of the main design. The clock choice is not tied to the chosen media skin.</p>
+<p><strong>Low FPS mode</strong> and an adjusted page size can help on weaker tablets or in VR. Too many layers and windows visible at the same time cost overview and performance.</p>
+</section>
+<section class="chapter" id="11-voices-music-and-radio-pause" aria-labelledby="11-voices-music-and-radio-pause-titel"><h2 id="11-voices-music-and-radio-pause-titel">11. Voices, music and radio pause</h2>
+<h3 id="warnings-and-passenger-voices">Warnings and passenger voices</h3>
+<p><strong>Here:</strong> map table → <strong>Audio</strong>; on the PC also tracker → <strong>Audio</strong>.</p>
+<p>Warnings, frequency and waypoint announcements as well as passenger/story voices can be set separately. Texts remain usable when voices are switched off. You choose voice, sound and the offered AI options as needed.</p>
+<p>For the central speech generation in the tracker, enter a matching Gemini or OpenAI key under <strong>Provider / API-Key</strong> and choose <strong>Sicher speichern</strong> (save securely). A running tracker restarts in the process: make changes before the flight.</p>
+<h3 id="pc-output-and-music-control">PC output and music control</h3>
+<p>In the tracker, check <strong>Audio aktiviert</strong> (audio enabled), <strong>PC-Ausgang</strong> (PC output) and volume. Choose your headset, for example, rather than another Windows output by mistake.</p>
+<p>Open your music player on Windows and start playback there. Under <strong>Musik / Windows-Player</strong> or in the Multitool media control you choose the available source. The features use the running Windows player and its supported controls; the Multitool provides no music subscription and no streaming library of its own.</p>
+<p>Switch on the <strong>media control</strong> in the audio menu of the map table. <strong>Winamp</strong>, <strong>iPod</strong> and <strong>Watch</strong> are available as skins. You use them to control playback and available track/time information. Players and clocks have their own size and view options.</p>
+<p><strong>Bei Ansagen leiser</strong> (quieter during announcements) lowers the music during voices and warnings. The remaining volume decides how much of it stays audible. This setting is coordinated with the Windows output.</p>
+<h3 id="radio-pause-via-key-or-joystick">Radio pause via key or joystick</h3>
+<p><strong>Here:</strong> tracker → Audio → <strong>Funk-Pause (PTT)</strong> (radio pause).</p>
+<ol>
+<li>Switch on <strong>Funk-Pause aktiv</strong> (radio pause active).</li>
+<li>Teach a key or a joystick button via <strong>+ Button hinzufügen</strong> (add button). Several assignments are possible.</li>
+<li>For voices/warnings choose <strong>Pausieren</strong> (pause) or <strong>Leiser</strong> (quieter); matching options are available for music as well.</li>
+<li>Under <strong>Automatisch weiter nach</strong> (continue automatically after) set the waiting time after releasing. This leaves room for the radio reply.</li>
+</ol>
+<p>The button remains usable for your radio program and the simulator. A short press during an existing pause can resume the output immediately if the corresponding option is enabled. The radio pause applies to the PC output.</p>
+<h3 id="detecting-talking-programs-automatically">Detecting talking programs automatically</h3>
+<p>Enable <strong>Programme automatisch erkennen</strong> (detect programs automatically) and select the program you want via <strong>+ Programm hinzufügen</strong> (add program) while it is playing sound. For example, your radio program can make the voices pause.</p>
+<p>Per program you can set reaction, sensitivity and <strong>Auslösen nach</strong> (trigger after). <strong>Wie PTT</strong> (like PTT) uses the shared pause rules; <strong>Nur leiser</strong> (only quieter) lowers the outputs. The detection reads audio levels and does not record conversations.</p>
+</section>
+<section class="chapter" id="12-tracker-autostart-and-updates" aria-labelledby="12-tracker-autostart-and-updates-titel"><h2 id="12-tracker-autostart-and-updates-titel">12. Tracker, autostart and updates</h2>
+<h3 id="installing-and-connecting">Installing and connecting</h3>
+<p>Install the Windows tracker via the download in <strong>Settings → Pilot Identity &amp; Sync</strong>. The program loads its matching tracker version and checks for updates.</p>
+<p>Under <strong>Konto</strong> (account) enter the same pilot ID and PIN as in the web app, then choose <strong>Prüfen &amp; verbinden</strong> (check &amp; connect). The tracker checks an existing profile; you create a new ID first in the web app via login.</p>
+<p>Tracker and web app must be signed in to the same pilot. A desktop app version, a tracker version and an EFB package version are different components; they don’t have to carry the same version number.</p>
+<h3 id="what-do-the-status-indicators-mean">What do the status indicators mean?</h3>
+<ul>
+<li><strong>WAIT:</strong> the app or a part of the connection is still waiting; that alone does not confirm an active simulator.</li>
+<li><strong>LINK:</strong> tracker connected, but no fresh live flight data.</li>
+<li><strong>LIVE:</strong> current sim data is arriving.</li>
+<li><strong>HIB:</strong> the tracker rests, for example during pause, in the menu or at a suitable standstill; during an active flight it can wake up again.</li>
+<li><strong>OFF:</strong> no active tracker telemetry.</li>
+</ul>
+<p><strong>C</strong> and <strong>R</strong> mark the available connection paths. What matters for the flight test are a connected simulator and fresh live data, not just a green connection dot.</p>
+<h3 id="starting-the-tracker-automatically-or-in-the-tray">Starting the tracker automatically or in the tray</h3>
+<p>In the <strong>Tracker</strong> module you decide whether the tracker engine starts automatically when the desktop app opens and whether the window should start minimised in the Windows tray in future. If a sign-in or an update decision is needed, the window can still appear.</p>
+<p>This is different from the following program start list and from Windows starting at boot.</p>
+<h3 id="autostart-for-your-flying-evening">Autostart for your flying evening</h3>
+<p><strong>Here:</strong> tracker → <strong>Autostart</strong>.</p>
+<ol>
+<li>Switch on <strong>Autostart aktivieren</strong> (enable autostart); <strong>Tracker &amp; Sim starten</strong> (start tracker &amp; sim) appears at the top.</li>
+<li>Use <strong>Sim erkennen</strong> (detect sim) to find installed MSFS versions and select one if needed.</li>
+<li>Drag programs or shortcuts into the list or choose <strong>Importieren</strong> (import).</li>
+<li>Change the order by dragging or with the arrows and set pauses via <strong>Danach warten</strong> (wait afterwards).</li>
+<li>Place helpers that need a running simulator below <strong>Auf SimConnect warten</strong> (wait for SimConnect).</li>
+</ol>
+<p>The tracker is a fixed entry in the start list. The shared start button runs the list; programs that are already running are skipped. The extra options allow, among other things, minimised start, arguments and, where needed, starting as administrator.</p>
+<p><strong>Mit dem Sim schließen</strong> (close with the sim) only considers programs this autostart opened itself. The simulator itself is not closed by it. The module does not set up Windows autostart at boot automatically.</p>
+<h3 id="updates-stable-and-alpha">Updates, Stable and Alpha</h3>
+<p>Desktop app, tracker engine, Homebase package, EFB and bridge have their own update areas and rules. New versions can be installed once, taken over automatically in future or postponed, where offered.</p>
+<p><strong>Stable</strong> is preset for regular use. <strong>Alpha</strong> contains newer test versions. Switching the channel can restart the running tracker and require a different EFB package. Plan such changes before a flight and check the channel shown.</p>
+<h3 id="optional-accusim-telemetry-bridge">Optional AccuSim Telemetry Bridge</h3>
+<p>For matching DRSM/motion use, the <strong>AccuSim Telemetry Bridge</strong> module can detect an existing installation or offer an installer. Settings and start/stop behaviour are available via the tracker. The bridge is not required for normal map planning, missions or a first live test.</p>
+</section>
+<section class="chapter" id="13-msfs-2024-efb-toolbar-and-vr" aria-labelledby="13-msfs-2024-efb-toolbar-and-vr-titel"><h2 id="13-msfs-2024-efb-toolbar-and-vr-titel">13. MSFS 2024 EFB, toolbar and VR</h2>
+<h3 id="installing-the-cockpit-package">Installing the cockpit package</h3>
+<p>Open the <strong>VFR Multitool EFB</strong> module in the tracker and follow the installation path offered. Close MSFS for package changes and restart it afterwards. The current shared package contains the EFB app and the toolbar panel; the tracker must be running for the full map table to be available.</p>
+<p>If an older version only shows a reduced map or the connection is missing, check tracker, channel and EFB package first. A visible base map alone does not confirm that all mission features are ready.</p>
+<h3 id="what-is-available-in-the-cockpit">What is available in the cockpit?</h3>
+<p>The shared cockpit view offers map, route, profile, Mission Control, loading, checklists, radio, warnings, audio and tools, as far as the installed version supports them. EFB and toolbar operate the same running job; they are not separate missions.</p>
+<p>The EFB already helps <strong>before the cockpit on the world map</strong>: there you can load a prepared flight or hand over a saved, interrupted flight for resuming. The flows are described in chapters 5 and 7.</p>
+<p>In VR, scaling, collapsible bars and suitable window sizes help. Movable tools and media views can be positioned separately. The supported map styles can differ from the web app.</p>
+<p>The web app remains the entry point for dispatch, extensive settings and Homebase editing. Not every web window is available in the cockpit as its own editor.</p>
+</section>
+<section class="chapter" id="14-designing-your-homebase" aria-labelledby="14-designing-your-homebase-titel"><h2 id="14-designing-your-homebase-titel">14. Designing your Homebase</h2>
+<h3 id="start-point-hangar-and-equipment">Start point, hangar and equipment</h3>
+<p><strong>Here:</strong> main page → blueprint <strong>Homebase Designer</strong>.</p>
+<ol>
+<li>Set the future start point on the map or take over the current aircraft position.</li>
+<li>Choose and place a hangar model or an open parking area.</li>
+<li>Add equipment, move it, rotate it and adjust its height.</li>
+<li>With tracker and simulator running, check the display and resync if needed.</li>
+</ol>
+<p>Hangar and items use the <strong>Homebase Asset Pack</strong>. Check or install it via the tracker if models are missing. A compiled airfield mod of your own is not strictly needed just for designing.</p>
+<p><img src="assets/welcome/homebase.png" alt="Homebase Designer with map, start point and hangar selection. The sample view is not connected to the simulator; German interface." loading="lazy" decoding="async" /></p>
+<h3 id="doors-lights-and-staff">Doors, lights and staff</h3>
+<p>Supported models have operable doors, lights or animations. The switches offered depend on the placed objects. For matching hangar doors you can enable automatic opening and closing on approach.</p>
+<p>Dynamic tarmac people can walk to target points at the Homebase. For this, create staff and their target pool or use the placed objects as possible targets. This equipment belongs to your Homebase and is not automatically a mission passenger.</p>
+<h3 id="sharing-with-the-crew">Sharing with the crew</h3>
+<p>Via the option to share your Homebase with the current crew, you can make matching Homebase objects and staff visible to your crew. They are displayed nearby; object and area limits prevent an arbitrarily large shared scene.</p>
+<p>The Homebase planning is saved locally and transferred to the cloud with auto-sync enabled. The designer remains in charge of editing.</p>
+<h3 id="installing-it-as-your-own-start-location">Installing it as your own start location</h3>
+<p>Optionally the assistant builds an MSFS mod so you can start a flight directly at the Homebase parking spot. Depending on the selection it contains start location, hangar and equipment or only the start location. This needs the matching SDK build environment; the workbench guides you through missing requirements.</p>
+<p>Changes to compiled objects require a new build. An installed mod, the shared object package and your saved draft are different things. Removing the compiled mod does not delete your planning automatically.</p>
+<h3 id="homebase-without-a-permanently-open-web-app">Homebase without a permanently open web app</h3>
+<p>From <strong>tracker v589 in the Alpha channel</strong>, the tracker loads your own saved Homebase and shared crew Homebases from the cloud itself. The web app does not have to stay open for them to be displayed. Save your planning with auto-sync enabled and use the same pilot ID in the tracker. The matching object package, the crew sharing and being close to the Homebase remain requirements. To edit, you still open the designer. Older trackers may still need the open web app for this.</p>
+</section>
+<section class="chapter" id="15-pinboard-and-crew-board" aria-labelledby="15-pinboard-and-crew-board-titel"><h2 id="15-pinboard-and-crew-board-titel">15. Pinboard and crew board</h2>
+<h3 id="your-private-pinboard">Your private pinboard</h3>
+<p>Via <strong>Pinboard → Private</strong> you manage sticky notes, flight ideas and pinned jobs. Notes can be moved, edited and removed. You can pin accepted flights from the briefing and open them again later; flight codes can be loaded.</p>
+<p>With auto-sync, the private content belongs to your pilot ID. A pinned plan is not a second mission running at the same time.</p>
+<h3 id="setting-up-a-crew">Setting up a crew</h3>
+<ol>
+<li>Sign in with your personal pilot ID and PIN.</li>
+<li>Under <strong>Settings → Crew Board</strong> enter the shared <strong>crew code</strong>.</li>
+<li>Optionally set a display name and choose <strong>Join / Update</strong>.</li>
+<li>Open <strong>Pinboard → Crew</strong>.</li>
+</ol>
+<p>The personal pilot ID stays different for each member. Everyone uses the same crew code. New notes can be marked; the member overview shows the crew. The first creator gets the admin role and can remove members.</p>
+<p>Your own crew notes can be removed for everyone. Other people’s notes can be hidden locally. Only share content that belongs to the group; API keys and PINs don’t belong on the pinboard.</p>
+<p>The crew board shares jobs and planning. It replaces neither the MSFS multiplayer session nor ATC or a radio server.</p>
+</section>
+<section class="chapter" id="16-help-data-and-frequent-questions" aria-labelledby="16-help-data-and-frequent-questions-titel"><h2 id="16-help-data-and-frequent-questions-titel">16. Help, data and frequent questions</h2>
+<h3 id="no-live-position-or-the-mission-waits-for-the-tracker">No live position, or the mission waits for the tracker</h3>
+<p>First check pilot ID and PIN on both sides, the tracker start, a loaded sim flight and the LIVE status. For a running mission after a disconnect, watch for the resume hints. A connection problem alone is no reason to reset the job.</p>
+<h3 id="the-job-doesnt-continue-on-the-ground">The job doesn’t continue on the ground</h3>
+<p>Open Mission Control and cargo. Are all mandatory items done for exactly this station? Is the matching list signed and then confirmed? Is boarding, disembarking or a farewell still running? These ground actions cannot be carried out on the world map.</p>
+<h3 id="ai-doesnt-work-or-voices-stay-silent">AI doesn’t work or voices stay silent</h3>
+<p>Check provider and key. Check the browser briefing key and the tracker voice key separately; look at quota and billing with the provider. For sound, also check PC output, volume, voice switches and radio pause. An AI briefing alone does not create a spoken announcement.</p>
+<h3 id="crew-content-or-saved-data-is-missing">Crew content or saved data is missing</h3>
+<p>Check the right pilot ID, successful sign-in, auto-sync and crew code. A new crew board may still be empty. Before a manual push/pull, clarify which state should be kept. Don’t delete browser data or app caches hastily.</p>
+<h3 id="help-and-feedback">Help and feedback</h3>
+<p>The <a href="setup.html">guided setup</a> explains the first steps. The built-in <strong>tutorial</strong> remains available in the app. <strong>Report a problem</strong> opens the <a href="testboard.html">testboard</a> with pilot ID, device data and debug log; nothing is sent until you press send there. Without a pilot ID an e-mail draft opens as before. For ideas and questions there is the <a href="https://discord.gg/xzXQXey2N8" target="_blank" rel="noopener noreferrer">Discord community</a>.</p>
+<h3 id="data-sources-and-limits">Data sources and limits</h3>
+<p>Depending on the feature, our own airfield data, maps, OpenAIP/aero data, weather sources, VFR/DWD data, place information, sim data and optional AI answers are used. Sources and legal notes are under <a href="legal.html#daten-lizenzen">Data &amp; licences</a> (German).</p>
+<ul>
+<li>Internet data can be missing, outdated or temporarily unreachable.</li>
+<li>Preloaded data is not a complete offline operation of all features.</li>
+<li>Map, weather, terrain, obstacle and airspace hints are simulator aids only.</li>
+<li>For new features, app, tracker and, where relevant, cockpit package must match each other.</li>
+<li>If the display looks outdated, check the release note and the offered update path first; back up or sync important local content beforehand.</li>
+</ul>
+</section><a class="back-top" href="#anfang">↑ Back to the top</a></div></div>
+</main>
+<footer><div class="wrap footer-row"><div><strong>VFR MULTITOOL · THE GUIDE</strong><p>For Microsoft Flight Simulator. The installed version and channel determine the available features.</p></div><div class="footer-links"><a href="legal.html#impressum">Imprint (German)</a><a href="legal.html#datenschutz">Privacy (German)</a><a href="legal.html#daten-lizenzen">Data &amp; licences</a></div></div></footer>
+<script>
+(() => {
+  const chapters = [...document.querySelectorAll('.chapter')];
+  const links = [...document.querySelectorAll('[data-chapter]')];
+  const input = document.getElementById('guide-search');
+  const clear = document.getElementById('clear-search');
+  const result = document.getElementById('search-result');
+  const toc = document.getElementById('guide-toc');
+  const compact = matchMedia('(max-width: 800px)');
+  function normalize(text) { return text.toLowerCase().replace(/ß/g, 'ss').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim(); }
+  const text = new Map(chapters.map(chapter => [chapter.id, normalize(chapter.textContent)]));
+  function filter() {
+    const terms = normalize(input.value).split(/\s+/).filter(Boolean);
+    let count = 0;
+    chapters.forEach(chapter => {
+      const visible = terms.every(term => text.get(chapter.id).includes(term));
+      chapter.hidden = !visible;
+      const link = links.find(item => item.dataset.chapter === chapter.id);
+      if (link) link.closest('li').hidden = !visible;
+      if (visible) count++;
+    });
+    clear.hidden = !input.value;
+    document.getElementById('no-results').hidden = count > 0;
+    result.textContent = terms.length ? count + ' of ' + chapters.length + ' chapters found' : 'All ' + chapters.length + ' chapters';
+    if (terms.length && compact.matches) toc.open = true;
+  }
+  function clearSearch() { input.value = ''; filter(); input.focus(); }
+  input.addEventListener('input', filter);
+  input.addEventListener('keydown', event => { if (event.key === 'Escape') clearSearch(); });
+  clear.addEventListener('click', clearSearch);
+  document.getElementById('show-all').addEventListener('click', clearSearch);
+  document.addEventListener('click', event => {
+    const anchor = event.target.closest('a[href^="#"]');
+    if (!anchor) return;
+    let id;
+    try { id = decodeURIComponent(anchor.hash.slice(1)); } catch (_) { return; }
+    const target = document.getElementById(id);
+    if (target && target.closest('.chapter')?.hidden) { input.value = ''; filter(); }
+    if (anchor.dataset.chapter && compact.matches) toc.open = false;
+  });
+  function adaptToc() { toc.open = !compact.matches; }
+  adaptToc(); compact.addEventListener('change', adaptToc);
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(entries => {
+      const visible = entries.filter(entry => entry.isIntersecting && !entry.target.hidden).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+      if (!visible.length) return;
+      links.forEach(link => { if (link.dataset.chapter === visible[0].target.id) link.setAttribute('aria-current', 'location'); else link.removeAttribute('aria-current'); });
+    }, { rootMargin: '-90px 0px -55% 0px' });
+    chapters.forEach(chapter => observer.observe(chapter));
+  }
+  filter(); document.body.classList.add('js');
+})();
+</script>
+</body>
+</html>
