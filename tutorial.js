@@ -1,4 +1,18 @@
 (function () {
+    // UI language (i18n-core.js): _tutT = exact German sentence, _tutK = key with German fallback.
+    function _tutT(text) { return window.GAI18n ? window.GAI18n.phrase(text) : text; }
+    function _tutK(key, german, vars) { return window.GAI18n ? window.GAI18n.t(key, vars, german) : german; }
+    const TUTORIAL_STEP_KEYS = ['welcome', 'settingsMenu', 'designs', 'pilotId', 'cloud', 'apiKey', 'tracker', 'startDest',
+        'distance', 'missionType', 'aircraft', 'generate', 'briefing', 'briefingSave', 'pinboard', 'missionReset',
+        'mapTable', 'sideMenu', 'displayMenu', 'draw', 'voice', 'reopen'];
+    // Title and body per step in the UI language; the German text in buildSteps() is the fallback.
+    function localizeSteps(steps) {
+        return steps.map((step, i) => {
+            const key = TUTORIAL_STEP_KEYS[i];
+            if (!key) return step;
+            return { ...step, title: _tutT(step.title), body: _tutK(`tutorial.step.${key}`, step.body) };
+        });
+    }
     const TUTORIAL_SEEN_KEY = 'ga_onboarding_seen_v1';
     const TUTORIAL_LAST_STEP_KEY = 'ga_onboarding_last_step_v1';
 
@@ -117,8 +131,8 @@
             if (el) el.innerHTML = html;
         };
 
-        setHtml('mTitle', '🧪 Demo Briefing (Tutorial)');
-        setText('mStory', 'Dieses Demo-Briefing wird nur im Tutorial angezeigt und danach wieder entfernt.');
+        setHtml('mTitle', _tutT('🧪 Demo Briefing (Tutorial)'));
+        setText('mStory', _tutT('Dieses Demo-Briefing wird nur im Tutorial angezeigt und danach wieder entfernt.'));
         setText('mDepICAO', 'EDTW');
         setText('mDepName', 'Wing Field');
         setText('mDepCoords', '48.02, 8.53');
@@ -130,7 +144,7 @@
         setText('mPay', '4 PAX');
         setText('mWeight', '~ 240 kg');
         setText('mDistNote', '82 NM');
-        setText('mHeadingNote', 'Kurs 132°');
+        setText('mHeadingNote', _tutK('tutorial.demoHeading', 'Kurs 132°'));
         setText('mETENote', '0h 43m');
         box.style.display = 'block';
     }
@@ -638,7 +652,7 @@
         const opts = options || {};
         if (state.active) return;
 
-        state.steps = buildSteps();
+        state.steps = localizeSteps(buildSteps());
         if (!state.steps.length) return;
 
         state.index = Math.min(
@@ -714,10 +728,15 @@
         root.classList.toggle('ga-tut-freeview', !!step.freeView);
 
         if (titleEl) titleEl.textContent = step.title || 'Tutorial';
+        const closeBtnEl = windowRoot.querySelector('#gaTutCloseBtn');
+        const skipBtnEl = windowRoot.querySelector('#gaTutSkipBtn');
+        if (closeBtnEl) closeBtnEl.setAttribute('aria-label', _tutT('Tutorial schließen'));
+        if (skipBtnEl) skipBtnEl.textContent = _tutT('Zum Ende');
+        if (prevBtn) prevBtn.textContent = _tutT('Zurück');
         if (bodyEl) bodyEl.innerHTML = step.body || '';
         if (counterEl) counterEl.textContent = `${state.index + 1} / ${state.steps.length}`;
         if (prevBtn) prevBtn.disabled = state.index <= 0;
-        if (nextBtn) nextBtn.textContent = state.index >= state.steps.length - 1 ? 'Fertig' : 'Weiter';
+        if (nextBtn) nextBtn.textContent = state.index >= state.steps.length - 1 ? _tutT('Fertig') : _tutT('Weiter');
 
         if (typeof step.afterRender === 'function') {
             try { step.afterRender(); } catch (err) { console.warn('[Tutorial] afterRender failed', err); }
@@ -893,7 +912,7 @@
             const randomPin = String(Math.floor(100000 + Math.random() * 900000));
             idInput.value = randomId;
             pinInput.value = randomPin;
-            msg.textContent = 'Neue Daten erzeugt. Mit "In Felder übernehmen" speichern.';
+            msg.textContent = _tutK('tutorial.sync.generated', 'Neue Daten erzeugt. Mit "In Felder übernehmen" speichern.');
         };
 
         btnApply.onclick = () => {
@@ -901,7 +920,7 @@
             const pinVal = String(pinInput.value || '').trim();
 
             if (!idVal || !pinVal) {
-                msg.textContent = 'Bitte erst ID und PIN ausfüllen.';
+                msg.textContent = _tutT('Bitte erst ID und PIN ausfüllen.');
                 return;
             }
 
@@ -917,7 +936,7 @@
                 try { window.saveSyncId(); } catch (_) {}
             }
 
-            msg.textContent = 'Pilot-ID und PIN wurden übernommen.';
+            msg.textContent = _tutT('Pilot-ID und PIN wurden übernommen.');
         };
     }
 
@@ -942,6 +961,15 @@
     window.openInteractiveTutorial = function (opts) {
         startTutorial(opts || {});
     };
+
+    // Language switch while the tutorial is open: rebuild the steps and redraw the current one.
+    if (window.GAI18n && typeof window.GAI18n.onChange === 'function') {
+        window.GAI18n.onChange(() => {
+            if (!state.active) return;
+            state.steps = localizeSteps(buildSteps());
+            renderStep();
+        });
+    }
 
     window.closeInteractiveTutorial = function () {
         stopTutorial(true);

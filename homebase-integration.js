@@ -1,6 +1,12 @@
 (() => {
   'use strict';
 
+  // UI language (i18n-core.js) for texts shown in the main app. Messages to the Homebase
+  // workbench stay German until the workbench itself is translated.
+  const _hbT = (text) => (window.GAI18n ? window.GAI18n.phrase(text) : text);
+  const _hbK = (key, german, vars) => (window.GAI18n ? window.GAI18n.t(key, vars, german)
+    : String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, (m, n) => (vars && Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m)));
+  let lastAssetStatus = null;
   const CHANNEL = 'vfr-homebase';
   const HOMEBASE_SYNC_URL = 'https://ga-proxy.einherjer.workers.dev/api/homebase/';
   const HOMEBASE_CREW_URL = 'https://ga-proxy.einherjer.workers.dev/api/homebase-group/';
@@ -1105,33 +1111,37 @@
   function updateAssetStatus(status = {}) {
     const element = document.getElementById('homebaseAssetStatus');
     if (!element) return;
+    lastAssetStatus = status;
     element.classList.remove('ok', 'update', 'warn');
     if (status.phase && status.status === 'progress') {
-      element.textContent = status.message || 'Assetprüfung läuft …';
+      element.textContent = status.message || _hbT('Assetprüfung läuft …');
       element.classList.add('warn');
       return;
     }
     if (status.updateAvailable) {
-      element.textContent = `Asset-Update ${status.remoteVersion || ''} verfügbar`;
+      element.textContent = _hbK('homebase.assetUpdate', 'Asset-Update {version} verfügbar', { version: status.remoteVersion || '' });
       element.classList.add('update');
       return;
     }
     if ((status.type === 'homebase_v1.assets.update.install_ack' || status.type === 'homebase_v1.assets.install_ack') && status.packageVersion) {
-      element.textContent = `Assets ${status.packageVersion} installiert`;
+      element.textContent = _hbK('homebase.assetsInstalled', 'Assets {version} installiert', { version: status.packageVersion });
       element.classList.add('ok');
       return;
     }
     if (status.packageComplete || (status.installedComplete && status.installedVersion)) {
-      element.textContent = `Assets ${status.packageVersion || status.installedVersion} installiert`;
+      element.textContent = _hbK('homebase.assetsInstalled', 'Assets {version} installiert', { version: status.packageVersion || status.installedVersion });
       element.classList.add('ok');
       return;
     }
     if (status.remoteError) {
-      element.textContent = 'Assetserver derzeit nicht erreichbar';
+      element.textContent = _hbT('Assetserver derzeit nicht erreichbar');
       element.classList.add('warn');
       return;
     }
-    element.textContent = 'Assetpaket prüfen';
+    element.textContent = _hbT('Assetpaket prüfen');
+  }
+  if (window.GAI18n && typeof window.GAI18n.onChange === 'function') {
+    window.GAI18n.onChange(() => { if (lastAssetStatus) updateAssetStatus(lastAssetStatus); });
   }
 
   function handleTelemetry(event) {

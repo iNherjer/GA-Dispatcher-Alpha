@@ -399,6 +399,17 @@ im JS vorkommen. Deutsche Rückfalltexte in Übersetzungsaufrufen zählen als
 - Offen: Statuszeile `searchIndicator` (Missionsphase), „KI Mode“-Knopf und
   Pinnwand-Knopf (Kind-Elemente), Skins `analog-skins.js` / `navcom-skins.js`.
 
+### Phase 1 – Tutorial und Homebase-Karte (2026-11-05)
+
+- `tutorial.js`: 22 Schritte. Titel über die Satz-Tabelle, Texte als englische HTML-Blöcke
+  `tutorial.step.<key>` (Reihenfolge = `TUTORIAL_STEP_KEYS`; **neuer Schritt = neuer Schlüssel
+  an derselben Stelle**). IDs im Pilot-ID-Baukasten bleiben gleich. Fensterknöpfe, Meldungen
+  und Demo-Briefing übersetzt; Sprachwechsel baut den offenen Schritt neu.
+- `homebase-integration.js`: nur die Asset-Statuszeile der Startkarte (Neuzeichnen beim
+  Sprachwechsel), dazu Kartentitel, Bild-Alt und Schließen-Knopf in `index.html`.
+  **Meldungen an das Homebase-Werkzeug bleiben deutsch**, bis `homebase/` übersetzt ist.
+- Geprüft: alle 22 Schritte DE→EN→DE identisch; Homebase-Texte DE/EN.
+
 ### Phase 1 – PPL-Quiz: Oberfläche (2026-11-05)
 
 Entschieden (User): **erst nur die Oberfläche**, Fragen bleiben deutsch.

@@ -863,13 +863,13 @@
 
     <section class="homebase-blueprint-launch" aria-labelledby="homebaseMainTitle">
         <button id="homebaseBlueprintLaunch" class="homebase-blueprint-button" type="button" onpointerenter="prepareHomebaseBlueprint()" onfocus="prepareHomebaseBlueprint()" onclick="openHomebaseEnvironment()" aria-describedby="homebaseAssetStatus" aria-controls="homebaseOverlay" aria-expanded="false">
-            <span class="homebase-blueprint-sr" id="homebaseMainTitle">Homebase Designer öffnen</span>
+            <span class="homebase-blueprint-sr" id="homebaseMainTitle" data-i18n="homebase.open">Homebase Designer öffnen</span>
             <span class="homebase-blueprint-mask">
-                <img id="homebaseBlueprintSheet" class="homebase-blueprint-sheet" src="assets/ui/homebase/blueprint-09-27.webp" alt="Blaupause einer General-Aviation-Homebase mit Hangar und Propellerflugzeugen" width="1450" height="1000">
+                <img id="homebaseBlueprintSheet" class="homebase-blueprint-sheet" src="assets/ui/homebase/blueprint-09-27.webp" alt="Blaupause einer General-Aviation-Homebase mit Hangar und Propellerflugzeugen" data-i18n-alt="homebase.blueprintAlt" width="1450" height="1000">
             </span>
             <img class="homebase-blueprint-pocket" src="assets/ui/homebase/pocket.webp" alt="" aria-hidden="true" width="1350" height="300">
         </button>
-        <span id="homebaseAssetStatus" class="homebase-asset-status homebase-blueprint-sr">Benötigte Homebase-Objekte werden beim Start des PC-Trackers geprüft</span>
+        <span id="homebaseAssetStatus" class="homebase-asset-status homebase-blueprint-sr" data-i18n-initial>Benötigte Homebase-Objekte werden beim Start des PC-Trackers geprüft</span>
     </section>
     </div>
 
@@ -2689,7 +2689,7 @@
     <div class="homebase-overlay-window" role="dialog" aria-modal="true" aria-label="VFR Multitool Homebase">
         <div class="homebase-overlay-titlebar">
             <span>VFR Multitool – Homebase</span>
-            <button type="button" onclick="closeHomebaseEnvironment()" aria-label="Homebase schließen">Schließen</button>
+            <button type="button" onclick="closeHomebaseEnvironment()" aria-label="Homebase schließen" data-i18n-aria-label="homebase.close" data-i18n="homebase.closeLabel">Schließen</button>
         </div>
         <iframe id="homebaseFrame" src="homebase/index.html?integrated=1&amp;v=homebase-blueprint-20261014-01" title="Homebase Workbench" loading="lazy"></iframe>
     </div>
