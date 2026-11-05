@@ -193,10 +193,10 @@
 <div id="missionMainNotification" class="mission-start-banner mission-main-notification" role="status" aria-live="polite" aria-hidden="true">
     <button type="button" class="mission-start-banner-close" onclick="window.dismissMissionStartBanner && dismissMissionStartBanner()" title="Benachrichtigung ausblenden" data-i18n-title="a11y.002">×</button>
     <div class="mission-start-banner-body">
-        <div id="missionMainNotificationKicker" class="mission-start-banner-kicker">Mission bereit</div>
-        <div id="missionMainNotificationText" class="mission-start-banner-text">Die nächste Missionsaktion ist verfügbar.</div>
+        <div id="missionMainNotificationKicker" class="mission-start-banner-kicker" data-i18n-initial>Mission bereit</div>
+        <div id="missionMainNotificationText" class="mission-start-banner-text" data-i18n-initial>Die nächste Missionsaktion ist verfügbar.</div>
     </div>
-    <button type="button" class="mission-start-banner-btn" id="missionMainNotificationBtn" onclick="window.handleMissionMainNotificationAction && handleMissionMainNotificationAction()">Mission öffnen</button>
+    <button type="button" class="mission-start-banner-btn" id="missionMainNotificationBtn" onclick="window.handleMissionMainNotificationAction && handleMissionMainNotificationAction()" data-i18n-initial>Mission öffnen</button>
 </div>
 <div class="win95-desktop-decor">
     <button type="button" class="win95-desktop-icon win95-icon-main" onclick="openWin95DesktopApp('main')" aria-label="VFR Multitool Hauptfenster" data-i18n-aria-label="dispatch.win95.mainAria">
@@ -1892,10 +1892,10 @@
                 <div id="missionStartBanner" class="mission-start-banner" style="display:none;">
                     <button type="button" class="mission-start-banner-close" onclick="window.dismissMissionStartBanner && dismissMissionStartBanner()" title="Banner ausblenden" data-i18n-title="map.banner.hide">×</button>
                     <div class="mission-start-banner-body">
-                        <div id="missionStartBannerKicker" class="mission-start-banner-kicker">Mission bereit</div>
-                        <div id="missionStartBannerText" class="mission-start-banner-text">Tracker verbunden. Szene wird vorbereitet.</div>
+                        <div id="missionStartBannerKicker" class="mission-start-banner-kicker" data-i18n-initial>Mission bereit</div>
+                        <div id="missionStartBannerText" class="mission-start-banner-text" data-i18n-initial>Tracker verbunden. Szene wird vorbereitet.</div>
                     </div>
-                    <button type="button" class="mission-start-banner-btn" id="missionStartBannerBtn" onclick="window.handleMissionStartBannerAction && handleMissionStartBannerAction()">Mission beginnen</button>
+                    <button type="button" class="mission-start-banner-btn" id="missionStartBannerBtn" onclick="window.handleMissionStartBannerAction && handleMissionStartBannerAction()" data-i18n-initial>Mission beginnen</button>
                     <button type="button" class="mission-start-banner-btn is-secondary" id="missionStartBannerSecondaryBtn" style="display:none;" onclick="window.handleMissionStartBannerSecondaryAction && handleMissionStartBannerSecondaryAction()">Mission neustarten</button>
                     <button type="button" class="mission-start-banner-btn is-secondary" id="missionStartBannerTertiaryBtn" style="display:none;" onclick="window.handleMissionStartBannerSecondaryAction && handleMissionStartBannerSecondaryAction('tertiary')">Mission abbrechen</button>
                 </div>

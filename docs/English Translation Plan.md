@@ -454,6 +454,17 @@ im JS vorkommen. Deutsche Rückfalltexte in Übersetzungsaufrufen zählen als
 - Offen: Statuszeile `searchIndicator` (Missionsphase), „KI Mode“-Knopf und
   Pinnwand-Knopf (Kind-Elemente), Skins `analog-skins.js` / `navcom-skins.js`.
 
+### Nachtrag Missions-Banner der Web-App (2026-11-05, nach Tester-Meldung)
+
+- Meldung „Mission läuft noch“ blieb auf Englisch deutsch. `sync.js` übersetzt jetzt die Anzeige
+  von Missions-Banner, Hauptseiten-Hinweis und Missions-Werkzeugleiste über `_syncBannerText`:
+  feste Sätze per Satz-Tabelle, die drei aus Entfernungen/Orten zusammengesetzten
+  Unterbrechungssätze aus `mission-control-ui-core.js` per Muster (Zahlen mit Punkt).
+  Modell und Missionslogik unverändert; Sprachwechsel zeichnet neu.
+- Ausgangstexte des Banners in `index.html` per `data-i18n-initial`.
+- **Weiterhin deutsch (Missionsphase):** der ältere Web-Banner-Zweig der Sim-Modus-Laufzeit
+  (Legacy) und die Missionstexte im EFB.
+
 ### Phase 1 – Abschluss: Breakout, Screenreader-Texte (2026-11-05)
 
 - Breakout/iPod (`media-player-ipod.js`, EFB-Quelle mitgezogen): Spielstatus, Menütitel,

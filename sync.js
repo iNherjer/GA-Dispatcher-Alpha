@@ -12955,13 +12955,13 @@ function _renderTrackerMissionBanner(banner, control, elements = {}) {
     const secondary = document.getElementById('missionStartBannerSecondaryBtn');
     if (secondary) {
         secondary.style.display = model?.secondary ? '' : 'none';
-        secondary.textContent = model?.secondary?.label || 'Mission zurücksetzen';
+        secondary.textContent = _syncBannerText(model?.secondary?.label || 'Mission zurücksetzen');
         secondary.disabled = !!missionExecutionIntentPromise;
     }
     const tertiary = document.getElementById('missionStartBannerTertiaryBtn');
     if (tertiary) {
         tertiary.style.display = model?.tertiary ? '' : 'none';
-        tertiary.textContent = model?.tertiary?.label || 'Mission abbrechen';
+        tertiary.textContent = _syncBannerText(model?.tertiary?.label || 'Mission abbrechen');
         tertiary.disabled = !!missionExecutionIntentPromise;
     }
     if (!model || _missionStartBannerDismissed(model.key)) {
@@ -12969,12 +12969,12 @@ function _renderTrackerMissionBanner(banner, control, elements = {}) {
         return true;
     }
     banner.style.display = 'flex';
-    if (elements.kicker) elements.kicker.textContent = model.kicker;
-    if (elements.text) elements.text.textContent = model.text;
+    if (elements.kicker) elements.kicker.textContent = _syncBannerText(model.kicker);
+    if (elements.text) elements.text.textContent = _syncBannerText(model.text);
     if (elements.close) elements.close.style.display = model.closeHidden === true ? 'none' : '';
     if (elements.button) {
         elements.button.style.display = model.buttonHidden === true ? 'none' : '';
-        elements.button.textContent = model.button;
+        elements.button.textContent = _syncBannerText(model.button);
         elements.button.disabled = !!missionExecutionIntentPromise || model.disabled === true;
     }
     return true;
@@ -13059,8 +13059,8 @@ function _updateMissionStartBanner() {
             return;
         }
         banner.style.display = 'flex';
-        if (kickerEl) kickerEl.textContent = 'Mission läuft noch';
-        if (textEl) textEl.textContent = 'Dein Spielstand wurde gespeichert. Lade den Flug im Ingame-EFB, um die Mission fortzusetzen.';
+        if (kickerEl) kickerEl.textContent = _syncBannerText('Mission läuft noch');
+        if (textEl) textEl.textContent = _syncBannerText('Dein Spielstand wurde gespeichert. Lade den Flug im Ingame-EFB, um die Mission fortzusetzen.');
         if (btn) btn.style.display = 'none';
         if (closeBtn) closeBtn.style.display = '';
         return;
@@ -13524,7 +13524,7 @@ function _updateMissionRuntimeUi() {
         bReset.style.display = legacyResetVisible ? 'inline-flex' : 'none';
         bReset.disabled = false;
         bReset.textContent = '↺ Mission Reset';
-        bReset.title = 'Mission zurücksetzen (mit Rückfrage)';
+        bReset.title = _syncBannerText('Mission zurücksetzen (mit Rückfrage)');
     }
     const trackerControl = window.gaTrackerExecutionControl;
     const trackerInterruption = _trackerInterruptionView(trackerControl);
@@ -13539,8 +13539,8 @@ function _updateMissionRuntimeUi() {
             bMap.style.display = primary ? 'inline-flex' : 'none';
             if (primary) {
                 const prefix = primary.kind === 'cargo' ? '📦 ' : (primary.intent === 'request_close' ? '■ ' : '▶ ');
-                bMap.textContent = prefix + primary.label;
-                bMap.title = primary.title;
+                bMap.textContent = prefix + _syncBannerText(primary.label);
+                bMap.title = _syncBannerText(primary.title);
                 bMap.disabled = !!missionExecutionIntentPromise || primary.disabled === true;
             }
             bMap.classList.toggle('is-active', primary?.intent === 'request_close');
@@ -13548,14 +13548,14 @@ function _updateMissionRuntimeUi() {
         if (bGroundCargo) {
             bGroundCargo.style.display = trackerToolbar.cargo.visible ? 'inline-flex' : 'none';
             bGroundCargo.disabled = !!missionExecutionIntentPromise || trackerToolbar.cargo.disabled === true;
-            bGroundCargo.textContent = '📦 ' + trackerToolbar.cargo.label;
-            bGroundCargo.title = trackerToolbar.cargo.title;
+            bGroundCargo.textContent = '📦 ' + _syncBannerText(trackerToolbar.cargo.label);
+            bGroundCargo.title = _syncBannerText(trackerToolbar.cargo.title);
         }
         if (bReset) {
             bReset.style.display = trackerToolbar.reset.visible ? 'inline-flex' : 'none';
             bReset.disabled = !!missionExecutionIntentPromise || trackerToolbar.reset.disabled === true;
-            bReset.textContent = '↺ ' + trackerToolbar.reset.label;
-            bReset.title = trackerToolbar.reset.title + ' (mit Rückfrage)';
+            bReset.textContent = '↺ ' + _syncBannerText(trackerToolbar.reset.label);
+            bReset.title = _syncBannerText(trackerToolbar.reset.title) + _syncBannerText(' (mit Rückfrage)');
         }
     } else if (_missionAwaitsTrackerProjection()) {
         // A tracker-run mission before its projection: no local start, cargo or reset.
@@ -15675,6 +15675,29 @@ function _syncUiText(key, vars, german) {
 }
 function _syncUiPhrase(text) {
     return window.GAI18n ? GAI18n.phrase(text) : text;
+}
+// Mission banner and toolbar (display only): exact sentences via the phrase table, plus the
+// few sentences the interruption model builds from distances and places. English only.
+const _SYNC_BANNER_PATTERNS = [
+    [/^ Noch ([\d,]+) NM, Kurs (\d{3})°\.$/, (m) => ` ${m[1].replace(',', '.')} NM to go, course ${m[2]}°.`],
+    [/^Zum Fortsetzen an den Speicherpunkt fliegen \(([\d,]+) NM Zone\)\. Die Mission läuft weiter, sobald du dort 10 Sekunden normal fliegst\.(.*)$/s,
+        (m) => `To continue, fly to the save point (${m[1].replace(',', '.')} NM zone). The mission continues once you have flown normally there for 10 seconds.${_syncBannerText(m[2])}`],
+    [/^Flugzeug (am Startplatz|am Zielplatz|am Speicherpunkt)( .+?)? abstellen \(innerhalb ([\d,]+) NM\)\. Die Mission läuft weiter, sobald es dort 5 Sekunden am Boden steht\.(.*)$/s,
+        (m) => `Park the aircraft ${({ 'am Startplatz': 'at the departure airfield', 'am Zielplatz': 'at the destination airfield', 'am Speicherpunkt': 'at the save point' })[m[1]]}${m[2] || ''} (within ${m[3].replace(',', '.')} NM). The mission continues once it has stood on the ground there for 5 seconds.${_syncBannerText(m[4])}`]
+];
+// Language switch: redraw banner, toolbar and the main-page notification.
+if (typeof window !== 'undefined' && window.GAI18n && typeof window.GAI18n.onChange === 'function') {
+    window.GAI18n.onChange(() => { try { _updateMissionRuntimeUi(); } catch (_) {} });
+}
+function _syncBannerText(text) {
+    if (!window.GAI18n || GAI18n.getLanguage() === 'de' || typeof text !== 'string' || !text) return text;
+    const exact = GAI18n.phrase(text);
+    if (exact !== text) return exact;
+    for (const [pattern, build] of _SYNC_BANNER_PATTERNS) {
+        const match = pattern.exec(text);
+        if (match) return build(match);
+    }
+    return text;
 }
 function updateSyncStatus(msg, isError = false) {
     const el = document.getElementById('syncStatus');

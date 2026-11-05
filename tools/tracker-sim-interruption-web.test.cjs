@@ -259,7 +259,7 @@ test('web "Warte auf Tracker" is dismissible and the interruption offers restart
   const source = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'sync.js'), 'utf8');
   const awaiting = source.slice(source.indexOf("banner._gaMissionActionKey = 'awaiting-tracker';"), source.indexOf("banner._gaMissionActionKey = 'legacy';"));
   assert.match(awaiting, /if \(_missionStartBannerDismissed\('awaiting-tracker'\)\) \{\s*banner\.style\.display = 'none';/);
-  assert.match(awaiting, /kickerEl\.textContent = 'Mission läuft noch'/);
+  assert.match(awaiting, /kickerEl\.textContent = (?:_syncBannerText\()?'Mission läuft noch'/);
   assert.match(awaiting, /'Dein Spielstand wurde gespeichert\. Lade den Flug im Ingame-EFB, um die Mission fortzusetzen\.'/);
   const secondary = source.slice(source.indexOf('window.handleMissionStartBannerSecondaryAction = async function'), source.indexOf('window.handleMissionStartBannerAction = async function'));
   assert.match(secondary, /action\.action === 'abort'[\s\S]*?gaAbortTrackerMission\?\.\(\{ reason: 'mission-abort-interrupted', confirmAction: 'abort' \}\)/);
