@@ -411,7 +411,8 @@ Entschieden (User): **eigene englische Seiten**, die deutschen bleiben unberühr
 - Tracker-Begriffe stehen auf Deutsch mit englischer Bedeutung in Klammern, weil der
   Windows-Tracker noch deutsch ist; App-Begriffe so, wie die englische App sie zeigt.
   Screenshots bleiben vorerst deutsch (Hinweis auf den Seiten).
-- Verknüpfung: „English“/„Deutsch“-Links in der Kopfzeile aller sechs Seiten; der
+- **Sprachumschalter mit Flaggen** (DE/EN, oben rechts, Flaggen als Inline-SVG, weil Windows keine Flaggen-Emojis zeigt): wechselt zur Gegenseite **und setzt `ga_language_v1`**, also die App-Sprache (gleiche Domain). Auf dem Handy nur Flaggen; unter 430 px entfällt die Unterzeile der Marke. Stil und Skript stehen inline in jeder Seite, damit die exportierten Einzeldateien funktionieren.
+- Verknüpfung (vorher): Links in der Kopfzeile aller sechs Seiten; der
   ?-Knopf der App führt auf Englisch zu `guide.html` (neues Attribut `data-i18n-href`
   in `i18n-core.js`). `tools/export-info-pages.py` exportiert auch die englischen Seiten.
 - Rechtsseiten (`legal.html`) bleiben deutsch und verbindlich; englische Links tragen „(German)“.

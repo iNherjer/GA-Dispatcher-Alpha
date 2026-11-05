@@ -26,6 +26,7 @@
     @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{transition:none!important}}
     @media print{.topbar,.hero-actions,.start-heading .btn,dialog{display:none}.section{padding-block:30px}.wrap{width:100%}body{font-size:12px}.hero{padding-top:0}.hero-grid{grid-template-columns:1fr 1fr}.hero h1{font-size:46px}.tracker-section,footer{-webkit-print-color-adjust:exact;print-color-adjust:exact}.feature-grid,.personal-grid,.tracker-section .wrap{gap:30px}figure,.benefit-row,.extras,.start-box{break-inside:avoid}.hero-strip{margin-top:25px}}
   </style>
+<style>.lang-switch{display:inline-flex;align-items:center;gap:2px;border:1px solid currentColor;border-radius:3px;padding:2px;font:600 11px/1 ui-monospace,SFMono-Regular,Consolas,monospace;letter-spacing:.06em;white-space:nowrap}.lang-switch a{display:inline-flex;align-items:center;gap:6px;padding:6px 8px;border-radius:2px;text-decoration:none;color:inherit;opacity:.6}.lang-switch a:hover{opacity:1}.lang-switch a[aria-current]{opacity:1;background:#193c3414}.lang-switch svg{width:18px;height:12px;border-radius:1px;box-shadow:0 0 0 1px #0002}@media(max-width:720px){.lang-switch a{font-size:0;gap:0;padding:6px}}@media(max-width:430px){.brand small{display:none}.nav-cta,.app-link{white-space:nowrap}}</style>
 </head>
 <body class="no-js">
   <a class="skip" href="#inhalt">Skip to content</a>
@@ -35,7 +36,7 @@
         <svg viewBox="0 0 40 40" aria-hidden="true"><rect width="40" height="40" rx="4" fill="#193c34"/><path d="m20 7 2 12 11 5v3l-11-3-1 8h-2l-1-8-11 3v-3l11-5z" fill="#d9ef90"/></svg>
         <span>VFR MULTITOOL<small>PLAN. DISCOVER. FLY.</small></span>
       </a>
-      <div class="navlinks"><a href="#entdecken">Discover</a><a href="#tracker">Tracker &amp; EFB</a><a href="setup.html">Setup</a><a href="willkommen.html" lang="de">Deutsch</a><a class="nav-cta" href="index.html">Open Multitool <span class="arrow" aria-hidden="true">↗</span></a></div>
+      <div class="navlinks"><a href="#entdecken">Discover</a><a href="#tracker">Tracker &amp; EFB</a><a href="setup.html">Setup</a><div class="lang-switch" role="group" aria-label="Sprache / Language"><a href="willkommen.html" data-lang="de" lang="de" hreflang="de" title="Deutsch"><svg viewBox="0 0 5 3" aria-hidden="true"><rect width="5" height="1" fill="#000"/><rect y="1" width="5" height="1" fill="#d00"/><rect y="2" width="5" height="1" fill="#ffce00"/></svg>DE</a><a href="welcome.html" data-lang="en" lang="en" hreflang="en" title="English" aria-current="true"><svg viewBox="0 0 60 30" aria-hidden="true"><clipPath id="LSGB"><path d="M30 15h30v15zv15H0zH0V0zV0h30z"/></clipPath><path d="M0 0v30h60V0z" fill="#012169"/><path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0l60 30m0-30L0 30" clip-path="url(#LSGB)" stroke="#C8102E" stroke-width="4"/><path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/></svg>EN</a></div><a class="nav-cta" href="index.html">Open Multitool <span class="arrow" aria-hidden="true">↗</span></a></div>
     </nav>
   </header>
 
@@ -195,5 +196,6 @@
       dialog.addEventListener('close', () => opener?.focus({ preventScroll: true }));
     })();
   </script>
+<script>document.querySelectorAll('.lang-switch a[data-lang]').forEach(a=>a.addEventListener('click',()=>{try{localStorage.setItem('ga_language_v1',a.dataset.lang)}catch(_){}}));</script>
 </body>
 </html>
