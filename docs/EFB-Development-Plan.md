@@ -154,6 +154,24 @@ bleiben auf der Uhr erreichbar. Shared Renderer, gepinnte Medienquellen und
 Chrome-49-Assets lokal vorbereitet. Kein Build-/Versionsbump oder Rollout;
 reale MSFS-/Coherent-Abnahme bleibt offen.
 
+## Terrain-Avoid-Analyse: Canvas-Readback in Coherent (18.10.2026)
+
+Testerlog v561–v564: DOM-9-Fehler im ausgelieferten `map-terrain-avoid.js:284`,
+exakt `getImageData()` im Bild-onload. Coherent GT dokumentiert diesen Aufruf
+als nicht unterstützt. Lokale Fehler-Injektion im unveränderten produktiven
+Asset reproduziert dauerhaft offene In-Flight-Kacheln und fehlende Leaflet-
+Abschlusscallbacks; der Fehler im asynchronen onload wird nicht abgefangen.
+Kein Beleg für fehlende regionale Abdeckung und kein Beleg für einen dadurch
+verursachten Medienausfall. Das Terrain-Avoid-Overlay nutzt Terrarium-PNGs;
+Profile/Trackerwarnungen dekodieren getrennt mit pngjs im Tracker.
+
+Empfohlener nächster Schritt: Einfärbung im Tracker, fertige lokale PNGs im EFB
+anzeigen; Browser-Fehlerpfade sauber beenden und Darstellungsfehler sichtbar
+machen. Farb-/Höhenvertrag erhalten, Cache/Parallelität begrenzen, Pixelmethoden
+im EFB-Test sperren. Noch keine Runtimeänderung, Umsetzung oder Veröffentlichung.
+Analyse/Reproduktion lokal: `analysis/terrain-coherent-2026-10-18/Findings.md`.
+Offizielle Quelle: https://coherent-labs.com/Documentation/cpp-gt/db/d12/rendering_guide.html
+
 ## Watch-Medienskin – Tracker v564 Alpha (18.10.2026)
 
 Dritter, unabhängig vom Designpreset wählbarer Medienskin: kompaktes Metallgehäuse,

@@ -3846,6 +3846,7 @@ async function processQueue() {
 }
 
 async function handlePush() {
+  // WORKBENCH_PUSH_RETRY_VERIFIED_V1: retry committed changes and verify the remote hash.
   if (pushStatus.running) {
     return { ok: false, code: 409, step: 'push_running', message: 'Push läuft bereits.' };
   }
@@ -3953,27 +3954,36 @@ async function handlePush() {
     return finishPush({ ok: false, code: 500, step: 'staged_list', message: (staged.stderr || staged.stdout || '').trim() || 'staged diff fehlgeschlagen' }, 'failed');
   }
   const stagedFiles = String(staged.stdout || '').split('\n').map(s => s.trim()).filter(Boolean);
-  if (stagedFiles.length === 0) {
+  if (stagedFiles.length === 0 && syncState.ahead === 0) {
     return finishPush({ ok: true, message: 'Keine neuen Tile-Änderungen zum Pushen.', stagedFiles: [] }, 'done');
   }
-  setPushStatus({
-    running: true,
-    phase: 'commit',
-    step: 'commit',
-    message: `Push: Commit wird erstellt (${stagedFiles.length} Datei(en))...`,
-    stagedFiles
-  });
 
-  const msg = `Update hosted split obstacle tiles (${new Date().toISOString().slice(0, 19).replace('T', ' ')})`;
-  const commit = await runCmd('git', ['commit', '-m', msg], { cwd: ROOT });
-  if (commit.code !== 0) {
-    return finishPush({ ok: false, step: 'commit', message: (commit.stderr || commit.stdout || '').trim() || 'git commit failed', stagedFiles, commitMessage: msg }, 'failed');
+  const msg = stagedFiles.length > 0
+    ? `Update hosted split obstacle tiles (${new Date().toISOString().slice(0, 19).replace('T', ' ')})`
+    : '';
+  if (stagedFiles.length > 0) {
+    setPushStatus({
+      running: true,
+      phase: 'commit',
+      step: 'commit',
+      message: `Push: Commit wird erstellt (${stagedFiles.length} Datei(en))...`,
+      stagedFiles
+    });
+    const commit = await runCmd('git', ['commit', '-m', msg], { cwd: ROOT });
+    if (commit.code !== 0) {
+      return finishPush({ ok: false, step: 'commit', message: (commit.stderr || commit.stdout || '').trim() || 'git commit failed', stagedFiles, commitMessage: msg }, 'failed');
+    }
+  }
+  const head = await runCmd('git', ['rev-parse', 'HEAD'], { cwd: ROOT });
+  const commitHash = String(head.stdout || '').trim();
+  if (head.code !== 0 || !/^[a-f0-9]{40,64}$/.test(commitHash)) {
+    return finishPush({ ok: false, step: 'head', message: (head.stderr || '').trim() || 'Lokaler Commit konnte nicht bestimmt werden.', stagedFiles }, 'failed');
   }
   setPushStatus({
     running: true,
     phase: 'push',
     step: 'push',
-    message: `Push: Commit wird zu ${WORKBENCH_PUSH_REF} gesendet...`,
+    message: `Push: ${commitHash.slice(0, 12)} wird zu ${WORKBENCH_PUSH_REF} gesendet...`,
     commitMessage: msg,
     stagedFiles
   });
@@ -3983,9 +3993,23 @@ async function handlePush() {
     return finishPush({ ok: false, step: 'push', message: (push.stderr || push.stdout || '').trim() || 'git push failed', commit: msg, stagedFiles }, 'failed');
   }
 
+  setPushStatus({ running: true, phase: 'verify', step: 'verify', message: 'Push: Commit auf dem Remote wird geprüft...' });
+  const remote = await runCmd('git', ['ls-remote', '--heads', WORKBENCH_PUSH_REMOTE, `refs/heads/${WORKBENCH_PUSH_BRANCH}`], { cwd: ROOT });
+  const remoteHash = String(remote.stdout || '').trim().split(/\s+/)[0];
+  if (remote.code !== 0 || remoteHash !== commitHash) {
+    return finishPush({
+      ok: false,
+      step: 'verify',
+      message: `Push wurde ausgeführt, aber ${commitHash.slice(0, 12)} auf ${WORKBENCH_PUSH_REF} nicht bestätigt. Bitte Repo-Sync prüfen.`,
+      commitHash,
+      stagedFiles
+    }, 'failed');
+  }
+
   return finishPush({
     ok: true,
-    message: `Tiles erfolgreich committed und nach ${WORKBENCH_PUSH_REF} gepusht (${stagedFiles.length} Datei(en)).`,
+    message: `Tile-Commit ${commitHash.slice(0, 12)} auf ${WORKBENCH_PUSH_REF} bestätigt (${stagedFiles.length} neue Datei(en), ${syncState.ahead} zuvor ausstehende Commit(s)).`,
+    commitHash,
     commitMessage: msg,
     pushOut: (push.stdout || push.stderr || '').trim(),
     stagedFiles,

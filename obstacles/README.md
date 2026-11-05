@@ -109,6 +109,12 @@ git fetch origin main tile-workbench
 git merge --no-ff origin/tile-workbench -m "Merge tile workbench updates"
 ```
 
+If a push fails after creating a local commit, retry `Neue Ergebnisse pushen`.
+The retry also transfers existing unpublished commits when no new files are
+staged. A completed push confirms the commit hash against the remote branch.
+`Repo-Sync` compares local tile files against all three remote manifests; a
+successful push alone does not confirm manifest completeness or data quality.
+
 Status colors in grid:
 
 - Magenta: loaded + fresh
