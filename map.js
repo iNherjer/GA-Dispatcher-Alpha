@@ -167,6 +167,26 @@ function _mapUiText(key, german, vars) {
     if (typeof window !== 'undefined' && window.GAI18n) return window.GAI18n.t(key, vars, german);
     return String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, (m, n) => (vars && Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m));
 }
+// VFR index tooltips: data stays German, only the displayed text is translated.
+function _vpVfrModelLabelText(value) {
+    const key = vpNormalizeVfrModel(value);
+    const meta = vpGetVfrModelMeta(value);
+    return _mapUiText(`map.vfrModel.${VP_VFR_MODEL_META[key] ? key : 'robust_sector'}.label`, meta.label);
+}
+function _vpVfrCatLabelText(label) {
+    if (_mapUiLang() === 'de') return String(label || '');
+    return String(label || '')
+        .replace(/VFR-Index unklar/g, () => _mapUiPhrase('VFR-Index unklar'))
+        .replace(/VFR-Index/g, 'VFR index')
+        .replace(/\(([^()]+)\)/g, (m, word) => `(${_mapUiPhrase(word)})`);
+}
+function _vpVfrWarningText(text) {
+    if (_mapUiLang() === 'de') return String(text || '');
+    return String(text || '').split(' • ').map(part => {
+        const lead = part.match(/^(Niederschlag|Ref-Faktor) (.*)$/);
+        return lead ? `${_mapUiPhrase(lead[1])} ${lead[2]}` : _mapUiPhrase(part);
+    }).join(' • ');
+}
 function _mapUiOnOff(on) { return on ? _mapUiText('map.on', 'An') : _mapUiText('map.off', 'Aus'); }
 function _mapUiLang() { return (typeof window !== 'undefined' && window.GAI18n) ? window.GAI18n.getLanguage() : 'de'; }
 // Country names: German list below; in English the browser's own region names.
@@ -3644,11 +3664,11 @@ function vpBuildSectorAmpelHtml(sectorTl, nowRatio, currentCat = null) {
         const letter = String((viewCat && (viewCat.displayCode || viewCat.code || viewCat.letter)) || fallback || '?').slice(0, 2);
         const color = (viewCat && viewCat.color) || '#9a9a9a';
         const uncertain = viewCat && viewCat.dataQuality && viewCat.dataQuality !== 'valid';
-        const modelLabel = vpGetVfrModelMeta(vpVfrIndexState.vfrModel).label;
+        const modelLabel = _vpVfrModelLabelText(vpVfrIndexState.vfrModel);
         const score = Number(viewCat && viewCat.score);
         const scoreTxt = Number.isFinite(score) ? ` • Score ${Math.round(score)}` : '';
-        const warnTxt = (viewCat && viewCat.dataWarning) ? ` • ${viewCat.dataWarning}` : '';
-        const title = `${(s && s.label) || ''} ${(s && s.timeLabel) || ''} • ${(viewCat && viewCat.label) || ''}${scoreTxt} • ${modelLabel}${warnTxt}`;
+        const warnTxt = (viewCat && viewCat.dataWarning) ? ` • ${_vpVfrWarningText(viewCat.dataWarning)}` : '';
+        const title = `${(s && s.label) || ''} ${(s && s.timeLabel) || ''} • ${_vpVfrCatLabelText(viewCat && viewCat.label)}${scoreTxt} • ${modelLabel}${warnTxt}`;
         const bg = uncertain ? 'rgba(238,242,247,0.82)' : color;
         const borderStyle = uncertain ? 'dashed' : 'solid';
         return `<div title="${escapePopupText(title)}" style="width:22px; height:14px; border:1px ${borderStyle} ${color}; border-radius:3px; background:${bg}; color:#111; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; line-height:1;">${escapePopupText(letter)}</div>`;
@@ -4080,7 +4100,7 @@ function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
         });
         const windNum = Number(sample.wspd);
         const windTxt = Number.isFinite(windNum) ? `${Math.round(windNum)} kt` : '--';
-        const modelName = vpGetVfrModelMeta(vpVfrIndexState.vfrModel).label;
+        const modelName = _vpVfrModelLabelText(vpVfrIndexState.vfrModel);
         const scoreTxt = Number.isFinite(Number(cat.score)) ? ` • Score ${Math.round(Number(cat.score))}` : '';
         const catVisKm = Number(sectorCat && sectorCat.visKm);
         const visM = Number.isFinite(catVisKm) ? catVisKm * 1000 : Number(parts.visibility);
@@ -4099,8 +4119,8 @@ function vpRenderVfrCells(samples, latStep, lonStep, timelines = null) {
         const mxTxt = (Number.isFinite(mxN05) || Number.isFinite(mxLow) || mxStation)
             ? ` • MOSMIX ${mxStation || ''}${Number.isFinite(mxDist) ? ` ${Math.round(mxDist)}km` : ''} N05 ${Number.isFinite(mxN05) ? `${Math.round(mxN05)}%` : '--'} Low ${Number.isFinite(mxLow) ? `${Math.round(mxLow)}%` : '--'}`
             : '';
-        const qualityTxt = sectorCat && sectorCat.dataWarning ? ` • ${sectorCat.dataWarning}` : '';
-        const pop = `${sectorCat.label}${codeTxt}${scoreTxt} • Wind ${windTxt} • VIS ${visTxt} • Base ${cbTxt} • Base ueber Ref ${cbRefTxt} • Ref ${refTxt} • ${modelName}${mxTxt}${qualityTxt}`;
+        const qualityTxt = sectorCat && sectorCat.dataWarning ? ` • ${_vpVfrWarningText(sectorCat.dataWarning)}` : '';
+        const pop = `${_vpVfrCatLabelText(sectorCat.label)}${codeTxt}${scoreTxt} • Wind ${windTxt} • VIS ${visTxt} • Base ${cbTxt} • ${_mapUiPhrase('Base ueber Ref')} ${cbRefTxt} • Ref ${refTxt} • ${modelName}${mxTxt}${qualityTxt}`;
         cell.bindTooltip(pop, { sticky: false, direction: 'top', opacity: 0.9 });
         cell.addTo(layer);
 
@@ -4167,7 +4187,7 @@ function vpRenderGaforSectorCells(sectorEntries, nowRatio = 0.5) {
     const entries = Array.isArray(sectorEntries) ? sectorEntries : [];
     vpVfrIndexState.lastRenderedSectors = entries.map(e => ({ ...e }));
     vpVfrIndexState.lastRenderMode = 'gafor_sector';
-    const modelName = vpGetVfrModelMeta(vpVfrIndexState.vfrModel).label;
+    const modelName = _vpVfrModelLabelText(vpVfrIndexState.vfrModel);
     const ampelNowRatio = Number.isFinite(Number(nowRatio)) ? Number(nowRatio) : 0.5;
     const lineWidthPx = vpNormalizeVfrSectorLineWidth(vpVfrIndexState.sectorLineWidthPx);
     const insetPolygonByPixels = (poly, insetPx) => {
@@ -4240,8 +4260,8 @@ function vpRenderGaforSectorCells(sectorEntries, nowRatio = 0.5) {
         const mxTxt = (Number.isFinite(mxN05) || Number.isFinite(mxLow) || mxStation)
             ? ` • MOSMIX ${mxStation || ''}${Number.isFinite(mxDist) ? ` ${Math.round(mxDist)}km` : ''} N05 ${Number.isFinite(mxN05) ? `${Math.round(mxN05)}%` : '--'} Low ${Number.isFinite(mxLow) ? `${Math.round(mxLow)}%` : '--'}`
             : '';
-        const qualityTxt = cat.dataWarning ? ` • ${cat.dataWarning}` : '';
-        const pop = `${sector.id} ${sector.name} • Ref ${Math.round(Number(sector.refFt) || 0)} ft • ${cat.label}${codeTxt} • VIS ${visTxt} • ${modelName}${mxTxt}${qualityTxt}`;
+        const qualityTxt = cat.dataWarning ? ` • ${_vpVfrWarningText(cat.dataWarning)}` : '';
+        const pop = `${sector.id} ${sector.name} • Ref ${Math.round(Number(sector.refFt) || 0)} ft • ${_vpVfrCatLabelText(cat.label)}${codeTxt} • VIS ${visTxt} • ${modelName}${mxTxt}${qualityTxt}`;
         polyBase.addTo(layer);
         polyCore.bindTooltip(pop, { sticky: false, direction: 'top', opacity: 0.9 });
         polyCore.addTo(layer);

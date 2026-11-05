@@ -27,6 +27,15 @@ liefert alles Offene mit aus.
 
 ## Offen
 
+### 2026-11-05 · UI-Reste (Uhr-Timer, Wegpunkt-Popup) — EFB-Kopien warten
+- **Artefakt:** generierte EFB-Kopien `efb-web-assets/media-player-watch-face.js`, `efb-web-assets/map-route-edit-core.js`; Web live mit diesem Push
+- **Dateien:** `media-player-watch-face.js` (+ `efb-media-source/`-Kopie), `map-route-edit-core.js`
+- **Was:** „Minuten“, „Polartag/Polarnacht“ und das Wegpunkt-Popup („Wegpunkt“, „🗑️ Löschen“) über die Satz-Tabelle; ohne `GAI18n` (EFB/Tracker) exakt deutsch.
+- **Warum:** Englische Oberfläche.
+- **Tests:** Watch-/iPod-/Win95-Selbsttests, Tracker EFB-Web-Client + Navigation 40/40.
+- **Doku beim Release:** keine. Im EFB ohne sichtbare Änderung.
+- **Pruefen im Feld:** -
+
 ### 2026-11-04 · Debrief übersetzbar — EFB-Kopie wartet
 - **Artefakt:** generierte EFB-Kopie `efb-web-assets/flight-debrief.js`; Web live mit diesem Push
 - **Dateien:** `flight-debrief.js` (+ Web: `flight-logbook-view.js`, `app.js`, `board.js`, `index.html`)

@@ -67,9 +67,14 @@
             + '><div class="pin-dot" style="background-color: ' + color + ';' + (poi ? ' border: 2px solid #fff;' : '') + '"></div></div>',
             iconSize: [34, 34], iconAnchor: [17, 17] };
     }
+    // UI language: web only; Tracker/EFB have no GAI18n and keep German.
+    function tr(text) {
+        const i18n = typeof globalThis !== 'undefined' ? globalThis.GAI18n : null;
+        return i18n && typeof i18n.phrase === 'function' ? i18n.phrase(text) : text;
+    }
     function popup(name, index, infoHtml) {
-        const label = String(name || 'Wegpunkt').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-        return '<div style="text-align:center;"><b>' + label + '</b><br>' + (infoHtml || '') + '<button onclick="removeRouteWaypoint(' + index + ')" style="margin-top:5px; background:#d93829; color:#fff; border:none; padding:4px 8px; cursor:pointer; border-radius:2px;">🗑️ Löschen</button></div>';
+        const label = String(name || tr('Wegpunkt')).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        return '<div style="text-align:center;"><b>' + label + '</b><br>' + (infoHtml || '') + '<button onclick="removeRouteWaypoint(' + index + ')" style="margin-top:5px; background:#d93829; color:#fff; border:none; padding:4px 8px; cursor:pointer; border-radius:2px;">' + tr('🗑️ Löschen') + '</button></div>';
     }
     return { point, normalize, insertionIndex, snap, apply, popup, markerOptions };
 }));

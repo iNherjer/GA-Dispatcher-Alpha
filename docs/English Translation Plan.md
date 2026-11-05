@@ -343,6 +343,22 @@ im JS vorkommen. Deutsche Rückfalltexte in Übersetzungsaufrufen zählen als
 - Offen: Statuszeile `searchIndicator` (Missionsphase), „KI Mode“-Knopf und
   Pinnwand-Knopf (Kind-Elemente), Skins `analog-skins.js` / `navcom-skins.js`.
 
+### Phase 1 – UI-Reste: Knöpfe, Uhr, Wegpunkt, VFR-Index (2026-11-05)
+
+- NavCom „KI Mode“ (Text in `<span data-i18n>`, LED bleibt Kind-Element), Win95-Desktop-Symbole
+  und Taskleiste (`dispatch.win95.*`). Kein Code liest diese Texte.
+- Uhr-Timer: „Minuten“, „Polartag/Polarnacht“ (`media-player-watch-face.js`, EFB-Quelle mitgezogen).
+- Wegpunkt-Popup (`map-route-edit-core.js`, Core-Datei): eigener Helfer `tr()` über
+  `globalThis.GAI18n`; im Tracker/EFB (kein `GAI18n`) unverändert deutsch.
+- VFR-Index-Tooltips (`map.js`): Anzeige-Helfer `_vpVfrModelLabelText`, `_vpVfrCatLabelText`,
+  `_vpVfrWarningText`. **Klassen-Labels und Warnhinweise bleiben in den Daten deutsch**; übersetzt
+  wird nur beim Zusammenbau des Tooltips (Klammerwörter und Warnteile zwischen „ • “ über die
+  Satz-Tabelle). „METAR-Guardrail“, „MOSMIX“, „Score“, „VIS“, „Base“ bleiben.
+- Nicht übersetzt (Missionsphase/Debug): Missions-Szenen-Debug-Tooltips, „Abholteam“,
+  Missions-Banner.
+- Bekannt kaputt, unabhängig davon: `tools/web-media-integration-selftest.mjs` (Relay-Anfrage nach
+  dem Schließen, scheitert auch auf dem unveränderten Stand).
+
 ### Phase 1 – Flugbuch, Debrief, Einstellungs-Grafik (2026-11-04)
 
 - **Einstellungs-Rolle:** `roll-head-suede-v2-en.webp` mit „Settings“-Prägung. Neues Attribut
@@ -435,7 +451,7 @@ im JS vorkommen. Deutsche Rückfalltexte in Übersetzungsaufrufen zählen als
 - Offen: Zahlen mit deutschem Tausenderpunkt („5.000“) und Datumsformate – betrifft die ganze
   App (Checklisten, Flugbuch …), eigener Durchgang. Pistentexte aus `runwayCache`, das
   abgeschaltete AIP-Overlay (`AIP_CHART_UI_ENABLED = false`), der „Löschen“-Knopf im
-  Wegpunkt-Popup (`map-route-edit-core.js`, Core-Datei), GAFOR-/Debug-Tooltips in `map.js`.
+  Wegpunkt-Popup und die GAFOR-Tooltips sind seit 2026-11-05 erledigt.
 
 ### Phase 1 – Kartentisch, Teil 5: Media-Player, Uhr, Kleinkram (2026-11-02, lokal)
 

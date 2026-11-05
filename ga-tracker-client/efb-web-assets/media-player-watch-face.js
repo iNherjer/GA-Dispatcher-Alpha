@@ -116,7 +116,7 @@ function _mpT(text) {
       }, String(hour));
     }
     var timing = panel.querySelector('.ga-watch-timing');
-    timing.innerHTML = '<div class="ga-watch-time-tabs">' + button('clock-stopwatch', _mpT('Stoppuhr'), _mpT('Stoppuhr')) + button('clock-timer', _mpT('Timer'), _mpT('Timer')) + '</div><output class="ga-watch-elapsed">00:00.0</output><div class="ga-watch-duration">' + button('clock-less', _mpT('Timer eine Minute kürzer'), '−') + ('<span>Minuten<small>' + _mpT('Krone: Sekunden') + '</small></span>') + button('clock-more', _mpT('Timer eine Minute länger'), '+') + '</div><div class="ga-watch-time-controls">' + button('clock-toggle', _mpT('Zeitmessung starten oder stoppen'), 'Start') + button('clock-reset', _mpT('Zeitmessung zurücksetzen'), 'Reset') + '</div>' + button('clock-back', _mpT('Zur Uhr'), _mpT('Zur Uhr'));
+    timing.innerHTML = '<div class="ga-watch-time-tabs">' + button('clock-stopwatch', _mpT('Stoppuhr'), _mpT('Stoppuhr')) + button('clock-timer', _mpT('Timer'), _mpT('Timer')) + '</div><output class="ga-watch-elapsed">00:00.0</output><div class="ga-watch-duration">' + button('clock-less', _mpT('Timer eine Minute kürzer'), '−') + ('<span>' + _mpT('Minuten') + '<small>' + _mpT('Krone: Sekunden') + '</small></span>') + button('clock-more', _mpT('Timer eine Minute länger'), '+') + '</div><div class="ga-watch-time-controls">' + button('clock-toggle', _mpT('Zeitmessung starten oder stoppen'), 'Start') + button('clock-reset', _mpT('Zeitmessung zurücksetzen'), 'Reset') + '</div>' + button('clock-back', _mpT('Zur Uhr'), _mpT('Zur Uhr'));
     function context() {
       if (options.getEnvironment) return options.getEnvironment();
       if (root.GADisplayClock && root.GADisplayClock.context) return root.GADisplayClock.context();
@@ -220,7 +220,7 @@ function _mpT(text) {
           night = panel.querySelector('.ga-watch-night');
         day.setAttribute('d', sun && finite(sun.rise) ? arc(sun.rise, sun.set) : '');
         night.style.stroke = sun ? sun.polar === 'day' ? '#d94251' : '#235a70' : '#444';
-        panel.querySelector('.ga-watch-sun-label').textContent = !sun ? 'SR — · SS —' : sun.polar ? sun.polar === 'day' ? 'Polartag' : 'Polarnacht' : 'SR ' + hm(sun.rise) + ' · SS ' + hm(sun.set);
+        panel.querySelector('.ga-watch-sun-label').textContent = !sun ? 'SR — · SS —' : sun.polar ? sun.polar === 'day' ? _mpT('Polartag') : _mpT('Polarnacht') : 'SR ' + hm(sun.rise) + ' · SS ' + hm(sun.set);
       }
       refreshWeather(f);
       var localWeather = f && weatherFresh(f) ? weather : null;
