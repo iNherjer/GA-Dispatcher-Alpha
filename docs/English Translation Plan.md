@@ -173,6 +173,62 @@ Passagier-Dialoge, Vereins-Events (`mission-club-events-core.js`). Je nach Weg a
 - Desktop-App (`desktop/ui/`) und EFB-Paket (`VfrMultitool.tsx`) brauchen jeweils
   den Sprachschalter, können aber dasselbe Wörterbuch nutzen.
 
+### 2.5a Sprachschalter für Tracker, EFB und Toolbar (Plan, 2026-11-05)
+
+Entschieden (User): **Ein Schalter in der Windows-Desktop-App** stellt alles um, was
+der Tracker ausliefert: Desktop-Fenster, EFB-Tablet und Toolbar-Panel. Umsetzung erst
+nach den restlichen Web-UI-Bereichen, nicht dazwischen.
+
+**Bedienung**
+- Kleiner Umschalter `EN | DE` oben rechts im Desktop-Fenster (`desktop/ui/index.html`).
+- Standard Deutsch. Die Wahl gilt sofort, ohne Neustart von Desktop oder Tracker.
+- EFB und Toolbar bekommen keinen eigenen Schalter.
+
+**Weg der Einstellung (Ist-Stand geprüft)**
+1. Desktop speichert `uiLanguage` in seiner Konfiguration (`desktop/lib/config-store.js`).
+2. Beim Start der Engine als Umgebungsvariable mitgeben, wie die anderen Schalter in
+   `desktop/lib/tracker-process.js` (z. B. `VFR_MULTITOOL_UI_LANGUAGE=en`).
+3. Bei Wechsel zur Laufzeit: Aufruf an den Tracker über den vorhandenen
+   Desktop-Steuerweg (lokaler HTTP-Server Port 49880, abgesichert mit
+   `VFR_MULTITOOL_DESKTOP_CONTROL_TOKEN`, wie `/api/v1/tracker/shutdown`).
+4. Der Tracker legt die Sprache in die EFB-Anzeige-Einstellungen
+   (`tracker-efb-display-settings.js`, neues Feld `ui.language`: nur `de`/`en`,
+   alles andere fällt auf `de`). Diese Einstellungen gehen schon heute im
+   EFB-Zustand mit (`display` im Status von `tracker-efb-http-server.js`).
+5. EFB und Toolbar laden dieselbe Oberfläche (`/efb/v1/…`; die Toolbar mit
+   `host=toolbar` in `Panel.js`). Ein Mechanismus deckt also beide ab: bei
+   geänderter Sprache `GAI18n.setLanguage(...)` aufrufen, die Anzeige baut sich neu.
+
+**Was im EFB dazukommt**
+- `i18n-core.js`, `i18n/en.js`, `i18n/en-phrases.js` (+ `en-help.js`, falls nötig) über
+  `sync-efb-web-assets.js` als EFB-Dateien ausliefern. Ohne diese Dateien bleibt
+  alles wie heute deutsch, alte EFB-Stände brechen nicht.
+- Damit wirken alle schon übersetzten, gespiegelten Web-Dateien automatisch (Uhr,
+  Media-Player, Kartenpopups, Profil, Checklisten-Werkzeuge, Debrief, Wegpunkt …).
+- Noch nicht vorbereitet und der eigentliche Aufwand: eigene EFB-Texte
+  (`tracker-efb-kartentisch-host.js` ca. 3900 Zeilen, Menüs/Toolbar-Leiste,
+  `efb-app/…/VfrMultitool.tsx`), Desktop-Fenster (`desktop/ui/index.html`,
+  `renderer.js`, `radio-hold.js` …) und Tracker-Meldungen aus `tracker.js`
+  (besser Schlüssel + Werte, siehe 2.5).
+
+**Grenzen / Verträglichkeit**
+- Missionen, Funk und Passagierstimme bleiben in dieser Etappe deutsch (eigene Phase).
+- Web und Tracker bleiben zunächst getrennt (Web hat seinen eigenen Schalter).
+  Kopplung über das Pilotenprofil = offene Entscheidung 4.
+- Alte Desktop-App + neuer Tracker: keine Variable → Deutsch. Neue Desktop-App + alter
+  Tracker: Steueraufruf unbekannt → Desktop-Fenster wechselt, EFB bleibt deutsch.
+- Zwei Artefakte: Tracker-EXE (Engine + EFB-Dateien) und Desktop-Installer. Beide nur
+  nach Freigabe bauen/veröffentlichen; die offenen EFB-Kopien aus `docs/Release Queue.md`
+  gehen mit dem Tracker-Build mit.
+
+**Reihenfolge bei der Umsetzung**
+1. EFB: i18n-Dateien ausliefern + Sprache aus `display` übernehmen (sichtbar: die schon
+   übersetzten Teile werden englisch).
+2. Tracker: `ui.language` in den Anzeige-Einstellungen + Steueraufruf + Umgebungsvariable.
+3. Desktop: Schalter, Speichern, Weitergabe; Desktop-Fenster übersetzen.
+4. Eigene EFB-Texte (Kartentisch-Host, Menüs, Toolbar) Bereich für Bereich.
+5. Tracker-Meldungen auf Schlüssel + Werte umstellen.
+
 ### 2.6 Gespeicherte Daten
 
 Logbuch, Cloud-Sync, Missionsentwürfe und Crew-Zettel speichern teils fertigen
