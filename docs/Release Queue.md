@@ -27,7 +27,11 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-### 2026-11-05 · Sprache für EFB/Toolbar aus der Desktop-App — Tracker-EXE + Desktop-Installer
+_Derzeit keine offenen Einträge._
+
+## Ausgeliefert
+
+### 2026-11-05 · Sprache für EFB/Toolbar aus der Desktop-App — ausgeliefert in Tracker v615 Alpha / Desktop 1.6.39 (05.11.2026)
 - **Artefakt:** Tracker-EXE (Engine + EFB-Dateien) **und** Desktop-App
 - **Dateien:** `tracker.js`, `tracker-efb-display-settings.js`, `tracker-efb-web-client.js`, `tracker-efb-kartentisch-host.js`, `sync-efb-web-assets.js`, `package.json`, neu `efb-web-assets/i18n-core.js` + `efb-web-assets/i18n/*`; Desktop: `lib/config-store.js`, `lib/tracker-process.js`, `main.js`, `preload.js`, `ui/index.html`, `ui/renderer.js`, `ui/styles.css`
 - **Was:** DE/EN-Schalter oben rechts im Desktop-Fenster; Tracker speichert `ui.language` in den EFB-Anzeige-Einstellungen; EFB und Toolbar schalten live um.
@@ -38,7 +42,7 @@ liefert alles Offene mit aus.
 - **Doku beim Release:** Release-Notiz „EFB/Toolbar folgen der Sprache der Desktop-App (Schalter oben rechts)“.
 - **Pruefen im Feld:** Umschalten im laufenden Sim, EFB und Toolbar; Start mit Englisch.
 
-### 2026-11-05 · Breakout/iPod-Texte und Screenreader-Attribute — EFB-Kopien warten
+### 2026-11-05 · Breakout/iPod-Texte und Screenreader-Attribute — ausgeliefert in Tracker v615 Alpha / Desktop 1.6.39 (05.11.2026)
 - **Artefakt:** generierte EFB-Kopien `efb-web-assets/media-player-ipod.js`, `efb-web-assets/kartentisch-fragment.html`; Web live mit diesem Push
 - **Dateien:** `media-player-ipod.js` (+ `efb-media-source/`), `index.html`
 - **Was:** Breakout-/iPod-Texte über `_mpT`; im Kartentisch-Fragment nur zusätzliche `data-i18n-*`-Attribute. Ohne `GAI18n` (EFB) exakt deutsch.
@@ -47,7 +51,7 @@ liefert alles Offene mit aus.
 - **Doku beim Release:** keine. Im EFB ohne sichtbare Änderung.
 - **Pruefen im Feld:** -
 
-### 2026-11-05 · UI-Reste (Uhr-Timer, Wegpunkt-Popup) — EFB-Kopien warten
+### 2026-11-05 · UI-Reste (Uhr-Timer, Wegpunkt-Popup) — ausgeliefert in Tracker v615 Alpha / Desktop 1.6.39 (05.11.2026)
 - **Artefakt:** generierte EFB-Kopien `efb-web-assets/media-player-watch-face.js`, `efb-web-assets/map-route-edit-core.js`; Web live mit diesem Push
 - **Dateien:** `media-player-watch-face.js` (+ `efb-media-source/`-Kopie), `map-route-edit-core.js`
 - **Was:** „Minuten“, „Polartag/Polarnacht“ und das Wegpunkt-Popup („Wegpunkt“, „🗑️ Löschen“) über die Satz-Tabelle; ohne `GAI18n` (EFB/Tracker) exakt deutsch.
@@ -56,7 +60,7 @@ liefert alles Offene mit aus.
 - **Doku beim Release:** keine. Im EFB ohne sichtbare Änderung.
 - **Pruefen im Feld:** -
 
-### 2026-11-04 · Debrief übersetzbar — EFB-Kopie wartet
+### 2026-11-04 · Debrief übersetzbar — ausgeliefert in Tracker v615 Alpha / Desktop 1.6.39 (05.11.2026)
 - **Artefakt:** generierte EFB-Kopie `efb-web-assets/flight-debrief.js`; Web live mit diesem Push
 - **Dateien:** `flight-debrief.js` (+ Web: `flight-logbook-view.js`, `app.js`, `board.js`, `index.html`)
 - **Was:** Debrief-Texte über `_fdT/_fdK`; ohne `GAI18n` (EFB) exakt deutsch.
@@ -65,7 +69,7 @@ liefert alles Offene mit aus.
 - **Doku beim Release:** keine. Im EFB ohne sichtbare Änderung.
 - **Pruefen im Feld:** -
 
-### 2026-11-04 · Zahlen-/Datumsformat der UI-Sprache — EFB-Kopien warten
+### 2026-11-04 · Zahlen-/Datumsformat der UI-Sprache — ausgeliefert in Tracker v615 Alpha / Desktop 1.6.39 (05.11.2026)
 - **Artefakt:** generierte EFB-Kopien `efb-web-assets/map-context-popup.js`, `efb-web-assets/flight-debrief.js`; Web live mit diesem Push
 - **Dateien:** `i18n-core.js`, `map-context-popup.js`, `flight-logbook-view.js`, `flight-debrief.js`, `app.js`
 - **Was:** Anzeige von Zahlen und Datum im Format der UI-Sprache; ohne `GAI18n` (EFB) unverändert `de-DE`.
@@ -74,7 +78,7 @@ liefert alles Offene mit aus.
 - **Doku beim Release:** keine. Im EFB ohne Wirkung.
 - **Pruefen im Feld:** -
 
-### 2026-11-03 · Vollbild-Pinnwand/Kartentisch bei Seitengröße ≠ 100 % (Web) — EFB-Kopie wartet
+### 2026-11-03 · Vollbild-Pinnwand/Kartentisch bei Seitengröße ≠ 100 % (Web) — ausgeliefert in Tracker v615 Alpha / Desktop 1.6.39 (05.11.2026)
 - **Artefakt:** nur die generierte EFB-Kopie `ga-tracker-client/efb-web-assets/styles.css`; Web ist mit diesem Push live
 - **Dateien:** `styles.css`, `index.html` (Stylesheet-Version), generiert `efb-web-assets/styles.css`
 - **Was:** Unter `body.app-ui-scaled` teilen Pinnwand, Kartentisch, Vollbild-Kartentisch und `--drawer-mobile-shift` vw/vh durch `--ga-ui-scale`.
@@ -82,8 +86,6 @@ liefert alles Offene mit aus.
 - **Tests:** Browser 375×812 bei 75/100/125 %: Kartentisch und Pinnwand 375×812; EFB-Sync- und Web-Client-Tests grün.
 - **Doku beim Release:** keine. Im EFB ohne Wirkung (dort keine `app-ui-scaled`-Klasse).
 - **Pruefen im Feld:** Handy mit Seitengröße < 100 %: Pinnwand und Kartentisch öffnen, Vollbild-Karte.
-
-## Ausgeliefert
 
 ### 2026-11-03 · Langer Klick öffnet „Was ist hier?“ am Mauspunkt — ausgeliefert in Tracker v614 Alpha (03.11.2026)
 - **Artefakt:** Tracker-EXE (`tracker-efb-kartentisch-host.js`); Web-Teil (`map.js`) mit demselben Push live

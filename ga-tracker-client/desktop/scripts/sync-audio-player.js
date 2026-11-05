@@ -10,6 +10,9 @@ fs.copyFileSync(path.resolve(__dirname, '../../../audio-warnings/voices/catalog.
 
 fs.copyFileSync(path.resolve(__dirname, '../../../pax-audio-style.js'), path.resolve(__dirname, '../ui/pax-audio-style.js'));
 
+// UI language core for the window (its own texts are in ui/i18n-en.js).
+fs.copyFileSync(path.resolve(__dirname, '../../../i18n-core.js'), path.resolve(__dirname, '../ui/i18n-core.js'));
+
 // Crew fleet (Where I Left It): shared merge rules and the cloud profile reader for the crew name.
 for (const name of ['wili-fleet-core.js', 'cloud-sync-client.js', 'cloud-sync-core.js', 'mission-cloud-control-core.js']) {
   fs.copyFileSync(path.resolve(__dirname, '../../../' + name), path.resolve(__dirname, '../lib/' + name));
