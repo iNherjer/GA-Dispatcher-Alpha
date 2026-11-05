@@ -21,7 +21,7 @@ function cleanLogLine(line) {
 }
 
 class TrackerProcess extends EventEmitter {
-  constructor({ electronApp, dataDirectory, runtimeManager, getCredentials, getRuntimeChannel, getMediaEndpoint }) {
+  constructor({ electronApp, dataDirectory, runtimeManager, getCredentials, getRuntimeChannel, getMediaEndpoint, getUiLanguage }) {
     super();
     this.app = electronApp;
     this.dataDirectory = dataDirectory;
@@ -29,6 +29,7 @@ class TrackerProcess extends EventEmitter {
     this.getMediaEndpoint = typeof getMediaEndpoint === 'function' ? getMediaEndpoint : () => null;
     this.getCredentials = typeof getCredentials === 'function' ? getCredentials : () => null;
     this.getRuntimeChannel = typeof getRuntimeChannel === 'function' ? getRuntimeChannel : () => 'stable';
+    this.getUiLanguage = typeof getUiLanguage === 'function' ? getUiLanguage : () => 'de';
     this.child = null;
     this.status = createTrackerStatus();
     this.logs = [];
@@ -64,7 +65,9 @@ class TrackerProcess extends EventEmitter {
       VFR_MULTITOOL_MISSION_EXECUTION_DEBUG_DISABLED: '0',
       VFR_MULTITOOL_DESKTOP_AUDIO_PLAYER: '1',
       VFR_MULTITOOL_DESKTOP_NAVIGATION_PLAYER: '1',
-      VFR_MULTITOOL_DESKTOP_CONTROL_TOKEN: desktopControlToken
+      VFR_MULTITOOL_DESKTOP_CONTROL_TOKEN: desktopControlToken,
+      // Start language for EFB and toolbar (tracker display setting ui.language).
+      VFR_MULTITOOL_UI_LANGUAGE: this.getUiLanguage() === 'en' ? 'en' : 'de'
     };
     delete sharedEnvironment.VFR_MULTITOOL_MEDIA_PORT;
     delete sharedEnvironment.VFR_MULTITOOL_MEDIA_TOKEN;
@@ -203,6 +206,29 @@ class TrackerProcess extends EventEmitter {
         method: 'POST',
         timeout: 1500,
         headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body), 'X-GA-Tracker-Desktop-Control': token }
+      }, (response) => {
+        response.resume();
+        resolve(response.statusCode >= 200 && response.statusCode < 300);
+      });
+      request.on('timeout', () => request.destroy());
+      request.on('error', () => resolve(false));
+      request.end(body);
+    });
+  }
+
+  // Live switch of the EFB/toolbar language. Older trackers reject the unknown key (400);
+  // they then keep German until the next start, which is fine.
+  setUiLanguage(language) {
+    if (!this.child) return Promise.resolve(false);
+    const body = JSON.stringify({ ui: { language: language === 'en' ? 'en' : 'de' } });
+    return new Promise((resolve) => {
+      const request = http.request({
+        host: '127.0.0.1',
+        port: this.localControlPort || DEFAULT_EFB_HTTP_PORT,
+        path: '/api/v1/display/settings',
+        method: 'POST',
+        timeout: 3000,
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
       }, (response) => {
         response.resume();
         resolve(response.statusCode >= 200 && response.statusCode < 300);

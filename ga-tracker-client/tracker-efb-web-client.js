@@ -10,6 +10,12 @@ const EFB_WEB_ASSET_REVISION = '61401';
 const fileCache = new Map();
 
 const STATIC_ASSETS = Object.freeze({
+  '/efb/v1/assets/i18n-core.js': [path.join(__dirname, 'efb-web-assets', 'i18n-core.js'), 'text/javascript; charset=utf-8'],
+  '/efb/v1/assets/i18n/de.js': [path.join(__dirname, 'efb-web-assets', 'i18n/de.js'), 'text/javascript; charset=utf-8'],
+  '/efb/v1/assets/i18n/en.js': [path.join(__dirname, 'efb-web-assets', 'i18n/en.js'), 'text/javascript; charset=utf-8'],
+  '/efb/v1/assets/i18n/en-phrases.js': [path.join(__dirname, 'efb-web-assets', 'i18n/en-phrases.js'), 'text/javascript; charset=utf-8'],
+  '/efb/v1/assets/i18n/en-help.js': [path.join(__dirname, 'efb-web-assets', 'i18n/en-help.js'), 'text/javascript; charset=utf-8'],
+  '/efb/v1/assets/i18n/en-formula.js': [path.join(__dirname, 'efb-web-assets', 'i18n/en-formula.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/media-efb-ui.js': [path.join(__dirname, 'tracker-efb-media-ui.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/suncalc.js': [path.join(__dirname, 'efb-web-assets', 'vendor/suncalc/suncalc.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/media-player-watch-face.js': [path.join(__dirname, 'efb-web-assets', 'media-player-watch-face.js'), 'text/javascript; charset=utf-8'],
@@ -143,6 +149,12 @@ function createTrackerEfbWebClientPage() {
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <title>VFR Multitool Kartentisch</title>
   <script>${getInlineBootstrapSource()}</script>
+  <script src="/efb/v1/assets/i18n-core.js?v=${EFB_WEB_ASSET_REVISION}"></script>
+  <script src="/efb/v1/assets/i18n/de.js?v=${EFB_WEB_ASSET_REVISION}"></script>
+  <script src="/efb/v1/assets/i18n/en.js?v=${EFB_WEB_ASSET_REVISION}"></script>
+  <script src="/efb/v1/assets/i18n/en-phrases.js?v=${EFB_WEB_ASSET_REVISION}"></script>
+  <script src="/efb/v1/assets/i18n/en-help.js?v=${EFB_WEB_ASSET_REVISION}"></script>
+  <script src="/efb/v1/assets/i18n/en-formula.js?v=${EFB_WEB_ASSET_REVISION}"></script>
   <link rel="stylesheet" href="/efb/v1/assets/fonts.css?v=${EFB_WEB_ASSET_REVISION}">
   <link rel="stylesheet" href="/efb/v1/assets/leaflet.css" onload="__gaEfbReport('info','style-loaded','leaflet.css')" onerror="__gaEfbReport('error','style-error','leaflet.css')">
   <link rel="stylesheet" href="/efb/v1/assets/app-styles.css?v=${EFB_WEB_ASSET_REVISION}" onload="__gaEfbReport('info','style-loaded','app-styles.css')" onerror="__gaEfbReport('error','style-error','app-styles.css')">

@@ -32,6 +32,8 @@
       "tracker-efb-floating-layout.js",
       "tracker-efb-media-ui.js",
       "efb-web-assets/kartentisch-fragment.html",
+      "efb-web-assets/i18n-core.js",
+      "efb-web-assets/i18n/*",
       "efb-web-assets/styles.css",
       "efb-web-assets/media-player.css",
       "efb-web-assets/media-player-ipod.js",

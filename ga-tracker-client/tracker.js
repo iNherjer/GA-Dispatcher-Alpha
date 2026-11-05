@@ -5883,7 +5883,8 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       mediaControl: mediaBridge.available ? executeMediaRelay : null,
       displayControl: require('./tracker-efb-display-settings').createDisplaySettingsControl({
         readConfig: readTrackerConfig,
-        writeConfig: writeTrackerConfig
+        writeConfig: writeTrackerConfig,
+        initialLanguage: String(process.env.VFR_MULTITOOL_UI_LANGUAGE || '').trim().toLowerCase()
       }),
       navcomPreferences: require('./tracker-navcom-preferences').createNavcomPreferences({
         pilotId: syncId, pin, readConfig: readTrackerConfig, writeConfig: writeTrackerConfig

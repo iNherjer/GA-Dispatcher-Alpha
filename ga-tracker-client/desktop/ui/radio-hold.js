@@ -1,5 +1,9 @@
 (function () {
   'use strict';
+  // UI language (i18n-core.js + i18n-en.js); German shows the original text.
+  const _dT = text => (window.GAI18n ? window.GAI18n.phrase(text) : text);
+  const _dK = (key, german, vars) => (window.GAI18n ? window.GAI18n.t(key, vars, german)
+    : String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, (m, n) => (vars && Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m)));
   const api = window.trackerDesktop;
   const $ = id => document.getElementById(id);
   if (!api || !api.setRadioHold || !$('radioHoldEnabled')) return;
@@ -10,7 +14,7 @@
   const THRESHOLDS = { low: 0.1, medium: 0.03, high: 0.01 };
   // Perceptual scale so quiet speech is still visible: 0.001 (-60 dB) .. 1 (0 dB).
   const meterPercent = peak => peak <= 0.001 ? 0 : Math.min(100, Math.max(0, (Math.log10(peak) + 3) / 3 * 100));
-  const element = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = text; return node; };
+  const element = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text !== undefined) node.textContent = _dT(text); return node; };
   function meter(name, threshold) {
     const box = element('span', 'radio-hold-meter'); box.dataset.meter = name;
     box.append(element('span'));
@@ -33,20 +37,20 @@
     settings.detection.programs.forEach((program, index) => {
       const item = element('li'); item.dataset.program = program.name;
       const mode = element('select'), sensitivity = element('select'), remove = element('button', 'secondary-button', '✕');
-      mode.append(new Option('Wie PTT', 'ptt'), new Option('Nur leiser', 'dim')); mode.value = program.mode;
-      mode.setAttribute('aria-label', program.name + ': Verhalten');
-      sensitivity.append(new Option('Empf. niedrig', 'low'), new Option('Empf. mittel', 'medium'), new Option('Empf. hoch', 'high'));
-      sensitivity.title = 'Empfindlichkeit: ab welchem Pegel das Programm als sprechend gilt';
+      mode.append(new Option(_dT('Wie PTT'), 'ptt'), new Option(_dT('Nur leiser'), 'dim')); mode.value = program.mode;
+      mode.setAttribute('aria-label', program.name + _dT(': Verhalten'));
+      sensitivity.append(new Option(_dT('Empf. niedrig'), 'low'), new Option(_dT('Empf. mittel'), 'medium'), new Option(_dT('Empf. hoch'), 'high'));
+      sensitivity.title = _dT('Empfindlichkeit: ab welchem Pegel das Programm als sprechend gilt');
       const delay = element('select');
-      for (const ms of [0, 100, 300, 500, 1000, 2000]) delay.append(new Option(ms ? 'nach ' + String(ms / 1000).replace('.', ',') + ' s' : 'sofort', String(ms)));
-      delay.value = String(program.triggerMs); delay.setAttribute('aria-label', program.name + ': Auslösen nach');
-      delay.title = 'So lange muss das Programm Ton ausgeben, bis die Funk-Pause auslöst';
-      sensitivity.value = program.sensitivity; sensitivity.setAttribute('aria-label', program.name + ': Empfindlichkeit');
+      for (const ms of [0, 100, 300, 500, 1000, 2000]) delay.append(new Option(ms ? _dK('desk.rh.after', 'nach {s} s', { s: window.GAI18n && window.GAI18n.getLanguage() === 'en' ? String(ms / 1000) : String(ms / 1000).replace('.', ',') }) : _dT('sofort'), String(ms)));
+      delay.value = String(program.triggerMs); delay.setAttribute('aria-label', program.name + _dT(': Auslösen nach'));
+      delay.title = _dT('So lange muss das Programm Ton ausgeben, bis die Funk-Pause auslöst');
+      sensitivity.value = program.sensitivity; sensitivity.setAttribute('aria-label', program.name + _dT(': Empfindlichkeit'));
       const update = patch => saveDetection({ programs: settings.detection.programs.map((entry, position) => position === index ? { ...entry, ...patch } : entry) });
       mode.onchange = () => update({ mode: mode.value });
       sensitivity.onchange = () => update({ sensitivity: sensitivity.value });
       delay.onchange = () => update({ triggerMs: Number(delay.value) });
-      remove.type = 'button'; remove.setAttribute('aria-label', program.name + ' entfernen');
+      remove.type = 'button'; remove.setAttribute('aria-label', program.name + _dT(' entfernen'));
       remove.onclick = () => saveDetection({ programs: settings.detection.programs.filter((_entry, position) => position !== index) });
       item.append(element('span', 'program-name', program.name), remove, mode, sensitivity, delay, meter(program.name, THRESHOLDS[program.sensitivity]));
       list.append(item);
@@ -72,7 +76,7 @@
         try {
           const result = await api.addRadioHoldProgram(name);
           if (result && result.settings) settings = result.settings;
-          message = result && result.ok ? name + ' hinzugefügt.' : (result && result.error) || 'Programm konnte nicht hinzugefügt werden.';
+          message = result && result.ok ? name + _dT(' hinzugefügt.') : (result && result.error) || _dT('Programm konnte nicht hinzugefügt werden.');
         } catch (error) { message = error.message; }
         render();
       };
@@ -91,14 +95,16 @@
     if (hold && hold.input && hold.input.supported === false) return 'Button-Erkennung benötigt Windows.';
     if (hold && hold.input && hold.input.connected === false) return 'Joystick nicht gefunden. Er wird automatisch erneut gesucht.';
     if (hold && hold.pressed) return 'Funk aktiv – Audio angehalten.';
-    if (hold && hold.held && hold.sources && hold.sources.length) return hold.sources.join(', ') + ' spricht – Audio ' + (hold.voice && hold.voice.mode === 'pause' ? 'angehalten.' : 'leiser.');
+    if (hold && hold.held && hold.sources && hold.sources.length) return hold.voice && hold.voice.mode === 'pause' ? _dK('desk.rh.speakingPaused', '{who} spricht – Audio angehalten.', { who: hold.sources.join(', ') }) : _dK('desk.rh.speakingDimmed', '{who} spricht – Audio leiser.', { who: hold.sources.join(', ') });
     if (hold && hold.held) {
       if (!hold.resumeAt) return 'Angehalten. Fortsetzen per kurzem Druck oder Button unten.';
-      return 'Angehalten – geht in ' + Math.max(0, Math.ceil((hold.resumeAt - Date.now()) / 1000)) + ' s weiter.';
+      return _dK('desk.rh.resumesIn', 'Angehalten – geht in {s} s weiter.', { s: Math.max(0, Math.ceil((hold.resumeAt - Date.now()) / 1000)) });
     }
     const programs = settings.detection.enabled ? settings.detection.programs.length : 0;
-    return 'Bereit: ' + settings.bindings.length + (settings.bindings.length === 1 ? ' Eingabe' : ' Eingaben')
-      + (programs ? ', ' + programs + (programs === 1 ? ' Programm' : ' Programme') : '') + ' aktiv.';
+    return _dK('desk.rh.ready', 'Bereit: {inputs}{programs} aktiv.', {
+      inputs: settings.bindings.length + _dT(settings.bindings.length === 1 ? ' Eingabe' : ' Eingaben'),
+      programs: programs ? ', ' + programs + _dT(programs === 1 ? ' Programm' : ' Programme') : ''
+    });
   }
   function render() {
     if (settings) {
@@ -107,9 +113,9 @@
       list.replaceChildren();
       settings.bindings.forEach((binding, index) => {
         const item = document.createElement('li'), label = document.createElement('span'), remove = document.createElement('button');
-        label.textContent = binding.label;
-        remove.type = 'button'; remove.className = 'secondary-button'; remove.textContent = '✕';
-        remove.setAttribute('aria-label', binding.label + ' entfernen'); remove.disabled = learning;
+        label.textContent = _dT(binding.label);
+        remove.type = 'button'; remove.className = 'secondary-button'; remove.textContent = _dT('✕');
+        remove.setAttribute('aria-label', binding.label + _dT(' entfernen')); remove.disabled = learning;
         remove.onclick = async () => {
           message = '';
           try { const result = await api.removeRadioHoldButton(index); if (result && result.settings) settings = result.settings; }
@@ -118,7 +124,7 @@
         };
         item.append(label, remove); list.append(item);
       });
-      if (!settings.bindings.length) { const empty = document.createElement('li'); empty.className = 'empty'; empty.textContent = 'Noch keine Eingabe belegt.'; list.append(empty); }
+      if (!settings.bindings.length) { const empty = document.createElement('li'); empty.className = 'empty'; empty.textContent = _dT('Noch keine Eingabe belegt.'); list.append(empty); }
       // Never overwrite a control the user is operating; Chromium would report it as a new choice.
       const set = (id, property, value) => { if (document.activeElement !== $(id)) $(id)[property] = value; };
       set('radioHoldResume', 'value', String(settings.resumeSeconds));
@@ -137,11 +143,11 @@
       $('radioHoldMusicDim').hidden = $('radioHoldMusicDimLabel').hidden = !musicDim;
     }
     $('radioHoldLearn').disabled = learning || (settings && settings.bindings.length >= 8);
-    $('radioHoldLearn').textContent = learning ? 'Warte auf Button …' : '+ Button hinzufügen';
+    $('radioHoldLearn').textContent = _dT(learning ? 'Warte auf Button …' : '+ Button hinzufügen');
     $('radioHoldResumeNow').disabled = !(hold && hold.held);
     $('radioHoldAddProgram').disabled = picking || (settings && settings.detection.programs.length >= 8);
     renderPicker();
-    $('radioHoldStatus').textContent = statusText();
+    $('radioHoldStatus').textContent = _dT(statusText());
     clearTimeout(countdown);
     if (hold && hold.held && hold.resumeAt && !hold.pressed) countdown = setTimeout(render, 500);
   }
@@ -191,14 +197,16 @@
       const result = await api.learnRadioHoldButton();
       if (result && result.settings) settings = result.settings;
       if (result && result.ok) {
-        const added = message = (result.added ? result.added.label : 'Eingabe') + ' hinzugefügt.';
+        const added = message = (result.added ? result.added.label : _dT('Eingabe')) + _dT(' hinzugefügt.');
         setTimeout(() => { if (message === added) { message = ''; render(); } }, 3000);
       }
-      else message = (result && result.error) || 'Kein Button erkannt.';
+      else message = (result && result.error) || _dT('Kein Button erkannt.');
     } catch (error) { message = error.message; }
     learning = false; render();
   };
   api.onRadioHoldChanged(state => { hold = state; render(); });
+  // Language switch: rebuild the program list (cached by its settings) and redraw.
+  if (window.GAI18n) window.GAI18n.onChange(() => { programsKey = ''; render(); });
   api.getState().then(state => { settings = state.settings.radioHold || null; render(); }).catch(() => {});
   if (api.onStateChanged) api.onStateChanged(state => { if (state && state.settings && state.settings.radioHold) { settings = state.settings.radioHold; render(); } });
   api.getRadioHold().then(state => { hold = state; render(); }).catch(() => {});

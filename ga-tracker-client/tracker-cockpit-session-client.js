@@ -639,8 +639,8 @@
         if (checkbox) checkbox.checked = enabled;
         if (status) {
           status.textContent = enabled
-            ? 'Diese Instanz darf zentrale Ansagen übernehmen.'
-            : 'Diese Instanz bleibt synchron, gibt aber kein Audio aus.';
+            ? (runtime.GAI18n ? runtime.GAI18n.phrase('Diese Instanz darf zentrale Ansagen übernehmen.') : 'Diese Instanz darf zentrale Ansagen übernehmen.')
+            : (runtime.GAI18n ? runtime.GAI18n.phrase('Diese Instanz bleibt synchron, gibt aber kein Audio aus.') : 'Diese Instanz bleibt synchron, gibt aber kein Audio aus.');
           status.style.color = enabled ? '#8294a8' : '#d7a65a';
         }
       };

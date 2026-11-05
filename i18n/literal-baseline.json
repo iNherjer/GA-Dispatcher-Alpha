@@ -1,7 +1,7 @@
 {
  "note": "German literals accepted as known. Created by node tools/i18n-check.mjs --update-baseline.",
  "created": "2026-11-05",
- "total": 7813,
+ "total": 7794,
  "files": {
   "aircraft-mission-capability-core.js": [
    "10a2db52a2",
@@ -2535,7 +2535,6 @@
   ],
   "index.html": [
    "01208ad780",
-   "036a6eeb39",
    "037adddbab",
    "045a089676",
    "052dff86b4",
@@ -2545,7 +2544,6 @@
    "1a4e73ac32",
    "24c16d2ac9",
    "24de554d88",
-   "2a843b158d",
    "302e9418de",
    "32621e0905",
    "32b02400c0",
@@ -2561,7 +2559,6 @@
    "506ef84880",
    "5758f444aa",
    "576bcf2cb6",
-   "59d09f24ad",
    "625543070f",
    "6617852472",
    "6742bb9abe",
@@ -2573,26 +2570,20 @@
    "76e72c784b",
    "7950a74b9d",
    "7ea8e96859",
-   "8143770e02",
-   "834ecaf68a",
    "8bbf2ec3f9",
    "8eea2f0d02",
    "9220573f4f",
    "945d2bcd53",
    "95127a7af3",
-   "9838c6b5f4",
    "9c80e72259",
    "9e5e52ab72",
-   "9ef5bb8c01",
    "a038df9449",
    "a12a7c6583",
    "a1ec84cf04",
    "ab090152c0",
-   "ab4a859cfb",
    "ab62728c84",
    "ae219f1889",
    "b07ea8744a",
-   "b6e06f2c6f",
    "bac0b1cf8d",
    "be2d3b180c",
    "bf662880f5",
@@ -2600,18 +2591,13 @@
    "c90e1c58d9",
    "ce4c5761f6",
    "ced5c7894f",
-   "d40b430af3",
-   "d6b8ffc774",
    "d8715a1cdd",
    "ddfc3be782",
    "e143bd6674",
    "e513877653",
-   "e956916f56",
    "ebee96e89f",
    "f2febad12d",
    "fb17f33cd2",
-   "fc046bd7f0",
-   "fd2ff0b962",
    "ffa5a8a7e2"
   ],
   "legal.html": [
@@ -5657,7 +5643,7 @@
    "247e4b66b7"
   ],
   "navigation-warning-presentation.js": [
-   "039a042bdf"
+   "f94bb055e9"
   ],
   "onboarding.html": [
    "0027a2a44b",

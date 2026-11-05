@@ -2,6 +2,9 @@
   'use strict';
   if (!root.document || !root.GATrackerAudioPlayer || !root.gaCockpitSessionClient) return;
   var cockpit = root.gaCockpitSessionClient, local = cockpit.role !== 'web';
+  // UI language (i18n-core.js). Without GAI18n, or in German, the text stays as before.
+  function _aT(text) { return root.GAI18n ? root.GAI18n.phrase(text) : text; }
+  var relabelMenu = function () {};
   var deviceId;
   try {
     deviceId = root.localStorage.getItem('ga_audio_device_id_v1');
@@ -166,19 +169,20 @@
       }
       if (closed || epoch !== lifecycleEpoch) return;
       if (result.audio) apply(Object.assign({}, result.audio, { playback: state && state.playback, warnings: state && state.warnings }));
-      if (!result.ok) throw new Error(result.error === 'audio_revision_conflict' ? 'Audioeinstellung wurde auf einem anderen Gerät geändert. Bitte erneut wählen.' : 'Audioeinstellung konnte nicht gespeichert werden.');
+      if (!result.ok) throw new Error(result.error === 'audio_revision_conflict' ? _aT('Audioeinstellung wurde auf einem anderen Gerät geändert. Bitte erneut wählen.') : _aT('Audioeinstellung konnte nicht gespeichert werden.'));
     }).catch(function (error) { lastError = error.message; }).then(function() {
       Object.keys(patch.settings || {}).forEach(function(name) { if (pendingSettings[name] && pendingSettings[name].sequence === sequence) delete pendingSettings[name]; });
       render();
     });
     return saving;
   }
+  if (root.GAI18n && typeof root.GAI18n.onChange === 'function') root.GAI18n.onChange(function () { relabelMenu(); render(); });
   function installMenu() {
     var host = root.document.getElementById('mapVoiceMenu');
     if (!host || menu) return;
     menu = root.document.createElement('div'); menu.id = 'gaTrackerAudioOutput';
     menu.style.cssText = 'box-sizing:border-box;min-width:0;max-width:100%;overflow-wrap:anywhere;padding:6px 2px 10px;margin-bottom:8px;border-bottom:1px solid #444;';
-    var label = root.document.createElement('label'); label.textContent = 'Audioausgabe ';
+    var label = root.document.createElement('label'); var labelText = root.document.createTextNode('Audioausgabe '); label.appendChild(labelText);
     var select = root.document.createElement('select'); select.id = 'gaAudioOutputSelect'; select.style.cssText = 'box-sizing:border-box;min-width:0;max-width:100%;width:100%;padding:6px;background:#1a2a3a;color:#d0e8ff;border:1px solid #456;border-radius:5px';
     [['pc','PC'],['this','Diese App'],['other','Andere App']].forEach(function (entry) { var option = root.document.createElement('option'); option.value = entry[0]; option.textContent = entry[1]; option.disabled = entry[0] === 'other'; select.appendChild(option); });
     select.onchange = function () {
@@ -189,7 +193,7 @@
     if (local) {
       // A direct touch action also works in Coherent without opening a native select.
       var pcButton = root.document.createElement('button'); pcButton.type = 'button';
-      pcButton.id = 'gaAudioTakeOnPc'; pcButton.textContent = 'Audio auf PC ausgeben';
+      pcButton.id = 'gaAudioTakeOnPc'; pcButton.textContent = _aT('Audio auf PC ausgeben');
       pcButton.style.cssText = select.style.cssText + ';margin-top:6px;cursor:pointer';
       pcButton.onclick = function () { change({ target: { mode: 'pc' } }); };
       menu.appendChild(pcButton);
@@ -199,19 +203,35 @@
     var muteLabel = root.document.createElement('label'); muteLabel.style.cssText = 'display:block;margin-top:6px';
     var mute = root.document.createElement('input'); mute.type = 'checkbox'; mute.id = 'gaAudioMasterEnabled';
     mute.onchange = function () { change({ settings: { enabled: mute.checked } }); };
-    muteLabel.appendChild(mute); muteLabel.appendChild(root.document.createTextNode(' Multitool-Audio aktivieren')); menu.appendChild(muteLabel);
+    var muteText = root.document.createTextNode(' Multitool-Audio aktivieren');
+    muteLabel.appendChild(mute); muteLabel.appendChild(muteText); menu.appendChild(muteLabel);
     var help = root.document.createElement('div'); help.id = 'gaAudioMasterHelp';
     help.textContent = 'Aus = alle Multitool-Warnungen, Missions-/Story-Stimmen und Audioeffekte stumm. Gilt gemeinsam f\u00fcr alle verbundenen Ger\u00e4te; Ausgabe auf dem gew\u00e4hlten Ger\u00e4t.';
     muteLabel.title = help.textContent;
     muteLabel.setAttribute('aria-describedby', help.id);
     help.style.display = 'none'; menu.appendChild(help);
+    var helpGerman = help.textContent;
+    relabelMenu = function () {
+      labelText.nodeValue = _aT('Audioausgabe ');
+      muteText.nodeValue = _aT(' Multitool-Audio aktivieren');
+      help.textContent = _aT(helpGerman); muteLabel.title = help.textContent;
+      Array.prototype.forEach.call(select.options || [], function (option) {
+        if (option.value === 'this') option.textContent = _aT('Diese App');
+        if (option.value === 'other') option.textContent = _aT('Andere App');
+      });
+      var takeOnPc = root.document.getElementById('gaAudioTakeOnPc');
+      if (takeOnPc) takeOnPc.textContent = _aT('Audio auf PC ausgeben');
+      var packs = root.document.getElementById('gaWarningVoiceSelect');
+      if (packs) packs.setAttribute('aria-label', _aT('Warnstimme'));
+    };
+    relabelMenu();
     host.insertBefore(menu, host.firstChild);
     // The EFB uses the shared markup without the App's inline voice-list builder.
     var voices = local && root.document.getElementById('awmVoiceList');
     if (voices) {
       var packs = root.document.createElement('select'); packs.id = 'gaWarningVoiceSelect';
       packs.style.cssText = select.style.cssText;
-      packs.setAttribute('aria-label', 'Warnstimme');
+      packs.setAttribute('aria-label', _aT('Warnstimme'));
       function option(id, text) { var item = root.document.createElement('option'); item.value = id; item.textContent = text; packs.appendChild(item); }
       option('', 'Anna (DE)'); voices.replaceChildren(packs);
       packs.onchange = function() { change({ settings: { voicePack: packs.value } }); };
@@ -328,8 +348,8 @@
     if (!state) return;
     uiProperty(root.document.getElementById('gaAudioOutputSelect'), 'value', state.target.mode === 'pc' ? 'pc' : state.target.deviceId === deviceId ? 'this' : 'other');
     renderCheckbox('gaAudioMasterEnabled', visibleSetting('enabled'));
-    var statusText = lastError || 'Ausgabe: ' + state.target.name + (state.cloudState === 'pending' ? ' · Cloud-Speicherung ausstehend' : '');
-    if (!lastError && enabled && state.warnings && ['partial','stale'].indexOf(state.warnings.status) >= 0) statusText = 'Ausgabe: ' + state.target.name + ' · ' + (state.warnings.health || 'Warnungsdaten veraltet');
+    var statusText = lastError || _aT('Ausgabe: ') + state.target.name + (state.cloudState === 'pending' ? _aT(' · Cloud-Speicherung ausstehend') : '');
+    if (!lastError && enabled && state.warnings && ['partial','stale'].indexOf(state.warnings.status) >= 0) statusText = _aT('Ausgabe: ') + state.target.name + ' · ' + (state.warnings.health || _aT('Warnungsdaten veraltet'));
     message(statusText);
     // Apply the existing voice flag to the App's runtime without replaying old text.
     try {
@@ -339,7 +359,7 @@
     var verticalToggle = root.document.getElementById('awmVerticalAirspaceWarnCheck');
     uiProperty(verticalToggle, 'disabled', !(state.warnings && state.warnings.capabilities && state.warnings.capabilities.verticalAirspace));
     uiProperty(verticalToggle, 'checked', state.settings.airspaceVertical !== false);
-    uiProperty(verticalToggle, 'title', 'Benötigt einen Tracker mit vertikalen Luftraumwarnungen.');
+    uiProperty(verticalToggle, 'title', _aT('Benötigt einen Tracker mit vertikalen Luftraumwarnungen.'));
     if (!enabled) return;
     // Keep standalone state/diagnostics aligned with the authoritative toggles,
     // without starting another warning detector or changing the selected output.

@@ -221,6 +221,55 @@ nach den restlichen Web-UI-Bereichen, nicht dazwischen.
   nach Freigabe bauen/veröffentlichen; die offenen EFB-Kopien aus `docs/Release Queue.md`
   gehen mit dem Tracker-Build mit.
 
+**Umsetzung Schritte 1–3 (2026-11-05, lokal, noch nicht ausgerollt)**
+- EFB: `sync-efb-web-assets.js` erzeugt `efb-web-assets/i18n-core.js` und `efb-web-assets/i18n/{de,en,en-phrases,en-help,en-formula}.js`
+  (Babel wie die übrigen Dateien, Coherent/Chrome 49 geprüft: nur `Set`, `Intl.NumberFormat` im try).
+  `tracker-efb-web-client.js` liefert sie aus und lädt sie im `<head>` vor dem Kartentisch;
+  `package.json` (pkg.assets) packt sie in die EXE. `tracker-efb-kartentisch-host.js`
+  übernimmt `display.ui.language` in `applyUiPreferences` per `GAI18n.setLanguage` – das EFB
+  schreibt die Sprache nie selbst.
+- Tracker: `tracker-efb-display-settings.js` kennt `ui.language` (`de`/`en`, sonst abgelehnt);
+  `initialLanguage` aus `VFR_MULTITOOL_UI_LANGUAGE` wird beim Start einmal übernommen
+  (gleiche Sprache = kein Schreibvorgang). `tracker.js` reicht die Variable durch.
+- Desktop: `config-store.js` `uiLanguage` (Standard `de`) + `setUiLanguage`; `tracker-process.js`
+  gibt `VFR_MULTITOOL_UI_LANGUAGE` mit und schickt bei Wechsel `POST /api/v1/display/settings`
+  an den laufenden Tracker; Schalter `DE | EN` mit Flaggen oben rechts (`ui/index.html`,
+  `renderer.js`, `styles.css`), IPC `settings:set-ui-language`.
+- Geprüft: echter EFB-Server lokal ohne Sim – Übersetzung lädt (1119 Schlüssel, 757 Sätze),
+  Wechsel per Einstellung nach ~0,5 s, zurück auf Deutsch zeichengenau gleich, Neustart beginnt
+  in der gespeicherten Sprache. Tests: Desktop 150/150 (3 übersprungen), Tracker/EFB 148/148,
+  Anzeige-Einstellungen 12/12.
+- **Noch deutsch im EFB:** eigene Texte des Hosts (`tracker-efb-kartentisch-host.js`, z. B.
+  „UI-Größe (2D)“, „Snapping (An)“, Startmeldung) – Schritt 4. Desktop-Fenster selbst noch
+  deutsch (nur der Schalter ist neu) – Teil von Schritt 3.
+- Hinweis Werkzeug: Die Vorschau-Funktion der App liest ihre Konfiguration noch aus dem alten
+  Desktop-Ordner; EFB-Test deshalb mit direkt gestartetem Testserver.
+
+**Schritte 3 (Desktop-Fenster) und 4 (EFB-eigene Texte) (2026-11-05, lokal, Branch `i18n-phase2`)**
+- EFB-Host (`tracker-efb-kartentisch-host.js`): Helfer `_hT/_hK`; Werkzeugleiste (Profil,
+  Snapping, Was ist hier, Menüleiste), UI-Größe/Schrift, Direct-To-Rückfragen, Tracker-Status,
+  Live-Höhe/Ziel, Passagier-Nachricht, Hilfe-Texte. Startmeldung über `data-boot-message`
+  (`tracker-efb-bootstrap-inline.js`, nur Anzeige; Log bleibt deutsch). Sprachwechsel zeichnet
+  diese Beschriftungen neu.
+- **Bewusst noch deutsch (Missionsphase):** Verlade-Manager, Missionsbanner,
+  Flugplan-Übergabe-Meldungen („Mission läuft …“), Reset-Dialog, `mission-control-ui-core.js`.
+- `tracker-audio-client.js` (**auch Web-App**, in Phase 1 übersehen): Audio-Ausgabe-Menü.
+  `tracker-cockpit-session-client.js`, `navigation-warning-presentation.js` („Schließen“),
+  `tracker-efb-profile-bridge.js` (Höhe/Rate-Dialog).
+- Desktop-Fenster: `desktop/ui/i18n-core.js` (Kopie per `sync-efb-web-assets.js`),
+  Wörterbuch `desktop/ui/i18n-en.js` (181 Schlüssel, 216 Sätze). HTML: Elemente mit `id` nur
+  `data-i18n-initial` (der Code schreibt sie zur Laufzeit), ohne `id` feste Schlüssel.
+  `renderer.js`, `radio-hold.js`, `media.js`, `audio.js`: jede `textContent`-Zuweisung und jede
+  `confirm`-Rückfrage per Babel-Bereichen in `_dT(…)` gewickelt (Rest der Datei unverändert),
+  Vorlagen mit Zahlen/Namen als `_dK`-Schlüssel. Sprache aus `settings.uiLanguage`, Neuzeichnen
+  per `GAI18n.onChange`.
+- **Noch deutsch im Desktop-Fenster:** Meldungen aus dem Hauptprozess (`update.message`,
+  `assets.message`, `bridge.message`, Where-I-Left-It-Meldungen, Fehlermeldungen von `main.js`)
+  und zwei seltene Vereinsflotten-Sätze (Crew verlassen / entfernt).
+- Geprüft: EFB (echter Server ohne Sim) und Desktop-Fenster (Ersatz-Schnittstelle) DE→EN→DE
+  identisch, keine deutschen Reste in den übersetzten Bereichen; Web-Audio-Menü DE/EN.
+  Tests: Tracker 1541/1541 (2 übersprungen), Desktop 150/150 (3 übersprungen).
+
 **Reihenfolge bei der Umsetzung**
 1. EFB: i18n-Dateien ausliefern + Sprache aus `display` übernehmen (sichtbar: die schon
    übersetzten Teile werden englisch).

@@ -1,5 +1,7 @@
 (function () {
   'use strict';
+  // UI language (i18n-core.js + i18n-en.js); German shows the original text.
+  const _dT = text => (window.GAI18n ? window.GAI18n.phrase(text) : text);
   const api = window.trackerDesktop;
   const $ = id => document.getElementById(id);
   let audio = null, outputId = '', stopped = false, saving = Promise.resolve(), playbackText = '', lastError = '';
@@ -21,7 +23,7 @@
     onAudible: (active, job, stage) => {
       if (window.GAMediaAudioActivity) window.GAMediaAudioActivity(active && audio?.settings?.volume > 0, job, stage);
     },
-    onError: error => { lastError = error; $('audioPlaybackStatus').textContent = error; },
+    onError: error => { lastError = error; $('audioPlaybackStatus').textContent = _dT(error); },
     onDiagnostic: line => { if (api.logRadioHold) api.logRadioHold(line).catch(() => {}); }
   });
   function render() {
@@ -36,7 +38,7 @@
     for (const [id, key] of [['audioReadFreq','readFreq'],['audioTerrain','terrain'],['audioAirspace','airspace'],['audioAirspaceVertical','airspaceVertical'],['audioWaypoint','waypoint']]) $(id).checked = audio.settings[key];
     $('audioPaxStyle').value = audio.settings.audioStyle || 'intercom_noise';
     $('audioWarningVoice').value = audio.settings.voicePack || '';
-    $('audioPlaybackStatus').textContent = lastError || playbackText || 'Ausgabe: ' + audio.target.name + (audio.cloudState === 'pending' ? ' · Cloud-Speicherung ausstehend' : '');
+    $('audioPlaybackStatus').textContent = _dT(lastError || playbackText) || (_dT('Ausgabe: ') + audio.target.name + (audio.cloudState === 'pending' ? _dT(' · Cloud-Speicherung ausstehend') : ''));
   }
   function update(patch) {
     lastError = '';
@@ -45,7 +47,7 @@
       const result = await api.audioRequest('playback', { action: 'settings_update', clientId, expectedRevision: audio.revision, ...patch });
       if (result.audio) { audio = { ...result.audio, playback: audio.playback, warnings: audio.warnings }; player.update(audio); render(); }
       if (!result.ok) throw new Error('Audioeinstellung wurde auf einem anderen Gerät geändert. Bitte erneut wählen.');
-    }).catch(error => { $('audioPlaybackStatus').textContent = error.message; });
+    }).catch(error => { $('audioPlaybackStatus').textContent = _dT(error.message); });
   }
   $('audioTargetSelect').onchange = () => update({ target: { mode: 'pc' } });
   $('audioMasterVolume').onchange = () => update({ settings: { volume: Number($('audioMasterVolume').value) / 100 } });
@@ -61,11 +63,11 @@
   async function devices() {
     const devices = await navigator.mediaDevices.enumerateDevices();
     const select = $('audioHardwareSelect');
-    select.replaceChildren(new Option('Windows-Standardgerät', ''));
-    devices.filter(device => device.kind === 'audiooutput' && device.deviceId !== 'default').forEach((device, index) => select.add(new Option(device.label || 'Audioausgang ' + (index + 1), device.deviceId)));
+    select.replaceChildren(new Option(_dT('Windows-Standardgerät'), ''));
+    devices.filter(device => device.kind === 'audiooutput' && device.deviceId !== 'default').forEach((device, index) => select.add(new Option(device.label || _dT('Audioausgang ') + (index + 1), device.deviceId)));
     if (outputId && !Array.from(select.options).some(option => option.value === outputId)) {
       outputId = ''; await player.setOutputDevice(''); await api.setAudioOutputDeviceId('');
-      $('audioPlaybackStatus').textContent = 'Der bisherige Audioausgang fehlt. Windows-Standardgerät wird verwendet.';
+      $('audioPlaybackStatus').textContent = _dT('Der bisherige Audioausgang fehlt. Windows-Standardgerät wird verwendet.');
     }
     select.value = outputId;
   }
@@ -81,13 +83,13 @@
   $('audioHardwareSelect').onchange = async () => {
     const selected = $('audioHardwareSelect').value;
     try { await player.setOutputDevice(selected); outputId = selected; await api.setAudioOutputDeviceId(selected); }
-    catch (error) { $('audioHardwareSelect').value = outputId; $('audioPlaybackStatus').textContent = error.message; }
+    catch (error) { $('audioHardwareSelect').value = outputId; $('audioPlaybackStatus').textContent = _dT(error.message); }
   };
   navigator.mediaDevices.addEventListener('devicechange', () => devices().catch(() => {}));
   async function tick() {
     if (stopped) return;
     try { audio = (await api.audioRequest('settings')).audio; player.update(audio); render(); }
-    catch (error) { audio = null; player.update(null); $('audioPlaybackStatus').textContent = error.message; }
+    catch (error) { audio = null; player.update(null); $('audioPlaybackStatus').textContent = _dT(error.message); }
     if (!stopped) setTimeout(tick, 1000);
   }
   api.getState().then(state => { outputId = state.settings.audioOutputDeviceId || ''; return devices(); }).catch(() => {});
@@ -106,4 +108,10 @@
   if (api.getRadioHold) api.getRadioHold().then(applyHold).catch(() => {});
   window.addEventListener('pagehide', () => { stopped = true; player.stop(); });
   tick();
+  // Language switch: redraw the status texts.
+  if (window.GAI18n) window.GAI18n.onChange(() => {
+    render();
+    const first = $('audioHardwareSelect').options[0];
+    if (first && first.value === '') first.textContent = _dT('Windows-Standardgerät');
+  });
 })();

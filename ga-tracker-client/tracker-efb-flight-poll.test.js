@@ -7,7 +7,7 @@ test('flight polling separates render failures, transient delays and genuine dis
  const ctx={pollingClosed:false,trackerOnline:false,localFlightRevision:null,pollTimer:0,
    Date:{now:()=>time},safePayload:v=>v,fetchJson:()=>error?Promise.reject(error):Promise.resolve(result),
    renderFlight:()=>{if(renderError)throw Error('bad drawing');},disconnectFlight:()=>disconnected++,
-   setTrackerState:(text,bad)=>states.push({text,bad}),notifyParentState:s=>parents.push(s),report:(...v)=>reports.push(v),
+   _hT:text=>text,setTrackerState:(text,bad)=>states.push({text,bad}),notifyParentState:s=>parents.push(s),report:(...v)=>reports.push(v),
    window:{setTimeout:(fn,ms)=>{timers.push({fn,ms});return 1;}}};
  vm.createContext(ctx);vm.runInContext(source.slice(source.indexOf('  var flightPollFailures'),source.indexOf('  function pollAuxiliary')),ctx);
  const poll=async()=>{ctx.poll();await new Promise(r=>setImmediate(r));};

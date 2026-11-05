@@ -27,6 +27,17 @@ liefert alles Offene mit aus.
 
 ## Offen
 
+### 2026-11-05 · Sprache für EFB/Toolbar aus der Desktop-App — Tracker-EXE + Desktop-Installer
+- **Artefakt:** Tracker-EXE (Engine + EFB-Dateien) **und** Desktop-App
+- **Dateien:** `tracker.js`, `tracker-efb-display-settings.js`, `tracker-efb-web-client.js`, `tracker-efb-kartentisch-host.js`, `sync-efb-web-assets.js`, `package.json`, neu `efb-web-assets/i18n-core.js` + `efb-web-assets/i18n/*`; Desktop: `lib/config-store.js`, `lib/tracker-process.js`, `main.js`, `preload.js`, `ui/index.html`, `ui/renderer.js`, `ui/styles.css`
+- **Was:** DE/EN-Schalter oben rechts im Desktop-Fenster; Tracker speichert `ui.language` in den EFB-Anzeige-Einstellungen; EFB und Toolbar schalten live um.
+- **Dazu (gleicher Build):** EFB-Host-Texte (ohne Missionstexte), Desktop-Fenster übersetzt (`desktop/ui/i18n-en.js`, `i18n-core.js`-Kopie, `renderer.js`, `radio-hold.js`, `media.js`, `audio.js`), Audio-Menü `tracker-audio-client.js` (**auch Web** – geht mit dem nächsten Web-Push live).
+- **Warum:** Englische Oberfläche Phase 2 (docs/English Translation Plan.md 2.5a).
+- **Tests:** Desktop 150/150, Tracker/EFB 148/148, Anzeige-Einstellungen 12/12; lokaler EFB-Server DE→EN→DE identisch.
+- **Verträglichkeit:** alte Desktop-App + neuer Tracker → Deutsch; neue Desktop-App + alter Tracker → Live-Wechsel wird abgelehnt (400), EFB bleibt deutsch.
+- **Doku beim Release:** Release-Notiz „EFB/Toolbar folgen der Sprache der Desktop-App (Schalter oben rechts)“.
+- **Pruefen im Feld:** Umschalten im laufenden Sim, EFB und Toolbar; Start mit Englisch.
+
 ### 2026-11-05 · Breakout/iPod-Texte und Screenreader-Attribute — EFB-Kopien warten
 - **Artefakt:** generierte EFB-Kopien `efb-web-assets/media-player-ipod.js`, `efb-web-assets/kartentisch-fragment.html`; Web live mit diesem Push
 - **Dateien:** `media-player-ipod.js` (+ `efb-media-source/`), `index.html`

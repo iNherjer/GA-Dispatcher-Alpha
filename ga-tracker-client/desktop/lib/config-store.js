@@ -21,6 +21,11 @@ function normalizeUpdatePolicy(value) {
   return UPDATE_POLICIES.has(String(value || '').trim()) ? String(value).trim() : 'ask';
 }
 
+// UI language of the desktop window, the EFB and the toolbar panel. German is the default.
+function normalizeUiLanguage(value) {
+  return String(value || '').trim().toLowerCase() === 'en' ? 'en' : 'de';
+}
+
 function normalizeBoolean(value, fallback) {
   return typeof value === 'boolean' ? value : fallback;
 }
@@ -134,7 +139,8 @@ class TrackerConfigStore {
       autoStartTracker: normalizeBoolean(preferences.autoStartTracker, true),
       startMinimized: normalizeBoolean(preferences.startMinimized, false),
       autoStartBridge: normalizeBoolean(preferences.autoStartBridge, false),
-      stopBridgeWithTracker: normalizeBoolean(preferences.stopBridgeWithTracker, true)
+      stopBridgeWithTracker: normalizeBoolean(preferences.stopBridgeWithTracker, true),
+      uiLanguage: normalizeUiLanguage(preferences.uiLanguage)
     };
   }
 
@@ -284,6 +290,14 @@ class TrackerConfigStore {
         ...safeObject(desktop.preferences),
         runtimeChannel: normalized
       }
+    });
+  }
+
+  setUiLanguage(language) {
+    const desktop = this.readDesktop();
+    return this.writeDesktop({
+      ...desktop,
+      preferences: { ...safeObject(desktop.preferences), uiLanguage: normalizeUiLanguage(language) }
     });
   }
 

@@ -175,6 +175,7 @@ function formatAsLimit(lim) {
         var existing = document.getElementById('gaEfbProfileNumber');
         if (existing) existing.remove();
         var panel = document.createElement('div'); panel.id = 'gaEfbProfileNumber';
+        label = window.GAI18n ? window.GAI18n.phrase(label) : label;
         panel.setAttribute('role','dialog'); panel.setAttribute('aria-label',label);
         panel.style.cssText = 'position:fixed;left:0;top:0;right:0;bottom:0;z-index:2147483000;background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;padding:12px;';
         var card = document.createElement('form'); card.className = 'ga-efb-reset-confirm-card';
@@ -182,8 +183,8 @@ function formatAsLimit(lim) {
         var input = document.createElement('input'); input.id = title.htmlFor; input.type = 'number';
         input.min = min; input.max = max; input.step = step; input.value = document.getElementById(id).textContent;
         input.style.cssText = 'display:block;width:100%;box-sizing:border-box;font:inherit;padding:8px;margin:12px 0;';
-        var accept = document.createElement('button'); accept.type = 'submit'; accept.textContent = 'Übernehmen';
-        var cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = 'Abbrechen';
+        var accept = document.createElement('button'); accept.type = 'submit'; accept.textContent = (window.GAI18n ? window.GAI18n.phrase('Übernehmen') : 'Übernehmen');
+        var cancel = document.createElement('button'); cancel.type = 'button'; cancel.textContent = (window.GAI18n ? window.GAI18n.phrase('Abbrechen') : 'Abbrechen');
         function close() { panel.remove(); document.getElementById(id).focus(); }
         cancel.onclick = close;
         card.onsubmit = function(event) { event.preventDefault(); var value = Number(input.value); if(input.value.trim() && Number.isFinite(value)) { apply(Math.round(Math.max(min,Math.min(max,value)))); close(); } };

@@ -66,6 +66,16 @@ test('desktop credentials use stdin and are not copied into the child environmen
   assert.match(spec.env.VFR_MULTITOOL_DESKTOP_CONTROL_TOKEN, /^[a-f0-9]{64}$/);
   assert.equal(tracker.publicState().desktopControlToken, undefined);
 });
+test('the start language for EFB and toolbar goes to the engine as de or en', () => {
+  const make = getUiLanguage => new TrackerProcess({ electronApp: { isPackaged: false }, dataDirectory: os.tmpdir(), getUiLanguage });
+  assert.equal(make(() => 'en').executableSpec().env.VFR_MULTITOOL_UI_LANGUAGE, 'en');
+  assert.equal(make(() => 'xx').executableSpec().env.VFR_MULTITOOL_UI_LANGUAGE, 'de');
+  assert.equal(make(undefined).executableSpec().env.VFR_MULTITOOL_UI_LANGUAGE, 'de');
+});
+test('a live language switch is skipped while the engine is not running', async () => {
+  const tracker = new TrackerProcess({ electronApp: { isPackaged: false }, dataDirectory: os.tmpdir() });
+  assert.equal(await tracker.setUiLanguage('en'), false);
+});
 test('private media endpoint is inherited only by the child and the managed runtime is used', () => {
   const tracker=new TrackerProcess({electronApp:{isPackaged:true},dataDirectory:os.tmpdir(),
     runtimeManager:{currentExecutablePath:()=>'/normal/runtime.exe'},getCredentials:()=>({pilotId:'Pilot',pin:'1234'}),

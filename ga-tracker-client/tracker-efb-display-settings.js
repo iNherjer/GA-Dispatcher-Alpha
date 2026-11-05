@@ -31,6 +31,8 @@ function normalizeUi(value) {
   if (['utc', 'local'].includes(value.clockZone)) result.clockZone = value.clockZone;
   if (['stopwatch', 'watch'].includes(value.clockSkin)) result.clockSkin = value.clockSkin;
   if (['winamp', 'ipod', 'watch'].includes(value.mediaSkin)) result.mediaSkin = value.mediaSkin;
+  // UI language for EFB and toolbar; set by the desktop app, read by the EFB.
+  if (['de', 'en'].includes(value.language)) result.language = value.language;
   const mediaScales = normalizeMediaScales(value.mediaScales);
   if (mediaScales) result.mediaScales = mediaScales;
   return result;
@@ -45,7 +47,7 @@ function normalizeDisplaySettings(value) {
 }
 
 // Update only our config key; credentials and unrelated settings stay private.
-function createDisplaySettingsControl({ readConfig, writeConfig }) {
+function createDisplaySettingsControl({ readConfig, writeConfig, initialLanguage }) {
   let publicDisplay = null;
   function snapshot() {
     const config = readConfig();
@@ -82,6 +84,10 @@ function createDisplaySettingsControl({ readConfig, writeConfig }) {
     const stored = uiOnly ? { ...config.efbDisplay, ui: display.ui, uiRevision: display.uiRevision } : display;
     if (!writeConfig({ ...config, efbDisplay: stored })) return { ok: false, error: 'display_settings_write_failed' };
     return { ok: true, display: snapshot() };
+  }
+  // The desktop app passes its language at engine start (VFR_MULTITOOL_UI_LANGUAGE).
+  if (['de', 'en'].includes(initialLanguage)) {
+    try { update({ ui: { language: initialLanguage } }); } catch (_) {}
   }
   return { snapshot, update, publicState: () => publicDisplay || snapshot() };
 }

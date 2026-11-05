@@ -609,6 +609,13 @@ function registerIpc() {
     return { ok: update?.ok !== false, settings: configStore.publicSettings(), update };
   });
   ipcMain.handle('settings:set-runtime-channel', (_event, payload) => switchRuntimeChannel(payload?.channel));
+  ipcMain.handle('settings:set-ui-language', async (_event, payload) => {
+    configStore.setUiLanguage(payload?.language);
+    const language = configStore.publicSettings().uiLanguage;
+    const tracker = await trackerProcess.setUiLanguage(language);
+    broadcastState();
+    return { ok: true, language, tracker };
+  });
   ipcMain.handle('settings:set-startup-preferences', (_event, payload) => {
     configStore.setStartupPreferences({
       autoStartTracker: payload?.autoStartTracker === true,
@@ -782,7 +789,8 @@ async function startApplication() {
       const voice = configStore.voiceCredentials();
       return voice ? { ...credentials, voice } : credentials;
     },
-    getRuntimeChannel: () => configStore.publicSettings().runtimeChannel
+    getRuntimeChannel: () => configStore.publicSettings().runtimeChannel,
+    getUiLanguage: () => configStore.publicSettings().uiLanguage
   });
   const developmentBridgeDirectory = path.resolve(__dirname, '..', 'accusim-router-desktop');
   let developmentBridgeVersion = '';

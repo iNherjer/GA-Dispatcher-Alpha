@@ -42,6 +42,7 @@ contextBridge.exposeInMainWorld('trackerDesktop', {
   setUpdatePolicy: (policy) => ipcRenderer.invoke('settings:set-update-policy', { policy }),
   setModuleUpdatePolicy: (module, policy) => ipcRenderer.invoke('settings:set-module-update-policy', { module, policy }),
   setStartupPreferences: (preferences) => ipcRenderer.invoke('settings:set-startup-preferences', preferences),
+  setUiLanguage: (language) => ipcRenderer.invoke('settings:set-ui-language', { language }),
   chooseDesktopUpdate: (choice) => ipcRenderer.invoke('desktop-update:choice', { choice }),
   checkDesktopUpdate: () => ipcRenderer.invoke('desktop-update:check'),
   installDesktopUpdate: () => ipcRenderer.invoke('desktop-update:install'),

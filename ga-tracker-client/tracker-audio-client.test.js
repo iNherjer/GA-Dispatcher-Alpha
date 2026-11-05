@@ -176,7 +176,7 @@ test('EFB PC button selects the central PC output without claiming local playbac
   }
   const host = element('div'); elements.set('mapVoiceMenu', host);
   const context = { root: { document: { getElementById: id => elements.get(id), createElement: element, createTextNode: text => ({ text }) } },
-    local: true, menu: null, change: patch => changes.push(patch), player: { unlock: () => assert.fail('PC selection must not unlock EFB playback') } };
+    local: true, menu: null, _aT: text => text, relabelMenu() {}, change: patch => changes.push(patch), player: { unlock: () => assert.fail('PC selection must not unlock EFB playback') } };
   vm.createContext(context);
   vm.runInContext(source.slice(source.indexOf('  function installMenu()'), source.indexOf('  var bindings =')), context);
   context.installMenu();

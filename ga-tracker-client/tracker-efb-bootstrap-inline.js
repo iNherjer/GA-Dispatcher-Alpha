@@ -155,7 +155,10 @@
   function status(stage, message, isError) {
     var node = document.getElementById('gaEfbBootStatus');
     if (node) {
-      node.textContent = message || stage || '';
+      var shown = message || stage || '';
+      node.setAttribute('data-boot-message', shown);
+      // UI language: only the display is translated; the report keeps the German text.
+      node.textContent = window.GAI18n && typeof window.GAI18n.phrase === 'function' ? window.GAI18n.phrase(shown) : shown;
       node.className = isError ? 'ga-efb-boot-status error' : 'ga-efb-boot-status';
     }
     report(isError ? 'error' : 'info', 'boot', stage, message || '');

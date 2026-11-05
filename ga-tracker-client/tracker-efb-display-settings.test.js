@@ -147,3 +147,20 @@ test('EFB media player zoom is kept per view instance and skin, never shared',()
  for (const bad of [{'physical-2d':{ipod:2}},{'physical-2d':{ipod:'1.2'}},{'cockpit-2d':{ipod:1}},{'physical-2d':{classic:1}}]) assert.equal(control.update({ui:{mediaScales:bad}}).ok,false);
  assert.deepEqual(createDisplaySettingsControl({readConfig:()=>config,writeConfig:()=>false}).snapshot().ui.mediaScales,{'physical-2d':{ipod:1.3,watch:1.1},'toolbar-vr':{ipod:0.7}});
 });
+
+test('UI language is a display setting: de/en only, start value from the desktop app, other ui keys kept', () => {
+  let config = { efbDisplay: { fontScale2d: 1, fontScaleVr: 1, uiScaleVersion: 1, ui: { lowFps: true }, uiRevision: 4 } };
+  const options = { readConfig: () => structuredClone(config), writeConfig: next => { config = next; return true; } };
+  let control = createDisplaySettingsControl(options);
+  assert.equal(control.update({ ui: { language: 'en' } }).ok, true);
+  assert.deepEqual(control.snapshot().ui, { lowFps: true, language: 'en' });
+  assert.equal(control.snapshot().uiRevision, 5);
+  for (const language of ['fr', 'EN', '', null, 1]) assert.equal(control.update({ ui: { language } }).ok, false);
+  control = createDisplaySettingsControl({ ...options, initialLanguage: 'de' });
+  assert.equal(control.snapshot().ui.language, 'de');
+  assert.equal(control.snapshot().uiRevision, 6);
+  control = createDisplaySettingsControl({ ...options, initialLanguage: 'de' });
+  assert.equal(control.snapshot().uiRevision, 6, 'same start language writes nothing');
+  control = createDisplaySettingsControl({ ...options, initialLanguage: 'xx' });
+  assert.equal(control.snapshot().ui.language, 'de', 'invalid start value is ignored');
+});

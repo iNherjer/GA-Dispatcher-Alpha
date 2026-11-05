@@ -69,7 +69,8 @@ test('credentials are encrypted in app data while personal tracker config is pre
     autoStartTracker: false,
     startMinimized: true,
     autoStartBridge: true,
-    stopBridgeWithTracker: false
+    stopBridgeWithTracker: false,
+    uiLanguage: 'de'
   });
 });
 
@@ -117,8 +118,20 @@ test('startup preferences default to automatic tracker start and visible window'
     autoStartTracker: true,
     startMinimized: false,
     autoStartBridge: false,
-    stopBridgeWithTracker: true
+    stopBridgeWithTracker: true,
+    uiLanguage: 'de'
   });
+});
+
+test('UI language is de or en, survives other preference changes and defaults to German', () => {
+  const store = createStore();
+  assert.equal(store.publicSettings().uiLanguage, 'de');
+  store.setUiLanguage('en');
+  assert.equal(store.publicSettings().uiLanguage, 'en');
+  store.setStartupPreferences({ autoStartTracker: false });
+  assert.equal(store.publicSettings().uiLanguage, 'en');
+  store.setUiLanguage('fr');
+  assert.equal(store.publicSettings().uiLanguage, 'de');
 });
 
 test('module update policies reject unknown modules', () => {

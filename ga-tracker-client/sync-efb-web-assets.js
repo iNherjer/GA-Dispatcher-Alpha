@@ -68,6 +68,10 @@ function writeKartentischFragment() {
 }
 
 writeKartentischFragment();
+// UI language (Phase 2): the same dictionaries as the web app. The EFB starts in German;
+// the tracker's display setting ui.language switches it (tracker-efb-kartentisch-host.js).
+compileShared('i18n-core.js');
+['de', 'en', 'en-phrases', 'en-help', 'en-formula'].forEach(name => compileShared('i18n/' + name + '.js'));
 copy('styles.css');
 copy('media-player.css');
 compileShared('media-player-ipod.js');
@@ -133,6 +137,8 @@ requireEfbFork(path.join('e6b', 'e6b-flight-computer.css'), 'body.e6b-coherent')
 requireEfbFork(path.join('e6b', 'e6b-flight-computer.js'), 'ga-e6b-wind-dot-set');
 
 emit(path.join(TRACKER_ROOT, 'desktop', 'ui', 'tracker-audio-player.js'), fs.readFileSync(path.join(TRACKER_ROOT, 'tracker-audio-player.js')));
+// The desktop window uses the same language core; its own texts live in desktop/ui/i18n-en.js.
+emit(path.join(TRACKER_ROOT, 'desktop', 'ui', 'i18n-core.js'), fs.readFileSync(path.join(PROJECT_ROOT, 'i18n-core.js')));
 
 if (CHECK && drift.length) {
   process.stderr.write('EFB_WEB_ASSETS_DRIFT ' + drift.join(' ') + '\nAusfuehren: node sync-efb-web-assets.js\n');

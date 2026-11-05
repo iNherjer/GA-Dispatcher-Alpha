@@ -1,6 +1,12 @@
+// UI language (i18n-core.js + i18n-en.js). _dT: exact German sentence -> English,
+// _dK: key with placeholders. German (default) shows the original text unchanged.
+const _dT = text => (window.GAI18n ? window.GAI18n.phrase(text) : text);
+const _dK = (key, german, vars) => (window.GAI18n ? window.GAI18n.t(key, vars, german)
+  : String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, (m, n) => (vars && Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m)));
 const elements = {
   versionLine: document.getElementById('versionLine'),
   processBadge: document.getElementById('processBadge'),
+  uiLanguageSwitch: document.getElementById('uiLanguageSwitch'),
   automaticUpdateBanner: document.getElementById('automaticUpdateBanner'),
   automaticUpdateBannerText: document.getElementById('automaticUpdateBannerText'),
   relayDot: document.getElementById('relayDot'),
@@ -143,23 +149,23 @@ function relayStatusLabel(tracker = {}) {
 
 const updateModules = {
   desktop: {
-    title: (version) => `Tracker-App v${version || ''} verfügbar`.trim(),
+    title: (version) => _dK('desk.r.appUpdateTitle', 'Tracker-App v{version} verfügbar', { version: version || '' }).trim(),
     message: 'Wie möchtest du dieses und künftige Updates der Desktop-App behandeln? Die Installation erfolgt nach einem kontrollierten Neustart.'
   },
   tracker: {
-    title: (version) => `Tracker-Update ${version || ''} verfügbar`.trim(),
+    title: (version) => _dK('desk.r.trackerUpdateTitle', 'Tracker-Update {version} verfügbar', { version: version || '' }).trim(),
     message: 'Wie möchtest du dieses und künftige Tracker-Updates behandeln?'
   },
   homebase: {
-    title: (version) => `Homebase Assets ${version || ''} verfügbar`.trim(),
+    title: (version) => _dK('desk.r.homebaseUpdateTitle', 'Homebase Assets {version} verfügbar', { version: version || '' }).trim(),
     message: 'Das vorhandene Asset Pack kann aktualisiert werden. MSFS muss für die Installation geschlossen sein.'
   },
   efb: {
-    title: (version) => `EFB-Update ${version || ''} verfügbar`.trim(),
+    title: (version) => _dK('desk.r.efbUpdateTitle', 'EFB-Update {version} verfügbar', { version: version || '' }).trim(),
     message: 'Die vorhandene EFB-App kann aus dem gewählten Tracker-Kanal aktualisiert werden. MSFS muss geschlossen sein.'
   },
   bridge: {
-    title: (version) => `Bridge-Update ${version || ''} verfügbar`.trim(),
+    title: (version) => _dK('desk.r.bridgeUpdateTitle', 'Bridge-Update {version} verfügbar', { version: version || '' }).trim(),
     message: 'Der verifizierte Bridge-Installer kann geladen werden. Die Windows-Installation wird anschließend sichtbar bestätigt.'
   }
 };
@@ -186,49 +192,49 @@ function modulePolicy(settings, module) {
 
 function renderLogs(logs) {
   if (!Array.isArray(logs) || !logs.length) {
-    elements.logOutput.textContent = 'Noch keine Tracker-Ereignisse.';
+    elements.logOutput.textContent = _dT('Noch keine Tracker-Ereignisse.');
     return;
   }
-  elements.logOutput.textContent = logs.slice(-90).map((entry) => {
+  elements.logOutput.textContent = _dT(logs.slice(-90).map((entry) => {
     const time = new Date(entry.at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     return `${time}  ${entry.line}`;
-  }).join('\n');
+  }).join('\n'));
   elements.logOutput.scrollTop = elements.logOutput.scrollHeight;
 }
 
 function renderDesktopUpdate(update = {}, appVersion = '') {
   const phase = String(update.phase || 'idle');
-  elements.desktopUpdateVersion.textContent = `Installiert: Desktop v${appVersion || '–'}${update.version ? ` · Verfügbar: v${update.version}` : ''}`;
-  elements.desktopUpdateMessage.textContent = update.message || 'App-Updateprüfung wird vorbereitet.';
+  elements.desktopUpdateVersion.textContent = (_dK('desk.r.installedDesktop', 'Installiert: Desktop v{version}', { version: appVersion || '–' }) + (update.version ? _dK('desk.r.availableVersion', ' · Verfügbar: v{version}', { version: update.version }) : ''));
+  elements.desktopUpdateMessage.textContent = _dT(update.message || 'App-Updateprüfung wird vorbereitet.');
   elements.desktopUpdateProgressWrap.hidden = phase !== 'downloading';
   elements.desktopUpdateProgress.style.width = `${Math.max(0, Math.min(100, Number(update.percent) || 0))}%`;
   elements.checkDesktopUpdateButton.disabled = update.supported !== true || ['checking', 'downloading', 'ready', 'installing'].includes(phase);
   elements.installDesktopUpdateButton.hidden = phase !== 'ready';
   elements.installDesktopUpdateButton.disabled = phase !== 'ready';
 
-  elements.desktopModuleSummary.textContent = `Desktop v${appVersion || '–'}${update.version && update.version !== appVersion ? ` · v${update.version} verfügbar` : ''}`;
-  elements.desktopUpdateBadge.textContent = {
+  elements.desktopModuleSummary.textContent = (`Desktop v${appVersion || '–'}` + (update.version && update.version !== appVersion ? _dK('desk.r.versionAvailable', ' · v{version} verfügbar', { version: update.version }) : ''));
+  elements.desktopUpdateBadge.textContent = _dT({
     idle: 'Bereit', checking: 'Prüft', current: 'Aktuell', 'choice-required': 'Update',
     downloading: 'Download', ready: 'Neustart', installing: 'Installiert', error: 'Fehler',
     deferred: 'Später', unsupported: 'Manuell'
-  }[phase] || 'Update';
+  }[phase] || 'Update');
   setClass(elements.desktopUpdateBadge, 'mini-badge', phase);
 }
 
 function renderUpdate(update = {}, runtimeChannel = 'stable') {
   const phase = String(update.phase || 'idle');
-  elements.updateBadge.textContent = {
+  elements.updateBadge.textContent = _dT({
     development: 'Entwicklung', idle: 'Bereit', checking: 'Prüft', current: 'Aktuell',
     'choice-required': 'Update', downloading: 'Download', ready: 'Installiert', deferred: 'Später', error: 'Fehler'
-  }[phase] || 'Update';
+  }[phase] || 'Update');
   setClass(elements.updateBadge, 'mini-badge', phase);
-  elements.updateMessage.textContent = update.message || '';
+  elements.updateMessage.textContent = _dT(update.message || '');
   elements.updateProgressWrap.hidden = phase !== 'downloading';
   elements.updateProgress.style.width = `${Math.max(0, Math.min(100, Number(update.percent) || 0))}%`;
   elements.checkRuntimeButton.disabled = ['checking', 'downloading', 'choice-required', 'development'].includes(phase);
   elements.runtimeChannelSelect.disabled = channelChangePending || ['checking', 'downloading', 'choice-required'].includes(phase);
-  const installedVersion = update.installedVersion || update.version || 'nicht installiert';
-  elements.trackerModuleSummary.textContent = `Engine ${installedVersion} · ${runtimeChannel === 'alpha' ? 'Alpha' : 'Stable'}`;
+  const installedVersion = _dT(update.installedVersion || update.version || 'nicht installiert');
+  elements.trackerModuleSummary.textContent = _dT(`Engine ${installedVersion} · ${runtimeChannel === 'alpha' ? 'Alpha' : 'Stable'}`);
 }
 
 function renderHomebaseAssets(assets = {}) {
@@ -236,19 +242,19 @@ function renderHomebaseAssets(assets = {}) {
   const installed = assets.installed === true;
   const complete = assets.installedComplete === true;
   const busy = assets.busy === true || ['checking', 'working'].includes(phase);
-  elements.assetBadge.textContent = {
+  elements.assetBadge.textContent = _dT({
     idle: 'Prüfung', checking: 'Prüft', working: 'Update',
     ready: complete ? (assets.updateAvailable ? 'Update' : 'Installiert') : (installed ? 'Reparatur' : 'Optional'), error: 'Fehler'
-  }[phase] || 'Status';
+  }[phase] || 'Status');
   setClass(elements.assetBadge, 'mini-badge', phase === 'ready' && complete && !assets.updateAvailable ? 'current' : phase);
-  elements.assetMessage.textContent = assets.message || 'Homebase-Assetstatus wird geprüft.';
-  elements.assetPath.textContent = assets.communityPath ? `Community: ${assets.communityPath}` : '';
-  elements.assetModuleSummary.textContent = installed
-    ? `Installiert ${assets.installedVersion || ''}${assets.updateAvailable && assets.remoteVersion ? ` · ${assets.remoteVersion} verfügbar` : ''}`.trim()
-    : 'Nicht installiert · optional';
-  elements.assetPrimaryButton.textContent = !installed
+  elements.assetMessage.textContent = _dT(assets.message || 'Homebase-Assetstatus wird geprüft.');
+  elements.assetPath.textContent = _dT(assets.communityPath ? `Community: ${assets.communityPath}` : '');
+  elements.assetModuleSummary.textContent = _dT(installed
+    ? (_dK('desk.r.installedVersion', 'Installiert {version}', { version: assets.installedVersion || '' }) + (assets.updateAvailable && assets.remoteVersion ? _dK('desk.r.remoteAvailable', ' · {version} verfügbar', { version: assets.remoteVersion }) : '')).trim()
+    : 'Nicht installiert · optional');
+  elements.assetPrimaryButton.textContent = _dT(!installed
     ? 'Installieren'
-    : (assets.updateAvailable ? `Auf ${assets.remoteVersion || 'neue Version'} aktualisieren` : 'Installiert');
+    : (assets.updateAvailable ? _dK('desk.r.updateTo', 'Auf {version} aktualisieren', { version: assets.remoteVersion || _dT('neue Version') }) : 'Installiert'));
   elements.assetPrimaryButton.disabled = busy || (complete && !assets.updateAvailable);
   elements.assetRepairButton.disabled = busy || !installed;
   elements.assetUninstallButton.disabled = busy || !installed;
@@ -261,25 +267,25 @@ function renderEfbPackage(efb = {}, runtimeChannel = 'stable') {
   const complete = efb.installedComplete === true;
   const remoteAvailable = efb.remoteAvailable === true;
   const busy = efb.busy === true || ['checking', 'working'].includes(phase);
-  elements.efbChannelLabel.textContent = runtimeChannel.toUpperCase();
-  elements.efbBadge.textContent = {
+  elements.efbChannelLabel.textContent = _dT(runtimeChannel.toUpperCase());
+  elements.efbBadge.textContent = _dT({
     idle: 'Prüfung', checking: 'Prüft', working: 'Update',
     ready: complete ? (efb.updateAvailable ? 'Update' : 'Installiert') : (installed ? 'Reparatur' : (remoteAvailable ? 'Optional' : 'Vorbereitung')),
     error: 'Fehler'
-  }[phase] || 'Status';
+  }[phase] || 'Status');
   setClass(elements.efbBadge, 'mini-badge', phase === 'ready' && complete && !efb.updateAvailable ? 'current' : phase);
-  elements.efbMessage.textContent = efb.message || 'EFB-Paketstatus wird geprüft.';
+  elements.efbMessage.textContent = _dT(efb.message || 'EFB-Paketstatus wird geprüft.');
   const versions = [];
   if (efb.installedVersion) versions.push(`Installiert: ${efb.installedVersion}`);
   if (efb.remoteVersion) versions.push(`Verfügbar: ${efb.remoteVersion}`);
-  elements.efbVersion.textContent = versions.join(' · ');
-  elements.efbPath.textContent = efb.communityPath ? `Community: ${efb.communityPath}` : '';
-  elements.efbModuleSummary.textContent = installed
-    ? `Installiert ${efb.installedVersion || ''}${efb.updateAvailable && efb.remoteVersion ? ` · ${efb.remoteVersion} verfügbar` : ''}`.trim()
-    : `Nicht installiert · ${runtimeChannel === 'alpha' ? 'Alpha' : 'Stable'}`;
-  elements.efbPrimaryButton.textContent = !installed
+  elements.efbVersion.textContent = _dT(versions.join(' · '));
+  elements.efbPath.textContent = _dT(efb.communityPath ? `Community: ${efb.communityPath}` : '');
+  elements.efbModuleSummary.textContent = _dT(installed
+    ? (_dK('desk.r.installedVersion', 'Installiert {version}', { version: efb.installedVersion || '' }) + (efb.updateAvailable && efb.remoteVersion ? _dK('desk.r.remoteAvailable', ' · {version} verfügbar', { version: efb.remoteVersion }) : '')).trim()
+    : _dK('desk.r.notInstalledChannel', 'Nicht installiert · {channel}', { channel: runtimeChannel === 'alpha' ? 'Alpha' : 'Stable' }));
+  elements.efbPrimaryButton.textContent = _dT(!installed
     ? 'Installieren'
-    : (efb.updateAvailable ? `Auf ${efb.remoteVersion || 'neue Version'} aktualisieren` : 'Installiert');
+    : (efb.updateAvailable ? _dK('desk.r.updateTo', 'Auf {version} aktualisieren', { version: efb.remoteVersion || _dT('neue Version') }) : 'Installiert'));
   elements.efbPrimaryButton.disabled = busy || !remoteAvailable || (complete && !efb.updateAvailable);
   elements.efbRepairButton.disabled = busy || !installed || !remoteAvailable;
   elements.efbUninstallButton.disabled = busy || !installed;
@@ -311,27 +317,27 @@ function renderBridge(bridge = {}) {
   } else {
     badge = controlled ? 'Bereit' : 'Installiert'; badgeClass = controlled ? 'current' : 'idle';
   }
-  elements.bridgeBadge.textContent = badge;
+  elements.bridgeBadge.textContent = _dT(badge);
   setClass(elements.bridgeBadge, 'mini-badge', badgeClass);
-  elements.bridgeMessage.textContent = bridge.message || 'Bridge-Status wird geprüft.';
+  elements.bridgeMessage.textContent = _dT(bridge.message || 'Bridge-Status wird geprüft.');
   const versionParts = [];
   if (bridge.installedVersion) versionParts.push(`Installiert: v${bridge.installedVersion}`);
-  if (bridge.updateAvailable && bridge.latestVersion) versionParts.push(`Verfügbar: v${bridge.latestVersion}`);
-  if (controlled) versionParts.push(bridge.owner === 'tracker' ? 'Tracker-Hintergrundmodus' : 'Eigenständig geöffnet');
-  elements.bridgeVersion.textContent = versionParts.join(' · ');
-  elements.bridgeModuleSummary.textContent = installed
-    ? `Installiert${bridge.installedVersion ? ` v${bridge.installedVersion}` : ''}${bridge.updateAvailable && bridge.latestVersion ? ` · v${bridge.latestVersion} verfügbar` : ''}`
-    : 'Nicht installiert · optional';
-  elements.bridgeProcessStatus.textContent = running ? 'Aktiv' : (controlled ? 'Bereit' : 'Nicht gestartet');
-  elements.bridgeSimStatus.textContent = runtime.simulator === 'connected' ? 'Verbunden' : (runtime.simulator === 'connecting' ? 'Verbindet …' : 'Nicht verbunden');
-  elements.bridgeUdpStatus.textContent = runtime.udp === 'active' ? `${Number(runtime.packets) || 0} Pakete` : 'Inaktiv';
+  if (bridge.updateAvailable && bridge.latestVersion) versionParts.push(_dK('desk.r.availableV', 'Verfügbar: v{version}', { version: bridge.latestVersion }));
+  if (controlled) versionParts.push(_dT(bridge.owner === 'tracker' ? 'Tracker-Hintergrundmodus' : 'Eigenständig geöffnet'));
+  elements.bridgeVersion.textContent = _dT(versionParts.join(' · '));
+  elements.bridgeModuleSummary.textContent = _dT(installed
+    ? (_dT('Installiert') + (bridge.installedVersion ? ` v${bridge.installedVersion}` : '') + (bridge.updateAvailable && bridge.latestVersion ? _dK('desk.r.versionAvailable', ' · v{version} verfügbar', { version: bridge.latestVersion }) : ''))
+    : 'Nicht installiert · optional');
+  elements.bridgeProcessStatus.textContent = _dT(running ? 'Aktiv' : (controlled ? 'Bereit' : 'Nicht gestartet'));
+  elements.bridgeSimStatus.textContent = _dT(runtime.simulator === 'connected' ? 'Verbunden' : (runtime.simulator === 'connecting' ? 'Verbindet …' : 'Nicht verbunden'));
+  elements.bridgeUdpStatus.textContent = (runtime.udp === 'active' ? _dK('desk.r.packets', '{count} Pakete', { count: Number(runtime.packets) || 0 }) : _dT('Inaktiv'));
   elements.bridgeProgressWrap.hidden = phase !== 'downloading';
   elements.bridgeProgress.style.width = `${Math.max(0, Math.min(100, Number(bridge.percent) || 0))}%`;
-  elements.bridgeInstallButton.textContent = !installed
+  elements.bridgeInstallButton.textContent = _dT(!installed
     ? 'Bridge installieren'
-    : (!supported ? 'Bridge für Tracker aktualisieren' : (bridge.updateAvailable ? `Auf v${bridge.latestVersion} aktualisieren` : (bridge.latestVersion ? 'Bridge ist aktuell' : 'Bridge installiert')));
+    : (!supported ? 'Bridge für Tracker aktualisieren' : (bridge.updateAvailable ? _dK('desk.r.updateToV', 'Auf v{version} aktualisieren', { version: bridge.latestVersion }) : (bridge.latestVersion ? 'Bridge ist aktuell' : 'Bridge installiert'))));
   elements.bridgeInstallButton.disabled = busy || (installed && supported && !bridge.updateAvailable);
-  elements.bridgeStartButton.textContent = running ? 'Bridge stoppen' : 'Bridge starten';
+  elements.bridgeStartButton.textContent = _dT(running ? 'Bridge stoppen' : 'Bridge starten');
   elements.bridgeStartButton.disabled = busy || !installed || !supported;
   elements.bridgeSettingsButton.disabled = busy || (!installed && !controlled);
   elements.bridgeRefreshButton.disabled = busy;
@@ -351,9 +357,9 @@ function renderAutomaticUpdateBanner(state, settings) {
   if (modulePolicy(settings, 'bridge') === 'automatic' && bridge.installed && bridge.updateAvailable && ['checking', 'downloading'].includes(bridge.phase)) active.push('Bridge');
   elements.automaticUpdateBanner.hidden = active.length === 0;
   if (active.length) {
-    elements.automaticUpdateBannerText.textContent = active.length === 1
-      ? `${active[0]} wird gerade automatisch aktualisiert …`
-      : `${active.join(' und ')} werden gerade automatisch aktualisiert …`;
+    elements.automaticUpdateBannerText.textContent = _dT(active.length === 1
+      ? _dK('desk.r.autoUpdatingOne', '{module} wird gerade automatisch aktualisiert …', { module: active[0] })
+      : _dK('desk.r.autoUpdatingMany', '{modules} werden gerade automatisch aktualisiert …', { modules: active.join(_dT(' und ')) }));
   }
 }
 
@@ -392,8 +398,8 @@ function renderUpdateDialog(state) {
   if (!pending || activeUpdateDialog) return;
   activeUpdateDialog = pending;
   const definition = updateModules[pending.module];
-  elements.updateDialogTitle.textContent = definition.title(pending.version);
-  elements.updateDialogMessage.textContent = definition.message;
+  elements.updateDialogTitle.textContent = _dT(definition.title(pending.version));
+  elements.updateDialogMessage.textContent = _dT(definition.message);
   elements.updateDialog.showModal();
 }
 
@@ -406,7 +412,7 @@ function renderDesktopInstallDialog(state) {
     return;
   }
   if (elements.updateDialog.open || elements.desktopInstallDialog.open || dismissedDesktopInstallVersion === version) return;
-  elements.desktopInstallDialogTitle.textContent = `Tracker-App v${version || '–'} installieren`;
+  elements.desktopInstallDialogTitle.textContent = _dK('desk.r.installApp', 'Tracker-App v{version} installieren', { version: version || '–' });
   elements.desktopInstallDialog.showModal();
 }
 
@@ -506,9 +512,9 @@ function autostartMenu(entry) {
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'autostart-more';
-  button.textContent = '⋯';
-  button.title = 'Weitere Einstellungen';
-  button.setAttribute('aria-label', `Weitere Einstellungen für ${entry.name}`);
+  button.textContent = _dT('⋯');
+  button.title = _dT('Weitere Einstellungen');
+  button.setAttribute('aria-label', _dK('desk.r.moreSettingsFor', 'Weitere Einstellungen für {name}', { name: entry.name }));
   button.setAttribute('aria-haspopup', 'true');
   const panel = document.createElement('div');
   panel.className = 'autostart-menu';
@@ -519,18 +525,18 @@ function autostartMenu(entry) {
     admin.type = 'checkbox';
     admin.checked = entry.admin;
     admin.addEventListener('change', () => patchAutostartEntry(entry.id, { admin: admin.checked }));
-    panel.append(autostartOption('Als Admin starten', admin));
+    panel.append(autostartOption(_dT('Als Admin starten'), admin));
     const minimized = document.createElement('input');
     minimized.type = 'checkbox';
     minimized.checked = entry.minimized === true;
     minimized.addEventListener('change', () => patchAutostartEntry(entry.id, { minimized: minimized.checked }));
-    panel.append(autostartOption('Minimiert starten', minimized));
+    panel.append(autostartOption(_dT('Minimiert starten'), minimized));
   }
   if (entry.argsSupported) {
     const label = document.createElement('label');
     label.className = 'autostart-menu-field';
     const caption = document.createElement('span');
-    caption.textContent = 'Startargumente';
+    caption.textContent = _dT('Startargumente');
     const args = document.createElement('input');
     args.type = 'text';
     args.value = entry.args || '';
@@ -589,7 +595,7 @@ function autostartItem(entry, index, run, group, numberOffset = 0) {
   item.dataset.id = entry.id;
   // Der ganze Eintrag ist ziehbar; Schalter, Felder und Pfeile behalten ihre Bedienung.
   item.draggable = true;
-  item.title = 'Ziehen zum Sortieren';
+  item.title = _dT('Ziehen zum Sortieren');
   let pressTarget = null;
   item.addEventListener('mousedown', (event) => { pressTarget = event.target; });
 
@@ -597,16 +603,16 @@ function autostartItem(entry, index, run, group, numberOffset = 0) {
   handle.className = 'autostart-handle';
   const up = document.createElement('button');
   up.type = 'button';
-  up.textContent = '▲';
-  up.setAttribute('aria-label', `${entry.name} nach oben`);
+  up.textContent = _dT('▲');
+  up.setAttribute('aria-label', _dK('desk.r.moveUp', '{name} nach oben', { name: entry.name }));
   up.disabled = index === 0;
   up.addEventListener('click', () => moveAutostartWithin(entry.id, -1));
   const grip = document.createElement('span');
-  grip.textContent = String(numberOffset + index + 1);
+  grip.textContent = _dT(String(numberOffset + index + 1));
   const down = document.createElement('button');
   down.type = 'button';
-  down.textContent = '▼';
-  down.setAttribute('aria-label', `${entry.name} nach unten`);
+  down.textContent = _dT('▼');
+  down.setAttribute('aria-label', _dK('desk.r.moveDown', '{name} nach unten', { name: entry.name }));
   down.disabled = index === group.length - 1;
   down.addEventListener('click', () => moveAutostartWithin(entry.id, 1));
   handle.append(up, grip, down);
@@ -655,9 +661,9 @@ function autostartItem(entry, index, run, group, numberOffset = 0) {
     if (entry.kind === 'sim') {
       icon.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 0 0-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5z"/></svg>';
     } else if (entry.kind === 'tracker') {
-      icon.textContent = 'TRK';
+      icon.textContent = _dT('TRK');
     } else {
-      icon.textContent = 'EXE';
+      icon.textContent = _dT('EXE');
     }
   }
 
@@ -666,29 +672,29 @@ function autostartItem(entry, index, run, group, numberOffset = 0) {
   const name = document.createElement('div');
   name.className = 'autostart-name';
   const nameText = document.createElement('span');
-  nameText.textContent = entry.name;
+  nameText.textContent = _dT(entry.name);
   name.append(nameText);
   if (entry.kind === 'sim' || entry.kind === 'tracker') {
     const tag = document.createElement('span');
     tag.className = 'autostart-sim-tag';
-    tag.textContent = entry.kind === 'sim' ? 'Simulator' : 'Tracker';
+    tag.textContent = _dT(entry.kind === 'sim' ? 'Simulator' : 'Tracker');
     name.append(tag);
   }
   const result = run.results?.[entry.id];
   if (result) {
     const badge = document.createElement('span');
     badge.className = `mini-badge ${result === 'failed' ? 'error' : (['started', 'running'].includes(result) ? 'current' : '')}`.trim();
-    badge.textContent = autostartResultLabels[result] || result;
+    badge.textContent = _dT(autostartResultLabels[result] || result);
     name.append(badge);
   } else if (run.phase === 'running' && run.currentId === entry.id) {
     const badge = document.createElement('span');
     badge.className = 'mini-badge starting';
-    badge.textContent = 'Startet';
+    badge.textContent = _dT('Startet');
     name.append(badge);
   }
   const detail = document.createElement('div');
   detail.className = 'autostart-detail';
-  detail.textContent = entry.detail;
+  detail.textContent = _dT(entry.detail);
   detail.title = entry.detail;
 
   const options = document.createElement('div');
@@ -699,7 +705,7 @@ function autostartItem(entry, index, run, group, numberOffset = 0) {
     closeWithSim.type = 'checkbox';
     closeWithSim.checked = entry.closeWithSim === true;
     closeWithSim.addEventListener('change', () => patchAutostartEntry(entry.id, { closeWithSim: closeWithSim.checked }));
-    options.append(autostartOption('Mit dem Sim beenden', closeWithSim));
+    options.append(autostartOption(_dT('Mit dem Sim beenden'), closeWithSim));
   } else {
     const enabled = document.createElement('input');
     enabled.type = 'checkbox';
@@ -712,13 +718,13 @@ function autostartItem(entry, index, run, group, numberOffset = 0) {
   for (const seconds of delays) {
     const option = document.createElement('option');
     option.value = String(seconds);
-    option.textContent = `${seconds} s`;
+    option.textContent = _dT(`${seconds} s`);
     delay.append(option);
   }
   delay.value = String(entry.delaySeconds);
   delay.addEventListener('change', () => patchAutostartEntry(entry.id, { delaySeconds: Number(delay.value) }));
   const delayLabel = document.createElement('label');
-  delayLabel.append(document.createTextNode('Danach warten'), delay);
+  delayLabel.append(document.createTextNode(_dT('Danach warten')), delay);
   options.append(delayLabel);
   body.append(name, detail, options);
 
@@ -727,7 +733,7 @@ function autostartItem(entry, index, run, group, numberOffset = 0) {
   const remove = document.createElement('button');
   remove.type = 'button';
   remove.className = 'autostart-remove';
-  remove.textContent = '✕';
+  remove.textContent = _dT('✕');
   remove.title = 'Entfernen';
   remove.setAttribute('aria-label', `${entry.name} entfernen`);
   remove.addEventListener('click', () => saveAutostartEntries(autostartEntries.filter((other) => other.id !== entry.id)));
@@ -750,7 +756,7 @@ function renderAutostartSimChoices(candidates) {
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'secondary-button';
-    button.textContent = candidate.label;
+    button.textContent = _dT(candidate.label);
     button.addEventListener('click', () => window.trackerDesktop.chooseSimulator(candidate.key));
     elements.autostartSimChoices.append(button);
   }
@@ -769,33 +775,33 @@ function renderAutostart(autostart) {
   setChecked(elements.autostartCloseOnExitCheckbox, data.closeOnExit === true);
   elements.autostartEnabledCheckbox.disabled = data.supported === false;
   const busy = run.phase === 'running' || run.phase === 'waiting';
-  elements.autostartBadge.textContent = !enabled ? 'Aus' : (run.phase === 'running' ? 'Startet' : (run.phase === 'waiting' ? 'Wartet' : `${active} aktiv`));
+  elements.autostartBadge.textContent = _dT(!enabled ? 'Aus' : (run.phase === 'running' ? 'Startet' : (run.phase === 'waiting' ? 'Wartet' : _dK('desk.r.activeCount', '{count} aktiv', { count: active }))));
   setClass(elements.autostartBadge, 'mini-badge', !enabled ? '' : (busy ? 'starting' : 'current'));
-  elements.autostartModuleSummary.textContent = data.supported === false
+  elements.autostartModuleSummary.textContent = _dT(data.supported === false
     ? 'Nur unter Windows verfügbar'
-    : (enabled ? `${entries.length} Einträge${sim ? ` · ${sim.name}` : ''}` : 'Ausgeschaltet');
+    : (enabled ? _dK('desk.r.entries', '{count} Einträge', { count: entries.length }) + (sim ? ` · ${sim.name}` : '') : 'Ausgeschaltet'));
 
   elements.autostartLaunchButton.hidden = !enabled;
   elements.autostartLaunchButton.disabled = autostartLaunchPending || busy;
-  elements.autostartLaunchButton.textContent = run.phase === 'running' ? 'Programme werden gestartet …'
-    : (run.phase === 'waiting' ? 'Wartet auf SimConnect …' : (sim ? 'Tracker & Sim starten' : 'Tracker & Programme starten'));
+  elements.autostartLaunchButton.textContent = _dT(run.phase === 'running' ? 'Programme werden gestartet …'
+    : (run.phase === 'waiting' ? 'Wartet auf SimConnect …' : (sim ? 'Tracker & Sim starten' : 'Tracker & Programme starten')));
   if (!enabled) elements.autostartLaunchMessage.hidden = true;
   else if ((run.phase === 'done' || run.phase === 'waiting') && run.message) {
     elements.autostartLaunchMessage.hidden = false;
     elements.autostartLaunchMessage.className = `form-message autostart-launch-message ${Object.values(run.results || {}).includes('failed') ? 'error' : 'success'}`;
-    elements.autostartLaunchMessage.textContent = run.message;
+    elements.autostartLaunchMessage.textContent = _dT(run.message);
   }
 
   if (!autostartDetectPending) {
     const candidates = data.simCandidates;
-    if (Array.isArray(candidates) && candidates.length === 0) elements.autostartSimMessage.textContent = 'Kein MSFS über Steam oder den Microsoft Store gefunden. Du kannst die Sim-Verknüpfung auch in die Startliste ziehen.';
-    else if (Array.isArray(candidates) && candidates.length > 1) elements.autostartSimMessage.textContent = 'Mehrere Versionen gefunden. Bitte wählen:';
-    else if (sim) elements.autostartSimMessage.textContent = `Gewählt: ${sim.name} · ${sim.detail}`;
-    else elements.autostartSimMessage.textContent = 'Erkennt installierte MSFS-Versionen über Steam und den Microsoft Store.';
+    if (Array.isArray(candidates) && candidates.length === 0) elements.autostartSimMessage.textContent = _dT('Kein MSFS über Steam oder den Microsoft Store gefunden. Du kannst die Sim-Verknüpfung auch in die Startliste ziehen.');
+    else if (Array.isArray(candidates) && candidates.length > 1) elements.autostartSimMessage.textContent = _dT('Mehrere Versionen gefunden. Bitte wählen:');
+    else if (sim) elements.autostartSimMessage.textContent = _dK('desk.r.simChosen', 'Gewählt: {name} · {detail}', { name: sim.name, detail: sim.detail });
+    else elements.autostartSimMessage.textContent = _dT('Erkennt installierte MSFS-Versionen über Steam und den Microsoft Store.');
   }
   renderAutostartSimChoices(data.simCandidates);
   elements.autostartDetectSimButton.disabled = autostartDetectPending || data.supported === false;
-  elements.autostartDetectSimButton.textContent = autostartDetectPending ? 'Suche …' : (sim ? 'Sim neu erkennen' : 'Sim erkennen');
+  elements.autostartDetectSimButton.textContent = _dT(autostartDetectPending ? 'Suche …' : (sim ? 'Sim neu erkennen' : 'Sim erkennen'));
 
   const signature = JSON.stringify([entries, run.phase, run.currentId, run.results]);
   if (signature === autostartListSignature) return;
@@ -818,9 +824,9 @@ function wiliAge(ms) {
   if (!ms) return 'noch nie';
   const minutes = Math.max(0, Math.round((Date.now() - ms) / 60000));
   if (minutes < 1) return 'gerade eben';
-  if (minutes < 60) return `vor ${minutes} min`;
+  if (minutes < 60) return _dK('desk.r.agoMin', 'vor {n} min', { n: minutes });
   const hours = Math.round(minutes / 60);
-  return hours < 48 ? `vor ${hours} h` : `vor ${Math.round(hours / 24)} Tagen`;
+  return hours < 48 ? _dK('desk.r.agoH', 'vor {n} h', { n: hours }) : _dK('desk.r.agoDays', 'vor {n} Tagen', { n: Math.round(hours / 24) });
 }
 
 function renderWiliFleet(data = {}) {
@@ -840,14 +846,14 @@ function renderWiliFleet(data = {}) {
     if (busy) { badge = 'Abgleich'; badgeClass = 'working'; }
     else if (['error', 'no-mod', 'no-crew', 'no-account'].includes(phase)) { badge = phase === 'error' ? 'Fehler' : 'Prüfen'; badgeClass = 'error'; }
     else if (pending.length) { badge = `${pending.length} Import`; badgeClass = 'choice-required'; }
-    else if (!autoSync && data.remoteNewer) { badge = `${data.remoteNewer} neu`; badgeClass = 'choice-required'; }
+    else if (!autoSync && data.remoteNewer) { badge = _dK('desk.r.newCount', '{count} neu', { count: data.remoteNewer }); badgeClass = 'choice-required'; }
     else { badge = autoSync ? 'Auto' : 'Manuell'; badgeClass = 'current'; }
   }
-  elements.wiliBadge.textContent = badge;
+  elements.wiliBadge.textContent = _dT(badge);
   setClass(elements.wiliBadge, 'mini-badge', badgeClass);
-  elements.wiliModuleSummary.textContent = !enabled
+  elements.wiliModuleSummary.textContent = _dT(!enabled
     ? 'Where I Left It · ausgeschaltet'
-    : `${data.crew ? `Crew ${data.crew}` : 'Crew unbekannt'} · ${aircraft.length} Maschine${aircraft.length === 1 ? '' : 'n'}${autoSync ? ' · Autosync' : ''}`;
+    : `${data.crew ? `Crew ${data.crew}` : _dT('Crew unbekannt')} · ${aircraft.length === 1 ? _dT('1 Maschine') : _dK('desk.r.aircraftCount', '{count} Maschinen', { count: aircraft.length })}${autoSync ? ' · Autosync' : ''}`);
 
   elements.wiliStatusGroup.hidden = !enabled;
   elements.wiliFleetGroup.hidden = !enabled || !aircraft.length;
@@ -859,42 +865,42 @@ function renderWiliFleet(data = {}) {
     ? ` Aus der Vereinsflotte entfernt: ${data.removed.map((entry) => entry.tail || entry.title).join(', ')} – im Mod ausgeblendet („· entfernt“), bitte dort im Hangar löschen.`
     : '';
   const message = (wiliActionMessage || data.message || (data.modFound ? 'Bereit.' : 'Mod-Ordner wird gesucht …')) + former + removed;
-  elements.wiliMessage.textContent = message;
+  elements.wiliMessage.textContent = _dT(message);
   elements.wiliMessage.className = `subtle ${['error', 'no-mod', 'no-crew', 'no-account'].includes(phase) && !wiliActionMessage ? 'wili-error' : ''}`.trim();
-  elements.wiliPath.textContent = data.modDir ? `${data.modSource}: ${data.modDir}` : '';
-  elements.wiliTimes.textContent = `Hochgeladen ${wiliAge(data.lastUpload)} · Crew-Stand ${wiliAge(data.lastDownload)} · ${data.push ? 'Live-Verbindung aktiv' : 'Abfrage ohne Live-Verbindung'}`;
+  elements.wiliPath.textContent = _dT(data.modDir ? `${data.modSource}: ${data.modDir}` : '');
+  elements.wiliTimes.textContent = _dK('desk.r.wiliTimes', 'Hochgeladen {up} · Crew-Stand {down} · {mode}', { up: wiliAge(data.lastUpload), down: wiliAge(data.lastDownload), mode: _dT(data.push ? 'Live-Verbindung aktiv' : 'Abfrage ohne Live-Verbindung') });
   elements.wiliPending.hidden = !pending.length;
-  elements.wiliPendingTitle.textContent = `${pending.length} Maschine${pending.length === 1 ? '' : 'n'} bereit zum Import`;
-  elements.wiliPendingList.textContent = pending.map((entry) => (entry.tail ? `${entry.tail} (${entry.title})` : entry.title)).join(' · ');
+  elements.wiliPendingTitle.textContent = (pending.length === 1 ? _dT('1 Maschine bereit zum Import') : _dK('desk.r.pendingImport', '{count} Maschinen bereit zum Import', { count: pending.length }));
+  elements.wiliPendingList.textContent = _dT(pending.map((entry) => (entry.tail ? `${entry.tail} (${entry.title})` : entry.title)).join(' · '));
 
   elements.wiliSyncButton.hidden = !autoSync;
   elements.wiliUploadButton.hidden = autoSync;
   elements.wiliDownloadButton.hidden = autoSync;
   for (const button of [elements.wiliSyncButton, elements.wiliUploadButton, elements.wiliDownloadButton]) button.disabled = busy || !data.modFound;
-  elements.wiliSyncButton.textContent = wiliActionPending === 'sync' ? 'Gleicht ab …' : 'Jetzt abgleichen';
-  elements.wiliUploadButton.textContent = wiliActionPending === 'upload' ? 'Lädt hoch …' : 'Backup hochladen';
-  elements.wiliDownloadButton.textContent = wiliActionPending === 'download' ? 'Lädt …' : 'Crew-Stand laden';
+  elements.wiliSyncButton.textContent = _dT(wiliActionPending === 'sync' ? 'Gleicht ab …' : 'Jetzt abgleichen');
+  elements.wiliUploadButton.textContent = _dT(wiliActionPending === 'upload' ? 'Lädt hoch …' : 'Backup hochladen');
+  elements.wiliDownloadButton.textContent = _dT(wiliActionPending === 'download' ? 'Lädt …' : 'Crew-Stand laden');
 
   elements.wiliFleetList.replaceChildren(...aircraft.map((entry) => {
     const item = document.createElement('li');
     const head = document.createElement('span');
     head.className = 'wili-fleet-head';
     const name = document.createElement('strong');
-    name.textContent = entry.tail ? `${entry.tail} · ${entry.title}` : entry.title;
+    name.textContent = _dT(entry.tail ? `${entry.tail} · ${entry.title}` : entry.title);
     const status = document.createElement('span');
     status.className = `wili-status wili-status-${entry.status || 'free'}`;
-    status.textContent = entry.status && entry.status !== 'free'
-      ? `${entry.statusLabel} · ${entry.mine ? 'du' : (entry.holderNick || 'Crew')}`
-      : (entry.statusLabel || 'Frei');
+    status.textContent = _dT(entry.status && entry.status !== 'free'
+      ? `${_dT(entry.statusLabel)} · ${entry.mine ? _dT('du') : (entry.holderNick || 'Crew')}`
+      : (entry.statusLabel || 'Frei'));
     head.append(name, status);
     const detail = document.createElement('small');
     const parts = [];
-    if (entry.conflictNick) parts.push(`⚠ auch von ${entry.conflictNick} geflogen`);
-    if (entry.ownerNick) parts.push(`Halter ${entry.ownerNick}`);
-    if (entry.lastNick && entry.lastNick !== entry.ownerNick) parts.push(`zuletzt ${entry.lastNick}`);
+    if (entry.conflictNick) parts.push(_dK('desk.r.alsoFlownBy', '⚠ auch von {nick} geflogen', { nick: entry.conflictNick }));
+    if (entry.ownerNick) parts.push(_dK('desk.r.owner', 'Halter {nick}', { nick: entry.ownerNick }));
+    if (entry.lastNick && entry.lastNick !== entry.ownerNick) parts.push(_dK('desk.r.lastBy', 'zuletzt {nick}', { nick: entry.lastNick }));
     if (Number.isFinite(entry.lat) && Number.isFinite(entry.lon)) parts.push(`${entry.lat.toFixed(4)}, ${entry.lon.toFixed(4)}`);
-    if (entry.savedAt) parts.push(`abgestellt ${wiliAge(entry.savedAt)}`);
-    detail.textContent = parts.join(' · ');
+    if (entry.savedAt) parts.push(_dK('desk.r.parked', 'abgestellt {age}', { age: wiliAge(entry.savedAt) }));
+    detail.textContent = _dT(parts.join(' · '));
     item.append(head, detail);
     return item;
   }));
@@ -916,41 +922,68 @@ async function runWiliAction(kind, action) {
   }
 }
 
+// Language switch: saved in the desktop app and sent to the tracker (EFB and toolbar follow).
+function renderUiLanguage(language) {
+  if (!elements.uiLanguageSwitch) return;
+  elements.uiLanguageSwitch.querySelectorAll('[data-ui-language]').forEach(button => {
+    button.setAttribute('aria-pressed', String(button.dataset.uiLanguage === language));
+  });
+}
+elements.uiLanguageSwitch?.addEventListener('click', async event => {
+  const button = event.target.closest('[data-ui-language]');
+  if (!button || button.getAttribute('aria-pressed') === 'true') return;
+  const buttons = [...elements.uiLanguageSwitch.querySelectorAll('button')];
+  buttons.forEach(item => { item.disabled = true; });
+  renderUiLanguage(button.dataset.uiLanguage);
+  try { await window.trackerDesktop.setUiLanguage(button.dataset.uiLanguage); }
+  finally { buttons.forEach(item => { item.disabled = false; }); }
+});
+
+// Language switch: redraw everything this window writes itself.
+if (window.GAI18n) window.GAI18n.onChange(() => { if (latestState) render(latestState); });
+
+let hardMissionResetHint = '';
 function render(state) {
   latestState = state;
   const tracker = state?.tracker || {};
   const settings = state?.settings || {};
+  const uiLanguage = settings.uiLanguage === 'en' ? 'en' : 'de';
+  renderUiLanguage(uiLanguage);
+  if (window.GAI18n && window.GAI18n.getLanguage() !== uiLanguage) window.GAI18n.setLanguage(uiLanguage);
   const runtimeChannel = settings.runtimeChannel === 'alpha' ? 'alpha' : 'stable';
   const runtimeChannelLabel = runtimeChannel === 'alpha' ? 'Alpha' : 'Stable';
-  elements.versionLine.textContent = `Desktop v${state?.appVersion || '–'} · Engine ${state?.trackerVersion || '–'} · ${runtimeChannelLabel}`;
+  elements.versionLine.textContent = _dT(`Desktop v${state?.appVersion || '–'} · Engine ${state?.trackerVersion || '–'} · ${runtimeChannelLabel}`);
   setClass(elements.processBadge, 'process-badge', tracker.process);
-  elements.processBadge.textContent = labels.process[tracker.process] || 'Bereit';
+  elements.processBadge.textContent = _dT(labels.process[tracker.process] || 'Bereit');
   setClass(elements.relayDot, 'status-dot', tracker.relay);
-  elements.relayStatus.textContent = relayStatusLabel(tracker);
+  elements.relayStatus.textContent = _dT(relayStatusLabel(tracker));
   setClass(elements.simDot, 'status-dot', tracker.simulator);
-  elements.simStatus.textContent = labels.simulator[tracker.simulator] || 'Nicht verbunden';
+  elements.simStatus.textContent = _dT(labels.simulator[tracker.simulator] || 'Nicht verbunden');
   setClass(elements.telemetryDot, 'status-dot', tracker.telemetry);
-  elements.telemetryStatus.textContent = labels.telemetry[tracker.telemetry] || 'OFF';
+  elements.telemetryStatus.textContent = _dT(labels.telemetry[tracker.telemetry] || 'OFF');
 
   if (document.activeElement !== elements.pilotIdInput) elements.pilotIdInput.value = settings.pilotId || '';
-  elements.pinInput.placeholder = settings.hasPin ? 'gespeichert' : '••••';
+  elements.pinInput.placeholder = _dT(settings.hasPin ? 'gespeichert' : '••••');
   if (document.activeElement !== elements.voiceProviderSelect) elements.voiceProviderSelect.value = settings.voiceProvider === 'openai' ? 'openai' : 'gemini';
-  elements.voiceApiKeyInput.placeholder = settings.hasVoiceApiKey ? 'geschützt gespeichert' : 'API-Key eingeben';
+  elements.voiceApiKeyInput.placeholder = _dT(settings.hasVoiceApiKey ? 'geschützt gespeichert' : 'API-Key eingeben');
   elements.clearVoiceCredentialsButton.disabled = !settings.hasVoiceApiKey;
   if (document.activeElement !== elements.runtimeChannelSelect && !channelChangePending) elements.runtimeChannelSelect.value = runtimeChannel;
   if (!channelChangePending) {
     elements.runtimeChannelMessage.className = 'channel-message subtle';
-    elements.runtimeChannelMessage.textContent = runtimeChannel === 'alpha'
+    elements.runtimeChannelMessage.textContent = _dT(runtimeChannel === 'alpha'
       ? 'Alpha erhält neue Tracker-Versionen zuerst. Die Stable-Runtime bleibt als Rückweg erhalten.'
-      : 'Stable verwendet ausschließlich freigegebene Tracker-Versionen.';
+      : 'Stable verwendet ausschließlich freigegebene Tracker-Versionen.');
   }
   const hardMissionResetAvailable = tracker.process === 'running';
   elements.hardMissionResetButton.disabled = !hardMissionResetAvailable || hardMissionResetPending;
-  if (!hardMissionResetPending && !elements.hardMissionResetMessage.textContent) {
+  // The hint is replaced again only while it still shows a hint (never a reset result).
+  const resetHintShown = !elements.hardMissionResetMessage.textContent || elements.hardMissionResetMessage.textContent === hardMissionResetHint;
+  if (!hardMissionResetPending && resetHintShown) {
     elements.hardMissionResetMessage.className = 'form-message';
-    elements.hardMissionResetMessage.textContent = hardMissionResetAvailable
+    hardMissionResetHint = _dT(hardMissionResetAvailable
       ? 'Nur verwenden, wenn eine Tracker-Mission festhängt. Eine Rückfrage schützt vor Versehen.'
-      : 'Verfügbar bei laufendem Tracker.';
+      : 'Verfügbar bei laufendem Tracker.');
+    elements.hardMissionResetMessage.textContent = hardMissionResetHint;
   }
   setChecked(elements.trackerAutoUpdateCheckbox, modulePolicy(settings, 'tracker') === 'automatic');
   setChecked(elements.desktopAutoUpdateCheckbox, modulePolicy(settings, 'desktop') === 'automatic');
@@ -965,7 +998,7 @@ function render(state) {
   const running = ['starting', 'running', 'stopping'].includes(tracker.process);
   elements.startButton.disabled = running;
   elements.stopButton.disabled = !running;
-  elements.detailStatus.textContent = tracker.detail || 'Tracker ist nicht gestartet.';
+  elements.detailStatus.textContent = _dT(tracker.detail || 'Tracker ist nicht gestartet.');
   renderLogs(tracker.logs);
   renderUpdate(state?.update, runtimeChannel);
   renderDesktopUpdate(state?.desktopUpdate, state?.appVersion);
@@ -985,17 +1018,17 @@ elements.credentialsForm.addEventListener('submit', async (event) => {
   const pin = elements.pinInput.value.trim();
   elements.saveCredentialsButton.disabled = true;
   elements.formMessage.className = 'form-message';
-  elements.formMessage.textContent = 'Pilot-Konto wird geprüft …';
+  elements.formMessage.textContent = _dT('Pilot-Konto wird geprüft …');
   const result = await window.trackerDesktop.saveCredentials(pilotId, pin);
   elements.saveCredentialsButton.disabled = false;
   if (!result?.ok) {
     elements.formMessage.className = 'form-message error';
-    elements.formMessage.textContent = result?.message || 'Konto konnte nicht gespeichert werden.';
+    elements.formMessage.textContent = _dT(result?.message || 'Konto konnte nicht gespeichert werden.');
     return;
   }
   elements.pinInput.value = '';
   elements.formMessage.className = 'form-message success';
-  elements.formMessage.textContent = `Verbunden als ${result.pilotId}.`;
+  elements.formMessage.textContent = _dK('desk.r.connectedAs', 'Verbunden als {pilot}.', { pilot: result.pilotId });
 });
 
 elements.voiceCredentialsForm.addEventListener('submit', async (event) => {
@@ -1004,30 +1037,30 @@ elements.voiceCredentialsForm.addEventListener('submit', async (event) => {
   const apiKey = elements.voiceApiKeyInput.value.trim();
   elements.saveVoiceCredentialsButton.disabled = true;
   elements.voiceFormMessage.className = 'form-message';
-  elements.voiceFormMessage.textContent = 'API-Key wird mit dem Windows-Konto geschützt …';
+  elements.voiceFormMessage.textContent = _dT('API-Key wird mit dem Windows-Konto geschützt …');
   const result = await window.trackerDesktop.saveVoiceCredentials(provider, apiKey);
   elements.saveVoiceCredentialsButton.disabled = false;
   if (!result?.ok) {
     elements.voiceFormMessage.className = 'form-message error';
-    elements.voiceFormMessage.textContent = result?.message || 'API-Key konnte nicht gespeichert werden.';
+    elements.voiceFormMessage.textContent = _dT(result?.message || 'API-Key konnte nicht gespeichert werden.');
     return;
   }
   elements.voiceApiKeyInput.value = '';
   elements.voiceFormMessage.className = 'form-message success';
-  elements.voiceFormMessage.textContent = 'API-Key geschützt gespeichert. Ein laufender Tracker wird neu gestartet.';
+  elements.voiceFormMessage.textContent = _dT('API-Key geschützt gespeichert. Ein laufender Tracker wird neu gestartet.');
 });
 
 elements.clearVoiceCredentialsButton.addEventListener('click', async () => {
-  if (!window.confirm('Den geschützten Voice-API-Key aus der Tracker-App entfernen?')) return;
+  if (!window.confirm(_dT('Den geschützten Voice-API-Key aus der Tracker-App entfernen?'))) return;
   const result = await window.trackerDesktop.clearVoiceCredentials();
   if (!result?.ok) {
     elements.voiceFormMessage.className = 'form-message error';
-    elements.voiceFormMessage.textContent = result?.message || 'API-Key konnte nicht entfernt werden.';
+    elements.voiceFormMessage.textContent = _dT(result?.message || 'API-Key konnte nicht entfernt werden.');
     return;
   }
   elements.voiceApiKeyInput.value = '';
   elements.voiceFormMessage.className = 'form-message success';
-  elements.voiceFormMessage.textContent = 'Voice-API-Key entfernt.';
+  elements.voiceFormMessage.textContent = _dT('Voice-API-Key entfernt.');
 });
 
 elements.trackerAutoUpdateCheckbox.addEventListener('change', () => window.trackerDesktop.setUpdatePolicy(elements.trackerAutoUpdateCheckbox.checked ? 'automatic' : 'ask'));
@@ -1040,37 +1073,37 @@ elements.runtimeChannelSelect.addEventListener('change', async () => {
   const previous = latestState?.settings?.runtimeChannel === 'alpha' ? 'alpha' : 'stable';
   const requested = elements.runtimeChannelSelect.value === 'alpha' ? 'alpha' : 'stable';
   if (requested === previous) return;
-  if (requested === 'alpha' && !window.confirm('Zum Alpha-Kanal wechseln? Der laufende Tracker wird bei Bedarf neu gestartet. Testversionen können noch Fehler enthalten; Stable bleibt separat installiert.')) {
+  if (requested === 'alpha' && !window.confirm(_dT('Zum Alpha-Kanal wechseln? Der laufende Tracker wird bei Bedarf neu gestartet. Testversionen können noch Fehler enthalten; Stable bleibt separat installiert.'))) {
     elements.runtimeChannelSelect.value = previous;
     return;
   }
   channelChangePending = true;
   elements.runtimeChannelSelect.disabled = true;
   elements.runtimeChannelMessage.className = 'channel-message subtle';
-  elements.runtimeChannelMessage.textContent = `Wechsel zu ${requested === 'alpha' ? 'Alpha' : 'Stable'} wird vorbereitet …`;
+  elements.runtimeChannelMessage.textContent = _dK('desk.r.switchingTo', 'Wechsel zu {channel} wird vorbereitet …', { channel: requested === 'alpha' ? 'Alpha' : 'Stable' });
   const result = await window.trackerDesktop.setRuntimeChannel(requested);
   channelChangePending = false;
   render(await window.trackerDesktop.getState());
   if (!result?.ok) {
     elements.runtimeChannelMessage.className = 'channel-message subtle error';
-    elements.runtimeChannelMessage.textContent = result?.message || 'Tracker-Kanal konnte nicht gewechselt werden.';
+    elements.runtimeChannelMessage.textContent = _dT(result?.message || 'Tracker-Kanal konnte nicht gewechselt werden.');
   }
 });
 
 elements.hardMissionResetButton.addEventListener('click', async () => {
   if (hardMissionResetPending) return;
-  if (!window.confirm('Laufende Tracker-Mission wirklich hart zurücksetzen?\n\nDer Tracker stellt zuerst Payload und Simulator-Szenen wieder her, entfernt danach nur seinen Missionszustand und lädt die aktuelle Mission erneut aus der App. Fluglog und App-Mission werden nicht gelöscht.')) return;
+  if (!window.confirm(_dT('Laufende Tracker-Mission wirklich hart zurücksetzen?\n\nDer Tracker stellt zuerst Payload und Simulator-Szenen wieder her, entfernt danach nur seinen Missionszustand und lädt die aktuelle Mission erneut aus der App. Fluglog und App-Mission werden nicht gelöscht.'))) return;
   hardMissionResetPending = true;
   elements.hardMissionResetButton.disabled = true;
   elements.hardMissionResetMessage.className = 'form-message';
-  elements.hardMissionResetMessage.textContent = 'Tracker-Mission wird sicher zurückgesetzt …';
+  elements.hardMissionResetMessage.textContent = _dT('Tracker-Mission wird sicher zurückgesetzt …');
   const result = await window.trackerDesktop.hardResetMission();
   hardMissionResetPending = false;
   await window.trackerDesktop.getState().then(render);
   elements.hardMissionResetMessage.className = result?.ok ? 'form-message success' : 'form-message error';
-  elements.hardMissionResetMessage.textContent = result?.message || (result?.ok
+  elements.hardMissionResetMessage.textContent = _dT(result?.message || (result?.ok
     ? 'Tracker-Mission wurde zurückgesetzt und der App-Stand wird neu geladen.'
-    : 'Der Tracker konnte den Missionsreset nicht sicher ausführen.');
+    : 'Der Tracker konnte den Missionsreset nicht sicher ausführen.'));
 });
 
 async function saveStartupPreferences() {
@@ -1091,7 +1124,7 @@ elements.startButton.addEventListener('click', async () => {
   const result = await window.trackerDesktop.startTracker();
   if (result?.needsCredentials) {
     elements.formMessage.className = 'form-message error';
-    elements.formMessage.textContent = 'Bitte zuerst Pilot-ID und PIN speichern.';
+    elements.formMessage.textContent = _dT('Bitte zuerst Pilot-ID und PIN speichern.');
     const trackerPanel = elements.pilotIdInput.closest('[data-module-panel]');
     if (trackerPanel) trackerPanel.open = true;
     elements.pilotIdInput.focus();
@@ -1104,10 +1137,10 @@ function showAutostartAddResult(result, droppedCount = 0) {
   const rejected = Array.isArray(result?.rejected) ? result.rejected : [];
   const added = Number(result?.added) || 0;
   let message = '';
-  if (rejected.length) message = `Nicht übernommen: ${rejected.join(', ')} (nur .exe, .lnk, .bat oder .cmd).`;
+  if (rejected.length) message = _dK('desk.r.rejected', 'Nicht übernommen: {files} (nur .exe, .lnk, .bat oder .cmd).', { files: rejected.join(', ') });
   else if (droppedCount > 0 && added === 0) message = 'Die Datei konnte nicht übernommen werden oder steht bereits in der Liste. Alternativ über „Importieren“ auswählen.';
   elements.autostartListMessage.className = `form-message ${message ? 'error' : ''}`.trim();
-  elements.autostartListMessage.textContent = message;
+  elements.autostartListMessage.textContent = _dT(message);
 }
 
 elements.autostartEnabledCheckbox.addEventListener('change', () => window.trackerDesktop.setAutostartOptions({ enabled: elements.autostartEnabledCheckbox.checked }));
@@ -1166,7 +1199,7 @@ elements.autostartLaunchButton.addEventListener('click', async () => {
     const result = await window.trackerDesktop.launchAutostart();
     if (result?.tracker?.needsCredentials) {
       elements.formMessage.className = 'form-message error';
-      elements.formMessage.textContent = 'Bitte zuerst Pilot-ID und PIN speichern. Die übrigen Programme wurden trotzdem gestartet.';
+      elements.formMessage.textContent = _dT('Bitte zuerst Pilot-ID und PIN speichern. Die übrigen Programme wurden trotzdem gestartet.');
     }
   } finally {
     autostartLaunchPending = false;
@@ -1177,7 +1210,7 @@ elements.aptTestLogButton.addEventListener('click', async () => {
   const result = await window.trackerDesktop.showAptTestLog();
   if (result?.missing) {
     elements.formMessage.className = 'form-message';
-    elements.formMessage.textContent = result.message;
+    elements.formMessage.textContent = _dT(result.message);
   }
 });
 elements.openFolderButton.addEventListener('click', () => window.trackerDesktop.openDataFolder());
@@ -1188,37 +1221,43 @@ elements.checkRuntimeButton.addEventListener('click', () => window.trackerDeskto
 elements.assetRefreshButton.addEventListener('click', () => window.trackerDesktop.refreshHomebaseAssets());
 elements.assetPrimaryButton.addEventListener('click', async () => {
   const action = latestState?.homebaseAssets?.installed ? 'aktualisiert' : 'installiert';
-  if (!window.confirm(`Das Homebase Asset Pack wird in den erkannten MSFS-Community-Ordner ${action}. MSFS muss geschlossen sein. Fortfahren?`)) return;
+  if (!window.confirm(latestState?.homebaseAssets?.installed
+    ? _dK('desk.r.confirmHomebaseUpdate', `Das Homebase Asset Pack wird in den erkannten MSFS-Community-Ordner ${action}. MSFS muss geschlossen sein. Fortfahren?`)
+    : _dK('desk.r.confirmHomebaseInstall', `Das Homebase Asset Pack wird in den erkannten MSFS-Community-Ordner ${action}. MSFS muss geschlossen sein. Fortfahren?`))) return;
   await window.trackerDesktop.installHomebaseAssets(false);
 });
 elements.assetRepairButton.addEventListener('click', async () => {
-  if (!window.confirm('Das Homebase Asset Pack wird vollständig neu geladen, geprüft und ersetzt. MSFS muss geschlossen sein. Fortfahren?')) return;
+  if (!window.confirm(_dT('Das Homebase Asset Pack wird vollständig neu geladen, geprüft und ersetzt. MSFS muss geschlossen sein. Fortfahren?'))) return;
   await window.trackerDesktop.installHomebaseAssets(true);
 });
 elements.assetUninstallButton.addEventListener('click', async () => {
-  if (!window.confirm('Das gemeinsame Homebase Asset Pack aus dem MSFS-Community-Ordner entfernen? Persönliche Homebase-Daten und gebaute Szenen bleiben erhalten.')) return;
+  if (!window.confirm(_dT('Das gemeinsame Homebase Asset Pack aus dem MSFS-Community-Ordner entfernen? Persönliche Homebase-Daten und gebaute Szenen bleiben erhalten.'))) return;
   await window.trackerDesktop.uninstallHomebaseAssets();
 });
 
 elements.efbRefreshButton.addEventListener('click', () => window.trackerDesktop.refreshEfbPackage());
 elements.efbPrimaryButton.addEventListener('click', async () => {
   const action = latestState?.efbPackage?.installed ? 'aktualisiert' : 'installiert';
-  if (!window.confirm(`Die VFR Multitool EFB App wird aus dem gewählten Tracker-Kanal geladen, geprüft und im erkannten MSFS-2024-Community-Ordner ${action}. MSFS muss geschlossen sein. Fortfahren?`)) return;
+  if (!window.confirm(latestState?.efbPackage?.installed
+    ? _dK('desk.r.confirmEfbUpdate', `Die VFR Multitool EFB App wird aus dem gewählten Tracker-Kanal geladen, geprüft und im erkannten MSFS-2024-Community-Ordner ${action}. MSFS muss geschlossen sein. Fortfahren?`)
+    : _dK('desk.r.confirmEfbInstall', `Die VFR Multitool EFB App wird aus dem gewählten Tracker-Kanal geladen, geprüft und im erkannten MSFS-2024-Community-Ordner ${action}. MSFS muss geschlossen sein. Fortfahren?`))) return;
   await window.trackerDesktop.installEfbPackage(false);
 });
 elements.efbRepairButton.addEventListener('click', async () => {
-  if (!window.confirm('Die VFR Multitool EFB App wird vollständig neu geladen, geprüft und ersetzt. MSFS muss geschlossen sein. Fortfahren?')) return;
+  if (!window.confirm(_dT('Die VFR Multitool EFB App wird vollständig neu geladen, geprüft und ersetzt. MSFS muss geschlossen sein. Fortfahren?'))) return;
   await window.trackerDesktop.installEfbPackage(true);
 });
 elements.efbUninstallButton.addEventListener('click', async () => {
-  if (!window.confirm('Nur die VFR Multitool EFB App aus dem MSFS-2024-Community-Ordner entfernen? Tracker, Homebase Assets und persönliche Daten bleiben erhalten.')) return;
+  if (!window.confirm(_dT('Nur die VFR Multitool EFB App aus dem MSFS-2024-Community-Ordner entfernen? Tracker, Homebase Assets und persönliche Daten bleiben erhalten.'))) return;
   await window.trackerDesktop.uninstallEfbPackage();
 });
 
 elements.bridgeRefreshButton.addEventListener('click', () => window.trackerDesktop.refreshBridge());
 elements.bridgeInstallButton.addEventListener('click', async () => {
   const action = latestState?.bridge?.installed ? 'aktualisiert' : 'installiert';
-  if (!window.confirm(`Die AccuSim DRSM Telemetry Bridge wird aus dem öffentlichen GitHub-Release geladen, geprüft und anschließend ${action}. Der Installer wird dafür separat geöffnet. Fortfahren?`)) return;
+  if (!window.confirm(latestState?.bridge?.installed
+    ? _dK('desk.r.confirmBridgeUpdate', `Die AccuSim DRSM Telemetry Bridge wird aus dem öffentlichen GitHub-Release geladen, geprüft und anschließend ${action}. Der Installer wird dafür separat geöffnet. Fortfahren?`)
+    : _dK('desk.r.confirmBridgeInstall', `Die AccuSim DRSM Telemetry Bridge wird aus dem öffentlichen GitHub-Release geladen, geprüft und anschließend ${action}. Der Installer wird dafür separat geöffnet. Fortfahren?`))) return;
   await window.trackerDesktop.installBridge();
 });
 elements.bridgeStartButton.addEventListener('click', async () => {

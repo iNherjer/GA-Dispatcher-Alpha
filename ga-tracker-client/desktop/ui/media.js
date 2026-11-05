@@ -1,5 +1,7 @@
 (function () {
   'use strict';
+  // UI language (i18n-core.js + i18n-en.js); German shows the original text.
+  const _dT = text => (window.GAI18n ? window.GAI18n.phrase(text) : text);
   const api = window.trackerDesktop;
   const request = payload => typeof api?.mediaRequest === 'function' ? api.mediaRequest(payload)
     : Promise.resolve({ ok: false, error: 'Mediensteuerung benötigt die aktualisierte Windows-Tracker-App.' });
@@ -16,7 +18,7 @@
   function render(result) {
     if (!result.ok) {
       available = false;
-      $('mediaStatus').textContent = result.error || 'Mediensteuerung nicht verfügbar.';
+      $('mediaStatus').textContent = _dT(result.error || 'Mediensteuerung nicht verfügbar.');
       $('mediaPlayer').disabled = true;
       return;
     }
@@ -29,12 +31,12 @@
     const next = players.map(player => player.source).join('\n');
     if (existing !== next) {
       select.replaceChildren();
-      if (!players.length) select.add(new Option('Kein Player geöffnet', ''));
+      if (!players.length) select.add(new Option(_dT('Kein Player geöffnet'), ''));
       for (const player of players) select.add(new Option(player.name, player.source));
     }
     select.value = result.source || ''; select.disabled = busy || !players.length;
-    $('mediaStatus').textContent = !players.length ? 'Player öffnen und dort einen Titel starten.'
-      : result.ducking ? 'Musik für Ansage abgesenkt.' : !result.volumeAvailable ? 'Player verbunden; Windows-Audiositzung fehlt für die Absenkung.' : 'Windows-Player verbunden.';
+    $('mediaStatus').textContent = _dT(!players.length ? 'Player öffnen und dort einen Titel starten.'
+      : result.ducking ? 'Musik für Ansage abgesenkt.' : !result.volumeAvailable ? 'Player verbunden; Windows-Audiositzung fehlt für die Absenkung.' : 'Windows-Player verbunden.');
   }
   async function command(payload) {
     if (busy) return;
@@ -79,4 +81,6 @@
     request({ action: 'duck', active: false }).catch(() => {});
   });
   tick();
+  // Language switch: redraw the status texts.
+  if (window.GAI18n) window.GAI18n.onChange(() => { if (state) render(state); });
 })();

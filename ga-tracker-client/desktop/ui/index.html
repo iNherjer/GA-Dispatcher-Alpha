@@ -18,25 +18,31 @@
       <div>
         <p class="eyebrow">VFR MULTITOOL</p>
         <h1>Tracker</h1>
-        <p id="versionLine" class="version-line">Desktop · Tracker</p>
+        <p id="versionLine" class="version-line" data-i18n-initial>Desktop · Tracker</p>
       </div>
-      <span id="processBadge" class="process-badge waiting">Bereit</span>
+      <div class="hero-side">
+        <div id="uiLanguageSwitch" class="lang-switch" role="group" aria-label="Sprache / Language" title="Sprache für Tracker, EFB und Toolbar / Language for tracker, EFB and toolbar">
+          <button type="button" data-ui-language="de" lang="de" aria-pressed="true"><svg viewBox="0 0 5 3" aria-hidden="true"><rect width="5" height="1" fill="#000"/><rect y="1" width="5" height="1" fill="#d00"/><rect y="2" width="5" height="1" fill="#ffce00"/></svg>DE</button>
+          <button type="button" data-ui-language="en" lang="en" aria-pressed="false"><svg viewBox="0 0 60 30" aria-hidden="true"><clipPath id="langFlagGb"><path d="M30 15h30v15zv15H0zH0V0zV0h30z"/></clipPath><path d="M0 0v30h60V0z" fill="#012169"/><path d="M0 0l60 30m0-30L0 30" stroke="#fff" stroke-width="6"/><path d="M0 0l60 30m0-30L0 30" clip-path="url(#langFlagGb)" stroke="#C8102E" stroke-width="4"/><path d="M30 0v30M0 15h60" stroke="#fff" stroke-width="10"/><path d="M30 0v30M0 15h60" stroke="#C8102E" stroke-width="6"/></svg>EN</button>
+        </div>
+        <span id="processBadge" class="process-badge waiting" data-i18n-initial>Bereit</span>
+      </div>
     </header>
 
-    <section class="overview-card" aria-label="Tracker-Status und Steuerung">
+    <section class="overview-card" aria-label="Tracker-Status und Steuerung" data-i18n-aria-label="desk.tracker-status-und-steuerung">
       <div id="automaticUpdateBanner" class="update-banner" role="status" hidden>
         <span class="update-spinner" aria-hidden="true"></span>
-        <span id="automaticUpdateBannerText">Ein Modul wird automatisch aktualisiert …</span>
+        <span id="automaticUpdateBannerText" data-i18n-initial>Ein Modul wird automatisch aktualisiert …</span>
       </div>
 
-      <div class="compact-status-grid" aria-label="Verbindungsstatus">
+      <div class="compact-status-grid" aria-label="Verbindungsstatus" data-i18n-aria-label="desk.verbindungsstatus">
         <div class="compact-status">
           <span id="relayDot" class="status-dot waiting"></span>
-          <span><small>Relay</small><strong id="relayStatus">Wartet</strong></span>
+          <span><small>Relay</small><strong id="relayStatus" data-i18n-initial>Wartet</strong></span>
         </div>
         <div class="compact-status">
           <span id="simDot" class="status-dot waiting"></span>
-          <span><small>MSFS</small><strong id="simStatus">Nicht verbunden</strong></span>
+          <span><small>MSFS</small><strong id="simStatus" data-i18n-initial>Nicht verbunden</strong></span>
         </div>
         <div class="compact-status">
           <span id="telemetryDot" class="status-dot waiting"></span>
@@ -44,36 +50,36 @@
         </div>
       </div>
 
-      <p id="detailStatus" class="overview-detail">Tracker ist nicht gestartet.</p>
-      <button id="autostartLaunchButton" class="primary-button autostart-launch-button" type="button" hidden>Tracker &amp; Sim starten</button>
+      <p id="detailStatus" class="overview-detail" data-i18n-initial>Tracker ist nicht gestartet.</p>
+      <button id="autostartLaunchButton" class="primary-button autostart-launch-button" type="button" hidden data-i18n-initial>Tracker &amp; Sim starten</button>
       <p id="autostartLaunchMessage" class="form-message autostart-launch-message" role="status" hidden></p>
       <div class="action-row overview-actions">
-        <button id="startButton" class="primary-button" type="button">Tracker starten</button>
-        <button id="stopButton" class="secondary-button" type="button">Stoppen</button>
+        <button id="startButton" class="primary-button" type="button" data-i18n-initial>Tracker starten</button>
+        <button id="stopButton" class="secondary-button" type="button" data-i18n-initial>Stoppen</button>
       </div>
     </section>
 
-    <section class="module-stack" aria-label="Tracker-Module">
+    <section class="module-stack" aria-label="Tracker-Module" data-i18n-aria-label="desk.tracker-module">
       <details class="module-panel" data-module-panel>
         <summary>
           <span class="module-heading">
-            <span class="module-kicker">KERNMODUL</span>
+            <span class="module-kicker" data-i18n="desk.kernmodul">KERNMODUL</span>
             <strong>Tracker</strong>
-            <small id="trackerModuleSummary">Version und Startverhalten</small>
+            <small id="trackerModuleSummary" data-i18n-initial>Version und Startverhalten</small>
           </span>
           <span class="summary-side">
-            <span id="updateBadge" class="mini-badge">Prüfung</span>
+            <span id="updateBadge" class="mini-badge" data-i18n-initial>Prüfung</span>
             <span class="chevron" aria-hidden="true"></span>
           </span>
         </summary>
         <div class="module-content">
           <section class="settings-group">
             <p class="eyebrow">START</p>
-            <h2>Startverhalten</h2>
+            <h2 data-i18n="desk.startverhalten">Startverhalten</h2>
             <label class="toggle-row">
               <span>
-                <strong>Tracker automatisch starten</strong>
-                <small>Startet die Engine direkt nach der Updateprüfung.</small>
+                <strong data-i18n="desk.tracker-automatisch-starten">Tracker automatisch starten</strong>
+                <small data-i18n="desk.startet-die-engine-direkt-nach-der-updat">Startet die Engine direkt nach der Updateprüfung.</small>
               </span>
               <span class="toggle-control">
                 <input id="autoStartTrackerCheckbox" type="checkbox" checked>
@@ -82,8 +88,8 @@
             </label>
             <label class="toggle-row">
               <span>
-                <strong>Minimiert im Tray starten</strong>
-                <small>Zeigt das Fenster nur, wenn eine Eingabe nötig ist.</small>
+                <strong data-i18n="desk.minimiert-im-tray-starten">Minimiert im Tray starten</strong>
+                <small data-i18n="desk.zeigt-das-fenster-nur-wenn-eine-eingabe-">Zeigt das Fenster nur, wenn eine Eingabe nötig ist.</small>
               </span>
               <span class="toggle-control">
                 <input id="startMinimizedCheckbox" type="checkbox">
@@ -93,29 +99,29 @@
           </section>
 
           <section class="settings-group">
-            <p class="eyebrow">TRACKER-ENGINE</p>
-            <h2>Runtime &amp; Datenkanal</h2>
+            <p class="eyebrow" data-i18n="desk.tracker-engine">TRACKER-ENGINE</p>
+            <h2 data-i18n="desk.runtime-datenkanal">Runtime &amp; Datenkanal</h2>
             <label class="policy-row channel-row">
               <span>
-                <strong>Release-Kanal</strong>
-                <small>Stable bleibt produktiv; Alpha lädt Testversionen getrennt.</small>
+                <strong data-i18n="desk.release-kanal">Release-Kanal</strong>
+                <small data-i18n="desk.stable-bleibt-produktiv-alpha-laedt-test">Stable bleibt produktiv; Alpha lädt Testversionen getrennt.</small>
               </span>
               <select id="runtimeChannelSelect">
                 <option value="stable">Stable</option>
                 <option value="alpha">Alpha</option>
               </select>
             </label>
-            <p id="runtimeChannelMessage" class="channel-message subtle">Stable verwendet ausschließlich freigegebene Tracker-Versionen.</p>
+            <p id="runtimeChannelMessage" class="channel-message subtle" data-i18n-initial>Stable verwendet ausschließlich freigegebene Tracker-Versionen.</p>
             <div class="mission-recovery-control">
-              <strong>Harter Missionsreset</strong>
-              <small>Bricht ausschließlich den laufenden Tracker-APT-Run sicher ab, räumt dessen Szenen, Payload- und Recovery-Zustand und lädt anschließend die aktuelle Mission erneut aus der App. Fluglog und App-Mission bleiben erhalten.</small>
-              <button id="hardMissionResetButton" class="secondary-button danger-button compact-button" type="button">Tracker-Mission hart zurücksetzen</button>
+              <strong data-i18n="desk.harter-missionsreset">Harter Missionsreset</strong>
+              <small data-i18n="desk.bricht-ausschliesslich-den-laufenden-tra">Bricht ausschließlich den laufenden Tracker-APT-Run sicher ab, räumt dessen Szenen, Payload- und Recovery-Zustand und lädt anschließend die aktuelle Mission erneut aus der App. Fluglog und App-Mission bleiben erhalten.</small>
+              <button id="hardMissionResetButton" class="secondary-button danger-button compact-button" type="button" data-i18n-initial>Tracker-Mission hart zurücksetzen</button>
               <p id="hardMissionResetMessage" class="form-message" role="status"></p>
             </div>
             <label class="toggle-row">
               <span>
-                <strong>Updates automatisch installieren</strong>
-                <small>Sonst wird bei einer neuen installierbaren Version gefragt.</small>
+                <strong data-i18n="desk.updates-automatisch-installieren">Updates automatisch installieren</strong>
+                <small data-i18n="desk.sonst-wird-bei-einer-neuen-installierbar">Sonst wird bei einer neuen installierbaren Version gefragt.</small>
               </span>
               <span class="toggle-control">
                 <input id="trackerAutoUpdateCheckbox" type="checkbox">
@@ -125,21 +131,21 @@
             <div id="updateProgressWrap" class="progress-wrap" hidden>
               <span id="updateProgress" class="progress-bar"></span>
             </div>
-            <p id="updateMessage" class="subtle">Updateprüfung wird vorbereitet.</p>
-            <button id="checkRuntimeButton" class="text-button panel-action" type="button">Jetzt prüfen</button>
+            <p id="updateMessage" class="subtle" data-i18n-initial>Updateprüfung wird vorbereitet.</p>
+            <button id="checkRuntimeButton" class="text-button panel-action" type="button" data-i18n-initial>Jetzt prüfen</button>
           </section>
 
           <div class="inline-actions">
-            <button id="aptTestLogButton" class="text-button" type="button">APT-Testlog</button>
-            <button id="openFolderButton" class="text-button" type="button">Datenordner</button>
+            <button id="aptTestLogButton" class="text-button" type="button" data-i18n-initial>APT-Testlog</button>
+            <button id="openFolderButton" class="text-button" type="button" data-i18n-initial>Datenordner</button>
           </div>
 
           <details class="log-panel">
             <summary>
-              <span>Diagnoseprotokoll</span>
-              <span>Letzte Tracker-Ereignisse</span>
+              <span data-i18n="desk.diagnoseprotokoll">Diagnoseprotokoll</span>
+              <span data-i18n="desk.letzte-tracker-ereignisse">Letzte Tracker-Ereignisse</span>
             </summary>
-            <pre id="logOutput">Noch keine Tracker-Ereignisse.</pre>
+            <pre id="logOutput" data-i18n-initial>Noch keine Tracker-Ereignisse.</pre>
           </details>
         </div>
       </details>
@@ -147,23 +153,23 @@
       <details class="module-panel" data-module-panel>
         <summary>
           <span class="module-heading">
-            <span class="module-kicker">START · OPTIONAL</span>
+            <span class="module-kicker" data-i18n="desk.start-optional">START · OPTIONAL</span>
             <strong>Autostart</strong>
-            <small id="autostartModuleSummary">Ausgeschaltet</small>
+            <small id="autostartModuleSummary" data-i18n-initial>Ausgeschaltet</small>
           </span>
           <span class="summary-side">
-            <span id="autostartBadge" class="mini-badge">Aus</span>
+            <span id="autostartBadge" class="mini-badge" data-i18n-initial>Aus</span>
             <span class="chevron" aria-hidden="true"></span>
           </span>
         </summary>
         <div class="module-content">
           <section class="settings-group">
-            <p class="eyebrow">PROGRAMMSTART</p>
-            <h2>Tools mit dem Sim starten</h2>
+            <p class="eyebrow" data-i18n="desk.programmstart">PROGRAMMSTART</p>
+            <h2 data-i18n="desk.tools-mit-dem-sim-starten">Tools mit dem Sim starten</h2>
             <label class="toggle-row">
               <span>
-                <strong>Autostart aktivieren</strong>
-                <small>Zeigt oben „Tracker &amp; Sim starten“. Startet den Tracker und danach alle Einträge in der gewählten Reihenfolge.</small>
+                <strong data-i18n="desk.autostart-aktivieren">Autostart aktivieren</strong>
+                <small data-i18n="desk.zeigt-oben-tracker-sim-starten-startet-d">Zeigt oben „Tracker &amp; Sim starten“. Startet den Tracker und danach alle Einträge in der gewählten Reihenfolge.</small>
               </span>
               <span class="toggle-control">
                 <input id="autostartEnabledCheckbox" type="checkbox">
@@ -172,8 +178,8 @@
             </label>
             <label class="toggle-row">
               <span>
-                <strong>Mit dem Sim schließen</strong>
-                <small>Schließt nach dem Beenden des Sims oder der Tracker-App nur Programme, die der Autostart selbst gestartet hat. Der Sim selbst wird nie geschlossen.</small>
+                <strong data-i18n="desk.mit-dem-sim-schliessen">Mit dem Sim schließen</strong>
+                <small data-i18n="desk.schliesst-nach-dem-beenden-des-sims-oder">Schließt nach dem Beenden des Sims oder der Tracker-App nur Programme, die der Autostart selbst gestartet hat. Der Sim selbst wird nie geschlossen.</small>
               </span>
               <span class="toggle-control">
                 <input id="autostartCloseOnExitCheckbox" type="checkbox">
@@ -183,32 +189,32 @@
           </section>
 
           <section class="settings-group">
-            <p class="eyebrow">SIMULATOR</p>
-            <h2>Sim-Version</h2>
-            <p id="autostartSimMessage" class="subtle">Erkennt installierte MSFS-Versionen über Steam und den Microsoft Store.</p>
+            <p class="eyebrow" data-i18n="desk.simulator">SIMULATOR</p>
+            <h2 data-i18n="desk.sim-version">Sim-Version</h2>
+            <p id="autostartSimMessage" class="subtle" data-i18n-initial>Erkennt installierte MSFS-Versionen über Steam und den Microsoft Store.</p>
             <div id="autostartSimChoices" class="autostart-sim-choices" hidden></div>
-            <button id="autostartDetectSimButton" class="secondary-button compact-button" type="button">Sim erkennen</button>
+            <button id="autostartDetectSimButton" class="secondary-button compact-button" type="button" data-i18n-initial>Sim erkennen</button>
           </section>
 
           <section class="settings-group">
-            <p class="eyebrow">REIHENFOLGE</p>
-            <h2>Startliste</h2>
-            <div id="autostartDropZone" class="autostart-drop-zone" aria-label="Ablagefläche für Programme">
+            <p class="eyebrow" data-i18n="desk.reihenfolge">REIHENFOLGE</p>
+            <h2 data-i18n="desk.startliste">Startliste</h2>
+            <div id="autostartDropZone" class="autostart-drop-zone" aria-label="Ablagefläche für Programme" data-i18n-aria-label="desk.ablageflaeche-fuer-programme">
               <span class="autostart-drop-text">
-                <strong>Programme hierher ziehen</strong>
-                <small>.exe, Verknüpfungen (.lnk), .bat oder .cmd</small>
+                <strong data-i18n="desk.programme-hierher-ziehen">Programme hierher ziehen</strong>
+                <small data-i18n="desk.exe-verknuepfungen-lnk-bat-oder-cmd">.exe, Verknüpfungen (.lnk), .bat oder .cmd</small>
               </span>
-              <button id="autostartImportButton" class="secondary-button compact-button autostart-import-button" type="button"><span aria-hidden="true">+</span> Importieren</button>
+              <button id="autostartImportButton" class="secondary-button compact-button autostart-import-button" type="button"><span aria-hidden="true">+</span> <span data-i18n="desk.importieren">Importieren</span></button>
             </div>
             <div class="autostart-board">
-              <ol id="autostartList" class="autostart-list" aria-label="Autostart-Reihenfolge"></ol>
-              <div id="autostartDivider" class="autostart-divider" title="Programme unterhalb starten erst, wenn der Sim über SimConnect verbunden ist und Daten liefert.">
-                <span>Auf SimConnect warten</span>
+              <ol id="autostartList" class="autostart-list" aria-label="Autostart-Reihenfolge" data-i18n-aria-label="desk.autostart-reihenfolge"></ol>
+              <div id="autostartDivider" class="autostart-divider" title="Programme unterhalb starten erst, wenn der Sim über SimConnect verbunden ist und Daten liefert." data-i18n-title="desk.programme-unterhalb-starten-erst-wenn-de">
+                <span data-i18n="desk.auf-simconnect-warten">Auf SimConnect warten</span>
               </div>
-              <ol id="autostartWaitList" class="autostart-list autostart-wait-list" aria-label="Nach SimConnect starten" data-empty="Programme unter die Linie ziehen"></ol>
+              <ol id="autostartWaitList" class="autostart-list autostart-wait-list" aria-label="Nach SimConnect starten" data-i18n-aria-label="desk.nach-simconnect-starten" data-empty="Programme unter die Linie ziehen"></ol>
             </div>
             <p id="autostartListMessage" class="form-message" role="status"></p>
-            <p class="asset-note">Programme ins Feld ziehen oder über „Importieren“ auswählen. Reihenfolge durch Ziehen eines Eintrags oder mit den Pfeilen ändern. Programme unter „Auf SimConnect warten“ starten erst, wenn der Tracker eine stabile SimConnect-Verbindung mit Daten meldet; dafür muss der Tracker laufen. Über ⋯ lassen sich „Als Admin starten“, „Minimiert starten“ und Startargumente einstellen. Ein Protokoll steht in autostart-log.txt im Tracker-Datenordner. „Danach warten“ legt die Pause bis zum nächsten Eintrag fest. Läuft ein Programm bereits, wird es übersprungen. Als Admin gestartete Programme lösen eine Windows-Bestätigung aus.</p>
+            <p class="asset-note" data-i18n="desk.programme-ins-feld-ziehen-oder-ueber-imp">Programme ins Feld ziehen oder über „Importieren“ auswählen. Reihenfolge durch Ziehen eines Eintrags oder mit den Pfeilen ändern. Programme unter „Auf SimConnect warten“ starten erst, wenn der Tracker eine stabile SimConnect-Verbindung mit Daten meldet; dafür muss der Tracker laufen. Über ⋯ lassen sich „Als Admin starten“, „Minimiert starten“ und Startargumente einstellen. Ein Protokoll steht in autostart-log.txt im Tracker-Datenordner. „Danach warten“ legt die Pause bis zum nächsten Eintrag fest. Läuft ein Programm bereits, wird es übersprungen. Als Admin gestartete Programme lösen eine Windows-Bestätigung aus.</p>
           </section>
         </div>
       </details>
@@ -216,9 +222,9 @@
       <details class="module-panel" data-module-panel>
         <summary>
           <span class="module-heading">
-            <span class="module-kicker">VERBINDUNG</span>
-            <strong>Konto</strong>
-            <small>Pilot-ID und PIN</small>
+            <span class="module-kicker" data-i18n="desk.verbindung">VERBINDUNG</span>
+            <strong data-i18n="desk.konto">Konto</strong>
+            <small data-i18n="desk.pilot-id-und-pin">Pilot-ID und PIN</small>
           </span>
           <span class="summary-side">
             <span class="chevron" aria-hidden="true"></span>
@@ -228,20 +234,20 @@
           <section class="settings-group">
             <div class="group-heading">
               <div>
-                <p class="eyebrow">KONTO</p>
-                <h2>Pilot-Verbindung</h2>
+                <p class="eyebrow" data-i18n="desk.konto-2">KONTO</p>
+                <h2 data-i18n="desk.pilot-verbindung">Pilot-Verbindung</h2>
               </div>
             </div>
             <form id="credentialsForm" class="credentials-form">
               <label>
-                <span>Pilot-ID</span>
+                <span data-i18n="desk.pilot-id">Pilot-ID</span>
                 <input id="pilotIdInput" name="pilotId" maxlength="160" autocomplete="username" placeholder="Foxtrot-Mike-764">
               </label>
               <label>
                 <span>PIN</span>
                 <input id="pinInput" name="pin" type="password" inputmode="numeric" pattern="[0-9]{4,8}" minlength="4" maxlength="8" autocomplete="current-password" placeholder="4–8 Ziffern">
               </label>
-              <button id="saveCredentialsButton" class="primary-button" type="submit">Prüfen &amp; verbinden</button>
+              <button id="saveCredentialsButton" class="primary-button" type="submit" data-i18n-initial>Prüfen &amp; verbinden</button>
             </form>
             <p id="formMessage" class="form-message" role="status"></p>
           </section>
@@ -251,9 +257,9 @@
       <details class="module-panel" data-module-panel>
         <summary>
           <span class="module-heading">
-            <span class="module-kicker">AUSGABE</span>
+            <span class="module-kicker" data-i18n="desk.ausgabe">AUSGABE</span>
             <strong>Audio</strong>
-            <small>Stimmen, Warnungen und Audiogerät</small>
+            <small data-i18n="desk.stimmen-warnungen-und-audiogeraet">Stimmen, Warnungen und Audiogerät</small>
           </span>
           <span class="summary-side">
             <span class="chevron" aria-hidden="true"></span>
@@ -262,15 +268,15 @@
         <div class="module-content">
           <section class="settings-group">
             <p class="eyebrow">VOICE</p>
-            <h2>Zentrale Sprachausgabe</h2>
-            <p class="subtle">Der Tracker erzeugt jede Ansage einmal und stellt sie EFB und Toolbar-Panel gemeinsam bereit. Der Schlüssel bleibt auf diesem Windows-Konto geschützt.</p>
+            <h2 data-i18n="desk.zentrale-sprachausgabe">Zentrale Sprachausgabe</h2>
+            <p class="subtle" data-i18n="desk.der-tracker-erzeugt-jede-ansage-einmal-u">Der Tracker erzeugt jede Ansage einmal und stellt sie EFB und Toolbar-Panel gemeinsam bereit. Der Schlüssel bleibt auf diesem Windows-Konto geschützt.</p>
             <div class="audio-output-menu" id="audioOutputMenu">
-              <label><span>Audioausgabe</span><select id="audioTargetSelect"><option value="pc">PC</option><option value="this">Diese App (PC)</option><option value="other" disabled>Andere App</option></select></label>
-              <label><span>PC-Ausgang</span><select id="audioHardwareSelect"><option value="">Windows-Standardgerät</option></select></label>
-              <button type="button" id="audioRefreshDevices" class="secondary-button">Ausgänge aktualisieren</button>
-              <label><span>Lautstärke</span><input id="audioMasterVolume" type="range" min="0" max="100" value="100"></label>
-              <label class="toggle-row"><span><strong>Audio aktiviert</strong></span><span class="toggle-control"><input id="audioMasterEnabled" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
-              <p id="audioPlaybackStatus" class="form-message" role="status">Tracker-Audio wird verbunden.</p>
+              <label><span data-i18n="desk.audioausgabe">Audioausgabe</span><select id="audioTargetSelect"><option value="pc">PC</option><option value="this" data-i18n="desk.diese-app-pc">Diese App (PC)</option><option value="other" disabled data-i18n="desk.andere-app">Andere App</option></select></label>
+              <label><span data-i18n="desk.pc-ausgang">PC-Ausgang</span><select id="audioHardwareSelect"><option value="" data-i18n="desk.windows-standardgeraet">Windows-Standardgerät</option></select></label>
+              <button type="button" id="audioRefreshDevices" class="secondary-button" data-i18n-initial>Ausgänge aktualisieren</button>
+              <label><span data-i18n="desk.lautstaerke">Lautstärke</span><input id="audioMasterVolume" type="range" min="0" max="100" value="100"></label>
+              <label class="toggle-row"><span><strong data-i18n="desk.audio-aktiviert">Audio aktiviert</strong></span><span class="toggle-control"><input id="audioMasterEnabled" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
+              <p id="audioPlaybackStatus" class="form-message" role="status" data-i18n-initial>Tracker-Audio wird verbunden.</p>
             </div>
             <form id="voiceCredentialsForm" class="voice-credentials-form">
               <label>
@@ -281,71 +287,71 @@
                 </select>
               </label>
               <label>
-                <span>API-Key</span>
+                <span data-i18n="desk.api-key">API-Key</span>
                 <input id="voiceApiKeyInput" name="voiceApiKey" type="password" maxlength="1024" autocomplete="new-password" placeholder="API-Key eingeben">
               </label>
               <div class="voice-credentials-actions">
-                <button id="saveVoiceCredentialsButton" class="primary-button" type="submit">Sicher speichern</button>
-                <button id="clearVoiceCredentialsButton" class="secondary-button" type="button">Entfernen</button>
+                <button id="saveVoiceCredentialsButton" class="primary-button" type="submit" data-i18n-initial>Sicher speichern</button>
+                <button id="clearVoiceCredentialsButton" class="secondary-button" type="button" data-i18n-initial>Entfernen</button>
               </div>
             </form>
             <p id="voiceFormMessage" class="form-message" role="status"></p>
             <details class="audio-subpanel">
-              <summary>Stimmen, Effekte und Warnungen</summary>
+              <summary data-i18n="desk.stimmen-effekte-und-warnungen">Stimmen, Effekte und Warnungen</summary>
               <div class="audio-output-menu">
-              <label class="toggle-row"><span><strong>Stimmen und Ansagen</strong></span><span class="toggle-control"><input id="audioPaxEnabled" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
-              <label class="toggle-row"><span><strong>Audioeffekte</strong></span><span class="toggle-control"><input id="audioEffectsEnabled" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
-              <label>Stimmklang <select id="audioPaxStyle"><option value="clear">Klar</option><option value="intercom">Intercom ohne Rauschen</option><option value="intercom_noise">Intercom mit Rauschen</option></select></label>
+              <label class="toggle-row"><span><strong data-i18n="desk.stimmen-und-ansagen">Stimmen und Ansagen</strong></span><span class="toggle-control"><input id="audioPaxEnabled" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
+              <label class="toggle-row"><span><strong data-i18n="desk.audioeffekte">Audioeffekte</strong></span><span class="toggle-control"><input id="audioEffectsEnabled" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
+              <label><span data-i18n="desk.stimmklang">Stimmklang</span> <select id="audioPaxStyle"><option value="clear" data-i18n="desk.klar">Klar</option><option value="intercom" data-i18n="desk.intercom-ohne-rauschen">Intercom ohne Rauschen</option><option value="intercom_noise" data-i18n="desk.intercom-mit-rauschen">Intercom mit Rauschen</option></select></label>
               <div id="navigationAudioSettings" hidden>
-                <label><span>Warnstimme</span><select id="audioWarningVoice"><option value="">Anna (DE)</option></select></label>
-                <label class="toggle-row"><span><strong>Frequenzen ansagen</strong></span><span class="toggle-control"><input id="audioReadFreq" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
-                <label class="toggle-row"><span><strong>Terrainwarnungen</strong></span><span class="toggle-control"><input id="audioTerrain" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
-                <label class="toggle-row"><span><strong>Luftraumwarnungen</strong></span><span class="toggle-control"><input id="audioAirspace" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
-                <label class="toggle-row"><span><strong>Vertikale Luftraumwarnungen</strong></span><span class="toggle-control"><input id="audioAirspaceVertical" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
-                <label class="toggle-row"><span><strong>Wegpunkte ansagen</strong></span><span class="toggle-control"><input id="audioWaypoint" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
+                <label><span data-i18n="desk.warnstimme">Warnstimme</span><select id="audioWarningVoice"><option value="">Anna (DE)</option></select></label>
+                <label class="toggle-row"><span><strong data-i18n="desk.frequenzen-ansagen">Frequenzen ansagen</strong></span><span class="toggle-control"><input id="audioReadFreq" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
+                <label class="toggle-row"><span><strong data-i18n="desk.terrainwarnungen">Terrainwarnungen</strong></span><span class="toggle-control"><input id="audioTerrain" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
+                <label class="toggle-row"><span><strong data-i18n="desk.luftraumwarnungen">Luftraumwarnungen</strong></span><span class="toggle-control"><input id="audioAirspace" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
+                <label class="toggle-row"><span><strong data-i18n="desk.vertikale-luftraumwarnungen">Vertikale Luftraumwarnungen</strong></span><span class="toggle-control"><input id="audioAirspaceVertical" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
+                <label class="toggle-row"><span><strong data-i18n="desk.wegpunkte-ansagen">Wegpunkte ansagen</strong></span><span class="toggle-control"><input id="audioWaypoint" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
               </div>
               </div>
             </details>
-            <section class="media-control" aria-label="Windows-Mediensteuerung">
-              <h3>Musik / Windows-Player</h3>
-              <p class="subtle">Spotify oder einen anderen Windows-Player öffnen und dort anmelden.</p>
+            <section class="media-control" aria-label="Windows-Mediensteuerung" data-i18n-aria-label="desk.windows-mediensteuerung">
+              <h3 data-i18n="desk.musik-windows-player">Musik / Windows-Player</h3>
+              <p class="subtle" data-i18n="desk.spotify-oder-einen-anderen-windows-playe">Spotify oder einen anderen Windows-Player öffnen und dort anmelden.</p>
               <label for="mediaPlayer">Player</label>
-              <select id="mediaPlayer"><option value="">Kein Player geöffnet</option></select>
-              <label class="media-duck-toggle"><input id="mediaDuckEnabled" type="checkbox" checked> Bei Stimmen und Warnungen leiser</label>
-              <label for="mediaDuckFactor">Restlautstärke während Ansagen</label>
+              <select id="mediaPlayer"><option value="" data-i18n="desk.kein-player-geoeffnet">Kein Player geöffnet</option></select>
+              <label class="media-duck-toggle"><input id="mediaDuckEnabled" type="checkbox" checked> <span data-i18n="desk.bei-stimmen-und-warnungen-leiser">Bei Stimmen und Warnungen leiser</span></label>
+              <label for="mediaDuckFactor" data-i18n="desk.restlautstaerke-waehrend-ansagen">Restlautstärke während Ansagen</label>
               <select id="mediaDuckFactor"><option value="0.1">10 %</option><option value="0.2" selected>20 %</option><option value="0.35">35 %</option><option value="0.5">50 %</option></select>
-              <p id="mediaStatus" class="form-message" role="status">Windows-Player wird gesucht.</p>
+              <p id="mediaStatus" class="form-message" role="status" data-i18n-initial>Windows-Player wird gesucht.</p>
             </section>
-            <section class="media-control radio-hold" aria-label="Funk-Pause">
-              <h3>Funk-Pause (PTT)</h3>
-              <p class="subtle">Beim Drücken des Funk-Buttons halten Stimmen und Warnungen an, die Musik wird leiser. Nach dem Loslassen geht es erst nach Ablauf der Zeit weiter, damit die Antwort im Funk Platz hat. Der Button funktioniert im Simulator weiter wie bisher.</p>
-              <label class="toggle-row"><span><strong>Funk-Pause aktiv</strong></span><span class="toggle-control"><input id="radioHoldEnabled" type="checkbox"><span class="toggle-track" aria-hidden="true"></span></span></label>
-              <label>Funk-Buttons und Tasten <small class="subtle">(werden alle gleichzeitig erkannt)</small></label>
+            <section class="media-control radio-hold" aria-label="Funk-Pause" data-i18n-aria-label="desk.funk-pause">
+              <h3 data-i18n="desk.funk-pause-ptt">Funk-Pause (PTT)</h3>
+              <p class="subtle" data-i18n="desk.beim-druecken-des-funk-buttons-halten-st">Beim Drücken des Funk-Buttons halten Stimmen und Warnungen an, die Musik wird leiser. Nach dem Loslassen geht es erst nach Ablauf der Zeit weiter, damit die Antwort im Funk Platz hat. Der Button funktioniert im Simulator weiter wie bisher.</p>
+              <label class="toggle-row"><span><strong data-i18n="desk.funk-pause-aktiv">Funk-Pause aktiv</strong></span><span class="toggle-control"><input id="radioHoldEnabled" type="checkbox"><span class="toggle-track" aria-hidden="true"></span></span></label>
+              <label><span data-i18n="desk.funk-buttons-und-tasten">Funk-Buttons und Tasten</span> <small class="subtle" data-i18n="desk.werden-alle-gleichzeitig-erkannt">(werden alle gleichzeitig erkannt)</small></label>
               <ul id="radioHoldBindings" class="radio-hold-bindings"></ul>
-              <button id="radioHoldLearn" type="button" class="secondary-button">+ Button hinzufügen</button>
-              <label class="toggle-row"><span><strong>Programme automatisch erkennen</strong><small>Gibt ein eingetragenes Programm Ton aus, wirkt das wie ein gedrückter Funk-Button. Es wird nur der Pegel gelesen, nichts aufgezeichnet.</small></span><span class="toggle-control"><input id="radioHoldDetectEnabled" type="checkbox"><span class="toggle-track" aria-hidden="true"></span></span></label>
+              <button id="radioHoldLearn" type="button" class="secondary-button" data-i18n-initial>+ Button hinzufügen</button>
+              <label class="toggle-row"><span><strong data-i18n="desk.programme-automatisch-erkennen">Programme automatisch erkennen</strong><small data-i18n="desk.gibt-ein-eingetragenes-programm-ton-aus-">Gibt ein eingetragenes Programm Ton aus, wirkt das wie ein gedrückter Funk-Button. Es wird nur der Pegel gelesen, nichts aufgezeichnet.</small></span><span class="toggle-control"><input id="radioHoldDetectEnabled" type="checkbox"><span class="toggle-track" aria-hidden="true"></span></span></label>
               <ul id="radioHoldPrograms" class="radio-hold-bindings radio-hold-programs"></ul>
-              <button id="radioHoldAddProgram" type="button" class="secondary-button">+ Programm hinzufügen</button>
+              <button id="radioHoldAddProgram" type="button" class="secondary-button" data-i18n-initial>+ Programm hinzufügen</button>
               <div id="radioHoldPicker" class="radio-hold-picker" hidden>
-                <p class="subtle">Programme, die gerade Ton ausgeben. Bei Bedarf kurz Ton im Programm abspielen.</p>
+                <p class="subtle" data-i18n="desk.programme-die-gerade-ton-ausgeben-bei-be">Programme, die gerade Ton ausgeben. Bei Bedarf kurz Ton im Programm abspielen.</p>
                 <ul id="radioHoldPickerList" class="radio-hold-bindings"></ul>
-                <button id="radioHoldPickerClose" type="button" class="secondary-button">Schließen</button>
+                <button id="radioHoldPickerClose" type="button" class="secondary-button" data-i18n-initial>Schließen</button>
               </div>
-              <label for="radioHoldResume">Automatisch weiter nach</label>
-              <select id="radioHoldResume"><option value="1">1 s</option><option value="2">2 s</option><option value="5">5 s</option><option value="10">10 s</option><option value="20">20 s</option><option value="30">30 s</option><option value="40">40 s</option><option value="60">60 s</option><option value="90">90 s</option><option value="0">Aus (nur per Button)</option></select>
-              <label class="toggle-row"><span><strong>Kurzer Druck setzt sofort fort</strong><small>Gilt nur, während bereits pausiert ist.</small></span><span class="toggle-control"><input id="radioHoldShortPress" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
-              <label for="radioHoldVoiceMode">Stimmen und Warnungen</label>
-              <select id="radioHoldVoiceMode"><option value="pause">Pausieren</option><option value="dim">Leiser</option></select>
-              <label for="radioHoldVoiceDim" id="radioHoldVoiceDimLabel">Restlautstärke Stimmen</label>
-              <select id="radioHoldVoiceDim"><option value="0">Stumm</option><option value="10">10 %</option><option value="20">20 %</option><option value="35">35 %</option><option value="50">50 %</option></select>
-              <label for="radioHoldMusicMode">Musik</label>
-              <select id="radioHoldMusicMode"><option value="dim">Leiser</option><option value="pause">Pausieren</option><option value="none">Unverändert</option></select>
-              <label for="radioHoldMusicDim" id="radioHoldMusicDimLabel">Restlautstärke Musik</label>
-              <select id="radioHoldMusicDim"><option value="0">Stumm</option><option value="10">10 %</option><option value="20">20 %</option><option value="35">35 %</option><option value="50">50 %</option></select>
+              <label for="radioHoldResume" data-i18n="desk.automatisch-weiter-nach">Automatisch weiter nach</label>
+              <select id="radioHoldResume"><option value="1">1 s</option><option value="2">2 s</option><option value="5">5 s</option><option value="10">10 s</option><option value="20">20 s</option><option value="30">30 s</option><option value="40">40 s</option><option value="60">60 s</option><option value="90">90 s</option><option value="0" data-i18n="desk.aus-nur-per-button">Aus (nur per Button)</option></select>
+              <label class="toggle-row"><span><strong data-i18n="desk.kurzer-druck-setzt-sofort-fort">Kurzer Druck setzt sofort fort</strong><small data-i18n="desk.gilt-nur-waehrend-bereits-pausiert-ist">Gilt nur, während bereits pausiert ist.</small></span><span class="toggle-control"><input id="radioHoldShortPress" type="checkbox" checked><span class="toggle-track" aria-hidden="true"></span></span></label>
+              <label for="radioHoldVoiceMode" data-i18n="desk.stimmen-und-warnungen">Stimmen und Warnungen</label>
+              <select id="radioHoldVoiceMode"><option value="pause" data-i18n="desk.pausieren">Pausieren</option><option value="dim" data-i18n="desk.leiser">Leiser</option></select>
+              <label for="radioHoldVoiceDim" id="radioHoldVoiceDimLabel" data-i18n-initial>Restlautstärke Stimmen</label>
+              <select id="radioHoldVoiceDim"><option value="0" data-i18n="desk.stumm">Stumm</option><option value="10">10 %</option><option value="20">20 %</option><option value="35">35 %</option><option value="50">50 %</option></select>
+              <label for="radioHoldMusicMode" data-i18n="desk.musik">Musik</label>
+              <select id="radioHoldMusicMode"><option value="dim" data-i18n="desk.leiser">Leiser</option><option value="pause" data-i18n="desk.pausieren">Pausieren</option><option value="none" data-i18n="desk.unveraendert">Unverändert</option></select>
+              <label for="radioHoldMusicDim" id="radioHoldMusicDimLabel" data-i18n-initial>Restlautstärke Musik</label>
+              <select id="radioHoldMusicDim"><option value="0" data-i18n="desk.stumm">Stumm</option><option value="10">10 %</option><option value="20">20 %</option><option value="35">35 %</option><option value="50">50 %</option></select>
               <div class="media-buttons">
-                <button id="radioHoldResumeNow" type="button" class="secondary-button" disabled>Jetzt fortsetzen</button>
+                <button id="radioHoldResumeNow" type="button" class="secondary-button" disabled data-i18n-initial>Jetzt fortsetzen</button>
               </div>
-              <p id="radioHoldStatus" class="form-message" role="status">Funk-Pause ist aus.</p>
+              <p id="radioHoldStatus" class="form-message" role="status" data-i18n-initial>Funk-Pause ist aus.</p>
             </section>
           </section>
         </div>
@@ -355,23 +361,23 @@
         <summary>
           <span class="module-heading">
             <span class="module-kicker">DESKTOP</span>
-            <strong>App-Update</strong>
-            <small id="desktopModuleSummary">Desktop-Version und Aktualisierung</small>
+            <strong data-i18n="desk.app-update">App-Update</strong>
+            <small id="desktopModuleSummary" data-i18n-initial>Desktop-Version und Aktualisierung</small>
           </span>
           <span class="summary-side">
-            <span id="desktopUpdateBadge" class="mini-badge">Prüfung</span>
+            <span id="desktopUpdateBadge" class="mini-badge" data-i18n-initial>Prüfung</span>
             <span class="chevron" aria-hidden="true"></span>
           </span>
         </summary>
         <div class="module-content">
           <section class="settings-group">
-            <p class="eyebrow">VERSION &amp; UPDATES</p>
-            <h2>Desktop-App</h2>
-            <p id="desktopUpdateVersion" class="path-line">Installiert: Desktop v–</p>
+            <p class="eyebrow" data-i18n="desk.version-updates">VERSION &amp; UPDATES</p>
+            <h2 data-i18n="desk.desktop-app">Desktop-App</h2>
+            <p id="desktopUpdateVersion" class="path-line" data-i18n-initial>Installiert: Desktop v–</p>
             <label class="toggle-row">
               <span>
-                <strong>App-Updates automatisch laden</strong>
-                <small>Geprüfte Updates werden vorbereitet; der Neustart bleibt unter deiner Kontrolle.</small>
+                <strong data-i18n="desk.app-updates-automatisch-laden">App-Updates automatisch laden</strong>
+                <small data-i18n="desk.gepruefte-updates-werden-vorbereitet-der">Geprüfte Updates werden vorbereitet; der Neustart bleibt unter deiner Kontrolle.</small>
               </span>
               <span class="toggle-control">
                 <input id="desktopAutoUpdateCheckbox" type="checkbox">
@@ -381,10 +387,10 @@
             <div id="desktopUpdateProgressWrap" class="progress-wrap" hidden>
               <span id="desktopUpdateProgress" class="progress-bar"></span>
             </div>
-            <p id="desktopUpdateMessage" class="subtle">App-Updateprüfung wird vorbereitet.</p>
+            <p id="desktopUpdateMessage" class="subtle" data-i18n-initial>App-Updateprüfung wird vorbereitet.</p>
             <div class="inline-actions">
-              <button id="checkDesktopUpdateButton" class="text-button panel-action" type="button">App-Update prüfen</button>
-              <button id="installDesktopUpdateButton" class="primary-button compact-button" type="button" hidden>Installieren &amp; neu starten</button>
+              <button id="checkDesktopUpdateButton" class="text-button panel-action" type="button" data-i18n-initial>App-Update prüfen</button>
+              <button id="installDesktopUpdateButton" class="primary-button compact-button" type="button" hidden data-i18n-initial>Installieren &amp; neu starten</button>
             </div>
           </section>
         </div>
@@ -394,21 +400,21 @@
         <summary>
           <span class="module-heading">
             <span class="module-kicker">MSFS COMMUNITY</span>
-            <strong>Homebase Asset Pack</strong>
-            <small id="assetModuleSummary">Optionales Szenenpaket</small>
+            <strong data-i18n="desk.homebase-asset-pack">Homebase Asset Pack</strong>
+            <small id="assetModuleSummary" data-i18n-initial>Optionales Szenenpaket</small>
           </span>
           <span class="summary-side">
-            <span id="assetBadge" class="mini-badge">Prüfung</span>
+            <span id="assetBadge" class="mini-badge" data-i18n-initial>Prüfung</span>
             <span class="chevron" aria-hidden="true"></span>
           </span>
         </summary>
         <div class="module-content">
-          <p id="assetMessage" class="subtle">Installationsstatus wird geprüft.</p>
+          <p id="assetMessage" class="subtle" data-i18n-initial>Installationsstatus wird geprüft.</p>
           <p id="assetPath" class="path-line"></p>
           <label class="toggle-row update-toggle-row">
             <span>
-              <strong>Updates automatisch installieren</strong>
-              <small>Nur vorhandene Installationen werden automatisch aktualisiert.</small>
+              <strong data-i18n="desk.updates-automatisch-installieren">Updates automatisch installieren</strong>
+              <small data-i18n="desk.nur-vorhandene-installationen-werden-aut">Nur vorhandene Installationen werden automatisch aktualisiert.</small>
             </span>
             <span class="toggle-control">
               <input id="homebaseAutoUpdateCheckbox" type="checkbox">
@@ -416,12 +422,12 @@
             </span>
           </label>
           <div class="asset-actions">
-            <button id="assetPrimaryButton" class="primary-button" type="button">Installieren</button>
-            <button id="assetRepairButton" class="secondary-button" type="button">Reparieren</button>
-            <button id="assetUninstallButton" class="secondary-button danger-button" type="button">Deinstallieren</button>
-            <button id="assetRefreshButton" class="text-button" type="button">Status prüfen</button>
+            <button id="assetPrimaryButton" class="primary-button" type="button" data-i18n-initial>Installieren</button>
+            <button id="assetRepairButton" class="secondary-button" type="button" data-i18n-initial>Reparieren</button>
+            <button id="assetUninstallButton" class="secondary-button danger-button" type="button" data-i18n-initial>Deinstallieren</button>
+            <button id="assetRefreshButton" class="text-button" type="button" data-i18n-initial>Status prüfen</button>
           </div>
-          <p class="asset-note">Die Deinstallation entfernt nur das gemeinsame Asset Pack. Persönliche Homebase-Daten und gebaute Szenen bleiben erhalten.</p>
+          <p class="asset-note" data-i18n="desk.die-deinstallation-entfernt-nur-das-geme">Die Deinstallation entfernt nur das gemeinsame Asset Pack. Persönliche Homebase-Daten und gebaute Szenen bleiben erhalten.</p>
         </div>
       </details>
 
@@ -430,21 +436,21 @@
           <span class="module-heading">
             <span class="module-kicker">MSFS 2024 EFB · <span id="efbChannelLabel">STABLE</span></span>
             <strong>VFR Multitool EFB</strong>
-            <small id="efbModuleSummary">Cockpit-App</small>
+            <small id="efbModuleSummary" data-i18n-initial>Cockpit-App</small>
           </span>
           <span class="summary-side">
-            <span id="efbBadge" class="mini-badge">Prüfung</span>
+            <span id="efbBadge" class="mini-badge" data-i18n-initial>Prüfung</span>
             <span class="chevron" aria-hidden="true"></span>
           </span>
         </summary>
         <div class="module-content">
-          <p id="efbMessage" class="subtle">EFB-Paketstatus wird geprüft.</p>
+          <p id="efbMessage" class="subtle" data-i18n-initial>EFB-Paketstatus wird geprüft.</p>
           <p id="efbVersion" class="path-line"></p>
           <p id="efbPath" class="path-line"></p>
           <label class="toggle-row update-toggle-row">
             <span>
-              <strong>Updates automatisch installieren</strong>
-              <small>Verwendet denselben Alpha-/Stable-Kanal wie der Tracker.</small>
+              <strong data-i18n="desk.updates-automatisch-installieren">Updates automatisch installieren</strong>
+              <small data-i18n="desk.verwendet-denselben-alpha-stable-kanal-w">Verwendet denselben Alpha-/Stable-Kanal wie der Tracker.</small>
             </span>
             <span class="toggle-control">
               <input id="efbAutoUpdateCheckbox" type="checkbox">
@@ -452,12 +458,12 @@
             </span>
           </label>
           <div class="asset-actions">
-            <button id="efbPrimaryButton" class="primary-button" type="button">Installieren</button>
-            <button id="efbRepairButton" class="secondary-button" type="button">Reparieren</button>
-            <button id="efbUninstallButton" class="secondary-button danger-button" type="button">Deinstallieren</button>
-            <button id="efbRefreshButton" class="text-button" type="button">Status &amp; Version prüfen</button>
+            <button id="efbPrimaryButton" class="primary-button" type="button" data-i18n-initial>Installieren</button>
+            <button id="efbRepairButton" class="secondary-button" type="button" data-i18n-initial>Reparieren</button>
+            <button id="efbUninstallButton" class="secondary-button danger-button" type="button" data-i18n-initial>Deinstallieren</button>
+            <button id="efbRefreshButton" class="text-button" type="button" data-i18n-initial>Status &amp; Version prüfen</button>
           </div>
-          <p class="asset-note">Installation und Updates erfolgen bei geschlossenem MSFS. Tracker, Homebase Assets und persönliche Daten bleiben getrennt.</p>
+          <p class="asset-note" data-i18n="desk.installation-und-updates-erfolgen-bei-ge">Installation und Updates erfolgen bei geschlossenem MSFS. Tracker, Homebase Assets und persönliche Daten bleiben getrennt.</p>
         </div>
       </details>
 
@@ -466,28 +472,28 @@
           <span class="module-heading">
             <span class="module-kicker">DRSM MOTION · OPTIONAL</span>
             <strong>AccuSim Telemetry Bridge</strong>
-            <small id="bridgeModuleSummary">Nicht installiert</small>
+            <small id="bridgeModuleSummary" data-i18n-initial>Nicht installiert</small>
           </span>
           <span class="summary-side">
-            <span id="bridgeBadge" class="mini-badge">Prüfung</span>
+            <span id="bridgeBadge" class="mini-badge" data-i18n-initial>Prüfung</span>
             <span class="chevron" aria-hidden="true"></span>
           </span>
         </summary>
         <div class="module-content">
-          <p id="bridgeMessage" class="subtle">Bridge-Installation wird geprüft.</p>
+          <p id="bridgeMessage" class="subtle" data-i18n-initial>Bridge-Installation wird geprüft.</p>
           <p id="bridgeVersion" class="path-line"></p>
-          <div class="bridge-status-grid" aria-label="Bridge-Status">
-            <div><small>Prozess</small><strong id="bridgeProcessStatus">Nicht gestartet</strong></div>
-            <div><small>SimConnect</small><strong id="bridgeSimStatus">Nicht verbunden</strong></div>
-            <div><small>DRSM / UDP</small><strong id="bridgeUdpStatus">Inaktiv</strong></div>
+          <div class="bridge-status-grid" aria-label="Bridge-Status" data-i18n-aria-label="desk.bridge-status">
+            <div><small data-i18n="desk.prozess">Prozess</small><strong id="bridgeProcessStatus" data-i18n-initial>Nicht gestartet</strong></div>
+            <div><small>SimConnect</small><strong id="bridgeSimStatus" data-i18n-initial>Nicht verbunden</strong></div>
+            <div><small>DRSM / UDP</small><strong id="bridgeUdpStatus" data-i18n-initial>Inaktiv</strong></div>
           </div>
           <div id="bridgeProgressWrap" class="progress-wrap" hidden>
             <span id="bridgeProgress" class="progress-bar"></span>
           </div>
           <label class="toggle-row update-toggle-row">
             <span>
-              <strong>Updates automatisch vorbereiten</strong>
-              <small>Lädt den verifizierten Installer und öffnet ihn zur Windows-Bestätigung.</small>
+              <strong data-i18n="desk.updates-automatisch-vorbereiten">Updates automatisch vorbereiten</strong>
+              <small data-i18n="desk.laedt-den-verifizierten-installer-und-oe">Lädt den verifizierten Installer und öffnet ihn zur Windows-Bestätigung.</small>
             </span>
             <span class="toggle-control">
               <input id="bridgeAutoUpdateCheckbox" type="checkbox">
@@ -495,15 +501,15 @@
             </span>
           </label>
           <div class="bridge-actions">
-            <button id="bridgeInstallButton" class="primary-button" type="button">Bridge installieren</button>
-            <button id="bridgeStartButton" class="secondary-button" type="button">Starten</button>
-            <button id="bridgeSettingsButton" class="secondary-button" type="button">Einstellungen</button>
-            <button id="bridgeRefreshButton" class="text-button" type="button">Status &amp; Version prüfen</button>
+            <button id="bridgeInstallButton" class="primary-button" type="button" data-i18n-initial>Bridge installieren</button>
+            <button id="bridgeStartButton" class="secondary-button" type="button" data-i18n-initial>Starten</button>
+            <button id="bridgeSettingsButton" class="secondary-button" type="button" data-i18n-initial>Einstellungen</button>
+            <button id="bridgeRefreshButton" class="text-button" type="button" data-i18n-initial>Status &amp; Version prüfen</button>
           </div>
           <label class="toggle-row bridge-toggle">
             <span>
-              <strong>Mit dem Tracker starten</strong>
-              <small>Startet die Bridge ohne zusätzliches Fenster oder Tray-Symbol.</small>
+              <strong data-i18n="desk.mit-dem-tracker-starten">Mit dem Tracker starten</strong>
+              <small data-i18n="desk.startet-die-bridge-ohne-zusaetzliches-fe">Startet die Bridge ohne zusätzliches Fenster oder Tray-Symbol.</small>
             </span>
             <span class="toggle-control">
               <input id="autoStartBridgeCheckbox" type="checkbox">
@@ -512,15 +518,15 @@
           </label>
           <label class="toggle-row">
             <span>
-              <strong>Mit dem Tracker beenden</strong>
-              <small>Beendet nur eine vom Tracker gestartete Bridge.</small>
+              <strong data-i18n="desk.mit-dem-tracker-beenden">Mit dem Tracker beenden</strong>
+              <small data-i18n="desk.beendet-nur-eine-vom-tracker-gestartete-">Beendet nur eine vom Tracker gestartete Bridge.</small>
             </span>
             <span class="toggle-control">
               <input id="stopBridgeWithTrackerCheckbox" type="checkbox" checked>
               <span class="toggle-track" aria-hidden="true"></span>
             </span>
           </label>
-          <p class="asset-note">Die vollständigen Bridge-Einstellungen öffnen weiterhin im separaten Bridge-Fenster.</p>
+          <p class="asset-note" data-i18n="desk.die-vollstaendigen-bridge-einstellungen-">Die vollständigen Bridge-Einstellungen öffnen weiterhin im separaten Bridge-Fenster.</p>
         </div>
       </details>
 
@@ -528,27 +534,27 @@
         <summary>
           <span class="module-heading">
             <span class="module-kicker">CREW · OPTIONAL</span>
-            <strong>Vereinsflotte</strong>
-            <small id="wiliModuleSummary">Where I Left It · ausgeschaltet</small>
+            <strong data-i18n="desk.vereinsflotte">Vereinsflotte</strong>
+            <small id="wiliModuleSummary" data-i18n-initial>Where I Left It · ausgeschaltet</small>
           </span>
           <span class="summary-side">
-            <span id="wiliBadge" class="mini-badge">Aus</span>
+            <span id="wiliBadge" class="mini-badge" data-i18n-initial>Aus</span>
             <span class="chevron" aria-hidden="true"></span>
           </span>
         </summary>
         <div class="module-content">
           <section class="settings-group">
             <p class="eyebrow">MOD · WHERE I LEFT IT</p>
-            <h2>Abgestellte Maschinen mit der Crew teilen</h2>
-            <p class="subtle">Der MSFS-2024-Mod „Where I Left It“ merkt sich, wo deine Flugzeuge stehen. Hier teilst du seinen Hangar mit deiner Crew: Maschinen der anderen erscheinen in deinem Hangar, und wenn du eine davon fliegst, steht sie danach auch beim Halter am neuen Platz.</p>
+            <h2 data-i18n="desk.abgestellte-maschinen-mit-der-crew-teile">Abgestellte Maschinen mit der Crew teilen</h2>
+            <p class="subtle" data-i18n="desk.der-msfs-2024-mod-where-i-left-it-merkt-">Der MSFS-2024-Mod „Where I Left It“ merkt sich, wo deine Flugzeuge stehen. Hier teilst du seinen Hangar mit deiner Crew: Maschinen der anderen erscheinen in deinem Hangar, und wenn du eine davon fliegst, steht sie danach auch beim Halter am neuen Platz.</p>
             <div class="inline-actions">
-              <button id="wiliModPageButton" class="text-button panel-action" type="button">Mod auf flightsim.to öffnen</button>
-              <button id="wiliModFolderButton" class="text-button panel-action" type="button">Mod-Ordner öffnen</button>
+              <button id="wiliModPageButton" class="text-button panel-action" type="button" data-i18n-initial>Mod auf flightsim.to öffnen</button>
+              <button id="wiliModFolderButton" class="text-button panel-action" type="button" data-i18n-initial>Mod-Ordner öffnen</button>
             </div>
             <label class="toggle-row">
               <span>
-                <strong>Vereinsflotte aktivieren</strong>
-                <small>Liest und schreibt die backup.txt des Mods. Vor dem Überschreiben wird eine Kopie im Tracker-Datenordner (wili-backups) abgelegt.</small>
+                <strong data-i18n="desk.vereinsflotte-aktivieren">Vereinsflotte aktivieren</strong>
+                <small data-i18n="desk.liest-und-schreibt-die-backup-txt-des-mo">Liest und schreibt die backup.txt des Mods. Vor dem Überschreiben wird eine Kopie im Tracker-Datenordner (wili-backups) abgelegt.</small>
               </span>
               <span class="toggle-control">
                 <input id="wiliEnabledCheckbox" type="checkbox">
@@ -558,7 +564,7 @@
             <label class="toggle-row">
               <span>
                 <strong>Autosync</strong>
-                <small>Lädt eine geänderte backup.txt selbst hoch und holt neue Crew-Stände (alle 10 Minuten, solange der Tracker läuft, sonst stündlich). Aus: Hochladen und Laden nur über die Knöpfe unten.</small>
+                <small data-i18n="desk.laedt-eine-geaenderte-backup-txt-selbst-">Lädt eine geänderte backup.txt selbst hoch und holt neue Crew-Stände (alle 10 Minuten, solange der Tracker läuft, sonst stündlich). Aus: Hochladen und Laden nur über die Knöpfe unten.</small>
               </span>
               <span class="toggle-control">
                 <input id="wiliAutoSyncCheckbox" type="checkbox">
@@ -568,26 +574,26 @@
           </section>
 
           <section id="wiliStatusGroup" class="settings-group" hidden>
-            <p class="eyebrow">ABGLEICH</p>
-            <p id="wiliMessage" class="subtle">Status wird geprüft.</p>
+            <p class="eyebrow" data-i18n="desk.abgleich">ABGLEICH</p>
+            <p id="wiliMessage" class="subtle" data-i18n-initial>Status wird geprüft.</p>
             <p id="wiliPath" class="path-line"></p>
             <p id="wiliTimes" class="path-line"></p>
             <div id="wiliPending" class="wili-pending" role="status" hidden>
-              <strong id="wiliPendingTitle">Bereit zum Import</strong>
-              <small>Im Sim: EFB → Where I Left It → Backup → „Import Backup“ drücken.</small>
+              <strong id="wiliPendingTitle" data-i18n-initial>Bereit zum Import</strong>
+              <small data-i18n="desk.im-sim-efb-where-i-left-it-backup-import">Im Sim: EFB → Where I Left It → Backup → „Import Backup“ drücken.</small>
               <span id="wiliPendingList"></span>
             </div>
             <div class="asset-actions">
-              <button id="wiliSyncButton" class="primary-button" type="button">Jetzt abgleichen</button>
-              <button id="wiliUploadButton" class="secondary-button" type="button">Backup hochladen</button>
-              <button id="wiliDownloadButton" class="secondary-button" type="button">Crew-Stand laden</button>
+              <button id="wiliSyncButton" class="primary-button" type="button" data-i18n-initial>Jetzt abgleichen</button>
+              <button id="wiliUploadButton" class="secondary-button" type="button" data-i18n-initial>Backup hochladen</button>
+              <button id="wiliDownloadButton" class="secondary-button" type="button" data-i18n-initial>Crew-Stand laden</button>
             </div>
-            <p class="asset-note">Hochgeladen wird, was der Mod exportiert hat: Nach dem Abstellen im Mod unter Backup „Export Backup“ drücken. Mit Autosync geht die Datei danach von selbst in die Crew-Cloud.</p>
+            <p class="asset-note" data-i18n="desk.hochgeladen-wird-was-der-mod-exportiert-">Hochgeladen wird, was der Mod exportiert hat: Nach dem Abstellen im Mod unter Backup „Export Backup“ drücken. Mit Autosync geht die Datei danach von selbst in die Crew-Cloud.</p>
           </section>
 
           <section id="wiliFleetGroup" class="settings-group" hidden>
-            <p class="eyebrow">CREW-FLOTTE</p>
-            <ul id="wiliFleetList" class="wili-fleet-list" aria-label="Maschinen der Crew"></ul>
+            <p class="eyebrow" data-i18n="desk.crew-flotte">CREW-FLOTTE</p>
+            <ul id="wiliFleetList" class="wili-fleet-list" aria-label="Maschinen der Crew" data-i18n-aria-label="desk.maschinen-der-crew"></ul>
           </section>
         </div>
       </details>
@@ -596,25 +602,27 @@
 
   <dialog id="updateDialog">
     <form method="dialog" class="dialog-card">
-      <p class="eyebrow">NEUE VERSION</p>
-      <h2 id="updateDialogTitle">Update verfügbar</h2>
-      <p id="updateDialogMessage">Wie möchtest du dieses und künftige Updates behandeln?</p>
-      <button data-update-choice="automatic" class="primary-button" value="automatic">Künftig automatisch</button>
-      <button data-update-choice="once" class="secondary-button" value="once">Nur dieses Mal</button>
-      <button data-update-choice="later" class="text-button centered" value="later">Später</button>
+      <p class="eyebrow" data-i18n="desk.neue-version">NEUE VERSION</p>
+      <h2 id="updateDialogTitle" data-i18n-initial>Update verfügbar</h2>
+      <p id="updateDialogMessage" data-i18n-initial>Wie möchtest du dieses und künftige Updates behandeln?</p>
+      <button data-update-choice="automatic" class="primary-button" value="automatic" data-i18n="desk.kuenftig-automatisch">Künftig automatisch</button>
+      <button data-update-choice="once" class="secondary-button" value="once" data-i18n="desk.nur-dieses-mal">Nur dieses Mal</button>
+      <button data-update-choice="later" class="text-button centered" value="later" data-i18n="desk.spaeter">Später</button>
     </form>
   </dialog>
 
   <dialog id="desktopInstallDialog">
     <form method="dialog" class="dialog-card">
-      <p class="eyebrow">APP-UPDATE BEREIT</p>
-      <h2 id="desktopInstallDialogTitle">Tracker-App aktualisieren</h2>
-      <p>Das Update wurde vollständig geladen und per Prüfsumme verifiziert. Tracker und eine vom Tracker gestartete Bridge werden für die Installation beendet.</p>
-      <button id="confirmDesktopInstallButton" class="primary-button" value="install">Jetzt neu starten &amp; installieren</button>
-      <button class="text-button centered" value="later">Beim Beenden installieren</button>
+      <p class="eyebrow" data-i18n="desk.app-update-bereit">APP-UPDATE BEREIT</p>
+      <h2 id="desktopInstallDialogTitle" data-i18n-initial>Tracker-App aktualisieren</h2>
+      <p data-i18n="desk.das-update-wurde-vollstaendig-geladen-un">Das Update wurde vollständig geladen und per Prüfsumme verifiziert. Tracker und eine vom Tracker gestartete Bridge werden für die Installation beendet.</p>
+      <button id="confirmDesktopInstallButton" class="primary-button" value="install" data-i18n-initial>Jetzt neu starten &amp; installieren</button>
+      <button class="text-button centered" value="later" data-i18n="desk.beim-beenden-installieren">Beim Beenden installieren</button>
     </form>
   </dialog>
 
+  <script src="./i18n-core.js"></script>
+  <script src="./i18n-en.js"></script>
   <script src="./navigation-warning-audio.js"></script>
   <script src="./pax-audio-style.js"></script>
   <script src="./tracker-audio-player.js"></script>

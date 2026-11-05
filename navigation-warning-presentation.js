@@ -139,7 +139,7 @@ function _awShowFreqBanner(as, col) {
         `<span style="color:#555;font-size:10px;">·</span>` +
         `<span class="awm-freq-vals">${valsHtml}</span>` +
         `</span>` +
-        `<button class="awm-freq-dismiss" type="button">Schließen</button>`;
+        `<button class="awm-freq-dismiss" type="button">${window.GAI18n ? window.GAI18n.phrase('Schließen') : 'Schließen'}</button>`;
 
     // Antippen / Klick → Eintrag entfernen, Banner verstecken wenn leer
     let expiryTimer;

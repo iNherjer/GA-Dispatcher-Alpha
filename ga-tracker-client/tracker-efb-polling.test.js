@@ -12,7 +12,7 @@ function fixture(fetch) {
   const root = { GATrackerCockpitSessionClient: { requestJson: (fn, url, init) => requestJson(fn, url, init, 20) },
     gaEfbProfile: { disconnected: () => disconnected.push(true) }, GADisplayClock: { clear() {} },
     setTimeout: (fn, ms) => { timers.push({ fn, ms }); return timers.length; } };
-  const sandbox = { window: root, fetch, pollingClosed: false, trackerOnline: false, auxiliaryPollTimers: {}, safePayload: x => x.message.payload,
+  const sandbox = { _hT: text => text, window: root, fetch, pollingClosed: false, trackerOnline: false, auxiliaryPollTimers: {}, safePayload: x => x.message.payload,
     flight:null, telemetryRetained:false, byId:()=>({classList:{contains:()=>false,toggle(){}}}),
     planeMarker:null, refreshLocalNavigation(){}, setInfoBoxAvailability(){}, updateCompass(){}, renderProgress(){},
     setTrackerState: (text, error) => states.push({ text, error }), renderFlight: value => frames.push(value), notifyParentState(){}, report(){} };

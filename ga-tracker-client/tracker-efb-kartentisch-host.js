@@ -1,6 +1,13 @@
 (function () {
   'use strict';
 
+  // UI language (i18n-core.js via the tracker's display setting ui.language). Without
+  // GAI18n, or in German, the German text stays exactly as before. Mission texts follow later.
+  function _hT(text) { return window.GAI18n ? window.GAI18n.phrase(text) : text; }
+  function _hK(key, german, vars) {
+    if (window.GAI18n) return window.GAI18n.t(key, vars, german);
+    return String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, function (m, n) { return vars && Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m; });
+  }
   var API = window.GAMapShellCore;
   var L = window.L;
   var presentation = window.GAMapLivePresentation;
@@ -441,6 +448,8 @@
       window.gaMapDisplayAdapter.apply(key); changed = true;
     });
     if (typeof ui.clockSkin === 'string' && !Object.prototype.hasOwnProperty.call(uiPending,'clockSkin') && window.GAClockSkins) window.GAClockSkins.select(ui.clockSkin, false);
+    // UI language comes from the tracker (set in the desktop app); the EFB never writes it.
+    if ((ui.language === 'de' || ui.language === 'en') && window.GAI18n && window.GAI18n.getLanguage() !== ui.language) window.GAI18n.setLanguage(ui.language);
     var media = window.gaMediaPlayerClient;
     if (media && media.applyPreferences) {
       var mediaPatch = {};
@@ -792,7 +801,7 @@
     var displayMenu = byId('mapHintsMenu');
     if (displayMenu) { displayMenu.style.width = '210px'; displayMenu.style.maxWidth = 'calc(100% - 16px)'; }
     var label = document.querySelector('.ga-efb-font-size-hint');
-    var text = 'UI-Größe (' + (displayMode === 'vr' ? 'VR' : '2D') + '): ' + Math.round(preferences.fontScale * 100) + '%';
+    var text = _hK('efb.uiSize', 'UI-Größe ({mode}): {percent}%', { mode: displayMode === 'vr' ? 'VR' : '2D', percent: Math.round(preferences.fontScale * 100) });
     if (label && label.textContent !== text) label.textContent = text;
     var reset = byId('gaEfbFontReset');
     var percent = Math.round(preferences.fontScale * 100) + ' %';
@@ -1533,7 +1542,7 @@
   window.confirmAirportDirectTo = function(icao, lat, lon, encodedName) {
     var name = String(icao || '');
     try { if (encodedName) name = decodeURIComponent(encodedName); } catch (_) {}
-    if (!window.confirm(String(icao || name) + ' als Ziel übernehmen?')) return Promise.resolve(false);
+    if (!window.confirm(_hK('efb.directTo.confirm', '{target} als Ziel übernehmen?', { target: String(icao || name) }))) return Promise.resolve(false);
     return window.applyAirportDirectTo({icao:icao,name:name,lat:Number(lat),lon:Number(lon)},
       {forceGpsStart:!!(flight && Date.now() - flight.capturedAt <= 15000)});
   };
@@ -1541,10 +1550,10 @@
     var control = missionSnapshot && missionSnapshot.control;
     if (control && control.runId && control.phase !== 'closed' && !missionSnapshot.cloudPending) {
       if (control.executionAuthority !== 'tracker') {
-        window.alert('Auf dem Tracker läuft eine andere Mission. Übernimm oder beende diese Mission, bevor du eine neue Route startest.');
+        window.alert(_hT('Auf dem Tracker läuft eine andere Mission. Übernimm oder beende diese Mission, bevor du eine neue Route startest.'));
         return Promise.resolve(false);
       }
-      if (!window.confirm('Mission ' + control.missionId + ' läuft noch.\n\nMission ausdrücklich abbrechen und Direct-to starten?')) return Promise.resolve(false);
+      if (!window.confirm(_hK('efb.directTo.abortMission', 'Mission {mission} läuft noch.\n\nMission ausdrücklich abbrechen und Direct-to starten?', { mission: control.missionId }))) return Promise.resolve(false);
       return submitMissionIntent('abort_mission', {}).then(function(ok) {
         if (ok) window.alert('Die Tracker-Mission wurde abgebrochen. Du kannst Direct-to jetzt erneut starten.');
         return false;
@@ -1555,7 +1564,7 @@
         var messages = { live_position_required: 'Ohne bestehenden Flugplan brauche ich eine aktive Tracker-Verbindung, damit die aktuelle GPS-Position als Start gesetzt werden kann.',
           mission_authority_conflict: 'Auf dem Tracker läuft eine Mission. Beende diese Mission, bevor du eine neue Route startest.',
           navigation_revision_conflict: 'Die Route wurde in einer anderen Ansicht geändert. Bitte erneut auswählen.' };
-        window.alert(messages[result && result.error] || 'Direct To nicht verfügbar.');
+        window.alert(_hT(messages[result && result.error] || 'Direct To nicht verfügbar.'));
         return false;
       }
       renderMapPayload(Object.assign({available: true}, result.map));
@@ -1720,13 +1729,14 @@
     if (displayMenu && !byId('gaEfbFontControls')) {
       var fontControls = document.createElement('section');
       fontControls.id = 'gaEfbFontControls';
-      fontControls.setAttribute('aria-label', 'Schriftgröße');
+      fontControls.setAttribute('aria-label', _hT('Schriftgröße'));
       fontControls.innerHTML = '<div class="ga-efb-font-size-hint" role="status"></div>'
         + '<div class="ga-efb-font-buttons">'
-        + '<button type="button" id="gaEfbFontSmaller" aria-label="Schrift verkleinern">A-</button>'
-        + '<button type="button" id="gaEfbFontReset" title="Auf 100 % zurücksetzen" aria-label="Schrift auf 100 Prozent zurücksetzen">100 %</button>'
-        + '<button type="button" id="gaEfbFontLarger" aria-label="Schrift vergrößern">A+</button></div>';
+        + '<button type="button" id="gaEfbFontSmaller" aria-label="Schrift verkleinern" data-i18n-aria-label="efb.fontSmaller">A-</button>'
+        + '<button type="button" id="gaEfbFontReset" title="Auf 100 % zurücksetzen" aria-label="Schrift auf 100 Prozent zurücksetzen" data-i18n-title="efb.fontResetTitle" data-i18n-aria-label="efb.fontReset">100 %</button>'
+        + '<button type="button" id="gaEfbFontLarger" aria-label="Schrift vergrößern" data-i18n-aria-label="efb.fontLarger">A+</button></div>';
       displayMenu.insertBefore(fontControls, displayMenu.firstChild);
+      if (window.GAI18n) window.GAI18n.apply(fontControls);
       byId('gaEfbFontSmaller').onclick = function () { setEfbFontScale(preferences.fontScale - 0.1); };
       byId('gaEfbFontReset').onclick = function () { setEfbFontScale(1); };
       byId('gaEfbFontLarger').onclick = function () { setEfbFontScale(preferences.fontScale + 0.1); };
@@ -1782,7 +1792,7 @@
           var control = byId(id);
           if (!control) return;
           control.disabled = true;
-          control.title = 'Die Standalone-Funktion ist im EFB noch nicht übernommen.';
+          control.title = _hT('Die Standalone-Funktion ist im EFB noch nicht übernommen.');
         });
       }
     };
@@ -1815,7 +1825,7 @@
     setupMissionActionBanner();
 
     var reset = actions && actions.querySelector('button[onclick="resetMainRoute()"]');
-    if (reset) { reset.disabled = true; reset.title = 'Zwischenwegpunkte zurücksetzen'; }
+    if (reset) { reset.disabled = true; reset.title = _hT('Zwischenwegpunkte zurücksetzen'); }
     var closeButtons = actions && actions.querySelectorAll('.pb-btn.close');
     if (closeButtons) Array.prototype.forEach.call(closeButtons, function (button) {
       if (button.parentNode) button.parentNode.removeChild(button);
@@ -2255,9 +2265,9 @@
     ['snapBtn', 'hintToggleSnapping'].forEach(function(id) {
       var button = byId(id); if (!button) return;
       button.disabled = false;
-      button.innerText = snapMode ? '🧲 Snapping (An)' : '🧲 Snapping (Aus)';
+      button.innerText = snapMode ? _hT('🧲 Snapping (An)') : _hT('🧲 Snapping (Aus)');
       button.style.background = snapMode ? '#4da6ff' : '#444'; button.style.color = '#fff';
-      button.title = 'Wegpunkte an Flugplätzen, Funkfeuern und Meldepunkten einrasten';
+      button.title = _hT('Wegpunkte an Flugplätzen, Funkfeuern und Meldepunkten einrasten');
     });
   };
   window.toggleSnapMode = function() {
@@ -2298,7 +2308,7 @@
       var signature = mapRouteSignature(next);
       if (signature !== routeSignature) { mapSnapshot = next; renderRoute(next); routeSignature = signature; refreshLocalNavigation(); renderProgress(); updateCompass(); renderProfile(); }
     },
-    error: function() { window.alert('Die Route wurde inzwischen geändert oder die Verbindung ist unterbrochen. Bitte die aktuelle Route prüfen.'); },
+    error: function() { window.alert(_hT('Die Route wurde inzwischen geändert oder die Verbindung ist unterbrochen. Bitte die aktuelle Route prüfen.')); },
     refresh: function() { fetchJson('/api/v1/map', 5000).then(function(value) { renderMapPayload(safePayload(value)); }).catch(function() {}); }
   });
   function routeInsert(event) {
@@ -2867,8 +2877,8 @@
       widget = document.createElement('div'); widget.id = 'paxVoiceWidget';
       widget.className = 'ga-efb-pax-widget';
       var panel = document.createElement('section'); panel.id = 'paxVoicePanel'; panel.hidden = true;
-      panel.setAttribute('aria-label', 'Passagier-Nachricht');
-      var close = document.createElement('button'); close.type = 'button'; close.textContent = 'Schließen';
+      panel.setAttribute('aria-label', _hT('Passagier-Nachricht'));
+      var close = document.createElement('button'); close.type = 'button'; close.textContent = _hT('Schließen');
       close.className = 'ga-efb-pax-close'; close.onclick = function () { panel.hidden = true; };
       var name = document.createElement('strong'); name.id = 'paxVoiceName';
       var text = document.createElement('div'); text.id = 'paxVoiceText';
@@ -3125,11 +3135,11 @@
     var live = view.flight && typeof view.flight === 'object' ? view.flight : {};
     var targetLine = target.distanceNm != null
       ? formatNumber(target.distanceNm, 1) + ' NM | ' + leftPad(Math.round(Number(target.bearingDeg) || 0), 3) + ' deg'
-      : (live.trackerLive ? 'Zielposition offen' : 'Tracker wartet');
-    var altitudeLine = live.mslFt != null ? Math.round(Number(live.mslFt) || 0) + ' ft MSL' : 'Keine Live-Höhe';
+      : (live.trackerLive ? _hT('Zielposition offen') : _hT('Tracker wartet'));
+    var altitudeLine = live.mslFt != null ? Math.round(Number(live.mslFt) || 0) + ' ft MSL' : _hT('Keine Live-Höhe');
     var altitudeDetail = live.aglFt != null
       ? Math.round(Number(live.aglFt) || 0) + ' ft AGL'
-      : (live.gsKts != null ? Math.round(Number(live.gsKts) || 0) + ' kt GS' : 'Live-Daten offen');
+      : (live.gsKts != null ? Math.round(Number(live.gsKts) || 0) + ' kt GS' : _hT('Live-Daten offen'));
     setText('gaEfbMissionTargetLine', targetLine);
     setText('gaEfbMissionAltitude', altitudeLine);
     setText('gaEfbMissionAltitudeDetail', altitudeDetail);
@@ -3509,7 +3519,7 @@
     var button = document.querySelector('.ga-efb-host-context');
     if (button) {
       button.classList.toggle('active', contextPickActive);
-      button.textContent = contextPickActive ? 'Was ist hier (An)' : 'Was ist hier';
+      button.textContent = contextPickActive ? _hT('Was ist hier (An)') : _hT('Was ist hier');
     }
     if (contextPickActive) { toggleMapDrawMode(false); if (measureMode) toggleMeasureMode(); }
     if (map) map.getContainer().style.cursor = contextPickActive ? 'help' : '';
@@ -3691,7 +3701,7 @@
       text.style.cssText = 'flex:1;min-width:0;overflow-wrap:anywhere;';
       var close = document.createElement('button');
       close.type = 'button';
-      close.setAttribute('aria-label', 'Hinweis schließen');
+      close.setAttribute('aria-label', _hT('Hinweis schließen'));
       close.textContent = '\u00d7';
       close.style.cssText = 'flex:none;border:0;background:transparent;color:#fff;font:700 20px/1 system-ui,sans-serif;cursor:pointer;padding:0 2px;';
       close.addEventListener('click', hideFleetNotice);
@@ -3711,7 +3721,7 @@
     fetchJson('/api/v1/snapshot' + (localFlightRevision == null ? '' : '?after=' + localFlightRevision), 5000).then(function (envelope) {
       if (pollingClosed) return;
       flightPollFailures = 0; lastFlightPollSuccessAt = Date.now();
-      if (!trackerOnline) setTrackerState('Tracker verbunden', false);
+      if (!trackerOnline) setTrackerState(_hT('Tracker verbunden'), false);
       trackerOnline = true;
       var payload = safePayload(envelope);
       localFlightRevision = !payload || payload.localRevision == null ? null : payload.localRevision;
@@ -3730,7 +3740,7 @@
       var disconnected = !lastFlightPollSuccessAt || flightPollFailures >= 2 || Date.now() - lastFlightPollSuccessAt >= 10000;
       trackerOnline = false;
       if (disconnected) { disconnectFlight(true); notifyParentState('error'); }
-      setTrackerState(disconnected ? 'Tracker nicht erreichbar' : 'Tracker antwortet verzögert', true);
+      setTrackerState(disconnected ? _hT('Tracker nicht erreichbar') : _hT('Tracker antwortet verzögert'), true);
       report('warn', 'poll', disconnected ? 'tracker-unreachable' : 'tracker-delayed', 'Snapshot-Polling fehlgeschlagen', String(error && error.message || error));
       pollTimer = window.setTimeout(poll, 1000);
     });
@@ -3762,7 +3772,7 @@
 
   function syncProfileButton() {
     var button = byId('vpToggleBtn');
-    presentation.setText(button, preferences.profileVisible ? '\uD83D\uDCCA Profil (An)' : '\uD83D\uDCCA Profil (Aus)');
+    presentation.setText(button, '\uD83D\uDCCA ' + (preferences.profileVisible ? _hT('Profil (An)') : _hT('Profil (Aus)')));
   }
 
   function syncToolbarLayout() {
@@ -3777,7 +3787,7 @@
     if (button) {
       presentation.setText(button, collapsed ? '\u25bc' : '\u25b2');
       presentation.setAttribute(button, 'aria-expanded', String(!collapsed));
-      presentation.setAttribute(button, 'aria-label', collapsed ? 'Menüleiste einblenden' : 'Menüleiste ausblenden');
+      presentation.setAttribute(button, 'aria-label', collapsed ? _hT('Menüleiste einblenden') : _hT('Menüleiste ausblenden'));
     }
     if (window.GAEfbFloatingLayout) window.GAEfbFloatingLayout.refresh();
   }
@@ -3808,7 +3818,7 @@
       ? 'Mission und Checklisten kommen im EFB direkt vom Tracker. Änderungen erfolgen weiterhin in der verbundenen App.'
       : 'Der EFB-Kartentisch zeigt Route, Flugzeugposition und Tracker-Status. Layer und Anzeigen lassen sich über die obere Leiste umschalten.';
     var status = byId('checklistDrawerStatus');
-    if (status) status.textContent = text;
+    if (status) status.textContent = _hT(text);
     report('info', 'help', normalized || 'map', text);
     return false;
   };
@@ -3836,11 +3846,25 @@
   window.addEventListener('pagehide', saveLiveTrail);
   document.addEventListener('visibilitychange', function() { if (document.hidden) saveLiveTrail(); });
 
+  // Language switch: redraw the labels this host writes itself (texts from the shared web
+  // modules redraw on their own).
+  if (window.GAI18n && typeof window.GAI18n.onChange === 'function') {
+    window.GAI18n.onChange(function () {
+      try { syncFontScaleControls(); } catch (_) {}
+      try { if (typeof window.updateSnapButtonUI === 'function') window.updateSnapButtonUI(); } catch (_) {}
+      try { syncProfileButton(); syncToolbarLayout(); } catch (_) {}
+      var bootNode = byId('gaEfbBootStatus');
+      if (bootNode && bootNode.hasAttribute('data-boot-message')) bootNode.textContent = _hT(bootNode.getAttribute('data-boot-message'));
+      var contextButton = document.querySelector('.ga-efb-host-context');
+      if (contextButton) contextButton.textContent = contextPickActive ? _hT('Was ist hier (An)') : _hT('Was ist hier');
+    });
+  }
+
   function init() {
     boot('host-init', 'Kartentisch wird initialisiert', false);
     try {
       if (!API || !L) {
-        setTrackerState('Kartentisch-Module fehlen', true);
+        setTrackerState(_hT('Kartentisch-Module fehlen'), true);
         boot('host-missing-modules', 'Kartentisch-Module fehlen', true);
         notifyParentState('error', { stage: 'host-missing-modules' });
         return;
@@ -3869,7 +3893,7 @@
       pollMission();
     } catch (error) {
       var message = error && error.message || String(error);
-      setTrackerState('Kartentisch konnte nicht starten', true);
+      setTrackerState(_hT('Kartentisch konnte nicht starten'), true);
       boot('host-init-error', message, true);
       report('error', 'host-init', 'exception', message, error && error.stack || '');
       notifyParentState('error', { stage: 'host-init-error', message: message });

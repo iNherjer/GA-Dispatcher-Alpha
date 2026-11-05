@@ -29,7 +29,7 @@ function harness() {
   }
   const host = element(), toolbar = element(), primary = element();
   primary.id = 'mapMissionToggleBtn'; toolbar.appendChild(primary);
-  const context = vm.createContext({ document: { createElement: element, body: element() }, byId: id => nodes.get(id),
+  const context = vm.createContext({ _hT: text => text, document: { createElement: element, body: element() }, byId: id => nodes.get(id),
     window: { GANavigationWarningPresentation: { getBannerHost: () => host } },
     initEfbPaxDrag() {}, missionIntentPending: false, missionToolbarProjection: () => ({}),
     requestMissionIntent: (intent, payload) => calls.push({ intent, payload }) });
