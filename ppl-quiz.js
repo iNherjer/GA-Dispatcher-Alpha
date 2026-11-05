@@ -85,7 +85,7 @@ function _pqK(key, german, vars) { var i18n = (typeof window !== 'undefined') ? 
                     return catalog;
                 })
                 .catch(err => {
-                    catalogError = 'Fragenkatalog nicht verfügbar (' + (err.message || err) + ').';
+                    catalogError = _pqK('pplQuiz.catalogError', 'Fragenkatalog nicht verfügbar ({message}).', { message: err.message || err });
                     catalogPromise = null;
                     throw err;
                 });
@@ -98,6 +98,9 @@ function _pqK(key, german, vars) { var i18n = (typeof window !== 'undefined') ? 
         if (!state.cfg.cats) return all;
         return all.filter(c => state.cfg.cats.includes(c));
     }
+    function uiLang() { var i18n = (typeof window !== 'undefined') ? window.GAI18n : null; return i18n ? i18n.getLanguage() : 'de'; }
+    // Subject names come from the catalog (German); the UI translates them by subject id.
+    function catLabel(id, german) { return _pqK('pplQuiz.cat.' + id, german); }
     function catName(id) {
         return catalog?.categories.find(c => c[0] === id)?.[1] || id;
     }
@@ -264,7 +267,7 @@ function _pqK(key, german, vars) { var i18n = (typeof window !== 'undefined') ? 
     function drawQuiz(body) {
         const b = state.b;
         if (!b.ids.length) {
-            body.append(el('p', 'ppl-quiz-empty', 'Gerade keine passenden Fragen offen. Morgen gibt es einen neuen Zettel, oder über das Zahnrad weitere Fächer wählen.'));
+            body.append(el('p', 'ppl-quiz-empty', _pqT('Gerade keine passenden Fragen offen. Morgen gibt es einen neuen Zettel, oder über das Zahnrad weitere Fächer wählen.')));
             return;
         }
         const answered = b.ids.filter(id => b.ans[id] !== undefined);
@@ -275,14 +278,16 @@ function _pqK(key, german, vars) { var i18n = (typeof window !== 'undefined') ? 
         b.ids.forEach((id, i) => {
             const given = b.ans[id];
             const state_ = given === undefined ? 'is-open' : (given === byId[id].k ? 'is-ok' : 'is-wrong');
-            const dot = button('ppl-quiz-dot ' + state_ + (i === b.cur ? ' is-current' : ''), String(i + 1), () => { b.cur = i; save(); draw(); }, 'Frage ' + (i + 1));
+            const dot = button('ppl-quiz-dot ' + state_ + (i === b.cur ? ' is-current' : ''), String(i + 1), () => { b.cur = i; save(); draw(); }, _pqK('pplQuiz.questionN', 'Frage {n}', { n: i + 1 }));
             dots.append(dot);
         });
         body.append(dots);
 
         const q = byId[b.ids[b.cur]];
         const given = b.ans[q.id];
-        body.append(el('div', 'ppl-quiz-topic', catName(q.c) + (q.t ? ' · ' + q.t : '')));
+        body.append(el('div', 'ppl-quiz-topic', catLabel(q.c, catName(q.c)) + (q.t ? ' · ' + q.t : '')));
+        // English UI: the questions themselves stay German (BZF may not be translated, CC BY-ND).
+        if (uiLang() !== 'de') body.append(el('p', 'ppl-quiz-hint', _pqK('pplQuiz.questionsGerman', '')));
         body.append(el('div', 'ppl-quiz-question', q.q));
         if (q.m) {
             const img = el('img', 'ppl-quiz-media');
@@ -322,12 +327,12 @@ function _pqK(key, german, vars) { var i18n = (typeof window !== 'undefined') ? 
         if (given !== undefined) {
             const ok = given === q.k;
             const box = el('div', 'ppl-quiz-feedback ' + (ok ? 'is-ok' : 'is-wrong'));
-            box.append(el('strong', '', ok ? '✓ Richtig. ' : '✗ Leider falsch. '));
+            box.append(el('strong', '', ok ? _pqT('✓ Richtig. ') : _pqT('✗ Leider falsch. ')));
             const chosen = q.a.find(a => a[0] === given);
             const right = q.a.find(a => a[0] === q.k);
             if (!ok && chosen?.[2]) box.append(el('span', '', chosen[2] + ' '));
-            if (right?.[2]) box.append(el('span', '', (ok ? '' : 'Richtig: ') + right[2]));
-            else if (!ok && right) box.append(el('span', '', 'Richtig ist: ' + right[1]));
+            if (right?.[2]) box.append(el('span', '', (ok ? '' : _pqT('Richtig: ')) + right[2]));
+            else if (!ok && right) box.append(el('span', '', _pqT('Richtig ist: ') + right[1]));
             const src = q.s?.[0];
             const meta = catalog.sources[src?.[0]];
             if (src && meta) {
@@ -335,7 +340,7 @@ function _pqK(key, german, vars) { var i18n = (typeof window !== 'undefined') ? 
                 link.href = meta[1] + (src[2] && !meta[1].includes('#') ? '#page=' + src[2] : '');
                 link.target = '_blank';
                 link.rel = 'noopener';
-                link.title = 'Quelle: ' + meta[0] + (src[1] ? ' – ' + src[1] : '');
+                link.title = _pqT('Quelle: ') + meta[0] + (src[1] ? ' – ' + src[1] : '');
                 link.setAttribute('aria-label', link.title);
                 box.append(' ', link);
             }
@@ -347,8 +352,8 @@ function _pqK(key, german, vars) { var i18n = (typeof window !== 'undefined') ? 
             const target = nextOpen >= 0 ? nextOpen : firstOpen;
             const nav = el('div', 'ppl-quiz-nav');
             nav.append(target >= 0
-                ? button('ppl-quiz-btn', 'Weiter ›', () => { b.cur = target; save(); draw(); })
-                : button('ppl-quiz-btn is-primary', 'Auswertung ›', () => { b.cur = b.ids.length; save(); draw(); }));
+                ? button('ppl-quiz-btn', _pqT('Weiter ›'), () => { b.cur = target; save(); draw(); })
+                : button('ppl-quiz-btn is-primary', _pqT('Auswertung ›'), () => { b.cur = b.ids.length; save(); draw(); }));
             body.append(nav);
         }
     }
@@ -359,7 +364,7 @@ function _pqK(key, german, vars) { var i18n = (typeof window !== 'undefined') ? 
         line.title = notice.full || '';
         const src = el('a', 'ppl-quiz-ui', 'Original');
         src.href = notice.source; src.target = '_blank'; src.rel = 'noopener';
-        const lic = el('a', 'ppl-quiz-ui', 'Lizenz');
+        const lic = el('a', 'ppl-quiz-ui', _pqT('Lizenz'));
         lic.href = notice.license; lic.target = '_blank'; lic.rel = 'noopener';
         line.append(src, ' · ', lic);
         return line;
@@ -369,16 +374,16 @@ function _pqK(key, german, vars) { var i18n = (typeof window !== 'undefined') ? 
         const b = state.b;
         const right = b.ids.filter(id => b.ans[id] === byId[id].k).length;
         const wrong = b.ids.length - right;
-        body.append(el('div', 'ppl-quiz-score', `${right} von ${b.ids.length} richtig`));
-        if (wrong && state.cfg.retry) body.append(el('p', 'ppl-quiz-hint', `Die ${wrong === 1 ? 'falsche Frage kommt' : wrong + ' falschen Fragen kommen'} morgen wieder.`));
-        else if (!wrong) body.append(el('p', 'ppl-quiz-hint', 'Alles richtig. Sauber geflogen!'));
+        body.append(el('div', 'ppl-quiz-score', _pqK('pplQuiz.score', '{right} von {total} richtig', { right, total: b.ids.length })));
+        if (wrong && state.cfg.retry) body.append(el('p', 'ppl-quiz-hint', (wrong === 1 ? _pqK('pplQuiz.wrongOne', 'Die falsche Frage kommt morgen wieder.') : _pqK('pplQuiz.wrongMany', 'Die {n} falschen Fragen kommen morgen wieder.', { n: wrong }))));
+        else if (!wrong) body.append(el('p', 'ppl-quiz-hint', _pqT('Alles richtig. Sauber geflogen!')));
         const list = el('div', 'ppl-quiz-dots');
-        b.ids.forEach((id, i) => list.append(button('ppl-quiz-dot ' + (b.ans[id] === byId[id].k ? 'is-ok' : 'is-wrong'), String(i + 1), () => { b.cur = i; save(); draw(); }, 'Frage ' + (i + 1) + ' ansehen')));
+        b.ids.forEach((id, i) => list.append(button('ppl-quiz-dot ' + (b.ans[id] === byId[id].k ? 'is-ok' : 'is-wrong'), String(i + 1), () => { b.cur = i; save(); draw(); }, _pqK('pplQuiz.viewQuestionN', 'Frage {n} ansehen', { n: i + 1 }))));
         body.append(list);
         const nav = el('div', 'ppl-quiz-nav');
-        nav.append(button('ppl-quiz-btn is-primary', `🔄 ${state.cfg.n} neue ziehen`, () => {
+        nav.append(button('ppl-quiz-btn is-primary', _pqK('pplQuiz.drawNew', '🔄 {n} neue ziehen', { n: state.cfg.n }), () => {
             newBatch(true);
-            if (!state.b.ids.length) body.replaceChildren(el('p', 'ppl-quiz-empty', 'Für heute sind alle passenden Fragen durch.'));
+            if (!state.b.ids.length) body.replaceChildren(el('p', 'ppl-quiz-empty', _pqT('Für heute sind alle passenden Fragen durch.')));
             else draw();
         }));
         body.append(nav);
@@ -402,7 +407,7 @@ function _pqK(key, german, vars) { var i18n = (typeof window !== 'undefined') ? 
     function drawSettings(body) {
         const section = (title) => { const s = el('div', 'ppl-quiz-section'); s.append(el('div', 'ppl-quiz-section-title', title)); body.append(s); return s; };
 
-        const countSec = section('Fragen pro Zettel');
+        const countSec = section(_pqT('Fragen pro Zettel'));
         const seg = el('div', 'ppl-quiz-seg');
         COUNTS.forEach(n => seg.append(button('ppl-quiz-seg-btn' + (state.cfg.n === n ? ' is-on' : ''), String(n), () => {
             state.cfg.n = n;
@@ -411,11 +416,11 @@ function _pqK(key, german, vars) { var i18n = (typeof window !== 'undefined') ? 
         })));
         countSec.append(seg);
 
-        const catSec = section('Fächer');
+        const catSec = section(_pqT('Fächer'));
         const cats = new Set(activeCats());
         const grid = el('div', 'ppl-quiz-cats');
         catalog.categories.forEach(([id, name]) => {
-            grid.append(button('ppl-quiz-cat' + (cats.has(id) ? ' is-on' : ''), name, () => {
+            grid.append(button('ppl-quiz-cat' + (cats.has(id) ? ' is-on' : ''), catLabel(id, name), () => {
                 const next = new Set(activeCats());
                 if (next.has(id)) next.delete(id); else next.add(id);
                 if (!next.size) return;
@@ -426,52 +431,52 @@ function _pqK(key, german, vars) { var i18n = (typeof window !== 'undefined') ? 
         });
         catSec.append(grid);
 
-        const optSec = section('Optionen');
+        const optSec = section(_pqT('Optionen'));
         const toggle = (label, key, affectsQuestions = true) => {
             const row = button('ppl-quiz-toggle' + (state.cfg[key] ? ' is-on' : ''), '', () => {
                 state.cfg[key] = !state.cfg[key];
                 if (affectsQuestions && batchUntouched()) newBatch(false); else save();
                 draw();
             });
-            row.append(el('span', '', label), el('span', 'ppl-quiz-toggle-state', state.cfg[key] ? 'AN' : 'AUS'));
+            row.append(el('span', '', label), el('span', 'ppl-quiz-toggle-state', state.cfg[key] ? _pqT('AN') : _pqT('AUS')));
             optSec.append(row);
         };
-        toggle('Tägliche Aufgaben', 'daily', false);
-        toggle('Falsche am nächsten Tag erneut', 'retry');
-        toggle('Rechenaufgaben einmischen', 'calc');
+        toggle(_pqT('Tägliche Aufgaben'), 'daily', false);
+        toggle(_pqT('Falsche am nächsten Tag erneut'), 'retry');
+        toggle(_pqT('Rechenaufgaben einmischen'), 'calc');
         optSec.append(el('p', 'ppl-quiz-hint', state.cfg.daily
-            ? 'Täglich: Jeden Tag ein neuer Zettel, der Quiz-Zettel hängt dann automatisch an der Pinnwand.'
-            : 'Ohne tägliche Aufgaben bleibt der Zettel zu, bis du ihn über 🎓 Quiz öffnest. Neue Fragen gibt es mit ↻.'));
-        optSec.append(el('p', 'ppl-quiz-hint', 'Änderungen an Anzahl und Fächern gelten ab dem nächsten Zettel, solange der aktuelle schon angefangen ist.'));
+            ? _pqT('Täglich: Jeden Tag ein neuer Zettel, der Quiz-Zettel hängt dann automatisch an der Pinnwand.')
+            : _pqT('Ohne tägliche Aufgaben bleibt der Zettel zu, bis du ihn über 🎓 Quiz öffnest. Neue Fragen gibt es mit ↻.')));
+        optSec.append(el('p', 'ppl-quiz-hint', _pqT('Änderungen an Anzahl und Fächern gelten ab dem nächsten Zettel, solange der aktuelle schon angefangen ist.')));
 
-        const statSec = section('Statistik');
+        const statSec = section(_pqT('Statistik'));
         const rows = catStats();
         const sum = rows.reduce((a, r) => ({ total: a.total + r.total, seen: a.seen + r.seen, attempts: a.attempts + r.attempts, correct: a.correct + r.correct, mastered: a.mastered + r.mastered }), { total: 0, seen: 0, attempts: 0, correct: 0, mastered: 0 });
         const table = el('div', 'ppl-quiz-stats');
         const statRow = (r, cls) => {
             const rate = r.attempts ? Math.round(r.correct / r.attempts * 100) : null;
             const line = el('div', 'ppl-quiz-stat ' + (cls || ''));
-            line.append(el('span', 'ppl-quiz-stat-name', r.name));
+            line.append(el('span', 'ppl-quiz-stat-name', r.id ? catLabel(r.id, r.name) : r.name));
             const bar = el('span', 'ppl-quiz-bar');
             const seenFill = el('i', 'ppl-quiz-bar-seen'); seenFill.style.width = (r.total ? r.seen / r.total * 100 : 0) + '%';
             const masteredFill = el('i', 'ppl-quiz-bar-mastered'); masteredFill.style.width = (r.total ? r.mastered / r.total * 100 : 0) + '%';
             bar.append(seenFill, masteredFill);
             line.append(bar, el('span', 'ppl-quiz-stat-num', `${r.seen}/${r.total} · ${rate === null ? '–' : rate + ' %'}`));
-            line.title = `${r.seen} von ${r.total} Fragen gesehen, ${r.mastered} gefestigt (${MASTERED_STREAK}× in Folge richtig), Trefferquote ${rate === null ? '–' : rate + ' %'}`;
+            line.title = _pqK('pplQuiz.statTitle', '{seen} von {total} Fragen gesehen, {mastered} gefestigt ({streak}× in Folge richtig), Trefferquote {rate}', { seen: r.seen, total: r.total, mastered: r.mastered, streak: MASTERED_STREAK, rate: rate === null ? '–' : rate + ' %' });
             return line;
         };
         rows.forEach(r => table.append(statRow(r)));
-        table.append(statRow({ ...sum, name: 'Gesamt' }, 'is-total'));
+        table.append(statRow({ ...sum, name: _pqT('Gesamt') }, 'is-total'));
         statSec.append(table);
-        statSec.append(el('p', 'ppl-quiz-hint', 'Balken: hell = gesehen, dunkel = gefestigt. Zahl: gesehen/gesamt · Trefferquote.'));
-        statSec.append(button('ppl-quiz-btn is-danger', 'Statistik zurücksetzen', () => {
+        statSec.append(el('p', 'ppl-quiz-hint', _pqT('Balken: hell = gesehen, dunkel = gefestigt. Zahl: gesehen/gesamt · Trefferquote.')));
+        statSec.append(button('ppl-quiz-btn is-danger', _pqT('Statistik zurücksetzen'), () => {
             if (!confirm(_pqT('Lernstand des PPL-Quiz wirklich zurücksetzen? Alle Antworten und die Statistik werden gelöscht.'))) return;
             state.p = {};
             newBatch(false);
             draw();
         }));
 
-        body.append(el('p', 'ppl-quiz-foot', `Katalog Edition ${catalog.edition} (${catalog.questions.length} Fragen, Stand ${catalog.checkedAt}). ${catalog.note}`));
+        body.append(el('p', 'ppl-quiz-foot', _pqK('pplQuiz.catalogFoot', 'Katalog Edition {edition} ({count} Fragen, Stand {date}). {note}', { edition: catalog.edition, count: catalog.questions.length, date: catalog.checkedAt, note: catalog.note })));
         Object.values(catalog.notices || {}).forEach(notice => body.append(noticeLine(notice)));
     }
 
@@ -481,21 +486,21 @@ function _pqK(key, german, vars) { var i18n = (typeof window !== 'undefined') ? 
         card.replaceChildren();
         card.append(el('div', 'post-it-pin'));
         const head = el('div', 'ppl-quiz-head');
-        const title = el('div', 'ppl-quiz-title', view === 'settings' ? '⚙️ QUIZ-EINSTELLUNGEN' : '🎓 PPL-THEORIE');
+        const title = el('div', 'ppl-quiz-title', view === 'settings' ? _pqT('⚙️ QUIZ-EINSTELLUNGEN') : _pqT('🎓 PPL-THEORIE'));
         head.append(title);
         if (catalog && state.b && view === 'quiz') {
             const done = state.b.ids.filter(id => state.b.ans[id] !== undefined).length;
             head.append(el('span', 'ppl-quiz-count', `${done}/${state.b.ids.length}`));
         }
-        if (catalog && view === 'quiz') head.append(button('ppl-quiz-gear ppl-quiz-restart', '↻', restart, 'Quiz abbrechen und neue Fragen ziehen'));
-        head.append(button('ppl-quiz-gear', view === 'settings' ? '✕' : '⚙', () => { view = view === 'settings' ? 'quiz' : 'settings'; draw(); }, view === 'settings' ? 'Einstellungen schließen' : 'Einstellungen und Statistik'));
+        if (catalog && view === 'quiz') head.append(button('ppl-quiz-gear ppl-quiz-restart', '↻', restart, _pqT('Quiz abbrechen und neue Fragen ziehen')));
+        head.append(button('ppl-quiz-gear', view === 'settings' ? '✕' : '⚙', () => { view = view === 'settings' ? 'quiz' : 'settings'; draw(); }, view === 'settings' ? _pqT('Einstellungen schließen') : _pqT('Einstellungen und Statistik')));
         card.append(head);
 
         const body = el('div', 'ppl-quiz-body');
         card.append(body);
         if (!catalog) {
-            body.append(el('p', 'ppl-quiz-empty', catalogError || 'Fragen werden geladen …'));
-            if (catalogError) body.append(button('ppl-quiz-btn', 'Erneut versuchen', () => { catalogError = ''; draw(); start(); }));
+            body.append(el('p', 'ppl-quiz-empty', catalogError || _pqT('Fragen werden geladen …')));
+            if (catalogError) body.append(button('ppl-quiz-btn', _pqT('Erneut versuchen'), () => { catalogError = ''; draw(); start(); }));
             return;
         }
         if (view === 'settings') drawSettings(body); else drawQuiz(body);
@@ -583,5 +588,8 @@ function _pqK(key, german, vars) { var i18n = (typeof window !== 'undefined') ? 
         window.addEventListener('load', () => setTimeout(() => { loadCatalog().catch(() => {}); }, 3000), { once: true });
     }
 
+    if (typeof window !== 'undefined' && window.GAI18n && typeof window.GAI18n.onChange === 'function') {
+        window.GAI18n.onChange(() => { if (card?.isConnected) draw(); });
+    }
     window.gaPplQuiz = { renderBoard, toggle, isOn: () => state.on, hasNew, updateButton };
 })();

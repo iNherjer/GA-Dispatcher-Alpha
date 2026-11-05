@@ -399,6 +399,20 @@ im JS vorkommen. Deutsche Rückfalltexte in Übersetzungsaufrufen zählen als
 - Offen: Statuszeile `searchIndicator` (Missionsphase), „KI Mode“-Knopf und
   Pinnwand-Knopf (Kind-Elemente), Skins `analog-skins.js` / `navcom-skins.js`.
 
+### Phase 1 – PPL-Quiz: Oberfläche (2026-11-05)
+
+Entschieden (User): **erst nur die Oberfläche**, Fragen bleiben deutsch.
+- `ppl-quiz.js`: alle Bedientexte über `_pqT/_pqK`; Fachnamen aus dem Katalog bei der Anzeige
+  über `pplQuiz.cat.<id>` (Katalog bleibt unverändert). Neuzeichnen per `GAI18n.onChange`.
+- Nur auf Englisch: Hinweis „Questions and answers are in German.“ unter dem Fach; die
+  Katalog-Notiz wird als „Note (German): …“ angezeigt.
+- **BZF-Fragen (261) dürfen nicht übersetzt werden:** Bundesnetzagentur, CC BY-ND 4.0
+  (keine Bearbeitungen). Lizenzzeile bleibt deutsch.
+- Später (Inhalts-Etappe, offen): englische Fassung der 1054 eigenen PPL-Fragen als eigene
+  Datei (z. B. `data/ppl-quiz-catalog-en.json`, gleiche IDs, Fortschritt bleibt gültig),
+  mit Durchsicht; BZF dann auf Englisch weiter deutsch oder ausblendbar.
+- Geprüft: Fragen- und Einstellungsansicht DE→EN→DE zeichengenau gleich.
+
 ### Phase 1 – Briefing-PDF, Fehlerbericht, Fußbereich (2026-11-05)
 
 - Briefing Pack (`board.js`): feste Überschriften und Leer-Texte über die Satz-Tabelle
@@ -758,7 +772,7 @@ Ergebnisse:
 3. Funk-Phraseologie in der englischen Fassung: ICAO-Englisch statt deutscher
    Sprechgruppen?
 4. Sprache pro Gerät oder pro Pilotenprofil (Cloud)?
-5. PPL-Quiz auf Englisch ausblenden?
+5. ~~PPL-Quiz auf Englisch ausblenden?~~ entschieden: sichtbar, Oberfläche englisch, Fragen deutsch (BZF: CC BY-ND).
 6. Welche Stimmen für Englisch (ElevenLabs-Auswahl, Kosten pro Pack)?
 
 ## 6. Sofort sinnvoll, auch ohne festen Starttermin
