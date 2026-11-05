@@ -352,7 +352,8 @@ uncommittet im Hauptordner, waehrend ein anderer dort nachziehen wollte; ein Tra
 kam parallel. Deshalb gilt:
 
 1. **Eigene Arbeit in einem eigenen Worktree**, nicht uncommittet im Hauptordner
-   (`/Users/jofaist/Desktop/GA dispatcher alpha`). Wer doch im Hauptordner arbeitet, committet
+   (`/Users/jofaist/Projekte/GA-Dispatcher-Alpha`, seit 05.11.2026; der alte iCloud-Ordner
+   `~/Desktop/GA dispatcher alpha` ist nur noch Backup). Wer doch im Hauptordner arbeitet, committet
    und pusht seine Dateien, bevor er die Arbeit abgibt, oder sagt dem User ausdruecklich,
    welche Dateien offen liegen bleiben.
 2. **Vor jedem Commit, Merge oder Release frisch pruefen:** `git fetch origin main`,

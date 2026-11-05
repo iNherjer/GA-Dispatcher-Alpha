@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const inputDir = '/Users/jofaist/Library/CloudStorage/OneDrive-Persönlich/Simconnect jitter test';
-const outputDir = '/Users/jofaist/Desktop/GA dispatcher alpha/analysis/simconnect-jitter-graphs';
+const outputDir = path.dirname(new URL(import.meta.url).pathname);
 
 const tests = [
   {

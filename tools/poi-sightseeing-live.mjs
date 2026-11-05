@@ -11,7 +11,7 @@ import {extractOriginalFunction} from './extract-original-function.mjs';
 const historyValues=new Map();const historyStore={getItem:k=>historyValues.get(k)||null,setItem:(k,v)=>historyValues.set(k,v)};
 const output=process.argv[2];if(!output||fs.existsSync(output))throw Error('Pass a fresh output filename');
 let key=process.env.GEMINI_API_KEY;
-for(const path of ['/Users/jofaist/Desktop/GA dispatcher alpha/key.env.local','/Users/jofaist/Desktop/GA dispatcher alpha/.env.local']){
+for(const path of [new URL('../key.env.local',import.meta.url),new URL('../.env.local',import.meta.url)]){
  if(key||!fs.existsSync(path))continue;const lines=fs.readFileSync(path,'utf8').split(/\r?\n/).map(x=>x.trim()).filter(x=>x&&!x.startsWith('#'));
  const line=lines.find(x=>/^GEMINI_API_KEY\s*=/.test(x));if(line)key=line.slice(line.indexOf('=')+1).trim().replace(/^(['"])(.*)\1$/,'$2');else if(lines.length===1&&!lines[0].includes('='))key=lines[0];
 }

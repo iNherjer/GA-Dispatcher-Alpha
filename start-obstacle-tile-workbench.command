@@ -1,7 +1,7 @@
 #!/bin/zsh
 set -e
 
-PROJECT_DIR="/Users/jofaist/Desktop/GA dispatcher alpha"
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PORT="${OBS_WORKBENCH_PORT:-8788}"
 URL="http://127.0.0.1:${PORT}"
 
