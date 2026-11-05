@@ -399,6 +399,20 @@ im JS vorkommen. Deutsche Rückfalltexte in Übersetzungsaufrufen zählen als
 - Offen: Statuszeile `searchIndicator` (Missionsphase), „KI Mode“-Knopf und
   Pinnwand-Knopf (Kind-Elemente), Skins `analog-skins.js` / `navcom-skins.js`.
 
+### Phase 1 – Abschluss: Breakout, Screenreader-Texte (2026-11-05)
+
+- Breakout/iPod (`media-player-ipod.js`, EFB-Quelle mitgezogen): Spielstatus, Menütitel,
+  „Dauer unbekannt“, Screenreader-Texte. Pixel-Schrift deckt alle englischen Zeichen ab.
+- `index.html`: 49 Tooltips/`aria-label`/`placeholder` ohne sichtbaren Text über
+  `a11y.NNN`-Schlüssel. **Bewusst ausgelassen:** Titel, die JavaScript zur Laufzeit setzt
+  (RDM/PICK, „Messen (An/Aus)“, „Einzelklick … Aus“ u. a.) – `apply()` würde sie beim
+  Sprachwechsel auf den Ausgangstext zurücksetzen –, sowie Entwickler-/Debug-Knöpfe.
+- `map-utility-tools.js`: nichts offen; die verbliebenen deutschen Texte sind Formeldaten
+  (Anzeige über `formula.*`) und Variablennamen für die Einheiten-Erkennung.
+- Geprüft: alle Attribute der Seite DE→EN→DE identisch.
+- **Damit ist Phase 1 (Web-UI) abgeschlossen.** Ausgeklammert: Testboard (User), Statuszeile
+  `searchIndicator` und Skin-Meldungen (exakte Textvergleiche, Missionsphase), Debug-Konsole.
+
 ### Phase 1 – Englische Infoseiten (2026-11-05)
 
 Entschieden (User): **eigene englische Seiten**, die deutschen bleiben unberührt.

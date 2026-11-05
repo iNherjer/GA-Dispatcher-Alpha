@@ -27,6 +27,15 @@ liefert alles Offene mit aus.
 
 ## Offen
 
+### 2026-11-05 · Breakout/iPod-Texte und Screenreader-Attribute — EFB-Kopien warten
+- **Artefakt:** generierte EFB-Kopien `efb-web-assets/media-player-ipod.js`, `efb-web-assets/kartentisch-fragment.html`; Web live mit diesem Push
+- **Dateien:** `media-player-ipod.js` (+ `efb-media-source/`), `index.html`
+- **Was:** Breakout-/iPod-Texte über `_mpT`; im Kartentisch-Fragment nur zusätzliche `data-i18n-*`-Attribute. Ohne `GAI18n` (EFB) exakt deutsch.
+- **Warum:** Englische Oberfläche.
+- **Tests:** EFB-Sync/Web-Client 26/26, iPod-/Media-/Watch-Selbsttests.
+- **Doku beim Release:** keine. Im EFB ohne sichtbare Änderung.
+- **Pruefen im Feld:** -
+
 ### 2026-11-05 · UI-Reste (Uhr-Timer, Wegpunkt-Popup) — EFB-Kopien warten
 - **Artefakt:** generierte EFB-Kopien `efb-web-assets/media-player-watch-face.js`, `efb-web-assets/map-route-edit-core.js`; Web live mit diesem Push
 - **Dateien:** `media-player-watch-face.js` (+ `efb-media-source/`-Kopie), `map-route-edit-core.js`

@@ -1,8 +1,8 @@
 <div id="mapTableOverlay" class="pinboard-overlay">
     <div class="win95-window-dragbar win95-overlay-dragbar" data-win95-drag-target="mapTableOverlay" aria-hidden="true"></div>
-    <button type="button" class="win95-window-minimize-btn win95-overlay-minimize-btn" onclick="minimizeWin95OverlayWindow('map', event)" aria-label="Kartentisch minimieren" title="Kartentisch minimieren"></button>
-    <button type="button" class="win95-window-close-btn win95-overlay-close-btn" onclick="closeWin95OverlayWindow('map', event)" aria-label="Kartentisch schliessen" title="Kartentisch schliessen">X</button>
-    <button type="button" class="map-fullscreen-close-btn" onclick="document.body.classList.remove('map-is-fullscreen'); document.documentElement.classList.remove('map-is-fullscreen'); toggleMapTable()" aria-label="Kartentisch schliessen" title="Kartentisch schliessen">×</button>
+    <button type="button" class="win95-window-minimize-btn win95-overlay-minimize-btn" onclick="minimizeWin95OverlayWindow('map', event)" aria-label="Kartentisch minimieren" data-i18n-aria-label="a11y.009" title="Kartentisch minimieren" data-i18n-title="a11y.009"></button>
+    <button type="button" class="win95-window-close-btn win95-overlay-close-btn" onclick="closeWin95OverlayWindow('map', event)" aria-label="Kartentisch schliessen" data-i18n-aria-label="a11y.010" title="Kartentisch schliessen" data-i18n-title="a11y.010">X</button>
+    <button type="button" class="map-fullscreen-close-btn" onclick="document.body.classList.remove('map-is-fullscreen'); document.documentElement.classList.remove('map-is-fullscreen'); toggleMapTable()" aria-label="Kartentisch schliessen" data-i18n-aria-label="a11y.010" title="Kartentisch schliessen" data-i18n-title="a11y.010">×</button>
     <div class="win95-window-resize-handles" aria-hidden="true">
         <div class="win95-window-resize-handle win95-resize-n" data-win95-resize-target="mapTableOverlay" data-win95-resize-edge="n"></div>
         <div class="win95-window-resize-handle win95-resize-e" data-win95-resize-target="mapTableOverlay" data-win95-resize-edge="e"></div>
@@ -37,12 +37,12 @@
                         <button id="btnToggleWeatherMenu" class="pb-btn" onclick="window.toggleMapHintSubmenu && toggleMapHintSubmenu('weatherMenu', event)" title="Wetter-Optionen" data-i18n-title="map.menu.weatherOptions" style="display:block; flex:0 0 42px; margin:0; text-align:center; border-top-left-radius:0; border-bottom-left-radius:0;">▸</button>
                     </div>
                     <div id="weatherMenuBlock" style="display:none; box-sizing:border-box; width:100%; max-width:100%; min-width:0; overflow:hidden; margin:0 0 6px 0; border:1px solid #2f2f2f; border-radius:6px; padding:6px; background:#0d0d0d;">
-                        <button id="btnToggleMapWeatherSource" class="pb-btn" onclick="window.toggleMapWeatherSource && toggleMapWeatherSource()" title="Datenquelle für Karten-Wetter: METAR oder Open-Meteo" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;">🌐 Kartenquelle: METAR</button>
+                        <button id="btnToggleMapWeatherSource" class="pb-btn" onclick="window.toggleMapWeatherSource && toggleMapWeatherSource()" title="Datenquelle für Karten-Wetter: METAR oder Open-Meteo" data-i18n-title="a11y.011" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;">🌐 Kartenquelle: METAR</button>
                         <button id="hintToggleWindBarbs" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('windBarbs')">🪁 Windbarben (An)</button>
                         <button id="hintToggleCloudFields" class="pb-btn" style="display:block; width:100%; margin:0 0 6px 0; text-align:left;" onclick="window.toggleMapHint && toggleMapHint('cloudFields')">☁️ Wolkenfelder (An)</button>
                         <div style="display:flex; width:100%; margin:0 0 6px 0; gap:2px;">
                             <button id="hintToggleVfrIndex" class="pb-btn" style="display:block; flex:1 1 auto; min-width:0; margin:0; text-align:left; border-top-right-radius:0; border-bottom-right-radius:0;" onclick="window.toggleMapHint && toggleMapHint('vfrIndex')">🧭 VFR-Index (Aus)</button>
-                            <button id="btnToggleVfrIndexMenu" class="pb-btn" onclick="window.toggleMapHintSubmenu && toggleMapHintSubmenu('vfrIndexMenu', event)" title="VFR-Index Optionen" style="display:block; flex:0 0 42px; margin:0; text-align:center; border-top-left-radius:0; border-bottom-left-radius:0;">▸</button>
+                            <button id="btnToggleVfrIndexMenu" class="pb-btn" onclick="window.toggleMapHintSubmenu && toggleMapHintSubmenu('vfrIndexMenu', event)" title="VFR-Index Optionen" data-i18n-title="a11y.012" style="display:block; flex:0 0 42px; margin:0; text-align:center; border-top-left-radius:0; border-bottom-left-radius:0;">▸</button>
                         </div>
                         <div id="vfrIndexMenuBlock" style="display:none; box-sizing:border-box; max-width:100%; min-width:0; overflow:hidden; margin:0 0 6px 0; border:1px solid #2f2f2f; border-radius:6px; padding:6px; background:#0d0d0d;">
                         <div id="vfrPlanningCountryLabel" style="font-size:10px; color:#9bb5d1; margin-bottom:5px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">Planungsland: –</div>
@@ -78,7 +78,7 @@
                     </div>
                     <div style="display:flex; width:100%; margin:0 0 6px 0; gap:2px;">
                         <button id="hintToggleTerrainAvoid" class="pb-btn" style="display:block; flex:1 1 auto; min-width:0; margin:0; text-align:left; border-top-right-radius:0; border-bottom-right-radius:0;" onclick="window.toggleMapHint && toggleMapHint('terrainAvoid')">🏔️ Terrain Avoid (Aus)</button>
-                        <button id="btnToggleTerrainAvoidMenu" class="pb-btn" onclick="window.toggleMapHintSubmenu && toggleMapHintSubmenu('terrainAvoidMenu', event)" title="Terrain Avoid Optionen" style="display:block; flex:0 0 42px; margin:0; text-align:center; border-top-left-radius:0; border-bottom-left-radius:0;">▸</button>
+                        <button id="btnToggleTerrainAvoidMenu" class="pb-btn" onclick="window.toggleMapHintSubmenu && toggleMapHintSubmenu('terrainAvoidMenu', event)" title="Terrain Avoid Optionen" data-i18n-title="a11y.013" style="display:block; flex:0 0 42px; margin:0; text-align:center; border-top-left-radius:0; border-bottom-left-radius:0;">▸</button>
                     </div>
                     <div id="terrainAvoidMenuBlock" style="display:none; box-sizing:border-box; width:100%; max-width:100%; min-width:0; overflow:hidden; margin:0 0 6px 0; border:1px solid #2f2f2f; border-radius:6px; padding:6px; background:#0d0d0d;">
                         <div style="font-size:10px; color:#8d8d8d; margin-bottom:5px;" data-i18n="map.terrain.thresholds">Clearance-Schwellen</div>
@@ -207,7 +207,7 @@
                     </div>
                     <div style="border-top:1px solid #333; padding-top:8px; margin-top:8px;">
                         <div style="font-size:11px; color:#888; margin-bottom:6px; letter-spacing:0.04em;">PASSAGIER AUDIO</div>
-                        <label class="pb-btn" title="Missions-/Story- und Passagierstimmen generieren und abspielen. Aus = keine neuen TTS-Anfragen und keine Stimmenwiedergabe. Texte bleiben sichtbar. Gilt für alle verbundenen Geräte." style="display:flex; width:100%; margin:0 0 6px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
+                        <label class="pb-btn" title="Missions-/Story- und Passagierstimmen generieren und abspielen. Aus = keine neuen TTS-Anfragen und keine Stimmenwiedergabe. Texte bleiben sichtbar. Gilt für alle verbundenen Geräte." data-i18n-title="a11y.014" style="display:flex; width:100%; margin:0 0 6px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
                             <input type="checkbox" id="awmPaxVoiceCheck" checked
                                 style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
                                 onchange="paxVoiceSetEnabled(this.checked)">
@@ -274,7 +274,7 @@
             </div>
             <button class="pb-btn" id="freeflightBtn" onclick="toggleFreeflightMode()" style="background:#444; color:#fff;">✈️ Direct To (Aus)</button>
             <button class="pb-btn map-mission-btn" id="mapMissionToggleBtn" onclick="window.handleMissionStartBannerAction ? handleMissionStartBannerAction() : (window.toggleManualMissionRuntime && toggleManualMissionRuntime())" style="display:none;">▶ Mission starten</button>
-            <button class="pb-btn" id="mapGroundCargoBtn" onclick="window.openMissionToolbarCargo ? openMissionToolbarCargo() : (window.openMissionGroundCargoDialog && openMissionGroundCargoDialog())" style="display:none;" title="Verladefenster am Boden öffnen">📦 Verladung</button>
+            <button class="pb-btn" id="mapGroundCargoBtn" onclick="window.openMissionToolbarCargo ? openMissionToolbarCargo() : (window.openMissionGroundCargoDialog && openMissionGroundCargoDialog())" style="display:none;" title="Verladefenster am Boden öffnen" data-i18n-title="a11y.015">📦 Verladung</button>
             <button class="pb-btn map-mission-reset-btn" id="mapMissionResetBtn" onclick="window.requestMissionRuntimeReset && requestMissionRuntimeReset({ reason: 'map-toolbar-reset' })" style="display:none;" title="Mission zurücksetzen" data-i18n-title="map.missionReset">↺ Mission Reset</button>
             <button type="button" class="pb-btn map-toolbar-help-btn" onclick="showSettingsHelp('map-table', event)" aria-label="Hilfe zum Kartentisch" data-i18n-aria-label="map.help" aria-expanded="false">?</button>
             <button class="pb-btn close" onclick="document.body.classList.remove('map-is-fullscreen'); document.documentElement.classList.remove('map-is-fullscreen'); toggleMapTable()" data-i18n="map.close">❌ Schließen</button>
@@ -331,7 +331,7 @@
             <div id="mapArea" style="position: relative; flex:1; display:flex; align-items:center; justify-content:center; width:100%; min-height:0; overflow:hidden;">
                 <div id="map"></div>
                 <!-- Karten-Overlay: Auto-Follow Button -->
-                <button id="autoFollowBtn" onclick="toggleAutoFollow()" class="map-overlay-btn" title="Auto-Follow (Karten-Zentrierung)">
+                <button id="autoFollowBtn" onclick="toggleAutoFollow()" class="map-overlay-btn" title="Auto-Follow (Karten-Zentrierung)" data-i18n-title="a11y.016">
                     🎯
                 </button>
                 <div id="mapDrawRail" class="map-draw-rail">
@@ -343,14 +343,14 @@
                         <button id="mapToolDrawClear" class="map-draw-tool-btn" type="button" title="Zeichnungen und Lineal löschen" data-i18n-title="map.tools.clearDrawings" onclick="window.activateMapDrawTool && activateMapDrawTool('drawClear', event)">🗑</button>
                         <button id="mapToolMeasure" class="map-draw-tool-btn" type="button" title="Messen (Aus)" onclick="window.activateMapDrawTool && activateMapDrawTool('measure', event)">📏</button>
                         <button id="mapToolStopwatch" class="map-draw-tool-btn" type="button" title="Stoppuhr" onclick="window.activateMapDrawTool && activateMapDrawTool('stopwatch', event)">⏱</button>
-                        <button id="mapToolCalculator" class="map-draw-tool-btn" type="button" title="Taschenrechner" onclick="window.activateMapDrawTool && activateMapDrawTool('calculator', event)">▦</button>
-                        <button id="mapToolE6B" class="map-draw-tool-btn map-draw-tool-btn-text" type="button" title="E6B Flight Computer" onclick="window.activateMapDrawTool && activateMapDrawTool('e6b', event)">E6B</button>
+                        <button id="mapToolCalculator" class="map-draw-tool-btn" type="button" title="Taschenrechner" data-i18n-title="a11y.017" onclick="window.activateMapDrawTool && activateMapDrawTool('calculator', event)">▦</button>
+                        <button id="mapToolE6B" class="map-draw-tool-btn map-draw-tool-btn-text" type="button" title="E6B Flight Computer" data-i18n-title="a11y.018" onclick="window.activateMapDrawTool && activateMapDrawTool('e6b', event)">E6B</button>
                     </div>
                 </div>
-                <div id="mapDrawMenu" class="map-draw-menu" aria-label="Stift-Einstellungen">
-                    <div class="map-draw-swatches" aria-label="Schnellfarben">
+                <div id="mapDrawMenu" class="map-draw-menu" aria-label="Stift-Einstellungen" data-i18n-aria-label="a11y.019">
+                    <div class="map-draw-swatches" aria-label="Schnellfarben" data-i18n-aria-label="a11y.020">
                         <button type="button" style="--swatch:#ff3b30;" onclick="window.setMapDrawColor && setMapDrawColor('#ff3b30')" title="Rot"></button>
-                        <button type="button" style="--swatch:#f2c12e;" onclick="window.setMapDrawColor && setMapDrawColor('#f2c12e')" title="Gelb"></button>
+                        <button type="button" style="--swatch:#f2c12e;" onclick="window.setMapDrawColor && setMapDrawColor('#f2c12e')" title="Gelb" data-i18n-title="a11y.021"></button>
                         <button type="button" style="--swatch:#44ff44;" onclick="window.setMapDrawColor && setMapDrawColor('#44ff44')" title="Grün" data-i18n-title="map.color.green"></button>
                         <button type="button" style="--swatch:#4da6ff;" onclick="window.setMapDrawColor && setMapDrawColor('#4da6ff')" title="Blau"></button>
                         <button type="button" style="--swatch:#ffffff;" onclick="window.setMapDrawColor && setMapDrawColor('#ffffff')" title="Weiß" data-i18n-title="map.color.white"></button>
@@ -360,10 +360,10 @@
                     </div>
                 </div>
                 <div id="mapStopwatchDevice" class="map-utility-device map-stopwatch-device" aria-hidden="true" style="display:none;">
-                    <div id="mapStopwatchHandle" class="map-utility-drag-handle stopwatch-bezel" aria-label="Stoppuhr verschieben">
-                        <button id="mapStopwatchStartStop" class="stopwatch-crown stopwatch-crown-main" type="button" title="Start / Stop">START</button>
+                    <div id="mapStopwatchHandle" class="map-utility-drag-handle stopwatch-bezel" aria-label="Stoppuhr verschieben" data-i18n-aria-label="a11y.022">
+                        <button id="mapStopwatchStartStop" class="stopwatch-crown stopwatch-crown-main" type="button" title="Start / Stop" data-i18n-title="a11y.023">START</button>
                         <button id="mapStopwatchReset" class="stopwatch-crown stopwatch-crown-reset" type="button" title="Reset">RESET</button>
-                        <button id="mapStopwatchScale" class="stopwatch-crown stopwatch-scale-toggle" type="button" title="Uhr auf 150% vergrößern">150%</button>
+                        <button id="mapStopwatchScale" class="stopwatch-crown stopwatch-scale-toggle" type="button" title="Uhr auf 150% vergrößern" data-i18n-title="a11y.024">150%</button>
                         <button id="mapStopwatchClose" class="map-utility-close" type="button" title="Schließen" data-i18n-title="map.closeShort">x</button>
                         <div class="stopwatch-dial" aria-hidden="true">
                             <div class="stopwatch-tick-ring"></div>
@@ -390,7 +390,7 @@
                             <div class="stopwatch-hand stopwatch-second-hand" id="mapStopwatchSecondHand"></div>
                             <div class="stopwatch-hand stopwatch-tenth-hand" id="mapStopwatchTenthHand"></div>
                             <div class="stopwatch-hub"></div>
-                            <button id="mapStopwatchTimerDisplay" class="stopwatch-timer-display" type="button" title="Timer einstellen">
+                            <button id="mapStopwatchTimerDisplay" class="stopwatch-timer-display" type="button" title="Timer einstellen" data-i18n-title="a11y.025">
                                 <span id="mapStopwatchTimerLabel">TIMER</span>
                                 <strong id="mapStopwatchTimerValue" class="utility-seven-seg">05:00</strong>
                             </button>
@@ -427,7 +427,7 @@
                         </div>
                     </div>
                     <div id="mapStopwatchClockSource" style="font-size:10px; text-align:center;">Gerät · Fallback</div>
-                    <div class="stopwatch-time-grid" aria-label="Aktuelle Uhrzeiten">
+                    <div class="stopwatch-time-grid" aria-label="Aktuelle Uhrzeiten" data-i18n-aria-label="a11y.026">
                         <div>
                             <span>UTC</span>
                             <strong id="mapStopwatchUtc">--:--:--</strong>
@@ -439,7 +439,7 @@
                     </div>
                 </div>
                 <div id="mapCalculatorDevice" class="map-utility-device map-calculator-device" aria-hidden="true" style="display:none;">
-                    <button id="mapCalculatorFormulaToggle" class="calculator-formula-tab" type="button" title="Formel-Spickzettel">FORM</button>
+                    <button id="mapCalculatorFormulaToggle" class="calculator-formula-tab" type="button" title="Formel-Spickzettel" data-i18n-title="a11y.027">FORM</button>
                     <aside id="mapCalculatorFormulaDrawer" class="calculator-formula-drawer" aria-hidden="true">
                         <div class="formula-drawer-title">Formel Spickzettel</div>
                         <div class="formula-drawer-source">Kurzreferenz nach <a href="https://aopa.de/wp-content/uploads/49_Berechnungen_und_Formeln_fuer_Piloten.pdf" target="_blank" rel="noopener">AOPA Safety Letter Nr. 49</a></div>
@@ -504,17 +504,17 @@
                             <div id="mapFormulaHelpBody" class="formula-help-body"></div>
                         </div>
                     </div>
-                    <div id="mapCalculatorHandle" class="map-utility-drag-handle calculator-case" aria-label="Taschenrechner verschieben">
+                    <div id="mapCalculatorHandle" class="map-utility-drag-handle calculator-case" aria-label="Taschenrechner verschieben" data-i18n-aria-label="a11y.028">
                         <div class="calculator-topbar">
                             <div class="map-utility-device-title">VFR CALC</div>
-                            <button id="mapCalculatorScale" type="button" title="Rechner auf 150% vergrößern">150%</button>
+                            <button id="mapCalculatorScale" type="button" title="Rechner auf 150% vergrößern" data-i18n-title="a11y.029">150%</button>
                             <button id="mapCalculatorClose" class="map-utility-close" type="button" title="Schließen" data-i18n-title="map.closeShort">x</button>
                         </div>
                         <div id="mapCalculatorDisplay" class="calculator-display utility-seven-seg" aria-live="polite">
                             <div id="mapCalculatorExpression" class="calculator-expression">DEG</div>
                             <div id="mapCalculatorResult" class="calculator-result">0</div>
                         </div>
-                        <div class="calculator-keypad" aria-label="Taschenrechner">
+                        <div class="calculator-keypad" aria-label="Taschenrechner" data-i18n-aria-label="a11y.017">
                             <button type="button" data-calc="clear">C</button>
                             <button type="button" data-calc="backspace">⌫</button>
                             <button type="button" data-calc="paren" data-value="(">(</button>
@@ -601,7 +601,7 @@
                     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:2px;">
                         <div style="font-size:11px; color:#8ec5ff; letter-spacing:0.4px;">NEXT LEG</div>
                         <div style="display:flex; align-items:center; gap:4px;">
-                            <button id="nextLegPrevBtn" class="next-leg-nav-btn" type="button" title="Vorheriger Wegpunkt" onclick="window.stepLiveNextLegPreview && stepLiveNextLegPreview(-1, event)">◀</button>
+                            <button id="nextLegPrevBtn" class="next-leg-nav-btn" type="button" title="Vorheriger Wegpunkt" data-i18n-title="a11y.030" onclick="window.stepLiveNextLegPreview && stepLiveNextLegPreview(-1, event)">◀</button>
                             <button id="nextLegNextBtn" class="next-leg-nav-btn" type="button" title="Nächster Wegpunkt" data-i18n-title="map.live.nextWp" onclick="window.stepLiveNextLegPreview && stepLiveNextLegPreview(1, event)">▶</button>
                         </div>
                     </div>
@@ -642,12 +642,12 @@
             <div id="mapProfileStrip" class="map-profile-strip">
                 <div class="map-profile-controls" style="gap: 4px; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 2px; scrollbar-width: none;">
                     <span style="color:#aaa; font-size:10px; font-family:monospace; margin-left:4px;">ZOOM</span>
-                    <button class="vp-ctrl-btn" onclick="vpZoom(10)" title="Horizontal rauszoomen">−</button>
-                    <span id="vpZoomDisplay" class="vp-ctrl-label" style="min-width:24px;" title="Aktueller Zoom-Level">0%</span>
-                    <button class="vp-ctrl-btn" onclick="vpZoom(-10)" title="Horizontal reinzoomen">+</button>
+                    <button class="vp-ctrl-btn" onclick="vpZoom(10)" title="Horizontal rauszoomen" data-i18n-title="a11y.031">−</button>
+                    <span id="vpZoomDisplay" class="vp-ctrl-label" style="min-width:24px;" title="Aktueller Zoom-Level" data-i18n-title="a11y.032">0%</span>
+                    <button class="vp-ctrl-btn" onclick="vpZoom(-10)" title="Horizontal reinzoomen" data-i18n-title="a11y.033">+</button>
                     <span style="color:#555; font-size:10px; margin: 0 1px;">|</span>
                     <span style="color:#aaa; font-size:10px; font-family:monospace;" title="Maximale Höhe der Y-Achse (ft)" data-i18n-title="map.profile.yMax">MAX FT</span>
-                    <button class="vp-ctrl-btn" onclick="vpChangeYAxis(-1000)" title="Y-Achse verkleinern (−1000 ft)">−</button>
+                    <button class="vp-ctrl-btn" onclick="vpChangeYAxis(-1000)" title="Y-Achse verkleinern (−1000 ft)" data-i18n-title="a11y.034">−</button>
                     <span id="yAxisDisplay" class="vp-ctrl-label" onclick="vpResetYAxis()" title="Klick = Auto-Skalierung zurücksetzen" data-i18n-title="map.profile.yAuto">AUTO</span>
                     <button class="vp-ctrl-btn" onclick="vpChangeYAxis(1000)" title="Y-Achse vergrößern (+1000 ft)" data-i18n-title="map.profile.yUp">+</button>
                     <span style="color:#555; font-size:10px; margin: 0 1px;">|</span>
@@ -663,27 +663,27 @@
                     <span style="color:#555; font-size:10px; margin: 0 1px; margin-left:auto;">|</span>
                     <!-- Zahnrad-Untermenü für Layer-Toggles -->
                     <div style="position:relative; display:inline-block;">
-                        <button id="btnVpSettings" onclick="toggleVpSettingsMenu()" title="Darstellungs-Optionen" class="vp-toggle-cloud active vp-btn-relative" style="min-width:28px; font-size:13px;">
+                        <button id="btnVpSettings" onclick="toggleVpSettingsMenu()" title="Darstellungs-Optionen" data-i18n-title="a11y.035" class="vp-toggle-cloud active vp-btn-relative" style="min-width:28px; font-size:13px;">
                             ⚙️<span id="vpSettingsErrorDot" style="display:none; position:absolute; top:-4px; right:-4px; width:9px; height:9px; background:#ff4444; border-radius:50%; border:1.5px solid #222; box-shadow:0 0 4px #f00;"></span>
                         </button>
                         <div id="vpSettingsMenu" style="display:none; position:fixed; min-width:210px; background:#121212; border:1px solid #555; border-radius:8px; padding:8px; box-shadow:0 8px 24px rgba(0,0,0,0.45); z-index:100120;">
                             <div style="display:flex; flex-direction:column; gap:5px; align-items:stretch;">
                                 <button id="btnToggleClouds" class="pb-btn active" onclick="vpToggleClouds()" title="Wetter-Wolkenbasis aus METAR an/aus" data-i18n-title="map.profile.cloudsTitle" style="display:block; width:100%; margin:0; text-align:left;">⛅ Wolken</button>
-                                <button id="btnToggleWeatherSource" class="pb-btn" onclick="vpToggleWeatherSource()" title="Datenquelle für Wetter: METAR oder Open-Meteo" style="display:block; width:100%; margin:0; text-align:left;">🌐 Quelle: METAR</button>
-                                <button id="btnToggleWeatherRenderMode" class="pb-btn" onclick="vpToggleWeatherRenderMode()" title="Darstellungsstil für Wetter im Höhenband wechseln" style="display:block; width:100%; margin:0; text-align:left;">🌦️ Wetterstil: Classic</button>
-                                <button id="btnToggleIsobars" class="pb-btn active" onclick="vpToggleIsobars()" title="Isobaren (hPa) im Höhenband ein-/ausblenden" style="display:block; width:100%; margin:0; text-align:left;">🧭 Isobaren</button>
-                                <button id="btnToggleWindComponents" class="pb-btn active" onclick="vpToggleWindComponents()" title="Head-/Tailwind-Komponenten je Höhe ein-/ausblenden" style="display:block; width:100%; margin:0; text-align:left;">💨 Windkomponenten</button>
+                                <button id="btnToggleWeatherSource" class="pb-btn" onclick="vpToggleWeatherSource()" title="Datenquelle für Wetter: METAR oder Open-Meteo" data-i18n-title="a11y.036" style="display:block; width:100%; margin:0; text-align:left;">🌐 Quelle: METAR</button>
+                                <button id="btnToggleWeatherRenderMode" class="pb-btn" onclick="vpToggleWeatherRenderMode()" title="Darstellungsstil für Wetter im Höhenband wechseln" data-i18n-title="a11y.037" style="display:block; width:100%; margin:0; text-align:left;">🌦️ Wetterstil: Classic</button>
+                                <button id="btnToggleIsobars" class="pb-btn active" onclick="vpToggleIsobars()" title="Isobaren (hPa) im Höhenband ein-/ausblenden" data-i18n-title="a11y.038" style="display:block; width:100%; margin:0; text-align:left;">🧭 Isobaren</button>
+                                <button id="btnToggleWindComponents" class="pb-btn active" onclick="vpToggleWindComponents()" title="Head-/Tailwind-Komponenten je Höhe ein-/ausblenden" data-i18n-title="a11y.039" style="display:block; width:100%; margin:0; text-align:left;">💨 Windkomponenten</button>
                                 <button id="btnToggleLandmarks" class="pb-btn active" onclick="vpToggleLandmarks()" title="Städte & Sehenswürdigkeiten an/aus" data-i18n-title="map.profile.landmarksTitle" style="display:block; width:100%; margin:0; text-align:left;">🏙️ Städte</button>
-                                <button id="btnToggleObstacles" class="pb-btn active vp-btn-relative" onclick="vpToggleObstacles()" title="Hindernisse (Masten, Windkraft) an/aus" style="display:block; width:100%; margin:0; text-align:left;">🗼 Hindernisse</button>
+                                <button id="btnToggleObstacles" class="pb-btn active vp-btn-relative" onclick="vpToggleObstacles()" title="Hindernisse (Masten, Windkraft) an/aus" data-i18n-title="a11y.040" style="display:block; width:100%; margin:0; text-align:left;">🗼 Hindernisse</button>
                                 <button id="btnToggleRoads" class="pb-btn active vp-btn-relative" onclick="vpToggleRoads()" title="Straßen (Autobahn/Bundesstraße) an/aus" data-i18n-title="map.profile.roadsTitle" style="display:block; width:100%; margin:0; text-align:left;">🛣️ Straßen</button>
                                 <button id="btnToggleRivers" class="pb-btn active vp-btn-relative" onclick="vpToggleRivers()" title="Flüsse/Gewässer an/aus" data-i18n-title="map.profile.riversTitle" style="display:block; width:100%; margin:0; text-align:left;">🌊 Flüsse</button>
-                                <button id="btnTogglePower" class="pb-btn active vp-btn-relative" onclick="vpTogglePower()" title="Stromleitungen/Strommasten an/aus" style="display:block; width:100%; margin:0; text-align:left;">⚡ Strom</button>
-                                <button id="btnToggleAirspaces" class="pb-btn active" onclick="vpToggleAirspaces()" title="Lufträume: Hintergrund / Vordergrund / Aus" style="display:block; width:100%; margin:0; text-align:left;">🛡️ Lufträume</button>
+                                <button id="btnTogglePower" class="pb-btn active vp-btn-relative" onclick="vpTogglePower()" title="Stromleitungen/Strommasten an/aus" data-i18n-title="a11y.041" style="display:block; width:100%; margin:0; text-align:left;">⚡ Strom</button>
+                                <button id="btnToggleAirspaces" class="pb-btn active" onclick="vpToggleAirspaces()" title="Lufträume: Hintergrund / Vordergrund / Aus" data-i18n-title="a11y.042" style="display:block; width:100%; margin:0; text-align:left;">🛡️ Lufträume</button>
                                 <button id="btnToggleTrafficProfile" class="pb-btn active" onclick="window.vpToggleTrafficProfile && vpToggleTrafficProfile()" title="AI Traffic im Höhenprofil an/aus" data-i18n-title="map.profile.trafficTitle" style="display:block; width:100%; margin:0; text-align:left;">📡 Traffic</button>
                             </div>
                         </div>
                     </div>
-                    <button id="btnToggleVpMode" class="vp-toggle-cloud" onclick="vpToggleMode()" title="Zwischen Routen-Modus (RTE) und Heading-Modus (HDG) wechseln" style="margin-left:4px; min-width:34px; font-size:9px; font-family:monospace; letter-spacing:0.5px; color:#6f6; border-color:#4a4; background:#0d200d;">RTE</button>
+                    <button id="btnToggleVpMode" class="vp-toggle-cloud" onclick="vpToggleMode()" title="Zwischen Routen-Modus (RTE) und Heading-Modus (HDG) wechseln" data-i18n-title="a11y.043" style="margin-left:4px; min-width:34px; font-size:9px; font-family:monospace; letter-spacing:0.5px; color:#6f6; border-color:#4a4; background:#0d200d;">RTE</button>
                     <span style="color:#555; font-size:10px; margin: 0 4px;">|</span>
                     <button id="btnSimMode" class="vp-toggle-cloud" onclick="window.startSimMode && startSimMode()" title="Route simulieren" style="min-width:40px; font-size:9px; font-family:monospace; letter-spacing:0.5px; background:#1a3a1a; color:#6f6;">▶&thinsp;SIM</button>
                     <button id="btnManualSimMode" class="vp-toggle-cloud manual-sim-toggle" onclick="window.toggleManualSimMode && toggleManualSimMode(event)" title="Manueller Sim" style="display:none; min-width:34px; font-size:9px; font-family:monospace; letter-spacing:0.5px; background:#17253a; color:#8ec5ff; border-color:#33506d;">MAN</button>
@@ -711,12 +711,12 @@
 
 <div id="mapE6BDevice" class="map-utility-device map-e6b-device map-e6b-half e6b-iframe-controls" aria-hidden="true" style="display:none;">
     <div class="map-e6b-shell">
-        <div class="map-e6b-window-controls" aria-label="E6B Fenstersteuerung">
-            <button id="mapE6BFlip" class="map-e6b-window-btn" type="button" title="E6B umdrehen" aria-label="E6B umdrehen">↻</button>
-            <button id="mapE6BZoomOut" class="map-e6b-window-btn" type="button" title="E6B herauszoomen" aria-label="E6B herauszoomen">−</button>
-            <button id="mapE6BZoomIn" class="map-e6b-window-btn" type="button" title="E6B hineinzoomen" aria-label="E6B hineinzoomen">+</button>
+        <div class="map-e6b-window-controls" aria-label="E6B Fenstersteuerung" data-i18n-aria-label="a11y.044">
+            <button id="mapE6BFlip" class="map-e6b-window-btn" type="button" title="E6B umdrehen" data-i18n-title="a11y.045" aria-label="E6B umdrehen" data-i18n-aria-label="a11y.045">↻</button>
+            <button id="mapE6BZoomOut" class="map-e6b-window-btn" type="button" title="E6B herauszoomen" data-i18n-title="a11y.046" aria-label="E6B herauszoomen" data-i18n-aria-label="a11y.046">−</button>
+            <button id="mapE6BZoomIn" class="map-e6b-window-btn" type="button" title="E6B hineinzoomen" data-i18n-title="a11y.047" aria-label="E6B hineinzoomen" data-i18n-aria-label="a11y.047">+</button>
             <button id="mapE6BClose" class="map-utility-close map-e6b-close" type="button" title="Schließen" data-i18n-title="map.closeShort" aria-label="E6B schließen" data-i18n-aria-label="map.e6b.close">×</button>
         </div>
-        <iframe id="mapE6BFrame" class="map-e6b-frame" title="E6B Flight Computer" src="/efb/v1/e6b/e6b-flight-computer.html?embedded=1&amp;coherent=1&amp;v=20260710-workbenchjson01" loading="lazy" allowtransparency="true"></iframe>
+        <iframe id="mapE6BFrame" class="map-e6b-frame" title="E6B Flight Computer" data-i18n-title="a11y.018" src="/efb/v1/e6b/e6b-flight-computer.html?embedded=1&amp;coherent=1&amp;v=20260710-workbenchjson01" loading="lazy" allowtransparency="true"></iframe>
     </div>
 </div>
