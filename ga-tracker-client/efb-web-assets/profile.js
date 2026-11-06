@@ -11240,8 +11240,9 @@ function vpProjectTrafficOnRoute(elevData) {
       }
       if (bestDist <= MAX_LAT_NM) {
         result.push({
+          ac,
           id: ac.id,
-          callsign: ac.callsign,
+          callsign: ac.cs || ac.callsign,
           projDistNM: bestDistNM,
           altFt: ac.alt,
           lateralNM: bestDist
@@ -11285,8 +11286,9 @@ function vpProjectTrafficOnHeading() {
       // Im HDG-Modus: distNM speichert Minuten (gleich wie vpHdgElevData)
       var timeMin = VP_HDG_LOOKBACK_MIN + along / (gs / 60);
       result.push({
+        ac,
         id: ac.id,
-        callsign: ac.callsign,
+        callsign: ac.cs || ac.callsign,
         projDistNM: timeMin,
         altFt: ac.alt,
         lateralNM: cross
@@ -11307,61 +11309,93 @@ function vpDrawTrafficInProfile(fgCtx, xOf, yOf, elevData, isHdgMode, viewMinX, 
   var traffic = isHdgMode ? vpProjectTrafficOnHeading() : vpProjectTrafficOnRoute(elevData);
   if (!traffic.length) return;
   var ownAlt = (_ref38 = (_window$lastLiveGpsPo4 = (_window$lastLiveGpsPo5 = window.lastLiveGpsPos) === null || _window$lastLiveGpsPo5 === void 0 ? void 0 : _window$lastLiveGpsPo5.alt) !== null && _window$lastLiveGpsPo4 !== void 0 ? _window$lastLiveGpsPo4 : vpLiveAltFt) !== null && _ref38 !== void 0 ? _ref38 : 0;
+  var pres = window.GAMapLivePresentation;
+  var pos = window.lastLiveGpsPos || {},
+    flight = window.lastLiveFlightData || {};
+  var own = {
+    lat: pos.lat,
+    lon: pos.lon,
+    alt: ownAlt,
+    hdg: pos.hdg,
+    gs: Number(flight.gsKts) || Number(pos.gs) || 0,
+    vs: Number(flight.vsFpm) || 0,
+    onGround: flight.onGround === true
+  };
+  var iconSettings = typeof window.getTrafficIconSettings === 'function' ? window.getTrafficIconSettings() : null;
+  // Side views are flat; a little wider than the top views reads the same size.
+  var sizePx = Math.max(20, Math.round((Number(iconSettings === null || iconSettings === void 0 ? void 0 : iconSettings.size) || 28) * 1.25));
+  var outlinePx = Number.isFinite(Number(iconSettings === null || iconSettings === void 0 ? void 0 : iconSettings.outline)) ? Number(iconSettings.outline) : 1.5;
+  var STYLE = {
+    resolve: {
+      fill: '#ff3b30',
+      label: '#ff6b60',
+      glow: 'rgba(255,59,48,0.95)',
+      period: 450
+    },
+    alert: {
+      fill: '#ffb000',
+      label: '#ffb000',
+      glow: 'rgba(255,176,0,0.9)',
+      period: 900
+    },
+    proximate: {
+      fill: '#00ccff',
+      label: '#e8f6ff'
+    },
+    other: {
+      fill: '#7fdcff',
+      label: '#cfeaf5',
+      alpha: 0.85
+    }
+  };
+  var t = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now();
   var _iterator63 = _createForOfIteratorHelper(traffic),
     _step63;
   try {
     for (_iterator63.s(); !(_step63 = _iterator63.n()).done;) {
-      var ac = _step63.value;
-      var tx = xOf(ac.projDistNM);
-      var ty = yOf(ac.altFt);
+      var entry = _step63.value;
+      var tx = xOf(entry.projDistNM);
+      var ty = yOf(entry.altFt);
       if (tx < viewMinX - 30 || tx > viewMaxX + 30) continue;
-      var relAlt = Math.round((ac.altFt - ownAlt) / 100) * 100;
-      var relAltStr = (relAlt >= 0 ? '+' : '') + relAlt;
-      var relAltColor = Math.abs(relAlt) < 300 ? '#ff8800' : relAlt > 0 ? '#44ff44' : '#888888';
+      var ac = entry.ac || entry;
+      var info = pres !== null && pres !== void 0 && pres.classifyTraffic ? pres.classifyTraffic(ac, own) : {
+        level: 'other'
+      };
+      var level = pres !== null && pres !== void 0 && pres.trafficDisplayLevel ? pres.trafficDisplayLevel(ac, info, window.vpTrafficAlertingIds) : info.level;
+      var st = STYLE[level] || STYLE.other;
+      var blink = st.period ? 0.25 + 0.75 * (0.5 + 0.5 * Math.cos(2 * Math.PI * t / st.period)) : 1;
+      var relAlt = Math.round((entry.altFt - ownAlt) / 100) * 100;
+      var vsFpm = Number(ac.vs) || 0;
+      var relAltStr = (relAlt >= 0 ? '+' : '') + relAlt + (vsFpm > 500 ? '↑' : vsFpm < -500 ? '↓' : '');
+
+      // Contacts flying against the own direction face left.
+      var hdgDiff = Number.isFinite(Number(ac.hdg)) && Number.isFinite(Number(own.hdg)) ? Math.abs(((Number(ac.hdg) - Number(own.hdg)) % 360 + 540) % 360 - 180) : 0;
       fgCtx.save();
       fgCtx.translate(tx, ty);
-
-      // Flugzeug-Silhouette (Seitenansicht, schaut nach rechts)
-      fgCtx.fillStyle = '#00ccff';
-      fgCtx.strokeStyle = 'rgba(0,0,0,0.6)';
-      fgCtx.lineWidth = 0.5;
-
-      // Rumpf
-      fgCtx.beginPath();
-      fgCtx.ellipse(0, 0, 7, 2, 0, 0, Math.PI * 2);
-      fgCtx.fill();
-      fgCtx.stroke();
-
-      // Tragfläche (oben)
-      fgCtx.beginPath();
-      fgCtx.moveTo(-7, -1);
-      fgCtx.lineTo(5, -1);
-      fgCtx.lineTo(4, 1.5);
-      fgCtx.lineTo(-6, 1.5);
-      fgCtx.closePath();
-      fgCtx.fill();
-      fgCtx.stroke();
-
-      // Leitwerk (hinten oben)
-      fgCtx.beginPath();
-      fgCtx.moveTo(-7, -1);
-      fgCtx.lineTo(-4, -4);
-      fgCtx.lineTo(-2, -1);
-      fgCtx.closePath();
-      fgCtx.fill();
-      fgCtx.stroke();
-
-      // Relative Höhe
-      fgCtx.fillStyle = relAltColor;
-      fgCtx.font = gaEfbProfileFont(vpCanvasFont(fgCtx, 'bold 8px monospace'));
+      if (pres !== null && pres !== void 0 && pres.drawTrafficSide) {
+        pres.drawTrafficSide(fgCtx, pres.trafficSymbolKind(ac), {
+          fill: st.fill,
+          sizePx,
+          outlinePx,
+          flip: hdgDiff > 90,
+          alpha: (st.alpha || 1) * blink,
+          glow: st.glow || null
+        });
+      }
       fgCtx.textAlign = 'center';
-      gaEfbCanvasFillText(fgCtx, relAltStr, 0, -11);
-
-      // Callsign (wenn vorhanden)
-      if (ac.callsign) {
-        fgCtx.fillStyle = 'rgba(0, 200, 255, 0.75)';
-        fgCtx.font = gaEfbProfileFont(vpCanvasFont(fgCtx, '7px monospace'));
-        gaEfbCanvasFillText(fgCtx, ac.callsign, 0, 14);
+      fgCtx.lineJoin = 'round';
+      fgCtx.lineWidth = 3;
+      fgCtx.strokeStyle = 'rgba(0,0,0,0.9)';
+      fgCtx.font = gaEfbProfileFont(vpCanvasFont(fgCtx, 'bold 9px monospace'));
+      fgCtx.strokeText(relAltStr, 0, -sizePx * 0.32 - 3);
+      fgCtx.fillStyle = st.label;
+      gaEfbCanvasFillText(fgCtx, relAltStr, 0, -sizePx * 0.32 - 3);
+      var label = [entry.callsign, ac.m].filter(Boolean).join(' · ');
+      if (label) {
+        fgCtx.font = gaEfbProfileFont(vpCanvasFont(fgCtx, '8px monospace'));
+        fgCtx.strokeText(label, 0, sizePx * 0.32 + 9);
+        fgCtx.fillStyle = st.label;
+        gaEfbCanvasFillText(fgCtx, label, 0, sizePx * 0.32 + 9);
       }
       fgCtx.restore();
     }

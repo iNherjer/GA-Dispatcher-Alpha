@@ -202,3 +202,42 @@ test('a vertical switch changed during terrain I/O is respected before emitting 
   await f.tick(); settings.airspaceVertical=false; resolve(100); await flush();
   assert.equal(f.jobs.length,0);
 });
+
+test('traffic: warning on entering the alert level, "ausweichen" before a collision, switch off stays silent', async () => {
+  const settings = {};
+  const f = fixture({ getSettings: () => settings, data: { airspaces: async () => [], terrain: async () => 0 } });
+  // own aircraft flies east at 120 kt; contact comes head-on from the east, same altitude
+  const start = 100000;
+  const contactAt = (t) => [{ id: 'o7', lat: 0, lon: (3 - (t - start) / 1000 * 240 / 3600) / 60, alt: 1500, hdg: 270, gs: 120 }];
+  const levels = [];
+  for (let i = 0; i < 45; i++) {
+    const at = start + 1000 * (i + 1);
+    // traffic list refreshes every 5 s, positions extrapolated in between
+    const listAt = at - ((at - start) % 5000);
+    await f.tick({ lon: ((at - start) / 1000 * 120 / 3600) / 60, traffic: contactAt(listAt), trafficAt: listAt }, 1000);
+    for (const job of f.jobs.splice(0)) if (job.kind === 'traffic') levels.push([i, job.clips.join(' ')]);
+  }
+  assert.equal(levels.length, 2, JSON.stringify(levels));
+  assert.equal(levels[0][1], 'aw-achtung aw-verkehr aw-uhr-12 aw-gleiche-hoehe');
+  assert.equal(levels[1][1], 'aw-verkehr aw-ausweichen aw-verkehr aw-ausweichen');
+  const snapshot = f.engine.snapshot();
+  assert.equal(snapshot.capabilities.traffic, true);
+  assert.equal(snapshot.trafficActive, true);
+
+  settings.traffic = false;
+  const g = fixture({ getSettings: () => settings, data: { airspaces: async () => [], terrain: async () => 0 } });
+  for (let i = 0; i < 45; i++) {
+    const at = start + 1000 * (i + 1);
+    await g.tick({ lon: ((at - start) / 1000 * 120 / 3600) / 60, traffic: contactAt(at), trafficAt: at }, 1000);
+  }
+  assert.equal(g.jobs.filter(j => j.kind === 'traffic').length, 0);
+  assert.equal(g.engine.snapshot().trafficActive, false);
+  assert.ok(g.engine.snapshot().trafficAlerting.length <= 1, 'blinking still reported while sound is off');
+});
+
+test('traffic: stale contact list does not warn', async () => {
+  const f = fixture({ data: { airspaces: async () => [], terrain: async () => 0 } });
+  const near = [{ id: 'o8', lat: 0, lon: 0.005, alt: 1500, hdg: 0, gs: 0 }];
+  await f.tick({ traffic: near, trafficAt: 0 }, 1000);
+  assert.equal(f.jobs.filter(j => j.kind === 'traffic').length, 0);
+});

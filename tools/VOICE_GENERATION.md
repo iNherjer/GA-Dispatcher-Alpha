@@ -1,5 +1,22 @@
 # ElevenLabs Voice Packs
 
+## Verkehrswarnungen: neue Wortclips
+
+15 Keys in `tools/traffic-warning-voice-clips.mjs`: `aw-verkehr`, `aw-ausweichen`,
+`aw-gleiche-hoehe`, `aw-uhr-1` … `aw-uhr-12` („Ein Uhr“ … „Zwölf Uhr“). Alle drei
+Generatoren nehmen sie zusätzlich zu den vertikalen Clips auf.
+
+```bash
+node tools/generate-anna-vertical-voice-assets.mjs
+CL=aw-verkehr,aw-ausweichen,aw-gleiche-hoehe,aw-uhr-1,aw-uhr-2,aw-uhr-3,aw-uhr-4,aw-uhr-5,aw-uhr-6,aw-uhr-7,aw-uhr-8,aw-uhr-9,aw-uhr-10,aw-uhr-11,aw-uhr-12
+node tools/generate-macos-voice-pack.mjs --clips $CL
+node tools/generate-elevenlabs-voice-packs.mjs --only matilda,hannah,liam --clips $CL
+```
+
+Die beiden letzten schreiben `audio-warnings/voices/catalog.json` neu (nur
+Zeitstempel/Reihenfolge); wenn keine neue Stimme dazukommt, die Datei danach
+zurücksetzen. Details: `docs/Traffic Warnings.md`.
+
 ## Vertikale Luftraumwarnungen: neue Wortclips
 
 Anna ist die lokale macOS-Stimme, Matilda/Hannah/Liam sind ElevenLabs-Packs.

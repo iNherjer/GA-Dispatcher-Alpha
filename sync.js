@@ -20728,6 +20728,7 @@ const TRAFFIC_STALE_MS = 15000;  // ohne neue Liste verschwinden alle Kontakte
 let _liveTrafficReceivedAt = 0;
 
 const TRAFFIC_LEVEL_STYLE = {
+    resolve:   { fill: '#ff3b30', opacity: 1,    size: 1.25, label: '#ff6b60' },
     alert:     { fill: '#ffb000', opacity: 1,    size: 1.15, label: '#ffb000' },
     proximate: { fill: '#00ccff', opacity: 0.95, size: 1,    label: '#e8f6ff' },
     other:     { fill: '#7fdcff', opacity: 0.8,  size: 0.9,  label: '#cfeaf5' },
@@ -20780,6 +20781,10 @@ window.refreshTrafficIcons = function() {
     if (list.length) updateTrafficOnMap(list, window.lastLiveGpsPos?.alt);
 };
 
+function _trafficZIndex(level) {
+    return level === 'resolve' ? 6500 : level === 'alert' ? 6000 : level === 'ground' ? 4000 : 5000;
+}
+
 function _removeAllTrafficMarkers() {
     Object.values(liveTrafficMarkers).forEach(t => { try { t.marker.remove(); } catch (_) {} });
     liveTrafficMarkers = {};
@@ -20810,6 +20815,7 @@ function updateTrafficOnMap(aircraft, ownAlt) {
     for (const ac of aircraft || []) {
         if (!Number.isFinite(Number(ac?.lat)) || !Number.isFinite(Number(ac?.lon))) continue;
         const info = classify ? classify(ac, own) : { level: ac.gnd ? 'ground' : 'other', relAltFt: null };
+        const level = window.GAMapLivePresentation.trafficDisplayLevel(ac, info, window.vpTrafficAlertingIds);
         const labels = _trafficLabels(ac, info);
         const hdg = ac.hdg ?? 0;
         const kind = window.GAMapLivePresentation.trafficSymbolKind(ac);
@@ -20833,15 +20839,15 @@ function updateTrafficOnMap(aircraft, ownAlt) {
             existing.lat = ac.lat;
             existing.lon = ac.lon;
             existing.marker.setLatLng([ac.lat, ac.lon]);
-            if (existing.level !== info.level || existing.kind !== kind) {
+            if (existing.level !== level || existing.kind !== kind) {
                 // Stufe oder Symbolklasse gewechselt: Symbol neu zeichnen
-                existing.level = info.level;
+                existing.level = level;
                 existing.kind = kind;
                 existing.marker.setIcon(L.divIcon({
-                    html: _trafficIconHtml(hdg, info.level, labels, kind),
+                    html: _trafficIconHtml(hdg, level, labels, kind),
                     className: 'traffic-marker', iconSize: [0, 0], iconAnchor: [0, 0]
                 }));
-                existing.marker.setZIndexOffset(info.level === 'alert' ? 6000 : info.level === 'ground' ? 4000 : 5000);
+                existing.marker.setZIndexOffset(_trafficZIndex(level));
             } else {
                 const el = existing.marker.getElement();
                 if (el) {
@@ -20855,14 +20861,13 @@ function updateTrafficOnMap(aircraft, ownAlt) {
             }
         } else {
             const icon = L.divIcon({
-                html: _trafficIconHtml(hdg, info.level, labels, kind),
+                html: _trafficIconHtml(hdg, level, labels, kind),
                 className: 'traffic-marker', iconSize: [0, 0], iconAnchor: [0, 0]
             });
             const marker = L.marker([ac.lat, ac.lon], {
-                icon, interactive: false,
-                zIndexOffset: info.level === 'alert' ? 6000 : info.level === 'ground' ? 4000 : 5000
+                icon, interactive: false, zIndexOffset: _trafficZIndex(level)
             }).addTo(map);
-            liveTrafficMarkers[key] = { marker, lat: ac.lat, lon: ac.lon, level: info.level, kind };
+            liveTrafficMarkers[key] = { marker, lat: ac.lat, lon: ac.lon, level, kind };
         }
     }
 

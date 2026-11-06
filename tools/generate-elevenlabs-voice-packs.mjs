@@ -5,6 +5,7 @@ import os from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { VERTICAL_WARNING_CLIPS } from './vertical-warning-voice-clips.mjs';
+import { TRAFFIC_WARNING_CLIPS } from './traffic-warning-voice-clips.mjs';
 
 const ROOT = process.cwd();
 const VOICES_ROOT = path.join(ROOT, 'audio-warnings', 'voices');
@@ -100,7 +101,7 @@ const CLIP_SETS = {
 function getPackClips(pack) {
   const clipSetId = String(pack.clipSet || 'de').toLowerCase();
   const language = CLIP_SETS[clipSetId] ? clipSetId : 'de';
-  return [...CLIP_SETS[language], ...VERTICAL_WARNING_CLIPS[language].map(clip => ({
+  return [...CLIP_SETS[language], ...[...VERTICAL_WARNING_CLIPS[language], ...TRAFFIC_WARNING_CLIPS[language]].map(clip => ({
     ...clip, text: language === 'de' ? `Das nächste Wort lautet.\n\n${clip.text}.` : `The next word is.\n\n${clip.text}.`, trim: 'last'
   }))];
 }

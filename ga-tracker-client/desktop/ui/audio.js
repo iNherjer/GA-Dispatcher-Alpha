@@ -35,7 +35,9 @@
     $('audioEffectsEnabled').checked = audio.settings.effectsEnabled;
     $('navigationAudioSettings').hidden = !audio.warnings;
     $('audioAirspaceVertical').disabled = !audio.warnings?.capabilities?.verticalAirspace;
+    $('audioTraffic').disabled = !audio.warnings?.capabilities?.traffic;
     for (const [id, key] of [['audioReadFreq','readFreq'],['audioTerrain','terrain'],['audioAirspace','airspace'],['audioAirspaceVertical','airspaceVertical'],['audioWaypoint','waypoint']]) $(id).checked = audio.settings[key];
+    $('audioTraffic').checked = audio.settings.traffic !== false;
     $('audioPaxStyle').value = audio.settings.audioStyle || 'intercom_noise';
     $('audioWarningVoice').value = audio.settings.voicePack || '';
     $('audioPlaybackStatus').textContent = _dT(lastError || playbackText) || (_dT('Ausgabe: ') + audio.target.name + (audio.cloudState === 'pending' ? _dT(' · Cloud-Speicherung ausstehend') : ''));
@@ -51,7 +53,7 @@
   }
   $('audioTargetSelect').onchange = () => update({ target: { mode: 'pc' } });
   $('audioMasterVolume').onchange = () => update({ settings: { volume: Number($('audioMasterVolume').value) / 100 } });
-  for (const [id, key] of [['audioMasterEnabled','enabled'],['audioPaxEnabled','paxEnabled'],['audioEffectsEnabled','effectsEnabled'],['audioReadFreq','readFreq'],['audioTerrain','terrain'],['audioAirspace','airspace'],['audioAirspaceVertical','airspaceVertical'],['audioWaypoint','waypoint']]) {
+  for (const [id, key] of [['audioMasterEnabled','enabled'],['audioPaxEnabled','paxEnabled'],['audioEffectsEnabled','effectsEnabled'],['audioReadFreq','readFreq'],['audioTerrain','terrain'],['audioAirspace','airspace'],['audioAirspaceVertical','airspaceVertical'],['audioTraffic','traffic'],['audioWaypoint','waypoint']]) {
     $(id).onchange = () => update({ settings: { [key]: $(id).checked } });
   }
   $('audioPaxStyle').onchange = () => update({ settings: { audioStyle: $('audioPaxStyle').value } });

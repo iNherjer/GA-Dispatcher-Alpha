@@ -225,38 +225,63 @@ function filterTraffic(aircraft, own) {
 // 'proximate' within 6 NM and 1200 ft
 // 'other'     everything else in range
 const TRAFFIC_ALERT = { nowNm: 1.0, cpaNm: 0.5, cpaSec: 40, altFt: 600 };
+// Resolution ("Verkehr, ausweichen!"): predicted collision within 20 s.
+const TRAFFIC_RESOLVE = { nowNm: 0.3, nowAltFt: 300, cpaNm: 0.3, cpaSec: 20, altFt: 500 };
 const TRAFFIC_PROXIMATE = { nm: 6, altFt: 1200 };
 function trafficVelocityNmPerSec(hdg, gs) {
     const rad = (Number(hdg) || 0) * Math.PI / 180, speed = (Number(gs) || 0) / 3600;
     return { x: Math.sin(rad) * speed, y: Math.cos(rad) * speed };
 }
+// Clock position of the contact relative to the own heading (12 = ahead, 3 = right).
+function trafficClock(rx, ry, ownHdg) {
+    const bearing = (Math.atan2(rx, ry) * 180 / Math.PI + 360) % 360;
+    const relative = (bearing - (Number(ownHdg) || 0) + 720) % 360;
+    const hour = Math.round(relative / 30) % 12;
+    return hour === 0 ? 12 : hour;
+}
 function classifyTraffic(ac, own) {
-    if (!ac || ac.gnd) return { level: 'ground', distNm: null, relAltFt: null };
-    if (!own || !Number.isFinite(Number(own.lat)) || !Number.isFinite(Number(own.lon))) {
-        return { level: 'other', distNm: null, relAltFt: null };
-    }
+    const none = { distNm: null, relAltFt: null, resolve: false, tCpaSec: null, clock: null };
+    if (!ac || ac.gnd) return { level: 'ground', ...none };
+    if (!own || !Number.isFinite(Number(own.lat)) || !Number.isFinite(Number(own.lon))) return { level: 'other', ...none };
     const cosLat = Math.cos(Number(own.lat) * Math.PI / 180);
     const rx = (Number(ac.lon) - Number(own.lon)) * 60 * cosLat, ry = (Number(ac.lat) - Number(own.lat)) * 60;
     const distNm = Math.hypot(rx, ry);
     const relAltFt = Number.isFinite(Number(own.alt)) ? Number(ac.alt) - Number(own.alt) : null;
+    const clock = trafficClock(rx, ry, own.hdg);
+    const base = { distNm, relAltFt, resolve: false, tCpaSec: null, clock };
     // No warnings while the own aircraft sits on the ground.
-    if (own.onGround || relAltFt == null) return { level: 'other', distNm, relAltFt };
+    if (own.onGround || relAltFt == null) return { level: 'other', ...base };
     const absAlt = Math.abs(relAltFt);
-    if (distNm <= TRAFFIC_ALERT.nowNm && absAlt <= TRAFFIC_ALERT.altFt) return { level: 'alert', distNm, relAltFt };
     const va = trafficVelocityNmPerSec(ac.hdg, ac.gs), vo = trafficVelocityNmPerSec(own.hdg, own.gs);
     const vx = va.x - vo.x, vy = va.y - vo.y, v2 = vx * vx + vy * vy;
+    let tCpa = null, cpaNm = null, altAtCpa = null;
     if (v2 > 1e-9) {
-        const tCpa = -(rx * vx + ry * vy) / v2;
-        if (tCpa > 0 && tCpa <= TRAFFIC_ALERT.cpaSec) {
-            const cpaNm = Math.hypot(rx + vx * tCpa, ry + vy * tCpa);
-            const altAtCpa = relAltFt + ((Number(ac.vs) || 0) - (Number(own.vs) || 0)) * tCpa / 60;
-            if (cpaNm <= TRAFFIC_ALERT.cpaNm && Math.min(absAlt, Math.abs(altAtCpa)) <= TRAFFIC_ALERT.altFt) {
-                return { level: 'alert', distNm, relAltFt };
-            }
+        const t = -(rx * vx + ry * vy) / v2;
+        if (t > 0) {
+            tCpa = t;
+            cpaNm = Math.hypot(rx + vx * t, ry + vy * t);
+            altAtCpa = relAltFt + ((Number(ac.vs) || 0) - (Number(own.vs) || 0)) * t / 60;
         }
     }
-    if (distNm <= TRAFFIC_PROXIMATE.nm && absAlt <= TRAFFIC_PROXIMATE.altFt) return { level: 'proximate', distNm, relAltFt };
-    return { level: 'other', distNm, relAltFt };
+    const vertAtCpa = altAtCpa == null ? absAlt : Math.min(absAlt, Math.abs(altAtCpa));
+    const converging = (limit) => tCpa != null && tCpa <= limit.cpaSec && cpaNm <= limit.cpaNm && vertAtCpa <= limit.altFt;
+    const resolve = converging(TRAFFIC_RESOLVE)
+        || (distNm <= TRAFFIC_RESOLVE.nowNm && absAlt <= TRAFFIC_RESOLVE.nowAltFt && tCpa != null);
+    const result = { ...base, resolve, tCpaSec: tCpa == null ? null : Math.round(tCpa) };
+    if (resolve || (distNm <= TRAFFIC_ALERT.nowNm && absAlt <= TRAFFIC_ALERT.altFt) || converging(TRAFFIC_ALERT)) {
+        return { level: 'alert', ...result };
+    }
+    if (distNm <= TRAFFIC_PROXIMATE.nm && absAlt <= TRAFFIC_PROXIMATE.altFt) return { level: 'proximate', ...result };
+    return { level: 'other', ...result };
+}
+// What map and profile show: 'resolve' (red, fast blink), 'alert' (orange, blink),
+// or the plain level. Contacts the tracker currently warns about blink as well,
+// so every screen matches what was announced.
+function trafficDisplayLevel(ac, info, alertingIds) {
+    if (!ac || ac.gnd || info.level === 'ground') return 'ground';
+    if (info.resolve) return 'resolve';
+    if (info.level === 'alert' || (Array.isArray(alertingIds) && ac.id != null && alertingIds.indexOf(String(ac.id)) >= 0)) return 'alert';
+    return info.level;
 }
 // Top-down traffic symbols, nose up, drawn in a -16..16 box.
 // Kinds come from the tracker: heli, single, twin, jet, heavy ('' = unknown -> single).
@@ -346,6 +371,76 @@ function trafficSymbolSvg(kind, fill, sizePx, extraStyle, outlinePx) {
         + rotor
         + '</svg>';
 }
+// Side views for the vertical profile, nose to the right, in a -16..16 x -8..8 box.
+// Plain polygons (no Path2D), so the MSFS EFB browser draws them as well.
+const TRAFFIC_SIDE_SYMBOLS = {
+    single: [
+        [[-14,-1],[-6,-2.2],[4,-2.6],[9,-2.2],[12,-1],[13,.2],[12,1.4],[6,2],[-6,1.2],[-14,0]],
+        [[-1.5,-3.8],[5.5,-3.8],[5.5,-2.5],[-1.5,-2.5]],
+        [[-14,-1],[-15.6,-7],[-12.6,-7],[-9.4,-1.7]],
+        [[-15.2,-.7],[-9,-.7],[-9,.4],[-15.2,.4]],
+        [[13.3,-3.6],[14.3,-3.6],[14.3,3.8],[13.3,3.8]]
+    ],
+    twin: [
+        [[-14,-1],[-6,-2.3],[5,-2.5],[10,-2],[13.5,-.6],[14.5,.4],[13,1.4],[6,1.9],[-6,1.3],[-14,0]],
+        [[1.5,-.6],[8.5,-1],[9.8,.3],[8.5,1.7],[1.5,1.5]],
+        [[-2.5,1.3],[5,1.3],[5,2.3],[-2.5,2.3]],
+        [[-14,-1],[-16,-7],[-13.6,-7],[-10,-1.5]],
+        [[-17.2,-7.6],[-11.4,-7.6],[-11.4,-6.5],[-17.2,-6.5]],
+        [[9.9,-3],[10.8,-3],[10.8,3.4],[9.9,3.4]]
+    ],
+    jet: [
+        [[-15,-1.4],[-10,-2.4],[10,-2.4],[13,-1.8],[15.6,0],[13,1.8],[10,2.2],[-10,2.2],[-15,.6]],
+        [[-15,-1.4],[-16.2,-8],[-13.6,-8],[-9,-2.3]],
+        [[-15.8,-.2],[-10.8,-.2],[-10.8,.9],[-15.8,.9]],
+        [[-4,1.2],[6,1.2],[4,2.5],[-4.6,2.5]],
+        [[-.4,2.4],[6,2.4],[6.6,3.4],[6,4.6],[-.4,4.6]]
+    ],
+    heavy: [
+        [[-15,-1.8],[-10,-3.2],[4,-3.2],[8,-4],[12,-3.2],[14,-1.6],[15.8,.2],[13.4,2.2],[10,2.8],[-10,2.8],[-15,.8]],
+        [[-15,-1.8],[-16.4,-8.4],[-13.4,-8.4],[-8.6,-3]],
+        [[-16,-.2],[-10.6,-.2],[-10.6,1],[-16,1]],
+        [[-5,1.6],[6,1.6],[4,3],[-5.6,3]],
+        [[-1,3],[5.6,3],[6.2,4],[5.6,5.2],[-1,5.2]]
+    ],
+    heli: [
+        [[-3.6,-1.8],[1.6,-3.4],[6,-2.8],[8.4,-.2],[6.6,2.6],[-2,2.6],[-4.4,1]],
+        [[-4,-.8],[-14,-1.4],[-14,.2],[-4,1]],
+        [[-14,-1.4],[-15.6,-5.2],[-13,-5.2],[-12,-1.2]],
+        [[.4,-3.4],[1.4,-3.4],[1.4,-4.8],[.4,-4.8]],
+        [[-11.5,-5.4],[13.5,-5.4],[13.5,-4.7],[-11.5,-4.7]],
+        [[-4,4.1],[7,4.1],[7.6,3.5],[8.2,4.1],[7,5],[-4,5]]
+    ]
+};
+// Draws one side-view symbol centred on (0,0) of the current canvas transform.
+// opts: { fill, sizePx, outlinePx, flip, alpha, glow }
+function drawTrafficSide(ctx, kind, opts) {
+    const polys = TRAFFIC_SIDE_SYMBOLS[kind] || TRAFFIC_SIDE_SYMBOLS.single;
+    const o = opts || {};
+    const scale = ((o.sizePx || 22) * (kind === 'heavy' ? 1.25 : 1)) / 32;
+    ctx.save();
+    ctx.scale(o.flip ? -scale : scale, scale);
+    ctx.globalAlpha = o.alpha == null ? 1 : o.alpha;
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = Math.max(0, Number(o.outlinePx) || 0) * 2 / scale;
+    ctx.fillStyle = o.fill || '#00ccff';
+    if (o.glow) { ctx.shadowColor = o.glow; ctx.shadowBlur = 10; }
+    for (const poly of polys) {
+        ctx.beginPath();
+        poly.forEach(function(p, i) { if (i) ctx.lineTo(p[0], p[1]); else ctx.moveTo(p[0], p[1]); });
+        ctx.closePath();
+        if (ctx.lineWidth > 0) ctx.stroke();
+    }
+    ctx.shadowBlur = 0;
+    for (const poly of polys) {
+        ctx.beginPath();
+        poly.forEach(function(p, i) { if (i) ctx.lineTo(p[0], p[1]); else ctx.moveTo(p[0], p[1]); });
+        ctx.closePath();
+        ctx.fill();
+    }
+    ctx.restore();
+}
 // Standalone live breadcrumb: skip movement <=20 m, trim 12000 to 8000.
 const DIRECT_LINE_STYLE = { color: '#ff3fd9', weight: 2, opacity: 0.9, interactive: false };
 const TRAIL_STYLE = { color: '#1a4bb3', weight: 3, opacity: 0.7, dashArray: '5, 10', interactive: false };
@@ -363,5 +458,5 @@ function restoreTrail(value, sessionId) {
         && Math.abs(p[0]) <= 90 && Math.abs(p[1]) <= 180)) return [];
     return value.points.map(p => p.slice());
 }
-return { setText, setAttribute, setStyle, createEfbSvgRenderer, aircraftHtml, createCompass, filterTraffic, classifyTraffic, trafficSymbolKind, trafficSymbolSvg, DIRECT_LINE_STYLE, TRAIL_STYLE, appendTrailPoint, restoreTrail };
+return { setText, setAttribute, setStyle, createEfbSvgRenderer, aircraftHtml, createCompass, filterTraffic, classifyTraffic, trafficClock, trafficDisplayLevel, trafficSymbolKind, trafficSymbolSvg, drawTrafficSide, DIRECT_LINE_STYLE, TRAIL_STYLE, appendTrailPoint, restoreTrail };
 }));

@@ -22,7 +22,7 @@
   }
   var base = cockpit.baseUrl, captionEffect = '';
   function caption(job) {
-    if (job && (job.clips || ['airspace', 'airspaceVertical', 'terrain', 'waypoint'].indexOf(job.kind) >= 0)) return;
+    if (job && (job.clips || ['airspace', 'airspaceVertical', 'terrain', 'waypoint', 'traffic'].indexOf(job.kind) >= 0)) return;
     if (!job || captionEffect === job.effectId) return;
     captionEffect = job.effectId;
     root.dispatchEvent(new root.CustomEvent('ga:tracker-voice-playback', { detail: job }));
@@ -133,7 +133,7 @@
       if (['clear', 'intercom', 'intercom_noise'].indexOf(savedStyle) < 0) savedStyle = 'intercom_noise';
       var migrated = { audioStyle: savedStyle };
       if (state.revision === 0) {
-        [['awm_warn_terrain','terrain'],['awm_warn_airspace','airspace'],['awm_warn_airspace_vertical','airspaceVertical'],['awm_read_freq','readFreq'],['awm_warn_wp','waypoint'],['awm_pax_voice','paxEnabled'],['awm_audio_effects','effectsEnabled']].forEach(function(entry) {
+        [['awm_warn_terrain','terrain'],['awm_warn_airspace','airspace'],['awm_warn_airspace_vertical','airspaceVertical'],['awm_warn_traffic','traffic'],['awm_read_freq','readFreq'],['awm_warn_wp','waypoint'],['awm_pax_voice','paxEnabled'],['awm_audio_effects','effectsEnabled']].forEach(function(entry) {
           try { var value = root.localStorage.getItem(entry[0]); if (value !== null && (entry[1] !== 'paxEnabled' || value === '0' || value === '1')) migrated[entry[1]] = value === '1'; } catch (_) {}
         });
       }
@@ -242,7 +242,7 @@
   var bindings = { awmSetVolume: ['volume', function (v) { return Number(v) / 100; }],
     paxVoiceSetAudioStyle: ['audioStyle', String], paxVoiceSetEnabled: ['paxEnabled', Boolean], paxVoiceSetAudioEffectsEnabled: ['effectsEnabled', Boolean] };
   Object.assign(bindings, { awmSetVoice: ['voicePack', String], awmSetReadFreq: ['readFreq', Boolean],
-    awmSetTerrainWarn: ['terrain', Boolean], awmSetAirspaceWarn: ['airspace', Boolean], awmSetVerticalAirspaceWarn: ['airspaceVertical', Boolean], awmSetWpAlert: ['waypoint', Boolean] });
+    awmSetTerrainWarn: ['terrain', Boolean], awmSetAirspaceWarn: ['airspace', Boolean], awmSetVerticalAirspaceWarn: ['airspaceVertical', Boolean], awmSetTrafficWarn: ['traffic', Boolean], awmSetWpAlert: ['waypoint', Boolean] });
   var seenWarnings = new Set(), warningGeometry = new Map();
   async function highlightWarning(warning) {
     var previous = warningGeometry.get(warning.id);
@@ -264,9 +264,13 @@
     while (warningGeometry.size > 32) warningGeometry.delete(warningGeometry.keys().next().value);
   }
   function displayWarnings(snapshot) {
-    if (!snapshot || snapshot.schema !== 'ga.navigation-warnings.v1' || (!snapshot.active && !snapshot.verticalActive)) return;
+    if (!snapshot || snapshot.schema !== 'ga.navigation-warnings.v1') return;
+    // Map/profile blinking follows the tracker's alerting contacts, also with sound off.
+    if (typeof root.awmTrackerTrafficAlerting === 'function') root.awmTrackerTrafficAlerting(snapshot.capabilities && snapshot.capabilities.traffic ? (snapshot.trafficAlerting || []) : null);
+    if (!snapshot.active && !snapshot.verticalActive && !snapshot.trafficActive) return;
     (snapshot.events || []).forEach(function(warning) {
-      if (!snapshot.active && warning.kind !== 'airspaceVertical') return;
+      // Vertical airspace and traffic warnings stay tracker-owned during web-authoritative missions.
+      if (!snapshot.active && warning.kind !== 'airspaceVertical' && warning.kind !== 'traffic') return;
       if (warning.expiresAt < Date.now()) return;
       if (!seenWarnings.has(warning.id)) {
         if (typeof root.awmDisplayTrackerWarning !== 'function' || root.awmDisplayTrackerWarning(warning) === false) return;
@@ -282,7 +286,8 @@
     originals[name] = root[name];
     root[name] = function (value) {
       var verticalControl = name === 'awmSetVerticalAirspaceWarn' && state && state.warnings && state.warnings.capabilities && state.warnings.capabilities.verticalAirspace;
-      if (!isActive() && !verticalControl) return typeof originals[name] === 'function' ? originals[name].apply(this, arguments) : undefined;
+      var trafficControl = name === 'awmSetTrafficWarn' && state && state.warnings && state.warnings.capabilities && state.warnings.capabilities.traffic;
+      if (!isActive() && !verticalControl && !trafficControl) return typeof originals[name] === 'function' ? originals[name].apply(this, arguments) : undefined;
       var settings = {}; settings[bindings[name][0]] = bindings[name][1](value);
       if (name === 'awmSetVolume') {
         // Keep the existing local warning gain in sync while warning triggers remain in the App.
@@ -360,10 +365,14 @@
     uiProperty(verticalToggle, 'disabled', !(state.warnings && state.warnings.capabilities && state.warnings.capabilities.verticalAirspace));
     uiProperty(verticalToggle, 'checked', state.settings.airspaceVertical !== false);
     uiProperty(verticalToggle, 'title', _aT('Benötigt einen Tracker mit vertikalen Luftraumwarnungen.'));
+    var trafficToggle = root.document.getElementById('awmTrafficWarnCheck');
+    uiProperty(trafficToggle, 'disabled', !(state.warnings && state.warnings.capabilities && state.warnings.capabilities.traffic));
+    uiProperty(trafficToggle, 'checked', state.settings.traffic !== false);
+    uiProperty(trafficToggle, 'title', _aT('Benötigt Tracker v617 oder neuer.'));
     if (!enabled) return;
     // Keep standalone state/diagnostics aligned with the authoritative toggles,
     // without starting another warning detector or changing the selected output.
-    [['awmSetTerrainWarn','terrain','awm_warn_terrain'],['awmSetAirspaceWarn','airspace','awm_warn_airspace'],['awmSetVerticalAirspaceWarn','airspaceVertical','awm_warn_airspace_vertical'],['awmSetReadFreq','readFreq','awm_read_freq'],['awmSetWpAlert','waypoint','awm_warn_wp']].forEach(function(entry) {
+    [['awmSetTerrainWarn','terrain','awm_warn_terrain'],['awmSetAirspaceWarn','airspace','awm_warn_airspace'],['awmSetVerticalAirspaceWarn','airspaceVertical','awm_warn_airspace_vertical'],['awmSetTrafficWarn','traffic','awm_warn_traffic'],['awmSetReadFreq','readFreq','awm_read_freq'],['awmSetWpAlert','waypoint','awm_warn_wp']].forEach(function(entry) {
       try { if (typeof originals[entry[0]] === 'function' && root.localStorage.getItem(entry[2]) !== (state.settings[entry[1]] ? '1' : '0')) originals[entry[0]](state.settings[entry[1]]); } catch (_) {}
     });
     var styleSelect = root.document.getElementById('awmPaxAudioStyleSelect');
@@ -374,7 +383,7 @@
       btn.style.border = '1px solid ' + (selected ? '#4da6ff' : '#444');
       btn.style.background = selected ? '#1a3a5c' : '#1e1e1e'; btn.style.color = selected ? '#4da6ff' : '#ccc';
     });
-    [['awmPaxVoiceCheck','paxEnabled'],['awmAudioEffectsCheck','effectsEnabled'],['awmReadFreqCheck','readFreq'],['awmTerrainWarnCheck','terrain'],['awmAirspaceWarnCheck','airspace'],['awmVerticalAirspaceWarnCheck','airspaceVertical'],['awmWpAlertCheck','waypoint']].forEach(function (entry) { renderCheckbox(entry[0], visibleSetting(entry[1])); });
+    [['awmPaxVoiceCheck','paxEnabled'],['awmAudioEffectsCheck','effectsEnabled'],['awmReadFreqCheck','readFreq'],['awmTerrainWarnCheck','terrain'],['awmAirspaceWarnCheck','airspace'],['awmVerticalAirspaceWarnCheck','airspaceVertical'],['awmTrafficWarnCheck','traffic'],['awmWpAlertCheck','waypoint']].forEach(function (entry) { renderCheckbox(entry[0], visibleSetting(entry[1])); });
     if (local) root.document.querySelectorAll('#mapVoiceMenu input[type="checkbox"]').forEach(function(input) { if (input.id) renderCheckbox(input.id, input.checked); });
     var slider = root.document.getElementById('awmVolumeSlider'), label = root.document.getElementById('awmVolumeLabel');
     uiProperty(slider, 'value', Math.round(state.settings.volume * 100));

@@ -225,6 +225,18 @@ let _awmAirspaceWarn = (localStorage.getItem('awm_warn_airspace') !== '0');
 window.awmSetVerticalAirspaceWarn = function(on) {
     localStorage.setItem('awm_warn_airspace_vertical', on ? '1' : '0');
 };
+// Traffic warnings are tracker-owned; without a tracker only the choice is kept.
+window.awmSetTrafficWarn = function(on) {
+    localStorage.setItem('awm_warn_traffic', on ? '1' : '0');
+};
+// Contacts the tracker currently warns about (null: tracker without traffic warnings).
+window.awmTrackerTrafficAlerting = function(ids) {
+    const next = Array.isArray(ids) ? ids.map(String) : null;
+    const prev = window.vpTrafficAlertingIds;
+    const same = (prev === null && next === null) || (Array.isArray(prev) && Array.isArray(next) && prev.join() === next.join());
+    window.vpTrafficAlertingIds = next;
+    if (!same && typeof window.refreshTrafficIcons === 'function') window.refreshTrafficIcons();
+};
 window.awmSetReadFreq = function(on) {
     _awmReadFreq = !!on;
     localStorage.setItem('awm_read_freq', on ? '1' : '0');

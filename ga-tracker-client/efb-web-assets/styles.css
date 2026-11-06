@@ -13086,6 +13086,18 @@ body.theme-win95.win95-main-minimized .mission-main-notification {
     border: none !important;
     box-shadow: none !important;
 }
+/* Traffic warning: orange blink; "ausweichen" (collision within 20 s): red, faster */
+@keyframes trfBlinkAlert {
+    0%, 100% { opacity: 1; filter: drop-shadow(0 0 2px #000) drop-shadow(0 0 7px rgba(255, 176, 0, 0.95)); }
+    50%      { opacity: 0.25; filter: drop-shadow(0 0 1px #000); }
+}
+@keyframes trfBlinkResolve {
+    0%, 100% { opacity: 1; filter: drop-shadow(0 0 2px #000) drop-shadow(0 0 9px rgba(255, 59, 48, 1)); }
+    50%      { opacity: 0.2; filter: drop-shadow(0 0 1px #000); }
+}
+.trf-wrap.trf-alert .trf-svg { animation: trfBlinkAlert 0.9s ease-in-out infinite; }
+.trf-wrap.trf-resolve .trf-svg { animation: trfBlinkResolve 0.45s ease-in-out infinite; }
+.trf-wrap.trf-alert .trf-alt, .trf-wrap.trf-resolve .trf-alt { font-weight: 800; }
 
 /* ── AWM Frequenz-Banner ─────────────────────────────────────────────────── */
 #awmFreqBanner {

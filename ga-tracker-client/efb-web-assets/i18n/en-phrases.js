@@ -653,6 +653,7 @@
     " · Cloud-Speicherung ausstehend": " · cloud save pending",
     "Warnungsdaten veraltet": "Warning data outdated",
     "Benötigt einen Tracker mit vertikalen Luftraumwarnungen.": "Needs a tracker with vertical airspace warnings.",
+    "Benötigt Tracker v617 oder neuer.": "Requires tracker v617 or newer.",
     "Aus = alle Multitool-Warnungen, Missions-/Story-Stimmen und Audioeffekte stumm. Gilt gemeinsam für alle verbundenen Geräte; Ausgabe auf dem gewählten Gerät.": "Off = all Multitool warnings, mission/story voices and audio effects muted. Applies to all connected devices together; output on the chosen device.",
     // EFB host (ga-tracker-client/tracker-efb-kartentisch-host.js)
     "Schriftgröße": "Font size",

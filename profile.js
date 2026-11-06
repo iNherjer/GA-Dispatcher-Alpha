@@ -8585,7 +8585,7 @@ function vpProjectTrafficOnRoute(elevData) {
             if (d < bestDist) { bestDist = d; bestDistNM = ep.distNM; }
         }
         if (bestDist <= MAX_LAT_NM) {
-            result.push({ id: ac.id, callsign: ac.callsign, projDistNM: bestDistNM, altFt: ac.alt, lateralNM: bestDist });
+            result.push({ ac, id: ac.id, callsign: ac.cs || ac.callsign, projDistNM: bestDistNM, altFt: ac.alt, lateralNM: bestDist });
         }
     }
     return result;
@@ -8611,7 +8611,7 @@ function vpProjectTrafficOnHeading() {
         if (cross > MAX_LAT_NM || along < minAlongNM || along > maxAlongNM) continue;
         // Im HDG-Modus: distNM speichert Minuten (gleich wie vpHdgElevData)
         const timeMin = VP_HDG_LOOKBACK_MIN + (along / (gs / 60));
-        result.push({ id: ac.id, callsign: ac.callsign, projDistNM: timeMin, altFt: ac.alt, lateralNM: cross });
+        result.push({ ac, id: ac.id, callsign: ac.cs || ac.callsign, projDistNM: timeMin, altFt: ac.alt, lateralNM: cross });
     }
     return result;
 }
@@ -8623,50 +8623,64 @@ function vpDrawTrafficInProfile(fgCtx, xOf, yOf, elevData, isHdgMode, viewMinX, 
     if (!traffic.length) return;
 
     const ownAlt = (window.lastLiveGpsPos?.alt) ?? vpLiveAltFt ?? 0;
+    const pres = window.GAMapLivePresentation;
+    const pos = window.lastLiveGpsPos || {}, flight = window.lastLiveFlightData || {};
+    const own = { lat: pos.lat, lon: pos.lon, alt: ownAlt, hdg: pos.hdg,
+        gs: Number(flight.gsKts) || Number(pos.gs) || 0, vs: Number(flight.vsFpm) || 0, onGround: flight.onGround === true };
+    const iconSettings = typeof window.getTrafficIconSettings === 'function' ? window.getTrafficIconSettings() : null;
+    // Side views are flat; a little wider than the top views reads the same size.
+    const sizePx = Math.max(20, Math.round((Number(iconSettings?.size) || 28) * 1.25));
+    const outlinePx = Number.isFinite(Number(iconSettings?.outline)) ? Number(iconSettings.outline) : 1.5;
+    const STYLE = {
+        resolve:   { fill: '#ff3b30', label: '#ff6b60', glow: 'rgba(255,59,48,0.95)', period: 450 },
+        alert:     { fill: '#ffb000', label: '#ffb000', glow: 'rgba(255,176,0,0.9)', period: 900 },
+        proximate: { fill: '#00ccff', label: '#e8f6ff' },
+        other:     { fill: '#7fdcff', label: '#cfeaf5', alpha: 0.85 }
+    };
+    const t = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
 
-    for (const ac of traffic) {
-        const tx = xOf(ac.projDistNM);
-        const ty = yOf(ac.altFt);
+    for (const entry of traffic) {
+        const tx = xOf(entry.projDistNM);
+        const ty = yOf(entry.altFt);
         if (tx < viewMinX - 30 || tx > viewMaxX + 30) continue;
+        const ac = entry.ac || entry;
+        const info = pres?.classifyTraffic ? pres.classifyTraffic(ac, own) : { level: 'other' };
+        const level = pres?.trafficDisplayLevel ? pres.trafficDisplayLevel(ac, info, window.vpTrafficAlertingIds) : info.level;
+        const st = STYLE[level] || STYLE.other;
+        const blink = st.period ? 0.25 + 0.75 * (0.5 + 0.5 * Math.cos(2 * Math.PI * t / st.period)) : 1;
 
-        const relAlt = Math.round((ac.altFt - ownAlt) / 100) * 100;
-        const relAltStr = (relAlt >= 0 ? '+' : '') + relAlt;
-        const relAltColor = Math.abs(relAlt) < 300 ? '#ff8800' : relAlt > 0 ? '#44ff44' : '#888888';
+        const relAlt = Math.round((entry.altFt - ownAlt) / 100) * 100;
+        const vsFpm = Number(ac.vs) || 0;
+        const relAltStr = (relAlt >= 0 ? '+' : '') + relAlt + (vsFpm > 500 ? '↑' : vsFpm < -500 ? '↓' : '');
+
+        // Contacts flying against the own direction face left.
+        const hdgDiff = Number.isFinite(Number(ac.hdg)) && Number.isFinite(Number(own.hdg))
+            ? Math.abs(((Number(ac.hdg) - Number(own.hdg)) % 360 + 540) % 360 - 180) : 0;
 
         fgCtx.save();
         fgCtx.translate(tx, ty);
+        if (pres?.drawTrafficSide) {
+            pres.drawTrafficSide(fgCtx, pres.trafficSymbolKind(ac), {
+                fill: st.fill, sizePx, outlinePx, flip: hdgDiff > 90,
+                alpha: (st.alpha || 1) * blink, glow: st.glow || null
+            });
+        }
 
-        // Flugzeug-Silhouette (Seitenansicht, schaut nach rechts)
-        fgCtx.fillStyle = '#00ccff';
-        fgCtx.strokeStyle = 'rgba(0,0,0,0.6)';
-        fgCtx.lineWidth = 0.5;
-
-        // Rumpf
-        fgCtx.beginPath();
-        fgCtx.ellipse(0, 0, 7, 2, 0, 0, Math.PI * 2);
-        fgCtx.fill(); fgCtx.stroke();
-
-        // Tragfläche (oben)
-        fgCtx.beginPath();
-        fgCtx.moveTo(-7, -1); fgCtx.lineTo(5, -1); fgCtx.lineTo(4, 1.5); fgCtx.lineTo(-6, 1.5);
-        fgCtx.closePath(); fgCtx.fill(); fgCtx.stroke();
-
-        // Leitwerk (hinten oben)
-        fgCtx.beginPath();
-        fgCtx.moveTo(-7, -1); fgCtx.lineTo(-4, -4); fgCtx.lineTo(-2, -1);
-        fgCtx.closePath(); fgCtx.fill(); fgCtx.stroke();
-
-        // Relative Höhe
-        fgCtx.fillStyle = relAltColor;
-        fgCtx.font = vpCanvasFont(fgCtx, 'bold 8px monospace');
         fgCtx.textAlign = 'center';
-        fgCtx.fillText(relAltStr, 0, -11);
+        fgCtx.lineJoin = 'round';
+        fgCtx.lineWidth = 3;
+        fgCtx.strokeStyle = 'rgba(0,0,0,0.9)';
+        fgCtx.font = vpCanvasFont(fgCtx, 'bold 9px monospace');
+        fgCtx.strokeText(relAltStr, 0, -sizePx * 0.32 - 3);
+        fgCtx.fillStyle = st.label;
+        fgCtx.fillText(relAltStr, 0, -sizePx * 0.32 - 3);
 
-        // Callsign (wenn vorhanden)
-        if (ac.callsign) {
-            fgCtx.fillStyle = 'rgba(0, 200, 255, 0.75)';
-            fgCtx.font = vpCanvasFont(fgCtx, '7px monospace');
-            fgCtx.fillText(ac.callsign, 0, 14);
+        const label = [entry.callsign, ac.m].filter(Boolean).join(' · ');
+        if (label) {
+            fgCtx.font = vpCanvasFont(fgCtx, '8px monospace');
+            fgCtx.strokeText(label, 0, sizePx * 0.32 + 9);
+            fgCtx.fillStyle = st.label;
+            fgCtx.fillText(label, 0, sizePx * 0.32 + 9);
         }
 
         fgCtx.restore();

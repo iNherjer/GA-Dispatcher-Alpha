@@ -1469,6 +1469,12 @@
                                 onchange="awmSetVerticalAirspaceWarn(this.checked)">
                             <span data-i18n="map.voice.verticalWarn">↕️ Vertikale Luftraumwarnungen</span>
                         </label>
+                        <label class="pb-btn" style="display:flex; width:100%; margin:0 0 6px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
+                            <input type="checkbox" id="awmTrafficWarnCheck" checked disabled title="Benötigt Tracker v617 oder neuer." data-i18n-title="map.voice.trafficNeedsTracker"
+                                style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
+                                onchange="awmSetTrafficWarn(this.checked)">
+                            <span data-i18n="map.voice.trafficWarn">✈️ Verkehrswarnungen</span>
+                        </label>
                         <label class="pb-btn" style="display:flex; width:100%; margin:0 0 8px 0; text-align:left; align-items:center; gap:8px; cursor:pointer;">
                             <input type="checkbox" id="awmWpAlertCheck" checked
                                 style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer; flex-shrink:0;"
@@ -3176,6 +3182,8 @@
         const verticalSaved = localStorage.getItem('awm_warn_airspace_vertical');
         const verticalCheck = document.getElementById('awmVerticalAirspaceWarnCheck');
         if (verticalCheck) verticalCheck.checked = verticalSaved !== '0';
+        const trafficCheck = document.getElementById('awmTrafficWarnCheck');
+        if (trafficCheck) trafficCheck.checked = localStorage.getItem('awm_warn_traffic') !== '0';
         const wpSaved = localStorage.getItem('awm_warn_wp');
         if (wpSaved !== null) {
             const cb = document.getElementById('awmWpAlertCheck');

@@ -5,6 +5,7 @@ import os from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { VERTICAL_WARNING_CLIPS } from './vertical-warning-voice-clips.mjs';
+import { TRAFFIC_WARNING_CLIPS } from './traffic-warning-voice-clips.mjs';
 
 const run = promisify(execFile);
 const outputDir = path.join(process.cwd(), 'audio-warnings');
@@ -16,7 +17,7 @@ async function main() {
   const temporary = await fs.mkdtemp(path.join(os.tmpdir(), 'anna-vertical-'));
   await fs.mkdir(outputDir, { recursive: true });
   try {
-    for (const clip of VERTICAL_WARNING_CLIPS.de) {
+    for (const clip of [...VERTICAL_WARNING_CLIPS.de, ...TRAFFIC_WARNING_CLIPS.de]) {
       const output = path.join(outputDir, `${clip.key}.m4a`);
       if (!force && await fs.stat(output).then(() => true, () => false)) continue;
       const source = path.join(temporary, `${clip.key}.aiff`);

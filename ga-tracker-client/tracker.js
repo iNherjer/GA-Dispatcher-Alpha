@@ -140,8 +140,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v616';
-const TRACKER_VERSION_CODE = 616;
+const TRACKER_VERSION = 'v617';
+const TRACKER_VERSION_CODE = 617;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -5690,7 +5690,8 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       const point = patch.snapshot, flight = point.flight || {};
       navigationWarnings.observe({ lat: point.lat, lon: point.lon, alt: point.alt, hdg: point.hdg,
         gs: flight.gsKts, vs: flight.vsFpm, agl: flight.aglFt, pressureAltitudeFt: flight.pressureAltitudeFt,
-        onGround: flight.onGround, paused: flight.simPaused || flight.simRunning === 0 });
+        onGround: flight.onGround, paused: flight.simPaused || flight.simRunning === 0,
+        traffic: Array.isArray(point.traffic) ? point.traffic : null, trafficAt: point.trafficAt });
     }
     if (Object.hasOwn(patch, 'missionSnapshot')) _lastEfbMissionSnapshot = patch.missionSnapshot && typeof patch.missionSnapshot === 'object' ? patch.missionSnapshot : null;
     if (Object.hasOwn(patch, 'payloadSnapshot')) _lastPayloadSnapshot = patch.payloadSnapshot && typeof patch.payloadSnapshot === 'object' ? patch.payloadSnapshot : null;
@@ -7485,6 +7486,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                     localOnly: now - lastSent < SEND_INTERVAL_MS,
                     snapshot: {
                       traffic: latestEfbTrafficSnapshot,
+                      trafficAt: latestEfbTrafficAt,
                       capturedAt: now,
                       lat,
                       lon,
@@ -7720,6 +7722,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       const TRAFFIC_MAX_GROUND = 20;
       let trafficBuffer = {};
       let latestEfbTrafficSnapshot = []; // Retained for EFB polling; no additional relay traffic.
+      let latestEfbTrafficAt = 0; // when the positions above were requested (traffic warnings extrapolate from it)
       let latestTrafficSnapshot = null; // wird beim nächsten GPS-Tick eingebettet (auch leer)
       let ownLat = 0, ownLon = 0; // wird aus GPS-Tick aktualisiert
       let previousTrafficIds = new Set();
@@ -7788,10 +7791,12 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
           trafficBuffer = {};
           latestTrafficSnapshot = null;
           latestEfbTrafficSnapshot = [];
+          latestEfbTrafficAt = 0;
           latestGroundTrafficSnapshot = [];
           return;
         }
         trafficBuffer = {};
+        const requestedAt = Date.now();
         // SIMCONNECT_SIMOBJECT_TYPE_ALL = 1, Radius 50 NM = 92600m
         handle.requestDataOnSimObjectType(TRAFFIC_REQ_ID, TRAFFIC_DEF_ID, 92600, 1);
 
@@ -7828,6 +7833,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
 
           latestTrafficSnapshot = shown;
           latestEfbTrafficSnapshot = shown;
+          latestEfbTrafficAt = requestedAt;
 
           const ids = new Set(shown.map(ac => ac.id));
           const now = Date.now();

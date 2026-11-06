@@ -31,6 +31,14 @@ _Derzeit keine offenen Einträge._
 
 ## Ausgeliefert
 
+### 2026-11-06 · Verkehrswarnungen (Ansage, Ausweichen, Blinken, Schalter) — ausgeliefert in Tracker v617 Alpha / Desktop 1.6.40 / Web v2349 (06.11.2026)
+- **Artefakt:** Worker (deployed), Web mit 75 Clips, Tracker-EXE, Desktop-App
+- **Dateien:** `traffic-warning-core.js`, `map-live-presentation.js`, `navigation-warning-audio.js`, `tracker-navigation-warnings.js`, `tracker-voice-service.js`, `tracker-audio-*.js`, `tracker.js`, Desktop `ui/audio.js`/`index.html`, Worker `audio-settings.mjs`, Web `sync.js`, `profile.js`, `taws.js`, `styles.css`, `index.html`, `audio-warnings/**/aw-{verkehr,ausweichen,gleiche-hoehe,uhr-*}`
+- **Was:** Verkehrswarnung mit Uhrzeit und Höhe, „Verkehr, ausweichen!“ bei Kollision in 20 s, Blinken auf Karte/Höhenband, eigener Schalter.
+- **Tests:** siehe `docs/Tracker-v617-Release.md`.
+- **Doku beim Release:** `docs/Traffic Warnings.md`, `docs/Tracker-v617-Release.md`.
+- **Pruefen im Feld:** Ansage bei KI-Verkehr, Uhrzeit-Richtung, Ausweichen bei Gegenverkehr, Schalter, Blinken.
+
 ### 2026-11-05 · Traffic-Anzeige neu (Geisterkontakte, Symbole, Warnstufen) — ausgeliefert in Tracker v616 Alpha / Web v2347 (05.11.2026)
 - **Artefakt:** Tracker-EXE (Engine + EFB-Dateien); Web live mit diesem Push
 - **Dateien:** `tracker.js`, `tracker-efb-kartentisch-host.js`, `tracker-efb-web-client.js`, `efb-web-assets/*` (Sync); Web: `sync.js`, `map-live-presentation.js`, `map-display-controls.js`, `index.html`, `i18n/en.js`

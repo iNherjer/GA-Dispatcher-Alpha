@@ -65,6 +65,7 @@
       "desk.terrainwarnungen": "Terrain warnings",
       "desk.luftraumwarnungen": "Airspace warnings",
       "desk.vertikale-luftraumwarnungen": "Vertical airspace warnings",
+      "desk.verkehrswarnungen": "Traffic warnings",
       "desk.wegpunkte-ansagen": "Announce waypoints",
       "desk.musik-windows-player": "Music / Windows player",
       "desk.spotify-oder-einen-anderen-windows-playe": "Open Spotify or another Windows player and sign in there.",
