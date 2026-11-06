@@ -45,4 +45,4 @@ SHA-256 `04a2ba9e59bd092132f46a0ab297986e55851973899c7964df2fd2588162ec7e`, öff
 Clips: alle 75 unter GitHub Pages abrufbar geprüft, bevor der Kanal umgeschaltet wurde.
 Worker: deployed 06.11.2026, Version `ce3f6c05-2381-4734-98c8-58fa15570b72`.
 
-Desktop: _wird nach dem Desktop-Release ergänzt_
+Desktop: Release `tracker-desktop-v1.6.40` (Commit `37e292669`), siehe `docs/Tracker-Desktop-1.6.40-Release.md`.
