@@ -31,6 +31,14 @@ _Derzeit keine offenen Einträge._
 
 ## Ausgeliefert
 
+### 2026-11-06 · Eigenes Flugzeug-Icon wählbar, auch pro Profil — ausgeliefert in Tracker v618 Alpha / Web v2350 (06.11.2026)
+- **Artefakt:** Tracker-EXE (EFB-Dateien); Web live mit diesem Push
+- **Dateien:** `map-live-presentation.js`, `map-display-controls.js`, `app.js`, `sync.js`, `profile.js`, `index.html`, `styles.css`, `i18n/*`, `tracker-efb-kartentisch-host.js`, `efb-web-assets/*`
+- **Was:** Icon-Auswahl (Klassik, 1-mot, 2-mot, Jet, Heavy, Heli) global im Karten-Menü und pro Flugzeug-Profil mit Schalter „Eigenes Icon verwenden“; Hinweis global/Profil.
+- **Tests:** siehe `docs/Tracker-v618-Release.md`.
+- **Doku beim Release:** `docs/Tracker-v618-Release.md`.
+- **Pruefen im Feld:** Profilwechsel im Hauptmenü wechselt das Icon; EFB zeigt die globale Auswahl.
+
 ### 2026-11-06 · Verkehrswarnungen (Ansage, Ausweichen, Blinken, Schalter) — ausgeliefert in Tracker v617 Alpha / Desktop 1.6.40 / Web v2349 (06.11.2026)
 - **Artefakt:** Worker (deployed), Web mit 75 Clips, Tracker-EXE, Desktop-App
 - **Dateien:** `traffic-warning-core.js`, `map-live-presentation.js`, `navigation-warning-audio.js`, `tracker-navigation-warnings.js`, `tracker-voice-service.js`, `tracker-audio-*.js`, `tracker.js`, Desktop `ui/audio.js`/`index.html`, Worker `audio-settings.mjs`, Web `sync.js`, `profile.js`, `taws.js`, `styles.css`, `index.html`, `audio-warnings/**/aw-{verkehr,ausweichen,gleiche-hoehe,uhr-*}`

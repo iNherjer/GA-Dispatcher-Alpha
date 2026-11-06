@@ -2139,11 +2139,20 @@
   function planeIcon() {
     return L.divIcon({
       className: 'live-plane-marker',
-      html: window.GAMapLivePresentation.aircraftHtml(),
+      html: window.GAMapLivePresentation.aircraftHtml(window.gaOwnPlaneIconKind),
       iconSize: [0, 0],
       iconAnchor: [0, 0]
     });
   }
+
+  // Icon class chosen in the map menu: swap the marker in place.
+  window.refreshOwnPlaneIcon = function() {
+    if (!planeMarker) return;
+    planeMarker.setIcon(planeIcon());
+    var element = planeMarker.getElement();
+    if (element) element.classList.toggle('low-fps-plane', window.isMapHintEnabled('lowFps'));
+    if (planeHeading != null) rotatePlane(planeHeading);
+  };
 
   function rotatePlane(heading) {
     var element = planeMarker && planeMarker.getElement();

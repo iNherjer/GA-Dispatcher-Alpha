@@ -1398,6 +1398,9 @@
                     <div style="height:1px; background:#2f2f2f; margin:7px 0;"></div>
                     <button id="btnTogglePlaneIconMenu" class="pb-btn" onclick="toggleVpPlaneIconMenu(event)" title="Farbe und Größe des Flugzeug-Icons" data-i18n-title="map.menu.planeIconTitle" style="display:block; width:100%; margin:0; text-align:left;" data-i18n="map.menu.planeIcon">✈️ Flugzeug Icon</button>
                     <div id="vpPlaneIconMenu" style="display:none; margin-top:4px; border:1px solid #3a3a3a; border-radius:6px; padding:7px; background:#0d0d0d;">
+                        <div id="vpPlaneIconSource" class="vp-plane-icon-source" data-source="global">Globales Icon</div>
+                        <span style="display:block; color:#a8a8a8; font-size:10px; margin-bottom:4px;" data-i18n="map.menu.planeKind">Icon</span>
+                        <div id="vpPlaneKindOptions" class="vp-plane-kind-options" role="group" aria-label="Icon"></div>
                         <label for="vpPlaneColorPicker" style="display:block; color:#a8a8a8; font-size:10px; margin-bottom:4px;" data-i18n="map.menu.planeColor">Farbe</label>
                         <input id="vpPlaneColorPicker" type="color" value="#f2c12e" style="width:100%; height:30px; border:1px solid #4a4a4a; border-radius:4px; background:none; cursor:pointer; margin-bottom:8px;">
                         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:4px;">
@@ -2772,6 +2775,18 @@
                     <label class="airport-type-option aircraft-preset-editor-option"><input type="checkbox" value="utility" data-aircraft-editor-tag><span class="airport-type-option-copy"><strong>Utility / Arbeit</strong></span></label>
                 </div>
                 <small class="aircraft-preset-profile-hint">Diese Auswahl begrenzt nur die Zufallsrotation. Ohne Haken bleibt Auto uneingeschränkt; ein konkret gewähltes Picker-Profil bleibt immer verfügbar.</small>
+            </fieldset>
+
+            <fieldset class="aircraft-preset-editor-group">
+                <legend data-i18n="presets.editor.mapIcon">Karten-Icon</legend>
+                <label class="airport-type-option aircraft-preset-editor-option aircraft-preset-icon-switch"><input type="checkbox" id="aircraftPresetEditorIconCustom"><span class="airport-type-option-copy"><strong data-i18n="presets.editor.useOwnIcon">Eigenes Icon verwenden</strong><small data-i18n="presets.editor.ownIconHint">Ist der Schalter aus, gilt das globale Icon aus dem Kartenmenü.</small></span></label>
+                <div id="aircraftPresetEditorIconFields" class="aircraft-preset-icon-fields" hidden>
+                    <div id="aircraftPresetEditorIconKinds" class="vp-plane-kind-options aircraft-preset-icon-kinds" role="group" aria-label="Icon"></div>
+                    <div class="aircraft-preset-icon-row">
+                        <label class="aircraft-preset-editor-field"><span data-i18n="map.menu.planeColor">Farbe</span><input type="color" id="aircraftPresetEditorIconColor" value="#f2c12e"></label>
+                        <label class="aircraft-preset-editor-field aircraft-preset-icon-size"><span><span data-i18n="map.menu.planeSize">Größe</span> <small id="aircraftPresetEditorIconSizeValue">40 px</small></span><input type="range" id="aircraftPresetEditorIconSize" min="20" max="100" step="1" value="40"></label>
+                    </div>
+                </div>
             </fieldset>
 
             <footer class="airport-type-picker-footer aircraft-preset-editor-footer">

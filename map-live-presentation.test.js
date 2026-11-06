@@ -186,3 +186,17 @@ test('traffic symbols: known kinds get their own shape, unknown falls back to si
     assert.match(heli, /<circle/);
     assert.ok(presentation.trafficSymbolSvg('heavy', '#00ccff', 20).includes('width="25"'));
 });
+
+test('own aircraft icon: classic by default, traffic classes on request, colour and size stay variable', () => {
+    const classic = presentation.aircraftHtml();
+    assert.match(classic, /viewBox="0 0 447\.74 339\.91"/);
+    assert.equal(presentation.aircraftHtml('unknown'), classic);
+    for (const kind of ['single', 'twin', 'jet', 'heavy', 'heli']) {
+        const html = presentation.aircraftHtml(kind);
+        assert.match(html, /fill="var\(--plane-color\)"/);
+        assert.match(html, /width: var\(--plane-size\)/);
+        assert.match(html, /transform-origin: 50% 50%/, 'rotates around its centre');
+    }
+    assert.match(presentation.aircraftHtml('heli'), /<circle/);
+    assert.deepEqual(presentation.OWN_PLANE_ICON_KINDS, ['classic', 'single', 'twin', 'jet', 'heavy', 'heli']);
+});

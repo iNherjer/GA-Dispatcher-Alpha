@@ -217,6 +217,16 @@ function normalizeAircraftBoardingConfig(source) {
     };
 }
 
+// Own map icon per aircraft profile. custom=false: the global icon from the
+// map menu applies. Same value ranges as the map menu (map-display-controls.js).
+const AIRCRAFT_ICON_KINDS = ['classic', 'single', 'twin', 'jet', 'heavy', 'heli'];
+function normalizeAircraftIcon(source) {
+    const src = source && typeof source === 'object' ? source : {};
+    const color = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(String(src.color || '')) ? String(src.color) : '#f2c12e';
+    const size = Number.isFinite(parseInt(src.size, 10)) ? Math.min(100, Math.max(20, parseInt(src.size, 10))) : 40;
+    return { custom: src.custom === true, kind: AIRCRAFT_ICON_KINDS.includes(src.kind) ? src.kind : 'classic', color, size };
+}
+
 function normalizeAircraftPreset(slotId, source) {
     const defaults = AIRCRAFT_PRESET_DEFAULTS[slotId] || AIRCRAFT_PRESET_NEW_DEFAULT;
     const preset = source && typeof source === 'object' ? source : {};
@@ -238,7 +248,8 @@ function normalizeAircraftPreset(slotId, source) {
         ),
         aircraftClass: normalizeAircraftClass(preset.aircraftClass ?? preset.class, defaults.aircraftClass),
         aircraftTags: normalizeAircraftTags(preset.aircraftTags ?? preset.tags, defaults.aircraftTags),
-        boarding: normalizeAircraftBoardingConfig(boardingSource)
+        boarding: normalizeAircraftBoardingConfig(boardingSource),
+        icon: normalizeAircraftIcon(preset.icon)
     };
 }
 
@@ -300,8 +311,25 @@ function saveAircraftPresets() {
         localStorage.setItem(AIRCRAFT_PRESET_STORAGE_KEY, json);
         localStorage.setItem(AIRCRAFT_PRESET_LIBRARY_STORAGE_KEY, json);
     } catch (_) {}
+    window.applyOwnPlaneIcon?.();
 }
 window.saveAircraftPresets = saveAircraftPresets;
+
+// Map menu <-> aircraft profile: which profile icon applies, and saving changes to it.
+window.gaActivePlaneIconProfile = function() {
+    if (typeof selectedAC === 'undefined') return null;
+    const id = resolveAircraftPresetId(selectedAC);
+    if (!hasAircraftPreset(id)) return null;
+    const preset = getAircraftPreset(id);
+    return { id, name: preset.name, icon: preset.icon };
+};
+window.gaSavePlaneIconProfile = function(presetId, patch) {
+    if (!hasAircraftPreset(presetId)) return;
+    const current = getAircraftPreset(presetId);
+    aircraftPresets[presetId] = normalizeAircraftPreset(presetId, { ...current, icon: { ...current.icon, ...patch, custom: true } });
+    saveAircraftPresets();
+    scheduleAircraftPresetCloudSync();
+};
 
 function readAircraftPresetStorage(key) {
     try {
@@ -366,6 +394,7 @@ function loadAircraftPresets() {
         activeAircraftPresetSettingsSlot = resolveAircraftPresetId(null);
         window.activeAircraftPresetSettingsSlot = activeAircraftPresetSettingsSlot;
     }
+    window.applyOwnPlaneIcon?.();
 }
 window.loadAircraftPresets = loadAircraftPresets;
 
@@ -919,8 +948,59 @@ function readAircraftPresetEditorCandidate(fallback) {
         maxPayloadKg: document.getElementById('aircraftPresetEditorMaxPayload')?.value ?? fallback.maxPayloadKg,
         aircraftClass: selectedClass ?? fallback.aircraftClass,
         aircraftTags,
-        boarding: fallback.boarding
+        boarding: fallback.boarding,
+        icon: readAircraftPresetEditorIcon(fallback.icon)
     };
+}
+
+function readAircraftPresetEditorIcon(fallback) {
+    const custom = document.getElementById('aircraftPresetEditorIconCustom');
+    if (!custom) return fallback;
+    return normalizeAircraftIcon({
+        custom: custom.checked,
+        kind: document.getElementById('aircraftPresetEditorIconKinds')?.dataset.kind,
+        color: document.getElementById('aircraftPresetEditorIconColor')?.value,
+        size: document.getElementById('aircraftPresetEditorIconSize')?.value
+    });
+}
+
+function renderAircraftPresetEditorIcon(icon) {
+    const box = document.getElementById('aircraftPresetEditorIconKinds');
+    const fields = document.getElementById('aircraftPresetEditorIconFields');
+    const custom = document.getElementById('aircraftPresetEditorIconCustom');
+    const color = document.getElementById('aircraftPresetEditorIconColor');
+    const size = document.getElementById('aircraftPresetEditorIconSize');
+    const sizeLabel = document.getElementById('aircraftPresetEditorIconSizeValue');
+    if (!box || !custom) return;
+    const pres = window.GAMapLivePresentation;
+    if (box.dataset.built !== '1' && pres?.aircraftHtml) {
+        box.dataset.built = '1';
+        const labels = { classic: 'Klassik', single: '1-mot', twin: '2-mot', jet: 'Jet', heavy: 'Heavy', heli: 'Heli' };
+        box.innerHTML = AIRCRAFT_ICON_KINDS.map(kind => {
+            const label = _appUiPhrase(labels[kind]);
+            return `<button type="button" class="vp-plane-kind" data-plane-kind="${kind}" aria-pressed="false" title="${label}">`
+                + `<span class="vp-plane-kind-preview" style="--plane-size:26px">${pres.aircraftHtml(kind)}</span>`
+                + `<span class="vp-plane-kind-label">${label}</span></button>`;
+        }).join('');
+        box.querySelectorAll('[data-plane-kind]').forEach(btn => btn.addEventListener('click', () => {
+            renderAircraftPresetEditorIcon({ ...readAircraftPresetEditorIcon(icon), kind: btn.dataset.planeKind });
+        }));
+        custom.addEventListener('change', () => renderAircraftPresetEditorIcon(readAircraftPresetEditorIcon(icon)));
+        color?.addEventListener('input', () => renderAircraftPresetEditorIcon(readAircraftPresetEditorIcon(icon)));
+        size?.addEventListener('input', () => renderAircraftPresetEditorIcon(readAircraftPresetEditorIcon(icon)));
+    }
+    custom.checked = icon.custom === true;
+    if (fields) fields.hidden = !custom.checked;
+    box.dataset.kind = icon.kind;
+    box.style.setProperty('--plane-color', icon.color);
+    box.querySelectorAll('[data-plane-kind]').forEach(btn => {
+        const active = btn.dataset.planeKind === icon.kind;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+    if (color && color.value !== icon.color) color.value = icon.color;
+    if (size) size.value = String(icon.size);
+    if (sizeLabel) sizeLabel.textContent = `${icon.size} px`;
 }
 
 function populateAircraftPresetEditor(slotId, options = {}) {
@@ -957,6 +1037,10 @@ function populateAircraftPresetEditor(slotId, options = {}) {
     document.querySelectorAll('[data-aircraft-editor-tag]').forEach(input => {
         input.checked = activeTags.has(input.value);
     });
+    // Without an own icon yet, start from the current global icon.
+    const global = typeof window.getGlobalPlaneIcon === 'function' ? window.getGlobalPlaneIcon() : null;
+    const icon = preset.icon?.custom ? preset.icon : normalizeAircraftIcon({ ...(global || {}), custom: false });
+    renderAircraftPresetEditorIcon(icon);
 }
 
 function openAircraftPresetEditor(slotId, event = null, sourceControl = null, options = {}) {
@@ -11140,6 +11224,7 @@ function applyPreset(t, g, s, n) {
     if (typeof updateOpsAircraftSwitches === 'function') updateOpsAircraftSwitches();
     updateOps1940Panel();
     saveAudioButtonStates();
+    window.applyOwnPlaneIcon?.();
 }
 
 function copyCoords(elementId) {

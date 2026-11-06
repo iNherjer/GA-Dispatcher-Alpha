@@ -312,45 +312,131 @@ function normalizePlaneIconSize(value) {
     return Math.min(PLANE_ICON_MAX_SIZE, Math.max(PLANE_ICON_MIN_SIZE, n));
 }
 
-function getCurrentPlaneIconDefaults() {
-    const rootStyle = getComputedStyle(document.documentElement);
-    const colorCss = normalizePlaneIconColor(rootStyle.getPropertyValue('--plane-color').trim());
-    const sizeCss = normalizePlaneIconSize(rootStyle.getPropertyValue('--plane-size'));
-    return {
-        color: colorCss || PLANE_ICON_DEFAULT_COLOR,
-        size: sizeCss || PLANE_ICON_DEFAULT_SIZE
-    };
+const PLANE_ICON_KIND_KEY = 'ga_plane_icon_kind';
+const PLANE_ICON_KINDS = ['classic', 'single', 'twin', 'jet', 'heavy', 'heli'];
+const PLANE_ICON_KIND_LABELS = { classic: 'Klassik', single: '1-mot', twin: '2-mot', jet: 'Jet', heavy: 'Heavy', heli: 'Heli' };
+
+function normalizePlaneIconKind(value) {
+    return PLANE_ICON_KINDS.includes(value) ? value : null;
 }
 
-function applyPlaneIconSettings({ color, size, persist = false } = {}) {
-    const defaults = getCurrentPlaneIconDefaults();
-    const nextColor = normalizePlaneIconColor(color) || defaults.color;
-    const nextSize = normalizePlaneIconSize(size) || defaults.size;
-    document.documentElement.style.setProperty('--plane-color', nextColor);
-    document.documentElement.style.setProperty('--plane-size', `${nextSize}px`);
-    if (persist) {
-        localStorage.setItem(PLANE_ICON_COLOR_KEY, nextColor);
-        localStorage.setItem(PLANE_ICON_SIZE_KEY, String(nextSize));
-    }
+function readGlobalPlaneIcon() {
+    let color = null, size = null, kind = null;
+    try {
+        color = normalizePlaneIconColor(localStorage.getItem(PLANE_ICON_COLOR_KEY));
+        size = normalizePlaneIconSize(localStorage.getItem(PLANE_ICON_SIZE_KEY));
+        kind = normalizePlaneIconKind(localStorage.getItem(PLANE_ICON_KIND_KEY));
+    } catch (_) {}
+    return { color: color || PLANE_ICON_DEFAULT_COLOR, size: size || PLANE_ICON_DEFAULT_SIZE, kind: kind || 'classic' };
+}
 
+window.getGlobalPlaneIcon = readGlobalPlaneIcon;
+
+// The aircraft profile (preset) may bring its own icon. app.js provides it:
+// window.gaActivePlaneIconProfile() -> { id, name, icon: { custom, kind, color, size } } | null
+function activePlaneIconProfile() {
+    try {
+        const profile = typeof window.gaActivePlaneIconProfile === 'function' ? window.gaActivePlaneIconProfile() : null;
+        return profile && profile.icon && profile.icon.custom === true ? profile : null;
+    } catch (_) { return null; }
+}
+
+// Icon, colour and size that apply right now, and where they come from.
+window.getOwnPlaneIcon = function() {
+    const global = readGlobalPlaneIcon();
+    const profile = activePlaneIconProfile();
+    if (!profile) return { ...global, source: 'global' };
+    return {
+        color: normalizePlaneIconColor(profile.icon.color) || global.color,
+        size: normalizePlaneIconSize(profile.icon.size) || global.size,
+        kind: normalizePlaneIconKind(profile.icon.kind) || global.kind,
+        source: 'profile', profileId: profile.id, profileName: profile.name
+    };
+};
+
+let appliedPlaneIconKind = null;
+function renderPlaneIconUi(icon) {
     const colorPicker = document.getElementById('vpPlaneColorPicker');
-    if (colorPicker && colorPicker.value !== nextColor) colorPicker.value = nextColor;
-
+    if (colorPicker && colorPicker.value !== icon.color) colorPicker.value = icon.color;
     const sizeSlider = document.getElementById('vpPlaneSizeSlider');
-    if (sizeSlider) sizeSlider.value = String(nextSize);
-
+    if (sizeSlider) sizeSlider.value = String(icon.size);
     const sizeLabel = document.getElementById('vpPlaneSizeValue');
-    if (sizeLabel) sizeLabel.textContent = `${nextSize} px`;
+    if (sizeLabel) sizeLabel.textContent = `${icon.size} px`;
+    document.querySelectorAll('#vpPlaneKindOptions [data-plane-kind]').forEach(btn => {
+        const active = btn.dataset.planeKind === icon.kind;
+        btn.classList.toggle('active', active);
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+    const source = document.getElementById('vpPlaneIconSource');
+    if (source) {
+        const text = icon.source === 'profile'
+            ? (typeof window.GAI18n?.phrase === 'function' ? window.GAI18n.phrase('Profil-Icon') : 'Profil-Icon') + ` · ${icon.profileName || ''}`
+            : (typeof window.GAI18n?.phrase === 'function' ? window.GAI18n.phrase('Globales Icon') : 'Globales Icon');
+        source.textContent = text;
+        source.dataset.source = icon.source;
+        source.title = icon.source === 'profile'
+            ? (window.GAI18n?.phrase?.('Änderungen werden im Flugzeug-Profil gespeichert.') || 'Änderungen werden im Flugzeug-Profil gespeichert.')
+            : (window.GAI18n?.phrase?.('Gilt für alle Profile ohne eigenes Icon.') || 'Gilt für alle Profile ohne eigenes Icon.');
+    }
+}
+
+// Apply the icon that applies right now (call after a profile change).
+window.applyOwnPlaneIcon = function() {
+    const icon = window.getOwnPlaneIcon();
+    document.documentElement.style.setProperty('--plane-color', icon.color);
+    document.documentElement.style.setProperty('--plane-size', `${icon.size}px`);
+    window.gaOwnPlaneIconKind = icon.kind;
+    renderPlaneIconUi(icon);
+    if (appliedPlaneIconKind !== icon.kind) {
+        appliedPlaneIconKind = icon.kind;
+        if (typeof window.refreshOwnPlaneIcon === 'function') window.refreshOwnPlaneIcon();
+    }
+    window.vpBgNeedsUpdate = true;
+    return icon;
+};
+
+// Changes from the map menu go to the profile when it uses its own icon,
+// otherwise to the global setting.
+function applyPlaneIconSettings({ color, size, kind, persist = false } = {}) {
+    const patch = {};
+    if (normalizePlaneIconColor(color)) patch.color = normalizePlaneIconColor(color);
+    if (normalizePlaneIconSize(size)) patch.size = normalizePlaneIconSize(size);
+    if (normalizePlaneIconKind(kind)) patch.kind = normalizePlaneIconKind(kind);
+    if (persist && Object.keys(patch).length) {
+        const profile = activePlaneIconProfile();
+        if (profile && typeof window.gaSavePlaneIconProfile === 'function') {
+            window.gaSavePlaneIconProfile(profile.id, patch);
+        } else {
+            try {
+                if (patch.color) localStorage.setItem(PLANE_ICON_COLOR_KEY, patch.color);
+                if (patch.size) localStorage.setItem(PLANE_ICON_SIZE_KEY, String(patch.size));
+                if (patch.kind) localStorage.setItem(PLANE_ICON_KIND_KEY, patch.kind);
+            } catch (_) {}
+        }
+    }
+    return window.applyOwnPlaneIcon();
+}
+
+function buildPlaneKindOptions() {
+    const box = document.getElementById('vpPlaneKindOptions');
+    const pres = window.GAMapLivePresentation;
+    if (!box || box.dataset.built === '1' || !pres || typeof pres.aircraftHtml !== 'function') return;
+    box.dataset.built = '1';
+    box.innerHTML = PLANE_ICON_KINDS.map(kind => {
+        const label = window.GAI18n?.phrase?.(PLANE_ICON_KIND_LABELS[kind]) || PLANE_ICON_KIND_LABELS[kind];
+        return `<button type="button" class="vp-plane-kind" data-plane-kind="${kind}" aria-pressed="false" title="${label}">`
+            + `<span class="vp-plane-kind-preview" style="--plane-size:26px">${pres.aircraftHtml(kind)}</span>`
+            + `<span class="vp-plane-kind-label">${label}</span></button>`;
+    }).join('');
+    box.querySelectorAll('[data-plane-kind]').forEach(btn => btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        applyPlaneIconSettings({ kind: btn.dataset.planeKind, persist: true });
+    }));
 }
 
 function initPlaneIconSettingsUi() {
-    const defaults = getCurrentPlaneIconDefaults();
-    const storedColor = normalizePlaneIconColor(localStorage.getItem(PLANE_ICON_COLOR_KEY));
-    const storedSize = normalizePlaneIconSize(localStorage.getItem(PLANE_ICON_SIZE_KEY));
-    applyPlaneIconSettings({
-        color: storedColor || defaults.color,
-        size: storedSize || defaults.size
-    });
+    buildPlaneKindOptions();
+    window.applyOwnPlaneIcon();
 
     const colorPicker = document.getElementById('vpPlaneColorPicker');
     if (colorPicker && !colorPicker.dataset.boundPlaneIcon) {

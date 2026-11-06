@@ -19886,6 +19886,21 @@ document.addEventListener('visibilitychange', () => {
     if (!document.hidden && _canRunLiveMapVisualWork()) window.gaRequestLiveMapVisualRefresh('document-visible');
 }, { passive: true });
 
+// Icon class changed (map menu or aircraft profile): swap the marker in place.
+window.refreshOwnPlaneIcon = function() {
+    if (!liveGpsMarker || typeof L === 'undefined') return;
+    liveGpsMarker.setIcon(L.divIcon({
+        html: window.GAMapLivePresentation.aircraftHtml(window.gaOwnPlaneIconKind),
+        className: 'live-plane-marker', iconSize: [0, 0], iconAnchor: [0, 0]
+    }));
+    liveGpsMarkerElement = liveGpsMarker.getElement();
+    liveGpsMarkerSvgElement = liveGpsMarkerElement?.querySelector('svg') || null;
+    const hdg = Number(window.lastLiveGpsPos?.hdg) || 0;
+    if (liveGpsMarkerSvgElement) liveGpsMarkerSvgElement.style.transform = `rotate(${hdg}deg)`;
+    if (liveGpsMarkerElement) liveGpsMarkerElement.style.pointerEvents = 'none';
+    if (typeof window.updateLivePlanePerformanceMode === 'function') window.updateLivePlanePerformanceMode(isLowFpsModeActive());
+};
+
 function updateLivePlanePosition(lat, lon, alt, hdg) {
     const now = Date.now();
     _clearTrackerHibernateMapState();
@@ -20082,7 +20097,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
     // --- ICON A: KARTE ---
     // SVG nur einmal bauen, danach nur per CSS-Transform rotieren (kein innerHTML-Rebuild pro Paket!)
     if (liveMapVisualActive && !liveGpsMarker) {
-        const _planeSvgTemplate = window.GAMapLivePresentation.aircraftHtml();
+        const _planeSvgTemplate = window.GAMapLivePresentation.aircraftHtml(window.gaOwnPlaneIconKind);
 
         const planeIcon = L.divIcon({
             html: _planeSvgTemplate,

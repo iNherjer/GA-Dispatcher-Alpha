@@ -9198,6 +9198,12 @@ function renderMapProfileFrames(timeMs) {
             const _pitchRad = Math.atan2(_vsPitch / 60, _gsPitch * 1.6878);
             fgCtx.rotate(_pitchRad);
 
+            // Chosen icon class (map menu or aircraft profile): side view in own colour and size.
+            const _ownKind = window.gaOwnPlaneIconKind;
+            if (_ownKind && _ownKind !== 'classic' && window.GAMapLivePresentation?.drawTrafficSide) {
+                window.GAMapLivePresentation.drawTrafficSide(fgCtx, _ownKind, { fill: planeColor, sizePx: planeSizePx, outlinePx: 1.5 });
+                fgCtx.restore();
+            } else {
             // Berechnung der Skalierung (Basisbreite Path: 504.91)
             const baseScale = planeSizePx / 504.91;
 
@@ -9222,6 +9228,7 @@ function renderMapProfileFrames(timeMs) {
             fgCtx.fill(sideViewPath);
             
             fgCtx.restore();
+            }
         }
     }
 
