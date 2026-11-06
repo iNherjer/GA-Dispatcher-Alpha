@@ -213,7 +213,15 @@ test('icon shadow: further, softer and lighter with height; none on the ground o
     assert.ok(high[3] < low[3], 'lighter higher up');
     assert.ok(parse(f(40000, { reach: 0.25 }))[0] <= 20 / Math.SQRT2 + 0.1, 'offset capped at 20 px at a quarter reach');
     assert.ok(parse(f(3000, { sharp: 1 }))[2] < parse(f(3000, { sharp: 0 }))[2], 'sharpness reduces blur');
-    assert.match(presentation.aircraftHtml(), /var\(--plane-shadow/);
+    // own aircraft: shadow + glow on the rotated svg, offset turned back by the heading
+    const parts = (f) => f.match(/drop-shadow\((-?[\d.]+)px (-?[\d.]+)px/).slice(1).map(Number);
+    const north = parts(presentation.ownPlaneSvgFilter(3000, {}, 0));
+    const east = parts(presentation.ownPlaneSvgFilter(3000, {}, 90));
+    assert.ok(Math.abs(north[0] - north[1]) < 0.2, 'heading 0: offset to the south-east as is');
+    assert.ok(Math.abs(east[0] - north[0]) < 0.2 && Math.abs(east[1] + north[1]) < 0.2, 'heading 90: turned back by -90 deg');
+    assert.match(presentation.ownPlaneSvgFilter(3000, {}, 0), /drop-shadow\(0 0 5px/, 'glow follows the shadow');
+    assert.equal(presentation.ownPlaneSvgFilter(0, {}, 0), 'drop-shadow(0 0 5px rgba(0,0,0,0.6))');
+    assert.match(presentation.aircraftHtml(), /will-change: transform; filter: drop-shadow\(0 0 5px/);
 });
 
 test('icon shadow: slider middle (0.5) is the calibrated default, with room both ways', () => {

@@ -31,6 +31,14 @@ _Derzeit keine offenen Einträge._
 
 ## Ausgeliefert
 
+### 2026-11-06 · Schatten auf iPhone, frische Updates — ausgeliefert in Tracker v621 Alpha / Web v2354 (06.11.2026)
+- **Artefakt:** Tracker-EXE (EFB-Host); Web live mit diesem Push (Service-Worker-Fix schon in v2353)
+- **Dateien:** `map-live-presentation.js` (+ Test), `sync.js`, `map.js`, `sw.js`, `tracker-efb-kartentisch-host.js`
+- **Was:** Rand und Schatten des eigenen Flugzeugs direkt auf der gedrehten Grafik (iOS Safari), Service Worker lädt frisch.
+- **Tests:** siehe `docs/Tracker-v621-Release.md`.
+- **Doku beim Release:** `docs/Tracker-v621-Release.md`.
+- **Pruefen im Feld:** Schatten auf iPhone, nach Updates sofort neuer Stand.
+
 ### 2026-11-06 · Verkehr im EFB, Stufen vom Tracker, Entzerren beim Zoomen — ausgeliefert in Tracker v620 Alpha / Web v2352 (06.11.2026)
 - **Artefakt:** Tracker-EXE (Stufen, EFB-Dateien); Web live mit diesem Push
 - **Dateien:** neu `traffic-map-layer.js` (+ Test), `map-live-presentation.js`, `sync.js`, `profile.js`, `taws.js`, `index.html`, `sw.js`, `testboard.html`, `tracker-navigation-warnings.js`, `tracker-audio-client.js`, `tracker-efb-kartentisch-host.js`, `tracker-efb-web-client.js`, `package.json`, `efb-web-assets/*`

@@ -2146,17 +2146,22 @@
     });
   }
 
-  // Own aircraft shadow (map menu "Schattenwurf"): via --plane-shadow, set only on change.
-  var lastOwnPlaneShadow = null;
-  window.refreshOwnPlaneShadow = function() {
+  // Own aircraft glow + height shadow on the rotated <svg> (ownPlaneSvgFilter),
+  // set together with the rotation so the shadow keeps falling south-east.
+  var lastOwnPlaneFilter = null, lastOwnPlaneSvg = null;
+  function applyOwnPlaneFilter(svg, heading) {
     var pres = window.GAMapLivePresentation;
+    if (!svg || !pres || !pres.ownPlaneSvgFilter) return;
+    if (svg !== lastOwnPlaneSvg) { lastOwnPlaneSvg = svg; lastOwnPlaneFilter = null; }
     var data = window.lastLiveFlightData || {};
     var agl = data.onGround === true ? 0 : Number(data.aglFt);
-    var value = pres && pres.iconShadowFilter && window.getIconShadowSettings ? pres.iconShadowFilter(agl, window.getIconShadowSettings()) : '';
-    var next = value || 'drop-shadow(0 0 0 transparent)';
-    if (next === lastOwnPlaneShadow) return;
-    lastOwnPlaneShadow = next;
-    document.documentElement.style.setProperty('--plane-shadow', next);
+    var filter = pres.ownPlaneSvgFilter(agl, window.getIconShadowSettings ? window.getIconShadowSettings() : null, (heading != null ? heading : planeHeading) || 0);
+    if (filter !== lastOwnPlaneFilter) { lastOwnPlaneFilter = filter; svg.style.filter = filter; }
+  }
+  window.refreshOwnPlaneShadow = function() {
+    lastOwnPlaneFilter = null;
+    var element = planeMarker && planeMarker.getElement();
+    applyOwnPlaneFilter(element && element.querySelector('svg'));
   };
 
   // Traffic on the EFB map: same symbols, warning colours, blinking and shadows
@@ -2235,6 +2240,7 @@
     var element = planeMarker && planeMarker.getElement();
     var svg = element && element.querySelector('svg');
     if (svg) svg.style.transform = 'rotate(' + heading + 'deg)';
+    applyOwnPlaneFilter(svg, heading);
   }
 
   function saveLiveTrail() {

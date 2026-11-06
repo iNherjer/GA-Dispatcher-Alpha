@@ -9,7 +9,8 @@ if (!document.getElementById('route-anim-style')) {
         .mission-arrival-guide-line { animation: routeDashAnim 1.5s linear infinite; }
         .low-fps-mode .animated-route-line { animation: none !important; stroke-dasharray: none !important; }
         .low-fps-mode .mission-arrival-guide-line { animation: none !important; }
-        .low-fps-mode .live-plane-marker .live-plane-inner { filter: none !important; }
+        .low-fps-mode .live-plane-marker .live-plane-inner,
+        .low-fps-mode .live-plane-marker .live-plane-inner > svg { filter: none !important; }
         .mission-target-location-label {
             background: rgba(17, 24, 39, 0.92);
             border: 1px solid rgba(255, 159, 28, 0.88);

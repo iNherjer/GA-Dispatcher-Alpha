@@ -18374,7 +18374,7 @@ function _renderTrackerHibernateLastPosition(position = window.liveTrackerLastKn
         try { liveGpsMarker.setOpacity(0.72); } catch (_) {}
         const markerEl = typeof liveGpsMarker.getElement === 'function' ? liveGpsMarker.getElement() : null;
         markerEl?.classList?.add('hibernate-last-known');
-        if (liveGpsMarkerSvgElement) liveGpsMarkerSvgElement.style.transform = `rotate(${hdg}deg)`;
+        _applyOwnPlaneSvg(hdg);
         return true;
     }
 
@@ -19895,13 +19895,12 @@ window.refreshOwnPlaneIcon = function() {
     liveGpsMarkerElement = liveGpsMarker.getElement();
     liveGpsMarkerSvgElement = liveGpsMarkerElement?.querySelector('svg') || null;
     const hdg = Number(window.lastLiveGpsPos?.hdg) || 0;
-    if (liveGpsMarkerSvgElement) liveGpsMarkerSvgElement.style.transform = `rotate(${hdg}deg)`;
+    _applyOwnPlaneSvg(hdg);
     if (liveGpsMarkerElement) liveGpsMarkerElement.style.pointerEvents = 'none';
     if (typeof window.updateLivePlanePerformanceMode === 'function') window.updateLivePlanePerformanceMode(isLowFpsModeActive());
 };
 
 function updateLivePlanePosition(lat, lon, alt, hdg) {
-    window.refreshOwnPlaneShadow?.();
     const now = Date.now();
     _clearTrackerHibernateMapState();
     lastTelemetryUpdateAt = now;
@@ -20113,7 +20112,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
         // DOM-Referenzen bleiben bis zum Entfernen des Markers stabil.
         liveGpsMarkerElement = liveGpsMarker.getElement();
         liveGpsMarkerSvgElement = liveGpsMarkerElement?.querySelector('svg') || null;
-        if (liveGpsMarkerSvgElement) liveGpsMarkerSvgElement.style.transform = `rotate(${hdg}deg)`;
+        _applyOwnPlaneSvg(hdg);
         if (liveGpsMarkerElement) liveGpsMarkerElement.style.pointerEvents = 'none';
         if (typeof window.updateLivePlanePerformanceMode === 'function') {
             window.updateLivePlanePerformanceMode(lowFpsMode);
@@ -20125,7 +20124,7 @@ function updateLivePlanePosition(lat, lon, alt, hdg) {
         liveGpsMarker.setLatLng([lat, lon]);
         // Im Low-FPS-Mode die Heading-Rotation leicht drosseln, um Repaint-Spitzen zu vermeiden.
         if (!lowFpsMode || (now - lastLivePlaneHeadingUpdateAt) >= 120) {
-            if (liveGpsMarkerSvgElement) liveGpsMarkerSvgElement.style.transform = `rotate(${hdg}deg)`;
+            _applyOwnPlaneSvg(hdg);
             lastLivePlaneHeadingUpdateAt = now;
         }
         if (lastLivePlanePerformanceMode !== lowFpsMode && typeof window.updateLivePlanePerformanceMode === 'function') {
@@ -20744,18 +20743,22 @@ function _ownGroundFt() {
     const alt = Number(window.lastLiveGpsPos?.alt), agl = Number(flight.aglFt);
     return Number.isFinite(alt) && Number.isFinite(agl) ? alt - agl : null;
 }
-// Own aircraft shadow via --plane-shadow (used by aircraftHtml); set only on change.
-let _lastOwnPlaneShadow = null;
-window.refreshOwnPlaneShadow = function() {
+// Own aircraft: rotation plus glow/height shadow on the rotated <svg> (see
+// ownPlaneSvgFilter). Set together, so the shadow keeps falling south-east.
+let _ownPlaneHdg = 0, _lastOwnPlaneFilter = null, _lastOwnPlaneSvg = null;
+function _applyOwnPlaneSvg(hdg) {
+    if (Number.isFinite(Number(hdg))) _ownPlaneHdg = Number(hdg);
+    const svg = liveGpsMarkerSvgElement;
+    if (!svg) return;
+    if (svg !== _lastOwnPlaneSvg) { _lastOwnPlaneSvg = svg; _lastOwnPlaneFilter = null; }
+    svg.style.transform = `rotate(${_ownPlaneHdg}deg)`;
     const pres = window.GAMapLivePresentation;
     const flight = window.lastLiveFlightData || {};
     const agl = flight.onGround === true ? 0 : Number(flight.aglFt);
-    const value = pres?.iconShadowFilter ? pres.iconShadowFilter(agl, window.getIconShadowSettings?.()) : '';
-    const next = value || 'drop-shadow(0 0 0 transparent)';
-    if (next === _lastOwnPlaneShadow) return;
-    _lastOwnPlaneShadow = next;
-    document.documentElement.style.setProperty('--plane-shadow', next);
-};
+    const filter = pres?.ownPlaneSvgFilter ? pres.ownPlaneSvgFilter(agl, window.getIconShadowSettings?.(), _ownPlaneHdg) : '';
+    if (filter && filter !== _lastOwnPlaneFilter) { _lastOwnPlaneFilter = filter; svg.style.filter = filter; }
+}
+window.refreshOwnPlaneShadow = function() { _lastOwnPlaneFilter = null; _applyOwnPlaneSvg(); };
 
 function _liveTrafficOwnState(ownAlt) {
     const pos = window.lastLiveGpsPos || {};
