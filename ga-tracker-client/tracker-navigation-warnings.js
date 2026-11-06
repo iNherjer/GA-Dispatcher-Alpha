@@ -1,7 +1,7 @@
 'use strict';
 const crypto = require('node:crypto');
 const core = require('../navigation-warning-core');
-const { classifyTraffic } = require('../map-live-presentation');
+const { classifyTraffic, trafficDisplayLevel } = require('../map-live-presentation');
 const { createTrafficWarningDetector } = require('../traffic-warning-core');
 
 // Traffic arrives every 5 s; move each contact along its heading to "now" so a
@@ -22,7 +22,7 @@ function createNavigationWarnings({ data, voice, getSettings, getRoute = () => n
   const airspace = core.createAirspaceDetector(), terrain = core.createTerrainDetector(), waypoint = core.createWaypointDetector();
   const vertical = core.createVerticalAirspaceDetector(), verticalQueued = new Map();
   const traffic = createTrafficWarningDetector({ classify: classifyTraffic });
-  let trafficTick = 0, trafficAlerting = [];
+  let trafficTick = 0, trafficAlerting = [], trafficLevels = {};
   const session = crypto.randomUUID();
   const geometries = new Map();
   let sequence = 0, revision = 0, lastTick = 0, busy = false, latest = null, gs = 0, vs = 0, epoch = 0;
@@ -72,7 +72,7 @@ function createNavigationWarnings({ data, voice, getSettings, getRoute = () => n
   function reset(preserveVertical = false) {
     epoch++; latest = null; motionSample = null; gs = 0; vs = 0; lastTick = 0;
     spaces = []; spaceAt = 0; spaceBounds = null; spaceRetryAt = 0; obstacleAt = 0;
-    airspace.reset(); terrain.reset(); waypoint.reset(); if (!preserveVertical) { vertical.reset(); traffic.reset(); trafficAlerting = []; }
+    airspace.reset(); terrain.reset(); waypoint.reset(); if (!preserveVertical) { vertical.reset(); traffic.reset(); trafficAlerting = []; trafficLevels = {}; }
     verticalQueued.clear();
     events.forEach(e => voice.cancel(e.id, 'navigation-reset')); events = []; geometries.clear(); revision++;
     setStatus('waiting');
@@ -166,11 +166,23 @@ function createNavigationWarnings({ data, voice, getSettings, getRoute = () => n
     if (!Array.isArray(point.traffic) || at - trafficTick < 1000) return;
     trafficTick = at;
     const age = Number.isFinite(point.trafficAt) ? at - point.trafficAt : 0;
-    if (age > TRAFFIC_MAX_AGE_MS || point.paused) { trafficAlerting = []; return; }
+    if (age > TRAFFIC_MAX_AGE_MS || point.paused) {
+      if (trafficAlerting.length || Object.keys(trafficLevels).length) { trafficAlerting = []; trafficLevels = {}; revision++; }
+      return;
+    }
     const own = { lat: point.lat, lon: point.lon, alt: point.alt, hdg: point.hdg, gs: point.gs, vs: vs || point.vs, onGround: point.onGround === true };
-    const events = traffic.evaluate({ traffic: extrapolateTraffic(point.traffic, age), own, now: at });
+    const current = extrapolateTraffic(point.traffic, age);
+    const events = traffic.evaluate({ traffic: current, own, now: at });
     const alerting = traffic.alerting();
     if (alerting.join() !== trafficAlerting.join()) { trafficAlerting = alerting; revision++; }
+    // Display level per contact, from the extrapolated positions: map, EFB and
+    // profile only draw it (the tracker is the single source, like the warnings).
+    const levels = {};
+    for (const ac of current) {
+      if (!ac || ac.id == null) continue;
+      levels[String(ac.id)] = trafficDisplayLevel(ac, classifyTraffic(ac, own), alerting);
+    }
+    if (JSON.stringify(levels) !== JSON.stringify(trafficLevels)) { trafficLevels = levels; revision++; }
     if (settings.traffic === false) return;
     for (const event of events) {
       // "Ausweichen" replaces a traffic warning that is still waiting to be spoken.
@@ -191,8 +203,8 @@ function createNavigationWarnings({ data, voice, getSettings, getRoute = () => n
   }, snapshot() {
     return { schema: 'ga.navigation-warnings.v1', active, session, revision, status: latest && now() - latest.at > 10000 ? 'stale' : status,
       health, lastGoodAt, events: events.filter(e => e.expiresAt > now()),
-      capabilities: { verticalAirspace: true, traffic: true }, verticalActive: (getSettings() || {}).airspaceVertical !== false,
-      trafficActive: (getSettings() || {}).traffic !== false, trafficAlerting,
+      capabilities: { verticalAirspace: true, traffic: true, trafficLevels: true }, verticalActive: (getSettings() || {}).airspaceVertical !== false,
+      trafficActive: (getSettings() || {}).traffic !== false, trafficAlerting, trafficLevels,
       cache: { bytes: data.cache.snapshot().bytes, files: data.cache.snapshot().files, maxBytes: data.cache.snapshot().maxBytes } };
   } };
 }

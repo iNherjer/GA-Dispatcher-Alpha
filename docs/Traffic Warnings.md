@@ -25,6 +25,8 @@ Stand: 06.11.2026. Ausgeliefert mit Tracker v617 Alpha, Desktop 1.6.40, Web v234
 
 ## Anzeige
 
+- Seit v620 bestimmt der Tracker die Stufe je Kontakt (`trafficLevels`); Karte (Web/EFB, `traffic-map-layer.js`) und Höhenband zeichnen nur.
+
 - Karte: Warnung blinkt orange, Ausweichen blinkt schnell rot (`styles.css`
   `trfBlinkAlert`/`trfBlinkResolve`).
 - Höhenband: Seitenansichten je Klasse (`drawTrafficSide` in

@@ -332,8 +332,15 @@ function classifyTraffic(ac, own) {
 // What map and profile show: 'resolve' (red, fast blink), 'alert' (orange, blink),
 // or the plain level. Contacts the tracker currently warns about blink as well,
 // so every screen matches what was announced.
-function trafficDisplayLevel(ac, info, alertingIds) {
+// trackerLevels: { id: level } from the tracker (v620+). The tracker computes it
+// from extrapolated positions and is the single source; local classification is
+// only the fallback for older trackers.
+function trafficDisplayLevel(ac, info, alertingIds, trackerLevels) {
     if (!ac || ac.gnd || info.level === 'ground') return 'ground';
+    if (trackerLevels && ac.id != null && Object.prototype.hasOwnProperty.call(trackerLevels, String(ac.id))) {
+        const level = trackerLevels[String(ac.id)];
+        if (['resolve', 'alert', 'proximate', 'other', 'ground'].indexOf(level) >= 0) return level;
+    }
     if (info.resolve) return 'resolve';
     if (info.level === 'alert' || (Array.isArray(alertingIds) && ac.id != null && alertingIds.indexOf(String(ac.id)) >= 0)) return 'alert';
     return info.level;

@@ -267,6 +267,7 @@
     if (!snapshot || snapshot.schema !== 'ga.navigation-warnings.v1') return;
     // Map/profile blinking follows the tracker's alerting contacts, also with sound off.
     if (typeof root.awmTrackerTrafficAlerting === 'function') root.awmTrackerTrafficAlerting(snapshot.capabilities && snapshot.capabilities.traffic ? (snapshot.trafficAlerting || []) : null);
+    if (typeof root.awmTrackerTrafficLevels === 'function') root.awmTrackerTrafficLevels(snapshot.capabilities && snapshot.capabilities.trafficLevels ? (snapshot.trafficLevels || {}) : null);
     if (!snapshot.active && !snapshot.verticalActive && !snapshot.trafficActive) return;
     (snapshot.events || []).forEach(function(warning) {
       // Vertical airspace and traffic warnings stay tracker-owned during web-authoritative missions.

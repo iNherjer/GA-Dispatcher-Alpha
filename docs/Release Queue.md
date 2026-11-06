@@ -31,6 +31,14 @@ _Derzeit keine offenen Einträge._
 
 ## Ausgeliefert
 
+### 2026-11-06 · Verkehr im EFB, Stufen vom Tracker, Entzerren beim Zoomen — ausgeliefert in Tracker v620 Alpha / Web v2352 (06.11.2026)
+- **Artefakt:** Tracker-EXE (Stufen, EFB-Dateien); Web live mit diesem Push
+- **Dateien:** neu `traffic-map-layer.js` (+ Test), `map-live-presentation.js`, `sync.js`, `profile.js`, `taws.js`, `index.html`, `sw.js`, `testboard.html`, `tracker-navigation-warnings.js`, `tracker-audio-client.js`, `tracker-efb-kartentisch-host.js`, `tracker-efb-web-client.js`, `package.json`, `efb-web-assets/*`
+- **Was:** Verkehr auf der EFB-Karte, Stufe pro Kontakt zentral vom Tracker, Verkleinern/Ausblenden/Zusammenfassen beim Herauszoomen.
+- **Tests:** siehe `docs/Tracker-v620-Release.md`.
+- **Doku beim Release:** `docs/Tracker-v620-Release.md`, Testboard-Bereich „Traffic“.
+- **Pruefen im Feld:** EFB-Verkehr, gleiche Stufe überall, Sammelpunkte beim Herauszoomen.
+
 ### 2026-11-06 · Schattenwurf der Flugzeug-Icons — ausgeliefert in Tracker v619 Alpha / Web v2351 (06.11.2026)
 - **Artefakt:** Tracker-EXE (Traffic-AGL, EFB-Dateien); Web live mit diesem Push
 - **Dateien:** `map-live-presentation.js`, `map-display-controls.js`, `sync.js`, `index.html`, `i18n/en.js`, `tracker.js`, `tracker-efb-kartentisch-host.js`, `efb-web-assets/*`

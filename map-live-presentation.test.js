@@ -229,3 +229,13 @@ test('icon shadow: slider middle (0.5) is the calibrated default, with room both
     assert.ok(parse(f(1000, { sharp: 1 }))[2] < mid[2] && parse(f(1000, { sharp: 0 }))[2] > mid[2]);
     assert.ok(parse(f(40000, {}))[0] <= 40 * Math.SQRT1_2 + 0.1, 'capped at 40 px by default');
 });
+
+test('display level: the tracker level wins over local classification; unknown ids fall back', () => {
+    const own = { lat: 48, lon: 7, alt: 3000, hdg: 0, gs: 100 };
+    const ac = { id: 'x', lat: 48 + 5 / 60, lon: 7, alt: 3000, hdg: 0, gs: 100 };
+    const info = presentation.classifyTraffic(ac, own);
+    assert.equal(presentation.trafficDisplayLevel(ac, info, null, null), 'proximate');
+    assert.equal(presentation.trafficDisplayLevel(ac, info, null, { x: 'resolve' }), 'resolve');
+    assert.equal(presentation.trafficDisplayLevel(ac, info, null, { y: 'alert' }), 'proximate');
+    assert.equal(presentation.trafficDisplayLevel({ ...ac, gnd: 1 }, info, null, { x: 'alert' }), 'ground');
+});

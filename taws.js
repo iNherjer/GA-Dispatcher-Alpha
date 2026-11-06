@@ -229,6 +229,13 @@ window.awmSetVerticalAirspaceWarn = function(on) {
 window.awmSetTrafficWarn = function(on) {
     localStorage.setItem('awm_warn_traffic', on ? '1' : '0');
 };
+// Display level per contact from the tracker (null: older tracker, classify locally).
+window.awmTrackerTrafficLevels = function(levels) {
+    const next = levels && typeof levels === 'object' ? levels : null;
+    const same = JSON.stringify(next) === JSON.stringify(window.vpTrafficLevels ?? null);
+    window.vpTrafficLevels = next;
+    if (!same && typeof window.refreshTrafficIcons === 'function') window.refreshTrafficIcons();
+};
 // Contacts the tracker currently warns about (null: tracker without traffic warnings).
 window.awmTrackerTrafficAlerting = function(ids) {
     const next = Array.isArray(ids) ? ids.map(String) : null;

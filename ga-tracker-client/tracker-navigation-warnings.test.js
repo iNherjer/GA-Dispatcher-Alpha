@@ -241,3 +241,18 @@ test('traffic: stale contact list does not warn', async () => {
   await f.tick({ traffic: near, trafficAt: 0 }, 1000);
   assert.equal(f.jobs.filter(j => j.kind === 'traffic').length, 0);
 });
+
+test('traffic: tracker publishes the display level per contact (also with sound off)', async () => {
+  const settings = { traffic: false };
+  const f = fixture({ getSettings: () => settings, data: { airspaces: async () => [], terrain: async () => 0 } });
+  const list = [
+    { id: 'near', lat: 0.6 / 60, lon: 0, alt: 1500, hdg: 90, gs: 120 },
+    { id: 'far', lat: 0.2, lon: 0.2, alt: 9000, hdg: 0, gs: 100 },
+    { id: 'gnd', lat: 0.001, lon: 0.001, alt: 200, gs: 0, gnd: 1 }
+  ];
+  await f.tick({ traffic: list, trafficAt: 101000 }, 1000);
+  const snap = f.engine.snapshot();
+  assert.equal(snap.capabilities.trafficLevels, true);
+  assert.deepEqual(snap.trafficLevels, { near: 'alert', far: 'other', gnd: 'ground' });
+  assert.equal(f.jobs.filter(j => j.kind === 'traffic').length, 0, 'sound off');
+});

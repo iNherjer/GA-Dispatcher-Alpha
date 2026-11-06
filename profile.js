@@ -8645,7 +8645,7 @@ function vpDrawTrafficInProfile(fgCtx, xOf, yOf, elevData, isHdgMode, viewMinX, 
         if (tx < viewMinX - 30 || tx > viewMaxX + 30) continue;
         const ac = entry.ac || entry;
         const info = pres?.classifyTraffic ? pres.classifyTraffic(ac, own) : { level: 'other' };
-        const level = pres?.trafficDisplayLevel ? pres.trafficDisplayLevel(ac, info, window.vpTrafficAlertingIds) : info.level;
+        const level = pres?.trafficDisplayLevel ? pres.trafficDisplayLevel(ac, info, window.vpTrafficAlertingIds, window.vpTrafficLevels) : info.level;
         const st = STYLE[level] || STYLE.other;
         const blink = st.period ? 0.25 + 0.75 * (0.5 + 0.5 * Math.cos(2 * Math.PI * t / st.period)) : 1;
 

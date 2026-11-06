@@ -6,7 +6,7 @@ const { fontDeclarations, htmlFontDeclarations, clientFontSource } = require('./
 
 const EFB_WEB_CLIENT_PATH = '/efb/v1/';
 const EFB_WEB_CLIENT_PROBE_PATH = '/efb/v1/probe/';
-const EFB_WEB_ASSET_REVISION = '61901';
+const EFB_WEB_ASSET_REVISION = '62001';
 const fileCache = new Map();
 
 const STATIC_ASSETS = Object.freeze({
@@ -93,6 +93,7 @@ const STATIC_ASSETS = Object.freeze({
   '/efb/v1/assets/audio-client.js': [path.join(__dirname, 'tracker-audio-client.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/cockpit-session-client.js': [path.join(__dirname, 'tracker-cockpit-session-client.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/map-live-presentation.js': [path.join(__dirname, '..', 'map-live-presentation.js'), 'text/javascript; charset=utf-8'],
+  '/efb/v1/assets/traffic-map-layer.js': [path.join(__dirname, '..', 'traffic-map-layer.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/MS33558.ttf': [path.join(__dirname, '..', 'MS33558.ttf'), 'font/ttf'],
   '/efb/v1/assets/map-shell-core.js': [path.join(__dirname, 'efb-app', 'map-shell-core.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/map-utility-tools.js': [path.join(__dirname, 'efb-web-assets', 'map-utility-tools.js'), 'text/javascript; charset=utf-8'],
@@ -173,6 +174,7 @@ ${extractKartentischMarkup()}
 <script src="/efb/v1/assets/mission-control-ui-core.js?v=${EFB_WEB_ASSET_REVISION}" onload="__gaEfbScriptLoaded('mission-control-ui-core.js')" onerror="__gaEfbScriptError('mission-control-ui-core.js')"></script>
 <script src="/efb/v1/assets/mission-manifest-core.js?v=${EFB_WEB_ASSET_REVISION}" onload="__gaEfbScriptLoaded('mission-manifest-core.js')" onerror="__gaEfbScriptError('mission-manifest-core.js')"></script>
 <script src="/efb/v1/assets/map-live-presentation.js?v=${EFB_WEB_ASSET_REVISION}"></script>
+<script src="/efb/v1/assets/traffic-map-layer.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/radio-tuning-core.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/radio-tuning-ui.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/navcom-preferences-client.js?v=${EFB_WEB_ASSET_REVISION}"></script>

@@ -1751,7 +1751,7 @@
     });
     window.gaMapDisplayAdapter = {
       supports: function(key) {
-        return ['magentaLine', 'telemetry', 'currentInfo', 'nextLeg', 'routeProgress', 'compass', 'lowFps', 'autoZoom', 'zoomControl', 'terrainAvoid', 'favoriteAirports'].indexOf(key) >= 0;
+        return ['magentaLine', 'telemetry', 'currentInfo', 'nextLeg', 'routeProgress', 'compass', 'lowFps', 'autoZoom', 'zoomControl', 'terrainAvoid', 'favoriteAirports', 'traffic'].indexOf(key) >= 0;
       },
       apply: function(key) {
         if (['telemetry', 'currentInfo', 'nextLeg'].indexOf(key) >= 0) {
@@ -1766,6 +1766,7 @@
           if (map) map.invalidateSize(false);
         }
         if (key === 'magentaLine') renderProgress();
+        if (key === 'traffic') renderTraffic(true);
         if (key === 'favoriteAirports' && window.gaRenderFavoriteAirportStars) window.gaRenderFavoriteAirportStars();
         if (key === 'autoZoom') {
           window.resetMapAutoZoomState();
@@ -1787,7 +1788,7 @@
         // These original renderers still need migration. Never expose a working-
         // looking toggle that only changes its label or invent a replacement.
         ['hintToggleWeather',
-          'btnToggleWeatherMenu', 'hintToggleTraffic'
+          'btnToggleWeatherMenu'
         ].forEach(function(id) {
           var control = byId(id);
           if (!control) return;
@@ -2158,6 +2159,69 @@
     document.documentElement.style.setProperty('--plane-shadow', next);
   };
 
+  // Traffic on the EFB map: same symbols, warning colours, blinking and shadows
+  // as the web app (traffic-map-layer.js). Map menu switch "Traffic".
+  var trafficLayer = null, trafficMapData = [], trafficReceivedAt = 0, trafficRenderedAt = 0, trafficListAt = null;
+  function trafficVisible() { return window.isMapHintEnabled('traffic'); }
+  function trafficOwnState() {
+    var data = window.lastLiveFlightData || {};
+    var agl = Number(data.aglFt);
+    return flight ? { lat: flight.lat, lon: flight.lon, alt: flight.altFt, hdg: flight.headingDeg,
+      gs: Number(data.gsKts) || 0, vs: Number(data.vsFpm) || 0, onGround: data.onGround === true,
+      groundFt: isFinite(agl) ? flight.altFt - agl : null } : null;
+  }
+  function getTrafficLayer() {
+    if (!map || !window.GATrafficMapLayer) return null;
+    if (!trafficLayer) trafficLayer = window.GATrafficMapLayer.createTrafficMapLayer({ map: map, L: L, getOwn: trafficOwnState });
+    return trafficLayer;
+  }
+  function clearTraffic() {
+    trafficMapData = []; trafficReceivedAt = 0; trafficListAt = null;
+    if (trafficLayer) trafficLayer.clear();
+  }
+  function renderTraffic(force) {
+    var layer = getTrafficLayer();
+    if (!layer) return;
+    if (!trafficVisible()) { layer.clear(); return; }
+    // At most once per second: levels follow the own position between lists.
+    var now = Date.now();
+    if (!force && now - trafficRenderedAt < 1000) return;
+    trafficRenderedAt = now;
+    layer.update(trafficMapData);
+  }
+  function receiveTraffic(payload) {
+    var all = window.GAMapLivePresentation.filterTraffic(payload.traffic, payload);
+    window.vpTrafficData = all.filter(function(ac) { return !ac.gnd; });
+    var fresh = payload.trafficAt !== trafficListAt;
+    if (fresh) { trafficListAt = payload.trafficAt; trafficReceivedAt = Date.now(); }
+    // No new list for 15 s (tracker hibernating, sim paused): contacts disappear.
+    if (Date.now() - trafficReceivedAt > 15000) { trafficMapData = []; if (trafficLayer) trafficLayer.clear(); return; }
+    trafficMapData = all;
+    renderTraffic(fresh);
+  }
+  window.refreshTrafficIcons = function() { if (trafficLayer && trafficVisible()) trafficLayer.refresh(trafficMapData); };
+  window.gaEfbClearTraffic = clearTraffic;
+  window.applyTrafficVisibility = function() { renderTraffic(true); };
+  // The audio client reports the tracker's level per contact (single source).
+  if (typeof window.awmTrackerTrafficLevels !== 'function') {
+    window.awmTrackerTrafficLevels = function(levels) {
+      var next = levels && typeof levels === 'object' ? levels : null;
+      var same = JSON.stringify(next) === JSON.stringify(window.vpTrafficLevels == null ? null : window.vpTrafficLevels);
+      window.vpTrafficLevels = next;
+      if (!same) window.refreshTrafficIcons();
+    };
+  }
+  // The audio client reports which contacts the tracker warns about (blinking).
+  if (typeof window.awmTrackerTrafficAlerting !== 'function') {
+    window.awmTrackerTrafficAlerting = function(ids) {
+      var next = Array.isArray(ids) ? ids.map(String) : null;
+      var prev = window.vpTrafficAlertingIds;
+      var same = (prev == null && next == null) || (Array.isArray(prev) && Array.isArray(next) && prev.join() === next.join());
+      window.vpTrafficAlertingIds = next;
+      if (!same) window.refreshTrafficIcons();
+    };
+  }
+
   // Icon class chosen in the map menu: swap the marker in place.
   window.refreshOwnPlaneIcon = function() {
     if (!planeMarker) return;
@@ -2248,7 +2312,7 @@
       ? Object.assign({}, payload.flight, { lat: normalized.lat, lon: normalized.lon }) : null, normalized.capturedAt);
     window.lastLiveTerrainFt = Number.isFinite(Number(payload.flight && payload.flight.aglFt))
       ? flight.altFt - Number(payload.flight.aglFt) : null;
-    if(Array.isArray(payload.traffic)) window.vpTrafficData = window.GAMapLivePresentation.filterTraffic(payload.traffic, payload).filter(function(ac){ return !ac.gnd; });
+    if (Array.isArray(payload.traffic)) receiveTraffic(payload);
     recordLiveTrail(flight.lat, flight.lon);
     if (!planeMarker) {
       planeMarker = L.marker([flight.lat, flight.lon], { icon: planeIcon(), pane: 'gaAircraftPane', zIndexOffset: 9999, interactive: false }).addTo(map);
@@ -3696,6 +3760,7 @@
     refreshLocalNavigation();
     ['liveTelemetryBox','liveCurrentBox','liveNextWpBox'].forEach(function(id){setInfoBoxAvailability(id, id === 'liveTelemetryBox' && telemetryRetained);});
     if (planeMarker) { map.removeLayer(planeMarker); planeMarker = null; }
+    if (typeof window.gaEfbClearTraffic === 'function') window.gaEfbClearTraffic();
     updateCompass();
     renderProgress();
   }

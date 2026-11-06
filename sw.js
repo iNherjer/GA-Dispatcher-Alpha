@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v2351';
+const CACHE = 'ga-dispatcher-v2352';
 
 const STATIC = [
     './',
@@ -90,6 +90,7 @@ const STATIC = [
     './mission-bush-narrative-browser.js',
     './navigation-warning-presentation.js',
     './map-live-presentation.js',
+    './traffic-map-layer.js',
     './map-profile-controls.js',
     './navcom-preferences-core.js',
     './navcom-preferences-client.js',

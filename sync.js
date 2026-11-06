@@ -15511,7 +15511,6 @@ window.handleMissionMainNotificationAction = async function() {
 };
 
 // --- LIVE TRAFFIC ---
-let liveTrafficMarkers = {}; // key → { marker }
 window.vpTrafficData = [];    // nur Verkehr in der Luft (Profil, Warnungen)
 window.vpTrafficMapData = []; // alles fuer die Karte, inkl. Boden
 window.vpTrafficMapVisible = true;
@@ -20735,51 +20734,15 @@ function updateFlightRecorder(lat, lon, alt) {
 }
 
 // ─── TRAFFIC AUF KARTE ────────────────────────────────────────────────────────
-// Marker werden ueber die stabile Tracker-ID (SimConnect-Objekt-ID) gefuehrt.
-// Frueher wurde per Naehe zugeordnet; dabei konnten Marker ueberschrieben werden,
-// ohne von der Karte zu verschwinden, und blieben als gestapelte Geister stehen.
-// Nur Kontakte ohne ID (alter Tracker) laufen noch ueber die Naehe-Zuordnung.
-const TRAFFIC_MATCH_DEG = 0.025; // ~2 km, nur fuer Kontakte ohne ID
+// Marker werden ueber die stabile Tracker-ID gefuehrt (traffic-map-layer.js).
 const TRAFFIC_STALE_MS = 15000;  // ohne neue Liste verschwinden alle Kontakte
 let _liveTrafficReceivedAt = 0;
 
-const TRAFFIC_LEVEL_STYLE = {
-    resolve:   { fill: '#ff3b30', opacity: 1,    size: 1.25, label: '#ff6b60' },
-    alert:     { fill: '#ffb000', opacity: 1,    size: 1.15, label: '#ffb000' },
-    proximate: { fill: '#00ccff', opacity: 0.95, size: 1,    label: '#e8f6ff' },
-    other:     { fill: '#7fdcff', opacity: 0.8,  size: 0.9,  label: '#cfeaf5' },
-    ground:    { fill: '#8a949c', opacity: 0.95, size: 0.8,  label: '#d5dbe0' }
-};
-
-function _trafficLabels(ac, info) {
-    const cs = [ac.cs, ac.m].filter(Boolean).join(' · ');
-    if (info.level === 'ground') return { alt: '', cs };
-    let alt = '';
-    if (info.relAltFt != null) {
-        const rounded = Math.round(info.relAltFt / 100) * 100;
-        alt = (rounded >= 0 ? '+' : '') + rounded;
-        const vs = Number(ac.vs) || 0;
-        if (vs > 500) alt += '↑'; else if (vs < -500) alt += '↓';
-    }
-    return { alt, cs };
-}
-
-// Height above ground for shadows. Own aircraft and traffic (tracker v619+):
-// from the simulator; older trackers send no traffic AGL (estimate, see below).
+// Height above ground of the own aircraft's terrain (for traffic shadow estimates).
 function _ownGroundFt() {
     const flight = window.lastLiveFlightData || {};
     const alt = Number(window.lastLiveGpsPos?.alt), agl = Number(flight.aglFt);
     return Number.isFinite(alt) && Number.isFinite(agl) ? alt - agl : null;
-}
-function _trafficShadowFilter(ac) {
-    if (!ac || ac.gnd) return '';
-    const pres = window.GAMapLivePresentation;
-    if (!pres?.iconShadowFilter) return '';
-    // From tracker v619 each contact brings its own height above ground; older
-    // trackers: estimate with the terrain under the own aircraft.
-    const ground = _ownGroundFt();
-    const agl = Number.isFinite(Number(ac.agl)) ? Number(ac.agl) : Number(ac.alt) - (ground ?? 0);
-    return pres.iconShadowFilter(agl, window.getIconShadowSettings?.());
 }
 // Own aircraft shadow via --plane-shadow (used by aircraftHtml); set only on change.
 let _lastOwnPlaneShadow = null;
@@ -20794,49 +20757,6 @@ window.refreshOwnPlaneShadow = function() {
     document.documentElement.style.setProperty('--plane-shadow', next);
 };
 
-function _trafficIconHtml(hdg, level, labels, kind, shadowFilter = '') {
-    const st = TRAFFIC_LEVEL_STYLE[level] || TRAFFIC_LEVEL_STYLE.other;
-    const opts = _trafficIconOptions();
-    const size = Math.round(opts.size * st.size);
-    const labelPx = Math.max(8, Math.round(opts.size * 0.34));
-    const esc = (v) => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    const svg = window.GAMapLivePresentation.trafficSymbolSvg(kind, st.fill, size,
-        `transform:rotate(${hdg}deg);opacity:${st.opacity};`, opts.outline);
-    const shadow = '-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000';
-    // Labels sit above the shadow (position + z-index), so no aircraft shades its own name.
-    return `<div class="trf-wrap trf-${level}" style="position:relative; transform:translate(-50%,-${Math.round(size / 2)}px); pointer-events:none; text-align:center; width:max-content;">
-        <div class="trf-shadow" style="position:relative; z-index:0;${shadowFilter ? ` filter:${shadowFilter};` : ''}">${svg}</div>
-        <div class="trf-alt" style="position:relative;z-index:1;font-size:${labelPx + 1}px;font-weight:bold;color:${st.label};
-             text-shadow:${shadow};line-height:1.15;white-space:nowrap;">${esc(labels.alt)}</div>
-        <div class="trf-cs" style="position:relative;z-index:1;font-size:${labelPx}px;font-weight:600;color:${st.label};text-shadow:${shadow};
-             line-height:1.1;white-space:nowrap;">${esc(labels.cs)}</div>
-    </div>`;
-}
-
-function _trafficIconOptions() {
-    const s = typeof window.getTrafficIconSettings === 'function' ? window.getTrafficIconSettings() : null;
-    return {
-        size: Number.isFinite(Number(s?.size)) ? Number(s.size) : 28,
-        outline: Number.isFinite(Number(s?.outline)) ? Number(s.outline) : 1.5
-    };
-}
-
-// Anzeige-Menue hat Groesse/Umrandung geaendert: alle Symbole neu zeichnen.
-window.refreshTrafficIcons = function() {
-    Object.values(liveTrafficMarkers).forEach(t => { t.level = null; });
-    const list = Array.isArray(window.vpTrafficMapData) ? window.vpTrafficMapData : [];
-    if (list.length) updateTrafficOnMap(list, window.lastLiveGpsPos?.alt);
-};
-
-function _trafficZIndex(level) {
-    return level === 'resolve' ? 6500 : level === 'alert' ? 6000 : level === 'ground' ? 4000 : 5000;
-}
-
-function _removeAllTrafficMarkers() {
-    Object.values(liveTrafficMarkers).forEach(t => { try { t.marker.remove(); } catch (_) {} });
-    liveTrafficMarkers = {};
-}
-
 function _liveTrafficOwnState(ownAlt) {
     const pos = window.lastLiveGpsPos || {};
     const flight = window.lastLiveFlightData || {};
@@ -20844,93 +20764,42 @@ function _liveTrafficOwnState(ownAlt) {
         lat: pos.lat, lon: pos.lon, alt: ownAlt ?? pos.alt, hdg: pos.hdg,
         gs: Number.isFinite(Number(flight.gsKts)) ? Number(flight.gsKts) : 0,
         vs: Number.isFinite(Number(flight.vsFpm)) ? Number(flight.vsFpm) : 0,
-        onGround: flight.onGround === true
+        onGround: flight.onGround === true,
+        groundFt: _ownGroundFt()
     };
 }
 
+// Markers, symbols, blinking and shadows: traffic-map-layer.js (shared with the EFB).
+let _trafficLayer = null, _trafficLayerMap = null, _trafficOwnAlt = null;
+function _getTrafficLayer() {
+    if (typeof map === 'undefined' || !map || typeof L === 'undefined' || !window.GATrafficMapLayer) return null;
+    if (!_trafficLayer || _trafficLayerMap !== map) {
+        _trafficLayer?.clear();
+        _trafficLayerMap = map;
+        _trafficLayer = window.GATrafficMapLayer.createTrafficMapLayer({
+            map: () => map, L, getOwn: () => _liveTrafficOwnState(_trafficOwnAlt)
+        });
+    }
+    return _trafficLayer;
+}
+
+function _removeAllTrafficMarkers() {
+    _trafficLayer?.clear();
+}
+
+// Anzeige-Menue hat Groesse/Umrandung/Schatten geaendert: alle Symbole neu zeichnen.
+window.refreshTrafficIcons = function() {
+    const list = Array.isArray(window.vpTrafficMapData) ? window.vpTrafficMapData : [];
+    if (list.length && isMapHintOn('traffic', true) && window.vpTrafficMapVisible) _getTrafficLayer()?.refresh(list);
+};
+
 function updateTrafficOnMap(aircraft, ownAlt) {
-    if (typeof map === 'undefined' || !map || typeof L === 'undefined') return;
     if (!isMapHintOn('traffic', true) || !window.vpTrafficMapVisible) {
         _removeAllTrafficMarkers();
         return;
     }
-
-    const own = _liveTrafficOwnState(ownAlt);
-    const classify = window.GAMapLivePresentation?.classifyTraffic;
-    const claimedKeys = new Set();
-
-    for (const ac of aircraft || []) {
-        if (!Number.isFinite(Number(ac?.lat)) || !Number.isFinite(Number(ac?.lon))) continue;
-        const info = classify ? classify(ac, own) : { level: ac.gnd ? 'ground' : 'other', relAltFt: null };
-        const level = window.GAMapLivePresentation.trafficDisplayLevel(ac, info, window.vpTrafficAlertingIds);
-        const labels = _trafficLabels(ac, info);
-        const hdg = ac.hdg ?? 0;
-        const kind = window.GAMapLivePresentation.trafficSymbolKind(ac);
-        const shadowFilter = _trafficShadowFilter(ac);
-
-        let key = ac.id != null ? 'id:' + String(ac.id) : null;
-        if (key && claimedKeys.has(key)) continue; // doppelte ID in einer Liste ignorieren
-        if (!key) {
-            // Alter Tracker ohne ID: naechsten freien Marker suchen
-            let bestDist = TRAFFIC_MATCH_DEG;
-            for (const [k, t] of Object.entries(liveTrafficMarkers)) {
-                if (claimedKeys.has(k) || !k.startsWith('pos:')) continue;
-                const d = Math.hypot(t.lat - ac.lat, t.lon - ac.lon);
-                if (d < bestDist) { bestDist = d; key = k; }
-            }
-            if (!key) key = 'pos:' + ac.lat + ',' + ac.lon + ':' + claimedKeys.size;
-        }
-        claimedKeys.add(key);
-
-        const existing = liveTrafficMarkers[key];
-        if (existing) {
-            existing.lat = ac.lat;
-            existing.lon = ac.lon;
-            existing.marker.setLatLng([ac.lat, ac.lon]);
-            if (existing.level !== level || existing.kind !== kind) {
-                // Stufe oder Symbolklasse gewechselt: Symbol neu zeichnen
-                existing.level = level;
-                existing.kind = kind;
-                existing.marker.setIcon(L.divIcon({
-                    html: _trafficIconHtml(hdg, level, labels, kind, shadowFilter),
-                    className: 'traffic-marker', iconSize: [0, 0], iconAnchor: [0, 0]
-                }));
-                existing.marker.setZIndexOffset(_trafficZIndex(level));
-            } else {
-                const el = existing.marker.getElement();
-                if (el) {
-                    const svgEl = el.querySelector('.trf-svg');
-                    if (svgEl) svgEl.style.transform = `rotate(${hdg}deg)`;
-                    const altEl = el.querySelector('.trf-alt');
-                    if (altEl) altEl.textContent = labels.alt;
-                    const csEl = el.querySelector('.trf-cs');
-                    if (csEl) csEl.textContent = labels.cs;
-                    const shadowEl = el.querySelector('.trf-shadow');
-                    if (shadowEl && shadowEl.dataset.filter !== shadowFilter) {
-                        shadowEl.dataset.filter = shadowFilter;
-                        shadowEl.style.filter = shadowFilter || '';
-                    }
-                }
-            }
-        } else {
-            const icon = L.divIcon({
-                html: _trafficIconHtml(hdg, level, labels, kind, shadowFilter),
-                className: 'traffic-marker', iconSize: [0, 0], iconAnchor: [0, 0]
-            });
-            const marker = L.marker([ac.lat, ac.lon], {
-                icon, interactive: false, zIndexOffset: _trafficZIndex(level)
-            }).addTo(map);
-            liveTrafficMarkers[key] = { marker, lat: ac.lat, lon: ac.lon, level, kind };
-        }
-    }
-
-    // Nicht mehr gemeldete Kontakte entfernen
-    for (const key of Object.keys(liveTrafficMarkers)) {
-        if (!claimedKeys.has(key)) {
-            try { liveTrafficMarkers[key].marker.remove(); } catch (_) {}
-            delete liveTrafficMarkers[key];
-        }
-    }
+    _trafficOwnAlt = ownAlt;
+    _getTrafficLayer()?.update(aircraft || []);
 }
 
 // Kommt laenger keine Traffic-Liste (Tracker weg, Hibernate, Verbindungsabbruch),
@@ -20963,8 +20832,7 @@ window.applyTrafficVisibility = function() {
             liveTrafficRenderTimer = null;
         }
         liveTrafficRenderPending = null;
-        Object.values(liveTrafficMarkers).forEach(t => t.marker.remove());
-        liveTrafficMarkers = {};
+        _removeAllTrafficMarkers();
         return;
     }
     _scheduleLiveTrafficMapRender(window.vpTrafficMapData || [], window.lastLiveGpsPos?.alt, { immediate: true });

@@ -80,6 +80,7 @@
       "../pax-audio-style.js",
       "../navigation-warning-presentation.js",
       "../map-live-presentation.js",
+      "../traffic-map-layer.js",
       "../map-profile-controls.js",
       "../MS33558.ttf",
       "../navigation-warning-audio.js",

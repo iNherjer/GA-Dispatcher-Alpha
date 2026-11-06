@@ -11361,7 +11361,7 @@ function vpDrawTrafficInProfile(fgCtx, xOf, yOf, elevData, isHdgMode, viewMinX, 
       var info = pres !== null && pres !== void 0 && pres.classifyTraffic ? pres.classifyTraffic(ac, own) : {
         level: 'other'
       };
-      var level = pres !== null && pres !== void 0 && pres.trafficDisplayLevel ? pres.trafficDisplayLevel(ac, info, window.vpTrafficAlertingIds) : info.level;
+      var level = pres !== null && pres !== void 0 && pres.trafficDisplayLevel ? pres.trafficDisplayLevel(ac, info, window.vpTrafficAlertingIds, window.vpTrafficLevels) : info.level;
       var st = STYLE[level] || STYLE.other;
       var blink = st.period ? 0.25 + 0.75 * (0.5 + 0.5 * Math.cos(2 * Math.PI * t / st.period)) : 1;
       var relAlt = Math.round((entry.altFt - ownAlt) / 100) * 100;
