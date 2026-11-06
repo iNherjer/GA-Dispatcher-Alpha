@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v2352';
+const CACHE = 'ga-dispatcher-v2353';
 
 const STATIC = [
     './',
@@ -367,9 +367,24 @@ const APP_SHELL_URLS = new Set(STATIC.filter(path =>
 ).map(path => new URL(path, self.location.href).href));
 
 // ── Install: statische Dateien vorab cachen ──────────────────────────────────
+// Each file is fetched with the cache version as query and cache: 'reload'.
+// GitHub Pages (browser and CDN) keeps files up to 10 minutes; a plain addAll
+// right after a push could store the previous file under the new version, and
+// it would then stay until the next update (seen 06.11.2026: no shadow after update).
+// Stored under the plain URL, so lookups without the query still match.
+function precacheFresh(cache) {
+    return Promise.all(STATIC.map(async path => {
+        const url = new URL(path, self.location.href);
+        const fresh = new URL(url.href);
+        fresh.searchParams.set('sw', CACHE);
+        const response = await fetch(fresh.href, { cache: 'reload' });
+        if (!response || !response.ok) throw new Error('precache_failed ' + path);
+        await cache.put(url.href, response);
+    }));
+}
 self.addEventListener('install', e => {
     e.waitUntil(
-        caches.open(CACHE).then(cache => cache.addAll(STATIC)).then(() => self.skipWaiting())
+        caches.open(CACHE).then(precacheFresh).then(() => self.skipWaiting())
     );
 });
 
