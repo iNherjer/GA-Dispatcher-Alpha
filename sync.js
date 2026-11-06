@@ -19902,6 +19902,7 @@ window.refreshOwnPlaneIcon = function() {
 };
 
 function updateLivePlanePosition(lat, lon, alt, hdg) {
+    window.refreshOwnPlaneShadow?.();
     const now = Date.now();
     _clearTrackerHibernateMapState();
     lastTelemetryUpdateAt = now;
@@ -20763,7 +20764,37 @@ function _trafficLabels(ac, info) {
     return { alt, cs };
 }
 
-function _trafficIconHtml(hdg, level, labels, kind) {
+// Height above ground for shadows. Own aircraft and traffic (tracker v619+):
+// from the simulator; older trackers send no traffic AGL (estimate, see below).
+function _ownGroundFt() {
+    const flight = window.lastLiveFlightData || {};
+    const alt = Number(window.lastLiveGpsPos?.alt), agl = Number(flight.aglFt);
+    return Number.isFinite(alt) && Number.isFinite(agl) ? alt - agl : null;
+}
+function _trafficShadowFilter(ac) {
+    if (!ac || ac.gnd) return '';
+    const pres = window.GAMapLivePresentation;
+    if (!pres?.iconShadowFilter) return '';
+    // From tracker v619 each contact brings its own height above ground; older
+    // trackers: estimate with the terrain under the own aircraft.
+    const ground = _ownGroundFt();
+    const agl = Number.isFinite(Number(ac.agl)) ? Number(ac.agl) : Number(ac.alt) - (ground ?? 0);
+    return pres.iconShadowFilter(agl, window.getIconShadowSettings?.());
+}
+// Own aircraft shadow via --plane-shadow (used by aircraftHtml); set only on change.
+let _lastOwnPlaneShadow = null;
+window.refreshOwnPlaneShadow = function() {
+    const pres = window.GAMapLivePresentation;
+    const flight = window.lastLiveFlightData || {};
+    const agl = flight.onGround === true ? 0 : Number(flight.aglFt);
+    const value = pres?.iconShadowFilter ? pres.iconShadowFilter(agl, window.getIconShadowSettings?.()) : '';
+    const next = value || 'drop-shadow(0 0 0 transparent)';
+    if (next === _lastOwnPlaneShadow) return;
+    _lastOwnPlaneShadow = next;
+    document.documentElement.style.setProperty('--plane-shadow', next);
+};
+
+function _trafficIconHtml(hdg, level, labels, kind, shadowFilter = '') {
     const st = TRAFFIC_LEVEL_STYLE[level] || TRAFFIC_LEVEL_STYLE.other;
     const opts = _trafficIconOptions();
     const size = Math.round(opts.size * st.size);
@@ -20772,11 +20803,12 @@ function _trafficIconHtml(hdg, level, labels, kind) {
     const svg = window.GAMapLivePresentation.trafficSymbolSvg(kind, st.fill, size,
         `transform:rotate(${hdg}deg);opacity:${st.opacity};`, opts.outline);
     const shadow = '-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000';
+    // Labels sit above the shadow (position + z-index), so no aircraft shades its own name.
     return `<div class="trf-wrap trf-${level}" style="position:relative; transform:translate(-50%,-${Math.round(size / 2)}px); pointer-events:none; text-align:center; width:max-content;">
-        ${svg}
-        <div class="trf-alt" style="font-size:${labelPx + 1}px;font-weight:bold;color:${st.label};
+        <div class="trf-shadow" style="position:relative; z-index:0;${shadowFilter ? ` filter:${shadowFilter};` : ''}">${svg}</div>
+        <div class="trf-alt" style="position:relative;z-index:1;font-size:${labelPx + 1}px;font-weight:bold;color:${st.label};
              text-shadow:${shadow};line-height:1.15;white-space:nowrap;">${esc(labels.alt)}</div>
-        <div class="trf-cs" style="font-size:${labelPx}px;font-weight:600;color:${st.label};text-shadow:${shadow};
+        <div class="trf-cs" style="position:relative;z-index:1;font-size:${labelPx}px;font-weight:600;color:${st.label};text-shadow:${shadow};
              line-height:1.1;white-space:nowrap;">${esc(labels.cs)}</div>
     </div>`;
 }
@@ -20834,6 +20866,7 @@ function updateTrafficOnMap(aircraft, ownAlt) {
         const labels = _trafficLabels(ac, info);
         const hdg = ac.hdg ?? 0;
         const kind = window.GAMapLivePresentation.trafficSymbolKind(ac);
+        const shadowFilter = _trafficShadowFilter(ac);
 
         let key = ac.id != null ? 'id:' + String(ac.id) : null;
         if (key && claimedKeys.has(key)) continue; // doppelte ID in einer Liste ignorieren
@@ -20859,7 +20892,7 @@ function updateTrafficOnMap(aircraft, ownAlt) {
                 existing.level = level;
                 existing.kind = kind;
                 existing.marker.setIcon(L.divIcon({
-                    html: _trafficIconHtml(hdg, level, labels, kind),
+                    html: _trafficIconHtml(hdg, level, labels, kind, shadowFilter),
                     className: 'traffic-marker', iconSize: [0, 0], iconAnchor: [0, 0]
                 }));
                 existing.marker.setZIndexOffset(_trafficZIndex(level));
@@ -20872,11 +20905,16 @@ function updateTrafficOnMap(aircraft, ownAlt) {
                     if (altEl) altEl.textContent = labels.alt;
                     const csEl = el.querySelector('.trf-cs');
                     if (csEl) csEl.textContent = labels.cs;
+                    const shadowEl = el.querySelector('.trf-shadow');
+                    if (shadowEl && shadowEl.dataset.filter !== shadowFilter) {
+                        shadowEl.dataset.filter = shadowFilter;
+                        shadowEl.style.filter = shadowFilter || '';
+                    }
                 }
             }
         } else {
             const icon = L.divIcon({
-                html: _trafficIconHtml(hdg, level, labels, kind),
+                html: _trafficIconHtml(hdg, level, labels, kind, shadowFilter),
                 className: 'traffic-marker', iconSize: [0, 0], iconAnchor: [0, 0]
             });
             const marker = L.marker([ac.lat, ac.lon], {

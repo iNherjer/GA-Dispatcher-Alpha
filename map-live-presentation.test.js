@@ -200,3 +200,32 @@ test('own aircraft icon: classic by default, traffic classes on request, colour 
     assert.match(presentation.aircraftHtml('heli'), /<circle/);
     assert.deepEqual(presentation.OWN_PLANE_ICON_KINDS, ['classic', 'single', 'twin', 'jet', 'heavy', 'heli']);
 });
+
+test('icon shadow: further, softer and lighter with height; none on the ground or when off', () => {
+    const f = presentation.iconShadowFilter;
+    assert.equal(f(0, {}), '');
+    assert.equal(f(3000, { on: false }), '');
+    assert.equal(f(3000, { dark: 0 }), '');
+    const parse = (v) => v.match(/drop-shadow\(([\d.]+)px ([\d.]+)px ([\d.]+)px rgba\(0,0,0,([\d.]+)\)\)/).slice(1).map(Number);
+    const low = parse(f(800, {})), high = parse(f(6000, {}));
+    assert.ok(high[0] > low[0], 'offset grows with height');
+    assert.ok(high[2] > low[2], 'softer higher up');
+    assert.ok(high[3] < low[3], 'lighter higher up');
+    assert.ok(parse(f(40000, { reach: 0.25 }))[0] <= 20 / Math.SQRT2 + 0.1, 'offset capped at 20 px at a quarter reach');
+    assert.ok(parse(f(3000, { sharp: 1 }))[2] < parse(f(3000, { sharp: 0 }))[2], 'sharpness reduces blur');
+    assert.match(presentation.aircraftHtml(), /var\(--plane-shadow/);
+});
+
+test('icon shadow: slider middle (0.5) is the calibrated default, with room both ways', () => {
+    const parse = (v) => v.match(/drop-shadow\(([\d.]+)px ([\d.]+)px ([\d.]+)px rgba\(0,0,0,([\d.]+)\)\)/).slice(1).map(Number);
+    const f = presentation.iconShadowFilter;
+    // 1000 ft above ground: offset 1.5 + 8 px, darkness 0.45 * (1 - 0.45/8), blur factor 1.0
+    const mid = parse(f(1000, {}));
+    assert.ok(Math.abs(mid[0] - 9.5 * Math.SQRT1_2) < 0.1, 'offset 8 px per 1000 ft');
+    assert.ok(Math.abs(mid[3] - 0.45 * (1 - 0.45 / 8)) < 0.01, 'darkness 45 % near the ground');
+    assert.ok(Math.abs(mid[2] - 0.8) < 0.06, 'blur factor 1.0');
+    assert.ok(parse(f(1000, { reach: 1 }))[0] > mid[0] && parse(f(1000, { reach: 0.2 }))[0] < mid[0]);
+    assert.ok(parse(f(1000, { dark: 1 }))[3] > mid[3] && parse(f(1000, { dark: 0.2 }))[3] < mid[3]);
+    assert.ok(parse(f(1000, { sharp: 1 }))[2] < mid[2] && parse(f(1000, { sharp: 0 }))[2] > mid[2]);
+    assert.ok(parse(f(40000, {}))[0] <= 40 * Math.SQRT1_2 + 0.1, 'capped at 40 px by default');
+});

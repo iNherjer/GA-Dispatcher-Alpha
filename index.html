@@ -1408,6 +1408,26 @@
                             <span id="vpPlaneSizeValue" style="color:#d6d6d6; font-size:10px; font-family:monospace;">40 px</span>
                         </div>
                         <input id="vpPlaneSizeSlider" type="range" min="20" max="100" step="1" value="40" style="width:100%; cursor:pointer;">
+                        <div style="height:1px; background:#2f2f2f; margin:8px 0 7px;"></div>
+                        <label style="display:flex; align-items:center; gap:7px; color:#d6d6d6; font-size:11px; margin-bottom:6px; cursor:pointer;" title="Gilt für das eigene Flugzeug und den Verkehr. Je höher, desto weiter fällt der Schatten." data-i18n-title="map.menu.shadowTitle">
+                            <input type="checkbox" id="vpIconShadowCheck" checked style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer;">
+                            <span data-i18n="map.menu.shadow">Schattenwurf</span>
+                        </label>
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:4px;">
+                            <label for="vpIconShadowDark" style="color:#a8a8a8; font-size:10px;" data-i18n="map.menu.shadowDark">Max. Dunkelheit</label>
+                            <span id="vpIconShadowDarkValue" style="color:#d6d6d6; font-size:10px; font-family:monospace;">50 %</span>
+                        </div>
+                        <input id="vpIconShadowDark" type="range" min="0" max="100" step="5" value="50" style="width:100%; cursor:pointer; margin-bottom:8px;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:4px;">
+                            <label for="vpIconShadowSharp" style="color:#a8a8a8; font-size:10px;" data-i18n="map.menu.shadowSharp">Schärfe</label>
+                            <span id="vpIconShadowSharpValue" style="color:#d6d6d6; font-size:10px; font-family:monospace;">50 %</span>
+                        </div>
+                        <input id="vpIconShadowSharp" type="range" min="0" max="100" step="5" value="50" style="width:100%; cursor:pointer; margin-bottom:8px;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:4px;">
+                            <label for="vpIconShadowReach" style="color:#a8a8a8; font-size:10px;" data-i18n="map.menu.shadowReach">Versatz</label>
+                            <span id="vpIconShadowReachValue" style="color:#d6d6d6; font-size:10px; font-family:monospace;">50 %</span>
+                        </div>
+                        <input id="vpIconShadowReach" type="range" min="0" max="100" step="5" value="50" style="width:100%; cursor:pointer;">
                     </div>
                     <button id="btnToggleTrafficIconMenu" class="pb-btn" onclick="toggleVpTrafficIconMenu(event)" title="Größe und Umrandung der Traffic-Symbole" data-i18n-title="map.menu.trafficIconTitle" style="display:block; width:100%; margin:6px 0 0 0; text-align:left;" data-i18n="map.menu.trafficIcon">🛩 Traffic Icons</button>
                     <div id="vpTrafficIconMenu" style="display:none; margin-top:4px; border:1px solid #3a3a3a; border-radius:6px; padding:7px; background:#0d0d0d;">

@@ -31,6 +31,14 @@ _Derzeit keine offenen Einträge._
 
 ## Ausgeliefert
 
+### 2026-11-06 · Schattenwurf der Flugzeug-Icons — ausgeliefert in Tracker v619 Alpha / Web v2351 (06.11.2026)
+- **Artefakt:** Tracker-EXE (Traffic-AGL, EFB-Dateien); Web live mit diesem Push
+- **Dateien:** `map-live-presentation.js`, `map-display-controls.js`, `sync.js`, `index.html`, `i18n/en.js`, `tracker.js`, `tracker-efb-kartentisch-host.js`, `efb-web-assets/*`
+- **Was:** Schatten nach Höhe über Grund, Labels im Vordergrund, Regler Dunkelheit/Schärfe/Versatz (50 % = Standard), AGL pro Kontakt vom Tracker.
+- **Tests:** siehe `docs/Tracker-v619-Release.md`.
+- **Doku beim Release:** `docs/Tracker-v619-Release.md`.
+- **Pruefen im Feld:** Schatten über Berg/Tal, AGL-Wert bei KI-Verkehr.
+
 ### 2026-11-06 · Eigenes Flugzeug-Icon wählbar, auch pro Profil — ausgeliefert in Tracker v618 Alpha / Web v2350 (06.11.2026)
 - **Artefakt:** Tracker-EXE (EFB-Dateien); Web live mit diesem Push
 - **Dateien:** `map-live-presentation.js`, `map-display-controls.js`, `app.js`, `sync.js`, `profile.js`, `index.html`, `styles.css`, `i18n/*`, `tracker-efb-kartentisch-host.js`, `efb-web-assets/*`

@@ -1,4 +1,10 @@
 // Generated from map-display-controls.js by sync-efb-web-assets.js. Do not edit.
+function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
+function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
+function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t.return && (u = t.return(), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
+function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 function ownKeys(e, r) { var t = Object.keys(e); if (Object.getOwnPropertySymbols) { var o = Object.getOwnPropertySymbols(e); r && (o = o.filter(function (r) { return Object.getOwnPropertyDescriptor(e, r).enumerable; })), t.push.apply(t, o); } return t; }
 function _objectSpread(e) { for (var r = 1; r < arguments.length; r++) { var t = null != arguments[r] ? arguments[r] : {}; r % 2 ? ownKeys(Object(t), !0).forEach(function (r) { _defineProperty(e, r, t[r]); }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) { Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r)); }); } return e; }
 function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
@@ -494,6 +500,7 @@ function initPlaneIconSettingsUi() {
     });
   }
   initTrafficIconSettingsUi();
+  initIconShadowSettingsUi();
 }
 
 // Traffic icons: size and black outline, shown next to the aircraft icon menu.
@@ -581,6 +588,93 @@ function initTrafficIconSettingsUi() {
       outline: e.target.value,
       persist: true
     }));
+  }
+}
+
+// Shadow of the aircraft icons (own and traffic): on/off, darkest value, sharpness.
+var ICON_SHADOW_KEY = 'ga_icon_shadow_v2'; // slider positions, 0.5 = calibrated default
+var ICON_SHADOW_DEFAULT = {
+  on: true,
+  dark: 0.5,
+  sharp: 0.5,
+  reach: 0.5
+};
+var iconShadowSettings = _objectSpread({}, ICON_SHADOW_DEFAULT);
+function normalizeIconShadow(value) {
+  var v = value && typeof value === 'object' ? value : {};
+  var unit = (n, d) => Number.isFinite(Number(n)) ? Math.min(1, Math.max(0, Math.round(Number(n) * 100) / 100)) : d;
+  return {
+    on: v.on !== false,
+    dark: unit(v.dark, ICON_SHADOW_DEFAULT.dark),
+    sharp: unit(v.sharp, ICON_SHADOW_DEFAULT.sharp),
+    reach: unit(v.reach, ICON_SHADOW_DEFAULT.reach)
+  };
+}
+window.getIconShadowSettings = function () {
+  return _objectSpread({}, iconShadowSettings);
+};
+function applyIconShadowSettings() {
+  var patch = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+  var persist = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+  iconShadowSettings = normalizeIconShadow(_objectSpread(_objectSpread({}, iconShadowSettings), patch));
+  if (persist) {
+    try {
+      localStorage.setItem(ICON_SHADOW_KEY, JSON.stringify(iconShadowSettings));
+    } catch (_) {}
+  }
+  var on = document.getElementById('vpIconShadowCheck');
+  if (on) on.checked = iconShadowSettings.on;
+  var dark = document.getElementById('vpIconShadowDark');
+  if (dark) {
+    dark.value = String(Math.round(iconShadowSettings.dark * 100));
+    dark.disabled = !iconShadowSettings.on;
+  }
+  var darkLabel = document.getElementById('vpIconShadowDarkValue');
+  if (darkLabel) darkLabel.textContent = `${Math.round(iconShadowSettings.dark * 100)} %`;
+  var sharp = document.getElementById('vpIconShadowSharp');
+  if (sharp) {
+    sharp.value = String(Math.round(iconShadowSettings.sharp * 100));
+    sharp.disabled = !iconShadowSettings.on;
+  }
+  var sharpLabel = document.getElementById('vpIconShadowSharpValue');
+  if (sharpLabel) sharpLabel.textContent = `${Math.round(iconShadowSettings.sharp * 100)} %`;
+  var reach = document.getElementById('vpIconShadowReach');
+  if (reach) {
+    reach.value = String(Math.round(iconShadowSettings.reach * 100));
+    reach.disabled = !iconShadowSettings.on;
+  }
+  var reachLabel = document.getElementById('vpIconShadowReachValue');
+  if (reachLabel) reachLabel.textContent = `${Math.round(iconShadowSettings.reach * 100)} %`;
+  if (typeof window.refreshOwnPlaneShadow === 'function') window.refreshOwnPlaneShadow();
+  if (typeof window.refreshTrafficIcons === 'function') window.refreshTrafficIcons();
+}
+function initIconShadowSettingsUi() {
+  var stored = null;
+  try {
+    stored = JSON.parse(localStorage.getItem(ICON_SHADOW_KEY) || 'null');
+  } catch (_) {}
+  applyIconShadowSettings(stored || {});
+  var on = document.getElementById('vpIconShadowCheck');
+  if (on && !on.dataset.boundShadow) {
+    on.dataset.boundShadow = '1';
+    on.addEventListener('change', e => applyIconShadowSettings({
+      on: e.target.checked
+    }, true));
+  }
+  var _loop = function _loop() {
+    var _arr$_i = _slicedToArray(_arr[_i], 2),
+      id = _arr$_i[0],
+      key = _arr$_i[1];
+    var input = document.getElementById(id);
+    if (input && !input.dataset.boundShadow) {
+      input.dataset.boundShadow = '1';
+      input.addEventListener('input', e => applyIconShadowSettings({
+        [key]: Number(e.target.value) / 100
+      }, true));
+    }
+  };
+  for (var _i = 0, _arr = [['vpIconShadowDark', 'dark'], ['vpIconShadowSharp', 'sharp'], ['vpIconShadowReach', 'reach']]; _i < _arr.length; _i++) {
+    _loop();
   }
 }
 function toggleVpTrafficIconMenu(e) {

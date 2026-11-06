@@ -2145,6 +2145,19 @@
     });
   }
 
+  // Own aircraft shadow (map menu "Schattenwurf"): via --plane-shadow, set only on change.
+  var lastOwnPlaneShadow = null;
+  window.refreshOwnPlaneShadow = function() {
+    var pres = window.GAMapLivePresentation;
+    var data = window.lastLiveFlightData || {};
+    var agl = data.onGround === true ? 0 : Number(data.aglFt);
+    var value = pres && pres.iconShadowFilter && window.getIconShadowSettings ? pres.iconShadowFilter(agl, window.getIconShadowSettings()) : '';
+    var next = value || 'drop-shadow(0 0 0 transparent)';
+    if (next === lastOwnPlaneShadow) return;
+    lastOwnPlaneShadow = next;
+    document.documentElement.style.setProperty('--plane-shadow', next);
+  };
+
   // Icon class chosen in the map menu: swap the marker in place.
   window.refreshOwnPlaneIcon = function() {
     if (!planeMarker) return;
@@ -2228,6 +2241,7 @@
     flight = normalized;
     refreshLocalNavigation();
     window.lastLiveFlightData = payload.flight || {};
+    window.refreshOwnPlaneShadow();
     // The watch needs the position for sunrise/sunset, QNH and temperature;
     // the tracker sends it next to the flight values, not inside them.
     window.GADisplayClock.observe(payload.flight

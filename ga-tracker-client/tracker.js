@@ -140,8 +140,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v618';
-const TRACKER_VERSION_CODE = 618;
+const TRACKER_VERSION = 'v619';
+const TRACKER_VERSION_CODE = 619;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -7709,6 +7709,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       handle.addToDataDefinition(TRAFFIC_DEF_ID, 'ENGINE TYPE', 'enum', SimConnectDataType.FLOAT64);
       handle.addToDataDefinition(TRAFFIC_DEF_ID, 'NUMBER OF ENGINES', 'number', SimConnectDataType.FLOAT64);
       handle.addToDataDefinition(TRAFFIC_DEF_ID, 'ATC HEAVY', 'bool', SimConnectDataType.FLOAT64);
+      // Height above the contact's own terrain: map shadow offset.
+      handle.addToDataDefinition(TRAFFIC_DEF_ID, 'PLANE ALT ABOVE GROUND', 'feet', SimConnectDataType.FLOAT64);
       handle.addToDataDefinition(TRAFFIC_DEF_ID, 'CATEGORY', null, SimConnectDataType.STRING32);
       handle.addToDataDefinition(TRAFFIC_DEF_ID, 'ATC ID', null, SimConnectDataType.STRING32);
       handle.addToDataDefinition(TRAFFIC_DEF_ID, 'ATC MODEL', null, SimConnectDataType.STRING64);
@@ -7756,6 +7758,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
           if (!read) return;
           const tLat = read(), tLon = read(), tAlt = read(), tHdg = read(), tGs = read(), tVs = read(), tGnd = read();
           const tEngineType = Math.round(read()), tEngines = Math.round(read()), tHeavy = read() >= 0.5;
+          const tAgl = read();
           const category = trafficReadString32(d);
           const callsign = trafficReadString32(d);
           const model = trafficModelCode(trafficReadString64(d));
@@ -7774,6 +7777,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
             gs: Math.round(tGs),
             vs: Math.round(tVs),
             onGround: tGnd >= 0.5,
+            agl: Number.isFinite(tAgl) ? Math.round(tAgl) : null,
             category,
             callsign,
             model,
@@ -7824,6 +7828,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
             if (ac.callsign) out.cs = ac.callsign.slice(0, 12);
             if (ac.kind) out.k = ac.kind;
             if (ac.model) out.m = ac.model;
+            if (!ac.onGround && Number.isFinite(ac.agl) && ac.agl >= 0) out.agl = ac.agl;
             return out;
           };
           const airborne = aircraft.filter(x => !x.ac.onGround).slice(0, TRAFFIC_MAX_AIRBORNE).map(compact);

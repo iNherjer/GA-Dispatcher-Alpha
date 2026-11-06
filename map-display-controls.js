@@ -454,6 +454,7 @@ function initPlaneIconSettingsUi() {
         });
     }
     initTrafficIconSettingsUi();
+    initIconShadowSettingsUi();
 }
 
 // Traffic icons: size and black outline, shown next to the aircraft icon menu.
@@ -524,6 +525,58 @@ function initTrafficIconSettingsUi() {
     if (outlineSlider && !outlineSlider.dataset.boundTrafficIcon) {
         outlineSlider.dataset.boundTrafficIcon = '1';
         outlineSlider.addEventListener('input', (e) => applyTrafficIconSettings({ outline: e.target.value, persist: true }));
+    }
+}
+
+// Shadow of the aircraft icons (own and traffic): on/off, darkest value, sharpness.
+const ICON_SHADOW_KEY = 'ga_icon_shadow_v2'; // slider positions, 0.5 = calibrated default
+const ICON_SHADOW_DEFAULT = { on: true, dark: 0.5, sharp: 0.5, reach: 0.5 };
+let iconShadowSettings = { ...ICON_SHADOW_DEFAULT };
+
+function normalizeIconShadow(value) {
+    const v = value && typeof value === 'object' ? value : {};
+    const unit = (n, d) => Number.isFinite(Number(n)) ? Math.min(1, Math.max(0, Math.round(Number(n) * 100) / 100)) : d;
+    return { on: v.on !== false, dark: unit(v.dark, ICON_SHADOW_DEFAULT.dark), sharp: unit(v.sharp, ICON_SHADOW_DEFAULT.sharp), reach: unit(v.reach, ICON_SHADOW_DEFAULT.reach) };
+}
+
+window.getIconShadowSettings = function() { return { ...iconShadowSettings }; };
+
+function applyIconShadowSettings(patch = {}, persist = false) {
+    iconShadowSettings = normalizeIconShadow({ ...iconShadowSettings, ...patch });
+    if (persist) { try { localStorage.setItem(ICON_SHADOW_KEY, JSON.stringify(iconShadowSettings)); } catch (_) {} }
+    const on = document.getElementById('vpIconShadowCheck');
+    if (on) on.checked = iconShadowSettings.on;
+    const dark = document.getElementById('vpIconShadowDark');
+    if (dark) { dark.value = String(Math.round(iconShadowSettings.dark * 100)); dark.disabled = !iconShadowSettings.on; }
+    const darkLabel = document.getElementById('vpIconShadowDarkValue');
+    if (darkLabel) darkLabel.textContent = `${Math.round(iconShadowSettings.dark * 100)} %`;
+    const sharp = document.getElementById('vpIconShadowSharp');
+    if (sharp) { sharp.value = String(Math.round(iconShadowSettings.sharp * 100)); sharp.disabled = !iconShadowSettings.on; }
+    const sharpLabel = document.getElementById('vpIconShadowSharpValue');
+    if (sharpLabel) sharpLabel.textContent = `${Math.round(iconShadowSettings.sharp * 100)} %`;
+    const reach = document.getElementById('vpIconShadowReach');
+    if (reach) { reach.value = String(Math.round(iconShadowSettings.reach * 100)); reach.disabled = !iconShadowSettings.on; }
+    const reachLabel = document.getElementById('vpIconShadowReachValue');
+    if (reachLabel) reachLabel.textContent = `${Math.round(iconShadowSettings.reach * 100)} %`;
+    if (typeof window.refreshOwnPlaneShadow === 'function') window.refreshOwnPlaneShadow();
+    if (typeof window.refreshTrafficIcons === 'function') window.refreshTrafficIcons();
+}
+
+function initIconShadowSettingsUi() {
+    let stored = null;
+    try { stored = JSON.parse(localStorage.getItem(ICON_SHADOW_KEY) || 'null'); } catch (_) {}
+    applyIconShadowSettings(stored || {});
+    const on = document.getElementById('vpIconShadowCheck');
+    if (on && !on.dataset.boundShadow) {
+        on.dataset.boundShadow = '1';
+        on.addEventListener('change', (e) => applyIconShadowSettings({ on: e.target.checked }, true));
+    }
+    for (const [id, key] of [['vpIconShadowDark', 'dark'], ['vpIconShadowSharp', 'sharp'], ['vpIconShadowReach', 'reach']]) {
+        const input = document.getElementById(id);
+        if (input && !input.dataset.boundShadow) {
+            input.dataset.boundShadow = '1';
+            input.addEventListener('input', (e) => applyIconShadowSettings({ [key]: Number(e.target.value) / 100 }, true));
+        }
     }
 }
 

@@ -41,6 +41,27 @@ function createEfbSvgRenderer(L, options) {
     }
     return renderer;
 }
+// Shadow on the map: the higher above ground, the further it falls (sun from
+// the north-west, so towards the south-east), softer and lighter.
+// settings: { on, dark, sharp, reach } as slider positions 0..1. 0.5 is the calibrated
+// default (tested 06.11.2026): darkest 45 %, blur factor 1.0, 8 px per 1000 ft up to 40 px.
+const ICON_SHADOW = { pxPer1000: 4, maxPx: 20, fullHeightFt: 8000, darkAtFull: 0.9, reachAtFull: 4 };
+function iconShadowFilter(aglFt, settings) {
+    const st = settings || {};
+    const agl = Number(aglFt);
+    if (st.on === false || !Number.isFinite(agl) || agl < 30) return '';
+    const pos = (v) => Math.min(1, Math.max(0, Number.isFinite(Number(v)) ? Number(v) : 0.5));
+    const dark = pos(st.dark) * ICON_SHADOW.darkAtFull;
+    const blurFactor = 1.85 - 1.7 * pos(st.sharp);
+    const reach = pos(st.reach) * ICON_SHADOW.reachAtFull;
+    if (dark <= 0) return '';
+    const t = Math.min(1, agl / ICON_SHADOW.fullHeightFt);
+    const off = Math.min(ICON_SHADOW.maxPx * reach, 1.5 + agl / 1000 * ICON_SHADOW.pxPer1000 * reach);
+    const opacity = dark * (1 - 0.45 * t);
+    const blur = (0.3 + 4 * t) * blurFactor;
+    const d = (off * Math.SQRT1_2).toFixed(1);
+    return `drop-shadow(${d}px ${d}px ${blur.toFixed(1)}px rgba(0,0,0,${opacity.toFixed(2)}))`;
+}
 // Own aircraft marker. kind: 'classic' (default drawing) or a traffic class
 // (single, twin, jet, heavy, heli). Colour and size stay on --plane-color/--plane-size.
 const OWN_PLANE_ICON_KINDS = ['classic', 'single', 'twin', 'jet', 'heavy', 'heli'];
@@ -65,7 +86,7 @@ function ownSymbolHtml(kind) {
     // Heavy is drawn a quarter larger, like the traffic symbol.
     const box = kind === 'heavy' ? '-12.8 -12.8 25.6 25.6' : '-16 -16 32 32';
     return `
-        <div class="live-plane-inner" style="width: var(--plane-size); height: var(--plane-size); filter: drop-shadow(0 0 5px rgba(0,0,0,0.6)); position: relative; transform: translate(-50%, -50%);">
+        <div class="live-plane-inner" style="width: var(--plane-size); height: var(--plane-size); filter: drop-shadow(0 0 5px rgba(0,0,0,0.6)) var(--plane-shadow, drop-shadow(0 0 0 transparent)); position: relative; transform: translate(-50%, -50%);">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="${box}" style="transform-origin: 50% 50%; width: 100%; height: 100%; overflow: visible; will-change: transform;">
                 <g fill="${fill}" stroke="#000" stroke-width="1.6" stroke-linejoin="round" paint-order="stroke">${sym.body.map(d => '<path d="' + d + '"/>').join('')}</g>
                 <g fill="#000" fill-opacity="0.38">${(sym.detail || []).map(d => '<path d="' + d + '"/>').join('')}</g>
@@ -76,7 +97,7 @@ function ownSymbolHtml(kind) {
     `;
 }
 function classicAircraftHtml() { return `
-        <div class="live-plane-inner" style="width: var(--plane-size); height: var(--plane-size); filter: drop-shadow(0 0 5px rgba(0,0,0,0.6)); position: relative; transform: translate(-50%, -37%);">
+        <div class="live-plane-inner" style="width: var(--plane-size); height: var(--plane-size); filter: drop-shadow(0 0 5px rgba(0,0,0,0.6)) var(--plane-shadow, drop-shadow(0 0 0 transparent)); position: relative; transform: translate(-50%, -37%);">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 447.74 339.91" style="transform-origin: 50% 37%; width: 100%; height: 100%; will-change: transform;">
                 <path fill="var(--plane-color)" stroke="#000" stroke-width="16" stroke-linejoin="round" stroke-linecap="round" d="M447.22,118.14a2,2,0,0,0-1.48-.65H443a61.87,61.87,0,0,0-6.2-19.62,8.66,8.66,0,0,0-7.67-4.6H290.3a13.4,13.4,0,0,1-4.61-.81L259.8,83a10.84,10.84,0,0,1-7.09-8.94c-1.44-12.06-4.15-34.18-6.06-46.78a16.45,16.45,0,0,0-10.94-13.17c-.9-.31-1.81-.59-2.69-.82a1.94,1.94,0,0,1-1.4-1.37,29.46,29.46,0,0,0-5.37-10.72,3.45,3.45,0,0,0-5.28,0A29.37,29.37,0,0,0,215.6,12a2,2,0,0,1-1.4,1.37c-.88.23-1.79.51-2.69.82a16.46,16.46,0,0,0-10.95,13.17C198.67,39.84,196,62,194.51,74.09A10.84,10.84,0,0,1,187.42,83l-25.89,9.43a13.4,13.4,0,0,1-4.61.81H18a8.66,8.66,0,0,0-7.66,4.6,61.62,61.62,0,0,0-6.2,19.62H2a2,2,0,0,0-2,2.19l.63,6.83a2,2,0,0,0,2,1.82h.72v.33A71.32,71.32,0,0,0,6.5,150a49.32,49.32,0,0,0,8.4,16.31,5.49,5.49,0,0,0,4.28,2H196.94c.84,5.65,13.56,91.52,17.94,122h-50.2a11.94,11.94,0,0,0-11.92,11.92v13.57a11.94,11.94,0,0,0,11.92,11.92H224.5v11.4c0,.37.64.71,1,.71s1.1-.34,1.1-.71V327.8h59.82a11.94,11.94,0,0,0,11.92-11.92V302.31a11.94,11.94,0,0,0-11.92-11.92H232.34c4.38-30.49,17.1-116.36,17.93-122H428a5.53,5.53,0,0,0,4.29-2,49.32,49.32,0,0,0,8.4-16.31,71.64,71.64,0,0,0,3.14-21.38v-.33h1.24a2,2,0,0,0,2-1.82l.63-6.83A2,2,0,0,0,447.22,118.14Zm-4.62,1c0,.27.07.54.1.81l.09.87C442.74,120.3,442.67,119.74,442.6,119.19ZM443,123c0,.14,0,.29,0,.44s0,.58.05.86h0C443,123.9,443,123.46,443,123Zm.09,1.32v.06c0,.12,0,.24,0,.37C443.08,124.63,443.08,124.49,443.07,124.35Z"/>
             </svg>
@@ -492,5 +513,5 @@ function restoreTrail(value, sessionId) {
         && Math.abs(p[0]) <= 90 && Math.abs(p[1]) <= 180)) return [];
     return value.points.map(p => p.slice());
 }
-return { setText, setAttribute, setStyle, createEfbSvgRenderer, aircraftHtml, ownPlaneIconKind, OWN_PLANE_ICON_KINDS, createCompass, filterTraffic, classifyTraffic, trafficClock, trafficDisplayLevel, trafficSymbolKind, trafficSymbolSvg, drawTrafficSide, DIRECT_LINE_STYLE, TRAIL_STYLE, appendTrailPoint, restoreTrail };
+return { setText, setAttribute, setStyle, createEfbSvgRenderer, aircraftHtml, ownPlaneIconKind, iconShadowFilter, OWN_PLANE_ICON_KINDS, createCompass, filterTraffic, classifyTraffic, trafficClock, trafficDisplayLevel, trafficSymbolKind, trafficSymbolSvg, drawTrafficSide, DIRECT_LINE_STYLE, TRAIL_STYLE, appendTrailPoint, restoreTrail };
 }));
