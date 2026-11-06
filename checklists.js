@@ -969,7 +969,7 @@
                     <span class="checklist-tool-arrow" aria-hidden="true">›</span>
                 </button>
                 <button class="checklist-tool-tile compact" type="button" data-action="open-tool" data-tool="cargo">
-                    <span class="checklist-tool-icon" aria-hidden="true">LDG</span>
+                    <span class="checklist-tool-icon is-text" aria-hidden="true">LDG</span>
                     <span>
                         <span class="checklist-tool-name">${tx('cl.tool.cargo', 'Ladung')}</span>
                         <span class="checklist-tool-count">${cargoHomeSummary()}</span>

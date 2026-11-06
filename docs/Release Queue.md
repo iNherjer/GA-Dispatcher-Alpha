@@ -31,6 +31,14 @@ _Derzeit keine offenen Einträge._
 
 ## Ausgeliefert
 
+### 2026-11-06 · Verkehr im Ruhemodus, EFB-UI-Korrekturen — ausgeliefert in Tracker v623 Alpha / Web v2356 (06.11.2026)
+- **Artefakt:** Tracker-EXE; Web mit diesem Push
+- **Dateien:** `tracker.js`, `tracker-efb-kartentisch-host.js`/`.css`, `checklists.js`, `map-display-controls.js`, `index.html`, `styles.css`, `i18n/en.js`, `efb-web-assets/*`
+- **Was:** Verkehrsabfrage auch im Ruhemodus und ohne Relay, Traffic-Diagnose im Log, sechs EFB-UI-Korrekturen.
+- **Tests:** siehe `docs/Tracker-v623-Release.md`.
+- **Doku beim Release:** `docs/Tracker-v623-Release.md`.
+- **Pruefen im Feld:** Verkehr nach 5 min am Boden, UI-Punkte im MSFS-EFB.
+
 ### 2026-11-06 · EFB wieder lauffähig (Objekt-Spread entfernt) — ausgeliefert in Tracker v622 Alpha / Web v2355 (06.11.2026)
 - **Artefakt:** Tracker-EXE (EFB-Dateien); Web mit diesem Push
 - **Dateien:** `map-live-presentation.js`, neu `ga-tracker-client/tracker-efb-asset-syntax.test.js`

@@ -140,8 +140,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v622';
-const TRACKER_VERSION_CODE = 622;
+const TRACKER_VERSION = 'v623';
+const TRACKER_VERSION_CODE = 623;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -7728,6 +7728,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       let latestTrafficSnapshot = null; // wird beim nächsten GPS-Tick eingebettet (auch leer)
       let ownLat = 0, ownLon = 0; // wird aus GPS-Tick aktualisiert
       let previousTrafficIds = new Set();
+      let lastTrafficCountKey = '';
       let lastTrafficIdLogAt = 0;
 
       const trafficReadString32 = (d) => (typeof d.readString32 === 'function' ? String(d.readString32() || '').trim() : '');
@@ -7788,16 +7789,21 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
 
       // Traffic bewusst moderat abfragen; andere SimConnect-Clients (z.B. Motion-Rigs)
       // reagieren empfindlich auf unnötig dichte Object-Enumeration.
+      // Polling no longer depends on the relay: the EFB is local and needs traffic
+      // without the web app. While hibernating (e.g. idle on the ground) it keeps
+      // running for the EFB at half the rate; nothing goes to the relay then
+      // (06.11.2026: a departing C182 vanished from the EFB after ground_idle).
+      let lastHibernateTrafficPollAt = 0;
       const trafficInterval = setInterval(() => {
-        const ws = getWs();
-        if (!ws || ws.readyState !== 1 /*OPEN*/) return;
         if (currentTelemetryHibernateState.hibernating) {
-          trafficBuffer = {};
           latestTrafficSnapshot = null;
-          latestEfbTrafficSnapshot = [];
-          latestEfbTrafficAt = 0;
-          latestGroundTrafficSnapshot = [];
-          return;
+          latestGroundTrafficSnapshot = []; // mission ground occupancy unchanged: empty while hibernating
+          if (currentTelemetryHibernateState.reason === 'sim_disconnected') {
+            trafficBuffer = {}; latestEfbTrafficSnapshot = []; latestEfbTrafficAt = 0;
+            return;
+          }
+          if (Date.now() - lastHibernateTrafficPollAt < 2 * TRAFFIC_POLL_MS - 100) return;
+          lastHibernateTrafficPollAt = Date.now();
         }
         trafficBuffer = {};
         const requestedAt = Date.now();
@@ -7815,7 +7821,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
             return true;
           };
           // Bodenbelegung fuer Ankunftsplaetze: unveraendert alle Objekttypen.
-          latestGroundTrafficSnapshot = all.filter(ac => ac.gs < 10 && notOwnship(ac)).slice(0, 80)
+          const stillHibernating = currentTelemetryHibernateState.hibernating;
+          if (!stillHibernating) latestGroundTrafficSnapshot = all.filter(ac => ac.gs < 10 && notOwnship(ac)).slice(0, 80)
             .map(({ lat, lon, alt, hdg, gs, id }) => ({ id, lat, lon, alt, hdg, gs }));
 
           const aircraft = all.filter(ac => trafficIsAircraft(ac.category) && notOwnship(ac))
@@ -7836,16 +7843,21 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
             .slice(0, TRAFFIC_MAX_GROUND).map(compact);
           const shown = airborne.concat(ground);
 
-          latestTrafficSnapshot = shown;
+          if (!stillHibernating) latestTrafficSnapshot = shown; // relay only when telemetry is active
           latestEfbTrafficSnapshot = shown;
           latestEfbTrafficAt = requestedAt;
 
           const ids = new Set(shown.map(ac => ac.id));
           const now = Date.now();
-          if (shown.length > 0 && now - lastTrafficIdLogAt >= 60000) {
+          // Debug file too (field diagnosis): once a minute and whenever the count changes.
+          const countKey = airborne.length + '/' + ground.length;
+          if ((shown.length > 0 || lastTrafficCountKey !== countKey) && (now - lastTrafficIdLogAt >= 60000 || lastTrafficCountKey !== countKey)) {
             lastTrafficIdLogAt = now;
+            lastTrafficCountKey = countKey;
             const kept = [...ids].filter(id => previousTrafficIds.has(id)).length;
             trackerLog(`[TRAFFIC] ${all.length} Objekte → ${aircraft.length} Luftfahrzeuge → ${airborne.length} in der Luft + ${ground.length} am Boden gesendet | IDs wie zuvor ${kept}/${ids.size}`);
+            const nearest = aircraft.slice(0, 3).map(({ ac, d }) => `${ac.callsign || ac.id}:${d.toFixed(1)}nm/${ac.alt}ft${ac.onGround ? '/gnd' : ''}${Number.isFinite(ac.agl) ? '/agl' + ac.agl : ''}/${ac.kind || '?'}`).join(' ');
+            debugLog(`TRAFFIC_SNAPSHOT objects=${all.length} aircraft=${aircraft.length} airborne=${airborne.length} ground=${ground.length} sameIds=${kept}/${ids.size} nearest=${nearest || '-'}`);
           }
           previousTrafficIds = ids;
         }, 500);

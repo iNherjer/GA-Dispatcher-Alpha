@@ -1687,3 +1687,70 @@ body.ga-efb-tracker-host.theme-win95 [aria-label="Uhrenskin"] button[aria-presse
 body.ga-efb-tracker-host.theme-win95 #mapVoiceMenu .ga-audio-checkbox {
   background:#fff !important; border-color:#404040 #fff #fff #404040 !important;
 }
+
+
+/* ── UI fixes 06.11.2026 (Coherent field report) ─────────────────────────── */
+/* Open side drawer above the layer button and the PAX widget. */
+body.ga-efb-tracker-host .map-side-drawer.is-open { z-index: 200100 !important; }
+
+/* Text icon ("LDG") fits its box; Coherent has no flex gap, keep a margin. */
+body.ga-efb-tracker-host .checklist-tool-icon { margin-right: 14px; }
+body.ga-efb-tracker-host .checklist-tool-icon.is-text { font-size: 11px; font-weight: 800; letter-spacing: .5px; }
+
+/* Layer radios: Coherent draws no native radio dot. */
+body.ga-efb-tracker-host #mapTableOverlay .leaflet-control-layers input[type="radio"] {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  border: 2px solid #a9c5df !important;
+  border-radius: 50% !important;
+  background: #172735 !important;
+  box-sizing: border-box !important;
+}
+body.ga-efb-tracker-host #mapTableOverlay .leaflet-control-layers input[type="radio"]:checked {
+  border-color: #bde3ff !important;
+  background: #4da6ff !important;
+  box-shadow: inset 0 0 0 3px #172735 !important;
+}
+
+/* Round close buttons: a drawn X sits in the centre whatever the font does. */
+body.ga-efb-tracker-host .map-utility-close,
+body.ga-efb-tracker-host .map-e6b-close,
+body.ga-efb-tracker-host .formula-help-close,
+body.ga-efb-tracker-host .manual-sim-close,
+body.ga-efb-tracker-host .mission-start-banner-close,
+body.ga-efb-tracker-host .mission-cargo-close,
+body.ga-efb-tracker-host .settings-help-close-btn,
+body.ga-efb-tracker-host .airport-type-picker-close {
+  position: relative;
+  font-size: 0 !important;
+  line-height: 0 !important;
+  color: transparent !important;
+  padding: 0 !important;
+}
+body.ga-efb-tracker-host .map-utility-close::before, body.ga-efb-tracker-host .map-utility-close::after,
+body.ga-efb-tracker-host .map-e6b-close::before, body.ga-efb-tracker-host .map-e6b-close::after,
+body.ga-efb-tracker-host .formula-help-close::before, body.ga-efb-tracker-host .formula-help-close::after,
+body.ga-efb-tracker-host .manual-sim-close::before, body.ga-efb-tracker-host .manual-sim-close::after,
+body.ga-efb-tracker-host .mission-start-banner-close::before, body.ga-efb-tracker-host .mission-start-banner-close::after,
+body.ga-efb-tracker-host .mission-cargo-close::before, body.ga-efb-tracker-host .mission-cargo-close::after,
+body.ga-efb-tracker-host .settings-help-close-btn::before, body.ga-efb-tracker-host .settings-help-close-btn::after,
+body.ga-efb-tracker-host .airport-type-picker-close::before, body.ga-efb-tracker-host .airport-type-picker-close::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 46%;
+  height: 2px;
+  margin-left: -23%;
+  margin-top: -1px;
+  background: #e8f4ff;
+  border-radius: 1px;
+}
+body.ga-efb-tracker-host .map-utility-close::before, body.ga-efb-tracker-host .map-e6b-close::before,
+body.ga-efb-tracker-host .formula-help-close::before, body.ga-efb-tracker-host .manual-sim-close::before,
+body.ga-efb-tracker-host .mission-start-banner-close::before, body.ga-efb-tracker-host .mission-cargo-close::before,
+body.ga-efb-tracker-host .settings-help-close-btn::before, body.ga-efb-tracker-host .airport-type-picker-close::before { transform: rotate(45deg); }
+body.ga-efb-tracker-host .map-utility-close::after, body.ga-efb-tracker-host .map-e6b-close::after,
+body.ga-efb-tracker-host .formula-help-close::after, body.ga-efb-tracker-host .manual-sim-close::after,
+body.ga-efb-tracker-host .mission-start-banner-close::after, body.ga-efb-tracker-host .mission-cargo-close::after,
+body.ga-efb-tracker-host .settings-help-close-btn::after, body.ga-efb-tracker-host .airport-type-picker-close::after { transform: rotate(-45deg); }

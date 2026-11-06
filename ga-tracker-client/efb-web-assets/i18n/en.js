@@ -793,6 +793,7 @@
     "map.menu.planeSize": "Size",
     "map.menu.planeKind": "Icon",
     "map.menu.shadow": "Cast shadow",
+    "map.menu.shadowButton": "🌗 Cast shadow",
     "map.menu.shadowTitle": "Applies to your aircraft and to traffic. The higher, the further the shadow falls.",
     "map.menu.shadowDark": "Max. darkness",
     "map.menu.shadowSharp": "Sharpness",

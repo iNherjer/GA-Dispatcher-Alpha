@@ -622,8 +622,14 @@ function applyIconShadowSettings() {
       localStorage.setItem(ICON_SHADOW_KEY, JSON.stringify(iconShadowSettings));
     } catch (_) {}
   }
-  var on = document.getElementById('vpIconShadowCheck');
-  if (on) on.checked = iconShadowSettings.on;
+  // A toggle button like the other display switches (Coherent draws no custom checkbox here).
+  var on = document.getElementById('vpIconShadowToggle');
+  if (on) {
+    on.textContent = `${_mdcText('map.menu.shadowButton', '🌗 Schattenwurf')} (${_mdcOnOff(iconShadowSettings.on)})`;
+    on.style.background = iconShadowSettings.on ? '#2E8B57' : '#444';
+    on.style.color = '#fff';
+    on.setAttribute('aria-pressed', iconShadowSettings.on ? 'true' : 'false');
+  }
   var dark = document.getElementById('vpIconShadowDark');
   if (dark) {
     dark.value = String(Math.round(iconShadowSettings.dark * 100));
@@ -654,12 +660,15 @@ function initIconShadowSettingsUi() {
     stored = JSON.parse(localStorage.getItem(ICON_SHADOW_KEY) || 'null');
   } catch (_) {}
   applyIconShadowSettings(stored || {});
-  var on = document.getElementById('vpIconShadowCheck');
+  var on = document.getElementById('vpIconShadowToggle');
   if (on && !on.dataset.boundShadow) {
     on.dataset.boundShadow = '1';
-    on.addEventListener('change', e => applyIconShadowSettings({
-      on: e.target.checked
-    }, true));
+    on.addEventListener('click', e => {
+      e.stopPropagation();
+      applyIconShadowSettings({
+        on: !iconShadowSettings.on
+      }, true);
+    });
   }
   var _loop = function _loop() {
     var _arr$_i = _slicedToArray(_arr[_i], 2),

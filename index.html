@@ -1409,10 +1409,7 @@
                         </div>
                         <input id="vpPlaneSizeSlider" type="range" min="20" max="100" step="1" value="40" style="width:100%; cursor:pointer;">
                         <div style="height:1px; background:#2f2f2f; margin:8px 0 7px;"></div>
-                        <label style="display:flex; align-items:center; gap:7px; color:#d6d6d6; font-size:11px; margin-bottom:6px; cursor:pointer;" title="Gilt für das eigene Flugzeug und den Verkehr. Je höher, desto weiter fällt der Schatten." data-i18n-title="map.menu.shadowTitle">
-                            <input type="checkbox" id="vpIconShadowCheck" checked style="width:14px; height:14px; accent-color:#4da6ff; cursor:pointer;">
-                            <span data-i18n="map.menu.shadow">Schattenwurf</span>
-                        </label>
+                        <button type="button" id="vpIconShadowToggle" class="pb-btn" aria-pressed="true" title="Gilt für das eigene Flugzeug und den Verkehr. Je höher, desto weiter fällt der Schatten." data-i18n-title="map.menu.shadowTitle" style="display:block; width:100%; margin:0 0 8px 0; text-align:left; background:#2E8B57; color:#fff;">🌗 Schattenwurf (An)</button>
                         <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:4px;">
                             <label for="vpIconShadowDark" style="color:#a8a8a8; font-size:10px;" data-i18n="map.menu.shadowDark">Max. Dunkelheit</label>
                             <span id="vpIconShadowDarkValue" style="color:#d6d6d6; font-size:10px; font-family:monospace;">50 %</span>

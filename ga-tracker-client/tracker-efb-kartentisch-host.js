@@ -57,7 +57,7 @@
   var mapRevision = 0;
   var routeSignature = '';
   var planeMarker = null;
-  var planeHeading = null;
+  var planeHeading = null, initialFollowCentered = false;
   var liveTrail = null;
   var liveTrailPoints = [];
   var liveTrailSession = '';
@@ -2166,7 +2166,7 @@
 
   // Traffic on the EFB map: same symbols, warning colours, blinking and shadows
   // as the web app (traffic-map-layer.js). Map menu switch "Traffic".
-  var trafficLayer = null, trafficMapData = [], trafficReceivedAt = 0, trafficRenderedAt = 0, trafficListAt = null;
+  var trafficLayer = null, trafficMapData = [], trafficReceivedAt = 0, trafficRenderedAt = 0, trafficListAt = null, lastTrafficReportKey = '';
   function trafficVisible() { return window.isMapHintEnabled('traffic'); }
   function trafficOwnState() {
     var data = window.lastLiveFlightData || {};
@@ -2187,12 +2187,24 @@
   function renderTraffic(force) {
     var layer = getTrafficLayer();
     if (!layer) return;
-    if (!trafficVisible()) { layer.clear(); return; }
+    if (!trafficVisible()) {
+      layer.clear();
+      if (lastTrafficReportKey !== 'off') { lastTrafficReportKey = 'off'; report('info', 'traffic-map', 'hidden', 'Traffic-Schalter aus', 'received=' + trafficMapData.length); }
+      return;
+    }
     // At most once per second: levels follow the own position between lists.
     var now = Date.now();
     if (!force && now - trafficRenderedAt < 1000) return;
     trafficRenderedAt = now;
     layer.update(trafficMapData);
+    // Field diagnosis: what arrived and what is on the map, only on change.
+    var key = trafficMapData.length + '/' + layer.count() + '/' + Math.round(map.getZoom());
+    if (key !== lastTrafficReportKey) {
+      lastTrafficReportKey = key;
+      report('info', 'traffic-map', 'render', 'Verkehr auf der Karte',
+        'received=' + trafficMapData.length + ' markers=' + layer.count() + ' zoom=' + Math.round(map.getZoom() * 10) / 10
+        + ' ground=' + trafficMapData.filter(function(ac) { return ac.gnd; }).length + ' switch=' + (trafficVisible() ? 'on' : 'off'));
+    }
   }
   function receiveTraffic(payload) {
     var all = window.GAMapLivePresentation.filterTraffic(payload.traffic, payload);
@@ -2321,6 +2333,12 @@
     if (Array.isArray(payload.traffic)) receiveTraffic(payload);
     recordLiveTrail(flight.lat, flight.lon);
     if (!planeMarker) {
+      // "Zentrieren" was on before the EFB restarted: show the aircraft at once
+      // instead of the zoomed-out start view.
+      if (preferences.follow && !initialFollowCentered) {
+        initialFollowCentered = true;
+        map.setView([flight.lat, flight.lon], Math.max(map.getZoom(), 12), { animate: false });
+      }
       planeMarker = L.marker([flight.lat, flight.lon], { icon: planeIcon(), pane: 'gaAircraftPane', zIndexOffset: 9999, interactive: false }).addTo(map);
       planeMarker.getElement().classList.toggle('low-fps-plane', window.isMapHintEnabled('lowFps'));
       planeHeading = flight.headingDeg;

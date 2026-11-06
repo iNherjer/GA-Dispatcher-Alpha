@@ -544,8 +544,14 @@ window.getIconShadowSettings = function() { return { ...iconShadowSettings }; };
 function applyIconShadowSettings(patch = {}, persist = false) {
     iconShadowSettings = normalizeIconShadow({ ...iconShadowSettings, ...patch });
     if (persist) { try { localStorage.setItem(ICON_SHADOW_KEY, JSON.stringify(iconShadowSettings)); } catch (_) {} }
-    const on = document.getElementById('vpIconShadowCheck');
-    if (on) on.checked = iconShadowSettings.on;
+    // A toggle button like the other display switches (Coherent draws no custom checkbox here).
+    const on = document.getElementById('vpIconShadowToggle');
+    if (on) {
+        on.textContent = `${_mdcText('map.menu.shadowButton', '🌗 Schattenwurf')} (${_mdcOnOff(iconShadowSettings.on)})`;
+        on.style.background = iconShadowSettings.on ? '#2E8B57' : '#444';
+        on.style.color = '#fff';
+        on.setAttribute('aria-pressed', iconShadowSettings.on ? 'true' : 'false');
+    }
     const dark = document.getElementById('vpIconShadowDark');
     if (dark) { dark.value = String(Math.round(iconShadowSettings.dark * 100)); dark.disabled = !iconShadowSettings.on; }
     const darkLabel = document.getElementById('vpIconShadowDarkValue');
@@ -566,10 +572,10 @@ function initIconShadowSettingsUi() {
     let stored = null;
     try { stored = JSON.parse(localStorage.getItem(ICON_SHADOW_KEY) || 'null'); } catch (_) {}
     applyIconShadowSettings(stored || {});
-    const on = document.getElementById('vpIconShadowCheck');
+    const on = document.getElementById('vpIconShadowToggle');
     if (on && !on.dataset.boundShadow) {
         on.dataset.boundShadow = '1';
-        on.addEventListener('change', (e) => applyIconShadowSettings({ on: e.target.checked }, true));
+        on.addEventListener('click', (e) => { e.stopPropagation(); applyIconShadowSettings({ on: !iconShadowSettings.on }, true); });
     }
     for (const [id, key] of [['vpIconShadowDark', 'dark'], ['vpIconShadowSharp', 'sharp'], ['vpIconShadowReach', 'reach']]) {
         const input = document.getElementById(id);

@@ -3655,6 +3655,12 @@ body.theme-retro .api-fuel-meter .api-scale {
     line-height: 1;
 }
 
+.checklist-tool-icon.is-text {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .5px;
+}
+
 .checklist-tool-name {
     display: block;
     font-size: 23px;
