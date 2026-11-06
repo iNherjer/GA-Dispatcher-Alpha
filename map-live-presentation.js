@@ -313,10 +313,12 @@ function trafficClock(rx, ry, ownHdg) {
     const hour = Math.round(relative / 30) % 12;
     return hour === 0 ? 12 : hour;
 }
+// Loaded unchanged by the MSFS EFB (Coherent): no object spread, no ?. or ??
+// (tracker-efb-asset-syntax.test.js checks this).
 function classifyTraffic(ac, own) {
     const none = { distNm: null, relAltFt: null, resolve: false, tCpaSec: null, clock: null };
-    if (!ac || ac.gnd) return { level: 'ground', ...none };
-    if (!own || !Number.isFinite(Number(own.lat)) || !Number.isFinite(Number(own.lon))) return { level: 'other', ...none };
+    if (!ac || ac.gnd) return Object.assign({ level: 'ground' }, none);
+    if (!own || !Number.isFinite(Number(own.lat)) || !Number.isFinite(Number(own.lon))) return Object.assign({ level: 'other' }, none);
     const cosLat = Math.cos(Number(own.lat) * Math.PI / 180);
     const rx = (Number(ac.lon) - Number(own.lon)) * 60 * cosLat, ry = (Number(ac.lat) - Number(own.lat)) * 60;
     const distNm = Math.hypot(rx, ry);
@@ -324,7 +326,7 @@ function classifyTraffic(ac, own) {
     const clock = trafficClock(rx, ry, own.hdg);
     const base = { distNm, relAltFt, resolve: false, tCpaSec: null, clock };
     // No warnings while the own aircraft sits on the ground.
-    if (own.onGround || relAltFt == null) return { level: 'other', ...base };
+    if (own.onGround || relAltFt == null) return Object.assign({ level: 'other' }, base);
     const absAlt = Math.abs(relAltFt);
     const va = trafficVelocityNmPerSec(ac.hdg, ac.gs), vo = trafficVelocityNmPerSec(own.hdg, own.gs);
     const vx = va.x - vo.x, vy = va.y - vo.y, v2 = vx * vx + vy * vy;
@@ -341,12 +343,12 @@ function classifyTraffic(ac, own) {
     const converging = (limit) => tCpa != null && tCpa <= limit.cpaSec && cpaNm <= limit.cpaNm && vertAtCpa <= limit.altFt;
     const resolve = converging(TRAFFIC_RESOLVE)
         || (distNm <= TRAFFIC_RESOLVE.nowNm && absAlt <= TRAFFIC_RESOLVE.nowAltFt && tCpa != null);
-    const result = { ...base, resolve, tCpaSec: tCpa == null ? null : Math.round(tCpa) };
+    const result = Object.assign({}, base, { resolve, tCpaSec: tCpa == null ? null : Math.round(tCpa) });
     if (resolve || (distNm <= TRAFFIC_ALERT.nowNm && absAlt <= TRAFFIC_ALERT.altFt) || converging(TRAFFIC_ALERT)) {
-        return { level: 'alert', ...result };
+        return Object.assign({ level: 'alert' }, result);
     }
-    if (distNm <= TRAFFIC_PROXIMATE.nm && absAlt <= TRAFFIC_PROXIMATE.altFt) return { level: 'proximate', ...result };
-    return { level: 'other', ...result };
+    if (distNm <= TRAFFIC_PROXIMATE.nm && absAlt <= TRAFFIC_PROXIMATE.altFt) return Object.assign({ level: 'proximate' }, result);
+    return Object.assign({ level: 'other' }, result);
 }
 // What map and profile show: 'resolve' (red, fast blink), 'alert' (orange, blink),
 // or the plain level. Contacts the tracker currently warns about blink as well,

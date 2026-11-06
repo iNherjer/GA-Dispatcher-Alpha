@@ -31,6 +31,14 @@ _Derzeit keine offenen Einträge._
 
 ## Ausgeliefert
 
+### 2026-11-06 · EFB wieder lauffähig (Objekt-Spread entfernt) — ausgeliefert in Tracker v622 Alpha / Web v2355 (06.11.2026)
+- **Artefakt:** Tracker-EXE (EFB-Dateien); Web mit diesem Push
+- **Dateien:** `map-live-presentation.js`, neu `ga-tracker-client/tracker-efb-asset-syntax.test.js`
+- **Was:** `{ ...x }` in einer unverändert ans EFB gelieferten Datei hat seit v617 EFB und Toolbar gestoppt; entfernt, Test verhindert Wiederholung.
+- **Tests:** siehe `docs/Tracker-v622-Release.md`.
+- **Doku beim Release:** `docs/Tracker-v622-Release.md`.
+- **Pruefen im Feld:** EFB und Toolbar zeigen Karte, Verkehr, Schatten.
+
 ### 2026-11-06 · Schatten auf iPhone, frische Updates — ausgeliefert in Tracker v621 Alpha / Web v2354 (06.11.2026)
 - **Artefakt:** Tracker-EXE (EFB-Host); Web live mit diesem Push (Service-Worker-Fix schon in v2353)
 - **Dateien:** `map-live-presentation.js` (+ Test), `sync.js`, `map.js`, `sw.js`, `tracker-efb-kartentisch-host.js`
