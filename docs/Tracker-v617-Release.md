@@ -38,4 +38,11 @@ Stable bleibt unverändert (v605).
 
 ## Aktivierung
 
-_wird nach Build und Download-Prüfung ergänzt_
+Tracker: Release `v617` (Release-Commit `fa182781a`, gebaut im sauberen Worktree mit
+`--no-bytecode`), `VFR-Multitool-Tracker.exe` 174965081 Bytes,
+SHA-256 `04a2ba9e59bd092132f46a0ab297986e55851973899c7964df2fd2588162ec7e`, öffentlicher Download geprüft.
+`channel/alpha.json` aktiviert, `channel/stable.json` unverändert (v605).
+Clips: alle 75 unter GitHub Pages abrufbar geprüft, bevor der Kanal umgeschaltet wurde.
+Worker: deployed 06.11.2026, Version `ce3f6c05-2381-4734-98c8-58fa15570b72`.
+
+Desktop: _wird nach dem Desktop-Release ergänzt_
