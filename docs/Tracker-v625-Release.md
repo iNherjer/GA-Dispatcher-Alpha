@@ -21,3 +21,10 @@
 - In VR noch nicht geprüft.
 
 Stable bleibt unverändert (v605).
+
+## Aktivierung
+
+Tracker: Release `v625` (Release-Commit `dce7ae7fc`, gebaut im sauberen Worktree mit
+`--no-bytecode`), `VFR-Multitool-Tracker.exe` 175014757 Bytes,
+SHA-256 `6bed4f60fe4546cd461aaadf9a68231945460de232dbbc9451b5bfe9d5f5b4da`, öffentlicher Download geprüft.
+`channel/alpha.json` aktiviert, `channel/stable.json` unverändert (v605).
