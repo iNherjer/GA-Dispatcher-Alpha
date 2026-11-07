@@ -31,6 +31,14 @@ _Derzeit keine offenen Einträge._
 
 ## Ausgeliefert
 
+### 2026-11-07 · EFB-Bedienknöpfe in VR nach Zoom — ausgeliefert in Tracker v624 Alpha (07.11.2026)
+- **Artefakt:** Tracker-EXE
+- **Dateien:** `tracker.js`, `tracker-efb-kartentisch-host.js`, `tracker-efb-web-client.js`
+- **Was:** Neuzeichnen-Anstoß für Zoom/Ebenen/Zentrieren nach Zoom/Verschieben (VR-Coherent).
+- **Tests:** siehe `docs/Tracker-v624-Release.md`.
+- **Doku beim Release:** `docs/Tracker-v624-Release.md`.
+- **Pruefen im Feld:** In VR zoomen mit den Tasten, Knöpfe bleiben sichtbar.
+
 ### 2026-11-06 · Verkehr im Ruhemodus, EFB-UI-Korrekturen — ausgeliefert in Tracker v623 Alpha / Web v2356 (06.11.2026)
 - **Artefakt:** Tracker-EXE; Web mit diesem Push
 - **Dateien:** `tracker.js`, `tracker-efb-kartentisch-host.js`/`.css`, `checklists.js`, `map-display-controls.js`, `index.html`, `styles.css`, `i18n/en.js`, `efb-web-assets/*`
