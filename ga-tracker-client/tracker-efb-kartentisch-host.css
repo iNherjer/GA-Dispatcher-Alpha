@@ -1754,3 +1754,16 @@ body.ga-efb-tracker-host .map-utility-close::after, body.ga-efb-tracker-host .ma
 body.ga-efb-tracker-host .formula-help-close::after, body.ga-efb-tracker-host .manual-sim-close::after,
 body.ga-efb-tracker-host .mission-start-banner-close::after, body.ga-efb-tracker-host .mission-cargo-close::after,
 body.ga-efb-tracker-host .settings-help-close-btn::after, body.ga-efb-tracker-host .airport-type-picker-close::after { transform: rotate(-45deg); }
+
+/* ── VR: map buttons on their own layer (field report 07.11.2026) ─────────── */
+/* In VR, Coherent draws the map (a GPU layer through Leaflet's translate3d)
+   above every button that has no layer of its own: zoom, layers, centre and
+   the draw rail vanished while the drawer and toolbar handles (they carry a
+   transform) stayed visible. A layer of their own puts them back on top. */
+body.ga-efb-tracker-host #map .leaflet-control-container .leaflet-top,
+body.ga-efb-tracker-host #map .leaflet-control-container .leaflet-bottom,
+body.ga-efb-tracker-host #mapArea > .leaflet-control-layers,
+body.ga-efb-tracker-host #autoFollowBtn,
+body.ga-efb-tracker-host #mapDrawRail {
+  transform: translateZ(0);
+}

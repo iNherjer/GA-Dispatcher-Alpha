@@ -31,6 +31,14 @@ _Derzeit keine offenen Einträge._
 
 ## Ausgeliefert
 
+### 2026-11-07 · EFB-Kartenknöpfe in VR auf eigener Ebene — ausgeliefert in Tracker v625 Alpha (07.11.2026)
+- **Artefakt:** Tracker-EXE
+- **Dateien:** `tracker.js`, `tracker-efb-kartentisch-host.js`/`.css`, `tracker-efb-web-client.js`
+- **Was:** Knöpfe mit `translateZ(0)` über der Karte in VR; v624-Deckkraft-Anstoß zurückgenommen.
+- **Tests:** siehe `docs/Tracker-v625-Release.md`.
+- **Doku beim Release:** `docs/Tracker-v625-Release.md`.
+- **Pruefen im Feld:** In VR mit und ohne VFR-Overlay verschieben/zoomen, Knöpfe bleiben sichtbar.
+
 ### 2026-11-07 · EFB-Bedienknöpfe in VR nach Zoom — ausgeliefert in Tracker v624 Alpha (07.11.2026)
 - **Artefakt:** Tracker-EXE
 - **Dateien:** `tracker.js`, `tracker-efb-kartentisch-host.js`, `tracker-efb-web-client.js`

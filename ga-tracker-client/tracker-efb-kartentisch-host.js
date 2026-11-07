@@ -1994,36 +1994,6 @@
     });
   }
 
-  // In VR, Coherent sometimes leaves the map buttons unpainted after a zoom or
-  // pan: they still take clicks but stay invisible until something else forces
-  // a repaint (field report 07.11.2026). A tiny paint change after the map
-  // settles redraws them.
-  var CONTROL_REPAINT_SELECTOR = '#mapArea > .leaflet-control, #map .leaflet-control, #autoFollowBtn, #mapToolbarToggle';
-  var controlRepaintTimer = null;
-  function nudgeControlRepaint() {
-    var nodes = document.querySelectorAll(CONTROL_REPAINT_SELECTOR);
-    var previous = [];
-    for (var i = 0; i < nodes.length; i += 1) {
-      previous.push(nodes[i].style.opacity);
-      nodes[i].style.opacity = '0.999';
-    }
-    window.requestAnimationFrame(function () {
-      for (var j = 0; j < nodes.length; j += 1) nodes[j].style.opacity = previous[j];
-    });
-  }
-  function scheduleControlRepaint() {
-    window.requestAnimationFrame(nudgeControlRepaint);
-    clearTimeout(controlRepaintTimer);
-    controlRepaintTimer = setTimeout(nudgeControlRepaint, 450);
-  }
-  function bindControlRepaintNudge() {
-    map.on('zoomend moveend baselayerchange overlayadd overlayremove', scheduleControlRepaint);
-    Object.keys(baseLayers).concat(Object.keys(overlayLayers)).forEach(function (id) {
-      var layer = baseLayers[id] || overlayLayers[id];
-      if (layer && typeof layer.on === 'function') layer.on('load', scheduleControlRepaint);
-    });
-  }
-
   function initializeMap() {
     if (!L || !API || map) return;
     map = L.map('map', {
@@ -2153,7 +2123,6 @@
       renderRouteLegLabels();
     });
     map.on('zoomend', function() { renderRouteLegLabels(); });
-    bindControlRepaintNudge();
     buildCompass();
     scheduleLayoutDiagnostic();
     window.setTimeout(function () { map.invalidateSize(false); }, 60);
