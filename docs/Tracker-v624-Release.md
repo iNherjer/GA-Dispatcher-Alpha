@@ -16,3 +16,10 @@
 - Im MSFS/VR noch nicht geprüft – Tester kann reproduzieren und prüft direkt.
 
 Stable bleibt unverändert (v605).
+
+## Aktivierung
+
+Tracker: Release `v624` (Release-Commit `e91cda75d`, gebaut im sauberen Worktree mit
+`--no-bytecode`), `VFR-Multitool-Tracker.exe` 175015467 Bytes,
+SHA-256 `1ef3dc13a12d468563af0f19f6fbd11cecb079142f0ededdcb0170a6f6e41379`, öffentlicher Download geprüft.
+`channel/alpha.json` aktiviert, `channel/stable.json` unverändert (v605).
