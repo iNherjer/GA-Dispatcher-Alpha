@@ -23,3 +23,10 @@
   Verdacht.
 
 Stable bleibt unverändert (v605).
+
+## Aktivierung
+
+Tracker: Release `v626` (Release-Commit `e7ca2fb85`, gebaut im sauberen Worktree mit
+`--no-bytecode`), `VFR-Multitool-Tracker.exe` 175015960 Bytes,
+SHA-256 `e96b747e9318b9f0e961661e2aede1092f9b0f8e73bf32a8c2913dd849b89674`, öffentlicher Download geprüft.
+`channel/alpha.json` aktiviert, `channel/stable.json` unverändert (v605).
