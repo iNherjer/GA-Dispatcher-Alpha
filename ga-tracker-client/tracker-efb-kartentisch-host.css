@@ -1767,3 +1767,25 @@ body.ga-efb-tracker-host #autoFollowBtn,
 body.ga-efb-tracker-host #mapDrawRail {
   transform: translateZ(0);
 }
+
+/* ── EFB: no glass (field report 09.11.2026) ──────────────────────────────── */
+/* Modern's frosted glass (backdrop-filter on the whole map table, the header
+   and the draw button) makes Coherent compose the map from extra offscreen
+   layers, and in VR the panel looked largely see-through. The EFB keeps each
+   design's colours but draws every surface solid, in every design. */
+body.ga-efb-tracker-host *,
+body.ga-efb-tracker-host *::before,
+body.ga-efb-tracker-host *::after {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+/* Same look as Modern's 70 % header over the dark table, but opaque. */
+body.ga-efb-tracker-host:not(.theme-retro):not(.theme-navcom):not(.theme-ops1940):not(.theme-win95) .pinboard-header {
+  background: #0a1016 !important;
+}
+body.ga-efb-tracker-host:not(.theme-win95) #mapDrawFloatingBtn {
+  background: #141414 !important;
+}
+body.ga-efb-tracker-host.theme-retro .pinboard-header,
+body.ga-efb-tracker-host.theme-navcom .pinboard-header { background: #1a1a1a !important; }
+body.ga-efb-tracker-host.theme-ops1940 .pinboard-header { background: #0e0b08 !important; }

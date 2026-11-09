@@ -31,6 +31,14 @@ _Derzeit keine offenen Einträge._
 
 ## Ausgeliefert
 
+### 2026-11-09 · EFB ohne Milchglas — ausgeliefert in Tracker v626 Alpha (09.11.2026)
+- **Artefakt:** Tracker-EXE
+- **Dateien:** `tracker.js`, `tracker-efb-kartentisch-host.css`, `tracker-efb-web-client.js`
+- **Was:** Kein `backdrop-filter` im EFB, deckende Kopfleiste/Zeichen-Knopf in allen Designs.
+- **Tests:** siehe `docs/Tracker-v626-Release.md`.
+- **Doku beim Release:** `docs/Tracker-v626-Release.md`.
+- **Pruefen im Feld:** VR: Panel nicht mehr durchscheinend, Kartenknöpfe bleiben sichtbar.
+
 ### 2026-11-07 · EFB-Kartenknöpfe in VR auf eigener Ebene — ausgeliefert in Tracker v625 Alpha (07.11.2026)
 - **Artefakt:** Tracker-EXE
 - **Dateien:** `tracker.js`, `tracker-efb-kartentisch-host.js`/`.css`, `tracker-efb-web-client.js`
