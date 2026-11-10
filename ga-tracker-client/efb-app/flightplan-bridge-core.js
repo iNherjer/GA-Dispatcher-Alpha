@@ -37,9 +37,46 @@
       enroute: points.map(function(point, index) { return { __Type: 'JS_EnrouteLeg', fixIcao: emptyIcao(), via: '', isPpos: false,
         hasLatLon: true, lat: point.lat, lon: point.lon, hasPointBearingDistance: false, referenceIcao: emptyIcao(),
         bearing: 0, distance: 0, altitude: null, name: String(point.name || 'WP' + (index + 1)).slice(0, 100) }; }) };
-    return { route: route, warnings: warnings };
+    return { route: route, warnings: warnings, points: points };
+  }
+  // ATC variant (since about 31.10.2026 the simulator ATC drops anonymous lat/lon legs and
+  // returns only departure and destination): airports in the route as real airport fixes,
+  // every other point as a user waypoint with a unique ident (WP01, WP02, ...).
+  // The EFB planner and the avionics keep the plain route above, which they accept.
+  function airportIdentOf(point) {
+    var icao = String(point && point.icao || '').trim().toUpperCase();
+    if (/^[A-Z]{2}[A-Z0-9]{2}$/.test(icao)) return icao;
+    var match = /^APT\s+([A-Z]{2}[A-Z0-9]{2})\b/.exec(String(point && point.name || '').trim().toUpperCase());
+    return match ? match[1] : '';
+  }
+  async function buildAtcRoute(built, resolveAirport) {
+    var legs = [], number = 0;
+    for (var index = 0; index < built.points.length; index++) {
+      var point = built.points[index], leg = built.route.enroute[index];
+      var ident = airportIdentOf(point), found = null;
+      if (ident && typeof resolveAirport === 'function') { try { found = await resolveAirport(ident, point); } catch (_) { found = null; } }
+      if (found) {
+        legs.push(Object.assign({}, leg, { fixIcao: found, hasLatLon: false, lat: 0, lon: 0 }));
+        continue;
+      }
+      number += 1;
+      legs.push(Object.assign({}, leg, { fixIcao: { __Type: 'JS_ICAO', type: 'U', region: '', airport: '', ident: 'WP' + (number < 10 ? '0' : '') + number } }));
+    }
+    return Object.assign({}, built.route, { enroute: legs });
+  }
+  function matchesAtc(expected, actual) {
+    if (!actual || actual.__Type !== 'JS_FlightPlanRoute' || actual.isVfr !== expected.isVfr) return false;
+    if (!Array.isArray(actual.enroute) || actual.enroute.length !== expected.enroute.length) return false;
+    return expected.enroute.every(function(leg, index) {
+      var other = actual.enroute[index];
+      if (!other) return false;
+      if (leg.hasLatLon !== true) return !!(other.fixIcao && leg.fixIcao && other.fixIcao.ident === leg.fixIcao.ident);
+      return other.hasLatLon === true ? Math.abs(other.lat - leg.lat) < POINT_TOLERANCE_DEG && Math.abs(other.lon - leg.lon) < POINT_TOLERANCE_DEG
+        : !!(other.fixIcao && other.fixIcao.ident === leg.fixIcao.ident);
+    });
   }
   var POINT_TOLERANCE_DEG = 0.0005;
+  var ATC_READ_TIMEOUT_MS = 15000;
   var ATC_READ_ATTEMPTS = 20; // 250 ms apart: up to about 5 s for longer routes
   // Short description of a route the simulator returned, for the log on a mismatch.
   function describeRoute(route) {
@@ -77,11 +114,11 @@
       busy = true;
       var cancelled = false;
       var result = { jobId: job.jobId, routeHash: job.plan && job.plan.routeHash, msfs: 'pending', atc: job.target === 'atc' ? 'pending' : 'not_requested', avionics: job.target === 'avionics' ? 'pending' : 'not_requested' };
-      function step(stage, operation) {
+      function step(stage, operation, stepTimeoutMs) {
         if (cancelled || options.isActive && !options.isActive() || options.isCurrent && !options.isCurrent(job)) throw new Error('flightplan_host_closed');
         result.stage = stage;
         var started = Date.now(); log(stage + ':start', result);
-        return deadline(operation, timeoutMs).then(function(value) { log(stage + ':done', Object.assign({}, result, { durationMs: Date.now() - started })); return value; });
+        return deadline(operation, stepTimeoutMs || timeoutMs).then(function(value) { log(stage + ':done', Object.assign({}, result, { durationMs: Date.now() - started })); return value; });
       }
       var promise = Promise.resolve().then(async function() {
         log('begin', { jobId: job.jobId, target: job.target, missionId: job.plan && job.plan.missionId, runId: job.plan && job.plan.runId, routeHash: result.routeHash });
@@ -95,19 +132,20 @@
         if (!matches(built.route, readback)) throw new Error('flightplan_readback_mismatch');
         result.msfs = 'confirmed';
         if (job.target === 'atc') {
-          await step('file_atc', function() { return manager.fileRouteWithAtc(built.route); }); result.atc = 'sent';
+          var atcRoute = await step('convert_atc', function() { return buildAtcRoute(built, options.resolveAirport); });
+          await step('file_atc', function() { return manager.fileRouteWithAtc(atcRoute); }); result.atc = 'sent';
           var lastAtcRoute = null;
           await step('read_atc', async function() {
             for (var attempt = 0; attempt < ATC_READ_ATTEMPTS; attempt++) {
               if (cancelled || options.isActive && !options.isActive() || options.isCurrent && !options.isCurrent(job)) throw new Error('flightplan_host_closed');
               lastAtcRoute = await manager.getAtcRoute();
-              if (matches(built.route, lastAtcRoute)) return;
+              if (matchesAtc(atcRoute, lastAtcRoute)) return;
               if (attempt < ATC_READ_ATTEMPTS - 1) await new Promise(function(resolve) { setTimeout(resolve, 250); });
             }
             // What the simulator made of the route, so the next field report shows the change.
-            result.atcReadback = { expectedCount: built.route.enroute.length, got: describeRoute(lastAtcRoute) };
+            result.atcReadback = { expectedCount: atcRoute.enroute.length, sent: describeRoute(atcRoute), got: describeRoute(lastAtcRoute) };
             throw new Error('flightplan_atc_readback_mismatch');
-          }); result.atc = 'confirmed';
+          }, ATC_READ_TIMEOUT_MS); result.atc = 'confirmed';
         }
         if (job.target === 'avionics') {
           await step('send_avionics', function() { return manager.sendRouteToAvionics(built.route); }); result.avionics = 'sent';
@@ -126,5 +164,5 @@
     }
     return { execute: execute, cancel: function(jobId) { var job = jobs.get(jobId); if (job) job.cancel(); } };
   }
-  return { create: create, buildRoute: buildRoute, matches: matches, deadline: deadline };
+  return { create: create, buildRoute: buildRoute, buildAtcRoute: buildAtcRoute, matches: matches, matchesAtc: matchesAtc, deadline: deadline };
 });

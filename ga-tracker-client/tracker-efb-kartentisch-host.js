@@ -122,11 +122,17 @@
     var node = byId('gaFlightPlanStatus');
     if (!node) {
       node = document.createElement('div'); node.id = 'gaFlightPlanStatus'; node.setAttribute('role', 'status');
-      node.style.cssText = 'position:absolute;left:12px;right:12px;bottom:20px;z-index:10006;padding:12px;background:#172536;color:white;border-radius:8px;pointer-events:none;';
+      // On top of everything (field test 10.11.2026: the note was hidden under other panels);
+      // a tap closes it.
+      node.style.cssText = 'position:fixed;left:12px;right:12px;top:64px;z-index:2147483000;padding:12px 14px;background:#172536;color:white;'
+        + 'border-radius:8px;border:2px solid #ffb000;box-shadow:0 6px 24px rgba(0,0,0,.55);font-weight:600;line-height:1.35;cursor:pointer;';
+      node.onclick = function() { node.style.display = 'none'; };
       var host = byId('missionStartBanner');
-      if (host && host.parentNode) host.parentNode.appendChild(node);
+      if (document.body) document.body.appendChild(node);
+      else if (host && host.parentNode) host.parentNode.appendChild(node);
     }
     node.textContent = text; node.style.display = 'block';
+    node.style.borderColor = result && result.ok ? '#30d158' : '#ffb000';
     clearTimeout(flightPlanStatusTimer); flightPlanStatusTimer = setTimeout(function() { node.style.display = 'none'; }, 45000);
     report(result && result.ok ? 'info' : 'warn', 'flightplan-export', 'result', text, JSON.stringify(result || {}).slice(0, 790));
   }

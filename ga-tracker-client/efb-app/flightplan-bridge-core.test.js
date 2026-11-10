@@ -79,3 +79,19 @@ test('ATC readback: rounding within 50 m confirms; a reordered route is logged w
   assert.equal(result.atcReadback.expectedCount,3);assert.equal(result.atcReadback.got.count,3);
   assert.equal(result.atcReadback.got.legs[0][0],'Ziel');assert.equal(result.atcReadback.got.dep,'');
 });
+test('ATC variant: airports as airport fixes, other points as unique user waypoints; EFB route unchanged',async()=>{
+  const alps={...plan,departureIcao:'LOWZ',destinationIcao:'EDTW',points:[{lat:47.29,lon:12.79,name:'LOWZ',icao:'LOWZ'},{lat:47.22,lon:11.9,name:'WP 2'},
+    {lat:47.40,lon:11.84},{lat:47.26,lon:11.35,name:'APT LOJO'},{lat:47.31,lon:11.05,name:'APT LOIN',icao:''},{lat:48.28,lon:8.43,name:'Winzeln',icao:'EDTW'}]};
+  const resolve=async ident=>['LOWZ','EDTW','LOJO'].includes(ident)?{__Type:'JS_ICAO',type:'A',region:'',airport:'',ident}:null;
+  const built=await core.buildRoute(alps,resolve);
+  assert.equal(built.route.enroute.length,4);
+  assert.ok(built.route.enroute.every(leg=>leg.hasLatLon===true&&leg.fixIcao.ident===''),'EFB/avionics route stays plain lat/lon');
+  const atc=await core.buildAtcRoute(built,resolve);
+  assert.deepEqual(atc.enroute.map(leg=>[leg.hasLatLon,leg.fixIcao.type,leg.fixIcao.ident]),
+    [[true,'U','WP01'],[true,'U','WP02'],[false,'A','LOJO'],[true,'U','WP03']],'LOIN not found: user waypoint, numbering stays unique');
+  assert.ok(core.matchesAtc(atc,atc));
+  assert.ok(!core.matchesAtc(atc,{...atc,enroute:[]}),'ATC without legs is a mismatch');
+  const f=fixture({timeoutMs:8000,resolveAirport:resolve});let filed;f.manager.fileRouteWithAtc=async route=>{filed=route;};f.manager.getAtcRoute=async()=>filed;
+  const result=await f.bridge.execute({jobId:'alps',target:'atc',plan:alps});
+  assert.equal(result.atc,'confirmed');assert.equal(filed.enroute[2].fixIcao.ident,'LOJO');
+});
