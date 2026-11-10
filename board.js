@@ -732,7 +732,7 @@ function closePinModal() {
     pendingPinNote = null;
 }
 // Private pinned flights are kept gzip-compressed (base64) in `flightDataGz`,
-// locally and in the cloud profile. Crew pins stay plain for older app versions.
+// locally and in the cloud profile. Crew pins are compressed too (only the web app reads them).
 async function pinboardGzipJson(value) {
     if (typeof CompressionStream !== 'function') return null;
     const stream = new Blob([JSON.stringify(value)]).stream().pipeThrough(new CompressionStream('gzip'));
@@ -786,6 +786,18 @@ async function pinboardCompressStoredFlights() {
         pinboardCompressionMigrationRunning = false;
     }
 }
+const CREW_FLIGHTS_PER_PILOT = 3;
+const CREW_FLIGHT_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+// Geteilte Crew-Fluege verschwinden nach 30 Tagen (createdAt, bei alten Zetteln die Zeitstempel-ID).
+function pinboardCrewFlightExpired(note, now = Date.now()) {
+    if (!note || note.type !== 'flight') return false;
+    const created = Number(note.createdAt) || (Number(note.id) > 1e12 ? Number(note.id) : 0);
+    return created > 0 && now - created > CREW_FLIGHT_MAX_AGE_MS;
+}
+function pinboardDropExpiredCrewFlights(notes) {
+    const now = Date.now();
+    return (Array.isArray(notes) ? notes : []).filter(n => !pinboardCrewFlightExpired(n, now));
+}
 async function executePin(target) {
     if(!pendingPinNote) return;
     if(target === 'private') {
@@ -807,11 +819,28 @@ async function executePin(target) {
         }
         if (!document.getElementById('pinboardOverlay').classList.contains('active')) alert(_boardUiPhrase("📌 Flugauftrag privat gespeichert!"));
     } else if (target === 'group') {
-        pendingPinNote.author = getGroupNick();
-        let gNotes = groupDataCache.notes || [];
-        gNotes.push(pendingPinNote);
-        groupDataCache.notes = gNotes;
-        triggerGroupSave(true);
+        const nick = getGroupNick();
+        const previousNotes = pinboardDropExpiredCrewFlights(groupDataCache.notes || []);
+        // Hoechstens CREW_FLIGHTS_PER_PILOT geteilte Fluege pro Pilot; danach erst eigene loeschen.
+        const myFlightCount = previousNotes.filter(n => n.type === 'flight' && n.author === nick).length;
+        if (myFlightCount >= CREW_FLIGHTS_PER_PILOT) {
+            closePinModal();
+            alert(_boardUiText('pinboard.crewFlightsFull', { max: CREW_FLIGHTS_PER_PILOT }, "Deine Crew-Pinnwand ist voll: Du hast bereits {max} Flüge geteilt. Bitte lösche erst einen deiner Crew-Flüge."));
+            return;
+        }
+        // Crew-Fluege komprimiert wie private: der ganze Crew-Datensatz ist ein Upload mit Groessengrenze.
+        const pinNote = await pinboardCompressFlightNote({ ...pendingPinNote, author: nick, createdAt: Date.now() });
+        groupDataCache.notes = previousNotes.concat([pinNote]);
+        const result = await triggerGroupSave(true);
+        if (!result?.ok) {
+            groupDataCache.notes = previousNotes;
+            if (document.getElementById('pinboardOverlay').classList.contains('active')) renderNotes();
+            closePinModal();
+            alert(result?.status === 413
+                ? _boardUiPhrase("Der Flug konnte nicht mit der Crew geteilt werden: Die Crew-Pinnwand ist voll. Bitte alte Crew-Flüge löschen und erneut teilen.")
+                : _boardUiPhrase("Der Flug konnte nicht mit der Crew geteilt werden. Bitte Verbindung prüfen und erneut teilen."));
+            return;
+        }
         if (!document.getElementById('pinboardOverlay').classList.contains('active')) alert(_boardUiPhrase("👥 Flugauftrag mit der Crew geteilt!"));
     }
     if(document.getElementById('pinboardOverlay').classList.contains('active')) renderNotes();

@@ -84,8 +84,13 @@ export class CrewPresence {
             const keepSeen = stored && merged.source === 'tracker' && beat.source === 'web';
             await this.storage.put(key, { ...merged, seenAt: keepSeen ? stored.seenAt : now });
             // The shared mission belongs to one flight; drop it once another flight starts.
+            // The tracker uploads the new flight's mission before its first beat, so keep a mission
+            // that already belongs to the new flight.
             const missionKey = 'm:' + lower(beat.pilotId);
-            if (merged.flight?.id && stored?.flight?.id && merged.flight.id !== stored.flight.id) await this.storage.delete(missionKey);
+            if (merged.flight?.id && stored?.flight?.id && merged.flight.id !== stored.flight.id) {
+                const mission = await this.storage.get(missionKey);
+                if (mission && mission.flightId !== merged.flight.id) await this.storage.delete(missionKey);
+            }
             // Rare cleanup of members who vanished without an offline beat.
             if (Math.random() < 0.05) {
                 const rows = await this.storage.list({ prefix: 'p:' });

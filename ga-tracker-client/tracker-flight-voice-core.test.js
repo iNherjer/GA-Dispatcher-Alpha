@@ -98,3 +98,33 @@ test('private return original departure: 60 seconds, 500 ft AGL, pause reset, on
   state={};tick(1000,{aglFt:undefined});assert.equal(tick(70000,{aglFt:undefined}).length,0);
   assert.equal(observeFlightVoice(context,{}, {active:true,greetingDone:true,now:1000,flightData:{onGround:false,aglFt:600}}).effects.length,0);
 });
+
+test('touch-and-go away from the destination gets the off-destination remark and keeps the landing-roll call for the destination', () => {
+  const extra = { ...context, hasAptArrivalRuntimePoint: true, afterLandingHint: 'Zum Empfangspunkt rollen.' };
+  const away = observeFlightVoice(extra, {}, { ...facts, now: 100000, touchdown: true, touchdownAtDestination: false, destinationDistanceNm: 28 });
+  assert.deepEqual(away.effects.map(effect => effect.kind), ['off_destination']);
+  assert.match(away.effects[0].prompt, /28.0 NM/);
+  assert.equal(away.state.landingRollTriggered, false);
+  const home = observeFlightVoice(extra, away.state, { ...facts, now: 900000, touchdown: true, touchdownAtDestination: true, destinationDistanceNm: 0.3 });
+  assert.deepEqual(home.effects.map(effect => effect.kind), ['landing_roll']);
+  assert.match(home.effects[0].prompt, /Zum Empfangspunkt rollen/);
+});
+
+test('off-destination remark once per foreign airport; a new one only 10 NM or more away, also after restore', () => {
+  const extra = { ...context, hasAptArrivalRuntimePoint: true, afterLandingHint: 'Zum Empfangspunkt rollen.' };
+  const at = (lat, lon) => ({ lat, lon, flightData: { ...facts.flightData, onGround: true, gsKts: 0 } });
+  let state = {};
+  const step = (now, extraFacts) => {
+    const result = observeFlightVoice(extra, JSON.parse(JSON.stringify(state)), { ...facts, now, destinationDistanceNm: 30, ...extraFacts });
+    state = result.state;
+    return result.effects.map(effect => effect.kind);
+  };
+  // Touch-and-go at A, then full stop at A for five minutes: one remark.
+  assert.deepEqual(step(100000, { ...at(48.0, 8.0), touchdown: true, touchdownAtDestination: false }), ['off_destination']);
+  for (let now = 110000; now <= 400000; now += 10000) assert.deepEqual(step(now, { ...at(48.001, 8.001), offDestinationLanding: true }), []);
+  // C is only about 6 NM from A: still the same place for the remark.
+  assert.deepEqual(step(500000, { ...at(48.1, 8.0), touchdown: true, touchdownAtDestination: false }), []);
+  // B is about 15 NM from A: new remark.
+  assert.deepEqual(step(600000, { ...at(48.25, 8.0), touchdown: true, touchdownAtDestination: false }), ['off_destination']);
+  assert.equal(state.offDestLastPos.lat, 48.25);
+});

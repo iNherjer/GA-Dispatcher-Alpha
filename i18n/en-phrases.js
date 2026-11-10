@@ -43,6 +43,8 @@
         "Der Flug konnte nicht gespeichert werden. Der lokale Speicher ist voll oder blockiert. Bitte lösche alte Pinnwand-Flüge und versuche es erneut.": "The flight could not be saved. Local storage is full or blocked. Please delete old pinboard flights and try again.",
         "📌 Flugauftrag privat gespeichert!": "📌 Flight job saved privately!",
         "👥 Flugauftrag mit der Crew geteilt!": "👥 Flight job shared with the crew!",
+        "Der Flug konnte nicht mit der Crew geteilt werden: Die Crew-Pinnwand ist voll. Bitte alte Crew-Flüge löschen und erneut teilen.": "The flight could not be shared with the crew: the crew pinboard is full. Please delete old crew flights and share again.",
+        "Der Flug konnte nicht mit der Crew geteilt werden. Bitte Verbindung prüfen und erneut teilen.": "The flight could not be shared with the crew. Please check your connection and share again.",
         "Dieser Pinnwand-Flug enthaelt keine gespeicherten Flugdaten mehr. Bitte den Flug neu anpinnen oder aus einem neueren Cloud-Backup laden.": "This pinboard flight no longer contains saved flight data. Please pin the flight again or load it from a newer cloud backup.",
         "Dieser angepinnte Flug ist nur ein Entwurf und kann nicht geladen werden.": "This pinned flight is only a draft and cannot be loaded.",
         "Dieser Pinnwand-Flug konnte nicht geladen werden.": "This pinboard flight could not be loaded.",

@@ -31,6 +31,14 @@ _Derzeit keine offenen Einträge._
 
 ## Ausgeliefert
 
+### 2026-11-10 · Befunde Testflug 09.11. — ausgeliefert in Tracker v627 Alpha / Web v2357 (10.11.2026)
+- **Artefakt:** Tracker-EXE; Web und Worker mit diesem Push
+- **Dateien:** `tracker-mission-execution-runtime.js`, `tracker-flight-voice-core.js` (+ Generator), `app.js`, `board.js`, `sync.js`, `i18n/*`, Worker `crew-presence.mjs`/`worker-merged-full.js`
+- **Was:** Touch-and-go-Ansagen, Crew-Pinnwand-Upload, Crew-Missionsabruf, Quest-Tastatur.
+- **Tests:** siehe `docs/Tracker-v627-Release.md`.
+- **Doku beim Release:** `docs/Tracker-v627-Release.md`.
+- **Pruefen im Feld:** Touch-and-go an fremdem Platz, Crew-Flug teilen und laden, Quest-Tastatur.
+
 ### 2026-11-09 · EFB ohne Milchglas — ausgeliefert in Tracker v626 Alpha (09.11.2026)
 - **Artefakt:** Tracker-EXE
 - **Dateien:** `tracker.js`, `tracker-efb-kartentisch-host.css`, `tracker-efb-web-client.js`

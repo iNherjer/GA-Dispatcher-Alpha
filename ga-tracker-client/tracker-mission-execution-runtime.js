@@ -1144,6 +1144,10 @@ function createTrackerMissionExecutionRuntime(options = {}) {
               comfortPending ||= effect.status === 'requested';
               previous.lastAt = Math.max(Number(previous.lastAt) || 0, Number(payload.triggerAt) || 0);
             } else if (payload.kind === 'off_destination') {
+              if ((Number(payload.triggerAt) || 0) >= (Number(previous.offDestLastAt) || 0)
+                  && Number.isFinite(Number(payload.lat)) && Number.isFinite(Number(payload.lon))) {
+                previous.offDestLastPos = { lat: Number(payload.lat), lon: Number(payload.lon) };
+              }
               previous.offDestLastAt = Math.max(Number(previous.offDestLastAt) || 0, Number(payload.triggerAt) || 0);
             } else if (payload.kind === 'landing_roll') previous.landingRollTriggered = true;
             else if (payload.kind === 'wrong_start') previous.wrongStartContinueDone = true;
@@ -1171,6 +1175,13 @@ function createTrackerMissionExecutionRuntime(options = {}) {
             comfortPending,
             ...(motionInputConnected ? { motionSamples: motionBuffer.read(triggerAt, snapshot.runId) } : {}),
             touchdown: result.acceptedEvent?.type === 'TOUCHDOWN',
+            // APT arrival: did this touchdown happen at the destination? Touch-and-go elsewhere
+            // gets the off-destination remark instead of the landing-roll call (field test 09.11.2026).
+            // POI and training missions keep the previous behaviour (null).
+            touchdownAtDestination: result.acceptedEvent?.type !== 'TOUCHDOWN' || isPoi || authorityManager.getExecutionTrainingRecipe?.() ? null
+              : result.destination?.atDestination === true
+                || (Number.isFinite(Number(result.destination?.dArrivalNm)) && Number(result.destination.dArrivalNm) <= 1.2)
+                || (Number.isFinite(Number(result.destination?.dMissionNm)) && Number(result.destination.dMissionNm) <= 1.2),
             offDestinationLanding: sample.onGround === true && Number(sample.gsKts) <= 3
               && snapshot.state.flags.groundStill && result.destination?.atDestination !== true
               && (!isPoi || snapshot.state.poiLifecycle?.canEndHere !== true)

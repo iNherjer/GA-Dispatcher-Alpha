@@ -116,6 +116,18 @@ test('mission of the current flight: stored once, readable by members while shar
     assert.equal((await client(env, 'BOB', 'EDTW', '/mission/ALICE')()).status, 404, 'mission of the old flight is gone');
 });
 
+test('tracker order: mission of a new flight is uploaded before its first beat and survives that beat', async () => {
+    const env = { GA_CREW_PRESENCE: namespace() };
+    await client(env, 'ALICE')({ source: 'tracker', flight: flight() });
+    const post = client(env, 'ALICE', 'EDTW', '/mission');
+    await post({ flightId: 'run-1', state: { mTitle: 'Alt' } });
+    assert.equal((await post({ flightId: 'run-2', state: { mTitle: 'Neu' } })).body.stored, true);
+    await client(env, 'ALICE')({ source: 'tracker', flight: flight({ id: 'run-2' }) });
+    const got = await client(env, 'BOB', 'EDTW', '/mission/ALICE')();
+    assert.equal(got.status, 200, 'mission uploaded just before the new flight beat is kept');
+    assert.equal(got.body.state.mTitle, 'Neu');
+});
+
 test('compressed missions are stored as-is and returned compressed; bad encodings are refused', async () => {
     const { gzipSync, gunzipSync } = await import('node:zlib');
     const env = { GA_CREW_PRESENCE: namespace() };

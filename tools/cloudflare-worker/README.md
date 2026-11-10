@@ -120,6 +120,10 @@ Hinweis:
 - Die groessere Obergrenze veraendert weder Request- noch KV-Write-Anzahl. Ein
   Profilsave bleibt genau ein bestehender Sync-Request und ein KV-Schreibvorgang;
   damit bleiben die Free-Kontingente nach Vorgangsanzahl unveraendert.
+- Eine Crew-Pinnwand (`/api/sync/GROUP_*`) darf hoechstens 1 MiB gross sein. Sie ist
+  ein einziger KV-Eintrag fuer alle Mitglieder (max 10); jeder Pilot teilt hoechstens
+  3 gzip-komprimierte Fluege (je ca. 35 KB), Crew-Fluege verfallen nach 30 Tagen.
+  Abruf nur beim App-Start, Oeffnen der Pinnwand und per Crew-Refresh.
 - Die Checklist-Community nutzt vorhandene Sync-Profile zur PIN-Prüfung. Veröffentlichte Records speichern `ownerId`, Titel, Kapitel/Punkte, Zähler und Version, aber niemals den PIN.
 - `POST /api/checklists/community` erwartet `{ "action": "publish", "checklist": { ... } }` oder `{ "action": "unpublish", "id": "..." }`.
 - Für den Bugtracker kann optional ein Secret gesetzt werden:

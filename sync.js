@@ -17624,6 +17624,7 @@ async function silentGroupSync() {
                 leaveGroup(true);
                 return;
             }
+            if (typeof pinboardDropExpiredCrewFlights === 'function') data.notes = pinboardDropExpiredCrewFlights(data.notes);
             const downloadedNotes = data.notes || [];
             const activeNoteIds = downloadedNotes.map(n => n.id);
             // Ausgeblendete Zettel, die es in der Crew nicht mehr gibt, aus der Liste nehmen.
@@ -17665,8 +17666,9 @@ async function silentGroupSync() {
 async function triggerGroupSave(immediate = false) {
     const gName = getGroupName();
     const gNick = getGroupNick();
-    if(!gName) return;
+    if(!gName) return { ok: false, status: 0 };
     isGroupSyncing = true;
+    let result = { ok: false, status: 0 };
     try {
         const syncId = getSyncId();
         const pin = getSyncPin();
@@ -17705,19 +17707,31 @@ async function triggerGroupSave(immediate = false) {
         const myLocalNotes = localNotes.filter(n => n.author === gNick);
         const theirCloudNotes = cloudNotes.filter(n => n.author !== gNick);
         let mergedNotes = [...myLocalNotes, ...theirCloudNotes];
+        // Abgelaufene Crew-Fluege (30 Tage) fallen beim naechsten Speichern aus der Crew-Pinnwand.
+        if (typeof pinboardDropExpiredCrewFlights === 'function') mergedNotes = pinboardDropExpiredCrewFlights(mergedNotes);
 
         const payload = { members: members, notes: mergedNotes, kicked: kickedList, lastModified: Date.now(), pin: getSyncPin(), syncId: getSyncId() };
 
         groupDataCache = payload;
         groupSyncTime = payload.lastModified;
-        await fetch(SYNC_URL + "GROUP_" + gName, { 
-            method: 'POST', 
+        // Kein keepalive: Browser brechen keepalive-Uploads ueber 64 KB ab, Crew-Fluege sind groesser.
+        const saveRes = await fetch(SYNC_URL + "GROUP_" + gName, {
+            method: 'POST',
             headers: { 'X-Pilot-PIN': getSyncPin(), 'X-Pilot-ID': getSyncId() },
-            body: JSON.stringify(payload), 
-            keepalive: true 
+            body: JSON.stringify(payload)
         });
-    } catch(e) {}
+        result = { ok: saveRes.ok, status: saveRes.status };
+        if (!saveRes.ok) {
+            groupSyncTime = 0; // naechster Abgleich holt den echten Cloud-Stand
+            try { console.warn('[Crew] save failed:', saveRes.status); } catch (_) {}
+        }
+    } catch(e) {
+        groupSyncTime = 0;
+        result = { ok: false, status: 0 };
+        try { console.warn('[Crew] save failed:', e); } catch (_) {}
+    }
     isGroupSyncing = false;
+    return result;
 }
 async function forceGroupSync() {
     await triggerGroupSave(true);

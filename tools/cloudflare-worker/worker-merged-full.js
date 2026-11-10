@@ -157,6 +157,9 @@ const HOMEBASE_PREFIX = "homebase:";
 const PILOT_ID_INDEX_PREFIX = "pilotidx:";
 const PILOT_KEY_LIST_CACHE_MS = 60 * 1000;
 const HOMEBASE_MAX_BODY_BYTES = 64 * 1024;
+const PROFILE_SYNC_MAX_BODY_BYTES = 256 * 1024;
+// Crew-Pinnwand: ein Eintrag fuer alle Mitglieder (max 10) mit je bis zu 3 komprimierten Fluegen.
+const GROUP_SYNC_MAX_BODY_BYTES = 1024 * 1024;
 const HOMEBASE_MAX_OBJECTS = 100;
 const HOMEBASE_MAX_PEOPLE = 3;
 const HOMEBASE_MAX_PERSON_DESTINATIONS = 20;
@@ -2862,7 +2865,7 @@ export default {
 
       if (request.method === "POST") {
         let rawBody = await request.text();
-        if (rawBody.length > 256 * 1024) {
+        if (rawBody.length > (isGroupKey ? GROUP_SYNC_MAX_BODY_BYTES : PROFILE_SYNC_MAX_BODY_BYTES)) {
           return json({ error: "Zu groß" }, 413);
         }
 

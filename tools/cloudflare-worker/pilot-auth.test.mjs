@@ -165,3 +165,13 @@ console.log("pilot auth tests ok");
   // The index key itself is not readable through the sync route.
   assert.equal((await call(idxEnv, "/api/sync/pilotidx:mixedcase?pin=777")).response.status, 400);
 }
+
+// Crew-Pinnwand darf bis 1 MiB gross sein, Profile bleiben bei 256 KiB.
+const groupHeaders = { "Content-Type": "application/json", "X-Pilot-ID": "SALUD", "X-Pilot-PIN": "1138" };
+const groupBody = (bytes) => JSON.stringify({ members: [], notes: [{ id: 1, type: "flight", flightDataGz: "x".repeat(bytes) }] });
+const groupMid = await call(env, "/api/sync/GROUP_TEST", { method: "POST", headers: groupHeaders, body: groupBody(600 * 1024) });
+assert.equal(groupMid.response.status, 200);
+const groupTooBig = await call(env, "/api/sync/GROUP_TEST", { method: "POST", headers: groupHeaders, body: groupBody(1100 * 1024) });
+assert.equal(groupTooBig.response.status, 413);
+const profileTooBig = await call(env, "/api/sync/SALUD", { method: "POST", headers: groupHeaders, body: JSON.stringify({ pin: "1138", pad: "x".repeat(300 * 1024) }) });
+assert.equal(profileTooBig.response.status, 413);

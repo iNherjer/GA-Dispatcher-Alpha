@@ -340,6 +340,7 @@
     'pinboard.homebases.coordinates': 'Coordinates',
     'pinboard.homebases.visit': 'Visit',
     'pinboard.loadFlight': '📂 Load flight',
+    'pinboard.crewFlightsFull': 'Your crew pinboard is full: you have already shared {max} flights. Please delete one of your crew flights first.',
     'pinboard.tip.101': '👋 WELCOME!\n\nDrag notes, ✏️ edit, ✖ delete. 📌 in the briefing pins flights here.',
     'pinboard.tip.102': '✈️ FIRST JOB\n\nChoose departure and preset, DISPATCH. Check the briefing, then accept.',
     'pinboard.tip.103': '🖥️ TRACKER\n\nMissions run through the Windows tracker. Enter the same pilot ID + PIN there.',

@@ -40,6 +40,9 @@ function observeFlightVoice(context = {}, previous = {}, facts = {}) {
   const _bushPickupArrivalVoiceBlockedAtPickupStrip = () => false;
   const _aptArrivalAfterLandingHint = () => context.afterLandingHint || '';
   let _paxOffDestLastAt = previous.offDestLastAt || 0;
+  // One off-destination remark per foreign airport: a new one only 10 NM or more from the last remark.
+  let _paxOffDestLastPos = previous.offDestLastPos && Number.isFinite(Number(previous.offDestLastPos.lat)) ? previous.offDestLastPos : null;
+  const _offDestPos = Number.isFinite(Number(facts.lat)) && Number.isFinite(Number(facts.lon)) ? { lat: Number(facts.lat), lon: Number(facts.lon) } : null;
   let landingRollTriggered = previous.landingRollTriggered === true;
   let _paxComfortMotionSamples = facts.motionSamples ? facts.motionSamples.map(sample => ({ ...sample })) : (previous.motionSamples || []);
   let _paxComfortLastMotionAnalysis = previous.motionAnalysis || null;
@@ -55,7 +58,7 @@ function observeFlightVoice(context = {}, previous = {}, facts = {}) {
   let currentDelay = 0;
   const _paxMissionTimeout = (callback, delay) => scheduled.push({ callback, delay });
   const _speakAndShow = (prompt, label, speaker, options = {}) => {
-    effects.push({ kind: ({ 'Komfort-Hinweis': 'comfort', 'Route läuft ab hier': 'wrong_start', 'Falscher Landeplatz': 'off_destination', 'Nach der Landung': 'landing_roll', 'Ladung': 'cargo_event', 'Heimreise nach dem Start': 'private_return_departure' })[label], prompt, label, delayMs: currentDelay, debugDetail: options.debugDetail || '' });
+    effects.push({ kind: ({ 'Komfort-Hinweis': 'comfort', 'Route läuft ab hier': 'wrong_start', 'Falscher Landeplatz': 'off_destination', 'Nach der Landung': 'landing_roll', 'Ladung': 'cargo_event', 'Heimreise nach dem Start': 'private_return_departure' })[label], prompt, label, delayMs: currentDelay, debugDetail: options.debugDetail || '', ...(label === 'Falscher Landeplatz' && _offDestPos ? { lat: _offDestPos.lat, lon: _offDestPos.lon } : {}) });
     return Promise.resolve();
   };
 `;
@@ -63,8 +66,14 @@ const footer = `
   if (facts.active && !facts.ending && context.supported && context.passenger) {
     _maybePaxComfortFeedback(facts.flightData, facts.lat, facts.lon);
     _maybeWrongStartContinue(facts.flightData);
-    if (facts.offDestinationLanding) window.triggerPaxOffDestinationLanding(facts.destinationDistanceNm);
-    if (facts.touchdown && context.hasAptArrivalRuntimePoint && !landingRollTriggered) {
+    const offDestNewPlace = !_paxOffDestLastPos || !_offDestPos
+      || _haversineNm(_paxOffDestLastPos.lat, _paxOffDestLastPos.lon, _offDestPos.lat, _offDestPos.lon) >= 10;
+    if ((facts.offDestinationLanding || (facts.touchdown && facts.touchdownAtDestination === false)) && offDestNewPlace) {
+      const offDestBefore = _paxOffDestLastAt;
+      window.triggerPaxOffDestinationLanding(facts.destinationDistanceNm);
+      if (_paxOffDestLastAt !== offDestBefore && _offDestPos) _paxOffDestLastPos = _offDestPos;
+    }
+    if (facts.touchdown && facts.touchdownAtDestination !== false && context.hasAptArrivalRuntimePoint && !landingRollTriggered) {
       landingRollTriggered = true; window.triggerPaxLandingRoll({ touchdownVsFpm: facts.flightData?.touchdownFpm ?? facts.flightData?.vsFpm });
     }
   }
@@ -78,7 +87,7 @@ const footer = `
   return { effects, wrongLocationPrompt: Number.isFinite(facts.wrongLocationDistanceNm) ? _wrongLocationPrompt(facts.wrongLocationDistanceNm) : null, state: JSON.parse(JSON.stringify({ motionSamples: _paxComfortMotionSamples,
     motionAnalysis: _paxComfortLastMotionAnalysis, breachState: _paxComfortBreachState,
     privateReturnDeparture: window.missionPrivateReturnDepartureVoice,
-    lastAt: _paxComfortLastAt, count: _paxComfortCount, offDestLastAt: _paxOffDestLastAt, landingRollTriggered, wrongStartContinueDone: _paxWrongStartContinueDone })) };
+    lastAt: _paxComfortLastAt, count: _paxComfortCount, offDestLastAt: _paxOffDestLastAt, offDestLastPos: _paxOffDestLastPos, landingRollTriggered, wrongStartContinueDone: _paxWrongStartContinueDone })) };
 }
 module.exports = { observeFlightVoice };
 `;

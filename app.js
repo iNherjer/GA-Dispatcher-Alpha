@@ -7097,6 +7097,11 @@ function handleAirportAutocompleteKeydown(event, input, classicId) {
     }
 }
 
+function airportFieldTouchDevice() {
+    const ua = String(navigator.userAgent || '');
+    return /OculusBrowser|Quest|Pico/i.test(ua) || (navigator.maxTouchPoints || 0) > 0;
+}
+
 function initAirportAutocompleteFields() {
     Object.entries(AIRPORT_SEARCH_FIELD_CONFIG).forEach(([classicId, cfg]) => {
         [cfg.classicId, cfg.opsId, cfg.radioId].forEach(id => {
@@ -7106,7 +7111,23 @@ function initAirportAutocompleteFields() {
             input.setAttribute('autocomplete', 'off');
             input.setAttribute('spellcheck', 'false');
             input.setAttribute('aria-autocomplete', 'list');
+            input.setAttribute('inputmode', 'text');
+            input.setAttribute('enterkeyhint', 'done');
             if (id === cfg.radioId) input.setAttribute('maxlength', '64');
+            // Quest/Touch: Text bleibt markiert, aber erst nach dem Fokus. Markieren im selben
+            // Moment wie das Antippen kann statt der Tastatur das Kopieren/Einfuegen-Menue zeigen.
+            if (airportFieldTouchDevice()) {
+                input.removeAttribute('onfocus');
+                input.removeAttribute('onclick');
+                input.onfocus = null;
+                input.onclick = null;
+                input.addEventListener('focus', () => {
+                    setTimeout(() => {
+                        if (document.activeElement !== input) return;
+                        try { input.setSelectionRange(0, input.value.length); } catch (_) {}
+                    }, 60);
+                });
+            }
             input.addEventListener('input', () => {
                 syncAirportFieldValue(classicId, input.value, { sourceInput: input, resolved: false });
                 updateOps1940Panel();
