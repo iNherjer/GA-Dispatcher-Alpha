@@ -46,4 +46,7 @@ Stable bleibt unverändert (v605).
 
 ## Aktivierung
 
-_wird nach dem Build ergänzt_
+Tracker: Release `v628` (Release-Commit `ac81bb3e4`, gebaut im sauberen Worktree mit
+`--no-bytecode`), `VFR-Multitool-Tracker.exe` 175020923 Bytes,
+SHA-256 `c70fa3dd7a265b3827bfac1e1666a06f280a37239083cc291b3e399b54381d0a`, öffentlicher Download geprüft.
+`channel/alpha.json` aktiviert, `channel/stable.json` unverändert (v605).
