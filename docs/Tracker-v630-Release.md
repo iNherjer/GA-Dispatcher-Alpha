@@ -37,4 +37,9 @@ Stable bleibt unverändert (v605).
 
 ## Aktivierung
 
-_wird nach dem Build ergänzt_
+Tracker: Release `v630` (Release-Commit `065831264`, gebaut im sauberen Worktree mit
+`--no-bytecode`), `VFR-Multitool-Tracker.exe` 175043238 Bytes,
+SHA-256 `0e8b8a98a47ca0f8d5376372dd5fe4a0e5efae41f1d3a49ea00a2e4661064a76`, öffentlicher Download geprüft.
+`channel/alpha.json` aktiviert, `channel/stable.json` unverändert (v605).
+Worker: `ga-relay` Version `85031dfa-0372-4a97-af04-e4bd1871a0bd` (Migration v2, CrewLiveRoom),
+`ga-proxy` Version `5735cb46-68b5-4c7f-bd4b-f187776f6cae`; Secret `CREW_LIVE_SECRET` in beiden gesetzt.
