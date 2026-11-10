@@ -8924,3 +8924,24 @@ Quellbasis `8006faa50`: Exit 0, leeres RPTErrors, App-Build/Typecheck, 64 EFB-/T
 Brücke im Archiv bytegleich mit Git; E6B-Dateien gleich dem Repository-Stand (inkl. E6B-Commit
 `c6d3e32cc` vom 29.10.2026, nur Windows-Zeilenenden). Als `efb-app-v0.4.26` veröffentlicht,
 Alpha-Zeiger aktiviert, Stable unverändert. Simulator-/World-Map-Abnahme offen.
+
+
+## 10.11.2026 – EFB-/Toolbar 0.4.27: ATC-Route mit Flugplatz-Fixes und Benutzer-Wegpunkten
+
+Feldtest 0.4.26 (Tracker-Log 10.11.2026 09:11 UTC): `atcReadback` zeigt
+`expectedCount 9`, zurück `LOWZ → EDTW`, VFR, **0 Wegpunkte**. Der EFB-Planer hatte die Route
+vollständig. Zweiter Versuch: `flightplan_timeout` in `read_atc` (8 s).
+
+Änderung nur für die ATC-Einreichung (`buildAtcRoute`): Flugplätze in der Route (über
+`point.icao` oder Name „APT XXXX“, `resolveAirport`) als Flugplatz-Fix, übrige Punkte mit
+Lat/Lon plus Benutzer-Fix `type 'U'`, Kennung `WP01…`. EFB-Planer und Avionik unverändert.
+`matchesAtc` vergleicht Fix-Kennungen bzw. Koordinaten (50 m); ATC-Readback eigene Frist 15 s;
+`atcReadback` enthält gesendete und zurückgelesene Route. Start, Ziel und Reiseflughöhe werden
+im ATC-Readback nicht geprüft (Hinweis SDK-Agent) – im Feldtest auf der World Map kontrollieren.
+
+Offizieller Windows-SDK-Bau auf `27ebf30a4`: Exit 0, leeres RPTErrors, 65 Tests,
+22 Layout-Einträge, 21 Copy-Payloads, 24 ZIP-Dateien, Archiv 456305 Bytes, SHA-256
+`6cb56431520160082ccbc1dc79d0483bd38dadb5be1b451203920847ef307c88`. Mac-Gegenprüfung gegen
+0.4.26: inhaltlich nur Brücke, App-Bundle, Layout, Manifest (übrige Abweichung nur
+Zeilenenden). Als `efb-app-v0.4.27` veröffentlicht, Alpha aktiviert, Stable unverändert.
+Zusammen mit Tracker v631 (Flugplan-Meldung obenauf).

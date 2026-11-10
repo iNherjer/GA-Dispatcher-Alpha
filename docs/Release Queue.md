@@ -27,15 +27,11 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-### 2026-11-10 · Flugplanbrücke: ATC-Variante mit Wegpunkt-Kennungen (EFB-Paket 0.4.27)
-- **Artefakt:** EFB-Community-Package (und Toolbar-Panel-Kopie) – Build mit MSFS-SDK unter Windows
-- **Dateien:** `ga-tracker-client/efb-app/flightplan-bridge-core.js`, Toolbar-Kopie `toolbar-panel/PackageSources/html_ui/InGamePanels/VfrMultitool/flightplan-bridge-core.js` (identisch), Test `efb-app/flightplan-bridge-core.test.js`
-- **Was:** Feldbefund 10.11. mit 0.4.26: ATC liefert LOWZ→EDTW mit 0 von 9 Wegpunkten. Nur die bei der ATC eingereichte Route bekommt jetzt Flugplätze als echte Flugplatz-Fixes und alle übrigen Punkte als Benutzer-Wegpunkte mit eindeutiger Kennung (WP01…); EFB-Planer und Avionik behalten die bewährte Lat/Lon-Route. ATC-Readback mit eigener Frist 15 s (vorher Zeitüberschreitung nach 8 s); `atcReadback` enthält auch die gesendete Route.
-- **Tests:** `node --test ga-tracker-client/efb-app/flightplan-bridge-core.test.js` 12/12.
-- **Doku beim Release:** `docs/EFB-Development-Plan.md`, `docs/EFB-Community-Package.md`.
-- **Pruefen im Feld:** World Map „Route laden“: Wegpunkte auf der Weltkarte sichtbar? Sonst `atcReadback` (sent/got) aus dem Log.
+_Derzeit keine offenen Einträge._
 
-### 2026-11-10 · EFB: Flugplan-Meldung obenauf
+## Ausgeliefert
+
+### 2026-11-10 · EFB: Flugplan-Meldung obenauf — ausgeliefert in Tracker v631 Alpha (10.11.2026)
 - **Artefakt:** Tracker-EXE (EFB-Host)
 - **Dateien:** `ga-tracker-client/tracker-efb-kartentisch-host.js`
 - **Was:** Die Meldung nach „Route laden“ lag unter anderen Anzeigen. Jetzt oben, über allem, mit farbigem Rand (grün bestätigt, orange Hinweis), schließt per Antippen.
@@ -43,7 +39,13 @@ liefert alles Offene mit aus.
 - **Doku beim Release:** Release-Doku des nächsten Trackers.
 - **Pruefen im Feld:** Meldung nach „Route laden“ gut sichtbar.
 
-## Ausgeliefert
+### 2026-11-10 · Flugplanbrücke: ATC-Variante mit Wegpunkt-Kennungen (EFB-Paket 0.4.27) — ausgeliefert in EFB-/Toolbar-Paket 0.4.27 Alpha (10.11.2026)
+- **Artefakt:** EFB-Community-Package (und Toolbar-Panel-Kopie) – Build mit MSFS-SDK unter Windows
+- **Dateien:** `ga-tracker-client/efb-app/flightplan-bridge-core.js`, Toolbar-Kopie `toolbar-panel/PackageSources/html_ui/InGamePanels/VfrMultitool/flightplan-bridge-core.js` (identisch), Test `efb-app/flightplan-bridge-core.test.js`
+- **Was:** Feldbefund 10.11. mit 0.4.26: ATC liefert LOWZ→EDTW mit 0 von 9 Wegpunkten. Nur die bei der ATC eingereichte Route bekommt jetzt Flugplätze als echte Flugplatz-Fixes und alle übrigen Punkte als Benutzer-Wegpunkte mit eindeutiger Kennung (WP01…); EFB-Planer und Avionik behalten die bewährte Lat/Lon-Route. ATC-Readback mit eigener Frist 15 s (vorher Zeitüberschreitung nach 8 s); `atcReadback` enthält auch die gesendete Route.
+- **Tests:** `node --test ga-tracker-client/efb-app/flightplan-bridge-core.test.js` 12/12.
+- **Doku beim Release:** `docs/EFB-Development-Plan.md`, `docs/EFB-Community-Package.md`.
+- **Pruefen im Feld:** World Map „Route laden“: Wegpunkte auf der Weltkarte sichtbar? Sonst `atcReadback` (sent/got) aus dem Log.
 
 ### 2026-11-10 · Flugplanbrücke: ATC-Readback-Diagnose, Wartezeit, Toleranz — ausgeliefert in EFB-/Toolbar-Paket 0.4.26 Alpha (10.11.2026)
 - **Artefakt:** EFB-Community-Package (und Toolbar-Panel-Kopie) – Build mit MSFS-SDK unter Windows

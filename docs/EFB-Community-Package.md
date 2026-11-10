@@ -150,9 +150,10 @@ Vorher gibt es keinen aktiven Panel-Kanal und kein Desktop-Autoupdate.
 
 ## Aktueller Kanalstand
 
-**Stand 10.11.2026:** Alpha zeigt auf `efb-app-v0.4.26` (455765 Bytes, SHA-256
-`3ce8c5e059179e027b8a2c5a777ec5e04991c56499b87f14879a9acae95e31b6`), Flugplanbrücke mit
-ATC-Readback-Diagnose, siehe `docs/EFB-Development-Plan.md` (10.11.2026). Ältere Absätze unten
+**Stand 10.11.2026:** Alpha zeigt auf `efb-app-v0.4.27` (456305 Bytes, SHA-256
+`6cb56431520160082ccbc1dc79d0483bd38dadb5be1b451203920847ef307c88`), ATC-Route mit
+Flugplatz-Fixes und Benutzer-Wegpunkten, siehe `docs/EFB-Development-Plan.md` (10.11.2026).
+Vorher 0.4.26 (ATC-Readback-Diagnose). Ältere Absätze unten
 beschreiben die Historie.
 
 EFB 0.4.11 ist seit 2026-08-13 als Alpha-Release unter
