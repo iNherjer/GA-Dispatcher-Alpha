@@ -46,4 +46,8 @@ Stable bleibt unverändert (v605).
 
 ## Aktivierung
 
-_wird nach dem Build ergänzt_
+Tracker: Release `v627` (Release-Commit `912a116ed`, gebaut im sauberen Worktree mit
+`--no-bytecode`), `VFR-Multitool-Tracker.exe` 175018610 Bytes,
+SHA-256 `e3b09e5d404a7353293240c92923f039df494786ece49080b35227bc76b1c2f6`, öffentlicher Download geprüft.
+`channel/alpha.json` aktiviert, `channel/stable.json` unverändert (v605).
+Worker `ga-proxy` Version `797bfc8c-988d-4146-a8b0-7cf0952a5b74`.
