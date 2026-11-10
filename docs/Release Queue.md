@@ -27,15 +27,17 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-### 2026-11-10 · Flugplanbrücke: ATC-Readback-Diagnose, Wartezeit, Toleranz
+_Derzeit keine offenen Einträge._
+
+## Ausgeliefert
+
+### 2026-11-10 · Flugplanbrücke: ATC-Readback-Diagnose, Wartezeit, Toleranz — ausgeliefert in EFB-/Toolbar-Paket 0.4.26 Alpha (10.11.2026)
 - **Artefakt:** EFB-Community-Package (und Toolbar-Panel-Kopie) – Build mit MSFS-SDK unter Windows
 - **Dateien:** `ga-tracker-client/efb-app/flightplan-bridge-core.js`, `ga-tracker-client/toolbar-panel/PackageSources/html_ui/InGamePanels/VfrMultitool/flightplan-bridge-core.js` (identisch), Test `efb-app/flightplan-bridge-core.test.js`
 - **Was:** ATC-Plan bis ≈ 5 s zurücklesen (20 × 250 ms), 50-m-Toleranz statt ≈ 1 m, bei Abweichung `atcReadback` (erwartete Punktzahl, Start/Ziel, erste 16 Punkte) im Ergebnis/Log.
 - **Tests:** `node --test ga-tracker-client/efb-app/flightplan-bridge-core.test.js` 11/11.
 - **Doku beim Release:** `docs/EFB-Community-Package.md` (Paketversion, Änderung), `docs/Tracker-v628-Release.md` Abschnitt EFB-Paket.
 - **Pruefen im Feld:** Weltkarte „Route laden“ mit mehreren Wegpunkten; bei Abweichung `atcReadback` im Tracker-Log auswerten.
-
-## Ausgeliefert
 
 ### 2026-11-10 · Crew-Live-Verkehr — ausgeliefert in Tracker v630 Alpha / Web v2360 / ga-relay / ga-proxy (10.11.2026)
 - **Artefakt:** Tracker-EXE; Web, Relay und Proxy mit diesem Push

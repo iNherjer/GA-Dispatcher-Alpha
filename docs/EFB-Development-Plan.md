@@ -8903,3 +8903,24 @@ POI-Rundflug am gemeinsamen Start- und Rückkehrplatz DEP.
 
 EFB-Asset-Revision 61301. Die Windows-x64-EXE enthält die geprüften CSS- und
 JavaScript-Assets. Die Abnahme im MSFS-EFB steht noch aus.
+
+
+## 10.11.2026 – EFB-/Toolbar 0.4.26: ATC-Readback-Diagnose, Wartezeit, Toleranz
+
+Feldbefund 09.11.2026: „Route laden“ auf der World Map scheitert seit 01.11.2026 jedes Mal mit
+`flightplan_atc_readback_mismatch` (bis 30.10.2026 fünfmal bestätigt, gleicher Tracker v605 und
+EFB 0.4.25). EFB-Route bestätigt, erst der ATC-Plan weicht ab; die World Map zeigt die umgebaute
+Route. Vermutlich MSFS-seitige Änderung.
+
+Änderung nur in `flightplan-bridge-core.js` (EFB und identische Toolbar-Kopie): ATC-Readback bis
+≈ 5 s (20 × 250 ms), 50-m-Toleranz statt ≈ 1 m, bei Abweichung `atcReadback` (erwartete
+Punktzahl, Start/Ziel, erste 16 Punkte) im Ergebnis und Tracker-Log. Tracker v628 zeigt bereits
+die Meldung und den empfohlenen Avionik-Start.
+
+Offizieller Windows-SDK-Bau (SDK 1.7.2, `fspackagetool -forcesteam -rebuild -nopause`) auf
+Quellbasis `8006faa50`: Exit 0, leeres RPTErrors, App-Build/Typecheck, 64 EFB-/Toolbar-Tests,
+22 Layout-Einträge, 21 Copy-Payloads, 24 ZIP-Dateien. Archiv 455765 Bytes, SHA-256
+`3ce8c5e059179e027b8a2c5a777ec5e04991c56499b87f14879a9acae95e31b6`. Mac-Gegenprüfung:
+Brücke im Archiv bytegleich mit Git; E6B-Dateien gleich dem Repository-Stand (inkl. E6B-Commit
+`c6d3e32cc` vom 29.10.2026, nur Windows-Zeilenenden). Als `efb-app-v0.4.26` veröffentlicht,
+Alpha-Zeiger aktiviert, Stable unverändert. Simulator-/World-Map-Abnahme offen.
