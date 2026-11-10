@@ -462,6 +462,20 @@
         else if (!detailMap.getBounds().contains(at)) detailMap.panTo(at);
     }
 
+    // Crew live room (crew-live-client.js): a fresh position of the pilot whose detail view is
+    // open moves the plane every few seconds and draws its trail.
+    function liveDetailPosition(id, p) {
+        if (!detailLive || !detailMap || !p || !sameId(detailLive.id, id)) return;
+        placeDetailPlane({ lat: p.lat, lon: p.lon, hdg: p.hdg });
+        if (!detailLive.trail) detailLive.trail = L.polyline([], { color: '#30d158', weight: 3, opacity: 0.9 }).addTo(detailMap);
+        detailLive.trail.addLatLng([p.lat, p.lon]);
+        detailLive.time.textContent = tr('crew.detail.live', 'Live · {alt} ft · GS {gs} kt', {
+            alt: Number.isFinite(p.alt) ? Math.round(p.alt).toLocaleString(uiLocale()) : '—', gs: Number.isFinite(p.gs) ? p.gs : '—' });
+        const at = L.latLng(p.lat, p.lon);
+        if (!detailMap.getBounds().contains(at)) detailMap.panTo(at);
+    }
+    function liveDetailPilot() { return detailLive && detailMap ? detailLive.id : null; }
+
     function renderFlightNote(board, member, index, seen) {
         const f = member.flight;
         const ended = f.endedAt > 0;
@@ -529,6 +543,6 @@
     window.gaCrewPresence = {
         statusFor, renderBoard, hasNewFlight, refresh, getShare, setShare, openDetail, buildLayers,
         beatNow: () => beat(true),
-        applyShareFromCloud, sharePayload, reset
+        applyShareFromCloud, sharePayload, reset, liveDetailPosition, liveDetailPilot
     };
 })();

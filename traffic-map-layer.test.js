@@ -108,3 +108,19 @@ test('symbols shrink between zoom 11 and 9, warnings keep full size', () => {
     assert.equal(zoomScale(10), 0.8);
     assert.equal(zoomScale(7), 0.6);
 });
+
+test('crew aircraft are green with a white edge and their call sign; a warning adds a coloured ring', () => {
+    const layer = global.window.GATrafficMapLayer;
+    const plain = layer.iconHtml(90, 'other', { alt: '+200', cs: 'D-HGSR · Bob' }, 'heli', '', 1, true, true);
+    assert.match(plain, /fill="#30d158"/);
+    assert.match(plain, /stroke="#ffffff"/);
+    assert.match(plain, /D-HGSR · Bob/);
+    assert.doesNotMatch(plain, /box-shadow:0 0 0 3px/);
+    const warned = layer.iconHtml(90, 'alert', { alt: '+0', cs: 'D-HGSR' }, 'heli', '', 1, true, true);
+    assert.match(warned, /fill="#30d158"/, 'stays green');
+    assert.match(warned, /box-shadow:0 0 0 3px #ffb000/, 'orange ring on a warning');
+    const zoomedOut = layer.iconHtml(0, 'other', { alt: '+200', cs: 'D-HGSR' }, 'single', '', 0.6, false, true);
+    assert.match(zoomedOut, /D-HGSR/, 'call sign stays when zoomed out');
+    const ai = layer.iconHtml(0, 'other', { alt: '', cs: 'DLH1' }, 'jet', '', 1, true, false);
+    assert.doesNotMatch(ai, /#30d158/);
+});

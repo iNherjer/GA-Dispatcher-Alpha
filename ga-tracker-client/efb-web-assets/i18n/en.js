@@ -385,6 +385,7 @@
     'crew.detail.progress': '{percent} % of the route',
     'crew.detail.heading': 'Heading {hdg}°',
     'crew.detail.positionAt': 'Position from {time}',
+    'crew.detail.live': 'Live · {alt} ft · GS {gs} kt',
     'crew.detail.noPosition': 'No position reported',
     'crew.detail.close': 'Close',
     'crew.flight.takeoff': 'Takeoff {time}',

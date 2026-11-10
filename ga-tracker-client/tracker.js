@@ -38,20 +38,51 @@ const {
 const { createHomebaseCloudScene } = require('./tracker-homebase-cloud.js');
 const { createHomebaseCrewScene } = require('./tracker-homebase-crew.js');
 const { createCrewPresence } = require('./tracker-crew-presence.js');
+const { createCrewLive } = require('./tracker-crew-live.js');
 const { createAircraftIdentity } = require('./tracker-aircraft-identity.js');
 const { createCrewFleetWatch } = require('./tracker-crew-fleet-watch.js');
 // Crew status beats (online/current flight); fed by the telemetry loop.
 let trackerCrewPresence = null;
+let trackerCrewLive = null;
+let trackerAircraftIcons = null;
+let trackerCrewAuthority = null; // mission authority, for the own crew icon (aircraft of the mission)
 let trackerCrewFleetWatch = null;
 let trackerShutdownFlush = async () => {};
 let trackerShuttingDown = null;
 // Orderly end (desktop "stop", Ctrl+C, SIGTERM): crew fleet aircraft left, crew status offline,
 // mission state and logs flushed. Windows kills without a signal, so the desktop app asks first.
+// Crew aircraft first in every traffic list (never cut by the 20-contact limit),
+// positions extrapolated to the list time so warnings and map agree.
+function withCrewTraffic(list, listAt) {
+  const base = Array.isArray(list) ? list : [];
+  const crew = trackerCrewLive ? trackerCrewLive.contacts(listAt) : [];
+  return crew.length ? crew.concat(base) : list;
+}
+// Symbol of the own aircraft for the crew: preset icon (mission aircraft or main-menu choice).
+let ownCrewIconCache = { at: 0, kind: '' };
+function ownCrewIconKind() {
+  const t = Date.now();
+  if (t - ownCrewIconCache.at < 10000) return ownCrewIconCache.kind;
+  let kind = '';
+  try {
+    const icons = trackerAircraftIcons?.state?.();
+    const run = trackerCrewAuthority ? readActiveRunView(trackerCrewAuthority, { includeBundle: true }) : null;
+    const state = run?.resumeBundle?.missionState || {};
+    const md = state.currentMissionData || {};
+    const slot = md.cargoManifest?.aircraftSlot || state.cargoManifest?.aircraftSlot || md.aircraftSlot || '';
+    const preset = icons?.presets?.[slot] || icons?.presets?.[icons?.selected];
+    if (preset?.icon?.custom && preset.icon.kind) kind = preset.icon.kind;
+  } catch (_) {}
+  ownCrewIconCache = { at: t, kind };
+  return kind;
+}
+
 function shutdownTracker(reason) {
   if (trackerShuttingDown) return trackerShuttingDown;
   trackerShuttingDown = (async () => {
     try { debugLog(`TRACKER_SHUTDOWN reason=${reason}`); } catch (_) {}
     trackerCrewFleetWatch?.stop();
+    try { trackerCrewLive?.stop(); } catch (_) {}
     await Promise.race([trackerCrewPresence?.stop(), new Promise(resolve => setTimeout(resolve, 2500))]).catch(() => {});
     await trackerShutdownFlush().catch(() => {});
     await Promise.all([writeDebugLog.flush(), missionTestLog.flush()]).catch(() => {});
@@ -140,8 +171,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v629';
-const TRACKER_VERSION_CODE = 629;
+const TRACKER_VERSION = 'v630';
+const TRACKER_VERSION_CODE = 630;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -5044,6 +5075,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
   }) : null;
   const missionAuthorityManager = missionProcess?.authorityManager
     || createMissionAuthorityManager({ ...authorityOptions, log: debugLog });
+  trackerCrewAuthority = missionAuthorityManager || null;
   const followupCloud = createFollowupCloud({ authorityManager: missionAuthorityManager, pilotId: String(syncId), pin: String(pin), log: debugLog });
   const followupSyncTimer = setInterval(() => { void followupCloud.flush(); }, 5000);
   followupSyncTimer.unref?.();
@@ -5891,7 +5923,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
         pilotId: syncId, pin, readConfig: readTrackerConfig, writeConfig: writeTrackerConfig
       }),
       favoriteAirports: require('./tracker-favorite-airports').createFavoriteAirports({ pilotId: syncId, pin }),
-      aircraftIcons: require('./tracker-aircraft-icons').createAircraftIcons({ pilotId: syncId, pin }),
+      aircraftIcons: trackerAircraftIcons = require('./tracker-aircraft-icons').createAircraftIcons({ pilotId: syncId, pin }),
       voiceService: trackerVoiceService,
       audioControl: trackerAudioControl,
       audioAssets: trackerAudioAssets,
@@ -6214,6 +6246,13 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     }
   });
   trackerCrewPresence.start();
+  // Crew live traffic (crew room on the Cloudflare relay): MSFS 2024 hides multiplayer aircraft.
+  trackerCrewLive = createCrewLive({
+    pilotId: syncId, pin, WebSocketImpl: WebSocket, log: debugLog,
+    getCrew: () => trackerCrewPresence?.groupName?.() || '',
+    getShareFlight: () => trackerCrewPresence?.shareFlight?.() !== false
+  });
+  trackerCrewLive.start();
   // Vereinsflotte: Hinweis im EFB, wenn andere Piloten den Flottenstand aendern.
   trackerCrewFleetWatch = createCrewFleetWatch({
     pilotId: syncId,
@@ -7489,8 +7528,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                     telemetryHibernate: currentTelemetryHibernateState,
                     localOnly: now - lastSent < SEND_INTERVAL_MS,
                     snapshot: {
-                      traffic: latestEfbTrafficSnapshot,
-                      trafficAt: latestEfbTrafficAt,
+                      traffic: withCrewTraffic(latestEfbTrafficSnapshot, latestEfbTrafficAt || now),
+                      trafficAt: latestEfbTrafficAt || now,
                       capturedAt: now,
                       lat,
                       lon,
@@ -7590,6 +7629,9 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
               }
               if (missionTelemetryInMenu) trackerCrewPresence?.observe({ inMenu: true });
               else if (lat !== 0) trackerCrewPresence?.observe({ lat, lon, altFt: alt, hdg, onGround: !!onGround, gsKts: groundSpeedKts, vsFpm, slewing: slew.active === true });
+              trackerCrewLive?.observe(missionTelemetryInMenu || slew.active === true ? { inMenu: true }
+                : { lat, lon, altFt: alt, hdg, onGround: !!onGround, gsKts: groundSpeedKts, vsFpm, aglFt: agl,
+                  callsign: trackerCrewPresence?.aircraftTail?.() || '', iconKind: ownCrewIconKind() });
               if (ws && ws.readyState === WebSocket.OPEN && currentTelemetryHibernateState.shouldSendTelemetry) {
                 // GPS-Paket senden; Traffic wird alle 2s als Feld eingebettet (Relay-kompatibler Weg)
                 const flight = {
@@ -7681,7 +7723,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                 if (Array.isArray(latestTrafficSnapshot)) {
                   // Auch eine leere Liste senden, damit verschwundene Kontakte im Web
                   // sofort entfallen statt als stehende Geister zu bleiben.
-                  gpsMsg.traffic = latestTrafficSnapshot;
+                  gpsMsg.traffic = withCrewTraffic(latestTrafficSnapshot, latestEfbTrafficAt || now);
                   latestTrafficSnapshot = null; // einmalig senden, dann löschen
                 }
                 ws.send(JSON.stringify(gpsMsg));

@@ -206,3 +206,18 @@ test('core: beat pacing', () => {
     assert.equal(core.flightPhase({ onGround: true, gsKts: 0 }, true), 'landed');
     assert.equal(core.flightPhase({ onGround: false, vsFpm: 800 }), 'climb');
 });
+
+test('live ticket: signed for members only, needs the shared secret', async () => {
+    const secret = 'x'.repeat(40);
+    const env = { GA_CREW_PRESENCE: namespace(), CREW_LIVE_SECRET: secret };
+    const got = await client(env, 'ALICE', 'EDTW', '/live-ticket')();
+    assert.equal(got.status, 200);
+    const [body, signature] = got.body.ticket.split('.');
+    const payload = JSON.parse(Buffer.from(body, 'base64url').toString());
+    assert.deepEqual({ crew: payload.crew, pid: payload.pid, nick: payload.nick, v: payload.v }, { crew: 'EDTW', pid: 'ALICE', nick: 'Ali', v: 1 });
+    assert.ok(payload.exp > Date.now());
+    const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']);
+    assert.ok(await crypto.subtle.verify('HMAC', key, Buffer.from(signature, 'base64url'), new TextEncoder().encode(body)));
+    assert.equal((await client(env, 'EVE', 'EDTW', '/live-ticket')()).status, 403);
+    assert.equal((await client({ GA_CREW_PRESENCE: namespace() }, 'ALICE', 'EDTW', '/live-ticket')()).status, 503);
+});

@@ -75,3 +75,18 @@ Erlaubte Namen: `navigation-warning-audio.js` (Kopie in `desktop/ui`).
 ```bash
 node --test navigation-warning-core.test.js navigation-warning-vertical.test.js map-live-presentation.test.js traffic-warning-core.test.js ga-tracker-client/tracker-navigation-warnings.test.js ga-tracker-client/tracker-navigation-audio.test.js ga-tracker-client/tracker-audio-client.test.js ga-tracker-client/tracker-audio-player.test.js ga-tracker-client/tracker-audio-control-core.test.js ga-tracker-client/tracker-audio-menu-stability.test.js tools/cloudflare-worker/audio-settings.test.mjs
 ```
+
+
+## Crew-Flugzeuge (seit Tracker v630, 10.11.2026)
+
+Crew-Flugzeuge kommen aus dem Crew-Live-Raum des Relays (`tracker-crew-live.js`), nicht
+aus SimConnect. Sie tragen `crew: 1` und die ID `crew:<pilotId>`, stehen vorne in jeder
+Verkehrsliste (keine 20er-Grenze) und werden bis 10 s hochgerechnet.
+
+- **Warnsperre pro Crew-Flugzeug:** „Achtung, Verkehr“ einmal und „ausweichen“ einmal je
+  Begegnung; erneut erst, nachdem beide mehr als 3 NM auseinander waren
+  (`traffic-warning-core.js`, `crewRearmNm`). Zustand bleibt 10 min, auch wenn das Flugzeug
+  kurz fehlt. KI-Verkehr unverändert.
+- **Anzeige:** grün `#30d158` mit weißem Rand, Rufzeichen und Name immer sichtbar, nie zu
+  Sammelpunkten zusammengefasst; bei Warnung oranger bzw. roter Ring
+  (`traffic-map-layer.js`). Kein Eigenfilter über die Position.

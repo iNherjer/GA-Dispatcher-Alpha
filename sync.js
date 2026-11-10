@@ -20816,8 +20816,13 @@ function updateTrafficOnMap(aircraft, ownAlt) {
         return;
     }
     _trafficOwnAlt = ownAlt;
-    _getTrafficLayer()?.update(aircraft || []);
+    // Crew aircraft from the crew live room (crew-live-client.js), also without an own flight.
+    const merged = window.gaCrewLive?.merge ? window.gaCrewLive.merge(aircraft || []) : (aircraft || []);
+    _getTrafficLayer()?.update(merged);
 }
+window.gaRenderCrewLiveTraffic = function() {
+    _scheduleLiveTrafficMapRender(window.vpTrafficMapData || [], window.lastLiveGpsPos?.alt);
+};
 
 // Kommt laenger keine Traffic-Liste (Tracker weg, Hibernate, Verbindungsabbruch),
 // verschwinden alle Kontakte statt stehen zu bleiben.

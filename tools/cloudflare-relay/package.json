@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node relay-worker.test.mjs",
+    "test": "node relay-worker.test.mjs && node --test crew-live-room.test.mjs",
     "deploy": "wrangler deploy"
   }
 }

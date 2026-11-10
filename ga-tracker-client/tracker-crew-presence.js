@@ -369,6 +369,10 @@ function createCrewPresence(options = {}) {
     available,
     observe,
     tick,
+    // For the crew live room (tracker-crew-live.js).
+    groupName: () => groupName,
+    shareFlight: () => share.flight !== false,
+    aircraftTail: () => aircraft?.tail || '',
     setAircraft(identity) {
       const next = identity?.title ? { title: String(identity.title).slice(0, 200), tail: String(identity.tail || '').slice(0, 40) } : null;
       // Another aircraft or none (sim closed): the used one is left.

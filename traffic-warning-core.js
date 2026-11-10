@@ -18,7 +18,11 @@ const TRAFFIC_WARNING_TIMING = {
     repeatResolveMs: 25000,  // same contact: next "ausweichen" after 25 s
     rearmAfterClearMs: 8000, // contact must leave the alert level this long before a new warning
     forgetMs: 60000,         // contacts not reported for a minute are forgotten
-    gapMs: 4000              // at most one traffic announcement every 4 s
+    gapMs: 4000,             // at most one traffic announcement every 4 s
+    // Crew aircraft (ac.crew): warning and "ausweichen" each once per encounter;
+    // armed again only after the two were more than 3 NM apart (formation flying).
+    crewRearmNm: 3,
+    crewForgetMs: 10 * 60000
 };
 
 function verticalClip(relAltFt) {
@@ -59,18 +63,21 @@ function createTrafficWarningDetector({ classify, timing = TRAFFIC_WARNING_TIMIN
             const info = classify(ac, own);
             const st = states.get(id) || { inAlert: false, announced: false, clearSince: null, warnedAt: -Infinity, resolvedAt: -Infinity };
             st.lastSeen = now;
+            const crew = ac.crew === 1 || ac.crew === true;
+            st.crew = crew;
+            if (crew && Number.isFinite(info.distNm) && info.distNm > (timing.crewRearmNm || 3)) { st.crewWarned = false; st.crewResolved = false; }
             if (info.level === 'alert') {
                 st.clearSince = null;
                 if (!st.inAlert) { st.inAlert = true; st.announced = false; }
-                if (info.resolve && now - st.resolvedAt >= timing.repeatResolveMs) resolves.push({ id, ac, info, st });
-                else if (!st.announced && now - st.warnedAt >= timing.repeatWarningMs) warnings.push({ id, ac, info, st });
+                if (info.resolve && now - st.resolvedAt >= timing.repeatResolveMs && !(crew && st.crewResolved)) resolves.push({ id, ac, info, st });
+                else if (!st.announced && now - st.warnedAt >= timing.repeatWarningMs && !(crew && st.crewWarned)) warnings.push({ id, ac, info, st });
             } else if (st.inAlert) {
                 if (st.clearSince == null) st.clearSince = now;
                 if (now - st.clearSince >= timing.rearmAfterClearMs) { st.inAlert = false; st.clearSince = null; }
             }
             states.set(id, st);
         }
-        for (const [id, st] of states) if (!seen.has(id) && now - st.lastSeen > timing.forgetMs) states.delete(id);
+        for (const [id, st] of states) if (!seen.has(id) && now - st.lastSeen > (st.crew ? (timing.crewForgetMs || timing.forgetMs) : timing.forgetMs)) states.delete(id);
         // "Ausweichen" may interrupt the gap; plain warnings respect it.
         let pick = null, level = '';
         if (resolves.length) {
@@ -85,6 +92,7 @@ function createTrafficWarningDetector({ classify, timing = TRAFFIC_WARNING_TIMIN
         pick.st.announced = true;
         pick.st.warnedAt = now;
         if (level === 'resolve') pick.st.resolvedAt = now;
+        if (pick.st.crew) { if (level === 'resolve') pick.st.crewResolved = true; else pick.st.crewWarned = true; }
         const spoken = level === 'resolve' ? resolveClips() : warningClips(pick.info);
         return [{ kind: 'traffic', level, contactId: pick.id, clock: pick.info.clock,
             relAltFt: pick.info.relAltFt, distNm: pick.info.distNm, ...spoken }];

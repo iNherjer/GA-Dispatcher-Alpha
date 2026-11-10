@@ -22,6 +22,10 @@ const LEVEL_STYLE = {
     ground:    { fill: '#8a949c', opacity: 0.95, size: 0.8,  label: '#d5dbe0' }
 };
 const TEXT_OUTLINE = '-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000';
+// Crew aircraft (crew live room): always green with a white edge and their call sign;
+// a warning shows as an orange/red ring around the green symbol.
+const CREW_STYLE = { fill: '#30d158', edge: '#ffffff', label: '#b9f6c8' };
+function isCrew(ac) { return !!ac && (ac.crew === 1 || ac.crew === true); }
 
 function num(v, fallback) { const n = Number(v); return Number.isFinite(n) ? n : fallback; }
 function esc(v) {
@@ -32,7 +36,9 @@ function iconOptions() {
     return { size: num(s && s.size, 28), outline: num(s && s.outline, 1.5) };
 }
 function labelsFor(ac, info) {
-    const cs = [ac.cs, ac.m].filter(Boolean).join(' · ');
+    const cs = isCrew(ac)
+        ? [ac.cs, ac.nick && ac.nick !== ac.cs ? ac.nick : ''].filter(Boolean).join(' · ')
+        : [ac.cs, ac.m].filter(Boolean).join(' · ');
     if (info.level === 'ground') return { alt: '', cs: cs };
     let alt = '';
     if (info.relAltFt != null) {
@@ -72,15 +78,17 @@ function clusterHtml(count, level) {
         + 'background:rgba(10,20,30,0.82);border:2px solid ' + st.fill + ';color:' + st.label + ';font:bold 11px/16px system-ui,sans-serif;text-align:center;'
         + 'box-shadow:0 0 0 1px #000;pointer-events:none;white-space:nowrap;">' + count + '</div>';
 }
-function iconHtml(hdg, level, labels, kind, shadow, scale, showLabels) {
-    const st = LEVEL_STYLE[level] || LEVEL_STYLE.other;
+function iconHtml(hdg, level, labels, kind, shadow, scale, showLabels, crew) {
+    const levelStyle = LEVEL_STYLE[level] || LEVEL_STYLE.other;
+    const st = crew ? { fill: CREW_STYLE.fill, opacity: 1, size: Math.max(1, levelStyle.size), label: isWarning(level) ? levelStyle.label : CREW_STYLE.label } : levelStyle;
     const opts = iconOptions();
-    const sc = isWarning(level) ? 1 : (scale || 1);
+    const sc = isWarning(level) || crew ? 1 : (scale || 1);
     const size = Math.round(opts.size * st.size * sc);
     const labelPx = Math.max(8, Math.round(opts.size * 0.34));
-    if (showLabels === false && !isWarning(level)) labels = { alt: '', cs: '' };
+    if (showLabels === false && !isWarning(level)) labels = { alt: '', cs: crew ? labels.cs : '' };
+    const ring = crew && isWarning(level) ? 'border-radius:50%;box-shadow:0 0 0 3px ' + levelStyle.fill + ';' : '';
     const svg = root.GAMapLivePresentation.trafficSymbolSvg(kind, st.fill, size,
-        'transform:rotate(' + hdg + 'deg);opacity:' + st.opacity + ';', opts.outline);
+        'transform:rotate(' + hdg + 'deg);opacity:' + st.opacity + ';' + ring, opts.outline, crew ? CREW_STYLE.edge : null);
     // Labels sit above the shadow (position + z-index): no aircraft shades its own name.
     return '<div class="trf-wrap trf-' + level + '" style="position:relative; transform:translate(-50%,-' + Math.round(size / 2) + 'px); pointer-events:none; text-align:center; width:max-content;">'
         + '<div class="trf-shadow" style="position:relative; z-index:0;' + (shadow ? ' filter:' + shadow + ';' : '') + '">' + svg + '</div>'
@@ -160,7 +168,7 @@ function createTrafficMapLayer(options) {
         // (greedy around each group's centre), so chains do not split on a grid.
         const singles = [], groups = [];
         for (const e of entries) {
-            if (!clustering || isWarning(e.level)) { singles.push(e); continue; }
+            if (!clustering || isWarning(e.level) || isCrew(e.ac)) { singles.push(e); continue; }
             const p = map.latLngToLayerPoint([e.ac.lat, e.ac.lon]);
             let hit = null;
             for (const g of groups) {
@@ -186,17 +194,19 @@ function createTrafficMapLayer(options) {
         for (const e of singles) {
             const ac = e.ac, level = e.level;
             const labels = labelsFor(ac, e.info);
-            if (!showCallsign && !isWarning(level)) labels.cs = '';
+            const crew = isCrew(ac);
+            if (!showCallsign && !isWarning(level) && !crew) labels.cs = '';
+            if (!showLabels && !isWarning(level)) { labels.alt = ''; if (!crew) labels.cs = ''; }
             const hdg = num(ac.hdg, 0);
             const kind = pres.trafficSymbolKind(ac);
             const shadow = shadowFilter(ac, own);
             shown.add(e.key);
-            const renderKey = level + '|' + kind + '|' + (isWarning(level) ? 1 : scale) + '|' + (showLabels || isWarning(level)) + '|' + (showCallsign || isWarning(level));
-            place(e.key, [ac.lat, ac.lon], function() { return iconHtml(hdg, level, labels, kind, shadow, scale, showLabels); }, zIndex(level), renderKey, function(el) {
+            const renderKey = level + '|' + kind + '|' + (isWarning(level) || crew ? 1 : scale) + '|' + (showLabels || isWarning(level)) + '|' + (showCallsign || isWarning(level) || crew) + '|' + (crew ? 'crew' : '');
+            place(e.key, [ac.lat, ac.lon], function() { return iconHtml(hdg, level, labels, kind, shadow, scale, showLabels, crew); }, zIndex(level) + (crew ? 200 : 0), renderKey, function(el) {
                 if (!el) return;
                 const svgEl = el.querySelector('.trf-svg');
                 if (svgEl) svgEl.style.transform = 'rotate(' + hdg + 'deg)';
-                if (showLabels || isWarning(level)) {
+                if (showLabels || isWarning(level) || crew) {
                     const altEl = el.querySelector('.trf-alt');
                     if (altEl) altEl.textContent = labels.alt;
                     const csEl = el.querySelector('.trf-cs');
@@ -224,5 +234,5 @@ function createTrafficMapLayer(options) {
     return { update: update, clear: clear, refresh: refresh, count: count };
 }
 
-root.GATrafficMapLayer = { createTrafficMapLayer: createTrafficMapLayer, LEVEL_STYLE: LEVEL_STYLE, DECLUTTER: DECLUTTER, zoomScale: zoomScale };
+root.GATrafficMapLayer = { createTrafficMapLayer: createTrafficMapLayer, LEVEL_STYLE: LEVEL_STYLE, CREW_STYLE: CREW_STYLE, DECLUTTER: DECLUTTER, zoomScale: zoomScale, iconHtml: iconHtml };
 })(typeof window !== 'undefined' ? window : null);

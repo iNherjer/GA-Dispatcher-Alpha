@@ -1,3 +1,5 @@
+import { CrewLiveRoom } from './crew-live-room.js';
+
 const MAX_MESSAGE_BYTES = 512 * 1024;
 const TELEMETRY_INTERVAL_MS = 450;
 
@@ -158,10 +160,17 @@ export default {
         }
         const roomKey = String(url.searchParams.get('room') || '').toLowerCase();
         if (!/^[a-f0-9]{64}$/.test(roomKey)) return new Response('Invalid room key', { status: 400 });
+        // Crew live room (positions of crew aircraft), separate from the pilot rooms.
+        if (url.pathname === '/crew') {
+            if (!env.CREW_LIVE_ROOMS) return new Response('Crew live unavailable', { status: 503 });
+            return env.CREW_LIVE_ROOMS.get(env.CREW_LIVE_ROOMS.idFromName('crew:' + roomKey)).fetch(request);
+        }
         const id = env.RELAY_ROOMS.idFromName(roomKey);
         return env.RELAY_ROOMS.get(id).fetch(request);
     }
 };
+
+export { CrewLiveRoom };
 
 export {
     MAX_MESSAGE_BYTES,

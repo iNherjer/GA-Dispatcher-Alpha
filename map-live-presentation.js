@@ -289,7 +289,8 @@ function filterTraffic(aircraft, own) {
         const dAlt = Math.abs((ac.alt == null ? 0 : ac.alt) - own.alt);
         // Own aircraft: practically the same position and height (about 30 m / 100 ft).
         // The former 0.1 NM box also hid close formation traffic.
-        if (dLat < 0.0003 && dLon < 0.0004 && !(dAlt >= 100)) return false;
+        // Crew aircraft are identified by pilot ID (crew live room), never by position.
+        if (dLat < 0.0003 && dLon < 0.0004 && !(dAlt >= 100) && !(ac.crew === 1 || ac.crew === true)) return false;
         const nearBy = dLat < 0.08 && dLon < 0.08;
         if (!nearBy && dAlt > 5000) return false;
         return true;
@@ -431,7 +432,8 @@ function trafficSymbolKind(ac) {
     return TRAFFIC_SYMBOLS[k] ? k : 'single';
 }
 // outlinePx is the visible black edge in screen pixels, independent of size.
-function trafficSymbolSvg(kind, fill, sizePx, extraStyle, outlinePx) {
+function trafficSymbolSvg(kind, fill, sizePx, extraStyle, outlinePx, edgeColor) {
+    const edge = typeof edgeColor === 'string' && /^#[0-9a-fA-F]{3,6}$/.test(edgeColor) ? edgeColor : '#000';
     const sym = TRAFFIC_SYMBOLS[kind] || TRAFFIC_SYMBOLS.single;
     const scale = kind === 'heavy' ? 1.25 : 1;
     const size = Math.round((sizePx || 22) * scale);
@@ -449,7 +451,7 @@ function trafficSymbolSvg(kind, fill, sizePx, extraStyle, outlinePx) {
     }
     return '<svg class="trf-svg" viewBox="-16 -16 32 32" width="' + size + '" height="' + size + '"'
         + ' style="display:block;margin:0 auto;overflow:visible;' + (extraStyle || '') + '">'
-        + '<g fill="' + fill + '" stroke="#000" stroke-width="' + stroke + '" stroke-linejoin="round" paint-order="stroke">'
+        + '<g fill="' + fill + '" stroke="' + edge + '" stroke-width="' + stroke + '" stroke-linejoin="round" paint-order="stroke">'
         + sym.body.map(function(d) { return '<path d="' + d + '"/>'; }).join('')
         + '</g>'
         + '<g fill="#000" fill-opacity="0.38">' + (sym.detail || []).map(function(d) { return '<path d="' + d + '"/>'; }).join('') + '</g>'

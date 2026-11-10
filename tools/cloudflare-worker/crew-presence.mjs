@@ -21,6 +21,22 @@ const AUTH_CACHE_MS = 10 * 60 * 1000;
 const AUTH_CACHE_MAX = 500;
 const SOURCES = new Set(['tracker', 'web']);
 const lower = value => String(value || '').trim().toLowerCase();
+const LIVE_TICKET_MS = 2 * 60 * 60 * 1000;
+
+// Short-lived, signed ticket for the crew live room on the relay (ga-relay, CrewLiveRoom).
+// The relay has no profile access; it trusts membership checked here. HMAC-SHA256 with the
+// secret CREW_LIVE_SECRET, set identically in both workers.
+function base64Url(bytes) {
+    let binary = '';
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+export async function signCrewLiveTicket(secret, payload) {
+    const body = base64Url(new TextEncoder().encode(JSON.stringify(payload)));
+    const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const signature = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(body)));
+    return `${body}.${base64Url(signature)}`;
+}
 
 export class CrewPresence {
     constructor(ctx) { this.ctx = ctx; this.storage = ctx.storage; }
@@ -133,6 +149,7 @@ export async function handleCrewPresence(request, env, authenticate, readGroup) 
     const parts = url.pathname.split('/').filter(Boolean);
     const crew = decodeURIComponent(parts[2] || '').trim().toUpperCase().slice(0, 80);
     const missionRoute = parts[3] === 'mission';
+    const ticketRoute = parts[3] === 'live-ticket';
     if (!crew) return reply({ error: 'crew_invalid' }, 400);
     if (!['GET', 'POST'].includes(request.method)) return reply({ error: 'method' }, 405);
 
@@ -157,6 +174,15 @@ export async function handleCrewPresence(request, env, authenticate, readGroup) 
         entry = { ownerId: auth.ownerId, nick: me.nick, members: [...members.keys()], expires: Date.now() + AUTH_CACHE_MS };
         if (authCache.size >= AUTH_CACHE_MAX) authCache.delete(authCache.keys().next().value);
         authCache.set(key, entry);
+    }
+
+    if (ticketRoute) {
+        if (request.method !== 'GET') return reply({ error: 'method' }, 405);
+        const secret = String(env.CREW_LIVE_SECRET || '');
+        if (secret.length < 32) return reply({ error: 'crew_live_unavailable' }, 503);
+        const exp = Date.now() + LIVE_TICKET_MS;
+        const ticket = await signCrewLiveTicket(secret, { v: 1, crew, pid: entry.ownerId, nick: entry.nick, exp });
+        return reply({ ok: true, ticket, exp });
     }
 
     const stub = crewPresenceStub(env, crew);

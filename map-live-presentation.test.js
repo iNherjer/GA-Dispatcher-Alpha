@@ -257,3 +257,9 @@ test('close formation traffic (about 100 m) stays visible; only the own position
     ];
     assert.deepEqual(presentation.filterTraffic(traffic,own).map(p=>p.id),['wingman','stacked']);
 });
+
+test('crew aircraft in very tight formation are not taken for the own aircraft', () => {
+    const own = {lat:47.3,lon:12.8,alt:5000};
+    const traffic = [{id:'crew:bob',crew:1,lat:47.30005,lon:12.80005,alt:5010}, {id:'o1',lat:47.30005,lon:12.80005,alt:5010}];
+    assert.deepEqual(presentation.filterTraffic(traffic,own).map(p=>p.id),['crew:bob']);
+});

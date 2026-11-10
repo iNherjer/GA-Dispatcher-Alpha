@@ -37,6 +37,14 @@ liefert alles Offene mit aus.
 
 ## Ausgeliefert
 
+### 2026-11-10 · Crew-Live-Verkehr — ausgeliefert in Tracker v630 Alpha / Web v2360 / ga-relay / ga-proxy (10.11.2026)
+- **Artefakt:** Tracker-EXE; Web, Relay und Proxy mit diesem Push
+- **Dateien:** `tracker-crew-live.js`, `tracker.js`, `tracker-crew-presence.js`, `traffic-warning-core.js`, `traffic-map-layer.js`, `map-live-presentation.js`, `crew-live-client.js`, `crew-presence-client.js`, `sync.js`, Relay `crew-live-room.js`, Proxy `crew-presence.mjs`
+- **Was:** Crew-Flugzeuge live auf Karte und in Warnungen (grün, Warnsperre), Zuschauer-Modus in der Web-App.
+- **Tests:** siehe `docs/Tracker-v630-Release.md`.
+- **Doku beim Release:** `docs/Tracker-v630-Release.md`, `docs/Traffic Warnings.md`, `tools/cloudflare-relay/README.md`.
+- **Pruefen im Feld:** Zwei bis drei Crew-Piloten mit v630: gegenseitig grün sichtbar, Formation ohne Dauerwarnung, Web-App zeigt Crew ohne eigenen Flug.
+
 ### 2026-11-10 · Preset-Symbol im EFB, eigenes Flugzeug per Objekt-ID — ausgeliefert in Tracker v629 Alpha / Web v2359 (10.11.2026)
 - **Artefakt:** Tracker-EXE; Web mit diesem Push
 - **Dateien:** `tracker.js`, `tracker-aircraft-icons.js`, `tracker-efb-http-server.js`, `tracker-efb-kartentisch-host.js`, `app.js`

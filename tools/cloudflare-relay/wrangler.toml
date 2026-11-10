@@ -6,9 +6,17 @@ compatibility_date = "2026-08-13"
 name = "RELAY_ROOMS"
 class_name = "RelayRoom"
 
+[[durable_objects.bindings]]
+name = "CREW_LIVE_ROOMS"
+class_name = "CrewLiveRoom"
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["RelayRoom"]
+
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["CrewLiveRoom"]
 
 [observability.logs]
 enabled = true

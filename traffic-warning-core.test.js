@@ -71,3 +71,31 @@ test('two contacts at once are announced one after the other', () => {
     assert.equal(d.evaluate({ traffic: [a, b], own, now: 2000 }).length, 0, 'gap between announcements');
     assert.equal(d.evaluate({ traffic: [a, b], own, now: 4000 })[0].contactId, 'b');
 });
+
+test('crew aircraft: warning once and "ausweichen" once per encounter, again only after more than 3 NM', () => {
+    const d = createTrafficWarningDetector({ classify: classifyTraffic });
+    const at = (nmNorth, extra = {}) => ({ id: 'crew:bob', crew: 1, lat: 48 + nmNorth / 60, lon: 7, alt: 3000, hdg: 0, gs: 100, ...extra });
+    const levels = [];
+    let t = 0;
+    const tick = ac => { t += 1000; const e = d.evaluate({ traffic: [ac], own, now: t }); levels.push(...e.map(x => x.level)); return e; };
+    tick(at(0.8));                                   // joins: one warning
+    for (let i = 0; i < 20; i++) tick(at(1.5));      // drifts out of the alert level and back
+    for (let i = 0; i < 20; i++) tick(at(0.8));
+    tick(at(0.25, { hdg: 180 }));                    // head-on, very close: one "ausweichen"
+    for (let i = 0; i < 40; i++) tick(at(0.2, { hdg: 180 }));
+    assert.deepEqual(levels, ['warning', 'resolve'], 'formation stays quiet after one warning and one resolve');
+    for (let i = 0; i < 30; i++) tick(at(3.5));      // separated by more than 3 NM: armed again
+    tick(at(0.8));
+    assert.deepEqual(levels, ['warning', 'resolve', 'warning']);
+});
+
+test('non-crew contacts keep their normal repeat behaviour', () => {
+    const d = createTrafficWarningDetector({ classify: classifyTraffic });
+    const ai = n => ({ id: 'o9', lat: 48 + n / 60, lon: 7, alt: 3000, hdg: 0, gs: 100 });
+    let t = 0; const levels = [];
+    const tick = ac => { t += 1000; levels.push(...d.evaluate({ traffic: [ac], own, now: t }).map(x => x.level)); };
+    tick(ai(0.8));
+    for (let i = 0; i < 20; i++) tick(ai(1.5));
+    for (let i = 0; i < 70; i++) tick(ai(0.8));
+    assert.equal(levels.filter(l => l === 'warning').length, 2, 'AI traffic warns again after leaving and re-entering');
+});
