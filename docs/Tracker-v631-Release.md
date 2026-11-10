@@ -22,4 +22,9 @@ Stable bleibt unverändert (v605).
 
 ## Aktivierung
 
-_wird nach dem Build ergänzt_
+Tracker: Release `v631` (Release-Commit `9fdef41ff`, gebaut im sauberen Worktree mit
+`--no-bytecode`), `VFR-Multitool-Tracker.exe` 175043670 Bytes,
+SHA-256 `a3ecec5fd5eb7d612afb5b4d0943e10460c4d2de13b1271f3f58ee442dab1c17`, öffentlicher Download geprüft.
+EFB-/Toolbar: `efb-app-v0.4.27`, 456305 Bytes, SHA-256
+`6cb56431520160082ccbc1dc79d0483bd38dadb5be1b451203920847ef307c88`, öffentlicher Download geprüft.
+Beide Alpha-Kanäle aktiviert, Stable unverändert (Tracker v605).
