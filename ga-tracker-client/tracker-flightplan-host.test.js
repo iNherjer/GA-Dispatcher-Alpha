@@ -142,3 +142,11 @@ test('an old start model becomes a disabled wait without retaining its intent',(
  assert.equal(h.banner._gaMissionActionModel.intent,'');assert.equal(h.nodes.missionStartBannerBtn.disabled,true);
  h.context.window.handleMissionStartBannerAction();assert.equal(h.starts.length,0);
 });
+test('a route changed by the simulator ATC says so and recommends the avionics start for this run',()=>{
+  const h=harness();h.capability({atcReady:true});
+  h.context.flightPlanJobs.j1={timer:0,routeHash:'hash',missionId:'m',runId:'r',navigationRevision:0,trigger:'manual'};
+  h.listeners.message({source:h.parent,data:{type:'ga-flightplan-result',channel:'channel',result:{jobId:'j1',routeHash:'hash',msfs:'confirmed',atc:'unconfirmed',avionics:'not_requested',error:'flightplan_atc_readback_mismatch',ok:false}}});
+  assert.match(h.nodes.gaFlightPlanStatus.textContent,/Flugsicherung des Simulators hat die Route verändert/);
+  assert.match(h.nodes.gaFlightPlanStatus.textContent,/Avionik senden/);
+  assert.equal(h.context.atcRouteChangedRun,'r');
+});

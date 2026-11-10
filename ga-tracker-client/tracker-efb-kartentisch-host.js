@@ -112,6 +112,8 @@
   var flightPlanJobs = {};
   var flightPlanStatusTimer = null;
   var flightPlanRequestPending = false;
+  // Run whose route the simulator ATC changed on the World Map (field test 09.11.2026).
+  var atcRouteChangedRun = '';
 
   function flightPlanMessage(type, data) {
     window.parent.postMessage(Object.assign({ type: type, channel: window.__gaEfbChannel }, data || {}), '*');
@@ -167,6 +169,11 @@
           : 'Flugplan an die Flugsicherung übertragen und zurückgelesen. Mission wurde nicht begonnen.', result); return;
       }
       if (result.atc && result.atc !== 'not_requested') {
+        if (result.error === 'flightplan_atc_readback_mismatch') {
+          atcRouteChangedRun = pending.runId; renderMissionActionBanner(missionSnapshot);
+          flightPlanStatus('Die Flugsicherung des Simulators hat die Route verändert; die Route auf der Weltkarte kann abweichen. '
+            + 'Im Cockpit beim Missionsstart „Flugplan an den MSFS und Avionik senden“ wählen, dann lädt das GPS die richtige Route.', result); return;
+        }
         flightPlanStatus('Übernahme in die Simulator-Flugplanung nicht bestätigt. Mission wurde nicht begonnen.', result); return;
       }
       // The "Speicherstand geladen" confirmation is done once the plan is in the avionics.
@@ -3128,6 +3135,7 @@
         var action = document.createElement('button'); action.type = 'button'; action.className = 'mission-start-banner-btn';
         action.style.cssText = 'white-space:normal;text-align:left;width:100%;min-width:0;height:auto;min-height:44px;padding:8px;line-height:1.25;';
         action.textContent = target === 'msfs' ? 'Mission starten und Flugplan an den MSFS senden' : 'Mission starten sowie Flugplan an den MSFS und Avionik senden';
+        action.setAttribute('data-target', target);
         action.onclick = function(event) { event.stopPropagation(); return window.handleMissionStartFlightPlanAction(target); };
         exportActions.appendChild(action);
       });
@@ -3204,6 +3212,16 @@
     exportActions.style.display = showExport ? 'flex' : 'none';
     if (showExport) banner.style.flexWrap = 'wrap';
     Array.from(exportActions.children).forEach(function(action) { action.disabled = missionIntentPending || !!(model && model.disabled); });
+    // After a changed ATC route, the avionics send is the recommended start.
+    var atcChanged = !!(payload && payload.control && atcRouteChangedRun && atcRouteChangedRun === payload.control.runId);
+    Array.from(exportActions.children).forEach(function(action) {
+      if (action.getAttribute('data-target') !== 'avionics') return;
+      var text = atcChanged ? 'Empfohlen: Mission starten und die richtige Route ins GPS laden (die Flugsicherung hat die Weltkarten-Route verändert)'
+        : 'Mission starten sowie Flugplan an den MSFS und Avionik senden';
+      if (action.textContent !== text) action.textContent = text;
+      action.style.outline = atcChanged ? '2px solid #ffb000' : '';
+      if (atcChanged && exportActions.firstChild !== action) exportActions.insertBefore(action, exportActions.firstChild);
+    });
     banner.classList.remove('is-begin-action');
     banner.classList.remove('is-end-ready');
     banner.classList.remove('is-final-action');

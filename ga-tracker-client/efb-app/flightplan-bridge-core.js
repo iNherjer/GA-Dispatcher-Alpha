@@ -39,6 +39,19 @@
         bearing: 0, distance: 0, altitude: null, name: String(point.name || 'WP' + (index + 1)).slice(0, 100) }; }) };
     return { route: route, warnings: warnings };
   }
+  var POINT_TOLERANCE_DEG = 0.0005;
+  var ATC_READ_ATTEMPTS = 20; // 250 ms apart: up to about 5 s for longer routes
+  // Short description of a route the simulator returned, for the log on a mismatch.
+  function describeRoute(route) {
+    if (!route || route.__Type !== 'JS_FlightPlanRoute') return { type: route ? String(route.__Type || typeof route) : 'none' };
+    function ident(icao) { return icao && icao.ident ? String(icao.ident) : ''; }
+    var legs = Array.isArray(route.enroute) ? route.enroute : [];
+    return { dep: ident(route.departureAirport), dest: ident(route.destinationAirport), isVfr: route.isVfr === true,
+      count: legs.length, legs: legs.slice(0, 16).map(function(leg) {
+        return [String(leg && leg.name || '').slice(0, 24), leg && leg.hasLatLon === true ? Math.round(leg.lat * 10000) / 10000 : null,
+          leg && leg.hasLatLon === true ? Math.round(leg.lon * 10000) / 10000 : null, ident(leg && leg.fixIcao)];
+      }) };
+  }
   function matches(expected, actual) {
     if (!actual || actual.__Type !== 'JS_FlightPlanRoute' || actual.isVfr !== expected.isVfr) return false;
     function sameIcao(a, b) { return a && b && ['type', 'region', 'airport', 'ident'].every(function(key) { return a[key] === b[key]; }); }
@@ -46,7 +59,8 @@
       || !sameIcao(actual.destinationAirport, expected.destinationAirport)) return false;
     if (!Array.isArray(actual.enroute) || actual.enroute.length !== expected.enroute.length) return false;
     return expected.enroute.every(function(leg, index) { var other = actual.enroute[index];
-      return other && other.hasLatLon === true && Math.abs(other.lat - leg.lat) < 0.00001 && Math.abs(other.lon - leg.lon) < 0.00001;
+      // About 50 m: the simulator may round coordinates (ATC readback since 01.11.2026).
+      return other && other.hasLatLon === true && Math.abs(other.lat - leg.lat) < POINT_TOLERANCE_DEG && Math.abs(other.lon - leg.lon) < POINT_TOLERANCE_DEG;
     }) && (expected.cruiseAltitude === null || actual.cruiseAltitude && actual.cruiseAltitude.isFlightLevel === false
       && Math.abs(actual.cruiseAltitude.altitude - expected.cruiseAltitude.altitude) < 1);
   }
@@ -82,12 +96,16 @@
         result.msfs = 'confirmed';
         if (job.target === 'atc') {
           await step('file_atc', function() { return manager.fileRouteWithAtc(built.route); }); result.atc = 'sent';
+          var lastAtcRoute = null;
           await step('read_atc', async function() {
-            for (var attempt = 0; attempt < 6; attempt++) {
+            for (var attempt = 0; attempt < ATC_READ_ATTEMPTS; attempt++) {
               if (cancelled || options.isActive && !options.isActive() || options.isCurrent && !options.isCurrent(job)) throw new Error('flightplan_host_closed');
-              if (matches(built.route, await manager.getAtcRoute())) return;
-              if (attempt < 5) await new Promise(function(resolve) { setTimeout(resolve, 250); });
+              lastAtcRoute = await manager.getAtcRoute();
+              if (matches(built.route, lastAtcRoute)) return;
+              if (attempt < ATC_READ_ATTEMPTS - 1) await new Promise(function(resolve) { setTimeout(resolve, 250); });
             }
+            // What the simulator made of the route, so the next field report shows the change.
+            result.atcReadback = { expectedCount: built.route.enroute.length, got: describeRoute(lastAtcRoute) };
             throw new Error('flightplan_atc_readback_mismatch');
           }); result.atc = 'confirmed';
         }

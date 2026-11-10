@@ -140,8 +140,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v627';
-const TRACKER_VERSION_CODE = 627;
+const TRACKER_VERSION = 'v628';
+const TRACKER_VERSION_CODE = 628;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -7476,7 +7476,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
               }
 
               if (validPosition) {
-                ownLat = lat; ownLon = lon; // für Traffic-Eigenfilter
+                ownLat = lat; ownLon = lon; ownAltFt = alt; // für Traffic-Eigenfilter
                 lastGpsMsg = { lat, lon, alt: Math.round(alt), hdg: Math.round(hdg) };
 
                 if (typeof updateEfbState === 'function') {
@@ -7726,7 +7726,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       let latestEfbTrafficSnapshot = []; // Retained for EFB polling; no additional relay traffic.
       let latestEfbTrafficAt = 0; // when the positions above were requested (traffic warnings extrapolate from it)
       let latestTrafficSnapshot = null; // wird beim nächsten GPS-Tick eingebettet (auch leer)
-      let ownLat = 0, ownLon = 0; // wird aus GPS-Tick aktualisiert
+      let ownLat = 0, ownLon = 0, ownAltFt = null; // wird aus GPS-Tick aktualisiert
       let previousTrafficIds = new Set();
       let lastTrafficCountKey = '';
       let lastTrafficIdLogAt = 0;
@@ -7777,7 +7777,10 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
             hdg: Math.round(tHdg),
             gs: Math.round(tGs),
             vs: Math.round(tVs),
-            onGround: tGnd >= 0.5,
+            // Parked AI sometimes reports SIM ON GROUND 0 (false traffic warning at LOWZ,
+            // 09.11.2026): close to the ground and slow counts as ground traffic.
+            onGround: tGnd >= 0.5 || (Number.isFinite(tAgl) && tAgl < 20 && Number.isFinite(tGs) && tGs < 40),
+            objectId: Number.isFinite(objectId) ? objectId : null,
             agl: Number.isFinite(tAgl) ? Math.round(tAgl) : null,
             category,
             callsign,
@@ -7815,9 +7818,13 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
           const all = Object.values(trafficBuffer);
           const cosLat = Math.cos(ownLat * Math.PI / 180);
           const distNm = (ac) => Math.hypot((ac.lat - ownLat) * 60, (ac.lon - ownLon) * 60 * cosLat);
+          // The own aircraft is SimConnect object 1. Fallback: practically the same position
+          // and height (about 30 m / 100 ft) instead of the former 0.1 NM box, which hid close traffic.
           const notOwnship = (ac) => {
+            if (ac.objectId === 1) return false;
             const dLat = Math.abs(ac.lat - ownLat), dLon = Math.abs(ac.lon - ownLon);
-            if (dLat < 0.0015 && dLon < 0.0015) return false; // eigene Position ~0.1 NM
+            const sameHeight = !Number.isFinite(ownAltFt) || Math.abs(ac.alt - ownAltFt) < 100;
+            if (dLat < 0.0003 && dLon < 0.0004 && sameHeight) return false;
             return true;
           };
           // Bodenbelegung fuer Ankunftsplaetze: unveraendert alle Objekttypen.

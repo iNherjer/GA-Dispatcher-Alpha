@@ -66,3 +66,16 @@ test('ATC write scheduling is not confirmation, and missing ATC support causes n
  const g=fixture();g.manager.fileRouteWithAtc=()=>new Promise(()=>{});g.manager.getAtcRoute=async()=>null;
  result=await g.bridge.execute({...job,target:'atc'});assert.equal(result.msfs,'confirmed');assert.equal(result.atc,'unconfirmed');assert.equal(result.stage,'file_atc');
 });
+test('ATC readback: rounding within 50 m confirms; a reordered route is logged with what the simulator returned',async()=>{
+  const f=fixture({timeoutMs:8000});let filed;f.manager.fileRouteWithAtc=async route=>{filed=route;};
+  f.manager.getAtcRoute=async()=>({...filed,enroute:filed.enroute.map(leg=>({...leg,lat:Math.round(leg.lat*1000)/1000+0.0002,lon:leg.lon-0.0003}))});
+  assert.equal((await f.bridge.execute({...job,jobId:'round',target:'atc'})).atc,'confirmed');
+  const g=fixture({timeoutMs:8000});let filed2;g.manager.fileRouteWithAtc=async route=>{filed2=route;};
+  g.manager.getAtcRoute=async()=>({...filed2,enroute:filed2.enroute.slice().reverse()});
+  const started=Date.now();
+  const result=await g.bridge.execute({...job,jobId:'reorder',target:'atc'});
+  assert.equal(result.error,'flightplan_atc_readback_mismatch');assert.equal(result.atc,'unconfirmed');
+  assert.ok(Date.now()-started>=4500,'waits about 5 s for a slow ATC before giving up');
+  assert.equal(result.atcReadback.expectedCount,3);assert.equal(result.atcReadback.got.count,3);
+  assert.equal(result.atcReadback.got.legs[0][0],'Ziel');assert.equal(result.atcReadback.got.dep,'');
+});

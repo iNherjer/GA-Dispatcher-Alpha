@@ -247,3 +247,13 @@ test('display level: the tracker level wins over local classification; unknown i
     assert.equal(presentation.trafficDisplayLevel(ac, info, null, { y: 'alert' }), 'proximate');
     assert.equal(presentation.trafficDisplayLevel({ ...ac, gnd: 1 }, info, null, { x: 'alert' }), 'ground');
 });
+
+test('close formation traffic (about 100 m) stays visible; only the own position is dropped', () => {
+    const own = {lat:47.3,lon:12.8,alt:5000};
+    const traffic = [
+        {id:'own',lat:47.30005,lon:12.80005,alt:5010},
+        {id:'wingman',lat:47.3009,lon:12.8,alt:5020},
+        {id:'stacked',lat:47.30005,lon:12.80005,alt:5300}
+    ];
+    assert.deepEqual(presentation.filterTraffic(traffic,own).map(p=>p.id),['wingman','stacked']);
+});

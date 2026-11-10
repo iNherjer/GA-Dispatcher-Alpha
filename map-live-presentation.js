@@ -286,8 +286,10 @@ function filterTraffic(aircraft, own) {
     return aircraft.filter(function(ac) {
         const dLat = Math.abs((ac.lat == null ? 0 : ac.lat) - own.lat);
         const dLon = Math.abs((ac.lon == null ? 0 : ac.lon) - own.lon);
-        if (dLat < 0.0015 && dLon < 0.0015) return false;
         const dAlt = Math.abs((ac.alt == null ? 0 : ac.alt) - own.alt);
+        // Own aircraft: practically the same position and height (about 30 m / 100 ft).
+        // The former 0.1 NM box also hid close formation traffic.
+        if (dLat < 0.0003 && dLon < 0.0004 && !(dAlt >= 100)) return false;
         const nearBy = dLat < 0.08 && dLon < 0.08;
         if (!nearBy && dAlt > 5000) return false;
         return true;
