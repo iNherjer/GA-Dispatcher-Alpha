@@ -140,8 +140,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v628';
-const TRACKER_VERSION_CODE = 628;
+const TRACKER_VERSION = 'v629';
+const TRACKER_VERSION_CODE = 629;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -5891,6 +5891,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
         pilotId: syncId, pin, readConfig: readTrackerConfig, writeConfig: writeTrackerConfig
       }),
       favoriteAirports: require('./tracker-favorite-airports').createFavoriteAirports({ pilotId: syncId, pin }),
+      aircraftIcons: require('./tracker-aircraft-icons').createAircraftIcons({ pilotId: syncId, pin }),
       voiceService: trackerVoiceService,
       audioControl: trackerAudioControl,
       audioAssets: trackerAudioAssets,
@@ -7359,6 +7360,9 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         if (recv.requestID === REQ_ID) {
           const now = Date.now();
           lastTelemetrySourceAt = now;
+          // Concrete SimConnect ID of the own aircraft (e.g. 540672); the request
+          // selector USER=0 is not the ID that appears in traffic lists.
+          if (Number(recv.objectID) > 0) ownObjectId = Number(recv.objectID);
           readinessGapMonitor?.noteMainTelemetry();
           {
             const telemetryProcessingStarted = process.hrtime.bigint();
@@ -7727,6 +7731,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       let latestEfbTrafficAt = 0; // when the positions above were requested (traffic warnings extrapolate from it)
       let latestTrafficSnapshot = null; // wird beim nächsten GPS-Tick eingebettet (auch leer)
       let ownLat = 0, ownLon = 0, ownAltFt = null; // wird aus GPS-Tick aktualisiert
+      let ownObjectId = 0; // concrete SimConnect ID of the own aircraft (main telemetry)
       let previousTrafficIds = new Set();
       let lastTrafficCountKey = '';
       let lastTrafficIdLogAt = 0;
@@ -7818,10 +7823,10 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
           const all = Object.values(trafficBuffer);
           const cosLat = Math.cos(ownLat * Math.PI / 180);
           const distNm = (ac) => Math.hypot((ac.lat - ownLat) * 60, (ac.lon - ownLon) * 60 * cosLat);
-          // The own aircraft is SimConnect object 1. Fallback: practically the same position
-          // and height (about 30 m / 100 ft) instead of the former 0.1 NM box, which hid close traffic.
+          // The own aircraft by its SimConnect object ID from the own telemetry. Fallback: practically
+          // the same position and height (about 30 m / 100 ft) instead of the former 0.1 NM box.
           const notOwnship = (ac) => {
-            if (ac.objectId === 1) return false;
+            if (ownObjectId && ac.objectId === ownObjectId) return false;
             const dLat = Math.abs(ac.lat - ownLat), dLon = Math.abs(ac.lon - ownLon);
             const sameHeight = !Number.isFinite(ownAltFt) || Math.abs(ac.alt - ownAltFt) < 100;
             if (dLat < 0.0003 && dLon < 0.0004 && sameHeight) return false;
@@ -7864,7 +7869,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
             const kept = [...ids].filter(id => previousTrafficIds.has(id)).length;
             trackerLog(`[TRAFFIC] ${all.length} Objekte → ${aircraft.length} Luftfahrzeuge → ${airborne.length} in der Luft + ${ground.length} am Boden gesendet | IDs wie zuvor ${kept}/${ids.size}`);
             const nearest = aircraft.slice(0, 3).map(({ ac, d }) => `${ac.callsign || ac.id}:${d.toFixed(1)}nm/${ac.alt}ft${ac.onGround ? '/gnd' : ''}${Number.isFinite(ac.agl) ? '/agl' + ac.agl : ''}/${ac.kind || '?'}`).join(' ');
-            debugLog(`TRAFFIC_SNAPSHOT objects=${all.length} aircraft=${aircraft.length} airborne=${airborne.length} ground=${ground.length} sameIds=${kept}/${ids.size} nearest=${nearest || '-'}`);
+            debugLog(`TRAFFIC_SNAPSHOT own=${ownObjectId} objects=${all.length} aircraft=${aircraft.length} airborne=${airborne.length} ground=${ground.length} sameIds=${kept}/${ids.size} nearest=${nearest || '-'}`);
           }
           previousTrafficIds = ids;
         }, 500);

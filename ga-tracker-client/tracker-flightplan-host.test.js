@@ -150,3 +150,14 @@ test('a route changed by the simulator ATC says so and recommends the avionics s
   assert.match(h.nodes.gaFlightPlanStatus.textContent,/Avionik senden/);
   assert.equal(h.context.atcRouteChangedRun,'r');
 });
+test('own aircraft icon: mission manifest aircraft first, otherwise the main-menu preset',()=>{
+  const h=harness();
+  h.context.aircraftIconData={presets:{'PA-24':{name:'Comanche',icon:{custom:true,kind:'single'}},R44:{name:'Heli',icon:{custom:true,kind:'heli'}}},selected:'R44'};
+  assert.equal(h.context.window.gaActivePlaneIconProfile().id,'R44');
+  h.context.missionSnapshot={control:{missionId:'m',runId:'r',phase:'enroute'},mission:{manifest:{aircraftSlot:'PA-24'}}};
+  assert.equal(h.context.window.gaActivePlaneIconProfile().icon.kind,'single');
+  h.context.missionSnapshot.control.phase='closed';
+  assert.equal(h.context.window.gaActivePlaneIconProfile().id,'R44');
+  h.context.missionSnapshot={control:{missionId:'m',runId:'r',phase:'enroute'},mission:{manifest:{aircraftSlot:'UNKNOWN'}}};
+  assert.equal(h.context.window.gaActivePlaneIconProfile().id,'R44','unknown mission aircraft falls back to the menu preset');
+});

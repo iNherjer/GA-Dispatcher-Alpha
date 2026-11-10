@@ -37,6 +37,14 @@ liefert alles Offene mit aus.
 
 ## Ausgeliefert
 
+### 2026-11-10 · Preset-Symbol im EFB, eigenes Flugzeug per Objekt-ID — ausgeliefert in Tracker v629 Alpha / Web v2359 (10.11.2026)
+- **Artefakt:** Tracker-EXE; Web mit diesem Push
+- **Dateien:** `tracker.js`, `tracker-aircraft-icons.js`, `tracker-efb-http-server.js`, `tracker-efb-kartentisch-host.js`, `app.js`
+- **Was:** EFB zeigt das Preset-Symbol (Mission bzw. Hauptmenü-Auswahl); Eigenfilter über die echte Objekt-ID.
+- **Tests:** siehe `docs/Tracker-v629-Release.md`.
+- **Doku beim Release:** `docs/Tracker-v629-Release.md`.
+- **Pruefen im Feld:** EFB-Flugzeugsymbol entspricht dem Preset; Log `TRAFFIC_SNAPSHOT own=` zeigt eine ID.
+
 ### 2026-11-10 · ATC-Umbau-Meldung, Verkehrs-Fehlalarm, Formationsfilter — ausgeliefert in Tracker v628 Alpha / Web v2358 (10.11.2026)
 - **Artefakt:** Tracker-EXE; Web mit diesem Push
 - **Dateien:** `tracker.js`, `tracker-efb-kartentisch-host.js`, `map-live-presentation.js`

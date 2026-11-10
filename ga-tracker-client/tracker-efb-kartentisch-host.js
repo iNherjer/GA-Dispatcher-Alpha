@@ -296,6 +296,41 @@
     }).catch(function(error) { flightPlanStatus('Flugplanübertragung fehlgeschlagen. Mission läuft unabhängig weiter.', {ok:false, jobId:jobId, error:String(error.message || error)}); return false; })
       .then(function(value) { flightPlanRequestPending = false; requestSideDrawerRefresh(); return value; });
   }
+  // Own aircraft icon from the Web app presets (read-only, via the tracker profile copy).
+  // A mission flies its manifest aircraft, otherwise the preset chosen in the main menu.
+  var aircraftIconData = { presets: {}, selected: '' }, aircraftIconKey = '', aircraftIconSlot = null;
+  function activeAircraftIconSlot() {
+    var mission = missionSnapshot && missionSnapshot.mission;
+    var control = missionSnapshot && missionSnapshot.control;
+    var slot = control && control.phase !== 'closed' && mission && mission.manifest && mission.manifest.aircraftSlot;
+    return slot && aircraftIconData.presets[slot] ? slot : (aircraftIconData.selected || '');
+  }
+  window.gaActivePlaneIconProfile = function() {
+    var id = activeAircraftIconSlot(), preset = id && aircraftIconData.presets[id];
+    return preset && preset.icon ? { id: id, name: preset.name, icon: preset.icon } : null;
+  };
+  function syncOwnAircraftIcon(force) {
+    var slot = activeAircraftIconSlot();
+    if (!force && slot === aircraftIconSlot) return;
+    aircraftIconSlot = slot;
+    if (typeof window.applyOwnPlaneIcon === 'function') { try { window.applyOwnPlaneIcon(); } catch (_) {} }
+  }
+  function refreshAircraftIcons() {
+    if (typeof fetch !== 'function') return;
+    fetch('/api/v1/aircraft-icons', { cache: 'no-store' }).then(function(response) {
+      return response && response.ok ? response.json() : null;
+    }).then(function(data) {
+      if (!data || !data.presets || typeof data.presets !== 'object') return;
+      var key = JSON.stringify([data.presets, data.selected]);
+      if (key === aircraftIconKey) return;
+      aircraftIconKey = key;
+      aircraftIconData = { presets: data.presets, selected: typeof data.selected === 'string' ? data.selected : '' };
+      syncOwnAircraftIcon(true);
+    }).catch(function() {});
+  }
+  if (typeof setTimeout === 'function') setTimeout(refreshAircraftIcons, 1500);
+  if (typeof setInterval === 'function') setInterval(refreshAircraftIcons, 60000);
+
   var cargoManagerOpen = false;
   var cargoManagerSignature = '';
   var cargoSignatureAnimationEndsAt = 0;
@@ -3107,6 +3142,7 @@
   }
 
   function renderMissionActionBanner(payload) {
+    if (typeof syncOwnAircraftIcon === 'function') syncOwnAircraftIcon(false);
     var banner = setupMissionActionBanner();
     if (!banner) return;
     Object.keys(flightPlanJobs).forEach(function(jobId) {

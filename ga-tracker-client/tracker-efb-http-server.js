@@ -271,6 +271,7 @@ function createTrackerEfbHttpServer(options = {}) {
   const displayControl = options.displayControl || null;
   const navcomPreferences = options.navcomPreferences || null;
   const favoriteAirports = options.favoriteAirports || null;
+  const aircraftIcons = options.aircraftIcons || null;
   const audioAssets = options.audioAssets || null;
   const cockpitControl = options.cockpitControl && typeof options.cockpitControl === 'object' ? options.cockpitControl : null;
   const desktopControlToken = String(options.desktopControlToken || '').trim();
@@ -337,6 +338,17 @@ function createTrackerEfbHttpServer(options = {}) {
         const result = await options.mediaControl({ clientId: 'local:' + auth.session.sessionId, commandId: command.commandId, payload: command.payload });
         jsonResponse(response, 200, result);
       } catch (error) { jsonResponse(response, 400, { ok: false, error: error.code || error.message || 'media_command_invalid' }); }
+      return;
+    }
+    if (pathname === '/api/v1/aircraft-icons') {
+      // Read-only aircraft preset icons for the loopback-hosted EFB view.
+      const origin = String(request.headers.origin || '').trim();
+      const trusted = !origin || /^http:\/\/(127\.0\.0\.1|localhost|\[::1\])(?::\d+)?$/.test(origin);
+      request.resume();
+      if (!aircraftIcons || !trusted) { jsonResponse(response, trusted ? 503 : 403, { error: 'aircraft_icons_unavailable' }); return; }
+      if (request.method !== 'GET') { jsonResponse(response, 405, { error: 'method_not_allowed' }); return; }
+      void aircraftIcons.refresh();
+      jsonResponse(response, 200, aircraftIcons.state());
       return;
     }
     if (pathname === '/api/v1/favorite-airports') {

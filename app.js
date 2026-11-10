@@ -306,6 +306,8 @@ function saveAircraftPresets() {
         order: [...aircraftPresetOrder],
         quick: [...aircraftQuickSlots]
     };
+    // Preset chosen in the main menu: the tracker shows its icon in the EFB on free flights.
+    try { if (typeof selectedAC !== 'undefined' && hasAircraftPreset(selectedAC)) payload._library.selected = selectedAC; } catch (_) {}
     try {
         const json = JSON.stringify(payload);
         localStorage.setItem(AIRCRAFT_PRESET_STORAGE_KEY, json);
@@ -1568,7 +1570,13 @@ function clampMainPerfSetting(value, min, max, step = 1, fallback = min) {
 function persistMainPerformanceSetting(type, value) {
     const key = MAIN_PERF_SETTING_KEYS[type];
     if (!key) return;
+    const changed = localStorage.getItem(key) !== String(value);
     localStorage.setItem(key, String(value));
+    // A new aircraft choice goes into the preset library (`_library.selected`) and the cloud profile.
+    if (type === 'aircraft' && changed) {
+        saveAircraftPresets();
+        scheduleAircraftPresetCloudSync();
+    }
 }
 window.persistMainPerformanceSetting = persistMainPerformanceSetting;
 
