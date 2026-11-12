@@ -4623,6 +4623,19 @@ function _initFireMissionDebugFromUrl() {
 }
 _initFireMissionDebugFromUrl();
 
+// ?personFigures=on|off setzt den Testschalter ga_person_figures_v1 und entfernt den Parameter wieder.
+(function _initPersonFiguresFromUrl() {
+    try {
+        const url = new URL(window.location.href);
+        if (!url.searchParams.has('personFigures')) return;
+        const raw = String(url.searchParams.get('personFigures') || '').trim().toLowerCase();
+        if (/^(0|false|no|nein|off)$/.test(raw)) localStorage.removeItem('ga_person_figures_v1');
+        else localStorage.setItem('ga_person_figures_v1', 'on');
+        url.searchParams.delete('personFigures');
+        window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
+    } catch (_) {}
+})();
+
 window.fireMissionDebugEnabled = function() {
     try { return localStorage.getItem('ga_fire_debug') === '1' || localStorage.getItem('ga_scene_debug') === '1' || !!window.fireMissionTruthOverride(); } catch (_) { return false; }
 };

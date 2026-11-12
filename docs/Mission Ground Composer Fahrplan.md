@@ -127,8 +127,9 @@ Trauerflug, Familienausflug) plausible Looks liefern; Rückflug identisch; Sim-T
 
 ## 3a. Stand Etappe A (12.11.2026)
 
-Umgesetzt hinter dem Testschalter `ga_person_figures_v1` (Standard aus; einschalten mit
-`localStorage.setItem('ga_person_figures_v1','on')`):
+Umgesetzt hinter dem Testschalter `ga_person_figures_v1` (Standard aus, gilt je Gerät).
+Einschalten: Einstellungen → Boarding Szene → „Figuren (Test)“, oder per Adresszeile
+`?personFigures=on` (`off` schaltet aus), oder `localStorage.setItem('ga_person_figures_v1','on')`:
 
 - A1 `tools/generate-mission-person-assets.mjs` → `data/mission-person-assets.js`
   (Pack-Figuren mit `person`-Block + Tarmac-Stock aus `data/mission-person-asset-profiles.json`,

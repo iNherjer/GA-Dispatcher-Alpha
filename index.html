@@ -1052,6 +1052,10 @@
                             <input type="checkbox" id="boardingMarkerToggle" onchange="setBoardingMarkerOption(this.checked)">
                             <span>Marker</span>
                         </label>
+                        <label class="boarding-toggle" title="Testschalter für dieses Gerät: passende Personen-Figuren und gemeinsamer Pax-/Gepäck-Composer" data-i18n-title="settings.boarding.figuresHint">
+                            <input type="checkbox" id="personFiguresToggle" onchange="setPersonFiguresOption(this.checked)">
+                            <span data-i18n="settings.boarding.figures">Figuren (Test)</span>
+                        </label>
                     </div>
                     <button type="button" class="settings-help-btn" onclick="showSettingsHelp('boarding-scene', event)" aria-label="Hilfe zur Boarding Szene" data-i18n-aria-label="settings.boarding.help" aria-expanded="false">?</button>
                 </div>
@@ -2962,7 +2966,7 @@
 <script defer src="mission-cloud-control-core.js"></script>
 <script defer src="cloud-sync-client.js"></script>
 <script defer src="mission-logbook-record-core.js?v=20261027-01"></script>
-<script defer src="sync.js?v=person-figures-20261112-01"></script>
+<script defer src="sync.js?v=person-figures-toggle-20261112-01"></script>
 <script defer src="homebase/homebase-asset-catalog.js?v=homebase-proximity-automation-optout-20260816-01"></script>
 <script defer src="homebase-capability-retry-core.js?v=homebase-capability-backoff-20260814-01"></script>
 <script defer src="homebase-scene-core.js?v=homebase-pack-people-20261112-01"></script>
@@ -2975,7 +2979,7 @@
 <script defer src="map-utility-tools.js?v=e6b-prewarm-20261029-01"></script>
 <script defer src="aircraft-mission-capability-core.js?v=aircraft-mission-party-20260817-01"></script>
 <script defer src="aircraft-mission-profile-core.js?v=aircraft-mission-capability-20260817-01"></script>
-<script defer src="app.js?v=arrival-pickup-photo-20261029-01"></script>
+<script defer src="app.js?v=person-figures-toggle-20261112-01"></script>
 <script defer src="briefing-envelope.js?v=briefing-envelope-20261029-11"></script>
 <script defer src="navcom-skins.js?v=navcom-skins-20261022-04"></script>
 <script defer src="analog-skins.js?v=quick-slot-touch-20261023-01"></script>
