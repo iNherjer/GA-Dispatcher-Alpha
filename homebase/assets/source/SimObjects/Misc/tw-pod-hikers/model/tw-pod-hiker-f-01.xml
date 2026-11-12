@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.1" guid="{b3bfd9aa-2eee-4362-904d-15548d255e7a}">
+  <LODS><LOD ModelFile="tw-pod-hiker-f-01_LOD00.gltf"/></LODS>
+  <Animation name="standing_relax" guid="{8e4727d7-523b-4746-a1bc-0e34af713c5c}" type="Standard"/>
+  <Animation name="walk" guid="{0b91e4e3-11e7-4fcb-8b7e-7d13eae16aca}" type="Standard"/>
+  <Animation name="walk_slow" guid="{79e353a5-ed53-4a2a-91c6-c7649a42fc73}" type="Standard"/>
+  <Animation name="walk_medium" guid="{287ee63d-02d4-45e4-ad73-702737ba1b5c}" type="Standard"/>
+  <Animation name="locomotion" guid="{ca10508a-aafd-416a-8881-b70a508abf89}" length="100" type="Sim" typeParam="AutoPlay" typeParam2="locomotion"/>
+  <Behaviors>
+    <Include ModelBehaviorFile="Asobo\Generic.xml"/>
+    <Component ID="HikerLocomotion" Node="Armature">
+      <UseTemplate Name="ASOBO_GT_Anim_Code">
+        <ANIM_NAME>locomotion</ANIM_NAME>
+        <ANIM_CODE>
+          (A:SURFACE RELATIVE GROUND SPEED, meters per second) 0 max sp0
+          (A:ANIMATION DELTA TIME, seconds) 0 max 0.10 min 24 * sp1
+          (O:HikerMotionMode) sp2
+          (O:HikerMotionFrame) sp3
+          l2 0 == if{
+            l0 0.18 &gt;= if{
+              l3 48 * 422 / 0.5 + flr 48 % 6 * 480 + (&gt;O:HikerMotionBase)
+              1 (&gt;O:HikerMotionMode) 0 (&gt;O:HikerMotionFrame)
+            } els{
+              l3 l1 + sp4 l4 l4 422 / flr 422 * - (&gt;O:HikerMotionFrame)
+            }
+          } els{
+            l2 1 == if{
+              l3 l1 + sp4 l4 5 &gt;= if{
+                2 (&gt;O:HikerMotionMode) 3 (&gt;O:HikerMotionFrame)
+              } els{ l4 (&gt;O:HikerMotionFrame) }
+            } els{
+              l2 2 == if{
+                l0 0.14 &lt;= if{
+                  l3 32 * 56 / 0.5 + flr 32 % 7 * 768 + (&gt;O:HikerMotionBase)
+                  3 (&gt;O:HikerMotionMode) 0 (&gt;O:HikerMotionFrame)
+                } els{
+                  l3 l0 0.45 max l1 * 56 * 64.32 / + sp4
+                  l4 l4 56 / flr 56 * - (&gt;O:HikerMotionFrame)
+                }
+              } els{
+                l3 l1 + sp4 l4 6 &gt;= if{
+                  0 (&gt;O:HikerMotionMode) 0 (&gt;O:HikerMotionFrame)
+                } els{ l4 (&gt;O:HikerMotionFrame) }
+              }
+            }
+          }
+          (O:HikerMotionMode) sp2
+          (O:HikerMotionFrame)
+          l2 2 == if{ 423 + } els{ l2 0 != if{ (O:HikerMotionBase) + } }
+          991 / 100 *
+        </ANIM_CODE>
+        <ANIM_LENGTH>100</ANIM_LENGTH>
+      </UseTemplate>
+    </Component>
+  </Behaviors>
+</ModelInfo>
