@@ -14,7 +14,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { checkPersonAsset, isPersonAsset } from './homebase-person-rules.mjs';
+import { checkAppearanceFile, checkPersonAsset, isPersonAsset } from './homebase-person-rules.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const REPO = 'iNherjer/GA-Dispatcher-Alpha';
@@ -147,6 +147,21 @@ try {
   const people = catalog.assets.filter(isPersonAsset);
   people.forEach(checkPerson);
   ok(`${people.length} Person(en) geprüft: ${people.map((p) => p.key).join(', ') || '–'}`);
+  // Steckbrief des Artists (Quellen/<folder>/person-appearance.json) muss zum Katalog passen.
+  for (const folder of [...new Set(people.map((asset) => asset.folder))]) {
+    const sidecar = path.join(root, 'homebase/assets/source/SimObjects/Misc', folder, 'person-appearance.json');
+    if (!fs.existsSync(sidecar)) { warn(`${folder}: kein Steckbrief person-appearance.json in der Rohquelle`); continue; }
+    const doc = readJson(sidecar);
+    const result = checkAppearanceFile(doc, vocabulary);
+    result.errors.forEach((message) => fail(`Steckbrief ${folder}: ${message}`));
+    result.warnings.forEach((message) => warn(`Steckbrief ${folder}: ${message}`));
+    for (const figure of doc.figures || []) {
+      const asset = people.find((entry) => entry.title === figure.title);
+      if (!asset) { fail(`Steckbrief ${folder}: ${figure.title} steht nicht im Katalog`); continue; }
+      if (!sameJson(figure.appearance, asset.person?.appearance)) fail(`${asset.key}: person.appearance weicht vom Steckbrief ab`);
+      if (figure.gender !== asset.person?.gender) fail(`${asset.key}: gender weicht vom Steckbrief ab`);
+    }
+  }
 
   step('5. Missionslisten neu erzeugen');
   for (const script of ['tools/generate-homebase-scene-assets.mjs', 'tools/generate-mission-cargo-assets.mjs']) {

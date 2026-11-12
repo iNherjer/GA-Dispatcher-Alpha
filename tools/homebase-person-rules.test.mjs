@@ -63,3 +63,20 @@ test('Personen werden erkannt, Objekte nicht', () => {
   assert.equal(isPersonAsset(catalog.assets.find((entry) => entry.key === 'tumbleweedHiker')), true);
   assert.equal(catalog.assets.filter(isPersonAsset).length, 1);
 });
+
+test('Steckbrief-Datei: Beispiel gültig, Fehler erkannt, Schema passt zur Wortliste', async () => {
+  const { checkAppearanceFile } = await import('./homebase-person-rules.mjs');
+  const { buildAppearanceSchema } = await import('./generate-person-appearance-schema.mjs');
+  const example = JSON.parse(fs.readFileSync(new URL('../docs/examples/person-appearance.tw-pod-hikers.json', import.meta.url), 'utf8'));
+  assert.deepEqual(checkAppearanceFile(example, vocabulary), { errors: [], warnings: [] });
+  const broken = JSON.parse(JSON.stringify(example));
+  broken.figures.push({ ...broken.figures[0] });
+  broken.figures[0].appearance.look = 'uniform';
+  broken.figures[0].measured.heightM = 17.7;
+  const { errors } = checkAppearanceFile(broken, vocabulary);
+  assert.ok(errors.some((m) => /look "uniform"/.test(m)));
+  assert.ok(errors.some((m) => /heightM/.test(m)));
+  assert.ok(errors.some((m) => /doppelt/.test(m)));
+  const committed = JSON.parse(fs.readFileSync(new URL('../data/person-appearance.schema.json', import.meta.url), 'utf8'));
+  assert.deepEqual(committed, buildAppearanceSchema(vocabulary), 'Schema neu erzeugen: node tools/generate-person-appearance-schema.mjs');
+});

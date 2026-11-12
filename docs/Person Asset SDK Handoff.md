@@ -98,8 +98,20 @@ Nur Werte aus `data/mission-person-vocabulary.json` (verbindliche Liste):
 | `uses` (mind. einer) | `passenger`, `pickup`, `ground_crew`, `bystander`, `escort` (bringt/holt jemanden ab), `patient` (reist als gehfähiger Patient), `homebase` |
 | `description` | ein Satz, höchstens 200 Zeichen, **nur was man sieht** – keine Missionsarten, keine Geschichte, keine Namen |
 
-Den Vorschlag liefert der 3D-Artist mit dem Modell
-([Briefing](Person%20Asset%20Artist%20Briefing.md)). Prüfe ihn gegen das fertige
+Den Vorschlag liefert der 3D-Artist mit dem Modell als Datei
+`<folder>/person-appearance.json` (Schema `person-appearance.v1`, Beispiel
+`docs/examples/person-appearance.tw-pod-hikers.json`,
+[Briefing](Person%20Asset%20Artist%20Briefing.md) Abschnitt 4). Die Datei bleibt in
+der Rohquelle `Quellen/<folder>/`. Ablauf:
+
+1. `node tools/check-person-appearance.mjs Quellen/<folder>/person-appearance.json`
+2. Am fertigen Modell prüfen, bei Bedarf in der Datei korrigieren.
+3. Je Figur übernehmen: `appearance` → `person.appearance`, `gender` → `person.gender`,
+   `measured.*` → `person.heightM` / `person.footprintRadiusM`, `locomotion.*` →
+   `person.locomotion`, `clips`, `lodCount`.
+
+`tools/release-homebase-pack.mjs` prüft beim Release, dass Katalog und Steckbrief
+übereinstimmen. Prüfe ihn gegen das fertige
 Modell (z. B. Ärmel → `season`) und übernimm ihn in den Katalog. Ein Wert, der
 nicht in der Liste steht, wird vorher mit dem User abgestimmt – nicht einfach
 ergänzen.

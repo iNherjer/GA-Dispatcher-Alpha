@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "person-appearance.v1",
+  "title": "Steckbrief für Personen-Figuren (VFR Multitool)",
+  "description": "Erzeugt aus mission-person-vocabulary (mission-person-vocabulary.v2). Eine Datei je SimObject-Ordner, ein Eintrag je Figur bzw. Texturvariante.",
+  "type": "object",
+  "required": [
+    "schema",
+    "figures"
+  ],
+  "properties": {
+    "schema": {
+      "const": "person-appearance.v1"
+    },
+    "folder": {
+      "type": "string",
+      "description": "SimObject-Ordner, z. B. tw-pod-hikers"
+    },
+    "figures": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "title",
+          "workingName",
+          "gender",
+          "appearance",
+          "measured",
+          "locomotion",
+          "clips",
+          "lodCount"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "pattern": "^(?![Tt][Aa][Rr][Mm][Aa][Cc]_)[A-Za-z0-9][A-Za-z0-9 _.-]{0,159}$",
+            "description": "exakt wie in sim.cfg, nach Release nie ändern"
+          },
+          "workingName": {
+            "type": "string",
+            "minLength": 1
+          },
+          "gender": {
+            "enum": [
+              "female",
+              "male"
+            ]
+          },
+          "appearance": {
+            "type": "object",
+            "required": [
+              "look",
+              "ageBand",
+              "season",
+              "props",
+              "uses",
+              "description"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "look": {
+                "enum": [
+                  "casual",
+                  "outdoor",
+                  "workwear",
+                  "business",
+                  "aviation",
+                  "medical",
+                  "fire_rescue"
+                ]
+              },
+              "ageBand": {
+                "enum": [
+                  "child",
+                  "young_adult",
+                  "adult",
+                  "senior"
+                ]
+              },
+              "season": {
+                "enum": [
+                  "summer",
+                  "winter",
+                  "all"
+                ]
+              },
+              "props": {
+                "type": "array",
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "backpack_large",
+                    "backpack_small",
+                    "camera",
+                    "binoculars",
+                    "headset",
+                    "clipboard",
+                    "tablet",
+                    "helmet",
+                    "hi_vis_vest",
+                    "radio",
+                    "medical_bag",
+                    "briefcase",
+                    "hat"
+                  ]
+                }
+              },
+              "uses": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "enum": [
+                    "passenger",
+                    "pickup",
+                    "ground_crew",
+                    "bystander",
+                    "homebase",
+                    "patient",
+                    "escort"
+                  ]
+                }
+              },
+              "description": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200,
+                "description": "Ein neutraler Satz, was man sieht. Keine Missionsarten, keine Geschichte, keine Namen."
+              }
+            }
+          },
+          "measured": {
+            "type": "object",
+            "required": [
+              "heightM",
+              "footprintRadiusM"
+            ],
+            "properties": {
+              "heightM": {
+                "type": "number",
+                "exclusiveMinimum": 0.5,
+                "exclusiveMaximum": 2.3,
+                "description": "Meter"
+              },
+              "footprintRadiusM": {
+                "type": "number",
+                "exclusiveMinimum": 0.1,
+                "exclusiveMaximum": 1.5,
+                "description": "Meter, inkl. fester Requisiten"
+              }
+            }
+          },
+          "locomotion": {
+            "type": "object",
+            "required": [
+              "maxWalkKts",
+              "cleanWalkKts"
+            ],
+            "properties": {
+              "maxWalkKts": {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 5
+              },
+              "cleanWalkKts": {
+                "type": "array",
+                "minItems": 2,
+                "maxItems": 2,
+                "items": {
+                  "type": "number",
+                  "minimum": 0.5,
+                  "maximum": 5
+                }
+              }
+            }
+          },
+          "clips": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string"
+            }
+          },
+          "lodCount": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "knownIssues": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

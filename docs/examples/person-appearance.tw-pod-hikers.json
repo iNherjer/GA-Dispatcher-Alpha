@@ -1,0 +1,24 @@
+{
+  "schema": "person-appearance.v1",
+  "folder": "tw-pod-hikers",
+  "figures": [
+    {
+      "title": "tw-pod-hiker-f-01",
+      "workingName": "Wanderin",
+      "gender": "female",
+      "appearance": {
+        "look": "outdoor",
+        "ageBand": "young_adult",
+        "season": "all",
+        "props": ["backpack_large"],
+        "uses": ["passenger", "pickup", "bystander", "escort", "homebase"],
+        "description": "Junge Frau in Wanderhose und Funktionsjacke mit großem Trekkingrucksack"
+      },
+      "measured": { "heightM": 1.775, "footprintRadiusM": 0.279 },
+      "locomotion": { "maxWalkKts": 3, "cleanWalkKts": [1.5, 2.8] },
+      "clips": ["standing_relax", "locomotion"],
+      "lodCount": 1,
+      "knownIssues": ["minimales Gleiten beim Antritt"]
+    }
+  ]
+}

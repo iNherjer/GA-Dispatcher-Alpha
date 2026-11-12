@@ -117,7 +117,55 @@ Beispiel – die Wanderin:
 | Animationen | standing_relax, locomotion |
 | Schwächen | minimales Gleiten beim Antritt |
 
-## 4. Welche Figuren wir uns wünschen
+## 4. Für Agenten: Steckbrief als Datei
+
+Wer mit einem Agenten baut, legt den Steckbrief als Datei **`person-appearance.json`**
+in den SimObject-Ordner der Figur – neben `sim.cfg`, also
+`<SimObject-Ordner>/person-appearance.json` (z. B. `tw-pod-hikers/person-appearance.json`).
+Eine Datei je Ordner; jede Figur und jede Farbvariante ist ein eigener Eintrag unter
+`figures`. Die Datei geht mit dem Modell an den SDK-Kollegen und bleibt in der Rohquelle.
+Nicht in `sim.cfg`, `model.cfg` oder die Modell-XML schreiben.
+
+```json
+{
+  "schema": "person-appearance.v1",
+  "folder": "tw-pod-hikers",
+  "figures": [
+    {
+      "title": "tw-pod-hiker-f-01",
+      "workingName": "Wanderin",
+      "gender": "female",
+      "appearance": {
+        "look": "outdoor",
+        "ageBand": "young_adult",
+        "season": "all",
+        "props": ["backpack_large"],
+        "uses": ["passenger", "pickup", "bystander", "escort", "homebase"],
+        "description": "Junge Frau in Wanderhose und Funktionsjacke mit großem Trekkingrucksack"
+      },
+      "measured": { "heightM": 1.775, "footprintRadiusM": 0.279 },
+      "locomotion": { "maxWalkKts": 3, "cleanWalkKts": [1.5, 2.8] },
+      "clips": ["standing_relax", "locomotion"],
+      "lodCount": 1,
+      "knownIssues": ["minimales Gleiten beim Antritt"]
+    }
+  ]
+}
+```
+
+Regeln für den Agenten:
+
+- `title` exakt wie in `sim.cfg`, nie mit `Tarmac_` beginnen. `workingName` ist frei.
+- `appearance` enthält genau die sechs Felder aus Abschnitt 2, nur Werte aus der Wortliste
+  `mission-person-vocabulary.json`. Keine weiteren Felder.
+- `measured`: Größe und Platzbedarf in Metern, am Modell gemessen (Radius inkl. fester Requisiten).
+- `locomotion`: höchstes Gehtempo und sauberer Bereich in Knoten, so wie getestet.
+- `clips`: die Animationsnamen im Export, `lodCount`: Anzahl Detailstufen.
+- **Prüfen vor der Übergabe:** `node check-person-appearance.mjs <Ordner>/person-appearance.json`
+  (Skript, Wortliste und JSON-Schema `person-appearance.schema.json` liegen im Agenten-Paket).
+  Erst übergeben, wenn „Bestanden“ erscheint.
+
+## 5. Welche Figuren wir uns wünschen
 
 Die abgestimmte Liste mit Prioritäten steht in der Personenliste vom 10.11.2026
 (PDF). Für jeden Look je eine Frau und einen Mann – mit Prio 1 zuerst:
