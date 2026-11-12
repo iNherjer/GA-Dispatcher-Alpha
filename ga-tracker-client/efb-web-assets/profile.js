@@ -6931,6 +6931,20 @@ window.vpBuildWeatherDebugReport = function () {
   } else {
     lines.push('- Manifest PAX: (kein Passenger-Item)');
   }
+  // Personen-Figuren (Testschalter ga_person_figures_v1): Schalterstand, Figuren im Manifest, aktuelle Wahl.
+  try {
+    var _window$MISSION_PERSO;
+    var figuresOn = /^(1|true|yes|ja|on)$/.test(String(localStorage.getItem('ga_person_figures_v1') || '').trim().toLowerCase());
+    var manifestFigures = passengerItems.map(item => {
+      var persons = Array.isArray(item.visualPersons) && item.visualPersons.length ? item.visualPersons.map(p => `${p.id || '?'}:${p.title || '?'}(${p.gender || '?'}/${p.look || '?'})`).join(',') : `objectTitle=${item.objectTitle || '-'}`;
+      return `${item.id || '?'}=${persons}`;
+    }).join(' | ') || '-';
+    var current = typeof _missionSceneGroundFigures === 'function' ? _missionSceneGroundFigures() || [] : [];
+    var currentText = current.length ? current.map(f => `${f.id}:${f.title}(${f.gender}/${f.look})`).join(',') : '-';
+    lines.push(`- PAX-Figuren: schalter=${figuresOn ? 'an' : 'aus'} | manifest=${manifestFigures} | aktuell=${currentText} | pack=${((_window$MISSION_PERSO = window.MISSION_PERSON_ASSETS) === null || _window$MISSION_PERSO === void 0 ? void 0 : _window$MISSION_PERSO.packageVersion) || '-'}`);
+  } catch (_) {
+    lines.push('- PAX-Figuren: (nicht ermittelbar)');
+  }
   if (voiceState) {
     var _voiceState$missionEp;
     lines.push(`- Voice: enabled=${voiceState.voiceEnabled ? '1' : '0'} | effects=${voiceState.audioEffectsEnabled ? '1' : '0'} | apiKey=${voiceState.hasApiKey ? '1' : '0'} | hasPassenger=${voiceState.hasPassenger ? '1' : '0'} | pax=${flattenText(voiceState.passengerName || '-', 80)}`);
