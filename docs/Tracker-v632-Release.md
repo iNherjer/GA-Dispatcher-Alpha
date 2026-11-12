@@ -38,3 +38,14 @@ Details: `docs/Mission Person Asset Plan.md`, Abschnitt 7a.
 - **Im Simulator noch nicht geprüft:** Wanderin als Mitarbeiterin in der Homebase.
 
 Stable bleibt unverändert.
+
+## Aktivierung
+
+Release `v632` (Release-Commit `78aea07a7`, gebaut im sauberen Worktree mit
+`--no-bytecode`), `VFR-Multitool-Tracker.exe` 175048944 Bytes,
+SHA-256 `e78f40fa3516d91bcacbc4169bd09222789167b172503ec761ba2321905bd3b8`,
+öffentlicher Download geprüft. Alpha-Kanal aktiviert, Stable unverändert (v631).
+
+Tracker-Suite: 1550/1559 (2 übersprungen). Die 7 Fehler im Gesamtlauf: 3 zeitabhängige
+Tests liefen einzeln grün; 4 (SAR V2 ×2, Teilsuche, Brandmeldung) bestehen auch auf
+dem sauberen Stand `7ac0ac45b` und hängen nicht mit dieser Änderung zusammen.
