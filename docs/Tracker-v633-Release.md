@@ -33,3 +33,11 @@ höchstens 5 Pax.
 - **Im Simulator noch nicht geprüft.**
 
 Stable bleibt unverändert.
+
+## Aktivierung
+
+Release `v633` (Release-Commit `3e1280a78`, gebaut im sauberen Worktree mit `--no-bytecode`),
+`VFR-Multitool-Tracker.exe` 175050291 Bytes,
+SHA-256 `e67561eb95b2f39f3aaa7234e63f3adae968b467929ec003911c6ce9a6725de7`,
+öffentlicher Download geprüft. Alpha-Kanal aktiviert, Stable unverändert.
+Tracker-Suite 1553/1559 (2 übersprungen); die 4 Fehler bestehen auch auf `2e3811c8a`.
