@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "person-appearance.v1",
   "title": "Steckbrief für Personen-Figuren (VFR Multitool)",
-  "description": "Erzeugt aus mission-person-vocabulary (mission-person-vocabulary.v2). Eine Datei je SimObject-Ordner, ein Eintrag je Figur bzw. Texturvariante.",
+  "description": "Erzeugt aus mission-person-vocabulary (mission-person-vocabulary.v1). Eine Datei je SimObject-Ordner, ein Eintrag je Figur bzw. Texturvariante.",
   "type": "object",
   "required": [
     "schema",

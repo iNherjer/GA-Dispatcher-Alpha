@@ -1,6 +1,6 @@
 # Gewünschte Personen-Figuren
 
-VFR Multitool · Stand 12.11.2026 · ersetzt die Personenliste vom 10.11.2026
+VFR Multitool · Stand 12.11.2026
 
 Ziel: Jeder Look ist mit **einer Frau und einem Mann** besetzt. Damit hat die App für
 jede Mission eine passende Figur. Farbvarianten derselben Figur sind willkommen.

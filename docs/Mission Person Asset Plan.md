@@ -136,7 +136,7 @@ Der Code ergänzt: konkrete Titel, Seed, Paketversion, Saison.
 (`person.appearance`, Werte aus `data/mission-person-vocabulary.json`). Der
 3D-Artist schlägt es vor ([Artist Briefing](Person%20Asset%20Artist%20Briefing.md)),
 der SDK-Agent prüft und trägt es ein
-([SDK Handoff v2](Person%20Asset%20SDK%20Handoff.md)), und
+([SDK Handoff](Person%20Asset%20SDK%20Handoff.md)), und
 `tools/release-homebase-pack.mjs` prüft es beim Release. Eine eigene Profildatei
 braucht es nur noch für die Tarmac-Standardfiguren (`stock`); der Generator liest
 eigene Figuren aus dem Katalog. Neue Figuren erscheinen damit ohne Nacharbeit.

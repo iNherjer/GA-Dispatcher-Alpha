@@ -1,5 +1,5 @@
 {
-  "schema": "mission-person-vocabulary.v2",
+  "schema": "mission-person-vocabulary.v1",
   "note": "Allowed values for person.appearance in the Homebase pack catalogue. Used by tools/release-homebase-pack.mjs and later by the mission pax composer. Change only with user approval; describe new values in docs/Person Asset SDK Handoff.md and docs/Person Asset Artist Briefing.md.",
   "looks": {
     "casual": "Freizeitkleidung, entspannt",

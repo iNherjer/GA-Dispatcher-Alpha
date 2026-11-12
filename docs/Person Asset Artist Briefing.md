@@ -8,8 +8,8 @@ Die App sucht sich je nach Auftrag passende Figuren aus. Damit das klappt,
 braucht jede Figur zusätzlich zum Modell einen kurzen **Steckbrief**, der
 beschreibt, wie sie aussieht.
 
-Technische Details zu Rig, Animation und Export stehen im bisherigen Briefing
-für animierte Figuren. Hier geht es um zwei Dinge: was wir vom Modell brauchen,
+Technische Details zu Rig, Animation und Export stehen im Briefing
+für animierte Figuren (Ordner `3-technik`). Hier geht es um zwei Dinge: was wir vom Modell brauchen,
 damit es gut läuft, und wie der Steckbrief aussieht.
 
 ## 1. Das Modell in Kürze
@@ -168,7 +168,7 @@ Regeln für den Agenten:
 ## 5. Welche Figuren wir uns wünschen
 
 Die abgestimmte Liste mit Prioritäten, Titel-Vorschlägen und Steckbrief-Vorschlägen
-steht in „Gewünschte Modelle“ (Stand 12.11.2026, ersetzt die Personenliste vom 10.11.).
+steht in „Gewünschte Modelle“.
 Für jeden Look je eine Frau und einen Mann – mit Prio 1 zuerst:
 Wanderer, Technikerin/Techniker, Fluglehrerin/Pilot, Geschäftsfrau/-mann.
 

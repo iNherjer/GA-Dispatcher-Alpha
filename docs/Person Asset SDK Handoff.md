@@ -1,6 +1,6 @@
-# Handoff an den SDK-Agenten – Personen-Figuren ins Homebase-Pack (v2)
+# Handoff an den SDK-Agenten – Personen-Figuren ins Homebase-Pack
 
-12.11.2026 · vom Integrations-Agenten (App/Tracker) · ersetzt die Fassung vom 10.11.2026.
+Stand 12.11.2026 · vom Integrations-Agenten (App/Tracker).
 
 Ziel: Jede neue Figur kommt so ins Pack `vfr-multitool-homebase-assets`, dass sie
 **ohne Nacharbeit** in App, Workbench und Tracker erscheint. Seit Tracker v632 gilt
@@ -14,17 +14,6 @@ Briefing für den 3D-Artist: [Person Asset Artist Briefing](Person%20Asset%20Art
 Modellierung, Rig, Locomotion, Build und Texturen weiter nach
 `HOMEBASE-INTEGRATION-ANIMIERTE-FIGUREN.md`, `ASSET-PIPELINE-REGELN.md`,
 `HOMEBASE-ASSET-MODELLREGELN-AGENTEN.md`.
-
-## 0. Neu in v2
-
-- **Nachtrag 12.11.2026 (Wortliste v2):** `uniform` ist aufgeteilt in `medical` und
-  `fire_rescue`; neue Einsatzwerte `escort` und `patient`.
-
-- **Aussehen gehört in den Katalog**: `person.appearance` statt eigener
-  `person-profile.fragment.json`. Der Publisher muss den Block vollständig durchreichen.
-- **Wanderin nachtragen**: `appearance` für `tumbleweedHiker` im nächsten Pack (Abschnitt 4).
-- **Release-Prüfung per Skript** auf dem Integrations-Mac (Abschnitt 7).
-- **Der 3D-Artist liefert den Aussehens-Vorschlag** mit; du prüfst und übernimmst ihn.
 
 ## 1. Katalogeintrag – Pflichtfelder
 
@@ -116,9 +105,9 @@ Modell (z. B. Ärmel → `season`) und übernimm ihn in den Katalog. Ein Wert, d
 nicht in der Liste steht, wird vorher mit dem User abgestimmt – nicht einfach
 ergänzen.
 
-## 4. Wanderin im nächsten Pack nachtragen
+## 4. Wanderin vervollständigen
 
-`tumbleweedHiker` bekommt im nächsten Pack `person.appearance` wie im Beispiel in
+`tumbleweedHiker` bekommt mit dem nächsten Pack `person.appearance` wie im Beispiel in
 Abschnitt 3 (inkl. `escort` und `homebase` in `uses`). Sonst keine Änderung an Key, Titel oder Modell.
 
 ## 5. Paket und Ablage
