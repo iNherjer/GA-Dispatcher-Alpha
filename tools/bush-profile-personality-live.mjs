@@ -31,7 +31,9 @@ if(live&&!key)throw Error('Missing local key');
 const report={createdAt:new Date().toISOString(),scope:'Real API production planner/contract/writer functions and validators in VM; no chapter, scene or voice calls. Supplied airport/runway fixtures; no automatic geo research, browser, simulator or audio playback.',requests:[]};
 const save=()=>{if(live){fs.mkdirSync(output.slice(0,output.lastIndexOf('/')),{recursive:true});fs.writeFileSync(output,JSON.stringify(report,null,2));}};
 if(resume){const prior=JSON.parse(fs.readFileSync(resumeFile,'utf8'));assert.equal(prior.planner?.status,'ready');assert.equal(prior.contract?.profile?.id,profile);Object.assign(report,{planner:prior.planner,contract:prior.contract,reusedFrom:resumeFile});}
-const {context}=setupContext(20261007);
+const seedArg=Number(process.argv.find(x=>x.startsWith('--seed='))?.slice(7)||20261007);
+if(!Number.isInteger(seedArg)||seedArg<1)throw Error('Invalid seed');
+const {context}=setupContext(seedArg);
 // Suppress UI/debug logs, including any accidental secret-bearing exception.
 context.console={log(){},info(){},debug(){},warn(){},error(){}};
 context.Response=Response;

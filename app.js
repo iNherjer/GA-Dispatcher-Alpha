@@ -32116,8 +32116,8 @@ function _missionPipelineV4NarrativeDefaults(plan = {}, semantics = {}, resolved
                 'einen Backcountry-Besucher, dessen Ausrüstung und Treffpunkt nach der Landung plausibel zum Ort passen'
             ]),
             incidentContext: `Der Zielstrip ${targetLabel} ist der geplante Zugangspunkt fuer den Aufenthalt draussen.`,
-            whyNow: 'Das Flugfenster passt, damit der Gast am Ziel noch ruhig ankommt, Gepaeck uebernimmt und den Bodenplan ohne Hektik beginnt.',
-            soughtOutcome: 'Wir sollen den Gast sicher zum Zielstrip bringen, dort sauber landen und den Adventure-Leg mit Ausstieg und Handoff abschliessen.'
+            whyNow: 'Der Gast hat sich diesen Aufbruch vorgenommen; heute beginnt das, worauf er sich vorbereitet hat.',
+            soughtOutcome: 'Wir bringen den Gast zum Zielstrip; mit Landung und Ausstieg beginnt sein eigener Plan draussen.'
         };
     }
     if (taskDomain === 'training') {
@@ -32616,8 +32616,8 @@ const BUSH_MISSION_VARIETY_COPY = {
         recipe: (targetName, homeName) => `Kurzer Backcountry-Hinflug von ${homeName} nach ${targetName}, Landung am Zielstrip, Ausstieg/Handoff dort; kein Rundflug, kein Ueberflugauftrag, kein Rueckhol- oder Lieferzwang.`,
         coreQuestions: (targetName) => [
             `Wer fliegt nach ${targetName} und warum beginnt genau dort der persoenliche Outdoor- oder Backcountry-Plan?`,
-            'Was nimmt der Gast mit: Kamera, Tagesrucksack, Angelrohr, Skizzenrolle oder anderes leichtes Material?',
-            'Was beginnt nach der Landung am Boden: Hike, Lodge-Aufenthalt, Fotozeit, Campbesuch, Flussabschnitt oder stiller Beobachtungspunkt?',
+            'Was nimmt der Gast fuer genau dieses Vorhaben mit?',
+            'Was beginnt nach der Landung am Boden, und was tut der Gast dort als Erstes?',
             'Warum macht die Bush-Landung selbst den Auftrag besonders?',
             'Welches konkrete Erlebnis, Bild, Wiedersehen oder Vorhaben wuenscht sich der Gast, und warum bedeutet es ihm persoenlich etwas?'
         ],
@@ -36142,6 +36142,7 @@ function buildMissionWriterV5Prompt(contract = {}, context = {}) {
     delete legacyBriefingBrief.missionBriefForm;
     const promptTaskDomain = String(contract?.profile?.taskDomain || '').trim().toLowerCase();
     const personalCharterReturn = window.MissionLegacyCharterNarrativeCore?.owns({...context,missionContractV4:contract}) && contract.followUpContext?.followUpKind === 'apt_charter_pickup';
+    const bushAdventureOutbound = contract?.profile?.id === 'bush_scenic_hopper';
     if (personalCharterReturn) {
         const personalStyle = {
             tone: 'warme persönliche Rückkehrgeschichte',
@@ -36172,13 +36173,16 @@ function buildMissionWriterV5Prompt(contract = {}, context = {}) {
     const bushPickupPromptRule = promptTaskDomain === 'bush_pickup_return' && contract?.profile?.id !== 'bush_pickup_cargo'
         ? '\n14. BUSH-PICKUP: Schreib so, als würdest du dem Piloten den Auftrag gerade mündlich im Bush-Dispatch erzählen. Sprich ihn direkt mit du an und mache aus genau einer Richtung in pickupCreativeBrief beziehungsweise MISSION_BRIEF_FORM.domainDetails eine kleine Abenteuergeschichte mit Anfang, Szene am Strip und sinnvoller Rückkehr. Name, Rolle, Arbeit draußen, Gegenstände am Wartepunkt und Rückkehrgrund müssen aus derselben Richtung stammen. Der Ablauf bleibt fest: leer hinaus, am Strip landen, genau eine Person aufnehmen, zur Heimatbasis zurück. Du darfst weiche glaubwürdige Wilderness-Details erfinden und Spannung aufbauen, aber keine neuen Ortsnamen, Notfälle, harten Geofakten oder weiteren Personen hinzufügen. Wenn belastbare Wetter- oder Pistenangaben vorhanden sind und ohne Zusatzsatz in die Erzählung passen, darfst du sie als erlebten Flugrahmen verwenden. Wetter ist kein Pflichtpunkt; lieber weglassen als den Erzählfluss mit einem Datenanhang oder einer erzwungenen Wetterbegründung zu belasten. Keine Steckbrieferöffnung nach dem Muster "Name, Rolle, wartet heute", keine Inventarliste, keine Semikolons und keine sichtbare Folge von Formularfeldern. Das story-Feld bleibt Dispatcher-Perspektive; Ich-Sätze des Pickup-Gasts gehören ausschließlich in passenger.greetingText und pickupStory-Voice-Cues.'
         : '';
+    const bushAdventurePromptRule = bushAdventureOutbound
+        ? '\n14. BUSH-ADVENTURE: Erzähl dem Piloten mündlich im Bush-Dispatch und sprich ihn mit du an. Im Mittelpunkt steht der Gast, der gleich neben ihm sitzt: wer er ist, welches Outdoor-Vorhaben ihn hinauszieht und woher dieser Wunsch kommt. Eine Vorgeschichte ist erlaubt, aber kein Pflichtbaustein; ein schlichter eigener Wunsch genügt. Zeig, was er nach der Landung als Erstes vorhat. Rechtfertige den Flug nicht gegenüber Fußweg, Straße oder verpasstem Zeitfenster. Strecke und Gelände dürfen als Vorfreude mitlaufen, Aufenthaltsdauer und Gepäck nur beiläufig. Erfinde keine Sorge um Strip, Boden oder Wetter, die nicht belegt ist. Der Ablauf bleibt: gemeinsamer Hinflug, Landung und Ausstieg am Zielstrip, kein Rundflug und keine Rückkehr. Keine Steckbrieferöffnung nach dem Muster "Name bricht heute zu ... auf", keine Inventarliste, keine Ich-Form im story-Feld.'
+        : '';
     return `<INSTRUKTIONEN>
 Du bist ${window.MissionBushNarrativeCore?.storyBasis?.(contract?.profile?.id) ? 'ein lokaler Bush-Dispatcher, der den Auftrag und die beteiligten Menschen kennt' : 'ein freundlicher, entspannter Flugdienstleiter in einem lokalen Fliegerclub'}.
 Du schreibst einen kurzen Dispatch-Zettel fuer den Piloten, nicht eine Formularantwort.
 
 Arbeitsweise:
 1. Nutze MISSION_BRIEF_FORM als ausgefuelltes Missionsformular. Es enthaelt Identitaet, Route, Personen, Story-Kern, Missionsdetails, Fakten, Stil und Qualitaetskompass.
-2. ${personalCharterReturn ? 'Erzähle den persönlichen Aufenthalt des Gasts als zusammenhängende Geschichte in dritter Person. Konkrete Erlebnisse, Begegnungen und seine Reaktion bilden den Hauptteil; der Umfang richtet sich nach dem Erzählstoff. Die Abholung und Heimreise geben den Rahmen.' : 'Schreibe die Story als 4-6 zusammenhaengende deutsche Saetze, bei sehr einfachen Missionen reichen 3.'}
+2. ${personalCharterReturn ? 'Erzähle den persönlichen Aufenthalt des Gasts als zusammenhängende Geschichte in dritter Person. Konkrete Erlebnisse, Begegnungen und seine Reaktion bilden den Hauptteil; der Umfang richtet sich nach dem Erzählstoff. Die Abholung und Heimreise geben den Rahmen.' : (bushAdventureOutbound ? 'Schreibe die Story als kleine zusammenhaengende Erzaehlung; der Umfang richtet sich nach dem Erzaehlstoff, meist sechs bis neun Saetze.' : 'Schreibe die Story als 4-6 zusammenhaengende deutsche Saetze, bei sehr einfachen Missionen reichen 3.')}
 3. Die Story soll wie eine kleine Erzaehlung klingen: wer fliegt, welches konkrete Anliegen die Beteiligten haben und was nach Landung/Rueckkehr vorgesehen ist. Bei Transporten ist der Flug bereits beauftragt; erzaehle den Bedarf am Ziel statt die Wahl des Flugzeugs gegenueber der Strasse zu rechtfertigen. Bei Luftarbeit bleibt der fachliche Erkenntnisgewinn aus der Luft Teil des Anliegens.
 4. ${contract.environmentContext ? 'Route und Ziel geben Orientierung. Wetter ist freiwilliger Erzählkontext, kein erwünschter Pflichtanker und kein eigener Schlusssatz. Erzähle zuerst den Anlass und die Menschen; lasse Wetter ganz weg, wenn es für diese Geschichte nichts beiträgt. Ein weicher Wetterhinweis darf beiläufig passen, ohne Messwerte aufzuzählen.' : 'Route, Entfernung, Wetter und Zielplatz sind erwuenschte Realitaetsanker, aber sie duerfen den Text nicht kippen, wenn sie fehlen oder nicht elegant passen.'}
 5. storyCore ist der rote Faden: premise, concreteReason, whyToday, flightValue, targetFocus und successOutcome sollen als Geschichte spuerbar werden, wenn sie vorhanden sind.
@@ -36189,7 +36193,7 @@ Arbeitsweise:
 10. Keine Systemwoerter und keine sichtbaren Feldnamen.
 11. Kein Listenstil, keine wechselnden Perspektiven, keine Ich-Form im story-Feld.
 12. Passenger, Greeting, Cargo und SceneIntent muessen dieselbe Geschichte stuetzen.
-13. Nutze normale deutsche Umlaute.${newsCoveragePromptRule}${historianPromptRule}${privateOutingDirectPromptRule}${clubUtilityPromptRule}${bushPickupPromptRule}
+13. Nutze normale deutsche Umlaute.${newsCoveragePromptRule}${historianPromptRule}${privateOutingDirectPromptRule}${clubUtilityPromptRule}${bushPickupPromptRule}${bushAdventurePromptRule}
 
 <MISSION_BRIEF_FORM>
 ${JSON.stringify(missionBriefForm)}
@@ -36203,7 +36207,7 @@ ${JSON.stringify(legacyBriefingBrief)}
 Antworte ausschliesslich als JSON ohne Markdown:
 {
   "title": "Kurzer, passender Missionstitel",
-  "story": "${personalCharterReturn ? 'Persönliche Geschichte aus dem Aufenthalt in Erzählerperspektive, mit konkreten Erlebnissen und Reaktionen, eingebettet in die vereinbarte Abholung' : '4-6 natuerliche Saetze als zusammenhaengender Dispatch-Zettel'}",
+  "story": "${personalCharterReturn ? 'Persönliche Geschichte aus dem Aufenthalt in Erzählerperspektive, mit konkreten Erlebnissen und Reaktionen, eingebettet in die vereinbarte Abholung' : (bushAdventureOutbound ? 'Persönlicher Dispatch an den Piloten über den Gast, seine Vorgeschichte und sein Vorhaben draußen; Umfang nach Erzählstoff' : '4-6 natuerliche Saetze als zusammenhaengender Dispatch-Zettel')}",
   "pax": "z.B. 1 PAX (...) oder 0 PAX",
   "cargo": "z.B. Tagesrucksack (12 lbs)",
   "targetInfo": "Bei POI: 2-3 sachliche Saetze fuer die Ziel-Info-Seite aus belegten Daten; bei A-B leerer String",

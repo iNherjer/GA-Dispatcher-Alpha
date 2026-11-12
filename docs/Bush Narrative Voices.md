@@ -644,3 +644,57 @@ oder zusätzliche KI-Abfrage. Testabdeckung: neue Bereichs-/Altdaten-/30-Tage-
 133 Regressionstests bestanden; ein weiterer Test benötigt fehlende alte
 Live-JSON-Fixtures und wurde gezielt ausgelassen. Keine neue Live-/Audio-/
 Simulatorprobe dieses Stands und noch keine Veröffentlichung.
+
+## Adventure-Hinflug: eigenes Writer-Rezept (12.11.2026, lokal)
+
+Befund: Adventure-Briefings klangen knapper und logistischer als Charter, Pickup
+und Privat. Ursache war keine Klassifikation, sondern die Basis: Charter
+(`charterWriterRecipe`), Bush-Pickup (V5-Regel 14) und Privat (V6/Regel 14)
+haben eigene Erzählrezepte, Adventure erhielt nur das generische Bush-Rezept
+und die allgemeine V5-Vorgabe „4–6 Sätze“. Die V4-Ersatzfelder `whyNow`
+(„Flugfenster passt …“) und `soughtOutcome` („sauber landen … Handoff“) gaben
+zusätzlich einen Logistikton vor. Livebeispiel: dritte Person, Steckbriefstart
+„Sarah bricht heute … auf“, erfundene Sorge um die Tragfähigkeit des Strips,
+Dauer und 142 lbs als tragende Fakten.
+
+Gestaltung Adventure (`bush_scenic_hopper`, nur Hinflug):
+
+- Story-Träger ist der Gast, der neben dem Piloten sitzt: Outdoor-Vorhaben,
+  persönlicher Grund und eine konkrete frühere Begebenheit mit eigener Reaktion.
+- Dispatcher spricht den Piloten mit du an; Ich-Rede nur in `greetingText`
+  und PAX-Voices.
+- Umfang nach Erzählstoff (meist sechs bis neun Sätze), keine feste Grenze.
+- Strecke/Gelände dürfen Vorfreude tragen; Aufenthaltsdauer und Gepäck
+  laufen beiläufig mit.
+- Keine erfundenen Sorgen um Strip, Boden oder Wetter ohne Datenbasis.
+- Abschluss bleibt Landung und Ausstieg; kein Rundflug, keine Rückkehr.
+
+Umsetzung: `adventureWriterRecipe` und `adventurePlanningAddon` in
+`mission-bush-narrative-core.js`; `bushAdventurePromptRule` sowie freie Länge
+in `buildMissionWriterV5Prompt` (`app.js`), nur bei Profil
+`bush_scenic_hopper`; persönlichere V4-Ersatzfelder für TaskDomain
+`bush_adventure`. Andere Bush-, APT- und POI-Stränge, Manifest, Runtime und
+Adventure-Rückflug (Pickup) bleiben unverändert. Der Tracker bindet die
+Core-Datei ein, nutzt die geänderten Writer-Teile aber nicht.
+
+Nachschärfung nach Nutzerreview: Eine Vorgeschichte ist erlaubt, aber kein
+Pflichtbaustein; ein schlichter eigener Wunsch genügt. Missgeschick-Vorlagen
+aus dem Charter-Fundus (`personalConnections`, `characterDetails`) werden für
+Adventure nicht mehr mitgegeben, „anders als beim letzten Mal“ entfällt im
+Fokus. Rolle und Vorhaben folgen bevorzugt einer Richtung der
+`candidateShortlist`; die Jahreszeit färbt das Vorhaben, bestimmt aber nicht
+die Rolle. Der Writer begründet den Flug nicht gegenüber Fußweg oder
+verpasstem Zeitfenster. Beispiellisten in den Adventure-`coreQuestions` sind
+neutral formuliert. Bewusst keine Beispielanlässe im Prompt.
+
+Prüfung: Bush-Profil-, Charter-, Quellen-, Folge- und Tracker-Voice-Tests
+bestanden; `bush-narrative.test.cjs` scheitert weiterhin nur an der fehlenden
+alten Live-Fixture. Neun Live-Proben (Gemini 3 Flash, technisch alle ok) unter
+`analysis/bush-profile-personality-20261009/bush_scenic_hopper-adv-*`. Mit
+festem Probe-Seed konvergiert das Modell auf denselben Herbstlicht-Filmer; der
+Live-Prüfer kennt dafür jetzt `--seed=`. Mit drei Seeds: Fotografin,
+Packraft-Guide, Angler, ohne erzwungene Vorgeschichte, 7–8 Sätze, du-Ansprache.
+Offen: gelegentliche kleine Pilotaufträge („Bahn beim Anflug prüfen“),
+saisonaler Zeitdruck, unbelegter Ortsname „Frank Church Wilderness“ und ein
+meta-artiger Abschlusssatz in einer Probe. Probe ohne History, daher sagt sie
+nichts über Namenswiederholung in der App.
