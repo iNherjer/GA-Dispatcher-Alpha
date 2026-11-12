@@ -1,0 +1,49 @@
+{
+  "schema": "mission-person-vocabulary.v1",
+  "note": "Allowed values for person.appearance in the Homebase pack catalogue. Used by tools/release-homebase-pack.mjs and later by the mission pax composer. Change only with user approval; describe new values in docs/Person Asset SDK Handoff.md and docs/Person Asset Artist Briefing.md.",
+  "looks": {
+    "casual": "Freizeitkleidung, entspannt",
+    "outdoor": "Funktionskleidung für draußen",
+    "workwear": "Arbeitskleidung, Warnweste oder Overall",
+    "business": "Gepflegt bis elegant, Anzug, Kostüm oder Kleid",
+    "aviation": "Fliegerisch, Polo oder Hemd mit Headset",
+    "uniform": "Einsatzkleidung von Rettung oder Feuerwehr"
+  },
+  "ageBands": {
+    "child": "Kind",
+    "young_adult": "junge Erwachsene, bis etwa 30",
+    "adult": "Erwachsene, etwa 30 bis 60",
+    "senior": "ältere Menschen, ab etwa 60"
+  },
+  "seasons": {
+    "summer": "kurze Ärmel, leichte Kleidung",
+    "winter": "dicke Jacke, Mütze oder Schal",
+    "all": "passt zu jeder Jahreszeit"
+  },
+  "props": {
+    "backpack_large": "großer Trekkingrucksack",
+    "backpack_small": "kleiner Tagesrucksack",
+    "camera": "Kamera",
+    "binoculars": "Fernglas",
+    "headset": "Headset",
+    "clipboard": "Klemmbrett",
+    "tablet": "Tablet",
+    "helmet": "Helm",
+    "hi_vis_vest": "Warnweste",
+    "radio": "Funkgerät",
+    "medical_bag": "Notfalltasche",
+    "briefcase": "Aktentasche",
+    "hat": "Hut oder Kappe"
+  },
+  "uses": {
+    "passenger": "fliegt als Pax mit",
+    "pickup": "wartet am Zielplatz auf Abholung",
+    "ground_crew": "Bodenpersonal am Flugplatz",
+    "bystander": "Zuschauer oder Passant in Szenen",
+    "homebase": "Mitarbeiter in der Homebase"
+  },
+  "description": {
+    "maxLength": 200,
+    "rule": "Ein neutraler Satz, was man sieht. Keine Missionsarten, keine Geschichte, keine Namen."
+  }
+}

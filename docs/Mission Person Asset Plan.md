@@ -132,12 +132,14 @@ Der Code ergänzt: konkrete Titel, Seed, Paketversion, Saison.
 
 ### 4.3 Personenprofile `data/mission-person-asset-profiles.json`
 
-Analog zu `mission-cargo-asset-profiles.json`: Identität und Titel stehen im
-Pack-Katalog. Das Profil beschreibt das Aussehen, je Pack-Asset-Key. Ein
-Generator (`tools/generate-mission-person-assets.mjs`) erzeugt
-`data/mission-person-assets.js` und warnt bei Personen ohne Profil. Die
-Profilwerte liefert der SDK-Agent je Figur mit (siehe
-[Person Asset SDK Handoff](Person%20Asset%20SDK%20Handoff.md)).
+**Update 12.11.2026:** Das Aussehen eigener Figuren steht direkt im Pack-Katalog
+(`person.appearance`, Werte aus `data/mission-person-vocabulary.json`). Der
+3D-Artist schlägt es vor ([Artist Briefing](Person%20Asset%20Artist%20Briefing.md)),
+der SDK-Agent prüft und trägt es ein
+([SDK Handoff v2](Person%20Asset%20SDK%20Handoff.md)), und
+`tools/release-homebase-pack.mjs` prüft es beim Release. Eine eigene Profildatei
+braucht es nur noch für die Tarmac-Standardfiguren (`stock`); der Generator liest
+eigene Figuren aus dem Katalog. Neue Figuren erscheinen damit ohne Nacharbeit.
 
 ```json
 {
@@ -252,6 +254,16 @@ Tests: `ga-tracker-client/homebase-pack-people.test.js`,
 `tools/cloudflare-worker/homebase-sync.test.mjs` (Pack-Figur mit/ohne Ersatz).
 Workbench im Browser mit nachgestellter Tracker-Meldung geprüft (Auswahl,
 Tempo 3 kt, Erhalt ohne Meldung). Sim-Abnahme steht aus.
+
+## 7b. Pack-Release prüfen (ab 0.6.27)
+
+`node tools/release-homebase-pack.mjs --version <x.y.z>` auf dem Staging-Branch:
+lädt Release-Index und Vollarchiv, prüft Größe, SHA-256, jede Datei,
+`layout.json`, `manifest.json`, `sim.cfg` unter `SimObjects/Misc`, Gleichheit
+von Release-Katalog und `catalog.json`, alle Personen
+(`tools/homebase-person-rules.mjs`), erzeugt die Missionslisten neu und lässt
+die Tests laufen. `--write-channel` schreibt `stable.json` erst nach OK. Kein
+Commit, kein Push.
 
 ## 8. Offene Punkte
 
