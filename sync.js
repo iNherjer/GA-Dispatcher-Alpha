@@ -6431,7 +6431,7 @@ function _missionAptArrivalAssetForItem(item = {}, index = 0, options = {}) {
     const semanticTitle = String(item.objectTitle || item.title || item.label || '').trim();
     const provided = Array.isArray(item.titleCandidates) ? item.titleCandidates : [];
     const allowedProvided = options.movingPerson === true
-        ? provided.filter(title => /^tarmac_/i.test(String(title || '').trim()))
+        ? provided.filter(title => _missionSceneIsPersonFigureTitle(title))
         : provided;
     let pool = [];
     let fallback = semanticTitle || 'Cardboard';
@@ -7577,7 +7577,100 @@ function _missionScenePassengerGender() {
     return 'male';
 }
 
+// Personen-Figuren aus dem Pack-Katalog (Testschalter ga_person_figures_v1, Standard aus).
+// Look aus der festen Rollenliste, Jahreszeit aus Wetter/Datum; ohne Schalter bleibt die
+// bisherige Tarmac-Auswahl.
+function _missionPersonFiguresEnabled() {
+    try {
+        const raw = String(localStorage.getItem('ga_person_figures_v1') || '').trim().toLowerCase();
+        return /^(1|true|yes|ja|on)$/.test(raw) && !!window.MissionPersonFigureCore && !!window.MISSION_PERSON_ASSETS;
+    } catch (_) {
+        return false;
+    }
+}
+
+// Laufende Person, die der Tracker per Wegpunkt bewegen kann: Tarmac oder Pack-Figur.
+function _missionSceneIsPersonFigureTitle(title) {
+    const value = String(title || '').trim();
+    if (/^tarmac_/i.test(value)) return true;
+    return !!window.MissionPersonFigureCore?.isPersonFigureTitle?.(value);
+}
+
+function _missionScenePassengerRoleContext() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const pax = window.activePassenger || md?.passenger || md?.missionContract?.passenger || {};
+    return {
+        roleProfile: String(pax?.roleProfile || '').trim(),
+        taskDomain: String(pax?.taskDomain || _missionSceneTaskDomain() || '').trim()
+    };
+}
+
+function _missionScenePassengerSeason() {
+    const core = window.MissionPersonFigureCore;
+    if (!core) return 'summer';
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const fd = window.lastLiveFlightData || {};
+    const briefing = md?.weatherBriefing || null;
+    const temps = [fd.tempC, briefing?.dep?.tempC, briefing?.dest?.tempC].map(Number).filter(Number.isFinite);
+    const lat = [fd.lat, md?.start?.lat, md?.startLat].map(Number).find(Number.isFinite);
+    return core.seasonFromContext({
+        tempC: temps.length ? temps[0] : null,
+        month: new Date().getUTCMonth() + 1,
+        lat: Number.isFinite(lat) ? lat : null
+    });
+}
+
+function _missionScenePersonFigurePick(gender = 'female', salt = 'person', overrides = {}) {
+    if (!_missionPersonFiguresEnabled()) return null;
+    const core = window.MissionPersonFigureCore;
+    const role = _missionScenePassengerRoleContext();
+    return core.pickPersonFigure({
+        gender,
+        look: overrides.look || core.defaultLookForRole(role),
+        season: overrides.season || _missionScenePassengerSeason(),
+        ageBand: overrides.ageBand || '',
+        use: overrides.use || 'passenger',
+        seed: `${_missionSceneId()}|${role.taskDomain}|${salt}`
+    });
+}
+
+// Figuren je Pax der aktuellen Mission: aus dem Boden-Composer (groundVisual der Idee) oder
+// aus der festen Rollenliste. Reihenfolge = Pax-Reihenfolge, erste Figur = Hauptperson/Stimme.
+function _missionSceneGroundIdea() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const contract = md?.missionContract || {};
+    return [md?.charterIdea, md?.sightseeingIdea, md?.aptNewsIdea, contract.charterIdea, contract.sightseeingIdea, contract.aptNewsIdea]
+        .find(idea => idea && typeof idea === 'object' && idea.groundVisual) || null;
+}
+
+function _missionSceneGroundFigures() {
+    if (!_missionPersonFiguresEnabled() || !window.MissionGroundVisualCore || !window.MissionOnboardCore) return null;
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const pax = window.activePassenger || md?.passenger || md?.missionContract?.passenger || null;
+    let plan = _missionSceneGroundIdea()?.groundVisual || null;
+    if (!plan || plan.schema !== window.MissionGroundVisualCore.SCHEMA) {
+        if (!pax) return null;
+        const onboard = window.MissionOnboardCore.fromPassenger(
+            { ...pax, gender: pax.gender || _missionScenePassengerGender() },
+            { passengerCount: _missionScenePaxCount(), party: md?.party || md?.missionContract?.party || null }
+        );
+        plan = window.MissionGroundVisualCore.fallbackPlan(onboard, {
+            roleProfile: pax.roleProfile || '',
+            taskDomain: pax.taskDomain || _missionSceneTaskDomain()
+        });
+    }
+    if (!plan) return null;
+    const figures = window.MissionGroundVisualCore.resolveFigures(plan, { season: _missionScenePassengerSeason(), seed: _missionSceneId() });
+    return figures.length && figures.every(figure => figure.title) ? figures : null;
+}
+
+function _missionSceneGroundFigureCandidates(figure) {
+    return figure?.title ? _sceneTitleCandidates(figure.title, figure.candidates || []) : [];
+}
+
 function _missionScenePersonTitle(gender = 'female', salt = 'person') {
+    const figurePick = _missionScenePersonFigurePick(String(gender || '').toLowerCase() === 'male' ? 'male' : 'female', salt);
+    if (figurePick?.title) return figurePick.title;
     const normalizedGender = String(gender || '').toLowerCase() === 'male' ? 'male' : 'female';
     const pool = normalizedGender === 'male'
         ? MISSION_SCENE_ASSET_POOLS.peopleMale.concat(MISSION_SCENE_ASSET_POOLS.peopleFemale)
@@ -7588,6 +7681,11 @@ function _missionScenePersonTitle(gender = 'female', salt = 'person') {
 
 function _missionScenePersonCandidates(gender = 'female', preferredTitle = '') {
     const normalizedGender = String(gender || '').toLowerCase() === 'male' ? 'male' : 'female';
+    const figurePick = _missionScenePersonFigurePick(normalizedGender, 'candidate');
+    if (figurePick?.candidates?.length) {
+        const preferredFigure = _missionSceneIsPersonFigureTitle(preferredTitle) ? String(preferredTitle).trim() : '';
+        return _sceneTitleCandidates(preferredFigure || figurePick.title, figurePick.candidates);
+    }
     const preferred = preferredTitle || _missionScenePersonTitle(normalizedGender, 'candidate');
     const pool = normalizedGender === 'male'
         ? MISSION_SCENE_ASSET_POOLS.peopleMale.concat(MISSION_SCENE_ASSET_POOLS.peopleFemale)
@@ -7626,6 +7724,8 @@ function _missionSceneMovingPersonPool(gender = 'female', includeFallbackGender 
 }
 
 function _missionSceneMovingPersonTitle(gender = 'female', salt = 'moving-person') {
+    const figurePick = _missionScenePersonFigurePick(String(gender || '').toLowerCase() === 'male' ? 'male' : 'female', salt);
+    if (figurePick?.title) return figurePick.title;
     const pool = _missionSceneMovingPersonPool(gender, false);
     const fallback = String(gender || '').toLowerCase() === 'male'
         ? MISSION_SCENE_DEFAULT_PERSON_MALE_TITLE
@@ -7634,9 +7734,11 @@ function _missionSceneMovingPersonTitle(gender = 'female', salt = 'moving-person
 }
 
 function _missionSceneMovingPersonCandidates(gender = 'female', preferredTitle = '') {
-    const preferred = /^tarmac_/i.test(String(preferredTitle || '').trim())
+    const preferred = _missionSceneIsPersonFigureTitle(preferredTitle)
         ? String(preferredTitle).trim()
         : _missionSceneMovingPersonTitle(gender, 'moving-candidate');
+    const figurePick = _missionScenePersonFigurePick(String(gender || '').toLowerCase() === 'male' ? 'male' : 'female', 'moving-candidate');
+    if (figurePick?.candidates?.length) return _sceneTitleCandidates(preferred, figurePick.candidates);
     const pool = _missionSceneMovingPersonPool(gender, true);
     const aliases = pool.flatMap(title => _sceneTitleCandidates(title, [title]));
     return _sceneTitleCandidates(preferred, aliases);
@@ -7767,10 +7869,14 @@ function _missionSceneBuildSpawnEffectCommand(reason = 'scene-spawn', position =
     const vehiclePoint = vehicleSupportEnabled ? _missionSceneVehiclePoint() : null;
     const boarderCount = _missionSceneBoarderCount();
     const groupPlan = _missionSceneGroupPlan();
-    const primaryGender = _missionScenePassengerGender();
-    const secondaryGender = primaryGender === 'male' ? 'female' : 'male';
-    const primaryPersonTitle = _missionSceneMovingPersonTitle(primaryGender, 'boarding-primary');
-    const secondaryBoarderTitle = _missionSceneMovingPersonTitle(secondaryGender, 'boarding-secondary');
+    const groundFigures = _missionSceneGroundFigures();
+    const primaryGender = groundFigures?.[0]?.gender || _missionScenePassengerGender();
+    const secondaryGender = groundFigures?.[1]?.gender || (primaryGender === 'male' ? 'female' : 'male');
+    const primaryPersonTitle = groundFigures?.[0]?.title || _missionSceneMovingPersonTitle(primaryGender, 'boarding-primary');
+    const secondaryBoarderTitle = groundFigures?.[1]?.title || _missionSceneMovingPersonTitle(secondaryGender, 'boarding-secondary');
+    const boarderCandidates = (index, gender, title) => (groundFigures?.[index]?.title
+        ? _missionSceneGroundFigureCandidates(groundFigures[index])
+        : _missionSceneMovingPersonCandidates(gender, title));
     const secondaryIdleTitle = _missionScenePersonTitle(secondaryGender, 'vehicle-idle-secondary');
     const idlePersonTitle = _missionScenePersonTitle(primaryGender, 'vehicle-idle');
     const vehicleCrewOne = { forwardM: 19.5, rightM: -14 };
@@ -7780,7 +7886,7 @@ function _missionSceneBuildSpawnEffectCommand(reason = 'scene-spawn', position =
             kind: 'person_boarder_1',
             label: 'Boarding Pax 1',
             objectTitle: primaryPersonTitle,
-            titleCandidates: _missionSceneMovingPersonCandidates(primaryGender, primaryPersonTitle),
+            titleCandidates: boarderCandidates(0, primaryGender, primaryPersonTitle),
             forwardM: Number.isFinite(Number(personSpawn.forwardM)) ? Number(personSpawn.forwardM) : 16,
             rightM: Number.isFinite(Number(personSpawn.rightM)) ? Number(personSpawn.rightM) : -8,
             headingMode: 'face_aircraft',
@@ -7791,7 +7897,7 @@ function _missionSceneBuildSpawnEffectCommand(reason = 'scene-spawn', position =
             label: boarderCount >= 2 ? 'Boarding Pax 2' : 'Crew Fahrzeug 1',
             objectTitle: boarderCount >= 2 ? secondaryBoarderTitle : secondaryIdleTitle,
             titleCandidates: boarderCount >= 2
-                ? _missionSceneMovingPersonCandidates(secondaryGender, secondaryBoarderTitle)
+                ? boarderCandidates(1, secondaryGender, secondaryBoarderTitle)
                 : _missionScenePersonCandidates(secondaryGender, secondaryIdleTitle),
             forwardM: vehicleCrewOne.forwardM,
             rightM: vehicleCrewOne.rightM,
@@ -7811,13 +7917,14 @@ function _missionSceneBuildSpawnEffectCommand(reason = 'scene-spawn', position =
             altOffsetFt: 0
         }
     ] : Array.from({ length: boarderCount }, (_, idx) => {
-        const gender = idx % 2 === 0 ? primaryGender : secondaryGender;
-        const title = idx % 2 === 0 ? primaryPersonTitle : secondaryBoarderTitle;
+        const figure = groundFigures?.[idx] || null;
+        const gender = figure?.gender || (idx % 2 === 0 ? primaryGender : secondaryGender);
+        const title = figure?.title || (idx % 2 === 0 ? primaryPersonTitle : secondaryBoarderTitle);
         return {
             kind: `person_boarder_${idx + 1}`,
             label: `Boarding Pax ${idx + 1}`,
             objectTitle: title,
-            titleCandidates: _missionSceneMovingPersonCandidates(gender, title),
+            titleCandidates: figure ? _missionSceneGroundFigureCandidates(figure) : _missionSceneMovingPersonCandidates(gender, title),
             forwardM: Number.isFinite(Number(personSpawn.forwardM)) ? Number(personSpawn.forwardM) : 16,
             rightM: (Number.isFinite(Number(personSpawn.rightM)) ? Number(personSpawn.rightM) : -8) + (idx * 0.8),
             headingMode: 'face_aircraft',
@@ -7829,13 +7936,14 @@ function _missionSceneBuildSpawnEffectCommand(reason = 'scene-spawn', position =
         : [];
     const personItems = groupPlan ? groupMembers.map((member, index) => {
         const patientIdea = _missionSceneIsPatientTransfer() ? ((typeof currentMissionData !== 'undefined' && currentMissionData) || window.currentMissionData)?.medicalTransferIdea : null;
-        const gender = patientIdea && index === 1 ? patientIdea.patient.gender : index % 2 === 0 ? primaryGender : secondaryGender;
-        const title = _missionSceneMovingPersonTitle(gender, `boarding-group-${index + 1}`);
+        const figure = !patientIdea ? (groundFigures?.[index] || null) : null;
+        const gender = figure?.gender || (patientIdea && index === 1 ? patientIdea.patient.gender : index % 2 === 0 ? primaryGender : secondaryGender);
+        const title = figure?.title || _missionSceneMovingPersonTitle(gender, `boarding-group-${index + 1}`);
         return {
             kind: member.kind,
             label: patientIdea ? (index === 0 ? `Medizinische Begleitung: ${patientIdea.passenger.name}` : `Patient: ${patientIdea.patient.name}`) : `Boarding Pax ${index + 1}`,
             objectTitle: title,
-            titleCandidates: _missionSceneMovingPersonCandidates(gender, title),
+            titleCandidates: figure ? _missionSceneGroundFigureCandidates(figure) : _missionSceneMovingPersonCandidates(gender, title),
             forwardM: Number.isFinite(Number(personSpawn.forwardM)) ? Number(personSpawn.forwardM) : 16,
             rightM: (Number.isFinite(Number(personSpawn.rightM)) ? Number(personSpawn.rightM) : -8) + member.lateralOffsetM,
             headingMode: 'face_aircraft',
@@ -7937,8 +8045,13 @@ function _missionSceneBuildDeboardingCommand(reason, pos, sceneId, deboardingPax
         commonFields.vehicleReturnPath = _missionSceneVehicleDeparturePath().slice().reverse();
         commonFields.vehicleSpeedKts = 7;
     }
-    const primaryGender = _missionScenePassengerGender();
-    const personTitle = _missionSceneMovingPersonTitle(primaryGender, 'deboarding');
+    const groundFigures = _missionSceneGroundFigures();
+    const primaryGender = groundFigures?.[0]?.gender || _missionScenePassengerGender();
+    const personTitle = groundFigures?.[0]?.title || _missionSceneMovingPersonTitle(primaryGender, 'deboarding');
+    // Gruppen: der Tracker nimmt die Figuren der Reihe nach aus der Kandidatenliste.
+    const personTitleCandidates = groundFigures
+        ? _sceneUniqueTitles(groundFigures.map(figure => figure.title), groundFigures.flatMap(figure => figure.candidates || []))
+        : _missionSceneMovingPersonCandidates(primaryGender, personTitle);
     const command = {
         type: 'mission_scene_deboarding',
         sceneId,
@@ -7953,7 +8066,7 @@ function _missionSceneBuildDeboardingCommand(reason, pos, sceneId, deboardingPax
         boarderCount: deboardingPaxCount,
         passengerCount: deboardingPaxCount,
         personTitle,
-        personTitleCandidates: _missionSceneMovingPersonCandidates(primaryGender, personTitle)
+        personTitleCandidates
     };
     if (vehicleAsset) {
         command.vehicleTitle = vehicleTitle;

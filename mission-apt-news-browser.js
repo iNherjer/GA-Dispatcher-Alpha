@@ -28,7 +28,9 @@ async function story({start,dest,proposal,contract={},preparedIdea=null}){
  if(!idea)throw Error('Die gewählte Reportage passt nicht mehr zum aktuellen Flugzeug. Bitte neu auswählen.');
  // Ground appearance of the equipment: kept from the outbound idea, otherwise chosen by the composer beside the writer.
  if(preparedIdea?.cargoVisual)idea.cargoVisual=preparedIdea.cargoVisual;
- const cargoVisualTask=root.MissionCargoVisualCore?.ensure(idea,json);
+ if(preparedIdea?.groundVisual)idea.groundVisual=preparedIdea.groundVisual;
+ // Testschalter ga_person_figures_v1: gemeinsamer Boden-Composer (Pax-Looks + Gepäck), sonst bisheriger Cargo-Composer.
+ const cargoVisualTask=root.MissionGroundVisualCore?.enabled?.()?root.MissionGroundVisualCore.ensure(idea,json,{taskDomain:'news_coverage',roleProfile:'news_reporter_professional_v1'}):root.MissionCargoVisualCore?.ensure(idea,json);
  const api=root.MissionPrivateEpisodeV6,context=api.flightContext(contract),flight={context,bindings:api.flightBindings(context)};
  const pageWriter=p=>root.MissionAirportInformationBrowser?.writePages(p,contract,null,json)||json(p);
  const prompt=core().writerPrompt(idea,flight,input.recent);
@@ -72,6 +74,7 @@ async function continuation({req,base,contract,aiEnabled=true}){
  const written=await story({start:idea.route.start,dest:idea.route.target,contract,preparedIdea:idea});
  const m=api.applyMission(req,base,written);
  if(m.aptNewsIdea&&!m.aptNewsIdea.cargoVisual&&written.aptNewsIdea?.cargoVisual)m.aptNewsIdea.cargoVisual=written.aptNewsIdea.cargoVisual;
+ if(m.aptNewsIdea&&!m.aptNewsIdea.groundVisual&&written.aptNewsIdea?.groundVisual)m.aptNewsIdea.groundVisual=written.aptNewsIdea.groundVisual;
  Object.assign(contract,{aptNewsIdea:m.aptNewsIdea,bush:m.bush,passenger:m.passenger,passengerCount:m.passengerCount,plannedPassengerCount:m.plannedPassengerCount,party:m.party,paxText:m.pax,cargoText:m.cargo,followUpContinuation:m.followUpContinuation});
  m._missionContractV4=contract;return m;
 }

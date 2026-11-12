@@ -171,8 +171,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v632';
-const TRACKER_VERSION_CODE = 632;
+const TRACKER_VERSION = 'v633';
+const TRACKER_VERSION_CODE = 633;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -866,6 +866,15 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       debugLog(`WAYPOINT_ROUTE_ERROR objectId=${objectId} points=${route.length} error=${err?.message || err}`);
       return false;
     }
+  };
+
+  // Personen-Figuren aus dem Pack laufen höchstens mit ihrem maxWalkKts (Katalog person-Block);
+  // Tarmac und unbekannte Titel behalten das angeforderte Tempo.
+  const personWalkSpeedKts = (obj, requestedKts) => {
+    const requested = Math.max(0.5, Number(requestedKts) || 0.5);
+    const title = String(obj?.title || obj?.requestedTitle || '').trim();
+    const max = Number(homebaseAssetCatalog.personModelForTitle?.(title)?.maxWalkKts);
+    return Number.isFinite(max) && max > 0 ? Math.min(requested, max) : requested;
   };
 
   const ensureParkingBrakeDefinition = () => {
@@ -2435,7 +2444,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
           altOffsetFt: Number(obj.altOffsetFt || 0)
         };
         const rearAbs = relativeScenePoint(base, rearPoint, rearPoint);
-        const sent = sendWaypointRoute(obj.objectId, [rearAbs], Math.max(1.5, Math.min(3.5, Number(command?.walkSpeedKts || 2.6) || 2.6)));
+        const sent = sendWaypointRoute(obj.objectId, [rearAbs], personWalkSpeedKts(obj, Math.max(1.5, Math.min(3.5, Number(command?.walkSpeedKts || 2.6) || 2.6))));
         debugLog(`SCENE_VEHICLE_CREW_BOARD scene=${sceneId} objectId=${obj.objectId} status=${sent ? 'ok' : 'failed'} targetForwardM=${rearPoint.forwardM} targetRightM=${rearPoint.rightM}`);
         setTimeout(() => removeSceneObject(rec, obj, 'vehicle-crew-boarded'), Math.max(700, boardDelayMs - 250));
       });
@@ -2607,7 +2616,9 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
     const speedKts = Math.max(0.5, toFiniteNumber(command?.speedKts ?? command?.walkSpeedKts, 3.1) || 3.1);
     const primaryPath = boarderPlans[0].path;
     const distanceM = Math.max(...boarderPlans.map(plan => pathDistanceM(plan.path)));
-    const speedMps = Math.max(0.25, speedKts * 0.514444);
+    // Laufzeit nach der langsamsten Figur, damit niemand vor der Tür verschwindet.
+    const slowestBoarderKts = Math.min(speedKts, ...boarderPlans.map(plan => personWalkSpeedKts(plan.person, speedKts)));
+    const speedMps = Math.max(0.25, slowestBoarderKts * 0.514444);
     const groupStaggerTotalMs = groupPlan.enabled
       ? Math.max(0, (requestedBoarders - 1) * groupPlan.boardingStaggerMs)
       : 0;
@@ -2673,7 +2684,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       for (let index = 0; index < boarderPlans.length; index++) {
         if (groupPlan.enabled && index > 0) await sleep(groupPlan.boardingStaggerMs);
         const plan = boarderPlans[index];
-        const sent = sendWaypointRoute(plan.person.objectId, routeForPlan(plan), speedKts);
+        const sent = sendWaypointRoute(plan.person.objectId, routeForPlan(plan), personWalkSpeedKts(plan.person, speedKts));
         sentCount += sent ? 1 : 0;
       }
       return sentCount;
@@ -2692,10 +2703,10 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
             if (!continuePoints.length) return;
             setTimeout(() => {
               const kickPoint = continuePoints[0];
-              const kickSent = sendWaypointRoute(plan.person.objectId, [kickPoint], restartSpeedKts);
+              const kickSent = sendWaypointRoute(plan.person.objectId, [kickPoint], personWalkSpeedKts(plan.person, restartSpeedKts));
               debugLog(`SCENE_BOARDING_RESTART_KICK scene=${sceneId} objectId=${plan.person.objectId} status=${kickSent ? 'ok' : 'failed'} speedKts=${restartSpeedKts} delayMs=${restartDelayMs}`);
               setTimeout(() => {
-                const continued = sendWaypointRoute(plan.person.objectId, continuePoints, speedKts);
+                const continued = sendWaypointRoute(plan.person.objectId, continuePoints, personWalkSpeedKts(plan.person, speedKts));
                 debugLog(`SCENE_BOARDING_CONTINUE scene=${sceneId} objectId=${plan.person.objectId} points=${continuePoints.length} status=${continued ? 'ok' : 'failed'}`);
               }, restartDelayMs);
             }, groupPlan.enabled ? index * groupPlan.boardingStaggerMs : 0);
@@ -3052,7 +3063,7 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         };
       });
       const absRoute = buildRelativeSceneRoute(command, rec, personRoute, personRoute);
-      const sent = sendWaypointRoute(obj.objectId, absRoute.slice(1), walkSpeedKts);
+      const sent = sendWaypointRoute(obj.objectId, absRoute.slice(1), personWalkSpeedKts(obj, walkSpeedKts));
       routeSentCount += sent ? 1 : 0;
       debugLog(`SCENE_DEBOARDING_PERSON_START scene=${sceneId} index=${index + 1}/${personPlans.length} objectId=${obj.objectId} routeSent=${sent ? 1 : 0} staggerMs=${groupPlan.enabled ? groupPlan.boardingStaggerMs : 0}`);
     }
@@ -3088,8 +3099,9 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       await setUserAircraftDoor(false, doorIndex, 'deboarding-close-after-last-exit', doorProfile);
       doorOpened = false;
     }
+    const slowestDeboardKts = people.length ? Math.min(walkSpeedKts, ...people.map(obj => personWalkSpeedKts(obj, walkSpeedKts))) : walkSpeedKts;
     const walkMs = clampInt(
-      (pathDistanceM(routeToExit) / Math.max(0.5, walkSpeedKts * 0.514444)) * 1000 + 1200,
+      (pathDistanceM(routeToExit) / Math.max(0.5, slowestDeboardKts * 0.514444)) * 1000 + 1200,
       3000,
       36000
     );
@@ -3098,7 +3110,10 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       : 0;
     debugLog(`SCENE_DEBOARDING_WALK scene=${sceneId} people=${people.length} routeSent=${routeSentCount}/${people.length} walkMs=${walkMs} path=${pathSource} pickupBound=${pickupRoutePoint ? 1 : 0} walkOff=${walkOffRoute.length}`);
     const reception = planPickupReception(pickupSceneRec, stagedPickupVehicle, walkSpeedKts)
-      .map(plan => ({ ...plan, sent: sendWaypointRoute(plan.person.objectId, [plan.target], walkSpeedKts) }));
+      .map((plan) => {
+        const kts = personWalkSpeedKts(plan.person, walkSpeedKts);
+        return { ...plan, walkMs: Math.round(Number(plan.walkMs || 0) * walkSpeedKts / kts), sent: sendWaypointRoute(plan.person.objectId, [plan.target], kts) };
+      });
     const receptionWalkMs = Math.min(36000, Math.max(0, ...reception.map(plan => plan.walkMs)));
     await sleep(Math.max(walkMs, receptionWalkMs));
     // A scene replacement/abort while walking must never remove newer actors.
@@ -3314,11 +3329,12 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       let visitorRouteSentCount = 0;
       let visitorArrivalMs = 0;
       visitors.forEach((visitor) => {
-        const sent = sendWaypointRoute(visitor.object.objectId, visitor.route.slice(1), walkSpeedKts);
+        const visitorKts = personWalkSpeedKts(visitor.object, walkSpeedKts);
+        const sent = sendWaypointRoute(visitor.object.objectId, visitor.route.slice(1), visitorKts);
         visitor.routeSent = sent;
         visitorRouteSentCount += sent ? 1 : 0;
         visitorArrivalMs = Math.max(visitorArrivalMs, clampInt(
-          (pathDistanceM(visitor.route) / Math.max(0.5, walkSpeedKts * 0.514444)) * 1000 + 1000,
+          (pathDistanceM(visitor.route) / Math.max(0.5, visitorKts * 0.514444)) * 1000 + 1000,
           2500,
           26000
         ));
@@ -3359,10 +3375,11 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       let visitorReturnMs = 0;
       visitors.forEach((visitor) => {
         const reverseRoute = visitor.route.slice().reverse();
-        const sent = sendWaypointRoute(visitor.object.objectId, reverseRoute.slice(1), walkSpeedKts);
+        const visitorKts = personWalkSpeedKts(visitor.object, walkSpeedKts);
+        const sent = sendWaypointRoute(visitor.object.objectId, reverseRoute.slice(1), visitorKts);
         visitorReturnSentCount += sent ? 1 : 0;
         visitorReturnMs = Math.max(visitorReturnMs, clampInt(
-          (pathDistanceM(reverseRoute) / Math.max(0.5, walkSpeedKts * 0.514444)) * 1000 + 900,
+          (pathDistanceM(reverseRoute) / Math.max(0.5, visitorKts * 0.514444)) * 1000 + 900,
           2500,
           26000
         ));

@@ -58,7 +58,7 @@ nur nach Freigabe des Users, neue Wege hinter Testschaltern.
 | A4 | Bordliste `mission-onboard.v1`: Normalizer + Adapter je Ideen-Schema aus vorhandenen Feldern (`passenger`, `passengerCount`, `groupLabel`, `party`, `shipment`, `luggageLabel`, `manifestItems` …) | neu `mission-onboard-core.js` | für jedes Schema aus Abschnitt 4 eine Bordliste aus Fixture-Ideen |
 | A5 | Boden-Composer: ein Abruf für Pax-Looks und Packstücke, Validierung, Auflösung, `groundVisual` speichern, Rückfall | neu `mission-ground-visual-core.js` (übernimmt `mission-cargo-visual-core.js`) | Unit-Tests: gültig, ungültig, Rückfall, Rückflug-Identität |
 | A6 | Manifest: eine Figur je Pax (`visualPersons[]` analog `visualPieces`), Gruppenabfolge (`party`, `groupSequence`) nutzt dieselben Figuren; Stimme aus derselben Geschlechtsquelle | `mission-cargo-core.js`, `sync.js` (Boarding/Deboarding), `mission-manifest-core.js`, `passenger-voice.js` (nur Lesen) | Einsteigen/Aussteigen zeigt je Pax die gewählte Figur |
-| A7 | Tracker: Lauftempo je Figur (`maxWalkKts` begrenzen, Laufzeit mit echtem Tempo rechnen); Gruppenmissionen bis 6 Einsteiger (heute 3), Einzel-Pax unverändert; Capability | `ga-tracker-client/tracker.js` (Boarding/Deboarding/Reception) | Wanderin kommt rechtzeitig an der Tür an; EXE nur nach OK |
+| A7 | Tracker: Lauftempo je Figur (`maxWalkKts` begrenzen, Laufzeit mit echtem Tempo rechnen); Gruppen bleiben bei 5 Pax | `ga-tracker-client/tracker.js` (Boarding/Deboarding/Reception) | Wanderin kommt rechtzeitig an der Tür an; EXE nur nach OK |
 
 Tests A: Unit-Tests je Kern, `tools/mission-scene-cargo-selftest.mjs`, `mission-ground-flow-selftest.mjs`,
 Tracker-Suite. Sim-Test: Einsteigen/Aussteigen Wanderin + Tarmac gemischt.
@@ -125,6 +125,30 @@ Trauerflug, Familienausflug) plausible Looks liefern; Rückflug identisch; Sim-T
 - Testschalter einzeln entfernen, Doku (`mission-scene-asset-strategy.md`,
   `Mission Building Instructions.md`, `Mission Flow Reference.md`) nachziehen.
 
+## 3a. Stand Etappe A (12.11.2026)
+
+Umgesetzt hinter dem Testschalter `ga_person_figures_v1` (Standard aus; einschalten mit
+`localStorage.setItem('ga_person_figures_v1','on')`):
+
+- A1 `tools/generate-mission-person-assets.mjs` → `data/mission-person-assets.js`
+  (Pack-Figuren mit `person`-Block + Tarmac-Stock aus `data/mission-person-asset-profiles.json`,
+  `packFallbacks` für Pack-Figuren ohne `appearance`). Teil von `release-homebase-pack.mjs`.
+- A2 `_missionSceneIsPersonFigureTitle` statt `/^tarmac_/` (Manifest-Manual-Pax, Kandidaten,
+  Ankunftspersonen).
+- A3 `mission-person-figure-core.js`: `pickPersonFigure`, `pickGroupFigures`,
+  `seasonFromContext`, feste Liste `defaultLookForRole` (Test prüft Vollständigkeit).
+- A4 `mission-onboard-core.js`: Bordliste für `charter-idea.v1`, `sightseeing-idea.v1`,
+  `apt-news-idea.v1`, Rückfall `fromPassenger`.
+- A5 `mission-ground-visual-core.js`: ein Abruf für Looks + Packstücke, schreibt
+  `groundVisual` und `cargoVisual`; Rückflug behält Looks (`paxSignature`); Ausfall →
+  feste Liste + bisheriger Cargo-Composer. Eingebunden in die drei Browser-Adapter.
+- A6 `_missionSceneGroundFigures` in `sync.js`: Figur je Pax beim Einsteigen (einzeln und
+  Gruppe), Aussteigen (Kandidaten in Pax-Reihenfolge) und im Manifest (`visualPersons`).
+- A7 `tracker.js` `personWalkSpeedKts`: Tempo je Figur auf `maxWalkKts`, Laufzeiten nach
+  der langsamsten Figur (Einsteigen, Aussteigen, Empfang, Besucher, Fahrzeugpersonal).
+
+Offen: Sim-Test mit Schalter; danach Etappe B (Live-Proben der Pilot-Stränge).
+
 ## 4. Checkliste je Strang (beim Umbau abhaken)
 
 - [ ] Bordliste aus der Idee bzw. dem Profil korrekt (Pax, Anzahl, Cargo-Posten)
@@ -139,7 +163,7 @@ Trauerflug, Familienausflug) plausible Looks liefern; Rückflug identisch; Sim-T
 ## 5. Entscheidungen des Users (12.11.2026)
 
 1. Look-Liste bleibt voraussichtlich; Feinschliff siehe Vorschlag unten.
-2. Gruppenmissionen bis 6 Pax-Figuren, Einzel-Pax wie bisher.
+2. Gruppen bleiben bei höchstens 5 Pax (mit Pilot 6 Personen); keine Änderung an Gruppen-Kern und Kapazität.
 3. Patient ist gehfähig und läuft als Pax-Figur; eine eigene Patientenfigur kann folgen.
 4. Ohne KI-Modus: nur Auswahl aus einer festen Liste, kein Composer-Abruf.
 5. Zusatz: Die Wanderin darf auch als Zuschauerin bzw. Abholerin/Bringerin in passenden

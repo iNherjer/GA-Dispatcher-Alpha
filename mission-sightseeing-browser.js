@@ -41,7 +41,8 @@ async function story({start,dest,proposal,contract={}}){
  }else{input=await frame(start,dest);idea=(await ideas([{candidateId:'direct',...input}]))[0];}
  if(!idea)throw Error('Die gewählte Reisegruppe oder die Besuchsziele passen nicht mehr zum Flug. Bitte neu auswählen.');
  // Ground appearance of the luggage, chosen by the composer beside the writer.
- const cargoVisualTask=root.MissionCargoVisualCore?.ensure(idea,json);
+ // Testschalter ga_person_figures_v1: gemeinsamer Boden-Composer (Pax-Looks + Gepäck), sonst bisheriger Cargo-Composer.
+ const cargoVisualTask=root.MissionGroundVisualCore?.enabled?.()?root.MissionGroundVisualCore.ensure(idea,json,{taskDomain:'sightseeing_tour',roleProfile:'tour_guide_relaxed_v1'}):root.MissionCargoVisualCore?.ensure(idea,json);
  const api=root.MissionPrivateEpisodeV6,context=api.flightContext(contract),flight={context,bindings:api.flightBindings(context)};
  const pageWriter=p=>root.MissionAirportInformationBrowser?.writePages(p,contract,null,json)||json(p);
  const prompt=core().writerPrompt(idea,flight,input.recent),parse=raw=>core().prose(resolveText(raw,flight.bindings),idea);

@@ -31,6 +31,14 @@ _Derzeit keine offenen Einträge._
 
 ## Ausgeliefert
 
+### 2026-11-12 · Boden-Composer Etappe A + Lauftempo je Figur — ausgeliefert in Tracker v633 Alpha / Web v2364 (12.11.2026)
+- **Artefakt:** Tracker-EXE; Web mit diesem Push (hinter `ga_person_figures_v1`, Standard aus)
+- **Dateien:** `ga-tracker-client/tracker.js`, `sync.js`, `mission-cargo-core.js`, `mission-person-figure-core.js`, `mission-onboard-core.js`, `mission-ground-visual-core.js`, `data/mission-person-assets.js`, Browser-Adapter Charter/Sightseeing/Reporter
+- **Was:** Figur je Pax nach Look/Geschlecht/Jahreszeit, gemeinsamer Pax-und-Cargo-Composer für drei Pilot-Stränge, Tracker begrenzt Tempo auf `maxWalkKts`.
+- **Tests:** siehe `docs/Tracker-v633-Release.md`.
+- **Doku beim Release:** `docs/Mission Ground Composer Fahrplan.md` 3a.
+- **Pruefen im Feld:** Schalter an, Charter mit Gruppe: passende Figuren, Wanderin erreicht die Tür.
+
 ### 2026-11-12 · Homebase: eigene Figuren als Mitarbeiter — ausgeliefert in Tracker v632 Alpha / Web v2363 / ga-proxy (12.11.2026)
 - **Artefakt:** Tracker-EXE; Web und Proxy mit diesem Push
 - **Dateien:** `ga-tracker-client/homebase-asset-catalog.js`, `homebase-object-manager.js`, `homebase-package-service.js`, `homebase-asset-updater.js`, `homebase-scene-core.js`, `homebase-integration.js`, `homebase/homebase-workbench.js`, Proxy `worker-merged-full.js`

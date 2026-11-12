@@ -625,7 +625,9 @@ function _missionCargoPushItem(items, item) {
         passengerOwned: item.passengerOwned === true,
         handoffWithPassenger: item.handoffWithPassenger === true || item.passengerOwned === true,
         handoffComplete: item.handoffComplete === true,
-        handedOffAt: Number.isFinite(Number(item.handedOffAt)) ? Math.max(0, Number(item.handedOffAt)) : 0
+        handedOffAt: Number.isFinite(Number(item.handedOffAt)) ? Math.max(0, Number(item.handedOffAt)) : 0,
+        ...(itemType === 'passenger' && Array.isArray(item.visualPersons) && item.visualPersons.length
+            ? { visualPersons: item.visualPersons.slice(0, 6) } : {})
     });
 }
 
@@ -853,8 +855,10 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
     const items = [];
     if (_missionCargoHasPassengerMission()) {
         const paxCount = _missionCargoPassengerCount();
-        const primaryGender = _missionScenePassengerGender();
-        const paxTitle = _missionScenePersonTitle(primaryGender, 'cargo-passenger-manifest');
+        // Figuren je Pax (Testschalter ga_person_figures_v1); die Gruppe bleibt ein Manifest-Posten.
+        const groundFigures = typeof _missionSceneGroundFigures === 'function' ? _missionSceneGroundFigures() : null;
+        const primaryGender = groundFigures?.[0]?.gender || _missionScenePassengerGender();
+        const paxTitle = groundFigures?.[0]?.title || _missionScenePersonTitle(primaryGender, 'cargo-passenger-manifest');
         _missionCargoPushItem(items, {
             id: 'mission-passenger',
             itemType: 'passenger',
@@ -866,7 +870,10 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
             required: true,
             deliverAtDestination: true,
             objectTitle: paxTitle,
-            titleCandidates: _missionScenePersonCandidates(primaryGender, paxTitle),
+            titleCandidates: groundFigures?.[0] ? _missionSceneGroundFigureCandidates(groundFigures[0]) : _missionScenePersonCandidates(primaryGender, paxTitle),
+            ...(groundFigures ? { visualPersons: groundFigures.slice(0, Math.max(1, paxCount)).map(figure => ({
+                id: figure.id, title: figure.title, gender: figure.gender, look: figure.look, figureLook: figure.figureLook, maxWalkKts: figure.maxWalkKts
+            })) } : {}),
             forwardOffsetM: -0.4,
             rightOffsetM: -1.2
         });
@@ -1818,7 +1825,9 @@ function _missionCargoSendManualPassengerCommand(item = null, action = 'unload',
     const boardingPoint = options.boardingPoint || _missionCargoPassengerBoardingPoint();
     const gender = _missionScenePassengerGender();
     const requestedPersonTitle = String(options.personTitle || item.objectTitle || '').trim();
-    const personTitle = /^tarmac_/i.test(requestedPersonTitle)
+    const personTitle = (typeof _missionSceneIsPersonFigureTitle === 'function'
+        ? _missionSceneIsPersonFigureTitle(requestedPersonTitle)
+        : /^tarmac_/i.test(requestedPersonTitle))
         ? requestedPersonTitle
         : (typeof _missionSceneMovingPersonTitle === 'function'
             ? _missionSceneMovingPersonTitle(gender, `manual-passenger-${normalizedAction}`)
@@ -4327,7 +4336,8 @@ window.missionCargoBuildManualPassengerEffectPlan = function() {
         const action = operation === 'unload' ? 'unload' : 'load';
         const options = action === 'load' ? _missionCargoManualPassengerLoadOptions(item, operation === 'reload') : {};
         const requestedTitle = String(item.objectTitle || '').trim();
-        const personTitle = /^tarmac_/i.test(requestedTitle) ? requestedTitle
+        const personTitle = (typeof _missionSceneIsPersonFigureTitle === 'function'
+            ? _missionSceneIsPersonFigureTitle(requestedTitle) : /^tarmac_/i.test(requestedTitle)) ? requestedTitle
             : (typeof _missionSceneMovingPersonTitle === 'function'
                 ? _missionSceneMovingPersonTitle(gender, `manual-passenger-${action}`)
                 : _missionScenePersonTitle(gender, `manual-passenger-${action}`));

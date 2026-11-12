@@ -164,13 +164,13 @@ try {
   }
 
   step('5. Missionslisten neu erzeugen');
-  for (const script of ['tools/generate-homebase-scene-assets.mjs', 'tools/generate-mission-cargo-assets.mjs']) {
+  for (const script of ['tools/generate-homebase-scene-assets.mjs', 'tools/generate-mission-cargo-assets.mjs', 'tools/generate-mission-person-assets.mjs']) {
     const run = spawnSync(process.execPath, [script], { cwd: root, encoding: 'utf8' });
     if (run.status !== 0) fail(`${script}: ${run.stderr.trim()}`);
     else ok(run.stdout.trim().split('\n').filter((line) => !line.startsWith('WARN')).join(' | '));
     for (const line of (run.stdout + run.stderr).split('\n').filter((l) => l.startsWith('WARN'))) warn(line.replace(/^WARN\s*/, ''));
   }
-  const changed = execFileSync('git', ['status', '--short', '--', 'data/mission-cargo-assets.js', 'data/mission-homebase-scene-assets.js'], { cwd: root, encoding: 'utf8' }).trim();
+  const changed = execFileSync('git', ['status', '--short', '--', 'data/mission-cargo-assets.js', 'data/mission-homebase-scene-assets.js', 'data/mission-person-assets.js'], { cwd: root, encoding: 'utf8' }).trim();
   console.log(changed ? `  geändert (bitte mit committen, sw.js erhöhen):\n${changed.replace(/^/gm, '    ')}` : '  ok      Listen unverändert');
 
   if (!skipTests) {
@@ -180,6 +180,7 @@ try {
       ['tools', ['--test', 'tools/mission-cargo-visual.test.mjs']],
       ['tools', ['--test', 'tools/homebase-scene-core.test.cjs']],
       ['tools', ['--test', 'tools/homebase-person-rules.test.mjs']],
+      ['tools', ['--test', 'tools/mission-person-figure-core.test.cjs']],
       ['ga-tracker-client', ['--test', 'homebase-pack-people.test.js']]
     ];
     for (const [dir, testArgs] of tests) {

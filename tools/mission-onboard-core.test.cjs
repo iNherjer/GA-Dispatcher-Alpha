@@ -1,0 +1,60 @@
+'use strict';
+// Bordliste aus den fertigen Ideen der Pilot-Stränge und aus dem Passagierprofil.
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const core = require(path.join(__dirname, '..', 'mission-onboard-core.js'));
+
+const charter = {
+  schema: 'charter-idea.v1', reason: 'Hochzeit auf einem Weingut', background: 'Das Brautpaar wünscht Luftaufnahmen',
+  arrival: 'Abholung durch die Hochzeitsplanerin', travelCharacter: 'festlich', passengerCount: 2, groupLabel: 'Fotograf mit Assistentin',
+  passenger: { name: 'Jonas Weber', role: 'Hochzeitsfotograf', gender: 'male', personality: 'ruhig' },
+  luggageLabel: 'Kameraausrüstung mit Drohne im Hartschalenkoffer', luggageWeightLbs: 28
+};
+
+test('Charter: Anlass, Gruppe, Hauptperson mit Geschlecht, Mitreisende offen, Gepäck', () => {
+  const onboard = core.fromIdea(charter);
+  assert.equal(onboard.schema, 'mission-onboard.v1');
+  assert.match(onboard.occasion, /Hochzeit/);
+  assert.match(onboard.occasion, /festlich/);
+  assert.equal(onboard.passengers.length, 2);
+  assert.deepEqual(onboard.passengers.map((p) => [p.id, p.lead, p.gender]), [['pax1', true, 'male'], ['pax2', false, '']]);
+  assert.equal(onboard.passengers[0].role, 'Hochzeitsfotograf');
+  assert.equal(onboard.passengers[1].role, 'Fotograf mit Assistentin');
+  assert.deepEqual(onboard.cargo.map((c) => [c.id, c.owner, c.weightLbs]), [['c1', 'pax1', 28]]);
+});
+
+test('Charter ohne Gepäck: keine Cargo-Posten', () => {
+  assert.deepEqual(core.fromIdea({ ...charter, luggageWeightLbs: 0 }).cargo, []);
+});
+
+test('Sightseeing und Reporter', () => {
+  const sight = core.fromIdea({ schema: 'sightseeing-idea.v1', theme: 'Burgen am Neckar', summary: 'Rundflug für ein älteres Paar',
+    groundPlan: 'Kaffee am Flugplatz', passengerCount: 2, groupLabel: 'Ehepaar',
+    passenger: { name: 'Ilse', role: 'Rentnerin', gender: 'female', personality: 'neugierig' }, luggageLabel: 'Kamera', luggageWeightLbs: 4 });
+  assert.equal(sight.passengers.length, 2);
+  assert.equal(sight.passengers[0].gender, 'female');
+  const news = core.fromIdea({ schema: 'apt-news-idea.v1', purpose: 'Bericht über das Fliegerfest', background: 'Lokalzeitung',
+    angle: 'Ehrenamt', groundPlan: 'Interviews', publication: 'Wochenendausgabe', groupLabel: 'Reporterin',
+    passenger: { name: 'Mia', role: 'Reporterin', gender: 'female' },
+    shipment: { label: 'Kameratasche', packaging: 'gepolsterte Tasche', handling: 'aufrecht', weightLbs: 12 } });
+  assert.equal(news.passengers.length, 1);
+  assert.equal(news.cargo[0].packaging, 'gepolsterte Tasche');
+});
+
+test('unbekanntes Schema → null, Rückfall aus Passagierprofil mit Gruppe bis 6', () => {
+  assert.equal(core.fromIdea({ schema: 'cargo-idea.v1' }), null);
+  const fallback = core.fromPassenger({ role: 'Fluglehrerin', gender: 'female', storySeed: 'Platzrundentraining' }, { party: { count: 9, label: 'Schulklasse' } });
+  assert.equal(fallback.passengers.length, 6);
+  assert.equal(fallback.passengers[0].gender, 'female');
+  assert.equal(fallback.source, 'passenger-profile');
+  assert.equal(core.fromPassenger(null), null);
+});
+
+test('normalize begrenzt und bereinigt', () => {
+  const onboard = core.normalize({ passengers: [{ gender: 'divers', role: 'x'.repeat(300) }], cargo: [{ description: 'Kiste', weightLbs: -1 }] });
+  assert.equal(onboard.passengers[0].gender, '');
+  assert.equal(onboard.passengers[0].role.length, 100);
+  assert.deepEqual(onboard.cargo, []);
+  assert.equal(core.normalize({ passengers: [] }), null);
+});

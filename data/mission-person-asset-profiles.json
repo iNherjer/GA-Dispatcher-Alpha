@@ -1,0 +1,384 @@
+{
+  "schema": "mission-person-asset-profiles.v1",
+  "note": "Standardfiguren (MSFS Tarmac) und Übergangswerte für Pack-Figuren ohne person.appearance. Pack-Figuren mit eigenem Aussehen im Katalog brauchen hier keinen Eintrag; ein Eintrag unter packFallbacks tritt automatisch zurück, sobald der Katalog appearance liefert. Nach Änderungen: node tools/generate-mission-person-assets.mjs",
+  "stock": [
+    {
+      "title": "Tarmac_Female_Summer_African",
+      "gender": "female",
+      "look": "workwear",
+      "ageBand": "adult",
+      "season": "summer",
+      "props": [],
+      "uses": [
+        "passenger",
+        "pickup",
+        "ground_crew",
+        "bystander",
+        "escort"
+      ]
+    },
+    {
+      "title": "Tarmac_Female_Summer_Arab",
+      "gender": "female",
+      "look": "workwear",
+      "ageBand": "adult",
+      "season": "summer",
+      "props": [],
+      "uses": [
+        "passenger",
+        "pickup",
+        "ground_crew",
+        "bystander",
+        "escort"
+      ]
+    },
+    {
+      "title": "Tarmac_Female_Summer_Asian",
+      "gender": "female",
+      "look": "workwear",
+      "ageBand": "adult",
+      "season": "summer",
+      "props": [],
+      "uses": [
+        "passenger",
+        "pickup",
+        "ground_crew",
+        "bystander",
+        "escort"
+      ]
+    },
+    {
+      "title": "Tarmac_Female_Summer_Caucasian",
+      "gender": "female",
+      "look": "workwear",
+      "ageBand": "adult",
+      "season": "summer",
+      "props": [],
+      "uses": [
+        "passenger",
+        "pickup",
+        "ground_crew",
+        "bystander",
+        "escort"
+      ]
+    },
+    {
+      "title": "Tarmac_Female_Summer_Hispanic",
+      "gender": "female",
+      "look": "workwear",
+      "ageBand": "adult",
+      "season": "summer",
+      "props": [],
+      "uses": [
+        "passenger",
+        "pickup",
+        "ground_crew",
+        "bystander",
+        "escort"
+      ]
+    },
+    {
+      "title": "Tarmac_Female_Summer_Indian",
+      "gender": "female",
+      "look": "workwear",
+      "ageBand": "adult",
+      "season": "summer",
+      "props": [],
+      "uses": [
+        "passenger",
+        "pickup",
+        "ground_crew",
+        "bystander",
+        "escort"
+      ]
+    },
+    {
+      "title": "Tarmac_Female_Winter_African",
+      "gender": "female",
+      "look": "workwear",
+      "ageBand": "adult",
+      "season": "winter",
+      "props": [],
+      "uses": [
+        "passenger",
+        "pickup",
+        "ground_crew",
+        "bystander",
+        "escort"
+      ]
+    },
+    {
+      "title": "Tarmac_Female_Winter_Arab",
+      "gender": "female",
+      "look": "workwear",
+      "ageBand": "adult",
+      "season": "winter",
+      "props": [],
+      "uses": [
+        "passenger",
+        "pickup",
+        "ground_crew",
+        "bystander",
+        "escort"
+      ]
+    },
+    {
+      "title": "Tarmac_Female_Winter_Asian",
+      "gender": "female",
+      "look": "workwear",
+      "ageBand": "adult",
+      "season": "winter",
+      "props": [],
+      "uses": [
+        "passenger",
+        "pickup",
+        "ground_crew",
+        "bystander",
+        "escort"
+      ]
+    },
+    {
+      "title": "Tarmac_Female_Winter_Caucasian",
+      "gender": "female",
+      "look": "workwear",
+      "ageBand": "adult",
+      "season": "winter",
+      "props": [],
+      "uses": [
+        "passenger",
+        "pickup",
+        "ground_crew",
+        "bystander",
+        "escort"
+      ]
+    },
+    {
+      "title": "Tarmac_Female_Winter_Hispanic",
+      "gender": "female",
+      "look": "workwear",
+      "ageBand": "adult",
+      "season": "winter",
+      "props": [],
+      "uses": [
+        "passenger",
+        "pickup",
+        "ground_crew",
+        "bystander",
+        "escort"
+      ]
+    },
+    {
+      "title": "Tarmac_Female_Winter_Indian",
+      "gender": "female",
+      "look": "workwear",
+      "ageBand": "adult",
+      "season": "winter",
+      "props": [],
+      "uses": [
+        "passenger",
+        "pickup",
+        "ground_crew",
+        "bystander",
+        "escort"
+      ]
+    },
+    {
+      "title": "Tarmac_Male_Summer_African",
+      "gender": "male",
+      "look": "workwear",
+      "ageBand": "adult",
+      "season": "summer",
+      "props": [],
+      "uses": [
+        "passenger",
+        "pickup",
+        "ground_crew",
+        "bystander",
+        "escort"
+      ]
+    },
+    {
+      "title": "Tarmac_Male_Summer_Arab",
+      "gender": "male",
+      "look": "workwear",
+      "ageBand": "adult",
+      "season": "summer",
+      "props": [],
+      "uses": [
+        "passenger",
+        "pickup",
+        "ground_crew",
+        "bystander",
+        "escort"
+      ]
+    },
+    {
+      "title": "Tarmac_Male_Summer_Asian",
+      "gender": "male",
+      "look": "workwear",
+      "ageBand": "adult",
+      "season": "summer",
+      "props": [],
+      "uses": [
+        "passenger",
+        "pickup",
+        "ground_crew",
+        "bystander",
+        "escort"
+      ]
+    },
+    {
+      "title": "Tarmac_Male_Summer_Caucasian",
+      "gender": "male",
+      "look": "workwear",
+      "ageBand": "adult",
+      "season": "summer",
+      "props": [],
+      "uses": [
+        "passenger",
+        "pickup",
+        "ground_crew",
+        "bystander",
+        "escort"
+      ]
+    },
+    {
+      "title": "Tarmac_Male_Summer_Hispanic",
+      "gender": "male",
+      "look": "workwear",
+      "ageBand": "adult",
+      "season": "summer",
+      "props": [],
+      "uses": [
+        "passenger",
+        "pickup",
+        "ground_crew",
+        "bystander",
+        "escort"
+      ]
+    },
+    {
+      "title": "Tarmac_Male_Summer_Indian",
+      "gender": "male",
+      "look": "workwear",
+      "ageBand": "adult",
+      "season": "summer",
+      "props": [],
+      "uses": [
+        "passenger",
+        "pickup",
+        "ground_crew",
+        "bystander",
+        "escort"
+      ]
+    },
+    {
+      "title": "Tarmac_Male_Winter_African",
+      "gender": "male",
+      "look": "workwear",
+      "ageBand": "adult",
+      "season": "winter",
+      "props": [],
+      "uses": [
+        "passenger",
+        "pickup",
+        "ground_crew",
+        "bystander",
+        "escort"
+      ]
+    },
+    {
+      "title": "Tarmac_Male_Winter_Arab",
+      "gender": "male",
+      "look": "workwear",
+      "ageBand": "adult",
+      "season": "winter",
+      "props": [],
+      "uses": [
+        "passenger",
+        "pickup",
+        "ground_crew",
+        "bystander",
+        "escort"
+      ]
+    },
+    {
+      "title": "Tarmac_Male_Winter_Asian",
+      "gender": "male",
+      "look": "workwear",
+      "ageBand": "adult",
+      "season": "winter",
+      "props": [],
+      "uses": [
+        "passenger",
+        "pickup",
+        "ground_crew",
+        "bystander",
+        "escort"
+      ]
+    },
+    {
+      "title": "Tarmac_Male_Winter_Caucasian",
+      "gender": "male",
+      "look": "workwear",
+      "ageBand": "adult",
+      "season": "winter",
+      "props": [],
+      "uses": [
+        "passenger",
+        "pickup",
+        "ground_crew",
+        "bystander",
+        "escort"
+      ]
+    },
+    {
+      "title": "Tarmac_Male_Winter_Hispanic",
+      "gender": "male",
+      "look": "workwear",
+      "ageBand": "adult",
+      "season": "winter",
+      "props": [],
+      "uses": [
+        "passenger",
+        "pickup",
+        "ground_crew",
+        "bystander",
+        "escort"
+      ]
+    },
+    {
+      "title": "Tarmac_Male_Winter_Indian",
+      "gender": "male",
+      "look": "workwear",
+      "ageBand": "adult",
+      "season": "winter",
+      "props": [],
+      "uses": [
+        "passenger",
+        "pickup",
+        "ground_crew",
+        "bystander",
+        "escort"
+      ]
+    }
+  ],
+  "packFallbacks": {
+    "tumbleweedHiker": {
+      "look": "outdoor",
+      "ageBand": "young_adult",
+      "season": "all",
+      "props": [
+        "backpack_large"
+      ],
+      "uses": [
+        "passenger",
+        "pickup",
+        "bystander",
+        "escort",
+        "homebase"
+      ],
+      "description": "Junge Frau in Wanderhose und Funktionsjacke mit großem Trekkingrucksack"
+    }
+  }
+}

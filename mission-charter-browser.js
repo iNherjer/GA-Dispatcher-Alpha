@@ -21,7 +21,8 @@ async function story({start,dest,proposal,contract={}}){
 }
 async function write(idea,input,contract,extraPrompt=''){
  // Ground appearance of the luggage: kept from the outbound idea, otherwise chosen by the composer beside the writer.
- const cargoVisualTask=root.MissionCargoVisualCore?.ensure(idea,json);
+ // Testschalter ga_person_figures_v1: gemeinsamer Boden-Composer (Pax-Looks + Gepäck), sonst bisheriger Cargo-Composer.
+ const cargoVisualTask=root.MissionGroundVisualCore?.enabled?.()?root.MissionGroundVisualCore.ensure(idea,json,{taskDomain:'charter',roleProfile:'charter_professional_neutral_v1'}):root.MissionCargoVisualCore?.ensure(idea,json);
  const api=root.MissionPrivateEpisodeV6,context=api.flightContext(contract),flight={context,bindings:api.flightBindings(context)};
  const pageWriter=p=>root.MissionAirportInformationBrowser?.writePages(p,contract,null,json)||json(p);
  const prompt=core().writerPrompt(idea,flight,input.recent)+extraPrompt;
@@ -80,6 +81,7 @@ async function continuation({req,base,contract,aiEnabled=true}) {
  const written=await write(idea,input,contract,'\nFORTSETZUNG: Erzähle den gespeicherten Aufenthalt und den jetzigen Rückreiseauftrag. Verbinde einen konkreten kurzen Rückblick mit dem aktuellen Stand des Kundenanliegens und dem nächsten Schritt nach der Rückkehr zu einer flüssigen Geschichte. Erkläre anschließend knapp den anstehenden Flug. Bleibe außenstehender Erzähler; nur greeting ist direkte Rede. Der professionelle Rahmen darf menschlich und warm wirken. Überlasse persönliche Vertiefungen den späteren Gesprächen, statt diese im Briefing vorwegzunehmen. Erfinde keine neue Version des Erlebnisses. Der Pilot war nicht automatisch dabei. Der gesamte Flug liegt noch bevor. greeting ist erst beim tatsächlichen Boarding zu hören. Ablauf und Startort: '+JSON.stringify({acceptance:req.acceptance,pickupRequired:!!base.bush,continuity:req.charterContinuation})+'. Bei Abholung zuerst leer zum Aufenthaltsplatz, danach die vollständige Gruppe zum ursprünglichen Startplatz; ein Drittplatz des Piloten ist nicht das Kundenziel. Wetterdaten gelten ausschließlich für die jeweils ausdrücklich genannte Strecke.');
  const m=api.applyMission(req,base,written);
  if(m.charterIdea&&!m.charterIdea.cargoVisual&&written.charterIdea?.cargoVisual)m.charterIdea.cargoVisual=written.charterIdea.cargoVisual;
+ if(m.charterIdea&&!m.charterIdea.groundVisual&&written.charterIdea?.groundVisual)m.charterIdea.groundVisual=written.charterIdea.groundVisual;
  Object.assign(contract,{charterIdea:m.charterIdea,bush:m.bush,passenger:m.passenger,passengerCount:m.passengerCount,plannedPassengerCount:m.plannedPassengerCount,party:m.party,paxText:m.pax,cargoText:m.cargo,followUpContinuation:m.followUpContinuation});
  m._missionContractV4=contract;return m;
 }
