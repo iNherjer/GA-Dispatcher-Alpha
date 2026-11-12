@@ -31,6 +31,14 @@ _Derzeit keine offenen Einträge._
 
 ## Ausgeliefert
 
+### 2026-11-12 · Homebase: eigene Figuren als Mitarbeiter — ausgeliefert in Tracker v632 Alpha / Web v2363 / ga-proxy (12.11.2026)
+- **Artefakt:** Tracker-EXE; Web und Proxy mit diesem Push
+- **Dateien:** `ga-tracker-client/homebase-asset-catalog.js`, `homebase-object-manager.js`, `homebase-package-service.js`, `homebase-asset-updater.js`, `homebase-scene-core.js`, `homebase-integration.js`, `homebase/homebase-workbench.js`, Proxy `worker-merged-full.js`
+- **Was:** Figuren mit `person`-Block aus dem installierten Assetpaket (Wanderin, Pack 0.6.26) als Homebase-Mitarbeiter, Tarmac-Ersatz ohne Pack oder für alte Tracker, Tempo je Figur.
+- **Tests:** `homebase-pack-people.test.js` 3/3, `homebase-scene-core.test.cjs` 9/9, Worker `npm test`.
+- **Doku beim Release:** `docs/Mission Person Asset Plan.md` 7a, `docs/Tracker-v632-Release.md`.
+- **Pruefen im Feld:** Workbench „Eigene Figuren“ → Wanderin wählen, Homebase im Sim: läuft sie ihre Ziele ab?
+
 ### 2026-11-10 · EFB: Flugplan-Meldung obenauf — ausgeliefert in Tracker v631 Alpha (10.11.2026)
 - **Artefakt:** Tracker-EXE (EFB-Host)
 - **Dateien:** `ga-tracker-client/tracker-efb-kartentisch-host.js`

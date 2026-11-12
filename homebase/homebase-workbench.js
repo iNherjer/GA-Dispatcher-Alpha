@@ -28,6 +28,13 @@
     ...ASSET_CATALOG.stockObjects.map((entry) => [entry.title, { ...entry }])
   ]);
   const TARMAC_PEOPLE = Array.isArray(ASSET_CATALOG.tarmacPeople) ? ASSET_CATALOG.tarmacPeople : [];
+  // Own animated figures from the installed asset pack (catalogue entries with a `person` block).
+  // They are filled in from the Tracker's asset inspection; each carries a Tarmac stand-in.
+  const PACK_PEOPLE = [];
+  const PACK_PERSON_TITLE = /^(?!tarmac_|termac_)[A-Za-z0-9][A-Za-z0-9 _.-]{0,159}$/i;
+  const PERSON_FALLBACK_BY_GENDER = { female: 'Tarmac_Female_Summer_Caucasian', male: 'Tarmac_Male_Summer_Caucasian' };
+  const isTarmacPersonTitle = (title) => TARMAC_PEOPLE.some((entry) => entry.title === title);
+  const packPersonFor = (title) => PACK_PEOPLE.find((entry) => entry.title === title) || null;
   const TARMAC_PERSON_TITLE_ALIASES = ASSET_CATALOG.legacyPersonTitleAliases || {};
   const HANGAR_TITLE = ASSET_BY_KEY.get('hangar').title;
   const OPEN_PARKING_TITLE = ASSET_BY_KEY.get('openParking').title;
@@ -266,14 +273,24 @@
     const fallback = TARMAC_PEOPLE[0] || { title: 'Tarmac_Male_Summer_Asian', label: 'Tarmac-Person' };
     const requestedTitle = String(raw?.title || '').trim();
     const migratedTitle = TARMAC_PERSON_TITLE_ALIASES[requestedTitle] || requestedTitle;
-    const selectedModel = TARMAC_PEOPLE.find((entry) => entry.title === migratedTitle) || fallback;
+    const rawFallback = String(raw?.fallbackTitle || '').trim();
+    const fallbackTitle = TARMAC_PERSON_TITLE_ALIASES[rawFallback] || rawFallback;
+    const packPerson = packPersonFor(requestedTitle);
+    // Keep an own figure even before the pack list has arrived, as long as its stand-in is valid.
+    const keepPackPerson = PACK_PERSON_TITLE.test(requestedTitle)
+      && (packPerson || isTarmacPersonTitle(fallbackTitle));
+    const selectedModel = keepPackPerson
+      ? { title: requestedTitle }
+      : (TARMAC_PEOPLE.find((entry) => entry.title === migratedTitle) || fallback);
+    const maxWalkKts = packPerson ? packPerson.maxWalkKts : 5;
     return {
       id: String(raw?.id || `person-${index + 1}`).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64) || `person-${index + 1}`,
       title: selectedModel.title,
+      ...(keepPackPerson ? { fallbackTitle: packPerson ? packPerson.fallbackTitle : fallbackTitle } : {}),
       label: String(raw?.label || `Mitarbeiter ${index + 1}`).slice(0, 80),
       startNorthM: clamp(raw?.startNorthM ?? 12 + index * 2, -2000, 2000),
       startEastM: clamp(raw?.startEastM ?? index * 2, -2000, 2000),
-      speedKts: clamp(raw?.speedKts ?? 2.6, 1, 5),
+      speedKts: clamp(raw?.speedKts ?? 2.6, 1, maxWalkKts),
       randomTargets: raw?.randomTargets === true,
       randomWaitMinS: clamp(raw?.randomWaitMinS ?? 5, 0, 3600),
       randomWaitMaxS: clamp(raw?.randomWaitMaxS ?? 30, 0, 3600),
@@ -880,13 +897,62 @@
 
   function fillPersonCatalog() {
     const select = $('personModelSelect');
+    const current = select.value;
     select.textContent = '';
-    TARMAC_PEOPLE.forEach((person) => {
-      const option = document.createElement('option');
-      option.value = person.title;
-      option.textContent = person.label;
-      select.append(option);
-    });
+    const addGroup = (label, entries) => {
+      if (!entries.length) return;
+      const group = document.createElement('optgroup');
+      group.label = label;
+      entries.forEach((person) => {
+        const option = document.createElement('option');
+        option.value = person.title;
+        option.textContent = person.label;
+        group.append(option);
+      });
+      select.append(group);
+    };
+    // Saved own figures that this PC has not (yet) reported as installed stay selectable.
+    const pending = state.people
+      .filter((person) => person.fallbackTitle && !packPersonFor(person.title))
+      .filter((person, index, list) => list.findIndex((entry) => entry.title === person.title) === index)
+      .map((person) => ({ title: person.title, label: `${person.title} (nicht installiert – Ersatzfigur)` }));
+    addGroup('Eigene Figuren', PACK_PEOPLE.map((person) => ({ title: person.title, label: person.label })).concat(pending));
+    addGroup('Tarmac-Personen', TARMAC_PEOPLE);
+    if (current) select.value = current;
+  }
+
+  function registerPackPeople(entries) {
+    let changed = 0;
+    for (const raw of Array.isArray(entries) ? entries : []) {
+      const title = String(raw?.title || '').trim();
+      const gender = String(raw?.person?.gender || '').toLowerCase();
+      const maxWalkKts = Number(raw?.person?.maxWalkKts);
+      if (!PACK_PERSON_TITLE.test(title) || String(raw?.kind || '').toLowerCase() !== 'object') continue;
+      if (!PERSON_FALLBACK_BY_GENDER[gender] || !Number.isFinite(maxWalkKts) || maxWalkKts < 1 || maxWalkKts > 5) continue;
+      const entry = {
+        title,
+        label: `${String(raw?.label || title).trim().slice(0, 60)} (eigene Figur)`,
+        gender,
+        maxWalkKts,
+        fallbackTitle: PERSON_FALLBACK_BY_GENDER[gender]
+      };
+      const index = PACK_PEOPLE.findIndex((person) => person.title === title);
+      if (index >= 0) {
+        if (JSON.stringify(PACK_PEOPLE[index]) === JSON.stringify(entry)) continue;
+        PACK_PEOPLE[index] = entry;
+      } else {
+        PACK_PEOPLE.push(entry);
+      }
+      changed += 1;
+    }
+    if (!changed) return 0;
+    const before = JSON.stringify(state.people);
+    state.people = state.people.map((person, index) => normalizePerson(person, index));
+    if (JSON.stringify(state.people) !== before) saveState({ markDirty: false });
+    fillPersonCatalog();
+    renderPeople();
+    log(`${changed} eigene Figur(en) aus dem installierten Paket als Mitarbeiter verfügbar.`, 'ok');
+    return changed;
   }
 
   function personDestinationOptions(selectedValue = '') {
@@ -986,6 +1052,7 @@
     $('personModelSelect').value = person.title;
     $('personStartNorth').value = Number(person.startNorthM.toFixed(1));
     $('personStartEast').value = Number(person.startEastM.toFixed(1));
+    $('personSpeed').max = String(packPersonFor(person.title)?.maxWalkKts || 5);
     $('personSpeed').value = Number(person.speedKts.toFixed(1));
     $('personRandomTargetsToggle').checked = person.randomTargets === true;
     $('personRandomWaitMin').value = Number(person.randomWaitMinS.toFixed(0));
@@ -1038,10 +1105,21 @@
   function readSelectedPersonFromInputs(event) {
     const person = selectedPerson();
     if (!person) return;
-    person.title = TARMAC_PEOPLE.some((entry) => entry.title === $('personModelSelect').value) ? $('personModelSelect').value : TARMAC_PEOPLE[0].title;
+    const chosenTitle = $('personModelSelect').value;
+    const packPerson = packPersonFor(chosenTitle);
+    if (packPerson) {
+      person.title = packPerson.title;
+      person.fallbackTitle = packPerson.fallbackTitle;
+    } else if (person.fallbackTitle && chosenTitle === person.title) {
+      // Saved own figure that is not installed here: keep it unchanged.
+    } else {
+      person.title = isTarmacPersonTitle(chosenTitle) ? chosenTitle : TARMAC_PEOPLE[0].title;
+      delete person.fallbackTitle;
+    }
     person.startNorthM = clamp($('personStartNorth').value, -2000, 2000);
     person.startEastM = clamp($('personStartEast').value, -2000, 2000);
-    person.speedKts = clamp($('personSpeed').value, 1, 5);
+    person.speedKts = clamp($('personSpeed').value, 1, packPerson ? packPerson.maxWalkKts : 5);
+    if (Number($('personSpeed').value) !== person.speedKts) $('personSpeed').value = Number(person.speedKts.toFixed(1));
     saveState();
     if (event?.target?.id === 'personModelSelect') renderPeople();
     updateMap(); schedulePeopleLiveSync();
@@ -1061,6 +1139,7 @@
   function mergeRuntimeAssetCatalog(entries) {
     let added = 0;
     let updated = 0;
+    registerPackPeople(entries);
     for (const raw of Array.isArray(entries) ? entries : []) {
       const title = String(raw?.title || '').trim().slice(0, 160);
       const folder = String(raw?.folder || '').trim().slice(0, 120);
@@ -1969,7 +2048,10 @@
         };
       }),
       people: state.people.map((person) => ({
-        id: person.id, title: person.title, label: person.label,
+        id: person.id,
+        title: person.fallbackTitle && !packPersonFor(person.title) ? person.fallbackTitle : person.title,
+        label: person.label,
+        ...(person.fallbackTitle ? { fallbackTitle: person.fallbackTitle } : {}),
         startNorthM: person.startNorthM, startEastM: person.startEastM, speedKts: person.speedKts,
         targetMode: person.randomTargets === true ? 'all-objects' : 'manual',
         destinations: personRuntimeDestinations(person)

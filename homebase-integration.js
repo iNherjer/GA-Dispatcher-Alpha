@@ -261,6 +261,14 @@
     return latestHomebaseDraft?.dirty === true || readJsonStorage(HOMEBASE_SYNC_META_KEY)?.dirty === true;
   }
 
+  // Own pack figures need a Tracker that knows them; older Trackers get the Tarmac stand-in.
+  const TRACKER_PACK_PEOPLE_CAPABILITY = 'homebase-pack-people-v1';
+  function peopleForTracker(list, position = ownLastTelemetry) {
+    const capabilities = position?.homebase?.capabilities;
+    if (Array.isArray(capabilities) && capabilities.includes(TRACKER_PACK_PEOPLE_CAPABILITY)) return list;
+    return (Array.isArray(list) ? list : []).map((item) => (item?.fallbackTitle ? { ...item, title: item.fallbackTitle } : item));
+  }
+
   function ownTrackerCloudCapable(position = ownLastTelemetry) {
     const capabilities = position?.homebase?.capabilities;
     return Array.isArray(capabilities) && capabilities.includes(TRACKER_CLOUD_SCENE_CAPABILITY);
@@ -430,7 +438,7 @@
     }
     const objects = inside && !ownAutoSuppressedUntilExit ? delta.objects : [];
     const config = currentOwnRuntimeConfig();
-    const people = inside && !ownAutoSuppressedUntilExit ? (config?.people || []) : [];
+    const people = inside && !ownAutoSuppressedUntilExit ? peopleForTracker(config?.people || [], position) : [];
     const controlStates = inside && !ownAutoSuppressedUntilExit
       ? normalizeHomebaseControlStates(config?.controlStates)
       : [];
@@ -520,7 +528,7 @@
       crewLastSceneSignature = '';
       return false;
     }
-    const objects = crewSceneForPosition(position);
+    const objects = peopleForTracker(crewSceneForPosition(position), position);
     const signature = JSON.stringify(objects);
     if (signature === crewLastSceneSignature) return false;
     if (!window.liveTrackerConnected || typeof window.sendTrackerCommand !== 'function') return false;

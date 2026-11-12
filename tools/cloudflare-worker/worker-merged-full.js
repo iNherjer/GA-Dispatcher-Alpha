@@ -291,10 +291,17 @@ function normalizeHomebasePersonDestination(raw, index) {
 function normalizeHomebasePerson(raw, index) {
   const source = raw && typeof raw === "object" ? raw : {};
   const title = normalizeOneLine(source.title, 160);
-  if (!/^Tarmac_[A-Za-z0-9_]+$/.test(title)) return null;
+  const fallbackTitle = normalizeOneLine(source.fallbackTitle, 160);
+  const tarmacTitle = /^Tarmac_[A-Za-z0-9_]+$/;
+  // Own pack figures are stored with a Tarmac stand-in for PCs without that figure.
+  const packPerson = !tarmacTitle.test(title)
+    && /^(?!tarmac_|termac_)[A-Za-z0-9][A-Za-z0-9 _.-]{0,159}$/i.test(title)
+    && tarmacTitle.test(fallbackTitle);
+  if (!tarmacTitle.test(title) && !packPerson) return null;
   return {
     id: normalizeOneLine(source.id || `person-${index + 1}`, 64).replace(/[^a-zA-Z0-9_-]/g, ""),
     title,
+    ...(packPerson ? { fallbackTitle } : {}),
     label: normalizeOneLine(source.label || `Mitarbeiter ${index + 1}`, 80),
     startNorthM: normalizeFinite(source.startNorthM, 0, -2000, 2000),
     startEastM: normalizeFinite(source.startEastM, 0, -2000, 2000),

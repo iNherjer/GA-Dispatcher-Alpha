@@ -306,6 +306,7 @@ function normalizeRuntimeAsset(raw) {
 
 function registerRuntimeAssets(entries) {
   let added = 0;
+  registerRuntimePeople(entries);
   for (const raw of Array.isArray(entries) ? entries : []) {
     const entry = normalizeRuntimeAsset(raw);
     if (!entry) continue;
@@ -337,6 +338,50 @@ function registerRuntimeAssets(entries) {
   return added;
 }
 
+// Own animated people from the installed pack (catalogue entries with a `person` block).
+// Kept apart from placeable objects: they are walking actors, not homebase furniture.
+const runtimePeopleByTitle = new Map();
+const PACK_PERSON_TITLE = /^(?!tarmac_|termac_)[A-Za-z0-9][A-Za-z0-9 _.-]{0,159}$/i;
+const TARMAC_PERSON_TITLE = /^Tarmac_[A-Za-z0-9_]+$/;
+
+function normalizeRuntimePerson(raw) {
+  const title = String(raw?.title || '').trim();
+  const folder = String(raw?.folder || '').trim();
+  const person = raw?.person;
+  if (!PACK_PERSON_TITLE.test(title) || !/^[A-Za-z0-9_-]{1,120}$/.test(folder)) return null;
+  if (String(raw?.kind || '').trim().toLowerCase() !== 'object') return null;
+  if (!person || typeof person !== 'object' || Array.isArray(person)) return null;
+  const gender = String(person.gender || '').toLowerCase();
+  if (!['female', 'male'].includes(gender)) return null;
+  if (person.locomotion?.type !== 'waypoint-ground') return null;
+  const maxWalkKts = Number(person.locomotion?.maxWalkKts);
+  if (!Number.isFinite(maxWalkKts) || maxWalkKts < 1 || maxWalkKts > 5) return null;
+  return Object.freeze({
+    key: String(raw?.key || folder).trim().slice(0, 120),
+    folder,
+    title,
+    label: String(raw?.label || title).trim().slice(0, 80),
+    gender,
+    maxWalkKts,
+    runtimePerson: true
+  });
+}
+
+function registerRuntimePeople(entries) {
+  let added = 0;
+  for (const raw of Array.isArray(entries) ? entries : []) {
+    const entry = normalizeRuntimePerson(raw);
+    if (!entry) continue;
+    if (!runtimePeopleByTitle.has(entry.title)) added += 1;
+    runtimePeopleByTitle.set(entry.title, entry);
+  }
+  return added;
+}
+
+function personModelForTitle(rawTitle) {
+  return runtimePeopleByTitle.get(String(rawTitle || '').trim()) || null;
+}
+
 function objectDefinitionForTitle(rawTitle) {
   const requested = String(rawTitle || '').trim();
   const title = legacyTitleAliases[requested] || requested;
@@ -356,6 +401,9 @@ const catalog = Object.freeze({
   legacyTitleAliases,
   registerRuntimeAssets,
   runtimeAssets: () => [...runtimeAssetsByTitle.values()],
+  runtimePeople: () => [...runtimePeopleByTitle.values()],
+  personModelForTitle,
+  isTarmacPersonTitle: (title) => TARMAC_PERSON_TITLE.test(String(title || '').trim()),
   objectDefinitionForTitle
 });
 

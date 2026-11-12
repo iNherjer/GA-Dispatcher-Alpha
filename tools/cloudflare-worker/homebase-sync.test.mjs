@@ -226,3 +226,25 @@ const legacyCaseKick = await call(env, "/api/homebase-group/CASE", { headers });
 assert.equal(legacyCaseKick.response.status, 403);
 
 console.log("homebase-sync tests ok");
+
+// Own pack figures are stored with their Tarmac stand-in; without one they are dropped.
+const packHeaders = { "Content-Type": "application/json", "X-Pilot-ID": "pilotC", "X-Pilot-PIN": "9999" };
+const packPlan = {
+  ...plan,
+  people: [
+    { ...plan.people[0], id: "person-1", title: "tw-pod-hiker-f-01", fallbackTitle: "Tarmac_Female_Summer_Caucasian" },
+    { ...plan.people[0], id: "person-2", title: "tw-pod-hiker-f-01" },
+    { ...plan.people[0], id: "person-3", title: "tw-pod-hiker-f-01", fallbackTitle: "tw-pod-other" }
+  ]
+};
+const packCreated = await call(env, "/api/homebase/pilotC", {
+  method: "POST",
+  headers: packHeaders,
+  body: JSON.stringify({ baseRevision: "", clientUpdatedAt: Date.now(), deviceId: "test-device", plan: packPlan })
+});
+assert.equal(packCreated.response.status, 200);
+assert.equal(packCreated.body.record.plan.people.length, 1);
+assert.equal(packCreated.body.record.plan.people[0].title, "tw-pod-hiker-f-01");
+assert.equal(packCreated.body.record.plan.people[0].fallbackTitle, "Tarmac_Female_Summer_Caucasian");
+assert.equal(created.body.record.plan.people[0].fallbackTitle, undefined);
+console.log("homebase pack person sync ok");

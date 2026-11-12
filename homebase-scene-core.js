@@ -114,15 +114,34 @@
       return String(selected?.title || '').trim();
     }
 
+    // Own figures from the asset pack travel with a Tarmac stand-in (fallbackTitle).
+    // The Tracker checks the figure against its installed pack and uses the stand-in otherwise.
+    const PACK_PERSON_TITLE = /^(?!tarmac_|termac_)[A-Za-z0-9][A-Za-z0-9 _.-]{0,159}$/i;
+    function normalizePersonModel(person) {
+      const source = readCatalog();
+      const requested = String(person?.title || '').trim();
+      const allowed = Array.isArray(source?.tarmacPeople) ? source.tarmacPeople : [];
+      const migrated = source?.legacyPersonTitleAliases?.[requested] || requested;
+      if (allowed.some((entry) => entry.title === migrated)) return { title: migrated };
+      const rawFallback = String(person?.fallbackTitle || '').trim();
+      const fallback = source?.legacyPersonTitleAliases?.[rawFallback] || rawFallback;
+      if (PACK_PERSON_TITLE.test(requested) && allowed.some((entry) => entry.title === fallback)) {
+        return { title: requested, fallbackTitle: fallback };
+      }
+      return { title: normalizePersonTitle(requested) };
+    }
+
     function sanitizeRuntimeConfig(config) {
       if (!config || typeof config !== 'object') return null;
       const people = (Array.isArray(config.people) ? config.people : []).slice(0, 3).flatMap((person, index) => {
-        const title = normalizePersonTitle(person?.title);
+        const model = normalizePersonModel(person);
+        const title = model.title;
         if (!title) return [];
         return [{
           ...person,
           id: String(person?.id || `person-${index + 1}`),
           title,
+          ...(model.fallbackTitle ? { fallbackTitle: model.fallbackTitle } : {}),
           label: String(person?.label || `Mitarbeiter ${index + 1}`)
         }];
       });
@@ -230,6 +249,7 @@
           };
         }).filter((item) => item.title),
         people: (Array.isArray(plan.people) ? plan.people : []).slice(0, 3).map((person, index) => {
+          const model = normalizePersonModel(person);
           const randomTargets = person?.randomTargets === true;
           const waitMinS = Math.max(0, Math.min(3600, finite(person?.randomWaitMinS, 5)));
           const waitMaxS = Math.max(0, Math.min(3600, finite(person?.randomWaitMaxS, 30)));
@@ -244,7 +264,8 @@
               })
             : (Array.isArray(person?.stops) ? person.stops : []).slice(0, 20).map((stop) => ({ ...stop }));
           return {
-            id: String(person?.id || `person-${index + 1}`), title: normalizePersonTitle(person?.title),
+            id: String(person?.id || `person-${index + 1}`), title: model.title,
+            ...(model.fallbackTitle ? { fallbackTitle: model.fallbackTitle } : {}),
             label: String(person?.label || `Mitarbeiter ${index + 1}`),
             startNorthM: finite(person?.startNorthM), startEastM: finite(person?.startEastM),
             speedKts: Math.max(1, Math.min(5, finite(person?.speedKts, 2.6))),
@@ -389,11 +410,13 @@
         };
       }).filter((item) => item.title);
       const people = (Array.isArray(plan.people) ? plan.people : []).slice(0, CREW_MAX_PEOPLE).flatMap((person, index) => {
-        const title = normalizePersonTitle(person?.title);
+        const model = normalizePersonModel(person);
+        const title = model.title;
         if (!title) return [];
         const position = offsetLatLon(lat, lon, finite(person?.startNorthM), finite(person?.startEastM));
         return [{
           id: `${prefix}person-${index + 1}`, title,
+          ...(model.fallbackTitle ? { fallbackTitle: model.fallbackTitle } : {}),
           label: `${owner} · ${String(person?.label || `Mitarbeiter ${index + 1}`).slice(0, 48)}`,
           lat: position.lat, lon: position.lon,
           altFt: finite(spawn.altFt), heightOffsetFt: 0,
@@ -444,6 +467,7 @@
       crewSceneForPosition,
       catalogDefinition,
       normalizePersonTitle,
+      normalizePersonModel,
       sanitizeRuntimeConfig,
       headingCorrection,
       isPersistentOnlyObject,

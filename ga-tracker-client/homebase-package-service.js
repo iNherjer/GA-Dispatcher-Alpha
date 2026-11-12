@@ -466,7 +466,9 @@ function createHomebasePackageService(options = {}) {
 
   const publicAssetCatalog = (assets) => assets.map((asset) => {
     const definition = catalog.objectDefinitionForTitle(asset?.title) || asset || {};
+    const personModel = typeof catalog.personModelForTitle === 'function' ? catalog.personModelForTitle(asset?.title) : null;
     return {
+      ...(personModel ? { person: { gender: personModel.gender, maxWalkKts: personModel.maxWalkKts } } : {}),
       key: String(definition?.key || ''), folder: String(definition?.folder || ''), title: String(definition?.title || ''),
       label: String(definition?.label || ''), version: String(asset?.version || ''), kind: String(definition?.kind || ''),
       group: String(definition?.group || ''), workbenchVisible: definition?.workbenchVisible !== false && definition?.homebasePlaceable !== false,

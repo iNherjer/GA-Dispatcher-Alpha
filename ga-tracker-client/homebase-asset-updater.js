@@ -417,7 +417,8 @@ function createHomebaseAssetUpdater(options = {}) {
         ...(asset?.animation && typeof asset.animation === 'object' ? { animation: asset.animation } : {}),
         ...(Array.isArray(asset?.controls) ? { controls: asset.controls.slice(0, 12) } : {}),
         ...(asset?.vegetationExclusion && typeof asset.vegetationExclusion === 'object' ? { vegetationExclusion: asset.vegetationExclusion } : {}),
-        ...(asset?.collisionProfile && typeof asset.collisionProfile === 'object' ? { collisionProfile: asset.collisionProfile } : {})
+        ...(asset?.collisionProfile && typeof asset.collisionProfile === 'object' ? { collisionProfile: asset.collisionProfile } : {}),
+        ...(asset?.person && typeof asset.person === 'object' && !Array.isArray(asset.person) ? { person: asset.person } : {})
       })),
       changedAssets: release?.stable?.changedAssets || [],
       removedAssets: release?.stable?.removedAssets || [],

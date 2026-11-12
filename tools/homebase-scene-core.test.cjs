@@ -159,3 +159,22 @@ test('App ueberlaesst die Crew dem Tracker nur bei gleicher Gruppe und gueltigem
   assert.equal(crewGate({ status: 'loading' }), false);
   assert.equal(crewGate({ capabilities: [] }), false, 'alter Tracker');
 });
+
+test('Eigene Pack-Figuren bleiben mit Tarmac-Ersatz erhalten', () => {
+  const stand = 'Tarmac_Female_Summer_Caucasian';
+  assert.deepEqual(core.normalizePersonModel({ title: 'tw-pod-hiker-f-01', fallbackTitle: stand }), { title: 'tw-pod-hiker-f-01', fallbackTitle: stand });
+  assert.equal(core.normalizePersonModel({ title: 'tw-pod-hiker-f-01' }).title, personTitle, 'ohne Ersatz zur Tarmac-Person');
+  assert.equal(core.normalizePersonModel({ title: 'tw-pod-hiker-f-01', fallbackTitle: 'tw-pod-x' }).title, personTitle, 'Ersatz muss Tarmac sein');
+  assert.equal(core.normalizePersonModel({ title: 'Tarmac_Unknown', fallbackTitle: stand }).title, personTitle, 'unbekannte Tarmac-Namen werden nicht durchgereicht');
+  assert.deepEqual(core.normalizePersonModel({ title: personTitle }), { title: personTitle });
+  const hiker = { id: 'p1', title: 'tw-pod-hiker-f-01', fallbackTitle: stand, randomTargets: true, speedKts: 2.6 };
+  const config = core.sanitizeRuntimeConfig(core.runtimeConfigFromPlan(samplePlan({ people: [hiker] })));
+  assert.equal(config.people[0].title, 'tw-pod-hiker-f-01');
+  assert.equal(config.people[0].fallbackTitle, stand);
+  const crew = core.crewSceneForPosition([{ pilotId: 'A', nick: 'A', plan: {
+    spawn: { lat: 48.28, lon: 8.43, altFt: 2200, heading: 90 }, hangar: { objectTitle: hangarTitle, northM: 5, eastM: 5, heading: 0 },
+    objects: [], people: [hiker] } }], { lat: 48.2792, lon: 8.4283 });
+  const crewPerson = crew.find((item) => item.id.endsWith('person-1'));
+  assert.equal(crewPerson.title, 'tw-pod-hiker-f-01');
+  assert.equal(crewPerson.fallbackTitle, stand);
+});

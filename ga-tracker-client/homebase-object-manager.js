@@ -47,6 +47,20 @@ const allowedPreviewTitles = new Set([
 const allowedTarmacPeople = new Set((catalog.tarmacPeople || []).map((entry) => entry.title));
 const legacyPersonTitleAliases = catalog.legacyPersonTitleAliases || {};
 
+// Resolves a requested person model: stock Tarmac, an own figure from the installed
+// pack, or – when that figure is not installed here – the Tarmac fallback sent with it.
+function resolvePersonModel(rawTitle, rawFallbackTitle = '') {
+  const requested = String(rawTitle || '').trim();
+  const title = legacyPersonTitleAliases[requested] || requested;
+  if (allowedTarmacPeople.has(title)) return { title, maxWalkKts: 5, substituted: false };
+  const packPerson = typeof catalog.personModelForTitle === 'function' ? catalog.personModelForTitle(title) : null;
+  if (packPerson) return { title: packPerson.title, maxWalkKts: packPerson.maxWalkKts, substituted: false };
+  const requestedFallback = String(rawFallbackTitle || '').trim();
+  const fallback = legacyPersonTitleAliases[requestedFallback] || requestedFallback;
+  if (allowedTarmacPeople.has(fallback)) return { title: fallback, maxWalkKts: 5, substituted: true, requestedTitle: title };
+  return null;
+}
+
 function finite(value, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
@@ -70,7 +84,10 @@ function buildPosition(item, altitudeFt = finite(item?.altFt), onGround = true) 
 }
 
 function normalizeItem(raw, fallbackId = '') {
-  const sourceTitle = String(raw?.title || raw?.objectTitle || '').trim();
+  const requestedSourceTitle = String(raw?.title || raw?.objectTitle || '').trim();
+  // Crew homebases spawn people as static objects; own figures fall back to their Tarmac stand-in.
+  const personModel = raw?.fallbackTitle ? resolvePersonModel(requestedSourceTitle, raw.fallbackTitle) : null;
+  const sourceTitle = personModel?.title || requestedSourceTitle;
   const title = catalog.legacyTitleAliases[sourceTitle] || sourceTitle;
   const id = String(raw?.id || fallbackId || title).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64);
   if (!id) throw new Error('Objekt-ID fehlt.');
@@ -79,7 +96,8 @@ function normalizeItem(raw, fallbackId = '') {
     && runtimeDefinition.preview !== false
     && runtimeDefinition.kind !== 'internal'
     && (runtimeDefinition.kind === 'hangar' || runtimeDefinition.homebasePlaceable !== false);
-  if (!allowedPreviewTitles.has(title) && !allowedTarmacPeople.has(title) && !runtimeAllowed) throw new Error(`Objekttitel ist nicht freigegeben: ${title || '(leer)'}`);
+  const packPersonAllowed = typeof catalog.personModelForTitle === 'function' && !!catalog.personModelForTitle(title);
+  if (!allowedPreviewTitles.has(title) && !allowedTarmacPeople.has(title) && !runtimeAllowed && !packPersonAllowed) throw new Error(`Objekttitel ist nicht freigegeben: ${title || '(leer)'}`);
   const lat = Number(raw?.lat);
   const lon = Number(raw?.lon);
   if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
@@ -120,6 +138,7 @@ function createHomebaseObjectManager(handle, options = {}) {
     'homebase-door-manual-override-v1',
     'homebase-people-routes-v1',
     'homebase-people-live-update-v1',
+    'homebase-pack-people-v1',
     ...(Array.isArray(options.extraCapabilities) ? options.extraCapabilities : [])
   ]);
   const generations = { preview: 0, crew: 0 };
@@ -275,9 +294,10 @@ function createHomebaseObjectManager(handle, options = {}) {
   };
 
   const normalizePersonPlan = (raw, index, navigation) => {
-    const requestedTitle = String(raw?.title || '').trim();
-    const title = legacyPersonTitleAliases[requestedTitle] || requestedTitle;
-    if (!allowedTarmacPeople.has(title)) throw new Error(`Personenmodell ist nicht als Tarmac-Modell freigegeben: ${title || '(leer)'}`);
+    const model = resolvePersonModel(raw?.title, raw?.fallbackTitle);
+    if (!model) throw new Error(`Personenmodell ist nicht freigegeben: ${String(raw?.title || '').trim() || '(leer)'}`);
+    const title = model.title;
+    if (model.substituted) log(`HOMEBASE_PERSON_FALLBACK requested="${model.requestedTitle}" used="${title}"`);
     const id = personIdFromRaw(raw, index);
     const start = { northM: finite(raw?.startNorthM), eastM: finite(raw?.startEastM) };
     const destinations = (Array.isArray(raw?.destinations) ? raw.destinations : []).slice(0, MAX_PERSON_DESTINATIONS).flatMap((destination, targetIndex) => {
@@ -296,7 +316,7 @@ function createHomebaseObjectManager(handle, options = {}) {
     return {
       id, title, label: String(raw?.label || `Mitarbeiter ${index + 1}`).slice(0, 80), start,
       lat: absolute.lat, lon: absolute.lon, altFt: navigation.spawn.altFt,
-      heading: navigation.spawn.heading, speedKts: Math.max(1, Math.min(5, finite(raw?.speedKts, 2.6))),
+      heading: navigation.spawn.heading, speedKts: Math.max(1, Math.min(5, model.maxWalkKts, finite(raw?.speedKts, 2.6))),
       targetMode: raw?.targetMode === 'all-objects' ? 'all-objects' : 'manual', destinations
     };
   };
