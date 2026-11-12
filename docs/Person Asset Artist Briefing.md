@@ -167,9 +167,10 @@ Regeln für den Agenten:
 
 ## 5. Welche Figuren wir uns wünschen
 
-Die abgestimmte Liste mit Prioritäten steht in der Personenliste vom 10.11.2026
-(PDF). Für jeden Look je eine Frau und einen Mann – mit Prio 1 zuerst:
-Wanderer, Techniker/Inspektor, Fluglehrer/Pilot, Geschäftsfrau/-mann.
+Die abgestimmte Liste mit Prioritäten, Titel-Vorschlägen und Steckbrief-Vorschlägen
+steht in „Gewünschte Modelle“ (Stand 12.11.2026, ersetzt die Personenliste vom 10.11.).
+Für jeden Look je eine Frau und einen Mann – mit Prio 1 zuerst:
+Wanderer, Technikerin/Techniker, Fluglehrerin/Pilot, Geschäftsfrau/-mann.
 
 Den ausgefüllten Steckbrief bitte zusammen mit dem Modell an den SDK-Kollegen
 geben. Er prüft ihn am fertigen Modell und trägt ihn in den Katalog ein.
