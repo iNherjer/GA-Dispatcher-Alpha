@@ -150,7 +150,8 @@ eigene Figuren aus dem Katalog. Neue Figuren erscheinen damit ohne Nacharbeit.
     "workwear": { "label": "Arbeitskleidung, Warnweste oder Overall" },
     "business": { "label": "Gepflegt bis elegant, Anzug, Kostüm oder Kleid" },
     "aviation": { "label": "Fliegerisch, Polo/Hemd mit Headset" },
-    "uniform":  { "label": "Einsatzkleidung von Rettung oder Feuerwehr" }
+    "medical":  { "label": "Rettungsdienst oder Klinik" },
+    "fire_rescue": { "label": "Feuerwehr- oder Brandschutz-Einsatzkleidung" }
   },
   "assets": {
     "tumbleweedHiker": { "look": "outdoor", "gender": "female", "ageBand": "young_adult",
@@ -204,6 +205,9 @@ umgestellt ist.
   Figur (Rucksack am Modell ≠ Gepäckstück im Manifest).
 
 ## 7. Etappen
+
+Ausführlicher Fahrplan mit allen Missionssträngen und Checkliste:
+[Mission Ground Composer Fahrplan](Mission%20Ground%20Composer%20Fahrplan.md) (12.11.2026).
 
 | Etappe | Inhalt | Ergebnis |
 |---|---|---|

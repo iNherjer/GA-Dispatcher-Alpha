@@ -17,6 +17,9 @@ Modellierung, Rig, Locomotion, Build und Texturen weiter nach
 
 ## 0. Neu in v2
 
+- **Nachtrag 12.11.2026 (Wortliste v2):** `uniform` ist aufgeteilt in `medical` und
+  `fire_rescue`; neue Einsatzwerte `escort` und `patient`.
+
 - **Aussehen gehört in den Katalog**: `person.appearance` statt eigener
   `person-profile.fragment.json`. Der Publisher muss den Block vollständig durchreichen.
 - **Wanderin nachtragen**: `appearance` für `tumbleweedHiker` im nächsten Pack (Abschnitt 4).
@@ -79,7 +82,7 @@ Modellierung, Rig, Locomotion, Build und Texturen weiter nach
   "ageBand": "young_adult",
   "season": "all",
   "props": ["backpack_large"],
-  "uses": ["passenger", "pickup", "bystander", "homebase"],
+  "uses": ["passenger", "pickup", "bystander", "escort", "homebase"],
   "description": "Junge Frau in Wanderhose und Funktionsjacke mit großem Trekkingrucksack"
 }
 ```
@@ -88,11 +91,11 @@ Nur Werte aus `data/mission-person-vocabulary.json` (verbindliche Liste):
 
 | Feld | Werte |
 |---|---|
-| `look` (genau einer) | `casual`, `outdoor`, `workwear`, `business`, `aviation`, `uniform` |
+| `look` (genau einer) | `casual`, `outdoor`, `workwear`, `business`, `aviation`, `medical`, `fire_rescue` |
 | `ageBand` | `child`, `young_adult`, `adult`, `senior` |
 | `season` | `summer`, `winter`, `all` |
 | `props` (fest am Modell, Liste, darf leer sein) | `backpack_large`, `backpack_small`, `camera`, `binoculars`, `headset`, `clipboard`, `tablet`, `helmet`, `hi_vis_vest`, `radio`, `medical_bag`, `briefcase`, `hat` |
-| `uses` (mind. einer) | `passenger`, `pickup`, `ground_crew`, `bystander`, `homebase` |
+| `uses` (mind. einer) | `passenger`, `pickup`, `ground_crew`, `bystander`, `escort` (bringt/holt jemanden ab), `patient` (reist als gehfähiger Patient), `homebase` |
 | `description` | ein Satz, höchstens 200 Zeichen, **nur was man sieht** – keine Missionsarten, keine Geschichte, keine Namen |
 
 Den Vorschlag liefert der 3D-Artist mit dem Modell
@@ -104,7 +107,7 @@ ergänzen.
 ## 4. Wanderin im nächsten Pack nachtragen
 
 `tumbleweedHiker` bekommt im nächsten Pack `person.appearance` wie im Beispiel in
-Abschnitt 3 (inkl. `homebase` in `uses`). Sonst keine Änderung an Key, Titel oder Modell.
+Abschnitt 3 (inkl. `escort` und `homebase` in `uses`). Sonst keine Änderung an Key, Titel oder Modell.
 
 ## 5. Paket und Ablage
 

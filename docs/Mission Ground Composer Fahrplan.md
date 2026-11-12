@@ -1,0 +1,150 @@
+# Fahrplan Boden-Composer – Pax und Cargo gemeinsam
+
+Stand 12.11.2026 · Entwurf zur Freigabe. Grundlage: [Mission Person Asset Plan](Mission%20Person%20Asset%20Plan.md).
+Betrifft die Pax- und Cargo-Darstellung **aller** Missionsarten: Umsetzung je Etappe
+nur nach Freigabe des Users, neue Wege hinter Testschaltern.
+
+## 1. Warten auf das komplette Asset-Pack? Nein.
+
+**Empfehlung: jetzt bauen, Figuren laufend nachreichen.**
+
+- Das System ist katalog-getrieben. Eine neue Figur mit `person.appearance` im Pack
+  wird beim nächsten Generator-Lauf automatisch Teil des Pools – ohne Codeänderung.
+  `tools/release-homebase-pack.mjs` erzeugt die Listen bei jedem Pack-Release neu.
+- Jeder Look ist von Anfang an mit Tarmac-Standardfiguren besetzt (Stock-Profile).
+  Ohne eigene Figur sieht eine Mission also nie schlechter aus als heute.
+- Die eigentliche Arbeit – Bordliste, Composer, Manifest mit einer Figur je Pax,
+  Tracker-Tempo, Umbau der Missionsstränge – hängt nicht an der Zahl der Figuren.
+  Tests und Live-Proben laufen mit Tarmac plus Wanderin.
+- Warten hätte nur einen Nachteil: Die Stränge bleiben länger bei Stichwortsuche
+  und Geschlecht-per-Regex.
+
+**Was vorher feststehen muss (sonst wird Nachreichen teuer):**
+
+1. **Die Look-Liste** (`data/mission-person-vocabulary.json`). Neue Werte später
+   sind möglich, aber Umbenennen oder Zusammenlegen erfordert Nacharbeit an allen
+   Figuren. → Liste vor Etappe A noch einmal bestätigen.
+2. **Stock-Profile der Tarmac-Figuren.** Sie tragen Arbeitskleidung; als Rückfall
+   für `casual`/`business` bleiben sie sichtbar unpassend – wie heute. Echte Abwechslung
+   kommt erst mit eigenen Figuren; Prio-1-Liste der Personenliste bleibt gültig.
+3. **Aussehen der Wanderin** kommt mit Pack 0.6.27. Bis dahin ein lokaler Eintrag
+   im Generator, der beim Pack-Update automatisch zurücktritt.
+
+## 2. Grundsätze
+
+- Die KI stellt aus Geschichte, Anlass und Aufgabe frei zusammen, wer und was
+  mitfliegt (z. B. festlich + Foto → Business-Look + Kamerakoffer). Keine festen
+  Kombi-Tabellen.
+- Der Composer wählt nur aus den Pools (Looks, Cargo-Formen), erfindet keine Titel.
+- Der Code prüft: Look/Form existiert, Geschlecht = Stimme, Saison nach Wetter/Datum,
+  Personenzahl, Gewicht bleibt Manifest-Wert. Konkrete Figur und Variante wählt der Code.
+- Rückfall: Rolle (`roleProfile`/`taskDomain`) → Look, dann Tarmac. Missionen ohne
+  KI-Modus nutzen immer diesen Weg: Auswahl nur aus einer festen Zuordnungsliste
+  im Code, kein KI-Abruf.
+- Die Wahl wird in der Idee gespeichert (`groundVisual`) und für Rückflug und
+  Wiederherstellung übernommen.
+- Keine neuen Stichwort- oder Regex-Zuordnungen; bestehende werden am Ende entfernt.
+- Jeder Strang bekommt einen eigenen Testschalter und wird einzeln umgestellt.
+
+## 3. Etappen
+
+### Etappe A – Fundament (keine sichtbare Änderung)
+
+| # | Schritt | Dateien | Fertig, wenn |
+|---|---|---|---|
+| A1 | Personen-Generator: liest `person.appearance` aus dem Katalog + Stock-Profile der Tarmac-Figuren, erzeugt `data/mission-person-assets.js`; Wanderin-Eintrag bis 0.6.27 lokal | `tools/generate-mission-person-assets.mjs`, `data/mission-person-asset-profiles.json` (nur Stock), Aufnahme in `release-homebase-pack.mjs` | jeder Look × Geschlecht hat mindestens eine Figur; Warnung bei Person ohne Aussehen |
+| A2 | `/^tarmac_/`-Sperren durch Katalogprüfung ersetzen | `mission-cargo-core.js` (~1821, ~4330), `sync.js` (`_missionSceneMovingPersonCandidates`) | eigene Figur kommt bis zum Tracker-Befehl durch |
+| A3 | Figurwahl `pickPersonFigure({look, gender, season, ageBand, seed})` mit Saison aus Wetter/Datum, stabiler Streuung, Rückfall Tarmac | neu `mission-person-figure-core.js`; `sync.js` (`_missionScenePersonTitle`, `_missionSceneMovingPersonTitle`) hinter Schalter | Sommer/Winter nicht mehr gemischt; Unit-Tests |
+| A4 | Bordliste `mission-onboard.v1`: Normalizer + Adapter je Ideen-Schema aus vorhandenen Feldern (`passenger`, `passengerCount`, `groupLabel`, `party`, `shipment`, `luggageLabel`, `manifestItems` …) | neu `mission-onboard-core.js` | für jedes Schema aus Abschnitt 4 eine Bordliste aus Fixture-Ideen |
+| A5 | Boden-Composer: ein Abruf für Pax-Looks und Packstücke, Validierung, Auflösung, `groundVisual` speichern, Rückfall | neu `mission-ground-visual-core.js` (übernimmt `mission-cargo-visual-core.js`) | Unit-Tests: gültig, ungültig, Rückfall, Rückflug-Identität |
+| A6 | Manifest: eine Figur je Pax (`visualPersons[]` analog `visualPieces`), Gruppenabfolge (`party`, `groupSequence`) nutzt dieselben Figuren; Stimme aus derselben Geschlechtsquelle | `mission-cargo-core.js`, `sync.js` (Boarding/Deboarding), `mission-manifest-core.js`, `passenger-voice.js` (nur Lesen) | Einsteigen/Aussteigen zeigt je Pax die gewählte Figur |
+| A7 | Tracker: Lauftempo je Figur (`maxWalkKts` begrenzen, Laufzeit mit echtem Tempo rechnen); Gruppenmissionen bis 6 Einsteiger (heute 3), Einzel-Pax unverändert; Capability | `ga-tracker-client/tracker.js` (Boarding/Deboarding/Reception) | Wanderin kommt rechtzeitig an der Tür an; EXE nur nach OK |
+
+Tests A: Unit-Tests je Kern, `tools/mission-scene-cargo-selftest.mjs`, `mission-ground-flow-selftest.mjs`,
+Tracker-Suite. Sim-Test: Einsteigen/Aussteigen Wanderin + Tarmac gemischt.
+
+### Etappe B – Pilot-Stränge (haben heute schon den Cargo-Composer)
+
+| Strang | Ideen-Schema | Pax | Cargo | Besonderheit |
+|---|---|---|---|---|
+| Reporter am Flugplatz | `apt-news-idea.v1` | Reporter/Team (`passengerCount`, `groupLabel`) | `shipment` (Ausrüstung) | Reporter-Szene mit Zuschauern → Etappe E |
+| Charter | `charter-idea.v1` + Fortsetzung | `passengerCount`, `groupLabel`, `party` | `luggageLabel`/`luggageWeightLbs` | Rückflug: gleiche Personen (`mission-charter-continuation-core.js`) |
+| Sightseeing | `sightseeing-idea.v1` | wie Charter | wie Charter | Touristen, Alter oft „senior“ |
+
+Fertig, wenn: Live-Gemini-Proben mit ungewöhnlichen Anlässen (Hochzeit, Firmenjubiläum,
+Trauerflug, Familienausflug) plausible Looks liefern; Rückflug identisch; Sim-Test.
+
+### Etappe C – Privat und Bush (Einsatz der Wanderin)
+
+| Strang | Quelle | Pax | Cargo | Besonderheit |
+|---|---|---|---|---|
+| Privatflug | `mission-private-outing-core.js` (Persona-Profile) | Persona (`name`, `role`, `gender`, `personality`, `storySeed`) | Gepäck aus Aktivität | keine Ideen-KI → Bordliste aus Persona; Composer optional |
+| Privat-Rückflug | `mission-private-return-core.js` | dieselbe Person (`voiceIdentity`) | Rückgepäck | Figur muss identisch bleiben |
+| Bush-Abenteuer / Bush-Charter-Gast | `mission-bush-narrative-core.js` (`bush_adventure_guest_v1`, `bush_charter_guest_v1`) | Gast | Camping/Ausrüstung | Outdoor-Look naheliegend, nicht erzwungen |
+| Bush-Abholung | `mission-bush-pickup-scene-core.js` (`bush_pickup_guest_v1`, `pickupPassengerCount`, Begleiter) | wartet am Zielplatz | Rückfracht/Ausrüstung | Ankunftsszene, Begleitperson, Abholfahrzeug |
+
+### Etappe D – übrige Missionsstränge (einzeln, je Testschalter)
+
+| Strang | Quelle | Pax | Cargo | Besonderheit |
+|---|---|---|---|---|
+| Fracht | `cargo-idea.v1` | Begleiter optional (`passengerCount`) | `shipment` | Empfänger am Ziel → Etappe E |
+| Empfindliche Fracht | `fragile-cargo-idea.v1` | Begleiter | `shipment` (Handhabung) | Empfänger |
+| Tiertransport | `animal-transport-idea.v1` | Begleiter | Tierbox (`animalCount`) | Tierbox bleibt eigener Pool |
+| Medizin-Transfer | `medical-transfer-idea.v1` | gehfähiger Patient + Begleitung (`patientCount`, `patientTransferEnabled`) | Medizinkoffer | Gruppenfahrzeug `medical`; Patient als Pax-Figur (`uses: patient`, sonst passender Alltags-Look), Begleitung `medical` |
+| Verein | `club-idea.v1` | Vereinsmitglieder | `manifestItems` (Pflicht vs. persönlich) | mehrere Posten |
+| Training | `mission-training-flight-core.js` (`instructor_calm_precise_v1`) | Fluglehrer | – | Look `aviation` naheliegend |
+| POI-Foto | `poi-photo-idea.v1` | Fotograf | Kamera (`deliverable`) | |
+| News (POI) | `news-idea.v1` | Reporter | Ausrüstung (`deliverable`) | Szene → Etappe E |
+| Biologie | `bio-idea.v1` | Forscher | Ausrüstung | Tiergruppen bleiben Szene |
+| Geologie | `geo-idea.v1` | Forscher | Ausrüstung | |
+| Infrastruktur | `infra-idea.v1` + Kette | Inspektor | Ausrüstung | Look `workwear` naheliegend |
+| Vermessung | `mapping-idea.v1` | Vermesser | Kamera/Messkoffer | |
+| Wissen/Führung | `mission-knowledge-briefing-core.js` | Guide/Historiker | – | |
+| Brandwache | `fire-alarm-idea.v1` | Beobachter | Einsatzladung (`fireCargo`) | Feuerpfad bleibt eigen; Look `fire_rescue` naheliegend |
+| SAR | `mission-sar-briefing-core.js` | Beobachter | SAR-Ausrüstung (`sarCargo`) | Vermisste → Etappe E |
+| POI-Kette | `mission-chain-briefing-core.js`, `mission-poi-chain-core.js` | wie Grundstrang | – | erbt Bordliste |
+| Bordprüfungen | `flight_compliance`, `ground_inventory` | keine | Bordausrüstung (Bordbuch, Löscher …) | nur Cargo, feste Objekte, prüfen ob Composer nötig |
+| Freiflug | `freeflight_planning` | keine | – | nicht betroffen |
+
+### Etappe E – Personen am Ziel und in Szenen
+
+| Bereich | Quelle heute | Ziel |
+|---|---|---|
+| Abholer/Bringer am Boden (holt Pax ab oder bringt ihn) | heute Fahrzeug + Tarmac | Figuren mit `uses: escort`, z. B. Wanderin bei Wander- und Ausflugszielen |
+| Empfang am Ziel (Empfänger, Abholer, Klinikteam, Tour-Abholung) | `mission-definition-core.js` Ankunftsrollen, alle `person.ground_crew`; `sync.js` ~6480 | Ankunftsrolle bekommt Look-Hinweis; Composer darf Empfangsperson mitwählen |
+| Abhol-Empfang beim Aussteigen | `tracker.js` `planPickupReception` | gleiche Figurwahl wie A3 |
+| Reporter-/POI-Szenen (Zuschauer) | `person.bystander`, explizite Anforderungen | Pool aus `uses: bystander` |
+| SAR-Vermisste | `sar.person_target` (`mmh_HikerRescue` …) | optional eigene Figuren (z. B. Wanderin liegend/winkend – eigene Animation nötig) |
+| Bodenpersonal/Marshaller | Stock | unverändert, später `uses: ground_crew` |
+
+### Etappe F – Aufräumen
+
+- Regex-Geschlechtserkennung in `_missionScenePassengerGender` entfernen.
+- Stichwort-Zuordnung `_missionSceneSemanticCargoAsset` und Textrückfall in
+  `mission-cargo-visual-core.js` entfernen, sobald alle Stränge umgestellt sind.
+- Testschalter einzeln entfernen, Doku (`mission-scene-asset-strategy.md`,
+  `Mission Building Instructions.md`, `Mission Flow Reference.md`) nachziehen.
+
+## 4. Checkliste je Strang (beim Umbau abhaken)
+
+- [ ] Bordliste aus der Idee bzw. dem Profil korrekt (Pax, Anzahl, Cargo-Posten)
+- [ ] Composer bekommt Anlass/Aufgabe; Ergebnis gültig in Live-Proben
+- [ ] Rückfall ohne KI liefert plausible Looks
+- [ ] Figur je Pax beim Einsteigen, Aussteigen, ggf. Abholung und Rückflug identisch
+- [ ] Geschlecht Figur = Stimme; Saison passt
+- [ ] Gepäckstücke wie bisher (`visualPieces`), Gewicht unverändert
+- [ ] Wiederherstellung nach Reconnect/Neustart zeigt dieselben Figuren
+- [ ] Testschalter, Unit-Test, Sim-Test protokolliert
+
+## 5. Entscheidungen des Users (12.11.2026)
+
+1. Look-Liste bleibt voraussichtlich; Feinschliff siehe Vorschlag unten.
+2. Gruppenmissionen bis 6 Pax-Figuren, Einzel-Pax wie bisher.
+3. Patient ist gehfähig und läuft als Pax-Figur; eine eigene Patientenfigur kann folgen.
+4. Ohne KI-Modus: nur Auswahl aus einer festen Liste, kein Composer-Abruf.
+5. Zusatz: Die Wanderin darf auch als Zuschauerin bzw. Abholerin/Bringerin in passenden
+   Bereichen erscheinen (Etappe E).
+
+Wortliste v2 freigegeben (12.11.2026): `uniform` aufgeteilt in `medical` und
+`fire_rescue`; neue Einsatzwerte `patient` und `escort` (bringt oder holt jemanden ab).
+Die Wanderin bekommt im nächsten Pack zusätzlich `escort`.

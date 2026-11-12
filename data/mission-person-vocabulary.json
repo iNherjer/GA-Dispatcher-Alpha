@@ -1,5 +1,5 @@
 {
-  "schema": "mission-person-vocabulary.v1",
+  "schema": "mission-person-vocabulary.v2",
   "note": "Allowed values for person.appearance in the Homebase pack catalogue. Used by tools/release-homebase-pack.mjs and later by the mission pax composer. Change only with user approval; describe new values in docs/Person Asset SDK Handoff.md and docs/Person Asset Artist Briefing.md.",
   "looks": {
     "casual": "Freizeitkleidung, entspannt",
@@ -7,7 +7,8 @@
     "workwear": "Arbeitskleidung, Warnweste oder Overall",
     "business": "Gepflegt bis elegant, Anzug, Kostüm oder Kleid",
     "aviation": "Fliegerisch, Polo oder Hemd mit Headset",
-    "uniform": "Einsatzkleidung von Rettung oder Feuerwehr"
+    "medical": "Rettungsdienst oder Klinik: Sanitäter-, Notarzt- oder Pflegekleidung",
+    "fire_rescue": "Feuerwehr- oder Brandschutz-Einsatzkleidung"
   },
   "ageBands": {
     "child": "Kind",
@@ -40,7 +41,9 @@
     "pickup": "wartet am Zielplatz auf Abholung",
     "ground_crew": "Bodenpersonal am Flugplatz",
     "bystander": "Zuschauer oder Passant in Szenen",
-    "homebase": "Mitarbeiter in der Homebase"
+    "homebase": "Mitarbeiter in der Homebase",
+    "patient": "reist als (gehfähiger) Patient",
+    "escort": "bringt oder holt jemanden am Boden ab"
   },
   "description": {
     "maxLength": 200,

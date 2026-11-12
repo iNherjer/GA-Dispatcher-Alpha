@@ -43,7 +43,8 @@ passt, sprich uns an, statt einen eigenen Wert zu erfinden.
 | `workwear` | Arbeitskleidung, Warnweste oder Overall |
 | `business` | gepflegt bis elegant: Anzug, Kostüm oder Kleid |
 | `aviation` | fliegerisch: Polo oder Hemd mit Headset |
-| `uniform` | Einsatzkleidung von Rettung oder Feuerwehr |
+| `medical` | Rettungsdienst oder Klinik: Sanitäter-, Notarzt- oder Pflegekleidung |
+| `fire_rescue` | Feuerwehr- oder Brandschutz-Einsatzkleidung |
 
 ### Alter – genau eins
 
@@ -65,6 +66,7 @@ passt, sprich uns an, statt einen eigenen Wert zu erfinden.
 
 `passenger` fliegt als Fluggast mit · `pickup` wartet am Zielplatz auf Abholung ·
 `ground_crew` Bodenpersonal am Flugplatz · `bystander` Zuschauer oder Passant ·
+`escort` bringt oder holt jemanden ab · `patient` reist als gehfähiger Patient ·
 `homebase` Mitarbeiter in der Homebase
 
 ### Beschreibung – ein Satz, höchstens 200 Zeichen
@@ -108,7 +110,7 @@ Beispiel – die Wanderin:
 | Alter | `young_adult` |
 | Jahreszeit | `all` |
 | Feste Requisiten | `backpack_large` |
-| Einsatz | `passenger`, `pickup`, `bystander`, `homebase` |
+| Einsatz | `passenger`, `pickup`, `bystander`, `escort`, `homebase` |
 | Beschreibung | Junge Frau in Wanderhose und Funktionsjacke mit großem Trekkingrucksack |
 | Größe | 1,78 m |
 | Gehtempo | 1,5 – 2,8 kn sauber, höchstens 3 kn |

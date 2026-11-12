@@ -9,7 +9,7 @@ const catalog = JSON.parse(fs.readFileSync(new URL('../homebase/assets/catalog.j
 
 const appearance = {
   look: 'outdoor', ageBand: 'young_adult', season: 'all', props: ['backpack_large'],
-  uses: ['passenger', 'pickup', 'bystander', 'homebase'],
+  uses: ['passenger', 'pickup', 'bystander', 'escort', 'homebase'],
   description: 'Junge Frau in Wanderhose und Funktionsjacke mit großem Trekkingrucksack'
 };
 const hiker = () => {
