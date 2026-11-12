@@ -1,21 +1,19 @@
 {
   "schemaVersion": 1,
-  "publishedAt": "2026-10-21T14:51:19Z",
+  "publishedAt": "2026-11-12T14:46:04Z",
   "packageName": "vfr-multitool-homebase-assets",
-  "packageVersion": "0.6.25",
-  "releaseTag": "homebase-assets-v0.6.25",
-  "indexUrl": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.25/package-index.json",
-  "contentHash": "3622a74acc24bc4f97e8f543ac0b00a09987e77e4b59e5b90a2b3fbac80c1970",
+  "packageVersion": "0.6.26",
+  "releaseTag": "homebase-assets-v0.6.26",
+  "indexUrl": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.26/package-index.json",
+  "contentHash": "b898c6479befb9e7144555f643045e2162fbd2f80852bc50209d025292de16cf",
   "fullArchive": {
-    "name": "vfr-multitool-homebase-assets-0.6.25-full.zip",
-    "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.25/vfr-multitool-homebase-assets-0.6.25-full.zip",
-    "size": 56025042,
-    "sha256": "01680200a67a9325c54a5154d888e7cb3b6226916a348aa8a27fbc408fa18257"
+    "name": "vfr-multitool-homebase-assets-0.6.26-full.zip",
+    "url": "https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/download/homebase-assets-v0.6.26/vfr-multitool-homebase-assets-0.6.26-full.zip",
+    "size": 64808478,
+    "sha256": "7652c1a716b09e1a7a73561dd2523cb5ed774d91987c338a7edf2bda0fc273be"
   },
   "changedAssets": [
-    "aircraftWheelChocks",
-    "backpack",
-    "woodenPallet"
+    "tumbleweedHiker"
   ],
   "removedAssets": []
 }
