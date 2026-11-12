@@ -27,7 +27,13 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-_Derzeit keine offenen Einträge._
+### 2026-11-12 · EFB-Kopie i18n/en.js: Schlüssel für den Figuren-Testschalter
+- **Artefakt:** Tracker-EXE (EFB-Web-Assets)
+- **Dateien:** `ga-tracker-client/efb-web-assets/i18n/en.js` (Kopie per `sync-efb-web-assets.js`)
+- **Was:** Neue Schlüssel `settings.boarding.figures` / `figuresHint` aus der Web-App. Im EFB ohne Wirkung (dort kein Schalter); nur Gleichstand der Kopie.
+- **Tests:** `efb-web-assets-sync.test.js` 1/1.
+- **Doku beim Release:** keine.
+- **Pruefen im Feld:** nichts.
 
 ## Ausgeliefert
 
