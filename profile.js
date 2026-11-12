@@ -5087,6 +5087,21 @@ window.vpBuildWeatherDebugReport = function() {
     } else {
         lines.push('- Manifest PAX: (kein Passenger-Item)');
     }
+    // Personen-Figuren (Testschalter ga_person_figures_v1): Schalterstand, Figuren im Manifest, aktuelle Wahl.
+    try {
+        const figuresOn = /^(1|true|yes|ja|on)$/.test(String(localStorage.getItem('ga_person_figures_v1') || '').trim().toLowerCase());
+        const manifestFigures = passengerItems.map(item => {
+            const persons = Array.isArray(item.visualPersons) && item.visualPersons.length
+                ? item.visualPersons.map(p => `${p.id || '?'}:${p.title || '?'}(${p.gender || '?'}/${p.look || '?'})`).join(',')
+                : `objectTitle=${item.objectTitle || '-'}`;
+            return `${item.id || '?'}=${persons}`;
+        }).join(' | ') || '-';
+        const current = typeof _missionSceneGroundFigures === 'function' ? (_missionSceneGroundFigures() || []) : [];
+        const currentText = current.length ? current.map(f => `${f.id}:${f.title}(${f.gender}/${f.look})`).join(',') : '-';
+        lines.push(`- PAX-Figuren: schalter=${figuresOn ? 'an' : 'aus'} | manifest=${manifestFigures} | aktuell=${currentText} | pack=${window.MISSION_PERSON_ASSETS?.packageVersion || '-'}`);
+    } catch (_) {
+        lines.push('- PAX-Figuren: (nicht ermittelbar)');
+    }
     if (voiceState) {
         lines.push(`- Voice: enabled=${voiceState.voiceEnabled ? '1' : '0'} | effects=${voiceState.audioEffectsEnabled ? '1' : '0'} | apiKey=${voiceState.hasApiKey ? '1' : '0'} | hasPassenger=${voiceState.hasPassenger ? '1' : '0'} | pax=${flattenText(voiceState.passengerName || '-', 80)}`);
         lines.push(`- Voice Audio: context=${voiceState.audioContextState || '-'} | gain=${Number.isFinite(Number(voiceState.masterGain)) ? Number(voiceState.masterGain).toFixed(2) : '-'} | epoch=${voiceState.missionEpoch ?? '-'} | playback=${voiceState.playbackActive ? '1' : '0'} | prepared=${Array.isArray(voiceState.preparedAudio) ? voiceState.preparedAudio.length : 0}`);
