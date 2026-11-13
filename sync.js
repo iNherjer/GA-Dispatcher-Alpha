@@ -6771,11 +6771,19 @@ function _missionSceneIsPatientTransfer() {
     return idea?.schema === 'medical-transfer-idea.v1' && idea.transportKind === 'patient_transfer' && idea.patientCount === 1;
 }
 
-// Fahrzeugregel v2 (2 Pax Pkw, 3–5 Van, große/schwere Fracht → Van) braucht Tracker v634:
-// erst die angehobene Mindestversion schaltet sie scharf, vorher bleibt v1 (bis 3 Van, sonst Bus).
+// Fahrzeugregel v2 (2 Pax Pkw, 3–5 Van, große/schwere Fracht → Van) braucht Tracker v634.
+// Die Mindestversion bleibt für Stable-Tracker unten; maßgeblich ist der zuletzt in diesem
+// Browser gemeldete Tracker (läuft beim Erstellen oft nicht). Unbekannt → v1 (bis 3 Van, sonst Bus).
 const MISSION_SCENE_VEHICLE_RULE_V2_MIN_TRACKER = 634;
+const MISSION_SCENE_LAST_TRACKER_CODE_KEY = 'ga_last_tracker_version_code';
+function _missionSceneKnownTrackerCode() {
+    const live = Number(window.liveTrackerVersionCode);
+    if (Number.isFinite(live) && live > 0) return live;
+    try { const stored = Number(localStorage.getItem(MISSION_SCENE_LAST_TRACKER_CODE_KEY)); return Number.isFinite(stored) ? stored : 0; } catch (_) { return 0; }
+}
 function _missionSceneVehicleRuleV2() {
-    return MIN_TRACKER_VERSION_CODE >= MISSION_SCENE_VEHICLE_RULE_V2_MIN_TRACKER;
+    return MIN_TRACKER_VERSION_CODE >= MISSION_SCENE_VEHICLE_RULE_V2_MIN_TRACKER
+        || _missionSceneKnownTrackerCode() >= MISSION_SCENE_VEHICLE_RULE_V2_MIN_TRACKER;
 }
 
 // Große oder schwere Fracht passt nicht in einen Pkw: ab 100 lbs gesamt oder mit einem
@@ -18593,6 +18601,7 @@ function _renderTrackerHibernateLastPosition(position = window.liveTrackerLastKn
 function _maybePromptTrackerUpdate(pkt) {
     const code = _extractTrackerVersionCode(pkt);
     window.liveTrackerVersionCode = Number.isFinite(code) ? code : null;
+    if (Number.isFinite(code) && code > 0) { try { localStorage.setItem(MISSION_SCENE_LAST_TRACKER_CODE_KEY, String(code)); } catch (_) {} }
     const reportedLabel = _trackerVersionLabel(pkt) || 'keine Versionsnummer';
     if (reportedLabel !== 'keine Versionsnummer') window.liveTrackerVersionLabel = reportedLabel;
     const outdated = !Number.isFinite(code) || code < MIN_TRACKER_VERSION_CODE;

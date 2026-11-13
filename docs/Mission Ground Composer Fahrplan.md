@@ -133,7 +133,7 @@ Fehlt die Liste oder passt die Anzahl nicht, bleibt sie leer und alles läuft wi
 abgelehnte Idee). Rückflug übernimmt die Liste über `original`. Live-Probe: 4 Charter, alle
 Begleiter mit Geschlecht, Writer hält sich daran (Schatzmeisterin/Beisitzer, Wart/Jugendwartin).
 
-### Empfang am Zielplatz: Fahrzeug, Aufräumen, EFB (13.11.2026, wartet auf Tracker v634)
+### Empfang am Zielplatz: Fahrzeug, Aufräumen, EFB (13.11.2026, Tracker v634 Alpha / Web v2380)
 
 Feldtest Charter EDTO→EDTL mit 2 Pax: Die Empfangsszene stellte einen Pkw, der Tracker
 verlangt für Gruppen aber ein Gruppenfahrzeug (`GROUP_VEHICLE_TITLES`) – er verwarf den Pkw,
@@ -151,8 +151,9 @@ Begleiter, Medizin, Verein, Rückflüge); Bush-Abholungen haben einen eigenen We
    `_missionSceneCargoNeedsVan` in `sync.js`. Die Regel steckt im Befehl (`vehicleRule: 'v2'`,
    `groupVehicleKind`), alte Befehle behalten v1 (bis 3 Van, sonst Bus).
    Der Van für Einzelgäste mit großer Fracht ist sofort live (kein Tracker-Bezug); die
-   Gruppenregel schaltet erst `MIN_TRACKER_VERSION_CODE >= 634` scharf
-   (`_missionSceneVehicleRuleV2`), sonst wählte die App einen Pkw, den ein alter Tracker verwirft.
+   Gruppenregel schaltet scharf, sobald dieser Browser zuletzt einen Tracker ab v634 gesehen hat
+   (`_missionSceneVehicleRuleV2`, gemerkt in `localStorage` `ga_last_tracker_version_code`),
+   sonst wählte die App einen Pkw, den ein alter Tracker verwirft.
 3. **Aufräumen** (`tracker.js`, `tracker-mission-simulator-effects.js`): Wird die
    Empfangsszene beim Aussteigen nicht übernommen (falscher Typ, Flugzeug > 0,12 NM entfernt),
    räumt der Tracker sie nach dem Aussteigen ab (`SCENE_DEBOARDING_ARRIVAL_CLEANUP`).
@@ -160,10 +161,10 @@ Begleiter, Medizin, Verein, Rückflüge); Bush-Abholungen haben einen eigenen We
    `tracker-efb-kartentisch-host.js`): oranger Punkt „Abholteam“ wie in der Web-App; nur wenn
    die Empfangsszene tatsächlich gespawnt wird.
 
-**Beim Release v634 (nur nach User-OK):** Tracker-Version auf v634, EXE bauen und
-veröffentlichen (Push-Doku 2b), danach in `sync.js` `MIN_TRACKER_VERSION_CODE`/`LABEL` auf
-634/v634 anheben (aktiviert Regel v2), `tools/mission-ground-flow-selftest.mjs` anpassen,
-`sw.js` erhöhen. Die offenen Einträge der Release Queue gehen mit.
+**Ausgeliefert in Tracker v634 Alpha (13.11.2026):** Die Mindestversion bleibt bei v470 –
+eine Anhebung auf 634 hätte Stable-Nutzern (v631) das Abschied-Aussteigen gesperrt
+(`missionSceneDeboarding` mit `coordinateFarewell`) und die Update-Meldung gezeigt. Stattdessen
+gilt der zuletzt gemeldete Tracker. Wird Stable auf v634 gehoben, kann die Mindestversion folgen.
 Tests: Tracker-Suite 1561/0 Fehler, `mission-scene-group-core.test.js` (Regel v1/v2),
 `tracker-mission-simulator-effects.test.js` (Aufräum-Kennung), `tracker-efb-map-snapshot-core.test.js`
 (Abholpunkt). Feldtest danach: 2 Pax → Pkw, 3 Pax → Van, 1 Pax mit 150 lbs → Van; Empfangsfahrzeug

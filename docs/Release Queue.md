@@ -27,7 +27,19 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-### 2026-11-13 · Bush-Briefing-Rezepte Adventure, Supply, Cargo-Pickup, Recon (mitgepackter Kern)
+(keine)
+
+## Ausgeliefert
+
+### 2026-11-13 · Empfang am Zielplatz: Fahrzeugregel v2, Aufräumen, EFB-Abholpunkt — ausgeliefert in Tracker v634 Alpha / Web v2380 (13.11.2026)
+- **Artefakt:** Tracker-EXE; Web mit diesem Push
+- **Dateien:** `ga-tracker-client/tracker.js`, `tracker-mission-simulator-effects.js`, `mission-scene-group-core.js`, `tracker-efb-map-snapshot-core.js`, `tracker-efb-kartentisch-host.js`, `sync.js`
+- **Was:** 2 Pax Pkw, 3–5 Van, große Fracht Van; nicht übernommene Empfangsszene wird abgeräumt; Abholpunkt im EFB.
+- **Tests:** siehe `docs/Tracker-v634-Release.md`.
+- **Doku beim Release:** `docs/Mission Ground Composer Fahrplan.md` „Empfang am Zielplatz“.
+- **Pruefen im Feld:** 2 Pax → Pkw, 3 Pax → Van, 1 Pax mit 150 lbs → Van; nichts bleibt stehen; Punkt im EFB.
+
+### 2026-11-13 · Bush-Briefing-Rezepte Adventure, Supply, Cargo-Pickup, Recon (mitgepackter Kern) — ausgeliefert in Tracker v634 Alpha (13.11.2026)
 - **Artefakt:** Tracker-EXE (bündelt `mission-bush-narrative-core.js` per require); Web bereits live mit v2367–v2371
 - **Dateien:** `mission-bush-narrative-core.js` (Commits seit v633: 59fe5d963, 9ce6ddcd5, 7cd8eb541 und der Recon-Commit); Web-seitig zusätzlich `app.js`
 - **Was:** Eigene Writer-Rezepte und Planner-Zusätze für vier Bush-Stränge. Im Tracker ohne Wirkung, weil Runtime und Voice nur die unveränderten Teile nutzen (Gleichstand der Datei).
@@ -35,15 +47,13 @@ liefert alles Offene mit aus.
 - **Doku beim Release:** keine (steht in `docs/Bush Narrative Voices.md`).
 - **Pruefen im Feld:** nichts im Tracker; Briefings im Web-Realbetrieb beobachten (Wiederholungen, künstlicher Druck).
 
-### 2026-11-12 · EFB-Kopien i18n/en.js und profile.js: Figuren-Testschalter und Diagnosezeile
+### 2026-11-12 · EFB-Kopien i18n/en.js und profile.js: Figuren-Testschalter und Diagnosezeile — ausgeliefert in Tracker v634 Alpha (13.11.2026)
 - **Artefakt:** Tracker-EXE (EFB-Web-Assets)
 - **Dateien:** `ga-tracker-client/efb-web-assets/i18n/en.js`, `ga-tracker-client/efb-web-assets/profile.js` (Kopien per `sync-efb-web-assets.js`)
 - **Was:** Neue Schlüssel `settings.boarding.figures` / `figuresHint` und Diagnosezeile „PAX-Figuren“ aus der Web-App. Im EFB ohne Wirkung; nur Gleichstand der Kopien.
 - **Tests:** `efb-web-assets-sync.test.js` 1/1.
 - **Doku beim Release:** keine.
 - **Pruefen im Feld:** nichts.
-
-## Ausgeliefert
 
 ### 2026-11-12 · Boden-Composer Etappe A + Lauftempo je Figur — ausgeliefert in Tracker v633 Alpha / Web v2364 (12.11.2026)
 - **Artefakt:** Tracker-EXE; Web mit diesem Push (hinter `ga_person_figures_v1`, Standard aus)
