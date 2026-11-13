@@ -214,6 +214,32 @@ der mehr als eine Person befördert, bekommt dasselbe, bevor er an den Composer 
   Begleiter der Bush-Abholung bleiben offen (gestreut), bis die Quelle Rolle/Geschlecht liefert.
 - Offen: Sim-Test Privatflug hin/zurück und Bush-Abholung mit Schalter.
 
+### Composer für alle Missionen (13.11.2026, Web v2382)
+
+User-Entscheidung: Der Composer wählt für **alle** Missionen die passende Pax-/Cargo-Kombination,
+Bush eingeschlossen. Statt jeden Strang einzeln anzuschließen, gibt es einen gemeinsamen Schritt:
+
+- `mission-ground-composer-browser.js` startet nach dem Erstellen (in `generateMission`, nachdem
+  der Missionsvertrag angehängt ist) im Hintergrund, nur mit Schalter `ga_person_figures_v1` und
+  KI-Modus. Übersprungen werden Stränge mit eigenem Composer (Charter, Sightseeing, Reporter,
+  Privatflug, Rückflug mit übernommener Wahl).
+- Quelle `mission-ground-source.v1`: Hauptperson aus dem Passagierprofil (Rolle, Geschlecht),
+  Personenzahl (`_missionCargoPassengerCount`, bei Bush-Abholung `pickupPassengerCount`), Anlass aus
+  Titel, Story-Kern und Briefing-Anfang, Gepäck/Fracht genau so, wie die Ladeliste es führt
+  (`_missionCargoGenerateManifest`: `primary-cargo` bzw. `pickup-companion-cargo`). Reine
+  Frachtflüge haben keine Personen, nur Ladung (`mission-onboard-core.js` erlaubt das jetzt).
+- Eigene Ladungs-Pools bleiben unberührt (Feuer, SAR, Medizin, Tiere): dort wählt der Composer nur Looks.
+- Ergebnis in `currentMissionData.groundComposer` (in beiden Speicher-Listen ergänzt); Figuren
+  über `_missionSceneGroundIdea`, Gepäck über `ideaOf`. Die Bush-Abholung nutzt die Figuren jetzt
+  auch für `pickup-passenger` (`visualPersons`).
+- Beim Annehmen wartet die App höchstens 8 s auf einen noch laufenden Abruf
+  (`_publishSharedMissionReplacement`), sonst gilt die feste Rollenliste.
+- Browser-Probe (KI-Antwort simuliert): Bush-Abholung 2 Pax → Wanderin (outdoor) + Kollege
+  (workwear), Gepäck → Hartschalenkoffer + Tasche; Frachtflug 120 lbs → Holzkiste, keine Personen.
+- Begleiter mit Rolle/Geschlecht aus der Quelle (Grundregel oben) bleiben je Strang offen; bis
+  dahin legt der Composer das Geschlecht der Mitreisenden aus Anlass und Gruppe fest.
+- Offen: Live-Proben mit echten Missionen (Bush, Fracht, Verein, Medizin), Sim-Test.
+
 ### Etappe D – übrige Missionsstränge (einzeln, je Testschalter)
 
 | Strang | Quelle | Pax | Cargo | Besonderheit |

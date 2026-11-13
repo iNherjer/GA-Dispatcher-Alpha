@@ -63,6 +63,16 @@ const ADAPTERS = {
     passengers: passengersFor({ lead: { role: idea.companion?.relationship, gender: idea.companion?.gender }, passengerCount: 1 }),
     cargo: [cargoPost('c1', { description: idea.luggage?.label, weightLbs: idea.luggage?.weightLbs })].filter(Boolean)
   }),
+  // Alle übrigen Missionen (mission-ground-composer-browser.js): Profil, Personenzahl, Ladeliste.
+  // Reine Frachtflüge haben keine Personen, nur Gepäck/Fracht.
+  'mission-ground-source.v1': (src) => ({
+    occasion: text(src.occasion, 600),
+    task: text(src.task, 300),
+    groupLabel: text(src.groupLabel, 100),
+    passengers: Number(src.passengerCount) > 0
+      ? passengersFor({ lead: src.lead, passengerCount: src.passengerCount, groupLabel: src.groupLabel, companions: src.companions }) : [],
+    cargo: [src.cargoPost ? cargoPost('c1', src.cargoPost) : null].filter(Boolean)
+  }),
   'apt-news-idea.v1': (idea) => ({
     occasion: join([idea.purpose, idea.background, idea.angle]),
     task: join([idea.groundPlan, idea.publication], 300),
@@ -96,7 +106,8 @@ function fromPassenger(passenger = null, { passengerCount = null, party = null, 
 }
 
 function normalize(raw = null) {
-  if (!raw || typeof raw !== 'object' || !Array.isArray(raw.passengers) || !raw.passengers.length) return null;
+  if (!raw || typeof raw !== 'object' || !Array.isArray(raw.passengers)) return null;
+  if (!raw.passengers.length && !(Array.isArray(raw.cargo) && raw.cargo.length)) return null;
   const passengers = raw.passengers.slice(0, MAX_PASSENGERS).map((pax, index) => ({
     id: `pax${index + 1}`,
     lead: index === 0,

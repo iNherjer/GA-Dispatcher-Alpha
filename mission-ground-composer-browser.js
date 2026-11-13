@@ -1,0 +1,104 @@
+(function (root) {
+'use strict';
+// Boden-Composer für alle Missionen ohne eigenen Composer-Anschluss (Bush, Fracht, Medizin,
+// Verein, Training, POI-Aufträge …). Läuft nach dem Erstellen im Hintergrund: Bordliste aus
+// Passagierprofil, Personenzahl und der Ladeliste, ein KI-Abruf für Looks + Packstücke.
+// Charter, Sightseeing, Reporter und Privatflug wählen schon beim Schreiben selbst.
+// Testschalter ga_person_figures_v1; ohne KI-Modus gilt die feste Rollenliste.
+const SCHEMA = 'mission-ground-source.v1';
+// Diese Stränge haben eigene Objekt-Pools für die Hauptladung; der Composer wählt dort nur Looks.
+const OWN_CARGO_POOLS = new Set(['fire_watch', 'search_and_rescue', 'medical_transfer', 'animal_transport']);
+const OWN_COMPOSER_SCHEMAS = new Set(['charter-idea.v1', 'sightseeing-idea.v1', 'apt-news-idea.v1', 'private-outing.v1']);
+const ACCEPT_WAIT_MS = 8000;
+
+function text(value, max = 400) { return typeof value === 'string' && value.trim() ? value.replace(/\s+/g, ' ').trim().slice(0, max) : ''; }
+function join(parts, max = 600) { return parts.map((part) => text(part, max)).filter(Boolean).join(' – ').slice(0, max); }
+
+function hasOwnComposer(md) {
+  const contract = md?.missionContract || {};
+  return [md?.charterIdea, md?.sightseeingIdea, md?.aptNewsIdea, md?.privateOuting, md?.privateReturn?.outing,
+    contract.charterIdea, contract.sightseeingIdea, contract.aptNewsIdea, contract.privateOuting]
+    .some((idea) => idea && typeof idea === 'object' && (idea.groundVisual || OWN_COMPOSER_SCHEMAS.has(idea.schema)));
+}
+
+function taskDomainOf(md) {
+  const pax = md?.passenger || md?.missionContract?.passenger || {};
+  return text(md?.taskDomain || pax.taskDomain || md?.missionContract?.profile?.taskDomain || md?.missionContract?.taskDomain, 60);
+}
+
+// Gepäck so, wie es die Ladeliste später führt (gleicher Text, gleiches Gewicht) – nur dann
+// greift die Composer-Wahl beim Manifest (planMatches).
+function cargoPost(md, taskDomain) {
+  if (OWN_CARGO_POOLS.has(taskDomain)) return null;
+  try {
+    const generate = root._missionCargoGenerateManifest;
+    if (typeof generate !== 'function') return null;
+    const item = (generate(null)?.items || []).find((entry) => ['pickup-companion-cargo', 'primary-cargo'].includes(entry?.id));
+    const weightLbs = Number(item?.weightLbs);
+    if (!item || !text(item.label, 160) || !(weightLbs > 0)) return null;
+    return { owner: 'pax1', description: text(item.label, 160), weightLbs };
+  } catch (_) {
+    return null;
+  }
+}
+
+function source(md) {
+  if (!md || typeof md !== 'object') return null;
+  const pax = md.passenger || md.missionContract?.passenger || null;
+  const bush = md.bush && typeof md.bush === 'object' ? md.bush : null;
+  const pickup = !!(bush && bush.targetMode === 'strip_then_return' && String(bush.pickupKind || '').toLowerCase() === 'passenger');
+  const taskDomain = taskDomainOf(md);
+  let passengerCount = 0;
+  try { passengerCount = pickup ? Math.round(Number(bush.pickupPassengerCount) || 1) : (root._missionCargoPassengerCount?.() || 0); } catch (_) {}
+  const gender = String(pax?.gender || (typeof root._missionScenePassengerGender === 'function' ? root._missionScenePassengerGender() : '') || '').toLowerCase();
+  const cargo = cargoPost(md, taskDomain);
+  if (!(passengerCount > 0) && !cargo) return null;
+  return {
+    schema: SCHEMA,
+    taskDomain,
+    roleProfile: text(pax?.roleProfile, 80),
+    occasion: join([md.missionTitle || md.title, pax?.storySeed || pax?.personalStoryCue, text(md.missionStory || md.story, 500)]),
+    task: join([pax?.role, pickup ? (bush.pickupLabel || bush.pickupRole) : '', md.targetName], 300),
+    groupLabel: text(md.party?.label, 100),
+    passengerCount: passengerCount > 0 ? passengerCount : 0,
+    lead: passengerCount > 0 ? { role: text(pax?.role, 100), gender: gender === 'male' || gender === 'female' ? gender : '' } : null,
+    cargoPost: cargo
+  };
+}
+
+function json(prompt) {
+  if (typeof root.fetchGeminiJsonWithFallback !== 'function') return Promise.reject(new Error('KI nicht verfügbar'));
+  return root.fetchGeminiJsonWithFallback(prompt, root.getSelectedAiApiKey?.(), { promptVersion: 'ground-visual-generic-v1', timeoutMs: 26000 })
+    .then((result) => { if (!result?.parsed) throw new Error('Boden-Composer ohne Antwort'); return result.parsed; });
+}
+
+let pending = null;
+
+// Nach dem Erstellen aufrufen. Wartet nicht; das Ergebnis landet in md.groundComposer.
+function start(md, { aiModeEnabled = false } = {}) {
+  const visual = root.MissionGroundVisualCore;
+  if (!visual?.enabled?.() || !aiModeEnabled || !md || hasOwnComposer(md) || md.groundComposer?.groundVisual) return null;
+  const src = source(md);
+  if (!src) return null;
+  md.groundComposer = src;
+  const missionId = md.missionId;
+  const promise = visual.ensure(src, json, { taskDomain: src.taskDomain, roleProfile: src.roleProfile })
+    .catch((error) => { console.warn('[GroundComposer] Auswahl fehlgeschlagen, feste Liste:', error?.message || error); return null; })
+    .then((plan) => {
+      if (root.currentMissionData?.missionId === missionId) { try { root.saveMissionState?.(); } catch (_) {} }
+      return plan;
+    });
+  pending = { missionId, promise };
+  return promise;
+}
+
+// Vor dem Annehmen: kurz auf einen laufenden Abruf warten, damit die Ladeliste ihn nutzt.
+async function settle(md, waitMs = ACCEPT_WAIT_MS) {
+  if (!pending || !md || pending.missionId !== md.missionId) return null;
+  return Promise.race([pending.promise, new Promise((resolve) => setTimeout(() => resolve(null), waitMs))]);
+}
+
+const api = { SCHEMA, OWN_CARGO_POOLS, hasOwnComposer, source, start, settle };
+root.MissionGroundComposerBrowser = api;
+if (typeof module !== 'undefined' && module.exports) module.exports = api;
+})(typeof window !== 'undefined' ? window : globalThis);

@@ -901,8 +901,9 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
     }
     if (isBushPickupPassenger) {
         const pickupCount = Math.max(1, Math.min(6, Math.round(Number(bush.pickupPassengerCount) || 1)));
-        const primaryGender = _missionScenePassengerGender();
-        const paxTitle = _missionScenePersonTitle(primaryGender, 'pickup-passenger-manifest');
+        const pickupFigures = typeof _missionSceneGroundFigures === 'function' ? _missionSceneGroundFigures() : null;
+        const primaryGender = pickupFigures?.[0]?.gender || _missionScenePassengerGender();
+        const paxTitle = pickupFigures?.[0]?.title || _missionScenePersonTitle(primaryGender, 'pickup-passenger-manifest');
         _missionCargoPushItem(items, {
             id: 'pickup-passenger',
             itemType: 'passenger',
@@ -916,7 +917,10 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
             deliverAtHome: true,
             pickupLocation: 'target',
             objectTitle: paxTitle,
-            titleCandidates: _missionScenePersonCandidates(primaryGender, paxTitle),
+            titleCandidates: pickupFigures?.[0] ? _missionSceneGroundFigureCandidates(pickupFigures[0]) : _missionScenePersonCandidates(primaryGender, paxTitle),
+            ...(pickupFigures ? { visualPersons: pickupFigures.slice(0, pickupCount).map(figure => ({
+                id: figure.id, title: figure.title, gender: figure.gender, look: figure.look, figureLook: figure.figureLook, maxWalkKts: figure.maxWalkKts
+            })) } : {}),
             forwardOffsetM: -0.2,
             rightOffsetM: 1.1
         });

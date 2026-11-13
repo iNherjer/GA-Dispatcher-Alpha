@@ -31,6 +31,12 @@ function postFromIdea(idea = null) {
     return { owner: text(idea.passenger?.role, 100) || 'Reporter', description: text(idea.shipment.label, 160),
       packaging: text(idea.shipment.packaging, 300) || undefined, handling: text(idea.shipment.handling, 300) || undefined, weightLbs };
   }
+  if (idea.schema === 'mission-ground-source.v1') {
+    const post = idea.cargoPost;
+    const weightLbs = Number(post?.weightLbs);
+    if (!text(post?.description) || !(weightLbs > 0)) return null;
+    return { owner: text(idea.lead?.role, 100) || 'Missionsladung', description: text(post.description, 160), weightLbs };
+  }
   if (idea.schema === 'private-outing.v1' && idea.luggage) {
     const weightLbs = Number(idea.luggage.weightLbs);
     if (!text(idea.luggage.label) || !(weightLbs > 0)) return null;
@@ -50,7 +56,7 @@ function ideaOf(md = null) {
   // Privat-Rückflug: die Ausflugsdaten (Begleitung, Gepäck, Composer-Wahl) liegen in privateReturn.outing.
   const returnOuting = source.privateReturn?.outing || source.missionContract?.privateReturn?.outing;
   return [source.aptNewsIdea, source.sightseeingIdea, source.charterIdea, source.missionContract?.aptNewsIdea, source.missionContract?.charterIdea,
-    source.privateOuting, source.missionContract?.privateOuting,
+    source.privateOuting, source.missionContract?.privateOuting, source.groundComposer,
     returnOuting ? Object.assign({ schema: 'private-outing.v1' }, returnOuting) : null]
     .find(idea => postFromIdea(idea)) || null;
 }

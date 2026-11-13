@@ -9895,7 +9895,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
-        'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'sarBriefing', 'sarScenario', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'animalTransportIdea', 'aptNewsIdea', 'medicalTransferIdea', 'sightseeingIdea',
+        'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'sarBriefing', 'sarScenario', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'animalTransportIdea', 'aptNewsIdea', 'medicalTransferIdea', 'sightseeingIdea', 'groundComposer',
         'sarHeli', 'sarHeliProgress', 'bush', 'bushNarrative', 'bushFollowUpNarrative', 'legacyCharterNarrative', 'bushReconInfo', 'environmentContext', 'airportInfoContext', 'airportInformation', 'departureAirportInfoContext', 'departureAirportInformation', 'poiInformation',
         'routeWaypoints', 'missionRouteWaypoints',
         'knowledgeContext',
@@ -47596,6 +47596,10 @@ async function generateMission(options = {}) {
     window.activeMissionContract = activeMissionContract;
     attachMissionSurveyPattern(currentMissionData, activeMissionContract, window.activePassenger);
     refreshMissionSurveyOverlaySoon(currentMissionData, window.activePassenger || null, 'mission-generated');
+    // Boden-Composer für Stränge ohne eigenen Anschluss (Testschalter ga_person_figures_v1), im Hintergrund;
+    // erst hier, weil Ladeliste und Bush-Abholung den Missionsvertrag brauchen.
+    try { window.MissionGroundComposerBrowser?.start(currentMissionData, { aiModeEnabled }); } catch (error) { console.warn('[GroundComposer]', error); }
+
     refreshMissionPoiChainOverlaySoon(currentMissionData, window.activePassenger || null, 'mission-generated');
     {
         const sceneDebugInfo = {

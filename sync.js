@@ -7703,7 +7703,7 @@ function _missionSceneGroundIdea() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     const contract = md?.missionContract || {};
     return [md?.charterIdea, md?.sightseeingIdea, md?.aptNewsIdea, contract.charterIdea, contract.sightseeingIdea, contract.aptNewsIdea,
-        md?.privateOuting, contract.privateOuting, md?.privateReturn?.outing, contract.privateReturn?.outing]
+        md?.privateOuting, contract.privateOuting, md?.privateReturn?.outing, contract.privateReturn?.outing, md?.groundComposer]
         .find(idea => idea && typeof idea === 'object' && idea.groundVisual) || null;
 }
 
@@ -15965,7 +15965,7 @@ function _syncCompactMissionObjectCore(value = null, fallbackMission = null) {
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
-        'cargoText', 'passenger', 'privateReturn', 'privateOuting', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'sarBriefing', 'sarScenario', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'animalTransportIdea', 'aptNewsIdea', 'medicalTransferIdea', 'sightseeingIdea',
+        'cargoText', 'passenger', 'privateReturn', 'privateOuting', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'sarBriefing', 'sarScenario', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'animalTransportIdea', 'aptNewsIdea', 'medicalTransferIdea', 'sightseeingIdea', 'groundComposer',
         'sarHeli', 'sarHeliProgress', 'bush', 'bushProgress', 'bushNarrative', 'bushNarrativeDebug', 'bushFollowUpNarrative', 'legacyCharterNarrative', 'bushReconInfo', 'environmentContext', 'airportInfoContext', 'airportInformation', 'departureAirportInfoContext', 'departureAirportInformation', 'poiInformation',
         'routeWaypoints', 'missionRouteWaypoints',
         'targetScene', 'sceneIntent', 'sceneAccepted', 'sceneCompositionStatus',
@@ -17301,6 +17301,9 @@ window.gaMissionAttachManifestForPublish = _missionAttachManifestForPublish;
 async function _publishSharedMissionReplacement(state, basis) {
     if (basis.localOnly) return { localOnly: true };
     if (getSyncId() !== basis.id) throw new Error('Pilot während der Übernahme gewechselt.');
+    if (state?.currentMissionData && window.MissionGroundComposerBrowser) {
+        try { await window.MissionGroundComposerBrowser.settle(state.currentMissionData); } catch (_) {}
+    }
     if (state && typeof _missionAttachManifestForPublish === 'function') _missionAttachManifestForPublish(state);
     const seed = state ? _syncTrackerMissionSeedPayload(state) : null;
     const lastModified = Date.now();
