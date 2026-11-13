@@ -6451,6 +6451,11 @@ function _missionAptArrivalAssetForItem(item = {}, index = 0, options = {}) {
     if (groupVehicle?.title) {
         return { title: groupVehicle.title, candidates: _sceneAssetCandidates(groupVehicle.title, groupVehicle.candidates.slice()) };
     }
+    // Einzelgast mit großer/schwerer Fracht: Van statt Pkw (gleiche Regel wie beim Aussteigen).
+    if (!groupPlan && role === 'vehicle.car' && _missionSceneCargoNeedsVan() && MISSION_SCENE_ASSET_POOLS.vans.length) {
+        const vanTitle = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.vans, `apt-arrival-cargo-van-${index}`, MISSION_SCENE_ASSET_POOLS.vans[0]);
+        return { title: vanTitle, candidates: _sceneAssetCandidates(vanTitle, MISSION_SCENE_ASSET_POOLS.vans) };
+    }
     if (role === 'vehicle.emergency.medical') {
         pool = MISSION_SCENE_ASSET_POOLS.medicalVehicles;
         fallback = pool[0] || 'Car Bush Medic';
@@ -6766,6 +6771,30 @@ function _missionSceneIsPatientTransfer() {
     return idea?.schema === 'medical-transfer-idea.v1' && idea.transportKind === 'patient_transfer' && idea.patientCount === 1;
 }
 
+// Fahrzeugregel v2 (2 Pax Pkw, 3–5 Van, große/schwere Fracht → Van) braucht Tracker v634:
+// erst die angehobene Mindestversion schaltet sie scharf, vorher bleibt v1 (bis 3 Van, sonst Bus).
+const MISSION_SCENE_VEHICLE_RULE_V2_MIN_TRACKER = 634;
+function _missionSceneVehicleRuleV2() {
+    return MIN_TRACKER_VERSION_CODE >= MISSION_SCENE_VEHICLE_RULE_V2_MIN_TRACKER;
+}
+
+// Große oder schwere Fracht passt nicht in einen Pkw: ab 100 lbs gesamt oder mit einem
+// sperrigen Stück (Holzkiste, Palette, großes Packstück).
+const MISSION_SCENE_VAN_CARGO_LBS = 100;
+function _missionSceneCargoNeedsVan() {
+    let manifest = null;
+    try { manifest = typeof _missionCargoEnsureManifest === 'function' ? _missionCargoEnsureManifest() : null; } catch (_) { manifest = null; }
+    const items = (Array.isArray(manifest?.items) ? manifest.items : [])
+        .filter(item => item && !(typeof _missionCargoIsPassengerItem === 'function' && _missionCargoIsPassengerItem(item)));
+    if (!items.length) return Number(_missionSceneCargoWeightLbs()) >= MISSION_SCENE_VAN_CARGO_LBS;
+    const total = items.reduce((sum, item) => sum + (Number(item.weightLbs) > 0 ? Number(item.weightLbs) : 0), 0);
+    if (total >= MISSION_SCENE_VAN_CARGO_LBS) return true;
+    const bulkyTitle = /pallet|palette|crate|kiste/i;
+    return items.some(item => bulkyTitle.test(String(item.objectTitle || ''))
+        || (Array.isArray(item.visualPieces) && item.visualPieces.some(piece => piece?.form === 'wood_crate'
+            || piece?.size === 'l' || bulkyTitle.test(String(piece?.title || '')))));
+}
+
 function _missionSceneRequestedGroupPlan() {
     if (typeof window.GAMissionSceneGroup?.normalizeGroupSequenceCommand !== 'function') return null;
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
@@ -6778,7 +6807,8 @@ function _missionSceneRequestedGroupPlan() {
         expectedPassengerCount: partyCount,
         groupSpacingM: 1,
         boardingStaggerMs: 2000,
-        groupVehicleKind: _missionSceneIsPatientTransfer() ? 'medical' : undefined
+        vehicleRule: _missionSceneVehicleRuleV2() ? 'v2' : undefined,
+        groupVehicleKind: _missionSceneIsPatientTransfer() ? 'medical' : (_missionSceneCargoNeedsVan() ? 'van' : undefined)
     });
     return plan?.valid === true ? plan : null;
 }
@@ -6796,7 +6826,8 @@ function _missionSceneGroupCommandFields() {
         expectedPassengerCount: groupPlan.expectedPassengerCount,
         groupSpacingM: groupPlan.groupSpacingM,
         boardingStaggerMs: groupPlan.boardingStaggerMs,
-        groupVehicleKind: groupPlan.groupVehicleKind
+        groupVehicleKind: groupPlan.groupVehicleKind,
+        ...(_missionSceneVehicleRuleV2() ? { vehicleRule: 'v2' } : {})
     };
 }
 
@@ -7507,6 +7538,13 @@ function _missionSceneCargoItems(cargoPoint, cargoAsset) {
 
 function _missionSceneVehicleAsset() {
     const groupPlan = _missionSceneGroupPlan();
+    if (groupPlan && groupPlan.groupVehicleKind === 'car') {
+        // Nur Titel, die der Tracker als Gruppen-Pkw annimmt (GROUP_VEHICLE_TITLES.car).
+        const selection = window.GAMissionSceneGroup?.resolveGroupVehicleSelection?.(groupPlan);
+        const pool = selection?.candidates?.length ? selection.candidates.slice() : ['Microsoft_Car_EUR_04'];
+        const preferred = _scenePickTitle(pool, `vehicle-group-car-${groupPlan.expectedPassengerCount}`, pool[0]);
+        return { title: preferred, candidates: _sceneAssetCandidates(preferred, pool) };
+    }
     if (groupPlan) {
         const pool = groupPlan.groupVehicleKind === 'medical' ? MISSION_SCENE_ASSET_POOLS.medicalVehicles : groupPlan.groupVehicleKind === 'bus'
             ? MISSION_SCENE_ASSET_POOLS.buses
@@ -7566,6 +7604,13 @@ function _missionSceneVehicleAsset() {
             title,
             candidates: _sceneAssetCandidates(title, pool.concat(fallbackPool))
         };
+    }
+    if (_missionSceneCargoNeedsVan()) {
+        const vanPool = _missionSceneFilteredVehiclePool(MISSION_SCENE_ASSET_POOLS.vans);
+        if (vanPool.length) {
+            const preferred = _sceneObjectTitleOverride('vehicle', _scenePickTitle(vanPool, `vehicle-cargo-van-${taskDomain}`, vanPool[0]), vanPool);
+            return { title: preferred, candidates: _sceneAssetCandidates(preferred, vanPool) };
+        }
     }
     const rawWorkVehiclePool = /(cargo|freight|club_utility|animal_transport)/.test(taskDomain)
         ? MISSION_SCENE_ASSET_POOLS.vans.concat(MISSION_SCENE_ASSET_POOLS.trucks, MISSION_SCENE_ASSET_POOLS.vehicles)

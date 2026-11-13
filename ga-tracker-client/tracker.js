@@ -3183,6 +3183,14 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
       }
     }
     if (pickupVehicleDepartureMs > 0) await sleep(pickupVehicleDepartureMs);
+    // Eine Empfangsszene, die nicht als Abholfahrzeug übernommen wurde (zu weit entfernt,
+    // falscher Fahrzeugtyp), bliebe sonst nach dem Abschluss stehen (Feldtest 13.11.2026).
+    const unboundArrivalSceneId = String(command?.deboardingArrivalCleanupSceneId
+      || (pickupSceneRec && !stagedPickupVehicle ? pickupSceneRec.sceneId : '') || '').trim();
+    if (allPersonRoutesSent && !(stagedPickupVehicle && pickupRoutePoint) && unboundArrivalSceneId && unboundArrivalSceneId !== sceneId && scenes.has(unboundArrivalSceneId)) {
+      debugLog(`SCENE_DEBOARDING_ARRIVAL_CLEANUP scene=${unboundArrivalSceneId} reason=unbound-reception`);
+      await clearScene(unboundArrivalSceneId, 'deboarding-unbound-arrival-cleanup', null, { ack: false });
+    }
     sendAck({
       type: 'mission_scene_deboarding_ack',
       commandId,

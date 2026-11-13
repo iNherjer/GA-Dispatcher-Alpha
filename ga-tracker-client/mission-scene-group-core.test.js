@@ -83,7 +83,7 @@ test('only strictly scoped group debug commands bypass mission authority', () =>
   }), true);
 });
 
-test('tracker and web app gate the additive sequence on the explicit capability', () => {
+test('tracker advertises groups; web app plans groups from the preset (min tracker v470, no capability gate)', () => {
   const trackerSource = fs.readFileSync(path.join(__dirname, 'tracker.js'), 'utf8');
   const syncSource = fs.readFileSync(path.join(__dirname, '..', 'sync.js'), 'utf8');
   const relaySource = fs.readFileSync(path.join(__dirname, 'tracker-efb-relay-core.js'), 'utf8');
@@ -95,7 +95,8 @@ test('tracker and web app gate the additive sequence on the explicit capability'
   assert.match(trackerSource, /!groupSceneDebugCommand[\s\S]*?rememberMissionCommand\(command\)/);
   assert.match(trackerSource, /for \(let index = 0; index < personPlans\.length; index\+\+\)[\s\S]*?await sleep\(groupPlan\.boardingStaggerMs\)[\s\S]*?spawnSceneObjectFromPlan\(sceneId, plan, 3000\)[\s\S]*?sendWaypointRoute\(obj\.objectId/);
   assert.match(trackerSource, /const baseStart = groupPlan\.enabled\s*\? \{ \.\.\.start \}\s*: \{ \.\.\.start, rightM:/);
-  assert.match(syncSource, /window\.liveTrackerCapabilities\.includes\(MISSION_SCENE_GROUP_CAPABILITY\)/);
+  assert.match(syncSource, /MIN_TRACKER_VERSION_CODE = \d{3}/);
+  assert.doesNotMatch(syncSource, /tracker_group_capability_required/);
   assert.match(syncSource, /if \(!partyKind \|\| partyKind === 'single'/);
   assert.match(syncSource, /groupSequence: true/);
   assert.match(syncSource, /_missionSceneValidateGroupFinalAck/);
@@ -109,4 +110,15 @@ test('medical pair retains ambulance for boarding and deboarding without changin
  assert.equal(plan.groupVehicleKind,'medical');assert.equal(groupCore.resolveGroupVehicleSelection(plan,{vehicleTitle:'Car Bush Medic'}).title,'Car Bush Medic');
  assert.equal(groupCore.resolveGroupVehicleSelection(plan,{vehicleTitle:'Microsoft_Van_EUR'}).candidates.includes('Microsoft_Van_EUR'),false);
  assert.equal(groupCore.normalizeGroupSequenceCommand({groupSequence:true,expectedPassengerCount:3,groupVehicleKind:'medical'}).groupVehicleKind,'van');
+});
+
+test('vehicle rule v2: car for two, van for three to five, cargo lifts car to van, medical unchanged, v1 untouched', () => {
+  const kind = (count, extra = {}) => groupCore.normalizeGroupSequenceCommand({ groupSequence: true, expectedPassengerCount: count, ...extra }).groupVehicleKind;
+  assert.deepEqual([2, 3, 4, 5].map((n) => kind(n)), ['van', 'van', 'bus', 'bus'], 'v1 unverändert');
+  assert.deepEqual([2, 3, 4, 5].map((n) => kind(n, { vehicleRule: 'v2' })), ['car', 'van', 'van', 'van']);
+  assert.equal(kind(2, { vehicleRule: 'v2', groupVehicleKind: 'van' }), 'van');
+  assert.equal(kind(2, { vehicleRule: 'v2', groupVehicleKind: 'medical' }), 'medical');
+  const car = groupCore.resolveGroupVehicleSelection(groupCore.normalizeGroupSequenceCommand({ groupSequence: true, expectedPassengerCount: 2, vehicleRule: 'v2' }));
+  assert.equal(car.vehicleKind, 'car');
+  assert.ok(car.candidates.includes('Microsoft_Car_EUR_04_Blue'));
 });

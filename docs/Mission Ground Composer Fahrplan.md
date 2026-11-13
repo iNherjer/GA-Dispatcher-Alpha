@@ -133,6 +133,42 @@ Fehlt die Liste oder passt die Anzahl nicht, bleibt sie leer und alles läuft wi
 abgelehnte Idee). Rückflug übernimmt die Liste über `original`. Live-Probe: 4 Charter, alle
 Begleiter mit Geschlecht, Writer hält sich daran (Schatzmeisterin/Beisitzer, Wart/Jugendwartin).
 
+### Empfang am Zielplatz: Fahrzeug, Aufräumen, EFB (13.11.2026, wartet auf Tracker v634)
+
+Feldtest Charter EDTO→EDTL mit 2 Pax: Die Empfangsszene stellte einen Pkw, der Tracker
+verlangt für Gruppen aber ein Gruppenfahrzeug (`GROUP_VEHICLE_TITLES`) – er verwarf den Pkw,
+brachte einen eigenen Van, und Pkw + Empfangsperson blieben nach dem Abschluss stehen. Im
+EFB fehlte der Abholpunkt (die Web-Karte zeichnet ihn selbst, der Tracker schickte ihn nicht).
+Betrifft alle Missionen mit APT-Empfangsszene (Charter, Sightseeing, Reporter, Fracht mit
+Begleiter, Medizin, Verein, Rückflüge); Bush-Abholungen haben einen eigenen Weg.
+
+1. **Sofort live (Web v2378):** Bei Gruppen nimmt die Empfangsszene das Gruppenfahrzeug,
+   damit der Tracker sie für das Aussteigen übernimmt (`_missionAptArrivalAssetForItem`).
+2. **Fahrzeugregel v2** (`ga-tracker-client/mission-scene-group-core.js`, gemeinsam für
+   Tracker und Web): 1–2 Pax Pkw, 3–5 Pax Van, Bus wird nicht mehr gewählt, Patiententransport
+   unverändert Sanitäter. Große/schwere Fracht → Van, auch für Einzelgäste: ab **100 lbs**
+   gesamt oder mit sperrigem Stück (Holzkiste, Palette, großes Packstück) –
+   `_missionSceneCargoNeedsVan` in `sync.js`. Die Regel steckt im Befehl (`vehicleRule: 'v2'`,
+   `groupVehicleKind`), alte Befehle behalten v1 (bis 3 Van, sonst Bus).
+   Der Van für Einzelgäste mit großer Fracht ist sofort live (kein Tracker-Bezug); die
+   Gruppenregel schaltet erst `MIN_TRACKER_VERSION_CODE >= 634` scharf
+   (`_missionSceneVehicleRuleV2`), sonst wählte die App einen Pkw, den ein alter Tracker verwirft.
+3. **Aufräumen** (`tracker.js`, `tracker-mission-simulator-effects.js`): Wird die
+   Empfangsszene beim Aussteigen nicht übernommen (falscher Typ, Flugzeug > 0,12 NM entfernt),
+   räumt der Tracker sie nach dem Aussteigen ab (`SCENE_DEBOARDING_ARRIVAL_CLEANUP`).
+4. **EFB-Abholpunkt** (`tracker-efb-map-snapshot-core.js` → `missionGeometry.arrival`,
+   `tracker-efb-kartentisch-host.js`): oranger Punkt „Abholteam“ wie in der Web-App; nur wenn
+   die Empfangsszene tatsächlich gespawnt wird.
+
+**Beim Release v634 (nur nach User-OK):** Tracker-Version auf v634, EXE bauen und
+veröffentlichen (Push-Doku 2b), danach in `sync.js` `MIN_TRACKER_VERSION_CODE`/`LABEL` auf
+634/v634 anheben (aktiviert Regel v2), `tools/mission-ground-flow-selftest.mjs` anpassen,
+`sw.js` erhöhen. Die offenen Einträge der Release Queue gehen mit.
+Tests: Tracker-Suite 1561/0 Fehler, `mission-scene-group-core.test.js` (Regel v1/v2),
+`tracker-mission-simulator-effects.test.js` (Aufräum-Kennung), `tracker-efb-map-snapshot-core.test.js`
+(Abholpunkt). Feldtest danach: 2 Pax → Pkw, 3 Pax → Van, 1 Pax mit 150 lbs → Van; Empfangsfahrzeug
+fährt mit; nichts bleibt stehen; Punkt im EFB.
+
 ### Grundregel für alle weiteren Stränge: Mitreisende aus der Quelle
 
 Seit 13.11.2026 liefern Charter und Sightseeing `companions:[{role,gender}]`; die Bordliste

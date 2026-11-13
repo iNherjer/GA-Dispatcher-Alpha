@@ -2544,6 +2544,10 @@
       });
       var target = snapshot.missionGeometry && snapshot.missionGeometry.target;
       if (target) L.marker([target.lat, target.lon], { icon: targetIcon(), pane: 'gaGeometryPane' }).bindTooltip(target.name || 'Missionsziel').addTo(geometryLayer);
+      // Abholpunkt der Empfangsszene, wie in der Web-App (oranger Punkt, „Abholteam“).
+      var arrival = snapshot.missionGeometry && snapshot.missionGeometry.arrival;
+      if (arrival) L.circleMarker([arrival.lat, arrival.lon], { pane: 'gaGeometryPane', radius: 5, color: '#111827', weight: 2, fillColor: '#ff9f1c', fillOpacity: 0.96, renderer: geometryRenderer || undefined })
+        .bindTooltip(_hT('Abholteam'), { direction: 'top', opacity: 0.95 }).addTo(geometryLayer);
       var chain = snapshot.missionGeometry && snapshot.missionGeometry.poiChain || [];
       if (chain.length > 1) L.polyline(chain.map(function (point) { return [point.lat, point.lon]; }), { color: '#f2c12e', weight: 3, dashArray: '4,6', pane: 'gaGeometryPane', renderer: geometryRenderer || undefined }).addTo(geometryLayer);
       routeLayer.addTo(map);
@@ -2574,6 +2578,8 @@
     });
     var target = snapshot.missionGeometry && snapshot.missionGeometry.target;
     if (target) parts.push(['t', target.id || target.name || '', target.lat, target.lon].join(':'));
+    var arrival = snapshot.missionGeometry && snapshot.missionGeometry.arrival;
+    if (arrival) parts.push(['a', arrival.lat, arrival.lon].join(':'));
     (snapshot.missionGeometry && snapshot.missionGeometry.poiChain || []).forEach(function (point) {
       parts.push(['c', point.id || '', point.name || '', point.lat, point.lng == null ? point.lon : point.lng, !!point.isPOI, !!point.isPoiChainEndpoint, !!point.isPoiChainReturnHome].join(':'));
     });

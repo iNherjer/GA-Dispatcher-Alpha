@@ -19,6 +19,21 @@
     ]);
     const GROUP_VEHICLE_TITLES = Object.freeze({
         medical: Object.freeze(['Car Bush Medic','Truck Utility Europe Medic Box','Truck Utility NorthAm Medic','Van Asia High Roof Medic','Van Asia High Roof Medic Japan','Van Asia Low Roof Medic']),
+        // Pkw für zwei Personen (Fahrzeugregel v2). Farbvarianten wie im Szenenkatalog.
+        car: Object.freeze([
+            'Microsoft_Car_EUR_04',
+            'Microsoft_Car_EUR_03',
+            'Microsoft_Car_EUR_02',
+            'Microsoft_Car_EUR_01',
+            'Microsoft_Car_EUR_04_Blue',
+            'Microsoft_Car_EUR_03_Beige',
+            'Microsoft_Car_EUR_03_Black',
+            'Microsoft_Car_EUR_03_Blue',
+            'Microsoft_Car_EUR_03_Red',
+            'Microsoft_Car_EUR_02_Blue',
+            'Microsoft_Car_EUR_02_Silver',
+            'Microsoft_Car_EUR_01_black'
+        ]),
         van: Object.freeze([
             'Microsoft_Van_EUR',
             'Microsoft_Van_ASIA_02',
@@ -40,6 +55,16 @@
         const number = Number(value);
         if (!Number.isFinite(number)) return fallback;
         return Math.max(min, Math.min(max, number));
+    }
+
+    // Fahrzeugregel: v1 (alte Befehle) bis 3 Pax Van, sonst Bus. v2 (vehicleRule 'v2', ab
+    // Tracker v634): 2 Pax Pkw, 3–5 Pax Van; groupVehicleKind 'van' (große/schwere Fracht)
+    // hebt den Pkw auf Van an. Patiententransport (medical, 2 Pax) gilt in beiden Regeln.
+    function resolveGroupVehicleKind(command, expectedPassengerCount) {
+        if (command?.groupVehicleKind === 'medical' && expectedPassengerCount === 2) return 'medical';
+        if (command?.vehicleRule !== 'v2') return expectedPassengerCount <= 3 ? 'van' : 'bus';
+        if (command?.groupVehicleKind === 'van') return 'van';
+        return expectedPassengerCount <= 2 ? 'car' : 'van';
     }
 
     function normalizeGroupSequenceCommand(command = {}) {
@@ -71,7 +96,7 @@
         }
         const groupSpacingM = Math.round(clampNumber(command?.groupSpacingM, DEFAULT_SPACING_M, 0.8, 1.5) * 100) / 100;
         const boardingStaggerMs = Math.round(clampNumber(command?.boardingStaggerMs, DEFAULT_STAGGER_MS, 500, 2500));
-        const groupVehicleKind = command?.groupVehicleKind === 'medical' && expectedPassengerCount === 2 ? 'medical' : (expectedPassengerCount <= 3 ? 'van' : 'bus');
+        const groupVehicleKind = resolveGroupVehicleKind(command, expectedPassengerCount);
         return Object.freeze({
             enabled: true,
             valid: true,

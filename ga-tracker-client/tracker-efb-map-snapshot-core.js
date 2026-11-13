@@ -288,6 +288,24 @@ function normalizePoiChain(parts) {
   return points.length ? points : [];
 }
 
+// Empfangs-/Abholpunkt am Zielplatz: bevorzugt der tatsächlich geplante Spawnpunkt der
+// Empfangsszene aus dem Effektplan, sonst der Ankunftsplan (nur wenn dort gespawnt wird).
+function normalizeArrival(parts) {
+  const effect = object(object(object(parts.bundle.executionEffectPlan).effects)['scene.arrival']);
+  const command = object(effect.command);
+  const plan = object(parts.mission.aptArrivalPlan || parts.contract.aptArrivalPlan);
+  if (effect.none === true || object(plan.snapStatus).spawnAllowed === false) return null;
+  const lat = finite(command.lat ?? plan.lat);
+  const lon = finite(command.lon ?? plan.lon);
+  if (lat === null || lon === null || lat < -90 || lat > 90 || lon < -180 || lon > 180) return null;
+  return {
+    id: 'mission-arrival',
+    name: cleanText(plan.roleLabel || plan.expectedBy || 'Abholpunkt', 100),
+    lat,
+    lon
+  };
+}
+
 function normalizeTarget(parts) {
   const mission = parts.mission;
   const lat = finite(mission.targetLat ?? mission.poiLat ?? mission.target?.lat);
@@ -339,6 +357,7 @@ function projectRouteParts(parts, activeRun, flightSnapshot, options = {}) {
     profile: buildProfile(parts, waypoints, legs, flight),
     missionGeometry: {
       target: normalizeTarget(parts),
+      arrival: normalizeArrival(parts),
       poiChain: normalizePoiChain(parts)
     }
   };

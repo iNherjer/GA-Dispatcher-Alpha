@@ -490,6 +490,9 @@ function createTrackerMissionSimulatorEffects(options = {}) {
           command.vehicleDeparture = false;
           command.vehicleArrival = false;
           command.vehicleReturn = false;
+        } else if (arrival && arrivalConfirmed) {
+          // Nicht übernommen (zu weit weg): nach dem Aussteigen aufräumen statt stehen lassen.
+          command.deboardingArrivalCleanupSceneId = arrival.sceneId;
         }
       }
     }

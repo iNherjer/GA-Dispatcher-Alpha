@@ -642,6 +642,7 @@ test('deboarding binds the confirmed nearby arrival scene and retains fallback a
   position = { ...position, lat: 48.4 };
   await send('off-destination');
   assert.equal(commands.at(-1).deboardingPickupSceneId, undefined);
+  assert.equal(commands.at(-1).deboardingArrivalCleanupSceneId, 'arrival-receiver', 'nicht übernommene Empfangsszene wird nach dem Aussteigen aufgeräumt');
   position = { ...position, lat: 48.3001 }; status = 'failed';
   await send('failed-arrival');
   assert.equal(commands.at(-1).deboardingPickupSceneId, undefined);

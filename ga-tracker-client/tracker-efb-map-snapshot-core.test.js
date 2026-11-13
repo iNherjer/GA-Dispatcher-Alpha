@@ -149,3 +149,18 @@ test('sidebar airport identifiers survive named route endpoints without inferenc
   delete run.resumeBundle.mapProfile.context.departureIcao;
   assert.equal(projectTrackerMapSnapshot(run).context.departureIcao, '');
 });
+
+test('map snapshot carries the reception point of the arrival scene, never a blocked one', () => {
+  const run = activeRun();
+  const md = run.resumeBundle.missionState.currentMissionData || (run.resumeBundle.missionState.currentMissionData = {});
+  md.aptArrivalPlan = { lat: 48.357, lon: 7.825, roleLabel: 'Charter-Abholung', snapStatus: { spawnAllowed: true } };
+  run.resumeBundle.executionEffectPlan = { effects: { 'scene.arrival': { command: { type: 'mission_scene_spawn', sceneId: 'a', lat: 48.3572, lon: 7.8255 } } } };
+  let snapshot = projectTrackerMapSnapshot(run, null);
+  assert.deepEqual(snapshot.missionGeometry.arrival, { id: 'mission-arrival', name: 'Charter-Abholung', lat: 48.3572, lon: 7.8255 });
+  run.resumeBundle.executionEffectPlan.effects['scene.arrival'] = { none: true, reason: 'no_safe_arrival_placement' };
+  snapshot = projectTrackerMapSnapshot(run, null);
+  assert.equal(snapshot.missionGeometry.arrival, null);
+  delete run.resumeBundle.executionEffectPlan;
+  md.aptArrivalPlan.snapStatus.spawnAllowed = false;
+  assert.equal(projectTrackerMapSnapshot(run, null).missionGeometry.arrival, null);
+});
