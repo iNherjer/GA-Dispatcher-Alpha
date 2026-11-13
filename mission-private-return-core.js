@@ -68,6 +68,9 @@
         Object.assign(outing, {companion: copy(idea.companion), luggage: copy(idea.luggage),
             origin: copy(idea.origin || null), episode: copy(idea.episode || {}), groundPlan: copy(idea.groundPlan || {}),
             eventVisit: copy(idea.eventVisit || null), pilotIntent: text(idea.pilotIntent, 200), companionIntent: text(idea.companionIntent, 200)});
+        // Boden-Composer: dieselbe Figur und dasselbe Gepäck wie beim Hinflug.
+        if (idea.groundVisual) outing.groundVisual = copy(idea.groundVisual);
+        if (idea.cargoVisual) outing.cargoVisual = copy(idea.cargoVisual);
         const passenger = Object.fromEntries(['name','role','gender','personality','gTolerance','bankTolerance','cargoSensitivity',
             'stomachSensitivity','comfortPriority','urgencyPriority','voiceId','voiceName','geminiVoice','openaiVoice'].map(k => [k, text(original[k], 160)]));
         Object.assign(passenger, {name: idea.companion.name, role: idea.companion.relationship,
@@ -122,7 +125,7 @@ Schreibe daraus story: locker und persönlich erzählt, mit eigenem Einstieg und
 flightBriefing schließt in zwei bis drei flüssigen Sätzen im selben Ton an. Nutze ausschließlich FLUGDATEN. Alle Werte aus WERTE werden mit ihrem exakten Schlüssel in doppelten eckigen Klammern eingesetzt, etwa [[route.distance]]. Die Referenz enthält die Einheit bereits. Außerhalb dieser Referenzen keine Ziffern oder eckigen Klammern verwenden; auch Stationskennungen mit Ziffern als vorhandene Stationsreferenz einsetzen. Keine unbekannten Referenzen erfinden. Vorhandene Entfernung sowie Start-/Zielböen müssen vorkommen. Bezug der Wetterbeobachtungen ist jeweils Start oder Ziel (gegebenenfalls abweichende Station), nicht die ganze Strecke oder eine Vorhersage. Fehlende Messwerte bleiben unbekannt. Benenne die Lücke kurz als noch offene Wetterprüfung vor dem Start; leite daraus weder gute Flugbedingungen noch eine Entscheidung zum Fliegen ab. Eine nicht gemeldete Böenangabe belegt keine Böenfreiheit. Wetterbewertungen gehören ausschließlich in flightBriefing; die fiktionale story beschreibt dafür keine eigenen Bedingungen. Nur landscape belegt Landschaft entlang der Route. Über die frühere Flugführung sagen die fiktionalen Erlebnisse nichts aus.
 Antworte nur als JSON: {"title":"...","experienceRecap":{"summary":"...","moments":["..."],"companionReaction":"..."},"story":"...","flightBriefing":"...","greeting":{"speaker":"companion","addressee":"pilot","text":"..."}}.
 Grenzen in Zeichen: title 160, summary 500, je moment 240, companionReaction 300, story vollständig ohne harte Zeichengrenze, flightBriefing 850, greeting.text 600.
-AUSFLUG: ${JSON.stringify(c)}
+AUSFLUG: ${JSON.stringify(c, (key, value) => key === 'groundVisual' || key === 'cargoVisual' ? undefined : value)}
 WERTE: ${JSON.stringify(episodeApi().flightBindings(flight))}
 FLUGDATEN: ${JSON.stringify(flight)}`;
     }

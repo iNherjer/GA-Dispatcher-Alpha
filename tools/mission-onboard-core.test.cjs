@@ -67,3 +67,16 @@ test('normalize begrenzt und bereinigt', () => {
   assert.deepEqual(onboard.cargo, []);
   assert.equal(core.normalize({ passengers: [] }), null);
 });
+
+test('Privatflug: ein Mitflieger mit festem Geschlecht und persönlichem Gepäck', () => {
+  const onboard = core.fromIdea({ schema: 'private-outing.v1', occasion: 'Ihr wollt gemeinsam den Flohmarkt besuchen.',
+    personalReason: 'Ihr sucht alte Schallplatten.', storyIdentity: { activity: 'stöbern' }, firstStep: 'Zu Fuß zum Markt',
+    groundPlan: { intent: 'Flohmarktbesuch' }, companion: { name: 'Jan', relationship: 'Bruder', gender: 'male', personality: 'ruhig' },
+    luggage: { label: 'Stoffbeutel', weightLbs: 4 } });
+  assert.equal(onboard.source, 'private-outing.v1');
+  assert.equal(onboard.passengers.length, 1);
+  assert.deepEqual([onboard.passengers[0].role, onboard.passengers[0].gender], ['Bruder', 'male']);
+  assert.match(onboard.occasion, /Flohmarkt/);
+  assert.match(onboard.task, /Flohmarktbesuch/);
+  assert.deepEqual([onboard.cargo[0].description, onboard.cargo[0].weightLbs], ['Stoffbeutel', 4]);
+});

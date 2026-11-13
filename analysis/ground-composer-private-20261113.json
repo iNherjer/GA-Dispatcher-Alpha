@@ -1,0 +1,37 @@
+[
+  {
+    "who": "Tante",
+    "look": "business",
+    "src": "composer",
+    "age": "senior",
+    "note": "Festlicher Anlass für die Tante, daher gepflegtes Erscheinungsbild für den Weihnachtsmarktbesuch.",
+    "cargo": [
+      "briefcase 4",
+      "cooler 2"
+    ],
+    "figure": "Tarmac_Female_Winter_Arab"
+  },
+  {
+    "who": "alter Schulfreund",
+    "look": "outdoor",
+    "src": "composer",
+    "age": "adult",
+    "note": "Alter Schulfreund, passend gekleidet für einen Angeltrip am See.",
+    "cargo": [
+      "hardcase 10",
+      "toolbox 8"
+    ],
+    "figure": "Tarmac_Male_Summer_Asian"
+  },
+  {
+    "who": "Schwester",
+    "look": "business",
+    "src": "composer",
+    "age": "young_adult",
+    "note": "Seriöses Auftreten passend zum Vorstellungsgespräch und dem Business-Anlass.",
+    "cargo": [
+      "briefcase 5"
+    ],
+    "figure": "Tarmac_Female_Summer_African"
+  }
+]

@@ -196,6 +196,24 @@ der mehr als eine Person befördert, bekommt dasselbe, bevor er an den Composer 
 | Bush-Abenteuer / Bush-Charter-Gast | `mission-bush-narrative-core.js` (`bush_adventure_guest_v1`, `bush_charter_guest_v1`) | Gast | Camping/Ausrüstung | Outdoor-Look naheliegend, nicht erzwungen |
 | Bush-Abholung | `mission-bush-pickup-scene-core.js` (`bush_pickup_guest_v1`, `pickupPassengerCount`, Begleiter) | wartet am Zielplatz | Rückfracht/Ausrüstung | Ankunftsszene, Begleitperson, Abholfahrzeug |
 
+**Stand 13.11.2026 (Web v2381):**
+- **Privatflug** (`private-outing.v1`, V5 und V6 inkl. Auswahl-Vorschlag): Adapter in
+  `mission-onboard-core.js` (ein Mitflieger, Rolle = Beziehung, Geschlecht fest aus der Idee,
+  Gepäck = `luggage`). Der Composer läuft hinter `ga_person_figures_v1` parallel zum Writer
+  (`fetchPrivateOutingStory` in `app.js`) und schreibt `groundVisual` + `cargoVisual` in die Idee;
+  `postFromIdea`/`ideaOf` in `mission-cargo-visual-core.js` kennen den Privatflug. Fehler bleiben
+  folgenlos (feste Liste `casual`). Live-Probe (`analysis/ground-composer-private-20261113.json`):
+  Tante Weihnachtsmarkt → business/senior, Winterfigur; Schulfreund Angeln → outdoor;
+  Schwester Vorstellungsgespräch → business.
+- **Privat-Rückflug:** `privateReturn.outing` übernimmt `groundVisual`/`cargoVisual`
+  (`mission-private-return-core.js`), der Rückblick-Writer sieht sie nicht. Baut der Tracker den
+  Rückflug-Antrag, greift das erst mit dem nächsten Tracker (Release Queue); bis dahin nimmt der
+  Rückflug die feste Liste.
+- **Bush** (Abenteuer, Charter-Gast, Abholung): ohne Ideen-KI, daher feste Rollenliste
+  (`outdoor`, Abholerin → Wanderin). Kein Composer-Abruf, kein Eingriff in die Bush-Writer.
+  Begleiter der Bush-Abholung bleiben offen (gestreut), bis die Quelle Rolle/Geschlecht liefert.
+- Offen: Sim-Test Privatflug hin/zurück und Bush-Abholung mit Schalter.
+
 ### Etappe D – übrige Missionsstränge (einzeln, je Testschalter)
 
 | Strang | Quelle | Pax | Cargo | Besonderheit |

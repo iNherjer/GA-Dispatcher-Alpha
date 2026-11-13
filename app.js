@@ -41108,9 +41108,18 @@ async function fetchPrivateOutingStory(context = {}) {
     const idea = planned?.idea || coreApi.validateIdea(ideaResult?.parsed, input);
     if (!idea) throw new Error('Die private Ausflugsidee konnte nicht vollständig erstellt werden. Bitte erneut generieren.');
     context.onPrivateStoryPhase?.('writer', v6 ? 'v6' : 'v5');
+    // Testschalter ga_person_figures_v1: Boden-Composer (Look + Gepäckstücke) parallel zum Writer; Fehler bleiben folgenlos.
+    const groundVisualTask = window.MissionGroundVisualCore?.enabled?.()
+        ? window.MissionGroundVisualCore.ensure(idea, async prompt => {
+            const r = await fetchGeminiJsonWithFallback(prompt, apiKey, { promptVersion: 'ground-visual-private-v1', timeoutMs: 26000 });
+            if (!r?.parsed) throw new Error('Boden-Composer ohne Antwort');
+            return r.parsed;
+        }, { taskDomain: 'private_outing', roleProfile: 'general_passenger_v1' }).catch(() => null)
+        : null;
     const written = await fetchGeminiJsonWithFallback(coreApi.writerPrompt(idea, input) + (window.MissionAirportInformationCore?.pagesPrompt(contract) || ''), apiKey, options);
     const pageNarrative = window.MissionAirportInformationCore?.acceptPages(written?.parsed, contract) || written?.parsed;
     const prose = coreApi.prose(pageNarrative, idea, input);
+    if (groundVisualTask) await groundVisualTask;
     if (v6) {
         idea.writerMemory = prose?.memory || null;
         idea.flightBriefing = prose?.flightBriefing || '';

@@ -27,7 +27,13 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-(keine)
+### 2026-11-13 · Privat-Rückflug übernimmt die Composer-Wahl (mitgepackter Kern)
+- **Artefakt:** Tracker-EXE (bündelt `mission-private-return-core.js` und `mission-cargo-visual-core.js` per require); Web live mit v2381
+- **Dateien:** `mission-private-return-core.js`, `mission-cargo-visual-core.js`
+- **Was:** `privateReturn.outing` trägt `groundVisual`/`cargoVisual` des Hinflugs, damit die Begleitung beim Rückflug gleich aussieht; der Rückblick-Prompt lässt beides weg. `postFromIdea` kennt den Privatflug.
+- **Tests:** `tools/mission-private-return.test.cjs` 17/17, `tools/mission-cargo-visual.test.mjs` 16/16.
+- **Doku beim Release:** keine (steht im Fahrplan, Etappe C).
+- **Pruefen im Feld:** Privatflug hin und zurück mit Schalter: gleiche Figur.
 
 ## Ausgeliefert
 

@@ -7702,7 +7702,8 @@ function _missionScenePersonFigurePick(gender = 'female', salt = 'person', overr
 function _missionSceneGroundIdea() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     const contract = md?.missionContract || {};
-    return [md?.charterIdea, md?.sightseeingIdea, md?.aptNewsIdea, contract.charterIdea, contract.sightseeingIdea, contract.aptNewsIdea]
+    return [md?.charterIdea, md?.sightseeingIdea, md?.aptNewsIdea, contract.charterIdea, contract.sightseeingIdea, contract.aptNewsIdea,
+        md?.privateOuting, contract.privateOuting, md?.privateReturn?.outing, contract.privateReturn?.outing]
         .find(idea => idea && typeof idea === 'object' && idea.groundVisual) || null;
 }
 

@@ -213,3 +213,15 @@ test('sim recorder entry invokes private departure trigger without entering the 
  c.window.lastLiveFlightData.inMenuOrMap=true;c.updateFlightRecorder(48,8,3000);
  assert.equal(calls.length,1);assert.equal(c.window.missionPrivateReturnDepartureVoice.airborneSince,null);
 });
+test('Rückflug übernimmt die Composer-Wahl, der Writer sieht sie nicht',()=>{
+ const {md,record}=fixture();
+ md.privateOuting.groundVisual={schema:'mission-ground-visual.v1',passengers:[{id:'pax1',look:'casual',gender:'female'}],cargo:{}};
+ md.privateOuting.cargoVisual={schema:'mission-cargo-visual.v1',sourceLabel:'Tagesrucksack',weightLbs:9,pieces:[{form:'backpack',weightLbs:9}]};
+ const req=core.request(md,record);
+ assert.equal(req.privateReturn.outing.groundVisual.passengers[0].look,'casual');
+ assert.equal(req.privateReturn.outing.cargoVisual.pieces[0].form,'backpack');
+ const a=core.acceptance(req,target);
+ const p=core.pipeline({...req,acceptance:a},{start:target,dest:home});
+ assert.equal(p.privateReturn.outing.groundVisual.passengers[0].look,'casual');
+ assert.doesNotMatch(core.prompt(p.privateReturn,contract()),/groundVisual|cargoVisual|backpack/);
+});

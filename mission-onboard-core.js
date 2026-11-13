@@ -54,6 +54,15 @@ const ADAPTERS = {
     passengers: passengersFor({ lead: idea.passenger, passengerCount: idea.passengerCount, groupLabel: idea.groupLabel, companions: idea.companions }),
     cargo: [cargoPost('c1', { description: idea.luggageLabel, weightLbs: idea.luggageWeightLbs })].filter(Boolean)
   }),
+  // Privatflug: genau ein Mitflieger (Rolle = Beziehung, Geschlecht fest), persönliches Gepäck.
+  // Gilt auch für den Rückflug (privateReturn.outing trägt dieselbe Begleitung).
+  'private-outing.v1': (idea) => ({
+    occasion: join([idea.occasion, idea.personalReason, idea.storyIdentity?.activity]),
+    task: join([idea.groundPlan?.intent, idea.firstStep], 300),
+    groupLabel: '',
+    passengers: passengersFor({ lead: { role: idea.companion?.relationship, gender: idea.companion?.gender }, passengerCount: 1 }),
+    cargo: [cargoPost('c1', { description: idea.luggage?.label, weightLbs: idea.luggage?.weightLbs })].filter(Boolean)
+  }),
   'apt-news-idea.v1': (idea) => ({
     occasion: join([idea.purpose, idea.background, idea.angle]),
     task: join([idea.groundPlan, idea.publication], 300),

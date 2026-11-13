@@ -110,3 +110,13 @@ test('companions aus der Idee: Composer kann das Geschlecht der Mitreisenden nic
   const plan = core.validate({ passengers: [{ id: 'pax1', look: 'business' }, { id: 'pax2', look: 'business', gender: 'female' }] }, onboard, { idea: i });
   assert.deepEqual(plan.passengers.map((p) => p.gender), ['male', 'male']);
 });
+
+test('Etappe C ohne KI: Bush-Gäste outdoor, Privatflug casual über die feste Rollenliste', () => {
+  const onboardCore = require('../mission-onboard-core.js');
+  const visual = require('../mission-ground-visual-core.js');
+  const look = (roleProfile, taskDomain, gender) => visual.fallbackPlan(onboardCore.fromPassenger({ role: 'Gast', gender, roleProfile }), { roleProfile, taskDomain }).passengers[0];
+  assert.deepEqual([look('bush_pickup_guest_v1', 'bush_pickup_return', 'female').look, look('bush_pickup_guest_v1', 'bush_pickup_return', 'female').gender], ['outdoor', 'female']);
+  assert.equal(look('bush_adventure_guest_v1', 'bush_adventure', 'male').look, 'outdoor');
+  assert.equal(look('bush_charter_guest_v1', 'charter', 'male').look, 'outdoor');
+  assert.equal(look('general_passenger_v1', 'private_outing', 'female').look, 'casual');
+});
