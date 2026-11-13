@@ -112,3 +112,23 @@ test('Medizin: Fachperson, beim Patiententransfer Patient mit Geschlecht aus der
   assert.deepEqual(patient.passengers.map((p) => p.gender), ['female', 'male']);
   assert.match(patient.passengers[1].role, /Patient/);
 });
+
+test('Fracht, zerbrechliche Fracht und Tiertransport: Verpackung an den Composer, Tiere ohne Posten', () => {
+  const visual = require('../mission-cargo-visual-core.js');
+  const base = { purpose: 'Ersatzteil', background: 'Ausfall', character: 'eilig', arrival: 'Übergabe am Hangar', recipient: 'Werft', sender: 'Lager Nord' };
+  const cargo = { schema: 'cargo-idea.v1', ...base, shipment: { label: 'Getriebeteil', weightLbs: 60, packaging: 'Holzkiste mit Schaumstoff', handling: 'stehend' } };
+  const a = core.fromIdea(cargo);
+  assert.equal(a.passengers.length, 0);
+  assert.deepEqual([a.cargo[0].description, a.cargo[0].packaging, a.cargo[0].owner], ['Getriebeteil', 'Holzkiste mit Schaumstoff', 'Lager Nord']);
+  assert.equal(visual.postFromIdea(cargo).packaging, 'Holzkiste mit Schaumstoff');
+  assert.equal(visual.ideaOf({ cargoIdea: cargo }), cargo);
+  const fragile = { schema: 'fragile-cargo-idea.v1', ...base, passenger: { name: 'Ina', role: 'Restauratorin', gender: 'female' },
+    shipment: { label: 'Glasfenster', weightLbs: 30, packaging: 'Kiste', handling: 'aufrecht', fragility: 'bruchempfindlich' } };
+  const b = core.fromIdea(fragile);
+  assert.deepEqual(b.passengers.map((p) => [p.role, p.gender]), [['Restauratorin', 'female']]);
+  assert.match(b.cargo[0].handling, /bruchempfindlich/);
+  const animal = core.fromIdea({ schema: 'animal-transport-idea.v1', ...base, passenger: { name: 'Tom', role: 'Tierpfleger', gender: 'male' },
+    shipment: { label: 'Zwei Katzen', weightLbs: 25 } });
+  assert.equal(animal.passengers[0].gender, 'male');
+  assert.equal(animal.cargo.length, 0);
+});

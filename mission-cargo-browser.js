@@ -28,6 +28,8 @@ async function story({start,dest,proposal,contract={}}){
  const api=root.MissionPrivateEpisodeV6,context=api.flightContext(contract),flight={context,bindings:api.flightBindings(context)};
  const pageWriter=p=>root.MissionAirportInformationBrowser?.writePages(p,contract,null,json)||json(p);
  const prompt=core().writerPrompt(idea,flight,input.recent);
+ // Boden-Composer (Testschalter ga_person_figures_v1) parallel zum Writer.
+ const groundVisualTask=root.MissionGroundVisualCore?.enabled?.()?root.MissionGroundVisualCore.ensure(idea,p=>fetchGeminiJsonWithFallback(p,getSelectedAiApiKey(),{promptVersion:'ground-visual-cargo-v1',timeoutMs:26000}).then(r=>{if(!r?.parsed)throw Error('Boden-Composer ohne Antwort');return r.parsed;}),{taskDomain:'cargo',roleProfile:''}).catch(e=>{console.warn('[GroundVisual] Fracht:',e?.message||e);return null;}):null;
  const parse=raw=>{const resolved=root.MissionCharterIdeasCore.resolveReferences(raw,flight.bindings);return resolved&&core().prose(resolved,idea);};
  let raw=await pageWriter(prompt),written=parse(raw);
  if(!written){raw=await pageWriter(prompt+'\nFORMATKORREKTUR: Behalte Auftrag und Sendung bei. Prüfe Textlängen, ausschließlich bekannte Referenzen, null Passagiere, keine Begrüßung und pilotNotes nur bei besonderer Handhabung. In doppelten eckigen Klammern ausschließlich SCHLÜSSEL, niemals deren Werte. Erlaubt: '+Object.keys(flight.bindings).map(k=>'[['+k+']]').join(', ')+'. Vollständiges JSON. ENTWURF: '+JSON.stringify(raw));written=parse(raw);}
@@ -35,6 +37,7 @@ async function story({start,dest,proposal,contract={}}){
  let brief=api.resolveFlightBriefing(raw.flightBriefing,context);
  if(!context.weather.some(w=>w.rawMetar||w.windKts!==null||w.visibilityKm!==null))brief='Für Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.';
  else if(!brief){try{const repair=await json('Erstelle ausschließlich den Wetterabsatz. Die Geschichte bleibt unverändert. Nur JSON {flightBriefing}. '+core().weatherPrompt(flight));brief=api.resolveFlightBriefing(repair.flightBriefing,context);raw.flightBriefing=repair.flightBriefing;}catch{console.warn('[Cargo] Wetterabsatz konnte nicht separat korrigiert werden.');}}
+ if(groundVisualTask)await groundVisualTask;
  const m=core().mission(idea,written,brief,contract.route);
  Object.assign(m._missionWriterV4Debug,{weatherSnapshot:context.weather,rawFlightBriefing:raw.flightBriefing||'',historyCount:input.recent.length});
  // Normal cargo keeps the original auto profile and zero-passenger transport semantics.

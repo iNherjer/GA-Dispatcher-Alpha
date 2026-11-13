@@ -87,6 +87,33 @@ const ADAPTERS = {
       companions: idea.patient ? [{ role: 'Patient, sitzend mit Begleitung', gender: idea.patient.gender }] : [] }),
     cargo: []
   }),
+  // Fracht: keine Person an Bord; Sendung mit Verpackung (entscheidet die Form) und Handhabung.
+  'cargo-idea.v1': (idea) => ({
+    occasion: join([idea.purpose, idea.background, idea.character]),
+    task: join([idea.arrival, idea.recipient], 300),
+    groupLabel: '',
+    passengers: [],
+    cargo: [cargoPost('c1', { description: idea.shipment?.label, packaging: idea.shipment?.packaging, handling: idea.shipment?.handling,
+      weightLbs: idea.shipment?.weightLbs, use: 'freight', owner: text(idea.sender, 100) || 'Absender' })].filter(Boolean)
+  }),
+  // Zerbrechliche Fracht: genau ein Kurier (Rolle/Geschlecht aus der Idee) mit der Sendung.
+  'fragile-cargo-idea.v1': (idea) => ({
+    occasion: join([idea.purpose, idea.background, idea.character]),
+    task: join([idea.arrival, idea.recipient], 300),
+    groupLabel: '',
+    passengers: passengersFor({ lead: idea.passenger, passengerCount: 1 }),
+    cargo: [cargoPost('c1', { description: idea.shipment?.label, packaging: idea.shipment?.packaging,
+      handling: join([idea.shipment?.handling, idea.shipment?.fragility], 300), weightLbs: idea.shipment?.weightLbs,
+      use: 'freight', owner: text(idea.passenger?.role, 100) || 'Kurier' })].filter(Boolean)
+  }),
+  // Tiertransport: Begleitperson aus der Idee; die Tiere haben einen eigenen Pool → kein Gepäckposten.
+  'animal-transport-idea.v1': (idea) => ({
+    occasion: join([idea.purpose, idea.background, idea.character]),
+    task: join([idea.arrival, idea.recipient], 300),
+    groupLabel: '',
+    passengers: passengersFor({ lead: idea.passenger, passengerCount: 1 }),
+    cargo: []
+  }),
   // Alle übrigen Missionen (mission-ground-composer-browser.js): Profil, Personenzahl, Ladeliste.
   // Reine Frachtflüge haben keine Personen, nur Gepäck/Fracht.
   'mission-ground-source.v1': (src) => ({

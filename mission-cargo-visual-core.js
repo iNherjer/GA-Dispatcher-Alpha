@@ -31,6 +31,13 @@ function postFromIdea(idea = null) {
     return { owner: text(idea.passenger?.role, 100) || 'Reporter', description: text(idea.shipment.label, 160),
       packaging: text(idea.shipment.packaging, 300) || undefined, handling: text(idea.shipment.handling, 300) || undefined, weightLbs };
   }
+  // Fracht und zerbrechliche Fracht: Sendung samt Verpackung (gleich wie Bordlisten-Posten c1).
+  if (['cargo-idea.v1', 'fragile-cargo-idea.v1'].includes(idea.schema) && idea.shipment) {
+    const weightLbs = Number(idea.shipment.weightLbs);
+    if (!text(idea.shipment.label) || !(weightLbs > 0)) return null;
+    return { owner: text(idea.schema === 'cargo-idea.v1' ? idea.sender : idea.passenger?.role, 100) || 'Fracht', description: text(idea.shipment.label, 160),
+      packaging: text(idea.shipment.packaging, 300) || undefined, handling: text(idea.shipment.handling, 300) || undefined, weightLbs };
+  }
   if (idea.schema === 'mission-ground-source.v1') {
     const post = idea.cargoPost;
     const weightLbs = Number(post?.weightLbs);
@@ -63,7 +70,8 @@ function ideaOf(md = null) {
   // Privat-Rückflug: die Ausflugsdaten (Begleitung, Gepäck, Composer-Wahl) liegen in privateReturn.outing.
   const returnOuting = source.privateReturn?.outing || source.missionContract?.privateReturn?.outing;
   return [source.aptNewsIdea, source.sightseeingIdea, source.charterIdea, source.missionContract?.aptNewsIdea, source.missionContract?.charterIdea,
-    source.privateOuting, source.missionContract?.privateOuting, source.clubIdea, source.missionContract?.clubIdea, source.groundComposer,
+    source.privateOuting, source.missionContract?.privateOuting, source.clubIdea, source.missionContract?.clubIdea, source.cargoIdea, source.missionContract?.cargoIdea,
+    source.fragileCargoIdea, source.missionContract?.fragileCargoIdea, source.groundComposer,
     returnOuting ? Object.assign({ schema: 'private-outing.v1' }, returnOuting) : null]
     .find(idea => postFromIdea(idea)) || null;
 }
@@ -82,10 +90,12 @@ FORMEN: ${JSON.stringify(shuffle(forms, hash(post.description)))}`;
 }
 
 function validate(raw, post, assets = catalog()) {
-  if (!post || !raw || !Array.isArray(raw.pieces) || raw.pieces.length < 1 || raw.pieces.length > MAX_PIECES) return null;
+  if (!post || !raw || !Array.isArray(raw.pieces) || raw.pieces.length < 1) return null;
   const allowed = new Set(offeredForms(assets).map(form => form.id));
   const pieces = [];
-  for (const piece of raw.pieces) {
+  // Mehr Stücke als darstellbar (z. B. „4 Kisten“ laut Verpackung): die ersten MAX_PIECES nehmen,
+  // das Gesamtgewicht wird unten darauf verteilt – statt die ganze Wahl zu verwerfen.
+  for (const piece of raw.pieces.slice(0, MAX_PIECES)) {
     if (!piece || !allowed.has(piece.form)) return null;
     const weight = Number(piece.weightLbs);
     pieces.push({ form: piece.form, weightLbs: weight > 0 ? weight : 0 });

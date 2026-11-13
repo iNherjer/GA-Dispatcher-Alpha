@@ -1,14 +1,15 @@
 (function (root) {
 'use strict';
-// Boden-Composer für alle Missionen ohne eigenen Composer-Anschluss (Bush, Fracht,
+// Boden-Composer für alle Missionen ohne eigenen Composer-Anschluss (Bush,
 // Training, POI-Aufträge …). Läuft nach dem Erstellen im Hintergrund: Bordliste aus
 // Passagierprofil, Personenzahl und der Ladeliste, ein KI-Abruf für Looks + Packstücke.
-// Charter, Sightseeing, Reporter, Privatflug, Verein und Medizin wählen schon beim Schreiben selbst.
+// Charter, Sightseeing, Reporter, Privatflug, Verein, Medizin, Fracht und Tiere wählen schon beim Schreiben selbst.
 // Testschalter ga_person_figures_v1; ohne KI-Modus gilt die feste Rollenliste.
 const SCHEMA = 'mission-ground-source.v1';
 // Diese Stränge haben eigene Objekt-Pools für die Hauptladung; der Composer wählt dort nur Looks.
 const OWN_CARGO_POOLS = new Set(['fire_watch', 'search_and_rescue', 'medical_transfer', 'animal_transport']);
-const OWN_COMPOSER_SCHEMAS = new Set(['charter-idea.v1', 'sightseeing-idea.v1', 'apt-news-idea.v1', 'private-outing.v1', 'club-idea.v1', 'medical-transfer-idea.v1']);
+const OWN_COMPOSER_SCHEMAS = new Set(['charter-idea.v1', 'sightseeing-idea.v1', 'apt-news-idea.v1', 'private-outing.v1', 'club-idea.v1', 'medical-transfer-idea.v1',
+  'cargo-idea.v1', 'fragile-cargo-idea.v1', 'animal-transport-idea.v1']);
 const ACCEPT_WAIT_MS = 8000;
 
 function text(value, max = 400) { return typeof value === 'string' && value.trim() ? value.replace(/\s+/g, ' ').trim().slice(0, max) : ''; }
@@ -17,7 +18,8 @@ function join(parts, max = 600) { return parts.map((part) => text(part, max)).fi
 function hasOwnComposer(md) {
   const contract = md?.missionContract || {};
   return [md?.charterIdea, md?.sightseeingIdea, md?.aptNewsIdea, md?.privateOuting, md?.privateReturn?.outing,
-    md?.clubIdea, md?.medicalTransferIdea, contract.charterIdea, contract.sightseeingIdea, contract.aptNewsIdea, contract.privateOuting, contract.clubIdea, contract.medicalTransferIdea]
+    md?.clubIdea, md?.medicalTransferIdea, md?.cargoIdea, md?.fragileCargoIdea, md?.animalTransportIdea, contract.charterIdea, contract.sightseeingIdea, contract.aptNewsIdea, contract.privateOuting, contract.clubIdea, contract.medicalTransferIdea,
+    contract.cargoIdea, contract.fragileCargoIdea, contract.animalTransportIdea]
     .some((idea) => idea && typeof idea === 'object' && (idea.groundVisual || OWN_COMPOSER_SCHEMAS.has(idea.schema)));
 }
 

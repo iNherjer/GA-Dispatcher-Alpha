@@ -44,7 +44,9 @@ test('Stränge mit eigenem Composer werden übersprungen', () => {
   assert.equal(browser.hasOwnComposer({ privateReturn: { outing: { groundVisual: {} } } }), true);
   assert.equal(browser.hasOwnComposer({ missionContract: { clubIdea: { schema: 'club-idea.v1' } } }), true);
   assert.equal(browser.hasOwnComposer({ medicalTransferIdea: { schema: 'medical-transfer-idea.v1' } }), true);
-  assert.equal(browser.hasOwnComposer({ cargoIdea: { schema: 'cargo-idea.v1' } }), false);
+  assert.equal(browser.hasOwnComposer({ cargoIdea: { schema: 'cargo-idea.v1' } }), true);
+  assert.equal(browser.hasOwnComposer({ missionContract: { animalTransportIdea: { schema: 'animal-transport-idea.v1' } } }), true);
+  assert.equal(browser.hasOwnComposer({ bush: { targetMode: 'strip_then_return' } }), false);
 });
 
 test('Composer-Abruf mit Frachtflug: Plan ohne Personen, Gepäck aus FORMEN', async () => {

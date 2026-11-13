@@ -100,6 +100,30 @@ const STRANDS = {
     }
     return out;
   },
+  // Fracht, zerbrechliche Fracht, Tiertransport: je zwei Ideen aus dem produktiven Ideen-Prompt.
+  async freight() {
+    const aircraft = { name: 'PA-24 Comanche', maxPayloadKg: 380, passengerCapacity: 3 };
+    const defs = [
+      ['cargo', '../mission-cargo-ideas-core.js', 'cargo', ''],
+      ['fragile', '../mission-fragile-cargo-ideas-core.js', 'cargo_fragile', 'cargo_fragile_highcare_v1'],
+      ['animal', '../mission-animal-transport-ideas-core.js', 'animal_transport', 'general_passenger_v1']
+    ];
+    const out = [];
+    for (const [key, file, taskDomain, roleProfile] of defs) {
+      const core = require(file);
+      const frames = ['EDSH', 'EDTF'].map((icao, i) => ({ candidateId: key + '-' + i, ...core.frame({ start: apt('EDTW'), target: apt(icao) }, aircraft, []) }));
+      let batch = {};
+      try { batch = await json(core.ideaPrompt(frames), key + '-ideas'); } catch (e) { batch = { error: String(e.message || e) }; }
+      for (const input of frames) {
+        const raw = (batch.ideas || []).find((x) => x.candidateId === input.candidateId);
+        const idea = raw ? core.validate(raw, input) : null;
+        out.push({ name: input.candidateId, idea, taskDomain, roleProfile,
+          check: idea ? { passenger: idea.passenger ? { role: idea.passenger.role, gender: idea.passenger.gender } : null,
+            shipment: { label: idea.shipment.label, packaging: idea.shipment.packaging, weightLbs: idea.shipment.weightLbs } } : { invalid: batch.error || raw || 'fehlt' } });
+      }
+    }
+    return out;
+  },
   // Training: Fluglehrer aus der festen Personenliste, Gepäck aus TRAINING_CARGO_ITEMS (app.js).
   // Kein Writer entscheidet Personen → allgemeine Quelle (mission-ground-composer-browser.js).
   async training() {

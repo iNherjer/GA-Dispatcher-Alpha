@@ -68,11 +68,14 @@ test('composer prompt carries forms only, no asset titles or examples', () => {
   assert.equal(visual.prompt(post), text, 'stable order for one description');
 });
 
-test('validation enforces catalogue forms, at most three pieces and the manifest weight', () => {
+test('validation enforces catalogue forms, caps at three pieces and keeps the manifest weight', () => {
   const post = { description: 'Zwei Koffer', weightLbs: 40 };
   assert.equal(visual.validate({ pieces: [{ form: 'fuel_drum', weightLbs: 40 }] }, post), null);
   assert.equal(visual.validate({ pieces: [] }, post), null);
-  assert.equal(visual.validate({ pieces: Array(4).fill({ form: 'suitcase', weightLbs: 10 }) }, post), null);
+  // Mehr als drei Stücke (z. B. „4 Kisten“): die ersten drei, Gesamtgewicht darauf verteilt.
+  const capped = visual.validate({ pieces: Array(4).fill({ form: 'suitcase', weightLbs: 10 }) }, post);
+  assert.equal(capped.pieces.length, 3);
+  assert.ok(Math.abs(capped.pieces.reduce((sum, piece) => sum + piece.weightLbs, 0) - 40) <= 1);
   const plan = visual.validate({ pieces: [{ form: 'suitcase', weightLbs: 30 }, { form: 'duffel', weightLbs: 30 }] }, post);
   assert.deepEqual(plan.pieces.map(piece => piece.weightLbs), [20, 20]);
   const even = visual.validate({ pieces: [{ form: 'suitcase' }, { form: 'duffel' }] }, post);
