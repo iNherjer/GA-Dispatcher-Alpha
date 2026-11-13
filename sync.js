@@ -17238,9 +17238,37 @@ window.gaFlushTrackerCloudMissionKnock = function() {
     cloudMissionKnockPending = null;
     return true;
 };
+// Der Tracker übernimmt beim Aktivieren die Ladeliste aus dem hochgeladenen Missionsstand und
+// liest sie für einen geladenen Lauf nicht erneut. Sie entsteht sonst erst, wenn etwas danach
+// fragt – deshalb vor dem Hochladen anlegen und in den Missionsstand schreiben.
+function _missionAttachManifestForPublish(state) {
+    if (!state || typeof state !== 'object') return false;
+    const md = state.currentMissionData && typeof state.currentMissionData === 'object' ? state.currentMissionData : null;
+    const contract = state.activeMissionContract && typeof state.activeMissionContract === 'object' ? state.activeMissionContract : null;
+    const existing = state.cargoManifest || md?.cargoManifest || contract?.cargoManifest || null;
+    if (existing && Array.isArray(existing.items) && existing.items.length) return false;
+    let manifest = null;
+    try {
+        manifest = typeof window.missionCargoGetManifestSnapshot === 'function'
+            ? window.missionCargoGetManifestSnapshot()
+            : (typeof _missionCargoEnsureManifest === 'function' ? JSON.parse(JSON.stringify(_missionCargoEnsureManifest())) : null);
+    } catch (error) {
+        console.warn('[Mission] Ladeliste vor dem Annehmen nicht erzeugt:', error?.message || error);
+        return false;
+    }
+    if (!manifest || !Array.isArray(manifest.items) || !manifest.items.length) return false;
+    if (md) md.cargoManifest = JSON.parse(JSON.stringify(manifest));
+    else state.cargoManifest = JSON.parse(JSON.stringify(manifest));
+    if (contract) contract.cargoManifest = JSON.parse(JSON.stringify(manifest));
+    if (md?.missionContract && typeof md.missionContract === 'object') md.missionContract.cargoManifest = JSON.parse(JSON.stringify(manifest));
+    return true;
+}
+window.gaMissionAttachManifestForPublish = _missionAttachManifestForPublish;
+
 async function _publishSharedMissionReplacement(state, basis) {
     if (basis.localOnly) return { localOnly: true };
     if (getSyncId() !== basis.id) throw new Error('Pilot während der Übernahme gewechselt.');
+    if (state && typeof _missionAttachManifestForPublish === 'function') _missionAttachManifestForPublish(state);
     const seed = state ? _syncTrackerMissionSeedPayload(state) : null;
     const lastModified = Date.now();
     const payload = { ...basis.profile, activeMission: state, activeMissionTrackerSeed: seed, lastModified };
