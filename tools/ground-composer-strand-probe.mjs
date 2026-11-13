@@ -70,6 +70,36 @@ const STRANDS = {
         check: idea ? { kind: idea.transportKind, passenger: { role: idea.passenger.role, gender: idea.passenger.gender }, patient: idea.patient, shipment: idea.shipment.label } : { invalid: raw || 'fehlt' } };
     });
   },
+  // POI-Aufträge mit einer Person aus der Idee (Bio, Infrastruktur, Reporter-POI, Foto):
+  // eine Idee je Strang, Person läuft wie in der App über die allgemeine Composer-Quelle.
+  async poi() {
+    const composer = require('../mission-ground-composer-browser.js');
+    const defs = [
+      { key: 'bio', file: '../mission-bio-briefing-core.js', taskDomain: 'science_bio', roleProfile: 'science_field_v1', cargo: ['Kamera, Feldnotizen und Tablet', 18],
+        target: { name: 'Wollmatinger Ried', lat: 47.6936, lon: 9.1361 }, category: 'nature' },
+      { key: 'infra', file: '../mission-infra-briefing-core.js', taskDomain: 'inspection_infra', roleProfile: 'technical_inspector_v1', cargo: ['Inspektionskamera und Tablet', 26],
+        target: { name: 'Sommerbergtunnel', lat: 48.28977, lon: 8.17377 }, category: 'road' },
+      { key: 'news', file: '../mission-news-briefing-core.js', taskDomain: 'news_coverage', roleProfile: 'news_reporter_professional_v1', cargo: ['Kamera- und Audio-Set', 32],
+        target: { name: 'Schluchsee-Staumauer', lat: 47.8183, lon: 8.1586 }, category: 'dam' },
+      { key: 'photo', file: '../mission-poi-briefing-core.js', taskDomain: 'media_photo', roleProfile: 'media_observer_v1', cargo: ['Foto-/Videoausrüstung', 12],
+        target: { name: 'Burg Hohenzollern', lat: 48.3233, lon: 8.9675 }, category: 'castle' }
+    ];
+    const out = [];
+    for (const d of defs) {
+      const core = require(d.file);
+      const c = { id: 'poi-' + d.key, target: { ...d.target, poiCategory: d.category }, targetCategory: d.category, targetFacts: [], environmentFacts: [], limitations: [] };
+      let idea = null, error = '';
+      try { idea = core.readIdea(await json(core.ideaPrompt([core.frame(c, [])]), d.key + '-idea'), c); } catch (e) { error = String(e.message || e); }
+      const person = idea?.person || null;
+      globalThis._missionCargoGenerateManifest = () => ({ items: [{ id: 'primary-cargo', label: d.cargo[0], weightLbs: d.cargo[1] }] });
+      globalThis._missionCargoPassengerCount = () => 1;
+      const src = person ? composer.source({ missionTitle: d.target.name, missionStory: idea.situation || '',
+        passenger: { ...person, taskDomain: d.taskDomain, roleProfile: d.roleProfile } }) : null;
+      out.push({ name: d.key + ' → ' + d.target.name, idea: src, taskDomain: d.taskDomain, roleProfile: d.roleProfile,
+        check: person ? { name: person.name, role: person.role, gender: person.gender || 'FEHLT' } : { invalid: error || 'fehlt' } });
+    }
+    return out;
+  },
   // Training: Fluglehrer aus der festen Personenliste, Gepäck aus TRAINING_CARGO_ITEMS (app.js).
   // Kein Writer entscheidet Personen → allgemeine Quelle (mission-ground-composer-browser.js).
   async training() {
