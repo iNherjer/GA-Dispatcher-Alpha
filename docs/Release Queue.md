@@ -28,7 +28,7 @@ liefert alles Offene mit aus.
 ## Offen
 
 ### 2026-11-13 · Bush-Briefing-Rezepte Adventure, Supply, Cargo-Pickup, Recon (mitgepackter Kern)
-- **Artefakt:** Tracker-EXE (bündelt `mission-bush-narrative-core.js` per require); Web bereits live mit v2367–v2370
+- **Artefakt:** Tracker-EXE (bündelt `mission-bush-narrative-core.js` per require); Web bereits live mit v2367–v2371
 - **Dateien:** `mission-bush-narrative-core.js` (Commits seit v633: 59fe5d963, 9ce6ddcd5, 7cd8eb541 und der Recon-Commit); Web-seitig zusätzlich `app.js`
 - **Was:** Eigene Writer-Rezepte und Planner-Zusätze für vier Bush-Stränge. Im Tracker ohne Wirkung, weil Runtime und Voice nur die unveränderten Teile nutzen (Gleichstand der Datei).
 - **Tests:** `tracker-mission-bush-narrative.test.js` 3/3, `tracker-mission-boarding-voice.test.js` 29/29, `tools/bush-recon-information.test.cjs` 8/8.

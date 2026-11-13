@@ -774,7 +774,7 @@ und Cargo-Pickup: Wetter und Herbst erscheinen in allen drei Texten
 („vor den ersten Herbststürmen“) tritt weiterhin gelegentlich auf.
 Belege: `analysis/bush-profile-personality-20261009/*-wx-check-11.json`.
 
-## Recon: eigenes Writer-Rezept (13.11.2026, ausgerollt Web v2370)
+## Recon: eigenes Writer-Rezept (13.11.2026, ausgerollt Web v2371)
 
 Ausgangsproben (`recon-check-13`, `recon-base-4242`, `recon-base-90210`, ohne Wetterdaten): Alle drei Proben kreisten um „Piste nach Regen prüfen, bevor morgen die schwere Versorgungsmaschine kommt“. Wiederkehrende Bausteine waren „vor zwei Jahren“ als Unterspülungs-Anekdote und „Ohne diesen Check riskieren …“. Dazu kamen erfundenes heutiges Wetter („wolkenlos“, „stabiles Wetterfenster“), „tiefe Überflüge“ entgegen der vertraglichen Höhe und ein Wechsel ins wir.
 
