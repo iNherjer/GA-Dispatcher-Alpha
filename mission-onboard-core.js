@@ -77,6 +77,16 @@ const ADAPTERS = {
         owner: text(idea.passenger?.role, 100) || 'Vereinskollege' }) : null
     ].filter(Boolean)
   }),
+  // Medizin: Fachperson bzw. Kurier; beim Patiententransfer zusätzlich der sitzende Patient
+  // (Geschlecht aus der Idee). Die Sendung hat einen eigenen Medizin-Pool → kein Gepäckposten.
+  'medical-transfer-idea.v1': (idea) => ({
+    occasion: join([idea.purpose, idea.background, idea.character]),
+    task: join([idea.arrival, idea.recipient], 300),
+    groupLabel: idea.patient ? 'Patient mit medizinischer Begleitung' : '',
+    passengers: passengersFor({ lead: idea.passenger, passengerCount: idea.patient ? 2 : 1,
+      companions: idea.patient ? [{ role: 'Patient, sitzend mit Begleitung', gender: idea.patient.gender }] : [] }),
+    cargo: []
+  }),
   // Alle übrigen Missionen (mission-ground-composer-browser.js): Profil, Personenzahl, Ladeliste.
   // Reine Frachtflüge haben keine Personen, nur Gepäck/Fracht.
   'mission-ground-source.v1': (src) => ({

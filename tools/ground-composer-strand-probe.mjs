@@ -55,6 +55,40 @@ const STRANDS = {
       return { name: input.candidateId + ' → ' + input.route.target.icao, idea, taskDomain: 'club_utility', roleProfile: 'club_utility_v1',
         check: idea ? { passenger: idea.passenger && { role: idea.passenger.role, gender: idea.passenger.gender }, luggage: idea.luggage, delivery: idea.delivery } : { invalid: raw || 'fehlt' } };
     });
+  },
+  // Medizin: Idee legt Fachperson/Kurier fest, beim Patiententransfer zusätzlich den Patienten.
+  async medical() {
+    const core = require('../mission-medical-transfer-ideas-core.js');
+    const aircraft = { name: 'PA-24 Comanche', maxPayloadKg: 380, passengerCapacity: 3, patientTransferEnabled: true };
+    const frames = ['EDSH', 'EDTF', 'EDTH', 'EDTQ'].filter((icao) => airports[icao]).slice(0, 3)
+      .map((icao, i) => ({ candidateId: 'med-' + i, ...core.frame({ start: apt('EDTW'), target: apt(icao) }, aircraft, []) }));
+    const batch = await json(core.ideaPrompt(frames), 'medical-ideas');
+    return frames.map((input) => {
+      const raw = (batch.ideas || []).find((x) => x.candidateId === input.candidateId);
+      const idea = core.validate(raw, input);
+      return { name: input.candidateId + ' ' + (idea?.transportKind || '?'), idea, taskDomain: 'medical_transfer', roleProfile: 'medical_sensitive_v1',
+        check: idea ? { kind: idea.transportKind, passenger: { role: idea.passenger.role, gender: idea.passenger.gender }, patient: idea.patient, shipment: idea.shipment.label } : { invalid: raw || 'fehlt' } };
+    });
+  },
+  // Training: Fluglehrer aus der festen Personenliste, Gepäck aus TRAINING_CARGO_ITEMS (app.js).
+  // Kein Writer entscheidet Personen → allgemeine Quelle (mission-ground-composer-browser.js).
+  async training() {
+    const vm = await import('node:vm');
+    const app = fs.readFileSync('app.js', 'utf8');
+    const grab = (name) => { const start = app.indexOf(`const ${name} = [`); const end = app.indexOf('\n];', start); return vm.runInNewContext(app.slice(start + `const ${name} = `.length, end + 3)); };
+    const personas = grab('INSTRUCTOR_PERSONA_LIBRARY'), items = grab('TRAINING_CARGO_ITEMS');
+    const composer = require('../mission-ground-composer-browser.js');
+    return personas.slice(0, 3).map((persona, i) => {
+      const cargoText = items[i % items.length];
+      const label = cargoText.replace(/\s*\((\d+)\s*lbs\)\s*$/, ''), weightLbs = Number(cargoText.match(/\((\d+)\s*lbs\)/)?.[1]);
+      globalThis._missionCargoGenerateManifest = () => ({ items: [{ id: 'primary-cargo', label, weightLbs }] });
+      globalThis._missionCargoPassengerCount = () => 1;
+      const md = { missionTitle: 'Trainingsflug nach Zielplatz', missionStory: persona.storySeed.replaceAll('{name}', persona.name),
+        passenger: { ...persona, roleProfile: 'instructor_calm_precise_v1', taskDomain: 'training' } };
+      const idea = composer.source(md);
+      return { name: `${persona.role} ${persona.name}`, idea, taskDomain: 'training', roleProfile: 'instructor_calm_precise_v1',
+        check: idea && { lead: idea.lead, passengerCount: idea.passengerCount, cargo: idea.cargoPost } };
+    });
   }
 };
 if (!STRANDS[strand]) throw Error('Unbekannter Strang ' + strand);

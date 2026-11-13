@@ -255,8 +255,9 @@ Composer darauf passende Looks/Packstücke wählt (`tools/ground-composer-strand
 | Strang | Stand | Quelle |
 |---|---|---|
 | Verein | ✅ Web v2383 | `club-idea.v1` hatte schon eine Idee-Stufe mit genau einem Vereinskollegen (Name, Rolle, Geschlecht), `luggage` und optionaler `delivery`. Adapter in `mission-onboard-core.js` (c1 = Lieferung sonst Gepäck, c2 = Gepäck), Composer parallel zum Vereins-Writer (`mission-club-browser.js`). Die Ladeliste übernimmt jetzt auch weitere Composer-Posten (`club-luggage` neben `primary-cargo`). Live-Probe: 3/3 Ideen gültig, Looks/Packstücke passend (`analysis/ground-composer-club-20261113.md`); Lieferung + Gepäck zusammen im Browser mit echter Ladeliste geprüft. |
-| Training | offen | |
-| Medizin, POI-Aufträge | offen | |
+| Training | ✅ ohne Umbau | Fluglehrer/-in aus fester Personenliste (`INSTRUCTOR_PERSONA_LIBRARY`, Geschlecht fest), Gepäck aus `TRAINING_CARGO_ITEMS`, immer genau 1 Pax; der Writer entscheidet keine Personen. Der allgemeine Composer-Schritt bekommt damit exakte Daten. Live-Probe 3/3 passend (`analysis/ground-composer-training-20261113.md`). |
+| Medizin | ✅ Web v2384 | `medical-transfer-idea.v1` legt Fachperson/Kurier (Rolle, Geschlecht) und beim Patiententransfer den Patienten (Geschlecht) fest. Adapter ohne Gepäckposten (Sendung behält den Medizin-Pool), Composer parallel zum Medizin-Writer. Beim Patiententransfer baut die Szene Begleitung und Patient weiterhin selbst (Krankenwagen, keine Composer-Figuren). Live-Probe: alle drei Transportarten gültig, Patientengeschlecht übernommen (`analysis/ground-composer-medical-20261113.md`). |
+| POI-Aufträge | offen | |
 | Bush | offen | nur in Absprache mit dem Agenten der Bush-Writer |
 
 ### Etappe D – übrige Missionsstränge (einzeln, je Testschalter)

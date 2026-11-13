@@ -43,6 +43,7 @@ test('Stränge mit eigenem Composer werden übersprungen', () => {
   assert.equal(browser.hasOwnComposer({ charterIdea: { schema: 'charter-idea.v1' } }), true);
   assert.equal(browser.hasOwnComposer({ privateReturn: { outing: { groundVisual: {} } } }), true);
   assert.equal(browser.hasOwnComposer({ missionContract: { clubIdea: { schema: 'club-idea.v1' } } }), true);
+  assert.equal(browser.hasOwnComposer({ medicalTransferIdea: { schema: 'medical-transfer-idea.v1' } }), true);
   assert.equal(browser.hasOwnComposer({ cargoIdea: { schema: 'cargo-idea.v1' } }), false);
 });
 

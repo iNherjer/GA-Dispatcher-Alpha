@@ -100,3 +100,15 @@ test('Verein: ein Vereinskollege, Lieferung als Hauptposten, Gepäck als zweiter
   assert.equal(nobody.cargo.length, 1);
   assert.equal(visual.ideaOf({ clubIdea: idea }), idea);
 });
+
+test('Medizin: Fachperson, beim Patiententransfer Patient mit Geschlecht aus der Idee, keine Fracht', () => {
+  const base = { schema: 'medical-transfer-idea.v1', purpose: 'Laborproben zur Uniklinik', background: 'Routine', character: 'ruhig',
+    arrival: 'Übergabe am Vorfeld', recipient: 'Labor', passenger: { name: 'Dr. Lena Roth', role: 'Laborärztin', gender: 'female' },
+    shipment: { label: 'Kühlbox', weightLbs: 20 } };
+  const staff = core.fromIdea({ ...base, transportKind: 'material_delivery', patient: null });
+  assert.deepEqual(staff.passengers.map((p) => [p.role, p.gender]), [['Laborärztin', 'female']]);
+  assert.equal(staff.cargo.length, 0);
+  const patient = core.fromIdea({ ...base, transportKind: 'patient_transfer', patient: { name: 'Karl Weiß', gender: 'male', mobility: 'seated_assisted' } });
+  assert.deepEqual(patient.passengers.map((p) => p.gender), ['female', 'male']);
+  assert.match(patient.passengers[1].role, /Patient/);
+});

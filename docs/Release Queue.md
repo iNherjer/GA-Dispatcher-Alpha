@@ -30,7 +30,7 @@ liefert alles Offene mit aus.
 ### 2026-11-13 · Privat-Rückflug übernimmt die Composer-Wahl (mitgepackter Kern)
 - **Artefakt:** Tracker-EXE (bündelt `mission-private-return-core.js` und `mission-cargo-visual-core.js` per require); Web live mit v2381
 - **Dateien:** `mission-private-return-core.js`, `mission-cargo-visual-core.js`
-- **Was:** `privateReturn.outing` trägt `groundVisual`/`cargoVisual` des Hinflugs, damit die Begleitung beim Rückflug gleich aussieht; der Rückblick-Prompt lässt beides weg. `postFromIdea` kennt den Privatflug. Seit v2382 kennt `postFromIdea`/`ideaOf` auch die allgemeine Composer-Quelle `groundComposer` (im Tracker ohne Wirkung, er nutzt nur `pieceObjectKeys`/`expandSceneItem`). Seit v2383 ebenso die Vereinsidee `clubIdea` (gleiche Einschränkung).
+- **Was:** `privateReturn.outing` trägt `groundVisual`/`cargoVisual` des Hinflugs, damit die Begleitung beim Rückflug gleich aussieht; der Rückblick-Prompt lässt beides weg. `postFromIdea` kennt den Privatflug. Seit v2382 kennt `postFromIdea`/`ideaOf` auch die allgemeine Composer-Quelle `groundComposer` (im Tracker ohne Wirkung, er nutzt nur `pieceObjectKeys`/`expandSceneItem`). Seit v2383 ebenso die Vereinsidee `clubIdea` (gleiche Einschränkung); seit v2384 kennt `mission-onboard-core.js` die Medizin-Idee (Tracker bündelt die Datei nicht).
 - **Tests:** `tools/mission-private-return.test.cjs` 17/17, `tools/mission-cargo-visual.test.mjs` 16/16.
 - **Doku beim Release:** keine (steht im Fahrplan, Etappe C).
 - **Pruefen im Feld:** Privatflug hin und zurück mit Schalter: gleiche Figur.
