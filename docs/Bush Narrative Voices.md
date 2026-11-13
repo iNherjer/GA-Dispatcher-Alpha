@@ -773,3 +773,19 @@ und Cargo-Pickup: Wetter und Herbst erscheinen in allen drei Texten
 (diffuses Licht, Herbstversorgung, milder ruhiger Flug). Saisonaler Zeitdruck
 („vor den ersten Herbststürmen“) tritt weiterhin gelegentlich auf.
 Belege: `analysis/bush-profile-personality-20261009/*-wx-check-11.json`.
+
+## Recon: eigenes Writer-Rezept (13.11.2026, ausgerollt Web v2370)
+
+Ausgangsproben (`recon-check-13`, `recon-base-4242`, `recon-base-90210`, ohne Wetterdaten): Alle drei Proben kreisten um „Piste nach Regen prüfen, bevor morgen die schwere Versorgungsmaschine kommt“. Wiederkehrende Bausteine waren „vor zwei Jahren“ als Unterspülungs-Anekdote und „Ohne diesen Check riskieren …“. Dazu kamen erfundenes heutiges Wetter („wolkenlos“, „stabiles Wetterfenster“), „tiefe Überflüge“ entgegen der vertraglichen Höhe und ein Wechsel ins wir.
+
+Ursachen: `storyBasis` hängte für Recon noch die Charter-Anekdotenlisten an. Es gab kein eigenes Writer-Rezept, und mit der festen Satzgrenze entstand ein Berichtston. Die `rationale` des Recon-Spielplans enthielt teilweise „tief“, und der Writer muss den Spielplan wörtlich übernehmen.
+
+**User-Entscheidung 13.11.2026:** Ein erfundenes zurückliegendes Unwetter, etwa Regenfälle der letzten Tage oder ein Sturm, darf einen Recon-Anlass tragen. Unsere Datenlage liefert solche Ereignisse sonst nicht. Die Kandidaten `storm_strip_damage` und `drainage_washout_recon` bleiben deshalb unverändert und werden auch ohne Wetterdaten angeboten. Ein kurz erprobter Wetter-Gate wurde zurückgenommen. Das heutige Wetter, künftige Wetterwechsel und Flughinweise kommen weiter nur aus gelieferten Daten.
+
+Änderungen:
+- `storyBasis` für Recon kommt ohne Charter-Listen aus und folgt der candidateShortlist.
+- `reconPlanningAddon`: Der Anlass ist eine Beobachtung, eine Frage, ein Routine- oder Saisoncheck, ein zurückliegendes Ereignis wie ein Unwetter oder eine Entscheidung des Auftraggebers. stakes nennt die Entscheidung statt eines drohenden Schadens. Eine Vorgeschichte ist keine Pflicht. Kein tiefer Überflug.
+- `reconWriterRecipe` und Regel 14 `BUSH-RECON` in `buildMissionWriterV5Prompt`: durchgehend du, ein Beobachter erscheint in dritter Person, der Spielplan wird einmal schlicht genannt. Erzählt wird, was der Befund ermöglicht. Der Befund bleibt offen, der Umfang richtet sich nach dem Erzählstoff. Die bestehende RECON-GEWICHTUNG bleibt: Der Anlass ist der rote Faden.
+- RECON-PLAN-Prompt: Die rationale nennt keine eigene Höhe, kein tiefer Überflug.
+
+Nachproben (`recon-recipe-*`, Rezept ohne Charter-Listen): kein „vor zwei Jahren“ und kein „Ohne diesen Check“ mehr, die Haltung ist am Befund und an der Entscheidung orientiert. Die zwischenzeitlichen Proben `recon-seed-*` liefen mit dem inzwischen zurückgenommenen Wetter-Gate. Sie zeigten drei verschiedene Familien, aber auch einmal „zwei tiefe Überflüge“ und einen Windhinweis für die Schlucht, beides vor der rationale-Regel. Gelegentlich bleiben „wir“ und saisonaler Druck („bevor der Boden gefriert“). Unbelegte Ortsdetails auf der Zielseite („thermisch aktive Kessellage“, „Payette National Forest“) stammen aus dem Recon-Objekttext. Dieses Rezept hat sie nicht verursacht.

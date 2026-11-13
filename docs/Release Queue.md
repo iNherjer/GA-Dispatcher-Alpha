@@ -27,6 +27,14 @@ liefert alles Offene mit aus.
 
 ## Offen
 
+### 2026-11-13 · Bush-Briefing-Rezepte Adventure, Supply, Cargo-Pickup, Recon (mitgepackter Kern)
+- **Artefakt:** Tracker-EXE (bündelt `mission-bush-narrative-core.js` per require); Web bereits live mit v2367–v2370
+- **Dateien:** `mission-bush-narrative-core.js` (Commits seit v633: 59fe5d963, 9ce6ddcd5, 7cd8eb541 und der Recon-Commit); Web-seitig zusätzlich `app.js`
+- **Was:** Eigene Writer-Rezepte und Planner-Zusätze für vier Bush-Stränge. Im Tracker ohne Wirkung, weil Runtime und Voice nur die unveränderten Teile nutzen (Gleichstand der Datei).
+- **Tests:** `tracker-mission-bush-narrative.test.js` 3/3, `tracker-mission-boarding-voice.test.js` 29/29, `tools/bush-recon-information.test.cjs` 8/8.
+- **Doku beim Release:** keine (steht in `docs/Bush Narrative Voices.md`).
+- **Pruefen im Feld:** nichts im Tracker; Briefings im Web-Realbetrieb beobachten (Wiederholungen, künstlicher Druck).
+
 ### 2026-11-12 · EFB-Kopien i18n/en.js und profile.js: Figuren-Testschalter und Diagnosezeile
 - **Artefakt:** Tracker-EXE (EFB-Web-Assets)
 - **Dateien:** `ga-tracker-client/efb-web-assets/i18n/en.js`, `ga-tracker-client/efb-web-assets/profile.js` (Kopien per `sync-efb-web-assets.js`)
