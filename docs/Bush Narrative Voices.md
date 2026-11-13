@@ -698,3 +698,33 @@ Offen: gelegentliche kleine Pilotaufträge („Bahn beim Anflug prüfen“),
 saisonaler Zeitdruck, unbelegter Ortsname „Frank Church Wilderness“ und ein
 meta-artiger Abschlusssatz in einer Probe. Probe ohne History, daher sagt sie
 nichts über Namenswiederholung in der App.
+
+## Supply: eigenes Writer-Rezept (12.11.2026, lokal)
+
+Gleiche Ursache wie Adventure: generisches Bush-Rezept, „4–6 Sätze“ und die
+Charter-Anekdotenlisten. Ausgangsproben (Seeds 11/4242/90210): 5–6 Sätze,
+logistischer Ton, erfundene Fristen, ein Missgeschick-Rückblick, erfundene
+Flughinweise (Talwinde, Leistungsreserven), Wechsel zwischen du und wir.
+
+Gestaltung Supply (`bush_supply_strip`, 0 PAX):
+
+- Story-Träger ist der Empfänger am Zielstrip, seine laufende Arbeit und was
+  die Sendung ihm ermöglicht; Fracht und Gewicht laufen beiläufig mit.
+- Durchgehend du-Ansprache aus Dispatch-Sicht, kein Mitflieger.
+- Umfang nach Erzählstoff; Vorgeschichte möglich, keine Pflicht.
+- Erzählen, was die Sendung möglich macht, statt was ohne sie scheitert; keine
+  erfundenen Fristen, Notlagen, Wettersorgen oder Anflug-/Leistungshinweise.
+- Landung, Entladen und Übergabe bleiben Ablauf, brauchen aber keinen
+  Schlusssatz über den Pilotauftrag.
+
+Umsetzung: `supplyWriterRecipe`, `supplyPlanningAddon`, eigene `storyBasis`
+ohne Charter-Listen in `mission-bush-narrative-core.js`;
+`bushSupplyPromptRule` und freie Länge in `buildMissionWriterV5Prompt`.
+`supplyInstructions` und die Empfänger-Voice (`supplyReceiverInstructions`)
+bleiben unverändert. Tests wie oben bestanden.
+
+Nachproben (gleiche Seeds, zwei Runden): 6–8 Sätze, Empfänger mit Arbeit und
+nächstem Schritt, keine Flughinweise, keine Missgeschick-Pflicht; nach der
+zweiten Runde auch keine Abschluss-Metasätze. Offen: „Ohne X müssten sie …“ in
+zwei von drei Texten, ein vereinzeltes „wir“. Belege:
+`analysis/bush-profile-personality-20261009/bush_supply_strip-sup-*`.
