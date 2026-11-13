@@ -240,6 +240,25 @@ Bush eingeschlossen. Statt jeden Strang einzeln anzuschließen, gibt es einen ge
   dahin legt der Composer das Geschlecht der Mitreisenden aus Anlass und Gruppe fest.
 - Offen: Live-Proben mit echten Missionen (Bush, Fracht, Verein, Medizin), Sim-Test.
 
+### Personen aus der Quelle, Strang für Strang (ab 13.11.2026)
+
+User-Entscheidung: Kein Umbau aller Stränge auf eine neue Idee-Stufe. Stattdessen liefert die
+Stufe, die die Geschichte ohnehin entscheidet (Idee oder Writer), die Personen an Bord strukturiert
+(Rolle, Geschlecht je Mitreisendem) und der Strang hängt sich wie Charter direkt an den Composer –
+parallel zum Writer, ohne zusätzlichen Abruf für die Personendaten. Der allgemeine Schritt oben
+bleibt Rückfall für Stränge, die noch nicht umgestellt sind.
+
+**Pflicht je Strang:** Ein Live-Abruf bestätigt, dass Idee/Writer die Daten sauber ausgibt und der
+Composer darauf passende Looks/Packstücke wählt (`tools/ground-composer-strand-probe.mjs
+--run --strand=<name>`, Ergebnis in `analysis/ground-composer-<strang>-*.md`).
+
+| Strang | Stand | Quelle |
+|---|---|---|
+| Verein | ✅ Web v2383 | `club-idea.v1` hatte schon eine Idee-Stufe mit genau einem Vereinskollegen (Name, Rolle, Geschlecht), `luggage` und optionaler `delivery`. Adapter in `mission-onboard-core.js` (c1 = Lieferung sonst Gepäck, c2 = Gepäck), Composer parallel zum Vereins-Writer (`mission-club-browser.js`). Die Ladeliste übernimmt jetzt auch weitere Composer-Posten (`club-luggage` neben `primary-cargo`). Live-Probe: 3/3 Ideen gültig, Looks/Packstücke passend (`analysis/ground-composer-club-20261113.md`); Lieferung + Gepäck zusammen im Browser mit echter Ladeliste geprüft. |
+| Training | offen | |
+| Medizin, POI-Aufträge | offen | |
+| Bush | offen | nur in Absprache mit dem Agenten der Bush-Writer |
+
 ### Etappe D – übrige Missionsstränge (einzeln, je Testschalter)
 
 | Strang | Quelle | Pax | Cargo | Besonderheit |

@@ -80,3 +80,23 @@ test('Privatflug: ein Mitflieger mit festem Geschlecht und persönlichem Gepäck
   assert.match(onboard.task, /Flohmarktbesuch/);
   assert.deepEqual([onboard.cargo[0].description, onboard.cargo[0].weightLbs], ['Stoffbeutel', 4]);
 });
+
+test('Verein: ein Vereinskollege, Lieferung als Hauptposten, Gepäck als zweiter Posten', () => {
+  const visual = require('../mission-cargo-visual-core.js');
+  const idea = { schema: 'club-idea.v1', occasion: 'Der Nachbarverein feiert Hangarfest.', clubConnection: 'Partnerverein',
+    pilotIntent: 'Helfen', passengerIntent: 'Grill betreuen', groundPlan: 'Aufbau am Hangar',
+    passenger: { name: 'Uwe', role: 'Vereinskamerad', gender: 'male', personality: 'ruhig' },
+    luggage: { label: 'Reisetasche', weightLbs: 12 }, delivery: { label: 'Grillrost', weightLbs: 30, receiver: 'Festwart', purpose: 'Hangarfest' } };
+  const onboard = core.fromIdea(idea);
+  assert.equal(onboard.passengers.length, 1);
+  assert.deepEqual([onboard.passengers[0].role, onboard.passengers[0].gender], ['Vereinskamerad', 'male']);
+  assert.deepEqual(onboard.cargo.map((c) => [c.id, c.description, c.owner]), [['c1', 'Grillrost', 'Festwart'], ['c2', 'Reisetasche', 'Vereinskamerad']]);
+  assert.equal(visual.postFromIdea(idea).description, 'Grillrost');
+  const noDelivery = core.fromIdea({ ...idea, delivery: null });
+  assert.deepEqual(noDelivery.cargo.map((c) => [c.id, c.description]), [['c1', 'Reisetasche']]);
+  assert.equal(visual.postFromIdea({ ...idea, delivery: null }).description, 'Reisetasche');
+  const nobody = core.fromIdea({ ...idea, passenger: null, luggage: null });
+  assert.equal(nobody.passengers.length, 0);
+  assert.equal(nobody.cargo.length, 1);
+  assert.equal(visual.ideaOf({ clubIdea: idea }), idea);
+});

@@ -7703,7 +7703,7 @@ function _missionSceneGroundIdea() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     const contract = md?.missionContract || {};
     return [md?.charterIdea, md?.sightseeingIdea, md?.aptNewsIdea, contract.charterIdea, contract.sightseeingIdea, contract.aptNewsIdea,
-        md?.privateOuting, contract.privateOuting, md?.privateReturn?.outing, contract.privateReturn?.outing, md?.groundComposer]
+        md?.privateOuting, contract.privateOuting, md?.privateReturn?.outing, contract.privateReturn?.outing, md?.clubIdea, contract.clubIdea, md?.groundComposer]
         .find(idea => idea && typeof idea === 'object' && idea.groundVisual) || null;
 }
 

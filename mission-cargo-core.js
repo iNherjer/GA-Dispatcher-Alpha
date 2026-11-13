@@ -646,6 +646,19 @@ function _missionCargoApplyVisualPlan(items = []) {
     item.objectTitle = pieces[0].title;
     item.titleCandidates = pieces[0].titleCandidates;
     item.cargoVisualSource = 'composer';
+    // Weitere Gepäckposten des Boden-Composers (z. B. Vereinsgepäck neben der Lieferung):
+    // nur bei gleichem Text und Gewicht.
+    const extraPlans = Object.values(idea.groundVisual?.cargo || {}).filter(entry => entry && entry !== plan);
+    for (const extra of items) {
+        if (extra === item || extra.visualPieces || extra.itemType === 'passenger') continue;
+        const match = extraPlans.find(entry => visual.planMatches(entry, extra.label, extra.weightLbs));
+        const extraPieces = match ? visual.resolve(match) : null;
+        if (!extraPieces?.length) continue;
+        extra.visualPieces = extraPieces;
+        extra.objectTitle = extraPieces[0].title;
+        extra.titleCandidates = extraPieces[0].titleCandidates;
+        extra.cargoVisualSource = 'composer';
+    }
     return true;
 }
 window.missionCargoApplyVisualPlan = _missionCargoApplyVisualPlan;

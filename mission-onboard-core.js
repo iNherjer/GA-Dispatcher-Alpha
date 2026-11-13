@@ -63,6 +63,20 @@ const ADAPTERS = {
     passengers: passengersFor({ lead: { role: idea.companion?.relationship, gender: idea.companion?.gender }, passengerCount: 1 }),
     cargo: [cargoPost('c1', { description: idea.luggage?.label, weightLbs: idea.luggage?.weightLbs })].filter(Boolean)
   }),
+  // Verein: Pilot plus genau ein Vereinskollege (Rolle/Geschlecht aus der Idee). Erster Posten
+  // ist der Hauptposten der Ladeliste (primary-cargo): Lieferung, sonst Gepäck.
+  'club-idea.v1': (idea) => ({
+    occasion: join([idea.occasion, idea.clubConnection]),
+    task: join([idea.groundPlan, idea.passengerIntent], 300),
+    groupLabel: '',
+    passengers: idea.passenger ? passengersFor({ lead: idea.passenger, passengerCount: 1 }) : [],
+    cargo: [
+      idea.delivery ? cargoPost('c1', { description: idea.delivery.label, handling: idea.delivery.purpose, weightLbs: idea.delivery.weightLbs,
+        use: 'freight', owner: text(idea.delivery.receiver, 100) || 'Lieferung' }) : null,
+      idea.luggage ? cargoPost('c2', { description: idea.luggage.label, weightLbs: idea.luggage.weightLbs,
+        owner: text(idea.passenger?.role, 100) || 'Vereinskollege' }) : null
+    ].filter(Boolean)
+  }),
   // Alle übrigen Missionen (mission-ground-composer-browser.js): Profil, Personenzahl, Ladeliste.
   // Reine Frachtflüge haben keine Personen, nur Gepäck/Fracht.
   'mission-ground-source.v1': (src) => ({

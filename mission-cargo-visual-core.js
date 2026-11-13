@@ -37,6 +37,13 @@ function postFromIdea(idea = null) {
     if (!text(post?.description) || !(weightLbs > 0)) return null;
     return { owner: text(idea.lead?.role, 100) || 'Missionsladung', description: text(post.description, 160), weightLbs };
   }
+  // Verein: Hauptposten wie in der Ladeliste (Lieferung vor Gepäck).
+  if (idea.schema === 'club-idea.v1') {
+    const item = idea.delivery || idea.luggage;
+    const weightLbs = Number(item?.weightLbs);
+    if (!text(item?.label) || !(weightLbs > 0)) return null;
+    return { owner: text(idea.delivery ? idea.delivery.receiver : idea.passenger?.role, 100) || 'Verein', description: text(item.label, 160), weightLbs };
+  }
   if (idea.schema === 'private-outing.v1' && idea.luggage) {
     const weightLbs = Number(idea.luggage.weightLbs);
     if (!text(idea.luggage.label) || !(weightLbs > 0)) return null;
@@ -56,7 +63,7 @@ function ideaOf(md = null) {
   // Privat-Rückflug: die Ausflugsdaten (Begleitung, Gepäck, Composer-Wahl) liegen in privateReturn.outing.
   const returnOuting = source.privateReturn?.outing || source.missionContract?.privateReturn?.outing;
   return [source.aptNewsIdea, source.sightseeingIdea, source.charterIdea, source.missionContract?.aptNewsIdea, source.missionContract?.charterIdea,
-    source.privateOuting, source.missionContract?.privateOuting, source.groundComposer,
+    source.privateOuting, source.missionContract?.privateOuting, source.clubIdea, source.missionContract?.clubIdea, source.groundComposer,
     returnOuting ? Object.assign({ schema: 'private-outing.v1' }, returnOuting) : null]
     .find(idea => postFromIdea(idea)) || null;
 }
