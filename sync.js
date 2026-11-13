@@ -7318,7 +7318,9 @@ function _missionSceneCargoAsset() {
         ? _scenePreferredTitle(pool, 'Cardboard', `cargo-small-${cargoText}-${cargoWeightLbs ?? 'n/a'}`, 'Cardboard')
         : (taskDomain === 'fire_watch' || taskDomain === 'search_and_rescue'
         ? _scenePreferredTitle(pool, 'Drop_Container', `cargo-${cargoText}-${cargoWeightLbs ?? 'n/a'}`, pool[0] || BOARDING_CARGO_FALLBACK_TITLE)
-        : _scenePickTitle(pool, `cargo-${cargoText}-${cargoWeightLbs ?? 'n/a'}`, pool[0] || BOARDING_CARGO_FALLBACK_TITLE));
+        // Fest nach Gewicht: Palette groß/mittel/klein bzw. Karton. Karton und Becher in der
+        // Liste sind nur Spawn-Ersatz, nie Wahl (Feldtest 13.11.2026: Becher statt 184 lbs).
+        : _scenePreferredTitle(pool, sizePrimary, `cargo-${cargoText}-${cargoWeightLbs ?? 'n/a'}`, sizePrimary));
     const preferred = _missionSceneSafeBoardingCargoTitle(_sceneObjectTitleOverride('cargo', preferredCargo), cargoText, cargoWeightLbs);
     const candidatePool = smallLoosePayload
         ? _missionSceneSafeBoardingCargoCandidates((MISSION_SCENE_ASSET_POOLS.smallCargo || []).concat(['Cardboard', BOARDING_CARGO_FALLBACK_TITLE]))

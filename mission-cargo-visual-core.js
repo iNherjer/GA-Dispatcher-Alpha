@@ -153,7 +153,56 @@ async function ensure(idea, json) {
   }
 }
 
-const api = { SCHEMA, MAX_PIECES, offeredForms, postFromIdea, ideaOf, prompt, validate, planMatches, pickVariant, resolve, pieceObjectKey, pieceObjectKeys, expandSceneItem, ensure, normalizeLabel };
+// Rückfall ohne KI-Wahl: feste Form-Zuordnung über die Rolle (Gegenstück zur festen
+// Pax-Rollenliste). Das Gewicht verteilt sich auf 1–3 Stücke der ersten Form, die es tragen
+// kann; passt keine, bleibt es bei der Palette nach Gewicht (Aufrufer).
+const FALLBACK_FORMS_BY_DOMAIN = Object.freeze({
+  bush_adventure: ['camping_kit', 'duffel', 'backpack'],
+  bush_pickup_return: ['camping_kit', 'duffel', 'backpack'],
+  private_outing: ['backpack', 'duffel', 'suitcase'],
+  private_return: ['backpack', 'duffel', 'suitcase'],
+  charter: ['suitcase', 'duffel'],
+  sightseeing_tour: ['backpack', 'suitcase'],
+  poi_learning_guide: ['backpack', 'suitcase'],
+  historian_guided_tour: ['backpack', 'suitcase'],
+  news_coverage: ['camera_kit', 'hardcase'],
+  reporter: ['camera_kit', 'hardcase'],
+  media_photo: ['camera_kit', 'hardcase'],
+  science_bio: ['hardcase', 'cooler'],
+  science_geo: ['hardcase', 'toolbox'],
+  inspection_infra: ['hardcase', 'toolbox'],
+  infra_chain_recon: ['hardcase', 'toolbox'],
+  mapping_survey: ['hardcase', 'camera_kit'],
+  club_utility: ['toolbox', 'wood_crate'],
+  training: ['backpack'],
+  cargo: ['wood_crate'],
+  transport: ['wood_crate'],
+  cargo_fragile: ['hardcase', 'wood_crate']
+});
+function maxLoad(form) {
+  return Math.max(0, ...((form?.variants || []).map(variant => Number(variant.loadLbs?.[1]) || 0)));
+}
+function fallbackPlan({ label = '', weightLbs = 0, taskDomain = '' } = {}, assets = catalog()) {
+  const forms = FALLBACK_FORMS_BY_DOMAIN[String(taskDomain || '').trim()];
+  const total = Number(weightLbs);
+  if (!forms || !(total > 0) || !text(label)) return null;
+  for (const formId of forms) {
+    const form = assets?.forms?.[formId];
+    const capacity = maxLoad(form);
+    if (!form || !(capacity > 0)) continue;
+    const count = Math.ceil(total / capacity);
+    if (count > MAX_PIECES) continue;
+    // In halben Pfund verteilen, damit die Summe exakt dem Manifest-Gewicht entspricht.
+    const units = Math.max(count, Math.round(total * 2));
+    const base = Math.floor(units / count);
+    const pieces = Array.from({ length: count }, (_, index) => ({ form: formId, weightLbs: (base + (index < units % count ? 1 : 0)) / 2 }));
+    return { schema: SCHEMA, source: 'role-fallback', sourceLabel: label, weightLbs: total, seed: hash(label + '|' + total),
+      packageVersion: assets?.packageVersion || '', pieces };
+  }
+  return null;
+}
+
+const api = { SCHEMA, MAX_PIECES, FALLBACK_FORMS_BY_DOMAIN, fallbackPlan, offeredForms, postFromIdea, ideaOf, prompt, validate, planMatches, pickVariant, resolve, pieceObjectKey, pieceObjectKeys, expandSceneItem, ensure, normalizeLabel };
 root.MissionCargoVisualCore = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

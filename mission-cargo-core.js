@@ -637,7 +637,7 @@ function _missionCargoApplyVisualPlan(items = []) {
     const visual = window.MissionCargoVisualCore;
     const idea = visual?.ideaOf?.(window.currentMissionData);
     const plan = idea?.cargoVisual;
-    if (!plan) return false;
+    if (!plan) return _missionCargoApplyFallbackVisualPlan(items);
     const item = items.find(entry => ['pickup-companion-cargo', 'primary-cargo'].includes(entry.id)
         && visual.planMatches(plan, entry.label, entry.weightLbs));
     const pieces = item ? visual.resolve(plan) : null;
@@ -649,6 +649,27 @@ function _missionCargoApplyVisualPlan(items = []) {
     return true;
 }
 window.missionCargoApplyVisualPlan = _missionCargoApplyVisualPlan;
+
+// Ohne Composer-Wahl (Testschalter ga_person_figures_v1): Packstücke aus der festen
+// Rollenliste statt allgemeiner Palette/Karton. Spezialpools (Feuer, SAR, Medizin, Tiere)
+// haben keinen Eintrag und bleiben unverändert.
+function _missionCargoApplyFallbackVisualPlan(items = []) {
+    const visual = window.MissionCargoVisualCore;
+    if (!visual?.fallbackPlan || !window.MissionGroundVisualCore?.enabled?.()) return false;
+    const md = window.currentMissionData || null;
+    const pax = window.activePassenger || md?.passenger || md?.missionContract?.passenger || null;
+    const taskDomain = String(pax?.taskDomain || (typeof _missionSceneTaskDomain === 'function' ? _missionSceneTaskDomain() : '') || '').trim();
+    const item = items.find(entry => ['pickup-companion-cargo', 'primary-cargo'].includes(entry.id));
+    if (!item) return false;
+    const plan = visual.fallbackPlan({ label: item.label, weightLbs: item.weightLbs, taskDomain });
+    const pieces = plan ? visual.resolve(plan) : null;
+    if (!pieces?.length) return false;
+    item.visualPieces = pieces;
+    item.objectTitle = pieces[0].title;
+    item.titleCandidates = pieces[0].titleCandidates;
+    item.cargoVisualSource = 'role-fallback';
+    return true;
+}
 
 function _missionCargoBushPickupCompanionItem(bush = null) {
     const spec = bush && typeof bush === 'object' ? bush : {};

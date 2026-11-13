@@ -63,27 +63,30 @@ nur nach Freigabe des Users, neue Wege hinter Testschaltern.
 Tests A: Unit-Tests je Kern, `tools/mission-scene-cargo-selftest.mjs`, `mission-ground-flow-selftest.mjs`,
 Tracker-Suite. Sim-Test: Einsteigen/Aussteigen Wanderin + Tarmac gemischt.
 
-### Cargo-Rückfall ohne KI (mit Etappe B umsetzen)
+### Cargo-Rückfall ohne KI (umgesetzt 13.11.2026, Web v2372)
 
 Befund Feldtest 13.11.2026: Bush-Mission „Vier Wochen Wildnis“ (184 lbs Outdoor-Ausrüstung
-und Vorräte) spawnte einen Kaffeebecher. Ursache in der allgemeinen Gewichtszuordnung
-`_missionSceneSemanticCargoAsset` ([sync.js](../sync.js), Abschnitt `sizePrimary`): Das
-Gewicht bestimmt die passende Palette, gezogen wird aber per Zufallswert aus der ganzen
-Palettenliste – darin stehen als Ersatz auch `Cardboard` und `CoffeeCup`. Betrifft alle
-Stränge ohne Composer und den heutigen Rückfall, wenn die KI ausfällt.
+und Vorräte) spawnte einen Kaffeebecher. Ursache: In `_missionSceneCargoAsset`
+([sync.js](../sync.js)) bestimmte das Gewicht zwar die passende Palette, gezogen wurde aber
+per Zufallswert aus der ganzen Palettenliste – darin stehen als Spawn-Ersatz auch
+`Cardboard` und `CoffeeCup`.
 
-Ziel – Gegenstück zur festen Rollenliste der Pax:
+Umsetzung – Gegenstück zur festen Rollenliste der Pax:
 
-1. Feste Form-Zuordnung über Rolle/TaskDomain (z. B. Bush → Campingausrüstung, Fracht →
-   Holzkiste, Medizin → Sanitätsrucksack), Größe nach Gewicht über die vorhandenen
-   Cargo-Profile.
-2. Ohne passende Form: Palette fest nach Gewicht (ab 120 lbs groß, ab 50 lbs mittel,
-   ab 20 lbs klein, darunter Karton).
-3. `Cardboard` und `CoffeeCup` nur noch als Spawn-Ersatztitel, nie als gewählter Titel.
-4. Test: schwere Fracht ergibt nie Karton oder Becher; jede TaskDomain hat eine Form.
-
-Bis dahin kann bei schwerer Fracht weiter ein Karton oder Becher erscheinen; Ablauf und
-Animation sind davon nicht betroffen.
+1. **Mit Schalter `ga_person_figures_v1`:** Gibt es keinen Composer-Plan, legt
+   `MissionCargoVisualCore.fallbackPlan` (`mission-cargo-visual-core.js`) aus der TaskDomain
+   eine feste Form fest (z. B. Bush → Campingausrüstung/Duffel/Rucksack, Charter → Koffer/
+   Duffel, Reporter → Kamerakoffer/Hardcase, Fracht → Holzkiste, Verein → Werkzeugkiste)
+   und teilt das Gewicht auf 1–3 Packstücke (halbe Pfund, Summe exakt). Quelle im Manifest:
+   `cargoVisualSource: 'role-fallback'` (`mission-cargo-core.js`).
+   Feuerwache, SAR, Krankentransport und Tiertransport haben keine Einträge – sie nutzen
+   weiter ihre eigenen Wege (Drop-Container, Sanitätsausrüstung, Transportboxen).
+2. **Ohne Form (und ohne Schalter):** Palette fest nach Gewicht – ab 120 lbs groß
+   (`Pallet01_01`), ab 50 lbs mittel, ab 20 lbs klein, darunter Karton.
+3. `Cardboard` und `CoffeeCup` sind nur noch Spawn-Ersatztitel, nie gewählter Titel.
+4. Tests: `tools/mission-cargo-visual.test.mjs` (Rückfall, Gewichtssumme, Formen je
+   TaskDomain), `mission-scene-cargo-selftest.mjs`, `mission-ground-flow-selftest.mjs`;
+   Browserprobe 8/30/70/184 lbs → Karton / Palette klein / mittel / groß, stabil.
 
 ### Etappe B – Pilot-Stränge (haben heute schon den Cargo-Composer)
 

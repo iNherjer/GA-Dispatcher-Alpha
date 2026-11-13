@@ -216,3 +216,22 @@ test('onboard equipment is turned randomly on the ground, ordinary cargo keeps i
   }
   assert.equal(visual.expandSceneItem({ kind: 'cargo', objectKey: 'k' }, { id: 'cargo-docs' })[0].randomYawDeg, undefined);
 });
+
+test('Rückfall ohne KI: Form über die Rolle, Gewicht auf 1–3 Stücke verteilt', async () => {
+  const core = (await import('../mission-cargo-visual-core.js')).default || globalThis.MissionCargoVisualCore;
+  const assets = (await import('../data/mission-cargo-assets.js')).default || globalThis.MISSION_CARGO_ASSETS;
+  for (const forms of Object.values(core.FALLBACK_FORMS_BY_DOMAIN)) for (const form of forms) assert.ok(assets.forms[form], form);
+  const bush = core.fallbackPlan({ label: 'Outdoor-Ausrüstung und Vorräte', weightLbs: 184, taskDomain: 'bush_adventure' }, assets);
+  assert.equal(bush.source, 'role-fallback');
+  assert.deepEqual(bush.pieces.map(p => p.form), ['camping_kit', 'camping_kit', 'camping_kit']);
+  assert.equal(bush.pieces.reduce((sum, p) => sum + p.weightLbs, 0), 184);
+  const pieces = core.resolve(bush, assets);
+  assert.equal(pieces.length, 3);
+  assert.ok(pieces.every(p => !/CoffeeCup|Cardboard/.test(p.title)), pieces.map(p => p.title).join());
+  const light = core.fallbackPlan({ label: 'Kameratasche', weightLbs: 12, taskDomain: 'news_coverage' }, assets);
+  assert.deepEqual(light.pieces.map(p => p.form), ['camera_kit']);
+  const heavy = core.fallbackPlan({ label: 'Baumaterial', weightLbs: 900, taskDomain: 'cargo' }, assets);
+  assert.equal(heavy, null, 'zu schwer für 3 Kisten → Palette nach Gewicht');
+  assert.equal(core.fallbackPlan({ label: 'Löschmittel', weightLbs: 80, taskDomain: 'fire_watch' }, assets), null, 'Spezialpool bleibt');
+  assert.equal(core.fallbackPlan({ label: '', weightLbs: 80, taskDomain: 'cargo' }, assets), null);
+});
