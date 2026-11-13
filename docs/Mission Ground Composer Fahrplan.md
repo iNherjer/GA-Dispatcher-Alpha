@@ -133,6 +133,23 @@ Fehlt die Liste oder passt die Anzahl nicht, bleibt sie leer und alles läuft wi
 abgelehnte Idee). Rückflug übernimmt die Liste über `original`. Live-Probe: 4 Charter, alle
 Begleiter mit Geschlecht, Writer hält sich daran (Schatzmeisterin/Beisitzer, Wart/Jugendwartin).
 
+### Grundregel für alle weiteren Stränge: Mitreisende aus der Quelle
+
+Seit 13.11.2026 liefern Charter und Sightseeing `companions:[{role,gender}]`; die Bordliste
+gibt dem Composer damit je Begleiter Rolle und festes Geschlecht, er wählt Look und Alter
+passend zur Rolle (z. B. Technischer Wart vs. Jugendwartin). Jeder Strang in Etappe C und D,
+der mehr als eine Person befördert, bekommt dasselbe, bevor er an den Composer geht:
+
+- **Mit Ideen-KI** (Fracht, empfindliche Fracht, Tiertransport, Medizin, Verein, Reporter-Team
+  falls Gruppen kommen): `companions` im Ideen-Prompt und in `validate`, tolerant wie bei
+  Charter (fehlt/passt nicht → leer, Idee bleibt gültig), Writer-Regel „Begleiter verbindlich“,
+  Adapter in `mission-onboard-core.js` reicht `companions` durch.
+- **Ohne Ideen-KI** (Privatflug, Bush-Gäste, Bush-Abholung mit Begleitperson): Begleiter aus
+  Persona/Profil bzw. `pickupPassengerCount` + Begleitrolle ableiten; Geschlecht fest, sobald
+  Text oder Stimme es festlegen, sonst offen für den Composer.
+- **Medizin:** Patient und Begleitung sind eigene Rollen (`uses: patient`, Begleitung `medical`).
+- Test je Strang: Geschichte nennt die Begleiter so, wie die Figuren einsteigen; Rückflug gleich.
+
 ### Etappe C – Privat und Bush (Einsatz der Wanderin)
 
 | Strang | Quelle | Pax | Cargo | Besonderheit |
