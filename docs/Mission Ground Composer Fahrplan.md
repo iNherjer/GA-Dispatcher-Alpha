@@ -99,6 +99,31 @@ Umsetzung – Gegenstück zur festen Rollenliste der Pax:
 Fertig, wenn: Live-Gemini-Proben mit ungewöhnlichen Anlässen (Hochzeit, Firmenjubiläum,
 Trauerflug, Familienausflug) plausible Looks liefern; Rückflug identisch; Sim-Test.
 
+**Stand 13.11.2026 – Live-Proben bestanden** (`tools/ground-composer-live-probe.mjs`,
+Ergebnis `analysis/ground-composer-live-20261113.md`/`.json`, gemini-3-flash-preview,
+ein Abruf je Szenario, alle 8 gültig, alle Looks vom Composer):
+
+| Szenario | Looks | Gepäck |
+|---|---|---|
+| Charter Hochzeit (Fotograf + Assistentin) | business, business | camera_kit + hardcase |
+| Charter Firmenjubiläum (3) | 3× business | carton + 2× suitcase |
+| Charter Trauerflug (Witwe, Sohn, Tochter) | 3× business (senior/adult/young_adult) | 2× duffel |
+| Charter Junggesellenabschied (5) | 5× outdoor | backpack + camping_kit + cooler |
+| Sightseeing Familienausflug (Oma, Tochter, 2 Enkel) | business, casual, 2× casual child | cooler + duffel |
+| Sightseeing Fotokurs Winter (3) | 3× outdoor → Wanderin als Teilnehmerin | camera_kit + backpack + duffel |
+| Reporter Hochwasser | outdoor → Wanderin | 2× backpack |
+| Reporter Gala | business | camera_kit + hardcase |
+
+Rückflug in allen 8 Fällen: 0 neue Abrufe, gleiche Looks und Geschlechter. Gewichte
+summieren sich exakt.
+
+Befunde für später (kein Fehler im Composer):
+- `business` deckt festlich, Trauer und Gala ab. Eigene Looks (`festive`, dunkel/Trauer)
+  lohnen sich erst, wenn der Artist dafür Figuren liefert – bis dahin bleibt das Vokabular.
+- Kinder (`child`) bekommen mangels Kinderfiguren eine erwachsene Tarmac-Figur. Gewünscht
+  in `docs/Person Asset Gewuenschte Modelle.md`; Figurwahl ignoriert die Altersgruppe solange.
+- Offen für Etappe B: Sim-Test mit Schalter (Charter/Sightseeing/Reporter je einmal).
+
 ### Etappe C – Privat und Bush (Einsatz der Wanderin)
 
 | Strang | Quelle | Pax | Cargo | Besonderheit |
