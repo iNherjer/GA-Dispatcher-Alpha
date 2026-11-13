@@ -789,3 +789,15 @@ Ursachen: `storyBasis` hängte für Recon noch die Charter-Anekdotenlisten an. E
 - RECON-PLAN-Prompt: Die rationale nennt keine eigene Höhe, kein tiefer Überflug.
 
 Nachproben (`recon-recipe-*`, Rezept ohne Charter-Listen): kein „vor zwei Jahren“ und kein „Ohne diesen Check“ mehr, die Haltung ist am Befund und an der Entscheidung orientiert. Die zwischenzeitlichen Proben `recon-seed-*` liefen mit dem inzwischen zurückgenommenen Wetter-Gate. Sie zeigten drei verschiedene Familien, aber auch einmal „zwei tiefe Überflüge“ und einen Windhinweis für die Schlucht, beides vor der rationale-Regel. Gelegentlich bleiben „wir“ und saisonaler Druck („bevor der Boden gefriert“). Unbelegte Ortsdetails auf der Zielseite („thermisch aktive Kessellage“, „Payette National Forest“) stammen aus dem Recon-Objekttext. Dieses Rezept hat sie nicht verursacht.
+
+## Anflugbriefing ohne örtliche Textquelle (13.11.2026, ausgerollt Web v2374)
+
+Befund: Abgelegene Bush-Strips haben meist weder Wikipedia-Text noch FAA-Pilotennotizen. Für diesen Fall verwarf `MissionAirportInformationCore.attach` (Schutzregel `own-data-only`) den vom Writer bereits geschriebenen Text komplett. Angezeigt wurde nur eine Datenzeile mit Platzhöhe und Piste, ohne Wetter und ohne Planungshinweis. Charter-Ziele mit Quellen waren nicht betroffen.
+
+**User-Entscheidung 13.11.2026:** Die Schutzregel wird aufgeteilt.
+- **flightBriefing:** Ohne örtliche Quelle bleibt der Writer-Text erhalten, wenn er höchstens 2200 Zeichen lang ist, keine `[[`-Platzhalter enthält, nur Handbuchquellen nennt und die Piste nicht als ausreichend oder geeignet bewertet (`judgesRunway`). Kennzeichnung: `flightBriefingGenerated:true`, `generated` bleibt false, basis bleibt `own-data-only`. Sonst gilt weiter die Datenzeile.
+- **destinationInfo:** Ohne örtliche Quelle bleibt es bei der Datenzeile; dort lag die Gefahr erfundener Einrichtungen.
+- Prompt in `destinationWriterPrompt`: keine Eignungsbewertung der Piste. Ohne örtliche Quelle nur Pistendaten, Platzhöhe, gelieferte Wetterwerte und höchstens ein allgemeiner Handbuchhinweis.
+- Andere Missionsarten mit Platzseiten zeigen bei `generated:false` weiter nichts an; für sie ändert sich sichtbar nichts. Der Tracker bündelt die Datei nicht.
+
+Proben (`*-apt-brief-4242`, Testwetter): Adventure, Supply und Cargo-Pickup liefern jeweils ein Anflugbriefing mit Platzhöhe, Leistungsplanung, Graspiste und Wetter, dazu Handbuchlinks. Restbefunde: einmal „für die Region ordentlich dimensioniert“ (Eignungston, den die Prüfung nicht erkennt), zweimal „leichte/lockere Bewölkung“ bei 75 % im Testwetter und einmal „Anflug in das Gebirge“ ohne örtlichen Beleg.

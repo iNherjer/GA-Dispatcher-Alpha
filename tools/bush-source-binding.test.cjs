@@ -41,6 +41,15 @@ test('own-data-only Bush airport description ignores invented AI facilities and 
  const m=airportCore.attach({s:'Persönliche Geschichte bleibt erhalten.'},{airportInformation:{flightBriefing:'Die Bahn ist ausreichend. Hohe Dichtehöhe.',destinationInfo:'Hier sind keine Einrichtungen; im National Forest.',sourceIds:['faa-mountain-tips']}},c);
  assert.equal(m.s,'Persönliche Geschichte bleibt erhalten.');assert.equal(m.airportInformation.generated,false);assert.equal(m.airportInformation.basis,'own-data-only');assert.equal(m.airportInformation.flightBriefing,airportCore.fallback(c).flightBriefing);assert.equal(m.airportInformation.destinationInfo,airportCore.fallback(c).destinationInfo);assert.ok(m.airportInformation.flightBriefing.includes('1082 m'));assert.ok(m.airportInformation.flightBriefing.includes('5743 ft'));
 });
+test('own-data-only Bush airport keeps a clean writer flight briefing with weather and handbook hint, page stays data-only',()=>{
+ const c=airportCore.context({ident:'U60',name:'Big Creek',...target,elevation:5743,runways:[{designator:'01/19',length:1082,width:34,surface:'Gras'}]});
+ const hb=c.sources.find(s=>s.kind==='pilot-handbook');
+ const text='Big Creek (U60) liegt auf 5743 ft; die Graspiste 01/19 ist 1082 m lang und 34 m breit. Die Platzhöhe gehört in die Leistungsplanung mit den Flugzeugunterlagen. Das Modellwetter zeigt am Nachmittag etwa 14 Grad und leichten Wind.';
+ const m=airportCore.attach({}, {airportInformation:{flightBriefing:text,destinationInfo:'Hier ist eine Lodge.',sourceIds:hb?[hb.id]:[]}},c);
+ assert.equal(m.airportInformation.flightBriefing,text);assert.equal(m.airportInformation.flightBriefingGenerated,true);assert.equal(m.airportInformation.generated,false);
+ assert.equal(m.airportInformation.basis,'own-data-only');assert.equal(m.airportInformation.destinationInfo,airportCore.fallback(c).destinationInfo);
+ const bad=airportCore.attach({}, {airportInformation:{flightBriefing:text,destinationInfo:'x',sourceIds:['faa']}},c);assert.equal(bad.airportInformation.flightBriefing,airportCore.fallback(c).flightBriefing);
+});
 test('explicit local source still allows its existing sourced narrative path',()=>{
  const c=airportCore.context({ident:'U60',name:'Big Creek',...target},{wiki:{id:'wiki',kind:'wikipedia',extract:'There is a lodge.'}});
  const m=airportCore.attach({}, {airportInformation:{flightBriefing:'Big Creek Airport.',destinationInfo:'Die örtliche Quelle beschreibt eine Lodge.',sourceIds:['wiki']}},c);
