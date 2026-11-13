@@ -25008,12 +25008,14 @@ function resolveMissionPassengerCapacityPlan({
     };
 }
 
+// Missionserstellung: Grundlage ist das gewählte Preset. Der Tracker läuft beim Erstellen
+// meist nicht – unbekannte Fähigkeiten erlauben Gruppen (Tracker kann sie seit v357).
+// Nur ein verbundener Tracker, der Fähigkeiten ohne Gruppen meldet, begrenzt auf 1 Pax.
+// Die Ausführung prüft weiter selbst (sync.js _missionSceneGroupPlan).
 function missionTrackerSupportsGroupGeneration() {
-    if (typeof window.trackerSupportsMissionSceneGroup === 'function') {
-        try { return window.trackerSupportsMissionSceneGroup() === true; } catch (_) {}
-    }
-    return Array.isArray(window.liveTrackerCapabilities)
-        && window.liveTrackerCapabilities.includes('mission.scene.group.v1');
+    const reported = Array.isArray(window.liveTrackerCapabilities) ? window.liveTrackerCapabilities : [];
+    if (!reported.length) return true;
+    return reported.includes('mission.scene.group.v1');
 }
 
 function resolveGeneratedMissionPartyPlan({

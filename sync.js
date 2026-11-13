@@ -1281,9 +1281,15 @@ function _trackerSupportsTelemetryWake() {
 }
 window.trackerSupportsTelemetryWake = _trackerSupportsTelemetryWake;
 
+// Unbekannt (Tracker läuft beim Erstellen/Annehmen meist nicht) = erlaubt: Gruppen kann der
+// Tracker seit v357. Nur ein verbundener Tracker, der Fähigkeiten ohne Gruppe meldet, sperrt.
+function _trackerGroupCapabilityAllowed(capability) {
+    const reported = Array.isArray(window.liveTrackerCapabilities) ? window.liveTrackerCapabilities : [];
+    return !reported.length || reported.includes(capability);
+}
+
 function _trackerSupportsMissionSceneGroup() {
-    return Array.isArray(window.liveTrackerCapabilities)
-        && window.liveTrackerCapabilities.includes(MISSION_SCENE_GROUP_CAPABILITY);
+    return _trackerGroupCapabilityAllowed(MISSION_SCENE_GROUP_CAPABILITY);
 }
 window.trackerSupportsMissionSceneGroup = _trackerSupportsMissionSceneGroup;
 
@@ -6787,7 +6793,7 @@ function _missionSceneGroupPlan() {
 }
 
 function _missionSceneGroupCapabilityMissing() {
-    return !!_missionSceneRequestedGroupPlan() && (!_trackerSupportsMissionSceneGroup() || (_missionSceneIsPatientTransfer() && !window.liveTrackerCapabilities?.includes('mission.scene.medical-group.v1')));
+    return !!_missionSceneRequestedGroupPlan() && (!_trackerSupportsMissionSceneGroup() || (_missionSceneIsPatientTransfer() && !_trackerGroupCapabilityAllowed('mission.scene.medical-group.v1')));
 }
 
 function _missionSceneGroupCommandFields() {
