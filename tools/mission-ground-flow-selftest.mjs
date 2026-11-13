@@ -220,7 +220,7 @@ assert.match(tracker, /HOMEBASE_ENABLED = true/);
 const trackerVersionCode = Number(tracker.match(/TRACKER_VERSION_CODE = (\d+)/)?.[1]);
 const minimumTrackerVersionCode = Number(sync.match(/MIN_TRACKER_VERSION_CODE = (\d+)/)?.[1]);
 assert.ok(Number.isFinite(trackerVersionCode));
-assert.equal(minimumTrackerVersionCode, 320);
+assert.equal(minimumTrackerVersionCode, 470);
 assert.ok(trackerVersionCode >= minimumTrackerVersionCode);
 assert.match(tracker, /stabilizeSceneGroundObject/);
 assert.match(tracker, /SCENE_GROUND_STABILIZED/);

@@ -984,7 +984,6 @@ const MISSION_EXECUTION_SHADOW_JOURNAL_KEY = 'ga_mission_execution_shadow_journa
 const MISSION_AUTHORITY_CAPABILITY = 'mission.authority.v1';
 const MISSION_SNAPSHOT_V2_CAPABILITY = 'mission.snapshot.v2';
 const MISSION_INTENT_CAPABILITY = 'mission.intent.v1';
-const MISSION_SCENE_GROUP_CAPABILITY = 'mission.scene.group.v1';
 const TELEMETRY_WAKE_CAPABILITY = 'telemetry.wake.v1';
 const missionAuthorityAckWaiters = new Map();
 const missionAuthorityLocalCommandIds = new Map();
@@ -1281,17 +1280,6 @@ function _trackerSupportsTelemetryWake() {
 }
 window.trackerSupportsTelemetryWake = _trackerSupportsTelemetryWake;
 
-// Unbekannt (Tracker läuft beim Erstellen/Annehmen meist nicht) = erlaubt: Gruppen kann der
-// Tracker seit v357. Nur ein verbundener Tracker, der Fähigkeiten ohne Gruppe meldet, sperrt.
-function _trackerGroupCapabilityAllowed(capability) {
-    const reported = Array.isArray(window.liveTrackerCapabilities) ? window.liveTrackerCapabilities : [];
-    return !reported.length || reported.includes(capability);
-}
-
-function _trackerSupportsMissionSceneGroup() {
-    return _trackerGroupCapabilityAllowed(MISSION_SCENE_GROUP_CAPABILITY);
-}
-window.trackerSupportsMissionSceneGroup = _trackerSupportsMissionSceneGroup;
 
 function _missionAuthorityAdapter(runtimeSnapshot = null, missionState = null) {
     if (typeof window.GAMissionResumeAdapters?.detectPrimaryAdapter === 'function') {
@@ -6788,12 +6776,8 @@ function _missionSceneRequestedGroupPlan() {
 }
 
 function _missionSceneGroupPlan() {
-    if (!_trackerSupportsMissionSceneGroup()) return null;
+    // Gruppen und Patientengruppe kann jeder Tracker ab der Mindestversion (v470).
     return _missionSceneRequestedGroupPlan();
-}
-
-function _missionSceneGroupCapabilityMissing() {
-    return !!_missionSceneRequestedGroupPlan() && (!_trackerSupportsMissionSceneGroup() || (_missionSceneIsPatientTransfer() && !_trackerGroupCapabilityAllowed('mission.scene.medical-group.v1')));
 }
 
 function _missionSceneGroupCommandFields() {
@@ -6809,9 +6793,6 @@ function _missionSceneGroupCommandFields() {
 }
 
 function _missionSceneGroupDebugPlan(count) {
-    if (!_trackerSupportsMissionSceneGroup()) {
-        return { ok: false, error: 'tracker_group_capability_required' };
-    }
     if (typeof window.GAMissionSceneGroup?.normalizeGroupSequenceCommand !== 'function'
         || typeof window.GAMissionSceneGroup?.buildGroupMemberPlans !== 'function') {
         return { ok: false, error: 'group_core_unavailable' };
@@ -8366,14 +8347,6 @@ window.missionSceneSpawn = function(reason = 'scene-debug-spawn') {
     if (!debugReason && _missionIsFreeflightOnly()) {
         if (window.missionSceneStatus) window.missionSceneStatus.blockReason = 'freeflight_only';
         if (typeof window.fireMissionRefreshDebugStatus === 'function') window.fireMissionRefreshDebugStatus();
-        return false;
-    }
-    if (_missionSceneGroupCapabilityMissing()) {
-        if (window.missionSceneStatus) {
-            window.missionSceneStatus.blockReason = 'tracker_group_capability_required';
-            window.missionSceneStatus.error = 'tracker_group_capability_required';
-        }
-        _missionPhaseDebugPush('scene_spawn_blocked', { reason: 'tracker_group_capability_required' });
         return false;
     }
     const pos = window.lastLiveGpsPos || {};
@@ -10947,11 +10920,6 @@ window.trackerDebugSetInputEvent = async function(nameOrOptions, value = 1, opti
 })();
 
 window.missionSceneBoarding = async function(reason = 'boarding') {
-    if (_missionSceneGroupCapabilityMissing()) {
-        if (window.missionSceneStatus) window.missionSceneStatus.boardingError = 'tracker_group_capability_required';
-        _missionPhaseDebugPush('boarding_blocked', { reason, source: 'tracker_group_capability_required' });
-        return { status: 'error', error: 'tracker_group_capability_required' };
-    }
     if (missionSceneBoardingPromise) {
         _missionPhaseDebugPush('boarding_reused', { reason, source: 'missionSceneBoardingPromise' });
         return missionSceneBoardingPromise;
@@ -11167,11 +11135,6 @@ function _missionSceneDeboardingPaxCount() {
 
 window.missionSceneDeboarding = function(reason = 'mission-end', options = {}) {
     if (window.simModeActive && !window.liveTrackerConnected) return false;
-    if (_missionSceneGroupCapabilityMissing()) {
-        if (window.missionSceneStatus) window.missionSceneStatus.deboardingError = 'tracker_group_capability_required';
-        _missionPhaseDebugPush('deboarding_blocked', { reason: 'tracker_group_capability_required' });
-        return false;
-    }
     const trackerVersionCode = Number(window.liveTrackerVersionCode);
     if (options?.coordinateFarewell === true && (!Number.isFinite(trackerVersionCode) || trackerVersionCode < MIN_TRACKER_VERSION_CODE)) {
         window.missionSceneStatus.deboardingError = `tracker_${MIN_TRACKER_VERSION_LABEL}_required`;
@@ -18258,8 +18221,9 @@ const liveFreqLookupPending = {};
 // v320 bleibt die Mindestversion fuer den bestehenden Web-/Relay-Vertrag.
 // Neuere Alpha-Capabilities (z. B. EFB-Snapshots ab v323/v324) werden von ihren
 // jeweiligen Clients ausgehandelt und duerfen die Stable-Runtime nicht sperren.
-const MIN_TRACKER_VERSION_CODE = 320;
-const MIN_TRACKER_VERSION_LABEL = 'v320';
+// v470: Gruppen (seit v357) und Patientengruppe (seit v470) – die App fragt sie nicht mehr einzeln ab.
+const MIN_TRACKER_VERSION_CODE = 470;
+const MIN_TRACKER_VERSION_LABEL = 'v470';
 let trackerVersionPromptShown = false;
 
 function _trackerReconnectRecoveryActive(now = Date.now()) {

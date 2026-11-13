@@ -25008,16 +25008,6 @@ function resolveMissionPassengerCapacityPlan({
     };
 }
 
-// Missionserstellung: Grundlage ist das gewählte Preset. Der Tracker läuft beim Erstellen
-// meist nicht – unbekannte Fähigkeiten erlauben Gruppen (Tracker kann sie seit v357).
-// Nur ein verbundener Tracker, der Fähigkeiten ohne Gruppen meldet, begrenzt auf 1 Pax.
-// Die Ausführung prüft weiter selbst (sync.js _missionSceneGroupPlan).
-function missionTrackerSupportsGroupGeneration() {
-    const reported = Array.isArray(window.liveTrackerCapabilities) ? window.liveTrackerCapabilities : [];
-    if (!reported.length) return true;
-    return reported.includes('mission.scene.group.v1');
-}
-
 function resolveGeneratedMissionPartyPlan({
     profileId = '',
     taskDomain = '',
@@ -25036,7 +25026,8 @@ function resolveGeneratedMissionPartyPlan({
         category,
         baseType,
         passengerCapacity: capability.passengerCapacity,
-        groupCapability: missionTrackerSupportsGroupGeneration(),
+        // Gruppengröße nur nach Preset; Gruppen kann jeder Tracker ab Mindestversion v470.
+        groupCapability: true,
         allowGroup: true
     });
 }
@@ -46930,7 +46921,7 @@ async function generateMission(options = {}) {
         roleLabel: m?.passenger?.role || '',
         preserveDash: isPlanningOnlyMode
     });
-    if (m?.medicalTransferIdea?.transportKind === 'patient_transfer' && (finalPassengerPlan.plannedPassengerCount !== 2 || !window.liveTrackerCapabilities?.includes('mission.scene.medical-group.v1'))) throw Error('Die Patientenverlegung benötigt zwei Passagierplätze und einen kompatiblen Tracker.');
+    if (m?.medicalTransferIdea?.transportKind === 'patient_transfer' && (finalPassengerPlan.plannedPassengerCount !== 2)) throw Error('Die Patientenverlegung benötigt zwei Passagierplätze.');
     if (m?.sightseeingIdea?.schema === 'sightseeing-idea.v1' && finalPassengerPlan.plannedPassengerCount !== m.sightseeingIdea.passengerCount) throw Error('Die gewählte Reisegruppe passt nicht zur aktuellen Passagierkonfiguration.');
     if (m?.charterIdea?.schema === 'charter-idea.v1' && finalPassengerPlan.plannedPassengerCount !== m.charterIdea.passengerCount) {
         throw new Error('Die gebuchte Chartergruppe passt nicht zur aktuellen Passagierkonfiguration. Bitte neu auswählen.');

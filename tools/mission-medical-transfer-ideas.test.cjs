@@ -81,11 +81,11 @@ test('patient transfer preserves two identities and rejects capacity or capabili
  const c=vm.createContext({normalizeMissionType:()=> 'apt'});extract('app.js','getMissionPlanV2Plan',c);extract('mission-definition-core.js','normalizeAptArrivalRole',c);extract('mission-arrival-core.js','buildAptArrivalSceneItems',c);
  const role=c.normalizeAptArrivalRole({mission:m,missionPlanV2:m._missionPlanV2});assert.equal(role.vehicleRole,'vehicle.emergency.medical');assert.equal(role.expectedBy,patientRaw.recipient);assert.ok(c.buildAptArrivalSceneItems(role).some(x=>x.role==='vehicle.emergency.medical'));
 });
-test('patient proposal keeps two PAX and cannot fall back to one after tracker downgrade',async()=>{
+test('patient proposal keeps two PAX independent of reported tracker capabilities (preset is the basis)',async()=>{
  const c=browser(async()=>({parsed:{...written,flightBriefing:''}}));c.window.liveTrackerCapabilities=['mission.scene.group.v1','mission.scene.medical-group.v1'];
  const idea=core.validate(patientRaw,{...input,patientTransferEnabled:true}),proposal={schema:'medical-transfer-proposal.v1',input:{route},idea};
  const m=await c.window.MissionMedicalTransferBrowser.story({start:route.start,dest:route.target,proposal});assert.equal(m._missionContractV4.passengerCount,2);assert.equal(m._missionContractV4.party.count,2);
- c.window.liveTrackerCapabilities=['mission.scene.group.v1'];await assert.rejects(()=>c.window.MissionMedicalTransferBrowser.story({start:route.start,dest:route.target,proposal}),/Flugzeug/);
+ c.window.liveTrackerCapabilities=[];const again=await c.window.MissionMedicalTransferBrowser.story({start:route.start,dest:route.target,proposal});assert.equal(again._missionContractV4.passengerCount,2);
 });
 test('patient start scene sends the medical group type and selects an ambulance',()=>{
  const group=require('../ga-tracker-client/mission-scene-group-core.js'),m=core.mission(core.validate(patientRaw,{...input,patientTransferEnabled:true}),written,'',{});

@@ -2,7 +2,7 @@
 'use strict';
 const core=()=>root.MissionCharterIdeasCore;
 const target=a=>({name:a.n||a.name||a.icao||'',icao:a.icao||'',lat:Number(a.lat),lon:Number(a.lon)});
-function capacity(){const c=getMissionAircraftCapabilitySnapshot();return Math.min(5,c.passengerCapacity||0,missionTrackerSupportsGroupGeneration()?5:1);}
+function capacity(){const c=getMissionAircraftCapabilitySnapshot();return Math.min(5,c.passengerCapacity||0);}
 async function frame(start,dest){const route={start:target(start),target:target(dest)};let places=[];try{places=(await root.MissionPrivateContextCore.resolveBrowser(route.target)).places||[];}catch{}
  const anchors=root.MissionClubIdeasCore.frame(route,[],null,'',places).geoAnchors;
  return {...core().frame(route,capacity(),core().history(localStorage),anchors),requireReturnPlan:true};}
