@@ -19,6 +19,17 @@ async function story({start,dest,proposal,contract={}}){
  if(!idea)throw Error('Charterauftrag ist unvollständig oder die Gruppe passt nicht zur aktuellen Kapazität. Bitte neu auswählen.');
  return write(idea,input,contract);
 }
+// Diagnose für das Debug-Protokoll: welches Feld die Prüfung (prose/resolveReferences) nicht besteht.
+function writerIssues(raw,bindings){
+ if(!raw||typeof raw!=='object')return ['keine JSON-Antwort'];
+ const out=[],limits={title:110,greeting:400,memory:600};
+ for(const [k,max] of Object.entries(limits)){const v=raw[k];if(typeof v!=='string'||!v.trim())out.push(k+' fehlt');else if(v.trim().length>max)out.push(k+' '+v.trim().length+'>'+max);}
+ if(typeof raw.story!=='string'||raw.story.trim().length<250)out.push('story '+(typeof raw.story==='string'?raw.story.trim().length:'fehlt')+'<250');
+ for(const k of ['title','story','greeting','memory','pilotNotes']){if(typeof raw[k]!=='string')continue;
+  for(const m of raw[k].matchAll(/\[\[([^\[\]]+)\]\]/g))if(!Object.prototype.hasOwnProperty.call(bindings||{},m[1]))out.push(k+' unbekannte Referenz [['+m[1].slice(0,40)+']]');
+  if(/\[\[|\]\]/.test(raw[k].replace(/\[\[[^\[\]]+\]\]/g,'')))out.push(k+' offene Klammern');}
+ return out.length?out.slice(0,8):['unbekannt'];
+}
 async function write(idea,input,contract,extraPrompt=''){
  // Ground appearance of the luggage: kept from the outbound idea, otherwise chosen by the composer beside the writer.
  // Testschalter ga_person_figures_v1: gemeinsamer Boden-Composer (Pax-Looks + Gepäck), sonst bisheriger Cargo-Composer.
@@ -28,11 +39,12 @@ async function write(idea,input,contract,extraPrompt=''){
  const prompt=core().writerPrompt(idea,flight,input.recent)+extraPrompt;
  let raw=await pageWriter(prompt),resolved=core().resolveReferences(raw,flight.bindings);
  let written=resolved&&core().prose(resolved),brief=api.resolveFlightBriefing(raw.flightBriefing,context);
+ const firstIssues=written?null:writerIssues(raw,flight.bindings);
  if(!written){
   raw=await pageWriter(prompt+'\nKORREKTUR: Der erste Entwurf hat die Formatprüfung nicht bestanden. Kürze greeting auf maximal 400 Zeichen, title auf 110, memory auf 600, story auf 250–1800. Liefere das vollständige JSON erneut. Behalte Kundenauftrag und Personen bei. In doppelten eckigen Klammern stehen ausschließlich die SCHLÜSSEL aus WERTE, niemals deren aufgelöste Werte oder Ortsnamen. Erlaubte Referenzen: '+Object.keys(flight.bindings).map(k=>'[['+k+']]').join(', ')+' . Alle Referenzen müssen in WERTE existieren; flightBriefing verwendet ausschließlich diese Referenzen für Zahlen und Einheiten und enthält die geforderten vorhandenen Distanz-/Böenwerte.\nERSTER ENTWURF: '+JSON.stringify(raw));
   resolved=core().resolveReferences(raw,flight.bindings);written=resolved&&core().prose(resolved);brief=api.resolveFlightBriefing(raw.flightBriefing,context);
  }
- if(!written)throw Error('Das Charterbriefing enthält ungültige Texte oder Referenzen. Bitte erneut versuchen.');
+ if(!written){console.warn('[Charter] Writer-Prüfung fehlgeschlagen:',JSON.stringify({first:firstIssues,retry:writerIssues(raw,flight.bindings)}));throw Error('Das Charterbriefing enthält ungültige Texte oder Referenzen. Bitte erneut versuchen.');}
  const hasWeather=context.weather.some(w=>w.rawMetar||w.windKts!==null||w.visibilityKm!==null);
  if(!hasWeather)brief='Für Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.';
  else if(!brief){
