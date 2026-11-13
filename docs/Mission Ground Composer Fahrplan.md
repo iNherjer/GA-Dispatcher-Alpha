@@ -124,6 +124,15 @@ Befunde für später (kein Fehler im Composer):
   in `docs/Person Asset Gewuenschte Modelle.md`; Figurwahl ignoriert die Altersgruppe solange.
 - Offen für Etappe B: Sim-Test mit Schalter (Charter/Sightseeing/Reporter je einmal).
 
+**Mitreisende aus der Idee (13.11.2026, Web v2377, 4051e7e05):** Feldtest zeigte „Kollege“ in
+der Geschichte, aber eine Frau als zweite Figur – Writer und Composer liefen parallel und
+rieten das Geschlecht der Begleiter unabhängig. Jetzt liefern Charter- und Sightseeing-Idee
+`companions:[{role,gender}]` (genau `passengerCount − 1`). Der Writer ist daran gebunden,
+die Bordliste übernimmt Rolle und Geschlecht fest, der Composer wählt nur noch Look/Alter.
+Fehlt die Liste oder passt die Anzahl nicht, bleibt sie leer und alles läuft wie vorher (keine
+abgelehnte Idee). Rückflug übernimmt die Liste über `original`. Live-Probe: 4 Charter, alle
+Begleiter mit Geschlecht, Writer hält sich daran (Schatzmeisterin/Beisitzer, Wart/Jugendwartin).
+
 ### Etappe C – Privat und Bush (Einsatz der Wanderin)
 
 | Strang | Quelle | Pax | Cargo | Besonderheit |
