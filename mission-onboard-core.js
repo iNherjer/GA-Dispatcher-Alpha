@@ -11,18 +11,20 @@ function join(parts, max = 600) { return parts.map((part) => text(part, max)).fi
 function gender(value) { const g = String(value || '').toLowerCase(); return g === 'male' || g === 'female' ? g : ''; }
 function count(value, fallback = 1) { const n = Math.round(Number(value)); return Number.isFinite(n) ? Math.max(1, Math.min(MAX_PASSENGERS, n)) : fallback; }
 
-// Hauptperson + weitere Mitreisende. Nur die Hauptperson hat ein festes Geschlecht
-// (Stimme); Mitreisende lässt die Idee offen, der Composer darf es aus groupLabel ableiten.
-function passengersFor({ lead = null, passengerCount = 1, groupLabel = '' } = {}) {
+// Hauptperson + weitere Mitreisende. Die Hauptperson hat ein festes Geschlecht (Stimme);
+// Mitreisende übernehmen Rolle/Geschlecht aus idea.companions, sonst bleiben sie offen und
+// der Composer leitet sie aus groupLabel ab.
+function passengersFor({ lead = null, passengerCount = 1, groupLabel = '', companions = [] } = {}) {
   const total = count(passengerCount);
   const list = [];
   for (let index = 0; index < total; index += 1) {
     const isLead = index === 0;
+    const companion = !isLead && Array.isArray(companions) ? companions[index - 1] : null;
     list.push({
       id: `pax${index + 1}`,
       lead: isLead,
-      role: text(isLead ? lead?.role : '', 100) || (total > 1 ? text(groupLabel, 100) : ''),
-      gender: isLead ? gender(lead?.gender) : '',
+      role: text(isLead ? lead?.role : companion?.role, 100) || (total > 1 ? text(groupLabel, 100) : ''),
+      gender: gender(isLead ? lead?.gender : companion?.gender),
       appearance: isLead ? text(lead?.appearance, 200) : '',
       ageHint: ''
     });
@@ -42,14 +44,14 @@ const ADAPTERS = {
     occasion: join([idea.reason, idea.background, idea.travelCharacter]),
     task: text(idea.arrival, 300),
     groupLabel: text(idea.groupLabel, 100),
-    passengers: passengersFor({ lead: idea.passenger, passengerCount: idea.passengerCount, groupLabel: idea.groupLabel }),
+    passengers: passengersFor({ lead: idea.passenger, passengerCount: idea.passengerCount, groupLabel: idea.groupLabel, companions: idea.companions }),
     cargo: [cargoPost('c1', { description: idea.luggageLabel, weightLbs: idea.luggageWeightLbs })].filter(Boolean)
   }),
   'sightseeing-idea.v1': (idea) => ({
     occasion: join([idea.theme, idea.summary]),
     task: text(idea.groundPlan, 300),
     groupLabel: text(idea.groupLabel, 100),
-    passengers: passengersFor({ lead: idea.passenger, passengerCount: idea.passengerCount, groupLabel: idea.groupLabel }),
+    passengers: passengersFor({ lead: idea.passenger, passengerCount: idea.passengerCount, groupLabel: idea.groupLabel, companions: idea.companions }),
     cargo: [cargoPost('c1', { description: idea.luggageLabel, weightLbs: idea.luggageWeightLbs })].filter(Boolean)
   }),
   'apt-news-idea.v1': (idea) => ({

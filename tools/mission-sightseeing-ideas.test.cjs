@@ -93,3 +93,10 @@ test('weather instructions expose required route and gust bindings; fallback pre
  assert.match(prompt,/VERBINDLICHE REFERENZEN: \[\[route.distance\]\], \[\[start.gust\]\]/);
  const fallback=core.weatherFallback(context);assert.match(fallback,/Aktualität unbekannt/);assert.match(fallback,/Zu Sicht, Wolkenhöhe fehlen Angaben/);assert.doesNotMatch(fallback,/windstill|böenfrei/);
 });
+test('companions: kept from the idea for the composer, ignored when the count does not match',()=>{
+ const idea=core.validate({...raw,companions:[{role:'Ehemann',gender:'male'}]},input);
+ assert.deepEqual(idea.companions,[{role:'Ehemann',gender:'male'}]);
+ assert.match(core.ideaPrompt([{candidateId:'a',...input}]),/companions: Liste aller weiteren Mitreisenden/);
+ assert.deepEqual(core.validate({...raw,companions:[]},input).companions,[]);
+ assert.deepEqual(core.validate(raw,input).companions,[]);
+});

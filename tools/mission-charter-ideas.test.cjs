@@ -61,3 +61,14 @@ test('weather-only repair cannot replace an accepted charter story',async()=>{
  const m=await c.window.MissionCharterBrowser.story({start:route.start,dest:route.target,proposal:{schema:'charter-proposal.v1',input:frame,idea},contract:{route:{startName:'Start',targetName:'Ziel',distanceNm:60},weather:{dep:{raw:{station:'EDDS',windKts:7}}}}});
  assert.equal(calls,2);assert.equal(m._missionWriterV4Debug.rawAiStory,written.story);assert.match(m.s,/7 Knoten/);assert.doesNotMatch(m.s,/MUST NOT REPLACE/);
 });
+test('companions: role and gender per fellow traveller, tolerant when missing or mismatched, writer bound to them',()=>{
+ const flightStub={context:{},bindings:{}};
+ const withCompanions=core.validate({...raw,companions:[{role:'Kollege aus dem Projektteam',gender:'male'},{role:'Assistentin',gender:'female'}]},frame);
+ assert.deepEqual(withCompanions.companions,[{role:'Kollege aus dem Projektteam',gender:'male'},{role:'Assistentin',gender:'female'}]);
+ assert.match(core.writerPrompt(withCompanions,flightStub,[]),/companions legt Rolle und Geschlecht/);
+ for(const companions of [undefined,[],[{role:'Kollege',gender:'male'}],[{role:'Kollege',gender:'divers'},{role:'B',gender:'male'}]]){
+  const idea=core.validate({...raw,companions},frame);assert.ok(idea,'Idee bleibt gültig');assert.deepEqual(idea.companions,[]);
+  assert.doesNotMatch(core.writerPrompt(idea,flightStub,[]),/companions legt Rolle/);
+ }
+ assert.match(core.ideaPrompt([{candidateId:'a',...frame}]),/companions: Liste aller weiteren Mitreisenden/);
+});

@@ -102,3 +102,11 @@ test('Rückflug: gleiche Personen behalten Looks trotz neuem Anlass, kein neuer 
   assert.equal(calls, 0, 'Gepäck unverändert → auch kein Cargo-Abruf');
   assert.deepEqual(plan.passengers.map((p) => [p.look, p.gender]), [['business', 'male'], ['casual', 'female']]);
 });
+
+test('companions aus der Idee: Composer kann das Geschlecht der Mitreisenden nicht umdrehen', () => {
+  const i = { ...idea(), companions: [{ role: 'Kollege aus dem Planungsteam', gender: 'male' }] };
+  const onboard = onboardCore.fromIdea(i);
+  assert.match(core.prompt(onboard), /"geschlecht":"male","rolle"|"rolle":"Kollege aus dem Planungsteam","geschlecht":"male"/);
+  const plan = core.validate({ passengers: [{ id: 'pax1', look: 'business' }, { id: 'pax2', look: 'business', gender: 'female' }] }, onboard, { idea: i });
+  assert.deepEqual(plan.passengers.map((p) => p.gender), ['male', 'male']);
+});

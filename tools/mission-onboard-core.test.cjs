@@ -24,6 +24,15 @@ test('Charter: Anlass, Gruppe, Hauptperson mit Geschlecht, Mitreisende offen, Ge
   assert.deepEqual(onboard.cargo.map((c) => [c.id, c.owner, c.weightLbs]), [['c1', 'pax1', 28]]);
 });
 
+test('Charter mit companions: Mitreisende übernehmen Rolle und Geschlecht fest', () => {
+  const onboard = core.fromIdea({ ...charter, companions: [{ role: 'Assistentin', gender: 'female' }] });
+  assert.deepEqual(onboard.passengers.map((p) => [p.id, p.role, p.gender]), [['pax1', 'Hochzeitsfotograf', 'male'], ['pax2', 'Assistentin', 'female']]);
+  const sight = core.fromIdea({ schema: 'sightseeing-idea.v1', theme: 'Burgen', summary: 'Ausflug', groundPlan: 'Picknick', passengerCount: 2,
+    groupLabel: 'Ehepaar', passenger: { name: 'Erika', role: 'Reisende', gender: 'female' }, companions: [{ role: 'Ehemann', gender: 'male' }],
+    luggageLabel: 'Picknickkorb', luggageWeightLbs: 10 });
+  assert.deepEqual(sight.passengers.map((p) => p.gender), ['female', 'male']);
+});
+
 test('Charter ohne Gepäck: keine Cargo-Posten', () => {
   assert.deepEqual(core.fromIdea({ ...charter, luggageWeightLbs: 0 }).cargo, []);
 });
