@@ -29,4 +29,7 @@ Stable bleibt unverändert.
 
 ## Aktivierung
 
-(wird nach dem öffentlichen Download-Test ergänzt)
+Release `v634` (Release-Commit `9d5bb270c`, gebaut im sauberen Worktree mit `--no-bytecode`),
+`VFR-Multitool-Tracker.exe` 175072188 Bytes,
+SHA-256 `444788c83d9271b5fe1fb3a4fea5c6ff76db9c8fce589d62f6605de1eb569246`,
+öffentlicher Download geprüft. Alpha-Kanal aktiviert, Stable unverändert.
