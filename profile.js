@@ -4261,7 +4261,7 @@ window.vpBuildWeatherDebugReport = function() {
     const isImportantConsoleLog = (entry) => {
         const level = String(entry?.level || '').toLowerCase();
         const msg = String(entry?.msg || '');
-        return /error|warn|rejection|exception|failed|fail|invalid|fallback|mission|scene|dispatch|planner|gemini|target|ack|paxvoice|tts|textgen|fetch|gps|websocket/i.test(`${level} ${msg}`);
+        return /error|warn|rejection|exception|failed|fail|invalid|fallback|mission|scene|dispatch|planner|gemini|target|ack|paxvoice|tts|textgen|fetch|gps|websocket|crewlive/i.test(`${level} ${msg}`);
     };
     const isPriorityMissionConsoleLog = (entry) => {
         const level = String(entry?.level || '').toLowerCase();
@@ -5129,6 +5129,23 @@ window.vpBuildWeatherDebugReport = function() {
         });
     } else {
         lines.push('- Persistenter PAX-Flow: (noch keine Ereignisse)');
+    }
+    lines.push('');
+    lines.push('Crew-Live (Zuschauer)');
+    try {
+        const cl = window.gaCrewLive?.state?.();
+        if (!cl) lines.push('- nicht geladen');
+        else {
+            const status = cl.joined ? `angemeldet seit ${vpFormatDebugTs(cl.joinedAt)}` : (cl.connected ? 'verbinde …' : (cl.wanted ? 'nicht verbunden' : 'aus (nur bei offener Weltkarte oder Crew-Flugdetail)'));
+            lines.push(`- Crew: ${cl.crew || '-'} | Status: ${status} | Karte=${cl.mapOpen ? '1' : '0'} | Detail=${cl.detailOpen ? '1' : '0'}`);
+            lines.push(`- Im Raum: ${cl.trackers >= 0 ? cl.trackers : '-'} Tracker, ${cl.viewers >= 0 ? cl.viewers : '-'} weitere Zuschauer | Live-Kontakte: ${cl.contacts}${cl.retryAt > Date.now() ? ` | nächster Versuch in ${Math.round((cl.retryAt - Date.now()) / 1000)} s` : ''}`);
+            if (cl.lastError) lines.push(`- Letzter Fehler: ${flattenText(cl.lastError, 200)}`);
+            const hist = Array.isArray(cl.history) ? cl.history.slice(-12) : [];
+            if (!hist.length) lines.push('- Verlauf: (noch keine Ereignisse)');
+            else hist.forEach(h => lines.push(`  ${vpFormatDebugTs(h.at)} ${h.level === 'warn' ? '[!] ' : ''}${flattenText(h.msg, 200)}`));
+        }
+    } catch (_) {
+        lines.push('- (nicht ermittelbar)');
     }
     lines.push('');
     lines.push('Konsolenfehler / relevante Logs');

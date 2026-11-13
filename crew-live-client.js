@@ -15,6 +15,17 @@
     let socket = null, joined = false, crew = '', ownPid = '', ticket = null, connecting = false;
     let retryAt = 0, retryMs = 5000;
     const contacts = new Map();
+    // Diagnostics for the debug console (profile.js): own short history, so the entries are not
+    // pushed out of the shared console buffer. Never contains ID, PIN or ticket.
+    const history = [];
+    let joinedAt = 0, roomTrackers = -1, roomViewers = -1, lastError = '';
+    const seenPilots = new Set();
+    function note(msg, level = 'info') {
+        history.push({ at: Date.now(), level, msg });
+        if (history.length > 20) history.shift();
+        if (level === 'warn') lastError = msg;
+        try { console[level]('[CrewLive] ' + msg); } catch (_) {}
+    }
 
     function groupName() { try { return typeof getGroupName === 'function' ? String(getGroupName() || '').trim().toUpperCase() : ''; } catch (_) { return ''; } }
     function credentials() {
@@ -38,50 +49,78 @@
     async function connect() {
         if (connecting || socket) return;
         const { id, pin } = credentials();
-        if (!id || !pin) return;
+        if (!id || !pin) {
+            if (lastError !== 'Keine Pilot-ID/PIN – Zuschauer-Anmeldung nicht möglich') note('Keine Pilot-ID/PIN – Zuschauer-Anmeldung nicht möglich', 'warn');
+            retryAt = Date.now() + 30000;
+            return;
+        }
         connecting = true;
         const forCrew = crew;
         try {
+            note('Verbinde als Zuschauer mit Crew ' + forCrew + ' …');
             if (!ticket || ticket.crew !== forCrew || ticket.exp - Date.now() < TICKET_MARGIN_MS) {
                 const res = await fetch(TICKET_URL + encodeURIComponent(forCrew) + '/live-ticket', { headers: { 'X-Pilot-ID': id, 'X-Pilot-PIN': pin }, cache: 'no-store' });
-                if (!res.ok) throw new Error('ticket_' + res.status);
+                if (!res.ok) throw new Error('Ticket abgelehnt (HTTP ' + res.status + (res.status === 403 ? ', kein Crew-Mitglied' : '') + ')');
                 const body = await res.json();
                 ticket = { value: body.ticket, exp: Number(body.exp) || 0, crew: forCrew };
                 ownPid = ticketPid(body.ticket);
             }
-            if (forCrew !== crew || !wanted()) return;
+            if (forCrew !== crew || !wanted()) { note('Abgebrochen: Karte/Detail inzwischen geschlossen'); return; }
             const ws = new WebSocket(RELAY_URL + '?room=' + await sha256Hex('crew:' + forCrew));
             socket = ws;
             ws.onopen = () => { try { ws.send(JSON.stringify({ type: 'crew_join', ticket: ticket.value, role: 'viewer', clientId: 'web-' + ownPid })); } catch (_) {} };
             ws.onmessage = event => onMessage(ws, event.data);
-            ws.onclose = () => {
+            ws.onclose = event => {
                 if (socket !== ws) return;
-                socket = null; joined = false;
-                retryAt = Date.now() + retryMs; retryMs = Math.min(120000, retryMs * 2);
+                const wasJoined = joined;
+                socket = null; joined = false; joinedAt = 0; roomTrackers = roomViewers = -1;
+                retryAt = Date.now() + retryMs;
+                note((wasJoined ? 'Verbindung getrennt' : 'Verbindung vor der Anmeldung getrennt')
+                    + ' (Code ' + (event?.code ?? '?') + (event?.reason ? ', ' + event.reason : '') + '), neuer Versuch in ' + Math.round(retryMs / 1000) + ' s', 'warn');
+                retryMs = Math.min(120000, retryMs * 2);
             };
             ws.onerror = () => {};
         } catch (error) {
-            retryAt = Date.now() + retryMs; retryMs = Math.min(120000, retryMs * 2);
-            try { console.warn('[CrewLive] connect failed:', error?.message || error); } catch (_) {}
+            retryAt = Date.now() + retryMs;
+            note('Anmeldung fehlgeschlagen: ' + (error?.message || error) + ', neuer Versuch in ' + Math.round(retryMs / 1000) + ' s', 'warn');
+            retryMs = Math.min(120000, retryMs * 2);
         } finally {
             connecting = false;
         }
     }
     function disconnect() {
         const old = socket;
-        socket = null; joined = false; contacts.clear();
+        const wasJoined = joined;
+        socket = null; joined = false; joinedAt = 0; roomTrackers = roomViewers = -1; contacts.clear(); seenPilots.clear();
         if (old) { try { old.onclose = null; old.close(1000, 'hidden'); } catch (_) {} }
+        if (old && wasJoined) note('Als Zuschauer abgemeldet (Karte/Detail geschlossen oder App im Hintergrund)');
         render();
     }
     function onMessage(ws, raw) {
         if (ws !== socket) return;
         let data;
         try { data = JSON.parse(raw); } catch (_) { return; }
-        if (data.type === 'crew_joined') { joined = true; retryMs = 5000; }
-        else if (data.type === 'crew_pos' && data.pid && data.p && data.pid !== ownPid) {
-            contacts.set(data.pid, { nick: String(data.nick || data.pid).slice(0, 64), p: data.p, at: Date.now() });
+        if (data.type === 'crew_joined') {
+            joined = true; retryMs = 5000; joinedAt = Date.now(); lastError = '';
+            note('Erfolgreich als Zuschauer angemeldet (Crew ' + crew + ')');
+        } else if (data.type === 'crew_audience' && Array.isArray(data.members)) {
+            const others = data.members.filter(m => String(m?.pid || '').toLowerCase() !== ownPid);
+            const trackers = others.filter(m => m?.role === 'tracker').length, viewers = others.length - trackers;
+            if (trackers !== roomTrackers || viewers !== roomViewers) {
+                roomTrackers = trackers; roomViewers = viewers;
+                note('Im Crew-Raum: ' + trackers + ' Tracker, ' + viewers + ' weitere Zuschauer');
+            }
+        } else if (data.type === 'error') {
+            note('Relay meldet: ' + String(data.message || '').slice(0, 120), 'warn');
+        } else if (data.type === 'crew_pos' && data.pid && data.p && data.pid !== ownPid) {
+            const nick = String(data.nick || data.pid).slice(0, 64);
+            if (!seenPilots.has(data.pid)) { seenPilots.add(data.pid); note('Erste Live-Position von ' + nick); }
+            contacts.set(data.pid, { nick, p: data.p, at: Date.now() });
             window.gaCrewPresence?.liveDetailPosition?.(data.pid, data.p);
-        } else if (data.type === 'crew_gone' && data.pid) contacts.delete(data.pid);
+        } else if (data.type === 'crew_gone' && data.pid) {
+            if (contacts.has(data.pid)) note('Live-Position beendet: ' + (contacts.get(data.pid)?.nick || data.pid));
+            contacts.delete(data.pid); seenPilots.delete(data.pid);
+        }
     }
 
     // Crew aircraft as traffic contacts (same format as the tracker's crew contacts).
@@ -123,5 +162,12 @@
     setInterval(render, RENDER_MS);
     document.addEventListener('visibilitychange', maintain);
 
-    window.gaCrewLive = { merge, contacts: list, state: () => ({ crew, connected: !!socket, joined, contacts: contacts.size }), maintain };
+    window.gaCrewLive = {
+        merge, contacts: list, maintain,
+        state: () => ({
+            crew, connected: !!socket, joined, joinedAt, contacts: contacts.size, wanted: wanted(),
+            mapOpen: mapOpen(), detailOpen: !!detailPilot(), trackers: roomTrackers, viewers: roomViewers,
+            retryAt: socket || connecting ? 0 : retryAt, lastError, history: history.slice()
+        })
+    };
 })();
