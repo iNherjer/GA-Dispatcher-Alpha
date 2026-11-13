@@ -6443,6 +6443,14 @@ function _missionAptArrivalAssetForItem(item = {}, index = 0, options = {}) {
     let pool = [];
     let fallback = semanticTitle || 'Cardboard';
     let preferFirst = false;
+    // Gruppen steigen nur in ein Gruppenfahrzeug (Van/Bus/Sanitäter, Tracker-Liste
+    // GROUP_VEHICLE_TITLES). Ein Empfangs-Pkw würde beim Aussteigen verworfen: der Tracker
+    // brächte ein zweites Fahrzeug, die Empfangsszene bliebe stehen (Feldtest 13.11.2026).
+    const groupPlan = /^vehicle\.(car|van|bus|emergency\.medical)$/.test(role) ? _missionSceneRequestedGroupPlan() : null;
+    const groupVehicle = groupPlan ? window.GAMissionSceneGroup?.resolveGroupVehicleSelection?.(groupPlan) : null;
+    if (groupVehicle?.title) {
+        return { title: groupVehicle.title, candidates: _sceneAssetCandidates(groupVehicle.title, groupVehicle.candidates.slice()) };
+    }
     if (role === 'vehicle.emergency.medical') {
         pool = MISSION_SCENE_ASSET_POOLS.medicalVehicles;
         fallback = pool[0] || 'Car Bush Medic';
