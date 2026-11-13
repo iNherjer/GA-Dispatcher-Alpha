@@ -63,6 +63,28 @@ nur nach Freigabe des Users, neue Wege hinter Testschaltern.
 Tests A: Unit-Tests je Kern, `tools/mission-scene-cargo-selftest.mjs`, `mission-ground-flow-selftest.mjs`,
 Tracker-Suite. Sim-Test: Einsteigen/Aussteigen Wanderin + Tarmac gemischt.
 
+### Cargo-Rückfall ohne KI (mit Etappe B umsetzen)
+
+Befund Feldtest 13.11.2026: Bush-Mission „Vier Wochen Wildnis“ (184 lbs Outdoor-Ausrüstung
+und Vorräte) spawnte einen Kaffeebecher. Ursache in der allgemeinen Gewichtszuordnung
+`_missionSceneSemanticCargoAsset` ([sync.js](../sync.js), Abschnitt `sizePrimary`): Das
+Gewicht bestimmt die passende Palette, gezogen wird aber per Zufallswert aus der ganzen
+Palettenliste – darin stehen als Ersatz auch `Cardboard` und `CoffeeCup`. Betrifft alle
+Stränge ohne Composer und den heutigen Rückfall, wenn die KI ausfällt.
+
+Ziel – Gegenstück zur festen Rollenliste der Pax:
+
+1. Feste Form-Zuordnung über Rolle/TaskDomain (z. B. Bush → Campingausrüstung, Fracht →
+   Holzkiste, Medizin → Sanitätsrucksack), Größe nach Gewicht über die vorhandenen
+   Cargo-Profile.
+2. Ohne passende Form: Palette fest nach Gewicht (ab 120 lbs groß, ab 50 lbs mittel,
+   ab 20 lbs klein, darunter Karton).
+3. `Cardboard` und `CoffeeCup` nur noch als Spawn-Ersatztitel, nie als gewählter Titel.
+4. Test: schwere Fracht ergibt nie Karton oder Becher; jede TaskDomain hat eine Form.
+
+Bis dahin kann bei schwerer Fracht weiter ein Karton oder Becher erscheinen; Ablauf und
+Animation sind davon nicht betroffen.
+
 ### Etappe B – Pilot-Stränge (haben heute schon den Cargo-Composer)
 
 | Strang | Ideen-Schema | Pax | Cargo | Besonderheit |
