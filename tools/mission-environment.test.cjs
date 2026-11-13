@@ -13,7 +13,7 @@ test('actual V4/V5 request adapters pass the environment to the writer; ordinary
  const source=fs.readFileSync(require.resolve('../app.js'),'utf8'),environment=core.context(p,p,[],now);
  for(const version of ['V4','V5']){
   const a=source.indexOf('async function fetchMissionWriter'+version+'('),b=source.indexOf('window.fetchMissionWriter'+version+' =',a);let sent;
-  const c={window:{MissionEnvironmentCore:core},getSelectedAiApiKey:()=> 'test',getSelectedAiProvider:()=> 'gemini',document:{getElementById:()=>({checked:true})},fetchGeminiJsonWithFallback:async prompt=>{sent=prompt;return {parsed:{}};}};
+  const c={window:{MissionEnvironmentCore:core},getSelectedAiApiKey:()=> 'test',getSelectedAiProvider:()=> 'gemini',document:{getElementById:()=>({checked:true})},fetchGeminiJsonWithFallback:async prompt=>{sent=prompt;return {parsed:{story:'Text'}};},_missionWriterRequestDiagnostics:()=>({}),formatAiJsonFailure:()=>''};
   c['buildMissionWriter'+version+'Prompt']=()=> 'BASE';c['sanitizeMissionWriter'+version+'Payload']=x=>x;
   vm.runInNewContext(source.slice(a,b),c);
   await c['fetchMissionWriter'+version]({missionType:'bush',missionContractV4:{status:'ready',environmentContext:environment}});

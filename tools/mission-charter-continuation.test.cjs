@@ -73,7 +73,7 @@ test('writer failure reuses saved experience on retry, capacity failure makes no
  capacity=2;const before=writerCalls;await assert.rejects(()=>c.window.MissionCharterBrowser.continuation(args()),/Kapazität/);assert.equal(writerCalls,before);
 });
 test('pickup manifest preserves group, target loading and exact optional baggage including zero',()=>{
- const src=fs.readFileSync('mission-cargo-core.js','utf8');const names=['_missionCargoGenerateManifest','_missionCargoManifestMatchesMissionRecipe','_missionCargoUpgradeBushPickupCompanionCargo'];
+ const src=fs.readFileSync('mission-cargo-core.js','utf8');const names=['_missionCargoGenerateManifest','_missionCargoManifestCore','_missionCargoManifestMatchesMissionRecipe','_missionCargoUpgradeBushPickupCompanionCargo'];
  for(const weight of [0,42,400]){
   const ci={...idea,luggageWeightLbs:weight,continuation:{schema:core.SCHEMA}};
   const c=vm.createContext({window:{currentMissionData:{charterIdea:ci}},_missionCargoMissionKey:()=> 'test',_missionCargoAircraftSlot:()=> 'plane',_missionSceneTaskDomain:()=> 'charter',_activeBushMissionSpec:()=>({targetMode:'strip_then_return',pickupKind:'passenger',pickupPassengerCount:3}),_missionCargoPrimaryText:()=> 'Reisetaschen',_missionCargoCleanLabel:x=>x,_missionCargoIsPoiMission:()=>false,_missionCargoHasPassengerMission:()=>false,_missionScenePassengerGender:()=> 'female',_missionScenePersonTitle:()=> 'Person',_missionScenePersonCandidates:()=>[],_missionCargoPaxWeightLbs:()=>170,_missionCargoPushItem:(items,item)=>items.push(item),_missionCargoBushPickupCompanionItem:()=>({id:'pickup-companion-cargo',pickupLocation:'target',weightLbs:18,required:true,deliverAtHome:true}),_missionCargoPersistentEquipmentDefinitions:()=>[],_missionCargoApplyStoredOnboardEquipment:()=>{}});
@@ -91,7 +91,7 @@ test('new generation requires explicit return decision; older ideas remain valid
 });
 test('map route includes original home after third-place pickup and capacity keeps deferred group',()=>{
  const source=fs.readFileSync('map.js','utf8'),a=source.indexOf('function updateMap('),b=source.indexOf('\nasync function updateMapFromInputs',a);
- const c=vm.createContext({map:{},currentSName:'',currentDName:'',currentStartICAO:C.icao,currentDestICAO:B.icao,routeWaypoints:[],currentMissionData:{charterIdea:{continuation:{pickupRequired:true}},bush:{homeRef:A}},window:{},document:{getElementById:()=>null},_syncCurrentMissionRouteFromMap(){},renderMainRoute(){}});
+ const c=vm.createContext({map:{},currentSName:'',currentDName:'',currentStartICAO:C.icao,currentDestICAO:B.icao,routeWaypoints:[],currentMissionData:{charterIdea:{continuation:{pickupRequired:true}},bush:{homeRef:A}},window:{},document:{getElementById:()=>null},_syncCurrentMissionRouteFromMap(){},setRouteResetBaseline(){},renderMainRoute(){}});
  vm.runInContext(source.slice(a,b),c);c.updateMap(C.lat,C.lon,B.lat,B.lon,C.name,B.name);
  assert.deepEqual(clone(c.routeWaypoints).map(p=>p.icao),[C.icao,B.icao,A.icao]);
  const capability=require('../aircraft-mission-capability-core.js');const p=capability.resolveMissionPassengerPlan({paxText:'0 PAX am Start · 3 PAX Pickup (Reisegruppe)',passengerCount:0,pickupPassengerCount:3,passengerCapacity:4,maxPartySize:4});

@@ -66,6 +66,6 @@ export function voiceHarness(source,core,fetch,key='test-key',{missingCore=false
     fetch,_getAiProvider:()=>provider,_getApiKey:()=>key,_getTrackerVoiceClient:()=>null,
     _paxAiTextModels:()=>provider==='gemini'?core.GEMINI_TEXT_MODELS.map(m=>[m,m,'flash']):[['gpt-4.1-mini','OpenAI','openaiText']],
     _paxLog:()=>{},_normSpeakerGender:()=> 'female',_ttsVoiceCandidatesForSpeaker:()=>['Kore'],
-    _lastSpokenSpeaker:null,_paxTtsModelPref:'auto',_paxTtsHedgeEnabled:()=>false},source,
+    _lastSpokenSpeaker:null,_paxTtsModelPref:'auto',_paxTtsHedgeEnabled:()=>false,_paxCanGenerateVoice:()=>true},source,
     ['_generateSpokenText','_requestTTSAudioForModel','_requestTTSAudio']);
 }

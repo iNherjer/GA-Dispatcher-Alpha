@@ -33,7 +33,9 @@ export function sandbox(options = {}) {
         missionTrackerObserverRetryAt: 0,
         TRACKER_ACK_SUCCESS: new Set(['ok', 'noop']),
         document: { getElementById: () => null },
-        localStorage: { removeItem() {} }, MISSION_DEBRIEF_PENDING_KEY: 'debrief',
+        localStorage: (() => { const values = new Map(); return { getItem: k => values.has(k) ? values.get(k) : null, setItem: (k, v) => values.set(k, String(v)), removeItem: k => values.delete(k) }; })(),
+        getSyncId: () => 'TEST', MISSION_DEBRIEF_PENDING_KEY: 'debrief',
+        TRACKER_EXECUTION_RUN_KEY: 'ga_tracker_execution_run_v1', trackerInterruptionRefreshTimer: null, trackerInterruptionSignature: '',
         _normalizeMissionRuntimeId: value => String(value || ''),
         _activeMissionRuntimeId: () => c.currentMissionData?.missionId || '',
         _readMissionAuthorityState: () => c.localAuthority,
@@ -113,6 +115,10 @@ export function sandbox(options = {}) {
         '_handleTrackerMissionStatus',
         '_ensureTrackerExecutionAuthority', '_submitTrackerExecutionIntent',
         '_missionAuthorityRuntimeNeedsLateBind',
+        // Seit 20.10.2026 (Unterbrechung/Resume) braucht der Abschluss diese Helfer.
+        '_trackerRunCloudActivation', '_rememberTrackerExecutionRun', '_forgetTrackerExecutionRun',
+        '_rememberedTrackerExecutionRun', '_trackerCargoAutoOpenedRuns', '_trackerMissionInterrupted',
+        '_trackerInterruptionView', '_trackerRunStarted', '_syncTrackerMissionInterruption', '_renderTrackerResumeZone',
     ]) {
         vm.runInContext(originalFunction(name), c);
     }

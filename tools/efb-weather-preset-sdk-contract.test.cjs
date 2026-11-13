@@ -30,7 +30,8 @@ function harness(options = {}) {
   const sdk = { FSComponent: { createRef: () => ({ getOrDefault: () => null }) } };
   const context = {
     exports: {}, require: name => name === '@efb/efb-api' ? api : name === '@microsoft/msfs-sdk' ? sdk
-      : name.includes('map-shell-core') ? { default: require('../ga-tracker-client/efb-app/map-shell-core.js') } : {},
+      : name.includes('map-shell-core') ? { default: require('../ga-tracker-client/efb-app/map-shell-core.js') }
+      : name.endsWith('/FlightPlanBridge') ? { createNativeFlightPlanBridge: () => ({ handle: () => false }) } : {},
     window: {}, console, Date: class extends Date { static now() { return now; } },
     EFB_APP_VERSION: 'test', TRACKER_API_URL: 'http://127.0.0.1:49880',
     setInterval(fn, ms) { assert.equal(ms, 5000); intervals.set(++id, fn); return id; },

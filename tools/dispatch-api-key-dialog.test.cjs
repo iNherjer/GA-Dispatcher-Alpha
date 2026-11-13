@@ -23,6 +23,7 @@ test('missing-key dialog: cancel, session, persistent provider key and local dis
             window.OPENAI_API_KEY_STORAGE_KEY = 'ga_openai_key';
             window._clearApiKeyValidationCache = () => {};
             window.updateAiCostEstimate = () => {};
+            window._appUiPhrase = text => text;
         });
         await page.addScriptTag({ content: helper });
         const open = () => page.evaluate(() => { window.testResult = null; requestDispatchApiKey().then(r => { window.testResult = r; }); });

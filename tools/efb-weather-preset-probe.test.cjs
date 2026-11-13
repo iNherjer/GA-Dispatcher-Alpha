@@ -7,7 +7,7 @@ function harness(withApi){
  const sdk={FSComponent:{createRef:()=>({getOrDefault:()=>null})}};
  const source=fs.readFileSync(require.resolve('../ga-tracker-client/efb-app/PackageSources/VfrMultitool/src/VfrMultitool.tsx'),'utf8');
  const built=ts.transpileModule(source+'\nexport { VfrMultitoolView };',{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2017,jsx:ts.JsxEmit.React}});
- const context={exports:{},require:name=>name==='@efb/efb-api'?api:name==='@microsoft/msfs-sdk'?sdk:name.includes('map-shell-core')?{default:require('../ga-tracker-client/efb-app/map-shell-core.js')}:{},window:{},console,Date:class extends Date {static now(){return now;}},
+ const context={exports:{},require:name=>name==='@efb/efb-api'?api:name==='@microsoft/msfs-sdk'?sdk:name.includes('map-shell-core')?{default:require('../ga-tracker-client/efb-app/map-shell-core.js')}:name.endsWith('/FlightPlanBridge')?{createNativeFlightPlanBridge:()=>({handle:()=>false})}:{},window:{},console,Date:class extends Date {static now(){return now;}},
  EFB_APP_VERSION:'test',TRACKER_API_URL:'http://127.0.0.1:49880',setInterval:fn=>{intervals.set(1,fn);return 1;},clearInterval:id=>intervals.delete(id)};
  if(withApi)context.RegisterViewListener=(name)=>{assert.equal(name,'JS_LISTENER_WEATHER');return listener;};
  vm.runInNewContext(built.outputText,context);

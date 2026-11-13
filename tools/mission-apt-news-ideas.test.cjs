@@ -131,7 +131,7 @@ test('later reporter pickup retains original home on the map and withholds retur
  const continuation=require('../mission-charter-continuation-core.js');
  const A={lat:48,lng:8,lon:8,icao:'EDAA',name:'Heimat'},B={lat:49,lng:8,lon:8,icao:'EDBB',name:'Rechercheort'},C={lat:48.5,lng:9,lon:9,icao:'EDCC',name:'Drittplatz'};
  const source=fs.readFileSync('map.js','utf8'),a=source.indexOf('function updateMap('),b=source.indexOf('\nasync function updateMapFromInputs',a);
- const c=vm.createContext({map:{},currentSName:'',currentDName:'',currentStartICAO:C.icao,currentDestICAO:B.icao,routeWaypoints:[],currentMissionData:{aptNewsIdea:{schema:core.VERSION,continuation:{pickupRequired:true}},bush:{homeRef:A}},window:{},document:{getElementById:()=>null},_syncCurrentMissionRouteFromMap(){},renderMainRoute(){}});
+ const c=vm.createContext({map:{},currentSName:'',currentDName:'',currentStartICAO:C.icao,currentDestICAO:B.icao,routeWaypoints:[],currentMissionData:{aptNewsIdea:{schema:core.VERSION,continuation:{pickupRequired:true}},bush:{homeRef:A}},window:{},document:{getElementById:()=>null},_syncCurrentMissionRouteFromMap(){},setRouteResetBaseline(){},renderMainRoute(){}});
  vm.runInContext(source.slice(a,b),c);c.updateMap(C.lat,C.lon,B.lat,B.lon,C.name,B.name);
  assert.deepEqual(JSON.parse(JSON.stringify(c.routeWaypoints)).map(p=>p.icao),[C.icao,B.icao,A.icao]);
  const idea={continuation:{pickupRequired:true,visited:B}};

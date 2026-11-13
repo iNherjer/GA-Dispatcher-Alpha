@@ -26,7 +26,7 @@ function fixture({draft=false, remote=mission('new'), offline=false}={}) {
  updateSyncStatus:()=>{},flashSyncIndicator:()=>{},currentMissionData:mission('old').currentMissionData,routeWaypoints:[],
  confirm:()=>{throw Error('unexpected confirm');},triggerCloudSave:()=>{throw Error('unexpected upload');}};
  const context=vm.createContext(env);
- for(const name of ['_syncMissionIdentityValues','_syncMissionStatesShareIdentity','_syncStoredAcceptedMission','_syncTrackerRestoreBlocked','_syncMissionRestoreBlocked','_syncDraftCloudNotice','_syncMissionTitleForPrompt','_syncClearPendingUpload','_syncReadPendingUpload','_syncRecordCloudMissionPullOutcome','_syncApplyActiveMissionFromCloud','silentSyncLoad','syncPendingUploadThenLoad'])vm.runInContext(declaration(source,name),context);
+ for(const name of ['_syncMissionIdentityValues','_syncMissionStatesShareIdentity','_syncStoredAcceptedMission','_syncTrackerRestoreBlocked','_syncMissionRestoreBlocked','_syncDraftCloudNotice','_syncMissionTitleForPrompt','_syncClearPendingUpload','_syncReadPendingUpload','_syncRecordCloudMissionPullOutcome','_syncApplyActiveMissionFromCloud','_syncApplyFavoriteAirportsFromCloud','_syncApplyHiddenGroupNotesFromCloud','silentSyncLoad','syncPendingUploadThenLoad'])vm.runInContext(declaration(source,name),context);
  return{env,context,values,calls,notice,epoch:()=>epoch++,pilot:()=>pilot='OTHER',busy:()=>busy=true,setDraft:v=>draft=v};
 }
 test('opening reads first and replaces old accepted mission even at an already known revision',async()=>{
