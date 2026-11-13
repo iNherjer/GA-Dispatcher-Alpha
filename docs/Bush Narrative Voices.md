@@ -645,7 +645,7 @@ oder zusätzliche KI-Abfrage. Testabdeckung: neue Bereichs-/Altdaten-/30-Tage-
 Live-JSON-Fixtures und wurde gezielt ausgelassen. Keine neue Live-/Audio-/
 Simulatorprobe dieses Stands und noch keine Veröffentlichung.
 
-## Adventure-Hinflug: eigenes Writer-Rezept (12.11.2026, lokal)
+## Adventure-Hinflug: eigenes Writer-Rezept (12.11.2026, ausgerollt Web v2367)
 
 Befund: Adventure-Briefings klangen knapper und logistischer als Charter, Pickup
 und Privat. Ursache war keine Klassifikation, sondern die Basis: Charter
@@ -699,7 +699,7 @@ saisonaler Zeitdruck, unbelegter Ortsname „Frank Church Wilderness“ und ein
 meta-artiger Abschlusssatz in einer Probe. Probe ohne History, daher sagt sie
 nichts über Namenswiederholung in der App.
 
-## Supply: eigenes Writer-Rezept (12.11.2026, lokal)
+## Supply: eigenes Writer-Rezept (12.11.2026, ausgerollt Web v2368)
 
 Gleiche Ursache wie Adventure: generisches Bush-Rezept, „4–6 Sätze“ und die
 Charter-Anekdotenlisten. Ausgangsproben (Seeds 11/4242/90210): 5–6 Sätze,
@@ -728,3 +728,48 @@ nächstem Schritt, keine Flughinweise, keine Missgeschick-Pflicht; nach der
 zweiten Runde auch keine Abschluss-Metasätze. Offen: „Ohne X müssten sie …“ in
 zwei von drei Texten, ein vereinzeltes „wir“. Belege:
 `analysis/bush-profile-personality-20261009/bush_supply_strip-sup-*`.
+
+## Cargo-Pickup: eigenes Writer-Rezept (13.11.2026, ausgerollt Web v2369)
+
+Ausgangsproben (Seeds 11/4242/90210): 5–6 Sätze, Ablaufsatz „Du fliegst leer
+…, nimmst … auf und bringst … zurück“, Eile („jede Stunde“, „termingerecht“),
+eine erfundene Kaltfront als Grund, „Ohne X kann nicht …“, Wechsel zwischen
+du und wir, erfundener Landehinweis zum Übergabepunkt.
+
+Gestaltung Cargo-Pickup (`bush_pickup_cargo`, 0 PAX auf beiden Strecken):
+
+- Story-Träger ist der Kontakt am Zielstrip und die Sache, die zurückkommt:
+  was er draußen damit gemacht hat und was an der Basis mit ihr passiert.
+- Durchgehend du-Ansprache; Kontakt bleibt draußen, die Ladung hat keine Stimme.
+- Umfang nach Erzählstoff; Vorgeschichte möglich, keine Pflicht, kein Defektdrama.
+- Leerflug, Laden und Rückflug brauchen keine Ablaufaufzählung; erzählen,
+  wofür die Sache gebraucht wird, statt was ohne sie scheitert.
+- Keine erfundenen Fristen, Notlagen, Wetterlagen oder Anflug-/Landehinweise,
+  kein Schlusssatz über den Pilotauftrag.
+
+Umsetzung: `cargoPickupWriterRecipe`, `cargoPickupPlanningAddon`, eigene
+`storyBasis` ohne Charter-Listen in `mission-bush-narrative-core.js`;
+`bushCargoPickupPromptRule` und freie Länge in `buildMissionWriterV5Prompt`.
+Die bestehenden Cargo-DomainDetails und die Personen-Pickup-Regel bleiben
+unverändert. Tests wie oben bestanden.
+
+Nachproben: 6–7 Sätze, Kontakt mit Arbeit und nächstem Schritt, Basis-Seite
+erkennbar, keine Wetter-/Landehinweise. Offen: vereinzelt noch Ablaufsatz und
+„unbedingt noch heute“. Dass alle drei Proben Funkthemen hatten, ist Zufall
+des festen `cargoPool` (zwei von sieben Ladungen mit Funkbezug), kein
+Writer-Effekt. Belege: `analysis/bush-profile-personality-20261009/bush_pickup_cargo-cpu-*`.
+
+### Wetter und Jahreszeit nach den neuen Rezepten (13.11.2026)
+
+Die bestehende `weatherIdeaInstructions` (Wetter als Hintergrund, Jahreszeit
+als längerfristiger Anker, wetterbedingte Eile nur mit belegtem Ereignis) gilt
+unverändert für alle Bush-Stränge. Die neuen Rezepte verbieten nur Wetter ohne
+Datenbasis; Supply und Cargo-Pickup nennen belegtes Wetter und Jahreszeit
+jetzt auch positiv als erlaubten Flugrahmen oder saisonalen Anlass. Die
+Kaltfront der Cargo-Ausgangsprobe stammte aus dem Planner-`whyNow` einer Probe
+ohne Wetterdaten, nicht aus einer Quelle. Gegenprobe mit Testwetter (8. Oktober,
+14 °C, 8 kt, 75 % Bewölkung; `--case=weather`, Seed 11) für Adventure, Supply
+und Cargo-Pickup: Wetter und Herbst erscheinen in allen drei Texten
+(diffuses Licht, Herbstversorgung, milder ruhiger Flug). Saisonaler Zeitdruck
+(„vor den ersten Herbststürmen“) tritt weiterhin gelegentlich auf.
+Belege: `analysis/bush-profile-personality-20261009/*-wx-check-11.json`.
