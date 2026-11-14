@@ -45,7 +45,7 @@ const VEHICLES = Object.freeze({
   car: { seats: 5, cargo: false, label: 'Pkw, 5 Plätze, Kofferraum für Gepäck' },
   van: { seats: 8, cargo: true, label: 'Kleinbus/Transporter, bis 8 Plätze, viel Laderaum' },
   bus: { seats: 20, cargo: true, label: 'Bus für größere Gruppen' },
-  medical: { seats: 3, cargo: true, label: 'Krankenwagen (nur Patiententransport)' }
+  medical: { seats: 4, cargo: true, label: 'Krankenwagen (nur Patiententransport)' }
 });
 const QUAD_MAX_LBS = 100;
 const HEAVY_CARGO_LBS = 100;
@@ -76,7 +76,8 @@ function vehicleOptions(onboard, scene, context = {}, cargoPlans = {}) {
   const group = pax >= 2 && pax <= 5 ? (pax === 2 ? ['car', 'van'] : ['van']) : null;
   return Object.keys(VEHICLES).filter((kind) => {
     const v = VEHICLES[kind];
-    if (kind === 'medical') return scene === 'start' && isPatient(context, onboard);
+    // Krankenwagen nur beim Patiententransfer, an beiden Enden (Zubringer und Übernahme).
+    if (kind === 'medical') return isPatient(context, onboard) && people <= v.seats;
     if (group && !group.includes(kind)) return false;
     if (people > v.seats) return false;
     if (load.heavy && !v.cargo) return false;

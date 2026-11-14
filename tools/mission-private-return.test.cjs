@@ -225,3 +225,14 @@ test('Rückflug übernimmt die Composer-Wahl, der Writer sieht sie nicht',()=>{
  assert.equal(p.privateReturn.outing.groundVisual.passengers[0].look,'casual');
  assert.doesNotMatch(core.prompt(p.privateReturn,contract()),/groundVisual|cargoVisual|backpack/);
 });
+test('Rückflug spiegelt Bodenbesetzung und Composer-Szenen (Abholer am Ziel bringt zurück)',()=>{
+ const {md,record}=fixture();
+ md.privateOuting.groundCast={start:[],arrival:[{role:'Freundin mit dem Auto',gender:'female'}]};
+ md.privateOuting.groundVisual={schema:'mission-ground-visual.v1',passengers:[{id:'pax1',look:'casual',gender:'female'}],cargo:{},
+  scenes:{start:{vehicle:'car',castFixed:true,persons:[]},arrival:{vehicle:'car',castFixed:true,persons:[{id:'a1',role:'Freundin mit dem Auto',gender:'female'}]}}};
+ const out=core.request(md,record).privateReturn.outing;
+ assert.deepEqual(out.groundCast,{start:[{role:'Freundin mit dem Auto',gender:'female'}],arrival:[]});
+ assert.deepEqual(out.groundVisual.scenes.start.persons,[{id:'s1',role:'Freundin mit dem Auto',gender:'female'}]);
+ assert.deepEqual(out.groundVisual.scenes.arrival.persons,[]);
+ assert.equal(md.privateOuting.groundVisual.scenes.arrival.persons.length,1,'Hinflug-Plan bleibt unverändert');
+});

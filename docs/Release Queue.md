@@ -43,6 +43,14 @@ liefert alles Offene mit aus.
 - **Doku beim Release:** keine (Fahrplan, Etappe E).
 - **Pruefen im Feld:** Charter hin und zurück: der Empfänger vom Hinflug bringt beim Rückflug.
 
+### 2026-11-14 · Privat-Rückflug spiegelt die Bodenbesetzung (mitgepackter Kern)
+- **Artefakt:** Tracker-EXE bündelt `mission-private-return-core.js`; Web live mit v2397
+- **Dateien:** `mission-private-return-core.js`
+- **Was:** `privateReturn.outing` trägt `groundCast` und `groundVisual.scenes` mit getauschtem Start/Ziel. Vom Tracker gebaute Rückflug-Anträge spiegeln erst ab diesem Build; bis dahin steht die Besetzung beim Rückflug seitenverkehrt (nur Optik).
+- **Tests:** `tools/mission-private-return.test.cjs` 18/18, `tracker-mission-followup.test.js` grün.
+- **Doku beim Release:** keine (Fahrplan, Etappe E).
+- **Pruefen im Feld:** Privatflug hin und zurück: wer am Ziel abgeholt hat, bringt beim Rückflug.
+
 ## Ausgeliefert
 
 ### 2026-11-14 · Geschlossene Mission räumt ihre Szenen ab, Composer-Diagnose im Log — ausgeliefert in Tracker v635 Alpha / Web v2391 (14.11.2026)

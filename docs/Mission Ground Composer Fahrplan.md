@@ -405,7 +405,15 @@ Start-Besetzung (Reporter kommt allein): das Startfahrzeug bleibt geparkt stehen
 (`_missionSceneStartVehicleStays`). Beide Ideen-Prompts verlangen jetzt ausdrücklich deutsche Texte (ein
 Probeabruf kam ohne diese Vorgabe auf Englisch). Live-Probe: `analysis/ground-composer-cast-charter-news*-20261114.md`.
 
-**Offen:** Schritt 4 für Sightseeing, Verein, Medizin, Privat – laufen bis dahin über die offene Besetzung; Tracker `planPickupReception` (Build nötig).
+**Sightseeing, Verein, Medizin, Privat (umgesetzt, Web v2397):** Alle Ideen-Stränge liefern jetzt
+`groundCast` mit Writer-Regel; Sightseeing und Medizin verlangen zusätzlich deutsche Texte. Privat-Rückflug
+(`mission-private-return-core.js`) spiegelt `groundCast` und Composer-Szenen wie die Charter-Fortsetzung.
+Der Krankenwagen ist beim Patiententransfer an beiden Enden erlaubt (4 Plätze). Live-Proben:
+`analysis/ground-composer-cast-{club,medical,privateCast}-20261114.md`, `analysis/sightseeing-groundcast-20261114.json`.
+Damit liefern alle Ideen-Stränge ihre Bodenpersonen; Bush, Training, SAR, Feuer und POI-Briefings laufen
+über die Besetzung aus der Geschichte.
+
+**Offen:** Tracker `planPickupReception` (Build nötig).
 Tracker-Log zeigt die Szenen ab dem nächsten Build (`GROUND_COMPOSER … scenes=`).
 
 ### Etappe F – Aufräumen

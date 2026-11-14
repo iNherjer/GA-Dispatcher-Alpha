@@ -25,6 +25,17 @@
     function sourceEpisode(md) {
         return md?.privateOuting || md?.missionContract?.privateOuting || md?.missionContractV4?.privateOuting;
     }
+
+    function mirrorGroundVisual(plan) {
+        const scenes = plan && plan.scenes;
+        if (!scenes || typeof scenes !== 'object') return plan;
+        const renamed = (entry, prefix) => entry && typeof entry === 'object'
+            ? Object.assign({}, entry, { persons: (Array.isArray(entry.persons) ? entry.persons : []).map((p, i) => Object.assign({}, p, { id: prefix + (i + 1) })) })
+            : entry;
+        plan.scenes = Object.assign({}, scenes, { start: renamed(scenes.arrival, 's'), arrival: renamed(scenes.start, 'a') });
+        return plan;
+    }
+
     function source(md) {
         const idea = sourceEpisode(md);
         return !!(idea?.schema === 'private-outing.v1' && idea.taskDomain === 'private_outing'
@@ -68,8 +79,14 @@
         Object.assign(outing, {companion: copy(idea.companion), luggage: copy(idea.luggage),
             origin: copy(idea.origin || null), episode: copy(idea.episode || {}), groundPlan: copy(idea.groundPlan || {}),
             eventVisit: copy(idea.eventVisit || null), pilotIntent: text(idea.pilotIntent, 200), companionIntent: text(idea.companionIntent, 200)});
-        // Boden-Composer: dieselbe Figur und dasselbe Gepäck wie beim Hinflug.
-        if (idea.groundVisual) outing.groundVisual = copy(idea.groundVisual);
+        // Boden-Composer: dieselbe Figur und dasselbe Gepäck wie beim Hinflug. Die Bodenszenen
+        // tauschen Start und Ziel: wer am Ziel abgeholt hat, bringt jetzt zurück.
+        if (idea.groundVisual) outing.groundVisual = mirrorGroundVisual(copy(idea.groundVisual));
+        if (idea.groundCast && typeof idea.groundCast === 'object') {
+            outing.groundCast = {};
+            if (Array.isArray(idea.groundCast.arrival)) outing.groundCast.start = copy(idea.groundCast.arrival);
+            if (Array.isArray(idea.groundCast.start)) outing.groundCast.arrival = copy(idea.groundCast.start);
+        }
         if (idea.cargoVisual) outing.cargoVisual = copy(idea.cargoVisual);
         const passenger = Object.fromEntries(['name','role','gender','personality','gTolerance','bankTolerance','cargoSensitivity',
             'stomachSensitivity','comfortPriority','urgencyPriority','voiceId','voiceName','geminiVoice','openaiVoice'].map(k => [k, text(original[k], 160)]));

@@ -53,7 +53,7 @@ const STRANDS = {
       const raw = (batch.ideas || []).find((x) => x.candidateId === input.candidateId);
       const idea = core.validate(raw, input);
       return { name: input.candidateId + ' → ' + input.route.target.icao, idea, taskDomain: 'club_utility', roleProfile: 'club_utility_v1',
-        check: idea ? { passenger: idea.passenger && { role: idea.passenger.role, gender: idea.passenger.gender }, luggage: idea.luggage, delivery: idea.delivery } : { invalid: raw || 'fehlt' } };
+        check: idea ? { passenger: idea.passenger && { role: idea.passenger.role, gender: idea.passenger.gender }, luggage: idea.luggage, delivery: idea.delivery, groundCast: idea.groundCast || null } : { invalid: raw || 'fehlt' } };
     });
   },
   // Medizin: Idee legt Fachperson/Kurier fest, beim Patiententransfer zusätzlich den Patienten.
@@ -67,7 +67,7 @@ const STRANDS = {
       const raw = (batch.ideas || []).find((x) => x.candidateId === input.candidateId);
       const idea = core.validate(raw, input);
       return { name: input.candidateId + ' ' + (idea?.transportKind || '?'), idea, taskDomain: 'medical_transfer', roleProfile: 'medical_sensitive_v1',
-        check: idea ? { kind: idea.transportKind, passenger: { role: idea.passenger.role, gender: idea.passenger.gender }, patient: idea.patient, shipment: idea.shipment.label } : { invalid: raw || 'fehlt' } };
+        check: idea ? { kind: idea.transportKind, passenger: { role: idea.passenger.role, gender: idea.passenger.gender }, patient: idea.patient, shipment: idea.shipment.label, recipient: idea.recipient, groundCast: idea.groundCast || null } : { invalid: raw || 'fehlt' } };
     });
   },
   // POI-Aufträge mit einer Person aus der Idee (Bio, Infrastruktur, Reporter-POI, Foto):
@@ -190,6 +190,20 @@ const STRANDS = {
           check: idea ? { passenger: { role: idea.passenger.role, gender: idea.passenger.gender }, count: idea.passengerCount, arrival: idea.arrival, recipient: idea.recipient,
             groundCast: idea.groundCast || null } : { invalid: batch.error || raw || 'fehlt' } });
       }
+    }
+    return out;
+  },
+  // Privatflug: Idee ohne Ortsfakten (wie bei fehlendem Wissenskontext), Mitflieger + groundCast.
+  async privateCast() {
+    const core = require('../mission-private-outing-core.js');
+    const out = [];
+    for (const [i, icao] of ['EDSH', 'EDTF'].entries()) {
+      const target = apt(icao);
+      const input = core.frame({ target, route: { startName: 'EDTW', targetName: target.name }, missionDate: '2026-11-14', knowledgeContext: null }, []);
+      let idea = null, raw = null;
+      try { raw = await json(core.ideaPrompt(input), 'private-idea-' + i); idea = core.validateIdea(raw, input); } catch (e) { raw = { error: String(e.message || e) }; }
+      out.push({ name: 'private-' + i + ' → ' + icao, idea, taskDomain: 'private_outing', roleProfile: 'general_passenger_v1',
+        check: idea ? { companion: { role: idea.companion.relationship, gender: idea.companion.gender }, transferPlan: idea.groundPlan.transferPlan, groundCast: idea.groundCast || null } : { invalid: raw || 'fehlt' } });
     }
     return out;
   },

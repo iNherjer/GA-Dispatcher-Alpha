@@ -175,11 +175,13 @@ test('Fracht: schwer oder sperrig verlangt Ladefläche; KI-Wahl gilt, wenn sie p
   assert.equal(plan.scenes.start.vehicle, 'van', 'Rückfall bei schwerer Fracht außerhalb Bush: Transporter');
 });
 
-test('Patiententransfer: Krankenwagen nur am Start', () => {
+test('Patiententransfer: Krankenwagen an beiden Enden, sonst nie', () => {
   const med = { schema: 'medical-transfer-idea.v1', purpose: 'Verlegung', passenger: { role: 'Notärztin', gender: 'female' }, patient: { gender: 'male' } };
   const onboard = onboardCore.fromIdea(med);
   assert.equal(core.validate({ passengers: [] }, onboard, {}).scenes.start.vehicle, 'medical');
-  assert.ok(!core.vehicleOptions(onboard, 'arrival', {}).includes('medical'));
+  assert.ok(core.vehicleOptions(onboard, 'arrival', {}).includes('medical'));
+  const courier = onboardCore.fromIdea({ ...med, patient: null });
+  assert.ok(!core.vehicleOptions(courier, 'start', {}).includes('medical'));
 });
 
 test('Empfänger-Figuren: eigene Figur je Person, keine Dopplung mit den Mitreisenden', () => {
