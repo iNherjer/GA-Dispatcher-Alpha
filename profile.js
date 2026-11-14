@@ -5087,9 +5087,9 @@ window.vpBuildWeatherDebugReport = function() {
     } else {
         lines.push('- Manifest PAX: (kein Passenger-Item)');
     }
-    // Personen-Figuren (Testschalter ga_person_figures_v1): Schalterstand, Figuren im Manifest, aktuelle Wahl.
+    // Personen-Figuren (für alle an, Notausschalter ga_person_figures_v1 = 'off'): Schalterstand, Figuren im Manifest, aktuelle Wahl.
     try {
-        const figuresOn = /^(1|true|yes|ja|on)$/.test(String(localStorage.getItem('ga_person_figures_v1') || '').trim().toLowerCase());
+        const figuresOn = !/^(0|false|no|nein|off)$/.test(String(localStorage.getItem('ga_person_figures_v1') || '').trim().toLowerCase());
         const manifestFigures = passengerItems.map(item => {
             const persons = Array.isArray(item.visualPersons) && item.visualPersons.length
                 ? item.visualPersons.map(p => `${p.id || '?'}:${p.title || '?'}(${p.gender || '?'}/${p.look || '?'})`).join(',')

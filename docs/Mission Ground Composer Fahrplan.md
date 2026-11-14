@@ -261,6 +261,20 @@ Composer darauf passende Looks/Packstücke wählt (`tools/ground-composer-strand
 | Fracht, zerbrechliche Fracht, Tiertransport | ✅ Web v2386 | Alle drei mit Idee-Stufe. Fracht (`cargo-idea.v1`): keine Person, Sendung **mit Verpackung und Handhabung** an den Composer (vorher nur Text/Gewicht aus der Ladeliste). Zerbrechliche Fracht: ein Kurier (Rolle, Geschlecht) plus Sendung mit Verpackung/Bruchhinweis. Tiertransport: Begleitperson, Tiere behalten ihren eigenen Pool (nur Look). Composer jeweils parallel zum Writer. Live-Probe: 6/6 Ideen gültig, Kartons/Hartschalen/Holzkiste folgen der Verpackung (`analysis/ground-composer-freight-20261113.md`). Dabei gefunden: Beschreibt die Verpackung mehr als drei Stücke („4 Kunststoffkisten“), lieferte die KI vier und die ganze Wahl wurde verworfen → jetzt werden die ersten drei genommen und das Gesamtgewicht darauf verteilt (`mission-cargo-visual-core.js` `validate`). |
 | Bush | ✅ ohne Umbau | Bush hat keine eigene Idee-Stufe: die Person legt der allgemeine V4-Writer fest (`passenger` mit `role`, `gender`), bei der Abholung übernimmt der Dispatch genau diese Writer-Person als Abholgast (`app.js`, `hasAiPickupPassenger`), das Pickup-Gepäck kommt aus `bush.pickupCargoLabel`. Der allgemeine Composer-Schritt bekommt damit exakte Daten; kein Eingriff in die Bush-Writer (mit dem Bush-Agenten abgestimmt, dessen Arbeit war abgeschlossen). Live-Probe 13.11.2026 mit dem echten Planer/Writer (`tools/bush-profile-personality-live.mjs --run=composer-20261113`): Abholung (Kartenmacherin, weiblich → Wanderin, Kameraausrüstung + Rucksack), Bush-Charter (Leiter der Trail-Crew, männlich → Outdoor-Look, Hartschale + Werkzeugkiste), Versorgung ohne Person (Hartschale + Holzkiste) – alle passend (`analysis/ground-composer-bush-20261113.md`). Nicht live geprüft: Recon und Fracht-Abholung (gleicher Weg; Fracht-Abholung ohne Person). |
 
+### Für alle eingeschaltet (14.11.2026, Web v2388)
+
+User-Entscheidung nach dem Vereins-Testflug: Personen-Figuren und Composer gelten für alle, die
+Auswahl „Figuren (Test)“ in den Boarding-Einstellungen ist entfernt. `ga_person_figures_v1`
+bleibt nur als Notausschalter je Gerät: Wert `off` (per Adresszeile `?personFigures=off`,
+`?personFigures=on` hebt ihn auf). Die Diagnosezeile „PAX-Figuren“ zeigt den Stand.
+
+Dabei behoben (Code-Check): Passte eine Composer-Wahl nicht mehr zur Ladeliste (Text oder
+Gewicht, z. B. nach Preset-Wechsel), blieb das Gepäck ganz ohne Wahl und fiel auf die alte
+Stichwort-Zuordnung zurück. Jetzt gilt dann die feste Packstück-Liste
+(`_missionCargoApplyVisualPlan` → `_missionCargoApplyFallbackVisualPlan`).
+
+Offen bleiben Sim-Tests der übrigen Stränge (laufen jetzt bei allen Testern mit), Etappe E und F.
+
 ### Etappe D – übrige Missionsstränge (einzeln, je Testschalter)
 
 | Strang | Quelle | Pax | Cargo | Besonderheit |
@@ -305,7 +319,7 @@ Composer darauf passende Looks/Packstücke wählt (`tools/ground-composer-strand
 
 ## 3a. Stand Etappe A (12.11.2026)
 
-Umgesetzt hinter dem Testschalter `ga_person_figures_v1` (Standard aus, gilt je Gerät).
+Umgesetzt hinter dem Testschalter `ga_person_figures_v1` (bis 14.11.2026 Standard aus, seitdem für alle an – siehe „Für alle eingeschaltet“).
 Einschalten: Einstellungen → Boarding Szene → „Figuren (Test)“, oder per Adresszeile
 `?personFigures=on` (`off` schaltet aus), oder `localStorage.setItem('ga_person_figures_v1','on')`:
 

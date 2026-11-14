@@ -558,8 +558,6 @@ function updateBoardingPresetEditorUI(config = null) {
     if (spawnReadout) spawnReadout.textContent = describeBoardingPoint(cfg.spawn);
     if (targetReadout) targetReadout.textContent = describeBoardingPoint(cfg.target);
     if (doorToggle) doorToggle.checked = cfg.openDoor !== false;
-    const figuresToggle = document.getElementById('personFiguresToggle');
-    if (figuresToggle) figuresToggle.checked = personFiguresOptionEnabled();
     if (markerToggle && typeof window.isBoardingMarkerEnabled === 'function') markerToggle.checked = window.isBoardingMarkerEnabled();
     const selectedKey = ensureBoardingPointSelection(cfg);
     const route = boardingRoutePointList(cfg);
@@ -725,20 +723,6 @@ function setBoardingDoorOption(enabled) {
     }, `${getAircraftPresetSlotLabel(slotId)} Tür ${enabled ? 'aktiv' : 'aus'}`);
 }
 window.setBoardingDoorOption = setBoardingDoorOption;
-
-// Testschalter ga_person_figures_v1 (gilt nur für dieses Gerät, nicht je Flugzeug-Preset).
-function personFiguresOptionEnabled() {
-    try { return /^(1|true|yes|ja|on)$/.test(String(localStorage.getItem('ga_person_figures_v1') || '').trim().toLowerCase()); } catch (_) { return false; }
-}
-function setPersonFiguresOption(enabled) {
-    try {
-        if (enabled) localStorage.setItem('ga_person_figures_v1', 'on');
-        else localStorage.removeItem('ga_person_figures_v1');
-    } catch (_) {}
-    const toggle = document.getElementById('personFiguresToggle');
-    if (toggle) toggle.checked = personFiguresOptionEnabled();
-}
-window.setPersonFiguresOption = setPersonFiguresOption;
 
 function previewBoardingPresetScene() {
     if (typeof window.clearMissionSceneObjects === 'function') window.clearMissionSceneObjects('boarding-preset-preview-clear');

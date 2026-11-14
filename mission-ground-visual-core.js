@@ -140,13 +140,14 @@ async function ensure(idea, json, options = {}) {
   }
 }
 
-// Testschalter ga_person_figures_v1 (Standard aus) – gilt für Figurwahl und Composer.
+// Personen-Figuren und Composer: seit 14.11.2026 für alle an. Notausschalter je Gerät:
+// localStorage ga_person_figures_v1 = 'off' (per Adresszeile ?personFigures=off).
 function enabled() {
   try {
     const raw = String(root.localStorage?.getItem('ga_person_figures_v1') || '').trim().toLowerCase();
-    return /^(1|true|yes|ja|on)$/.test(raw);
+    return !/^(0|false|no|nein|off)$/.test(raw);
   } catch (_) {
-    return false;
+    return true;
   }
 }
 

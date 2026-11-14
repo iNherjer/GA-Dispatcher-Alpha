@@ -641,7 +641,9 @@ function _missionCargoApplyVisualPlan(items = []) {
     const item = items.find(entry => ['pickup-companion-cargo', 'primary-cargo'].includes(entry.id)
         && visual.planMatches(plan, entry.label, entry.weightLbs));
     const pieces = item ? visual.resolve(plan) : null;
-    if (!item || !pieces?.length) return false;
+    // Passt die Wahl nicht mehr zur Ladeliste (z. B. Gewicht nach Preset-Wechsel), gilt die feste
+    // Packstück-Liste statt gar keiner Wahl.
+    if (!item || !pieces?.length) return _missionCargoApplyFallbackVisualPlan(items);
     item.visualPieces = pieces;
     item.objectTitle = pieces[0].title;
     item.titleCandidates = pieces[0].titleCandidates;

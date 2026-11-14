@@ -126,9 +126,23 @@ test('manifest item takes the composer pieces only when the plan matches its lab
   assert.equal(context._missionCargoApplyVisualPlan(items), true);
   assert.equal(items[1].visualPieces.length, 2);
   assert.equal(items[1].objectTitle, items[1].visualPieces[0].title);
-  const stale = [{ id: 'primary-cargo', label: 'Etwas anderes', weightLbs: 42, objectTitle: 'Cardboard' }];
-  assert.equal(context._missionCargoApplyVisualPlan(stale), false);
-  assert.equal(stale[0].objectTitle, 'Cardboard');
+});
+
+test('a plan that no longer matches the manifest falls back to the fixed piece list instead of none', () => {
+  const plan = visual.validate({ pieces: [{ form: 'suitcase', weightLbs: 30 }, { form: 'backpack', weightLbs: 12 }] }, { description: 'Rollkoffer und Rucksack', weightLbs: 42 });
+  let figuresOn = true;
+  const context = { window: { MissionCargoVisualCore: visual, MissionGroundVisualCore: { enabled: () => figuresOn }, activePassenger: { taskDomain: 'charter' },
+    currentMissionData: { charterIdea: { schema: 'charter-idea.v1', luggageLabel: 'Rollkoffer und Rucksack', luggageWeightLbs: 42, cargoVisual: plan } } } };
+  vm.runInNewContext(functionSource('mission-cargo-core.js', '_missionCargoApplyVisualPlan') + '\n' + functionSource('mission-cargo-core.js', '_missionCargoApplyFallbackVisualPlan'), context);
+  // Gewicht nach Preset-Wechsel geändert: Composer-Wahl passt nicht mehr.
+  const stale = [{ id: 'primary-cargo', label: 'Rollkoffer und Rucksack', weightLbs: 60, objectTitle: 'Cardboard' }];
+  assert.equal(context._missionCargoApplyVisualPlan(stale), true);
+  assert.equal(stale[0].cargoVisualSource, 'role-fallback');
+  assert.ok(stale[0].visualPieces.length >= 1);
+  figuresOn = false;
+  const off = [{ id: 'primary-cargo', label: 'Etwas anderes', weightLbs: 42, objectTitle: 'Cardboard' }];
+  assert.equal(context._missionCargoApplyVisualPlan(off), false);
+  assert.equal(off[0].objectTitle, 'Cardboard');
 });
 
 test('departure scene spawns every piece with its own object key', () => {

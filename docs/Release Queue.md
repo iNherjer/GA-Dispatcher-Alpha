@@ -35,6 +35,14 @@ liefert alles Offene mit aus.
 - **Doku beim Release:** keine (steht im Fahrplan, Etappe C).
 - **Pruefen im Feld:** Privatflug hin und zurück mit Schalter: gleiche Figur.
 
+### 2026-11-14 · EFB-Kopien i18n/en.js und profile.js: Figuren-Schalter entfernt
+- **Artefakt:** Tracker-EXE (EFB-Web-Assets); Web live mit v2388
+- **Dateien:** `ga-tracker-client/efb-web-assets/i18n/en.js`, `ga-tracker-client/efb-web-assets/profile.js` (Kopien per `sync-efb-web-assets.js`)
+- **Was:** Schlüssel `settings.boarding.figures`/`figuresHint` entfernt, Diagnosezeile „PAX-Figuren“ wertet den Schalter als „an, außer `off`“. Die Kopie von `profile.js` übernimmt dabei auch die Crew-Live-Diagnose aus Web v2387 (2988d7860), die noch nicht synchronisiert war. Im EFB ohne Wirkung; nur Gleichstand der Kopien.
+- **Tests:** `efb-web-assets-sync.test.js`, Tracker-Suite 1559/1561 (2 übersprungen).
+- **Doku beim Release:** keine.
+- **Pruefen im Feld:** nichts.
+
 ## Ausgeliefert
 
 ### 2026-11-13 · Empfang am Zielplatz: Fahrzeugregel v2, Aufräumen, EFB-Abholpunkt — ausgeliefert in Tracker v634 Alpha / Web v2380 (13.11.2026)

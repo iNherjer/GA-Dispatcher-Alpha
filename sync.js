@@ -4617,14 +4617,14 @@ function _initFireMissionDebugFromUrl() {
 }
 _initFireMissionDebugFromUrl();
 
-// ?personFigures=on|off setzt den Testschalter ga_person_figures_v1 und entfernt den Parameter wieder.
+// ?personFigures=off schaltet die Personen-Figuren auf diesem Gerät aus (Notausschalter), =on wieder ein.
 (function _initPersonFiguresFromUrl() {
     try {
         const url = new URL(window.location.href);
         if (!url.searchParams.has('personFigures')) return;
         const raw = String(url.searchParams.get('personFigures') || '').trim().toLowerCase();
-        if (/^(0|false|no|nein|off)$/.test(raw)) localStorage.removeItem('ga_person_figures_v1');
-        else localStorage.setItem('ga_person_figures_v1', 'on');
+        if (/^(0|false|no|nein|off)$/.test(raw)) localStorage.setItem('ga_person_figures_v1', 'off');
+        else localStorage.removeItem('ga_person_figures_v1');
         url.searchParams.delete('personFigures');
         window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash);
     } catch (_) {}
@@ -7640,13 +7640,13 @@ function _missionScenePassengerGender() {
     return 'male';
 }
 
-// Personen-Figuren aus dem Pack-Katalog (Testschalter ga_person_figures_v1, Standard aus).
-// Look aus der festen Rollenliste, Jahreszeit aus Wetter/Datum; ohne Schalter bleibt die
-// bisherige Tarmac-Auswahl.
+// Personen-Figuren aus dem Pack-Katalog (seit 14.11.2026 für alle an; Notausschalter je Gerät
+// ga_person_figures_v1 = 'off'). Look aus der festen Rollenliste, Jahreszeit aus Wetter/Datum;
+// ausgeschaltet bleibt die bisherige Tarmac-Auswahl.
 function _missionPersonFiguresEnabled() {
     try {
         const raw = String(localStorage.getItem('ga_person_figures_v1') || '').trim().toLowerCase();
-        return /^(1|true|yes|ja|on)$/.test(raw) && !!window.MissionPersonFigureCore && !!window.MISSION_PERSON_ASSETS;
+        return !/^(0|false|no|nein|off)$/.test(raw) && !!window.MissionPersonFigureCore && !!window.MISSION_PERSON_ASSETS;
     } catch (_) {
         return false;
     }

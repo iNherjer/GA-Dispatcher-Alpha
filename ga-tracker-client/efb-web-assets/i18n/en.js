@@ -916,8 +916,6 @@
     'settings.boarding.kicker': 'Boarding scene',
     'settings.boarding.copy': 'Points relative to the aircraft',
     'settings.boarding.door': 'Door',
-    'settings.boarding.figures': 'Figures (test)',
-    'settings.boarding.figuresHint': 'Test switch for this device: matching person figures and the shared passenger/luggage composer',
     'settings.boarding.help': 'Help for the boarding scene',
     'settings.boarding.addWaypoint': '+ Waypoint',
     'settings.boarding.nudgeForward': 'Move forward',

@@ -6191,7 +6191,7 @@ window.vpBuildWeatherDebugReport = function () {
   var isImportantConsoleLog = entry => {
     var level = String((entry === null || entry === void 0 ? void 0 : entry.level) || '').toLowerCase();
     var msg = String((entry === null || entry === void 0 ? void 0 : entry.msg) || '');
-    return /error|warn|rejection|exception|failed|fail|invalid|fallback|mission|scene|dispatch|planner|gemini|target|ack|paxvoice|tts|textgen|fetch|gps|websocket/i.test(`${level} ${msg}`);
+    return /error|warn|rejection|exception|failed|fail|invalid|fallback|mission|scene|dispatch|planner|gemini|target|ack|paxvoice|tts|textgen|fetch|gps|websocket|crewlive/i.test(`${level} ${msg}`);
   };
   var isPriorityMissionConsoleLog = entry => {
     var level = String((entry === null || entry === void 0 ? void 0 : entry.level) || '').toLowerCase();
@@ -6931,10 +6931,10 @@ window.vpBuildWeatherDebugReport = function () {
   } else {
     lines.push('- Manifest PAX: (kein Passenger-Item)');
   }
-  // Personen-Figuren (Testschalter ga_person_figures_v1): Schalterstand, Figuren im Manifest, aktuelle Wahl.
+  // Personen-Figuren (für alle an, Notausschalter ga_person_figures_v1 = 'off'): Schalterstand, Figuren im Manifest, aktuelle Wahl.
   try {
     var _window$MISSION_PERSO;
-    var figuresOn = /^(1|true|yes|ja|on)$/.test(String(localStorage.getItem('ga_person_figures_v1') || '').trim().toLowerCase());
+    var figuresOn = !/^(0|false|no|nein|off)$/.test(String(localStorage.getItem('ga_person_figures_v1') || '').trim().toLowerCase());
     var manifestFigures = passengerItems.map(item => {
       var persons = Array.isArray(item.visualPersons) && item.visualPersons.length ? item.visualPersons.map(p => `${p.id || '?'}:${p.title || '?'}(${p.gender || '?'}/${p.look || '?'})`).join(',') : `objectTitle=${item.objectTitle || '-'}`;
       return `${item.id || '?'}=${persons}`;
@@ -6971,6 +6971,22 @@ window.vpBuildWeatherDebugReport = function () {
     });
   } else {
     lines.push('- Persistenter PAX-Flow: (noch keine Ereignisse)');
+  }
+  lines.push('');
+  lines.push('Crew-Live (Zuschauer)');
+  try {
+    var _window$gaCrewLive, _window$gaCrewLive$st;
+    var cl = (_window$gaCrewLive = window.gaCrewLive) === null || _window$gaCrewLive === void 0 || (_window$gaCrewLive$st = _window$gaCrewLive.state) === null || _window$gaCrewLive$st === void 0 ? void 0 : _window$gaCrewLive$st.call(_window$gaCrewLive);
+    if (!cl) lines.push('- nicht geladen');else {
+      var status = cl.joined ? `angemeldet seit ${vpFormatDebugTs(cl.joinedAt)}` : cl.connected ? 'verbinde …' : cl.wanted ? 'nicht verbunden' : 'aus (nur bei offener Weltkarte oder Crew-Flugdetail)';
+      lines.push(`- Crew: ${cl.crew || '-'} | Status: ${status} | Karte=${cl.mapOpen ? '1' : '0'} | Detail=${cl.detailOpen ? '1' : '0'}`);
+      lines.push(`- Im Raum: ${cl.trackers >= 0 ? cl.trackers : '-'} Tracker, ${cl.viewers >= 0 ? cl.viewers : '-'} weitere Zuschauer | Live-Kontakte: ${cl.contacts}${cl.retryAt > Date.now() ? ` | nächster Versuch in ${Math.round((cl.retryAt - Date.now()) / 1000)} s` : ''}`);
+      if (cl.lastError) lines.push(`- Letzter Fehler: ${flattenText(cl.lastError, 200)}`);
+      var hist = Array.isArray(cl.history) ? cl.history.slice(-12) : [];
+      if (!hist.length) lines.push('- Verlauf: (noch keine Ereignisse)');else hist.forEach(h => lines.push(`  ${vpFormatDebugTs(h.at)} ${h.level === 'warn' ? '[!] ' : ''}${flattenText(h.msg, 200)}`));
+    }
+  } catch (_) {
+    lines.push('- (nicht ermittelbar)');
   }
   lines.push('');
   lines.push('Konsolenfehler / relevante Logs');
