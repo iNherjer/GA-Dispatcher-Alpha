@@ -27,3 +27,10 @@ Zusammen ausgeliefert mit Web v2399 (Cache). Keine Änderung an `tracker.js` au�
 - **Im Simulator und im MSFS-EFB noch nicht geprüft.**
 
 Stable bleibt unverändert.
+
+## Aktivierung
+
+Release `v636` (Release-Commit `079e47a8b`, gebaut im sauberen Worktree mit `--no-bytecode`),
+`VFR-Multitool-Tracker.exe` 175086686 Bytes,
+SHA-256 `c01fa12e682fd203ca5e04cf03f034f100b1dd9a64d6361803e7c1e5cd9c08c8`,
+öffentlicher Download geprüft. Alpha-Kanal aktiviert, Stable unverändert.
