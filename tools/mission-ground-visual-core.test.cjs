@@ -101,6 +101,19 @@ test('Rückflug: gleiche Personen behalten Looks trotz neuem Anlass, kein neuer 
   const plan = await core.ensure(back, async () => { calls += 1; return { pieces: [{ form: 'camera_kit', weightLbs: 28 }] }; }, { taskDomain: 'charter' });
   assert.equal(calls, 0, 'Gepäck unverändert → auch kein Cargo-Abruf');
   assert.deepEqual(plan.passengers.map((p) => [p.look, p.gender]), [['business', 'male'], ['casual', 'female']]);
+  // Neue Missionskennung auf dem Rückflug: dieselben Figuren, weil der Plan seinen Losschlüssel mitträgt.
+  assert.ok(plan.figureSeed && plan.figureSeed === outbound.groundVisual.figureSeed);
+  const titles = (gv, seed) => core.resolveFigures(gv, { season: 'summer', seed }).map((f) => f.title);
+  assert.deepEqual(titles(plan, 'mission-back'), titles(outbound.groundVisual, 'mission-out'));
+});
+
+test('Losschlüssel: ohne gespeicherten Schlüssel lost die Missionskennung, mit Schlüssel nicht', () => {
+  const base = { schema: core.SCHEMA, passengers: [{ id: 'pax1', lead: true, look: 'casual', gender: 'male', ageBand: '' }] };
+  const seeds = Array.from({ length: 12 }, (_, i) => 'm' + i);
+  const unseeded = new Set(seeds.map((seed) => core.resolveFigures(base, { season: 'summer', seed })[0].title));
+  assert.ok(unseeded.size > 1, 'Testannahme: mehrere passende Figuren im Pool');
+  const seeded = new Set(seeds.map((seed) => core.resolveFigures({ ...base, figureSeed: 'gv-test' }, { season: 'summer', seed })[0].title));
+  assert.equal(seeded.size, 1);
 });
 
 test('companions aus der Idee: Composer kann das Geschlecht der Mitreisenden nicht umdrehen', () => {

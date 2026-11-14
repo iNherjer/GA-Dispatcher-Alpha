@@ -148,17 +148,19 @@ const STRANDS = {
   // von tools/bush-profile-personality-live.mjs --run=composer-20261113; die Pickup-Übernahme der
   // Writer-Person (app.js, Dispatch) und die Ladeliste (Pickup-Gepäck aus bush.pickupCargoLabel)
   // werden hier nachgebildet → allgemeine Quelle (mission-ground-composer-browser.js).
-  async bush() {
+  async bush(profiles = ['bush_pickup_strip', 'bush_charter_strip', 'bush_supply_strip'], run = 'composer-20261113') {
     const composer = require('../mission-ground-composer-browser.js');
-    return ['bush_pickup_strip', 'bush_charter_strip', 'bush_supply_strip'].map((profile) => {
-      const r = JSON.parse(fs.readFileSync(`analysis/bush-profile-personality-20261009/${profile}-composer-20261113.json`, 'utf8'));
+    return profiles.map((profile) => {
+      const r = JSON.parse(fs.readFileSync(`analysis/bush-profile-personality-20261009/${profile}-${run}.json`, 'utf8'));
       const m = r.mission, pax = m.passenger || null;
       const pickup = m.bush?.targetMode === 'strip_then_return' && m.bush?.pickupKind === 'passenger';
       const ideas = r.contract?.pickupCreativeBrief?.candidateShortlist?.[0]?.objectIdeas || [];
       const bush = pickup ? { ...m.bush, pickupRole: pax?.role || m.bush.pickupRole, pickupLabel: pax ? `${pax.name} (${pax.role})` : m.bush.pickupLabel,
         pickupCargoLabel: ideas.slice(0, 3).map(String).filter(Boolean).join(', ').replace(/, ([^,]*)$/, ' und $1') || m.bush.pickupCargoLabel || 'Persönliche Ausrüstung und Unterlagen' } : m.bush;
       const cargoMatch = String(m.cargo || '').match(/^(.*?)\s*\((\d+)\s*lbs\)\s*$/);
+      const cargoPickup = m.bush?.targetMode === 'strip_then_return' && m.bush?.pickupKind === 'cargo';
       const item = pickup ? { id: 'pickup-companion-cargo', label: bush.pickupCargoLabel, weightLbs: Number(bush.pickupCargoWeightLbs) || 18 }
+        : cargoPickup ? { id: 'pickup-cargo', label: m.bush.pickupLabel, weightLbs: Number(String(m.bush.pickupLabel).match(/\((\d+)\s*lbs\)/)?.[1]) || 42 }
         : cargoMatch ? { id: 'primary-cargo', label: cargoMatch[1], weightLbs: Number(cargoMatch[2]) } : null;
       globalThis._missionCargoGenerateManifest = () => ({ items: item ? [item] : [] });
       globalThis._missionCargoPassengerCount = () => (pax && !pickup ? 1 : 0);
@@ -167,7 +169,9 @@ const STRANDS = {
       return { name: `${profile}: ${pax ? `${pax.role} ${pax.name}` : 'ohne Person'}`, idea, taskDomain: idea?.taskDomain || '', roleProfile: idea?.roleProfile || '',
         check: idea && { writerPassenger: pax && { role: pax.role, gender: pax.gender }, lead: idea.lead, passengerCount: idea.passengerCount, cargo: idea.cargoPost } };
     });
-  }
+  },
+  // Übrige Bush-Profile (Live-Läufe --run=composer-20261114): Abenteuer-Hopper, Fracht-Abholung, Aufklärung.
+  bushRest() { return STRANDS.bush(['bush_scenic_hopper', 'bush_pickup_cargo', 'bush_recon_return'], 'composer-20261114'); }
 };
 if (!STRANDS[strand]) throw Error('Unbekannter Strang ' + strand);
 

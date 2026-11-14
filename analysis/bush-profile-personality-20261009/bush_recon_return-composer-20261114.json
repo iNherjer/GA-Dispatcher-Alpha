@@ -1,0 +1,3363 @@
+{
+  "createdAt": "2026-11-14T07:43:09.037Z",
+  "scope": "Real API production planner/contract/writer functions and validators in VM; no chapter, scene or voice calls. Supplied airport/runway fixtures; no automatic geo research, browser, simulator or audio playback.",
+  "requests": [
+    {
+      "model": "gemini-3-flash-preview",
+      "config": {
+        "response_mime_type": "application/json"
+      },
+      "promptSha256": "b101b599634ae7dd4b6d1ea7df2d28feaed6747810433664cc9f097f437021f2",
+      "durationMs": 12191,
+      "status": 200,
+      "usage": {
+        "promptTokenCount": 13034,
+        "candidatesTokenCount": 1162,
+        "totalTokenCount": 15539,
+        "promptTokensDetails": [
+          {
+            "modality": "TEXT",
+            "tokenCount": 13034
+          }
+        ],
+        "thoughtsTokenCount": 1343,
+        "serviceTier": "standard"
+      },
+      "finishReason": "STOP",
+      "rawResponseText": "{\n  \"status\": \"ready\",\n  \"needs\": [],\n  \"plan\": {\n    \"taskDomain\": \"inspection_infra\",\n    \"roleProfile\": \"technical_inspector_v1\",\n    \"missionType\": \"bush\",\n    \"targetCategory\": \"remote_strip\",\n    \"primaryObjective\": \"Sichtprüfung der Piste und des Rollfelds am Big Creek Airport aus der Luft\",\n    \"targetLabel\": \"Big Creek Airport Recon Area\",\n    \"sceneKind\": \"none\",\n    \"sceneDensity\": \"none\",\n    \"requiredAnchors\": [\n      \"runway_threshold\",\n      \"apron_area\"\n    ],\n    \"objectFamilies\": [\n      \"inspection_tools\"\n    ],\n    \"placementPolicy\": \"none\",\n    \"missionTrigger\": \"Saisonale Überprüfung der Backcountry-Infrastruktur vor dem herbstlichen Wetterumschwung\",\n    \"focusSubject\": \"Zustand der Graspiste 01/19 und der Markierungen am Big Creek Airport\",\n    \"keyQuestion\": \"Sind nach den letzten Witterungseinflüssen Hindernisse, Auswaschungen oder Schäden an den Markierungen erkennbar?\",\n    \"missionStakes\": \"Ein negativer Befund führt zur vorläufigen Sperrung für gewerbliche Charterflüge\",\n    \"completionSignal\": \"Rückkehr zum McCall Municipal Airport zur Übergabe des Sichtprotokolls\",\n    \"storyFrame\": {\n      \"subjectDetail\": \"Elena, eine erfahrene Windsack- und Markierungsprüferin, die für die Sicherheit der entlegenen Strips im Hinterland zuständig ist.\",\n      \"incidentContext\": \"Elena betreut die Pisten im Payette National Forest und kennt die tückischen Stellen am Big Creek Airport genau; sie hat ihr Checkset und Warnflaggen dabei, falls eine spätere Bodencrew markiert werden muss.\",\n      \"whyNow\": \"Der heutige Einsatz ist für den Saisonbericht Oktober entscheidend, um den Status der Piste vor den ersten Frostnächten festzuhalten.\",\n      \"soughtOutcome\": \"Das vertragliche Recon-Gebiet aus der Luft beobachten und zum Heimatplatz zurückkehren; keine zusätzliche Landung, Reparatur oder garantierter Befund.\",\n      \"incidentType\": null,\n      \"lastSeenContext\": null,\n      \"probableScenario\": null,\n      \"visibleClueCandidates\": [\n        \"Verfärbungen im Gras am Pistenrand\",\n        \"Zustand des Windsacks\",\n        \"abgestellte Fahrzeuge auf dem Vorfeld\",\n        \"Erosion im Anflugbereich\"\n      ]\n    },\n    \"narrativeRules\": [\n      \"Keine Landung am Big Creek Airport (U60) durchführen.\",\n      \"Die Inspektion erfolgt rein aus der Luft.\",\n      \"Rückflug zum Startplatz McCall (KMYL) ist zwingend erforderlich.\"\n    ],\n    \"localFacts\": [\n      \"Big Creek (U60) verfügt über eine 1082 Meter lange Graspiste auf 5743 Fuß Höhe.\",\n      \"Das Zielgebiet liegt in einem typischen Gebirgstal, das besondere Vorsicht bei der Umkehrkurve erfordert.\",\n      \"Der Platz wird oft als Ausgangspunkt für Wildnis-Expeditionen genutzt.\"\n    ],\n    \"weatherHooks\": [],\n    \"operationalDetails\": [\n      \"Besondere Aufmerksamkeit auf die Dichtehöhe (Density Altitude) im Gebirge legen.\",\n      \"Vor dem Abflug in McCall Treibstoff für den Rückflug ohne Zwischenlandung kalkulieren.\",\n      \"Sicherheitsabstand zum Gelände während der Platzrunden für die Beobachtung wahren.\"\n    ],\n    \"realismBrief\": \"In der Backcountry-Fliegerei sind regelmäßige Kontrollen aus der Luft Standard, um den Zustand unbesetzter Plätze zu prüfen, bevor schwere Versorgungsflüge angesetzt werden.\",\n    \"narrativeHooks\": [\n      \"Elena prüft während des Fluges ihre Checkliste für die Pistenbefeuerung und Markierungen.\",\n      \"Die Sorge vor neuen Auswaschungen (Washouts) nach den Regenfällen der letzten Wochen schwingt mit.\",\n      \"Ein kurzer Blick auf den Windsack am Ziel gibt Elena Aufschluss über die aktuellen Talwinde.\"\n    ],\n    \"mustMention\": [\n      \"Betriebsflächen-Checkset\",\n      \"Warnflaggen\",\n      \"Piste 01/19\",\n      \"Sichtprüfung\"\n    ],\n    \"mustAvoid\": [\n      \"Landung am Ziel\",\n      \"Rettungsaktion\",\n      \"Personentransport zum Zielort\"\n    ],\n    \"lockedFields\": {\n      \"noLandingAtPoi\": true\n    },\n    \"bushReconPlan\": {\n      \"radiusNm\": 1.8,\n      \"observationSeconds\": 150,\n      \"rationale\": \"Zwei kontrollierte Kreise über dem Flugplatzgelände, um die Piste 01/19, den Windsack und das Vorfeld aus unterschiedlichen Winkeln für die Dokumentation zu erfassen.\"\n    },\n    \"confidence\": 1.0\n  }\n}"
+    },
+    {
+      "model": "gemini-3-flash-preview",
+      "config": {
+        "response_mime_type": "application/json"
+      },
+      "promptSha256": "342016a92f737cec4af9ee8b78b7b5a8fe73183e544dccfeda541ffdd18064d0",
+      "durationMs": 17359,
+      "status": 200,
+      "usage": {
+        "promptTokenCount": 10073,
+        "candidatesTokenCount": 1802,
+        "totalTokenCount": 13714,
+        "promptTokensDetails": [
+          {
+            "modality": "TEXT",
+            "tokenCount": 10073
+          }
+        ],
+        "thoughtsTokenCount": 1839,
+        "serviceTier": "standard"
+      },
+      "finishReason": "STOP",
+      "rawResponseText": "{\n  \"title\": \"Herbst-Inventur am Big Creek\",\n  \"story\": \"Elena ist heute an Bord, um die Markierungen und den Windsack am Big Creek Airport zu inspizieren, bevor der erste Frost die Saison beendet. Als erfahrene Prüferin für den Payette National Forest kennt sie die tückischen Ecken des Platzes und will sicherstellen, dass Piste 01/19 keine gefährlichen Auswaschungen aufweist. Ihr Saisonbericht für den Oktober hängt maßgeblich von den heutigen Sichtbefunden ab, die über den weiteren Flugbetrieb entscheiden. Du bringst sie direkt zum Zielgebiet, wo ihr genau 150 Sekunden für zwei kontrollierte Kreise über dem Gelände zur Verfügung stehen, um den Zustand rechtssicher zu dokumentieren. Elena hat ihr Checkset und Warnflaggen dabei, falls später eine Bodencrew zur Ausbesserung markiert werden muss. Nach dem Überflug kehrt ihr ohne Landung nach McCall zurück, damit sie ihr Sichtprotokoll umgehend einreichen kann. Achte im engen Gebirgstal besonders auf deine Umkehrkurven, während sie die Graspiste aus der Luft genau beobachtet.\",\n  \"pax\": \"1 PAX (Elena)\",\n  \"cargo\": \"Checkset & Warnflaggen (15 lbs)\",\n  \"targetInfo\": \"Der Big Creek Airport (U60) verfügt über eine 1082 Meter lange Graspiste in einer beachtlichen Höhe von 5743 Fuß. Der Platz liegt eingebettet in ein typisches Gebirgstal, was den Anflug und Überflug aufgrund begrenzter Manövrierbarkeit anspruchsvoll macht. Er dient oft als strategischer Ausgangspunkt für Expeditionen in die tiefe Wildnis des Hinterlands. Im Rahmen der heutigen Infrastruktur-Überprüfung stehen die Piste 01/19 und die Sicherheitseinrichtungen im Fokus, um die Betriebsbereitschaft vor dem Wintereinbruch zu bewerten.\",\n  \"passenger\": {\n    \"name\": \"Elena\",\n    \"role\": \"Technische Infrastruktur-Prüferin\",\n    \"gender\": \"female\",\n    \"personality\": \"gewissenhaft, ruhig, beobachtungsstark\",\n    \"dialectHint\": \"neutral\",\n    \"roleProfile\": \"technical_inspector_v1\",\n    \"taskDomain\": \"inspection_infra\",\n    \"gTolerance\": \"mittel\",\n    \"bankTolerance\": \"mittel\",\n    \"cargoSensitivity\": \"niedrig\",\n    \"stomachSensitivity\": \"hoch\",\n    \"comfortPriority\": \"mittel\",\n    \"urgencyPriority\": \"hoch\",\n    \"targetAltFt\": 6800,\n    \"targetRadiusNm\": 1.8,\n    \"targetDwellMin\": 2.5,\n    \"greetingText\": \"Hallo! Ich bin gespannt, wie die Piste am Big Creek nach den letzten Regengüssen aussieht – hoffen wir, dass die Markierungen noch halten.\"\n  },\n  \"sceneIntent\": {\n    \"summary\": \"Detaillierte Sichtung der Graspiste 01/19 sowie des Windsacks und der Platzmarkierungen aus der Luft.\",\n    \"environment\": \"Gebirgstal mit begrenztem Raum für Kurskorrekturen\",\n    \"visibleIdeas\": [\n      \"Windsack am Rand der Piste\",\n      \"Weiße Begrenzungsmarkierungen der Graspiste 01/19\",\n      \"Vorfeldbereich am Big Creek\"\n    ],\n    \"avoid\": [\n      \"Tiefflug unterhalb der Sicherheitsmarge\",\n      \"Landung auf der Graspiste\"\n    ],\n    \"densityHint\": \"sparse\",\n    \"notes\": \"Fokus liegt auf der visuellen Dokumentation des Pistenzustands für den Saisonbericht.\"\n  },\n  \"departureAirportInformation\": {\n    \"usedFacts\": [\n      {\n        \"sourceId\": \"own\",\n        \"evidence\": \"KMYL\",\n        \"statement\": \"McCall Municipal Airport liegt auf 5024 Fuß Höhe.\"\n      },\n      {\n        \"sourceId\": \"own\",\n        \"evidence\": \"Runway 16/34\",\n        \"statement\": \"Die Piste ist 1864 Meter lang, 23 Meter breit und asphaltiert.\"\n      },\n      {\n        \"sourceId\": \"faa-mountain-tips\",\n        \"evidence\": \"Performance Considerations\",\n        \"statement\": \"Hohe Dichtehöhe vermindert die verfügbare Flugleistung; Steigleistung ist kritisch zu prüfen.\"\n      }\n    ],\n    \"departureInfo\": \"Der McCall Municipal Airport (KMYL) dient als wichtiger Knotenpunkt für Operationen im Payette National Forest. Auf einer Platzhöhe von 5024 Fuß gelegen, bietet die asphaltierte Piste 16/34 mit ihren 1864 Metern Länge eine solide Basis, erfordert jedoch aufgrund der Höhenlage eine aufmerksame Leistungsplanung. Besonders bei herbstlichen Bedingungen sollte die verminderte Steigleistung des Flugzeugs einkalkuliert werden. Piloten sollten vor dem Abflug sicherstellen, dass ausreichend Treibstoff für den Rückflug ohne Zwischenlandung vorhanden ist, da die Route tief in unerschlossenes Gebiet führt.\",\n    \"sourceIds\": [\n      \"faa-mountain-tips\",\n      \"nz-caa-mountain\"\n    ]\n  },\n  \"reconFlightBriefing\": \"Die Aufklärung am Big Creek Airport (U60) erfolgt in einem anspruchsvollen Gebirgstal. Für die Inspektion sind zwei Kreise mit einem Radius von 1,8 Meilen in etwa 150 Sekunden vorgesehen, um Elena eine lückenlose Sichtprüfung der Piste 01/19 zu ermöglichen. Die Platzhöhe von 5743 Fuß und die umliegenden Grate verlangen eine präzise Flugwegplanung, insbesondere bei den Umkehrkurven im Tal. Gemäß den Empfehlungen für Gebirgsflüge sollte die Pistenoberfläche genau auf Nässe oder weiche Stellen geprüft werden, bevor zukünftige Landungen freigegeben werden.\",\n  \"reconUsedFacts\": [\n    {\n      \"sourceId\": \"own\",\n      \"evidence\": \"U60\",\n      \"statement\": \"Big Creek Airport verfügt über eine 1082m lange Graspiste auf 5743 Fuß.\"\n    },\n    {\n      \"sourceId\": \"own\",\n      \"evidence\": \"Gebirgstal\",\n      \"statement\": \"Das Ziel liegt in einem Tal, das Vorsicht bei Umkehrkurven erfordert.\"\n    }\n  ],\n  \"reconReport\": {\n    \"orientationIds\": [\n      \"test-recon-u60\"\n    ]\n  },\n  \"bushContinuationMemory\": {\n    \"summary\": \"Elena hat die herbstliche Inspektion der Infrastruktur am Big Creek Airport eingeleitet. Ziel war die visuelle Prüfung der Piste 01/19 und der Markierungen vor dem Winterfrost, um den Status für gewerbliche Charterflüge festzulegen. Die Beobachtung erfolgte aus der Luft ohne Landung am Zielort.\",\n    \"participants\": [\n      {\n        \"name\": \"Elena\",\n        \"role\": \"Technische Infrastruktur-Prüferin\"\n      }\n    ],\n    \"openQuestions\": [\n      \"Erlaubt der Zustand der Piste den weiteren Betrieb für Charterflüge?\",\n      \"Müssen vor dem ersten Frost noch physische Markierungen durch eine Bodencrew erneuert werden?\"\n    ],\n    \"betweenFlightsIdeas\": [\n      {\n        \"followUpKind\": \"bush_supply_strip\",\n        \"summary\": \"Transport von neuen Markierungsflaggen und Instandsetzungsmaterial zum Big Creek, falls die Luftbildauswertung Schäden gezeigt hat.\"\n      },\n      {\n        \"followUpKind\": \"bush_charter_strip\",\n        \"summary\": \"Beförderung eines Bodenteams zum Big Creek Airport, um die von Elena aus der Luft markierten Stellen direkt vor Ort auszubessern.\"\n      }\n    ]\n  }\n}"
+    }
+  ],
+  "scenario": "original",
+  "suppliedSourceBasis": {
+    "schema": "bush-source-basis.v1",
+    "time": {
+      "source": "user-device-local",
+      "createdAt": "2026-10-08T08:30:00.000Z",
+      "createdLocal": "2026-10-08T10:30:00",
+      "utcOffsetMinutes": 120,
+      "timeZone": "Europe/Berlin",
+      "departureTimeKnown": false
+    },
+    "airport": null,
+    "localSources": [],
+    "terrain": null,
+    "reconTarget": {
+      "name": "Big Creek Airport",
+      "lat": 45.133202,
+      "lon": -115.321999
+    },
+    "reconFacts": [],
+    "reconAirport": {
+      "ident": "U60",
+      "name": "Big Creek Airport",
+      "lat": 45.133202,
+      "lon": -115.321999,
+      "country": "US",
+      "elevationFt": 5743,
+      "runways": [
+        {
+          "designator": "01/19",
+          "lengthM": 1082,
+          "widthM": 34,
+          "surface": "Gras",
+          "trueHeadingDeg": null,
+          "operations": null
+        }
+      ],
+      "ppr": null,
+      "private": null,
+      "source": "eigene Flugplatzdaten"
+    },
+    "reconLocalSources": [],
+    "weather": {
+      "start": {
+        "status": "unavailable",
+        "source": null,
+        "location": {
+          "name": "McCall Municipal Airport",
+          "lat": 44.8897,
+          "lon": -116.101
+        },
+        "units": null,
+        "retrievedAt": null,
+        "current": null,
+        "forecastNext6Hours": null,
+        "forecastNext72Hours": null,
+        "past72Hours": null
+      },
+      "target": {
+        "status": "unavailable",
+        "source": null,
+        "location": {
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999
+        },
+        "units": null,
+        "retrievedAt": null,
+        "current": null,
+        "forecastNext6Hours": null,
+        "forecastNext72Hours": null,
+        "past72Hours": null
+      },
+      "missionSnapshot": null
+    },
+    "limits": {
+      "narrativeIsEvidence": false,
+      "missingMeans": "unknown",
+      "liveCockpitWeather": "unknown unless supplied as live simulator telemetry",
+      "currentRunwayCondition": "unknown",
+      "densityAltitude": "unknown unless explicitly supplied as calculated value",
+      "localFacilities": "only explicit local-source or airport-data entries",
+      "terrainClassification": "unknown unless supplied by explicit local source; elevation alone is no valley or mountain classification",
+      "runwaySuitability": "unknown without aircraft-specific performance data",
+      "currentLight": "unknown; cloud percentage alone proves no visible light or view from cockpit",
+      "handbooks": "general guidance, no local evidence"
+    }
+  },
+  "planner": {
+    "pipelineVersion": "mission-v4-planner-2026-06-07",
+    "status": "ready",
+    "needs": [],
+    "resolvedNeeds": {
+      "geo_context": null,
+      "mission_truth": null,
+      "weather_snapshot": null,
+      "fire_hazard": null,
+      "airport_details": {
+        "start": {
+          "icao": "KMYL",
+          "name": "McCall Municipal Airport",
+          "lat": 44.8897,
+          "lon": -116.101
+        },
+        "dest": {
+          "icao": "U60",
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999
+        },
+        "targetPoi": null
+      }
+    },
+    "plan": {
+      "taskDomain": "inspection_infra",
+      "roleProfile": "technical_inspector_v1",
+      "missionType": "bush",
+      "targetCategory": "remote_strip",
+      "primaryObjective": "Sichtprüfung der Piste und des Rollfelds am Big Creek Airport aus der Luft",
+      "targetLabel": "Big Creek Airport Recon Area",
+      "missionTrigger": "Saisonale Überprüfung der Backcountry-Infrastruktur vor dem herbstlichen Wetterumschwung",
+      "focusSubject": "Zustand der Graspiste 01/19 und der Markierungen am Big Creek Airport",
+      "keyQuestion": "Sind nach den letzten Witterungseinflüssen Hindernisse, Auswaschungen oder Schäden an den Markierungen erkennbar?",
+      "missionStakes": "Ein negativer Befund führt zur vorläufigen Sperrung für gewerbliche Charterflüge",
+      "completionSignal": "Rückkehr zum McCall Municipal Airport zur Übergabe des Sichtprotokolls",
+      "storyFrame": {
+        "trigger": "Saisonale Überprüfung der Backcountry-Infrastruktur vor dem herbstlichen Wetterumschwung",
+        "focusSubject": "Zustand der Graspiste 01/19 und der Markierungen am Big Creek Airport",
+        "keyQuestion": "Sind nach den letzten Witterungseinflüssen Hindernisse, Auswaschungen oder Schäden an den Markierungen erkennbar?",
+        "stakes": "Ein negativer Befund führt zur vorläufigen Sperrung für gewerbliche Charterflüge",
+        "completionSignal": "Rückkehr zum McCall Municipal Airport zur Übergabe des Sichtprotokolls",
+        "subjectDetail": "Elena, eine erfahrene Windsack- und Markierungsprüferin, die für die Sicherheit der entlegenen Strips im Hinterland zuständig ist.",
+        "incidentContext": "Elena betreut die Pisten im Payette National Forest und kennt die tückischen Stellen am Big Creek Airport genau; sie hat ihr Checkset und Warnflaggen dabei, falls eine spätere Bodencrew markiert werden muss.",
+        "whyNow": "Der heutige Einsatz ist für den Saisonbericht Oktober entscheidend, um den Status der Piste vor den ersten Frostnächten festzuhalten.",
+        "soughtOutcome": "Das vertragliche Recon-Gebiet aus der Luft beobachten und zum Heimatplatz zurückkehren; keine zusätzliche Landung, Reparatur oder garantierter Befund.",
+        "incidentType": "",
+        "lastSeenContext": "",
+        "probableScenario": "",
+        "visibleClueCandidates": [
+          "Verfärbungen im Gras am Pistenrand",
+          "Zustand des Windsacks",
+          "abgestellte Fahrzeuge auf dem Vorfeld",
+          "Erosion im Anflugbereich"
+        ]
+      },
+      "sceneKind": "none",
+      "sceneDensity": "none",
+      "requiredAnchors": [
+        "runway_threshold",
+        "apron_area"
+      ],
+      "objectFamilies": [
+        "inspection_tools"
+      ],
+      "placementPolicy": "none",
+      "narrativeRules": [
+        "Primary subject lock: Big Creek Airport Recon Area (generic) bleibt Hauptsubjekt.",
+        "Task-domain lock: inspection_infra bleibt die Art des Auftrags.",
+        "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+        "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+        "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+        "Infrastruktur darf das Primaerziel sein.",
+        "Diagnose, Wartung, Stoerung oder Dokumentation duerfen die Story tragen.",
+        "Windparks, Solarparks, Energieanlagen, Batteriespeicher, Pipeline-/Gas-/Waermenetzpunkte, Wasser-/Abwasseranlagen, Hafen-/Schleusenanlagen, Anleger, Perimeter-/Zaunbereiche, Entsorgung, Steinbruch/Kieswerk, Schutzbau, Trassen, Umspannwerke, Funkmasten, Bruecken, Daemme, Baustellen, oeffentliche Gebaeude, Tankstellen, Tanks, Wassertanks und Industrieanlagen sind passende Infrastrukturziele, wenn sie als Ziel oder bestaetigter Kontext vorliegen. Dach ist nur Pruefmerkmal eines passenden Gebaeudes oder einer Anlage, kein eigener Zieltyp.",
+        "Das gewaehlte Ziel bleibt Primärsubjekt.",
+        "Keine Landung am Big Creek Airport (U60) durchführen."
+      ],
+      "lockedFields": {
+        "noLandingAtPoi": true,
+        "primarySubjectLabel": "Big Creek Airport Recon Area",
+        "primarySubjectType": "generic",
+        "taskDomain": "inspection_infra"
+      },
+      "confidence": 1,
+      "localFacts": [
+        "Big Creek (U60) verfügt über eine 1082 Meter lange Graspiste auf 5743 Fuß Höhe.",
+        "Das Zielgebiet liegt in einem typischen Gebirgstal, das besondere Vorsicht bei der Umkehrkurve erfordert.",
+        "Der Platz wird oft als Ausgangspunkt für Wildnis-Expeditionen genutzt."
+      ],
+      "weatherHooks": [],
+      "operationalDetails": [
+        "Besondere Aufmerksamkeit auf die Dichtehöhe (Density Altitude) im Gebirge legen.",
+        "Vor dem Abflug in McCall Treibstoff für den Rückflug ohne Zwischenlandung kalkulieren.",
+        "Sicherheitsabstand zum Gelände während der Platzrunden für die Beobachtung wahren."
+      ],
+      "realismBrief": "In der Backcountry-Fliegerei sind regelmäßige Kontrollen aus der Luft Standard, um den Zustand unbesetzter Plätze zu prüfen, bevor schwere Versorgungsflüge angesetzt werden.",
+      "narrativeHooks": [
+        "Elena prüft während des Fluges ihre Checkliste für die Pistenbefeuerung und Markierungen.",
+        "Die Sorge vor neuen Auswaschungen (Washouts) nach den Regenfällen der letzten Wochen schwingt mit.",
+        "Ein kurzer Blick auf den Windsack am Ziel gibt Elena Aufschluss über die aktuellen Talwinde."
+      ],
+      "mustMention": [
+        "Betriebsflächen-Checkset",
+        "Warnflaggen",
+        "Piste 01/19",
+        "Sichtprüfung"
+      ],
+      "mustAvoid": [
+        "Landung am Ziel",
+        "Rettungsaktion",
+        "Personentransport zum Zielort",
+        "Kontext darf das Primaerziel nicht ersetzen.",
+        "Kontext darf die TaskDomain nicht umwidmen."
+      ],
+      "bushReconPlan": {
+        "schema": "bush-recon-plan.v1",
+        "radiusNm": 1.8,
+        "observationSeconds": 150,
+        "minAreaTrackNm": 0,
+        "planningSpeedKts": 110,
+        "comfortBankDeg": 15,
+        "minimumRadiusNm": 1.14,
+        "requestedRadiusNm": 1.8,
+        "requestedObservationSeconds": 150,
+        "rationale": "Zwei kontrollierte Kreise über dem Flugplatzgelände, um die Piste 01/19, den Windsack und das Vorfeld aus unterschiedlichen Winkeln für die Dokumentation zu erfassen."
+      }
+    },
+    "poiChain": null,
+    "debug": {
+      "source": "Gemini 3.0 Flash",
+      "rawStatus": "ready",
+      "pass": "single-shot",
+      "promptVersion": "mission-v4-planner-2026-06-07",
+      "toolCalls": [],
+      "fallbackError": "",
+      "parseMode": "direct",
+      "contextSchema": "missionPlannerV4.contextBundle.v1",
+      "semanticsVersion": "mission-semantics-v4-2026-06-07",
+      "variety": {
+        "schema": "missionVarietyPack.v1",
+        "namespace": "bush_recon_return",
+        "profileId": "bush_recon_return",
+        "contextTags": [
+          "bush",
+          "remote_strip",
+          "water"
+        ],
+        "selectedIds": [
+          "season_opening_recon",
+          "approach_corridor_recon",
+          "wildlife_obstruction_recon",
+          "storm_strip_damage",
+          "drainage_washout_recon"
+        ],
+        "selectedFamilies": [
+          "season_opening",
+          "approach_corridor",
+          "wildlife_obstruction",
+          "storm_damage",
+          "drainage_runoff"
+        ],
+        "primaryId": "season_opening_recon",
+        "primaryFamily": "season_opening",
+        "recentFamilies": [],
+        "recentPrimaryFamilies": [],
+        "recentPrimaryIds": [],
+        "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+        "storageKey": "ga_mission_variety_history_bush_recon_return_v1"
+      },
+      "primaryError": "",
+      "compactRetry": false,
+      "compactRetrySource": "",
+      "compactRetryError": "",
+      "aiAttempts": [
+        {
+          "model": "gemini-3-flash-preview",
+          "source": "Gemini 3.0 Flash",
+          "status": "ok",
+          "error": "",
+          "phase": "direct"
+        }
+      ]
+    },
+    "semantics": {
+      "version": "mission-semantics-v4-2026-06-07",
+      "focusLock": {
+        "mode": "bush",
+        "taskDomain": "inspection_infra",
+        "targetCategory": "generic",
+        "requestedCategory": "all",
+        "primarySubjectLabel": "Big Creek Airport Recon Area",
+        "primarySubjectType": "generic",
+        "contextRoles": [
+          "orientation",
+          "hazard",
+          "access",
+          "support",
+          "evidence",
+          "background"
+        ]
+      },
+      "plannerGuardrails": [
+        "Primary subject lock: Big Creek Airport Recon Area (generic) bleibt Hauptsubjekt.",
+        "Task-domain lock: inspection_infra bleibt die Art des Auftrags.",
+        "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+        "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+        "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+        "Infrastruktur darf das Primaerziel sein.",
+        "Diagnose, Wartung, Stoerung oder Dokumentation duerfen die Story tragen.",
+        "Windparks, Solarparks, Energieanlagen, Batteriespeicher, Pipeline-/Gas-/Waermenetzpunkte, Wasser-/Abwasseranlagen, Hafen-/Schleusenanlagen, Anleger, Perimeter-/Zaunbereiche, Entsorgung, Steinbruch/Kieswerk, Schutzbau, Trassen, Umspannwerke, Funkmasten, Bruecken, Daemme, Baustellen, oeffentliche Gebaeude, Tankstellen, Tanks, Wassertanks und Industrieanlagen sind passende Infrastrukturziele, wenn sie als Ziel oder bestaetigter Kontext vorliegen. Dach ist nur Pruefmerkmal eines passenden Gebaeudes oder einer Anlage, kein eigener Zieltyp.",
+        "Das gewaehlte Ziel bleibt Primärsubjekt."
+      ],
+      "writerGuardrails": [
+        "Story, Greeting und sceneIntent muessen Big Creek Airport Recon Area als Primaerfokus behalten.",
+        "Kontext darf den Auftrag anreichern, aber nicht umwidmen.",
+        "Die Erzaehlung bleibt Backcountry-/Bush-bezogen und driftet nicht in normalen A-B-Verkehr.",
+        "Die Erzaehlung darf technisch sein, solange das gewaehle Bauwerk oder die Anlage Hauptsubjekt bleibt.",
+        "Briefing nennt Anlass, Verdachtsbereich und Folgeentscheidung: beobachten, Bodencheck, Wartungsfenster, Sperrung, Reparatur oder Betreiberfreigabe.",
+        "Kontext darf nur anreichern, nie umwidmen."
+      ],
+      "forceSceneNone": false,
+      "naturalPriority": false
+    },
+    "missionVarietyBrief": {
+      "personalStoryBasis": {
+        "focus": "Ein konkreter Aufklärungsanlass am vertraglichen Platz oder Gebiet trägt die Geschichte: ein gemeldetes Ereignis, eine Auffälligkeit oder eine begründete Vermutung. Erkläre, warum der Flug nötig ist, was aus der Luft untersucht werden soll und weshalb das für die Beteiligten wichtig ist.",
+        "connection": "Die persönliche Note vertieft genau diesen Anlass: Beziehung der beteiligten Person zum Ereignis, eigene Haltung, Sorge, Hoffnung oder damit verbundene Erfahrung. Erzähle den Kern persönlich, statt eine unabhängige Personenanekdote danebenzustellen. Den Untersuchungsbefund nicht vorwegnehmen; die Ungewissheit braucht keinen erklärenden Metasatz.",
+        "outcome": "Das vertragliche Recon-Gebiet aus der Luft beobachten und zum Heimatplatz zurückkehren; keine zusätzliche Landung, Reparatur oder garantierter Befund.",
+        "voice": "Nur ein tatsächlich vertraglich mitfliegender Beobachter darf sprechen; andernfalls bleibt die Perspektive beim Dispatch und Auftraggeber am Boden.",
+        "use": "Freie Inspiration. Anlass, Auftraggeber und Beobachtungsfrage folgen bevorzugt einer Richtung der candidateShortlist; Ziel, Region und Gelände geben Farbe. Vorgeschichte, Pointe, Schadensdrama oder Frist sind keine Pflicht."
+      },
+      "weatherIdeaPolicy": "BUSH-WETTER: Nutze Wetter als praktischen Hintergrund. Ein wettergetriebener Auftrag folgt einem belegten markanten Wetterereignis oder einer gelieferten Meldung mit Ort und Zeit. Die Jahreszeit darf einen längerfristigen zeitlichen Anker liefern, etwa Herbstwartung ohne Zeitdruck. Gewöhnliche Wetterwerte und die Jahreszeit allein begründen weder drohenden Schnee noch ein knappes letztes Flugfenster; wetterbedingte Eile braucht ein konkret belegtes bevorstehendes Ereignis. Menschliche und fachliche Anlässe dürfen unabhängig davon tragen. Leite whyNow zuerst aus dem nächsten Schritt der Person oder des Auftraggebers ab. Saisonale Vorsorge kann einfach ein sinnvoller heutiger Auftrag sein; normale aktuelle Wetterwerte beschreiben nur den Flugrahmen, nicht den Grund, weshalb der Auftrag gerade jetzt erledigt werden muss. Auch eine im Planner erfundene Wetterfrist ist kein zusätzlicher Wetterbeleg für den Writer.",
+      "candidateEvidencePolicy": "Kandidaten und regionale Rollen-/Tätigkeitsideen sind mögliche fiktive Motive, keine Ereignismeldungen oder Belege für Anlagen, Tal, Hang, Jahreszeitbedingungen und Wetter. Wähle einen Anlass, der ohne erfundene reale Eigenschaften des Ziels auskommt. Saisonale Tätigkeiten wie Herbstwartung sind als längerfristiger Anlass zulässig, ohne daraus nahen Frost, Sperrungen oder Zeitdruck abzuleiten. Ein wettergetriebener Ereigniskandidat braucht ein ausdrücklich geliefertes markantes Wetterereignis.",
+      "purpose": "Offener Kreativrahmen fuer einen Bush-Recon mit Heimkehrpflicht. Das Profil prueft Zielstrip, Anflugraum oder Umfeld aus der Luft und bringt den Befund zur Basis zurueck.",
+      "recipe": "Von McCall Municipal Airport zum Zielgebiet bei Big Creek Airport Recon Area, dort Recon aus der Luft, keine geplante Landung, danach Rueckflug nach McCall Municipal Airport.",
+      "coreQuestions": [
+        "Was genau wird bei Big Creek Airport Recon Area aus der Luft geprueft?",
+        "Welche konkrete Beobachtungsfrage oder Meldung begründet den Recon? Eine Wetterfolge nur bei einem ausdrücklich gelieferten markanten Ereignis; saisonale Vorsorge darf eine konkrete Beobachtungsfrage begründen, aber allein keine Eile oder bereits eingetretene Wetterfolgen.",
+        "Welche sichtbaren Dinge sollen wir beurteilen: Piste, Zufahrt, Hindernisse, Wasserlauf, Rauch, Markierungen?",
+        "Warum muss der Befund zurueck nach McCall Municipal Airport, statt den Flug am Ziel enden zu lassen?",
+        "Welche Entscheidung kann nach dem Rueckflug getroffen werden?"
+      ],
+      "candidateShortlist": [
+        {
+          "id": "season_opening_recon",
+          "familyId": "season_opening",
+          "label": "Saisonstart und Betreibercheck",
+          "wildcard": false,
+          "matchTags": [
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Betreiberkontakt",
+            "Lodge-Koordinatorin",
+            "Airstrip-Inspektorin"
+          ],
+          "taskIdeas": [
+            "Piste, Parkpunkt und Zufahrt vor dem ersten Saisonflug ueberpruefen",
+            "Windsack, Markierungen und sichtbare Lagerstellen aus der Luft notieren",
+            "Betriebsakte mit frischen Fotos ergaenzen"
+          ],
+          "objectIdeas": [
+            "Tablet",
+            "Betriebsmappe",
+            "Kamera",
+            "Checkliste"
+          ],
+          "returnDrivers": [
+            "die Saisonplanung wartet auf den ersten belastbaren Befund",
+            "die Basis entscheidet, welche Fracht als erstes rausgeht",
+            "das Ergebnis wird nach der Landung daheim eingetragen"
+          ],
+          "accessReasons": [
+            "der Zielstrip ist selbst der Pruefgegenstand",
+            "ein kurzer Ueberflug reicht fuer die Vorentscheidung",
+            "die Heimkehr gehoert zum Abschluss des Recon-Profils"
+          ]
+        },
+        {
+          "id": "approach_corridor_recon",
+          "familyId": "approach_corridor",
+          "label": "Anflugraum und Hindernischeck",
+          "wildcard": false,
+          "matchTags": [
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Backcountry-Operationsleiterin",
+            "Forst-Ranger",
+            "Airstrip-Inspektor"
+          ],
+          "taskIdeas": [
+            "Baumkronen, Hangschatten und neue Hindernisse im Anflugraum vergleichen",
+            "Windzeichen, Talverlauf und Ausweichpunkt kurz beurteilen",
+            "Fotos fuer ein aktualisiertes Anflugbriefing aufnehmen"
+          ],
+          "objectIdeas": [
+            "Kamera",
+            "Anflugkarte",
+            "Tablet",
+            "Funkmappe"
+          ],
+          "returnDrivers": [
+            "das Briefing fuer kommende Bush-Fluege wird nach Rueckkehr aktualisiert",
+            "die Basis braucht Fotos, bevor wieder Neulinge dorthin geplant werden",
+            "der Recon bleibt bewusst kurz und heimkehrpflichtig"
+          ],
+          "accessReasons": [
+            "der Anflugraum ist der eigentliche Zielbereich",
+            "Landung wuerde den Auftrag nicht verbessern",
+            "aus der Luft sind Tal, Strip und Hindernisse zusammen erkennbar"
+          ]
+        },
+        {
+          "id": "wildlife_obstruction_recon",
+          "familyId": "wildlife_obstruction",
+          "label": "Wildlife, Zaun und Hindernisse",
+          "wildcard": false,
+          "matchTags": [
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Ranger-Koordinator",
+            "Ranch-Caretakerin",
+            "Operationskontakt"
+          ],
+          "taskIdeas": [
+            "Zaunluecken, Wildwechsel und Gegenstaende am Bahnrand suchen",
+            "Parkflaeche und Pistenkopf auf frische Spuren pruefen",
+            "sichtbare Hindernisse fuer den naechsten Anflug notieren"
+          ],
+          "objectIdeas": [
+            "Kamera",
+            "Fernglas",
+            "Notizblock",
+            "Funkliste"
+          ],
+          "returnDrivers": [
+            "die Basis warnt die naechste Crew nur bei belastbarem Befund",
+            "der Betreiber kann den Zauncheck gezielt ansetzen",
+            "der Recon spart eine unnoetige Bodenfahrt"
+          ],
+          "accessReasons": [
+            "die Piste und der Wiesenrand sind aus der Luft gut lesbar",
+            "der Auftrag ist ein Lagebild, keine Landung",
+            "der Heimflug bringt die Notizen direkt zur Einsatzplanung"
+          ]
+        },
+        {
+          "id": "storm_strip_damage",
+          "familyId": "storm_damage",
+          "label": "Strip-Zustand nach Wetter",
+          "wildcard": false,
+          "matchTags": [
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Airstrip-Inspektorin",
+            "Backcountry-Operationsleiter",
+            "Ranger-Koordinator"
+          ],
+          "taskIdeas": [
+            "Spurrinnen, lose Aeste und Bahnrand aus der Luft einschaetzen",
+            "Windsack, Zufahrt und Parkpunkt auf sichtbare Schaeden pruefen",
+            "Anflugraum und Abrollbereich fuer den naechsten Flug beurteilen"
+          ],
+          "objectIdeas": [
+            "Kamera",
+            "Strip-Checkliste",
+            "Funkmappe",
+            "Tablet"
+          ],
+          "returnDrivers": [
+            "die Basis entscheidet danach ueber Freigabe oder Crewgang",
+            "der Betreiber braucht ein schnelles Lagebild ohne Landung",
+            "der naechste Versorgungsflug haengt am Befund"
+          ],
+          "accessReasons": [
+            "der Strip selbst ist der Arbeitsraum",
+            "ein Ueberflug reicht fuer die erste Entscheidung",
+            "Landung ist nicht Teil des Recon-Auftrags"
+          ]
+        },
+        {
+          "id": "drainage_washout_recon",
+          "familyId": "drainage_runoff",
+          "label": "Drainage, Washout und Wasserlauf",
+          "wildcard": false,
+          "matchTags": [
+            "water",
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Strip-Betreiber",
+            "USFS-Technikinspektorin",
+            "Utility-Koordinator"
+          ],
+          "taskIdeas": [
+            "Drainagegraben und Washout-Spuren neben der Piste kontrollieren",
+            "Zufahrt, Gatter und Bodenverfaerbungen aus der Luft vergleichen",
+            "moegliche weiche Stellen fuer die Bodencrew markieren"
+          ],
+          "objectIdeas": [
+            "Fototablet",
+            "Checkliste",
+            "Kartenfenster",
+            "Handfunkgeraet"
+          ],
+          "returnDrivers": [
+            "die Bodencrew braucht Prioritaeten fuer den Reparaturlauf",
+            "die Basis entscheidet, ob ein schwererer Flug warten muss",
+            "der Befund wird nach Rueckkehr direkt eingetragen"
+          ],
+          "accessReasons": [
+            "der Ueberflug zeigt Wasserlauf und Bahnrand zusammen",
+            "vom Cockpit laesst sich der Abschnitt ohne Bodenkontakt erfassen",
+            "der Rueckflug zur Basis ist Teil des Auftrags"
+          ]
+        }
+      ],
+      "variety": {
+        "schema": "missionVarietyPack.v1",
+        "namespace": "bush_recon_return",
+        "profileId": "bush_recon_return",
+        "contextTags": [
+          "bush",
+          "remote_strip",
+          "water"
+        ],
+        "selectedIds": [
+          "season_opening_recon",
+          "approach_corridor_recon",
+          "wildlife_obstruction_recon",
+          "storm_strip_damage",
+          "drainage_washout_recon"
+        ],
+        "selectedFamilies": [
+          "season_opening",
+          "approach_corridor",
+          "wildlife_obstruction",
+          "storm_damage",
+          "drainage_runoff"
+        ],
+        "primaryId": "season_opening_recon",
+        "primaryFamily": "season_opening",
+        "recentFamilies": [],
+        "recentPrimaryFamilies": [],
+        "recentPrimaryIds": [],
+        "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+        "storageKey": "ga_mission_variety_history_bush_recon_return_v1"
+      },
+      "ingredientAxes": {
+        "roleFamilies": [
+          "Betreiberkontakt",
+          "Lodge-Koordinatorin",
+          "Airstrip-Inspektorin",
+          "Backcountry-Operationsleiterin",
+          "Forst-Ranger",
+          "Airstrip-Inspektor",
+          "Ranger-Koordinator",
+          "Ranch-Caretakerin",
+          "Operationskontakt",
+          "Backcountry-Operationsleiter",
+          "Strip-Betreiber",
+          "USFS-Technikinspektorin"
+        ],
+        "activityVerbs": [
+          "Piste, Parkpunkt und Zufahrt vor dem ersten Saisonflug ueberpruefen",
+          "Windsack, Markierungen und sichtbare Lagerstellen aus der Luft notieren",
+          "Betriebsakte mit frischen Fotos ergaenzen",
+          "Baumkronen, Hangschatten und neue Hindernisse im Anflugraum vergleichen",
+          "Windzeichen, Talverlauf und Ausweichpunkt kurz beurteilen",
+          "Fotos fuer ein aktualisiertes Anflugbriefing aufnehmen",
+          "Zaunluecken, Wildwechsel und Gegenstaende am Bahnrand suchen",
+          "Parkflaeche und Pistenkopf auf frische Spuren pruefen",
+          "sichtbare Hindernisse fuer den naechsten Anflug notieren",
+          "Spurrinnen, lose Aeste und Bahnrand aus der Luft einschaetzen",
+          "Windsack, Zufahrt und Parkpunkt auf sichtbare Schaeden pruefen",
+          "Anflugraum und Abrollbereich fuer den naechsten Flug beurteilen",
+          "Drainagegraben und Washout-Spuren neben der Piste kontrollieren",
+          "Zufahrt, Gatter und Bodenverfaerbungen aus der Luft vergleichen"
+        ],
+        "evidenceObjects": [
+          "Tablet",
+          "Betriebsmappe",
+          "Kamera",
+          "Checkliste",
+          "Anflugkarte",
+          "Funkmappe",
+          "Fernglas",
+          "Notizblock",
+          "Funkliste",
+          "Strip-Checkliste",
+          "Fototablet",
+          "Kartenfenster",
+          "Handfunkgeraet"
+        ],
+        "returnDrivers": [
+          "die Saisonplanung wartet auf den ersten belastbaren Befund",
+          "die Basis entscheidet, welche Fracht als erstes rausgeht",
+          "das Ergebnis wird nach der Landung daheim eingetragen",
+          "das Briefing fuer kommende Bush-Fluege wird nach Rueckkehr aktualisiert",
+          "die Basis braucht Fotos, bevor wieder Neulinge dorthin geplant werden",
+          "der Recon bleibt bewusst kurz und heimkehrpflichtig",
+          "die Basis warnt die naechste Crew nur bei belastbarem Befund",
+          "der Betreiber kann den Zauncheck gezielt ansetzen",
+          "der Recon spart eine unnoetige Bodenfahrt",
+          "die Basis entscheidet danach ueber Freigabe oder Crewgang"
+        ],
+        "accessReasons": [
+          "der Zielstrip ist selbst der Pruefgegenstand",
+          "ein kurzer Ueberflug reicht fuer die Vorentscheidung",
+          "die Heimkehr gehoert zum Abschluss des Recon-Profils",
+          "der Anflugraum ist der eigentliche Zielbereich",
+          "Landung wuerde den Auftrag nicht verbessern",
+          "aus der Luft sind Tal, Strip und Hindernisse zusammen erkennbar",
+          "die Piste und der Wiesenrand sind aus der Luft gut lesbar",
+          "der Auftrag ist ein Lagebild, keine Landung"
+        ]
+      },
+      "writerExpectations": [
+        "Nutze bevorzugt genau eine Richtung aus candidateShortlist, damit Rolle, Taetigkeiten, Gegenstaende und Folgegrund zusammenpassen.",
+        "Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren.",
+        "Wenn candidateShortlist nicht passt, nutze ingredientAxes als offene Inspiration und bleibe trotzdem im Zielkontext.",
+        "Kontext, Profil-Rezept, TaskDomain und MissionTruth schlagen Varianz.",
+        "Nicht alle Achsen abarbeiten; frei kombinieren und variieren.",
+        "Keine neuen Ortsnamen oder harten Geofakten erfinden.",
+        "Recon bleibt Recon: nicht als Landung, Dropoff oder Pickup umdeuten.",
+        "Der Zielstrip oder sein Umfeld ist Arbeitsraum, nicht Endpunkt.",
+        "Der Handoff in der Basis ist der Abschluss, aber ohne pauschalen Zeitdruck."
+      ],
+      "weatherNote": ""
+    },
+    "variety": {
+      "schema": "missionVarietyPack.v1",
+      "namespace": "bush_recon_return",
+      "profileId": "bush_recon_return",
+      "contextTags": [
+        "bush",
+        "remote_strip",
+        "water"
+      ],
+      "selectedIds": [
+        "season_opening_recon",
+        "approach_corridor_recon",
+        "wildlife_obstruction_recon",
+        "storm_strip_damage",
+        "drainage_washout_recon"
+      ],
+      "selectedFamilies": [
+        "season_opening",
+        "approach_corridor",
+        "wildlife_obstruction",
+        "storm_damage",
+        "drainage_runoff"
+      ],
+      "primaryId": "season_opening_recon",
+      "primaryFamily": "season_opening",
+      "recentFamilies": [],
+      "recentPrimaryFamilies": [],
+      "recentPrimaryIds": [],
+      "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+      "storageKey": "ga_mission_variety_history_bush_recon_return_v1"
+    }
+  },
+  "contract": {
+    "pipelineVersion": "mission-v4-contract-writer-2026-06-07",
+    "bushReconPlan": {
+      "schema": "bush-recon-plan.v1",
+      "radiusNm": 1.8,
+      "observationSeconds": 150,
+      "minAreaTrackNm": 0,
+      "planningSpeedKts": 110,
+      "comfortBankDeg": 15,
+      "minimumRadiusNm": 1.14,
+      "requestedRadiusNm": 1.8,
+      "requestedObservationSeconds": 150,
+      "rationale": "Zwei kontrollierte Kreise über dem Flugplatzgelände, um die Piste 01/19, den Windsack und das Vorfeld aus unterschiedlichen Winkeln für die Dokumentation zu erfassen."
+    },
+    "status": "ready",
+    "mode": "bush",
+    "paxText": "1 PAX (Windsack- und Markierungsprueferin)",
+    "passengerCount": 1,
+    "party": null,
+    "partyNarrative": null,
+    "aircraftCapability": {
+      "cruiseSpeedKts": 110,
+      "aircraftTags": []
+    },
+    "cargoText": "Betriebsflaechen-Checkset und Warnflaggen (23 lbs)",
+    "animalTransportBrief": null,
+    "route": {
+      "startIcao": "",
+      "startName": "McCall Municipal Airport",
+      "targetIcao": "U60",
+      "targetName": "Big Creek Airport",
+      "distanceNm": 36
+    },
+    "profile": {
+      "id": "bush_recon_return",
+      "label": "Bush Recon and Return",
+      "roleProfile": "technical_inspector_v1",
+      "taskDomain": "inspection_infra",
+      "pickerCategory": "all",
+      "requestedCategory": "all"
+    },
+    "target": {
+      "isPOI": false,
+      "name": "Big Creek Airport",
+      "lat": 45.133202,
+      "lon": -115.321999,
+      "poiSource": "",
+      "poiCategory": "all",
+      "terrainFt": null,
+      "terrainMaxFt": null,
+      "terrainRadiusNm": null
+    },
+    "poiChain": null,
+    "knowledgeContext": null,
+    "weather": {
+      "dep": {
+        "summary": "Keine aktuellen Wetterdaten verfügbar.",
+        "raw": null
+      },
+      "dest": {
+        "summary": "Keine aktuellen Wetterdaten verfügbar.",
+        "raw": null
+      },
+      "rule": "Wetter nur als Realitaetsanker nutzen: Wind, Sicht, Wolken/WX knapp einbauen; keine dramatische Wetterstory erfinden."
+    },
+    "environmentContext": {
+      "schema": "mission-environment.v1",
+      "time": {
+        "source": "user-device-local",
+        "createdAt": "2026-10-08T08:30:00.000Z",
+        "createdLocal": "2026-10-08T10:30:00",
+        "utcOffsetMinutes": 120,
+        "timeZone": "Europe/Berlin",
+        "departureTimeKnown": false
+      },
+      "start": {
+        "location": {
+          "name": "McCall Municipal Airport",
+          "lat": 44.8897,
+          "lon": -116.101
+        },
+        "status": "unavailable"
+      },
+      "target": {
+        "location": {
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999
+        },
+        "status": "unavailable"
+      }
+    },
+    "departureAirportInfoContext": {
+      "schema": "mission-airport-information.v1",
+      "airport": {
+        "ident": "KMYL",
+        "name": "McCall Municipal Airport",
+        "lat": 44.8897,
+        "lon": -116.101,
+        "country": "US",
+        "elevationFt": 5024,
+        "runways": [
+          {
+            "designator": "16/34",
+            "lengthM": 1864,
+            "widthM": 23,
+            "surface": "Asphalt",
+            "trueHeadingDeg": null,
+            "operations": null
+          }
+        ],
+        "ppr": null,
+        "private": null,
+        "source": "eigene Flugplatzdaten"
+      },
+      "terrain": null,
+      "pilotHints": [
+        {
+          "id": "assess-before-descent",
+          "source": "faa-mountain-safety",
+          "section": "Poor Planning",
+          "text": "Vor dem Sinkflug in einen Gebirgsplatz die Möglichkeiten für Durchstarten und anschließenden Abflug beurteilen."
+        },
+        {
+          "id": "valley-escape",
+          "source": "nz-caa-mountain",
+          "section": "Entering a valley / Escape routes, pp. 24–26",
+          "text": "Im Tal ausreichend Raum zum Wenden und einen Ausweg erhalten. Nicht darauf vertrauen, ansteigendes Gelände übersteigen zu können."
+        },
+        {
+          "id": "valley-wind",
+          "source": "nz-caa-mountain",
+          "section": "Wind, p. 8; Valley flying, p. 22",
+          "text": "Wind im Tal kann in Richtung und Stärke vom Wind oberhalb der Bergrücken abweichen. Eine entfernte Wetterstation beschreibt den lokalen Talwind nicht vollständig."
+        },
+        {
+          "id": "lee-turbulence",
+          "source": "faa-mountain-safety",
+          "section": "Mountain Weather",
+          "text": "Hinter Bergrücken können starke Abwinde und Turbulenz auftreten; ihr Ausmaß lässt sich aus einem Bodenwind allein nicht ableiten."
+        },
+        {
+          "id": "density-altitude",
+          "source": "faa-mountain-tips",
+          "section": "Performance Considerations",
+          "text": "Hohe Dichtehöhe vermindert die verfügbare Flugleistung. Start-, Landestrecken und Steigleistung anhand der Flugzeugunterlagen beurteilen."
+        },
+        {
+          "id": "surface-condition",
+          "source": "nz-caa-mountain",
+          "section": "Approach and landing, pp. 29–30",
+          "text": "Eine bekannte Pistenoberfläche sagt noch nichts über den aktuellen Zustand aus. Nässe, weicher Boden und Grasbewuchs können die nutzbare Leistung beeinflussen."
+        },
+        {
+          "id": "local-knowledge",
+          "source": "ntsb-sa039",
+          "section": "What can pilots do?",
+          "text": "Für unbekannte Gebirgsplätze aktuelle lokale Informationen und qualifizierte Einweisung einholen."
+        }
+      ],
+      "sources": [
+        {
+          "id": "faa-mountain-tips",
+          "title": "FAA Tips on Mountain Flying, FAA-P-8740-60",
+          "url": "https://www.faa.gov/sites/faa.gov/files/regulations_policies/handbooks_manuals/aviation/tips_on_mountain_flying.pdf",
+          "kind": "pilot-handbook"
+        },
+        {
+          "id": "faa-mountain-safety",
+          "title": "FAA Aviation Safety: Mountain Flying",
+          "url": "https://www.faa.gov/sites/faa.gov/files/2022-01/Mountain%20Flying.pdf",
+          "kind": "pilot-handbook"
+        },
+        {
+          "id": "nz-caa-mountain",
+          "title": "NZ CAA Mountain Flying, May 2021",
+          "url": "https://www.aviation.govt.nz/assets/publications/gaps/caa-gap-mountain-flying-may-2021-web.pdf",
+          "kind": "pilot-handbook"
+        },
+        {
+          "id": "ntsb-sa039",
+          "title": "NTSB SA-039 Mastering Mountain Flying",
+          "url": "https://www.ntsb.gov/Advocacy/safety-alerts/Documents/SA-039.pdf",
+          "kind": "pilot-handbook"
+        }
+      ],
+      "retrieval": {
+        "budgetMs": 3000,
+        "requests": {
+          "wikipedia": 2,
+          "faa": 1
+        },
+        "sources": {
+          "wikipedia-de": {
+            "status": "no_match",
+            "ms": 1
+          },
+          "wikipedia-en": {
+            "status": "no_match",
+            "ms": 1
+          },
+          "ownAirport": {
+            "status": "available",
+            "ms": 1,
+            "cached": false
+          },
+          "faa": {
+            "status": "no_match",
+            "ms": 1
+          }
+        },
+        "elapsedMs": 1,
+        "partial": false
+      }
+    },
+    "fireHazard": null,
+    "missionPlan": {
+      "status": "ready",
+      "pipelineVersion": "mission-v4-planner-2026-06-07",
+      "plan": {
+        "taskDomain": "inspection_infra",
+        "roleProfile": "technical_inspector_v1",
+        "missionType": "bush",
+        "targetCategory": "remote_strip",
+        "primaryObjective": "Sichtprüfung der Piste und des Rollfelds am Big Creek Airport aus der Luft",
+        "targetLabel": "Big Creek Airport Recon Area",
+        "missionTrigger": "Saisonale Überprüfung der Backcountry-Infrastruktur vor dem herbstlichen Wetterumschwung",
+        "focusSubject": "Zustand der Graspiste 01/19 und der Markierungen am Big Creek Airport",
+        "keyQuestion": "Sind nach den letzten Witterungseinflüssen Hindernisse, Auswaschungen oder Schäden an den Markierungen erkennbar?",
+        "missionStakes": "Ein negativer Befund führt zur vorläufigen Sperrung für gewerbliche Charterflüge",
+        "completionSignal": "Rückkehr zum McCall Municipal Airport zur Übergabe des Sichtprotokolls",
+        "storyFrame": {
+          "trigger": "Saisonale Überprüfung der Backcountry-Infrastruktur vor dem herbstlichen Wetterumschwung",
+          "focusSubject": "Zustand der Graspiste 01/19 und der Markierungen am Big Creek Airport",
+          "keyQuestion": "Sind nach den letzten Witterungseinflüssen Hindernisse, Auswaschungen oder Schäden an den Markierungen erkennbar?",
+          "stakes": "Ein negativer Befund führt zur vorläufigen Sperrung für gewerbliche Charterflüge",
+          "completionSignal": "Rückkehr zum McCall Municipal Airport zur Übergabe des Sichtprotokolls",
+          "subjectDetail": "Elena, eine erfahrene Windsack- und Markierungsprüferin, die für die Sicherheit der entlegenen Strips im Hinterland zuständig ist.",
+          "incidentContext": "Elena betreut die Pisten im Payette National Forest und kennt die tückischen Stellen am Big Creek Airport genau; sie hat ihr Checkset und Warnflaggen dabei, falls eine spätere Bodencrew markiert werden muss.",
+          "whyNow": "Der heutige Einsatz ist für den Saisonbericht Oktober entscheidend, um den Status der Piste vor den ersten Frostnächten festzuhalten.",
+          "soughtOutcome": "Das vertragliche Recon-Gebiet aus der Luft beobachten und zum Heimatplatz zurückkehren; keine zusätzliche Landung, Reparatur oder garantierter Befund.",
+          "incidentType": "",
+          "lastSeenContext": "",
+          "probableScenario": "",
+          "visibleClueCandidates": [
+            "Verfärbungen im Gras am Pistenrand",
+            "Zustand des Windsacks",
+            "abgestellte Fahrzeuge auf dem Vorfeld",
+            "Erosion im Anflugbereich"
+          ]
+        },
+        "sceneKind": "none",
+        "sceneDensity": "none",
+        "requiredAnchors": [
+          "runway_threshold",
+          "apron_area"
+        ],
+        "objectFamilies": [
+          "inspection_tools"
+        ],
+        "placementPolicy": "none",
+        "narrativeRules": [
+          "Primary subject lock: Big Creek Airport Recon Area (generic) bleibt Hauptsubjekt.",
+          "Task-domain lock: inspection_infra bleibt die Art des Auftrags.",
+          "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+          "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+          "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+          "Infrastruktur darf das Primaerziel sein."
+        ],
+        "localFacts": [
+          "Big Creek (U60) verfügt über eine 1082 Meter lange Graspiste auf 5743 Fuß Höhe.",
+          "Das Zielgebiet liegt in einem typischen Gebirgstal, das besondere Vorsicht bei der Umkehrkurve erfordert.",
+          "Der Platz wird oft als Ausgangspunkt für Wildnis-Expeditionen genutzt."
+        ],
+        "weatherHooks": [],
+        "operationalDetails": [
+          "Besondere Aufmerksamkeit auf die Dichtehöhe (Density Altitude) im Gebirge legen.",
+          "Vor dem Abflug in McCall Treibstoff für den Rückflug ohne Zwischenlandung kalkulieren.",
+          "Sicherheitsabstand zum Gelände während der Platzrunden für die Beobachtung wahren."
+        ],
+        "realismBrief": "In der Backcountry-Fliegerei sind regelmäßige Kontrollen aus der Luft Standard, um den Zustand unbesetzter Plätze zu prüfen, bevor schwere Versorgungsflüge angesetzt werden.",
+        "narrativeHooks": [
+          "Elena prüft während des Fluges ihre Checkliste für die Pistenbefeuerung und Markierungen.",
+          "Die Sorge vor neuen Auswaschungen (Washouts) nach den Regenfällen der letzten Wochen schwingt mit.",
+          "Ein kurzer Blick auf den Windsack am Ziel gibt Elena Aufschluss über die aktuellen Talwinde."
+        ],
+        "mustMention": [
+          "Betriebsflächen-Checkset",
+          "Warnflaggen",
+          "Piste 01/19",
+          "Sichtprüfung"
+        ],
+        "mustAvoid": [
+          "Landung am Ziel",
+          "Rettungsaktion",
+          "Personentransport zum Zielort",
+          "Kontext darf das Primaerziel nicht ersetzen.",
+          "Kontext darf die TaskDomain nicht umwidmen."
+        ],
+        "lockedFields": {
+          "noLandingAtPoi": true,
+          "primarySubjectLabel": "Big Creek Airport Recon Area",
+          "primarySubjectType": "generic",
+          "taskDomain": "inspection_infra"
+        },
+        "confidence": 1
+      },
+      "poiChain": null,
+      "needs": [],
+      "resolvedNeedTypes": [
+        "geo_context",
+        "mission_truth",
+        "weather_snapshot",
+        "fire_hazard",
+        "airport_details"
+      ]
+    },
+    "storyFrame": {
+      "trigger": "Saisonale Überprüfung der Backcountry-Infrastruktur vor dem herbstlichen Wetterumschwung",
+      "focusSubject": "Zustand der Graspiste 01/19 und der Markierungen am Big Creek Airport",
+      "keyQuestion": "Sind nach den letzten Witterungseinflüssen Hindernisse, Auswaschungen oder Schäden an den Markierungen erkennbar?",
+      "stakes": "Ein negativer Befund führt zur vorläufigen Sperrung für gewerbliche Charterflüge",
+      "completionSignal": "Rückkehr zum McCall Municipal Airport zur Übergabe des Sichtprotokolls",
+      "subjectDetail": "Elena, eine erfahrene Windsack- und Markierungsprüferin, die für die Sicherheit der entlegenen Strips im Hinterland zuständig ist.",
+      "incidentContext": "Elena betreut die Pisten im Payette National Forest und kennt die tückischen Stellen am Big Creek Airport genau; sie hat ihr Checkset und Warnflaggen dabei, falls eine spätere Bodencrew markiert werden muss.",
+      "whyNow": "Der heutige Einsatz ist für den Saisonbericht Oktober entscheidend, um den Status der Piste vor den ersten Frostnächten festzuhalten.",
+      "soughtOutcome": "Das vertragliche Recon-Gebiet aus der Luft beobachten und zum Heimatplatz zurückkehren; keine zusätzliche Landung, Reparatur oder garantierter Befund.",
+      "incidentType": "",
+      "lastSeenContext": "",
+      "probableScenario": "",
+      "visibleClueCandidates": [
+        "Verfärbungen im Gras am Pistenrand",
+        "Zustand des Windsacks",
+        "abgestellte Fahrzeuge auf dem Vorfeld",
+        "Erosion im Anflugbereich"
+      ]
+    },
+    "infraNarrativeHandoff": {
+      "schema": "ga.infraNarrativeHandoff.v1",
+      "mode": "single_infra_inspection",
+      "focus": "Elena, eine erfahrene Windsack- und Markierungsprüferin, die für die Sicherheit der entlegenen Strips im Hinterland zuständig ist",
+      "decision": "ob Beobachtung reicht oder ein gezielter Folgeeinsatz vorbereitet werden muss",
+      "nextStep": "Befund, Fotos und Empfehlung gehen nach dem Überflug an Betreiber oder Technikteam"
+    },
+    "chainNarrativeBrief": null,
+    "pickupCreativeBrief": null,
+    "missionVarietyBrief": {
+      "personalStoryBasis": {
+        "focus": "Ein konkreter Aufklärungsanlass am vertraglichen Platz oder Gebiet trägt die Geschichte: ein gemeldetes Ereignis, eine Auffälligkeit oder eine begründete Vermutung. Erkläre, warum der Flug nötig ist, was aus der Luft untersucht werden soll und weshalb das für die Beteiligten wichtig ist.",
+        "connection": "Die persönliche Note vertieft genau diesen Anlass: Beziehung der beteiligten Person zum Ereignis, eigene Haltung, Sorge, Hoffnung oder damit verbundene Erfahrung. Erzähle den Kern persönlich, statt eine unabhängige Personenanekdote danebenzustellen. Den Untersuchungsbefund nicht vorwegnehmen; die Ungewissheit braucht keinen erklärenden Metasatz.",
+        "outcome": "Das vertragliche Recon-Gebiet aus der Luft beobachten und zum Heimatplatz zurückkehren; keine zusätzliche Landung, Reparatur oder garantierter Befund.",
+        "voice": "Nur ein tatsächlich vertraglich mitfliegender Beobachter darf sprechen; andernfalls bleibt die Perspektive beim Dispatch und Auftraggeber am Boden.",
+        "use": "Freie Inspiration. Anlass, Auftraggeber und Beobachtungsfrage folgen bevorzugt einer Richtung der candidateShortlist; Ziel, Region und Gelände geben Farbe. Vorgeschichte, Pointe, Schadensdrama oder Frist sind keine Pflicht."
+      },
+      "weatherIdeaPolicy": "BUSH-WETTER: Nutze Wetter als praktischen Hintergrund. Ein wettergetriebener Auftrag folgt einem belegten markanten Wetterereignis oder einer gelieferten Meldung mit Ort und Zeit. Die Jahreszeit darf einen längerfristigen zeitlichen Anker liefern, etwa Herbstwartung ohne Zeitdruck. Gewöhnliche Wetterwerte und die Jahreszeit allein begründen weder drohenden Schnee noch ein knappes letztes Flugfenster; wetterbedingte Eile braucht ein konkret belegtes bevorstehendes Ereignis. Menschliche und fachliche Anlässe dürfen unabhängig davon tragen. Leite whyNow zuerst aus dem nächsten Schritt der Person oder des Auftraggebers ab. Saisonale Vorsorge kann einfach ein sinnvoller heutiger Auftrag sein; normale aktuelle Wetterwerte beschreiben nur den Flugrahmen, nicht den Grund, weshalb der Auftrag gerade jetzt erledigt werden muss. Auch eine im Planner erfundene Wetterfrist ist kein zusätzlicher Wetterbeleg für den Writer.",
+      "candidateEvidencePolicy": "Kandidaten und regionale Rollen-/Tätigkeitsideen sind mögliche fiktive Motive, keine Ereignismeldungen oder Belege für Anlagen, Tal, Hang, Jahreszeitbedingungen und Wetter. Wähle einen Anlass, der ohne erfundene reale Eigenschaften des Ziels auskommt. Saisonale Tätigkeiten wie Herbstwartung sind als längerfristiger Anlass zulässig, ohne daraus nahen Frost, Sperrungen oder Zeitdruck abzuleiten. Ein wettergetriebener Ereigniskandidat braucht ein ausdrücklich geliefertes markantes Wetterereignis.",
+      "purpose": "Offener Kreativrahmen fuer einen Bush-Recon mit Heimkehrpflicht. Das Profil prueft Zielstrip, Anflugraum oder Umfeld aus der Luft und bringt den Befund zur Basis zurueck.",
+      "recipe": "Von McCall Municipal Airport zum Zielgebiet bei Big Creek Airport Recon Area, dort Recon aus der Luft, keine geplante Landung, danach Rueckflug nach McCall Municipal Airport.",
+      "coreQuestions": [
+        "Was genau wird bei Big Creek Airport Recon Area aus der Luft geprueft?",
+        "Welche konkrete Beobachtungsfrage oder Meldung begründet den Recon? Eine Wetterfolge nur bei einem ausdrücklich gelieferten markanten Ereignis; saisonale Vorsorge darf eine konkrete Beobachtungsfrage begründen, aber allein keine Eile oder bereits eingetretene Wetterfolgen.",
+        "Welche sichtbaren Dinge sollen wir beurteilen: Piste, Zufahrt, Hindernisse, Wasserlauf, Rauch, Markierungen?",
+        "Warum muss der Befund zurueck nach McCall Municipal Airport, statt den Flug am Ziel enden zu lassen?",
+        "Welche Entscheidung kann nach dem Rueckflug getroffen werden?"
+      ],
+      "candidateShortlist": [
+        {
+          "id": "season_opening_recon",
+          "familyId": "season_opening",
+          "label": "Saisonstart und Betreibercheck",
+          "wildcard": false,
+          "matchTags": [
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Betreiberkontakt",
+            "Lodge-Koordinatorin",
+            "Airstrip-Inspektorin"
+          ],
+          "taskIdeas": [
+            "Piste, Parkpunkt und Zufahrt vor dem ersten Saisonflug ueberpruefen",
+            "Windsack, Markierungen und sichtbare Lagerstellen aus der Luft notieren",
+            "Betriebsakte mit frischen Fotos ergaenzen"
+          ],
+          "objectIdeas": [
+            "Tablet",
+            "Betriebsmappe",
+            "Kamera",
+            "Checkliste"
+          ],
+          "returnDrivers": [
+            "die Saisonplanung wartet auf den ersten belastbaren Befund",
+            "die Basis entscheidet, welche Fracht als erstes rausgeht",
+            "das Ergebnis wird nach der Landung daheim eingetragen"
+          ],
+          "accessReasons": [
+            "der Zielstrip ist selbst der Pruefgegenstand",
+            "ein kurzer Ueberflug reicht fuer die Vorentscheidung",
+            "die Heimkehr gehoert zum Abschluss des Recon-Profils"
+          ]
+        },
+        {
+          "id": "approach_corridor_recon",
+          "familyId": "approach_corridor",
+          "label": "Anflugraum und Hindernischeck",
+          "wildcard": false,
+          "matchTags": [
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Backcountry-Operationsleiterin",
+            "Forst-Ranger",
+            "Airstrip-Inspektor"
+          ],
+          "taskIdeas": [
+            "Baumkronen, Hangschatten und neue Hindernisse im Anflugraum vergleichen",
+            "Windzeichen, Talverlauf und Ausweichpunkt kurz beurteilen",
+            "Fotos fuer ein aktualisiertes Anflugbriefing aufnehmen"
+          ],
+          "objectIdeas": [
+            "Kamera",
+            "Anflugkarte",
+            "Tablet",
+            "Funkmappe"
+          ],
+          "returnDrivers": [
+            "das Briefing fuer kommende Bush-Fluege wird nach Rueckkehr aktualisiert",
+            "die Basis braucht Fotos, bevor wieder Neulinge dorthin geplant werden",
+            "der Recon bleibt bewusst kurz und heimkehrpflichtig"
+          ],
+          "accessReasons": [
+            "der Anflugraum ist der eigentliche Zielbereich",
+            "Landung wuerde den Auftrag nicht verbessern",
+            "aus der Luft sind Tal, Strip und Hindernisse zusammen erkennbar"
+          ]
+        },
+        {
+          "id": "wildlife_obstruction_recon",
+          "familyId": "wildlife_obstruction",
+          "label": "Wildlife, Zaun und Hindernisse",
+          "wildcard": false,
+          "matchTags": [
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Ranger-Koordinator",
+            "Ranch-Caretakerin",
+            "Operationskontakt"
+          ],
+          "taskIdeas": [
+            "Zaunluecken, Wildwechsel und Gegenstaende am Bahnrand suchen",
+            "Parkflaeche und Pistenkopf auf frische Spuren pruefen",
+            "sichtbare Hindernisse fuer den naechsten Anflug notieren"
+          ],
+          "objectIdeas": [
+            "Kamera",
+            "Fernglas",
+            "Notizblock",
+            "Funkliste"
+          ],
+          "returnDrivers": [
+            "die Basis warnt die naechste Crew nur bei belastbarem Befund",
+            "der Betreiber kann den Zauncheck gezielt ansetzen",
+            "der Recon spart eine unnoetige Bodenfahrt"
+          ],
+          "accessReasons": [
+            "die Piste und der Wiesenrand sind aus der Luft gut lesbar",
+            "der Auftrag ist ein Lagebild, keine Landung",
+            "der Heimflug bringt die Notizen direkt zur Einsatzplanung"
+          ]
+        },
+        {
+          "id": "storm_strip_damage",
+          "familyId": "storm_damage",
+          "label": "Strip-Zustand nach Wetter",
+          "wildcard": false,
+          "matchTags": [
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Airstrip-Inspektorin",
+            "Backcountry-Operationsleiter",
+            "Ranger-Koordinator"
+          ],
+          "taskIdeas": [
+            "Spurrinnen, lose Aeste und Bahnrand aus der Luft einschaetzen",
+            "Windsack, Zufahrt und Parkpunkt auf sichtbare Schaeden pruefen",
+            "Anflugraum und Abrollbereich fuer den naechsten Flug beurteilen"
+          ],
+          "objectIdeas": [
+            "Kamera",
+            "Strip-Checkliste",
+            "Funkmappe",
+            "Tablet"
+          ],
+          "returnDrivers": [
+            "die Basis entscheidet danach ueber Freigabe oder Crewgang",
+            "der Betreiber braucht ein schnelles Lagebild ohne Landung",
+            "der naechste Versorgungsflug haengt am Befund"
+          ],
+          "accessReasons": [
+            "der Strip selbst ist der Arbeitsraum",
+            "ein Ueberflug reicht fuer die erste Entscheidung",
+            "Landung ist nicht Teil des Recon-Auftrags"
+          ]
+        },
+        {
+          "id": "drainage_washout_recon",
+          "familyId": "drainage_runoff",
+          "label": "Drainage, Washout und Wasserlauf",
+          "wildcard": false,
+          "matchTags": [
+            "water",
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Strip-Betreiber",
+            "USFS-Technikinspektorin",
+            "Utility-Koordinator"
+          ],
+          "taskIdeas": [
+            "Drainagegraben und Washout-Spuren neben der Piste kontrollieren",
+            "Zufahrt, Gatter und Bodenverfaerbungen aus der Luft vergleichen",
+            "moegliche weiche Stellen fuer die Bodencrew markieren"
+          ],
+          "objectIdeas": [
+            "Fototablet",
+            "Checkliste",
+            "Kartenfenster",
+            "Handfunkgeraet"
+          ],
+          "returnDrivers": [
+            "die Bodencrew braucht Prioritaeten fuer den Reparaturlauf",
+            "die Basis entscheidet, ob ein schwererer Flug warten muss",
+            "der Befund wird nach Rueckkehr direkt eingetragen"
+          ],
+          "accessReasons": [
+            "der Ueberflug zeigt Wasserlauf und Bahnrand zusammen",
+            "vom Cockpit laesst sich der Abschnitt ohne Bodenkontakt erfassen",
+            "der Rueckflug zur Basis ist Teil des Auftrags"
+          ]
+        }
+      ],
+      "variety": {
+        "schema": "missionVarietyPack.v1",
+        "namespace": "bush_recon_return",
+        "profileId": "bush_recon_return",
+        "contextTags": [
+          "bush",
+          "remote_strip",
+          "water"
+        ],
+        "selectedIds": [
+          "season_opening_recon",
+          "approach_corridor_recon",
+          "wildlife_obstruction_recon",
+          "storm_strip_damage",
+          "drainage_washout_recon"
+        ],
+        "selectedFamilies": [
+          "season_opening",
+          "approach_corridor",
+          "wildlife_obstruction",
+          "storm_damage",
+          "drainage_runoff"
+        ],
+        "primaryId": "season_opening_recon",
+        "primaryFamily": "season_opening",
+        "recentFamilies": [],
+        "recentPrimaryFamilies": [],
+        "recentPrimaryIds": [],
+        "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+        "storageKey": "ga_mission_variety_history_bush_recon_return_v1"
+      },
+      "ingredientAxes": {
+        "roleFamilies": [
+          "Betreiberkontakt",
+          "Lodge-Koordinatorin",
+          "Airstrip-Inspektorin",
+          "Backcountry-Operationsleiterin",
+          "Forst-Ranger",
+          "Airstrip-Inspektor",
+          "Ranger-Koordinator",
+          "Ranch-Caretakerin",
+          "Operationskontakt",
+          "Backcountry-Operationsleiter",
+          "Strip-Betreiber",
+          "USFS-Technikinspektorin"
+        ],
+        "activityVerbs": [
+          "Piste, Parkpunkt und Zufahrt vor dem ersten Saisonflug ueberpruefen",
+          "Windsack, Markierungen und sichtbare Lagerstellen aus der Luft notieren",
+          "Betriebsakte mit frischen Fotos ergaenzen",
+          "Baumkronen, Hangschatten und neue Hindernisse im Anflugraum vergleichen",
+          "Windzeichen, Talverlauf und Ausweichpunkt kurz beurteilen",
+          "Fotos fuer ein aktualisiertes Anflugbriefing aufnehmen",
+          "Zaunluecken, Wildwechsel und Gegenstaende am Bahnrand suchen",
+          "Parkflaeche und Pistenkopf auf frische Spuren pruefen",
+          "sichtbare Hindernisse fuer den naechsten Anflug notieren",
+          "Spurrinnen, lose Aeste und Bahnrand aus der Luft einschaetzen",
+          "Windsack, Zufahrt und Parkpunkt auf sichtbare Schaeden pruefen",
+          "Anflugraum und Abrollbereich fuer den naechsten Flug beurteilen",
+          "Drainagegraben und Washout-Spuren neben der Piste kontrollieren",
+          "Zufahrt, Gatter und Bodenverfaerbungen aus der Luft vergleichen"
+        ],
+        "evidenceObjects": [
+          "Tablet",
+          "Betriebsmappe",
+          "Kamera",
+          "Checkliste",
+          "Anflugkarte",
+          "Funkmappe",
+          "Fernglas",
+          "Notizblock",
+          "Funkliste",
+          "Strip-Checkliste",
+          "Fototablet",
+          "Kartenfenster",
+          "Handfunkgeraet"
+        ],
+        "returnDrivers": [
+          "die Saisonplanung wartet auf den ersten belastbaren Befund",
+          "die Basis entscheidet, welche Fracht als erstes rausgeht",
+          "das Ergebnis wird nach der Landung daheim eingetragen",
+          "das Briefing fuer kommende Bush-Fluege wird nach Rueckkehr aktualisiert",
+          "die Basis braucht Fotos, bevor wieder Neulinge dorthin geplant werden",
+          "der Recon bleibt bewusst kurz und heimkehrpflichtig",
+          "die Basis warnt die naechste Crew nur bei belastbarem Befund",
+          "der Betreiber kann den Zauncheck gezielt ansetzen",
+          "der Recon spart eine unnoetige Bodenfahrt",
+          "die Basis entscheidet danach ueber Freigabe oder Crewgang"
+        ],
+        "accessReasons": [
+          "der Zielstrip ist selbst der Pruefgegenstand",
+          "ein kurzer Ueberflug reicht fuer die Vorentscheidung",
+          "die Heimkehr gehoert zum Abschluss des Recon-Profils",
+          "der Anflugraum ist der eigentliche Zielbereich",
+          "Landung wuerde den Auftrag nicht verbessern",
+          "aus der Luft sind Tal, Strip und Hindernisse zusammen erkennbar",
+          "die Piste und der Wiesenrand sind aus der Luft gut lesbar",
+          "der Auftrag ist ein Lagebild, keine Landung"
+        ]
+      },
+      "writerExpectations": [
+        "Nutze bevorzugt genau eine Richtung aus candidateShortlist, damit Rolle, Taetigkeiten, Gegenstaende und Folgegrund zusammenpassen.",
+        "Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren.",
+        "Wenn candidateShortlist nicht passt, nutze ingredientAxes als offene Inspiration und bleibe trotzdem im Zielkontext.",
+        "Kontext, Profil-Rezept, TaskDomain und MissionTruth schlagen Varianz.",
+        "Nicht alle Achsen abarbeiten; frei kombinieren und variieren.",
+        "Keine neuen Ortsnamen oder harten Geofakten erfinden.",
+        "Recon bleibt Recon: nicht als Landung, Dropoff oder Pickup umdeuten.",
+        "Der Zielstrip oder sein Umfeld ist Arbeitsraum, nicht Endpunkt.",
+        "Der Handoff in der Basis ist der Abschluss, aber ohne pauschalen Zeitdruck."
+      ],
+      "weatherNote": ""
+    },
+    "variety": {
+      "schema": "missionVarietyPack.v1",
+      "namespace": "bush_recon_return",
+      "profileId": "bush_recon_return",
+      "contextTags": [
+        "bush",
+        "remote_strip",
+        "water"
+      ],
+      "selectedIds": [
+        "season_opening_recon",
+        "approach_corridor_recon",
+        "wildlife_obstruction_recon",
+        "storm_strip_damage",
+        "drainage_washout_recon"
+      ],
+      "selectedFamilies": [
+        "season_opening",
+        "approach_corridor",
+        "wildlife_obstruction",
+        "storm_damage",
+        "drainage_runoff"
+      ],
+      "primaryId": "season_opening_recon",
+      "primaryFamily": "season_opening",
+      "recentFamilies": [],
+      "recentPrimaryFamilies": [],
+      "recentPrimaryIds": [],
+      "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+      "storageKey": "ga_mission_variety_history_bush_recon_return_v1"
+    },
+    "sarHeli": null,
+    "missionTruth": null,
+    "semantics": {
+      "version": "mission-semantics-v4-2026-06-07",
+      "focusLock": {
+        "mode": "bush",
+        "taskDomain": "inspection_infra",
+        "targetCategory": "generic",
+        "requestedCategory": "all",
+        "primarySubjectLabel": "Big Creek Airport Recon Area",
+        "primarySubjectType": "generic",
+        "contextRoles": [
+          "orientation",
+          "hazard",
+          "access",
+          "support",
+          "evidence",
+          "background"
+        ]
+      },
+      "plannerGuardrails": [
+        "Primary subject lock: Big Creek Airport Recon Area (generic) bleibt Hauptsubjekt.",
+        "Task-domain lock: inspection_infra bleibt die Art des Auftrags.",
+        "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+        "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+        "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+        "Infrastruktur darf das Primaerziel sein.",
+        "Diagnose, Wartung, Stoerung oder Dokumentation duerfen die Story tragen.",
+        "Windparks, Solarparks, Energieanlagen, Batteriespeicher, Pipeline-/Gas-/Waermenetzpunkte, Wasser-/Abwasseranlagen, Hafen-/Schleusenanlagen, Anleger, Perimeter-/Zaunbereiche, Entsorgung, Steinbruch/Kieswerk, Schutzbau, Trassen, Umspannwerke, Funkmasten, Bruecken, Daemme, Baustellen, oeffentliche Gebaeude, Tankstellen, Tanks, Wassertanks und Industrieanlagen sind passende Infrastrukturziele, wenn sie als Ziel oder bestaetigter Kontext vorliegen. Dach ist nur Pruefmerkmal eines passenden Gebaeudes oder einer Anlage, kein eigener Zieltyp.",
+        "Das gewaehlte Ziel bleibt Primärsubjekt."
+      ],
+      "writerGuardrails": [
+        "Story, Greeting und sceneIntent muessen Big Creek Airport Recon Area als Primaerfokus behalten.",
+        "Kontext darf den Auftrag anreichern, aber nicht umwidmen.",
+        "Die Erzaehlung bleibt Backcountry-/Bush-bezogen und driftet nicht in normalen A-B-Verkehr.",
+        "Die Erzaehlung darf technisch sein, solange das gewaehle Bauwerk oder die Anlage Hauptsubjekt bleibt.",
+        "Briefing nennt Anlass, Verdachtsbereich und Folgeentscheidung: beobachten, Bodencheck, Wartungsfenster, Sperrung, Reparatur oder Betreiberfreigabe.",
+        "Kontext darf nur anreichern, nie umwidmen."
+      ],
+      "forceSceneNone": false,
+      "naturalPriority": false
+    },
+    "followUpContext": null,
+    "missionTemporalContext": null,
+    "varietyHints": null,
+    "targetGeoContext": null,
+    "airportDetails": {
+      "start": {
+        "icao": "KMYL",
+        "name": "McCall Municipal Airport",
+        "lat": 44.8897,
+        "lon": -116.101
+      },
+      "dest": {
+        "icao": "U60",
+        "name": "Big Creek Airport",
+        "lat": 45.133202,
+        "lon": -115.321999
+      },
+      "targetPoi": null
+    },
+    "departureAirportInformation": {
+      "schema": "departure-airport-information-text.v1",
+      "departureInfo": "Der McCall Municipal Airport (KMYL) dient als wichtiger Knotenpunkt für Operationen im Payette National Forest. Auf einer Platzhöhe von 5024 Fuß gelegen, bietet die asphaltierte Piste 16/34 mit ihren 1864 Metern Länge eine solide Basis, erfordert jedoch aufgrund der Höhenlage eine aufmerksame Leistungsplanung. Besonders bei herbstlichen Bedingungen sollte die verminderte Steigleistung des Flugzeugs einkalkuliert werden. Piloten sollten vor dem Abflug sicherstellen, dass ausreichend Treibstoff für den Rückflug ohne Zwischenlandung vorhanden ist, da die Route tief in unerschlossenes Gebiet führt.",
+      "sourceIds": [
+        "faa-mountain-tips",
+        "nz-caa-mountain"
+      ],
+      "generated": true
+    },
+    "bushFollowUpNarrative": {
+      "schema": "ga.bush.followup-memory.v1",
+      "memory": {
+        "summary": "Elena hat die herbstliche Inspektion der Infrastruktur am Big Creek Airport eingeleitet. Ziel war die visuelle Prüfung der Piste 01/19 und der Markierungen vor dem Winterfrost, um den Status für gewerbliche Charterflüge festzulegen. Die Beobachtung erfolgte aus der Luft ohne Landung am Zielort.",
+        "participants": [
+          {
+            "name": "Elena",
+            "role": "Technische Infrastruktur-Prüferin"
+          }
+        ],
+        "openQuestions": [
+          "Erlaubt der Zustand der Piste den weiteren Betrieb für Charterflüge?",
+          "Müssen vor dem ersten Frost noch physische Markierungen durch eine Bodencrew erneuert werden?"
+        ],
+        "betweenFlightsIdeas": [
+          {
+            "followUpKind": "bush_supply_strip",
+            "summary": "Transport von neuen Markierungsflaggen und Instandsetzungsmaterial zum Big Creek, falls die Luftbildauswertung Schäden gezeigt hat."
+          },
+          {
+            "followUpKind": "bush_charter_strip",
+            "summary": "Beförderung eines Bodenteams zum Big Creek Airport, um die von Elena aus der Luft markierten Stellen direkt vor Ort auszubessern."
+          }
+        ]
+      }
+    }
+  },
+  "mission": {
+    "t": "Herbst-Inventur am Big Creek",
+    "s": "Elena ist heute an Bord, um die Markierungen und den Windsack am Big Creek Airport zu inspizieren, bevor der erste Frost die Saison beendet. Als erfahrene Prüferin für den Payette National Forest kennt sie die tückischen Ecken des Platzes und will sicherstellen, dass Piste 01/19 keine gefährlichen Auswaschungen aufweist. Ihr Saisonbericht für den Oktober hängt maßgeblich von den heutigen Sichtbefunden ab, die über den weiteren Flugbetrieb entscheiden. Du bringst sie direkt zum Zielgebiet, wo ihr genau 150 Sekunden für zwei kontrollierte Kreise über dem Gelände zur Verfügung stehen, um den Zustand rechtssicher zu dokumentieren. Elena hat ihr Checkset und Warnflaggen dabei, falls später eine Bodencrew zur Ausbesserung markiert werden muss. Nach dem Überflug kehrt ihr ohne Landung nach McCall zurück, damit sie ihr Sichtprotokoll umgehend einreichen kann. Achte im engen Gebirgstal besonders auf deine Umkehrkurven, während sie die Graspiste aus der Luft genau beobachtet.",
+    "pax": "1 PAX (Elena)",
+    "cargo": "Checkset & Warnflaggen (15 lbs)",
+    "knowledgeContext": null,
+    "targetInfo": "Der Big Creek Airport (U60) verfügt über eine 1082 Meter lange Graspiste in einer beachtlichen Höhe von 5743 Fuß. Der Platz liegt eingebettet in ein typisches Gebirgstal, was den Anflug und Überflug aufgrund begrenzter Manövrierbarkeit anspruchsvoll macht. Er dient oft als strategischer Ausgangspunkt für Expeditionen in die tiefe Wildnis des Hinterlands. Im Rahmen der heutigen Infrastruktur-Überprüfung stehen die Piste 01/19 und die Sicherheitseinrichtungen im Fokus, um die Betriebsbereitschaft vor dem Wintereinbruch zu bewerten.\n\nLage und Orientierung\nFür dieses Ziel fehlen noch geeignete Orientierungspunkte.\n\nGeländehöhen\nHier liegen keine Geländehöhen vor.\n\nHindernisse\nHier sind keine Hindernisse erfasst; das bedeutet nicht, dass die Umgebung hindernisfrei ist.",
+    "passenger": {
+      "name": "Elena",
+      "role": "Technische Infrastruktur-Prüferin",
+      "gender": "female",
+      "personality": "gewissenhaft, ruhig, beobachtungsstark",
+      "dialectHint": "neutral",
+      "roleProfile": "technical_inspector_v1",
+      "taskDomain": "inspection_infra",
+      "gTolerance": "mittel",
+      "bankTolerance": "mittel",
+      "cargoSensitivity": "niedrig",
+      "stomachSensitivity": "hoch",
+      "comfortPriority": "mittel",
+      "urgencyPriority": "hoch",
+      "targetAltFt": 0,
+      "targetRadiusNm": 1.8,
+      "targetDwellMin": 2.5,
+      "greetingText": "Hallo! Ich bin gespannt, wie die Piste am Big Creek nach den letzten Regengüssen aussieht – hoffen wir, dass die Markierungen noch halten."
+    },
+    "sceneIntent": {
+      "summary": "A-B-Flug ohne Zielszene.",
+      "environment": "",
+      "visibleIdeas": [],
+      "avoid": [],
+      "densityHint": "none",
+      "notes": ""
+    },
+    "targetScene": {
+      "kind": "none",
+      "roles": [],
+      "density": "none",
+      "notes": ""
+    },
+    "sceneCompositionStatus": "draft",
+    "targetSceneDebug": {
+      "source": "Gemini 3.0 Flash + V5 Writer",
+      "sceneIntentRaw": {
+        "summary": "Detaillierte Sichtung der Graspiste 01/19 sowie des Windsacks und der Platzmarkierungen aus der Luft.",
+        "environment": "Gebirgstal mit begrenztem Raum für Kurskorrekturen",
+        "visibleIdeas": [
+          "Windsack am Rand der Piste",
+          "Weiße Begrenzungsmarkierungen der Graspiste 01/19",
+          "Vorfeldbereich am Big Creek"
+        ],
+        "avoid": [
+          "Tiefflug unterhalb der Sicherheitsmarge",
+          "Landung auf der Graspiste"
+        ],
+        "densityHint": "sparse",
+        "notes": "Fokus liegt auf der visuellen Dokumentation des Pistenzustands für den Saisonbericht."
+      },
+      "sceneIntent": {
+        "summary": "A-B-Flug ohne Zielszene.",
+        "environment": "",
+        "visibleIdeas": [],
+        "avoid": [],
+        "densityHint": "none",
+        "notes": ""
+      },
+      "aiRaw": null,
+      "normalized": {
+        "kind": "none",
+        "roles": [],
+        "density": "none",
+        "notes": ""
+      },
+      "pendingComposer": true
+    },
+    "_missionWriterV4Debug": {
+      "source": "Mission Writer V5",
+      "writerMode": "v5",
+      "taskDomain": "inspection_infra",
+      "missionFamily": "inspection_infra",
+      "hasPoiChain": false,
+      "rawStoryLength": 980,
+      "rawAiStory": "Elena ist heute an Bord, um die Markierungen und den Windsack am Big Creek Airport zu inspizieren, bevor der erste Frost die Saison beendet. Als erfahrene Prüferin für den Payette National Forest kennt sie die tückischen Ecken des Platzes und will sicherstellen, dass Piste 01/19 keine gefährlichen Auswaschungen aufweist. Ihr Saisonbericht für den Oktober hängt maßgeblich von den heutigen Sichtbefunden ab, die über den weiteren Flugbetrieb entscheiden. Du bringst sie direkt zum Zielgebiet, wo ihr genau 150 Sekunden für zwei kontrollierte Kreise über dem Gelände zur Verfügung stehen, um den Zustand rechtssicher zu dokumentieren. Elena hat ihr Checkset und Warnflaggen dabei, falls später eine Bodencrew zur Ausbesserung markiert werden muss. Nach dem Überflug kehrt ihr ohne Landung nach McCall zurück, damit sie ihr Sichtprotokoll umgehend einreichen kann. Achte im engen Gebirgstal besonders auf deine Umkehrkurven, während sie die Graspiste aus der Luft genau beobachtet.",
+      "rawStoryPreview": "Elena ist heute an Bord, um die Markierungen und den Windsack am Big Creek Airport zu inspizieren, bevor der erste Frost die Saison beendet. Als erfahrene Prüferin für den Payette National Forest kennt sie die tückischen Ecken des Platzes und will sicherstellen, dass Piste 01/19 keine gefährlichen Auswaschungen aufweist. Ihr Saisonbericht für den Oktober hängt maßgeblich von den heutigen Sichtbefunden ab, die über den weiteren Flugbetrieb entscheiden. Du bringst sie direkt zum Zielgebiet, wo ihr genau 150 Sekunden ",
+      "finalStoryLength": 980,
+      "writerStory": "Elena ist heute an Bord, um die Markierungen und den Windsack am Big Creek Airport zu inspizieren, bevor der erste Frost die Saison beendet. Als erfahrene Prüferin für den Payette National Forest kennt sie die tückischen Ecken des Platzes und will sicherstellen, dass Piste 01/19 keine gefährlichen Auswaschungen aufweist. Ihr Saisonbericht für den Oktober hängt maßgeblich von den heutigen Sichtbefunden ab, die über den weiteren Flugbetrieb entscheiden. Du bringst sie direkt zum Zielgebiet, wo ihr genau 150 Sekunden für zwei kontrollierte Kreise über dem Gelände zur Verfügung stehen, um den Zustand rechtssicher zu dokumentieren. Elena hat ihr Checkset und Warnflaggen dabei, falls später eine Bodencrew zur Ausbesserung markiert werden muss. Nach dem Überflug kehrt ihr ohne Landung nach McCall zurück, damit sie ihr Sichtprotokoll umgehend einreichen kann. Achte im engen Gebirgstal besonders auf deine Umkehrkurven, während sie die Graspiste aus der Luft genau beobachtet.",
+      "storyChangedByFinalize": false,
+      "fallbackReason": "",
+      "writerAccepted": true,
+      "textPolicy": "bush-preserve-writer-v1",
+      "semanticDiagnosticReasons": [],
+      "rawTitle": "Herbst-Inventur am Big Creek",
+      "titleChangedByFinalize": false,
+      "briefingRoute": true,
+      "briefingWeather": false,
+      "briefingFacts": 3,
+      "finalLooksEnumerative": false,
+      "finalSentenceCount": 7,
+      "requestDiagnostics": {
+        "error": "",
+        "provider": "gemini",
+        "model": "gemini-3-flash-preview",
+        "parseMode": "direct",
+        "attempts": [
+          {
+            "model": "gemini-3-flash-preview",
+            "status": "ok",
+            "error": ""
+          }
+        ]
+      },
+      "bushMemoryStatus": "accepted"
+    },
+    "i": "📋",
+    "cat": "remote_strip",
+    "missionType": "bush",
+    "bush": {
+      "profileId": "bush_recon_return",
+      "targetMode": "area_then_return",
+      "completionMode": "return_home",
+      "reconPlan": {
+        "schema": "bush-recon-plan.v1",
+        "radiusNm": 1.8,
+        "observationSeconds": 150,
+        "minAreaTrackNm": 0,
+        "planningSpeedKts": 110,
+        "comfortBankDeg": 15,
+        "minimumRadiusNm": 1.14,
+        "requestedRadiusNm": 1.8,
+        "requestedObservationSeconds": 150,
+        "rationale": "Zwei kontrollierte Kreise über dem Flugplatzgelände, um die Piste 01/19, den Windsack und das Vorfeld aus unterschiedlichen Winkeln für die Dokumentation zu erfassen."
+      },
+      "reconFocus": "nach liegengebliebenem Fahrzeug, abgestelltem Flugzeug oder sonstigen Hindernissen nahe Strip und Rollweg suchen",
+      "reconFocusLabel": "Hindernis- und Sicherheitscheck",
+      "requiresReturnHome": true,
+      "pickupKind": "",
+      "pickupLabel": "",
+      "pickupRole": "",
+      "pickupCargoLabel": "",
+      "pickupCargoWeightLbs": 0,
+      "pickupGreetingText": "",
+      "pickupStory": null,
+      "pickupPassengerCount": 0,
+      "homeRef": {
+        "kind": "airport",
+        "icao": "KMYL",
+        "name": "McCall Municipal Airport",
+        "lat": 44.8897,
+        "lon": -116.101,
+        "surface": "unknown",
+        "isRemoteStrip": false
+      },
+      "targetRef": {
+        "kind": "airport",
+        "icao": "U60",
+        "name": "Big Creek Airport",
+        "lat": 45.133202,
+        "lon": -115.321999,
+        "surface": "unknown",
+        "isRemoteStrip": false
+      },
+      "areaRef": {
+        "kind": "area",
+        "name": "Big Creek Airport Recon Area",
+        "lat": 45.133202,
+        "lon": -115.321999,
+        "radiusNm": 1.8,
+        "visualRefs": [
+          "water"
+        ]
+      },
+      "routeRefs": [
+        {
+          "kind": "airport",
+          "icao": "U60",
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999,
+          "surface": "unknown",
+          "isRemoteStrip": false
+        }
+      ],
+      "success": {
+        "minGroundTimeSec": 8,
+        "minAreaTimeSec": 150,
+        "minAreaTrackNm": 0,
+        "cargoMustBeDelivered": false,
+        "passengerMustDeboard": false,
+        "waypointsRequired": 0
+      },
+      "allowedEndLocations": [
+        "home"
+      ],
+      "narrativeMode": "backcountry_recon_return",
+      "riskFlags": [
+        "high_density_altitude",
+        "terrain_awareness",
+        "return_leg_required"
+      ],
+      "opsNotes": [
+        "Ziel ist ein kurzer Recon-Run ueber Strip, Vorfeld oder Anflugraum, nicht nur die Landung am Platz.",
+        "Nach dem Lagebild direkt zum Heimatplatz zurueckkehren und dort gesichert abstellen."
+      ]
+    },
+    "poiChain": null,
+    "profileId": "bush_recon_return",
+    "_requestedProfile": "bush_recon_return",
+    "_appliedProfile": "bush_recon_return",
+    "_missionPlanV2": null,
+    "_missionPlanV4": {
+      "pipelineVersion": "mission-v4-contract-writer-2026-06-07",
+      "bushReconPlan": {
+        "schema": "bush-recon-plan.v1",
+        "radiusNm": 1.8,
+        "observationSeconds": 150,
+        "minAreaTrackNm": 0,
+        "planningSpeedKts": 110,
+        "comfortBankDeg": 15,
+        "minimumRadiusNm": 1.14,
+        "requestedRadiusNm": 1.8,
+        "requestedObservationSeconds": 150,
+        "rationale": "Zwei kontrollierte Kreise über dem Flugplatzgelände, um die Piste 01/19, den Windsack und das Vorfeld aus unterschiedlichen Winkeln für die Dokumentation zu erfassen."
+      },
+      "status": "ready",
+      "mode": "bush",
+      "paxText": "1 PAX (Windsack- und Markierungsprueferin)",
+      "passengerCount": 1,
+      "party": null,
+      "partyNarrative": null,
+      "aircraftCapability": {
+        "cruiseSpeedKts": 110,
+        "aircraftTags": []
+      },
+      "cargoText": "Betriebsflaechen-Checkset und Warnflaggen (23 lbs)",
+      "animalTransportBrief": null,
+      "route": {
+        "startIcao": "",
+        "startName": "McCall Municipal Airport",
+        "targetIcao": "U60",
+        "targetName": "Big Creek Airport",
+        "distanceNm": 36
+      },
+      "profile": {
+        "id": "bush_recon_return",
+        "label": "Bush Recon and Return",
+        "roleProfile": "technical_inspector_v1",
+        "taskDomain": "inspection_infra",
+        "pickerCategory": "all",
+        "requestedCategory": "all"
+      },
+      "target": {
+        "isPOI": false,
+        "name": "Big Creek Airport",
+        "lat": 45.133202,
+        "lon": -115.321999,
+        "poiSource": "",
+        "poiCategory": "all",
+        "terrainFt": null,
+        "terrainMaxFt": null,
+        "terrainRadiusNm": null
+      },
+      "poiChain": null,
+      "knowledgeContext": null,
+      "weather": {
+        "dep": {
+          "summary": "Keine aktuellen Wetterdaten verfügbar.",
+          "raw": null
+        },
+        "dest": {
+          "summary": "Keine aktuellen Wetterdaten verfügbar.",
+          "raw": null
+        },
+        "rule": "Wetter nur als Realitaetsanker nutzen: Wind, Sicht, Wolken/WX knapp einbauen; keine dramatische Wetterstory erfinden."
+      },
+      "environmentContext": {
+        "schema": "mission-environment.v1",
+        "time": {
+          "source": "user-device-local",
+          "createdAt": "2026-10-08T08:30:00.000Z",
+          "createdLocal": "2026-10-08T10:30:00",
+          "utcOffsetMinutes": 120,
+          "timeZone": "Europe/Berlin",
+          "departureTimeKnown": false
+        },
+        "start": {
+          "location": {
+            "name": "McCall Municipal Airport",
+            "lat": 44.8897,
+            "lon": -116.101
+          },
+          "status": "unavailable"
+        },
+        "target": {
+          "location": {
+            "name": "Big Creek Airport",
+            "lat": 45.133202,
+            "lon": -115.321999
+          },
+          "status": "unavailable"
+        }
+      },
+      "departureAirportInfoContext": {
+        "schema": "mission-airport-information.v1",
+        "airport": {
+          "ident": "KMYL",
+          "name": "McCall Municipal Airport",
+          "lat": 44.8897,
+          "lon": -116.101,
+          "country": "US",
+          "elevationFt": 5024,
+          "runways": [
+            {
+              "designator": "16/34",
+              "lengthM": 1864,
+              "widthM": 23,
+              "surface": "Asphalt",
+              "trueHeadingDeg": null,
+              "operations": null
+            }
+          ],
+          "ppr": null,
+          "private": null,
+          "source": "eigene Flugplatzdaten"
+        },
+        "terrain": null,
+        "pilotHints": [
+          {
+            "id": "assess-before-descent",
+            "source": "faa-mountain-safety",
+            "section": "Poor Planning",
+            "text": "Vor dem Sinkflug in einen Gebirgsplatz die Möglichkeiten für Durchstarten und anschließenden Abflug beurteilen."
+          },
+          {
+            "id": "valley-escape",
+            "source": "nz-caa-mountain",
+            "section": "Entering a valley / Escape routes, pp. 24–26",
+            "text": "Im Tal ausreichend Raum zum Wenden und einen Ausweg erhalten. Nicht darauf vertrauen, ansteigendes Gelände übersteigen zu können."
+          },
+          {
+            "id": "valley-wind",
+            "source": "nz-caa-mountain",
+            "section": "Wind, p. 8; Valley flying, p. 22",
+            "text": "Wind im Tal kann in Richtung und Stärke vom Wind oberhalb der Bergrücken abweichen. Eine entfernte Wetterstation beschreibt den lokalen Talwind nicht vollständig."
+          },
+          {
+            "id": "lee-turbulence",
+            "source": "faa-mountain-safety",
+            "section": "Mountain Weather",
+            "text": "Hinter Bergrücken können starke Abwinde und Turbulenz auftreten; ihr Ausmaß lässt sich aus einem Bodenwind allein nicht ableiten."
+          },
+          {
+            "id": "density-altitude",
+            "source": "faa-mountain-tips",
+            "section": "Performance Considerations",
+            "text": "Hohe Dichtehöhe vermindert die verfügbare Flugleistung. Start-, Landestrecken und Steigleistung anhand der Flugzeugunterlagen beurteilen."
+          },
+          {
+            "id": "surface-condition",
+            "source": "nz-caa-mountain",
+            "section": "Approach and landing, pp. 29–30",
+            "text": "Eine bekannte Pistenoberfläche sagt noch nichts über den aktuellen Zustand aus. Nässe, weicher Boden und Grasbewuchs können die nutzbare Leistung beeinflussen."
+          },
+          {
+            "id": "local-knowledge",
+            "source": "ntsb-sa039",
+            "section": "What can pilots do?",
+            "text": "Für unbekannte Gebirgsplätze aktuelle lokale Informationen und qualifizierte Einweisung einholen."
+          }
+        ],
+        "sources": [
+          {
+            "id": "faa-mountain-tips",
+            "title": "FAA Tips on Mountain Flying, FAA-P-8740-60",
+            "url": "https://www.faa.gov/sites/faa.gov/files/regulations_policies/handbooks_manuals/aviation/tips_on_mountain_flying.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "faa-mountain-safety",
+            "title": "FAA Aviation Safety: Mountain Flying",
+            "url": "https://www.faa.gov/sites/faa.gov/files/2022-01/Mountain%20Flying.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "nz-caa-mountain",
+            "title": "NZ CAA Mountain Flying, May 2021",
+            "url": "https://www.aviation.govt.nz/assets/publications/gaps/caa-gap-mountain-flying-may-2021-web.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "ntsb-sa039",
+            "title": "NTSB SA-039 Mastering Mountain Flying",
+            "url": "https://www.ntsb.gov/Advocacy/safety-alerts/Documents/SA-039.pdf",
+            "kind": "pilot-handbook"
+          }
+        ],
+        "retrieval": {
+          "budgetMs": 3000,
+          "requests": {
+            "wikipedia": 2,
+            "faa": 1
+          },
+          "sources": {
+            "wikipedia-de": {
+              "status": "no_match",
+              "ms": 1
+            },
+            "wikipedia-en": {
+              "status": "no_match",
+              "ms": 1
+            },
+            "ownAirport": {
+              "status": "available",
+              "ms": 1,
+              "cached": false
+            },
+            "faa": {
+              "status": "no_match",
+              "ms": 1
+            }
+          },
+          "elapsedMs": 1,
+          "partial": false
+        }
+      },
+      "fireHazard": null,
+      "missionPlan": {
+        "status": "ready",
+        "pipelineVersion": "mission-v4-planner-2026-06-07",
+        "plan": {
+          "taskDomain": "inspection_infra",
+          "roleProfile": "technical_inspector_v1",
+          "missionType": "bush",
+          "targetCategory": "remote_strip",
+          "primaryObjective": "Sichtprüfung der Piste und des Rollfelds am Big Creek Airport aus der Luft",
+          "targetLabel": "Big Creek Airport Recon Area",
+          "missionTrigger": "Saisonale Überprüfung der Backcountry-Infrastruktur vor dem herbstlichen Wetterumschwung",
+          "focusSubject": "Zustand der Graspiste 01/19 und der Markierungen am Big Creek Airport",
+          "keyQuestion": "Sind nach den letzten Witterungseinflüssen Hindernisse, Auswaschungen oder Schäden an den Markierungen erkennbar?",
+          "missionStakes": "Ein negativer Befund führt zur vorläufigen Sperrung für gewerbliche Charterflüge",
+          "completionSignal": "Rückkehr zum McCall Municipal Airport zur Übergabe des Sichtprotokolls",
+          "storyFrame": {
+            "trigger": "Saisonale Überprüfung der Backcountry-Infrastruktur vor dem herbstlichen Wetterumschwung",
+            "focusSubject": "Zustand der Graspiste 01/19 und der Markierungen am Big Creek Airport",
+            "keyQuestion": "Sind nach den letzten Witterungseinflüssen Hindernisse, Auswaschungen oder Schäden an den Markierungen erkennbar?",
+            "stakes": "Ein negativer Befund führt zur vorläufigen Sperrung für gewerbliche Charterflüge",
+            "completionSignal": "Rückkehr zum McCall Municipal Airport zur Übergabe des Sichtprotokolls",
+            "subjectDetail": "Elena, eine erfahrene Windsack- und Markierungsprüferin, die für die Sicherheit der entlegenen Strips im Hinterland zuständig ist.",
+            "incidentContext": "Elena betreut die Pisten im Payette National Forest und kennt die tückischen Stellen am Big Creek Airport genau; sie hat ihr Checkset und Warnflaggen dabei, falls eine spätere Bodencrew markiert werden muss.",
+            "whyNow": "Der heutige Einsatz ist für den Saisonbericht Oktober entscheidend, um den Status der Piste vor den ersten Frostnächten festzuhalten.",
+            "soughtOutcome": "Das vertragliche Recon-Gebiet aus der Luft beobachten und zum Heimatplatz zurückkehren; keine zusätzliche Landung, Reparatur oder garantierter Befund.",
+            "incidentType": "",
+            "lastSeenContext": "",
+            "probableScenario": "",
+            "visibleClueCandidates": [
+              "Verfärbungen im Gras am Pistenrand",
+              "Zustand des Windsacks",
+              "abgestellte Fahrzeuge auf dem Vorfeld",
+              "Erosion im Anflugbereich"
+            ]
+          },
+          "sceneKind": "none",
+          "sceneDensity": "none",
+          "requiredAnchors": [
+            "runway_threshold",
+            "apron_area"
+          ],
+          "objectFamilies": [
+            "inspection_tools"
+          ],
+          "placementPolicy": "none",
+          "narrativeRules": [
+            "Primary subject lock: Big Creek Airport Recon Area (generic) bleibt Hauptsubjekt.",
+            "Task-domain lock: inspection_infra bleibt die Art des Auftrags.",
+            "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+            "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+            "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+            "Infrastruktur darf das Primaerziel sein."
+          ],
+          "localFacts": [
+            "Big Creek (U60) verfügt über eine 1082 Meter lange Graspiste auf 5743 Fuß Höhe.",
+            "Das Zielgebiet liegt in einem typischen Gebirgstal, das besondere Vorsicht bei der Umkehrkurve erfordert.",
+            "Der Platz wird oft als Ausgangspunkt für Wildnis-Expeditionen genutzt."
+          ],
+          "weatherHooks": [],
+          "operationalDetails": [
+            "Besondere Aufmerksamkeit auf die Dichtehöhe (Density Altitude) im Gebirge legen.",
+            "Vor dem Abflug in McCall Treibstoff für den Rückflug ohne Zwischenlandung kalkulieren.",
+            "Sicherheitsabstand zum Gelände während der Platzrunden für die Beobachtung wahren."
+          ],
+          "realismBrief": "In der Backcountry-Fliegerei sind regelmäßige Kontrollen aus der Luft Standard, um den Zustand unbesetzter Plätze zu prüfen, bevor schwere Versorgungsflüge angesetzt werden.",
+          "narrativeHooks": [
+            "Elena prüft während des Fluges ihre Checkliste für die Pistenbefeuerung und Markierungen.",
+            "Die Sorge vor neuen Auswaschungen (Washouts) nach den Regenfällen der letzten Wochen schwingt mit.",
+            "Ein kurzer Blick auf den Windsack am Ziel gibt Elena Aufschluss über die aktuellen Talwinde."
+          ],
+          "mustMention": [
+            "Betriebsflächen-Checkset",
+            "Warnflaggen",
+            "Piste 01/19",
+            "Sichtprüfung"
+          ],
+          "mustAvoid": [
+            "Landung am Ziel",
+            "Rettungsaktion",
+            "Personentransport zum Zielort",
+            "Kontext darf das Primaerziel nicht ersetzen.",
+            "Kontext darf die TaskDomain nicht umwidmen."
+          ],
+          "lockedFields": {
+            "noLandingAtPoi": true,
+            "primarySubjectLabel": "Big Creek Airport Recon Area",
+            "primarySubjectType": "generic",
+            "taskDomain": "inspection_infra"
+          },
+          "confidence": 1
+        },
+        "poiChain": null,
+        "needs": [],
+        "resolvedNeedTypes": [
+          "geo_context",
+          "mission_truth",
+          "weather_snapshot",
+          "fire_hazard",
+          "airport_details"
+        ]
+      },
+      "storyFrame": {
+        "trigger": "Saisonale Überprüfung der Backcountry-Infrastruktur vor dem herbstlichen Wetterumschwung",
+        "focusSubject": "Zustand der Graspiste 01/19 und der Markierungen am Big Creek Airport",
+        "keyQuestion": "Sind nach den letzten Witterungseinflüssen Hindernisse, Auswaschungen oder Schäden an den Markierungen erkennbar?",
+        "stakes": "Ein negativer Befund führt zur vorläufigen Sperrung für gewerbliche Charterflüge",
+        "completionSignal": "Rückkehr zum McCall Municipal Airport zur Übergabe des Sichtprotokolls",
+        "subjectDetail": "Elena, eine erfahrene Windsack- und Markierungsprüferin, die für die Sicherheit der entlegenen Strips im Hinterland zuständig ist.",
+        "incidentContext": "Elena betreut die Pisten im Payette National Forest und kennt die tückischen Stellen am Big Creek Airport genau; sie hat ihr Checkset und Warnflaggen dabei, falls eine spätere Bodencrew markiert werden muss.",
+        "whyNow": "Der heutige Einsatz ist für den Saisonbericht Oktober entscheidend, um den Status der Piste vor den ersten Frostnächten festzuhalten.",
+        "soughtOutcome": "Das vertragliche Recon-Gebiet aus der Luft beobachten und zum Heimatplatz zurückkehren; keine zusätzliche Landung, Reparatur oder garantierter Befund.",
+        "incidentType": "",
+        "lastSeenContext": "",
+        "probableScenario": "",
+        "visibleClueCandidates": [
+          "Verfärbungen im Gras am Pistenrand",
+          "Zustand des Windsacks",
+          "abgestellte Fahrzeuge auf dem Vorfeld",
+          "Erosion im Anflugbereich"
+        ]
+      },
+      "infraNarrativeHandoff": {
+        "schema": "ga.infraNarrativeHandoff.v1",
+        "mode": "single_infra_inspection",
+        "focus": "Elena, eine erfahrene Windsack- und Markierungsprüferin, die für die Sicherheit der entlegenen Strips im Hinterland zuständig ist",
+        "decision": "ob Beobachtung reicht oder ein gezielter Folgeeinsatz vorbereitet werden muss",
+        "nextStep": "Befund, Fotos und Empfehlung gehen nach dem Überflug an Betreiber oder Technikteam"
+      },
+      "chainNarrativeBrief": null,
+      "pickupCreativeBrief": null,
+      "missionVarietyBrief": {
+        "personalStoryBasis": {
+          "focus": "Ein konkreter Aufklärungsanlass am vertraglichen Platz oder Gebiet trägt die Geschichte: ein gemeldetes Ereignis, eine Auffälligkeit oder eine begründete Vermutung. Erkläre, warum der Flug nötig ist, was aus der Luft untersucht werden soll und weshalb das für die Beteiligten wichtig ist.",
+          "connection": "Die persönliche Note vertieft genau diesen Anlass: Beziehung der beteiligten Person zum Ereignis, eigene Haltung, Sorge, Hoffnung oder damit verbundene Erfahrung. Erzähle den Kern persönlich, statt eine unabhängige Personenanekdote danebenzustellen. Den Untersuchungsbefund nicht vorwegnehmen; die Ungewissheit braucht keinen erklärenden Metasatz.",
+          "outcome": "Das vertragliche Recon-Gebiet aus der Luft beobachten und zum Heimatplatz zurückkehren; keine zusätzliche Landung, Reparatur oder garantierter Befund.",
+          "voice": "Nur ein tatsächlich vertraglich mitfliegender Beobachter darf sprechen; andernfalls bleibt die Perspektive beim Dispatch und Auftraggeber am Boden.",
+          "use": "Freie Inspiration. Anlass, Auftraggeber und Beobachtungsfrage folgen bevorzugt einer Richtung der candidateShortlist; Ziel, Region und Gelände geben Farbe. Vorgeschichte, Pointe, Schadensdrama oder Frist sind keine Pflicht."
+        },
+        "weatherIdeaPolicy": "BUSH-WETTER: Nutze Wetter als praktischen Hintergrund. Ein wettergetriebener Auftrag folgt einem belegten markanten Wetterereignis oder einer gelieferten Meldung mit Ort und Zeit. Die Jahreszeit darf einen längerfristigen zeitlichen Anker liefern, etwa Herbstwartung ohne Zeitdruck. Gewöhnliche Wetterwerte und die Jahreszeit allein begründen weder drohenden Schnee noch ein knappes letztes Flugfenster; wetterbedingte Eile braucht ein konkret belegtes bevorstehendes Ereignis. Menschliche und fachliche Anlässe dürfen unabhängig davon tragen. Leite whyNow zuerst aus dem nächsten Schritt der Person oder des Auftraggebers ab. Saisonale Vorsorge kann einfach ein sinnvoller heutiger Auftrag sein; normale aktuelle Wetterwerte beschreiben nur den Flugrahmen, nicht den Grund, weshalb der Auftrag gerade jetzt erledigt werden muss. Auch eine im Planner erfundene Wetterfrist ist kein zusätzlicher Wetterbeleg für den Writer.",
+        "candidateEvidencePolicy": "Kandidaten und regionale Rollen-/Tätigkeitsideen sind mögliche fiktive Motive, keine Ereignismeldungen oder Belege für Anlagen, Tal, Hang, Jahreszeitbedingungen und Wetter. Wähle einen Anlass, der ohne erfundene reale Eigenschaften des Ziels auskommt. Saisonale Tätigkeiten wie Herbstwartung sind als längerfristiger Anlass zulässig, ohne daraus nahen Frost, Sperrungen oder Zeitdruck abzuleiten. Ein wettergetriebener Ereigniskandidat braucht ein ausdrücklich geliefertes markantes Wetterereignis.",
+        "purpose": "Offener Kreativrahmen fuer einen Bush-Recon mit Heimkehrpflicht. Das Profil prueft Zielstrip, Anflugraum oder Umfeld aus der Luft und bringt den Befund zur Basis zurueck.",
+        "recipe": "Von McCall Municipal Airport zum Zielgebiet bei Big Creek Airport Recon Area, dort Recon aus der Luft, keine geplante Landung, danach Rueckflug nach McCall Municipal Airport.",
+        "coreQuestions": [
+          "Was genau wird bei Big Creek Airport Recon Area aus der Luft geprueft?",
+          "Welche konkrete Beobachtungsfrage oder Meldung begründet den Recon? Eine Wetterfolge nur bei einem ausdrücklich gelieferten markanten Ereignis; saisonale Vorsorge darf eine konkrete Beobachtungsfrage begründen, aber allein keine Eile oder bereits eingetretene Wetterfolgen.",
+          "Welche sichtbaren Dinge sollen wir beurteilen: Piste, Zufahrt, Hindernisse, Wasserlauf, Rauch, Markierungen?",
+          "Warum muss der Befund zurueck nach McCall Municipal Airport, statt den Flug am Ziel enden zu lassen?",
+          "Welche Entscheidung kann nach dem Rueckflug getroffen werden?"
+        ],
+        "candidateShortlist": [
+          {
+            "id": "season_opening_recon",
+            "familyId": "season_opening",
+            "label": "Saisonstart und Betreibercheck",
+            "wildcard": false,
+            "matchTags": [
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Betreiberkontakt",
+              "Lodge-Koordinatorin",
+              "Airstrip-Inspektorin"
+            ],
+            "taskIdeas": [
+              "Piste, Parkpunkt und Zufahrt vor dem ersten Saisonflug ueberpruefen",
+              "Windsack, Markierungen und sichtbare Lagerstellen aus der Luft notieren",
+              "Betriebsakte mit frischen Fotos ergaenzen"
+            ],
+            "objectIdeas": [
+              "Tablet",
+              "Betriebsmappe",
+              "Kamera",
+              "Checkliste"
+            ],
+            "returnDrivers": [
+              "die Saisonplanung wartet auf den ersten belastbaren Befund",
+              "die Basis entscheidet, welche Fracht als erstes rausgeht",
+              "das Ergebnis wird nach der Landung daheim eingetragen"
+            ],
+            "accessReasons": [
+              "der Zielstrip ist selbst der Pruefgegenstand",
+              "ein kurzer Ueberflug reicht fuer die Vorentscheidung",
+              "die Heimkehr gehoert zum Abschluss des Recon-Profils"
+            ]
+          },
+          {
+            "id": "approach_corridor_recon",
+            "familyId": "approach_corridor",
+            "label": "Anflugraum und Hindernischeck",
+            "wildcard": false,
+            "matchTags": [
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Backcountry-Operationsleiterin",
+              "Forst-Ranger",
+              "Airstrip-Inspektor"
+            ],
+            "taskIdeas": [
+              "Baumkronen, Hangschatten und neue Hindernisse im Anflugraum vergleichen",
+              "Windzeichen, Talverlauf und Ausweichpunkt kurz beurteilen",
+              "Fotos fuer ein aktualisiertes Anflugbriefing aufnehmen"
+            ],
+            "objectIdeas": [
+              "Kamera",
+              "Anflugkarte",
+              "Tablet",
+              "Funkmappe"
+            ],
+            "returnDrivers": [
+              "das Briefing fuer kommende Bush-Fluege wird nach Rueckkehr aktualisiert",
+              "die Basis braucht Fotos, bevor wieder Neulinge dorthin geplant werden",
+              "der Recon bleibt bewusst kurz und heimkehrpflichtig"
+            ],
+            "accessReasons": [
+              "der Anflugraum ist der eigentliche Zielbereich",
+              "Landung wuerde den Auftrag nicht verbessern",
+              "aus der Luft sind Tal, Strip und Hindernisse zusammen erkennbar"
+            ]
+          },
+          {
+            "id": "wildlife_obstruction_recon",
+            "familyId": "wildlife_obstruction",
+            "label": "Wildlife, Zaun und Hindernisse",
+            "wildcard": false,
+            "matchTags": [
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Ranger-Koordinator",
+              "Ranch-Caretakerin",
+              "Operationskontakt"
+            ],
+            "taskIdeas": [
+              "Zaunluecken, Wildwechsel und Gegenstaende am Bahnrand suchen",
+              "Parkflaeche und Pistenkopf auf frische Spuren pruefen",
+              "sichtbare Hindernisse fuer den naechsten Anflug notieren"
+            ],
+            "objectIdeas": [
+              "Kamera",
+              "Fernglas",
+              "Notizblock",
+              "Funkliste"
+            ],
+            "returnDrivers": [
+              "die Basis warnt die naechste Crew nur bei belastbarem Befund",
+              "der Betreiber kann den Zauncheck gezielt ansetzen",
+              "der Recon spart eine unnoetige Bodenfahrt"
+            ],
+            "accessReasons": [
+              "die Piste und der Wiesenrand sind aus der Luft gut lesbar",
+              "der Auftrag ist ein Lagebild, keine Landung",
+              "der Heimflug bringt die Notizen direkt zur Einsatzplanung"
+            ]
+          },
+          {
+            "id": "storm_strip_damage",
+            "familyId": "storm_damage",
+            "label": "Strip-Zustand nach Wetter",
+            "wildcard": false,
+            "matchTags": [
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Airstrip-Inspektorin",
+              "Backcountry-Operationsleiter",
+              "Ranger-Koordinator"
+            ],
+            "taskIdeas": [
+              "Spurrinnen, lose Aeste und Bahnrand aus der Luft einschaetzen",
+              "Windsack, Zufahrt und Parkpunkt auf sichtbare Schaeden pruefen",
+              "Anflugraum und Abrollbereich fuer den naechsten Flug beurteilen"
+            ],
+            "objectIdeas": [
+              "Kamera",
+              "Strip-Checkliste",
+              "Funkmappe",
+              "Tablet"
+            ],
+            "returnDrivers": [
+              "die Basis entscheidet danach ueber Freigabe oder Crewgang",
+              "der Betreiber braucht ein schnelles Lagebild ohne Landung",
+              "der naechste Versorgungsflug haengt am Befund"
+            ],
+            "accessReasons": [
+              "der Strip selbst ist der Arbeitsraum",
+              "ein Ueberflug reicht fuer die erste Entscheidung",
+              "Landung ist nicht Teil des Recon-Auftrags"
+            ]
+          },
+          {
+            "id": "drainage_washout_recon",
+            "familyId": "drainage_runoff",
+            "label": "Drainage, Washout und Wasserlauf",
+            "wildcard": false,
+            "matchTags": [
+              "water",
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Strip-Betreiber",
+              "USFS-Technikinspektorin",
+              "Utility-Koordinator"
+            ],
+            "taskIdeas": [
+              "Drainagegraben und Washout-Spuren neben der Piste kontrollieren",
+              "Zufahrt, Gatter und Bodenverfaerbungen aus der Luft vergleichen",
+              "moegliche weiche Stellen fuer die Bodencrew markieren"
+            ],
+            "objectIdeas": [
+              "Fototablet",
+              "Checkliste",
+              "Kartenfenster",
+              "Handfunkgeraet"
+            ],
+            "returnDrivers": [
+              "die Bodencrew braucht Prioritaeten fuer den Reparaturlauf",
+              "die Basis entscheidet, ob ein schwererer Flug warten muss",
+              "der Befund wird nach Rueckkehr direkt eingetragen"
+            ],
+            "accessReasons": [
+              "der Ueberflug zeigt Wasserlauf und Bahnrand zusammen",
+              "vom Cockpit laesst sich der Abschnitt ohne Bodenkontakt erfassen",
+              "der Rueckflug zur Basis ist Teil des Auftrags"
+            ]
+          }
+        ],
+        "variety": {
+          "schema": "missionVarietyPack.v1",
+          "namespace": "bush_recon_return",
+          "profileId": "bush_recon_return",
+          "contextTags": [
+            "bush",
+            "remote_strip",
+            "water"
+          ],
+          "selectedIds": [
+            "season_opening_recon",
+            "approach_corridor_recon",
+            "wildlife_obstruction_recon",
+            "storm_strip_damage",
+            "drainage_washout_recon"
+          ],
+          "selectedFamilies": [
+            "season_opening",
+            "approach_corridor",
+            "wildlife_obstruction",
+            "storm_damage",
+            "drainage_runoff"
+          ],
+          "primaryId": "season_opening_recon",
+          "primaryFamily": "season_opening",
+          "recentFamilies": [],
+          "recentPrimaryFamilies": [],
+          "recentPrimaryIds": [],
+          "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+          "storageKey": "ga_mission_variety_history_bush_recon_return_v1"
+        },
+        "ingredientAxes": {
+          "roleFamilies": [
+            "Betreiberkontakt",
+            "Lodge-Koordinatorin",
+            "Airstrip-Inspektorin",
+            "Backcountry-Operationsleiterin",
+            "Forst-Ranger",
+            "Airstrip-Inspektor",
+            "Ranger-Koordinator",
+            "Ranch-Caretakerin",
+            "Operationskontakt",
+            "Backcountry-Operationsleiter",
+            "Strip-Betreiber",
+            "USFS-Technikinspektorin"
+          ],
+          "activityVerbs": [
+            "Piste, Parkpunkt und Zufahrt vor dem ersten Saisonflug ueberpruefen",
+            "Windsack, Markierungen und sichtbare Lagerstellen aus der Luft notieren",
+            "Betriebsakte mit frischen Fotos ergaenzen",
+            "Baumkronen, Hangschatten und neue Hindernisse im Anflugraum vergleichen",
+            "Windzeichen, Talverlauf und Ausweichpunkt kurz beurteilen",
+            "Fotos fuer ein aktualisiertes Anflugbriefing aufnehmen",
+            "Zaunluecken, Wildwechsel und Gegenstaende am Bahnrand suchen",
+            "Parkflaeche und Pistenkopf auf frische Spuren pruefen",
+            "sichtbare Hindernisse fuer den naechsten Anflug notieren",
+            "Spurrinnen, lose Aeste und Bahnrand aus der Luft einschaetzen",
+            "Windsack, Zufahrt und Parkpunkt auf sichtbare Schaeden pruefen",
+            "Anflugraum und Abrollbereich fuer den naechsten Flug beurteilen",
+            "Drainagegraben und Washout-Spuren neben der Piste kontrollieren",
+            "Zufahrt, Gatter und Bodenverfaerbungen aus der Luft vergleichen"
+          ],
+          "evidenceObjects": [
+            "Tablet",
+            "Betriebsmappe",
+            "Kamera",
+            "Checkliste",
+            "Anflugkarte",
+            "Funkmappe",
+            "Fernglas",
+            "Notizblock",
+            "Funkliste",
+            "Strip-Checkliste",
+            "Fototablet",
+            "Kartenfenster",
+            "Handfunkgeraet"
+          ],
+          "returnDrivers": [
+            "die Saisonplanung wartet auf den ersten belastbaren Befund",
+            "die Basis entscheidet, welche Fracht als erstes rausgeht",
+            "das Ergebnis wird nach der Landung daheim eingetragen",
+            "das Briefing fuer kommende Bush-Fluege wird nach Rueckkehr aktualisiert",
+            "die Basis braucht Fotos, bevor wieder Neulinge dorthin geplant werden",
+            "der Recon bleibt bewusst kurz und heimkehrpflichtig",
+            "die Basis warnt die naechste Crew nur bei belastbarem Befund",
+            "der Betreiber kann den Zauncheck gezielt ansetzen",
+            "der Recon spart eine unnoetige Bodenfahrt",
+            "die Basis entscheidet danach ueber Freigabe oder Crewgang"
+          ],
+          "accessReasons": [
+            "der Zielstrip ist selbst der Pruefgegenstand",
+            "ein kurzer Ueberflug reicht fuer die Vorentscheidung",
+            "die Heimkehr gehoert zum Abschluss des Recon-Profils",
+            "der Anflugraum ist der eigentliche Zielbereich",
+            "Landung wuerde den Auftrag nicht verbessern",
+            "aus der Luft sind Tal, Strip und Hindernisse zusammen erkennbar",
+            "die Piste und der Wiesenrand sind aus der Luft gut lesbar",
+            "der Auftrag ist ein Lagebild, keine Landung"
+          ]
+        },
+        "writerExpectations": [
+          "Nutze bevorzugt genau eine Richtung aus candidateShortlist, damit Rolle, Taetigkeiten, Gegenstaende und Folgegrund zusammenpassen.",
+          "Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren.",
+          "Wenn candidateShortlist nicht passt, nutze ingredientAxes als offene Inspiration und bleibe trotzdem im Zielkontext.",
+          "Kontext, Profil-Rezept, TaskDomain und MissionTruth schlagen Varianz.",
+          "Nicht alle Achsen abarbeiten; frei kombinieren und variieren.",
+          "Keine neuen Ortsnamen oder harten Geofakten erfinden.",
+          "Recon bleibt Recon: nicht als Landung, Dropoff oder Pickup umdeuten.",
+          "Der Zielstrip oder sein Umfeld ist Arbeitsraum, nicht Endpunkt.",
+          "Der Handoff in der Basis ist der Abschluss, aber ohne pauschalen Zeitdruck."
+        ],
+        "weatherNote": ""
+      },
+      "variety": {
+        "schema": "missionVarietyPack.v1",
+        "namespace": "bush_recon_return",
+        "profileId": "bush_recon_return",
+        "contextTags": [
+          "bush",
+          "remote_strip",
+          "water"
+        ],
+        "selectedIds": [
+          "season_opening_recon",
+          "approach_corridor_recon",
+          "wildlife_obstruction_recon",
+          "storm_strip_damage",
+          "drainage_washout_recon"
+        ],
+        "selectedFamilies": [
+          "season_opening",
+          "approach_corridor",
+          "wildlife_obstruction",
+          "storm_damage",
+          "drainage_runoff"
+        ],
+        "primaryId": "season_opening_recon",
+        "primaryFamily": "season_opening",
+        "recentFamilies": [],
+        "recentPrimaryFamilies": [],
+        "recentPrimaryIds": [],
+        "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+        "storageKey": "ga_mission_variety_history_bush_recon_return_v1"
+      },
+      "sarHeli": null,
+      "missionTruth": null,
+      "semantics": {
+        "version": "mission-semantics-v4-2026-06-07",
+        "focusLock": {
+          "mode": "bush",
+          "taskDomain": "inspection_infra",
+          "targetCategory": "generic",
+          "requestedCategory": "all",
+          "primarySubjectLabel": "Big Creek Airport Recon Area",
+          "primarySubjectType": "generic",
+          "contextRoles": [
+            "orientation",
+            "hazard",
+            "access",
+            "support",
+            "evidence",
+            "background"
+          ]
+        },
+        "plannerGuardrails": [
+          "Primary subject lock: Big Creek Airport Recon Area (generic) bleibt Hauptsubjekt.",
+          "Task-domain lock: inspection_infra bleibt die Art des Auftrags.",
+          "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+          "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+          "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+          "Infrastruktur darf das Primaerziel sein.",
+          "Diagnose, Wartung, Stoerung oder Dokumentation duerfen die Story tragen.",
+          "Windparks, Solarparks, Energieanlagen, Batteriespeicher, Pipeline-/Gas-/Waermenetzpunkte, Wasser-/Abwasseranlagen, Hafen-/Schleusenanlagen, Anleger, Perimeter-/Zaunbereiche, Entsorgung, Steinbruch/Kieswerk, Schutzbau, Trassen, Umspannwerke, Funkmasten, Bruecken, Daemme, Baustellen, oeffentliche Gebaeude, Tankstellen, Tanks, Wassertanks und Industrieanlagen sind passende Infrastrukturziele, wenn sie als Ziel oder bestaetigter Kontext vorliegen. Dach ist nur Pruefmerkmal eines passenden Gebaeudes oder einer Anlage, kein eigener Zieltyp.",
+          "Das gewaehlte Ziel bleibt Primärsubjekt."
+        ],
+        "writerGuardrails": [
+          "Story, Greeting und sceneIntent muessen Big Creek Airport Recon Area als Primaerfokus behalten.",
+          "Kontext darf den Auftrag anreichern, aber nicht umwidmen.",
+          "Die Erzaehlung bleibt Backcountry-/Bush-bezogen und driftet nicht in normalen A-B-Verkehr.",
+          "Die Erzaehlung darf technisch sein, solange das gewaehle Bauwerk oder die Anlage Hauptsubjekt bleibt.",
+          "Briefing nennt Anlass, Verdachtsbereich und Folgeentscheidung: beobachten, Bodencheck, Wartungsfenster, Sperrung, Reparatur oder Betreiberfreigabe.",
+          "Kontext darf nur anreichern, nie umwidmen."
+        ],
+        "forceSceneNone": false,
+        "naturalPriority": false
+      },
+      "followUpContext": null,
+      "missionTemporalContext": null,
+      "varietyHints": null,
+      "targetGeoContext": null,
+      "airportDetails": {
+        "start": {
+          "icao": "KMYL",
+          "name": "McCall Municipal Airport",
+          "lat": 44.8897,
+          "lon": -116.101
+        },
+        "dest": {
+          "icao": "U60",
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999
+        },
+        "targetPoi": null
+      },
+      "departureAirportInformation": {
+        "schema": "departure-airport-information-text.v1",
+        "departureInfo": "Der McCall Municipal Airport (KMYL) dient als wichtiger Knotenpunkt für Operationen im Payette National Forest. Auf einer Platzhöhe von 5024 Fuß gelegen, bietet die asphaltierte Piste 16/34 mit ihren 1864 Metern Länge eine solide Basis, erfordert jedoch aufgrund der Höhenlage eine aufmerksame Leistungsplanung. Besonders bei herbstlichen Bedingungen sollte die verminderte Steigleistung des Flugzeugs einkalkuliert werden. Piloten sollten vor dem Abflug sicherstellen, dass ausreichend Treibstoff für den Rückflug ohne Zwischenlandung vorhanden ist, da die Route tief in unerschlossenes Gebiet führt.",
+        "sourceIds": [
+          "faa-mountain-tips",
+          "nz-caa-mountain"
+        ],
+        "generated": true
+      },
+      "bushFollowUpNarrative": {
+        "schema": "ga.bush.followup-memory.v1",
+        "memory": {
+          "summary": "Elena hat die herbstliche Inspektion der Infrastruktur am Big Creek Airport eingeleitet. Ziel war die visuelle Prüfung der Piste 01/19 und der Markierungen vor dem Winterfrost, um den Status für gewerbliche Charterflüge festzulegen. Die Beobachtung erfolgte aus der Luft ohne Landung am Zielort.",
+          "participants": [
+            {
+              "name": "Elena",
+              "role": "Technische Infrastruktur-Prüferin"
+            }
+          ],
+          "openQuestions": [
+            "Erlaubt der Zustand der Piste den weiteren Betrieb für Charterflüge?",
+            "Müssen vor dem ersten Frost noch physische Markierungen durch eine Bodencrew erneuert werden?"
+          ],
+          "betweenFlightsIdeas": [
+            {
+              "followUpKind": "bush_supply_strip",
+              "summary": "Transport von neuen Markierungsflaggen und Instandsetzungsmaterial zum Big Creek, falls die Luftbildauswertung Schäden gezeigt hat."
+            },
+            {
+              "followUpKind": "bush_charter_strip",
+              "summary": "Beförderung eines Bodenteams zum Big Creek Airport, um die von Elena aus der Luft markierten Stellen direkt vor Ort auszubessern."
+            }
+          ]
+        }
+      }
+    },
+    "_missionContractV4": {
+      "pipelineVersion": "mission-v4-contract-writer-2026-06-07",
+      "bushReconPlan": {
+        "schema": "bush-recon-plan.v1",
+        "radiusNm": 1.8,
+        "observationSeconds": 150,
+        "minAreaTrackNm": 0,
+        "planningSpeedKts": 110,
+        "comfortBankDeg": 15,
+        "minimumRadiusNm": 1.14,
+        "requestedRadiusNm": 1.8,
+        "requestedObservationSeconds": 150,
+        "rationale": "Zwei kontrollierte Kreise über dem Flugplatzgelände, um die Piste 01/19, den Windsack und das Vorfeld aus unterschiedlichen Winkeln für die Dokumentation zu erfassen."
+      },
+      "status": "ready",
+      "mode": "bush",
+      "paxText": "1 PAX (Windsack- und Markierungsprueferin)",
+      "passengerCount": 1,
+      "party": null,
+      "partyNarrative": null,
+      "aircraftCapability": {
+        "cruiseSpeedKts": 110,
+        "aircraftTags": []
+      },
+      "cargoText": "Betriebsflaechen-Checkset und Warnflaggen (23 lbs)",
+      "animalTransportBrief": null,
+      "route": {
+        "startIcao": "",
+        "startName": "McCall Municipal Airport",
+        "targetIcao": "U60",
+        "targetName": "Big Creek Airport",
+        "distanceNm": 36
+      },
+      "profile": {
+        "id": "bush_recon_return",
+        "label": "Bush Recon and Return",
+        "roleProfile": "technical_inspector_v1",
+        "taskDomain": "inspection_infra",
+        "pickerCategory": "all",
+        "requestedCategory": "all"
+      },
+      "target": {
+        "isPOI": false,
+        "name": "Big Creek Airport",
+        "lat": 45.133202,
+        "lon": -115.321999,
+        "poiSource": "",
+        "poiCategory": "all",
+        "terrainFt": null,
+        "terrainMaxFt": null,
+        "terrainRadiusNm": null
+      },
+      "poiChain": null,
+      "knowledgeContext": null,
+      "weather": {
+        "dep": {
+          "summary": "Keine aktuellen Wetterdaten verfügbar.",
+          "raw": null
+        },
+        "dest": {
+          "summary": "Keine aktuellen Wetterdaten verfügbar.",
+          "raw": null
+        },
+        "rule": "Wetter nur als Realitaetsanker nutzen: Wind, Sicht, Wolken/WX knapp einbauen; keine dramatische Wetterstory erfinden."
+      },
+      "environmentContext": {
+        "schema": "mission-environment.v1",
+        "time": {
+          "source": "user-device-local",
+          "createdAt": "2026-10-08T08:30:00.000Z",
+          "createdLocal": "2026-10-08T10:30:00",
+          "utcOffsetMinutes": 120,
+          "timeZone": "Europe/Berlin",
+          "departureTimeKnown": false
+        },
+        "start": {
+          "location": {
+            "name": "McCall Municipal Airport",
+            "lat": 44.8897,
+            "lon": -116.101
+          },
+          "status": "unavailable"
+        },
+        "target": {
+          "location": {
+            "name": "Big Creek Airport",
+            "lat": 45.133202,
+            "lon": -115.321999
+          },
+          "status": "unavailable"
+        }
+      },
+      "departureAirportInfoContext": {
+        "schema": "mission-airport-information.v1",
+        "airport": {
+          "ident": "KMYL",
+          "name": "McCall Municipal Airport",
+          "lat": 44.8897,
+          "lon": -116.101,
+          "country": "US",
+          "elevationFt": 5024,
+          "runways": [
+            {
+              "designator": "16/34",
+              "lengthM": 1864,
+              "widthM": 23,
+              "surface": "Asphalt",
+              "trueHeadingDeg": null,
+              "operations": null
+            }
+          ],
+          "ppr": null,
+          "private": null,
+          "source": "eigene Flugplatzdaten"
+        },
+        "terrain": null,
+        "pilotHints": [
+          {
+            "id": "assess-before-descent",
+            "source": "faa-mountain-safety",
+            "section": "Poor Planning",
+            "text": "Vor dem Sinkflug in einen Gebirgsplatz die Möglichkeiten für Durchstarten und anschließenden Abflug beurteilen."
+          },
+          {
+            "id": "valley-escape",
+            "source": "nz-caa-mountain",
+            "section": "Entering a valley / Escape routes, pp. 24–26",
+            "text": "Im Tal ausreichend Raum zum Wenden und einen Ausweg erhalten. Nicht darauf vertrauen, ansteigendes Gelände übersteigen zu können."
+          },
+          {
+            "id": "valley-wind",
+            "source": "nz-caa-mountain",
+            "section": "Wind, p. 8; Valley flying, p. 22",
+            "text": "Wind im Tal kann in Richtung und Stärke vom Wind oberhalb der Bergrücken abweichen. Eine entfernte Wetterstation beschreibt den lokalen Talwind nicht vollständig."
+          },
+          {
+            "id": "lee-turbulence",
+            "source": "faa-mountain-safety",
+            "section": "Mountain Weather",
+            "text": "Hinter Bergrücken können starke Abwinde und Turbulenz auftreten; ihr Ausmaß lässt sich aus einem Bodenwind allein nicht ableiten."
+          },
+          {
+            "id": "density-altitude",
+            "source": "faa-mountain-tips",
+            "section": "Performance Considerations",
+            "text": "Hohe Dichtehöhe vermindert die verfügbare Flugleistung. Start-, Landestrecken und Steigleistung anhand der Flugzeugunterlagen beurteilen."
+          },
+          {
+            "id": "surface-condition",
+            "source": "nz-caa-mountain",
+            "section": "Approach and landing, pp. 29–30",
+            "text": "Eine bekannte Pistenoberfläche sagt noch nichts über den aktuellen Zustand aus. Nässe, weicher Boden und Grasbewuchs können die nutzbare Leistung beeinflussen."
+          },
+          {
+            "id": "local-knowledge",
+            "source": "ntsb-sa039",
+            "section": "What can pilots do?",
+            "text": "Für unbekannte Gebirgsplätze aktuelle lokale Informationen und qualifizierte Einweisung einholen."
+          }
+        ],
+        "sources": [
+          {
+            "id": "faa-mountain-tips",
+            "title": "FAA Tips on Mountain Flying, FAA-P-8740-60",
+            "url": "https://www.faa.gov/sites/faa.gov/files/regulations_policies/handbooks_manuals/aviation/tips_on_mountain_flying.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "faa-mountain-safety",
+            "title": "FAA Aviation Safety: Mountain Flying",
+            "url": "https://www.faa.gov/sites/faa.gov/files/2022-01/Mountain%20Flying.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "nz-caa-mountain",
+            "title": "NZ CAA Mountain Flying, May 2021",
+            "url": "https://www.aviation.govt.nz/assets/publications/gaps/caa-gap-mountain-flying-may-2021-web.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "ntsb-sa039",
+            "title": "NTSB SA-039 Mastering Mountain Flying",
+            "url": "https://www.ntsb.gov/Advocacy/safety-alerts/Documents/SA-039.pdf",
+            "kind": "pilot-handbook"
+          }
+        ],
+        "retrieval": {
+          "budgetMs": 3000,
+          "requests": {
+            "wikipedia": 2,
+            "faa": 1
+          },
+          "sources": {
+            "wikipedia-de": {
+              "status": "no_match",
+              "ms": 1
+            },
+            "wikipedia-en": {
+              "status": "no_match",
+              "ms": 1
+            },
+            "ownAirport": {
+              "status": "available",
+              "ms": 1,
+              "cached": false
+            },
+            "faa": {
+              "status": "no_match",
+              "ms": 1
+            }
+          },
+          "elapsedMs": 1,
+          "partial": false
+        }
+      },
+      "fireHazard": null,
+      "missionPlan": {
+        "status": "ready",
+        "pipelineVersion": "mission-v4-planner-2026-06-07",
+        "plan": {
+          "taskDomain": "inspection_infra",
+          "roleProfile": "technical_inspector_v1",
+          "missionType": "bush",
+          "targetCategory": "remote_strip",
+          "primaryObjective": "Sichtprüfung der Piste und des Rollfelds am Big Creek Airport aus der Luft",
+          "targetLabel": "Big Creek Airport Recon Area",
+          "missionTrigger": "Saisonale Überprüfung der Backcountry-Infrastruktur vor dem herbstlichen Wetterumschwung",
+          "focusSubject": "Zustand der Graspiste 01/19 und der Markierungen am Big Creek Airport",
+          "keyQuestion": "Sind nach den letzten Witterungseinflüssen Hindernisse, Auswaschungen oder Schäden an den Markierungen erkennbar?",
+          "missionStakes": "Ein negativer Befund führt zur vorläufigen Sperrung für gewerbliche Charterflüge",
+          "completionSignal": "Rückkehr zum McCall Municipal Airport zur Übergabe des Sichtprotokolls",
+          "storyFrame": {
+            "trigger": "Saisonale Überprüfung der Backcountry-Infrastruktur vor dem herbstlichen Wetterumschwung",
+            "focusSubject": "Zustand der Graspiste 01/19 und der Markierungen am Big Creek Airport",
+            "keyQuestion": "Sind nach den letzten Witterungseinflüssen Hindernisse, Auswaschungen oder Schäden an den Markierungen erkennbar?",
+            "stakes": "Ein negativer Befund führt zur vorläufigen Sperrung für gewerbliche Charterflüge",
+            "completionSignal": "Rückkehr zum McCall Municipal Airport zur Übergabe des Sichtprotokolls",
+            "subjectDetail": "Elena, eine erfahrene Windsack- und Markierungsprüferin, die für die Sicherheit der entlegenen Strips im Hinterland zuständig ist.",
+            "incidentContext": "Elena betreut die Pisten im Payette National Forest und kennt die tückischen Stellen am Big Creek Airport genau; sie hat ihr Checkset und Warnflaggen dabei, falls eine spätere Bodencrew markiert werden muss.",
+            "whyNow": "Der heutige Einsatz ist für den Saisonbericht Oktober entscheidend, um den Status der Piste vor den ersten Frostnächten festzuhalten.",
+            "soughtOutcome": "Das vertragliche Recon-Gebiet aus der Luft beobachten und zum Heimatplatz zurückkehren; keine zusätzliche Landung, Reparatur oder garantierter Befund.",
+            "incidentType": "",
+            "lastSeenContext": "",
+            "probableScenario": "",
+            "visibleClueCandidates": [
+              "Verfärbungen im Gras am Pistenrand",
+              "Zustand des Windsacks",
+              "abgestellte Fahrzeuge auf dem Vorfeld",
+              "Erosion im Anflugbereich"
+            ]
+          },
+          "sceneKind": "none",
+          "sceneDensity": "none",
+          "requiredAnchors": [
+            "runway_threshold",
+            "apron_area"
+          ],
+          "objectFamilies": [
+            "inspection_tools"
+          ],
+          "placementPolicy": "none",
+          "narrativeRules": [
+            "Primary subject lock: Big Creek Airport Recon Area (generic) bleibt Hauptsubjekt.",
+            "Task-domain lock: inspection_infra bleibt die Art des Auftrags.",
+            "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+            "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+            "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+            "Infrastruktur darf das Primaerziel sein."
+          ],
+          "localFacts": [
+            "Big Creek (U60) verfügt über eine 1082 Meter lange Graspiste auf 5743 Fuß Höhe.",
+            "Das Zielgebiet liegt in einem typischen Gebirgstal, das besondere Vorsicht bei der Umkehrkurve erfordert.",
+            "Der Platz wird oft als Ausgangspunkt für Wildnis-Expeditionen genutzt."
+          ],
+          "weatherHooks": [],
+          "operationalDetails": [
+            "Besondere Aufmerksamkeit auf die Dichtehöhe (Density Altitude) im Gebirge legen.",
+            "Vor dem Abflug in McCall Treibstoff für den Rückflug ohne Zwischenlandung kalkulieren.",
+            "Sicherheitsabstand zum Gelände während der Platzrunden für die Beobachtung wahren."
+          ],
+          "realismBrief": "In der Backcountry-Fliegerei sind regelmäßige Kontrollen aus der Luft Standard, um den Zustand unbesetzter Plätze zu prüfen, bevor schwere Versorgungsflüge angesetzt werden.",
+          "narrativeHooks": [
+            "Elena prüft während des Fluges ihre Checkliste für die Pistenbefeuerung und Markierungen.",
+            "Die Sorge vor neuen Auswaschungen (Washouts) nach den Regenfällen der letzten Wochen schwingt mit.",
+            "Ein kurzer Blick auf den Windsack am Ziel gibt Elena Aufschluss über die aktuellen Talwinde."
+          ],
+          "mustMention": [
+            "Betriebsflächen-Checkset",
+            "Warnflaggen",
+            "Piste 01/19",
+            "Sichtprüfung"
+          ],
+          "mustAvoid": [
+            "Landung am Ziel",
+            "Rettungsaktion",
+            "Personentransport zum Zielort",
+            "Kontext darf das Primaerziel nicht ersetzen.",
+            "Kontext darf die TaskDomain nicht umwidmen."
+          ],
+          "lockedFields": {
+            "noLandingAtPoi": true,
+            "primarySubjectLabel": "Big Creek Airport Recon Area",
+            "primarySubjectType": "generic",
+            "taskDomain": "inspection_infra"
+          },
+          "confidence": 1
+        },
+        "poiChain": null,
+        "needs": [],
+        "resolvedNeedTypes": [
+          "geo_context",
+          "mission_truth",
+          "weather_snapshot",
+          "fire_hazard",
+          "airport_details"
+        ]
+      },
+      "storyFrame": {
+        "trigger": "Saisonale Überprüfung der Backcountry-Infrastruktur vor dem herbstlichen Wetterumschwung",
+        "focusSubject": "Zustand der Graspiste 01/19 und der Markierungen am Big Creek Airport",
+        "keyQuestion": "Sind nach den letzten Witterungseinflüssen Hindernisse, Auswaschungen oder Schäden an den Markierungen erkennbar?",
+        "stakes": "Ein negativer Befund führt zur vorläufigen Sperrung für gewerbliche Charterflüge",
+        "completionSignal": "Rückkehr zum McCall Municipal Airport zur Übergabe des Sichtprotokolls",
+        "subjectDetail": "Elena, eine erfahrene Windsack- und Markierungsprüferin, die für die Sicherheit der entlegenen Strips im Hinterland zuständig ist.",
+        "incidentContext": "Elena betreut die Pisten im Payette National Forest und kennt die tückischen Stellen am Big Creek Airport genau; sie hat ihr Checkset und Warnflaggen dabei, falls eine spätere Bodencrew markiert werden muss.",
+        "whyNow": "Der heutige Einsatz ist für den Saisonbericht Oktober entscheidend, um den Status der Piste vor den ersten Frostnächten festzuhalten.",
+        "soughtOutcome": "Das vertragliche Recon-Gebiet aus der Luft beobachten und zum Heimatplatz zurückkehren; keine zusätzliche Landung, Reparatur oder garantierter Befund.",
+        "incidentType": "",
+        "lastSeenContext": "",
+        "probableScenario": "",
+        "visibleClueCandidates": [
+          "Verfärbungen im Gras am Pistenrand",
+          "Zustand des Windsacks",
+          "abgestellte Fahrzeuge auf dem Vorfeld",
+          "Erosion im Anflugbereich"
+        ]
+      },
+      "infraNarrativeHandoff": {
+        "schema": "ga.infraNarrativeHandoff.v1",
+        "mode": "single_infra_inspection",
+        "focus": "Elena, eine erfahrene Windsack- und Markierungsprüferin, die für die Sicherheit der entlegenen Strips im Hinterland zuständig ist",
+        "decision": "ob Beobachtung reicht oder ein gezielter Folgeeinsatz vorbereitet werden muss",
+        "nextStep": "Befund, Fotos und Empfehlung gehen nach dem Überflug an Betreiber oder Technikteam"
+      },
+      "chainNarrativeBrief": null,
+      "pickupCreativeBrief": null,
+      "missionVarietyBrief": {
+        "personalStoryBasis": {
+          "focus": "Ein konkreter Aufklärungsanlass am vertraglichen Platz oder Gebiet trägt die Geschichte: ein gemeldetes Ereignis, eine Auffälligkeit oder eine begründete Vermutung. Erkläre, warum der Flug nötig ist, was aus der Luft untersucht werden soll und weshalb das für die Beteiligten wichtig ist.",
+          "connection": "Die persönliche Note vertieft genau diesen Anlass: Beziehung der beteiligten Person zum Ereignis, eigene Haltung, Sorge, Hoffnung oder damit verbundene Erfahrung. Erzähle den Kern persönlich, statt eine unabhängige Personenanekdote danebenzustellen. Den Untersuchungsbefund nicht vorwegnehmen; die Ungewissheit braucht keinen erklärenden Metasatz.",
+          "outcome": "Das vertragliche Recon-Gebiet aus der Luft beobachten und zum Heimatplatz zurückkehren; keine zusätzliche Landung, Reparatur oder garantierter Befund.",
+          "voice": "Nur ein tatsächlich vertraglich mitfliegender Beobachter darf sprechen; andernfalls bleibt die Perspektive beim Dispatch und Auftraggeber am Boden.",
+          "use": "Freie Inspiration. Anlass, Auftraggeber und Beobachtungsfrage folgen bevorzugt einer Richtung der candidateShortlist; Ziel, Region und Gelände geben Farbe. Vorgeschichte, Pointe, Schadensdrama oder Frist sind keine Pflicht."
+        },
+        "weatherIdeaPolicy": "BUSH-WETTER: Nutze Wetter als praktischen Hintergrund. Ein wettergetriebener Auftrag folgt einem belegten markanten Wetterereignis oder einer gelieferten Meldung mit Ort und Zeit. Die Jahreszeit darf einen längerfristigen zeitlichen Anker liefern, etwa Herbstwartung ohne Zeitdruck. Gewöhnliche Wetterwerte und die Jahreszeit allein begründen weder drohenden Schnee noch ein knappes letztes Flugfenster; wetterbedingte Eile braucht ein konkret belegtes bevorstehendes Ereignis. Menschliche und fachliche Anlässe dürfen unabhängig davon tragen. Leite whyNow zuerst aus dem nächsten Schritt der Person oder des Auftraggebers ab. Saisonale Vorsorge kann einfach ein sinnvoller heutiger Auftrag sein; normale aktuelle Wetterwerte beschreiben nur den Flugrahmen, nicht den Grund, weshalb der Auftrag gerade jetzt erledigt werden muss. Auch eine im Planner erfundene Wetterfrist ist kein zusätzlicher Wetterbeleg für den Writer.",
+        "candidateEvidencePolicy": "Kandidaten und regionale Rollen-/Tätigkeitsideen sind mögliche fiktive Motive, keine Ereignismeldungen oder Belege für Anlagen, Tal, Hang, Jahreszeitbedingungen und Wetter. Wähle einen Anlass, der ohne erfundene reale Eigenschaften des Ziels auskommt. Saisonale Tätigkeiten wie Herbstwartung sind als längerfristiger Anlass zulässig, ohne daraus nahen Frost, Sperrungen oder Zeitdruck abzuleiten. Ein wettergetriebener Ereigniskandidat braucht ein ausdrücklich geliefertes markantes Wetterereignis.",
+        "purpose": "Offener Kreativrahmen fuer einen Bush-Recon mit Heimkehrpflicht. Das Profil prueft Zielstrip, Anflugraum oder Umfeld aus der Luft und bringt den Befund zur Basis zurueck.",
+        "recipe": "Von McCall Municipal Airport zum Zielgebiet bei Big Creek Airport Recon Area, dort Recon aus der Luft, keine geplante Landung, danach Rueckflug nach McCall Municipal Airport.",
+        "coreQuestions": [
+          "Was genau wird bei Big Creek Airport Recon Area aus der Luft geprueft?",
+          "Welche konkrete Beobachtungsfrage oder Meldung begründet den Recon? Eine Wetterfolge nur bei einem ausdrücklich gelieferten markanten Ereignis; saisonale Vorsorge darf eine konkrete Beobachtungsfrage begründen, aber allein keine Eile oder bereits eingetretene Wetterfolgen.",
+          "Welche sichtbaren Dinge sollen wir beurteilen: Piste, Zufahrt, Hindernisse, Wasserlauf, Rauch, Markierungen?",
+          "Warum muss der Befund zurueck nach McCall Municipal Airport, statt den Flug am Ziel enden zu lassen?",
+          "Welche Entscheidung kann nach dem Rueckflug getroffen werden?"
+        ],
+        "candidateShortlist": [
+          {
+            "id": "season_opening_recon",
+            "familyId": "season_opening",
+            "label": "Saisonstart und Betreibercheck",
+            "wildcard": false,
+            "matchTags": [
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Betreiberkontakt",
+              "Lodge-Koordinatorin",
+              "Airstrip-Inspektorin"
+            ],
+            "taskIdeas": [
+              "Piste, Parkpunkt und Zufahrt vor dem ersten Saisonflug ueberpruefen",
+              "Windsack, Markierungen und sichtbare Lagerstellen aus der Luft notieren",
+              "Betriebsakte mit frischen Fotos ergaenzen"
+            ],
+            "objectIdeas": [
+              "Tablet",
+              "Betriebsmappe",
+              "Kamera",
+              "Checkliste"
+            ],
+            "returnDrivers": [
+              "die Saisonplanung wartet auf den ersten belastbaren Befund",
+              "die Basis entscheidet, welche Fracht als erstes rausgeht",
+              "das Ergebnis wird nach der Landung daheim eingetragen"
+            ],
+            "accessReasons": [
+              "der Zielstrip ist selbst der Pruefgegenstand",
+              "ein kurzer Ueberflug reicht fuer die Vorentscheidung",
+              "die Heimkehr gehoert zum Abschluss des Recon-Profils"
+            ]
+          },
+          {
+            "id": "approach_corridor_recon",
+            "familyId": "approach_corridor",
+            "label": "Anflugraum und Hindernischeck",
+            "wildcard": false,
+            "matchTags": [
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Backcountry-Operationsleiterin",
+              "Forst-Ranger",
+              "Airstrip-Inspektor"
+            ],
+            "taskIdeas": [
+              "Baumkronen, Hangschatten und neue Hindernisse im Anflugraum vergleichen",
+              "Windzeichen, Talverlauf und Ausweichpunkt kurz beurteilen",
+              "Fotos fuer ein aktualisiertes Anflugbriefing aufnehmen"
+            ],
+            "objectIdeas": [
+              "Kamera",
+              "Anflugkarte",
+              "Tablet",
+              "Funkmappe"
+            ],
+            "returnDrivers": [
+              "das Briefing fuer kommende Bush-Fluege wird nach Rueckkehr aktualisiert",
+              "die Basis braucht Fotos, bevor wieder Neulinge dorthin geplant werden",
+              "der Recon bleibt bewusst kurz und heimkehrpflichtig"
+            ],
+            "accessReasons": [
+              "der Anflugraum ist der eigentliche Zielbereich",
+              "Landung wuerde den Auftrag nicht verbessern",
+              "aus der Luft sind Tal, Strip und Hindernisse zusammen erkennbar"
+            ]
+          },
+          {
+            "id": "wildlife_obstruction_recon",
+            "familyId": "wildlife_obstruction",
+            "label": "Wildlife, Zaun und Hindernisse",
+            "wildcard": false,
+            "matchTags": [
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Ranger-Koordinator",
+              "Ranch-Caretakerin",
+              "Operationskontakt"
+            ],
+            "taskIdeas": [
+              "Zaunluecken, Wildwechsel und Gegenstaende am Bahnrand suchen",
+              "Parkflaeche und Pistenkopf auf frische Spuren pruefen",
+              "sichtbare Hindernisse fuer den naechsten Anflug notieren"
+            ],
+            "objectIdeas": [
+              "Kamera",
+              "Fernglas",
+              "Notizblock",
+              "Funkliste"
+            ],
+            "returnDrivers": [
+              "die Basis warnt die naechste Crew nur bei belastbarem Befund",
+              "der Betreiber kann den Zauncheck gezielt ansetzen",
+              "der Recon spart eine unnoetige Bodenfahrt"
+            ],
+            "accessReasons": [
+              "die Piste und der Wiesenrand sind aus der Luft gut lesbar",
+              "der Auftrag ist ein Lagebild, keine Landung",
+              "der Heimflug bringt die Notizen direkt zur Einsatzplanung"
+            ]
+          },
+          {
+            "id": "storm_strip_damage",
+            "familyId": "storm_damage",
+            "label": "Strip-Zustand nach Wetter",
+            "wildcard": false,
+            "matchTags": [
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Airstrip-Inspektorin",
+              "Backcountry-Operationsleiter",
+              "Ranger-Koordinator"
+            ],
+            "taskIdeas": [
+              "Spurrinnen, lose Aeste und Bahnrand aus der Luft einschaetzen",
+              "Windsack, Zufahrt und Parkpunkt auf sichtbare Schaeden pruefen",
+              "Anflugraum und Abrollbereich fuer den naechsten Flug beurteilen"
+            ],
+            "objectIdeas": [
+              "Kamera",
+              "Strip-Checkliste",
+              "Funkmappe",
+              "Tablet"
+            ],
+            "returnDrivers": [
+              "die Basis entscheidet danach ueber Freigabe oder Crewgang",
+              "der Betreiber braucht ein schnelles Lagebild ohne Landung",
+              "der naechste Versorgungsflug haengt am Befund"
+            ],
+            "accessReasons": [
+              "der Strip selbst ist der Arbeitsraum",
+              "ein Ueberflug reicht fuer die erste Entscheidung",
+              "Landung ist nicht Teil des Recon-Auftrags"
+            ]
+          },
+          {
+            "id": "drainage_washout_recon",
+            "familyId": "drainage_runoff",
+            "label": "Drainage, Washout und Wasserlauf",
+            "wildcard": false,
+            "matchTags": [
+              "water",
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Strip-Betreiber",
+              "USFS-Technikinspektorin",
+              "Utility-Koordinator"
+            ],
+            "taskIdeas": [
+              "Drainagegraben und Washout-Spuren neben der Piste kontrollieren",
+              "Zufahrt, Gatter und Bodenverfaerbungen aus der Luft vergleichen",
+              "moegliche weiche Stellen fuer die Bodencrew markieren"
+            ],
+            "objectIdeas": [
+              "Fototablet",
+              "Checkliste",
+              "Kartenfenster",
+              "Handfunkgeraet"
+            ],
+            "returnDrivers": [
+              "die Bodencrew braucht Prioritaeten fuer den Reparaturlauf",
+              "die Basis entscheidet, ob ein schwererer Flug warten muss",
+              "der Befund wird nach Rueckkehr direkt eingetragen"
+            ],
+            "accessReasons": [
+              "der Ueberflug zeigt Wasserlauf und Bahnrand zusammen",
+              "vom Cockpit laesst sich der Abschnitt ohne Bodenkontakt erfassen",
+              "der Rueckflug zur Basis ist Teil des Auftrags"
+            ]
+          }
+        ],
+        "variety": {
+          "schema": "missionVarietyPack.v1",
+          "namespace": "bush_recon_return",
+          "profileId": "bush_recon_return",
+          "contextTags": [
+            "bush",
+            "remote_strip",
+            "water"
+          ],
+          "selectedIds": [
+            "season_opening_recon",
+            "approach_corridor_recon",
+            "wildlife_obstruction_recon",
+            "storm_strip_damage",
+            "drainage_washout_recon"
+          ],
+          "selectedFamilies": [
+            "season_opening",
+            "approach_corridor",
+            "wildlife_obstruction",
+            "storm_damage",
+            "drainage_runoff"
+          ],
+          "primaryId": "season_opening_recon",
+          "primaryFamily": "season_opening",
+          "recentFamilies": [],
+          "recentPrimaryFamilies": [],
+          "recentPrimaryIds": [],
+          "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+          "storageKey": "ga_mission_variety_history_bush_recon_return_v1"
+        },
+        "ingredientAxes": {
+          "roleFamilies": [
+            "Betreiberkontakt",
+            "Lodge-Koordinatorin",
+            "Airstrip-Inspektorin",
+            "Backcountry-Operationsleiterin",
+            "Forst-Ranger",
+            "Airstrip-Inspektor",
+            "Ranger-Koordinator",
+            "Ranch-Caretakerin",
+            "Operationskontakt",
+            "Backcountry-Operationsleiter",
+            "Strip-Betreiber",
+            "USFS-Technikinspektorin"
+          ],
+          "activityVerbs": [
+            "Piste, Parkpunkt und Zufahrt vor dem ersten Saisonflug ueberpruefen",
+            "Windsack, Markierungen und sichtbare Lagerstellen aus der Luft notieren",
+            "Betriebsakte mit frischen Fotos ergaenzen",
+            "Baumkronen, Hangschatten und neue Hindernisse im Anflugraum vergleichen",
+            "Windzeichen, Talverlauf und Ausweichpunkt kurz beurteilen",
+            "Fotos fuer ein aktualisiertes Anflugbriefing aufnehmen",
+            "Zaunluecken, Wildwechsel und Gegenstaende am Bahnrand suchen",
+            "Parkflaeche und Pistenkopf auf frische Spuren pruefen",
+            "sichtbare Hindernisse fuer den naechsten Anflug notieren",
+            "Spurrinnen, lose Aeste und Bahnrand aus der Luft einschaetzen",
+            "Windsack, Zufahrt und Parkpunkt auf sichtbare Schaeden pruefen",
+            "Anflugraum und Abrollbereich fuer den naechsten Flug beurteilen",
+            "Drainagegraben und Washout-Spuren neben der Piste kontrollieren",
+            "Zufahrt, Gatter und Bodenverfaerbungen aus der Luft vergleichen"
+          ],
+          "evidenceObjects": [
+            "Tablet",
+            "Betriebsmappe",
+            "Kamera",
+            "Checkliste",
+            "Anflugkarte",
+            "Funkmappe",
+            "Fernglas",
+            "Notizblock",
+            "Funkliste",
+            "Strip-Checkliste",
+            "Fototablet",
+            "Kartenfenster",
+            "Handfunkgeraet"
+          ],
+          "returnDrivers": [
+            "die Saisonplanung wartet auf den ersten belastbaren Befund",
+            "die Basis entscheidet, welche Fracht als erstes rausgeht",
+            "das Ergebnis wird nach der Landung daheim eingetragen",
+            "das Briefing fuer kommende Bush-Fluege wird nach Rueckkehr aktualisiert",
+            "die Basis braucht Fotos, bevor wieder Neulinge dorthin geplant werden",
+            "der Recon bleibt bewusst kurz und heimkehrpflichtig",
+            "die Basis warnt die naechste Crew nur bei belastbarem Befund",
+            "der Betreiber kann den Zauncheck gezielt ansetzen",
+            "der Recon spart eine unnoetige Bodenfahrt",
+            "die Basis entscheidet danach ueber Freigabe oder Crewgang"
+          ],
+          "accessReasons": [
+            "der Zielstrip ist selbst der Pruefgegenstand",
+            "ein kurzer Ueberflug reicht fuer die Vorentscheidung",
+            "die Heimkehr gehoert zum Abschluss des Recon-Profils",
+            "der Anflugraum ist der eigentliche Zielbereich",
+            "Landung wuerde den Auftrag nicht verbessern",
+            "aus der Luft sind Tal, Strip und Hindernisse zusammen erkennbar",
+            "die Piste und der Wiesenrand sind aus der Luft gut lesbar",
+            "der Auftrag ist ein Lagebild, keine Landung"
+          ]
+        },
+        "writerExpectations": [
+          "Nutze bevorzugt genau eine Richtung aus candidateShortlist, damit Rolle, Taetigkeiten, Gegenstaende und Folgegrund zusammenpassen.",
+          "Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren.",
+          "Wenn candidateShortlist nicht passt, nutze ingredientAxes als offene Inspiration und bleibe trotzdem im Zielkontext.",
+          "Kontext, Profil-Rezept, TaskDomain und MissionTruth schlagen Varianz.",
+          "Nicht alle Achsen abarbeiten; frei kombinieren und variieren.",
+          "Keine neuen Ortsnamen oder harten Geofakten erfinden.",
+          "Recon bleibt Recon: nicht als Landung, Dropoff oder Pickup umdeuten.",
+          "Der Zielstrip oder sein Umfeld ist Arbeitsraum, nicht Endpunkt.",
+          "Der Handoff in der Basis ist der Abschluss, aber ohne pauschalen Zeitdruck."
+        ],
+        "weatherNote": ""
+      },
+      "variety": {
+        "schema": "missionVarietyPack.v1",
+        "namespace": "bush_recon_return",
+        "profileId": "bush_recon_return",
+        "contextTags": [
+          "bush",
+          "remote_strip",
+          "water"
+        ],
+        "selectedIds": [
+          "season_opening_recon",
+          "approach_corridor_recon",
+          "wildlife_obstruction_recon",
+          "storm_strip_damage",
+          "drainage_washout_recon"
+        ],
+        "selectedFamilies": [
+          "season_opening",
+          "approach_corridor",
+          "wildlife_obstruction",
+          "storm_damage",
+          "drainage_runoff"
+        ],
+        "primaryId": "season_opening_recon",
+        "primaryFamily": "season_opening",
+        "recentFamilies": [],
+        "recentPrimaryFamilies": [],
+        "recentPrimaryIds": [],
+        "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+        "storageKey": "ga_mission_variety_history_bush_recon_return_v1"
+      },
+      "sarHeli": null,
+      "missionTruth": null,
+      "semantics": {
+        "version": "mission-semantics-v4-2026-06-07",
+        "focusLock": {
+          "mode": "bush",
+          "taskDomain": "inspection_infra",
+          "targetCategory": "generic",
+          "requestedCategory": "all",
+          "primarySubjectLabel": "Big Creek Airport Recon Area",
+          "primarySubjectType": "generic",
+          "contextRoles": [
+            "orientation",
+            "hazard",
+            "access",
+            "support",
+            "evidence",
+            "background"
+          ]
+        },
+        "plannerGuardrails": [
+          "Primary subject lock: Big Creek Airport Recon Area (generic) bleibt Hauptsubjekt.",
+          "Task-domain lock: inspection_infra bleibt die Art des Auftrags.",
+          "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+          "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+          "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+          "Infrastruktur darf das Primaerziel sein.",
+          "Diagnose, Wartung, Stoerung oder Dokumentation duerfen die Story tragen.",
+          "Windparks, Solarparks, Energieanlagen, Batteriespeicher, Pipeline-/Gas-/Waermenetzpunkte, Wasser-/Abwasseranlagen, Hafen-/Schleusenanlagen, Anleger, Perimeter-/Zaunbereiche, Entsorgung, Steinbruch/Kieswerk, Schutzbau, Trassen, Umspannwerke, Funkmasten, Bruecken, Daemme, Baustellen, oeffentliche Gebaeude, Tankstellen, Tanks, Wassertanks und Industrieanlagen sind passende Infrastrukturziele, wenn sie als Ziel oder bestaetigter Kontext vorliegen. Dach ist nur Pruefmerkmal eines passenden Gebaeudes oder einer Anlage, kein eigener Zieltyp.",
+          "Das gewaehlte Ziel bleibt Primärsubjekt."
+        ],
+        "writerGuardrails": [
+          "Story, Greeting und sceneIntent muessen Big Creek Airport Recon Area als Primaerfokus behalten.",
+          "Kontext darf den Auftrag anreichern, aber nicht umwidmen.",
+          "Die Erzaehlung bleibt Backcountry-/Bush-bezogen und driftet nicht in normalen A-B-Verkehr.",
+          "Die Erzaehlung darf technisch sein, solange das gewaehle Bauwerk oder die Anlage Hauptsubjekt bleibt.",
+          "Briefing nennt Anlass, Verdachtsbereich und Folgeentscheidung: beobachten, Bodencheck, Wartungsfenster, Sperrung, Reparatur oder Betreiberfreigabe.",
+          "Kontext darf nur anreichern, nie umwidmen."
+        ],
+        "forceSceneNone": false,
+        "naturalPriority": false
+      },
+      "followUpContext": null,
+      "missionTemporalContext": null,
+      "varietyHints": null,
+      "targetGeoContext": null,
+      "airportDetails": {
+        "start": {
+          "icao": "KMYL",
+          "name": "McCall Municipal Airport",
+          "lat": 44.8897,
+          "lon": -116.101
+        },
+        "dest": {
+          "icao": "U60",
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999
+        },
+        "targetPoi": null
+      },
+      "departureAirportInformation": {
+        "schema": "departure-airport-information-text.v1",
+        "departureInfo": "Der McCall Municipal Airport (KMYL) dient als wichtiger Knotenpunkt für Operationen im Payette National Forest. Auf einer Platzhöhe von 5024 Fuß gelegen, bietet die asphaltierte Piste 16/34 mit ihren 1864 Metern Länge eine solide Basis, erfordert jedoch aufgrund der Höhenlage eine aufmerksame Leistungsplanung. Besonders bei herbstlichen Bedingungen sollte die verminderte Steigleistung des Flugzeugs einkalkuliert werden. Piloten sollten vor dem Abflug sicherstellen, dass ausreichend Treibstoff für den Rückflug ohne Zwischenlandung vorhanden ist, da die Route tief in unerschlossenes Gebiet führt.",
+        "sourceIds": [
+          "faa-mountain-tips",
+          "nz-caa-mountain"
+        ],
+        "generated": true
+      },
+      "bushFollowUpNarrative": {
+        "schema": "ga.bush.followup-memory.v1",
+        "memory": {
+          "summary": "Elena hat die herbstliche Inspektion der Infrastruktur am Big Creek Airport eingeleitet. Ziel war die visuelle Prüfung der Piste 01/19 und der Markierungen vor dem Winterfrost, um den Status für gewerbliche Charterflüge festzulegen. Die Beobachtung erfolgte aus der Luft ohne Landung am Zielort.",
+          "participants": [
+            {
+              "name": "Elena",
+              "role": "Technische Infrastruktur-Prüferin"
+            }
+          ],
+          "openQuestions": [
+            "Erlaubt der Zustand der Piste den weiteren Betrieb für Charterflüge?",
+            "Müssen vor dem ersten Frost noch physische Markierungen durch eine Bodencrew erneuert werden?"
+          ],
+          "betweenFlightsIdeas": [
+            {
+              "followUpKind": "bush_supply_strip",
+              "summary": "Transport von neuen Markierungsflaggen und Instandsetzungsmaterial zum Big Creek, falls die Luftbildauswertung Schäden gezeigt hat."
+            },
+            {
+              "followUpKind": "bush_charter_strip",
+              "summary": "Beförderung eines Bodenteams zum Big Creek Airport, um die von Elena aus der Luft markierten Stellen direkt vor Ort auszubessern."
+            }
+          ]
+        }
+      }
+    },
+    "_source": "Gemini 3.0 Flash + V5 Writer",
+    "bushReconInfo": {
+      "schema": "bush-recon-information.v1",
+      "target": {
+        "name": "Big Creek Airport",
+        "lat": 45.133202,
+        "lon": -115.321999
+      },
+      "text": "Der Big Creek Airport (U60) verfügt über eine 1082 Meter lange Graspiste in einer beachtlichen Höhe von 5743 Fuß. Der Platz liegt eingebettet in ein typisches Gebirgstal, was den Anflug und Überflug aufgrund begrenzter Manövrierbarkeit anspruchsvoll macht. Er dient oft als strategischer Ausgangspunkt für Expeditionen in die tiefe Wildnis des Hinterlands. Im Rahmen der heutigen Infrastruktur-Überprüfung stehen die Piste 01/19 und die Sicherheitseinrichtungen im Fokus, um die Betriebsbereitschaft vor dem Wintereinbruch zu bewerten.\n\nLage und Orientierung\nFür dieses Ziel fehlen noch geeignete Orientierungspunkte.\n\nGeländehöhen\nHier liegen keine Geländehöhen vor.\n\nHindernisse\nHier sind keine Hindernisse erfasst; das bedeutet nicht, dass die Umgebung hindernisfrei ist.",
+      "flightBriefing": "Die Aufklärung am Big Creek Airport (U60) erfolgt in einem anspruchsvollen Gebirgstal. Für die Inspektion sind zwei Kreise mit einem Radius von 1,8 Meilen in etwa 150 Sekunden vorgesehen, um Elena eine lückenlose Sichtprüfung der Piste 01/19 zu ermöglichen. Die Platzhöhe von 5743 Fuß und die umliegenden Grate verlangen eine präzise Flugwegplanung, insbesondere bei den Umkehrkurven im Tal. Gemäß den Empfehlungen für Gebirgsflüge sollte die Pistenoberfläche genau auf Nässe oder weiche Stellen geprüft werden, bevor zukünftige Landungen freigegeben werden.",
+      "handbookSources": [
+        {
+          "id": "faa-mountain-tips",
+          "title": "FAA Tips on Mountain Flying, FAA-P-8740-60",
+          "url": "https://www.faa.gov/sites/faa.gov/files/regulations_policies/handbooks_manuals/aviation/tips_on_mountain_flying.pdf",
+          "kind": "pilot-handbook"
+        },
+        {
+          "id": "faa-mountain-safety",
+          "title": "FAA Aviation Safety: Mountain Flying",
+          "url": "https://www.faa.gov/sites/faa.gov/files/2022-01/Mountain%20Flying.pdf",
+          "kind": "pilot-handbook"
+        },
+        {
+          "id": "nz-caa-mountain",
+          "title": "NZ CAA Mountain Flying, May 2021",
+          "url": "https://www.aviation.govt.nz/assets/publications/gaps/caa-gap-mountain-flying-may-2021-web.pdf",
+          "kind": "pilot-handbook"
+        },
+        {
+          "id": "ntsb-sa039",
+          "title": "NTSB SA-039 Mastering Mountain Flying",
+          "url": "https://www.ntsb.gov/Advocacy/safety-alerts/Documents/SA-039.pdf",
+          "kind": "pilot-handbook"
+        }
+      ],
+      "generated": true,
+      "reportStatus": "source-selection-fallback",
+      "evidence": {
+        "target": {
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999
+        },
+        "radiusM": 5556,
+        "facts": [],
+        "targetFacts": [],
+        "coverage": [
+          {
+            "status": "fixture-only"
+          }
+        ],
+        "terrainEnvelope": null,
+        "environmentFacts": []
+      }
+    },
+    "bushFollowUpNarrative": {
+      "schema": "ga.bush.followup-memory.v1",
+      "memory": {
+        "summary": "Elena hat die herbstliche Inspektion der Infrastruktur am Big Creek Airport eingeleitet. Ziel war die visuelle Prüfung der Piste 01/19 und der Markierungen vor dem Winterfrost, um den Status für gewerbliche Charterflüge festzulegen. Die Beobachtung erfolgte aus der Luft ohne Landung am Zielort.",
+        "participants": [
+          {
+            "name": "Elena",
+            "role": "Technische Infrastruktur-Prüferin"
+          }
+        ],
+        "openQuestions": [
+          "Erlaubt der Zustand der Piste den weiteren Betrieb für Charterflüge?",
+          "Müssen vor dem ersten Frost noch physische Markierungen durch eine Bodencrew erneuert werden?"
+        ],
+        "betweenFlightsIdeas": [
+          {
+            "followUpKind": "bush_supply_strip",
+            "summary": "Transport von neuen Markierungsflaggen und Instandsetzungsmaterial zum Big Creek, falls die Luftbildauswertung Schäden gezeigt hat."
+          },
+          {
+            "followUpKind": "bush_charter_strip",
+            "summary": "Beförderung eines Bodenteams zum Big Creek Airport, um die von Elena aus der Luft markierten Stellen direkt vor Ort auszubessern."
+          }
+        ]
+      }
+    },
+    "departureAirportInformation": {
+      "schema": "departure-airport-information-text.v1",
+      "departureInfo": "Der McCall Municipal Airport (KMYL) dient als wichtiger Knotenpunkt für Operationen im Payette National Forest. Auf einer Platzhöhe von 5024 Fuß gelegen, bietet die asphaltierte Piste 16/34 mit ihren 1864 Metern Länge eine solide Basis, erfordert jedoch aufgrund der Höhenlage eine aufmerksame Leistungsplanung. Besonders bei herbstlichen Bedingungen sollte die verminderte Steigleistung des Flugzeugs einkalkuliert werden. Piloten sollten vor dem Abflug sicherstellen, dass ausreichend Treibstoff für den Rückflug ohne Zwischenlandung vorhanden ist, da die Route tief in unerschlossenes Gebiet führt.",
+      "sourceIds": [
+        "faa-mountain-tips",
+        "nz-caa-mountain"
+      ],
+      "generated": true
+    }
+  },
+  "technicalPassed": true
+}

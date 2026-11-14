@@ -259,7 +259,7 @@ Composer darauf passende Looks/Packstücke wählt (`tools/ground-composer-strand
 | Medizin | ✅ Web v2384 | `medical-transfer-idea.v1` legt Fachperson/Kurier (Rolle, Geschlecht) und beim Patiententransfer den Patienten (Geschlecht) fest. Adapter ohne Gepäckposten (Sendung behält den Medizin-Pool), Composer parallel zum Medizin-Writer. Beim Patiententransfer baut die Szene Begleitung und Patient weiterhin selbst (Krankenwagen, keine Composer-Figuren). Live-Probe: alle drei Transportarten gültig, Patientengeschlecht übernommen (`analysis/ground-composer-medical-20261113.md`). |
 | POI-Aufträge | ✅ Web v2385 | Alle zehn POI-Stränge haben genau eine Person aus der Idee und festes Gepäck → allgemeiner Composer-Schritt mit exakten Daten. Kette, Feuer, Geo, Wissen, Kartierung und SAR lieferten das Geschlecht schon. **Bio, Infrastruktur, Reporter-POI und Foto** lieferten nur Name/Rolle: Die Stimme fiel dann immer auf weiblich (`_normSpeakerGender`), die Szene riet aus der Rolle (meist männlich) – Figur und Stimme konnten sich widersprechen. Diese vier Ideen-Prompts verlangen jetzt `gender` (female/male), die Prüfung lehnt falsche Werte ab, ältere gespeicherte Vorschläge ohne Feld bleiben gültig. Live-Probe: Geschlecht in allen vier Ideen vorhanden, Composer passend (`analysis/ground-composer-poi-20261113.md`; die Reporter-Idee scheiterte dort an der Szenenabsicht ohne Szenen-Fähigkeiten im Probe-Rahmen, Person sauber). |
 | Fracht, zerbrechliche Fracht, Tiertransport | ✅ Web v2386 | Alle drei mit Idee-Stufe. Fracht (`cargo-idea.v1`): keine Person, Sendung **mit Verpackung und Handhabung** an den Composer (vorher nur Text/Gewicht aus der Ladeliste). Zerbrechliche Fracht: ein Kurier (Rolle, Geschlecht) plus Sendung mit Verpackung/Bruchhinweis. Tiertransport: Begleitperson, Tiere behalten ihren eigenen Pool (nur Look). Composer jeweils parallel zum Writer. Live-Probe: 6/6 Ideen gültig, Kartons/Hartschalen/Holzkiste folgen der Verpackung (`analysis/ground-composer-freight-20261113.md`). Dabei gefunden: Beschreibt die Verpackung mehr als drei Stücke („4 Kunststoffkisten“), lieferte die KI vier und die ganze Wahl wurde verworfen → jetzt werden die ersten drei genommen und das Gesamtgewicht darauf verteilt (`mission-cargo-visual-core.js` `validate`). |
-| Bush | ✅ ohne Umbau | Bush hat keine eigene Idee-Stufe: die Person legt der allgemeine V4-Writer fest (`passenger` mit `role`, `gender`), bei der Abholung übernimmt der Dispatch genau diese Writer-Person als Abholgast (`app.js`, `hasAiPickupPassenger`), das Pickup-Gepäck kommt aus `bush.pickupCargoLabel`. Der allgemeine Composer-Schritt bekommt damit exakte Daten; kein Eingriff in die Bush-Writer (mit dem Bush-Agenten abgestimmt, dessen Arbeit war abgeschlossen). Live-Probe 13.11.2026 mit dem echten Planer/Writer (`tools/bush-profile-personality-live.mjs --run=composer-20261113`): Abholung (Kartenmacherin, weiblich → Wanderin, Kameraausrüstung + Rucksack), Bush-Charter (Leiter der Trail-Crew, männlich → Outdoor-Look, Hartschale + Werkzeugkiste), Versorgung ohne Person (Hartschale + Holzkiste) – alle passend (`analysis/ground-composer-bush-20261113.md`). Nicht live geprüft: Recon und Fracht-Abholung (gleicher Weg; Fracht-Abholung ohne Person). |
+| Bush | ✅ ohne Umbau | Bush hat keine eigene Idee-Stufe: die Person legt der allgemeine V4-Writer fest (`passenger` mit `role`, `gender`), bei der Abholung übernimmt der Dispatch genau diese Writer-Person als Abholgast (`app.js`, `hasAiPickupPassenger`), das Pickup-Gepäck kommt aus `bush.pickupCargoLabel`. Der allgemeine Composer-Schritt bekommt damit exakte Daten; kein Eingriff in die Bush-Writer (mit dem Bush-Agenten abgestimmt, dessen Arbeit war abgeschlossen). Live-Probe 13.11.2026 mit dem echten Planer/Writer (`tools/bush-profile-personality-live.mjs --run=composer-20261113`): Abholung (Kartenmacherin, weiblich → Wanderin, Kameraausrüstung + Rucksack), Bush-Charter (Leiter der Trail-Crew, männlich → Outdoor-Look, Hartschale + Werkzeugkiste), Versorgung ohne Person (Hartschale + Holzkiste) – alle passend (`analysis/ground-composer-bush-20261113.md`). Nachtrag 14.11.2026 (Web v2389, `analysis/ground-composer-bush-rest-20261114.md`): Abenteuer-Hopper (Naturfilmer → Outdoor, Kameratasche + Rucksack), Aufklärung (Infrastruktur-Prüferin → Arbeitskleidung, Hartschale + Tasche) und Fracht-Abholung ohne Person ebenfalls live passend. Bei der Fracht-Abholung kannte der Composer den Ladelisten-Posten `pickup-cargo` nicht, die Rückholfracht blieb immer ein Karton; jetzt Hartschale, Werkzeugkiste und Aktentasche für „Generatorstarter, Riemensatz und Prüfmappe“ (`mission-ground-composer-browser.js`, `_missionCargoApplyVisualPlan`, Rückfall). |
 
 ### Für alle eingeschaltet (14.11.2026, Web v2388)
 
@@ -274,6 +274,23 @@ Stichwort-Zuordnung zurück. Jetzt gilt dann die feste Packstück-Liste
 (`_missionCargoApplyVisualPlan` → `_missionCargoApplyFallbackVisualPlan`).
 
 Offen bleiben Sim-Tests der übrigen Stränge (laufen jetzt bei allen Testern mit), Etappe E und F.
+
+### Rückflüge und Fortsetzungen: gleiche Figur (14.11.2026, Web v2389)
+
+Privat-Rückflug und Charter-/Reporter-Rückreise behielten den Look des Hinflugs, die konkrete
+Figur wurde aber mit der Missionskennung ausgelost – der Rückflug hat eine neue, also konnte bei
+gleichem Look eine andere Tarmac-Figur kommen. Jeder gespeicherte Plan trägt jetzt einen eigenen
+Losschlüssel (`groundVisual.figureSeed`), der mit dem Plan in Rückflug und Fortsetzung reist;
+`resolveFigures` nutzt ihn vor der Missionskennung. Ältere Pläne ohne Schlüssel losen wie bisher.
+
+Offen (Vorschlag, braucht Freigabe): Bush- und POI-Folgemissionen (z. B. Abholung des
+Bush-Charter-Gasts, POI-Fortsetzung mit derselben Person) laufen über den allgemeinen Schritt und
+kennen die Wahl des ersten Flugs nicht – Look und Figur können wechseln. Dafür müsste die
+Folgemissions-Anfrage (`mission-followup.js`, betrifft auch Infrastruktur und Charter) die Wahl
+mitnehmen.
+
+Bordprüfungen (`flight_compliance`, `ground_inventory`): kein Composer nötig. Es sind
+Inventar-Sitzungen mit fester Bordausrüstung, kein `generateMission`; der Composer läuft dort nie.
 
 ### Etappe D – übrige Missionsstränge (einzeln, je Testschalter)
 

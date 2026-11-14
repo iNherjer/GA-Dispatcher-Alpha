@@ -638,7 +638,7 @@ function _missionCargoApplyVisualPlan(items = []) {
     const idea = visual?.ideaOf?.(window.currentMissionData);
     const plan = idea?.cargoVisual;
     if (!plan) return _missionCargoApplyFallbackVisualPlan(items);
-    const item = items.find(entry => ['pickup-companion-cargo', 'primary-cargo'].includes(entry.id)
+    const item = items.find(entry => ['pickup-companion-cargo', 'pickup-cargo', 'primary-cargo'].includes(entry.id)
         && visual.planMatches(plan, entry.label, entry.weightLbs));
     const pieces = item ? visual.resolve(plan) : null;
     // Passt die Wahl nicht mehr zur Ladeliste (z. B. Gewicht nach Preset-Wechsel), gilt die feste
@@ -674,7 +674,7 @@ function _missionCargoApplyFallbackVisualPlan(items = []) {
     const md = window.currentMissionData || null;
     const pax = window.activePassenger || md?.passenger || md?.missionContract?.passenger || null;
     const taskDomain = String(pax?.taskDomain || (typeof _missionSceneTaskDomain === 'function' ? _missionSceneTaskDomain() : '') || '').trim();
-    const item = items.find(entry => ['pickup-companion-cargo', 'primary-cargo'].includes(entry.id));
+    const item = items.find(entry => ['pickup-companion-cargo', 'pickup-cargo', 'primary-cargo'].includes(entry.id));
     if (!item) return false;
     const plan = visual.fallbackPlan({ label: item.label, weightLbs: item.weightLbs, taskDomain });
     const pieces = plan ? visual.resolve(plan) : null;

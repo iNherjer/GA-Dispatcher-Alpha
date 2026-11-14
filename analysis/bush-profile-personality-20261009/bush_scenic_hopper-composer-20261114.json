@@ -1,0 +1,3563 @@
+{
+  "createdAt": "2026-11-14T07:43:09.037Z",
+  "scope": "Real API production planner/contract/writer functions and validators in VM; no chapter, scene or voice calls. Supplied airport/runway fixtures; no automatic geo research, browser, simulator or audio playback.",
+  "requests": [
+    {
+      "model": "gemini-3-flash-preview",
+      "config": {
+        "response_mime_type": "application/json"
+      },
+      "promptSha256": "ff1b0fe00fd50b440c9a03742c592dfe0235801a7bd50e68866f1444996119a1",
+      "durationMs": 10182,
+      "status": 200,
+      "usage": {
+        "promptTokenCount": 12404,
+        "candidatesTokenCount": 1014,
+        "totalTokenCount": 14235,
+        "promptTokensDetails": [
+          {
+            "modality": "TEXT",
+            "tokenCount": 12404
+          }
+        ],
+        "thoughtsTokenCount": 817,
+        "serviceTier": "standard"
+      },
+      "finishReason": "STOP",
+      "rawResponseText": "{\n  \"status\": \"ready\",\n  \"needs\": [],\n  \"plan\": {\n    \"taskDomain\": \"bush_adventure\",\n    \"roleProfile\": \"bush_adventure_guest_v1\",\n    \"missionType\": \"bush\",\n    \"targetCategory\": \"charter\",\n    \"primaryObjective\": \"Bringe den Naturfilmer für seine Dokumentationsarbeiten zum Big Creek Airport.\",\n    \"targetLabel\": \"Big Creek Airport\",\n    \"sceneKind\": \"none\",\n    \"sceneDensity\": \"normal\",\n    \"requiredAnchors\": [\n      \"Big Creek Airport\",\n      \"Graspiste 01/19\"\n    ],\n    \"objectFamilies\": [\n      \"adventure_gear\",\n      \"outdoor_equipment\"\n    ],\n    \"placementPolicy\": \"Entladen direkt am Rand der Graspiste beim Treffpunkt zum Trailhead.\",\n    \"missionTrigger\": \"Der Beginn der herbstlichen Hauptfärbung im Hinterland von Idaho.\",\n    \"focusSubject\": \"Elias und seine Kameraausrüstung für Naturaufnahmen.\",\n    \"keyQuestion\": \"Ist der Strip für den Aufenthalt sicher erreichbar und bereit für den Ausstieg des Gastes?\",\n    \"missionStakes\": \"Der Erfolg der Dokumentation hängt vom Erreichen dieses spezifischen Zugangspunkts ab.\",\n    \"completionSignal\": \"Sichere Landung am Big Creek Airport, Absetzen des Gastes und Entladen des Trailrucksacks.\",\n    \"storyFrame\": {\n      \"subjectDetail\": \"Elias, ein spezialisierter Naturfilmer mit Fokus auf alpine Lichtverhältnisse und herbstliche Vegetation.\",\n      \"incidentContext\": \"Elias arbeitet an einem Langzeitprojekt über die Abgeschiedenheit der Frank Church Wilderness und nutzt Big Creek als strategischen Ausgangspunkt für seine Aufnahmen im Tal.\",\n      \"whyNow\": \"Anfang Oktober bietet das Tal die perfekten Kontraste zwischen den ersten verschneiten Gipfeln und den goldenen Lärchen, die Elias heute einfangen will.\",\n      \"soughtOutcome\": \"Absetzen am Strip, damit Elias unmittelbar nach der Landung mit dem Aufbau seines Stativs und der ersten Erkundung beginnen kann. Der Flugauftrag endet mit seinem Ausstieg.\",\n      \"incidentType\": null,\n      \"lastSeenContext\": null,\n      \"probableScenario\": null,\n      \"visibleClueCandidates\": []\n    },\n    \"narrativeRules\": [\n      \"Der Fokus liegt auf dem persönlichen Vorhaben des Gastes am Boden.\",\n      \"Die Landung am Ziel ist der definitive Abschluss des Auftrags.\",\n      \"Keine Rückkehr nach McCall einplanen.\"\n    ],\n    \"localFacts\": [\n      \"Big Creek (U60) liegt auf 5743 Fuß Höhe.\",\n      \"Die Piste 01/19 besteht aus Gras und ist etwa 1082 Meter lang.\",\n      \"Der Flugplatz dient als wichtiger Zugang zum umliegenden Backcountry.\"\n    ],\n    \"weatherHooks\": [\n      \"Herbstliche Sichtverhältnisse\",\n      \"Lokale Talwinde beim Anflug\"\n    ],\n    \"operationalDetails\": [\n      \"Beurteilung der Platzverhältnisse vor dem Sinkflug (FAA-Empfehlung).\",\n      \"Beachtung der Dichtehöhe aufgrund der Platzhöhe von über 5700 Fuß.\",\n      \"Sicherstellen von Ausweichwegen im Tal während des Anflugs.\"\n    ],\n    \"realismBrief\": \"Der Flug ist glaubwürdig, da Big Creek ein klassischer Bush-Strip ist, der Fotografen und Outdoor-Spezialisten direkten Zugang zur Wildnis ermöglicht, der auf dem Landweg kaum praktikabel wäre.\",\n    \"narrativeHooks\": [\n      \"Elias prüft während des Fluges ungeduldig sein Fernglas.\",\n      \"Der Trailrucksack und die Stativtaschen sind sicher im Heck verstaut.\",\n      \"Der Gast bittet darum, die Graspiste vor dem Aufsetzen genau auf Hindernisse zu prüfen.\"\n    ],\n    \"mustMention\": [\n      \"Naturfilmer\",\n      \"Herbstfarben\",\n      \"Graspiste\",\n      \"Trailrucksack\"\n    ],\n    \"mustAvoid\": [\n      \"Rundflug-Erwähnung\",\n      \"Rückflug-Versprechen\",\n      \"Notfallszenario\"\n    ],\n    \"lockedFields\": {\n      \"noLandingAtPoi\": false,\n      \"requiresRescueAtPoi\": false\n    },\n    \"confidence\": 1.0\n  }\n}"
+    },
+    {
+      "model": "gemini-3-flash-preview",
+      "config": {
+        "response_mime_type": "application/json"
+      },
+      "promptSha256": "001f1af4f45bda6f6a8856a9c2bf7f600b9c57ccbf12c3a84c79f7e4ab9dc06a",
+      "durationMs": 14028,
+      "status": 200,
+      "usage": {
+        "promptTokenCount": 10573,
+        "candidatesTokenCount": 1948,
+        "totalTokenCount": 13621,
+        "promptTokensDetails": [
+          {
+            "modality": "TEXT",
+            "tokenCount": 10573
+          }
+        ],
+        "thoughtsTokenCount": 1100,
+        "serviceTier": "standard"
+      },
+      "finishReason": "STOP",
+      "rawResponseText": "{\n  \"airportInformation\": {\n    \"usedFacts\": [\n      {\n        \"sourceId\": \"own\",\n        \"evidence\": \"Big Creek (U60) liegt auf 5743 Fuß Höhe. Die Piste 01/19 besteht aus Gras und ist etwa 1082 Meter lang.\",\n        \"statement\": \"Der Big Creek Airport verfügt über eine 1082 Meter lange Graspiste (01/19) auf einer Platzhöhe von 5743 Fuß MSL.\"\n      },\n      {\n        \"sourceId\": \"faa-mountain-tips\",\n        \"evidence\": \"Hohe Dichtehöhe vermindert die verfügbare Flugleistung. Start-, Landestrecken und Steigleistung anhand der Flugzeugunterlagen beurteilen.\",\n        \"statement\": \"Die Platzhöhe von über 5700 Fuß erfordert eine sorgfältige Leistungsplanung bezüglich der Dichtehöhe.\"\n      },\n      {\n        \"sourceId\": \"nz-caa-mountain\",\n        \"evidence\": \"Eine bekannte Pistenoberfläche sagt noch nichts über den aktuellen Zustand aus. Nässe, weicher Boden und Grasbewuchs können die nutzbare Leistung beeinflussen.\",\n        \"statement\": \"Der Zustand der Graspiste kann durch Feuchtigkeit oder Bewuchs variieren, was die Rollleistung beeinflusst.\"\n      }\n    ],\n    \"flightBriefing\": \"Für den Anflug auf Big Creek (U60) planst du eine Landung auf der 1082 Meter langen Graspiste 01/19 ein. Mit einer Platzhöhe von 5743 Fuß MSL spielt die Dichtehöhe hier eine wesentliche Rolle für deine Performance; schau dir die Tabellen für die Landestrecke vorher genau an. Da es sich um einen reinen Grasstrip handelt, solltest du beim Aufsetzen auf den aktuellen Bodenustand achten, da Nässe oder weicher Untergrund die Bremswirkung und das Rollverhalten im Vergleich zu trockenem Boden deutlich verändern können. Ein Überflug zur Beurteilung der Platzverhältnisse vor dem endgültigen Sinkflug ist im Backcountry immer ratsam.\",\n    \"destinationInfo\": \"Der Big Creek Airport (U60) liegt auf 5743 Fuß Höhe im Herzen von Idaho und dient als zentraler Zugangspunkt für die Frank Church Wilderness. Die Piste 01/19 ist eine 1082 Meter lange Graspiste, die regelmäßig von Bush-Piloten und Outdoor-Enthusiasten genutzt wird. Abgesehen von der Piste bietet der Platz die typische Abgeschiedenheit des Hinterlandes ohne ausgeprägte Infrastruktur. Piloten nutzen den Strip oft als Basis für mehrtägige Expeditionen in die umliegende Wildnis. Es liegen keine Berichte über Tankmöglichkeiten oder Wartungseinrichtungen vor.\",\n    \"sourceIds\": [\n      \"faa-mountain-tips\",\n      \"nz-caa-mountain\"\n    ]\n  },\n  \"departureAirportInformation\": {\n    \"usedFacts\": [\n      {\n        \"sourceId\": \"own\",\n        \"evidence\": \"McCall Municipal Airport (KMYL) Platzhöhe: 5024 ft MSL. Piste 16/34, 1864 m Länge, 23 m Breite, Asphalt.\",\n        \"statement\": \"McCall Municipal verfügt über eine 1864 Meter lange Asphaltpiste (16/34) auf 5024 Fuß Höhe.\"\n      },\n      {\n        \"sourceId\": \"faa-mountain-tips\",\n        \"evidence\": \"Hohe Dichtehöhe vermindert die verfügbare Flugleistung. Start-, Landestrecken und Steigleistung anhand der Flugzeugunterlagen beurteilen.\",\n        \"statement\": \"Aufgrund der Platzhöhe von über 5000 Fuß sollte die Startleistung unter Berücksichtigung der Dichtehöhe geprüft werden.\"\n      }\n    ],\n    \"departureInfo\": \"Der Abflug erfolgt vom McCall Municipal Airport (KMYL), der auf einer beachtlichen Höhe von 5024 Fuß MSL liegt. Du nutzt die asphaltierte Hauptpiste 16/34, die mit 1864 Metern Länge reichlich Spielraum bietet. Dennoch solltest du die Platzhöhe bei der Berechnung deiner Startleistung nicht ignorieren, da die Dichtehöhe gerade an wärmeren Vormittagen die Steigrate spürbar beeinflussen kann. Der Platz ist gut ausgebaut und dient als idealer Absprungpunkt für Flüge ins tiefer gelegene Hinterland. Spezifische lokale Abflugverfahren für Lärmschutz sind den aktuellen Pilotennotizen vor Ort zu entnehmen.\",\n    \"sourceIds\": [\n      \"faa-mountain-tips\"\n    ]\n  },\n  \"title\": \"Herbstfarben in Big Creek\",\n  \"story\": \"Du hast heute Elias mit an Bord, einen Naturfilmer, der für sein aktuelles Projekt über die Frank Church Wilderness den perfekten Moment abpasst. Er hat es auf die kurzen Wochen im Oktober abgesehen, wenn die Lärchen im Hinterland von Idaho ihr Gold zeigen und die ersten Gipfel bereits angezuckert sind. Big Creek ist für ihn der ideale Ausgangspunkt, um die alpinen Lichtverhältnisse tief im Tal einzufangen. Elias ist ein ruhiger Typ, aber man merkt ihm die Vorfreude an; sein ganzes Langzeitprojekt hängt von diesen herbstlichen Kontrasten ab. Sein Trailrucksack ist vollgepackt mit Stativen und Optiken, also geh behutsam mit der Ladung um. Nach der Landung auf dem Grasstrip will er sofort loslegen und seine Ausrüstung für die erste Erkundung klarmachen. Setz ihn einfach direkt am Big Creek Airport ab, damit er das Licht nutzen kann, solange es steht.\",\n  \"pax\": \"1 PAX\",\n  \"cargo\": \"Kameraausrüstung und Trailrucksack (45 lbs)\",\n  \"targetInfo\": \"\",\n  \"passenger\": {\n    \"name\": \"Elias\",\n    \"role\": \"Naturfilmer\",\n    \"gender\": \"male\",\n    \"personality\": \"fokussiert, beobachtend, ruhig\",\n    \"dialectHint\": \"neutral\",\n    \"roleProfile\": \"bush_adventure_guest_v1\",\n    \"taskDomain\": \"bush_adventure\",\n    \"gTolerance\": \"mittel\",\n    \"bankTolerance\": \"mittel\",\n    \"cargoSensitivity\": \"hoch\",\n    \"stomachSensitivity\": \"niedrig\",\n    \"comfortPriority\": \"niedrig\",\n    \"urgencyPriority\": \"hoch\",\n    \"targetAltFt\": 0,\n    \"targetRadiusNm\": 0,\n    \"targetDwellMin\": 0,\n    \"greetingText\": \"Hallo! Danke, dass du mich rausbringst. Wir müssen das Licht im Tal erwischen, bevor die Schatten zu lang werden – die Lärchen leuchten geradezu.\"\n  },\n  \"sceneIntent\": {\n    \"summary\": \"Elias entlädt seine Ausrüstung am Rand der Graspiste.\",\n    \"environment\": \"Herbstliche Hochgebirgslage mit goldenen Bäumen\",\n    \"visibleIdeas\": [\n      \"Ein großer Trailrucksack und ein Stativkoffer liegen neben dem Flugzeug\",\n      \"Elias steht mit einer Kamera um den Hals bereit\"\n    ],\n    \"avoid\": [],\n    \"densityHint\": \"sparse\",\n    \"notes\": \"Keine Zielszene nötig, da der Fokus auf dem Absetzen und dem Start der Dokumentation liegt.\"\n  },\n  \"bushContinuationMemory\": {\n    \"summary\": \"Elias wurde am Big Creek Airport abgesetzt, um die herbstliche Färbung der Lärchen und die ersten verschneiten Gipfel für seine Dokumentation über die Frank Church Wilderness zu filmen. Er plante, sofort nach der Landung mit dem Aufbau seines Equipments zu beginnen und das Tal fotografisch zu erkunden. Der Flug verlief reibungslos, und er konzentriert sich nun auf die alpinen Lichtverhältnisse für sein Langzeitprojekt.\",\n    \"participants\": [\n      {\n        \"name\": \"Elias\",\n        \"role\": \"Naturfilmer\"\n      }\n    ],\n    \"openQuestions\": [\n      \"Wie haben sich die Lichtverhältnisse im Tal während seines Aufenthalts entwickelt?\",\n      \"Konnten die goldenen Lärchen wie geplant eingefangen werden?\"\n    ],\n    \"betweenFlightsIdeas\": [\n      {\n        \"followUpKind\": \"bush_pickup_strip\",\n        \"summary\": \"Elias hat seine Aufnahmen im Kasten und wartet am Big Creek Strip darauf, mitsamt seiner wertvollen Filmmaterialien und der Ausrüstung wieder abgeholt zu werden.\"\n      }\n    ]\n  }\n}"
+    }
+  ],
+  "scenario": "original",
+  "suppliedSourceBasis": {
+    "schema": "bush-source-basis.v1",
+    "time": {
+      "source": "user-device-local",
+      "createdAt": "2026-10-08T08:30:00.000Z",
+      "createdLocal": "2026-10-08T10:30:00",
+      "utcOffsetMinutes": 120,
+      "timeZone": "Europe/Berlin",
+      "departureTimeKnown": false
+    },
+    "airport": {
+      "ident": "U60",
+      "name": "Big Creek Airport",
+      "lat": 45.133202,
+      "lon": -115.321999,
+      "country": "US",
+      "elevationFt": 5743,
+      "runways": [
+        {
+          "designator": "01/19",
+          "lengthM": 1082,
+          "widthM": 34,
+          "surface": "Gras",
+          "trueHeadingDeg": null,
+          "operations": null
+        }
+      ],
+      "ppr": null,
+      "private": null,
+      "source": "eigene Flugplatzdaten"
+    },
+    "localSources": [],
+    "terrain": null,
+    "weather": {
+      "start": {
+        "status": "unavailable",
+        "source": null,
+        "location": {
+          "name": "McCall Municipal Airport",
+          "lat": 44.8897,
+          "lon": -116.101
+        },
+        "units": null,
+        "retrievedAt": null,
+        "current": null,
+        "forecastNext6Hours": null,
+        "forecastNext72Hours": null,
+        "past72Hours": null
+      },
+      "target": {
+        "status": "unavailable",
+        "source": null,
+        "location": {
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999
+        },
+        "units": null,
+        "retrievedAt": null,
+        "current": null,
+        "forecastNext6Hours": null,
+        "forecastNext72Hours": null,
+        "past72Hours": null
+      },
+      "missionSnapshot": null
+    },
+    "limits": {
+      "narrativeIsEvidence": false,
+      "missingMeans": "unknown",
+      "liveCockpitWeather": "unknown unless supplied as live simulator telemetry",
+      "currentRunwayCondition": "unknown",
+      "densityAltitude": "unknown unless explicitly supplied as calculated value",
+      "localFacilities": "only explicit local-source or airport-data entries",
+      "terrainClassification": "unknown unless supplied by explicit local source; elevation alone is no valley or mountain classification",
+      "runwaySuitability": "unknown without aircraft-specific performance data",
+      "currentLight": "unknown; cloud percentage alone proves no visible light or view from cockpit",
+      "handbooks": "general guidance, no local evidence"
+    }
+  },
+  "planner": {
+    "pipelineVersion": "mission-v4-planner-2026-06-07",
+    "status": "ready",
+    "needs": [],
+    "resolvedNeeds": {
+      "geo_context": null,
+      "mission_truth": null,
+      "weather_snapshot": null,
+      "fire_hazard": null,
+      "airport_details": {
+        "start": {
+          "icao": "KMYL",
+          "name": "McCall Municipal Airport",
+          "lat": 44.8897,
+          "lon": -116.101
+        },
+        "dest": {
+          "icao": "U60",
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999
+        },
+        "targetPoi": null
+      }
+    },
+    "plan": {
+      "taskDomain": "bush_adventure",
+      "roleProfile": "bush_adventure_guest_v1",
+      "missionType": "bush",
+      "targetCategory": "charter",
+      "primaryObjective": "Bringe den Naturfilmer für seine Dokumentationsarbeiten zum Big Creek Airport.",
+      "targetLabel": "Big Creek Airport",
+      "missionTrigger": "Der Beginn der herbstlichen Hauptfärbung im Hinterland von Idaho.",
+      "focusSubject": "Elias und seine Kameraausrüstung für Naturaufnahmen.",
+      "keyQuestion": "Ist der Strip für den Aufenthalt sicher erreichbar und bereit für den Ausstieg des Gastes?",
+      "missionStakes": "Der Erfolg der Dokumentation hängt vom Erreichen dieses spezifischen Zugangspunkts ab.",
+      "completionSignal": "Sichere Landung am Big Creek Airport, Absetzen des Gastes und Entladen des Trailrucksacks.",
+      "storyFrame": {
+        "trigger": "Der Beginn der herbstlichen Hauptfärbung im Hinterland von Idaho.",
+        "focusSubject": "Elias und seine Kameraausrüstung für Naturaufnahmen.",
+        "keyQuestion": "Ist der Strip für den Aufenthalt sicher erreichbar und bereit für den Ausstieg des Gastes?",
+        "stakes": "Der Erfolg der Dokumentation hängt vom Erreichen dieses spezifischen Zugangspunkts ab.",
+        "completionSignal": "Sichere Landung am Big Creek Airport, Absetzen des Gastes und Entladen des Trailrucksacks.",
+        "subjectDetail": "Elias, ein spezialisierter Naturfilmer mit Fokus auf alpine Lichtverhältnisse und herbstliche Vegetation.",
+        "incidentContext": "Elias arbeitet an einem Langzeitprojekt über die Abgeschiedenheit der Frank Church Wilderness und nutzt Big Creek als strategischen Ausgangspunkt für seine Aufnahmen im Tal.",
+        "whyNow": "Anfang Oktober bietet das Tal die perfekten Kontraste zwischen den ersten verschneiten Gipfeln und den goldenen Lärchen, die Elias heute einfangen will.",
+        "soughtOutcome": "Absetzen am Strip, damit Elias unmittelbar nach der Landung mit dem Aufbau seines Stativs und der ersten Erkundung beginnen kann. Der Flugauftrag endet mit seinem Ausstieg.",
+        "incidentType": "",
+        "lastSeenContext": "",
+        "probableScenario": "",
+        "visibleClueCandidates": []
+      },
+      "sceneKind": "none",
+      "sceneDensity": "none",
+      "requiredAnchors": [],
+      "objectFamilies": [],
+      "placementPolicy": "Keine Zielobjekte platzieren; vorhandene Landmarken nur als visuelle Orientierung nutzen.",
+      "narrativeRules": [
+        "Primary subject lock: Big Creek Airport (generic) bleibt Hauptsubjekt.",
+        "Task-domain lock: bush_adventure bleibt die Art des Auftrags.",
+        "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+        "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+        "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+        "Backcountry-Hinflug mit Landung und Beginn eines Aufenthalts am Ziel bleibt Hauptzweck.",
+        "Landung, Ausstieg und Bodenplan am Zielstrip sind die relevanten Abschlussmarker.",
+        "Das gewaehlte Ziel bleibt Primärsubjekt.",
+        "Der Fokus liegt auf dem persönlichen Vorhaben des Gastes am Boden.",
+        "Die Landung am Ziel ist der definitive Abschluss des Auftrags."
+      ],
+      "lockedFields": {
+        "noLandingAtPoi": false,
+        "requiresRescueAtPoi": false,
+        "primarySubjectLabel": "Big Creek Airport",
+        "primarySubjectType": "generic",
+        "taskDomain": "bush_adventure"
+      },
+      "confidence": 1,
+      "localFacts": [
+        "Big Creek (U60) liegt auf 5743 Fuß Höhe.",
+        "Die Piste 01/19 besteht aus Gras und ist etwa 1082 Meter lang.",
+        "Der Flugplatz dient als wichtiger Zugang zum umliegenden Backcountry."
+      ],
+      "weatherHooks": [
+        "Herbstliche Sichtverhältnisse",
+        "Lokale Talwinde beim Anflug"
+      ],
+      "operationalDetails": [
+        "Beurteilung der Platzverhältnisse vor dem Sinkflug (FAA-Empfehlung).",
+        "Beachtung der Dichtehöhe aufgrund der Platzhöhe von über 5700 Fuß.",
+        "Sicherstellen von Ausweichwegen im Tal während des Anflugs."
+      ],
+      "realismBrief": "Der Flug ist glaubwürdig, da Big Creek ein klassischer Bush-Strip ist, der Fotografen und Outdoor-Spezialisten direkten Zugang zur Wildnis ermöglicht, der auf dem Landweg kaum praktikabel wäre.",
+      "narrativeHooks": [
+        "Elias prüft während des Fluges ungeduldig sein Fernglas.",
+        "Der Trailrucksack und die Stativtaschen sind sicher im Heck verstaut.",
+        "Der Gast bittet darum, die Graspiste vor dem Aufsetzen genau auf Hindernisse zu prüfen."
+      ],
+      "mustMention": [
+        "Naturfilmer",
+        "Herbstfarben",
+        "Graspiste",
+        "Trailrucksack"
+      ],
+      "mustAvoid": [
+        "Rundflug-Erwähnung",
+        "Rückflug-Versprechen",
+        "Notfallszenario",
+        "Kontext darf das Primaerziel nicht ersetzen.",
+        "Kontext darf die TaskDomain nicht umwidmen."
+      ]
+    },
+    "poiChain": null,
+    "debug": {
+      "source": "Gemini 3.0 Flash",
+      "rawStatus": "ready",
+      "pass": "single-shot",
+      "promptVersion": "mission-v4-planner-2026-06-07",
+      "toolCalls": [],
+      "fallbackError": "",
+      "parseMode": "direct",
+      "contextSchema": "missionPlannerV4.contextBundle.v1",
+      "semanticsVersion": "mission-semantics-v4-2026-06-07",
+      "variety": {
+        "schema": "missionVarietyPack.v1",
+        "namespace": "bush_scenic_hopper",
+        "profileId": "bush_scenic_hopper",
+        "contextTags": [
+          "bush",
+          "remote_strip",
+          "water"
+        ],
+        "selectedIds": [
+          "trailhead_family_visit",
+          "geology_ground_stop",
+          "plein_air_artist",
+          "lodge_guest_short_hop",
+          "fly_fishing_hop"
+        ],
+        "selectedFamilies": [
+          "trailhead_visit",
+          "geo_guest",
+          "wildcard_adventure",
+          "lodge_guest",
+          "river_guest"
+        ],
+        "primaryId": "trailhead_family_visit",
+        "primaryFamily": "trailhead_visit",
+        "recentFamilies": [],
+        "recentPrimaryFamilies": [],
+        "recentPrimaryIds": [],
+        "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+        "storageKey": "ga_mission_variety_history_bush_scenic_hopper_v1"
+      },
+      "primaryError": "",
+      "compactRetry": false,
+      "compactRetrySource": "",
+      "compactRetryError": "",
+      "aiAttempts": [
+        {
+          "model": "gemini-3-flash-preview",
+          "source": "Gemini 3.0 Flash",
+          "status": "ok",
+          "error": "",
+          "phase": "direct"
+        }
+      ]
+    },
+    "semantics": {
+      "version": "mission-semantics-v4-2026-06-07",
+      "focusLock": {
+        "mode": "bush",
+        "taskDomain": "bush_adventure",
+        "targetCategory": "generic",
+        "requestedCategory": "all",
+        "primarySubjectLabel": "Big Creek Airport",
+        "primarySubjectType": "generic",
+        "contextRoles": [
+          "orientation",
+          "hazard",
+          "access",
+          "support",
+          "evidence",
+          "background"
+        ]
+      },
+      "plannerGuardrails": [
+        "Primary subject lock: Big Creek Airport (generic) bleibt Hauptsubjekt.",
+        "Task-domain lock: bush_adventure bleibt die Art des Auftrags.",
+        "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+        "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+        "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+        "Backcountry-Hinflug mit Landung und Beginn eines Aufenthalts am Ziel bleibt Hauptzweck.",
+        "Landung, Ausstieg und Bodenplan am Zielstrip sind die relevanten Abschlussmarker.",
+        "Das gewaehlte Ziel bleibt Primärsubjekt."
+      ],
+      "writerGuardrails": [
+        "Story, Greeting und sceneIntent muessen Big Creek Airport als Primaerfokus behalten.",
+        "Kontext darf den Auftrag anreichern, aber nicht umwidmen.",
+        "Die Erzaehlung bleibt Backcountry-/Bush-bezogen und driftet nicht in normalen A-B-Verkehr.",
+        "Adventure-Story endet mit Ankunft und Ausstieg am Zielstrip; Beobachtungen aus dem Cockpit duerfen nur Anflugstimmung sein.",
+        "Schreibe den Flug als Zugang zum Erlebnisort, an dem der Aufenthalt nach der Landung beginnt.",
+        "Kontext darf nur anreichern, nie umwidmen."
+      ],
+      "forceSceneNone": true,
+      "naturalPriority": false
+    },
+    "missionVarietyBrief": {
+      "personalStoryBasis": {
+        "focus": "Ein individueller Adventure-Gast mit einem konkreten Outdoor-Vorhaben nach der Landung: was er dort selbst sehen, ausprobieren oder erleben möchte.",
+        "connection": "Ein persönlicher Grund, warum es diesen Menschen genau dorthin zieht. Eine kurze Vorgeschichte ist möglich, aber keine Pflicht; ein schlichter eigener Wunsch trägt die Geschichte ebenso.",
+        "outcome": "Am Zielstrip landen; der Ausflug beginnt erst am Boden. Kein Rundflug und keine Rückkehr zum Heimatplatz.",
+        "voice": "Der Gast begleitet den Hinflug. Begrüßung und spätere Geschichten tragen denselben Wunsch und seine eigene Haltung.",
+        "use": "Freie Inspiration. Person und Vorhaben folgen bevorzugt einer Richtung der candidateShortlist; Ziel, Region und Gelände geben Farbe. Vorgeschichte, Pointe oder Missgeschick sind keine Pflicht."
+      },
+      "weatherIdeaPolicy": "BUSH-WETTER: Nutze Wetter als praktischen Hintergrund. Ein wettergetriebener Auftrag folgt einem belegten markanten Wetterereignis oder einer gelieferten Meldung mit Ort und Zeit. Die Jahreszeit darf einen längerfristigen zeitlichen Anker liefern, etwa Herbstwartung ohne Zeitdruck. Gewöhnliche Wetterwerte und die Jahreszeit allein begründen weder drohenden Schnee noch ein knappes letztes Flugfenster; wetterbedingte Eile braucht ein konkret belegtes bevorstehendes Ereignis. Menschliche und fachliche Anlässe dürfen unabhängig davon tragen. Leite whyNow zuerst aus dem nächsten Schritt der Person oder des Auftraggebers ab. Saisonale Vorsorge kann einfach ein sinnvoller heutiger Auftrag sein; normale aktuelle Wetterwerte beschreiben nur den Flugrahmen, nicht den Grund, weshalb der Auftrag gerade jetzt erledigt werden muss. Auch eine im Planner erfundene Wetterfrist ist kein zusätzlicher Wetterbeleg für den Writer.",
+      "candidateEvidencePolicy": "Kandidaten und regionale Rollen-/Tätigkeitsideen sind mögliche fiktive Motive, keine Ereignismeldungen oder Belege für Anlagen, Tal, Hang, Jahreszeitbedingungen und Wetter. Wähle einen Anlass, der ohne erfundene reale Eigenschaften des Ziels auskommt. Saisonale Tätigkeiten wie Herbstwartung sind als längerfristiger Anlass zulässig, ohne daraus nahen Frost, Sperrungen oder Zeitdruck abzuleiten. Ein wettergetriebener Ereigniskandidat braucht ein ausdrücklich geliefertes markantes Wetterereignis.",
+      "purpose": "Offener Kreativrahmen fuer einen Bush-Adventure-Hopper. Das Profil bringt einen Gast zu einem abgelegenen Strip, wo nach der Landung ein Aufenthalt, Trail-, Lodge-, Camp- oder Naturplan beginnt.",
+      "recipe": "Kurzer Backcountry-Hinflug von McCall Municipal Airport nach Big Creek Airport, Landung am Zielstrip, Ausstieg/Handoff dort; kein Rundflug, kein Ueberflugauftrag, kein Rueckhol- oder Lieferzwang.",
+      "coreQuestions": [
+        "Wer fliegt nach Big Creek Airport und warum beginnt genau dort der persoenliche Outdoor- oder Backcountry-Plan?",
+        "Was nimmt der Gast fuer genau dieses Vorhaben mit?",
+        "Was beginnt nach der Landung am Boden, und was tut der Gast dort als Erstes?",
+        "Warum macht die Bush-Landung selbst den Auftrag besonders?",
+        "Welches konkrete Erlebnis, Bild, Wiedersehen oder Vorhaben wuenscht sich der Gast, und warum bedeutet es ihm persoenlich etwas?"
+      ],
+      "candidateShortlist": [
+        {
+          "id": "trailhead_family_visit",
+          "familyId": "trailhead_visit",
+          "label": "Trailhead-, Familien- oder Besuchsflug",
+          "wildcard": false,
+          "matchTags": [
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Backcountry-Besucherin",
+            "Trailhead-Gast",
+            "Camp-Freund"
+          ],
+          "taskIdeas": [
+            "eine kleine Besuchstasche zum Ziel bringen",
+            "am Bahnrand vom Campkontakt abgeholt werden",
+            "ein kurzes Backcountry-Erlebnis ohne Arbeitsauftrag haben"
+          ],
+          "objectIdeas": [
+            "kleiner Koffer",
+            "Tagesrucksack",
+            "Picknicktasche",
+            "Kamera"
+          ],
+          "returnDrivers": [
+            "der Zielstrip ist der Treffpunkt fuer den geplanten Besuch",
+            "nach der Landung ist der Flugauftrag abgeschlossen",
+            "die Mission bleibt bewusst leicht und persoenlich"
+          ],
+          "accessReasons": [
+            "der Strip ist der sichere Treffpunkt fuer den Besuch",
+            "der Camp-Pfad beginnt am Rand der Piste",
+            "der kurze Hop macht den Ort erreichbar"
+          ]
+        },
+        {
+          "id": "geology_ground_stop",
+          "familyId": "geo_guest",
+          "label": "Geologie, Landschaft und kurze Bodenpause",
+          "wildcard": false,
+          "matchTags": [
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Geologie-Dozentin",
+            "Naturkundler",
+            "Karteninteressierter Gast"
+          ],
+          "taskIdeas": [
+            "nach der Landung eine kurze Bodenpause mit Fotos und Notizen machen",
+            "den Strip als Zugang zu Talrand, Hangweg oder Aussichtspunkt nutzen",
+            "Kartenrolle und Kamera fuer den Aufenthalt am Boden bereithalten"
+          ],
+          "objectIdeas": [
+            "Notizbuch",
+            "kleine Lupe",
+            "Kameratasche",
+            "Kartenrolle"
+          ],
+          "returnDrivers": [
+            "die Landung am Ziel ist der geplante Hoehepunkt des Hoppers",
+            "der Gast bekommt den Backcountry-Kontext direkt am Zielstrip und am kurzen Bodenweg",
+            "es gibt keinen Folgeauftrag ausser dem sauberen Abschluss am Strip"
+          ],
+          "accessReasons": [
+            "der Strip liegt gut fuer den kurzen Weg zu Talrand oder Hang",
+            "die kurze Landung macht den Aufenthalt vor Ort erst sinnvoll",
+            "der Hop bleibt ein entspannter Backcountry-Hinflug"
+          ]
+        },
+        {
+          "id": "plein_air_artist",
+          "familyId": "wildcard_adventure",
+          "label": "Kurioser, ruhiger Backcountry-Gast",
+          "wildcard": true,
+          "matchTags": [
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Landschaftsmalerin",
+            "Naturautor",
+            "Soundscape-Sammlerin"
+          ],
+          "taskIdeas": [
+            "am Ziel einen stillen Arbeitsplatz suchen",
+            "Skizzenblock, Recorder oder kleine Staffelei ausladen",
+            "den Flug als Zugang zur Stimmung des Ortes nutzen"
+          ],
+          "objectIdeas": [
+            "Skizzenrolle",
+            "kleiner Recorder",
+            "leichte Staffelei",
+            "Tagesrucksack"
+          ],
+          "returnDrivers": [
+            "der Aufenthalt beginnt mit der Landung und braucht keine weitere Dramatik",
+            "der Zielstrip ist einfach der Zugang zu einem ungewoehnlichen, aber plausiblen Outdoor-Projekt",
+            "der Adventure-Hopper darf einmal etwas eigenwilliger wirken"
+          ],
+          "accessReasons": [
+            "der Strip liegt nahe am Motiv",
+            "zu Fuss waere das Material unpraktisch",
+            "die kurze Landung macht den Ort erreichbar"
+          ]
+        },
+        {
+          "id": "lodge_guest_short_hop",
+          "familyId": "lodge_guest",
+          "label": "Lodge-Gast mit kurzem Backcountry-Hop",
+          "wildcard": false,
+          "matchTags": [
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Lodge-Gast",
+            "Camp-Besucherin",
+            "Outfitter-Kontakt"
+          ],
+          "taskIdeas": [
+            "am Zielstrip vom Campkontakt abgeholt werden",
+            "leichte Tasche und Tageskit am Bahnrand ausladen",
+            "den Anflug als Teil des Aufenthalts erleben"
+          ],
+          "objectIdeas": [
+            "Duffelbag",
+            "Tagesrucksack",
+            "leichte Kuehltasche",
+            "Kameratasche"
+          ],
+          "returnDrivers": [
+            "der Aufenthalt beginnt nach der Landung am Ziel",
+            "der Handoff ist einfach: Gast und Gepaeck raus, Flug abgeschlossen",
+            "die Story bleibt ruhig und freizeitnah"
+          ],
+          "accessReasons": [
+            "der Strip ist der Zugang zur Lodge",
+            "Camp-Pfad und Bahnrand liegen nahe beieinander",
+            "der Hop ersetzt eine lange holprige Zufahrt"
+          ]
+        },
+        {
+          "id": "fly_fishing_hop",
+          "familyId": "river_guest",
+          "label": "Fly-Fishing- oder Flussausflug",
+          "wildcard": false,
+          "matchTags": [
+            "water",
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Fly-Fishing-Gast",
+            "Guide",
+            "Lodge-Gast"
+          ],
+          "taskIdeas": [
+            "am Ziel in Richtung Wasserabschnitt weitergehen",
+            "Angelrohr und leichte Kuehltasche am Strip ausladen",
+            "den Guidekontakt am Camp-Pfad treffen"
+          ],
+          "objectIdeas": [
+            "Angelrohr",
+            "Tagesrucksack",
+            "Kuehltasche",
+            "Watjacke"
+          ],
+          "returnDrivers": [
+            "der Zielstrip ist der geplante Beginn des Tages am Wasser",
+            "nach der Landung startet der Ausflug ohne weiteren Transfer",
+            "der Flug ist bewusst ein kurzer Bush-Hop"
+          ],
+          "accessReasons": [
+            "der Flussabschnitt liegt naeher am Zielstrip als an jeder Strasse",
+            "der Guide wartet am Striprand",
+            "das Gepaeck bleibt fuer den kurzen Flug handlich"
+          ]
+        }
+      ],
+      "variety": {
+        "schema": "missionVarietyPack.v1",
+        "namespace": "bush_scenic_hopper",
+        "profileId": "bush_scenic_hopper",
+        "contextTags": [
+          "bush",
+          "remote_strip",
+          "water"
+        ],
+        "selectedIds": [
+          "trailhead_family_visit",
+          "geology_ground_stop",
+          "plein_air_artist",
+          "lodge_guest_short_hop",
+          "fly_fishing_hop"
+        ],
+        "selectedFamilies": [
+          "trailhead_visit",
+          "geo_guest",
+          "wildcard_adventure",
+          "lodge_guest",
+          "river_guest"
+        ],
+        "primaryId": "trailhead_family_visit",
+        "primaryFamily": "trailhead_visit",
+        "recentFamilies": [],
+        "recentPrimaryFamilies": [],
+        "recentPrimaryIds": [],
+        "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+        "storageKey": "ga_mission_variety_history_bush_scenic_hopper_v1"
+      },
+      "ingredientAxes": {
+        "roleFamilies": [
+          "Backcountry-Besucherin",
+          "Trailhead-Gast",
+          "Camp-Freund",
+          "Geologie-Dozentin",
+          "Naturkundler",
+          "Karteninteressierter Gast",
+          "Landschaftsmalerin",
+          "Naturautor",
+          "Soundscape-Sammlerin",
+          "Lodge-Gast",
+          "Camp-Besucherin",
+          "Outfitter-Kontakt"
+        ],
+        "activityVerbs": [
+          "eine kleine Besuchstasche zum Ziel bringen",
+          "am Bahnrand vom Campkontakt abgeholt werden",
+          "ein kurzes Backcountry-Erlebnis ohne Arbeitsauftrag haben",
+          "nach der Landung eine kurze Bodenpause mit Fotos und Notizen machen",
+          "den Strip als Zugang zu Talrand, Hangweg oder Aussichtspunkt nutzen",
+          "Kartenrolle und Kamera fuer den Aufenthalt am Boden bereithalten",
+          "am Ziel einen stillen Arbeitsplatz suchen",
+          "Skizzenblock, Recorder oder kleine Staffelei ausladen",
+          "den Flug als Zugang zur Stimmung des Ortes nutzen",
+          "am Zielstrip vom Campkontakt abgeholt werden",
+          "leichte Tasche und Tageskit am Bahnrand ausladen",
+          "den Anflug als Teil des Aufenthalts erleben",
+          "am Ziel in Richtung Wasserabschnitt weitergehen",
+          "Angelrohr und leichte Kuehltasche am Strip ausladen"
+        ],
+        "evidenceObjects": [
+          "kleiner Koffer",
+          "Tagesrucksack",
+          "Picknicktasche",
+          "Kamera",
+          "Notizbuch",
+          "kleine Lupe",
+          "Kameratasche",
+          "Kartenrolle",
+          "Skizzenrolle",
+          "kleiner Recorder",
+          "leichte Staffelei",
+          "Duffelbag",
+          "leichte Kuehltasche",
+          "Angelrohr"
+        ],
+        "returnDrivers": [
+          "der Zielstrip ist der Treffpunkt fuer den geplanten Besuch",
+          "nach der Landung ist der Flugauftrag abgeschlossen",
+          "die Mission bleibt bewusst leicht und persoenlich",
+          "die Landung am Ziel ist der geplante Hoehepunkt des Hoppers",
+          "der Gast bekommt den Backcountry-Kontext direkt am Zielstrip und am kurzen Bodenweg",
+          "es gibt keinen Folgeauftrag ausser dem sauberen Abschluss am Strip",
+          "der Aufenthalt beginnt mit der Landung und braucht keine weitere Dramatik",
+          "der Zielstrip ist einfach der Zugang zu einem ungewoehnlichen, aber plausiblen Outdoor-Projekt",
+          "der Adventure-Hopper darf einmal etwas eigenwilliger wirken",
+          "der Aufenthalt beginnt nach der Landung am Ziel"
+        ],
+        "accessReasons": [
+          "der Strip ist der sichere Treffpunkt fuer den Besuch",
+          "der Camp-Pfad beginnt am Rand der Piste",
+          "der kurze Hop macht den Ort erreichbar",
+          "der Strip liegt gut fuer den kurzen Weg zu Talrand oder Hang",
+          "die kurze Landung macht den Aufenthalt vor Ort erst sinnvoll",
+          "der Hop bleibt ein entspannter Backcountry-Hinflug",
+          "der Strip liegt nahe am Motiv",
+          "zu Fuss waere das Material unpraktisch"
+        ]
+      },
+      "writerExpectations": [
+        "Nutze bevorzugt genau eine Richtung aus candidateShortlist, damit Rolle, Taetigkeiten, Gegenstaende und Folgegrund zusammenpassen.",
+        "Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren.",
+        "Wenn candidateShortlist nicht passt, nutze ingredientAxes als offene Inspiration und bleibe trotzdem im Zielkontext.",
+        "Kontext, Profil-Rezept, TaskDomain und MissionTruth schlagen Varianz.",
+        "Nicht alle Achsen abarbeiten; frei kombinieren und variieren.",
+        "Keine neuen Ortsnamen oder harten Geofakten erfinden.",
+        "Nicht jedes Adventure-Profil in Arbeit, Forschung oder Zeitdruck verwandeln.",
+        "Schreibe den Flug als Transport zum Erlebnisort, an dem der Aufenthalt am Boden beginnt.",
+        "Die Landung am Ziel ist der natuerliche Abschluss des Fluglegs.",
+        "Der Gast darf persoenlich, neugierig oder ungewoehnlich sein; die Geografie bleibt aus dem Contract."
+      ],
+      "weatherNote": ""
+    },
+    "variety": {
+      "schema": "missionVarietyPack.v1",
+      "namespace": "bush_scenic_hopper",
+      "profileId": "bush_scenic_hopper",
+      "contextTags": [
+        "bush",
+        "remote_strip",
+        "water"
+      ],
+      "selectedIds": [
+        "trailhead_family_visit",
+        "geology_ground_stop",
+        "plein_air_artist",
+        "lodge_guest_short_hop",
+        "fly_fishing_hop"
+      ],
+      "selectedFamilies": [
+        "trailhead_visit",
+        "geo_guest",
+        "wildcard_adventure",
+        "lodge_guest",
+        "river_guest"
+      ],
+      "primaryId": "trailhead_family_visit",
+      "primaryFamily": "trailhead_visit",
+      "recentFamilies": [],
+      "recentPrimaryFamilies": [],
+      "recentPrimaryIds": [],
+      "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+      "storageKey": "ga_mission_variety_history_bush_scenic_hopper_v1"
+    }
+  },
+  "contract": {
+    "pipelineVersion": "mission-v4-contract-writer-2026-06-07",
+    "bushReconPlan": null,
+    "status": "ready",
+    "mode": "bush",
+    "paxText": "1 PAX (Naturfilmer)",
+    "passengerCount": 1,
+    "party": null,
+    "partyNarrative": null,
+    "aircraftCapability": {
+      "cruiseSpeedKts": 110,
+      "aircraftTags": []
+    },
+    "cargoText": "Trailrucksack, Fernglas und Regenjacken (28 lbs)",
+    "animalTransportBrief": null,
+    "route": {
+      "startIcao": "",
+      "startName": "McCall Municipal Airport",
+      "targetIcao": "U60",
+      "targetName": "Big Creek Airport",
+      "distanceNm": 36
+    },
+    "profile": {
+      "id": "bush_scenic_hopper",
+      "label": "Bush Adventure Hopper",
+      "roleProfile": "bush_adventure_guest_v1",
+      "taskDomain": "bush_adventure",
+      "pickerCategory": "all",
+      "requestedCategory": "all"
+    },
+    "target": {
+      "isPOI": false,
+      "name": "Big Creek Airport",
+      "lat": 45.133202,
+      "lon": -115.321999,
+      "poiSource": "",
+      "poiCategory": "all",
+      "terrainFt": null,
+      "terrainMaxFt": null,
+      "terrainRadiusNm": null
+    },
+    "poiChain": null,
+    "knowledgeContext": null,
+    "weather": {
+      "dep": {
+        "summary": "Keine aktuellen Wetterdaten verfügbar.",
+        "raw": null
+      },
+      "dest": {
+        "summary": "Keine aktuellen Wetterdaten verfügbar.",
+        "raw": null
+      },
+      "rule": "Wetter nur als Realitaetsanker nutzen: Wind, Sicht, Wolken/WX knapp einbauen; keine dramatische Wetterstory erfinden."
+    },
+    "environmentContext": {
+      "schema": "mission-environment.v1",
+      "time": {
+        "source": "user-device-local",
+        "createdAt": "2026-10-08T08:30:00.000Z",
+        "createdLocal": "2026-10-08T10:30:00",
+        "utcOffsetMinutes": 120,
+        "timeZone": "Europe/Berlin",
+        "departureTimeKnown": false
+      },
+      "start": {
+        "location": {
+          "name": "McCall Municipal Airport",
+          "lat": 44.8897,
+          "lon": -116.101
+        },
+        "status": "unavailable"
+      },
+      "target": {
+        "location": {
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999
+        },
+        "status": "unavailable"
+      }
+    },
+    "airportInfoContext": {
+      "schema": "mission-airport-information.v1",
+      "airport": {
+        "ident": "U60",
+        "name": "Big Creek Airport",
+        "lat": 45.133202,
+        "lon": -115.321999,
+        "country": "US",
+        "elevationFt": 5743,
+        "runways": [
+          {
+            "designator": "01/19",
+            "lengthM": 1082,
+            "widthM": 34,
+            "surface": "Gras",
+            "trueHeadingDeg": null,
+            "operations": null
+          }
+        ],
+        "ppr": null,
+        "private": null,
+        "source": "eigene Flugplatzdaten"
+      },
+      "terrain": null,
+      "pilotHints": [
+        {
+          "id": "assess-before-descent",
+          "source": "faa-mountain-safety",
+          "section": "Poor Planning",
+          "text": "Vor dem Sinkflug in einen Gebirgsplatz die Möglichkeiten für Durchstarten und anschließenden Abflug beurteilen."
+        },
+        {
+          "id": "valley-escape",
+          "source": "nz-caa-mountain",
+          "section": "Entering a valley / Escape routes, pp. 24–26",
+          "text": "Im Tal ausreichend Raum zum Wenden und einen Ausweg erhalten. Nicht darauf vertrauen, ansteigendes Gelände übersteigen zu können."
+        },
+        {
+          "id": "valley-wind",
+          "source": "nz-caa-mountain",
+          "section": "Wind, p. 8; Valley flying, p. 22",
+          "text": "Wind im Tal kann in Richtung und Stärke vom Wind oberhalb der Bergrücken abweichen. Eine entfernte Wetterstation beschreibt den lokalen Talwind nicht vollständig."
+        },
+        {
+          "id": "lee-turbulence",
+          "source": "faa-mountain-safety",
+          "section": "Mountain Weather",
+          "text": "Hinter Bergrücken können starke Abwinde und Turbulenz auftreten; ihr Ausmaß lässt sich aus einem Bodenwind allein nicht ableiten."
+        },
+        {
+          "id": "density-altitude",
+          "source": "faa-mountain-tips",
+          "section": "Performance Considerations",
+          "text": "Hohe Dichtehöhe vermindert die verfügbare Flugleistung. Start-, Landestrecken und Steigleistung anhand der Flugzeugunterlagen beurteilen."
+        },
+        {
+          "id": "surface-condition",
+          "source": "nz-caa-mountain",
+          "section": "Approach and landing, pp. 29–30",
+          "text": "Eine bekannte Pistenoberfläche sagt noch nichts über den aktuellen Zustand aus. Nässe, weicher Boden und Grasbewuchs können die nutzbare Leistung beeinflussen."
+        },
+        {
+          "id": "local-knowledge",
+          "source": "ntsb-sa039",
+          "section": "What can pilots do?",
+          "text": "Für unbekannte Gebirgsplätze aktuelle lokale Informationen und qualifizierte Einweisung einholen."
+        }
+      ],
+      "sources": [
+        {
+          "id": "faa-mountain-tips",
+          "title": "FAA Tips on Mountain Flying, FAA-P-8740-60",
+          "url": "https://www.faa.gov/sites/faa.gov/files/regulations_policies/handbooks_manuals/aviation/tips_on_mountain_flying.pdf",
+          "kind": "pilot-handbook"
+        },
+        {
+          "id": "faa-mountain-safety",
+          "title": "FAA Aviation Safety: Mountain Flying",
+          "url": "https://www.faa.gov/sites/faa.gov/files/2022-01/Mountain%20Flying.pdf",
+          "kind": "pilot-handbook"
+        },
+        {
+          "id": "nz-caa-mountain",
+          "title": "NZ CAA Mountain Flying, May 2021",
+          "url": "https://www.aviation.govt.nz/assets/publications/gaps/caa-gap-mountain-flying-may-2021-web.pdf",
+          "kind": "pilot-handbook"
+        },
+        {
+          "id": "ntsb-sa039",
+          "title": "NTSB SA-039 Mastering Mountain Flying",
+          "url": "https://www.ntsb.gov/Advocacy/safety-alerts/Documents/SA-039.pdf",
+          "kind": "pilot-handbook"
+        }
+      ],
+      "retrieval": {
+        "budgetMs": 3000,
+        "requests": {
+          "wikipedia": 2,
+          "faa": 1
+        },
+        "sources": {
+          "wikipedia-de": {
+            "status": "no_match",
+            "ms": 4
+          },
+          "wikipedia-en": {
+            "status": "no_match",
+            "ms": 4
+          },
+          "ownAirport": {
+            "status": "available",
+            "ms": 3,
+            "cached": false
+          },
+          "faa": {
+            "status": "no_match",
+            "ms": 4
+          }
+        },
+        "elapsedMs": 4,
+        "partial": false
+      }
+    },
+    "departureAirportInfoContext": {
+      "schema": "mission-airport-information.v1",
+      "airport": {
+        "ident": "KMYL",
+        "name": "McCall Municipal Airport",
+        "lat": 44.8897,
+        "lon": -116.101,
+        "country": "US",
+        "elevationFt": 5024,
+        "runways": [
+          {
+            "designator": "16/34",
+            "lengthM": 1864,
+            "widthM": 23,
+            "surface": "Asphalt",
+            "trueHeadingDeg": null,
+            "operations": null
+          }
+        ],
+        "ppr": null,
+        "private": null,
+        "source": "eigene Flugplatzdaten"
+      },
+      "terrain": null,
+      "pilotHints": [
+        {
+          "id": "assess-before-descent",
+          "source": "faa-mountain-safety",
+          "section": "Poor Planning",
+          "text": "Vor dem Sinkflug in einen Gebirgsplatz die Möglichkeiten für Durchstarten und anschließenden Abflug beurteilen."
+        },
+        {
+          "id": "valley-escape",
+          "source": "nz-caa-mountain",
+          "section": "Entering a valley / Escape routes, pp. 24–26",
+          "text": "Im Tal ausreichend Raum zum Wenden und einen Ausweg erhalten. Nicht darauf vertrauen, ansteigendes Gelände übersteigen zu können."
+        },
+        {
+          "id": "valley-wind",
+          "source": "nz-caa-mountain",
+          "section": "Wind, p. 8; Valley flying, p. 22",
+          "text": "Wind im Tal kann in Richtung und Stärke vom Wind oberhalb der Bergrücken abweichen. Eine entfernte Wetterstation beschreibt den lokalen Talwind nicht vollständig."
+        },
+        {
+          "id": "lee-turbulence",
+          "source": "faa-mountain-safety",
+          "section": "Mountain Weather",
+          "text": "Hinter Bergrücken können starke Abwinde und Turbulenz auftreten; ihr Ausmaß lässt sich aus einem Bodenwind allein nicht ableiten."
+        },
+        {
+          "id": "density-altitude",
+          "source": "faa-mountain-tips",
+          "section": "Performance Considerations",
+          "text": "Hohe Dichtehöhe vermindert die verfügbare Flugleistung. Start-, Landestrecken und Steigleistung anhand der Flugzeugunterlagen beurteilen."
+        },
+        {
+          "id": "surface-condition",
+          "source": "nz-caa-mountain",
+          "section": "Approach and landing, pp. 29–30",
+          "text": "Eine bekannte Pistenoberfläche sagt noch nichts über den aktuellen Zustand aus. Nässe, weicher Boden und Grasbewuchs können die nutzbare Leistung beeinflussen."
+        },
+        {
+          "id": "local-knowledge",
+          "source": "ntsb-sa039",
+          "section": "What can pilots do?",
+          "text": "Für unbekannte Gebirgsplätze aktuelle lokale Informationen und qualifizierte Einweisung einholen."
+        }
+      ],
+      "sources": [
+        {
+          "id": "faa-mountain-tips",
+          "title": "FAA Tips on Mountain Flying, FAA-P-8740-60",
+          "url": "https://www.faa.gov/sites/faa.gov/files/regulations_policies/handbooks_manuals/aviation/tips_on_mountain_flying.pdf",
+          "kind": "pilot-handbook"
+        },
+        {
+          "id": "faa-mountain-safety",
+          "title": "FAA Aviation Safety: Mountain Flying",
+          "url": "https://www.faa.gov/sites/faa.gov/files/2022-01/Mountain%20Flying.pdf",
+          "kind": "pilot-handbook"
+        },
+        {
+          "id": "nz-caa-mountain",
+          "title": "NZ CAA Mountain Flying, May 2021",
+          "url": "https://www.aviation.govt.nz/assets/publications/gaps/caa-gap-mountain-flying-may-2021-web.pdf",
+          "kind": "pilot-handbook"
+        },
+        {
+          "id": "ntsb-sa039",
+          "title": "NTSB SA-039 Mastering Mountain Flying",
+          "url": "https://www.ntsb.gov/Advocacy/safety-alerts/Documents/SA-039.pdf",
+          "kind": "pilot-handbook"
+        }
+      ],
+      "retrieval": {
+        "budgetMs": 3000,
+        "requests": {
+          "wikipedia": 2,
+          "faa": 1
+        },
+        "sources": {
+          "wikipedia-de": {
+            "status": "no_match",
+            "ms": 1
+          },
+          "wikipedia-en": {
+            "status": "no_match",
+            "ms": 1
+          },
+          "ownAirport": {
+            "status": "available",
+            "ms": 1,
+            "cached": false
+          },
+          "faa": {
+            "status": "no_match",
+            "ms": 1
+          }
+        },
+        "elapsedMs": 1,
+        "partial": false
+      }
+    },
+    "fireHazard": null,
+    "missionPlan": {
+      "status": "ready",
+      "pipelineVersion": "mission-v4-planner-2026-06-07",
+      "plan": {
+        "taskDomain": "bush_adventure",
+        "roleProfile": "bush_adventure_guest_v1",
+        "missionType": "bush",
+        "targetCategory": "charter",
+        "primaryObjective": "Bringe den Naturfilmer für seine Dokumentationsarbeiten zum Big Creek Airport.",
+        "targetLabel": "Big Creek Airport",
+        "missionTrigger": "Der Beginn der herbstlichen Hauptfärbung im Hinterland von Idaho.",
+        "focusSubject": "Elias und seine Kameraausrüstung für Naturaufnahmen.",
+        "keyQuestion": "Ist der Strip für den Aufenthalt sicher erreichbar und bereit für den Ausstieg des Gastes?",
+        "missionStakes": "Der Erfolg der Dokumentation hängt vom Erreichen dieses spezifischen Zugangspunkts ab.",
+        "completionSignal": "Sichere Landung am Big Creek Airport, Absetzen des Gastes und Entladen des Trailrucksacks.",
+        "storyFrame": {
+          "trigger": "Der Beginn der herbstlichen Hauptfärbung im Hinterland von Idaho.",
+          "focusSubject": "Elias und seine Kameraausrüstung für Naturaufnahmen.",
+          "keyQuestion": "Ist der Strip für den Aufenthalt sicher erreichbar und bereit für den Ausstieg des Gastes?",
+          "stakes": "Der Erfolg der Dokumentation hängt vom Erreichen dieses spezifischen Zugangspunkts ab.",
+          "completionSignal": "Sichere Landung am Big Creek Airport, Absetzen des Gastes und Entladen des Trailrucksacks.",
+          "subjectDetail": "Elias, ein spezialisierter Naturfilmer mit Fokus auf alpine Lichtverhältnisse und herbstliche Vegetation.",
+          "incidentContext": "Elias arbeitet an einem Langzeitprojekt über die Abgeschiedenheit der Frank Church Wilderness und nutzt Big Creek als strategischen Ausgangspunkt für seine Aufnahmen im Tal.",
+          "whyNow": "Anfang Oktober bietet das Tal die perfekten Kontraste zwischen den ersten verschneiten Gipfeln und den goldenen Lärchen, die Elias heute einfangen will.",
+          "soughtOutcome": "Absetzen am Strip, damit Elias unmittelbar nach der Landung mit dem Aufbau seines Stativs und der ersten Erkundung beginnen kann. Der Flugauftrag endet mit seinem Ausstieg.",
+          "incidentType": "",
+          "lastSeenContext": "",
+          "probableScenario": "",
+          "visibleClueCandidates": []
+        },
+        "sceneKind": "none",
+        "sceneDensity": "none",
+        "requiredAnchors": [],
+        "objectFamilies": [],
+        "placementPolicy": "Keine Zielobjekte platzieren; vorhandene Landmarken nur als visuelle Orientierung nutzen.",
+        "narrativeRules": [
+          "Primary subject lock: Big Creek Airport (generic) bleibt Hauptsubjekt.",
+          "Task-domain lock: bush_adventure bleibt die Art des Auftrags.",
+          "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+          "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+          "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+          "Backcountry-Hinflug mit Landung und Beginn eines Aufenthalts am Ziel bleibt Hauptzweck."
+        ],
+        "localFacts": [
+          "Big Creek (U60) liegt auf 5743 Fuß Höhe.",
+          "Die Piste 01/19 besteht aus Gras und ist etwa 1082 Meter lang.",
+          "Der Flugplatz dient als wichtiger Zugang zum umliegenden Backcountry."
+        ],
+        "weatherHooks": [
+          "Herbstliche Sichtverhältnisse",
+          "Lokale Talwinde beim Anflug"
+        ],
+        "operationalDetails": [
+          "Beurteilung der Platzverhältnisse vor dem Sinkflug (FAA-Empfehlung).",
+          "Beachtung der Dichtehöhe aufgrund der Platzhöhe von über 5700 Fuß.",
+          "Sicherstellen von Ausweichwegen im Tal während des Anflugs."
+        ],
+        "realismBrief": "Der Flug ist glaubwürdig, da Big Creek ein klassischer Bush-Strip ist, der Fotografen und Outdoor-Spezialisten direkten Zugang zur Wildnis ermöglicht, der auf dem Landweg kaum praktikabel wäre.",
+        "narrativeHooks": [
+          "Elias prüft während des Fluges ungeduldig sein Fernglas.",
+          "Der Trailrucksack und die Stativtaschen sind sicher im Heck verstaut.",
+          "Der Gast bittet darum, die Graspiste vor dem Aufsetzen genau auf Hindernisse zu prüfen."
+        ],
+        "mustMention": [
+          "Naturfilmer",
+          "Herbstfarben",
+          "Graspiste",
+          "Trailrucksack"
+        ],
+        "mustAvoid": [
+          "Rundflug-Erwähnung",
+          "Rückflug-Versprechen",
+          "Notfallszenario",
+          "Kontext darf das Primaerziel nicht ersetzen.",
+          "Kontext darf die TaskDomain nicht umwidmen."
+        ],
+        "lockedFields": {
+          "noLandingAtPoi": false,
+          "requiresRescueAtPoi": false,
+          "primarySubjectLabel": "Big Creek Airport",
+          "primarySubjectType": "generic",
+          "taskDomain": "bush_adventure"
+        },
+        "confidence": 1
+      },
+      "poiChain": null,
+      "needs": [],
+      "resolvedNeedTypes": [
+        "geo_context",
+        "mission_truth",
+        "weather_snapshot",
+        "fire_hazard",
+        "airport_details"
+      ]
+    },
+    "storyFrame": {
+      "trigger": "Der Beginn der herbstlichen Hauptfärbung im Hinterland von Idaho.",
+      "focusSubject": "Elias und seine Kameraausrüstung für Naturaufnahmen.",
+      "keyQuestion": "Ist der Strip für den Aufenthalt sicher erreichbar und bereit für den Ausstieg des Gastes?",
+      "stakes": "Der Erfolg der Dokumentation hängt vom Erreichen dieses spezifischen Zugangspunkts ab.",
+      "completionSignal": "Sichere Landung am Big Creek Airport, Absetzen des Gastes und Entladen des Trailrucksacks.",
+      "subjectDetail": "Elias, ein spezialisierter Naturfilmer mit Fokus auf alpine Lichtverhältnisse und herbstliche Vegetation.",
+      "incidentContext": "Elias arbeitet an einem Langzeitprojekt über die Abgeschiedenheit der Frank Church Wilderness und nutzt Big Creek als strategischen Ausgangspunkt für seine Aufnahmen im Tal.",
+      "whyNow": "Anfang Oktober bietet das Tal die perfekten Kontraste zwischen den ersten verschneiten Gipfeln und den goldenen Lärchen, die Elias heute einfangen will.",
+      "soughtOutcome": "Absetzen am Strip, damit Elias unmittelbar nach der Landung mit dem Aufbau seines Stativs und der ersten Erkundung beginnen kann. Der Flugauftrag endet mit seinem Ausstieg.",
+      "incidentType": "",
+      "lastSeenContext": "",
+      "probableScenario": "",
+      "visibleClueCandidates": []
+    },
+    "infraNarrativeHandoff": null,
+    "chainNarrativeBrief": null,
+    "pickupCreativeBrief": null,
+    "missionVarietyBrief": {
+      "personalStoryBasis": {
+        "focus": "Ein individueller Adventure-Gast mit einem konkreten Outdoor-Vorhaben nach der Landung: was er dort selbst sehen, ausprobieren oder erleben möchte.",
+        "connection": "Ein persönlicher Grund, warum es diesen Menschen genau dorthin zieht. Eine kurze Vorgeschichte ist möglich, aber keine Pflicht; ein schlichter eigener Wunsch trägt die Geschichte ebenso.",
+        "outcome": "Am Zielstrip landen; der Ausflug beginnt erst am Boden. Kein Rundflug und keine Rückkehr zum Heimatplatz.",
+        "voice": "Der Gast begleitet den Hinflug. Begrüßung und spätere Geschichten tragen denselben Wunsch und seine eigene Haltung.",
+        "use": "Freie Inspiration. Person und Vorhaben folgen bevorzugt einer Richtung der candidateShortlist; Ziel, Region und Gelände geben Farbe. Vorgeschichte, Pointe oder Missgeschick sind keine Pflicht."
+      },
+      "weatherIdeaPolicy": "BUSH-WETTER: Nutze Wetter als praktischen Hintergrund. Ein wettergetriebener Auftrag folgt einem belegten markanten Wetterereignis oder einer gelieferten Meldung mit Ort und Zeit. Die Jahreszeit darf einen längerfristigen zeitlichen Anker liefern, etwa Herbstwartung ohne Zeitdruck. Gewöhnliche Wetterwerte und die Jahreszeit allein begründen weder drohenden Schnee noch ein knappes letztes Flugfenster; wetterbedingte Eile braucht ein konkret belegtes bevorstehendes Ereignis. Menschliche und fachliche Anlässe dürfen unabhängig davon tragen. Leite whyNow zuerst aus dem nächsten Schritt der Person oder des Auftraggebers ab. Saisonale Vorsorge kann einfach ein sinnvoller heutiger Auftrag sein; normale aktuelle Wetterwerte beschreiben nur den Flugrahmen, nicht den Grund, weshalb der Auftrag gerade jetzt erledigt werden muss. Auch eine im Planner erfundene Wetterfrist ist kein zusätzlicher Wetterbeleg für den Writer.",
+      "candidateEvidencePolicy": "Kandidaten und regionale Rollen-/Tätigkeitsideen sind mögliche fiktive Motive, keine Ereignismeldungen oder Belege für Anlagen, Tal, Hang, Jahreszeitbedingungen und Wetter. Wähle einen Anlass, der ohne erfundene reale Eigenschaften des Ziels auskommt. Saisonale Tätigkeiten wie Herbstwartung sind als längerfristiger Anlass zulässig, ohne daraus nahen Frost, Sperrungen oder Zeitdruck abzuleiten. Ein wettergetriebener Ereigniskandidat braucht ein ausdrücklich geliefertes markantes Wetterereignis.",
+      "purpose": "Offener Kreativrahmen fuer einen Bush-Adventure-Hopper. Das Profil bringt einen Gast zu einem abgelegenen Strip, wo nach der Landung ein Aufenthalt, Trail-, Lodge-, Camp- oder Naturplan beginnt.",
+      "recipe": "Kurzer Backcountry-Hinflug von McCall Municipal Airport nach Big Creek Airport, Landung am Zielstrip, Ausstieg/Handoff dort; kein Rundflug, kein Ueberflugauftrag, kein Rueckhol- oder Lieferzwang.",
+      "coreQuestions": [
+        "Wer fliegt nach Big Creek Airport und warum beginnt genau dort der persoenliche Outdoor- oder Backcountry-Plan?",
+        "Was nimmt der Gast fuer genau dieses Vorhaben mit?",
+        "Was beginnt nach der Landung am Boden, und was tut der Gast dort als Erstes?",
+        "Warum macht die Bush-Landung selbst den Auftrag besonders?",
+        "Welches konkrete Erlebnis, Bild, Wiedersehen oder Vorhaben wuenscht sich der Gast, und warum bedeutet es ihm persoenlich etwas?"
+      ],
+      "candidateShortlist": [
+        {
+          "id": "trailhead_family_visit",
+          "familyId": "trailhead_visit",
+          "label": "Trailhead-, Familien- oder Besuchsflug",
+          "wildcard": false,
+          "matchTags": [
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Backcountry-Besucherin",
+            "Trailhead-Gast",
+            "Camp-Freund"
+          ],
+          "taskIdeas": [
+            "eine kleine Besuchstasche zum Ziel bringen",
+            "am Bahnrand vom Campkontakt abgeholt werden",
+            "ein kurzes Backcountry-Erlebnis ohne Arbeitsauftrag haben"
+          ],
+          "objectIdeas": [
+            "kleiner Koffer",
+            "Tagesrucksack",
+            "Picknicktasche",
+            "Kamera"
+          ],
+          "returnDrivers": [
+            "der Zielstrip ist der Treffpunkt fuer den geplanten Besuch",
+            "nach der Landung ist der Flugauftrag abgeschlossen",
+            "die Mission bleibt bewusst leicht und persoenlich"
+          ],
+          "accessReasons": [
+            "der Strip ist der sichere Treffpunkt fuer den Besuch",
+            "der Camp-Pfad beginnt am Rand der Piste",
+            "der kurze Hop macht den Ort erreichbar"
+          ]
+        },
+        {
+          "id": "geology_ground_stop",
+          "familyId": "geo_guest",
+          "label": "Geologie, Landschaft und kurze Bodenpause",
+          "wildcard": false,
+          "matchTags": [
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Geologie-Dozentin",
+            "Naturkundler",
+            "Karteninteressierter Gast"
+          ],
+          "taskIdeas": [
+            "nach der Landung eine kurze Bodenpause mit Fotos und Notizen machen",
+            "den Strip als Zugang zu Talrand, Hangweg oder Aussichtspunkt nutzen",
+            "Kartenrolle und Kamera fuer den Aufenthalt am Boden bereithalten"
+          ],
+          "objectIdeas": [
+            "Notizbuch",
+            "kleine Lupe",
+            "Kameratasche",
+            "Kartenrolle"
+          ],
+          "returnDrivers": [
+            "die Landung am Ziel ist der geplante Hoehepunkt des Hoppers",
+            "der Gast bekommt den Backcountry-Kontext direkt am Zielstrip und am kurzen Bodenweg",
+            "es gibt keinen Folgeauftrag ausser dem sauberen Abschluss am Strip"
+          ],
+          "accessReasons": [
+            "der Strip liegt gut fuer den kurzen Weg zu Talrand oder Hang",
+            "die kurze Landung macht den Aufenthalt vor Ort erst sinnvoll",
+            "der Hop bleibt ein entspannter Backcountry-Hinflug"
+          ]
+        },
+        {
+          "id": "plein_air_artist",
+          "familyId": "wildcard_adventure",
+          "label": "Kurioser, ruhiger Backcountry-Gast",
+          "wildcard": true,
+          "matchTags": [
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Landschaftsmalerin",
+            "Naturautor",
+            "Soundscape-Sammlerin"
+          ],
+          "taskIdeas": [
+            "am Ziel einen stillen Arbeitsplatz suchen",
+            "Skizzenblock, Recorder oder kleine Staffelei ausladen",
+            "den Flug als Zugang zur Stimmung des Ortes nutzen"
+          ],
+          "objectIdeas": [
+            "Skizzenrolle",
+            "kleiner Recorder",
+            "leichte Staffelei",
+            "Tagesrucksack"
+          ],
+          "returnDrivers": [
+            "der Aufenthalt beginnt mit der Landung und braucht keine weitere Dramatik",
+            "der Zielstrip ist einfach der Zugang zu einem ungewoehnlichen, aber plausiblen Outdoor-Projekt",
+            "der Adventure-Hopper darf einmal etwas eigenwilliger wirken"
+          ],
+          "accessReasons": [
+            "der Strip liegt nahe am Motiv",
+            "zu Fuss waere das Material unpraktisch",
+            "die kurze Landung macht den Ort erreichbar"
+          ]
+        },
+        {
+          "id": "lodge_guest_short_hop",
+          "familyId": "lodge_guest",
+          "label": "Lodge-Gast mit kurzem Backcountry-Hop",
+          "wildcard": false,
+          "matchTags": [
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Lodge-Gast",
+            "Camp-Besucherin",
+            "Outfitter-Kontakt"
+          ],
+          "taskIdeas": [
+            "am Zielstrip vom Campkontakt abgeholt werden",
+            "leichte Tasche und Tageskit am Bahnrand ausladen",
+            "den Anflug als Teil des Aufenthalts erleben"
+          ],
+          "objectIdeas": [
+            "Duffelbag",
+            "Tagesrucksack",
+            "leichte Kuehltasche",
+            "Kameratasche"
+          ],
+          "returnDrivers": [
+            "der Aufenthalt beginnt nach der Landung am Ziel",
+            "der Handoff ist einfach: Gast und Gepaeck raus, Flug abgeschlossen",
+            "die Story bleibt ruhig und freizeitnah"
+          ],
+          "accessReasons": [
+            "der Strip ist der Zugang zur Lodge",
+            "Camp-Pfad und Bahnrand liegen nahe beieinander",
+            "der Hop ersetzt eine lange holprige Zufahrt"
+          ]
+        },
+        {
+          "id": "fly_fishing_hop",
+          "familyId": "river_guest",
+          "label": "Fly-Fishing- oder Flussausflug",
+          "wildcard": false,
+          "matchTags": [
+            "water",
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Fly-Fishing-Gast",
+            "Guide",
+            "Lodge-Gast"
+          ],
+          "taskIdeas": [
+            "am Ziel in Richtung Wasserabschnitt weitergehen",
+            "Angelrohr und leichte Kuehltasche am Strip ausladen",
+            "den Guidekontakt am Camp-Pfad treffen"
+          ],
+          "objectIdeas": [
+            "Angelrohr",
+            "Tagesrucksack",
+            "Kuehltasche",
+            "Watjacke"
+          ],
+          "returnDrivers": [
+            "der Zielstrip ist der geplante Beginn des Tages am Wasser",
+            "nach der Landung startet der Ausflug ohne weiteren Transfer",
+            "der Flug ist bewusst ein kurzer Bush-Hop"
+          ],
+          "accessReasons": [
+            "der Flussabschnitt liegt naeher am Zielstrip als an jeder Strasse",
+            "der Guide wartet am Striprand",
+            "das Gepaeck bleibt fuer den kurzen Flug handlich"
+          ]
+        }
+      ],
+      "variety": {
+        "schema": "missionVarietyPack.v1",
+        "namespace": "bush_scenic_hopper",
+        "profileId": "bush_scenic_hopper",
+        "contextTags": [
+          "bush",
+          "remote_strip",
+          "water"
+        ],
+        "selectedIds": [
+          "trailhead_family_visit",
+          "geology_ground_stop",
+          "plein_air_artist",
+          "lodge_guest_short_hop",
+          "fly_fishing_hop"
+        ],
+        "selectedFamilies": [
+          "trailhead_visit",
+          "geo_guest",
+          "wildcard_adventure",
+          "lodge_guest",
+          "river_guest"
+        ],
+        "primaryId": "trailhead_family_visit",
+        "primaryFamily": "trailhead_visit",
+        "recentFamilies": [],
+        "recentPrimaryFamilies": [],
+        "recentPrimaryIds": [],
+        "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+        "storageKey": "ga_mission_variety_history_bush_scenic_hopper_v1"
+      },
+      "ingredientAxes": {
+        "roleFamilies": [
+          "Backcountry-Besucherin",
+          "Trailhead-Gast",
+          "Camp-Freund",
+          "Geologie-Dozentin",
+          "Naturkundler",
+          "Karteninteressierter Gast",
+          "Landschaftsmalerin",
+          "Naturautor",
+          "Soundscape-Sammlerin",
+          "Lodge-Gast",
+          "Camp-Besucherin",
+          "Outfitter-Kontakt"
+        ],
+        "activityVerbs": [
+          "eine kleine Besuchstasche zum Ziel bringen",
+          "am Bahnrand vom Campkontakt abgeholt werden",
+          "ein kurzes Backcountry-Erlebnis ohne Arbeitsauftrag haben",
+          "nach der Landung eine kurze Bodenpause mit Fotos und Notizen machen",
+          "den Strip als Zugang zu Talrand, Hangweg oder Aussichtspunkt nutzen",
+          "Kartenrolle und Kamera fuer den Aufenthalt am Boden bereithalten",
+          "am Ziel einen stillen Arbeitsplatz suchen",
+          "Skizzenblock, Recorder oder kleine Staffelei ausladen",
+          "den Flug als Zugang zur Stimmung des Ortes nutzen",
+          "am Zielstrip vom Campkontakt abgeholt werden",
+          "leichte Tasche und Tageskit am Bahnrand ausladen",
+          "den Anflug als Teil des Aufenthalts erleben",
+          "am Ziel in Richtung Wasserabschnitt weitergehen",
+          "Angelrohr und leichte Kuehltasche am Strip ausladen"
+        ],
+        "evidenceObjects": [
+          "kleiner Koffer",
+          "Tagesrucksack",
+          "Picknicktasche",
+          "Kamera",
+          "Notizbuch",
+          "kleine Lupe",
+          "Kameratasche",
+          "Kartenrolle",
+          "Skizzenrolle",
+          "kleiner Recorder",
+          "leichte Staffelei",
+          "Duffelbag",
+          "leichte Kuehltasche",
+          "Angelrohr"
+        ],
+        "returnDrivers": [
+          "der Zielstrip ist der Treffpunkt fuer den geplanten Besuch",
+          "nach der Landung ist der Flugauftrag abgeschlossen",
+          "die Mission bleibt bewusst leicht und persoenlich",
+          "die Landung am Ziel ist der geplante Hoehepunkt des Hoppers",
+          "der Gast bekommt den Backcountry-Kontext direkt am Zielstrip und am kurzen Bodenweg",
+          "es gibt keinen Folgeauftrag ausser dem sauberen Abschluss am Strip",
+          "der Aufenthalt beginnt mit der Landung und braucht keine weitere Dramatik",
+          "der Zielstrip ist einfach der Zugang zu einem ungewoehnlichen, aber plausiblen Outdoor-Projekt",
+          "der Adventure-Hopper darf einmal etwas eigenwilliger wirken",
+          "der Aufenthalt beginnt nach der Landung am Ziel"
+        ],
+        "accessReasons": [
+          "der Strip ist der sichere Treffpunkt fuer den Besuch",
+          "der Camp-Pfad beginnt am Rand der Piste",
+          "der kurze Hop macht den Ort erreichbar",
+          "der Strip liegt gut fuer den kurzen Weg zu Talrand oder Hang",
+          "die kurze Landung macht den Aufenthalt vor Ort erst sinnvoll",
+          "der Hop bleibt ein entspannter Backcountry-Hinflug",
+          "der Strip liegt nahe am Motiv",
+          "zu Fuss waere das Material unpraktisch"
+        ]
+      },
+      "writerExpectations": [
+        "Nutze bevorzugt genau eine Richtung aus candidateShortlist, damit Rolle, Taetigkeiten, Gegenstaende und Folgegrund zusammenpassen.",
+        "Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren.",
+        "Wenn candidateShortlist nicht passt, nutze ingredientAxes als offene Inspiration und bleibe trotzdem im Zielkontext.",
+        "Kontext, Profil-Rezept, TaskDomain und MissionTruth schlagen Varianz.",
+        "Nicht alle Achsen abarbeiten; frei kombinieren und variieren.",
+        "Keine neuen Ortsnamen oder harten Geofakten erfinden.",
+        "Nicht jedes Adventure-Profil in Arbeit, Forschung oder Zeitdruck verwandeln.",
+        "Schreibe den Flug als Transport zum Erlebnisort, an dem der Aufenthalt am Boden beginnt.",
+        "Die Landung am Ziel ist der natuerliche Abschluss des Fluglegs.",
+        "Der Gast darf persoenlich, neugierig oder ungewoehnlich sein; die Geografie bleibt aus dem Contract."
+      ],
+      "weatherNote": ""
+    },
+    "variety": {
+      "schema": "missionVarietyPack.v1",
+      "namespace": "bush_scenic_hopper",
+      "profileId": "bush_scenic_hopper",
+      "contextTags": [
+        "bush",
+        "remote_strip",
+        "water"
+      ],
+      "selectedIds": [
+        "trailhead_family_visit",
+        "geology_ground_stop",
+        "plein_air_artist",
+        "lodge_guest_short_hop",
+        "fly_fishing_hop"
+      ],
+      "selectedFamilies": [
+        "trailhead_visit",
+        "geo_guest",
+        "wildcard_adventure",
+        "lodge_guest",
+        "river_guest"
+      ],
+      "primaryId": "trailhead_family_visit",
+      "primaryFamily": "trailhead_visit",
+      "recentFamilies": [],
+      "recentPrimaryFamilies": [],
+      "recentPrimaryIds": [],
+      "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+      "storageKey": "ga_mission_variety_history_bush_scenic_hopper_v1"
+    },
+    "sarHeli": null,
+    "missionTruth": null,
+    "semantics": {
+      "version": "mission-semantics-v4-2026-06-07",
+      "focusLock": {
+        "mode": "bush",
+        "taskDomain": "bush_adventure",
+        "targetCategory": "generic",
+        "requestedCategory": "all",
+        "primarySubjectLabel": "Big Creek Airport",
+        "primarySubjectType": "generic",
+        "contextRoles": [
+          "orientation",
+          "hazard",
+          "access",
+          "support",
+          "evidence",
+          "background"
+        ]
+      },
+      "plannerGuardrails": [
+        "Primary subject lock: Big Creek Airport (generic) bleibt Hauptsubjekt.",
+        "Task-domain lock: bush_adventure bleibt die Art des Auftrags.",
+        "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+        "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+        "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+        "Backcountry-Hinflug mit Landung und Beginn eines Aufenthalts am Ziel bleibt Hauptzweck.",
+        "Landung, Ausstieg und Bodenplan am Zielstrip sind die relevanten Abschlussmarker.",
+        "Das gewaehlte Ziel bleibt Primärsubjekt."
+      ],
+      "writerGuardrails": [
+        "Story, Greeting und sceneIntent muessen Big Creek Airport als Primaerfokus behalten.",
+        "Kontext darf den Auftrag anreichern, aber nicht umwidmen.",
+        "Die Erzaehlung bleibt Backcountry-/Bush-bezogen und driftet nicht in normalen A-B-Verkehr.",
+        "Adventure-Story endet mit Ankunft und Ausstieg am Zielstrip; Beobachtungen aus dem Cockpit duerfen nur Anflugstimmung sein.",
+        "Schreibe den Flug als Zugang zum Erlebnisort, an dem der Aufenthalt nach der Landung beginnt.",
+        "Kontext darf nur anreichern, nie umwidmen."
+      ],
+      "forceSceneNone": true,
+      "naturalPriority": false
+    },
+    "followUpContext": null,
+    "missionTemporalContext": null,
+    "varietyHints": null,
+    "targetGeoContext": null,
+    "airportDetails": {
+      "start": {
+        "icao": "KMYL",
+        "name": "McCall Municipal Airport",
+        "lat": 44.8897,
+        "lon": -116.101
+      },
+      "dest": {
+        "icao": "U60",
+        "name": "Big Creek Airport",
+        "lat": 45.133202,
+        "lon": -115.321999
+      },
+      "targetPoi": null
+    },
+    "departureAirportInformation": {
+      "schema": "departure-airport-information-text.v1",
+      "departureInfo": "Der Abflug erfolgt vom McCall Municipal Airport (KMYL), der auf einer beachtlichen Höhe von 5024 Fuß MSL liegt. Du nutzt die asphaltierte Hauptpiste 16/34, die mit 1864 Metern Länge reichlich Spielraum bietet. Dennoch solltest du die Platzhöhe bei der Berechnung deiner Startleistung nicht ignorieren, da die Dichtehöhe gerade an wärmeren Vormittagen die Steigrate spürbar beeinflussen kann. Der Platz ist gut ausgebaut und dient als idealer Absprungpunkt für Flüge ins tiefer gelegene Hinterland. Spezifische lokale Abflugverfahren für Lärmschutz sind den aktuellen Pilotennotizen vor Ort zu entnehmen.",
+      "sourceIds": [
+        "faa-mountain-tips"
+      ],
+      "generated": true
+    },
+    "airportInformation": {
+      "schema": "airport-information-text.v1",
+      "flightBriefing": "Für den Anflug auf Big Creek (U60) planst du eine Landung auf der 1082 Meter langen Graspiste 01/19 ein. Mit einer Platzhöhe von 5743 Fuß MSL spielt die Dichtehöhe hier eine wesentliche Rolle für deine Performance; schau dir die Tabellen für die Landestrecke vorher genau an. Da es sich um einen reinen Grasstrip handelt, solltest du beim Aufsetzen auf den aktuellen Bodenustand achten, da Nässe oder weicher Untergrund die Bremswirkung und das Rollverhalten im Vergleich zu trockenem Boden deutlich verändern können. Ein Überflug zur Beurteilung der Platzverhältnisse vor dem endgültigen Sinkflug ist im Backcountry immer ratsam.",
+      "destinationInfo": "Big Creek Airport (U60) Platzhöhe: 5743 ft MSL. Piste 01/19, 1082 m Länge, 34 m Breite, Gras. Weitere Angaben zur Umgebung und aktuelle betriebliche Hinweise liegen für diesen Text nicht vor.",
+      "sourceIds": [
+        "faa-mountain-tips",
+        "nz-caa-mountain"
+      ],
+      "generated": false,
+      "flightBriefingGenerated": true,
+      "basis": "own-data-only"
+    },
+    "bushFollowUpNarrative": {
+      "schema": "ga.bush.followup-memory.v1",
+      "memory": {
+        "summary": "Elias wurde am Big Creek Airport abgesetzt, um die herbstliche Färbung der Lärchen und die ersten verschneiten Gipfel für seine Dokumentation über die Frank Church Wilderness zu filmen. Er plante, sofort nach der Landung mit dem Aufbau seines Equipments zu beginnen und das Tal fotografisch zu erkunden. Der Flug verlief reibungslos, und er konzentriert sich nun auf die alpinen Lichtverhältnisse für sein Langzeitprojekt.",
+        "participants": [
+          {
+            "name": "Elias",
+            "role": "Naturfilmer"
+          }
+        ],
+        "openQuestions": [
+          "Wie haben sich die Lichtverhältnisse im Tal während seines Aufenthalts entwickelt?",
+          "Konnten die goldenen Lärchen wie geplant eingefangen werden?"
+        ],
+        "betweenFlightsIdeas": [
+          {
+            "followUpKind": "bush_pickup_strip",
+            "summary": "Elias hat seine Aufnahmen im Kasten und wartet am Big Creek Strip darauf, mitsamt seiner wertvollen Filmmaterialien und der Ausrüstung wieder abgeholt zu werden."
+          }
+        ]
+      }
+    }
+  },
+  "mission": {
+    "t": "Herbstfarben in Big Creek",
+    "s": "Du hast heute Elias mit an Bord, einen Naturfilmer, der für sein aktuelles Projekt über die Frank Church Wilderness den perfekten Moment abpasst. Er hat es auf die kurzen Wochen im Oktober abgesehen, wenn die Lärchen im Hinterland von Idaho ihr Gold zeigen und die ersten Gipfel bereits angezuckert sind. Big Creek ist für ihn der ideale Ausgangspunkt, um die alpinen Lichtverhältnisse tief im Tal einzufangen. Elias ist ein ruhiger Typ, aber man merkt ihm die Vorfreude an; sein ganzes Langzeitprojekt hängt von diesen herbstlichen Kontrasten ab. Sein Trailrucksack ist vollgepackt mit Stativen und Optiken, also geh behutsam mit der Ladung um. Nach der Landung auf dem Grasstrip will er sofort loslegen und seine Ausrüstung für die erste Erkundung klarmachen. Setz ihn einfach direkt am Big Creek Airport ab, damit er das Licht nutzen kann, solange es steht.",
+    "pax": "1 PAX",
+    "cargo": "Kameraausrüstung und Trailrucksack (45 lbs)",
+    "knowledgeContext": null,
+    "targetInfo": "",
+    "passenger": {
+      "name": "Elias",
+      "role": "Naturfilmer",
+      "gender": "male",
+      "personality": "fokussiert, beobachtend, ruhig",
+      "dialectHint": "neutral",
+      "roleProfile": "bush_adventure_guest_v1",
+      "taskDomain": "bush_adventure",
+      "gTolerance": "mittel",
+      "bankTolerance": "mittel",
+      "cargoSensitivity": "hoch",
+      "stomachSensitivity": "niedrig",
+      "comfortPriority": "niedrig",
+      "urgencyPriority": "hoch",
+      "targetAltFt": 0,
+      "targetRadiusNm": 0,
+      "targetDwellMin": 0,
+      "greetingText": "Hallo! Danke, dass du mich rausbringst. Wir müssen das Licht im Tal erwischen, bevor die Schatten zu lang werden – die Lärchen leuchten geradezu."
+    },
+    "sceneIntent": {
+      "summary": "A-B-Flug ohne Zielszene.",
+      "environment": "",
+      "visibleIdeas": [],
+      "avoid": [],
+      "densityHint": "none",
+      "notes": ""
+    },
+    "targetScene": {
+      "kind": "none",
+      "roles": [],
+      "density": "none",
+      "notes": ""
+    },
+    "sceneCompositionStatus": "draft",
+    "targetSceneDebug": {
+      "source": "Gemini 3.0 Flash + V5 Writer",
+      "sceneIntentRaw": {
+        "summary": "Elias entlädt seine Ausrüstung am Rand der Graspiste.",
+        "environment": "Herbstliche Hochgebirgslage mit goldenen Bäumen",
+        "visibleIdeas": [
+          "Ein großer Trailrucksack und ein Stativkoffer liegen neben dem Flugzeug",
+          "Elias steht mit einer Kamera um den Hals bereit"
+        ],
+        "avoid": [],
+        "densityHint": "sparse",
+        "notes": "Keine Zielszene nötig, da der Fokus auf dem Absetzen und dem Start der Dokumentation liegt."
+      },
+      "sceneIntent": {
+        "summary": "A-B-Flug ohne Zielszene.",
+        "environment": "",
+        "visibleIdeas": [],
+        "avoid": [],
+        "densityHint": "none",
+        "notes": ""
+      },
+      "aiRaw": null,
+      "normalized": {
+        "kind": "none",
+        "roles": [],
+        "density": "none",
+        "notes": ""
+      },
+      "pendingComposer": true
+    },
+    "_missionWriterV4Debug": {
+      "source": "Mission Writer V5",
+      "writerMode": "v5",
+      "taskDomain": "bush_adventure",
+      "missionFamily": "bush_adventure",
+      "hasPoiChain": false,
+      "rawStoryLength": 860,
+      "rawAiStory": "Du hast heute Elias mit an Bord, einen Naturfilmer, der für sein aktuelles Projekt über die Frank Church Wilderness den perfekten Moment abpasst. Er hat es auf die kurzen Wochen im Oktober abgesehen, wenn die Lärchen im Hinterland von Idaho ihr Gold zeigen und die ersten Gipfel bereits angezuckert sind. Big Creek ist für ihn der ideale Ausgangspunkt, um die alpinen Lichtverhältnisse tief im Tal einzufangen. Elias ist ein ruhiger Typ, aber man merkt ihm die Vorfreude an; sein ganzes Langzeitprojekt hängt von diesen herbstlichen Kontrasten ab. Sein Trailrucksack ist vollgepackt mit Stativen und Optiken, also geh behutsam mit der Ladung um. Nach der Landung auf dem Grasstrip will er sofort loslegen und seine Ausrüstung für die erste Erkundung klarmachen. Setz ihn einfach direkt am Big Creek Airport ab, damit er das Licht nutzen kann, solange es steht.",
+      "rawStoryPreview": "Du hast heute Elias mit an Bord, einen Naturfilmer, der für sein aktuelles Projekt über die Frank Church Wilderness den perfekten Moment abpasst. Er hat es auf die kurzen Wochen im Oktober abgesehen, wenn die Lärchen im Hinterland von Idaho ihr Gold zeigen und die ersten Gipfel bereits angezuckert sind. Big Creek ist für ihn der ideale Ausgangspunkt, um die alpinen Lichtverhältnisse tief im Tal einzufangen. Elias ist ein ruhiger Typ, aber man merkt ihm die Vorfreude an; sein ganzes Langzeitprojekt hängt von diesen ",
+      "finalStoryLength": 860,
+      "writerStory": "Du hast heute Elias mit an Bord, einen Naturfilmer, der für sein aktuelles Projekt über die Frank Church Wilderness den perfekten Moment abpasst. Er hat es auf die kurzen Wochen im Oktober abgesehen, wenn die Lärchen im Hinterland von Idaho ihr Gold zeigen und die ersten Gipfel bereits angezuckert sind. Big Creek ist für ihn der ideale Ausgangspunkt, um die alpinen Lichtverhältnisse tief im Tal einzufangen. Elias ist ein ruhiger Typ, aber man merkt ihm die Vorfreude an; sein ganzes Langzeitprojekt hängt von diesen herbstlichen Kontrasten ab. Sein Trailrucksack ist vollgepackt mit Stativen und Optiken, also geh behutsam mit der Ladung um. Nach der Landung auf dem Grasstrip will er sofort loslegen und seine Ausrüstung für die erste Erkundung klarmachen. Setz ihn einfach direkt am Big Creek Airport ab, damit er das Licht nutzen kann, solange es steht.",
+      "storyChangedByFinalize": false,
+      "fallbackReason": "",
+      "writerAccepted": true,
+      "textPolicy": "bush-preserve-writer-v1",
+      "semanticDiagnosticReasons": [],
+      "rawTitle": "Herbstfarben in Big Creek",
+      "titleChangedByFinalize": false,
+      "briefingRoute": true,
+      "briefingWeather": true,
+      "briefingFacts": 3,
+      "finalLooksEnumerative": false,
+      "finalSentenceCount": 7,
+      "requestDiagnostics": {
+        "error": "",
+        "provider": "gemini",
+        "model": "gemini-3-flash-preview",
+        "parseMode": "direct",
+        "attempts": [
+          {
+            "model": "gemini-3-flash-preview",
+            "status": "ok",
+            "error": ""
+          }
+        ]
+      },
+      "bushMemoryStatus": "accepted"
+    },
+    "i": "📋",
+    "cat": "charter",
+    "missionType": "bush",
+    "bush": {
+      "profileId": "bush_scenic_hopper",
+      "targetMode": "strip",
+      "completionMode": "land_at_target",
+      "reconFocus": "",
+      "reconFocusLabel": "",
+      "requiresReturnHome": false,
+      "pickupKind": "",
+      "pickupLabel": "",
+      "pickupRole": "",
+      "pickupCargoLabel": "",
+      "pickupCargoWeightLbs": 0,
+      "pickupGreetingText": "",
+      "pickupStory": null,
+      "pickupPassengerCount": 0,
+      "homeRef": {
+        "kind": "airport",
+        "icao": "KMYL",
+        "name": "McCall Municipal Airport",
+        "lat": 44.8897,
+        "lon": -116.101,
+        "surface": "unknown",
+        "isRemoteStrip": false
+      },
+      "targetRef": {
+        "kind": "airport",
+        "icao": "U60",
+        "name": "Big Creek Airport",
+        "lat": 45.133202,
+        "lon": -115.321999,
+        "surface": "unknown",
+        "isRemoteStrip": false
+      },
+      "areaRef": null,
+      "routeRefs": [],
+      "success": {
+        "minGroundTimeSec": 5,
+        "minAreaTimeSec": 0,
+        "minAreaTrackNm": 0,
+        "cargoMustBeDelivered": false,
+        "passengerMustDeboard": false,
+        "waypointsRequired": 0
+      },
+      "allowedEndLocations": [
+        "target"
+      ],
+      "narrativeMode": "backcountry_adventure",
+      "riskFlags": [
+        "high_density_altitude",
+        "terrain_awareness"
+      ],
+      "opsNotes": [
+        "Backcountry-Charakter: Strecke ruhig lesen, Terrain bewusst managen.",
+        "Am Zielstrip nach der Landung kurz stabil stehen und den Adventure-Leg sauber auslaufen lassen."
+      ]
+    },
+    "poiChain": null,
+    "profileId": "bush_scenic_hopper",
+    "_requestedProfile": "bush_scenic_hopper",
+    "_appliedProfile": "bush_scenic_hopper",
+    "_missionPlanV2": null,
+    "_missionPlanV4": {
+      "pipelineVersion": "mission-v4-contract-writer-2026-06-07",
+      "bushReconPlan": null,
+      "status": "ready",
+      "mode": "bush",
+      "paxText": "1 PAX (Naturfilmer)",
+      "passengerCount": 1,
+      "party": null,
+      "partyNarrative": null,
+      "aircraftCapability": {
+        "cruiseSpeedKts": 110,
+        "aircraftTags": []
+      },
+      "cargoText": "Trailrucksack, Fernglas und Regenjacken (28 lbs)",
+      "animalTransportBrief": null,
+      "route": {
+        "startIcao": "",
+        "startName": "McCall Municipal Airport",
+        "targetIcao": "U60",
+        "targetName": "Big Creek Airport",
+        "distanceNm": 36
+      },
+      "profile": {
+        "id": "bush_scenic_hopper",
+        "label": "Bush Adventure Hopper",
+        "roleProfile": "bush_adventure_guest_v1",
+        "taskDomain": "bush_adventure",
+        "pickerCategory": "all",
+        "requestedCategory": "all"
+      },
+      "target": {
+        "isPOI": false,
+        "name": "Big Creek Airport",
+        "lat": 45.133202,
+        "lon": -115.321999,
+        "poiSource": "",
+        "poiCategory": "all",
+        "terrainFt": null,
+        "terrainMaxFt": null,
+        "terrainRadiusNm": null
+      },
+      "poiChain": null,
+      "knowledgeContext": null,
+      "weather": {
+        "dep": {
+          "summary": "Keine aktuellen Wetterdaten verfügbar.",
+          "raw": null
+        },
+        "dest": {
+          "summary": "Keine aktuellen Wetterdaten verfügbar.",
+          "raw": null
+        },
+        "rule": "Wetter nur als Realitaetsanker nutzen: Wind, Sicht, Wolken/WX knapp einbauen; keine dramatische Wetterstory erfinden."
+      },
+      "environmentContext": {
+        "schema": "mission-environment.v1",
+        "time": {
+          "source": "user-device-local",
+          "createdAt": "2026-10-08T08:30:00.000Z",
+          "createdLocal": "2026-10-08T10:30:00",
+          "utcOffsetMinutes": 120,
+          "timeZone": "Europe/Berlin",
+          "departureTimeKnown": false
+        },
+        "start": {
+          "location": {
+            "name": "McCall Municipal Airport",
+            "lat": 44.8897,
+            "lon": -116.101
+          },
+          "status": "unavailable"
+        },
+        "target": {
+          "location": {
+            "name": "Big Creek Airport",
+            "lat": 45.133202,
+            "lon": -115.321999
+          },
+          "status": "unavailable"
+        }
+      },
+      "airportInfoContext": {
+        "schema": "mission-airport-information.v1",
+        "airport": {
+          "ident": "U60",
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999,
+          "country": "US",
+          "elevationFt": 5743,
+          "runways": [
+            {
+              "designator": "01/19",
+              "lengthM": 1082,
+              "widthM": 34,
+              "surface": "Gras",
+              "trueHeadingDeg": null,
+              "operations": null
+            }
+          ],
+          "ppr": null,
+          "private": null,
+          "source": "eigene Flugplatzdaten"
+        },
+        "terrain": null,
+        "pilotHints": [
+          {
+            "id": "assess-before-descent",
+            "source": "faa-mountain-safety",
+            "section": "Poor Planning",
+            "text": "Vor dem Sinkflug in einen Gebirgsplatz die Möglichkeiten für Durchstarten und anschließenden Abflug beurteilen."
+          },
+          {
+            "id": "valley-escape",
+            "source": "nz-caa-mountain",
+            "section": "Entering a valley / Escape routes, pp. 24–26",
+            "text": "Im Tal ausreichend Raum zum Wenden und einen Ausweg erhalten. Nicht darauf vertrauen, ansteigendes Gelände übersteigen zu können."
+          },
+          {
+            "id": "valley-wind",
+            "source": "nz-caa-mountain",
+            "section": "Wind, p. 8; Valley flying, p. 22",
+            "text": "Wind im Tal kann in Richtung und Stärke vom Wind oberhalb der Bergrücken abweichen. Eine entfernte Wetterstation beschreibt den lokalen Talwind nicht vollständig."
+          },
+          {
+            "id": "lee-turbulence",
+            "source": "faa-mountain-safety",
+            "section": "Mountain Weather",
+            "text": "Hinter Bergrücken können starke Abwinde und Turbulenz auftreten; ihr Ausmaß lässt sich aus einem Bodenwind allein nicht ableiten."
+          },
+          {
+            "id": "density-altitude",
+            "source": "faa-mountain-tips",
+            "section": "Performance Considerations",
+            "text": "Hohe Dichtehöhe vermindert die verfügbare Flugleistung. Start-, Landestrecken und Steigleistung anhand der Flugzeugunterlagen beurteilen."
+          },
+          {
+            "id": "surface-condition",
+            "source": "nz-caa-mountain",
+            "section": "Approach and landing, pp. 29–30",
+            "text": "Eine bekannte Pistenoberfläche sagt noch nichts über den aktuellen Zustand aus. Nässe, weicher Boden und Grasbewuchs können die nutzbare Leistung beeinflussen."
+          },
+          {
+            "id": "local-knowledge",
+            "source": "ntsb-sa039",
+            "section": "What can pilots do?",
+            "text": "Für unbekannte Gebirgsplätze aktuelle lokale Informationen und qualifizierte Einweisung einholen."
+          }
+        ],
+        "sources": [
+          {
+            "id": "faa-mountain-tips",
+            "title": "FAA Tips on Mountain Flying, FAA-P-8740-60",
+            "url": "https://www.faa.gov/sites/faa.gov/files/regulations_policies/handbooks_manuals/aviation/tips_on_mountain_flying.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "faa-mountain-safety",
+            "title": "FAA Aviation Safety: Mountain Flying",
+            "url": "https://www.faa.gov/sites/faa.gov/files/2022-01/Mountain%20Flying.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "nz-caa-mountain",
+            "title": "NZ CAA Mountain Flying, May 2021",
+            "url": "https://www.aviation.govt.nz/assets/publications/gaps/caa-gap-mountain-flying-may-2021-web.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "ntsb-sa039",
+            "title": "NTSB SA-039 Mastering Mountain Flying",
+            "url": "https://www.ntsb.gov/Advocacy/safety-alerts/Documents/SA-039.pdf",
+            "kind": "pilot-handbook"
+          }
+        ],
+        "retrieval": {
+          "budgetMs": 3000,
+          "requests": {
+            "wikipedia": 2,
+            "faa": 1
+          },
+          "sources": {
+            "wikipedia-de": {
+              "status": "no_match",
+              "ms": 4
+            },
+            "wikipedia-en": {
+              "status": "no_match",
+              "ms": 4
+            },
+            "ownAirport": {
+              "status": "available",
+              "ms": 3,
+              "cached": false
+            },
+            "faa": {
+              "status": "no_match",
+              "ms": 4
+            }
+          },
+          "elapsedMs": 4,
+          "partial": false
+        }
+      },
+      "departureAirportInfoContext": {
+        "schema": "mission-airport-information.v1",
+        "airport": {
+          "ident": "KMYL",
+          "name": "McCall Municipal Airport",
+          "lat": 44.8897,
+          "lon": -116.101,
+          "country": "US",
+          "elevationFt": 5024,
+          "runways": [
+            {
+              "designator": "16/34",
+              "lengthM": 1864,
+              "widthM": 23,
+              "surface": "Asphalt",
+              "trueHeadingDeg": null,
+              "operations": null
+            }
+          ],
+          "ppr": null,
+          "private": null,
+          "source": "eigene Flugplatzdaten"
+        },
+        "terrain": null,
+        "pilotHints": [
+          {
+            "id": "assess-before-descent",
+            "source": "faa-mountain-safety",
+            "section": "Poor Planning",
+            "text": "Vor dem Sinkflug in einen Gebirgsplatz die Möglichkeiten für Durchstarten und anschließenden Abflug beurteilen."
+          },
+          {
+            "id": "valley-escape",
+            "source": "nz-caa-mountain",
+            "section": "Entering a valley / Escape routes, pp. 24–26",
+            "text": "Im Tal ausreichend Raum zum Wenden und einen Ausweg erhalten. Nicht darauf vertrauen, ansteigendes Gelände übersteigen zu können."
+          },
+          {
+            "id": "valley-wind",
+            "source": "nz-caa-mountain",
+            "section": "Wind, p. 8; Valley flying, p. 22",
+            "text": "Wind im Tal kann in Richtung und Stärke vom Wind oberhalb der Bergrücken abweichen. Eine entfernte Wetterstation beschreibt den lokalen Talwind nicht vollständig."
+          },
+          {
+            "id": "lee-turbulence",
+            "source": "faa-mountain-safety",
+            "section": "Mountain Weather",
+            "text": "Hinter Bergrücken können starke Abwinde und Turbulenz auftreten; ihr Ausmaß lässt sich aus einem Bodenwind allein nicht ableiten."
+          },
+          {
+            "id": "density-altitude",
+            "source": "faa-mountain-tips",
+            "section": "Performance Considerations",
+            "text": "Hohe Dichtehöhe vermindert die verfügbare Flugleistung. Start-, Landestrecken und Steigleistung anhand der Flugzeugunterlagen beurteilen."
+          },
+          {
+            "id": "surface-condition",
+            "source": "nz-caa-mountain",
+            "section": "Approach and landing, pp. 29–30",
+            "text": "Eine bekannte Pistenoberfläche sagt noch nichts über den aktuellen Zustand aus. Nässe, weicher Boden und Grasbewuchs können die nutzbare Leistung beeinflussen."
+          },
+          {
+            "id": "local-knowledge",
+            "source": "ntsb-sa039",
+            "section": "What can pilots do?",
+            "text": "Für unbekannte Gebirgsplätze aktuelle lokale Informationen und qualifizierte Einweisung einholen."
+          }
+        ],
+        "sources": [
+          {
+            "id": "faa-mountain-tips",
+            "title": "FAA Tips on Mountain Flying, FAA-P-8740-60",
+            "url": "https://www.faa.gov/sites/faa.gov/files/regulations_policies/handbooks_manuals/aviation/tips_on_mountain_flying.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "faa-mountain-safety",
+            "title": "FAA Aviation Safety: Mountain Flying",
+            "url": "https://www.faa.gov/sites/faa.gov/files/2022-01/Mountain%20Flying.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "nz-caa-mountain",
+            "title": "NZ CAA Mountain Flying, May 2021",
+            "url": "https://www.aviation.govt.nz/assets/publications/gaps/caa-gap-mountain-flying-may-2021-web.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "ntsb-sa039",
+            "title": "NTSB SA-039 Mastering Mountain Flying",
+            "url": "https://www.ntsb.gov/Advocacy/safety-alerts/Documents/SA-039.pdf",
+            "kind": "pilot-handbook"
+          }
+        ],
+        "retrieval": {
+          "budgetMs": 3000,
+          "requests": {
+            "wikipedia": 2,
+            "faa": 1
+          },
+          "sources": {
+            "wikipedia-de": {
+              "status": "no_match",
+              "ms": 1
+            },
+            "wikipedia-en": {
+              "status": "no_match",
+              "ms": 1
+            },
+            "ownAirport": {
+              "status": "available",
+              "ms": 1,
+              "cached": false
+            },
+            "faa": {
+              "status": "no_match",
+              "ms": 1
+            }
+          },
+          "elapsedMs": 1,
+          "partial": false
+        }
+      },
+      "fireHazard": null,
+      "missionPlan": {
+        "status": "ready",
+        "pipelineVersion": "mission-v4-planner-2026-06-07",
+        "plan": {
+          "taskDomain": "bush_adventure",
+          "roleProfile": "bush_adventure_guest_v1",
+          "missionType": "bush",
+          "targetCategory": "charter",
+          "primaryObjective": "Bringe den Naturfilmer für seine Dokumentationsarbeiten zum Big Creek Airport.",
+          "targetLabel": "Big Creek Airport",
+          "missionTrigger": "Der Beginn der herbstlichen Hauptfärbung im Hinterland von Idaho.",
+          "focusSubject": "Elias und seine Kameraausrüstung für Naturaufnahmen.",
+          "keyQuestion": "Ist der Strip für den Aufenthalt sicher erreichbar und bereit für den Ausstieg des Gastes?",
+          "missionStakes": "Der Erfolg der Dokumentation hängt vom Erreichen dieses spezifischen Zugangspunkts ab.",
+          "completionSignal": "Sichere Landung am Big Creek Airport, Absetzen des Gastes und Entladen des Trailrucksacks.",
+          "storyFrame": {
+            "trigger": "Der Beginn der herbstlichen Hauptfärbung im Hinterland von Idaho.",
+            "focusSubject": "Elias und seine Kameraausrüstung für Naturaufnahmen.",
+            "keyQuestion": "Ist der Strip für den Aufenthalt sicher erreichbar und bereit für den Ausstieg des Gastes?",
+            "stakes": "Der Erfolg der Dokumentation hängt vom Erreichen dieses spezifischen Zugangspunkts ab.",
+            "completionSignal": "Sichere Landung am Big Creek Airport, Absetzen des Gastes und Entladen des Trailrucksacks.",
+            "subjectDetail": "Elias, ein spezialisierter Naturfilmer mit Fokus auf alpine Lichtverhältnisse und herbstliche Vegetation.",
+            "incidentContext": "Elias arbeitet an einem Langzeitprojekt über die Abgeschiedenheit der Frank Church Wilderness und nutzt Big Creek als strategischen Ausgangspunkt für seine Aufnahmen im Tal.",
+            "whyNow": "Anfang Oktober bietet das Tal die perfekten Kontraste zwischen den ersten verschneiten Gipfeln und den goldenen Lärchen, die Elias heute einfangen will.",
+            "soughtOutcome": "Absetzen am Strip, damit Elias unmittelbar nach der Landung mit dem Aufbau seines Stativs und der ersten Erkundung beginnen kann. Der Flugauftrag endet mit seinem Ausstieg.",
+            "incidentType": "",
+            "lastSeenContext": "",
+            "probableScenario": "",
+            "visibleClueCandidates": []
+          },
+          "sceneKind": "none",
+          "sceneDensity": "none",
+          "requiredAnchors": [],
+          "objectFamilies": [],
+          "placementPolicy": "Keine Zielobjekte platzieren; vorhandene Landmarken nur als visuelle Orientierung nutzen.",
+          "narrativeRules": [
+            "Primary subject lock: Big Creek Airport (generic) bleibt Hauptsubjekt.",
+            "Task-domain lock: bush_adventure bleibt die Art des Auftrags.",
+            "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+            "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+            "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+            "Backcountry-Hinflug mit Landung und Beginn eines Aufenthalts am Ziel bleibt Hauptzweck."
+          ],
+          "localFacts": [
+            "Big Creek (U60) liegt auf 5743 Fuß Höhe.",
+            "Die Piste 01/19 besteht aus Gras und ist etwa 1082 Meter lang.",
+            "Der Flugplatz dient als wichtiger Zugang zum umliegenden Backcountry."
+          ],
+          "weatherHooks": [
+            "Herbstliche Sichtverhältnisse",
+            "Lokale Talwinde beim Anflug"
+          ],
+          "operationalDetails": [
+            "Beurteilung der Platzverhältnisse vor dem Sinkflug (FAA-Empfehlung).",
+            "Beachtung der Dichtehöhe aufgrund der Platzhöhe von über 5700 Fuß.",
+            "Sicherstellen von Ausweichwegen im Tal während des Anflugs."
+          ],
+          "realismBrief": "Der Flug ist glaubwürdig, da Big Creek ein klassischer Bush-Strip ist, der Fotografen und Outdoor-Spezialisten direkten Zugang zur Wildnis ermöglicht, der auf dem Landweg kaum praktikabel wäre.",
+          "narrativeHooks": [
+            "Elias prüft während des Fluges ungeduldig sein Fernglas.",
+            "Der Trailrucksack und die Stativtaschen sind sicher im Heck verstaut.",
+            "Der Gast bittet darum, die Graspiste vor dem Aufsetzen genau auf Hindernisse zu prüfen."
+          ],
+          "mustMention": [
+            "Naturfilmer",
+            "Herbstfarben",
+            "Graspiste",
+            "Trailrucksack"
+          ],
+          "mustAvoid": [
+            "Rundflug-Erwähnung",
+            "Rückflug-Versprechen",
+            "Notfallszenario",
+            "Kontext darf das Primaerziel nicht ersetzen.",
+            "Kontext darf die TaskDomain nicht umwidmen."
+          ],
+          "lockedFields": {
+            "noLandingAtPoi": false,
+            "requiresRescueAtPoi": false,
+            "primarySubjectLabel": "Big Creek Airport",
+            "primarySubjectType": "generic",
+            "taskDomain": "bush_adventure"
+          },
+          "confidence": 1
+        },
+        "poiChain": null,
+        "needs": [],
+        "resolvedNeedTypes": [
+          "geo_context",
+          "mission_truth",
+          "weather_snapshot",
+          "fire_hazard",
+          "airport_details"
+        ]
+      },
+      "storyFrame": {
+        "trigger": "Der Beginn der herbstlichen Hauptfärbung im Hinterland von Idaho.",
+        "focusSubject": "Elias und seine Kameraausrüstung für Naturaufnahmen.",
+        "keyQuestion": "Ist der Strip für den Aufenthalt sicher erreichbar und bereit für den Ausstieg des Gastes?",
+        "stakes": "Der Erfolg der Dokumentation hängt vom Erreichen dieses spezifischen Zugangspunkts ab.",
+        "completionSignal": "Sichere Landung am Big Creek Airport, Absetzen des Gastes und Entladen des Trailrucksacks.",
+        "subjectDetail": "Elias, ein spezialisierter Naturfilmer mit Fokus auf alpine Lichtverhältnisse und herbstliche Vegetation.",
+        "incidentContext": "Elias arbeitet an einem Langzeitprojekt über die Abgeschiedenheit der Frank Church Wilderness und nutzt Big Creek als strategischen Ausgangspunkt für seine Aufnahmen im Tal.",
+        "whyNow": "Anfang Oktober bietet das Tal die perfekten Kontraste zwischen den ersten verschneiten Gipfeln und den goldenen Lärchen, die Elias heute einfangen will.",
+        "soughtOutcome": "Absetzen am Strip, damit Elias unmittelbar nach der Landung mit dem Aufbau seines Stativs und der ersten Erkundung beginnen kann. Der Flugauftrag endet mit seinem Ausstieg.",
+        "incidentType": "",
+        "lastSeenContext": "",
+        "probableScenario": "",
+        "visibleClueCandidates": []
+      },
+      "infraNarrativeHandoff": null,
+      "chainNarrativeBrief": null,
+      "pickupCreativeBrief": null,
+      "missionVarietyBrief": {
+        "personalStoryBasis": {
+          "focus": "Ein individueller Adventure-Gast mit einem konkreten Outdoor-Vorhaben nach der Landung: was er dort selbst sehen, ausprobieren oder erleben möchte.",
+          "connection": "Ein persönlicher Grund, warum es diesen Menschen genau dorthin zieht. Eine kurze Vorgeschichte ist möglich, aber keine Pflicht; ein schlichter eigener Wunsch trägt die Geschichte ebenso.",
+          "outcome": "Am Zielstrip landen; der Ausflug beginnt erst am Boden. Kein Rundflug und keine Rückkehr zum Heimatplatz.",
+          "voice": "Der Gast begleitet den Hinflug. Begrüßung und spätere Geschichten tragen denselben Wunsch und seine eigene Haltung.",
+          "use": "Freie Inspiration. Person und Vorhaben folgen bevorzugt einer Richtung der candidateShortlist; Ziel, Region und Gelände geben Farbe. Vorgeschichte, Pointe oder Missgeschick sind keine Pflicht."
+        },
+        "weatherIdeaPolicy": "BUSH-WETTER: Nutze Wetter als praktischen Hintergrund. Ein wettergetriebener Auftrag folgt einem belegten markanten Wetterereignis oder einer gelieferten Meldung mit Ort und Zeit. Die Jahreszeit darf einen längerfristigen zeitlichen Anker liefern, etwa Herbstwartung ohne Zeitdruck. Gewöhnliche Wetterwerte und die Jahreszeit allein begründen weder drohenden Schnee noch ein knappes letztes Flugfenster; wetterbedingte Eile braucht ein konkret belegtes bevorstehendes Ereignis. Menschliche und fachliche Anlässe dürfen unabhängig davon tragen. Leite whyNow zuerst aus dem nächsten Schritt der Person oder des Auftraggebers ab. Saisonale Vorsorge kann einfach ein sinnvoller heutiger Auftrag sein; normale aktuelle Wetterwerte beschreiben nur den Flugrahmen, nicht den Grund, weshalb der Auftrag gerade jetzt erledigt werden muss. Auch eine im Planner erfundene Wetterfrist ist kein zusätzlicher Wetterbeleg für den Writer.",
+        "candidateEvidencePolicy": "Kandidaten und regionale Rollen-/Tätigkeitsideen sind mögliche fiktive Motive, keine Ereignismeldungen oder Belege für Anlagen, Tal, Hang, Jahreszeitbedingungen und Wetter. Wähle einen Anlass, der ohne erfundene reale Eigenschaften des Ziels auskommt. Saisonale Tätigkeiten wie Herbstwartung sind als längerfristiger Anlass zulässig, ohne daraus nahen Frost, Sperrungen oder Zeitdruck abzuleiten. Ein wettergetriebener Ereigniskandidat braucht ein ausdrücklich geliefertes markantes Wetterereignis.",
+        "purpose": "Offener Kreativrahmen fuer einen Bush-Adventure-Hopper. Das Profil bringt einen Gast zu einem abgelegenen Strip, wo nach der Landung ein Aufenthalt, Trail-, Lodge-, Camp- oder Naturplan beginnt.",
+        "recipe": "Kurzer Backcountry-Hinflug von McCall Municipal Airport nach Big Creek Airport, Landung am Zielstrip, Ausstieg/Handoff dort; kein Rundflug, kein Ueberflugauftrag, kein Rueckhol- oder Lieferzwang.",
+        "coreQuestions": [
+          "Wer fliegt nach Big Creek Airport und warum beginnt genau dort der persoenliche Outdoor- oder Backcountry-Plan?",
+          "Was nimmt der Gast fuer genau dieses Vorhaben mit?",
+          "Was beginnt nach der Landung am Boden, und was tut der Gast dort als Erstes?",
+          "Warum macht die Bush-Landung selbst den Auftrag besonders?",
+          "Welches konkrete Erlebnis, Bild, Wiedersehen oder Vorhaben wuenscht sich der Gast, und warum bedeutet es ihm persoenlich etwas?"
+        ],
+        "candidateShortlist": [
+          {
+            "id": "trailhead_family_visit",
+            "familyId": "trailhead_visit",
+            "label": "Trailhead-, Familien- oder Besuchsflug",
+            "wildcard": false,
+            "matchTags": [
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Backcountry-Besucherin",
+              "Trailhead-Gast",
+              "Camp-Freund"
+            ],
+            "taskIdeas": [
+              "eine kleine Besuchstasche zum Ziel bringen",
+              "am Bahnrand vom Campkontakt abgeholt werden",
+              "ein kurzes Backcountry-Erlebnis ohne Arbeitsauftrag haben"
+            ],
+            "objectIdeas": [
+              "kleiner Koffer",
+              "Tagesrucksack",
+              "Picknicktasche",
+              "Kamera"
+            ],
+            "returnDrivers": [
+              "der Zielstrip ist der Treffpunkt fuer den geplanten Besuch",
+              "nach der Landung ist der Flugauftrag abgeschlossen",
+              "die Mission bleibt bewusst leicht und persoenlich"
+            ],
+            "accessReasons": [
+              "der Strip ist der sichere Treffpunkt fuer den Besuch",
+              "der Camp-Pfad beginnt am Rand der Piste",
+              "der kurze Hop macht den Ort erreichbar"
+            ]
+          },
+          {
+            "id": "geology_ground_stop",
+            "familyId": "geo_guest",
+            "label": "Geologie, Landschaft und kurze Bodenpause",
+            "wildcard": false,
+            "matchTags": [
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Geologie-Dozentin",
+              "Naturkundler",
+              "Karteninteressierter Gast"
+            ],
+            "taskIdeas": [
+              "nach der Landung eine kurze Bodenpause mit Fotos und Notizen machen",
+              "den Strip als Zugang zu Talrand, Hangweg oder Aussichtspunkt nutzen",
+              "Kartenrolle und Kamera fuer den Aufenthalt am Boden bereithalten"
+            ],
+            "objectIdeas": [
+              "Notizbuch",
+              "kleine Lupe",
+              "Kameratasche",
+              "Kartenrolle"
+            ],
+            "returnDrivers": [
+              "die Landung am Ziel ist der geplante Hoehepunkt des Hoppers",
+              "der Gast bekommt den Backcountry-Kontext direkt am Zielstrip und am kurzen Bodenweg",
+              "es gibt keinen Folgeauftrag ausser dem sauberen Abschluss am Strip"
+            ],
+            "accessReasons": [
+              "der Strip liegt gut fuer den kurzen Weg zu Talrand oder Hang",
+              "die kurze Landung macht den Aufenthalt vor Ort erst sinnvoll",
+              "der Hop bleibt ein entspannter Backcountry-Hinflug"
+            ]
+          },
+          {
+            "id": "plein_air_artist",
+            "familyId": "wildcard_adventure",
+            "label": "Kurioser, ruhiger Backcountry-Gast",
+            "wildcard": true,
+            "matchTags": [
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Landschaftsmalerin",
+              "Naturautor",
+              "Soundscape-Sammlerin"
+            ],
+            "taskIdeas": [
+              "am Ziel einen stillen Arbeitsplatz suchen",
+              "Skizzenblock, Recorder oder kleine Staffelei ausladen",
+              "den Flug als Zugang zur Stimmung des Ortes nutzen"
+            ],
+            "objectIdeas": [
+              "Skizzenrolle",
+              "kleiner Recorder",
+              "leichte Staffelei",
+              "Tagesrucksack"
+            ],
+            "returnDrivers": [
+              "der Aufenthalt beginnt mit der Landung und braucht keine weitere Dramatik",
+              "der Zielstrip ist einfach der Zugang zu einem ungewoehnlichen, aber plausiblen Outdoor-Projekt",
+              "der Adventure-Hopper darf einmal etwas eigenwilliger wirken"
+            ],
+            "accessReasons": [
+              "der Strip liegt nahe am Motiv",
+              "zu Fuss waere das Material unpraktisch",
+              "die kurze Landung macht den Ort erreichbar"
+            ]
+          },
+          {
+            "id": "lodge_guest_short_hop",
+            "familyId": "lodge_guest",
+            "label": "Lodge-Gast mit kurzem Backcountry-Hop",
+            "wildcard": false,
+            "matchTags": [
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Lodge-Gast",
+              "Camp-Besucherin",
+              "Outfitter-Kontakt"
+            ],
+            "taskIdeas": [
+              "am Zielstrip vom Campkontakt abgeholt werden",
+              "leichte Tasche und Tageskit am Bahnrand ausladen",
+              "den Anflug als Teil des Aufenthalts erleben"
+            ],
+            "objectIdeas": [
+              "Duffelbag",
+              "Tagesrucksack",
+              "leichte Kuehltasche",
+              "Kameratasche"
+            ],
+            "returnDrivers": [
+              "der Aufenthalt beginnt nach der Landung am Ziel",
+              "der Handoff ist einfach: Gast und Gepaeck raus, Flug abgeschlossen",
+              "die Story bleibt ruhig und freizeitnah"
+            ],
+            "accessReasons": [
+              "der Strip ist der Zugang zur Lodge",
+              "Camp-Pfad und Bahnrand liegen nahe beieinander",
+              "der Hop ersetzt eine lange holprige Zufahrt"
+            ]
+          },
+          {
+            "id": "fly_fishing_hop",
+            "familyId": "river_guest",
+            "label": "Fly-Fishing- oder Flussausflug",
+            "wildcard": false,
+            "matchTags": [
+              "water",
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Fly-Fishing-Gast",
+              "Guide",
+              "Lodge-Gast"
+            ],
+            "taskIdeas": [
+              "am Ziel in Richtung Wasserabschnitt weitergehen",
+              "Angelrohr und leichte Kuehltasche am Strip ausladen",
+              "den Guidekontakt am Camp-Pfad treffen"
+            ],
+            "objectIdeas": [
+              "Angelrohr",
+              "Tagesrucksack",
+              "Kuehltasche",
+              "Watjacke"
+            ],
+            "returnDrivers": [
+              "der Zielstrip ist der geplante Beginn des Tages am Wasser",
+              "nach der Landung startet der Ausflug ohne weiteren Transfer",
+              "der Flug ist bewusst ein kurzer Bush-Hop"
+            ],
+            "accessReasons": [
+              "der Flussabschnitt liegt naeher am Zielstrip als an jeder Strasse",
+              "der Guide wartet am Striprand",
+              "das Gepaeck bleibt fuer den kurzen Flug handlich"
+            ]
+          }
+        ],
+        "variety": {
+          "schema": "missionVarietyPack.v1",
+          "namespace": "bush_scenic_hopper",
+          "profileId": "bush_scenic_hopper",
+          "contextTags": [
+            "bush",
+            "remote_strip",
+            "water"
+          ],
+          "selectedIds": [
+            "trailhead_family_visit",
+            "geology_ground_stop",
+            "plein_air_artist",
+            "lodge_guest_short_hop",
+            "fly_fishing_hop"
+          ],
+          "selectedFamilies": [
+            "trailhead_visit",
+            "geo_guest",
+            "wildcard_adventure",
+            "lodge_guest",
+            "river_guest"
+          ],
+          "primaryId": "trailhead_family_visit",
+          "primaryFamily": "trailhead_visit",
+          "recentFamilies": [],
+          "recentPrimaryFamilies": [],
+          "recentPrimaryIds": [],
+          "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+          "storageKey": "ga_mission_variety_history_bush_scenic_hopper_v1"
+        },
+        "ingredientAxes": {
+          "roleFamilies": [
+            "Backcountry-Besucherin",
+            "Trailhead-Gast",
+            "Camp-Freund",
+            "Geologie-Dozentin",
+            "Naturkundler",
+            "Karteninteressierter Gast",
+            "Landschaftsmalerin",
+            "Naturautor",
+            "Soundscape-Sammlerin",
+            "Lodge-Gast",
+            "Camp-Besucherin",
+            "Outfitter-Kontakt"
+          ],
+          "activityVerbs": [
+            "eine kleine Besuchstasche zum Ziel bringen",
+            "am Bahnrand vom Campkontakt abgeholt werden",
+            "ein kurzes Backcountry-Erlebnis ohne Arbeitsauftrag haben",
+            "nach der Landung eine kurze Bodenpause mit Fotos und Notizen machen",
+            "den Strip als Zugang zu Talrand, Hangweg oder Aussichtspunkt nutzen",
+            "Kartenrolle und Kamera fuer den Aufenthalt am Boden bereithalten",
+            "am Ziel einen stillen Arbeitsplatz suchen",
+            "Skizzenblock, Recorder oder kleine Staffelei ausladen",
+            "den Flug als Zugang zur Stimmung des Ortes nutzen",
+            "am Zielstrip vom Campkontakt abgeholt werden",
+            "leichte Tasche und Tageskit am Bahnrand ausladen",
+            "den Anflug als Teil des Aufenthalts erleben",
+            "am Ziel in Richtung Wasserabschnitt weitergehen",
+            "Angelrohr und leichte Kuehltasche am Strip ausladen"
+          ],
+          "evidenceObjects": [
+            "kleiner Koffer",
+            "Tagesrucksack",
+            "Picknicktasche",
+            "Kamera",
+            "Notizbuch",
+            "kleine Lupe",
+            "Kameratasche",
+            "Kartenrolle",
+            "Skizzenrolle",
+            "kleiner Recorder",
+            "leichte Staffelei",
+            "Duffelbag",
+            "leichte Kuehltasche",
+            "Angelrohr"
+          ],
+          "returnDrivers": [
+            "der Zielstrip ist der Treffpunkt fuer den geplanten Besuch",
+            "nach der Landung ist der Flugauftrag abgeschlossen",
+            "die Mission bleibt bewusst leicht und persoenlich",
+            "die Landung am Ziel ist der geplante Hoehepunkt des Hoppers",
+            "der Gast bekommt den Backcountry-Kontext direkt am Zielstrip und am kurzen Bodenweg",
+            "es gibt keinen Folgeauftrag ausser dem sauberen Abschluss am Strip",
+            "der Aufenthalt beginnt mit der Landung und braucht keine weitere Dramatik",
+            "der Zielstrip ist einfach der Zugang zu einem ungewoehnlichen, aber plausiblen Outdoor-Projekt",
+            "der Adventure-Hopper darf einmal etwas eigenwilliger wirken",
+            "der Aufenthalt beginnt nach der Landung am Ziel"
+          ],
+          "accessReasons": [
+            "der Strip ist der sichere Treffpunkt fuer den Besuch",
+            "der Camp-Pfad beginnt am Rand der Piste",
+            "der kurze Hop macht den Ort erreichbar",
+            "der Strip liegt gut fuer den kurzen Weg zu Talrand oder Hang",
+            "die kurze Landung macht den Aufenthalt vor Ort erst sinnvoll",
+            "der Hop bleibt ein entspannter Backcountry-Hinflug",
+            "der Strip liegt nahe am Motiv",
+            "zu Fuss waere das Material unpraktisch"
+          ]
+        },
+        "writerExpectations": [
+          "Nutze bevorzugt genau eine Richtung aus candidateShortlist, damit Rolle, Taetigkeiten, Gegenstaende und Folgegrund zusammenpassen.",
+          "Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren.",
+          "Wenn candidateShortlist nicht passt, nutze ingredientAxes als offene Inspiration und bleibe trotzdem im Zielkontext.",
+          "Kontext, Profil-Rezept, TaskDomain und MissionTruth schlagen Varianz.",
+          "Nicht alle Achsen abarbeiten; frei kombinieren und variieren.",
+          "Keine neuen Ortsnamen oder harten Geofakten erfinden.",
+          "Nicht jedes Adventure-Profil in Arbeit, Forschung oder Zeitdruck verwandeln.",
+          "Schreibe den Flug als Transport zum Erlebnisort, an dem der Aufenthalt am Boden beginnt.",
+          "Die Landung am Ziel ist der natuerliche Abschluss des Fluglegs.",
+          "Der Gast darf persoenlich, neugierig oder ungewoehnlich sein; die Geografie bleibt aus dem Contract."
+        ],
+        "weatherNote": ""
+      },
+      "variety": {
+        "schema": "missionVarietyPack.v1",
+        "namespace": "bush_scenic_hopper",
+        "profileId": "bush_scenic_hopper",
+        "contextTags": [
+          "bush",
+          "remote_strip",
+          "water"
+        ],
+        "selectedIds": [
+          "trailhead_family_visit",
+          "geology_ground_stop",
+          "plein_air_artist",
+          "lodge_guest_short_hop",
+          "fly_fishing_hop"
+        ],
+        "selectedFamilies": [
+          "trailhead_visit",
+          "geo_guest",
+          "wildcard_adventure",
+          "lodge_guest",
+          "river_guest"
+        ],
+        "primaryId": "trailhead_family_visit",
+        "primaryFamily": "trailhead_visit",
+        "recentFamilies": [],
+        "recentPrimaryFamilies": [],
+        "recentPrimaryIds": [],
+        "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+        "storageKey": "ga_mission_variety_history_bush_scenic_hopper_v1"
+      },
+      "sarHeli": null,
+      "missionTruth": null,
+      "semantics": {
+        "version": "mission-semantics-v4-2026-06-07",
+        "focusLock": {
+          "mode": "bush",
+          "taskDomain": "bush_adventure",
+          "targetCategory": "generic",
+          "requestedCategory": "all",
+          "primarySubjectLabel": "Big Creek Airport",
+          "primarySubjectType": "generic",
+          "contextRoles": [
+            "orientation",
+            "hazard",
+            "access",
+            "support",
+            "evidence",
+            "background"
+          ]
+        },
+        "plannerGuardrails": [
+          "Primary subject lock: Big Creek Airport (generic) bleibt Hauptsubjekt.",
+          "Task-domain lock: bush_adventure bleibt die Art des Auftrags.",
+          "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+          "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+          "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+          "Backcountry-Hinflug mit Landung und Beginn eines Aufenthalts am Ziel bleibt Hauptzweck.",
+          "Landung, Ausstieg und Bodenplan am Zielstrip sind die relevanten Abschlussmarker.",
+          "Das gewaehlte Ziel bleibt Primärsubjekt."
+        ],
+        "writerGuardrails": [
+          "Story, Greeting und sceneIntent muessen Big Creek Airport als Primaerfokus behalten.",
+          "Kontext darf den Auftrag anreichern, aber nicht umwidmen.",
+          "Die Erzaehlung bleibt Backcountry-/Bush-bezogen und driftet nicht in normalen A-B-Verkehr.",
+          "Adventure-Story endet mit Ankunft und Ausstieg am Zielstrip; Beobachtungen aus dem Cockpit duerfen nur Anflugstimmung sein.",
+          "Schreibe den Flug als Zugang zum Erlebnisort, an dem der Aufenthalt nach der Landung beginnt.",
+          "Kontext darf nur anreichern, nie umwidmen."
+        ],
+        "forceSceneNone": true,
+        "naturalPriority": false
+      },
+      "followUpContext": null,
+      "missionTemporalContext": null,
+      "varietyHints": null,
+      "targetGeoContext": null,
+      "airportDetails": {
+        "start": {
+          "icao": "KMYL",
+          "name": "McCall Municipal Airport",
+          "lat": 44.8897,
+          "lon": -116.101
+        },
+        "dest": {
+          "icao": "U60",
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999
+        },
+        "targetPoi": null
+      },
+      "departureAirportInformation": {
+        "schema": "departure-airport-information-text.v1",
+        "departureInfo": "Der Abflug erfolgt vom McCall Municipal Airport (KMYL), der auf einer beachtlichen Höhe von 5024 Fuß MSL liegt. Du nutzt die asphaltierte Hauptpiste 16/34, die mit 1864 Metern Länge reichlich Spielraum bietet. Dennoch solltest du die Platzhöhe bei der Berechnung deiner Startleistung nicht ignorieren, da die Dichtehöhe gerade an wärmeren Vormittagen die Steigrate spürbar beeinflussen kann. Der Platz ist gut ausgebaut und dient als idealer Absprungpunkt für Flüge ins tiefer gelegene Hinterland. Spezifische lokale Abflugverfahren für Lärmschutz sind den aktuellen Pilotennotizen vor Ort zu entnehmen.",
+        "sourceIds": [
+          "faa-mountain-tips"
+        ],
+        "generated": true
+      },
+      "airportInformation": {
+        "schema": "airport-information-text.v1",
+        "flightBriefing": "Für den Anflug auf Big Creek (U60) planst du eine Landung auf der 1082 Meter langen Graspiste 01/19 ein. Mit einer Platzhöhe von 5743 Fuß MSL spielt die Dichtehöhe hier eine wesentliche Rolle für deine Performance; schau dir die Tabellen für die Landestrecke vorher genau an. Da es sich um einen reinen Grasstrip handelt, solltest du beim Aufsetzen auf den aktuellen Bodenustand achten, da Nässe oder weicher Untergrund die Bremswirkung und das Rollverhalten im Vergleich zu trockenem Boden deutlich verändern können. Ein Überflug zur Beurteilung der Platzverhältnisse vor dem endgültigen Sinkflug ist im Backcountry immer ratsam.",
+        "destinationInfo": "Big Creek Airport (U60) Platzhöhe: 5743 ft MSL. Piste 01/19, 1082 m Länge, 34 m Breite, Gras. Weitere Angaben zur Umgebung und aktuelle betriebliche Hinweise liegen für diesen Text nicht vor.",
+        "sourceIds": [
+          "faa-mountain-tips",
+          "nz-caa-mountain"
+        ],
+        "generated": false,
+        "flightBriefingGenerated": true,
+        "basis": "own-data-only"
+      },
+      "bushFollowUpNarrative": {
+        "schema": "ga.bush.followup-memory.v1",
+        "memory": {
+          "summary": "Elias wurde am Big Creek Airport abgesetzt, um die herbstliche Färbung der Lärchen und die ersten verschneiten Gipfel für seine Dokumentation über die Frank Church Wilderness zu filmen. Er plante, sofort nach der Landung mit dem Aufbau seines Equipments zu beginnen und das Tal fotografisch zu erkunden. Der Flug verlief reibungslos, und er konzentriert sich nun auf die alpinen Lichtverhältnisse für sein Langzeitprojekt.",
+          "participants": [
+            {
+              "name": "Elias",
+              "role": "Naturfilmer"
+            }
+          ],
+          "openQuestions": [
+            "Wie haben sich die Lichtverhältnisse im Tal während seines Aufenthalts entwickelt?",
+            "Konnten die goldenen Lärchen wie geplant eingefangen werden?"
+          ],
+          "betweenFlightsIdeas": [
+            {
+              "followUpKind": "bush_pickup_strip",
+              "summary": "Elias hat seine Aufnahmen im Kasten und wartet am Big Creek Strip darauf, mitsamt seiner wertvollen Filmmaterialien und der Ausrüstung wieder abgeholt zu werden."
+            }
+          ]
+        }
+      }
+    },
+    "_missionContractV4": {
+      "pipelineVersion": "mission-v4-contract-writer-2026-06-07",
+      "bushReconPlan": null,
+      "status": "ready",
+      "mode": "bush",
+      "paxText": "1 PAX (Naturfilmer)",
+      "passengerCount": 1,
+      "party": null,
+      "partyNarrative": null,
+      "aircraftCapability": {
+        "cruiseSpeedKts": 110,
+        "aircraftTags": []
+      },
+      "cargoText": "Trailrucksack, Fernglas und Regenjacken (28 lbs)",
+      "animalTransportBrief": null,
+      "route": {
+        "startIcao": "",
+        "startName": "McCall Municipal Airport",
+        "targetIcao": "U60",
+        "targetName": "Big Creek Airport",
+        "distanceNm": 36
+      },
+      "profile": {
+        "id": "bush_scenic_hopper",
+        "label": "Bush Adventure Hopper",
+        "roleProfile": "bush_adventure_guest_v1",
+        "taskDomain": "bush_adventure",
+        "pickerCategory": "all",
+        "requestedCategory": "all"
+      },
+      "target": {
+        "isPOI": false,
+        "name": "Big Creek Airport",
+        "lat": 45.133202,
+        "lon": -115.321999,
+        "poiSource": "",
+        "poiCategory": "all",
+        "terrainFt": null,
+        "terrainMaxFt": null,
+        "terrainRadiusNm": null
+      },
+      "poiChain": null,
+      "knowledgeContext": null,
+      "weather": {
+        "dep": {
+          "summary": "Keine aktuellen Wetterdaten verfügbar.",
+          "raw": null
+        },
+        "dest": {
+          "summary": "Keine aktuellen Wetterdaten verfügbar.",
+          "raw": null
+        },
+        "rule": "Wetter nur als Realitaetsanker nutzen: Wind, Sicht, Wolken/WX knapp einbauen; keine dramatische Wetterstory erfinden."
+      },
+      "environmentContext": {
+        "schema": "mission-environment.v1",
+        "time": {
+          "source": "user-device-local",
+          "createdAt": "2026-10-08T08:30:00.000Z",
+          "createdLocal": "2026-10-08T10:30:00",
+          "utcOffsetMinutes": 120,
+          "timeZone": "Europe/Berlin",
+          "departureTimeKnown": false
+        },
+        "start": {
+          "location": {
+            "name": "McCall Municipal Airport",
+            "lat": 44.8897,
+            "lon": -116.101
+          },
+          "status": "unavailable"
+        },
+        "target": {
+          "location": {
+            "name": "Big Creek Airport",
+            "lat": 45.133202,
+            "lon": -115.321999
+          },
+          "status": "unavailable"
+        }
+      },
+      "airportInfoContext": {
+        "schema": "mission-airport-information.v1",
+        "airport": {
+          "ident": "U60",
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999,
+          "country": "US",
+          "elevationFt": 5743,
+          "runways": [
+            {
+              "designator": "01/19",
+              "lengthM": 1082,
+              "widthM": 34,
+              "surface": "Gras",
+              "trueHeadingDeg": null,
+              "operations": null
+            }
+          ],
+          "ppr": null,
+          "private": null,
+          "source": "eigene Flugplatzdaten"
+        },
+        "terrain": null,
+        "pilotHints": [
+          {
+            "id": "assess-before-descent",
+            "source": "faa-mountain-safety",
+            "section": "Poor Planning",
+            "text": "Vor dem Sinkflug in einen Gebirgsplatz die Möglichkeiten für Durchstarten und anschließenden Abflug beurteilen."
+          },
+          {
+            "id": "valley-escape",
+            "source": "nz-caa-mountain",
+            "section": "Entering a valley / Escape routes, pp. 24–26",
+            "text": "Im Tal ausreichend Raum zum Wenden und einen Ausweg erhalten. Nicht darauf vertrauen, ansteigendes Gelände übersteigen zu können."
+          },
+          {
+            "id": "valley-wind",
+            "source": "nz-caa-mountain",
+            "section": "Wind, p. 8; Valley flying, p. 22",
+            "text": "Wind im Tal kann in Richtung und Stärke vom Wind oberhalb der Bergrücken abweichen. Eine entfernte Wetterstation beschreibt den lokalen Talwind nicht vollständig."
+          },
+          {
+            "id": "lee-turbulence",
+            "source": "faa-mountain-safety",
+            "section": "Mountain Weather",
+            "text": "Hinter Bergrücken können starke Abwinde und Turbulenz auftreten; ihr Ausmaß lässt sich aus einem Bodenwind allein nicht ableiten."
+          },
+          {
+            "id": "density-altitude",
+            "source": "faa-mountain-tips",
+            "section": "Performance Considerations",
+            "text": "Hohe Dichtehöhe vermindert die verfügbare Flugleistung. Start-, Landestrecken und Steigleistung anhand der Flugzeugunterlagen beurteilen."
+          },
+          {
+            "id": "surface-condition",
+            "source": "nz-caa-mountain",
+            "section": "Approach and landing, pp. 29–30",
+            "text": "Eine bekannte Pistenoberfläche sagt noch nichts über den aktuellen Zustand aus. Nässe, weicher Boden und Grasbewuchs können die nutzbare Leistung beeinflussen."
+          },
+          {
+            "id": "local-knowledge",
+            "source": "ntsb-sa039",
+            "section": "What can pilots do?",
+            "text": "Für unbekannte Gebirgsplätze aktuelle lokale Informationen und qualifizierte Einweisung einholen."
+          }
+        ],
+        "sources": [
+          {
+            "id": "faa-mountain-tips",
+            "title": "FAA Tips on Mountain Flying, FAA-P-8740-60",
+            "url": "https://www.faa.gov/sites/faa.gov/files/regulations_policies/handbooks_manuals/aviation/tips_on_mountain_flying.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "faa-mountain-safety",
+            "title": "FAA Aviation Safety: Mountain Flying",
+            "url": "https://www.faa.gov/sites/faa.gov/files/2022-01/Mountain%20Flying.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "nz-caa-mountain",
+            "title": "NZ CAA Mountain Flying, May 2021",
+            "url": "https://www.aviation.govt.nz/assets/publications/gaps/caa-gap-mountain-flying-may-2021-web.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "ntsb-sa039",
+            "title": "NTSB SA-039 Mastering Mountain Flying",
+            "url": "https://www.ntsb.gov/Advocacy/safety-alerts/Documents/SA-039.pdf",
+            "kind": "pilot-handbook"
+          }
+        ],
+        "retrieval": {
+          "budgetMs": 3000,
+          "requests": {
+            "wikipedia": 2,
+            "faa": 1
+          },
+          "sources": {
+            "wikipedia-de": {
+              "status": "no_match",
+              "ms": 4
+            },
+            "wikipedia-en": {
+              "status": "no_match",
+              "ms": 4
+            },
+            "ownAirport": {
+              "status": "available",
+              "ms": 3,
+              "cached": false
+            },
+            "faa": {
+              "status": "no_match",
+              "ms": 4
+            }
+          },
+          "elapsedMs": 4,
+          "partial": false
+        }
+      },
+      "departureAirportInfoContext": {
+        "schema": "mission-airport-information.v1",
+        "airport": {
+          "ident": "KMYL",
+          "name": "McCall Municipal Airport",
+          "lat": 44.8897,
+          "lon": -116.101,
+          "country": "US",
+          "elevationFt": 5024,
+          "runways": [
+            {
+              "designator": "16/34",
+              "lengthM": 1864,
+              "widthM": 23,
+              "surface": "Asphalt",
+              "trueHeadingDeg": null,
+              "operations": null
+            }
+          ],
+          "ppr": null,
+          "private": null,
+          "source": "eigene Flugplatzdaten"
+        },
+        "terrain": null,
+        "pilotHints": [
+          {
+            "id": "assess-before-descent",
+            "source": "faa-mountain-safety",
+            "section": "Poor Planning",
+            "text": "Vor dem Sinkflug in einen Gebirgsplatz die Möglichkeiten für Durchstarten und anschließenden Abflug beurteilen."
+          },
+          {
+            "id": "valley-escape",
+            "source": "nz-caa-mountain",
+            "section": "Entering a valley / Escape routes, pp. 24–26",
+            "text": "Im Tal ausreichend Raum zum Wenden und einen Ausweg erhalten. Nicht darauf vertrauen, ansteigendes Gelände übersteigen zu können."
+          },
+          {
+            "id": "valley-wind",
+            "source": "nz-caa-mountain",
+            "section": "Wind, p. 8; Valley flying, p. 22",
+            "text": "Wind im Tal kann in Richtung und Stärke vom Wind oberhalb der Bergrücken abweichen. Eine entfernte Wetterstation beschreibt den lokalen Talwind nicht vollständig."
+          },
+          {
+            "id": "lee-turbulence",
+            "source": "faa-mountain-safety",
+            "section": "Mountain Weather",
+            "text": "Hinter Bergrücken können starke Abwinde und Turbulenz auftreten; ihr Ausmaß lässt sich aus einem Bodenwind allein nicht ableiten."
+          },
+          {
+            "id": "density-altitude",
+            "source": "faa-mountain-tips",
+            "section": "Performance Considerations",
+            "text": "Hohe Dichtehöhe vermindert die verfügbare Flugleistung. Start-, Landestrecken und Steigleistung anhand der Flugzeugunterlagen beurteilen."
+          },
+          {
+            "id": "surface-condition",
+            "source": "nz-caa-mountain",
+            "section": "Approach and landing, pp. 29–30",
+            "text": "Eine bekannte Pistenoberfläche sagt noch nichts über den aktuellen Zustand aus. Nässe, weicher Boden und Grasbewuchs können die nutzbare Leistung beeinflussen."
+          },
+          {
+            "id": "local-knowledge",
+            "source": "ntsb-sa039",
+            "section": "What can pilots do?",
+            "text": "Für unbekannte Gebirgsplätze aktuelle lokale Informationen und qualifizierte Einweisung einholen."
+          }
+        ],
+        "sources": [
+          {
+            "id": "faa-mountain-tips",
+            "title": "FAA Tips on Mountain Flying, FAA-P-8740-60",
+            "url": "https://www.faa.gov/sites/faa.gov/files/regulations_policies/handbooks_manuals/aviation/tips_on_mountain_flying.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "faa-mountain-safety",
+            "title": "FAA Aviation Safety: Mountain Flying",
+            "url": "https://www.faa.gov/sites/faa.gov/files/2022-01/Mountain%20Flying.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "nz-caa-mountain",
+            "title": "NZ CAA Mountain Flying, May 2021",
+            "url": "https://www.aviation.govt.nz/assets/publications/gaps/caa-gap-mountain-flying-may-2021-web.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "ntsb-sa039",
+            "title": "NTSB SA-039 Mastering Mountain Flying",
+            "url": "https://www.ntsb.gov/Advocacy/safety-alerts/Documents/SA-039.pdf",
+            "kind": "pilot-handbook"
+          }
+        ],
+        "retrieval": {
+          "budgetMs": 3000,
+          "requests": {
+            "wikipedia": 2,
+            "faa": 1
+          },
+          "sources": {
+            "wikipedia-de": {
+              "status": "no_match",
+              "ms": 1
+            },
+            "wikipedia-en": {
+              "status": "no_match",
+              "ms": 1
+            },
+            "ownAirport": {
+              "status": "available",
+              "ms": 1,
+              "cached": false
+            },
+            "faa": {
+              "status": "no_match",
+              "ms": 1
+            }
+          },
+          "elapsedMs": 1,
+          "partial": false
+        }
+      },
+      "fireHazard": null,
+      "missionPlan": {
+        "status": "ready",
+        "pipelineVersion": "mission-v4-planner-2026-06-07",
+        "plan": {
+          "taskDomain": "bush_adventure",
+          "roleProfile": "bush_adventure_guest_v1",
+          "missionType": "bush",
+          "targetCategory": "charter",
+          "primaryObjective": "Bringe den Naturfilmer für seine Dokumentationsarbeiten zum Big Creek Airport.",
+          "targetLabel": "Big Creek Airport",
+          "missionTrigger": "Der Beginn der herbstlichen Hauptfärbung im Hinterland von Idaho.",
+          "focusSubject": "Elias und seine Kameraausrüstung für Naturaufnahmen.",
+          "keyQuestion": "Ist der Strip für den Aufenthalt sicher erreichbar und bereit für den Ausstieg des Gastes?",
+          "missionStakes": "Der Erfolg der Dokumentation hängt vom Erreichen dieses spezifischen Zugangspunkts ab.",
+          "completionSignal": "Sichere Landung am Big Creek Airport, Absetzen des Gastes und Entladen des Trailrucksacks.",
+          "storyFrame": {
+            "trigger": "Der Beginn der herbstlichen Hauptfärbung im Hinterland von Idaho.",
+            "focusSubject": "Elias und seine Kameraausrüstung für Naturaufnahmen.",
+            "keyQuestion": "Ist der Strip für den Aufenthalt sicher erreichbar und bereit für den Ausstieg des Gastes?",
+            "stakes": "Der Erfolg der Dokumentation hängt vom Erreichen dieses spezifischen Zugangspunkts ab.",
+            "completionSignal": "Sichere Landung am Big Creek Airport, Absetzen des Gastes und Entladen des Trailrucksacks.",
+            "subjectDetail": "Elias, ein spezialisierter Naturfilmer mit Fokus auf alpine Lichtverhältnisse und herbstliche Vegetation.",
+            "incidentContext": "Elias arbeitet an einem Langzeitprojekt über die Abgeschiedenheit der Frank Church Wilderness und nutzt Big Creek als strategischen Ausgangspunkt für seine Aufnahmen im Tal.",
+            "whyNow": "Anfang Oktober bietet das Tal die perfekten Kontraste zwischen den ersten verschneiten Gipfeln und den goldenen Lärchen, die Elias heute einfangen will.",
+            "soughtOutcome": "Absetzen am Strip, damit Elias unmittelbar nach der Landung mit dem Aufbau seines Stativs und der ersten Erkundung beginnen kann. Der Flugauftrag endet mit seinem Ausstieg.",
+            "incidentType": "",
+            "lastSeenContext": "",
+            "probableScenario": "",
+            "visibleClueCandidates": []
+          },
+          "sceneKind": "none",
+          "sceneDensity": "none",
+          "requiredAnchors": [],
+          "objectFamilies": [],
+          "placementPolicy": "Keine Zielobjekte platzieren; vorhandene Landmarken nur als visuelle Orientierung nutzen.",
+          "narrativeRules": [
+            "Primary subject lock: Big Creek Airport (generic) bleibt Hauptsubjekt.",
+            "Task-domain lock: bush_adventure bleibt die Art des Auftrags.",
+            "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+            "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+            "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+            "Backcountry-Hinflug mit Landung und Beginn eines Aufenthalts am Ziel bleibt Hauptzweck."
+          ],
+          "localFacts": [
+            "Big Creek (U60) liegt auf 5743 Fuß Höhe.",
+            "Die Piste 01/19 besteht aus Gras und ist etwa 1082 Meter lang.",
+            "Der Flugplatz dient als wichtiger Zugang zum umliegenden Backcountry."
+          ],
+          "weatherHooks": [
+            "Herbstliche Sichtverhältnisse",
+            "Lokale Talwinde beim Anflug"
+          ],
+          "operationalDetails": [
+            "Beurteilung der Platzverhältnisse vor dem Sinkflug (FAA-Empfehlung).",
+            "Beachtung der Dichtehöhe aufgrund der Platzhöhe von über 5700 Fuß.",
+            "Sicherstellen von Ausweichwegen im Tal während des Anflugs."
+          ],
+          "realismBrief": "Der Flug ist glaubwürdig, da Big Creek ein klassischer Bush-Strip ist, der Fotografen und Outdoor-Spezialisten direkten Zugang zur Wildnis ermöglicht, der auf dem Landweg kaum praktikabel wäre.",
+          "narrativeHooks": [
+            "Elias prüft während des Fluges ungeduldig sein Fernglas.",
+            "Der Trailrucksack und die Stativtaschen sind sicher im Heck verstaut.",
+            "Der Gast bittet darum, die Graspiste vor dem Aufsetzen genau auf Hindernisse zu prüfen."
+          ],
+          "mustMention": [
+            "Naturfilmer",
+            "Herbstfarben",
+            "Graspiste",
+            "Trailrucksack"
+          ],
+          "mustAvoid": [
+            "Rundflug-Erwähnung",
+            "Rückflug-Versprechen",
+            "Notfallszenario",
+            "Kontext darf das Primaerziel nicht ersetzen.",
+            "Kontext darf die TaskDomain nicht umwidmen."
+          ],
+          "lockedFields": {
+            "noLandingAtPoi": false,
+            "requiresRescueAtPoi": false,
+            "primarySubjectLabel": "Big Creek Airport",
+            "primarySubjectType": "generic",
+            "taskDomain": "bush_adventure"
+          },
+          "confidence": 1
+        },
+        "poiChain": null,
+        "needs": [],
+        "resolvedNeedTypes": [
+          "geo_context",
+          "mission_truth",
+          "weather_snapshot",
+          "fire_hazard",
+          "airport_details"
+        ]
+      },
+      "storyFrame": {
+        "trigger": "Der Beginn der herbstlichen Hauptfärbung im Hinterland von Idaho.",
+        "focusSubject": "Elias und seine Kameraausrüstung für Naturaufnahmen.",
+        "keyQuestion": "Ist der Strip für den Aufenthalt sicher erreichbar und bereit für den Ausstieg des Gastes?",
+        "stakes": "Der Erfolg der Dokumentation hängt vom Erreichen dieses spezifischen Zugangspunkts ab.",
+        "completionSignal": "Sichere Landung am Big Creek Airport, Absetzen des Gastes und Entladen des Trailrucksacks.",
+        "subjectDetail": "Elias, ein spezialisierter Naturfilmer mit Fokus auf alpine Lichtverhältnisse und herbstliche Vegetation.",
+        "incidentContext": "Elias arbeitet an einem Langzeitprojekt über die Abgeschiedenheit der Frank Church Wilderness und nutzt Big Creek als strategischen Ausgangspunkt für seine Aufnahmen im Tal.",
+        "whyNow": "Anfang Oktober bietet das Tal die perfekten Kontraste zwischen den ersten verschneiten Gipfeln und den goldenen Lärchen, die Elias heute einfangen will.",
+        "soughtOutcome": "Absetzen am Strip, damit Elias unmittelbar nach der Landung mit dem Aufbau seines Stativs und der ersten Erkundung beginnen kann. Der Flugauftrag endet mit seinem Ausstieg.",
+        "incidentType": "",
+        "lastSeenContext": "",
+        "probableScenario": "",
+        "visibleClueCandidates": []
+      },
+      "infraNarrativeHandoff": null,
+      "chainNarrativeBrief": null,
+      "pickupCreativeBrief": null,
+      "missionVarietyBrief": {
+        "personalStoryBasis": {
+          "focus": "Ein individueller Adventure-Gast mit einem konkreten Outdoor-Vorhaben nach der Landung: was er dort selbst sehen, ausprobieren oder erleben möchte.",
+          "connection": "Ein persönlicher Grund, warum es diesen Menschen genau dorthin zieht. Eine kurze Vorgeschichte ist möglich, aber keine Pflicht; ein schlichter eigener Wunsch trägt die Geschichte ebenso.",
+          "outcome": "Am Zielstrip landen; der Ausflug beginnt erst am Boden. Kein Rundflug und keine Rückkehr zum Heimatplatz.",
+          "voice": "Der Gast begleitet den Hinflug. Begrüßung und spätere Geschichten tragen denselben Wunsch und seine eigene Haltung.",
+          "use": "Freie Inspiration. Person und Vorhaben folgen bevorzugt einer Richtung der candidateShortlist; Ziel, Region und Gelände geben Farbe. Vorgeschichte, Pointe oder Missgeschick sind keine Pflicht."
+        },
+        "weatherIdeaPolicy": "BUSH-WETTER: Nutze Wetter als praktischen Hintergrund. Ein wettergetriebener Auftrag folgt einem belegten markanten Wetterereignis oder einer gelieferten Meldung mit Ort und Zeit. Die Jahreszeit darf einen längerfristigen zeitlichen Anker liefern, etwa Herbstwartung ohne Zeitdruck. Gewöhnliche Wetterwerte und die Jahreszeit allein begründen weder drohenden Schnee noch ein knappes letztes Flugfenster; wetterbedingte Eile braucht ein konkret belegtes bevorstehendes Ereignis. Menschliche und fachliche Anlässe dürfen unabhängig davon tragen. Leite whyNow zuerst aus dem nächsten Schritt der Person oder des Auftraggebers ab. Saisonale Vorsorge kann einfach ein sinnvoller heutiger Auftrag sein; normale aktuelle Wetterwerte beschreiben nur den Flugrahmen, nicht den Grund, weshalb der Auftrag gerade jetzt erledigt werden muss. Auch eine im Planner erfundene Wetterfrist ist kein zusätzlicher Wetterbeleg für den Writer.",
+        "candidateEvidencePolicy": "Kandidaten und regionale Rollen-/Tätigkeitsideen sind mögliche fiktive Motive, keine Ereignismeldungen oder Belege für Anlagen, Tal, Hang, Jahreszeitbedingungen und Wetter. Wähle einen Anlass, der ohne erfundene reale Eigenschaften des Ziels auskommt. Saisonale Tätigkeiten wie Herbstwartung sind als längerfristiger Anlass zulässig, ohne daraus nahen Frost, Sperrungen oder Zeitdruck abzuleiten. Ein wettergetriebener Ereigniskandidat braucht ein ausdrücklich geliefertes markantes Wetterereignis.",
+        "purpose": "Offener Kreativrahmen fuer einen Bush-Adventure-Hopper. Das Profil bringt einen Gast zu einem abgelegenen Strip, wo nach der Landung ein Aufenthalt, Trail-, Lodge-, Camp- oder Naturplan beginnt.",
+        "recipe": "Kurzer Backcountry-Hinflug von McCall Municipal Airport nach Big Creek Airport, Landung am Zielstrip, Ausstieg/Handoff dort; kein Rundflug, kein Ueberflugauftrag, kein Rueckhol- oder Lieferzwang.",
+        "coreQuestions": [
+          "Wer fliegt nach Big Creek Airport und warum beginnt genau dort der persoenliche Outdoor- oder Backcountry-Plan?",
+          "Was nimmt der Gast fuer genau dieses Vorhaben mit?",
+          "Was beginnt nach der Landung am Boden, und was tut der Gast dort als Erstes?",
+          "Warum macht die Bush-Landung selbst den Auftrag besonders?",
+          "Welches konkrete Erlebnis, Bild, Wiedersehen oder Vorhaben wuenscht sich der Gast, und warum bedeutet es ihm persoenlich etwas?"
+        ],
+        "candidateShortlist": [
+          {
+            "id": "trailhead_family_visit",
+            "familyId": "trailhead_visit",
+            "label": "Trailhead-, Familien- oder Besuchsflug",
+            "wildcard": false,
+            "matchTags": [
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Backcountry-Besucherin",
+              "Trailhead-Gast",
+              "Camp-Freund"
+            ],
+            "taskIdeas": [
+              "eine kleine Besuchstasche zum Ziel bringen",
+              "am Bahnrand vom Campkontakt abgeholt werden",
+              "ein kurzes Backcountry-Erlebnis ohne Arbeitsauftrag haben"
+            ],
+            "objectIdeas": [
+              "kleiner Koffer",
+              "Tagesrucksack",
+              "Picknicktasche",
+              "Kamera"
+            ],
+            "returnDrivers": [
+              "der Zielstrip ist der Treffpunkt fuer den geplanten Besuch",
+              "nach der Landung ist der Flugauftrag abgeschlossen",
+              "die Mission bleibt bewusst leicht und persoenlich"
+            ],
+            "accessReasons": [
+              "der Strip ist der sichere Treffpunkt fuer den Besuch",
+              "der Camp-Pfad beginnt am Rand der Piste",
+              "der kurze Hop macht den Ort erreichbar"
+            ]
+          },
+          {
+            "id": "geology_ground_stop",
+            "familyId": "geo_guest",
+            "label": "Geologie, Landschaft und kurze Bodenpause",
+            "wildcard": false,
+            "matchTags": [
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Geologie-Dozentin",
+              "Naturkundler",
+              "Karteninteressierter Gast"
+            ],
+            "taskIdeas": [
+              "nach der Landung eine kurze Bodenpause mit Fotos und Notizen machen",
+              "den Strip als Zugang zu Talrand, Hangweg oder Aussichtspunkt nutzen",
+              "Kartenrolle und Kamera fuer den Aufenthalt am Boden bereithalten"
+            ],
+            "objectIdeas": [
+              "Notizbuch",
+              "kleine Lupe",
+              "Kameratasche",
+              "Kartenrolle"
+            ],
+            "returnDrivers": [
+              "die Landung am Ziel ist der geplante Hoehepunkt des Hoppers",
+              "der Gast bekommt den Backcountry-Kontext direkt am Zielstrip und am kurzen Bodenweg",
+              "es gibt keinen Folgeauftrag ausser dem sauberen Abschluss am Strip"
+            ],
+            "accessReasons": [
+              "der Strip liegt gut fuer den kurzen Weg zu Talrand oder Hang",
+              "die kurze Landung macht den Aufenthalt vor Ort erst sinnvoll",
+              "der Hop bleibt ein entspannter Backcountry-Hinflug"
+            ]
+          },
+          {
+            "id": "plein_air_artist",
+            "familyId": "wildcard_adventure",
+            "label": "Kurioser, ruhiger Backcountry-Gast",
+            "wildcard": true,
+            "matchTags": [
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Landschaftsmalerin",
+              "Naturautor",
+              "Soundscape-Sammlerin"
+            ],
+            "taskIdeas": [
+              "am Ziel einen stillen Arbeitsplatz suchen",
+              "Skizzenblock, Recorder oder kleine Staffelei ausladen",
+              "den Flug als Zugang zur Stimmung des Ortes nutzen"
+            ],
+            "objectIdeas": [
+              "Skizzenrolle",
+              "kleiner Recorder",
+              "leichte Staffelei",
+              "Tagesrucksack"
+            ],
+            "returnDrivers": [
+              "der Aufenthalt beginnt mit der Landung und braucht keine weitere Dramatik",
+              "der Zielstrip ist einfach der Zugang zu einem ungewoehnlichen, aber plausiblen Outdoor-Projekt",
+              "der Adventure-Hopper darf einmal etwas eigenwilliger wirken"
+            ],
+            "accessReasons": [
+              "der Strip liegt nahe am Motiv",
+              "zu Fuss waere das Material unpraktisch",
+              "die kurze Landung macht den Ort erreichbar"
+            ]
+          },
+          {
+            "id": "lodge_guest_short_hop",
+            "familyId": "lodge_guest",
+            "label": "Lodge-Gast mit kurzem Backcountry-Hop",
+            "wildcard": false,
+            "matchTags": [
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Lodge-Gast",
+              "Camp-Besucherin",
+              "Outfitter-Kontakt"
+            ],
+            "taskIdeas": [
+              "am Zielstrip vom Campkontakt abgeholt werden",
+              "leichte Tasche und Tageskit am Bahnrand ausladen",
+              "den Anflug als Teil des Aufenthalts erleben"
+            ],
+            "objectIdeas": [
+              "Duffelbag",
+              "Tagesrucksack",
+              "leichte Kuehltasche",
+              "Kameratasche"
+            ],
+            "returnDrivers": [
+              "der Aufenthalt beginnt nach der Landung am Ziel",
+              "der Handoff ist einfach: Gast und Gepaeck raus, Flug abgeschlossen",
+              "die Story bleibt ruhig und freizeitnah"
+            ],
+            "accessReasons": [
+              "der Strip ist der Zugang zur Lodge",
+              "Camp-Pfad und Bahnrand liegen nahe beieinander",
+              "der Hop ersetzt eine lange holprige Zufahrt"
+            ]
+          },
+          {
+            "id": "fly_fishing_hop",
+            "familyId": "river_guest",
+            "label": "Fly-Fishing- oder Flussausflug",
+            "wildcard": false,
+            "matchTags": [
+              "water",
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Fly-Fishing-Gast",
+              "Guide",
+              "Lodge-Gast"
+            ],
+            "taskIdeas": [
+              "am Ziel in Richtung Wasserabschnitt weitergehen",
+              "Angelrohr und leichte Kuehltasche am Strip ausladen",
+              "den Guidekontakt am Camp-Pfad treffen"
+            ],
+            "objectIdeas": [
+              "Angelrohr",
+              "Tagesrucksack",
+              "Kuehltasche",
+              "Watjacke"
+            ],
+            "returnDrivers": [
+              "der Zielstrip ist der geplante Beginn des Tages am Wasser",
+              "nach der Landung startet der Ausflug ohne weiteren Transfer",
+              "der Flug ist bewusst ein kurzer Bush-Hop"
+            ],
+            "accessReasons": [
+              "der Flussabschnitt liegt naeher am Zielstrip als an jeder Strasse",
+              "der Guide wartet am Striprand",
+              "das Gepaeck bleibt fuer den kurzen Flug handlich"
+            ]
+          }
+        ],
+        "variety": {
+          "schema": "missionVarietyPack.v1",
+          "namespace": "bush_scenic_hopper",
+          "profileId": "bush_scenic_hopper",
+          "contextTags": [
+            "bush",
+            "remote_strip",
+            "water"
+          ],
+          "selectedIds": [
+            "trailhead_family_visit",
+            "geology_ground_stop",
+            "plein_air_artist",
+            "lodge_guest_short_hop",
+            "fly_fishing_hop"
+          ],
+          "selectedFamilies": [
+            "trailhead_visit",
+            "geo_guest",
+            "wildcard_adventure",
+            "lodge_guest",
+            "river_guest"
+          ],
+          "primaryId": "trailhead_family_visit",
+          "primaryFamily": "trailhead_visit",
+          "recentFamilies": [],
+          "recentPrimaryFamilies": [],
+          "recentPrimaryIds": [],
+          "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+          "storageKey": "ga_mission_variety_history_bush_scenic_hopper_v1"
+        },
+        "ingredientAxes": {
+          "roleFamilies": [
+            "Backcountry-Besucherin",
+            "Trailhead-Gast",
+            "Camp-Freund",
+            "Geologie-Dozentin",
+            "Naturkundler",
+            "Karteninteressierter Gast",
+            "Landschaftsmalerin",
+            "Naturautor",
+            "Soundscape-Sammlerin",
+            "Lodge-Gast",
+            "Camp-Besucherin",
+            "Outfitter-Kontakt"
+          ],
+          "activityVerbs": [
+            "eine kleine Besuchstasche zum Ziel bringen",
+            "am Bahnrand vom Campkontakt abgeholt werden",
+            "ein kurzes Backcountry-Erlebnis ohne Arbeitsauftrag haben",
+            "nach der Landung eine kurze Bodenpause mit Fotos und Notizen machen",
+            "den Strip als Zugang zu Talrand, Hangweg oder Aussichtspunkt nutzen",
+            "Kartenrolle und Kamera fuer den Aufenthalt am Boden bereithalten",
+            "am Ziel einen stillen Arbeitsplatz suchen",
+            "Skizzenblock, Recorder oder kleine Staffelei ausladen",
+            "den Flug als Zugang zur Stimmung des Ortes nutzen",
+            "am Zielstrip vom Campkontakt abgeholt werden",
+            "leichte Tasche und Tageskit am Bahnrand ausladen",
+            "den Anflug als Teil des Aufenthalts erleben",
+            "am Ziel in Richtung Wasserabschnitt weitergehen",
+            "Angelrohr und leichte Kuehltasche am Strip ausladen"
+          ],
+          "evidenceObjects": [
+            "kleiner Koffer",
+            "Tagesrucksack",
+            "Picknicktasche",
+            "Kamera",
+            "Notizbuch",
+            "kleine Lupe",
+            "Kameratasche",
+            "Kartenrolle",
+            "Skizzenrolle",
+            "kleiner Recorder",
+            "leichte Staffelei",
+            "Duffelbag",
+            "leichte Kuehltasche",
+            "Angelrohr"
+          ],
+          "returnDrivers": [
+            "der Zielstrip ist der Treffpunkt fuer den geplanten Besuch",
+            "nach der Landung ist der Flugauftrag abgeschlossen",
+            "die Mission bleibt bewusst leicht und persoenlich",
+            "die Landung am Ziel ist der geplante Hoehepunkt des Hoppers",
+            "der Gast bekommt den Backcountry-Kontext direkt am Zielstrip und am kurzen Bodenweg",
+            "es gibt keinen Folgeauftrag ausser dem sauberen Abschluss am Strip",
+            "der Aufenthalt beginnt mit der Landung und braucht keine weitere Dramatik",
+            "der Zielstrip ist einfach der Zugang zu einem ungewoehnlichen, aber plausiblen Outdoor-Projekt",
+            "der Adventure-Hopper darf einmal etwas eigenwilliger wirken",
+            "der Aufenthalt beginnt nach der Landung am Ziel"
+          ],
+          "accessReasons": [
+            "der Strip ist der sichere Treffpunkt fuer den Besuch",
+            "der Camp-Pfad beginnt am Rand der Piste",
+            "der kurze Hop macht den Ort erreichbar",
+            "der Strip liegt gut fuer den kurzen Weg zu Talrand oder Hang",
+            "die kurze Landung macht den Aufenthalt vor Ort erst sinnvoll",
+            "der Hop bleibt ein entspannter Backcountry-Hinflug",
+            "der Strip liegt nahe am Motiv",
+            "zu Fuss waere das Material unpraktisch"
+          ]
+        },
+        "writerExpectations": [
+          "Nutze bevorzugt genau eine Richtung aus candidateShortlist, damit Rolle, Taetigkeiten, Gegenstaende und Folgegrund zusammenpassen.",
+          "Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren.",
+          "Wenn candidateShortlist nicht passt, nutze ingredientAxes als offene Inspiration und bleibe trotzdem im Zielkontext.",
+          "Kontext, Profil-Rezept, TaskDomain und MissionTruth schlagen Varianz.",
+          "Nicht alle Achsen abarbeiten; frei kombinieren und variieren.",
+          "Keine neuen Ortsnamen oder harten Geofakten erfinden.",
+          "Nicht jedes Adventure-Profil in Arbeit, Forschung oder Zeitdruck verwandeln.",
+          "Schreibe den Flug als Transport zum Erlebnisort, an dem der Aufenthalt am Boden beginnt.",
+          "Die Landung am Ziel ist der natuerliche Abschluss des Fluglegs.",
+          "Der Gast darf persoenlich, neugierig oder ungewoehnlich sein; die Geografie bleibt aus dem Contract."
+        ],
+        "weatherNote": ""
+      },
+      "variety": {
+        "schema": "missionVarietyPack.v1",
+        "namespace": "bush_scenic_hopper",
+        "profileId": "bush_scenic_hopper",
+        "contextTags": [
+          "bush",
+          "remote_strip",
+          "water"
+        ],
+        "selectedIds": [
+          "trailhead_family_visit",
+          "geology_ground_stop",
+          "plein_air_artist",
+          "lodge_guest_short_hop",
+          "fly_fishing_hop"
+        ],
+        "selectedFamilies": [
+          "trailhead_visit",
+          "geo_guest",
+          "wildcard_adventure",
+          "lodge_guest",
+          "river_guest"
+        ],
+        "primaryId": "trailhead_family_visit",
+        "primaryFamily": "trailhead_visit",
+        "recentFamilies": [],
+        "recentPrimaryFamilies": [],
+        "recentPrimaryIds": [],
+        "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+        "storageKey": "ga_mission_variety_history_bush_scenic_hopper_v1"
+      },
+      "sarHeli": null,
+      "missionTruth": null,
+      "semantics": {
+        "version": "mission-semantics-v4-2026-06-07",
+        "focusLock": {
+          "mode": "bush",
+          "taskDomain": "bush_adventure",
+          "targetCategory": "generic",
+          "requestedCategory": "all",
+          "primarySubjectLabel": "Big Creek Airport",
+          "primarySubjectType": "generic",
+          "contextRoles": [
+            "orientation",
+            "hazard",
+            "access",
+            "support",
+            "evidence",
+            "background"
+          ]
+        },
+        "plannerGuardrails": [
+          "Primary subject lock: Big Creek Airport (generic) bleibt Hauptsubjekt.",
+          "Task-domain lock: bush_adventure bleibt die Art des Auftrags.",
+          "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+          "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+          "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+          "Backcountry-Hinflug mit Landung und Beginn eines Aufenthalts am Ziel bleibt Hauptzweck.",
+          "Landung, Ausstieg und Bodenplan am Zielstrip sind die relevanten Abschlussmarker.",
+          "Das gewaehlte Ziel bleibt Primärsubjekt."
+        ],
+        "writerGuardrails": [
+          "Story, Greeting und sceneIntent muessen Big Creek Airport als Primaerfokus behalten.",
+          "Kontext darf den Auftrag anreichern, aber nicht umwidmen.",
+          "Die Erzaehlung bleibt Backcountry-/Bush-bezogen und driftet nicht in normalen A-B-Verkehr.",
+          "Adventure-Story endet mit Ankunft und Ausstieg am Zielstrip; Beobachtungen aus dem Cockpit duerfen nur Anflugstimmung sein.",
+          "Schreibe den Flug als Zugang zum Erlebnisort, an dem der Aufenthalt nach der Landung beginnt.",
+          "Kontext darf nur anreichern, nie umwidmen."
+        ],
+        "forceSceneNone": true,
+        "naturalPriority": false
+      },
+      "followUpContext": null,
+      "missionTemporalContext": null,
+      "varietyHints": null,
+      "targetGeoContext": null,
+      "airportDetails": {
+        "start": {
+          "icao": "KMYL",
+          "name": "McCall Municipal Airport",
+          "lat": 44.8897,
+          "lon": -116.101
+        },
+        "dest": {
+          "icao": "U60",
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999
+        },
+        "targetPoi": null
+      },
+      "departureAirportInformation": {
+        "schema": "departure-airport-information-text.v1",
+        "departureInfo": "Der Abflug erfolgt vom McCall Municipal Airport (KMYL), der auf einer beachtlichen Höhe von 5024 Fuß MSL liegt. Du nutzt die asphaltierte Hauptpiste 16/34, die mit 1864 Metern Länge reichlich Spielraum bietet. Dennoch solltest du die Platzhöhe bei der Berechnung deiner Startleistung nicht ignorieren, da die Dichtehöhe gerade an wärmeren Vormittagen die Steigrate spürbar beeinflussen kann. Der Platz ist gut ausgebaut und dient als idealer Absprungpunkt für Flüge ins tiefer gelegene Hinterland. Spezifische lokale Abflugverfahren für Lärmschutz sind den aktuellen Pilotennotizen vor Ort zu entnehmen.",
+        "sourceIds": [
+          "faa-mountain-tips"
+        ],
+        "generated": true
+      },
+      "airportInformation": {
+        "schema": "airport-information-text.v1",
+        "flightBriefing": "Für den Anflug auf Big Creek (U60) planst du eine Landung auf der 1082 Meter langen Graspiste 01/19 ein. Mit einer Platzhöhe von 5743 Fuß MSL spielt die Dichtehöhe hier eine wesentliche Rolle für deine Performance; schau dir die Tabellen für die Landestrecke vorher genau an. Da es sich um einen reinen Grasstrip handelt, solltest du beim Aufsetzen auf den aktuellen Bodenustand achten, da Nässe oder weicher Untergrund die Bremswirkung und das Rollverhalten im Vergleich zu trockenem Boden deutlich verändern können. Ein Überflug zur Beurteilung der Platzverhältnisse vor dem endgültigen Sinkflug ist im Backcountry immer ratsam.",
+        "destinationInfo": "Big Creek Airport (U60) Platzhöhe: 5743 ft MSL. Piste 01/19, 1082 m Länge, 34 m Breite, Gras. Weitere Angaben zur Umgebung und aktuelle betriebliche Hinweise liegen für diesen Text nicht vor.",
+        "sourceIds": [
+          "faa-mountain-tips",
+          "nz-caa-mountain"
+        ],
+        "generated": false,
+        "flightBriefingGenerated": true,
+        "basis": "own-data-only"
+      },
+      "bushFollowUpNarrative": {
+        "schema": "ga.bush.followup-memory.v1",
+        "memory": {
+          "summary": "Elias wurde am Big Creek Airport abgesetzt, um die herbstliche Färbung der Lärchen und die ersten verschneiten Gipfel für seine Dokumentation über die Frank Church Wilderness zu filmen. Er plante, sofort nach der Landung mit dem Aufbau seines Equipments zu beginnen und das Tal fotografisch zu erkunden. Der Flug verlief reibungslos, und er konzentriert sich nun auf die alpinen Lichtverhältnisse für sein Langzeitprojekt.",
+          "participants": [
+            {
+              "name": "Elias",
+              "role": "Naturfilmer"
+            }
+          ],
+          "openQuestions": [
+            "Wie haben sich die Lichtverhältnisse im Tal während seines Aufenthalts entwickelt?",
+            "Konnten die goldenen Lärchen wie geplant eingefangen werden?"
+          ],
+          "betweenFlightsIdeas": [
+            {
+              "followUpKind": "bush_pickup_strip",
+              "summary": "Elias hat seine Aufnahmen im Kasten und wartet am Big Creek Strip darauf, mitsamt seiner wertvollen Filmmaterialien und der Ausrüstung wieder abgeholt zu werden."
+            }
+          ]
+        }
+      }
+    },
+    "_source": "Gemini 3.0 Flash + V5 Writer",
+    "bushFollowUpNarrative": {
+      "schema": "ga.bush.followup-memory.v1",
+      "memory": {
+        "summary": "Elias wurde am Big Creek Airport abgesetzt, um die herbstliche Färbung der Lärchen und die ersten verschneiten Gipfel für seine Dokumentation über die Frank Church Wilderness zu filmen. Er plante, sofort nach der Landung mit dem Aufbau seines Equipments zu beginnen und das Tal fotografisch zu erkunden. Der Flug verlief reibungslos, und er konzentriert sich nun auf die alpinen Lichtverhältnisse für sein Langzeitprojekt.",
+        "participants": [
+          {
+            "name": "Elias",
+            "role": "Naturfilmer"
+          }
+        ],
+        "openQuestions": [
+          "Wie haben sich die Lichtverhältnisse im Tal während seines Aufenthalts entwickelt?",
+          "Konnten die goldenen Lärchen wie geplant eingefangen werden?"
+        ],
+        "betweenFlightsIdeas": [
+          {
+            "followUpKind": "bush_pickup_strip",
+            "summary": "Elias hat seine Aufnahmen im Kasten und wartet am Big Creek Strip darauf, mitsamt seiner wertvollen Filmmaterialien und der Ausrüstung wieder abgeholt zu werden."
+          }
+        ]
+      }
+    },
+    "departureAirportInformation": {
+      "schema": "departure-airport-information-text.v1",
+      "departureInfo": "Der Abflug erfolgt vom McCall Municipal Airport (KMYL), der auf einer beachtlichen Höhe von 5024 Fuß MSL liegt. Du nutzt die asphaltierte Hauptpiste 16/34, die mit 1864 Metern Länge reichlich Spielraum bietet. Dennoch solltest du die Platzhöhe bei der Berechnung deiner Startleistung nicht ignorieren, da die Dichtehöhe gerade an wärmeren Vormittagen die Steigrate spürbar beeinflussen kann. Der Platz ist gut ausgebaut und dient als idealer Absprungpunkt für Flüge ins tiefer gelegene Hinterland. Spezifische lokale Abflugverfahren für Lärmschutz sind den aktuellen Pilotennotizen vor Ort zu entnehmen.",
+      "sourceIds": [
+        "faa-mountain-tips"
+      ],
+      "generated": true
+    },
+    "airportInformation": {
+      "schema": "airport-information-text.v1",
+      "flightBriefing": "Für den Anflug auf Big Creek (U60) planst du eine Landung auf der 1082 Meter langen Graspiste 01/19 ein. Mit einer Platzhöhe von 5743 Fuß MSL spielt die Dichtehöhe hier eine wesentliche Rolle für deine Performance; schau dir die Tabellen für die Landestrecke vorher genau an. Da es sich um einen reinen Grasstrip handelt, solltest du beim Aufsetzen auf den aktuellen Bodenustand achten, da Nässe oder weicher Untergrund die Bremswirkung und das Rollverhalten im Vergleich zu trockenem Boden deutlich verändern können. Ein Überflug zur Beurteilung der Platzverhältnisse vor dem endgültigen Sinkflug ist im Backcountry immer ratsam.",
+      "destinationInfo": "Big Creek Airport (U60) Platzhöhe: 5743 ft MSL. Piste 01/19, 1082 m Länge, 34 m Breite, Gras. Weitere Angaben zur Umgebung und aktuelle betriebliche Hinweise liegen für diesen Text nicht vor.",
+      "sourceIds": [
+        "faa-mountain-tips",
+        "nz-caa-mountain"
+      ],
+      "generated": false,
+      "flightBriefingGenerated": true,
+      "basis": "own-data-only"
+    }
+  },
+  "technicalPassed": true
+}

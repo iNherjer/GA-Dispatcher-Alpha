@@ -1,0 +1,3590 @@
+{
+  "createdAt": "2026-11-14T07:43:09.037Z",
+  "scope": "Real API production planner/contract/writer functions and validators in VM; no chapter, scene or voice calls. Supplied airport/runway fixtures; no automatic geo research, browser, simulator or audio playback.",
+  "requests": [
+    {
+      "model": "gemini-3-flash-preview",
+      "config": {
+        "response_mime_type": "application/json"
+      },
+      "promptSha256": "9075d12d618e21fb5fba8c68dbc8deec6bbaf0dc48fdcd8c2b726a67ba962430",
+      "durationMs": 11370,
+      "status": 200,
+      "usage": {
+        "promptTokenCount": 12610,
+        "candidatesTokenCount": 938,
+        "totalTokenCount": 14762,
+        "promptTokensDetails": [
+          {
+            "modality": "TEXT",
+            "tokenCount": 12610
+          }
+        ],
+        "thoughtsTokenCount": 1214,
+        "serviceTier": "standard"
+      },
+      "finishReason": "STOP",
+      "rawResponseText": "{\n  \"status\": \"ready\",\n  \"needs\": [],\n  \"plan\": {\n    \"taskDomain\": \"cargo\",\n    \"roleProfile\": \"cargo_charter_v1\",\n    \"missionType\": \"bush\",\n    \"targetCategory\": \"cargo\",\n    \"primaryObjective\": \"Rückholung eines defekten Generatorstarters und technischer Unterlagen zur Werftbasis in McCall.\",\n    \"targetLabel\": \"Big Creek Airport\",\n    \"sceneKind\": \"cargo_handoff\",\n    \"sceneDensity\": \"sparse\",\n    \"requiredAnchors\": [\n      \"Abstellfläche am Striprand\",\n      \"Pistennähe\"\n    ],\n    \"objectFamilies\": [\n      \"cargo_equipment\",\n      \"cargo_handoff\"\n    ],\n    \"placementPolicy\": \"Die Frachtkiste und der Kontakt befinden sich gut sichtbar am Rand der Graspiste nahe der Parkposition.\",\n    \"missionTrigger\": \"Abschluss der Wartungsarbeiten vor Ort; die Altteile müssen zur Revision zurück in die Hauptwerkstatt.\",\n    \"focusSubject\": \"Elias (Techniker vor Ort)\",\n    \"keyQuestion\": \"Ist der defekte Starter verladebereit und kann die Diagnose in McCall heute noch starten?\",\n    \"missionStakes\": \"Sicherung des Materialkreislaufs und Vermeidung von Lagerengpässen bei kritischen Ersatzteilen.\",\n    \"completionSignal\": \"Entladen der 52 lbs Rückfracht am Hangar in McCall.\",\n    \"storyFrame\": {\n      \"subjectDetail\": \"Elias, der zuständige Wartungstechniker am Big Creek Strip.\",\n      \"incidentContext\": \"Elias hat die Stromversorgung am Strip instand gesetzt und die defekten Komponenten für die Rückreise vorbereitet. Er benötigt nun den Transportplatz für die Überführung zur Basis.\",\n      \"whyNow\": \"Die Reparatur ist abgeschlossen und die Werft in McCall wartet auf das Bauteil, um den Schadensbericht für die Versicherung zu erstellen.\",\n      \"soughtOutcome\": \"Elias übergibt das Paket am Flugzeug. Der Pilot fliegt die Fracht zurück nach McCall, wo sie zur technischen Analyse ausgeladen wird.\",\n      \"incidentType\": null,\n      \"lastSeenContext\": null,\n      \"probableScenario\": null,\n      \"visibleClueCandidates\": []\n    },\n    \"narrativeRules\": [\n      \"Keine Passagiere an Bord nehmen (Cargo-Only)\",\n      \"Sachlicher, professioneller Tonfall gegenüber Elias\",\n      \"Fokus auf die technische Notwendigkeit der Rückholung\"\n    ],\n    \"localFacts\": [\n      \"Big Creek liegt auf 5743 Fuß Höhe\",\n      \"Graspiste 01/19 mit 1082 Metern Länge\",\n      \"Eingebettet in anspruchsvolles Gebirgsgelände\"\n    ],\n    \"weatherHooks\": [],\n    \"operationalDetails\": [\n      \"Hohe Dichtehöhe am Zielplatz berücksichtigen\",\n      \"Anflugweg vor dem Sinken in das Tal genau prüfen\",\n      \"Pistenzustand der Graspiste beim Aufsetzen beurteilen\"\n    ],\n    \"realismBrief\": \"Im Backcountry ist der Luftweg die einzige praktikable Methode, um schwere Maschinenkomponenten zeitnah zur Instandsetzung in die spezialisierte Werft zu bringen.\",\n    \"narrativeHooks\": [\n      \"Elias wartet mit der verzurrten Kiste am Rand der Bahn\",\n      \"Die Ladung besteht aus dem Generatorstarter, einem Riemensatz und der Prüfmappe\",\n      \"In McCall ist die Übergabe an das Bodenpersonal fest eingeplant\"\n    ],\n    \"mustMention\": [\n      \"Generatorstarter\",\n      \"Riemensatz\",\n      \"Elias\",\n      \"52 lbs Frachtgewicht\"\n    ],\n    \"mustAvoid\": [\n      \"Passagiertransport\",\n      \"erfundene Wetternotlage\",\n      \"Zwischenlandungen an anderen Plätzen\"\n    ],\n    \"lockedFields\": {\n      \"noLandingAtPoi\": false,\n      \"requiresRescueAtPoi\": false\n    },\n    \"confidence\": 1.0\n  }\n}"
+    },
+    {
+      "model": "gemini-3-flash-preview",
+      "config": {
+        "response_mime_type": "application/json"
+      },
+      "promptSha256": "aaa3bde2284efa012c6cec298d7f89e07e8d4b71684c47f2dc7b06515e60c5c3",
+      "durationMs": 21275,
+      "status": 200,
+      "usage": {
+        "promptTokenCount": 10586,
+        "candidatesTokenCount": 1945,
+        "totalTokenCount": 15373,
+        "promptTokensDetails": [
+          {
+            "modality": "TEXT",
+            "tokenCount": 10586
+          }
+        ],
+        "thoughtsTokenCount": 2842,
+        "serviceTier": "standard"
+      },
+      "finishReason": "STOP",
+      "rawResponseText": "{\n  \"airportInformation\": {\n    \"usedFacts\": [\n      {\n        \"sourceId\": \"own\",\n        \"evidence\": \"Big Creek Airport (U60) Platzhöhe: 5743 ft MSL. Piste 01/19, 1082 m Länge, 34 m Breite, Gras.\",\n        \"statement\": \"Der Big Creek Airport liegt auf einer beachtlichen Höhe von 5743 Fuß und bietet eine 1082 Meter lange Graspiste.\"\n      },\n      {\n        \"sourceId\": \"faa-mountain-tips\",\n        \"evidence\": \"Hohe Dichtehöhe vermindert die verfügbare Flugleistung. Start-, Landestrecken und Steigleistung anhand der Flugzeugunterlagen beurteilen.\",\n        \"statement\": \"Die Platzhöhe erfordert eine sorgfältige Berücksichtigung der Flugleistung gemäß den Handbüchern.\"\n      },\n      {\n        \"sourceId\": \"nz-caa-mountain\",\n        \"evidence\": \"Grasbewuchs können die nutzbare Leistung beeinflussen.\",\n        \"statement\": \"Der Zustand der Graspiste kann die tatsächliche Start- und Landeleistung beeinflussen.\"\n      }\n    ],\n    \"flightBriefing\": \"Du steuerst heute den Big Creek Airport (U60) an, der eingebettet in anspruchsvolles Gebirgsgelände auf einer Höhe von 5743 Fuß liegt. Die Piste 01/19 besteht aus Gras, ist 1082 Meter lang und 34 Meter breit. Aufgrund der Platzhöhe ist eine genaue Leistungsplanung für An- und Abflug unerlässlich, da die dünnere Luft die verfügbare Motor- und Steigleistung spürbar reduziert. Beachte zudem, dass der aktuelle Zustand des Grasbewuchses sowie eventuelle Bodenfeuchtigkeit Einfluss auf den Rollwiderstand und die Bremswirkung haben können. Ein Blick in die Flugzeugunterlagen zur Leistungsbeurteilung ist bei diesen Bedingungen immer ratsam.\",\n    \"destinationInfo\": \"Der Big Creek Airport (U60) ist ein abgelegener Gebirgsflugplatz im US-Bundesstaat Idaho, gelegen auf 5743 Fuß über dem Meeresspiegel. Er dient als wichtiger Zugangspunkt für die umliegende Wildnis und wird primär von Bush-Piloten genutzt. Die Infrastruktur beschränkt sich auf die 1082 Meter lange Graspiste 01/19, die einen erfahrenen Umgang mit anspruchsvollem Gelände erfordert. Da vor Ort keine Tankmöglichkeiten oder umfangreiche Serviceeinrichtungen belegt sind, bleibt der Platz ein reiner Zielort für Versorgungs- und Wartungsflüge. Die anspruchsvolle Lage macht Big Creek zu einem klassischen Ziel für die Bush-Fliegerei.\",\n    \"sourceIds\": [\n      \"faa-mountain-tips\",\n      \"nz-caa-mountain\"\n    ]\n  },\n  \"departureAirportInformation\": {\n    \"usedFacts\": [\n      {\n        \"sourceId\": \"own\",\n        \"evidence\": \"McCall Municipal Airport (KMYL) Platzhöhe: 5024 ft MSL. Piste 16/34, 1864 m Länge, 23 m Breite, Asphalt.\",\n        \"statement\": \"Der McCall Municipal Airport verfügt über eine 1864 Meter lange Asphaltpiste auf einer Höhe von 5024 Fuß.\"\n      },\n      {\n        \"sourceId\": \"faa-mountain-tips\",\n        \"evidence\": \"Hohe Dichtehöhe vermindert die verfügbare Flugleistung.\",\n        \"statement\": \"Bereits beim Start in McCall wirkt sich die Platzhöhe von über 5000 Fuß auf die verfügbare Leistung aus.\"\n      }\n    ],\n    \"departureInfo\": \"Dein Flug beginnt am McCall Municipal Airport (KMYL), einem zentralen Knotenpunkt für Operationen in den umliegenden Gebirgsregionen. Die Piste 16/34 ist mit 1864 Metern Länge großzügig dimensioniert und durchgehend asphaltiert. Mit einer Platzhöhe von 5024 Fuß solltest du bereits beim Abflug die Auswirkungen der Höhenlage auf die Startrollstrecke und die Steigrate deines Flugzeugs einkalkulieren. McCall bietet eine gut ausgebaute Infrastruktur mit Hangars und Wartungseinrichtungen, was ihn zum idealen Stützpunkt für die technische Überholung von Komponenten aus den umliegenden Außenstationen macht.\",\n    \"sourceIds\": [\n      \"faa-mountain-tips\"\n    ]\n  },\n  \"title\": \"Revision für Big Creek\",\n  \"story\": \"Elias hat am Big Creek Strip ganze Arbeit geleistet und die Stromversorgung für den kommenden Winter endlich stabilisiert. Jetzt, wo die Reparaturen vor Ort abgeschlossen sind, liegen die ausgebauten Altteile bereit für den Rücktransport zur Basis. Er erwartet dich am Strip mit einem Paket, das den defekten Generatorstarter, einen alten Riemensatz und die technische Prüfmappe für die Werft enthält. Die Jungs in McCall warten bereits auf das Bauteil, um die Schadensanalyse für die Versicherung zu erstellen und den Materialkreislauf zu schließen. Du fliegst leer rüber, nimmst die etwa 52 Pfund schwere Fracht von Elias entgegen und bringst sie auf direktem Weg zurück. Während Elias noch draußen bleibt, um die letzten Handgriffe an der Anlage zu erledigen, wird hier in der Werkstatt schon alles für die Revision vorbereitet. Nach deiner Landung rollst du bitte direkt zum Hangar, damit die Fracht sofort ausgeladen werden kann. So stellen wir sicher, dass die Diagnose noch heute starten kann.\",\n  \"pax\": \"0 PAX\",\n  \"cargo\": \"Generatorstarter, Riemensatz und Pruefmappe (52 lbs)\",\n  \"targetInfo\": \"\",\n  \"passenger\": {\n    \"name\": \"Elias\",\n    \"role\": \"Wartungstechniker am Strip\",\n    \"gender\": \"male\",\n    \"personality\": \"pflichtbewusst, präzise, naturverbunden\",\n    \"dialectHint\": \"neutral\",\n    \"roleProfile\": \"cargo_charter_v1\",\n    \"taskDomain\": \"cargo\",\n    \"gTolerance\": \"mittel\",\n    \"bankTolerance\": \"mittel\",\n    \"cargoSensitivity\": \"hoch\",\n    \"stomachSensitivity\": \"mittel\",\n    \"comfortPriority\": \"niedrig\",\n    \"urgencyPriority\": \"hoch\",\n    \"targetAltFt\": 0,\n    \"targetRadiusNm\": 0,\n    \"targetDwellMin\": 0,\n    \"greetingText\": \"Hey, schön dich zu sehen. Hier ist der Starter, alles fertig verpackt für die Werkstatt.\"\n  },\n  \"sceneIntent\": {\n    \"summary\": \"Elias steht mit einem kompakten, verzurrten Paket neben der Graspiste am Big Creek Airport und winkt dem eintreffenden Piloten zu.\",\n    \"environment\": \"Abgelegener Gebirgsflugplatz mit Graspiste\",\n    \"visibleIdeas\": [\n      \"Wartungstechniker in Arbeitskleidung am Pistenrand\",\n      \"Ein verzurrtes Frachtpaket (Generatorstarter)\",\n      \"Werkzeugkiste in der Nähe des Technikers\"\n    ],\n    \"avoid\": [\n      \"Passagiere am Flugplatz\",\n      \"Hektische Betriebsamkeit\",\n      \"Moderne Terminals\"\n    ],\n    \"densityHint\": \"sparse\",\n    \"notes\": \"Die Szene soll die Einsamkeit und den Fokus auf den Frachttransfer betonen.\"\n  },\n  \"bushContinuationMemory\": {\n    \"summary\": \"Elias hat die Reparatur der Stromversorgung am Big Creek Airport erfolgreich abgeschlossen. Der defekte Generatorstarter und die technischen Unterlagen wurden nach McCall überführt, um dort eine Revision und Schadensanalyse für die Versicherung durchzuführen. Der Materialfluss wurde gesichert, während Elias vor Ort verblieb, um die Anlage in Betrieb zu nehmen.\",\n    \"participants\": [\n      {\n        \"name\": \"Elias\",\n        \"role\": \"Wartungstechniker\"\n      }\n    ],\n    \"openQuestions\": [\n      \"Bestätigt die Revision in McCall den vermuteten Defekt am Starter?\",\n      \"Sind weitere Ersatzteile für die langfristige Stabilität der Stromversorgung in Big Creek nötig?\"\n    ],\n    \"betweenFlightsIdeas\": [\n      {\n        \"followUpKind\": \"bush_supply_strip\",\n        \"summary\": \"Nach Abschluss der technischen Analyse in McCall könnten neue Ersatzteile oder optimierte Riemensätze identifiziert werden, die Elias für eine finale Aufrüstung in Big Creek benötigt.\"\n      }\n    ]\n  }\n}"
+    }
+  ],
+  "scenario": "original",
+  "suppliedSourceBasis": {
+    "schema": "bush-source-basis.v1",
+    "time": {
+      "source": "user-device-local",
+      "createdAt": "2026-10-08T08:30:00.000Z",
+      "createdLocal": "2026-10-08T10:30:00",
+      "utcOffsetMinutes": 120,
+      "timeZone": "Europe/Berlin",
+      "departureTimeKnown": false
+    },
+    "airport": {
+      "ident": "U60",
+      "name": "Big Creek Airport",
+      "lat": 45.133202,
+      "lon": -115.321999,
+      "country": "US",
+      "elevationFt": 5743,
+      "runways": [
+        {
+          "designator": "01/19",
+          "lengthM": 1082,
+          "widthM": 34,
+          "surface": "Gras",
+          "trueHeadingDeg": null,
+          "operations": null
+        }
+      ],
+      "ppr": null,
+      "private": null,
+      "source": "eigene Flugplatzdaten"
+    },
+    "localSources": [],
+    "terrain": null,
+    "weather": {
+      "start": {
+        "status": "unavailable",
+        "source": null,
+        "location": {
+          "name": "McCall Municipal Airport",
+          "lat": 44.8897,
+          "lon": -116.101
+        },
+        "units": null,
+        "retrievedAt": null,
+        "current": null,
+        "forecastNext6Hours": null,
+        "forecastNext72Hours": null,
+        "past72Hours": null
+      },
+      "target": {
+        "status": "unavailable",
+        "source": null,
+        "location": {
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999
+        },
+        "units": null,
+        "retrievedAt": null,
+        "current": null,
+        "forecastNext6Hours": null,
+        "forecastNext72Hours": null,
+        "past72Hours": null
+      },
+      "missionSnapshot": null
+    },
+    "limits": {
+      "narrativeIsEvidence": false,
+      "missingMeans": "unknown",
+      "liveCockpitWeather": "unknown unless supplied as live simulator telemetry",
+      "currentRunwayCondition": "unknown",
+      "densityAltitude": "unknown unless explicitly supplied as calculated value",
+      "localFacilities": "only explicit local-source or airport-data entries",
+      "terrainClassification": "unknown unless supplied by explicit local source; elevation alone is no valley or mountain classification",
+      "runwaySuitability": "unknown without aircraft-specific performance data",
+      "currentLight": "unknown; cloud percentage alone proves no visible light or view from cockpit",
+      "handbooks": "general guidance, no local evidence"
+    }
+  },
+  "planner": {
+    "pipelineVersion": "mission-v4-planner-2026-06-07",
+    "status": "ready",
+    "needs": [],
+    "resolvedNeeds": {
+      "geo_context": null,
+      "mission_truth": null,
+      "weather_snapshot": null,
+      "fire_hazard": null,
+      "airport_details": {
+        "start": {
+          "icao": "KMYL",
+          "name": "McCall Municipal Airport",
+          "lat": 44.8897,
+          "lon": -116.101
+        },
+        "dest": {
+          "icao": "U60",
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999
+        },
+        "targetPoi": null
+      }
+    },
+    "plan": {
+      "taskDomain": "cargo",
+      "roleProfile": "cargo_charter_v1",
+      "missionType": "bush",
+      "targetCategory": "cargo",
+      "primaryObjective": "Rückholung eines defekten Generatorstarters und technischer Unterlagen zur Werftbasis in McCall.",
+      "targetLabel": "Big Creek Airport",
+      "missionTrigger": "Abschluss der Wartungsarbeiten vor Ort; die Altteile müssen zur Revision zurück in die Hauptwerkstatt.",
+      "focusSubject": "Elias (Techniker vor Ort)",
+      "keyQuestion": "Ist der defekte Starter verladebereit und kann die Diagnose in McCall heute noch starten?",
+      "missionStakes": "Sicherung des Materialkreislaufs und Vermeidung von Lagerengpässen bei kritischen Ersatzteilen.",
+      "completionSignal": "Entladen der 52 lbs Rückfracht am Hangar in McCall.",
+      "storyFrame": {
+        "trigger": "Abschluss der Wartungsarbeiten vor Ort; die Altteile müssen zur Revision zurück in die Hauptwerkstatt.",
+        "focusSubject": "Elias (Techniker vor Ort)",
+        "keyQuestion": "Ist der defekte Starter verladebereit und kann die Diagnose in McCall heute noch starten?",
+        "stakes": "Sicherung des Materialkreislaufs und Vermeidung von Lagerengpässen bei kritischen Ersatzteilen.",
+        "completionSignal": "Entladen der 52 lbs Rückfracht am Hangar in McCall.",
+        "subjectDetail": "Elias, der zuständige Wartungstechniker am Big Creek Strip.",
+        "incidentContext": "Elias hat die Stromversorgung am Strip instand gesetzt und die defekten Komponenten für die Rückreise vorbereitet. Er benötigt nun den Transportplatz für die Überführung zur Basis.",
+        "whyNow": "Die Reparatur ist abgeschlossen und die Werft in McCall wartet auf das Bauteil, um den Schadensbericht für die Versicherung zu erstellen.",
+        "soughtOutcome": "Elias übergibt das Paket am Flugzeug. Der Pilot fliegt die Fracht zurück nach McCall, wo sie zur technischen Analyse ausgeladen wird.",
+        "incidentType": "",
+        "lastSeenContext": "",
+        "probableScenario": "",
+        "visibleClueCandidates": []
+      },
+      "sceneKind": "cargo_handoff",
+      "sceneDensity": "sparse",
+      "requiredAnchors": [
+        "Abstellfläche am Striprand",
+        "Pistennähe"
+      ],
+      "objectFamilies": [
+        "cargo_equipment",
+        "cargo_handoff"
+      ],
+      "placementPolicy": "Die Frachtkiste und der Kontakt befinden sich gut sichtbar am Rand der Graspiste nahe der Parkposition.",
+      "narrativeRules": [
+        "Primary subject lock: Big Creek Airport (cargo) bleibt Hauptsubjekt.",
+        "Task-domain lock: cargo bleibt die Art des Auftrags.",
+        "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+        "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+        "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+        "Ziel und Anlass bleiben gekoppelt; Kontext darf nur plausibilisieren.",
+        "APT-Cargo bleibt ein reiner A-B-Frachtflug mit konkreter Sendung und vorbereiteter Uebergabe am Zielplatz.",
+        "Wenn taskDomain nicht cargo_fragile ist, bleibt APT-Cargo unbegleitet: 0 PAX, keine Techniker, kein Fachpersonal und keine Passagiere im Flugzeug.",
+        "Normale APT-Cargo-Fracht ist wichtig, aber nicht automatisch hochsensibel oder dramatisch; Empfaenger, Werft, Techniker oder Zielkontakt warten am Ziel.",
+        "Cargo-Anlaesse duerfen breit und alltaeglich sein: AOG-Ersatzteil, Industriekurier, Post- oder Paketbuendel, Eventmaterial, Dorffest-Getraenke, Drucksachen, Messgeraet, Werkstattkit oder Archivbox."
+      ],
+      "lockedFields": {
+        "noLandingAtPoi": false,
+        "requiresRescueAtPoi": false,
+        "primarySubjectLabel": "Big Creek Airport",
+        "primarySubjectType": "cargo",
+        "taskDomain": "cargo"
+      },
+      "confidence": 1,
+      "localFacts": [
+        "Big Creek liegt auf 5743 Fuß Höhe",
+        "Graspiste 01/19 mit 1082 Metern Länge",
+        "Eingebettet in anspruchsvolles Gebirgsgelände"
+      ],
+      "weatherHooks": [],
+      "operationalDetails": [
+        "Hohe Dichtehöhe am Zielplatz berücksichtigen",
+        "Anflugweg vor dem Sinken in das Tal genau prüfen",
+        "Pistenzustand der Graspiste beim Aufsetzen beurteilen"
+      ],
+      "realismBrief": "Im Backcountry ist der Luftweg die einzige praktikable Methode, um schwere Maschinenkomponenten zeitnah zur Instandsetzung in die spezialisierte Werft zu bringen.",
+      "narrativeHooks": [
+        "Elias wartet mit der verzurrten Kiste am Rand der Bahn",
+        "Die Ladung besteht aus dem Generatorstarter, einem Riemensatz und der Prüfmappe",
+        "In McCall ist die Übergabe an das Bodenpersonal fest eingeplant"
+      ],
+      "mustMention": [
+        "Generatorstarter",
+        "Riemensatz",
+        "Elias",
+        "52 lbs Frachtgewicht"
+      ],
+      "mustAvoid": [
+        "Passagiertransport",
+        "erfundene Wetternotlage",
+        "Zwischenlandungen an anderen Plätzen",
+        "Kontext darf das Primaerziel nicht ersetzen.",
+        "Kontext darf die TaskDomain nicht umwidmen."
+      ]
+    },
+    "poiChain": null,
+    "debug": {
+      "source": "Gemini 3.0 Flash",
+      "rawStatus": "ready",
+      "pass": "single-shot",
+      "promptVersion": "mission-v4-planner-2026-06-07",
+      "toolCalls": [],
+      "fallbackError": "",
+      "parseMode": "direct",
+      "contextSchema": "missionPlannerV4.contextBundle.v1",
+      "semanticsVersion": "mission-semantics-v4-2026-06-07",
+      "variety": {
+        "schema": "missionVarietyPack.v1",
+        "namespace": "bush_pickup_cargo",
+        "profileId": "bush_pickup_cargo",
+        "contextTags": [
+          "bush",
+          "remote_strip",
+          "water"
+        ],
+        "selectedIds": [
+          "permit_document_pouch",
+          "field_tool_repair_return",
+          "lodge_inventory_return",
+          "water_sample_cooler",
+          "failed_generator_core"
+        ],
+        "selectedFamilies": [
+          "admin_documents",
+          "tool_repair",
+          "lodge_inventory",
+          "water_samples",
+          "utility_repair_return"
+        ],
+        "primaryId": "permit_document_pouch",
+        "primaryFamily": "admin_documents",
+        "recentFamilies": [],
+        "recentPrimaryFamilies": [],
+        "recentPrimaryIds": [],
+        "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+        "storageKey": "ga_mission_variety_history_bush_pickup_cargo_v1"
+      },
+      "primaryError": "",
+      "compactRetry": false,
+      "compactRetrySource": "",
+      "compactRetryError": "",
+      "aiAttempts": [
+        {
+          "model": "gemini-3-flash-preview",
+          "source": "Gemini 3.0 Flash",
+          "status": "ok",
+          "error": "",
+          "phase": "direct"
+        }
+      ]
+    },
+    "semantics": {
+      "version": "mission-semantics-v4-2026-06-07",
+      "focusLock": {
+        "mode": "bush",
+        "taskDomain": "cargo",
+        "targetCategory": "cargo",
+        "requestedCategory": "all",
+        "primarySubjectLabel": "Big Creek Airport",
+        "primarySubjectType": "cargo",
+        "contextRoles": [
+          "orientation",
+          "hazard",
+          "access",
+          "support",
+          "evidence",
+          "background"
+        ]
+      },
+      "plannerGuardrails": [
+        "Primary subject lock: Big Creek Airport (cargo) bleibt Hauptsubjekt.",
+        "Task-domain lock: cargo bleibt die Art des Auftrags.",
+        "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+        "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+        "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+        "Ziel und Anlass bleiben gekoppelt; Kontext darf nur plausibilisieren.",
+        "APT-Cargo bleibt ein reiner A-B-Frachtflug mit konkreter Sendung und vorbereiteter Uebergabe am Zielplatz.",
+        "Wenn taskDomain nicht cargo_fragile ist, bleibt APT-Cargo unbegleitet: 0 PAX, keine Techniker, kein Fachpersonal und keine Passagiere im Flugzeug.",
+        "Normale APT-Cargo-Fracht ist wichtig, aber nicht automatisch hochsensibel oder dramatisch; Empfaenger, Werft, Techniker oder Zielkontakt warten am Ziel.",
+        "Cargo-Anlaesse duerfen breit und alltaeglich sein: AOG-Ersatzteil, Industriekurier, Post- oder Paketbuendel, Eventmaterial, Dorffest-Getraenke, Drucksachen, Messgeraet, Werkstattkit oder Archivbox.",
+        "Planner liefert offene Story-Anker: was an Bord ist, warum der Flug jetzt sinnvoll ist, wer am Ziel wartet und welcher Folgeschritt nach der Landung anschliesst."
+      ],
+      "writerGuardrails": [
+        "Story, Greeting und sceneIntent muessen Big Creek Airport als Primaerfokus behalten.",
+        "Kontext darf den Auftrag anreichern, aber nicht umwidmen.",
+        "Die Erzaehlung bleibt Backcountry-/Bush-bezogen und driftet nicht in normalen A-B-Verkehr.",
+        "Kontext darf die Mission anreichern, aber nicht umdefinieren.",
+        "Briefing als kleine Frachtgeschichte schreiben, nicht als generischen Transfer.",
+        "Bei normaler APT-Cargo-Kategorie sind Techniker, Pruefer und Fachpersonal Zielkontakte, keine Mitflieger.",
+        "Nicht jeden Cargo-Auftrag wie eine hochsensible AOG-Lage erzaehlen; normale Sendungen duerfen pragmatisch, kurios oder ortsnah sein.",
+        "Route und Entfernung duerfen den Auftrag verorten; Sendung, Empfaenger und naechster Schritt tragen die Geschichte."
+      ],
+      "forceSceneNone": false,
+      "naturalPriority": false
+    },
+    "missionVarietyBrief": {
+      "personalStoryBasis": {
+        "focus": "Die konkrete Sache, die zurückgeholt wird, und der Mensch, dessen Geschichte daran hängt.",
+        "connection": "Was der Kontakt draußen mit dieser Sache getan oder erlebt hat und was mit ihr nach der Rückkehr geschieht. Eine kurze Vorgeschichte ist möglich, aber keine Pflicht. Frachtlabel und Gewicht bleiben Vertragsdaten.",
+        "outcome": "Leer zum Strip, dort die vereinbarte Fracht laden, zum Heimatplatz zurück und dort ausladen. Kein zusätzlicher Passagier.",
+        "voice": "Dispatch erzählt über den Kontakt am Boden; die Ladung erhält keine Stimme. Keine Passagierbegrüßung und keine erfundene Bordbegleitung.",
+        "use": "Freie Inspiration. Sache, Kontakt und dessen Arbeit folgen bevorzugt einer Richtung der candidateShortlist; Ziel, Region und Gelände geben Farbe. Vorgeschichte, Pointe, Defektdrama oder Frist sind keine Pflicht."
+      },
+      "weatherIdeaPolicy": "BUSH-WETTER: Nutze Wetter als praktischen Hintergrund. Ein wettergetriebener Auftrag folgt einem belegten markanten Wetterereignis oder einer gelieferten Meldung mit Ort und Zeit. Die Jahreszeit darf einen längerfristigen zeitlichen Anker liefern, etwa Herbstwartung ohne Zeitdruck. Gewöhnliche Wetterwerte und die Jahreszeit allein begründen weder drohenden Schnee noch ein knappes letztes Flugfenster; wetterbedingte Eile braucht ein konkret belegtes bevorstehendes Ereignis. Menschliche und fachliche Anlässe dürfen unabhängig davon tragen. Leite whyNow zuerst aus dem nächsten Schritt der Person oder des Auftraggebers ab. Saisonale Vorsorge kann einfach ein sinnvoller heutiger Auftrag sein; normale aktuelle Wetterwerte beschreiben nur den Flugrahmen, nicht den Grund, weshalb der Auftrag gerade jetzt erledigt werden muss. Auch eine im Planner erfundene Wetterfrist ist kein zusätzlicher Wetterbeleg für den Writer.",
+      "candidateEvidencePolicy": "Kandidaten und regionale Rollen-/Tätigkeitsideen sind mögliche fiktive Motive, keine Ereignismeldungen oder Belege für Anlagen, Tal, Hang, Jahreszeitbedingungen und Wetter. Wähle einen Anlass, der ohne erfundene reale Eigenschaften des Ziels auskommt. Saisonale Tätigkeiten wie Herbstwartung sind als längerfristiger Anlass zulässig, ohne daraus nahen Frost, Sperrungen oder Zeitdruck abzuleiten. Ein wettergetriebener Ereigniskandidat braucht ein ausdrücklich geliefertes markantes Wetterereignis.",
+      "purpose": "Offener Kreativrahmen fuer einen Bush-Cargo-Pickup-Return. Das Profil fliegt leer zum Zielstrip, nimmt dort Rueckholfracht auf und bringt sie zur Basis.",
+      "recipe": "Leerflug von McCall Municipal Airport nach Big Creek Airport, Cargo am Zielstrip aufnehmen, Rueckflug nach McCall Municipal Airport, Abschluss mit Ausladen daheim.",
+      "coreQuestions": [
+        "Welche Rueckholfracht liegt bei Big Creek Airport bereit?",
+        "Wer hat sie dort vorbereitet oder warum steht sie am Striprand?",
+        "Warum muss die Fracht zur Basis: Werkstatt, Auswertung, Akte, Bestand oder naechster Versorgungslauf?",
+        "Warum bleibt der Hinflug leer und warum passt die Rueckholung zum Strip?",
+        "Was passiert in McCall Municipal Airport, wenn die Fracht angekommen ist?"
+      ],
+      "candidateShortlist": [
+        {
+          "id": "permit_document_pouch",
+          "familyId": "admin_documents",
+          "label": "Unterlagen, Permits und Betriebsmappe",
+          "wildcard": false,
+          "matchTags": [
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Permit-Kontakt",
+            "Rangerstation",
+            "Projektleitung"
+          ],
+          "taskIdeas": [
+            "unterschriebene Permits und Betriebsnotizen heimholen",
+            "Posttasche und Fotos aus dem Zielgebiet mitnehmen",
+            "Originalunterlagen fuer die Basisakte sichern"
+          ],
+          "objectIdeas": [
+            "versiegelte Posttasche",
+            "Dokumentenmappe",
+            "Fototablet",
+            "kleiner Aktenkoffer"
+          ],
+          "returnDrivers": [
+            "die Basis kann die Freigabe erst mit den Originalunterlagen abschliessen",
+            "der naechste Einsatz haengt an der Akte",
+            "Dokumente sollen nicht im Camp bleiben"
+          ],
+          "accessReasons": [
+            "der Strip ist der sichere Uebergabepunkt fuer Unterlagen",
+            "die Rueckfracht ist klein, aber wichtig",
+            "eine Landroute waere fuer die Mappe zu langsam"
+          ]
+        },
+        {
+          "id": "field_tool_repair_return",
+          "familyId": "tool_repair",
+          "label": "Werkzeug, Messgeraet oder Reparaturkoffer",
+          "wildcard": false,
+          "matchTags": [
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Feldteam",
+            "Vermessungsteam",
+            "Strip-Wartungskontakt"
+          ],
+          "taskIdeas": [
+            "Messgeraet und Werkzeugrolle zur Kalibrierung heimholen",
+            "kurze Mangelnotiz und Fotokarte mitnehmen",
+            "Reparaturbedarf in der Basis klaeren"
+          ],
+          "objectIdeas": [
+            "Messgeraet",
+            "Werkzeugrolle",
+            "Fotokarte",
+            "Mangelnotiz"
+          ],
+          "returnDrivers": [
+            "die Kalibrierung passiert nur in der Basis",
+            "das Feldteam braucht vor dem naechsten Einsatz Ersatz",
+            "der Rueckflug schliesst den Materiallauf ab"
+          ],
+          "accessReasons": [
+            "die Teile liegen am Wartepunkt am Strip",
+            "Outbound leer spart Gewicht fuer die Rueckfracht",
+            "ein Bodenweg waere fuer das Geraet unguenstig"
+          ]
+        },
+        {
+          "id": "lodge_inventory_return",
+          "familyId": "lodge_inventory",
+          "label": "Lodge-Inventar und Fehlbestand",
+          "wildcard": false,
+          "matchTags": [
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Lodge-Team",
+            "Camp-Koordinator",
+            "Outfitter-Kontakt"
+          ],
+          "taskIdeas": [
+            "Inventurliste, Schluessel und Fehlbestandkiste zur Basis bringen",
+            "Sonderbestellung und Rueckgabezeug aufnehmen",
+            "naechste Versorgungsliste in der Basis korrigieren"
+          ],
+          "objectIdeas": [
+            "Inventurkiste",
+            "Schluesselbund",
+            "Bestellzettel",
+            "kleiner Rueckgabekarton"
+          ],
+          "returnDrivers": [
+            "die Basis muss den naechsten Versorgungslauf sauber packen",
+            "die Lodge wartet auf korrigierte Bestellmengen",
+            "der Rueckflug vermeidet einen zweiten Kleinstlauf"
+          ],
+          "accessReasons": [
+            "die Kiste steht am Striprand bereit",
+            "die Fracht ist leicht, aber organisatorisch wichtig",
+            "Outbound bleibt bewusst frei fuer die Rueckholung"
+          ]
+        },
+        {
+          "id": "water_sample_cooler",
+          "familyId": "water_samples",
+          "label": "Wasserproben oder Labor-Kuehlbox",
+          "wildcard": false,
+          "matchTags": [
+            "water",
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Hydrologie-Team",
+            "Pegelwart",
+            "Camp-Kontakt"
+          ],
+          "taskIdeas": [
+            "Kuehlbox mit Proben und Pegelzetteln aufnehmen",
+            "versiegelte Behaelter in die Basis bringen",
+            "Laborfenster fuer die Auswertung halten"
+          ],
+          "objectIdeas": [
+            "kleine Kuehlbox",
+            "Probenbehaelter",
+            "Pegelzettel",
+            "versiegelte Tasche"
+          ],
+          "returnDrivers": [
+            "die Proben muessen in der Basis weitergekuehlt und erfasst werden",
+            "das Labor wartet auf die Behaelter",
+            "der Rueckflug ist der sichere Transportweg fuer empfindliches Material"
+          ],
+          "accessReasons": [
+            "der Zielstrip liegt nahe am Probenpunkt",
+            "Rueckholfracht bleibt klein und empfindlich",
+            "Outbound leer schafft Platz fuer saubere Sicherung"
+          ]
+        },
+        {
+          "id": "failed_generator_core",
+          "familyId": "utility_repair_return",
+          "label": "Defektes Generator- oder Pumpenteil",
+          "wildcard": false,
+          "matchTags": [
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Utility-Kontakt am Strip",
+            "Camp-Wartungsteam",
+            "Generator-Servicekontakt"
+          ],
+          "taskIdeas": [
+            "defektes Generatormodul fuer die Werkstatt zurueckholen",
+            "Fehlerzettel und kleines Werkzeugcase mitnehmen",
+            "Ersatzteilbedarf in der Basis klaeren"
+          ],
+          "objectIdeas": [
+            "Generatormodul",
+            "Werkzeugtasche",
+            "Fehlerzettel",
+            "kleine Oelwanne"
+          ],
+          "returnDrivers": [
+            "die Werkstatt in der Basis kann erst mit dem Bauteil weiterarbeiten",
+            "der naechste Versorgungslauf braucht die Diagnose",
+            "das Camp wartet auf die Reparaturentscheidung"
+          ],
+          "accessReasons": [
+            "das Teil liegt abholbereit am Zielstrip",
+            "Outbound bleibt leer fuer Gewicht und Platz",
+            "Rueckfracht ist der eigentliche Auftrag"
+          ]
+        }
+      ],
+      "variety": {
+        "schema": "missionVarietyPack.v1",
+        "namespace": "bush_pickup_cargo",
+        "profileId": "bush_pickup_cargo",
+        "contextTags": [
+          "bush",
+          "remote_strip",
+          "water"
+        ],
+        "selectedIds": [
+          "permit_document_pouch",
+          "field_tool_repair_return",
+          "lodge_inventory_return",
+          "water_sample_cooler",
+          "failed_generator_core"
+        ],
+        "selectedFamilies": [
+          "admin_documents",
+          "tool_repair",
+          "lodge_inventory",
+          "water_samples",
+          "utility_repair_return"
+        ],
+        "primaryId": "permit_document_pouch",
+        "primaryFamily": "admin_documents",
+        "recentFamilies": [],
+        "recentPrimaryFamilies": [],
+        "recentPrimaryIds": [],
+        "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+        "storageKey": "ga_mission_variety_history_bush_pickup_cargo_v1"
+      },
+      "ingredientAxes": {
+        "roleFamilies": [
+          "Permit-Kontakt",
+          "Rangerstation",
+          "Projektleitung",
+          "Feldteam",
+          "Vermessungsteam",
+          "Strip-Wartungskontakt",
+          "Lodge-Team",
+          "Camp-Koordinator",
+          "Outfitter-Kontakt",
+          "Hydrologie-Team",
+          "Pegelwart",
+          "Camp-Kontakt"
+        ],
+        "activityVerbs": [
+          "unterschriebene Permits und Betriebsnotizen heimholen",
+          "Posttasche und Fotos aus dem Zielgebiet mitnehmen",
+          "Originalunterlagen fuer die Basisakte sichern",
+          "Messgeraet und Werkzeugrolle zur Kalibrierung heimholen",
+          "kurze Mangelnotiz und Fotokarte mitnehmen",
+          "Reparaturbedarf in der Basis klaeren",
+          "Inventurliste, Schluessel und Fehlbestandkiste zur Basis bringen",
+          "Sonderbestellung und Rueckgabezeug aufnehmen",
+          "naechste Versorgungsliste in der Basis korrigieren",
+          "Kuehlbox mit Proben und Pegelzetteln aufnehmen",
+          "versiegelte Behaelter in die Basis bringen",
+          "Laborfenster fuer die Auswertung halten",
+          "defektes Generatormodul fuer die Werkstatt zurueckholen",
+          "Fehlerzettel und kleines Werkzeugcase mitnehmen"
+        ],
+        "evidenceObjects": [
+          "versiegelte Posttasche",
+          "Dokumentenmappe",
+          "Fototablet",
+          "kleiner Aktenkoffer",
+          "Messgeraet",
+          "Werkzeugrolle",
+          "Fotokarte",
+          "Mangelnotiz",
+          "Inventurkiste",
+          "Schluesselbund",
+          "Bestellzettel",
+          "kleiner Rueckgabekarton",
+          "kleine Kuehlbox",
+          "Probenbehaelter"
+        ],
+        "returnDrivers": [
+          "die Basis kann die Freigabe erst mit den Originalunterlagen abschliessen",
+          "der naechste Einsatz haengt an der Akte",
+          "Dokumente sollen nicht im Camp bleiben",
+          "die Kalibrierung passiert nur in der Basis",
+          "das Feldteam braucht vor dem naechsten Einsatz Ersatz",
+          "der Rueckflug schliesst den Materiallauf ab",
+          "die Basis muss den naechsten Versorgungslauf sauber packen",
+          "die Lodge wartet auf korrigierte Bestellmengen",
+          "der Rueckflug vermeidet einen zweiten Kleinstlauf",
+          "die Proben muessen in der Basis weitergekuehlt und erfasst werden"
+        ],
+        "accessReasons": [
+          "der Strip ist der sichere Uebergabepunkt fuer Unterlagen",
+          "die Rueckfracht ist klein, aber wichtig",
+          "eine Landroute waere fuer die Mappe zu langsam",
+          "die Teile liegen am Wartepunkt am Strip",
+          "Outbound leer spart Gewicht fuer die Rueckfracht",
+          "ein Bodenweg waere fuer das Geraet unguenstig",
+          "die Kiste steht am Striprand bereit",
+          "die Fracht ist leicht, aber organisatorisch wichtig"
+        ]
+      },
+      "writerExpectations": [
+        "Nutze bevorzugt genau eine Richtung aus candidateShortlist, damit Rolle, Taetigkeiten, Gegenstaende und Folgegrund zusammenpassen.",
+        "Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren.",
+        "Wenn candidateShortlist nicht passt, nutze ingredientAxes als offene Inspiration und bleibe trotzdem im Zielkontext.",
+        "Kontext, Profil-Rezept, TaskDomain und MissionTruth schlagen Varianz.",
+        "Nicht alle Achsen abarbeiten; frei kombinieren und variieren.",
+        "Keine neuen Ortsnamen oder harten Geofakten erfinden.",
+        "Keinen Passagier-Pickup daraus machen; Fokus bleibt Rueckholfracht.",
+        "Cargo, Grund, Wartepunkt und Folgeablauf muessen aus derselben Kandidatenrichtung kommen.",
+        "Die Story darf klein und praktisch sein; nicht automatisch Notfall oder Charter-Termin."
+      ],
+      "weatherNote": ""
+    },
+    "variety": {
+      "schema": "missionVarietyPack.v1",
+      "namespace": "bush_pickup_cargo",
+      "profileId": "bush_pickup_cargo",
+      "contextTags": [
+        "bush",
+        "remote_strip",
+        "water"
+      ],
+      "selectedIds": [
+        "permit_document_pouch",
+        "field_tool_repair_return",
+        "lodge_inventory_return",
+        "water_sample_cooler",
+        "failed_generator_core"
+      ],
+      "selectedFamilies": [
+        "admin_documents",
+        "tool_repair",
+        "lodge_inventory",
+        "water_samples",
+        "utility_repair_return"
+      ],
+      "primaryId": "permit_document_pouch",
+      "primaryFamily": "admin_documents",
+      "recentFamilies": [],
+      "recentPrimaryFamilies": [],
+      "recentPrimaryIds": [],
+      "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+      "storageKey": "ga_mission_variety_history_bush_pickup_cargo_v1"
+    }
+  },
+  "contract": {
+    "pipelineVersion": "mission-v4-contract-writer-2026-06-07",
+    "bushReconPlan": null,
+    "status": "ready",
+    "mode": "bush",
+    "paxText": "0 PAX",
+    "passengerCount": 0,
+    "party": null,
+    "partyNarrative": null,
+    "aircraftCapability": {
+      "cruiseSpeedKts": 110,
+      "aircraftTags": []
+    },
+    "cargoText": "Pickup am Ziel: Generatorstarter, Riemensatz und Pruefmappe fuer die Basis (52 lbs)",
+    "animalTransportBrief": null,
+    "route": {
+      "startIcao": "",
+      "startName": "McCall Municipal Airport",
+      "targetIcao": "U60",
+      "targetName": "Big Creek Airport",
+      "distanceNm": 36
+    },
+    "profile": {
+      "id": "bush_pickup_cargo",
+      "label": "Bush-Cargo-Pickup und Rueckkehr",
+      "roleProfile": "cargo_charter_v1",
+      "taskDomain": "cargo",
+      "pickerCategory": "all",
+      "requestedCategory": "all"
+    },
+    "target": {
+      "isPOI": false,
+      "name": "Big Creek Airport",
+      "lat": 45.133202,
+      "lon": -115.321999,
+      "poiSource": "",
+      "poiCategory": "all",
+      "terrainFt": null,
+      "terrainMaxFt": null,
+      "terrainRadiusNm": null
+    },
+    "poiChain": null,
+    "knowledgeContext": null,
+    "weather": {
+      "dep": {
+        "summary": "Keine aktuellen Wetterdaten verfügbar.",
+        "raw": null
+      },
+      "dest": {
+        "summary": "Keine aktuellen Wetterdaten verfügbar.",
+        "raw": null
+      },
+      "rule": "Wetter nur als Realitaetsanker nutzen: Wind, Sicht, Wolken/WX knapp einbauen; keine dramatische Wetterstory erfinden."
+    },
+    "environmentContext": {
+      "schema": "mission-environment.v1",
+      "time": {
+        "source": "user-device-local",
+        "createdAt": "2026-10-08T08:30:00.000Z",
+        "createdLocal": "2026-10-08T10:30:00",
+        "utcOffsetMinutes": 120,
+        "timeZone": "Europe/Berlin",
+        "departureTimeKnown": false
+      },
+      "start": {
+        "location": {
+          "name": "McCall Municipal Airport",
+          "lat": 44.8897,
+          "lon": -116.101
+        },
+        "status": "unavailable"
+      },
+      "target": {
+        "location": {
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999
+        },
+        "status": "unavailable"
+      }
+    },
+    "airportInfoContext": {
+      "schema": "mission-airport-information.v1",
+      "airport": {
+        "ident": "U60",
+        "name": "Big Creek Airport",
+        "lat": 45.133202,
+        "lon": -115.321999,
+        "country": "US",
+        "elevationFt": 5743,
+        "runways": [
+          {
+            "designator": "01/19",
+            "lengthM": 1082,
+            "widthM": 34,
+            "surface": "Gras",
+            "trueHeadingDeg": null,
+            "operations": null
+          }
+        ],
+        "ppr": null,
+        "private": null,
+        "source": "eigene Flugplatzdaten"
+      },
+      "terrain": null,
+      "pilotHints": [
+        {
+          "id": "assess-before-descent",
+          "source": "faa-mountain-safety",
+          "section": "Poor Planning",
+          "text": "Vor dem Sinkflug in einen Gebirgsplatz die Möglichkeiten für Durchstarten und anschließenden Abflug beurteilen."
+        },
+        {
+          "id": "valley-escape",
+          "source": "nz-caa-mountain",
+          "section": "Entering a valley / Escape routes, pp. 24–26",
+          "text": "Im Tal ausreichend Raum zum Wenden und einen Ausweg erhalten. Nicht darauf vertrauen, ansteigendes Gelände übersteigen zu können."
+        },
+        {
+          "id": "valley-wind",
+          "source": "nz-caa-mountain",
+          "section": "Wind, p. 8; Valley flying, p. 22",
+          "text": "Wind im Tal kann in Richtung und Stärke vom Wind oberhalb der Bergrücken abweichen. Eine entfernte Wetterstation beschreibt den lokalen Talwind nicht vollständig."
+        },
+        {
+          "id": "lee-turbulence",
+          "source": "faa-mountain-safety",
+          "section": "Mountain Weather",
+          "text": "Hinter Bergrücken können starke Abwinde und Turbulenz auftreten; ihr Ausmaß lässt sich aus einem Bodenwind allein nicht ableiten."
+        },
+        {
+          "id": "density-altitude",
+          "source": "faa-mountain-tips",
+          "section": "Performance Considerations",
+          "text": "Hohe Dichtehöhe vermindert die verfügbare Flugleistung. Start-, Landestrecken und Steigleistung anhand der Flugzeugunterlagen beurteilen."
+        },
+        {
+          "id": "surface-condition",
+          "source": "nz-caa-mountain",
+          "section": "Approach and landing, pp. 29–30",
+          "text": "Eine bekannte Pistenoberfläche sagt noch nichts über den aktuellen Zustand aus. Nässe, weicher Boden und Grasbewuchs können die nutzbare Leistung beeinflussen."
+        },
+        {
+          "id": "local-knowledge",
+          "source": "ntsb-sa039",
+          "section": "What can pilots do?",
+          "text": "Für unbekannte Gebirgsplätze aktuelle lokale Informationen und qualifizierte Einweisung einholen."
+        }
+      ],
+      "sources": [
+        {
+          "id": "faa-mountain-tips",
+          "title": "FAA Tips on Mountain Flying, FAA-P-8740-60",
+          "url": "https://www.faa.gov/sites/faa.gov/files/regulations_policies/handbooks_manuals/aviation/tips_on_mountain_flying.pdf",
+          "kind": "pilot-handbook"
+        },
+        {
+          "id": "faa-mountain-safety",
+          "title": "FAA Aviation Safety: Mountain Flying",
+          "url": "https://www.faa.gov/sites/faa.gov/files/2022-01/Mountain%20Flying.pdf",
+          "kind": "pilot-handbook"
+        },
+        {
+          "id": "nz-caa-mountain",
+          "title": "NZ CAA Mountain Flying, May 2021",
+          "url": "https://www.aviation.govt.nz/assets/publications/gaps/caa-gap-mountain-flying-may-2021-web.pdf",
+          "kind": "pilot-handbook"
+        },
+        {
+          "id": "ntsb-sa039",
+          "title": "NTSB SA-039 Mastering Mountain Flying",
+          "url": "https://www.ntsb.gov/Advocacy/safety-alerts/Documents/SA-039.pdf",
+          "kind": "pilot-handbook"
+        }
+      ],
+      "retrieval": {
+        "budgetMs": 3000,
+        "requests": {
+          "wikipedia": 2,
+          "faa": 1
+        },
+        "sources": {
+          "wikipedia-de": {
+            "status": "no_match",
+            "ms": 4
+          },
+          "wikipedia-en": {
+            "status": "no_match",
+            "ms": 4
+          },
+          "ownAirport": {
+            "status": "available",
+            "ms": 3,
+            "cached": false
+          },
+          "faa": {
+            "status": "no_match",
+            "ms": 4
+          }
+        },
+        "elapsedMs": 4,
+        "partial": false
+      }
+    },
+    "departureAirportInfoContext": {
+      "schema": "mission-airport-information.v1",
+      "airport": {
+        "ident": "KMYL",
+        "name": "McCall Municipal Airport",
+        "lat": 44.8897,
+        "lon": -116.101,
+        "country": "US",
+        "elevationFt": 5024,
+        "runways": [
+          {
+            "designator": "16/34",
+            "lengthM": 1864,
+            "widthM": 23,
+            "surface": "Asphalt",
+            "trueHeadingDeg": null,
+            "operations": null
+          }
+        ],
+        "ppr": null,
+        "private": null,
+        "source": "eigene Flugplatzdaten"
+      },
+      "terrain": null,
+      "pilotHints": [
+        {
+          "id": "assess-before-descent",
+          "source": "faa-mountain-safety",
+          "section": "Poor Planning",
+          "text": "Vor dem Sinkflug in einen Gebirgsplatz die Möglichkeiten für Durchstarten und anschließenden Abflug beurteilen."
+        },
+        {
+          "id": "valley-escape",
+          "source": "nz-caa-mountain",
+          "section": "Entering a valley / Escape routes, pp. 24–26",
+          "text": "Im Tal ausreichend Raum zum Wenden und einen Ausweg erhalten. Nicht darauf vertrauen, ansteigendes Gelände übersteigen zu können."
+        },
+        {
+          "id": "valley-wind",
+          "source": "nz-caa-mountain",
+          "section": "Wind, p. 8; Valley flying, p. 22",
+          "text": "Wind im Tal kann in Richtung und Stärke vom Wind oberhalb der Bergrücken abweichen. Eine entfernte Wetterstation beschreibt den lokalen Talwind nicht vollständig."
+        },
+        {
+          "id": "lee-turbulence",
+          "source": "faa-mountain-safety",
+          "section": "Mountain Weather",
+          "text": "Hinter Bergrücken können starke Abwinde und Turbulenz auftreten; ihr Ausmaß lässt sich aus einem Bodenwind allein nicht ableiten."
+        },
+        {
+          "id": "density-altitude",
+          "source": "faa-mountain-tips",
+          "section": "Performance Considerations",
+          "text": "Hohe Dichtehöhe vermindert die verfügbare Flugleistung. Start-, Landestrecken und Steigleistung anhand der Flugzeugunterlagen beurteilen."
+        },
+        {
+          "id": "surface-condition",
+          "source": "nz-caa-mountain",
+          "section": "Approach and landing, pp. 29–30",
+          "text": "Eine bekannte Pistenoberfläche sagt noch nichts über den aktuellen Zustand aus. Nässe, weicher Boden und Grasbewuchs können die nutzbare Leistung beeinflussen."
+        },
+        {
+          "id": "local-knowledge",
+          "source": "ntsb-sa039",
+          "section": "What can pilots do?",
+          "text": "Für unbekannte Gebirgsplätze aktuelle lokale Informationen und qualifizierte Einweisung einholen."
+        }
+      ],
+      "sources": [
+        {
+          "id": "faa-mountain-tips",
+          "title": "FAA Tips on Mountain Flying, FAA-P-8740-60",
+          "url": "https://www.faa.gov/sites/faa.gov/files/regulations_policies/handbooks_manuals/aviation/tips_on_mountain_flying.pdf",
+          "kind": "pilot-handbook"
+        },
+        {
+          "id": "faa-mountain-safety",
+          "title": "FAA Aviation Safety: Mountain Flying",
+          "url": "https://www.faa.gov/sites/faa.gov/files/2022-01/Mountain%20Flying.pdf",
+          "kind": "pilot-handbook"
+        },
+        {
+          "id": "nz-caa-mountain",
+          "title": "NZ CAA Mountain Flying, May 2021",
+          "url": "https://www.aviation.govt.nz/assets/publications/gaps/caa-gap-mountain-flying-may-2021-web.pdf",
+          "kind": "pilot-handbook"
+        },
+        {
+          "id": "ntsb-sa039",
+          "title": "NTSB SA-039 Mastering Mountain Flying",
+          "url": "https://www.ntsb.gov/Advocacy/safety-alerts/Documents/SA-039.pdf",
+          "kind": "pilot-handbook"
+        }
+      ],
+      "retrieval": {
+        "budgetMs": 3000,
+        "requests": {
+          "wikipedia": 2,
+          "faa": 1
+        },
+        "sources": {
+          "wikipedia-de": {
+            "status": "no_match",
+            "ms": 1
+          },
+          "wikipedia-en": {
+            "status": "no_match",
+            "ms": 1
+          },
+          "ownAirport": {
+            "status": "available",
+            "ms": 1,
+            "cached": false
+          },
+          "faa": {
+            "status": "no_match",
+            "ms": 1
+          }
+        },
+        "elapsedMs": 1,
+        "partial": false
+      }
+    },
+    "fireHazard": null,
+    "missionPlan": {
+      "status": "ready",
+      "pipelineVersion": "mission-v4-planner-2026-06-07",
+      "plan": {
+        "taskDomain": "cargo",
+        "roleProfile": "cargo_charter_v1",
+        "missionType": "bush",
+        "targetCategory": "cargo",
+        "primaryObjective": "Rückholung eines defekten Generatorstarters und technischer Unterlagen zur Werftbasis in McCall.",
+        "targetLabel": "Big Creek Airport",
+        "missionTrigger": "Abschluss der Wartungsarbeiten vor Ort; die Altteile müssen zur Revision zurück in die Hauptwerkstatt.",
+        "focusSubject": "Elias (Techniker vor Ort)",
+        "keyQuestion": "Ist der defekte Starter verladebereit und kann die Diagnose in McCall heute noch starten?",
+        "missionStakes": "Sicherung des Materialkreislaufs und Vermeidung von Lagerengpässen bei kritischen Ersatzteilen.",
+        "completionSignal": "Entladen der 52 lbs Rückfracht am Hangar in McCall.",
+        "storyFrame": {
+          "trigger": "Abschluss der Wartungsarbeiten vor Ort; die Altteile müssen zur Revision zurück in die Hauptwerkstatt.",
+          "focusSubject": "Elias (Techniker vor Ort)",
+          "keyQuestion": "Ist der defekte Starter verladebereit und kann die Diagnose in McCall heute noch starten?",
+          "stakes": "Sicherung des Materialkreislaufs und Vermeidung von Lagerengpässen bei kritischen Ersatzteilen.",
+          "completionSignal": "Entladen der 52 lbs Rückfracht am Hangar in McCall.",
+          "subjectDetail": "Elias, der zuständige Wartungstechniker am Big Creek Strip.",
+          "incidentContext": "Elias hat die Stromversorgung am Strip instand gesetzt und die defekten Komponenten für die Rückreise vorbereitet. Er benötigt nun den Transportplatz für die Überführung zur Basis.",
+          "whyNow": "Die Reparatur ist abgeschlossen und die Werft in McCall wartet auf das Bauteil, um den Schadensbericht für die Versicherung zu erstellen.",
+          "soughtOutcome": "Elias übergibt das Paket am Flugzeug. Der Pilot fliegt die Fracht zurück nach McCall, wo sie zur technischen Analyse ausgeladen wird.",
+          "incidentType": "",
+          "lastSeenContext": "",
+          "probableScenario": "",
+          "visibleClueCandidates": []
+        },
+        "sceneKind": "cargo_handoff",
+        "sceneDensity": "sparse",
+        "requiredAnchors": [
+          "Abstellfläche am Striprand",
+          "Pistennähe"
+        ],
+        "objectFamilies": [
+          "cargo_equipment",
+          "cargo_handoff"
+        ],
+        "placementPolicy": "Die Frachtkiste und der Kontakt befinden sich gut sichtbar am Rand der Graspiste nahe der Parkposition.",
+        "narrativeRules": [
+          "Primary subject lock: Big Creek Airport (cargo) bleibt Hauptsubjekt.",
+          "Task-domain lock: cargo bleibt die Art des Auftrags.",
+          "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+          "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+          "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+          "Ziel und Anlass bleiben gekoppelt; Kontext darf nur plausibilisieren."
+        ],
+        "localFacts": [
+          "Big Creek liegt auf 5743 Fuß Höhe",
+          "Graspiste 01/19 mit 1082 Metern Länge",
+          "Eingebettet in anspruchsvolles Gebirgsgelände"
+        ],
+        "weatherHooks": [],
+        "operationalDetails": [
+          "Hohe Dichtehöhe am Zielplatz berücksichtigen",
+          "Anflugweg vor dem Sinken in das Tal genau prüfen",
+          "Pistenzustand der Graspiste beim Aufsetzen beurteilen"
+        ],
+        "realismBrief": "Im Backcountry ist der Luftweg die einzige praktikable Methode, um schwere Maschinenkomponenten zeitnah zur Instandsetzung in die spezialisierte Werft zu bringen.",
+        "narrativeHooks": [
+          "Elias wartet mit der verzurrten Kiste am Rand der Bahn",
+          "Die Ladung besteht aus dem Generatorstarter, einem Riemensatz und der Prüfmappe",
+          "In McCall ist die Übergabe an das Bodenpersonal fest eingeplant"
+        ],
+        "mustMention": [
+          "Generatorstarter",
+          "Riemensatz",
+          "Elias",
+          "52 lbs Frachtgewicht"
+        ],
+        "mustAvoid": [
+          "Passagiertransport",
+          "erfundene Wetternotlage",
+          "Zwischenlandungen an anderen Plätzen",
+          "Kontext darf das Primaerziel nicht ersetzen.",
+          "Kontext darf die TaskDomain nicht umwidmen."
+        ],
+        "lockedFields": {
+          "noLandingAtPoi": false,
+          "requiresRescueAtPoi": false,
+          "primarySubjectLabel": "Big Creek Airport",
+          "primarySubjectType": "cargo",
+          "taskDomain": "cargo"
+        },
+        "confidence": 1
+      },
+      "poiChain": null,
+      "needs": [],
+      "resolvedNeedTypes": [
+        "geo_context",
+        "mission_truth",
+        "weather_snapshot",
+        "fire_hazard",
+        "airport_details"
+      ]
+    },
+    "storyFrame": {
+      "trigger": "Abschluss der Wartungsarbeiten vor Ort; die Altteile müssen zur Revision zurück in die Hauptwerkstatt.",
+      "focusSubject": "Elias (Techniker vor Ort)",
+      "keyQuestion": "Ist der defekte Starter verladebereit und kann die Diagnose in McCall heute noch starten?",
+      "stakes": "Sicherung des Materialkreislaufs und Vermeidung von Lagerengpässen bei kritischen Ersatzteilen.",
+      "completionSignal": "Entladen der 52 lbs Rückfracht am Hangar in McCall.",
+      "subjectDetail": "Elias, der zuständige Wartungstechniker am Big Creek Strip.",
+      "incidentContext": "Elias hat die Stromversorgung am Strip instand gesetzt und die defekten Komponenten für die Rückreise vorbereitet. Er benötigt nun den Transportplatz für die Überführung zur Basis.",
+      "whyNow": "Die Reparatur ist abgeschlossen und die Werft in McCall wartet auf das Bauteil, um den Schadensbericht für die Versicherung zu erstellen.",
+      "soughtOutcome": "Elias übergibt das Paket am Flugzeug. Der Pilot fliegt die Fracht zurück nach McCall, wo sie zur technischen Analyse ausgeladen wird.",
+      "incidentType": "",
+      "lastSeenContext": "",
+      "probableScenario": "",
+      "visibleClueCandidates": []
+    },
+    "infraNarrativeHandoff": null,
+    "chainNarrativeBrief": null,
+    "pickupCreativeBrief": null,
+    "missionVarietyBrief": {
+      "personalStoryBasis": {
+        "focus": "Die konkrete Sache, die zurückgeholt wird, und der Mensch, dessen Geschichte daran hängt.",
+        "connection": "Was der Kontakt draußen mit dieser Sache getan oder erlebt hat und was mit ihr nach der Rückkehr geschieht. Eine kurze Vorgeschichte ist möglich, aber keine Pflicht. Frachtlabel und Gewicht bleiben Vertragsdaten.",
+        "outcome": "Leer zum Strip, dort die vereinbarte Fracht laden, zum Heimatplatz zurück und dort ausladen. Kein zusätzlicher Passagier.",
+        "voice": "Dispatch erzählt über den Kontakt am Boden; die Ladung erhält keine Stimme. Keine Passagierbegrüßung und keine erfundene Bordbegleitung.",
+        "use": "Freie Inspiration. Sache, Kontakt und dessen Arbeit folgen bevorzugt einer Richtung der candidateShortlist; Ziel, Region und Gelände geben Farbe. Vorgeschichte, Pointe, Defektdrama oder Frist sind keine Pflicht."
+      },
+      "weatherIdeaPolicy": "BUSH-WETTER: Nutze Wetter als praktischen Hintergrund. Ein wettergetriebener Auftrag folgt einem belegten markanten Wetterereignis oder einer gelieferten Meldung mit Ort und Zeit. Die Jahreszeit darf einen längerfristigen zeitlichen Anker liefern, etwa Herbstwartung ohne Zeitdruck. Gewöhnliche Wetterwerte und die Jahreszeit allein begründen weder drohenden Schnee noch ein knappes letztes Flugfenster; wetterbedingte Eile braucht ein konkret belegtes bevorstehendes Ereignis. Menschliche und fachliche Anlässe dürfen unabhängig davon tragen. Leite whyNow zuerst aus dem nächsten Schritt der Person oder des Auftraggebers ab. Saisonale Vorsorge kann einfach ein sinnvoller heutiger Auftrag sein; normale aktuelle Wetterwerte beschreiben nur den Flugrahmen, nicht den Grund, weshalb der Auftrag gerade jetzt erledigt werden muss. Auch eine im Planner erfundene Wetterfrist ist kein zusätzlicher Wetterbeleg für den Writer.",
+      "candidateEvidencePolicy": "Kandidaten und regionale Rollen-/Tätigkeitsideen sind mögliche fiktive Motive, keine Ereignismeldungen oder Belege für Anlagen, Tal, Hang, Jahreszeitbedingungen und Wetter. Wähle einen Anlass, der ohne erfundene reale Eigenschaften des Ziels auskommt. Saisonale Tätigkeiten wie Herbstwartung sind als längerfristiger Anlass zulässig, ohne daraus nahen Frost, Sperrungen oder Zeitdruck abzuleiten. Ein wettergetriebener Ereigniskandidat braucht ein ausdrücklich geliefertes markantes Wetterereignis.",
+      "purpose": "Offener Kreativrahmen fuer einen Bush-Cargo-Pickup-Return. Das Profil fliegt leer zum Zielstrip, nimmt dort Rueckholfracht auf und bringt sie zur Basis.",
+      "recipe": "Leerflug von McCall Municipal Airport nach Big Creek Airport, Cargo am Zielstrip aufnehmen, Rueckflug nach McCall Municipal Airport, Abschluss mit Ausladen daheim.",
+      "coreQuestions": [
+        "Welche Rueckholfracht liegt bei Big Creek Airport bereit?",
+        "Wer hat sie dort vorbereitet oder warum steht sie am Striprand?",
+        "Warum muss die Fracht zur Basis: Werkstatt, Auswertung, Akte, Bestand oder naechster Versorgungslauf?",
+        "Warum bleibt der Hinflug leer und warum passt die Rueckholung zum Strip?",
+        "Was passiert in McCall Municipal Airport, wenn die Fracht angekommen ist?"
+      ],
+      "candidateShortlist": [
+        {
+          "id": "permit_document_pouch",
+          "familyId": "admin_documents",
+          "label": "Unterlagen, Permits und Betriebsmappe",
+          "wildcard": false,
+          "matchTags": [
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Permit-Kontakt",
+            "Rangerstation",
+            "Projektleitung"
+          ],
+          "taskIdeas": [
+            "unterschriebene Permits und Betriebsnotizen heimholen",
+            "Posttasche und Fotos aus dem Zielgebiet mitnehmen",
+            "Originalunterlagen fuer die Basisakte sichern"
+          ],
+          "objectIdeas": [
+            "versiegelte Posttasche",
+            "Dokumentenmappe",
+            "Fototablet",
+            "kleiner Aktenkoffer"
+          ],
+          "returnDrivers": [
+            "die Basis kann die Freigabe erst mit den Originalunterlagen abschliessen",
+            "der naechste Einsatz haengt an der Akte",
+            "Dokumente sollen nicht im Camp bleiben"
+          ],
+          "accessReasons": [
+            "der Strip ist der sichere Uebergabepunkt fuer Unterlagen",
+            "die Rueckfracht ist klein, aber wichtig",
+            "eine Landroute waere fuer die Mappe zu langsam"
+          ]
+        },
+        {
+          "id": "field_tool_repair_return",
+          "familyId": "tool_repair",
+          "label": "Werkzeug, Messgeraet oder Reparaturkoffer",
+          "wildcard": false,
+          "matchTags": [
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Feldteam",
+            "Vermessungsteam",
+            "Strip-Wartungskontakt"
+          ],
+          "taskIdeas": [
+            "Messgeraet und Werkzeugrolle zur Kalibrierung heimholen",
+            "kurze Mangelnotiz und Fotokarte mitnehmen",
+            "Reparaturbedarf in der Basis klaeren"
+          ],
+          "objectIdeas": [
+            "Messgeraet",
+            "Werkzeugrolle",
+            "Fotokarte",
+            "Mangelnotiz"
+          ],
+          "returnDrivers": [
+            "die Kalibrierung passiert nur in der Basis",
+            "das Feldteam braucht vor dem naechsten Einsatz Ersatz",
+            "der Rueckflug schliesst den Materiallauf ab"
+          ],
+          "accessReasons": [
+            "die Teile liegen am Wartepunkt am Strip",
+            "Outbound leer spart Gewicht fuer die Rueckfracht",
+            "ein Bodenweg waere fuer das Geraet unguenstig"
+          ]
+        },
+        {
+          "id": "lodge_inventory_return",
+          "familyId": "lodge_inventory",
+          "label": "Lodge-Inventar und Fehlbestand",
+          "wildcard": false,
+          "matchTags": [
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Lodge-Team",
+            "Camp-Koordinator",
+            "Outfitter-Kontakt"
+          ],
+          "taskIdeas": [
+            "Inventurliste, Schluessel und Fehlbestandkiste zur Basis bringen",
+            "Sonderbestellung und Rueckgabezeug aufnehmen",
+            "naechste Versorgungsliste in der Basis korrigieren"
+          ],
+          "objectIdeas": [
+            "Inventurkiste",
+            "Schluesselbund",
+            "Bestellzettel",
+            "kleiner Rueckgabekarton"
+          ],
+          "returnDrivers": [
+            "die Basis muss den naechsten Versorgungslauf sauber packen",
+            "die Lodge wartet auf korrigierte Bestellmengen",
+            "der Rueckflug vermeidet einen zweiten Kleinstlauf"
+          ],
+          "accessReasons": [
+            "die Kiste steht am Striprand bereit",
+            "die Fracht ist leicht, aber organisatorisch wichtig",
+            "Outbound bleibt bewusst frei fuer die Rueckholung"
+          ]
+        },
+        {
+          "id": "water_sample_cooler",
+          "familyId": "water_samples",
+          "label": "Wasserproben oder Labor-Kuehlbox",
+          "wildcard": false,
+          "matchTags": [
+            "water",
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Hydrologie-Team",
+            "Pegelwart",
+            "Camp-Kontakt"
+          ],
+          "taskIdeas": [
+            "Kuehlbox mit Proben und Pegelzetteln aufnehmen",
+            "versiegelte Behaelter in die Basis bringen",
+            "Laborfenster fuer die Auswertung halten"
+          ],
+          "objectIdeas": [
+            "kleine Kuehlbox",
+            "Probenbehaelter",
+            "Pegelzettel",
+            "versiegelte Tasche"
+          ],
+          "returnDrivers": [
+            "die Proben muessen in der Basis weitergekuehlt und erfasst werden",
+            "das Labor wartet auf die Behaelter",
+            "der Rueckflug ist der sichere Transportweg fuer empfindliches Material"
+          ],
+          "accessReasons": [
+            "der Zielstrip liegt nahe am Probenpunkt",
+            "Rueckholfracht bleibt klein und empfindlich",
+            "Outbound leer schafft Platz fuer saubere Sicherung"
+          ]
+        },
+        {
+          "id": "failed_generator_core",
+          "familyId": "utility_repair_return",
+          "label": "Defektes Generator- oder Pumpenteil",
+          "wildcard": false,
+          "matchTags": [
+            "remote_strip"
+          ],
+          "roleIdeas": [
+            "Utility-Kontakt am Strip",
+            "Camp-Wartungsteam",
+            "Generator-Servicekontakt"
+          ],
+          "taskIdeas": [
+            "defektes Generatormodul fuer die Werkstatt zurueckholen",
+            "Fehlerzettel und kleines Werkzeugcase mitnehmen",
+            "Ersatzteilbedarf in der Basis klaeren"
+          ],
+          "objectIdeas": [
+            "Generatormodul",
+            "Werkzeugtasche",
+            "Fehlerzettel",
+            "kleine Oelwanne"
+          ],
+          "returnDrivers": [
+            "die Werkstatt in der Basis kann erst mit dem Bauteil weiterarbeiten",
+            "der naechste Versorgungslauf braucht die Diagnose",
+            "das Camp wartet auf die Reparaturentscheidung"
+          ],
+          "accessReasons": [
+            "das Teil liegt abholbereit am Zielstrip",
+            "Outbound bleibt leer fuer Gewicht und Platz",
+            "Rueckfracht ist der eigentliche Auftrag"
+          ]
+        }
+      ],
+      "variety": {
+        "schema": "missionVarietyPack.v1",
+        "namespace": "bush_pickup_cargo",
+        "profileId": "bush_pickup_cargo",
+        "contextTags": [
+          "bush",
+          "remote_strip",
+          "water"
+        ],
+        "selectedIds": [
+          "permit_document_pouch",
+          "field_tool_repair_return",
+          "lodge_inventory_return",
+          "water_sample_cooler",
+          "failed_generator_core"
+        ],
+        "selectedFamilies": [
+          "admin_documents",
+          "tool_repair",
+          "lodge_inventory",
+          "water_samples",
+          "utility_repair_return"
+        ],
+        "primaryId": "permit_document_pouch",
+        "primaryFamily": "admin_documents",
+        "recentFamilies": [],
+        "recentPrimaryFamilies": [],
+        "recentPrimaryIds": [],
+        "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+        "storageKey": "ga_mission_variety_history_bush_pickup_cargo_v1"
+      },
+      "ingredientAxes": {
+        "roleFamilies": [
+          "Permit-Kontakt",
+          "Rangerstation",
+          "Projektleitung",
+          "Feldteam",
+          "Vermessungsteam",
+          "Strip-Wartungskontakt",
+          "Lodge-Team",
+          "Camp-Koordinator",
+          "Outfitter-Kontakt",
+          "Hydrologie-Team",
+          "Pegelwart",
+          "Camp-Kontakt"
+        ],
+        "activityVerbs": [
+          "unterschriebene Permits und Betriebsnotizen heimholen",
+          "Posttasche und Fotos aus dem Zielgebiet mitnehmen",
+          "Originalunterlagen fuer die Basisakte sichern",
+          "Messgeraet und Werkzeugrolle zur Kalibrierung heimholen",
+          "kurze Mangelnotiz und Fotokarte mitnehmen",
+          "Reparaturbedarf in der Basis klaeren",
+          "Inventurliste, Schluessel und Fehlbestandkiste zur Basis bringen",
+          "Sonderbestellung und Rueckgabezeug aufnehmen",
+          "naechste Versorgungsliste in der Basis korrigieren",
+          "Kuehlbox mit Proben und Pegelzetteln aufnehmen",
+          "versiegelte Behaelter in die Basis bringen",
+          "Laborfenster fuer die Auswertung halten",
+          "defektes Generatormodul fuer die Werkstatt zurueckholen",
+          "Fehlerzettel und kleines Werkzeugcase mitnehmen"
+        ],
+        "evidenceObjects": [
+          "versiegelte Posttasche",
+          "Dokumentenmappe",
+          "Fototablet",
+          "kleiner Aktenkoffer",
+          "Messgeraet",
+          "Werkzeugrolle",
+          "Fotokarte",
+          "Mangelnotiz",
+          "Inventurkiste",
+          "Schluesselbund",
+          "Bestellzettel",
+          "kleiner Rueckgabekarton",
+          "kleine Kuehlbox",
+          "Probenbehaelter"
+        ],
+        "returnDrivers": [
+          "die Basis kann die Freigabe erst mit den Originalunterlagen abschliessen",
+          "der naechste Einsatz haengt an der Akte",
+          "Dokumente sollen nicht im Camp bleiben",
+          "die Kalibrierung passiert nur in der Basis",
+          "das Feldteam braucht vor dem naechsten Einsatz Ersatz",
+          "der Rueckflug schliesst den Materiallauf ab",
+          "die Basis muss den naechsten Versorgungslauf sauber packen",
+          "die Lodge wartet auf korrigierte Bestellmengen",
+          "der Rueckflug vermeidet einen zweiten Kleinstlauf",
+          "die Proben muessen in der Basis weitergekuehlt und erfasst werden"
+        ],
+        "accessReasons": [
+          "der Strip ist der sichere Uebergabepunkt fuer Unterlagen",
+          "die Rueckfracht ist klein, aber wichtig",
+          "eine Landroute waere fuer die Mappe zu langsam",
+          "die Teile liegen am Wartepunkt am Strip",
+          "Outbound leer spart Gewicht fuer die Rueckfracht",
+          "ein Bodenweg waere fuer das Geraet unguenstig",
+          "die Kiste steht am Striprand bereit",
+          "die Fracht ist leicht, aber organisatorisch wichtig"
+        ]
+      },
+      "writerExpectations": [
+        "Nutze bevorzugt genau eine Richtung aus candidateShortlist, damit Rolle, Taetigkeiten, Gegenstaende und Folgegrund zusammenpassen.",
+        "Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren.",
+        "Wenn candidateShortlist nicht passt, nutze ingredientAxes als offene Inspiration und bleibe trotzdem im Zielkontext.",
+        "Kontext, Profil-Rezept, TaskDomain und MissionTruth schlagen Varianz.",
+        "Nicht alle Achsen abarbeiten; frei kombinieren und variieren.",
+        "Keine neuen Ortsnamen oder harten Geofakten erfinden.",
+        "Keinen Passagier-Pickup daraus machen; Fokus bleibt Rueckholfracht.",
+        "Cargo, Grund, Wartepunkt und Folgeablauf muessen aus derselben Kandidatenrichtung kommen.",
+        "Die Story darf klein und praktisch sein; nicht automatisch Notfall oder Charter-Termin."
+      ],
+      "weatherNote": ""
+    },
+    "variety": {
+      "schema": "missionVarietyPack.v1",
+      "namespace": "bush_pickup_cargo",
+      "profileId": "bush_pickup_cargo",
+      "contextTags": [
+        "bush",
+        "remote_strip",
+        "water"
+      ],
+      "selectedIds": [
+        "permit_document_pouch",
+        "field_tool_repair_return",
+        "lodge_inventory_return",
+        "water_sample_cooler",
+        "failed_generator_core"
+      ],
+      "selectedFamilies": [
+        "admin_documents",
+        "tool_repair",
+        "lodge_inventory",
+        "water_samples",
+        "utility_repair_return"
+      ],
+      "primaryId": "permit_document_pouch",
+      "primaryFamily": "admin_documents",
+      "recentFamilies": [],
+      "recentPrimaryFamilies": [],
+      "recentPrimaryIds": [],
+      "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+      "storageKey": "ga_mission_variety_history_bush_pickup_cargo_v1"
+    },
+    "sarHeli": null,
+    "missionTruth": null,
+    "semantics": {
+      "version": "mission-semantics-v4-2026-06-07",
+      "focusLock": {
+        "mode": "bush",
+        "taskDomain": "cargo",
+        "targetCategory": "cargo",
+        "requestedCategory": "all",
+        "primarySubjectLabel": "Big Creek Airport",
+        "primarySubjectType": "cargo",
+        "contextRoles": [
+          "orientation",
+          "hazard",
+          "access",
+          "support",
+          "evidence",
+          "background"
+        ]
+      },
+      "plannerGuardrails": [
+        "Primary subject lock: Big Creek Airport (cargo) bleibt Hauptsubjekt.",
+        "Task-domain lock: cargo bleibt die Art des Auftrags.",
+        "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+        "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+        "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+        "Ziel und Anlass bleiben gekoppelt; Kontext darf nur plausibilisieren.",
+        "APT-Cargo bleibt ein reiner A-B-Frachtflug mit konkreter Sendung und vorbereiteter Uebergabe am Zielplatz.",
+        "Wenn taskDomain nicht cargo_fragile ist, bleibt APT-Cargo unbegleitet: 0 PAX, keine Techniker, kein Fachpersonal und keine Passagiere im Flugzeug.",
+        "Normale APT-Cargo-Fracht ist wichtig, aber nicht automatisch hochsensibel oder dramatisch; Empfaenger, Werft, Techniker oder Zielkontakt warten am Ziel.",
+        "Cargo-Anlaesse duerfen breit und alltaeglich sein: AOG-Ersatzteil, Industriekurier, Post- oder Paketbuendel, Eventmaterial, Dorffest-Getraenke, Drucksachen, Messgeraet, Werkstattkit oder Archivbox.",
+        "Planner liefert offene Story-Anker: was an Bord ist, warum der Flug jetzt sinnvoll ist, wer am Ziel wartet und welcher Folgeschritt nach der Landung anschliesst."
+      ],
+      "writerGuardrails": [
+        "Story, Greeting und sceneIntent muessen Big Creek Airport als Primaerfokus behalten.",
+        "Kontext darf den Auftrag anreichern, aber nicht umwidmen.",
+        "Die Erzaehlung bleibt Backcountry-/Bush-bezogen und driftet nicht in normalen A-B-Verkehr.",
+        "Kontext darf die Mission anreichern, aber nicht umdefinieren.",
+        "Briefing als kleine Frachtgeschichte schreiben, nicht als generischen Transfer.",
+        "Bei normaler APT-Cargo-Kategorie sind Techniker, Pruefer und Fachpersonal Zielkontakte, keine Mitflieger.",
+        "Nicht jeden Cargo-Auftrag wie eine hochsensible AOG-Lage erzaehlen; normale Sendungen duerfen pragmatisch, kurios oder ortsnah sein.",
+        "Route und Entfernung duerfen den Auftrag verorten; Sendung, Empfaenger und naechster Schritt tragen die Geschichte."
+      ],
+      "forceSceneNone": false,
+      "naturalPriority": false
+    },
+    "followUpContext": null,
+    "missionTemporalContext": null,
+    "varietyHints": null,
+    "targetGeoContext": null,
+    "airportDetails": {
+      "start": {
+        "icao": "KMYL",
+        "name": "McCall Municipal Airport",
+        "lat": 44.8897,
+        "lon": -116.101
+      },
+      "dest": {
+        "icao": "U60",
+        "name": "Big Creek Airport",
+        "lat": 45.133202,
+        "lon": -115.321999
+      },
+      "targetPoi": null
+    },
+    "departureAirportInformation": {
+      "schema": "departure-airport-information-text.v1",
+      "departureInfo": "Dein Flug beginnt am McCall Municipal Airport (KMYL), einem zentralen Knotenpunkt für Operationen in den umliegenden Gebirgsregionen. Die Piste 16/34 ist mit 1864 Metern Länge großzügig dimensioniert und durchgehend asphaltiert. Mit einer Platzhöhe von 5024 Fuß solltest du bereits beim Abflug die Auswirkungen der Höhenlage auf die Startrollstrecke und die Steigrate deines Flugzeugs einkalkulieren. McCall bietet eine gut ausgebaute Infrastruktur mit Hangars und Wartungseinrichtungen, was ihn zum idealen Stützpunkt für die technische Überholung von Komponenten aus den umliegenden Außenstationen macht.",
+      "sourceIds": [
+        "faa-mountain-tips"
+      ],
+      "generated": true
+    },
+    "airportInformation": {
+      "schema": "airport-information-text.v1",
+      "flightBriefing": "Du steuerst heute den Big Creek Airport (U60) an, der eingebettet in anspruchsvolles Gebirgsgelände auf einer Höhe von 5743 Fuß liegt. Die Piste 01/19 besteht aus Gras, ist 1082 Meter lang und 34 Meter breit. Aufgrund der Platzhöhe ist eine genaue Leistungsplanung für An- und Abflug unerlässlich, da die dünnere Luft die verfügbare Motor- und Steigleistung spürbar reduziert. Beachte zudem, dass der aktuelle Zustand des Grasbewuchses sowie eventuelle Bodenfeuchtigkeit Einfluss auf den Rollwiderstand und die Bremswirkung haben können. Ein Blick in die Flugzeugunterlagen zur Leistungsbeurteilung ist bei diesen Bedingungen immer ratsam.",
+      "destinationInfo": "Big Creek Airport (U60) Platzhöhe: 5743 ft MSL. Piste 01/19, 1082 m Länge, 34 m Breite, Gras. Weitere Angaben zur Umgebung und aktuelle betriebliche Hinweise liegen für diesen Text nicht vor.",
+      "sourceIds": [
+        "faa-mountain-tips",
+        "nz-caa-mountain"
+      ],
+      "generated": false,
+      "flightBriefingGenerated": true,
+      "basis": "own-data-only"
+    },
+    "bushFollowUpNarrative": {
+      "schema": "ga.bush.followup-memory.v1",
+      "memory": {
+        "summary": "Elias hat die Reparatur der Stromversorgung am Big Creek Airport erfolgreich abgeschlossen. Der defekte Generatorstarter und die technischen Unterlagen wurden nach McCall überführt, um dort eine Revision und Schadensanalyse für die Versicherung durchzuführen. Der Materialfluss wurde gesichert, während Elias vor Ort verblieb, um die Anlage in Betrieb zu nehmen.",
+        "participants": [
+          {
+            "name": "Elias",
+            "role": "Wartungstechniker"
+          }
+        ],
+        "openQuestions": [
+          "Bestätigt die Revision in McCall den vermuteten Defekt am Starter?",
+          "Sind weitere Ersatzteile für die langfristige Stabilität der Stromversorgung in Big Creek nötig?"
+        ],
+        "betweenFlightsIdeas": [
+          {
+            "followUpKind": "bush_supply_strip",
+            "summary": "Nach Abschluss der technischen Analyse in McCall könnten neue Ersatzteile oder optimierte Riemensätze identifiziert werden, die Elias für eine finale Aufrüstung in Big Creek benötigt."
+          }
+        ]
+      }
+    }
+  },
+  "mission": {
+    "t": "Revision für Big Creek",
+    "s": "Elias hat am Big Creek Strip ganze Arbeit geleistet und die Stromversorgung für den kommenden Winter endlich stabilisiert. Jetzt, wo die Reparaturen vor Ort abgeschlossen sind, liegen die ausgebauten Altteile bereit für den Rücktransport zur Basis. Er erwartet dich am Strip mit einem Paket, das den defekten Generatorstarter, einen alten Riemensatz und die technische Prüfmappe für die Werft enthält. Die Jungs in McCall warten bereits auf das Bauteil, um die Schadensanalyse für die Versicherung zu erstellen und den Materialkreislauf zu schließen. Du fliegst leer rüber, nimmst die etwa 52 Pfund schwere Fracht von Elias entgegen und bringst sie auf direktem Weg zurück. Während Elias noch draußen bleibt, um die letzten Handgriffe an der Anlage zu erledigen, wird hier in der Werkstatt schon alles für die Revision vorbereitet. Nach deiner Landung rollst du bitte direkt zum Hangar, damit die Fracht sofort ausgeladen werden kann. So stellen wir sicher, dass die Diagnose noch heute starten kann.",
+    "pax": "0 PAX",
+    "cargo": "Generatorstarter, Riemensatz und Pruefmappe (52 lbs)",
+    "knowledgeContext": null,
+    "targetInfo": "",
+    "passenger": null,
+    "sceneIntent": {
+      "summary": "A-B-Flug ohne Zielszene.",
+      "environment": "",
+      "visibleIdeas": [],
+      "avoid": [],
+      "densityHint": "none",
+      "notes": ""
+    },
+    "targetScene": {
+      "kind": "none",
+      "roles": [],
+      "density": "none",
+      "notes": ""
+    },
+    "sceneCompositionStatus": "draft",
+    "targetSceneDebug": {
+      "source": "Gemini 3.0 Flash + V5 Writer",
+      "sceneIntentRaw": {
+        "summary": "Elias steht mit einem kompakten, verzurrten Paket neben der Graspiste am Big Creek Airport und winkt dem eintreffenden Piloten zu.",
+        "environment": "Abgelegener Gebirgsflugplatz mit Graspiste",
+        "visibleIdeas": [
+          "Wartungstechniker in Arbeitskleidung am Pistenrand",
+          "Ein verzurrtes Frachtpaket (Generatorstarter)",
+          "Werkzeugkiste in der Nähe des Technikers"
+        ],
+        "avoid": [
+          "Passagiere am Flugplatz",
+          "Hektische Betriebsamkeit",
+          "Moderne Terminals"
+        ],
+        "densityHint": "sparse",
+        "notes": "Die Szene soll die Einsamkeit und den Fokus auf den Frachttransfer betonen."
+      },
+      "sceneIntent": {
+        "summary": "A-B-Flug ohne Zielszene.",
+        "environment": "",
+        "visibleIdeas": [],
+        "avoid": [],
+        "densityHint": "none",
+        "notes": ""
+      },
+      "aiRaw": null,
+      "normalized": {
+        "kind": "none",
+        "roles": [],
+        "density": "none",
+        "notes": ""
+      },
+      "pendingComposer": true
+    },
+    "_missionWriterV4Debug": {
+      "source": "Mission Writer V5",
+      "writerMode": "v5",
+      "taskDomain": "cargo",
+      "missionFamily": "cargo",
+      "hasPoiChain": false,
+      "rawStoryLength": 1000,
+      "rawAiStory": "Elias hat am Big Creek Strip ganze Arbeit geleistet und die Stromversorgung für den kommenden Winter endlich stabilisiert. Jetzt, wo die Reparaturen vor Ort abgeschlossen sind, liegen die ausgebauten Altteile bereit für den Rücktransport zur Basis. Er erwartet dich am Strip mit einem Paket, das den defekten Generatorstarter, einen alten Riemensatz und die technische Prüfmappe für die Werft enthält. Die Jungs in McCall warten bereits auf das Bauteil, um die Schadensanalyse für die Versicherung zu erstellen und den Materialkreislauf zu schließen. Du fliegst leer rüber, nimmst die etwa 52 Pfund schwere Fracht von Elias entgegen und bringst sie auf direktem Weg zurück. Während Elias noch draußen bleibt, um die letzten Handgriffe an der Anlage zu erledigen, wird hier in der Werkstatt schon alles für die Revision vorbereitet. Nach deiner Landung rollst du bitte direkt zum Hangar, damit die Fracht sofort ausgeladen werden kann. So stellen wir sicher, dass die Diagnose noch heute starten kann.",
+      "rawStoryPreview": "Elias hat am Big Creek Strip ganze Arbeit geleistet und die Stromversorgung für den kommenden Winter endlich stabilisiert. Jetzt, wo die Reparaturen vor Ort abgeschlossen sind, liegen die ausgebauten Altteile bereit für den Rücktransport zur Basis. Er erwartet dich am Strip mit einem Paket, das den defekten Generatorstarter, einen alten Riemensatz und die technische Prüfmappe für die Werft enthält. Die Jungs in McCall warten bereits auf das Bauteil, um die Schadensanalyse für die Versicherung zu erstellen und den M",
+      "finalStoryLength": 1000,
+      "writerStory": "Elias hat am Big Creek Strip ganze Arbeit geleistet und die Stromversorgung für den kommenden Winter endlich stabilisiert. Jetzt, wo die Reparaturen vor Ort abgeschlossen sind, liegen die ausgebauten Altteile bereit für den Rücktransport zur Basis. Er erwartet dich am Strip mit einem Paket, das den defekten Generatorstarter, einen alten Riemensatz und die technische Prüfmappe für die Werft enthält. Die Jungs in McCall warten bereits auf das Bauteil, um die Schadensanalyse für die Versicherung zu erstellen und den Materialkreislauf zu schließen. Du fliegst leer rüber, nimmst die etwa 52 Pfund schwere Fracht von Elias entgegen und bringst sie auf direktem Weg zurück. Während Elias noch draußen bleibt, um die letzten Handgriffe an der Anlage zu erledigen, wird hier in der Werkstatt schon alles für die Revision vorbereitet. Nach deiner Landung rollst du bitte direkt zum Hangar, damit die Fracht sofort ausgeladen werden kann. So stellen wir sicher, dass die Diagnose noch heute starten kann.",
+      "storyChangedByFinalize": false,
+      "fallbackReason": "",
+      "writerAccepted": true,
+      "textPolicy": "bush-preserve-writer-v1",
+      "semanticDiagnosticReasons": [],
+      "rawTitle": "Revision für Big Creek",
+      "titleChangedByFinalize": false,
+      "briefingRoute": true,
+      "briefingWeather": false,
+      "briefingFacts": 3,
+      "finalLooksEnumerative": false,
+      "finalSentenceCount": 8,
+      "requestDiagnostics": {
+        "error": "",
+        "provider": "gemini",
+        "model": "gemini-3-flash-preview",
+        "parseMode": "direct",
+        "attempts": [
+          {
+            "model": "gemini-3-flash-preview",
+            "status": "ok",
+            "error": ""
+          }
+        ]
+      },
+      "bushMemoryStatus": "accepted"
+    },
+    "i": "📋",
+    "cat": "cargo",
+    "missionType": "bush",
+    "bush": {
+      "profileId": "bush_pickup_cargo",
+      "targetMode": "strip_then_return",
+      "completionMode": "return_home",
+      "reconFocus": "",
+      "reconFocusLabel": "",
+      "requiresReturnHome": true,
+      "pickupKind": "cargo",
+      "pickupLabel": "Generatorstarter, Riemensatz und Pruefmappe fuer die Basis (52 lbs)",
+      "pickupRole": "Frachtkontakt am Strip",
+      "pickupCargoLabel": "",
+      "pickupCargoWeightLbs": 0,
+      "pickupGreetingText": "",
+      "pickupStory": null,
+      "pickupPassengerCount": 0,
+      "homeRef": {
+        "kind": "airport",
+        "icao": "KMYL",
+        "name": "McCall Municipal Airport",
+        "lat": 44.8897,
+        "lon": -116.101,
+        "surface": "unknown",
+        "isRemoteStrip": false
+      },
+      "targetRef": {
+        "kind": "airport",
+        "icao": "U60",
+        "name": "Big Creek Airport",
+        "lat": 45.133202,
+        "lon": -115.321999,
+        "surface": "unknown",
+        "isRemoteStrip": false
+      },
+      "areaRef": null,
+      "routeRefs": [
+        {
+          "kind": "airport",
+          "icao": "U60",
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999,
+          "surface": "unknown",
+          "isRemoteStrip": false
+        }
+      ],
+      "success": {
+        "minGroundTimeSec": 8,
+        "minAreaTimeSec": 0,
+        "minAreaTrackNm": 0,
+        "cargoMustBeDelivered": true,
+        "passengerMustDeboard": false,
+        "waypointsRequired": 0
+      },
+      "allowedEndLocations": [
+        "home"
+      ],
+      "narrativeMode": "backcountry_pickup_return",
+      "riskFlags": [
+        "high_density_altitude",
+        "terrain_awareness",
+        "pickup_required",
+        "return_leg_required"
+      ],
+      "opsNotes": [
+        "Outbound bewusst leer halten, Pickup-Fracht erst am Zielstrip aufnehmen.",
+        "Nach der Frachtaufnahme zum Heimatplatz zurueckfliegen und dort ausladen."
+      ]
+    },
+    "poiChain": null,
+    "profileId": "bush_pickup_cargo",
+    "_requestedProfile": "bush_pickup_cargo",
+    "_appliedProfile": "bush_pickup_cargo",
+    "_missionPlanV2": null,
+    "_missionPlanV4": {
+      "pipelineVersion": "mission-v4-contract-writer-2026-06-07",
+      "bushReconPlan": null,
+      "status": "ready",
+      "mode": "bush",
+      "paxText": "0 PAX",
+      "passengerCount": 0,
+      "party": null,
+      "partyNarrative": null,
+      "aircraftCapability": {
+        "cruiseSpeedKts": 110,
+        "aircraftTags": []
+      },
+      "cargoText": "Pickup am Ziel: Generatorstarter, Riemensatz und Pruefmappe fuer die Basis (52 lbs)",
+      "animalTransportBrief": null,
+      "route": {
+        "startIcao": "",
+        "startName": "McCall Municipal Airport",
+        "targetIcao": "U60",
+        "targetName": "Big Creek Airport",
+        "distanceNm": 36
+      },
+      "profile": {
+        "id": "bush_pickup_cargo",
+        "label": "Bush-Cargo-Pickup und Rueckkehr",
+        "roleProfile": "cargo_charter_v1",
+        "taskDomain": "cargo",
+        "pickerCategory": "all",
+        "requestedCategory": "all"
+      },
+      "target": {
+        "isPOI": false,
+        "name": "Big Creek Airport",
+        "lat": 45.133202,
+        "lon": -115.321999,
+        "poiSource": "",
+        "poiCategory": "all",
+        "terrainFt": null,
+        "terrainMaxFt": null,
+        "terrainRadiusNm": null
+      },
+      "poiChain": null,
+      "knowledgeContext": null,
+      "weather": {
+        "dep": {
+          "summary": "Keine aktuellen Wetterdaten verfügbar.",
+          "raw": null
+        },
+        "dest": {
+          "summary": "Keine aktuellen Wetterdaten verfügbar.",
+          "raw": null
+        },
+        "rule": "Wetter nur als Realitaetsanker nutzen: Wind, Sicht, Wolken/WX knapp einbauen; keine dramatische Wetterstory erfinden."
+      },
+      "environmentContext": {
+        "schema": "mission-environment.v1",
+        "time": {
+          "source": "user-device-local",
+          "createdAt": "2026-10-08T08:30:00.000Z",
+          "createdLocal": "2026-10-08T10:30:00",
+          "utcOffsetMinutes": 120,
+          "timeZone": "Europe/Berlin",
+          "departureTimeKnown": false
+        },
+        "start": {
+          "location": {
+            "name": "McCall Municipal Airport",
+            "lat": 44.8897,
+            "lon": -116.101
+          },
+          "status": "unavailable"
+        },
+        "target": {
+          "location": {
+            "name": "Big Creek Airport",
+            "lat": 45.133202,
+            "lon": -115.321999
+          },
+          "status": "unavailable"
+        }
+      },
+      "airportInfoContext": {
+        "schema": "mission-airport-information.v1",
+        "airport": {
+          "ident": "U60",
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999,
+          "country": "US",
+          "elevationFt": 5743,
+          "runways": [
+            {
+              "designator": "01/19",
+              "lengthM": 1082,
+              "widthM": 34,
+              "surface": "Gras",
+              "trueHeadingDeg": null,
+              "operations": null
+            }
+          ],
+          "ppr": null,
+          "private": null,
+          "source": "eigene Flugplatzdaten"
+        },
+        "terrain": null,
+        "pilotHints": [
+          {
+            "id": "assess-before-descent",
+            "source": "faa-mountain-safety",
+            "section": "Poor Planning",
+            "text": "Vor dem Sinkflug in einen Gebirgsplatz die Möglichkeiten für Durchstarten und anschließenden Abflug beurteilen."
+          },
+          {
+            "id": "valley-escape",
+            "source": "nz-caa-mountain",
+            "section": "Entering a valley / Escape routes, pp. 24–26",
+            "text": "Im Tal ausreichend Raum zum Wenden und einen Ausweg erhalten. Nicht darauf vertrauen, ansteigendes Gelände übersteigen zu können."
+          },
+          {
+            "id": "valley-wind",
+            "source": "nz-caa-mountain",
+            "section": "Wind, p. 8; Valley flying, p. 22",
+            "text": "Wind im Tal kann in Richtung und Stärke vom Wind oberhalb der Bergrücken abweichen. Eine entfernte Wetterstation beschreibt den lokalen Talwind nicht vollständig."
+          },
+          {
+            "id": "lee-turbulence",
+            "source": "faa-mountain-safety",
+            "section": "Mountain Weather",
+            "text": "Hinter Bergrücken können starke Abwinde und Turbulenz auftreten; ihr Ausmaß lässt sich aus einem Bodenwind allein nicht ableiten."
+          },
+          {
+            "id": "density-altitude",
+            "source": "faa-mountain-tips",
+            "section": "Performance Considerations",
+            "text": "Hohe Dichtehöhe vermindert die verfügbare Flugleistung. Start-, Landestrecken und Steigleistung anhand der Flugzeugunterlagen beurteilen."
+          },
+          {
+            "id": "surface-condition",
+            "source": "nz-caa-mountain",
+            "section": "Approach and landing, pp. 29–30",
+            "text": "Eine bekannte Pistenoberfläche sagt noch nichts über den aktuellen Zustand aus. Nässe, weicher Boden und Grasbewuchs können die nutzbare Leistung beeinflussen."
+          },
+          {
+            "id": "local-knowledge",
+            "source": "ntsb-sa039",
+            "section": "What can pilots do?",
+            "text": "Für unbekannte Gebirgsplätze aktuelle lokale Informationen und qualifizierte Einweisung einholen."
+          }
+        ],
+        "sources": [
+          {
+            "id": "faa-mountain-tips",
+            "title": "FAA Tips on Mountain Flying, FAA-P-8740-60",
+            "url": "https://www.faa.gov/sites/faa.gov/files/regulations_policies/handbooks_manuals/aviation/tips_on_mountain_flying.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "faa-mountain-safety",
+            "title": "FAA Aviation Safety: Mountain Flying",
+            "url": "https://www.faa.gov/sites/faa.gov/files/2022-01/Mountain%20Flying.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "nz-caa-mountain",
+            "title": "NZ CAA Mountain Flying, May 2021",
+            "url": "https://www.aviation.govt.nz/assets/publications/gaps/caa-gap-mountain-flying-may-2021-web.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "ntsb-sa039",
+            "title": "NTSB SA-039 Mastering Mountain Flying",
+            "url": "https://www.ntsb.gov/Advocacy/safety-alerts/Documents/SA-039.pdf",
+            "kind": "pilot-handbook"
+          }
+        ],
+        "retrieval": {
+          "budgetMs": 3000,
+          "requests": {
+            "wikipedia": 2,
+            "faa": 1
+          },
+          "sources": {
+            "wikipedia-de": {
+              "status": "no_match",
+              "ms": 4
+            },
+            "wikipedia-en": {
+              "status": "no_match",
+              "ms": 4
+            },
+            "ownAirport": {
+              "status": "available",
+              "ms": 3,
+              "cached": false
+            },
+            "faa": {
+              "status": "no_match",
+              "ms": 4
+            }
+          },
+          "elapsedMs": 4,
+          "partial": false
+        }
+      },
+      "departureAirportInfoContext": {
+        "schema": "mission-airport-information.v1",
+        "airport": {
+          "ident": "KMYL",
+          "name": "McCall Municipal Airport",
+          "lat": 44.8897,
+          "lon": -116.101,
+          "country": "US",
+          "elevationFt": 5024,
+          "runways": [
+            {
+              "designator": "16/34",
+              "lengthM": 1864,
+              "widthM": 23,
+              "surface": "Asphalt",
+              "trueHeadingDeg": null,
+              "operations": null
+            }
+          ],
+          "ppr": null,
+          "private": null,
+          "source": "eigene Flugplatzdaten"
+        },
+        "terrain": null,
+        "pilotHints": [
+          {
+            "id": "assess-before-descent",
+            "source": "faa-mountain-safety",
+            "section": "Poor Planning",
+            "text": "Vor dem Sinkflug in einen Gebirgsplatz die Möglichkeiten für Durchstarten und anschließenden Abflug beurteilen."
+          },
+          {
+            "id": "valley-escape",
+            "source": "nz-caa-mountain",
+            "section": "Entering a valley / Escape routes, pp. 24–26",
+            "text": "Im Tal ausreichend Raum zum Wenden und einen Ausweg erhalten. Nicht darauf vertrauen, ansteigendes Gelände übersteigen zu können."
+          },
+          {
+            "id": "valley-wind",
+            "source": "nz-caa-mountain",
+            "section": "Wind, p. 8; Valley flying, p. 22",
+            "text": "Wind im Tal kann in Richtung und Stärke vom Wind oberhalb der Bergrücken abweichen. Eine entfernte Wetterstation beschreibt den lokalen Talwind nicht vollständig."
+          },
+          {
+            "id": "lee-turbulence",
+            "source": "faa-mountain-safety",
+            "section": "Mountain Weather",
+            "text": "Hinter Bergrücken können starke Abwinde und Turbulenz auftreten; ihr Ausmaß lässt sich aus einem Bodenwind allein nicht ableiten."
+          },
+          {
+            "id": "density-altitude",
+            "source": "faa-mountain-tips",
+            "section": "Performance Considerations",
+            "text": "Hohe Dichtehöhe vermindert die verfügbare Flugleistung. Start-, Landestrecken und Steigleistung anhand der Flugzeugunterlagen beurteilen."
+          },
+          {
+            "id": "surface-condition",
+            "source": "nz-caa-mountain",
+            "section": "Approach and landing, pp. 29–30",
+            "text": "Eine bekannte Pistenoberfläche sagt noch nichts über den aktuellen Zustand aus. Nässe, weicher Boden und Grasbewuchs können die nutzbare Leistung beeinflussen."
+          },
+          {
+            "id": "local-knowledge",
+            "source": "ntsb-sa039",
+            "section": "What can pilots do?",
+            "text": "Für unbekannte Gebirgsplätze aktuelle lokale Informationen und qualifizierte Einweisung einholen."
+          }
+        ],
+        "sources": [
+          {
+            "id": "faa-mountain-tips",
+            "title": "FAA Tips on Mountain Flying, FAA-P-8740-60",
+            "url": "https://www.faa.gov/sites/faa.gov/files/regulations_policies/handbooks_manuals/aviation/tips_on_mountain_flying.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "faa-mountain-safety",
+            "title": "FAA Aviation Safety: Mountain Flying",
+            "url": "https://www.faa.gov/sites/faa.gov/files/2022-01/Mountain%20Flying.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "nz-caa-mountain",
+            "title": "NZ CAA Mountain Flying, May 2021",
+            "url": "https://www.aviation.govt.nz/assets/publications/gaps/caa-gap-mountain-flying-may-2021-web.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "ntsb-sa039",
+            "title": "NTSB SA-039 Mastering Mountain Flying",
+            "url": "https://www.ntsb.gov/Advocacy/safety-alerts/Documents/SA-039.pdf",
+            "kind": "pilot-handbook"
+          }
+        ],
+        "retrieval": {
+          "budgetMs": 3000,
+          "requests": {
+            "wikipedia": 2,
+            "faa": 1
+          },
+          "sources": {
+            "wikipedia-de": {
+              "status": "no_match",
+              "ms": 1
+            },
+            "wikipedia-en": {
+              "status": "no_match",
+              "ms": 1
+            },
+            "ownAirport": {
+              "status": "available",
+              "ms": 1,
+              "cached": false
+            },
+            "faa": {
+              "status": "no_match",
+              "ms": 1
+            }
+          },
+          "elapsedMs": 1,
+          "partial": false
+        }
+      },
+      "fireHazard": null,
+      "missionPlan": {
+        "status": "ready",
+        "pipelineVersion": "mission-v4-planner-2026-06-07",
+        "plan": {
+          "taskDomain": "cargo",
+          "roleProfile": "cargo_charter_v1",
+          "missionType": "bush",
+          "targetCategory": "cargo",
+          "primaryObjective": "Rückholung eines defekten Generatorstarters und technischer Unterlagen zur Werftbasis in McCall.",
+          "targetLabel": "Big Creek Airport",
+          "missionTrigger": "Abschluss der Wartungsarbeiten vor Ort; die Altteile müssen zur Revision zurück in die Hauptwerkstatt.",
+          "focusSubject": "Elias (Techniker vor Ort)",
+          "keyQuestion": "Ist der defekte Starter verladebereit und kann die Diagnose in McCall heute noch starten?",
+          "missionStakes": "Sicherung des Materialkreislaufs und Vermeidung von Lagerengpässen bei kritischen Ersatzteilen.",
+          "completionSignal": "Entladen der 52 lbs Rückfracht am Hangar in McCall.",
+          "storyFrame": {
+            "trigger": "Abschluss der Wartungsarbeiten vor Ort; die Altteile müssen zur Revision zurück in die Hauptwerkstatt.",
+            "focusSubject": "Elias (Techniker vor Ort)",
+            "keyQuestion": "Ist der defekte Starter verladebereit und kann die Diagnose in McCall heute noch starten?",
+            "stakes": "Sicherung des Materialkreislaufs und Vermeidung von Lagerengpässen bei kritischen Ersatzteilen.",
+            "completionSignal": "Entladen der 52 lbs Rückfracht am Hangar in McCall.",
+            "subjectDetail": "Elias, der zuständige Wartungstechniker am Big Creek Strip.",
+            "incidentContext": "Elias hat die Stromversorgung am Strip instand gesetzt und die defekten Komponenten für die Rückreise vorbereitet. Er benötigt nun den Transportplatz für die Überführung zur Basis.",
+            "whyNow": "Die Reparatur ist abgeschlossen und die Werft in McCall wartet auf das Bauteil, um den Schadensbericht für die Versicherung zu erstellen.",
+            "soughtOutcome": "Elias übergibt das Paket am Flugzeug. Der Pilot fliegt die Fracht zurück nach McCall, wo sie zur technischen Analyse ausgeladen wird.",
+            "incidentType": "",
+            "lastSeenContext": "",
+            "probableScenario": "",
+            "visibleClueCandidates": []
+          },
+          "sceneKind": "cargo_handoff",
+          "sceneDensity": "sparse",
+          "requiredAnchors": [
+            "Abstellfläche am Striprand",
+            "Pistennähe"
+          ],
+          "objectFamilies": [
+            "cargo_equipment",
+            "cargo_handoff"
+          ],
+          "placementPolicy": "Die Frachtkiste und der Kontakt befinden sich gut sichtbar am Rand der Graspiste nahe der Parkposition.",
+          "narrativeRules": [
+            "Primary subject lock: Big Creek Airport (cargo) bleibt Hauptsubjekt.",
+            "Task-domain lock: cargo bleibt die Art des Auftrags.",
+            "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+            "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+            "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+            "Ziel und Anlass bleiben gekoppelt; Kontext darf nur plausibilisieren."
+          ],
+          "localFacts": [
+            "Big Creek liegt auf 5743 Fuß Höhe",
+            "Graspiste 01/19 mit 1082 Metern Länge",
+            "Eingebettet in anspruchsvolles Gebirgsgelände"
+          ],
+          "weatherHooks": [],
+          "operationalDetails": [
+            "Hohe Dichtehöhe am Zielplatz berücksichtigen",
+            "Anflugweg vor dem Sinken in das Tal genau prüfen",
+            "Pistenzustand der Graspiste beim Aufsetzen beurteilen"
+          ],
+          "realismBrief": "Im Backcountry ist der Luftweg die einzige praktikable Methode, um schwere Maschinenkomponenten zeitnah zur Instandsetzung in die spezialisierte Werft zu bringen.",
+          "narrativeHooks": [
+            "Elias wartet mit der verzurrten Kiste am Rand der Bahn",
+            "Die Ladung besteht aus dem Generatorstarter, einem Riemensatz und der Prüfmappe",
+            "In McCall ist die Übergabe an das Bodenpersonal fest eingeplant"
+          ],
+          "mustMention": [
+            "Generatorstarter",
+            "Riemensatz",
+            "Elias",
+            "52 lbs Frachtgewicht"
+          ],
+          "mustAvoid": [
+            "Passagiertransport",
+            "erfundene Wetternotlage",
+            "Zwischenlandungen an anderen Plätzen",
+            "Kontext darf das Primaerziel nicht ersetzen.",
+            "Kontext darf die TaskDomain nicht umwidmen."
+          ],
+          "lockedFields": {
+            "noLandingAtPoi": false,
+            "requiresRescueAtPoi": false,
+            "primarySubjectLabel": "Big Creek Airport",
+            "primarySubjectType": "cargo",
+            "taskDomain": "cargo"
+          },
+          "confidence": 1
+        },
+        "poiChain": null,
+        "needs": [],
+        "resolvedNeedTypes": [
+          "geo_context",
+          "mission_truth",
+          "weather_snapshot",
+          "fire_hazard",
+          "airport_details"
+        ]
+      },
+      "storyFrame": {
+        "trigger": "Abschluss der Wartungsarbeiten vor Ort; die Altteile müssen zur Revision zurück in die Hauptwerkstatt.",
+        "focusSubject": "Elias (Techniker vor Ort)",
+        "keyQuestion": "Ist der defekte Starter verladebereit und kann die Diagnose in McCall heute noch starten?",
+        "stakes": "Sicherung des Materialkreislaufs und Vermeidung von Lagerengpässen bei kritischen Ersatzteilen.",
+        "completionSignal": "Entladen der 52 lbs Rückfracht am Hangar in McCall.",
+        "subjectDetail": "Elias, der zuständige Wartungstechniker am Big Creek Strip.",
+        "incidentContext": "Elias hat die Stromversorgung am Strip instand gesetzt und die defekten Komponenten für die Rückreise vorbereitet. Er benötigt nun den Transportplatz für die Überführung zur Basis.",
+        "whyNow": "Die Reparatur ist abgeschlossen und die Werft in McCall wartet auf das Bauteil, um den Schadensbericht für die Versicherung zu erstellen.",
+        "soughtOutcome": "Elias übergibt das Paket am Flugzeug. Der Pilot fliegt die Fracht zurück nach McCall, wo sie zur technischen Analyse ausgeladen wird.",
+        "incidentType": "",
+        "lastSeenContext": "",
+        "probableScenario": "",
+        "visibleClueCandidates": []
+      },
+      "infraNarrativeHandoff": null,
+      "chainNarrativeBrief": null,
+      "pickupCreativeBrief": null,
+      "missionVarietyBrief": {
+        "personalStoryBasis": {
+          "focus": "Die konkrete Sache, die zurückgeholt wird, und der Mensch, dessen Geschichte daran hängt.",
+          "connection": "Was der Kontakt draußen mit dieser Sache getan oder erlebt hat und was mit ihr nach der Rückkehr geschieht. Eine kurze Vorgeschichte ist möglich, aber keine Pflicht. Frachtlabel und Gewicht bleiben Vertragsdaten.",
+          "outcome": "Leer zum Strip, dort die vereinbarte Fracht laden, zum Heimatplatz zurück und dort ausladen. Kein zusätzlicher Passagier.",
+          "voice": "Dispatch erzählt über den Kontakt am Boden; die Ladung erhält keine Stimme. Keine Passagierbegrüßung und keine erfundene Bordbegleitung.",
+          "use": "Freie Inspiration. Sache, Kontakt und dessen Arbeit folgen bevorzugt einer Richtung der candidateShortlist; Ziel, Region und Gelände geben Farbe. Vorgeschichte, Pointe, Defektdrama oder Frist sind keine Pflicht."
+        },
+        "weatherIdeaPolicy": "BUSH-WETTER: Nutze Wetter als praktischen Hintergrund. Ein wettergetriebener Auftrag folgt einem belegten markanten Wetterereignis oder einer gelieferten Meldung mit Ort und Zeit. Die Jahreszeit darf einen längerfristigen zeitlichen Anker liefern, etwa Herbstwartung ohne Zeitdruck. Gewöhnliche Wetterwerte und die Jahreszeit allein begründen weder drohenden Schnee noch ein knappes letztes Flugfenster; wetterbedingte Eile braucht ein konkret belegtes bevorstehendes Ereignis. Menschliche und fachliche Anlässe dürfen unabhängig davon tragen. Leite whyNow zuerst aus dem nächsten Schritt der Person oder des Auftraggebers ab. Saisonale Vorsorge kann einfach ein sinnvoller heutiger Auftrag sein; normale aktuelle Wetterwerte beschreiben nur den Flugrahmen, nicht den Grund, weshalb der Auftrag gerade jetzt erledigt werden muss. Auch eine im Planner erfundene Wetterfrist ist kein zusätzlicher Wetterbeleg für den Writer.",
+        "candidateEvidencePolicy": "Kandidaten und regionale Rollen-/Tätigkeitsideen sind mögliche fiktive Motive, keine Ereignismeldungen oder Belege für Anlagen, Tal, Hang, Jahreszeitbedingungen und Wetter. Wähle einen Anlass, der ohne erfundene reale Eigenschaften des Ziels auskommt. Saisonale Tätigkeiten wie Herbstwartung sind als längerfristiger Anlass zulässig, ohne daraus nahen Frost, Sperrungen oder Zeitdruck abzuleiten. Ein wettergetriebener Ereigniskandidat braucht ein ausdrücklich geliefertes markantes Wetterereignis.",
+        "purpose": "Offener Kreativrahmen fuer einen Bush-Cargo-Pickup-Return. Das Profil fliegt leer zum Zielstrip, nimmt dort Rueckholfracht auf und bringt sie zur Basis.",
+        "recipe": "Leerflug von McCall Municipal Airport nach Big Creek Airport, Cargo am Zielstrip aufnehmen, Rueckflug nach McCall Municipal Airport, Abschluss mit Ausladen daheim.",
+        "coreQuestions": [
+          "Welche Rueckholfracht liegt bei Big Creek Airport bereit?",
+          "Wer hat sie dort vorbereitet oder warum steht sie am Striprand?",
+          "Warum muss die Fracht zur Basis: Werkstatt, Auswertung, Akte, Bestand oder naechster Versorgungslauf?",
+          "Warum bleibt der Hinflug leer und warum passt die Rueckholung zum Strip?",
+          "Was passiert in McCall Municipal Airport, wenn die Fracht angekommen ist?"
+        ],
+        "candidateShortlist": [
+          {
+            "id": "permit_document_pouch",
+            "familyId": "admin_documents",
+            "label": "Unterlagen, Permits und Betriebsmappe",
+            "wildcard": false,
+            "matchTags": [
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Permit-Kontakt",
+              "Rangerstation",
+              "Projektleitung"
+            ],
+            "taskIdeas": [
+              "unterschriebene Permits und Betriebsnotizen heimholen",
+              "Posttasche und Fotos aus dem Zielgebiet mitnehmen",
+              "Originalunterlagen fuer die Basisakte sichern"
+            ],
+            "objectIdeas": [
+              "versiegelte Posttasche",
+              "Dokumentenmappe",
+              "Fototablet",
+              "kleiner Aktenkoffer"
+            ],
+            "returnDrivers": [
+              "die Basis kann die Freigabe erst mit den Originalunterlagen abschliessen",
+              "der naechste Einsatz haengt an der Akte",
+              "Dokumente sollen nicht im Camp bleiben"
+            ],
+            "accessReasons": [
+              "der Strip ist der sichere Uebergabepunkt fuer Unterlagen",
+              "die Rueckfracht ist klein, aber wichtig",
+              "eine Landroute waere fuer die Mappe zu langsam"
+            ]
+          },
+          {
+            "id": "field_tool_repair_return",
+            "familyId": "tool_repair",
+            "label": "Werkzeug, Messgeraet oder Reparaturkoffer",
+            "wildcard": false,
+            "matchTags": [
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Feldteam",
+              "Vermessungsteam",
+              "Strip-Wartungskontakt"
+            ],
+            "taskIdeas": [
+              "Messgeraet und Werkzeugrolle zur Kalibrierung heimholen",
+              "kurze Mangelnotiz und Fotokarte mitnehmen",
+              "Reparaturbedarf in der Basis klaeren"
+            ],
+            "objectIdeas": [
+              "Messgeraet",
+              "Werkzeugrolle",
+              "Fotokarte",
+              "Mangelnotiz"
+            ],
+            "returnDrivers": [
+              "die Kalibrierung passiert nur in der Basis",
+              "das Feldteam braucht vor dem naechsten Einsatz Ersatz",
+              "der Rueckflug schliesst den Materiallauf ab"
+            ],
+            "accessReasons": [
+              "die Teile liegen am Wartepunkt am Strip",
+              "Outbound leer spart Gewicht fuer die Rueckfracht",
+              "ein Bodenweg waere fuer das Geraet unguenstig"
+            ]
+          },
+          {
+            "id": "lodge_inventory_return",
+            "familyId": "lodge_inventory",
+            "label": "Lodge-Inventar und Fehlbestand",
+            "wildcard": false,
+            "matchTags": [
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Lodge-Team",
+              "Camp-Koordinator",
+              "Outfitter-Kontakt"
+            ],
+            "taskIdeas": [
+              "Inventurliste, Schluessel und Fehlbestandkiste zur Basis bringen",
+              "Sonderbestellung und Rueckgabezeug aufnehmen",
+              "naechste Versorgungsliste in der Basis korrigieren"
+            ],
+            "objectIdeas": [
+              "Inventurkiste",
+              "Schluesselbund",
+              "Bestellzettel",
+              "kleiner Rueckgabekarton"
+            ],
+            "returnDrivers": [
+              "die Basis muss den naechsten Versorgungslauf sauber packen",
+              "die Lodge wartet auf korrigierte Bestellmengen",
+              "der Rueckflug vermeidet einen zweiten Kleinstlauf"
+            ],
+            "accessReasons": [
+              "die Kiste steht am Striprand bereit",
+              "die Fracht ist leicht, aber organisatorisch wichtig",
+              "Outbound bleibt bewusst frei fuer die Rueckholung"
+            ]
+          },
+          {
+            "id": "water_sample_cooler",
+            "familyId": "water_samples",
+            "label": "Wasserproben oder Labor-Kuehlbox",
+            "wildcard": false,
+            "matchTags": [
+              "water",
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Hydrologie-Team",
+              "Pegelwart",
+              "Camp-Kontakt"
+            ],
+            "taskIdeas": [
+              "Kuehlbox mit Proben und Pegelzetteln aufnehmen",
+              "versiegelte Behaelter in die Basis bringen",
+              "Laborfenster fuer die Auswertung halten"
+            ],
+            "objectIdeas": [
+              "kleine Kuehlbox",
+              "Probenbehaelter",
+              "Pegelzettel",
+              "versiegelte Tasche"
+            ],
+            "returnDrivers": [
+              "die Proben muessen in der Basis weitergekuehlt und erfasst werden",
+              "das Labor wartet auf die Behaelter",
+              "der Rueckflug ist der sichere Transportweg fuer empfindliches Material"
+            ],
+            "accessReasons": [
+              "der Zielstrip liegt nahe am Probenpunkt",
+              "Rueckholfracht bleibt klein und empfindlich",
+              "Outbound leer schafft Platz fuer saubere Sicherung"
+            ]
+          },
+          {
+            "id": "failed_generator_core",
+            "familyId": "utility_repair_return",
+            "label": "Defektes Generator- oder Pumpenteil",
+            "wildcard": false,
+            "matchTags": [
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Utility-Kontakt am Strip",
+              "Camp-Wartungsteam",
+              "Generator-Servicekontakt"
+            ],
+            "taskIdeas": [
+              "defektes Generatormodul fuer die Werkstatt zurueckholen",
+              "Fehlerzettel und kleines Werkzeugcase mitnehmen",
+              "Ersatzteilbedarf in der Basis klaeren"
+            ],
+            "objectIdeas": [
+              "Generatormodul",
+              "Werkzeugtasche",
+              "Fehlerzettel",
+              "kleine Oelwanne"
+            ],
+            "returnDrivers": [
+              "die Werkstatt in der Basis kann erst mit dem Bauteil weiterarbeiten",
+              "der naechste Versorgungslauf braucht die Diagnose",
+              "das Camp wartet auf die Reparaturentscheidung"
+            ],
+            "accessReasons": [
+              "das Teil liegt abholbereit am Zielstrip",
+              "Outbound bleibt leer fuer Gewicht und Platz",
+              "Rueckfracht ist der eigentliche Auftrag"
+            ]
+          }
+        ],
+        "variety": {
+          "schema": "missionVarietyPack.v1",
+          "namespace": "bush_pickup_cargo",
+          "profileId": "bush_pickup_cargo",
+          "contextTags": [
+            "bush",
+            "remote_strip",
+            "water"
+          ],
+          "selectedIds": [
+            "permit_document_pouch",
+            "field_tool_repair_return",
+            "lodge_inventory_return",
+            "water_sample_cooler",
+            "failed_generator_core"
+          ],
+          "selectedFamilies": [
+            "admin_documents",
+            "tool_repair",
+            "lodge_inventory",
+            "water_samples",
+            "utility_repair_return"
+          ],
+          "primaryId": "permit_document_pouch",
+          "primaryFamily": "admin_documents",
+          "recentFamilies": [],
+          "recentPrimaryFamilies": [],
+          "recentPrimaryIds": [],
+          "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+          "storageKey": "ga_mission_variety_history_bush_pickup_cargo_v1"
+        },
+        "ingredientAxes": {
+          "roleFamilies": [
+            "Permit-Kontakt",
+            "Rangerstation",
+            "Projektleitung",
+            "Feldteam",
+            "Vermessungsteam",
+            "Strip-Wartungskontakt",
+            "Lodge-Team",
+            "Camp-Koordinator",
+            "Outfitter-Kontakt",
+            "Hydrologie-Team",
+            "Pegelwart",
+            "Camp-Kontakt"
+          ],
+          "activityVerbs": [
+            "unterschriebene Permits und Betriebsnotizen heimholen",
+            "Posttasche und Fotos aus dem Zielgebiet mitnehmen",
+            "Originalunterlagen fuer die Basisakte sichern",
+            "Messgeraet und Werkzeugrolle zur Kalibrierung heimholen",
+            "kurze Mangelnotiz und Fotokarte mitnehmen",
+            "Reparaturbedarf in der Basis klaeren",
+            "Inventurliste, Schluessel und Fehlbestandkiste zur Basis bringen",
+            "Sonderbestellung und Rueckgabezeug aufnehmen",
+            "naechste Versorgungsliste in der Basis korrigieren",
+            "Kuehlbox mit Proben und Pegelzetteln aufnehmen",
+            "versiegelte Behaelter in die Basis bringen",
+            "Laborfenster fuer die Auswertung halten",
+            "defektes Generatormodul fuer die Werkstatt zurueckholen",
+            "Fehlerzettel und kleines Werkzeugcase mitnehmen"
+          ],
+          "evidenceObjects": [
+            "versiegelte Posttasche",
+            "Dokumentenmappe",
+            "Fototablet",
+            "kleiner Aktenkoffer",
+            "Messgeraet",
+            "Werkzeugrolle",
+            "Fotokarte",
+            "Mangelnotiz",
+            "Inventurkiste",
+            "Schluesselbund",
+            "Bestellzettel",
+            "kleiner Rueckgabekarton",
+            "kleine Kuehlbox",
+            "Probenbehaelter"
+          ],
+          "returnDrivers": [
+            "die Basis kann die Freigabe erst mit den Originalunterlagen abschliessen",
+            "der naechste Einsatz haengt an der Akte",
+            "Dokumente sollen nicht im Camp bleiben",
+            "die Kalibrierung passiert nur in der Basis",
+            "das Feldteam braucht vor dem naechsten Einsatz Ersatz",
+            "der Rueckflug schliesst den Materiallauf ab",
+            "die Basis muss den naechsten Versorgungslauf sauber packen",
+            "die Lodge wartet auf korrigierte Bestellmengen",
+            "der Rueckflug vermeidet einen zweiten Kleinstlauf",
+            "die Proben muessen in der Basis weitergekuehlt und erfasst werden"
+          ],
+          "accessReasons": [
+            "der Strip ist der sichere Uebergabepunkt fuer Unterlagen",
+            "die Rueckfracht ist klein, aber wichtig",
+            "eine Landroute waere fuer die Mappe zu langsam",
+            "die Teile liegen am Wartepunkt am Strip",
+            "Outbound leer spart Gewicht fuer die Rueckfracht",
+            "ein Bodenweg waere fuer das Geraet unguenstig",
+            "die Kiste steht am Striprand bereit",
+            "die Fracht ist leicht, aber organisatorisch wichtig"
+          ]
+        },
+        "writerExpectations": [
+          "Nutze bevorzugt genau eine Richtung aus candidateShortlist, damit Rolle, Taetigkeiten, Gegenstaende und Folgegrund zusammenpassen.",
+          "Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren.",
+          "Wenn candidateShortlist nicht passt, nutze ingredientAxes als offene Inspiration und bleibe trotzdem im Zielkontext.",
+          "Kontext, Profil-Rezept, TaskDomain und MissionTruth schlagen Varianz.",
+          "Nicht alle Achsen abarbeiten; frei kombinieren und variieren.",
+          "Keine neuen Ortsnamen oder harten Geofakten erfinden.",
+          "Keinen Passagier-Pickup daraus machen; Fokus bleibt Rueckholfracht.",
+          "Cargo, Grund, Wartepunkt und Folgeablauf muessen aus derselben Kandidatenrichtung kommen.",
+          "Die Story darf klein und praktisch sein; nicht automatisch Notfall oder Charter-Termin."
+        ],
+        "weatherNote": ""
+      },
+      "variety": {
+        "schema": "missionVarietyPack.v1",
+        "namespace": "bush_pickup_cargo",
+        "profileId": "bush_pickup_cargo",
+        "contextTags": [
+          "bush",
+          "remote_strip",
+          "water"
+        ],
+        "selectedIds": [
+          "permit_document_pouch",
+          "field_tool_repair_return",
+          "lodge_inventory_return",
+          "water_sample_cooler",
+          "failed_generator_core"
+        ],
+        "selectedFamilies": [
+          "admin_documents",
+          "tool_repair",
+          "lodge_inventory",
+          "water_samples",
+          "utility_repair_return"
+        ],
+        "primaryId": "permit_document_pouch",
+        "primaryFamily": "admin_documents",
+        "recentFamilies": [],
+        "recentPrimaryFamilies": [],
+        "recentPrimaryIds": [],
+        "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+        "storageKey": "ga_mission_variety_history_bush_pickup_cargo_v1"
+      },
+      "sarHeli": null,
+      "missionTruth": null,
+      "semantics": {
+        "version": "mission-semantics-v4-2026-06-07",
+        "focusLock": {
+          "mode": "bush",
+          "taskDomain": "cargo",
+          "targetCategory": "cargo",
+          "requestedCategory": "all",
+          "primarySubjectLabel": "Big Creek Airport",
+          "primarySubjectType": "cargo",
+          "contextRoles": [
+            "orientation",
+            "hazard",
+            "access",
+            "support",
+            "evidence",
+            "background"
+          ]
+        },
+        "plannerGuardrails": [
+          "Primary subject lock: Big Creek Airport (cargo) bleibt Hauptsubjekt.",
+          "Task-domain lock: cargo bleibt die Art des Auftrags.",
+          "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+          "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+          "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+          "Ziel und Anlass bleiben gekoppelt; Kontext darf nur plausibilisieren.",
+          "APT-Cargo bleibt ein reiner A-B-Frachtflug mit konkreter Sendung und vorbereiteter Uebergabe am Zielplatz.",
+          "Wenn taskDomain nicht cargo_fragile ist, bleibt APT-Cargo unbegleitet: 0 PAX, keine Techniker, kein Fachpersonal und keine Passagiere im Flugzeug.",
+          "Normale APT-Cargo-Fracht ist wichtig, aber nicht automatisch hochsensibel oder dramatisch; Empfaenger, Werft, Techniker oder Zielkontakt warten am Ziel.",
+          "Cargo-Anlaesse duerfen breit und alltaeglich sein: AOG-Ersatzteil, Industriekurier, Post- oder Paketbuendel, Eventmaterial, Dorffest-Getraenke, Drucksachen, Messgeraet, Werkstattkit oder Archivbox.",
+          "Planner liefert offene Story-Anker: was an Bord ist, warum der Flug jetzt sinnvoll ist, wer am Ziel wartet und welcher Folgeschritt nach der Landung anschliesst."
+        ],
+        "writerGuardrails": [
+          "Story, Greeting und sceneIntent muessen Big Creek Airport als Primaerfokus behalten.",
+          "Kontext darf den Auftrag anreichern, aber nicht umwidmen.",
+          "Die Erzaehlung bleibt Backcountry-/Bush-bezogen und driftet nicht in normalen A-B-Verkehr.",
+          "Kontext darf die Mission anreichern, aber nicht umdefinieren.",
+          "Briefing als kleine Frachtgeschichte schreiben, nicht als generischen Transfer.",
+          "Bei normaler APT-Cargo-Kategorie sind Techniker, Pruefer und Fachpersonal Zielkontakte, keine Mitflieger.",
+          "Nicht jeden Cargo-Auftrag wie eine hochsensible AOG-Lage erzaehlen; normale Sendungen duerfen pragmatisch, kurios oder ortsnah sein.",
+          "Route und Entfernung duerfen den Auftrag verorten; Sendung, Empfaenger und naechster Schritt tragen die Geschichte."
+        ],
+        "forceSceneNone": false,
+        "naturalPriority": false
+      },
+      "followUpContext": null,
+      "missionTemporalContext": null,
+      "varietyHints": null,
+      "targetGeoContext": null,
+      "airportDetails": {
+        "start": {
+          "icao": "KMYL",
+          "name": "McCall Municipal Airport",
+          "lat": 44.8897,
+          "lon": -116.101
+        },
+        "dest": {
+          "icao": "U60",
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999
+        },
+        "targetPoi": null
+      },
+      "departureAirportInformation": {
+        "schema": "departure-airport-information-text.v1",
+        "departureInfo": "Dein Flug beginnt am McCall Municipal Airport (KMYL), einem zentralen Knotenpunkt für Operationen in den umliegenden Gebirgsregionen. Die Piste 16/34 ist mit 1864 Metern Länge großzügig dimensioniert und durchgehend asphaltiert. Mit einer Platzhöhe von 5024 Fuß solltest du bereits beim Abflug die Auswirkungen der Höhenlage auf die Startrollstrecke und die Steigrate deines Flugzeugs einkalkulieren. McCall bietet eine gut ausgebaute Infrastruktur mit Hangars und Wartungseinrichtungen, was ihn zum idealen Stützpunkt für die technische Überholung von Komponenten aus den umliegenden Außenstationen macht.",
+        "sourceIds": [
+          "faa-mountain-tips"
+        ],
+        "generated": true
+      },
+      "airportInformation": {
+        "schema": "airport-information-text.v1",
+        "flightBriefing": "Du steuerst heute den Big Creek Airport (U60) an, der eingebettet in anspruchsvolles Gebirgsgelände auf einer Höhe von 5743 Fuß liegt. Die Piste 01/19 besteht aus Gras, ist 1082 Meter lang und 34 Meter breit. Aufgrund der Platzhöhe ist eine genaue Leistungsplanung für An- und Abflug unerlässlich, da die dünnere Luft die verfügbare Motor- und Steigleistung spürbar reduziert. Beachte zudem, dass der aktuelle Zustand des Grasbewuchses sowie eventuelle Bodenfeuchtigkeit Einfluss auf den Rollwiderstand und die Bremswirkung haben können. Ein Blick in die Flugzeugunterlagen zur Leistungsbeurteilung ist bei diesen Bedingungen immer ratsam.",
+        "destinationInfo": "Big Creek Airport (U60) Platzhöhe: 5743 ft MSL. Piste 01/19, 1082 m Länge, 34 m Breite, Gras. Weitere Angaben zur Umgebung und aktuelle betriebliche Hinweise liegen für diesen Text nicht vor.",
+        "sourceIds": [
+          "faa-mountain-tips",
+          "nz-caa-mountain"
+        ],
+        "generated": false,
+        "flightBriefingGenerated": true,
+        "basis": "own-data-only"
+      },
+      "bushFollowUpNarrative": {
+        "schema": "ga.bush.followup-memory.v1",
+        "memory": {
+          "summary": "Elias hat die Reparatur der Stromversorgung am Big Creek Airport erfolgreich abgeschlossen. Der defekte Generatorstarter und die technischen Unterlagen wurden nach McCall überführt, um dort eine Revision und Schadensanalyse für die Versicherung durchzuführen. Der Materialfluss wurde gesichert, während Elias vor Ort verblieb, um die Anlage in Betrieb zu nehmen.",
+          "participants": [
+            {
+              "name": "Elias",
+              "role": "Wartungstechniker"
+            }
+          ],
+          "openQuestions": [
+            "Bestätigt die Revision in McCall den vermuteten Defekt am Starter?",
+            "Sind weitere Ersatzteile für die langfristige Stabilität der Stromversorgung in Big Creek nötig?"
+          ],
+          "betweenFlightsIdeas": [
+            {
+              "followUpKind": "bush_supply_strip",
+              "summary": "Nach Abschluss der technischen Analyse in McCall könnten neue Ersatzteile oder optimierte Riemensätze identifiziert werden, die Elias für eine finale Aufrüstung in Big Creek benötigt."
+            }
+          ]
+        }
+      }
+    },
+    "_missionContractV4": {
+      "pipelineVersion": "mission-v4-contract-writer-2026-06-07",
+      "bushReconPlan": null,
+      "status": "ready",
+      "mode": "bush",
+      "paxText": "0 PAX",
+      "passengerCount": 0,
+      "party": null,
+      "partyNarrative": null,
+      "aircraftCapability": {
+        "cruiseSpeedKts": 110,
+        "aircraftTags": []
+      },
+      "cargoText": "Pickup am Ziel: Generatorstarter, Riemensatz und Pruefmappe fuer die Basis (52 lbs)",
+      "animalTransportBrief": null,
+      "route": {
+        "startIcao": "",
+        "startName": "McCall Municipal Airport",
+        "targetIcao": "U60",
+        "targetName": "Big Creek Airport",
+        "distanceNm": 36
+      },
+      "profile": {
+        "id": "bush_pickup_cargo",
+        "label": "Bush-Cargo-Pickup und Rueckkehr",
+        "roleProfile": "cargo_charter_v1",
+        "taskDomain": "cargo",
+        "pickerCategory": "all",
+        "requestedCategory": "all"
+      },
+      "target": {
+        "isPOI": false,
+        "name": "Big Creek Airport",
+        "lat": 45.133202,
+        "lon": -115.321999,
+        "poiSource": "",
+        "poiCategory": "all",
+        "terrainFt": null,
+        "terrainMaxFt": null,
+        "terrainRadiusNm": null
+      },
+      "poiChain": null,
+      "knowledgeContext": null,
+      "weather": {
+        "dep": {
+          "summary": "Keine aktuellen Wetterdaten verfügbar.",
+          "raw": null
+        },
+        "dest": {
+          "summary": "Keine aktuellen Wetterdaten verfügbar.",
+          "raw": null
+        },
+        "rule": "Wetter nur als Realitaetsanker nutzen: Wind, Sicht, Wolken/WX knapp einbauen; keine dramatische Wetterstory erfinden."
+      },
+      "environmentContext": {
+        "schema": "mission-environment.v1",
+        "time": {
+          "source": "user-device-local",
+          "createdAt": "2026-10-08T08:30:00.000Z",
+          "createdLocal": "2026-10-08T10:30:00",
+          "utcOffsetMinutes": 120,
+          "timeZone": "Europe/Berlin",
+          "departureTimeKnown": false
+        },
+        "start": {
+          "location": {
+            "name": "McCall Municipal Airport",
+            "lat": 44.8897,
+            "lon": -116.101
+          },
+          "status": "unavailable"
+        },
+        "target": {
+          "location": {
+            "name": "Big Creek Airport",
+            "lat": 45.133202,
+            "lon": -115.321999
+          },
+          "status": "unavailable"
+        }
+      },
+      "airportInfoContext": {
+        "schema": "mission-airport-information.v1",
+        "airport": {
+          "ident": "U60",
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999,
+          "country": "US",
+          "elevationFt": 5743,
+          "runways": [
+            {
+              "designator": "01/19",
+              "lengthM": 1082,
+              "widthM": 34,
+              "surface": "Gras",
+              "trueHeadingDeg": null,
+              "operations": null
+            }
+          ],
+          "ppr": null,
+          "private": null,
+          "source": "eigene Flugplatzdaten"
+        },
+        "terrain": null,
+        "pilotHints": [
+          {
+            "id": "assess-before-descent",
+            "source": "faa-mountain-safety",
+            "section": "Poor Planning",
+            "text": "Vor dem Sinkflug in einen Gebirgsplatz die Möglichkeiten für Durchstarten und anschließenden Abflug beurteilen."
+          },
+          {
+            "id": "valley-escape",
+            "source": "nz-caa-mountain",
+            "section": "Entering a valley / Escape routes, pp. 24–26",
+            "text": "Im Tal ausreichend Raum zum Wenden und einen Ausweg erhalten. Nicht darauf vertrauen, ansteigendes Gelände übersteigen zu können."
+          },
+          {
+            "id": "valley-wind",
+            "source": "nz-caa-mountain",
+            "section": "Wind, p. 8; Valley flying, p. 22",
+            "text": "Wind im Tal kann in Richtung und Stärke vom Wind oberhalb der Bergrücken abweichen. Eine entfernte Wetterstation beschreibt den lokalen Talwind nicht vollständig."
+          },
+          {
+            "id": "lee-turbulence",
+            "source": "faa-mountain-safety",
+            "section": "Mountain Weather",
+            "text": "Hinter Bergrücken können starke Abwinde und Turbulenz auftreten; ihr Ausmaß lässt sich aus einem Bodenwind allein nicht ableiten."
+          },
+          {
+            "id": "density-altitude",
+            "source": "faa-mountain-tips",
+            "section": "Performance Considerations",
+            "text": "Hohe Dichtehöhe vermindert die verfügbare Flugleistung. Start-, Landestrecken und Steigleistung anhand der Flugzeugunterlagen beurteilen."
+          },
+          {
+            "id": "surface-condition",
+            "source": "nz-caa-mountain",
+            "section": "Approach and landing, pp. 29–30",
+            "text": "Eine bekannte Pistenoberfläche sagt noch nichts über den aktuellen Zustand aus. Nässe, weicher Boden und Grasbewuchs können die nutzbare Leistung beeinflussen."
+          },
+          {
+            "id": "local-knowledge",
+            "source": "ntsb-sa039",
+            "section": "What can pilots do?",
+            "text": "Für unbekannte Gebirgsplätze aktuelle lokale Informationen und qualifizierte Einweisung einholen."
+          }
+        ],
+        "sources": [
+          {
+            "id": "faa-mountain-tips",
+            "title": "FAA Tips on Mountain Flying, FAA-P-8740-60",
+            "url": "https://www.faa.gov/sites/faa.gov/files/regulations_policies/handbooks_manuals/aviation/tips_on_mountain_flying.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "faa-mountain-safety",
+            "title": "FAA Aviation Safety: Mountain Flying",
+            "url": "https://www.faa.gov/sites/faa.gov/files/2022-01/Mountain%20Flying.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "nz-caa-mountain",
+            "title": "NZ CAA Mountain Flying, May 2021",
+            "url": "https://www.aviation.govt.nz/assets/publications/gaps/caa-gap-mountain-flying-may-2021-web.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "ntsb-sa039",
+            "title": "NTSB SA-039 Mastering Mountain Flying",
+            "url": "https://www.ntsb.gov/Advocacy/safety-alerts/Documents/SA-039.pdf",
+            "kind": "pilot-handbook"
+          }
+        ],
+        "retrieval": {
+          "budgetMs": 3000,
+          "requests": {
+            "wikipedia": 2,
+            "faa": 1
+          },
+          "sources": {
+            "wikipedia-de": {
+              "status": "no_match",
+              "ms": 4
+            },
+            "wikipedia-en": {
+              "status": "no_match",
+              "ms": 4
+            },
+            "ownAirport": {
+              "status": "available",
+              "ms": 3,
+              "cached": false
+            },
+            "faa": {
+              "status": "no_match",
+              "ms": 4
+            }
+          },
+          "elapsedMs": 4,
+          "partial": false
+        }
+      },
+      "departureAirportInfoContext": {
+        "schema": "mission-airport-information.v1",
+        "airport": {
+          "ident": "KMYL",
+          "name": "McCall Municipal Airport",
+          "lat": 44.8897,
+          "lon": -116.101,
+          "country": "US",
+          "elevationFt": 5024,
+          "runways": [
+            {
+              "designator": "16/34",
+              "lengthM": 1864,
+              "widthM": 23,
+              "surface": "Asphalt",
+              "trueHeadingDeg": null,
+              "operations": null
+            }
+          ],
+          "ppr": null,
+          "private": null,
+          "source": "eigene Flugplatzdaten"
+        },
+        "terrain": null,
+        "pilotHints": [
+          {
+            "id": "assess-before-descent",
+            "source": "faa-mountain-safety",
+            "section": "Poor Planning",
+            "text": "Vor dem Sinkflug in einen Gebirgsplatz die Möglichkeiten für Durchstarten und anschließenden Abflug beurteilen."
+          },
+          {
+            "id": "valley-escape",
+            "source": "nz-caa-mountain",
+            "section": "Entering a valley / Escape routes, pp. 24–26",
+            "text": "Im Tal ausreichend Raum zum Wenden und einen Ausweg erhalten. Nicht darauf vertrauen, ansteigendes Gelände übersteigen zu können."
+          },
+          {
+            "id": "valley-wind",
+            "source": "nz-caa-mountain",
+            "section": "Wind, p. 8; Valley flying, p. 22",
+            "text": "Wind im Tal kann in Richtung und Stärke vom Wind oberhalb der Bergrücken abweichen. Eine entfernte Wetterstation beschreibt den lokalen Talwind nicht vollständig."
+          },
+          {
+            "id": "lee-turbulence",
+            "source": "faa-mountain-safety",
+            "section": "Mountain Weather",
+            "text": "Hinter Bergrücken können starke Abwinde und Turbulenz auftreten; ihr Ausmaß lässt sich aus einem Bodenwind allein nicht ableiten."
+          },
+          {
+            "id": "density-altitude",
+            "source": "faa-mountain-tips",
+            "section": "Performance Considerations",
+            "text": "Hohe Dichtehöhe vermindert die verfügbare Flugleistung. Start-, Landestrecken und Steigleistung anhand der Flugzeugunterlagen beurteilen."
+          },
+          {
+            "id": "surface-condition",
+            "source": "nz-caa-mountain",
+            "section": "Approach and landing, pp. 29–30",
+            "text": "Eine bekannte Pistenoberfläche sagt noch nichts über den aktuellen Zustand aus. Nässe, weicher Boden und Grasbewuchs können die nutzbare Leistung beeinflussen."
+          },
+          {
+            "id": "local-knowledge",
+            "source": "ntsb-sa039",
+            "section": "What can pilots do?",
+            "text": "Für unbekannte Gebirgsplätze aktuelle lokale Informationen und qualifizierte Einweisung einholen."
+          }
+        ],
+        "sources": [
+          {
+            "id": "faa-mountain-tips",
+            "title": "FAA Tips on Mountain Flying, FAA-P-8740-60",
+            "url": "https://www.faa.gov/sites/faa.gov/files/regulations_policies/handbooks_manuals/aviation/tips_on_mountain_flying.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "faa-mountain-safety",
+            "title": "FAA Aviation Safety: Mountain Flying",
+            "url": "https://www.faa.gov/sites/faa.gov/files/2022-01/Mountain%20Flying.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "nz-caa-mountain",
+            "title": "NZ CAA Mountain Flying, May 2021",
+            "url": "https://www.aviation.govt.nz/assets/publications/gaps/caa-gap-mountain-flying-may-2021-web.pdf",
+            "kind": "pilot-handbook"
+          },
+          {
+            "id": "ntsb-sa039",
+            "title": "NTSB SA-039 Mastering Mountain Flying",
+            "url": "https://www.ntsb.gov/Advocacy/safety-alerts/Documents/SA-039.pdf",
+            "kind": "pilot-handbook"
+          }
+        ],
+        "retrieval": {
+          "budgetMs": 3000,
+          "requests": {
+            "wikipedia": 2,
+            "faa": 1
+          },
+          "sources": {
+            "wikipedia-de": {
+              "status": "no_match",
+              "ms": 1
+            },
+            "wikipedia-en": {
+              "status": "no_match",
+              "ms": 1
+            },
+            "ownAirport": {
+              "status": "available",
+              "ms": 1,
+              "cached": false
+            },
+            "faa": {
+              "status": "no_match",
+              "ms": 1
+            }
+          },
+          "elapsedMs": 1,
+          "partial": false
+        }
+      },
+      "fireHazard": null,
+      "missionPlan": {
+        "status": "ready",
+        "pipelineVersion": "mission-v4-planner-2026-06-07",
+        "plan": {
+          "taskDomain": "cargo",
+          "roleProfile": "cargo_charter_v1",
+          "missionType": "bush",
+          "targetCategory": "cargo",
+          "primaryObjective": "Rückholung eines defekten Generatorstarters und technischer Unterlagen zur Werftbasis in McCall.",
+          "targetLabel": "Big Creek Airport",
+          "missionTrigger": "Abschluss der Wartungsarbeiten vor Ort; die Altteile müssen zur Revision zurück in die Hauptwerkstatt.",
+          "focusSubject": "Elias (Techniker vor Ort)",
+          "keyQuestion": "Ist der defekte Starter verladebereit und kann die Diagnose in McCall heute noch starten?",
+          "missionStakes": "Sicherung des Materialkreislaufs und Vermeidung von Lagerengpässen bei kritischen Ersatzteilen.",
+          "completionSignal": "Entladen der 52 lbs Rückfracht am Hangar in McCall.",
+          "storyFrame": {
+            "trigger": "Abschluss der Wartungsarbeiten vor Ort; die Altteile müssen zur Revision zurück in die Hauptwerkstatt.",
+            "focusSubject": "Elias (Techniker vor Ort)",
+            "keyQuestion": "Ist der defekte Starter verladebereit und kann die Diagnose in McCall heute noch starten?",
+            "stakes": "Sicherung des Materialkreislaufs und Vermeidung von Lagerengpässen bei kritischen Ersatzteilen.",
+            "completionSignal": "Entladen der 52 lbs Rückfracht am Hangar in McCall.",
+            "subjectDetail": "Elias, der zuständige Wartungstechniker am Big Creek Strip.",
+            "incidentContext": "Elias hat die Stromversorgung am Strip instand gesetzt und die defekten Komponenten für die Rückreise vorbereitet. Er benötigt nun den Transportplatz für die Überführung zur Basis.",
+            "whyNow": "Die Reparatur ist abgeschlossen und die Werft in McCall wartet auf das Bauteil, um den Schadensbericht für die Versicherung zu erstellen.",
+            "soughtOutcome": "Elias übergibt das Paket am Flugzeug. Der Pilot fliegt die Fracht zurück nach McCall, wo sie zur technischen Analyse ausgeladen wird.",
+            "incidentType": "",
+            "lastSeenContext": "",
+            "probableScenario": "",
+            "visibleClueCandidates": []
+          },
+          "sceneKind": "cargo_handoff",
+          "sceneDensity": "sparse",
+          "requiredAnchors": [
+            "Abstellfläche am Striprand",
+            "Pistennähe"
+          ],
+          "objectFamilies": [
+            "cargo_equipment",
+            "cargo_handoff"
+          ],
+          "placementPolicy": "Die Frachtkiste und der Kontakt befinden sich gut sichtbar am Rand der Graspiste nahe der Parkposition.",
+          "narrativeRules": [
+            "Primary subject lock: Big Creek Airport (cargo) bleibt Hauptsubjekt.",
+            "Task-domain lock: cargo bleibt die Art des Auftrags.",
+            "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+            "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+            "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+            "Ziel und Anlass bleiben gekoppelt; Kontext darf nur plausibilisieren."
+          ],
+          "localFacts": [
+            "Big Creek liegt auf 5743 Fuß Höhe",
+            "Graspiste 01/19 mit 1082 Metern Länge",
+            "Eingebettet in anspruchsvolles Gebirgsgelände"
+          ],
+          "weatherHooks": [],
+          "operationalDetails": [
+            "Hohe Dichtehöhe am Zielplatz berücksichtigen",
+            "Anflugweg vor dem Sinken in das Tal genau prüfen",
+            "Pistenzustand der Graspiste beim Aufsetzen beurteilen"
+          ],
+          "realismBrief": "Im Backcountry ist der Luftweg die einzige praktikable Methode, um schwere Maschinenkomponenten zeitnah zur Instandsetzung in die spezialisierte Werft zu bringen.",
+          "narrativeHooks": [
+            "Elias wartet mit der verzurrten Kiste am Rand der Bahn",
+            "Die Ladung besteht aus dem Generatorstarter, einem Riemensatz und der Prüfmappe",
+            "In McCall ist die Übergabe an das Bodenpersonal fest eingeplant"
+          ],
+          "mustMention": [
+            "Generatorstarter",
+            "Riemensatz",
+            "Elias",
+            "52 lbs Frachtgewicht"
+          ],
+          "mustAvoid": [
+            "Passagiertransport",
+            "erfundene Wetternotlage",
+            "Zwischenlandungen an anderen Plätzen",
+            "Kontext darf das Primaerziel nicht ersetzen.",
+            "Kontext darf die TaskDomain nicht umwidmen."
+          ],
+          "lockedFields": {
+            "noLandingAtPoi": false,
+            "requiresRescueAtPoi": false,
+            "primarySubjectLabel": "Big Creek Airport",
+            "primarySubjectType": "cargo",
+            "taskDomain": "cargo"
+          },
+          "confidence": 1
+        },
+        "poiChain": null,
+        "needs": [],
+        "resolvedNeedTypes": [
+          "geo_context",
+          "mission_truth",
+          "weather_snapshot",
+          "fire_hazard",
+          "airport_details"
+        ]
+      },
+      "storyFrame": {
+        "trigger": "Abschluss der Wartungsarbeiten vor Ort; die Altteile müssen zur Revision zurück in die Hauptwerkstatt.",
+        "focusSubject": "Elias (Techniker vor Ort)",
+        "keyQuestion": "Ist der defekte Starter verladebereit und kann die Diagnose in McCall heute noch starten?",
+        "stakes": "Sicherung des Materialkreislaufs und Vermeidung von Lagerengpässen bei kritischen Ersatzteilen.",
+        "completionSignal": "Entladen der 52 lbs Rückfracht am Hangar in McCall.",
+        "subjectDetail": "Elias, der zuständige Wartungstechniker am Big Creek Strip.",
+        "incidentContext": "Elias hat die Stromversorgung am Strip instand gesetzt und die defekten Komponenten für die Rückreise vorbereitet. Er benötigt nun den Transportplatz für die Überführung zur Basis.",
+        "whyNow": "Die Reparatur ist abgeschlossen und die Werft in McCall wartet auf das Bauteil, um den Schadensbericht für die Versicherung zu erstellen.",
+        "soughtOutcome": "Elias übergibt das Paket am Flugzeug. Der Pilot fliegt die Fracht zurück nach McCall, wo sie zur technischen Analyse ausgeladen wird.",
+        "incidentType": "",
+        "lastSeenContext": "",
+        "probableScenario": "",
+        "visibleClueCandidates": []
+      },
+      "infraNarrativeHandoff": null,
+      "chainNarrativeBrief": null,
+      "pickupCreativeBrief": null,
+      "missionVarietyBrief": {
+        "personalStoryBasis": {
+          "focus": "Die konkrete Sache, die zurückgeholt wird, und der Mensch, dessen Geschichte daran hängt.",
+          "connection": "Was der Kontakt draußen mit dieser Sache getan oder erlebt hat und was mit ihr nach der Rückkehr geschieht. Eine kurze Vorgeschichte ist möglich, aber keine Pflicht. Frachtlabel und Gewicht bleiben Vertragsdaten.",
+          "outcome": "Leer zum Strip, dort die vereinbarte Fracht laden, zum Heimatplatz zurück und dort ausladen. Kein zusätzlicher Passagier.",
+          "voice": "Dispatch erzählt über den Kontakt am Boden; die Ladung erhält keine Stimme. Keine Passagierbegrüßung und keine erfundene Bordbegleitung.",
+          "use": "Freie Inspiration. Sache, Kontakt und dessen Arbeit folgen bevorzugt einer Richtung der candidateShortlist; Ziel, Region und Gelände geben Farbe. Vorgeschichte, Pointe, Defektdrama oder Frist sind keine Pflicht."
+        },
+        "weatherIdeaPolicy": "BUSH-WETTER: Nutze Wetter als praktischen Hintergrund. Ein wettergetriebener Auftrag folgt einem belegten markanten Wetterereignis oder einer gelieferten Meldung mit Ort und Zeit. Die Jahreszeit darf einen längerfristigen zeitlichen Anker liefern, etwa Herbstwartung ohne Zeitdruck. Gewöhnliche Wetterwerte und die Jahreszeit allein begründen weder drohenden Schnee noch ein knappes letztes Flugfenster; wetterbedingte Eile braucht ein konkret belegtes bevorstehendes Ereignis. Menschliche und fachliche Anlässe dürfen unabhängig davon tragen. Leite whyNow zuerst aus dem nächsten Schritt der Person oder des Auftraggebers ab. Saisonale Vorsorge kann einfach ein sinnvoller heutiger Auftrag sein; normale aktuelle Wetterwerte beschreiben nur den Flugrahmen, nicht den Grund, weshalb der Auftrag gerade jetzt erledigt werden muss. Auch eine im Planner erfundene Wetterfrist ist kein zusätzlicher Wetterbeleg für den Writer.",
+        "candidateEvidencePolicy": "Kandidaten und regionale Rollen-/Tätigkeitsideen sind mögliche fiktive Motive, keine Ereignismeldungen oder Belege für Anlagen, Tal, Hang, Jahreszeitbedingungen und Wetter. Wähle einen Anlass, der ohne erfundene reale Eigenschaften des Ziels auskommt. Saisonale Tätigkeiten wie Herbstwartung sind als längerfristiger Anlass zulässig, ohne daraus nahen Frost, Sperrungen oder Zeitdruck abzuleiten. Ein wettergetriebener Ereigniskandidat braucht ein ausdrücklich geliefertes markantes Wetterereignis.",
+        "purpose": "Offener Kreativrahmen fuer einen Bush-Cargo-Pickup-Return. Das Profil fliegt leer zum Zielstrip, nimmt dort Rueckholfracht auf und bringt sie zur Basis.",
+        "recipe": "Leerflug von McCall Municipal Airport nach Big Creek Airport, Cargo am Zielstrip aufnehmen, Rueckflug nach McCall Municipal Airport, Abschluss mit Ausladen daheim.",
+        "coreQuestions": [
+          "Welche Rueckholfracht liegt bei Big Creek Airport bereit?",
+          "Wer hat sie dort vorbereitet oder warum steht sie am Striprand?",
+          "Warum muss die Fracht zur Basis: Werkstatt, Auswertung, Akte, Bestand oder naechster Versorgungslauf?",
+          "Warum bleibt der Hinflug leer und warum passt die Rueckholung zum Strip?",
+          "Was passiert in McCall Municipal Airport, wenn die Fracht angekommen ist?"
+        ],
+        "candidateShortlist": [
+          {
+            "id": "permit_document_pouch",
+            "familyId": "admin_documents",
+            "label": "Unterlagen, Permits und Betriebsmappe",
+            "wildcard": false,
+            "matchTags": [
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Permit-Kontakt",
+              "Rangerstation",
+              "Projektleitung"
+            ],
+            "taskIdeas": [
+              "unterschriebene Permits und Betriebsnotizen heimholen",
+              "Posttasche und Fotos aus dem Zielgebiet mitnehmen",
+              "Originalunterlagen fuer die Basisakte sichern"
+            ],
+            "objectIdeas": [
+              "versiegelte Posttasche",
+              "Dokumentenmappe",
+              "Fototablet",
+              "kleiner Aktenkoffer"
+            ],
+            "returnDrivers": [
+              "die Basis kann die Freigabe erst mit den Originalunterlagen abschliessen",
+              "der naechste Einsatz haengt an der Akte",
+              "Dokumente sollen nicht im Camp bleiben"
+            ],
+            "accessReasons": [
+              "der Strip ist der sichere Uebergabepunkt fuer Unterlagen",
+              "die Rueckfracht ist klein, aber wichtig",
+              "eine Landroute waere fuer die Mappe zu langsam"
+            ]
+          },
+          {
+            "id": "field_tool_repair_return",
+            "familyId": "tool_repair",
+            "label": "Werkzeug, Messgeraet oder Reparaturkoffer",
+            "wildcard": false,
+            "matchTags": [
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Feldteam",
+              "Vermessungsteam",
+              "Strip-Wartungskontakt"
+            ],
+            "taskIdeas": [
+              "Messgeraet und Werkzeugrolle zur Kalibrierung heimholen",
+              "kurze Mangelnotiz und Fotokarte mitnehmen",
+              "Reparaturbedarf in der Basis klaeren"
+            ],
+            "objectIdeas": [
+              "Messgeraet",
+              "Werkzeugrolle",
+              "Fotokarte",
+              "Mangelnotiz"
+            ],
+            "returnDrivers": [
+              "die Kalibrierung passiert nur in der Basis",
+              "das Feldteam braucht vor dem naechsten Einsatz Ersatz",
+              "der Rueckflug schliesst den Materiallauf ab"
+            ],
+            "accessReasons": [
+              "die Teile liegen am Wartepunkt am Strip",
+              "Outbound leer spart Gewicht fuer die Rueckfracht",
+              "ein Bodenweg waere fuer das Geraet unguenstig"
+            ]
+          },
+          {
+            "id": "lodge_inventory_return",
+            "familyId": "lodge_inventory",
+            "label": "Lodge-Inventar und Fehlbestand",
+            "wildcard": false,
+            "matchTags": [
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Lodge-Team",
+              "Camp-Koordinator",
+              "Outfitter-Kontakt"
+            ],
+            "taskIdeas": [
+              "Inventurliste, Schluessel und Fehlbestandkiste zur Basis bringen",
+              "Sonderbestellung und Rueckgabezeug aufnehmen",
+              "naechste Versorgungsliste in der Basis korrigieren"
+            ],
+            "objectIdeas": [
+              "Inventurkiste",
+              "Schluesselbund",
+              "Bestellzettel",
+              "kleiner Rueckgabekarton"
+            ],
+            "returnDrivers": [
+              "die Basis muss den naechsten Versorgungslauf sauber packen",
+              "die Lodge wartet auf korrigierte Bestellmengen",
+              "der Rueckflug vermeidet einen zweiten Kleinstlauf"
+            ],
+            "accessReasons": [
+              "die Kiste steht am Striprand bereit",
+              "die Fracht ist leicht, aber organisatorisch wichtig",
+              "Outbound bleibt bewusst frei fuer die Rueckholung"
+            ]
+          },
+          {
+            "id": "water_sample_cooler",
+            "familyId": "water_samples",
+            "label": "Wasserproben oder Labor-Kuehlbox",
+            "wildcard": false,
+            "matchTags": [
+              "water",
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Hydrologie-Team",
+              "Pegelwart",
+              "Camp-Kontakt"
+            ],
+            "taskIdeas": [
+              "Kuehlbox mit Proben und Pegelzetteln aufnehmen",
+              "versiegelte Behaelter in die Basis bringen",
+              "Laborfenster fuer die Auswertung halten"
+            ],
+            "objectIdeas": [
+              "kleine Kuehlbox",
+              "Probenbehaelter",
+              "Pegelzettel",
+              "versiegelte Tasche"
+            ],
+            "returnDrivers": [
+              "die Proben muessen in der Basis weitergekuehlt und erfasst werden",
+              "das Labor wartet auf die Behaelter",
+              "der Rueckflug ist der sichere Transportweg fuer empfindliches Material"
+            ],
+            "accessReasons": [
+              "der Zielstrip liegt nahe am Probenpunkt",
+              "Rueckholfracht bleibt klein und empfindlich",
+              "Outbound leer schafft Platz fuer saubere Sicherung"
+            ]
+          },
+          {
+            "id": "failed_generator_core",
+            "familyId": "utility_repair_return",
+            "label": "Defektes Generator- oder Pumpenteil",
+            "wildcard": false,
+            "matchTags": [
+              "remote_strip"
+            ],
+            "roleIdeas": [
+              "Utility-Kontakt am Strip",
+              "Camp-Wartungsteam",
+              "Generator-Servicekontakt"
+            ],
+            "taskIdeas": [
+              "defektes Generatormodul fuer die Werkstatt zurueckholen",
+              "Fehlerzettel und kleines Werkzeugcase mitnehmen",
+              "Ersatzteilbedarf in der Basis klaeren"
+            ],
+            "objectIdeas": [
+              "Generatormodul",
+              "Werkzeugtasche",
+              "Fehlerzettel",
+              "kleine Oelwanne"
+            ],
+            "returnDrivers": [
+              "die Werkstatt in der Basis kann erst mit dem Bauteil weiterarbeiten",
+              "der naechste Versorgungslauf braucht die Diagnose",
+              "das Camp wartet auf die Reparaturentscheidung"
+            ],
+            "accessReasons": [
+              "das Teil liegt abholbereit am Zielstrip",
+              "Outbound bleibt leer fuer Gewicht und Platz",
+              "Rueckfracht ist der eigentliche Auftrag"
+            ]
+          }
+        ],
+        "variety": {
+          "schema": "missionVarietyPack.v1",
+          "namespace": "bush_pickup_cargo",
+          "profileId": "bush_pickup_cargo",
+          "contextTags": [
+            "bush",
+            "remote_strip",
+            "water"
+          ],
+          "selectedIds": [
+            "permit_document_pouch",
+            "field_tool_repair_return",
+            "lodge_inventory_return",
+            "water_sample_cooler",
+            "failed_generator_core"
+          ],
+          "selectedFamilies": [
+            "admin_documents",
+            "tool_repair",
+            "lodge_inventory",
+            "water_samples",
+            "utility_repair_return"
+          ],
+          "primaryId": "permit_document_pouch",
+          "primaryFamily": "admin_documents",
+          "recentFamilies": [],
+          "recentPrimaryFamilies": [],
+          "recentPrimaryIds": [],
+          "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+          "storageKey": "ga_mission_variety_history_bush_pickup_cargo_v1"
+        },
+        "ingredientAxes": {
+          "roleFamilies": [
+            "Permit-Kontakt",
+            "Rangerstation",
+            "Projektleitung",
+            "Feldteam",
+            "Vermessungsteam",
+            "Strip-Wartungskontakt",
+            "Lodge-Team",
+            "Camp-Koordinator",
+            "Outfitter-Kontakt",
+            "Hydrologie-Team",
+            "Pegelwart",
+            "Camp-Kontakt"
+          ],
+          "activityVerbs": [
+            "unterschriebene Permits und Betriebsnotizen heimholen",
+            "Posttasche und Fotos aus dem Zielgebiet mitnehmen",
+            "Originalunterlagen fuer die Basisakte sichern",
+            "Messgeraet und Werkzeugrolle zur Kalibrierung heimholen",
+            "kurze Mangelnotiz und Fotokarte mitnehmen",
+            "Reparaturbedarf in der Basis klaeren",
+            "Inventurliste, Schluessel und Fehlbestandkiste zur Basis bringen",
+            "Sonderbestellung und Rueckgabezeug aufnehmen",
+            "naechste Versorgungsliste in der Basis korrigieren",
+            "Kuehlbox mit Proben und Pegelzetteln aufnehmen",
+            "versiegelte Behaelter in die Basis bringen",
+            "Laborfenster fuer die Auswertung halten",
+            "defektes Generatormodul fuer die Werkstatt zurueckholen",
+            "Fehlerzettel und kleines Werkzeugcase mitnehmen"
+          ],
+          "evidenceObjects": [
+            "versiegelte Posttasche",
+            "Dokumentenmappe",
+            "Fototablet",
+            "kleiner Aktenkoffer",
+            "Messgeraet",
+            "Werkzeugrolle",
+            "Fotokarte",
+            "Mangelnotiz",
+            "Inventurkiste",
+            "Schluesselbund",
+            "Bestellzettel",
+            "kleiner Rueckgabekarton",
+            "kleine Kuehlbox",
+            "Probenbehaelter"
+          ],
+          "returnDrivers": [
+            "die Basis kann die Freigabe erst mit den Originalunterlagen abschliessen",
+            "der naechste Einsatz haengt an der Akte",
+            "Dokumente sollen nicht im Camp bleiben",
+            "die Kalibrierung passiert nur in der Basis",
+            "das Feldteam braucht vor dem naechsten Einsatz Ersatz",
+            "der Rueckflug schliesst den Materiallauf ab",
+            "die Basis muss den naechsten Versorgungslauf sauber packen",
+            "die Lodge wartet auf korrigierte Bestellmengen",
+            "der Rueckflug vermeidet einen zweiten Kleinstlauf",
+            "die Proben muessen in der Basis weitergekuehlt und erfasst werden"
+          ],
+          "accessReasons": [
+            "der Strip ist der sichere Uebergabepunkt fuer Unterlagen",
+            "die Rueckfracht ist klein, aber wichtig",
+            "eine Landroute waere fuer die Mappe zu langsam",
+            "die Teile liegen am Wartepunkt am Strip",
+            "Outbound leer spart Gewicht fuer die Rueckfracht",
+            "ein Bodenweg waere fuer das Geraet unguenstig",
+            "die Kiste steht am Striprand bereit",
+            "die Fracht ist leicht, aber organisatorisch wichtig"
+          ]
+        },
+        "writerExpectations": [
+          "Nutze bevorzugt genau eine Richtung aus candidateShortlist, damit Rolle, Taetigkeiten, Gegenstaende und Folgegrund zusammenpassen.",
+          "Candidate-Elemente sind Rohmaterial: grammatisch umformen, nicht als Fragmente oder Feldtexte wortwoertlich in Story oder PAX-Cues kopieren.",
+          "Wenn candidateShortlist nicht passt, nutze ingredientAxes als offene Inspiration und bleibe trotzdem im Zielkontext.",
+          "Kontext, Profil-Rezept, TaskDomain und MissionTruth schlagen Varianz.",
+          "Nicht alle Achsen abarbeiten; frei kombinieren und variieren.",
+          "Keine neuen Ortsnamen oder harten Geofakten erfinden.",
+          "Keinen Passagier-Pickup daraus machen; Fokus bleibt Rueckholfracht.",
+          "Cargo, Grund, Wartepunkt und Folgeablauf muessen aus derselben Kandidatenrichtung kommen.",
+          "Die Story darf klein und praktisch sein; nicht automatisch Notfall oder Charter-Termin."
+        ],
+        "weatherNote": ""
+      },
+      "variety": {
+        "schema": "missionVarietyPack.v1",
+        "namespace": "bush_pickup_cargo",
+        "profileId": "bush_pickup_cargo",
+        "contextTags": [
+          "bush",
+          "remote_strip",
+          "water"
+        ],
+        "selectedIds": [
+          "permit_document_pouch",
+          "field_tool_repair_return",
+          "lodge_inventory_return",
+          "water_sample_cooler",
+          "failed_generator_core"
+        ],
+        "selectedFamilies": [
+          "admin_documents",
+          "tool_repair",
+          "lodge_inventory",
+          "water_samples",
+          "utility_repair_return"
+        ],
+        "primaryId": "permit_document_pouch",
+        "primaryFamily": "admin_documents",
+        "recentFamilies": [],
+        "recentPrimaryFamilies": [],
+        "recentPrimaryIds": [],
+        "selectionRule": "Kontextfilter zuerst; lokale Browser-History reduziert Wiederholungen; Wildcard bleibt profilkompatibel.",
+        "storageKey": "ga_mission_variety_history_bush_pickup_cargo_v1"
+      },
+      "sarHeli": null,
+      "missionTruth": null,
+      "semantics": {
+        "version": "mission-semantics-v4-2026-06-07",
+        "focusLock": {
+          "mode": "bush",
+          "taskDomain": "cargo",
+          "targetCategory": "cargo",
+          "requestedCategory": "all",
+          "primarySubjectLabel": "Big Creek Airport",
+          "primarySubjectType": "cargo",
+          "contextRoles": [
+            "orientation",
+            "hazard",
+            "access",
+            "support",
+            "evidence",
+            "background"
+          ]
+        },
+        "plannerGuardrails": [
+          "Primary subject lock: Big Creek Airport (cargo) bleibt Hauptsubjekt.",
+          "Task-domain lock: cargo bleibt die Art des Auftrags.",
+          "Kontextrollen: orientation, hazard, access, support, evidence, background.",
+          "Bush-Strip, Wildnisziel oder Bush-Area bleiben das Primaerziel.",
+          "Fluss, Camp, Waldsaum oder Zufahrt duerfen nur Logistik und Orientierung plausibilisieren.",
+          "Ziel und Anlass bleiben gekoppelt; Kontext darf nur plausibilisieren.",
+          "APT-Cargo bleibt ein reiner A-B-Frachtflug mit konkreter Sendung und vorbereiteter Uebergabe am Zielplatz.",
+          "Wenn taskDomain nicht cargo_fragile ist, bleibt APT-Cargo unbegleitet: 0 PAX, keine Techniker, kein Fachpersonal und keine Passagiere im Flugzeug.",
+          "Normale APT-Cargo-Fracht ist wichtig, aber nicht automatisch hochsensibel oder dramatisch; Empfaenger, Werft, Techniker oder Zielkontakt warten am Ziel.",
+          "Cargo-Anlaesse duerfen breit und alltaeglich sein: AOG-Ersatzteil, Industriekurier, Post- oder Paketbuendel, Eventmaterial, Dorffest-Getraenke, Drucksachen, Messgeraet, Werkstattkit oder Archivbox.",
+          "Planner liefert offene Story-Anker: was an Bord ist, warum der Flug jetzt sinnvoll ist, wer am Ziel wartet und welcher Folgeschritt nach der Landung anschliesst."
+        ],
+        "writerGuardrails": [
+          "Story, Greeting und sceneIntent muessen Big Creek Airport als Primaerfokus behalten.",
+          "Kontext darf den Auftrag anreichern, aber nicht umwidmen.",
+          "Die Erzaehlung bleibt Backcountry-/Bush-bezogen und driftet nicht in normalen A-B-Verkehr.",
+          "Kontext darf die Mission anreichern, aber nicht umdefinieren.",
+          "Briefing als kleine Frachtgeschichte schreiben, nicht als generischen Transfer.",
+          "Bei normaler APT-Cargo-Kategorie sind Techniker, Pruefer und Fachpersonal Zielkontakte, keine Mitflieger.",
+          "Nicht jeden Cargo-Auftrag wie eine hochsensible AOG-Lage erzaehlen; normale Sendungen duerfen pragmatisch, kurios oder ortsnah sein.",
+          "Route und Entfernung duerfen den Auftrag verorten; Sendung, Empfaenger und naechster Schritt tragen die Geschichte."
+        ],
+        "forceSceneNone": false,
+        "naturalPriority": false
+      },
+      "followUpContext": null,
+      "missionTemporalContext": null,
+      "varietyHints": null,
+      "targetGeoContext": null,
+      "airportDetails": {
+        "start": {
+          "icao": "KMYL",
+          "name": "McCall Municipal Airport",
+          "lat": 44.8897,
+          "lon": -116.101
+        },
+        "dest": {
+          "icao": "U60",
+          "name": "Big Creek Airport",
+          "lat": 45.133202,
+          "lon": -115.321999
+        },
+        "targetPoi": null
+      },
+      "departureAirportInformation": {
+        "schema": "departure-airport-information-text.v1",
+        "departureInfo": "Dein Flug beginnt am McCall Municipal Airport (KMYL), einem zentralen Knotenpunkt für Operationen in den umliegenden Gebirgsregionen. Die Piste 16/34 ist mit 1864 Metern Länge großzügig dimensioniert und durchgehend asphaltiert. Mit einer Platzhöhe von 5024 Fuß solltest du bereits beim Abflug die Auswirkungen der Höhenlage auf die Startrollstrecke und die Steigrate deines Flugzeugs einkalkulieren. McCall bietet eine gut ausgebaute Infrastruktur mit Hangars und Wartungseinrichtungen, was ihn zum idealen Stützpunkt für die technische Überholung von Komponenten aus den umliegenden Außenstationen macht.",
+        "sourceIds": [
+          "faa-mountain-tips"
+        ],
+        "generated": true
+      },
+      "airportInformation": {
+        "schema": "airport-information-text.v1",
+        "flightBriefing": "Du steuerst heute den Big Creek Airport (U60) an, der eingebettet in anspruchsvolles Gebirgsgelände auf einer Höhe von 5743 Fuß liegt. Die Piste 01/19 besteht aus Gras, ist 1082 Meter lang und 34 Meter breit. Aufgrund der Platzhöhe ist eine genaue Leistungsplanung für An- und Abflug unerlässlich, da die dünnere Luft die verfügbare Motor- und Steigleistung spürbar reduziert. Beachte zudem, dass der aktuelle Zustand des Grasbewuchses sowie eventuelle Bodenfeuchtigkeit Einfluss auf den Rollwiderstand und die Bremswirkung haben können. Ein Blick in die Flugzeugunterlagen zur Leistungsbeurteilung ist bei diesen Bedingungen immer ratsam.",
+        "destinationInfo": "Big Creek Airport (U60) Platzhöhe: 5743 ft MSL. Piste 01/19, 1082 m Länge, 34 m Breite, Gras. Weitere Angaben zur Umgebung und aktuelle betriebliche Hinweise liegen für diesen Text nicht vor.",
+        "sourceIds": [
+          "faa-mountain-tips",
+          "nz-caa-mountain"
+        ],
+        "generated": false,
+        "flightBriefingGenerated": true,
+        "basis": "own-data-only"
+      },
+      "bushFollowUpNarrative": {
+        "schema": "ga.bush.followup-memory.v1",
+        "memory": {
+          "summary": "Elias hat die Reparatur der Stromversorgung am Big Creek Airport erfolgreich abgeschlossen. Der defekte Generatorstarter und die technischen Unterlagen wurden nach McCall überführt, um dort eine Revision und Schadensanalyse für die Versicherung durchzuführen. Der Materialfluss wurde gesichert, während Elias vor Ort verblieb, um die Anlage in Betrieb zu nehmen.",
+          "participants": [
+            {
+              "name": "Elias",
+              "role": "Wartungstechniker"
+            }
+          ],
+          "openQuestions": [
+            "Bestätigt die Revision in McCall den vermuteten Defekt am Starter?",
+            "Sind weitere Ersatzteile für die langfristige Stabilität der Stromversorgung in Big Creek nötig?"
+          ],
+          "betweenFlightsIdeas": [
+            {
+              "followUpKind": "bush_supply_strip",
+              "summary": "Nach Abschluss der technischen Analyse in McCall könnten neue Ersatzteile oder optimierte Riemensätze identifiziert werden, die Elias für eine finale Aufrüstung in Big Creek benötigt."
+            }
+          ]
+        }
+      }
+    },
+    "_source": "Gemini 3.0 Flash + V5 Writer",
+    "bushFollowUpNarrative": {
+      "schema": "ga.bush.followup-memory.v1",
+      "memory": {
+        "summary": "Elias hat die Reparatur der Stromversorgung am Big Creek Airport erfolgreich abgeschlossen. Der defekte Generatorstarter und die technischen Unterlagen wurden nach McCall überführt, um dort eine Revision und Schadensanalyse für die Versicherung durchzuführen. Der Materialfluss wurde gesichert, während Elias vor Ort verblieb, um die Anlage in Betrieb zu nehmen.",
+        "participants": [
+          {
+            "name": "Elias",
+            "role": "Wartungstechniker"
+          }
+        ],
+        "openQuestions": [
+          "Bestätigt die Revision in McCall den vermuteten Defekt am Starter?",
+          "Sind weitere Ersatzteile für die langfristige Stabilität der Stromversorgung in Big Creek nötig?"
+        ],
+        "betweenFlightsIdeas": [
+          {
+            "followUpKind": "bush_supply_strip",
+            "summary": "Nach Abschluss der technischen Analyse in McCall könnten neue Ersatzteile oder optimierte Riemensätze identifiziert werden, die Elias für eine finale Aufrüstung in Big Creek benötigt."
+          }
+        ]
+      }
+    },
+    "departureAirportInformation": {
+      "schema": "departure-airport-information-text.v1",
+      "departureInfo": "Dein Flug beginnt am McCall Municipal Airport (KMYL), einem zentralen Knotenpunkt für Operationen in den umliegenden Gebirgsregionen. Die Piste 16/34 ist mit 1864 Metern Länge großzügig dimensioniert und durchgehend asphaltiert. Mit einer Platzhöhe von 5024 Fuß solltest du bereits beim Abflug die Auswirkungen der Höhenlage auf die Startrollstrecke und die Steigrate deines Flugzeugs einkalkulieren. McCall bietet eine gut ausgebaute Infrastruktur mit Hangars und Wartungseinrichtungen, was ihn zum idealen Stützpunkt für die technische Überholung von Komponenten aus den umliegenden Außenstationen macht.",
+      "sourceIds": [
+        "faa-mountain-tips"
+      ],
+      "generated": true
+    },
+    "airportInformation": {
+      "schema": "airport-information-text.v1",
+      "flightBriefing": "Du steuerst heute den Big Creek Airport (U60) an, der eingebettet in anspruchsvolles Gebirgsgelände auf einer Höhe von 5743 Fuß liegt. Die Piste 01/19 besteht aus Gras, ist 1082 Meter lang und 34 Meter breit. Aufgrund der Platzhöhe ist eine genaue Leistungsplanung für An- und Abflug unerlässlich, da die dünnere Luft die verfügbare Motor- und Steigleistung spürbar reduziert. Beachte zudem, dass der aktuelle Zustand des Grasbewuchses sowie eventuelle Bodenfeuchtigkeit Einfluss auf den Rollwiderstand und die Bremswirkung haben können. Ein Blick in die Flugzeugunterlagen zur Leistungsbeurteilung ist bei diesen Bedingungen immer ratsam.",
+      "destinationInfo": "Big Creek Airport (U60) Platzhöhe: 5743 ft MSL. Piste 01/19, 1082 m Länge, 34 m Breite, Gras. Weitere Angaben zur Umgebung und aktuelle betriebliche Hinweise liegen für diesen Text nicht vor.",
+      "sourceIds": [
+        "faa-mountain-tips",
+        "nz-caa-mountain"
+      ],
+      "generated": false,
+      "flightBriefingGenerated": true,
+      "basis": "own-data-only"
+    }
+  },
+  "technicalPassed": true
+}

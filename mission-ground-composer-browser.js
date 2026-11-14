@@ -35,7 +35,7 @@ function cargoPost(md, taskDomain) {
   try {
     const generate = root._missionCargoGenerateManifest;
     if (typeof generate !== 'function') return null;
-    const item = (generate(null)?.items || []).find((entry) => ['pickup-companion-cargo', 'primary-cargo'].includes(entry?.id));
+    const item = (generate(null)?.items || []).find((entry) => ['pickup-companion-cargo', 'pickup-cargo', 'primary-cargo'].includes(entry?.id));
     const weightLbs = Number(item?.weightLbs);
     if (!item || !text(item.label, 160) || !(weightLbs > 0)) return null;
     return { owner: 'pax1', description: text(item.label, 160), weightLbs };

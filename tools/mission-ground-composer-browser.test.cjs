@@ -27,6 +27,17 @@ test('Bush-Abholung: Personen aus pickupPassengerCount, Gepäck aus der Ladelist
   assert.equal(MissionCargoVisualCore.ideaOf({ groundComposer: src }), src);
 });
 
+test('Bush-Frachtabholung: Rückholfracht (pickup-cargo) geht an den Composer, keine Person', () => {
+  const md = { missionId: 'm3', taskDomain: 'bush_pickup_cargo', missionTitle: 'Teile für die Basis',
+    bush: { targetMode: 'strip_then_return', pickupKind: 'cargo', pickupLabel: 'Generatorstarter und Riemensatz (52 lbs)' } };
+  const src = withGlobals({ _missionCargoPassengerCount: () => 0,
+    _missionCargoGenerateManifest: () => ({ items: [{ id: 'pickup-cargo', label: 'Generatorstarter und Riemensatz (52 lbs)', weightLbs: 52 }] }) },
+    () => browser.source(md));
+  assert.equal(src.passengerCount, 0);
+  assert.deepEqual([src.cargoPost.description, src.cargoPost.weightLbs], ['Generatorstarter und Riemensatz (52 lbs)', 52]);
+  assert.equal(MissionOnboardCore.fromIdea(src).cargo.length, 1);
+});
+
 test('reiner Frachtflug: keine Personen, nur Ladung; Spezialpools ohne Ladung', () => {
   const md = { missionId: 'm2', taskDomain: 'cargo', missionTitle: 'Ersatzteile' };
   const src = withGlobals({ _missionCargoPassengerCount: () => 0, _missionCargoGenerateManifest: () => ({ items: [{ id: 'primary-cargo', label: 'Ersatzteile', weightLbs: 120 }] }) },

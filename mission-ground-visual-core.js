@@ -127,6 +127,7 @@ async function ensure(idea, json, options = {}) {
     }
     const plan = validate(await json(prompt(onboard)), onboard, context);
     if (!plan) throw new Error('ungültige Antwort');
+    plan.figureSeed = figureSeed();
     idea.groundVisual = plan;
     if (plan.cargo.c1) idea.cargoVisual = plan.cargo.c1;
     else if (onboard.cargo.length) await cargoCore()?.ensure?.(idea, json);
@@ -134,7 +135,7 @@ async function ensure(idea, json, options = {}) {
   } catch (error) {
     console.warn('[GroundVisual] Composer-Auswahl fehlgeschlagen, feste Liste:', error?.message || error);
     const plan = fallbackPlan(onboard, context);
-    if (plan) idea.groundVisual = plan;
+    if (plan) { plan.figureSeed = figureSeed(); idea.groundVisual = plan; }
     if (onboard?.cargo?.length && !idea.cargoVisual) await cargoCore()?.ensure?.(idea, json);
     return plan;
   }
@@ -151,11 +152,16 @@ function enabled() {
   }
 }
 
-// Konkrete Figuren je Pax aus dem Plan (oder Rückfall), Gruppe ohne Dopplung.
+// Eigener Losschlüssel je gespeichertem Plan: Er reist mit dem Plan in Rückflug und Fortsetzung
+// mit, damit dieselbe Person dort dieselbe Figur bekommt (die Missionskennung ändert sich).
+function figureSeed() { return 'gv-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8); }
+
+// Konkrete Figuren je Pax aus dem Plan (oder Rückfall), Gruppe ohne Dopplung. Ein gespeicherter
+// Plan lost mit seinem eigenen Schlüssel, sonst mit dem übergebenen (Missionskennung).
 function resolveFigures(plan, { season = '', seed = '' } = {}) {
   const core = figureCore();
   if (!core || !plan?.passengers?.length) return [];
-  const picks = core.pickGroupFigures(plan.passengers.map((p) => ({ gender: p.gender, look: p.look, ageBand: p.ageBand, use: 'passenger' })), { season, seed });
+  const picks = core.pickGroupFigures(plan.passengers.map((p) => ({ gender: p.gender, look: p.look, ageBand: p.ageBand, use: 'passenger' })), { season, seed: plan.figureSeed || seed });
   return plan.passengers.map((p, index) => {
     const pick = picks[index] || {};
     return { ...pick, id: p.id, lead: p.lead, look: p.look, figureLook: pick.look || '', gender: p.gender };
