@@ -13,7 +13,7 @@ test('Composer hat gewählt: Status, Quelle, Looks, Packstücke und was die Lade
     { id: 'primary-cargo', visualPieces: [{ title: 'Hardcase A' }, { title: 'Toolbox B' }], cargoVisualSource: 'composer' },
     { id: 'bordbuch', objectTitle: 'Book' }] };
   const [plan, used] = log.summarize(state, manifest);
-  assert.match(plan, /^GROUND_COMPOSER status=ai source=club-idea\.v1 idea=clubIdea aiLooks=1 kept=0 seed=1 pax=pax1:male\/outdoor\/adult\(composer\) cargo=c1:hardcase@40\+toolbox@12$/);
+  assert.match(plan, /^GROUND_COMPOSER status=ai source=club-idea\.v1 idea=clubIdea aiLooks=1 kept=0 seed=1 pax=pax1:male\/outdoor\/adult\(composer\) cargo=c1:hardcase@40\+toolbox@12 scenes=-$/);
   assert.equal(used, 'GROUND_COMPOSER_MANIFEST items=mission-passenger=tw-pod-hiker-f-01(figures) | primary-cargo=Hardcase A+Toolbox B(composer)');
 });
 
@@ -22,4 +22,11 @@ test('Fehler und übersprungener Schritt werden genannt', () => {
   assert.match(log.summarize(failed)[0], /status=fallback .* error="Boden-Composer ohne 'Antwort'"$/);
   assert.deepEqual(log.summarize({ currentMissionData: { groundComposerStatus: { status: 'skipped', reason: 'no-ai' } } }), ['GROUND_COMPOSER status=none reason=no-ai']);
   assert.deepEqual(log.summarize(null), ['GROUND_COMPOSER status=none reason=no-mission']);
+});
+
+test('Etappe E: Fahrzeug und Bringer/Empfänger je Szene im Log', () => {
+  const md = { groundComposer: { groundVisual: { composer: { status: 'ai' }, passengers: [], cargo: {}, scenes: {
+    start: { vehicle: 'car', vehicleSource: 'composer', persons: [{ gender: 'male', look: 'workwear' }] },
+    arrival: { vehicle: 'truck', vehicleSource: 'capacity', persons: [] } } } } };
+  assert.match(log.summarize(md)[0], / scenes=start:car\(composer\)\/male\/workwear;arrival:truck\(capacity\)\/-$/);
 });

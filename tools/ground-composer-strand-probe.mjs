@@ -188,8 +188,13 @@ try {
     run.passengers = (plan?.passengers || []).map((p) => ({ look: p.look, source: p.lookSource, gender: p.gender, ageBand: p.ageBand, note: p.note }));
     run.cargo = Object.fromEntries(Object.entries(plan?.cargo || {}).map(([id, x]) => [id, `${x.sourceLabel}: ` + x.pieces.map((p) => `${p.form} ${p.weightLbs} lbs`).join(', ')]));
     run.figures = ground.resolveFigures(plan, { season: 'winter', seed: c.name }).map((f) => f.title);
+    // Etappe E: Bringer/Empfänger und Fahrzeug je Szene.
+    run.scenes = Object.fromEntries(Object.entries(plan?.scenes || {}).map(([scene, x]) => [scene, {
+      vehicle: `${x.vehicle} (${x.vehicleSource}, ${x.seatsNeeded} Plätze)`, offered: ground.vehicleOptions(board, scene, c),
+      persons: x.persons.map((p) => `${p.gender}/${p.look}/${p.ageBand || '-'}(${p.lookSource})`),
+      figures: ground.resolveSceneCrew(plan, scene, { season: 'winter', seed: c.name, exclude: run.figures }).map((f) => f.title), note: x.note }]));
     run.manifestMainMatches = !!(c.idea.cargoVisual && visual.planMatches(c.idea.cargoVisual, visual.postFromIdea(c.idea)?.description, visual.postFromIdea(c.idea)?.weightLbs));
-    console.log('  ', JSON.stringify({ pax: run.passengers.map((p) => `${p.gender}/${p.look}/${p.ageBand}`), cargo: run.cargo, figures: run.figures }));
+    console.log('  ', JSON.stringify({ pax: run.passengers.map((p) => `${p.gender}/${p.look}/${p.ageBand}`), cargo: run.cargo, figures: run.figures, scenes: run.scenes }));
     report.runs.push(run); save();
   }
 } catch (error) { report.error = String(error.message).replaceAll(apiKey, '[redacted]'); save(); throw Error(report.error); }
@@ -201,6 +206,7 @@ for (const r of report.runs) {
   md.push(`- Bordliste: ${r.onboard.passengers.join(', ') || 'keine Personen'}; ${r.onboard.cargo.join('; ') || 'kein Gepäck'}`);
   for (const p of r.passengers) md.push(`- Look: **${p.look}** (${p.source}), ${p.gender}, ${p.ageBand || '–'} – ${p.note || ''}`);
   for (const [id, line] of Object.entries(r.cargo)) md.push(`- Packstücke ${id}: ${line}`);
+  for (const [scene, x] of Object.entries(r.scenes || {})) md.push(`- Szene ${scene}: Fahrzeug **${x.vehicle}** aus [${x.offered.join(', ')}]; Personen ${x.persons.join(', ') || '–'} → ${x.figures.join(', ') || '–'}${x.note ? ` – ${x.note}` : ''}`);
   md.push(`- Figuren: ${r.figures.join(', ') || '–'}`, `- KI-Looks: ${r.aiLooks}, Hauptposten passt zur Ladeliste: ${r.manifestMainMatches}`, '');
 }
 fs.writeFileSync(output.replace(/\.json$/, '.md'), md.join('\n'));

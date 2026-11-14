@@ -133,3 +133,80 @@ test('Etappe C ohne KI: Bush-Gäste outdoor, Privatflug casual über die feste R
   assert.equal(look('bush_charter_guest_v1', 'charter', 'male').look, 'outdoor');
   assert.equal(look('general_passenger_v1', 'private_outing', 'female').look, 'casual');
 });
+
+// Etappe E: Bringer/Empfänger und Fahrzeug je Bodenszene, Platzprüfung.
+test('Szenen: Standard je ein Bringer und ein Empfänger, Fahrzeug nach Plätzen', () => {
+  const onboard = onboardCore.fromIdea(idea());
+  assert.deepEqual(onboard.scenes.start.crew.map((m) => m.id), ['s1']);
+  assert.deepEqual(onboard.scenes.arrival.crew.map((m) => m.id), ['a1']);
+  const options = core.vehicleOptions(onboard, 'start', { taskDomain: 'charter' });
+  assert.ok(options.includes('car') && options.includes('van'));
+  assert.ok(!options.includes('quad'), 'Quad nur am Buschstreifen');
+  assert.ok(!options.includes('bus'), 'kein Bus für drei');
+  const text = core.prompt(onboard, undefined, { taskDomain: 'charter' });
+  assert.match(text, /SZENEN: .*"start".*"fahrzeuge"/);
+});
+
+test('Platzregel: Quad nie für drei Personen, auch wenn die KI es wählt', () => {
+  const bushIdea = { schema: 'mission-ground-source.v1', occasion: 'Abholung am Buschstreifen', passengerCount: 1,
+    lead: { role: 'Wanderin', gender: 'female' }, groundCast: { start: [{ role: 'Hüttenwirt' }, { role: 'Helfer' }] } };
+  const onboard = onboardCore.fromIdea(bushIdea);
+  const context = { roleProfile: 'bush_pickup_guest_v1' };
+  assert.ok(!core.vehicleOptions(onboard, 'start', context).includes('quad'));
+  const plan = core.validate({ passengers: [], scenes: { start: { vehicle: 'quad' } } }, onboard, context);
+  assert.equal(plan.scenes.start.vehicle, 'truck', 'Busch: Pick-up mit 3 Plätzen');
+  assert.equal(plan.scenes.start.vehicleSource, 'capacity');
+  assert.equal(plan.scenes.start.seatsNeeded, 3);
+  const solo = onboardCore.fromIdea({ ...bushIdea, groundCast: { start: [], arrival: [{ role: 'Hüttenwirt' }] } });
+  assert.ok(core.vehicleOptions(solo, 'arrival', context).includes('quad'), 'Pax mit Abholer am Strip: Quad erlaubt');
+  assert.ok(!core.vehicleOptions(solo, 'start', context).includes('quad'), 'am Startflugplatz kein Quad');
+  assert.equal(solo.scenes.start.crew.length, 0, 'leere Liste heißt: niemand bringt');
+});
+
+test('Fracht: schwer oder sperrig verlangt Ladefläche; KI-Wahl gilt, wenn sie passt', () => {
+  const freight = { schema: 'cargo-idea.v1', purpose: 'Ersatzteile', shipment: { label: 'Getriebe in Holzkiste', packaging: 'Holzkiste', weightLbs: 180 }, sender: 'Werkstatt' };
+  const onboard = onboardCore.fromIdea(freight);
+  const options = core.vehicleOptions(onboard, 'arrival', { taskDomain: 'cargo' });
+  assert.deepEqual(options.filter((k) => ['car', 'quad'].includes(k)), []);
+  const plan = core.validate({ passengers: [], scenes: { arrival: { vehicle: 'truck', persons: [{ id: 'a1', look: 'workwear', gender: 'male' }] } } }, onboard, { taskDomain: 'cargo' });
+  assert.equal(plan.scenes.arrival.vehicle, 'truck');
+  assert.equal(plan.scenes.arrival.vehicleSource, 'composer');
+  assert.deepEqual([plan.scenes.arrival.persons[0].look, plan.scenes.arrival.persons[0].gender], ['workwear', 'male']);
+  assert.equal(plan.scenes.start.vehicle, 'van', 'Rückfall bei schwerer Fracht außerhalb Bush: Transporter');
+});
+
+test('Patiententransfer: Krankenwagen nur am Start', () => {
+  const med = { schema: 'medical-transfer-idea.v1', purpose: 'Verlegung', passenger: { role: 'Notärztin', gender: 'female' }, patient: { gender: 'male' } };
+  const onboard = onboardCore.fromIdea(med);
+  assert.equal(core.validate({ passengers: [] }, onboard, {}).scenes.start.vehicle, 'medical');
+  assert.ok(!core.vehicleOptions(onboard, 'arrival', {}).includes('medical'));
+});
+
+test('Empfänger-Figuren: eigene Figur je Person, keine Dopplung mit den Mitreisenden', () => {
+  const onboard = onboardCore.fromIdea({ ...idea(), groundCast: { arrival: [{ role: 'Hochzeitsplanerin', gender: 'female' }, { role: 'Fahrer', gender: 'male' }] } });
+  const plan = core.fallbackPlan(onboard, { roleProfile: 'charter_professional_neutral_v1' });
+  plan.figureSeed = 'gv-test';
+  const pax = core.resolveFigures(plan, { season: 'summer' }).map((f) => f.title);
+  const crew = core.resolveSceneCrew(plan, 'arrival', { season: 'summer', exclude: pax });
+  assert.equal(crew.length, 2);
+  assert.deepEqual(crew.map((c) => c.gender), ['female', 'male']);
+  assert.ok(crew.every((c) => c.title && !pax.includes(c.title)));
+  assert.equal(crew[0].role, 'Hochzeitsplanerin');
+});
+
+test('Rückflug mit altem Plan ohne Szenen: Szenen nach Platzregel ergänzt, Looks bleiben', async () => {
+  const i = idea();
+  await core.ensure(i, async () => ({ passengers: [{ id: 'pax1', look: 'business' }, { id: 'pax2', look: 'casual', gender: 'female' }] }), {});
+  delete i.groundVisual.scenes;
+  i.luggageLabel = 'Nur Handgepäck'; i.luggageWeightLbs = 5;
+  await core.ensure(i, async () => ({ passengers: [] }), {});
+  assert.equal(i.groundVisual.passengers[0].look, 'business');
+  assert.equal(i.groundVisual.scenes.start.vehicle, 'car');
+});
+
+test('Gruppen bleiben in der Tracker-Fahrzeugregel: 2 Pkw/Van, 3–5 Van', () => {
+  const two = onboardCore.fromIdea(idea());
+  assert.deepEqual(core.vehicleOptions(two, 'start', {}).sort(), ['car', 'van']);
+  const four = onboardCore.fromIdea({ ...idea(), passengerCount: 4 });
+  assert.deepEqual(core.vehicleOptions(four, 'start', {}), ['van']);
+});

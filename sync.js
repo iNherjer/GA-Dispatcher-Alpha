@@ -7544,7 +7544,38 @@ function _missionSceneCargoItems(cargoPoint, cargoAsset) {
 // Cargo-/Manifest-Kernlogik lebt ab hier in mission-cargo-core.js.
 
 
-function _missionSceneVehicleAsset() {
+// Etappe E: Fahrzeugart je Bodenszene aus dem Boden-Composer (Plätze und Ladung geprüft).
+// Gruppen fahren weiter nach der Tracker-Fahrzeugregel; Feuer, SAR und Medizin behalten ihre
+// Einsatzfahrzeuge. 'truck' heißt Pick-up/Pritsche, keine Lkw. Ohne Plan: bisherige Wahl.
+const MISSION_SCENE_COMPOSER_VEHICLE_POOLS = Object.freeze({
+    quad: 'quads', truck: 'trucks', car: 'cars', van: 'vans', bus: 'buses', medical: 'medicalVehicles'
+});
+function _missionSceneComposerScene(scene = 'start') {
+    if (!_missionPersonFiguresEnabled()) return null;
+    const plan = _missionSceneGroundIdea()?.groundVisual || null;
+    const entry = plan?.scenes?.[scene];
+    return entry && typeof entry === 'object' ? { plan, entry } : null;
+}
+function _missionSceneComposerVehicleAsset(scene = 'start') {
+    const found = _missionSceneComposerScene(scene);
+    const kind = String(found?.entry?.vehicle || '');
+    const poolKey = MISSION_SCENE_COMPOSER_VEHICLE_POOLS[kind];
+    if (!poolKey) return null;
+    if (/^(fire_watch|search_and_rescue|medical_transfer)$/.test(_missionSceneTaskDomain())) return null;
+    if ((kind === 'car' || kind === 'quad') && _missionSceneCargoNeedsVan()) return null;
+    let pool = kind === 'medical'
+        ? _sceneUniqueTitles(MISSION_SCENE_ASSET_POOLS.medicalVehicles)
+        : _missionSceneFilteredVehiclePool(MISSION_SCENE_ASSET_POOLS[poolKey] || []);
+    if (kind === 'truck') {
+        const pickups = pool.filter(title => /utility|pickup/i.test(title));
+        if (pickups.length) pool = pickups;
+    }
+    if (!pool.length) return null;
+    const preferred = _sceneObjectTitleOverride('vehicle', _scenePickTitle(pool, `vehicle-composer-${scene}-${kind}`, pool[0]), pool);
+    return { title: preferred, candidates: _sceneAssetCandidates(preferred, pool), composerKind: kind, composerScene: scene };
+}
+
+function _missionSceneVehicleAsset(scene = 'start') {
     const groupPlan = _missionSceneGroupPlan();
     if (groupPlan && groupPlan.groupVehicleKind === 'car') {
         // Nur Titel, die der Tracker als Gruppen-Pkw annimmt (GROUP_VEHICLE_TITLES.car).
@@ -7570,6 +7601,8 @@ function _missionSceneVehicleAsset() {
             candidates: _sceneAssetCandidates(preferred, pool)
         };
     }
+    const composerVehicle = typeof _missionSceneComposerVehicleAsset === 'function' ? _missionSceneComposerVehicleAsset(scene) : null;
+    if (composerVehicle) return composerVehicle;
     const taskDomain = _missionSceneTaskDomain();
     if (_missionBushIsPickupPassengerMission()) {
         const bushPool = _missionSceneFilteredVehiclePool(
@@ -7731,6 +7764,19 @@ function _missionSceneGroundFigures() {
 
 function _missionSceneGroundFigureCandidates(figure) {
     return figure?.title ? _sceneTitleCandidates(figure.title, figure.candidates || []) : [];
+}
+
+// Bringer (start) bzw. Empfänger (arrival) aus dem Composer-Plan; nie dieselbe Figur wie ein
+// Mitreisender. null = kein Plan mit Szenen → bisherige Besetzung.
+function _missionSceneCrewFigures(scene = 'start', paxFigures = null) {
+    const found = _missionSceneComposerScene(scene);
+    if (!found || !Array.isArray(found.entry.persons) || !window.MissionGroundVisualCore?.resolveSceneCrew) return null;
+    const crew = window.MissionGroundVisualCore.resolveSceneCrew(found.plan, scene, {
+        season: _missionScenePassengerSeason(),
+        seed: _missionSceneId(),
+        exclude: (Array.isArray(paxFigures) ? paxFigures : []).map(figure => figure?.title).filter(Boolean)
+    });
+    return crew.every(figure => figure.title) ? crew : null;
 }
 
 function _missionScenePersonTitle(gender = 'female', salt = 'person') {
@@ -7996,6 +8042,24 @@ function _missionSceneBuildSpawnEffectCommand(reason = 'scene-spawn', position =
             altOffsetFt: Number.isFinite(Number(personSpawn.altOffsetFt)) ? Number(personSpawn.altOffsetFt) : 0
         };
     });
+    // Bringer aus dem Composer ersetzen die festen „Crew Fahrzeug“-Figuren: so viele, wie der
+    // Plan vorsieht (höchstens die zwei Plätze am Fahrzeug); sie steigen ein und fahren mit weg.
+    const startCrew = vehicleSupportEnabled && !groupPlan && typeof _missionSceneCrewFigures === 'function'
+        ? _missionSceneCrewFigures('start', groundFigures) : null;
+    let startCrewPlaced = null;
+    if (startCrew) {
+        const idleItems = legacyPersonItems.filter(item => /^person_idle/.test(item.kind));
+        idleItems.forEach((item, index) => {
+            const figure = startCrew[index];
+            if (!figure) {
+                legacyPersonItems.splice(legacyPersonItems.indexOf(item), 1);
+                return;
+            }
+            item.objectTitle = figure.title;
+            item.titleCandidates = _missionSceneGroundFigureCandidates(figure);
+        });
+        startCrewPlaced = Math.min(startCrew.length, idleItems.length);
+    }
     const groupMembers = groupPlan && typeof window.GAMissionSceneGroup?.buildGroupMemberPlans === 'function'
         ? window.GAMissionSceneGroup.buildGroupMemberPlans(boarderCount, groupPlan)
         : [];
@@ -8060,6 +8124,8 @@ function _missionSceneBuildSpawnEffectCommand(reason = 'scene-spawn', position =
             passengerCount: _missionScenePaxCount(),
             groupSequence: !!groupPlan,
             groupVehicleKind: groupPlan?.groupVehicleKind || null,
+            composerVehicle: vehicleAsset?.composerKind || null,
+            composerCrew: startCrewPlaced,
             personTitles: personItems.map(item => item.objectTitle).filter(Boolean),
             itemCount: sceneItems.length + cargoItems.length + personItems.length
         }
@@ -8094,7 +8160,7 @@ function _missionSceneBuildBoardingEffectCommand(reason = 'boarding', position =
 }
 
 function _missionSceneBuildDeboardingCommand(reason, pos, sceneId, deboardingPaxCount, coordinateFarewell = false, aptPickupPoint = null, pickupSceneId = '') {
-    const vehicleAsset = _missionSceneVehicleAsset();
+    const vehicleAsset = _missionSceneVehicleAsset('arrival');
     const vehicleTitle = vehicleAsset?.title || MISSION_SCENE_DEFAULT_VEHICLE_TITLE;
     const commonFields = _missionSceneCommonSceneCommandFields();
     if (aptPickupPoint) {

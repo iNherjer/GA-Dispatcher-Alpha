@@ -330,6 +330,40 @@ Inventar-Sitzungen mit fester Bordausrüstung, kein `generateMission`; der Compo
 | SAR-Vermisste | `sar.person_target` (`mmh_HikerRescue` …) | optional eigene Figuren (z. B. Wanderin liegend/winkend – eigene Animation nötig) |
 | Bodenpersonal/Marshaller | Stock | unverändert, später `uses: ground_crew` |
 
+### Etappe E – Arbeitsteilung und Umsetzung (ab 14.11.2026, Web v2392)
+
+Entscheidung mit dem User (14.11.2026): Szenenplaner und Composer werden **nicht**
+zusammengelegt, sondern sauber getrennt.
+
+| Stufe | Wann | Entscheidet |
+|---|---|---|
+| Idee | Generierung | **Wer** da ist: Mitreisende, Bringer, Empfänger (`groundCast: { start: [{ role, gender }], arrival: [...] }`) |
+| Composer | Generierung | **Wie** es aussieht: Figur je Person, Packstücke, **Fahrzeugart je Szene** (Start und Ziel unabhängig) |
+| Szenenplaner V3 | Annahme | **Wo** es steht: Empfangsplatz, Positionen; POI-Zielszenen bleiben ganz bei ihm |
+
+**Schritt 1 (umgesetzt):** Die Bordliste (`mission-onboard-core.js`) trägt `scenes.start.crew`
+(Bringer) und `scenes.arrival.crew` (Empfänger). Ohne `groundCast` gilt je Szene eine neutrale
+Person, eine leere Liste heißt „niemand“. Der Composer (`mission-ground-visual-core.js`) wählt
+je Szene Look/Alter/Geschlecht der Personen und die Fahrzeugart aus einer **vorab nach Plätzen
+geprüften** Liste (`vehicleOptions`). Sitze inklusive Fahrer: Quad 2, Pick-up 3, Pkw 5, Van 8,
+Bus 20, Krankenwagen 3 (nur Patiententransfer am Start). Alle in der Szene (Mitreisende plus
+Bringer bzw. Empfänger) müssen passen. Ab 100 lbs oder mit sperrigem Stück nur Pick-up/Van/Bus.
+Das Quad gibt es nur am Buschstreifen selbst (Ziel) mit höchstens 100 lbs. Gruppen (2–5) bleiben
+in der Tracker-Fahrzeugregel v2 (2 Pkw/Van, 3–5 Van). Eine ungültige KI-Wahl fällt auf das
+kleinste passende Fahrzeug zurück (`vehicleSource: 'capacity'`). Alte Pläne ohne Szenen bekommen
+sie beim Rückflug nach Platzregel. Live-Probe: `analysis/ground-composer-scenes-*-20261114.md`.
+
+**Schritt 2 (umgesetzt):** Die Startszene (`sync.js`) nimmt die Fahrzeugart aus dem Plan
+(`_missionSceneComposerVehicleAsset`, „truck“ = Pick-up/Utility, keine Lkw) und setzt die Bringer an
+die Stelle der festen „Crew Fahrzeug“-Figuren (sie steigen ein und fahren mit weg). Die
+Abholung am Ziel ohne Planer-Empfang nimmt das Zielfahrzeug. Unverändert: Gruppen (Tracker-Regel),
+Feuer, SAR, Medizin, schwere Fracht schlägt Pkw/Quad, Notaus `ga_person_figures_v1 = 'off'`.
+
+**Offen:** Schritt 3 – der Szenenplaner bekommt die Empfangsbesetzung (Personen, Fahrzeugart)
+als feste Vorgabe und platziert nur noch; Schritt 4 – `groundCast` aus den Ideen, Strang für
+Strang mit Live-Probe; Tracker `planPickupReception` (Build nötig). Tracker-Log zeigt die Szenen
+ab dem nächsten Build (`GROUND_COMPOSER … scenes=`).
+
 ### Etappe F – Aufräumen
 
 - Regex-Geschlechtserkennung in `_missionScenePassengerGender` entfernen.

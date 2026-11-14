@@ -44,8 +44,13 @@ function summarize(state = null, cargoManifest = null) {
     const cargo = Object.entries(plan.cargo && typeof plan.cargo === 'object' ? plan.cargo : {})
       .map(([id, entry]) => `${clean(id, 10)}:${(Array.isArray(entry?.pieces) ? entry.pieces : []).map(piece => `${clean(piece.form, 20)}@${Math.round(Number(piece.weightLbs) || 0)}`).join('+') || '-'}`)
       .join(',') || '-';
+    // Etappe E: Fahrzeug (Quelle composer|capacity) und Bringer/Empfänger je Bodenszene.
+    const scenes = Object.entries(plan.scenes && typeof plan.scenes === 'object' ? plan.scenes : {})
+      .map(([scene, entry]) => `${clean(scene, 10)}:${clean(entry?.vehicle, 10) || '?'}(${clean(entry?.vehicleSource, 10) || '-'})/`
+        + ((Array.isArray(entry?.persons) ? entry.persons : []).map(p => `${clean(p.gender, 8) || '?'}/${clean(p.look, 20) || '?'}`).join('+') || '-'))
+      .join(';') || '-';
     lines.push(`GROUND_COMPOSER status=${status} source=${clean(info.source, 40) || '-'} idea=${clean(key, 50)} aiLooks=${Number(plan.aiLooks) || 0}`
-      + ` kept=${info.kept ? 1 : 0} seed=${plan.figureSeed ? 1 : 0} pax=${pax} cargo=${cargo}`
+      + ` kept=${info.kept ? 1 : 0} seed=${plan.figureSeed ? 1 : 0} pax=${pax} cargo=${cargo} scenes=${scenes}`
       + (info.error ? ` error="${clean(info.error, 160).replace(/"/g, "'")}"` : ''));
   }
   const manifest = manifestOf(state, cargoManifest);

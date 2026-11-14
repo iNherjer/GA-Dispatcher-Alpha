@@ -27,6 +27,14 @@ liefert alles Offene mit aus.
 
 ## Offen
 
+### 2026-11-14 · Composer-Diagnose zeigt Fahrzeug und Bringer/Empfänger je Szene
+- **Artefakt:** Tracker-EXE; Web live mit v2392
+- **Dateien:** `ga-tracker-client/tracker-ground-composer-log.js`
+- **Was:** Die Zeile `GROUND_COMPOSER` bekommt `scenes=start:<Fahrzeug>(composer|capacity)/<Personen>;arrival:…` (Etappe E). Nur Diagnose, keine Wirkung auf den Ablauf.
+- **Tests:** `tracker-ground-composer-log.test.js` 3/3.
+- **Doku beim Release:** keine (Fahrplan, Etappe E).
+- **Pruefen im Feld:** Log einer Mission mit Bringer/Empfänger enthält `scenes=`.
+
 ## Ausgeliefert
 
 ### 2026-11-14 · Geschlossene Mission räumt ihre Szenen ab, Composer-Diagnose im Log — ausgeliefert in Tracker v635 Alpha / Web v2391 (14.11.2026)

@@ -122,7 +122,8 @@ const ADAPTERS = {
     groupLabel: text(src.groupLabel, 100),
     passengers: Number(src.passengerCount) > 0
       ? passengersFor({ lead: src.lead, passengerCount: src.passengerCount, groupLabel: src.groupLabel, companions: src.companions }) : [],
-    cargo: [src.cargoPost ? cargoPost('c1', src.cargoPost) : null].filter(Boolean)
+    cargo: [src.cargoPost ? cargoPost('c1', src.cargoPost) : null].filter(Boolean),
+    scenes: src.groundCast || null
   }),
   'apt-news-idea.v1': (idea) => ({
     occasion: join([idea.purpose, idea.background, idea.angle]),
@@ -138,7 +139,33 @@ function fromIdea(idea = null) {
   if (!idea || typeof idea !== 'object') return null;
   const adapter = ADAPTERS[idea.schema];
   if (!adapter) return null;
-  return normalize({ schema: SCHEMA, source: idea.schema, ...adapter(idea) });
+  return normalize({ schema: SCHEMA, source: idea.schema, scenes: idea.groundCast || null, ...adapter(idea) });
+}
+
+// Bodenszenen am Start und am Ziel: wer außer den Mitreisenden dort steht (Bringer bzw.
+// Empfänger, fährt mit dem Szenenfahrzeug). Kommt strukturiert aus der Idee (groundCast:
+// { start: [{ role, gender }], arrival: [...] }); fehlt sie, je Szene eine neutrale Person.
+// Start und Ziel sind unabhängig – anderes Fahrzeug, andere Personen.
+const MAX_CREW = 3;
+const DEFAULT_CREW_ROLE = {
+  start: 'bringt die Mitreisenden bzw. die Sendung zum Flugzeug und fährt danach weg',
+  arrival: 'holt am Ziel ab und fährt mit Mitreisenden bzw. Sendung weg'
+};
+function crewFor(list, scene) {
+  const prefix = scene === 'start' ? 's' : 'a';
+  const raw = Array.isArray(list) ? list.filter((entry) => entry && typeof entry === 'object').slice(0, MAX_CREW) : null;
+  const entries = raw && raw.length ? raw : (Array.isArray(list) ? [] : [{}]);
+  return entries.map((entry, index) => ({
+    id: `${prefix}${index + 1}`,
+    role: text(entry.role, 100) || DEFAULT_CREW_ROLE[scene],
+    gender: gender(entry.gender),
+    appearance: text(entry.appearance, 200),
+    fromIdea: !!(raw && raw.length)
+  }));
+}
+function scenesFor(raw = null) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  return { start: { crew: crewFor(src.start, 'start') }, arrival: { crew: crewFor(src.arrival, 'arrival') } };
 }
 
 // Allgemeiner Rückfall ohne passende Idee: Hauptperson und Gruppengröße aus dem Missionsprofil.
@@ -170,10 +197,10 @@ function normalize(raw = null) {
   const cargo = (Array.isArray(raw.cargo) ? raw.cargo : []).slice(0, 6)
     .map((post, index) => cargoPost(`c${index + 1}`, post || {})).filter(Boolean);
   return { schema: SCHEMA, source: text(raw.source, 60), occasion: text(raw.occasion, 600), task: text(raw.task, 300),
-    groupLabel: text(raw.groupLabel, 100), passengers, cargo };
+    groupLabel: text(raw.groupLabel, 100), passengers, cargo, scenes: scenesFor(raw.scenes) };
 }
 
-const api = { SCHEMA, MAX_PASSENGERS, fromIdea, fromPassenger, normalize, adapters: Object.keys(ADAPTERS) };
+const api = { SCHEMA, MAX_PASSENGERS, MAX_CREW, fromIdea, scenesFor, fromPassenger, normalize, adapters: Object.keys(ADAPTERS) };
 root.MissionOnboardCore = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
