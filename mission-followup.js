@@ -931,6 +931,20 @@
             : { roleProfile: 'bush_pickup_guest_v1', taskDomain: 'bush_pickup_return' };
     }
 
+    // Wahl der Hauptperson aus dem allgemeinen Boden-Composer (md.groundComposer, Schema
+    // ground-carry.v1); gelesen von mission-ground-composer-browser.js carryFor. Läuft auch im
+    // Tracker (headless), daher ohne Browser-Abhängigkeit.
+    function groundCarryFrom(md = null) {
+        const plan = md?.groundComposer?.groundVisual;
+        const list = Array.isArray(plan?.passengers) ? plan.passengers : [];
+        const lead = list.find(p => p && p.lead) || list[0] || null;
+        const name = cleanText(md?.passenger?.name || md?.missionContract?.passenger?.name || '', 80).toLowerCase();
+        const look = cleanText(lead?.look || '', 40);
+        if (!lead || !name || !look) return null;
+        return { schema: 'ground-carry.v1', name, gender: cleanText(lead.gender || '', 10), look,
+            ageBand: cleanText(lead.ageBand || '', 40), figureSeed: cleanText(plan.figureSeed || '', 60) };
+    }
+
     function extractPassenger(md = null, sourceKind = '') {
         const candidates = [
             md?.passenger,
@@ -2291,6 +2305,9 @@
                 distanceNm: Number.isFinite(Number(md.initialDist || md.dist)) ? Number(md.initialDist || md.dist) : null
             },
             passenger,
+            // Boden-Composer: Wahl der Hauptperson (Look, Losschlüssel), damit dieselbe Person in der
+            // Folgemission gleich aussieht. Nur Bildwahl, geht in keinen Writer-Prompt.
+            ...(groundCarryFrom(md) ? { groundCarry: groundCarryFrom(md) } : {}),
             cargoReturn: cfg.followUpKind === 'bush_pickup_cargo' ? buildCargoReturn(memory, targetRef) : null,
             serviceRun,
             technicianPlan,
@@ -3198,6 +3215,7 @@
         return false;
     };
     window.missionFollowupMarkAccepted = markAccepted;
+    window.missionFollowupGetRequest = id => (id ? getRequests().find(row => row.id === id) || null : null);
     window.missionFollowupGetForSync = getForSync;
     window.missionFollowupApplyFromSync = applyFromSync;
     window.missionFollowupCompactForSync = compactForSync;

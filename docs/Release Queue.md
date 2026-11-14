@@ -43,6 +43,14 @@ liefert alles Offene mit aus.
 - **Doku beim Release:** keine.
 - **Pruefen im Feld:** nichts.
 
+### 2026-11-14 · Folgemissionen behalten die Figur der Hauptperson (mitgepackter Kern)
+- **Artefakt:** Tracker-EXE (bündelt `mission-followup.js` per require für Folgeanfragen nach Missionsende); Web live mit v2390
+- **Dateien:** `mission-followup.js`
+- **Was:** Neue Folgeanfragen tragen `groundCarry` (Look, Alter, Losschlüssel der Hauptperson aus `md.groundComposer`). Bis zum Build legt der Tracker Anfragen ohne das Feld an; die Folgemission wählt dann wie bisher neu.
+- **Tests:** `tools/bush-followup-narrative.test.cjs` 7/7, `tools/mission-ground-composer-browser.test.cjs` 6/6, Tracker-Suite 1559/1561 (2 übersprungen).
+- **Doku beim Release:** keine (Fahrplan „Rückflüge und Fortsetzungen“).
+- **Pruefen im Feld:** Bush-Charter-Gast hinfliegen, Abholung als Folgemission: gleiche Figur.
+
 ## Ausgeliefert
 
 ### 2026-11-13 · Empfang am Zielplatz: Fahrzeugregel v2, Aufräumen, EFB-Abholpunkt — ausgeliefert in Tracker v634 Alpha / Web v2380 (13.11.2026)

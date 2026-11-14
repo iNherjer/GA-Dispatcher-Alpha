@@ -68,6 +68,29 @@ function source(md) {
   };
 }
 
+// Folgemission mit derselben Person (z. B. Abholung des Bush-Gasts, POI-Fortsetzung): Die Anfrage
+// trägt die Wahl der Hauptperson aus dem ersten Flug (mission-followup.js groundCarryFrom, auch im Tracker).
+const CARRY_SCHEMA = 'ground-carry.v1';
+function personName(value) { return text(value, 80).toLowerCase(); }
+function carryFor(md) {
+  try {
+    const req = md?.followUpRequestId ? root.missionFollowupGetRequest?.(md.followUpRequestId) : null;
+    const carry = req?.groundCarry;
+    if (carry?.schema !== CARRY_SCHEMA) return null;
+    // Nur dieselbe Person: Folgeaufträge mit anderer Person (Techniker nach Recon) wählen neu.
+    return carry.name && carry.name === personName(md.passenger?.name || md.missionContract?.passenger?.name) ? carry : null;
+  } catch (_) { return null; }
+}
+function applyCarry(plan, carry) {
+  const lead = Array.isArray(plan?.passengers) ? plan.passengers.find((p) => p?.lead) || plan.passengers[0] : null;
+  if (!lead || !carry || (carry.gender && lead.gender && carry.gender !== lead.gender)) return false;
+  lead.look = carry.look;
+  if (carry.ageBand) lead.ageBand = carry.ageBand;
+  lead.lookSource = 'followup';
+  if (carry.figureSeed) plan.figureSeed = carry.figureSeed;
+  return true;
+}
+
 function json(prompt) {
   if (typeof root.fetchGeminiJsonWithFallback !== 'function') return Promise.reject(new Error('KI nicht verfügbar'));
   return root.fetchGeminiJsonWithFallback(prompt, root.getSelectedAiApiKey?.(), { promptVersion: 'ground-visual-generic-v1', timeoutMs: 26000 })
@@ -84,9 +107,11 @@ function start(md, { aiModeEnabled = false } = {}) {
   if (!src) return null;
   md.groundComposer = src;
   const missionId = md.missionId;
+  const carry = carryFor(md);
   const promise = visual.ensure(src, json, { taskDomain: src.taskDomain, roleProfile: src.roleProfile })
     .catch((error) => { console.warn('[GroundComposer] Auswahl fehlgeschlagen, feste Liste:', error?.message || error); return null; })
     .then((plan) => {
+      if (plan && carry) applyCarry(plan, carry);
       if (root.currentMissionData?.missionId === missionId) { try { root.saveMissionState?.(); } catch (_) {} }
       return plan;
     });
@@ -100,7 +125,7 @@ async function settle(md, waitMs = ACCEPT_WAIT_MS) {
   return Promise.race([pending.promise, new Promise((resolve) => setTimeout(() => resolve(null), waitMs))]);
 }
 
-const api = { SCHEMA, OWN_CARGO_POOLS, hasOwnComposer, source, start, settle };
+const api = { SCHEMA, OWN_CARGO_POOLS, hasOwnComposer, source, start, settle, carryFor, applyCarry };
 root.MissionGroundComposerBrowser = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

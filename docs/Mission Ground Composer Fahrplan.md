@@ -283,11 +283,15 @@ gleichem Look eine andere Tarmac-Figur kommen. Jeder gespeicherte Plan trägt je
 Losschlüssel (`groundVisual.figureSeed`), der mit dem Plan in Rückflug und Fortsetzung reist;
 `resolveFigures` nutzt ihn vor der Missionskennung. Ältere Pläne ohne Schlüssel losen wie bisher.
 
-Offen (Vorschlag, braucht Freigabe): Bush- und POI-Folgemissionen (z. B. Abholung des
-Bush-Charter-Gasts, POI-Fortsetzung mit derselben Person) laufen über den allgemeinen Schritt und
-kennen die Wahl des ersten Flugs nicht – Look und Figur können wechseln. Dafür müsste die
-Folgemissions-Anfrage (`mission-followup.js`, betrifft auch Infrastruktur und Charter) die Wahl
-mitnehmen.
+Bush- und POI-Folgemissionen (User-Freigabe 14.11.2026, Web v2390): Die Folgemissions-Anfrage
+nimmt die Wahl der Hauptperson aus dem allgemeinen Composer mit (`groundCarry`, Schema
+`ground-carry.v1`: Name, Geschlecht, Look, Alter, Losschlüssel; `mission-followup.js`
+`groundCarryFrom`, läuft auch im Tracker headless). Die Folgemission übernimmt sie nach ihrem
+Composer-Abruf (`mission-ground-composer-browser.js` `carryFor`/`applyCarry`), aber **nur bei
+derselben Person** (Name gleich, Geschlecht nicht widersprüchlich) – der Techniker nach einer
+Aufklärung wählt neu. Das Feld fehlt, wenn es nichts zu übernehmen gibt; es geht in keinen
+Writer-Prompt. Anfragen, die der Tracker anlegt, tragen das Feld erst ab dem nächsten Tracker-Build
+(Release Queue). Ohne KI-Modus läuft der Composer nicht, dann gilt weiter die feste Liste.
 
 Bordprüfungen (`flight_compliance`, `ground_inventory`): kein Composer nötig. Es sind
 Inventar-Sitzungen mit fester Bordausrüstung, kein `generateMission`; der Composer läuft dort nie.

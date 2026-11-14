@@ -67,3 +67,21 @@ test('Composer-Abruf mit Frachtflug: Plan ohne Personen, Gepäck aus FORMEN', as
   assert.equal(plan.passengers.length, 0);
   assert.equal(src.cargoVisual.pieces[0].form, 'wood_crate');
 });
+
+test('Folgemission mit derselben Person übernimmt Look und Losschlüssel des ersten Flugs', () => {
+  // So legt mission-followup.js (groundCarryFrom) die Wahl in der Anfrage ab.
+  const carry = { schema: 'ground-carry.v1', name: 'frank', gender: 'male', look: 'outdoor', ageBand: 'middle_aged', figureSeed: 'gv-out' };
+  const requests = { req1: { id: 'req1', groundCarry: carry } };
+  withGlobals({ missionFollowupGetRequest: (id) => requests[id] || null }, () => {
+    const same = { followUpRequestId: 'req1', passenger: { name: 'Frank' } };
+    assert.deepEqual(browser.carryFor(same), carry);
+    // Anderer Mitflieger (z. B. Techniker nach Recon): keine Übernahme.
+    assert.equal(browser.carryFor({ followUpRequestId: 'req1', passenger: { name: 'Elena' } }), null);
+    assert.equal(browser.carryFor({ passenger: { name: 'Frank' } }), null);
+  });
+  const plan = { schema: MissionGroundVisualCore.SCHEMA, figureSeed: 'gv-new', passengers: [{ id: 'pax1', lead: true, look: 'casual', ageBand: '', gender: 'male' }] };
+  assert.equal(browser.applyCarry(plan, carry), true);
+  assert.deepEqual([plan.passengers[0].look, plan.passengers[0].ageBand, plan.figureSeed], ['outdoor', 'middle_aged', 'gv-out']);
+  const female = { schema: MissionGroundVisualCore.SCHEMA, passengers: [{ id: 'pax1', lead: true, look: 'casual', gender: 'female' }] };
+  assert.equal(browser.applyCarry(female, carry), false, 'anderes Geschlecht → keine Übernahme');
+});

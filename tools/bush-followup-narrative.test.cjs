@@ -73,3 +73,11 @@ test('Adventure stays span 7–30 days and retain old booked stays and exact clo
   assert.ok(req.stayDays>=1&&req.stayDays<=7);
  }
 });
+test('Boden-Composer: die Folgeanfrage trägt Look und Losschlüssel der Hauptperson, durch Tracker und Sync',()=>{
+ const m=md('bush_charter_strip','bush_pickup_strip');
+ m.groundComposer={schema:'mission-ground-source.v1',groundVisual:{schema:'ground-visual.v1',figureSeed:'gv-mara',passengers:[{id:'pax1',lead:true,look:'outdoor',ageBand:'young_adult',gender:'female'}]}};
+ const req=follow.mergeRequests([],copy(close(m).requests),now)[0];
+ assert.deepEqual(req.groundCarry,{schema:'ground-carry.v1',name:'mara',gender:'female',look:'outdoor',ageBand:'young_adult',figureSeed:'gv-mara'});
+ // Ohne Composer-Wahl bleibt die Anfrage unverändert (kein leeres Feld).
+ assert.equal('groundCarry' in close(md('bush_charter_strip','bush_pickup_strip')).requests[0],false);
+});
