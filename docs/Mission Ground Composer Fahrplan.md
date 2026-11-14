@@ -420,7 +420,9 @@ genutzt) lässt sie nach dem Aussteigen der Pax zum Fahrzeug gehen, entfernt sie
 danach los. Die Figur wird dafür schon als laufende Person gewählt. Kein Tracker-Build nötig. Ausgenommen: die
 wartende Bush-Abholperson (ist selbst der Pax) und Szenen ohne Composer-Plan (unverändert).
 
-**Offen:** Tracker-Log zeigt die Szenen ab dem nächsten Build (`GROUND_COMPOSER … scenes=`).
+Tracker v636 Alpha liefert die Log-Zeile `GROUND_COMPOSER … scenes=` und die gespiegelte Besetzung für vom Tracker gebaute Privat-Rückflüge.
+
+**Offen:** Sim-Tests (Empfänger steigen mit ein, Bringer fahren mit ab, Rückflug-Spiegelung).
 
 ### Etappe F – Aufräumen
 

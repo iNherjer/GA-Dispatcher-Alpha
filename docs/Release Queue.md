@@ -27,7 +27,9 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-### 2026-11-14 · Composer-Diagnose zeigt Fahrzeug und Bringer/Empfänger je Szene
+## Ausgeliefert
+
+### 2026-11-14 · Composer-Diagnose zeigt Fahrzeug und Bringer/Empfänger je Szene — ausgeliefert in Tracker v636 Alpha / Web v2399 (14.11.2026)
 - **Artefakt:** Tracker-EXE; Web live mit v2392
 - **Dateien:** `ga-tracker-client/tracker-ground-composer-log.js`
 - **Was:** Die Zeile `GROUND_COMPOSER` bekommt `scenes=start:<Fahrzeug>(composer|capacity)/<Personen>;arrival:…` (Etappe E). Nur Diagnose, keine Wirkung auf den Ablauf.
@@ -35,7 +37,7 @@ liefert alles Offene mit aus.
 - **Doku beim Release:** keine (Fahrplan, Etappe E).
 - **Pruefen im Feld:** Log einer Mission mit Bringer/Empfänger enthält `scenes=`.
 
-### 2026-11-14 · Charter-Fortsetzung spiegelt die Bodenbesetzung (mitgepackter Kern)
+### 2026-11-14 · Charter-Fortsetzung spiegelt die Bodenbesetzung (mitgepackter Kern) — ausgeliefert in Tracker v636 Alpha (14.11.2026)
 - **Artefakt:** Tracker-EXE bündelt `mission-charter-continuation-core.js` per require; Web live mit v2396
 - **Dateien:** `mission-charter-continuation-core.js`
 - **Was:** `mirrorGround` tauscht bei Rückreisen `groundCast` und `groundVisual.scenes` (Start ↔ Ziel). Im Tracker ohne Wirkung (er nutzt nur `voiceLeg` und `request`); nur Gleichstand der Kopie.
@@ -43,15 +45,13 @@ liefert alles Offene mit aus.
 - **Doku beim Release:** keine (Fahrplan, Etappe E).
 - **Pruefen im Feld:** Charter hin und zurück: der Empfänger vom Hinflug bringt beim Rückflug.
 
-### 2026-11-14 · Privat-Rückflug spiegelt die Bodenbesetzung (mitgepackter Kern)
+### 2026-11-14 · Privat-Rückflug spiegelt die Bodenbesetzung (mitgepackter Kern) — ausgeliefert in Tracker v636 Alpha (14.11.2026)
 - **Artefakt:** Tracker-EXE bündelt `mission-private-return-core.js`; Web live mit v2397
 - **Dateien:** `mission-private-return-core.js`
 - **Was:** `privateReturn.outing` trägt `groundCast` und `groundVisual.scenes` mit getauschtem Start/Ziel. Vom Tracker gebaute Rückflug-Anträge spiegeln erst ab diesem Build; bis dahin steht die Besetzung beim Rückflug seitenverkehrt (nur Optik).
 - **Tests:** `tools/mission-private-return.test.cjs` 18/18, `tracker-mission-followup.test.js` grün.
 - **Doku beim Release:** keine (Fahrplan, Etappe E).
 - **Pruefen im Feld:** Privatflug hin und zurück: wer am Ziel abgeholt hat, bringt beim Rückflug.
-
-## Ausgeliefert
 
 ### 2026-11-14 · Geschlossene Mission räumt ihre Szenen ab, Composer-Diagnose im Log — ausgeliefert in Tracker v635 Alpha / Web v2391 (14.11.2026)
 - **Artefakt:** Tracker-EXE; Web mit diesem Push
