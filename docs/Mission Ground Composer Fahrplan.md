@@ -373,8 +373,16 @@ hält sich an die Vorgabe (Pick-up + Lagerleiter, Van + Planerin + Fahrer, Pkw f
 der größere Van stand zuerst zu nah am Hangar und landete nach der produktiven Korrekturrunde auf dem
 Vorfeld.
 
-**Offen:** Schritt 4 – `groundCast` aus den Ideen, Strang für Strang mit Live-Probe (erst dann sind
-Empfänger fest, z. B. Redaktion statt Standardperson); Tracker `planPickupReception` (Build nötig).
+**Schritt 4, Fracht-Stränge (umgesetzt, Web v2394):** Gemeinsamer Prompt-Baustein und Prüfung in
+`mission-onboard-core.js` (`GROUND_CAST_PROMPT`, `groundCastFrom`: je Szene 0–2 Personen mit Rolle und
+Geschlecht, Ungültiges fällt still auf die Standardperson zurück, die Idee scheitert nie daran). Fracht,
+zerbrechliche Fracht und Tiertransport liefern `groundCast` (Anlieferer am Start, Empfänger am Ziel;
+Kurier bzw. Begleitperson ist Pax, nicht Teil von groundCast). Live-Probe:
+`analysis/ground-composer-cast-cargo-20261114.md`, `…-cast-courier-20261114.md` – Rollen passen zu
+Absender/Empfänger, nach dem Hinweis gegen Berufsklischees gemischte Geschlechter.
+
+**Offen:** Schritt 4 für die übrigen Stränge (Charter, Sightseeing, Verein, Medizin, Reporter, Privat;
+Bush nur mit Entscheidung, ob Writer oder Composer die Strip-Personen festlegt); Tracker `planPickupReception` (Build nötig).
 Tracker-Log zeigt die Szenen ab dem nächsten Build (`GROUND_COMPOSER … scenes=`).
 
 ### Etappe F – Aufräumen

@@ -1,0 +1,382 @@
+{
+  "strand": "courierCast",
+  "scope": "Produktive Prompts/Validatoren, gemini-3-flash-preview, thinking low",
+  "requests": [
+    {
+      "stage": "fragile-ideas",
+      "prompt": "Du schreibst drei kurze Lieferangebote für einen bestehenden Luftfrachtdienst oder einen einzelnen Auftrag, je nach Zahl der Rahmen. Alle Flüge sind bereits gebucht. Entwickle frei, was geliefert wird, wer es benötigt und was die beteiligten Menschen damit vorhaben. Gewerbliche und institutionelle Versorgung bilden den Schwerpunkt; persönliche, fröhliche oder kuriose Anlässe sind ebenfalls möglich. Es gibt keine Beispielthemen, Reihenfolge oder Quote.\nDie Empfindlichkeit ist eine Transportanforderung innerhalb des Auftrags. Beschreibe sie sachlich in den shipment-Feldern; sie ist nicht der Anlass der Buchung. Die Geschichte entsteht aus dem Verwendungszweck und den Menschen. Ein gewöhnlicher Bedarf genügt. Genau ein benannter Begleiter reist am Start mit und begleitet die Übergabe am Ziel. Absender und Empfänger sind Bodenrollen. Alle Packstücke gehören zu einer zusammengehörigen Sendung, die am Start geladen und am Zielflugplatz ausgeladen wird. Weiterer Bodentransport bleibt geplant. Keine zusätzlichen Flugaufgaben oder narrativeEvents.\nFülle pro Rahmen diese Felder aus:\n- purpose: kurzer Verwendungszweck beim Empfänger; wird als Überschrift angezeigt.\n- background: ein bis zwei Sätze über Bestellung, Bedarf oder die beteiligten Menschen; wird unverändert als Angebotstext angezeigt. Erzähle ausschließlich diesen Auftragskontext. Die Wahl des Verkehrsmittels steht fest und wird hier nicht erörtert.\n- sender und recipient: die beiden Bodenrollen.\n- arrival: vereinbarte Übergabe am Zielflugplatz und vorgesehener nächster Schritt.\n- passenger: name, role, gender (male/female), personality und connection zur Sendung. Er ist ein tatsächlicher Mitreisender, nicht der am Ziel wartende Empfänger.\n- shipment: label, weightLbs inklusive Verpackung, packaging, fragility und handling. fragility benennt die konkrete Empfindlichkeit gegen Stöße oder starke Flugbewegungen; handling die daraus folgende besondere Handhabung. Bleibe bei diesen vorhandenen Transportmechaniken, ohne neue Überwachungs- oder Prüfaufgaben.\n- character: frei beschriebener Charakter des Lieferauftrags.\n- memory: der erzählerische Kern für künftige Abwechslung.\nEntwickle intern verschiedene Bedürfnisse und wähle eine stimmige Idee. recent erinnert an eigene frühere Entwürfe, nicht an reale Erlebnisse oder Muster zum Nachschreiben. Vergleiche Zweck, Beteiligte und Erzählbewegung. Andere Namen oder Gegenstände allein schaffen keine Vielfalt. Auch alte Transportbegründungen sind keine Vorgabe für neue Angebote.\nFiktive Personen und Aufträge sind erlaubt. Reale Einrichtungen, Termine und Betriebszustände benötigen Belege; ohne solche bleibe bei fiktiven Beteiligten. Flugplatz und Flugzeug stammen aus dem Rahmen. missionDate ist der Planungsstand. Genau ein Passagierplatz wird benötigt. Gesamtgewicht positiv bis maxShipmentLbs; diese Entwurfsgrenze ist keine freie Restzuladung, Volumen- oder Schwerpunktfreigabe.\ngroundCast nennt die Menschen am Boden, die die Szene zeigt: start = wer am Startflugplatz bringt bzw. anliefert, arrival = wer am Zielflugplatz entgegennimmt bzw. abholt; jeweils 0–2 Personen (meist eine; sie kommen mit einem eigenen Fahrzeug), [] wenn dort niemand wartet. Je Person role (kurze Rolle aus der Geschichte, bis 100 Zeichen) und gender \"female\" oder \"male\". Ist eine Person anderswo in der Idee genannt, ist es dieselbe Person mit demselben Geschlecht; sonst wähle das Geschlecht unabhängig von Berufsklischees. Bei zerbrechlicher Fracht bringt start den Kurier mit der Sendung zum Flugzeug (vom Absender), arrival nimmt Kurier und Sendung am Ziel in Empfang (der Kontakt aus recipient/arrival); der Kurier selbst gehört nicht in groundCast.\nNur JSON {ideas:[{candidateId,purpose,background,sender,recipient,arrival,character,memory,passenger:{name,role,gender,personality,connection},shipment:{label,weightLbs,packaging,handling,fragility},groundCast:{start:[{role,gender}],arrival:[{role,gender}]}}]}. Für jeden Rahmen genau eine Idee mit dessen candidateId. Texte bis 600 Zeichen, background bis 400, Name/Rolle bis 100, Persönlichkeit bis 300, shipment.label bis 160, packaging/handling/fragility bis 300. Keine zusätzlichen Felder.\nRAHMEN: [{\"candidateId\":\"fragile-0\",\"route\":{\"start\":{\"name\":\"EDTW\",\"icao\":\"EDTW\",\"lat\":48.2791671753,\"lon\":8.4283332825},\"target\":{\"name\":\"EDSH\",\"icao\":\"EDSH\",\"lat\":48.9197235107,\"lon\":9.4552783966}},\"passengerCapacity\":3,\"missionDate\":\"2026-11-14\",\"aircraft\":{\"name\":\"PA-24 Comanche\",\"maxPayloadKg\":380},\"maxShipmentLbs\":319,\"recent\":[]},{\"candidateId\":\"fragile-1\",\"route\":{\"start\":{\"name\":\"EDTW\",\"icao\":\"EDTW\",\"lat\":48.2791671753,\"lon\":8.4283332825},\"target\":{\"name\":\"EDTF\",\"icao\":\"EDTF\",\"lat\":48.0227775574,\"lon\":7.8324999809}},\"passengerCapacity\":3,\"missionDate\":\"2026-11-14\",\"aircraft\":{\"name\":\"PA-24 Comanche\",\"maxPayloadKg\":380},\"maxShipmentLbs\":319,\"recent\":[]}]",
+      "status": 200,
+      "raw": "{\n  \"ideas\": [\n    {\n      \"candidateId\": \"fragile-0\",\n      \"purpose\": \"Restaurierung historischer Kirchenfenster\",\n      \"background\": \"Die Glasmalerei Werkstatt benötigt dringend die originalen Bleiglasfragmente aus der Kapelle in Backnang, um die Farbanalyse vor Ort abzuschließen. Der Zeitplan der Kirchengemeinde ist eng gefasst.\",\n      \"sender\": \"Denkmalschutzamt Rottweil\",\n      \"recipient\": \"Atelier Glaser-Kunst\",\n      \"arrival\": \"Übergabe am Rollfeld an den Werkstattwagen für den Weitertransport ins Atelier.\",\n      \"character\": \"Kulturell wertvolle Fracht mit hohem handwerklichem Anspruch.\",\n      \"memory\": \"Die Zerbrechlichkeit des Glases und die historische Bedeutung fordern höchste Vorsicht.\",\n      \"passenger\": {\n        \"name\": \"Elias Weber\",\n        \"role\": \"Glaskonservator\",\n        \"gender\": \"male\",\n        \"personality\": \"Geduldig, detailverliebt und sehr darauf bedacht, dass die Kisten absolut erschütterungsfrei gelagert werden.\",\n        \"connection\": \"Er hat die Fragmente verpackt und überwacht deren Sicherheit bis zur Werkbank.\"\n      },\n      \"shipment\": {\n        \"label\": \"Gepolsterte Holzkisten mit Bleiglas-Fragmenten\",\n        \"weightLbs\": 145,\n        \"packaging\": \"Drei maßgefertigte Sperrholzkisten mit Schaumstoffauskleidung und Seidenpapier-Trennschichten.\",\n        \"handling\": \"Erschütterungsfreies Verladen; keine schweren Gegenstände auf den Kisten stapeln.\",\n        \"fragility\": \"Extrem bruchanfällig gegenüber vertikalen Stößen und Vibrationen.\"\n      },\n      \"groundCast\": {\n        \"start\": [\n          {\n            \"role\": \"Archivmitarbeiter des Denkmalschutzamtes\",\n            \"gender\": \"female\"\n          }\n        ],\n        \"arrival\": [\n          {\n            \"role\": \"Inhaber der Glasmalerei\",\n            \"gender\": \"male\"\n          }\n        ]\n      }\n    },\n    {\n      \"candidateId\": \"fragile-1\",\n      \"purpose\": \"Laborausrüstung für Bodenanalyse\",\n      \"background\": \"Ein Weinbauforschungsinstitut in Freiburg erwartet die Rücksendung kalibrierter Präzisionsmessgeräte für eine neue Versuchsreihe in den Weinbergen am Kaiserstuhl.\",\n      \"sender\": \"Technologiezentrum Schwarzwald-Baar\",\n      \"recipient\": \"Staatliches Weinbauinstitut Freiburg\",\n      \"arrival\": \"Abholung durch den Labordienst zur sofortigen Inbetriebnahme im Institut.\",\n      \"character\": \"Wissenschaftlich-technischer Routineauftrag mit empfindlicher Sensorik.\",\n      \"memory\": \"Die Kombination aus Hightech-Sensoren und dem rustikalen Zielgebiet der Weinberge.\",\n      \"passenger\": {\n        \"name\": \"Sarah Lindner\",\n        \"role\": \"Laborantin\",\n        \"gender\": \"female\",\n        \"personality\": \"Organisiert, sachlich und fokussiert auf die Einhaltung der Kalibrierungsparameter.\",\n        \"connection\": \"Sie ist für die Einrichtung der Geräte beim Empfänger verantwortlich.\"\n      },\n      \"shipment\": {\n        \"label\": \"Optische Boden-Analysegeräte (Sensorset)\",\n        \"weightLbs\": 88,\n        \"packaging\": \"Zwei stoßfeste Peli-Cases mit passgenauen Schaumstoff-Inlays.\",\n        \"handling\": \"Sanftes Absetzen; Schutz vor direkter Sonneneinstrahlung in der Kabine.\",\n        \"fragility\": \"Die optischen Linsen dejustieren sich bei harten Aufschlägen oder abrupten Manövern.\"\n      },\n      \"groundCast\": {\n        \"start\": [\n          {\n            \"role\": \"Versandleiter des Technologiezentrums\",\n            \"gender\": \"male\"\n          }\n        ],\n        \"arrival\": [\n          {\n            \"role\": \"Fahrer des Forschungsinstituts\",\n            \"gender\": \"female\"\n          }\n        ]\n      }\n    }\n  ]\n}"
+    },
+    {
+      "stage": "animal-ideas",
+      "prompt": "Entwickle pro Rahmen einen bereits gebuchten APT-Tiertransport. Anlass, Beteiligte und die geplante Betreuung am Ziel tragen die Geschichte. Fiktive Personen und Einrichtungen sind erlaubt; reale Betriebszustände benötigen Belege. Der normale betreute Standortwechsel, eine vereinbarte Aufnahme in einer Pflegestelle oder eine Materiallieferung bieten bereits einen vollständigen Anlass. Die Auftragsidee braucht kein Forschungsprojekt, keine Rettungsdramaturgie und keine biologische Erklärung. Nicht belegte Einrichtungen werden ausdrücklich als fiktive Auftraggeber beschrieben. Personenrollen bleiben natürlich: zum Beispiel Tierpfleger oder Zuchtwart; die Fiktion wird bei der Einrichtung kenntlich gemacht, nicht im Rollentitel. Genau ein Tierbegleiter reist vom Start mit. Absender und Empfänger sind getrennte Bodenrollen. Der Pilot ist nicht der Begleiter und wird nicht mit dessen Namen angesprochen.\nshipment.kind ist live_animal oder veterinary_material. Bei live_animal: species benennt die Tierart, animalCount eine positive ganze Zahl, label enthält Tierart und Transportbehälter. Wähle kleine, im gegebenen Flugzeug plausibel unterzubringende Tiere; keine Großtiere als Fracht in einem Kleinflugzeug. Bei veterinary_material: species leer und animalCount null, kein Tier an Bord erfinden. Beschreibe die schon vorbereitete Transportverpackung und sachliche Handhabung. packaging ist die geplante Verpackung; handling beschreibt sanftes Anheben/Absetzen, Sicherung gegen Verrutschen und freie Lüftungsöffnungen, soweit für die gewählte Verpackung passend. fragility benennt diese Transportanforderung in Alltagssprache, keine erfundene physiologische Diagnose. Keine Behandlungsanweisung, Medikamentendosis, Sedierung oder Garantie der Transportfähigkeit. Keine erfundenen Temperaturgrenzen, besonderen Krankheitsanfälligkeiten oder wissenschaftlichen Zuchtlinien. Artenbezogene Fachbehauptungen benötigen gelieferte Belege. Ohne Fachquellen bleibe bei sachlicher sicherer Verpackung und Betreuung. Eine Umsiedlung in betreute Haltung ist ein anderer Anlass als Auswilderung: keine unbelegte Behauptung über heimische Populationen, ökologische Eignung oder Artenschutzwirkung am Ziel. Erfunde keine reale Nationalpark-Zuständigkeit aus dem Ortsnamen. Keine erfundenen Kontrollen, Überwachungsgeräte oder Zusatzaufgaben.\nFormuliere schon die Idee in klarem Alltagsdeutsch: Wer hat mit wem was vereinbart? Welches Tier oder Material kommt wohin? Weshalb übernimmt dieser konkrete Empfänger die Betreuung oder Sendung? Der Anlass darf einfach sein. Ein persönlicher oder betrieblicher Bedarf braucht keine übergeordnete Bedeutung. species nennt auch bei einer Rasse die Tierart, damit der Leser ohne Spezialwissen weiß, welches Tier gemeint ist.\nDie Datenfelder haben getrennte Zuständigkeiten:\n- purpose: Was der Empfänger mit der Sendung vorhat. Der gebuchte Flug ist eine feststehende Rahmenbedingung.\n- background: Bestellung oder Vereinbarung zwischen den fiktiven Beteiligten, ihre Beziehung und die konkrete Aufnahme am Ziel. Erzähle diesen Anlass, nicht die Auswahl oder Vorteile eines Verkehrsmittels. Keine Gegenüberstellung von Luftweg und Straße.\n- character: Charakter des Auftrags, zum Beispiel seine persönliche oder betriebliche Bedeutung. Keine neuen Aufgaben für den Begleiter.\n- memory: abstrakter erzählerischer Kern und Motiv für künftige Abwechslung. Keine erfundenen Erinnerungen, Gesundheitsbefunde oder vergangenen Flüge.\n- packaging/handling/fragility: ausschließlich die vorbereitete Verpackung, sachliche Handhabung und Empfindlichkeit der Sendung gegen Stöße. Nenne keinen konkreten Sitzplatz oder Befestigungspunkt; diese hängen vom tatsächlichen Flugzeug und der Ladeplanung ab.\narrival beschreibt die Übergabe am Zielflugplatz und den erst geplanten anschließenden Betreuungs-/Bodentransport. Keine Zwischenlandung oder Luftsuche. Keine Begründung, weshalb Flug statt Autofahrt. Ruhige Flugführung ist eine Anforderung, nicht automatisch eine Notlage. passenger.connection erklärt die tatsächliche Beziehung zu Tier oder Sendung.\nrecent enthält frühere Entwürfe zur Abwechslung, keine erlebten Flüge. Bewahre bei Fortsetzungen die gelieferten Identitäten und bestätigten Ergebnisse; erfinde keine erfolgreiche frühere Übergabe. Zahlen zu Route und Wetter gehören nicht in die Idee.\ngroundCast nennt die Menschen am Boden, die die Szene zeigt: start = wer am Startflugplatz bringt bzw. anliefert, arrival = wer am Zielflugplatz entgegennimmt bzw. abholt; jeweils 0–2 Personen (meist eine; sie kommen mit einem eigenen Fahrzeug), [] wenn dort niemand wartet. Je Person role (kurze Rolle aus der Geschichte, bis 100 Zeichen) und gender \"female\" oder \"male\". Ist eine Person anderswo in der Idee genannt, ist es dieselbe Person mit demselben Geschlecht; sonst wähle das Geschlecht unabhängig von Berufsklischees. Beim Tiertransport bringt start die Begleitperson mit den Tieren zum Flugzeug (vom Absender), arrival nimmt sie am Ziel in Empfang (der Kontakt aus recipient/arrival); die Begleitperson selbst gehört nicht in groundCast.\nNur JSON {ideas:[{candidateId,purpose,background,sender,recipient,arrival,character,memory,passenger:{name,role,gender,personality,connection},shipment:{kind,species,animalCount,label,weightLbs,packaging,handling,fragility},groundCast:{start:[{role,gender}],arrival:[{role,gender}]}}]}. Genau eine Idee pro candidateId. Texte bis 600 Zeichen, background bis 400, Name/Rolle bis 100, Persönlichkeit bis 300, label bis 160, packaging/handling/fragility bis 300. gender male/female. Gewicht inklusive Tier und Behälter positiv bis maxShipmentLbs. Ein Passagierplatz nötig. Diese Grenze ersetzt keine Zuladungs-, Volumen- oder Schwerpunktprüfung.\nRAHMEN: [{\"candidateId\":\"animal-0\",\"route\":{\"start\":{\"name\":\"EDTW\",\"icao\":\"EDTW\",\"lat\":48.2791671753,\"lon\":8.4283332825},\"target\":{\"name\":\"EDSH\",\"icao\":\"EDSH\",\"lat\":48.9197235107,\"lon\":9.4552783966}},\"passengerCapacity\":3,\"missionDate\":\"2026-11-14\",\"aircraft\":{\"name\":\"PA-24 Comanche\",\"maxPayloadKg\":380},\"maxShipmentLbs\":319,\"recent\":[]},{\"candidateId\":\"animal-1\",\"route\":{\"start\":{\"name\":\"EDTW\",\"icao\":\"EDTW\",\"lat\":48.2791671753,\"lon\":8.4283332825},\"target\":{\"name\":\"EDTF\",\"icao\":\"EDTF\",\"lat\":48.0227775574,\"lon\":7.8324999809}},\"passengerCapacity\":3,\"missionDate\":\"2026-11-14\",\"aircraft\":{\"name\":\"PA-24 Comanche\",\"maxPayloadKg\":380},\"maxShipmentLbs\":319,\"recent\":[]}]",
+      "status": 200,
+      "raw": "{\n  \"ideas\": [\n    {\n      \"candidateId\": \"animal-0\",\n      \"purpose\": \"Die Kaninchen werden am Zielflugplatz Backnang-Heiningen von der Kleintierzüchterin übernommen. Sie sollen in ihre bestehende Zuchtgruppe integriert werden, um die genetische Vielfalt in ihrem Bestand der Rasse Meißner Widder zu fördern. Die Tiere erhalten dort eigene Buchten in einer professionell geführten Anlage.\",\n      \"background\": \"Der fiktive Zuchthof Schwarzwaldquell übergibt zwei Jungtiere an die Züchterin aus Backnang. Die Absprache erfolgte auf einer Vereinsschau. Es handelt sich um einen geplanten Bestandsaustausch zwischen langjährigen Zuchtfreunden zur Fortführung der Rassemerkmale.\",\n      \"sender\": \"Zuchthof Schwarzwaldquell (fiktiv)\",\n      \"recipient\": \"Rassekaninchenzucht Backnang (fiktiv)\",\n      \"arrival\": \"Die Empfängerin erwartet die Ankunft am Flugplatz und übernimmt die Transportboxen direkt am Rollfeld in ihren Kleintransporter für die kurze Weiterfahrt zum Stallgebäude.\",\n      \"character\": \"Ein routinierter Tiertransport im Rahmen einer privaten Zuchtabsprache, geprägt von Sorgfalt und fachlichem Austausch unter Züchtern.\",\n      \"memory\": \"Das sanfte Wackeln der langen Ohren beim Blick durch das Sichtgitter bleibt als ruhiges Bild des entspannten Transports in Erinnerung.\",\n      \"passenger\": {\n        \"name\": \"Lukas Weber\",\n        \"role\": \"Zuchtwart\",\n        \"gender\": \"male\",\n        \"personality\": \"Ruhig, fachkundig und sehr aufmerksam gegenüber dem Verhalten der Tiere während der Reise.\",\n        \"connection\": \"Er betreut die Jungtiere seit ihrer Geburt auf dem fiktiven Zuchthof und ist für deren Wohlergehen während der Reise verantwortlich.\"\n      },\n      \"shipment\": {\n        \"kind\": \"live_animal\",\n        \"species\": \"Hauskaninchen\",\n        \"animalCount\": 2,\n        \"label\": \"2 Meißner Widder Kaninchen in einer Doppel-Transportbox\",\n        \"weightLbs\": 18,\n        \"packaging\": \"Stabile, gut belüftete Kunststoff-Doppelbox mit saugfähiger Einstreu und einer Handvoll Heu.\",\n        \"handling\": \"Die Box ist waagerecht zu tragen, sanft abzusetzen und so zu platzieren, dass die seitlichen Luftschlitze nicht durch anderes Gepäck verdeckt werden.\",\n        \"fragility\": \"Empfindlich gegenüber plötzlichen Erschütterungen und Zugluft.\"\n      },\n      \"groundCast\": {\n        \"start\": [\n          {\n            \"role\": \"Mitarbeiterin des Zuchthofs\",\n            \"gender\": \"female\"\n          }\n        ],\n        \"arrival\": [\n          {\n            \"role\": \"Übernehmende Züchterin\",\n            \"gender\": \"female\"\n          }\n        ]\n      }\n    },\n    {\n      \"candidateId\": \"animal-1\",\n      \"purpose\": \"Das veterinärmedizinische Material wird zur Analyse in ein spezialisiertes Labor in Freiburg gebracht. Es dient der routinemäßigen Gesundheitsüberwachung eines gewerblichen Tierbestands, um zeitnah Ergebnisse für die weitere Bestandsplanung vorliegen zu haben.\",\n      \"background\": \"Die fiktive Gemeinschaftspraxis Dr. Kern hat die Probenentnahme durchgeführt. Das Labor in Freiburg ist der langjährige Partner für diese speziellen Untersuchungen. Der Transport wurde vereinbart, um die Proben innerhalb des geforderten Zeitfensters im Labor abzuliefern.\",\n      \"sender\": \"Tierarztpraxis Dr. Kern (fiktiv)\",\n      \"recipient\": \"Veterinärlabor Freiburg-Süd (fiktiv)\",\n      \"arrival\": \"Ein Kurier des Labors wartet am Flugplatz Freiburg, um die Thermobox entgegenzunehmen und auf direktem Weg in die Analyseabteilung zu bringen.\",\n      \"character\": \"Ein sachlicher Logistikauftrag mit Fokus auf die Einhaltung der Kühlkette und die sichere Übergabe sensiblen Materials.\",\n      \"memory\": \"Das Bild der versiegelten, klinisch reinen Thermobox steht für die Professionalität und Präzision dieses logistischen Dienstes.\",\n      \"passenger\": {\n        \"name\": \"Sarah Miller\",\n        \"role\": \"Medizinische Fachangestellte\",\n        \"gender\": \"female\",\n        \"personality\": \"Organisiert, gewissenhaft und konzentriert auf die Einhaltung der Protokolle.\",\n        \"connection\": \"Sie hat die Sendung im Labor der Praxis vorbereitet und ist für die lückenlose Dokumentation der Übergabe zuständig.\"\n      },\n      \"shipment\": {\n        \"kind\": \"veterinary_material\",\n        \"species\": \"\",\n        \"animalCount\": null,\n        \"label\": \"Veterinärmedizinische Proben in versiegelter Thermobox\",\n        \"weightLbs\": 12,\n        \"packaging\": \"Isolierte Thermobox mit sicher verschlossenem Deckel, innenliegende Probengefäße in gepolsterten Halterungen und durch Trennschicht geschützte Kühlelemente.\",\n        \"handling\": \"Box stets aufrecht transportieren, nicht werfen oder starken Stößen aussetzen. Die Versiegelung darf während des Transports nicht beschädigt werden.\",\n        \"fragility\": \"Erschütterungsempfindliche Glasgefäße und erforderliche Einhaltung der Innentemperatur.\"\n      },\n      \"groundCast\": {\n        \"start\": [\n          {\n            \"role\": \"Praxishelfer\",\n            \"gender\": \"male\"\n          }\n        ],\n        \"arrival\": [\n          {\n            \"role\": \"Laborkurier\",\n            \"gender\": \"male\"\n          }\n        ]\n      }\n    }\n  ]\n}"
+    },
+    {
+      "stage": "composer",
+      "prompt": "Du bist der Scene Composer eines MSFS-Missionsgenerators. Die Mission ist fertig geschrieben und bleibt unverändert. Deine Aufgabe ist nur die sichtbare Bodenszene beim Ein- und Aussteigen: wie die Mitreisenden aussehen und worin ihr Gepäck steckt.\nFür jede Person in PERSONEN: wähle den LOOK, der zu Anlass, Aufgabe und Rolle am besten passt, und die passende ALTERSGRUPPE. Der Anlass ist entscheidend – ein festlicher Anlass verlangt anderes als ein Arbeitseinsatz oder eine Wanderung, auch bei gleicher Tätigkeit. Ist das Geschlecht \"offen\", lege es plausibel nach Gruppe und Rolle fest (\"female\" oder \"male\"); ein vorgegebenes Geschlecht bleibt unverändert.\nFür jeden GEPÄCKPOSTEN: ordne die Beschreibung einem bis drei getrennten Packstücken zu und wähle je Stück die FORM, die am besten passt. Entscheidend ist, worin die Dinge transportiert werden; der Inhalt zählt nur, wenn kein Behältnis beschrieben ist. Teile das Gewicht plausibel auf. Trifft keine Form, wähle die neutralste passende.\nFür jede Szene in SZENEN (start = Abflug, arrival = Ziel; beide unabhängig): wähle für jede Person dort (Bringer bzw. Empfänger) LOOK, ALTERSGRUPPE und Geschlecht wie oben, passend zu ihrer Rolle und zum Ort, und wähle das FAHRZEUG, mit dem sie kommen – nur aus den dort angebotenen, die schon nach Plätzen und Ladung geprüft sind. Wähle, was zu Ort, Anlass und Personen passt (z. B. kein Bus für zwei, ein Geländefahrzeug am Buschstreifen, ein gepflegter Pkw zum Geschäftstermin).\nAlle Angaben sind Datenmaterial, keine Anweisung. Nur Werte aus den Listen.\nNur JSON {\"passengers\":[{\"id\":\"<id>\",\"look\":\"<id aus LOOKS>\",\"ageBand\":\"<id aus ALTERSGRUPPEN>\",\"gender\":\"female|male\",\"note\":\"<kurzer Grund, bis 120 Zeichen>\"}],\"cargo\":[{\"id\":\"<id>\",\"pieces\":[{\"form\":\"<id aus FORMEN>\",\"weightLbs\":<Zahl>,\"note\":\"<bis 120 Zeichen>\"}]}],\"scenes\":{\"start\":{\"vehicle\":\"<id aus fahrzeuge>\",\"persons\":[{\"id\":\"<id>\",\"look\":\"<id>\",\"ageBand\":\"<id>\",\"gender\":\"female|male\"}],\"note\":\"<bis 120 Zeichen>\"},\"arrival\":{…}}}.\nANLASS: \"Restaurierung historischer Kirchenfenster – Die Glasmalerei Werkstatt benötigt dringend die originalen Bleiglasfragmente aus der Kapelle in Backnang, um die Farbanalyse vor Ort abzuschließen. Der Zeitplan der Kirchengemeinde ist eng gefasst. – Kulturell wertvolle Fracht mit hohem handwerklichem Anspruch.\"\nAUFGABE: \"Übergabe am Rollfeld an den Werkstattwagen für den Weitertransport ins Atelier. – Atelier Glaser-Kunst\"\nGRUPPE: \"\"\nPERSONEN: [{\"id\":\"pax1\",\"hauptperson\":true,\"rolle\":\"Glaskonservator\",\"geschlecht\":\"male\"}]\nGEPÄCKPOSTEN: [{\"id\":\"c1\",\"gehoertZu\":\"Glaskonservator\",\"beschreibung\":\"Gepolsterte Holzkisten mit Bleiglas-Fragmenten\",\"verpackung\":\"Drei maßgefertigte Sperrholzkisten mit Schaumstoffauskleidung und Seidenpapier-Trennschichten.\",\"handhabung\":\"Erschütterungsfreies Verladen; keine schweren Gegenstände auf den Kisten stapeln. – Extrem bruchanfällig gegenüber vertikalen Stößen und Vibrationen.\",\"weightLbs\":145}]\nLOOKS: [{\"id\":\"workwear\",\"label\":\"Arbeitskleidung, Warnweste oder Overall\"},{\"id\":\"outdoor\",\"label\":\"Funktionskleidung für draußen\"},{\"id\":\"casual\",\"label\":\"Freizeitkleidung, entspannt\"},{\"id\":\"medical\",\"label\":\"Rettungsdienst oder Klinik: Sanitäter-, Notarzt- oder Pflegekleidung\"},{\"id\":\"fire_rescue\",\"label\":\"Feuerwehr- oder Brandschutz-Einsatzkleidung\"},{\"id\":\"business\",\"label\":\"Gepflegt bis elegant, Anzug, Kostüm oder Kleid\"},{\"id\":\"aviation\",\"label\":\"Fliegerisch, Polo oder Hemd mit Headset\"}]\nALTERSGRUPPEN: [{\"id\":\"child\",\"label\":\"Kind\"},{\"id\":\"young_adult\",\"label\":\"junge Erwachsene, bis etwa 30\"},{\"id\":\"adult\",\"label\":\"Erwachsene, etwa 30 bis 60\"},{\"id\":\"senior\",\"label\":\"ältere Menschen, ab etwa 60\"}]\nFORMEN: [{\"id\":\"camping_kit\",\"label\":\"Verladefertige Campingausrüstung\",\"tags\":[\"camping\",\"hiking\",\"outdoor\",\"equipment\",\"supplies\"]},{\"id\":\"duffel\",\"label\":\"Weiche Reisetasche\",\"tags\":[\"luggage\",\"charter\",\"outdoor\"]},{\"id\":\"camera_kit\",\"label\":\"Offener Hartschalenkoffer mit Foto- und Videoausrüstung\",\"tags\":[\"camera\",\"photography\",\"equipment\",\"media\"]},{\"id\":\"suitcase\",\"label\":\"Koffer mit Rollen\",\"tags\":[\"luggage\",\"passenger\",\"travel\"]},{\"id\":\"briefcase\",\"label\":\"Aktenkoffer\",\"tags\":[\"luggage\",\"passenger\",\"travel\"]},{\"id\":\"backpack\",\"label\":\"Rucksack\",\"tags\":[\"luggage\",\"passenger\",\"travel\",\"supplies\",\"outdoor\",\"personal\"]},{\"id\":\"cooler\",\"label\":\"Isolierte Kühlbox\",\"tags\":[\"cooler\",\"medical\",\"samples\",\"outdoor\"]},{\"id\":\"hardcase\",\"label\":\"Hartschalen-Gerätekoffer\",\"tags\":[\"equipment\",\"protective-case\",\"hardcase\"]},{\"id\":\"wood_crate\",\"label\":\"Holzkiste\",\"tags\":[\"freight\",\"supplies\"]},{\"id\":\"carton\",\"label\":\"Pappkarton\",\"tags\":[]},{\"id\":\"toolbox\",\"label\":\"Werkzeugkiste\",\"tags\":[\"tools\",\"maintenance\",\"club\",\"bush\",\"supplies\"]}]\nSZENEN: {\"start\":{\"personen\":[{\"id\":\"s1\",\"rolle\":\"Archivmitarbeiter des Denkmalschutzamtes\",\"geschlecht\":\"female\"}],\"fahrzeuge\":[{\"id\":\"truck\",\"label\":\"Pick-up/Pritschenwagen, 3 Plätze, Ladefläche\"},{\"id\":\"van\",\"label\":\"Kleinbus/Transporter, bis 8 Plätze, viel Laderaum\"}]},\"arrival\":{\"personen\":[{\"id\":\"a1\",\"rolle\":\"Inhaber der Glasmalerei\",\"geschlecht\":\"male\"}],\"fahrzeuge\":[{\"id\":\"truck\",\"label\":\"Pick-up/Pritschenwagen, 3 Plätze, Ladefläche\"},{\"id\":\"van\",\"label\":\"Kleinbus/Transporter, bis 8 Plätze, viel Laderaum\"}]}}",
+      "status": 200,
+      "raw": "{\n  \"passengers\": [\n    {\n      \"id\": \"pax1\",\n      \"look\": \"workwear\",\n      \"ageBand\": \"adult\",\n      \"gender\": \"male\",\n      \"note\": \"Spezialisierter Glaskonservator in praktischer Arbeitskleidung für den Transport empfindlicher Kulturgüter.\"\n    }\n  ],\n  \"cargo\": [\n    {\n      \"id\": \"c1\",\n      \"pieces\": [\n        {\n          \"form\": \"wood_crate\",\n          \"weightLbs\": 50,\n          \"note\": \"Maßgefertigte Sperrholzkiste 1/3 mit gepolsterten Bleiglas-Fragmenten.\"\n        },\n        {\n          \"form\": \"wood_crate\",\n          \"weightLbs\": 50,\n          \"note\": \"Maßgefertigte Sperrholzkiste 2/3 mit gepolsterten Bleiglas-Fragmenten.\"\n        },\n        {\n          \"form\": \"wood_crate\",\n          \"weightLbs\": 45,\n          \"note\": \"Maßgefertigte Sperrholzkiste 3/3 mit gepolsterten Bleiglas-Fragmenten.\"\n        }\n      ]\n    }\n  ],\n  \"scenes\": {\n    \"start\": {\n      \"vehicle\": \"van\",\n      \"persons\": [\n        {\n          \"id\": \"s1\",\n          \"look\": \"business\",\n          \"ageBand\": \"adult\",\n          \"gender\": \"female\"\n        }\n      ],\n      \"note\": \"Die Archivmitarbeiterin übergibt die wertvolle Fracht aus dem klimatisierten Transporter.\"\n    },\n    \"arrival\": {\n      \"vehicle\": \"van\",\n      \"persons\": [\n        {\n          \"id\": \"a1\",\n          \"look\": \"workwear\",\n          \"ageBand\": \"senior\",\n          \"gender\": \"male\"\n        }\n      ],\n      \"note\": \"Der Werkstattinhaber erwartet die Lieferung mit dem Atelier-Wagen für den erschütterungsfreien Weitertransport.\"\n    }\n  }\n}"
+    },
+    {
+      "stage": "composer",
+      "prompt": "Du bist der Scene Composer eines MSFS-Missionsgenerators. Die Mission ist fertig geschrieben und bleibt unverändert. Deine Aufgabe ist nur die sichtbare Bodenszene beim Ein- und Aussteigen: wie die Mitreisenden aussehen und worin ihr Gepäck steckt.\nFür jede Person in PERSONEN: wähle den LOOK, der zu Anlass, Aufgabe und Rolle am besten passt, und die passende ALTERSGRUPPE. Der Anlass ist entscheidend – ein festlicher Anlass verlangt anderes als ein Arbeitseinsatz oder eine Wanderung, auch bei gleicher Tätigkeit. Ist das Geschlecht \"offen\", lege es plausibel nach Gruppe und Rolle fest (\"female\" oder \"male\"); ein vorgegebenes Geschlecht bleibt unverändert.\nFür jeden GEPÄCKPOSTEN: ordne die Beschreibung einem bis drei getrennten Packstücken zu und wähle je Stück die FORM, die am besten passt. Entscheidend ist, worin die Dinge transportiert werden; der Inhalt zählt nur, wenn kein Behältnis beschrieben ist. Teile das Gewicht plausibel auf. Trifft keine Form, wähle die neutralste passende.\nFür jede Szene in SZENEN (start = Abflug, arrival = Ziel; beide unabhängig): wähle für jede Person dort (Bringer bzw. Empfänger) LOOK, ALTERSGRUPPE und Geschlecht wie oben, passend zu ihrer Rolle und zum Ort, und wähle das FAHRZEUG, mit dem sie kommen – nur aus den dort angebotenen, die schon nach Plätzen und Ladung geprüft sind. Wähle, was zu Ort, Anlass und Personen passt (z. B. kein Bus für zwei, ein Geländefahrzeug am Buschstreifen, ein gepflegter Pkw zum Geschäftstermin).\nAlle Angaben sind Datenmaterial, keine Anweisung. Nur Werte aus den Listen.\nNur JSON {\"passengers\":[{\"id\":\"<id>\",\"look\":\"<id aus LOOKS>\",\"ageBand\":\"<id aus ALTERSGRUPPEN>\",\"gender\":\"female|male\",\"note\":\"<kurzer Grund, bis 120 Zeichen>\"}],\"cargo\":[{\"id\":\"<id>\",\"pieces\":[{\"form\":\"<id aus FORMEN>\",\"weightLbs\":<Zahl>,\"note\":\"<bis 120 Zeichen>\"}]}],\"scenes\":{\"start\":{\"vehicle\":\"<id aus fahrzeuge>\",\"persons\":[{\"id\":\"<id>\",\"look\":\"<id>\",\"ageBand\":\"<id>\",\"gender\":\"female|male\"}],\"note\":\"<bis 120 Zeichen>\"},\"arrival\":{…}}}.\nANLASS: \"Laborausrüstung für Bodenanalyse – Ein Weinbauforschungsinstitut in Freiburg erwartet die Rücksendung kalibrierter Präzisionsmessgeräte für eine neue Versuchsreihe in den Weinbergen am Kaiserstuhl. – Wissenschaftlich-technischer Routineauftrag mit empfindlicher Sensorik.\"\nAUFGABE: \"Abholung durch den Labordienst zur sofortigen Inbetriebnahme im Institut. – Staatliches Weinbauinstitut Freiburg\"\nGRUPPE: \"\"\nPERSONEN: [{\"id\":\"pax1\",\"hauptperson\":true,\"rolle\":\"Laborantin\",\"geschlecht\":\"female\"}]\nGEPÄCKPOSTEN: [{\"id\":\"c1\",\"gehoertZu\":\"Laborantin\",\"beschreibung\":\"Optische Boden-Analysegeräte (Sensorset)\",\"verpackung\":\"Zwei stoßfeste Peli-Cases mit passgenauen Schaumstoff-Inlays.\",\"handhabung\":\"Sanftes Absetzen; Schutz vor direkter Sonneneinstrahlung in der Kabine. – Die optischen Linsen dejustieren sich bei harten Aufschlägen oder abrupten Manövern.\",\"weightLbs\":88}]\nLOOKS: [{\"id\":\"casual\",\"label\":\"Freizeitkleidung, entspannt\"},{\"id\":\"aviation\",\"label\":\"Fliegerisch, Polo oder Hemd mit Headset\"},{\"id\":\"workwear\",\"label\":\"Arbeitskleidung, Warnweste oder Overall\"},{\"id\":\"medical\",\"label\":\"Rettungsdienst oder Klinik: Sanitäter-, Notarzt- oder Pflegekleidung\"},{\"id\":\"fire_rescue\",\"label\":\"Feuerwehr- oder Brandschutz-Einsatzkleidung\"},{\"id\":\"business\",\"label\":\"Gepflegt bis elegant, Anzug, Kostüm oder Kleid\"},{\"id\":\"outdoor\",\"label\":\"Funktionskleidung für draußen\"}]\nALTERSGRUPPEN: [{\"id\":\"child\",\"label\":\"Kind\"},{\"id\":\"young_adult\",\"label\":\"junge Erwachsene, bis etwa 30\"},{\"id\":\"adult\",\"label\":\"Erwachsene, etwa 30 bis 60\"},{\"id\":\"senior\",\"label\":\"ältere Menschen, ab etwa 60\"}]\nFORMEN: [{\"id\":\"cooler\",\"label\":\"Isolierte Kühlbox\",\"tags\":[\"cooler\",\"medical\",\"samples\",\"outdoor\"]},{\"id\":\"camping_kit\",\"label\":\"Verladefertige Campingausrüstung\",\"tags\":[\"camping\",\"hiking\",\"outdoor\",\"equipment\",\"supplies\"]},{\"id\":\"backpack\",\"label\":\"Rucksack\",\"tags\":[\"luggage\",\"passenger\",\"travel\",\"supplies\",\"outdoor\",\"personal\"]},{\"id\":\"duffel\",\"label\":\"Weiche Reisetasche\",\"tags\":[\"luggage\",\"charter\",\"outdoor\"]},{\"id\":\"camera_kit\",\"label\":\"Offener Hartschalenkoffer mit Foto- und Videoausrüstung\",\"tags\":[\"camera\",\"photography\",\"equipment\",\"media\"]},{\"id\":\"wood_crate\",\"label\":\"Holzkiste\",\"tags\":[\"freight\",\"supplies\"]},{\"id\":\"briefcase\",\"label\":\"Aktenkoffer\",\"tags\":[\"luggage\",\"passenger\",\"travel\"]},{\"id\":\"carton\",\"label\":\"Pappkarton\",\"tags\":[]},{\"id\":\"suitcase\",\"label\":\"Koffer mit Rollen\",\"tags\":[\"luggage\",\"passenger\",\"travel\"]},{\"id\":\"toolbox\",\"label\":\"Werkzeugkiste\",\"tags\":[\"tools\",\"maintenance\",\"club\",\"bush\",\"supplies\"]},{\"id\":\"hardcase\",\"label\":\"Hartschalen-Gerätekoffer\",\"tags\":[\"equipment\",\"protective-case\",\"hardcase\"]}]\nSZENEN: {\"start\":{\"personen\":[{\"id\":\"s1\",\"rolle\":\"Versandleiter des Technologiezentrums\",\"geschlecht\":\"male\"}],\"fahrzeuge\":[{\"id\":\"truck\",\"label\":\"Pick-up/Pritschenwagen, 3 Plätze, Ladefläche\"},{\"id\":\"car\",\"label\":\"Pkw, 5 Plätze, Kofferraum für Gepäck\"},{\"id\":\"van\",\"label\":\"Kleinbus/Transporter, bis 8 Plätze, viel Laderaum\"}]},\"arrival\":{\"personen\":[{\"id\":\"a1\",\"rolle\":\"Fahrer des Forschungsinstituts\",\"geschlecht\":\"female\"}],\"fahrzeuge\":[{\"id\":\"truck\",\"label\":\"Pick-up/Pritschenwagen, 3 Plätze, Ladefläche\"},{\"id\":\"car\",\"label\":\"Pkw, 5 Plätze, Kofferraum für Gepäck\"},{\"id\":\"van\",\"label\":\"Kleinbus/Transporter, bis 8 Plätze, viel Laderaum\"}]}}",
+      "status": 200,
+      "raw": "{\n  \"passengers\": [\n    {\n      \"id\": \"pax1\",\n      \"look\": \"workwear\",\n      \"ageBand\": \"adult\",\n      \"gender\": \"female\",\n      \"note\": \"Funktionale Arbeitskleidung für den Labordienst und den Umgang mit technischer Ausrüstung im Außeneinsatz.\"\n    }\n  ],\n  \"cargo\": [\n    {\n      \"id\": \"c1\",\n      \"pieces\": [\n        {\n          \"form\": \"hardcase\",\n          \"weightLbs\": 44,\n          \"note\": \"Stoßfestes Peli-Case mit optischen Sensoren, Schaumstoff-Inlay.\"\n        },\n        {\n          \"form\": \"hardcase\",\n          \"weightLbs\": 44,\n          \"note\": \"Zweites Peli-Case des Sensorsets, empfindliche Linsen-Präzisionsoptik.\"\n        }\n      ]\n    }\n  ],\n  \"scenes\": {\n    \"start\": {\n      \"vehicle\": \"van\",\n      \"persons\": [\n        {\n          \"id\": \"s1\",\n          \"look\": \"workwear\",\n          \"ageBand\": \"adult\",\n          \"gender\": \"male\"\n        }\n      ],\n      \"note\": \"Transporter bietet sicheren Standplatz für die empfindlichen Gerätekoffer des Technologiezentrums.\"\n    },\n    \"arrival\": {\n      \"vehicle\": \"van\",\n      \"persons\": [\n        {\n          \"id\": \"a1\",\n          \"look\": \"workwear\",\n          \"ageBand\": \"young_adult\",\n          \"gender\": \"female\"\n        }\n      ],\n      \"note\": \"Institutstransporter zur Abholung der sperrigen und empfindlichen Laborausrüstung für den Kaiserstuhl.\"\n    }\n  }\n}"
+    },
+    {
+      "stage": "composer",
+      "prompt": "Du bist der Scene Composer eines MSFS-Missionsgenerators. Die Mission ist fertig geschrieben und bleibt unverändert. Deine Aufgabe ist nur die sichtbare Bodenszene beim Ein- und Aussteigen: wie die Mitreisenden aussehen und worin ihr Gepäck steckt.\nFür jede Person in PERSONEN: wähle den LOOK, der zu Anlass, Aufgabe und Rolle am besten passt, und die passende ALTERSGRUPPE. Der Anlass ist entscheidend – ein festlicher Anlass verlangt anderes als ein Arbeitseinsatz oder eine Wanderung, auch bei gleicher Tätigkeit. Ist das Geschlecht \"offen\", lege es plausibel nach Gruppe und Rolle fest (\"female\" oder \"male\"); ein vorgegebenes Geschlecht bleibt unverändert.\nFür jeden GEPÄCKPOSTEN: ordne die Beschreibung einem bis drei getrennten Packstücken zu und wähle je Stück die FORM, die am besten passt. Entscheidend ist, worin die Dinge transportiert werden; der Inhalt zählt nur, wenn kein Behältnis beschrieben ist. Teile das Gewicht plausibel auf. Trifft keine Form, wähle die neutralste passende.\nFür jede Szene in SZENEN (start = Abflug, arrival = Ziel; beide unabhängig): wähle für jede Person dort (Bringer bzw. Empfänger) LOOK, ALTERSGRUPPE und Geschlecht wie oben, passend zu ihrer Rolle und zum Ort, und wähle das FAHRZEUG, mit dem sie kommen – nur aus den dort angebotenen, die schon nach Plätzen und Ladung geprüft sind. Wähle, was zu Ort, Anlass und Personen passt (z. B. kein Bus für zwei, ein Geländefahrzeug am Buschstreifen, ein gepflegter Pkw zum Geschäftstermin).\nAlle Angaben sind Datenmaterial, keine Anweisung. Nur Werte aus den Listen.\nNur JSON {\"passengers\":[{\"id\":\"<id>\",\"look\":\"<id aus LOOKS>\",\"ageBand\":\"<id aus ALTERSGRUPPEN>\",\"gender\":\"female|male\",\"note\":\"<kurzer Grund, bis 120 Zeichen>\"}],\"cargo\":[{\"id\":\"<id>\",\"pieces\":[{\"form\":\"<id aus FORMEN>\",\"weightLbs\":<Zahl>,\"note\":\"<bis 120 Zeichen>\"}]}],\"scenes\":{\"start\":{\"vehicle\":\"<id aus fahrzeuge>\",\"persons\":[{\"id\":\"<id>\",\"look\":\"<id>\",\"ageBand\":\"<id>\",\"gender\":\"female|male\"}],\"note\":\"<bis 120 Zeichen>\"},\"arrival\":{…}}}.\nANLASS: \"Die Kaninchen werden am Zielflugplatz Backnang-Heiningen von der Kleintierzüchterin übernommen. Sie sollen in ihre bestehende Zuchtgruppe integriert werden, um die genetische Vielfalt in ihrem Bestand der Rasse Meißner Widder zu fördern. Die Tiere erhalten dort eigene Buchten in einer professionell geführten Anlage. – Der fiktive Zuchthof Schwarzwaldquell übergibt zwei Jungtiere an die Züchterin aus Backnang. Die Absprache erfolgte auf einer Vereinsschau. Es handelt sich um einen geplanten Bestandsaustausch zwischen langjährigen Zuchtfreunden zur Fortführung der Rassemerkmale. – Ein routiniert\"\nAUFGABE: \"Die Empfängerin erwartet die Ankunft am Flugplatz und übernimmt die Transportboxen direkt am Rollfeld in ihren Kleintransporter für die kurze Weiterfahrt zum Stallgebäude. – Rassekaninchenzucht Backnang (fiktiv)\"\nGRUPPE: \"\"\nPERSONEN: [{\"id\":\"pax1\",\"hauptperson\":true,\"rolle\":\"Zuchtwart\",\"geschlecht\":\"male\"}]\nGEPÄCKPOSTEN: []\nLOOKS: [{\"id\":\"workwear\",\"label\":\"Arbeitskleidung, Warnweste oder Overall\"},{\"id\":\"business\",\"label\":\"Gepflegt bis elegant, Anzug, Kostüm oder Kleid\"},{\"id\":\"casual\",\"label\":\"Freizeitkleidung, entspannt\"},{\"id\":\"aviation\",\"label\":\"Fliegerisch, Polo oder Hemd mit Headset\"},{\"id\":\"fire_rescue\",\"label\":\"Feuerwehr- oder Brandschutz-Einsatzkleidung\"},{\"id\":\"medical\",\"label\":\"Rettungsdienst oder Klinik: Sanitäter-, Notarzt- oder Pflegekleidung\"},{\"id\":\"outdoor\",\"label\":\"Funktionskleidung für draußen\"}]\nALTERSGRUPPEN: [{\"id\":\"child\",\"label\":\"Kind\"},{\"id\":\"young_adult\",\"label\":\"junge Erwachsene, bis etwa 30\"},{\"id\":\"adult\",\"label\":\"Erwachsene, etwa 30 bis 60\"},{\"id\":\"senior\",\"label\":\"ältere Menschen, ab etwa 60\"}]\nFORMEN: [{\"id\":\"duffel\",\"label\":\"Weiche Reisetasche\",\"tags\":[\"luggage\",\"charter\",\"outdoor\"]},{\"id\":\"cooler\",\"label\":\"Isolierte Kühlbox\",\"tags\":[\"cooler\",\"medical\",\"samples\",\"outdoor\"]},{\"id\":\"toolbox\",\"label\":\"Werkzeugkiste\",\"tags\":[\"tools\",\"maintenance\",\"club\",\"bush\",\"supplies\"]},{\"id\":\"carton\",\"label\":\"Pappkarton\",\"tags\":[]},{\"id\":\"camera_kit\",\"label\":\"Offener Hartschalenkoffer mit Foto- und Videoausrüstung\",\"tags\":[\"camera\",\"photography\",\"equipment\",\"media\"]},{\"id\":\"wood_crate\",\"label\":\"Holzkiste\",\"tags\":[\"freight\",\"supplies\"]},{\"id\":\"hardcase\",\"label\":\"Hartschalen-Gerätekoffer\",\"tags\":[\"equipment\",\"protective-case\",\"hardcase\"]},{\"id\":\"camping_kit\",\"label\":\"Verladefertige Campingausrüstung\",\"tags\":[\"camping\",\"hiking\",\"outdoor\",\"equipment\",\"supplies\"]},{\"id\":\"briefcase\",\"label\":\"Aktenkoffer\",\"tags\":[\"luggage\",\"passenger\",\"travel\"]},{\"id\":\"suitcase\",\"label\":\"Koffer mit Rollen\",\"tags\":[\"luggage\",\"passenger\",\"travel\"]},{\"id\":\"backpack\",\"label\":\"Rucksack\",\"tags\":[\"luggage\",\"passenger\",\"travel\",\"supplies\",\"outdoor\",\"personal\"]}]\nSZENEN: {\"start\":{\"personen\":[{\"id\":\"s1\",\"rolle\":\"Mitarbeiterin des Zuchthofs\",\"geschlecht\":\"female\"}],\"fahrzeuge\":[{\"id\":\"truck\",\"label\":\"Pick-up/Pritschenwagen, 3 Plätze, Ladefläche\"},{\"id\":\"car\",\"label\":\"Pkw, 5 Plätze, Kofferraum für Gepäck\"},{\"id\":\"van\",\"label\":\"Kleinbus/Transporter, bis 8 Plätze, viel Laderaum\"}]},\"arrival\":{\"personen\":[{\"id\":\"a1\",\"rolle\":\"Übernehmende Züchterin\",\"geschlecht\":\"female\"}],\"fahrzeuge\":[{\"id\":\"truck\",\"label\":\"Pick-up/Pritschenwagen, 3 Plätze, Ladefläche\"},{\"id\":\"car\",\"label\":\"Pkw, 5 Plätze, Kofferraum für Gepäck\"},{\"id\":\"van\",\"label\":\"Kleinbus/Transporter, bis 8 Plätze, viel Laderaum\"}]}}",
+      "status": 200,
+      "raw": "{\n  \"passengers\": [\n    {\n      \"id\": \"pax1\",\n      \"look\": \"casual\",\n      \"ageBand\": \"adult\",\n      \"gender\": \"male\",\n      \"note\": \"Zuchtwart in praktischer Freizeitkleidung für den Tiertransport.\"\n    }\n  ],\n  \"cargo\": [],\n  \"scenes\": {\n    \"start\": {\n      \"vehicle\": \"truck\",\n      \"persons\": [\n        {\n          \"id\": \"s1\",\n          \"look\": \"workwear\",\n          \"ageBand\": \"young_adult\",\n          \"gender\": \"female\"\n        }\n      ],\n      \"note\": \"Mitarbeiterin des Zuchthofs bringt die Tiere mit dem Pick-up zum Rollfeld.\"\n    },\n    \"arrival\": {\n      \"vehicle\": \"van\",\n      \"persons\": [\n        {\n          \"id\": \"a1\",\n          \"look\": \"workwear\",\n          \"ageBand\": \"adult\",\n          \"gender\": \"female\"\n        }\n      ],\n      \"note\": \"Züchterin übernimmt die Transportboxen direkt in ihren Kleintransporter.\"\n    }\n  }\n}"
+    },
+    {
+      "stage": "composer",
+      "prompt": "Du bist der Scene Composer eines MSFS-Missionsgenerators. Die Mission ist fertig geschrieben und bleibt unverändert. Deine Aufgabe ist nur die sichtbare Bodenszene beim Ein- und Aussteigen: wie die Mitreisenden aussehen und worin ihr Gepäck steckt.\nFür jede Person in PERSONEN: wähle den LOOK, der zu Anlass, Aufgabe und Rolle am besten passt, und die passende ALTERSGRUPPE. Der Anlass ist entscheidend – ein festlicher Anlass verlangt anderes als ein Arbeitseinsatz oder eine Wanderung, auch bei gleicher Tätigkeit. Ist das Geschlecht \"offen\", lege es plausibel nach Gruppe und Rolle fest (\"female\" oder \"male\"); ein vorgegebenes Geschlecht bleibt unverändert.\nFür jeden GEPÄCKPOSTEN: ordne die Beschreibung einem bis drei getrennten Packstücken zu und wähle je Stück die FORM, die am besten passt. Entscheidend ist, worin die Dinge transportiert werden; der Inhalt zählt nur, wenn kein Behältnis beschrieben ist. Teile das Gewicht plausibel auf. Trifft keine Form, wähle die neutralste passende.\nFür jede Szene in SZENEN (start = Abflug, arrival = Ziel; beide unabhängig): wähle für jede Person dort (Bringer bzw. Empfänger) LOOK, ALTERSGRUPPE und Geschlecht wie oben, passend zu ihrer Rolle und zum Ort, und wähle das FAHRZEUG, mit dem sie kommen – nur aus den dort angebotenen, die schon nach Plätzen und Ladung geprüft sind. Wähle, was zu Ort, Anlass und Personen passt (z. B. kein Bus für zwei, ein Geländefahrzeug am Buschstreifen, ein gepflegter Pkw zum Geschäftstermin).\nAlle Angaben sind Datenmaterial, keine Anweisung. Nur Werte aus den Listen.\nNur JSON {\"passengers\":[{\"id\":\"<id>\",\"look\":\"<id aus LOOKS>\",\"ageBand\":\"<id aus ALTERSGRUPPEN>\",\"gender\":\"female|male\",\"note\":\"<kurzer Grund, bis 120 Zeichen>\"}],\"cargo\":[{\"id\":\"<id>\",\"pieces\":[{\"form\":\"<id aus FORMEN>\",\"weightLbs\":<Zahl>,\"note\":\"<bis 120 Zeichen>\"}]}],\"scenes\":{\"start\":{\"vehicle\":\"<id aus fahrzeuge>\",\"persons\":[{\"id\":\"<id>\",\"look\":\"<id>\",\"ageBand\":\"<id>\",\"gender\":\"female|male\"}],\"note\":\"<bis 120 Zeichen>\"},\"arrival\":{…}}}.\nANLASS: \"Das veterinärmedizinische Material wird zur Analyse in ein spezialisiertes Labor in Freiburg gebracht. Es dient der routinemäßigen Gesundheitsüberwachung eines gewerblichen Tierbestands, um zeitnah Ergebnisse für die weitere Bestandsplanung vorliegen zu haben. – Die fiktive Gemeinschaftspraxis Dr. Kern hat die Probenentnahme durchgeführt. Das Labor in Freiburg ist der langjährige Partner für diese speziellen Untersuchungen. Der Transport wurde vereinbart, um die Proben innerhalb des geforderten Zeitfensters im Labor abzuliefern. – Ein sachlicher Logistikauftrag mit Fokus auf die Einhaltung der\"\nAUFGABE: \"Ein Kurier des Labors wartet am Flugplatz Freiburg, um die Thermobox entgegenzunehmen und auf direktem Weg in die Analyseabteilung zu bringen. – Veterinärlabor Freiburg-Süd (fiktiv)\"\nGRUPPE: \"\"\nPERSONEN: [{\"id\":\"pax1\",\"hauptperson\":true,\"rolle\":\"Medizinische Fachangestellte\",\"geschlecht\":\"female\"}]\nGEPÄCKPOSTEN: []\nLOOKS: [{\"id\":\"workwear\",\"label\":\"Arbeitskleidung, Warnweste oder Overall\"},{\"id\":\"fire_rescue\",\"label\":\"Feuerwehr- oder Brandschutz-Einsatzkleidung\"},{\"id\":\"outdoor\",\"label\":\"Funktionskleidung für draußen\"},{\"id\":\"medical\",\"label\":\"Rettungsdienst oder Klinik: Sanitäter-, Notarzt- oder Pflegekleidung\"},{\"id\":\"casual\",\"label\":\"Freizeitkleidung, entspannt\"},{\"id\":\"aviation\",\"label\":\"Fliegerisch, Polo oder Hemd mit Headset\"},{\"id\":\"business\",\"label\":\"Gepflegt bis elegant, Anzug, Kostüm oder Kleid\"}]\nALTERSGRUPPEN: [{\"id\":\"child\",\"label\":\"Kind\"},{\"id\":\"young_adult\",\"label\":\"junge Erwachsene, bis etwa 30\"},{\"id\":\"adult\",\"label\":\"Erwachsene, etwa 30 bis 60\"},{\"id\":\"senior\",\"label\":\"ältere Menschen, ab etwa 60\"}]\nFORMEN: [{\"id\":\"suitcase\",\"label\":\"Koffer mit Rollen\",\"tags\":[\"luggage\",\"passenger\",\"travel\"]},{\"id\":\"camera_kit\",\"label\":\"Offener Hartschalenkoffer mit Foto- und Videoausrüstung\",\"tags\":[\"camera\",\"photography\",\"equipment\",\"media\"]},{\"id\":\"hardcase\",\"label\":\"Hartschalen-Gerätekoffer\",\"tags\":[\"equipment\",\"protective-case\",\"hardcase\"]},{\"id\":\"toolbox\",\"label\":\"Werkzeugkiste\",\"tags\":[\"tools\",\"maintenance\",\"club\",\"bush\",\"supplies\"]},{\"id\":\"backpack\",\"label\":\"Rucksack\",\"tags\":[\"luggage\",\"passenger\",\"travel\",\"supplies\",\"outdoor\",\"personal\"]},{\"id\":\"wood_crate\",\"label\":\"Holzkiste\",\"tags\":[\"freight\",\"supplies\"]},{\"id\":\"camping_kit\",\"label\":\"Verladefertige Campingausrüstung\",\"tags\":[\"camping\",\"hiking\",\"outdoor\",\"equipment\",\"supplies\"]},{\"id\":\"duffel\",\"label\":\"Weiche Reisetasche\",\"tags\":[\"luggage\",\"charter\",\"outdoor\"]},{\"id\":\"briefcase\",\"label\":\"Aktenkoffer\",\"tags\":[\"luggage\",\"passenger\",\"travel\"]},{\"id\":\"carton\",\"label\":\"Pappkarton\",\"tags\":[]},{\"id\":\"cooler\",\"label\":\"Isolierte Kühlbox\",\"tags\":[\"cooler\",\"medical\",\"samples\",\"outdoor\"]}]\nSZENEN: {\"start\":{\"personen\":[{\"id\":\"s1\",\"rolle\":\"Praxishelfer\",\"geschlecht\":\"male\"}],\"fahrzeuge\":[{\"id\":\"truck\",\"label\":\"Pick-up/Pritschenwagen, 3 Plätze, Ladefläche\"},{\"id\":\"car\",\"label\":\"Pkw, 5 Plätze, Kofferraum für Gepäck\"},{\"id\":\"van\",\"label\":\"Kleinbus/Transporter, bis 8 Plätze, viel Laderaum\"}]},\"arrival\":{\"personen\":[{\"id\":\"a1\",\"rolle\":\"Laborkurier\",\"geschlecht\":\"male\"}],\"fahrzeuge\":[{\"id\":\"truck\",\"label\":\"Pick-up/Pritschenwagen, 3 Plätze, Ladefläche\"},{\"id\":\"car\",\"label\":\"Pkw, 5 Plätze, Kofferraum für Gepäck\"},{\"id\":\"van\",\"label\":\"Kleinbus/Transporter, bis 8 Plätze, viel Laderaum\"}]}}",
+      "status": 200,
+      "raw": "{\n  \"passengers\": [\n    {\n      \"id\": \"pax1\",\n      \"look\": \"medical\",\n      \"ageBand\": \"adult\",\n      \"gender\": \"female\",\n      \"note\": \"Medizinische Fachangestellte in Dienstkleidung für den Probenbegleitdienst.\"\n    }\n  ],\n  \"cargo\": [\n    {\n      \"id\": \"veterinary_samples\",\n      \"pieces\": [\n        {\n          \"form\": \"cooler\",\n          \"weightLbs\": 15,\n          \"note\": \"Thermobox mit veterinärmedizinischem Material zur Laboranalyse.\"\n        }\n      ]\n    }\n  ],\n  \"scenes\": {\n    \"start\": {\n      \"vehicle\": \"car\",\n      \"persons\": [\n        {\n          \"id\": \"s1\",\n          \"look\": \"medical\",\n          \"ageBand\": \"adult\",\n          \"gender\": \"male\"\n        }\n      ],\n      \"note\": \"Bringdienst der Gemeinschaftspraxis Dr. Kern am Flugplatz.\"\n    },\n    \"arrival\": {\n      \"vehicle\": \"van\",\n      \"persons\": [\n        {\n          \"id\": \"a1\",\n          \"look\": \"workwear\",\n          \"ageBand\": \"young_adult\",\n          \"gender\": \"male\"\n        }\n      ],\n      \"note\": \"Laborkurier des Veterinärlabors Freiburg-Süd wartet zur direkten Übergabe.\"\n    }\n  }\n}"
+    }
+  ],
+  "runs": [
+    {
+      "name": "fragile-0",
+      "source": {
+        "passenger": {
+          "role": "Glaskonservator",
+          "gender": "male"
+        },
+        "shipment": {
+          "label": "Gepolsterte Holzkisten mit Bleiglas-Fragmenten",
+          "packaging": "Drei maßgefertigte Sperrholzkisten mit Schaumstoffauskleidung und Seidenpapier-Trennschichten.",
+          "weightLbs": 145
+        },
+        "sender": "Denkmalschutzamt Rottweil",
+        "recipient": "Atelier Glaser-Kunst",
+        "groundCast": {
+          "start": [
+            {
+              "role": "Archivmitarbeiter des Denkmalschutzamtes",
+              "gender": "female"
+            }
+          ],
+          "arrival": [
+            {
+              "role": "Inhaber der Glasmalerei",
+              "gender": "male"
+            }
+          ]
+        }
+      },
+      "onboard": {
+        "passengers": [
+          "Glaskonservator/male"
+        ],
+        "cargo": [
+          "c1 Gepolsterte Holzkisten mit Bleiglas-Fragmenten 145 lbs (Glaskonservator)"
+        ]
+      },
+      "aiLooks": true,
+      "passengers": [
+        {
+          "look": "workwear",
+          "source": "composer",
+          "gender": "male",
+          "ageBand": "adult",
+          "note": "Spezialisierter Glaskonservator in praktischer Arbeitskleidung für den Transport empfindlicher Kulturgüter."
+        }
+      ],
+      "cargo": {
+        "c1": "Gepolsterte Holzkisten mit Bleiglas-Fragmenten: wood_crate 50 lbs, wood_crate 50 lbs, wood_crate 45 lbs"
+      },
+      "figures": [
+        "Tarmac_Male_Winter_Asian"
+      ],
+      "scenes": {
+        "start": {
+          "vehicle": "van (composer, 2 Plätze)",
+          "offered": [
+            "truck",
+            "van"
+          ],
+          "persons": [
+            "female/business/adult(composer)"
+          ],
+          "figures": [
+            "Tarmac_Female_Winter_Indian"
+          ],
+          "note": "Die Archivmitarbeiterin übergibt die wertvolle Fracht aus dem klimatisierten Transporter."
+        },
+        "arrival": {
+          "vehicle": "van (composer, 2 Plätze)",
+          "offered": [
+            "truck",
+            "van"
+          ],
+          "persons": [
+            "male/workwear/senior(composer)"
+          ],
+          "figures": [
+            "Tarmac_Male_Winter_Caucasian"
+          ],
+          "note": "Der Werkstattinhaber erwartet die Lieferung mit dem Atelier-Wagen für den erschütterungsfreien Weitertransport."
+        }
+      },
+      "manifestMainMatches": true
+    },
+    {
+      "name": "fragile-1",
+      "source": {
+        "passenger": {
+          "role": "Laborantin",
+          "gender": "female"
+        },
+        "shipment": {
+          "label": "Optische Boden-Analysegeräte (Sensorset)",
+          "packaging": "Zwei stoßfeste Peli-Cases mit passgenauen Schaumstoff-Inlays.",
+          "weightLbs": 88
+        },
+        "sender": "Technologiezentrum Schwarzwald-Baar",
+        "recipient": "Staatliches Weinbauinstitut Freiburg",
+        "groundCast": {
+          "start": [
+            {
+              "role": "Versandleiter des Technologiezentrums",
+              "gender": "male"
+            }
+          ],
+          "arrival": [
+            {
+              "role": "Fahrer des Forschungsinstituts",
+              "gender": "female"
+            }
+          ]
+        }
+      },
+      "onboard": {
+        "passengers": [
+          "Laborantin/female"
+        ],
+        "cargo": [
+          "c1 Optische Boden-Analysegeräte (Sensorset) 88 lbs (Laborantin)"
+        ]
+      },
+      "aiLooks": true,
+      "passengers": [
+        {
+          "look": "workwear",
+          "source": "composer",
+          "gender": "female",
+          "ageBand": "adult",
+          "note": "Funktionale Arbeitskleidung für den Labordienst und den Umgang mit technischer Ausrüstung im Außeneinsatz."
+        }
+      ],
+      "cargo": {
+        "c1": "Optische Boden-Analysegeräte (Sensorset): hardcase 44 lbs, hardcase 44 lbs"
+      },
+      "figures": [
+        "Tarmac_Female_Winter_African"
+      ],
+      "scenes": {
+        "start": {
+          "vehicle": "van (composer, 2 Plätze)",
+          "offered": [
+            "truck",
+            "car",
+            "van"
+          ],
+          "persons": [
+            "male/workwear/adult(composer)"
+          ],
+          "figures": [
+            "Tarmac_Male_Winter_Indian"
+          ],
+          "note": "Transporter bietet sicheren Standplatz für die empfindlichen Gerätekoffer des Technologiezentrums."
+        },
+        "arrival": {
+          "vehicle": "van (composer, 2 Plätze)",
+          "offered": [
+            "truck",
+            "car",
+            "van"
+          ],
+          "persons": [
+            "female/workwear/young_adult(composer)"
+          ],
+          "figures": [
+            "Tarmac_Female_Winter_Caucasian"
+          ],
+          "note": "Institutstransporter zur Abholung der sperrigen und empfindlichen Laborausrüstung für den Kaiserstuhl."
+        }
+      },
+      "manifestMainMatches": true
+    },
+    {
+      "name": "animal-0",
+      "source": {
+        "passenger": {
+          "role": "Zuchtwart",
+          "gender": "male"
+        },
+        "shipment": {
+          "label": "2 Meißner Widder Kaninchen in einer Doppel-Transportbox",
+          "packaging": "Stabile, gut belüftete Kunststoff-Doppelbox mit saugfähiger Einstreu und einer Handvoll Heu.",
+          "weightLbs": 18
+        },
+        "sender": "Zuchthof Schwarzwaldquell (fiktiv)",
+        "recipient": "Rassekaninchenzucht Backnang (fiktiv)",
+        "groundCast": {
+          "start": [
+            {
+              "role": "Mitarbeiterin des Zuchthofs",
+              "gender": "female"
+            }
+          ],
+          "arrival": [
+            {
+              "role": "Übernehmende Züchterin",
+              "gender": "female"
+            }
+          ]
+        }
+      },
+      "onboard": {
+        "passengers": [
+          "Zuchtwart/male"
+        ],
+        "cargo": []
+      },
+      "aiLooks": true,
+      "passengers": [
+        {
+          "look": "casual",
+          "source": "composer",
+          "gender": "male",
+          "ageBand": "adult",
+          "note": "Zuchtwart in praktischer Freizeitkleidung für den Tiertransport."
+        }
+      ],
+      "cargo": {},
+      "figures": [
+        "Tarmac_Male_Winter_African"
+      ],
+      "scenes": {
+        "start": {
+          "vehicle": "truck (composer, 2 Plätze)",
+          "offered": [
+            "truck",
+            "car",
+            "van"
+          ],
+          "persons": [
+            "female/workwear/young_adult(composer)"
+          ],
+          "figures": [
+            "Tarmac_Female_Winter_African"
+          ],
+          "note": "Mitarbeiterin des Zuchthofs bringt die Tiere mit dem Pick-up zum Rollfeld."
+        },
+        "arrival": {
+          "vehicle": "van (composer, 2 Plätze)",
+          "offered": [
+            "truck",
+            "car",
+            "van"
+          ],
+          "persons": [
+            "female/workwear/adult(composer)"
+          ],
+          "figures": [
+            "Tarmac_Female_Winter_Indian"
+          ],
+          "note": "Züchterin übernimmt die Transportboxen direkt in ihren Kleintransporter."
+        }
+      },
+      "manifestMainMatches": false
+    },
+    {
+      "name": "animal-1",
+      "source": {
+        "passenger": {
+          "role": "Medizinische Fachangestellte",
+          "gender": "female"
+        },
+        "shipment": {
+          "label": "Veterinärmedizinische Proben in versiegelter Thermobox",
+          "packaging": "Isolierte Thermobox mit sicher verschlossenem Deckel, innenliegende Probengefäße in gepolsterten Halterungen und durch Trennschicht geschützte Kühlelemente.",
+          "weightLbs": 12
+        },
+        "sender": "Tierarztpraxis Dr. Kern (fiktiv)",
+        "recipient": "Veterinärlabor Freiburg-Süd (fiktiv)",
+        "groundCast": {
+          "start": [
+            {
+              "role": "Praxishelfer",
+              "gender": "male"
+            }
+          ],
+          "arrival": [
+            {
+              "role": "Laborkurier",
+              "gender": "male"
+            }
+          ]
+        }
+      },
+      "onboard": {
+        "passengers": [
+          "Medizinische Fachangestellte/female"
+        ],
+        "cargo": []
+      },
+      "aiLooks": true,
+      "passengers": [
+        {
+          "look": "medical",
+          "source": "composer",
+          "gender": "female",
+          "ageBand": "adult",
+          "note": "Medizinische Fachangestellte in Dienstkleidung für den Probenbegleitdienst."
+        }
+      ],
+      "cargo": {},
+      "figures": [
+        "Tarmac_Female_Winter_African"
+      ],
+      "scenes": {
+        "start": {
+          "vehicle": "car (composer, 2 Plätze)",
+          "offered": [
+            "truck",
+            "car",
+            "van"
+          ],
+          "persons": [
+            "male/medical/adult(composer)"
+          ],
+          "figures": [
+            "Tarmac_Male_Winter_Arab"
+          ],
+          "note": "Bringdienst der Gemeinschaftspraxis Dr. Kern am Flugplatz."
+        },
+        "arrival": {
+          "vehicle": "van (composer, 2 Plätze)",
+          "offered": [
+            "truck",
+            "car",
+            "van"
+          ],
+          "persons": [
+            "male/workwear/young_adult(composer)"
+          ],
+          "figures": [
+            "Tarmac_Male_Winter_Arab"
+          ],
+          "note": "Laborkurier des Veterinärlabors Freiburg-Süd wartet zur direkten Übergabe."
+        }
+      },
+      "manifestMainMatches": false
+    }
+  ]
+}

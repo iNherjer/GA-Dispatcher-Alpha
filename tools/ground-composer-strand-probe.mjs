@@ -101,7 +101,7 @@ const STRANDS = {
     return out;
   },
   // Fracht, zerbrechliche Fracht, Tiertransport: je zwei Ideen aus dem produktiven Ideen-Prompt.
-  async freight() {
+  async freight(only = null) {
     const aircraft = { name: 'PA-24 Comanche', maxPayloadKg: 380, passengerCapacity: 3 };
     const defs = [
       ['cargo', '../mission-cargo-ideas-core.js', 'cargo', ''],
@@ -109,17 +109,18 @@ const STRANDS = {
       ['animal', '../mission-animal-transport-ideas-core.js', 'animal_transport', 'general_passenger_v1']
     ];
     const out = [];
-    for (const [key, file, taskDomain, roleProfile] of defs) {
+    for (const [key, file, taskDomain, roleProfile] of defs.filter((d) => !only || only.includes(d[0]))) {
       const core = require(file);
       const frames = ['EDSH', 'EDTF'].map((icao, i) => ({ candidateId: key + '-' + i, ...core.frame({ start: apt('EDTW'), target: apt(icao) }, aircraft, []) }));
       let batch = {};
       try { batch = await json(core.ideaPrompt(frames), key + '-ideas'); } catch (e) { batch = { error: String(e.message || e) }; }
       for (const input of frames) {
-        const raw = (batch.ideas || []).find((x) => x.candidateId === input.candidateId);
+        const raw = (Array.isArray(batch) ? batch : batch.ideas || []).find((x) => x.candidateId === input.candidateId);
         const idea = raw ? core.validate(raw, input) : null;
         out.push({ name: input.candidateId, idea, taskDomain, roleProfile,
           check: idea ? { passenger: idea.passenger ? { role: idea.passenger.role, gender: idea.passenger.gender } : null,
-            shipment: { label: idea.shipment.label, packaging: idea.shipment.packaging, weightLbs: idea.shipment.weightLbs } } : { invalid: batch.error || raw || 'fehlt' } });
+            shipment: { label: idea.shipment.label, packaging: idea.shipment.packaging, weightLbs: idea.shipment.weightLbs },
+            sender: idea.sender, recipient: idea.recipient, groundCast: idea.groundCast || null } : { invalid: batch.error || raw || 'fehlt' } });
       }
     }
     return out;
@@ -171,6 +172,9 @@ const STRANDS = {
     });
   },
   // Übrige Bush-Profile (Live-Läufe --run=composer-20261114): Abenteuer-Hopper, Fracht-Abholung, Aufklärung.
+  // Etappe E Schritt 4: Fracht-Idee liefert groundCast (Anlieferer/Empfänger).
+  cargoCast() { return STRANDS.freight(['cargo']); },
+  courierCast() { return STRANDS.freight(['fragile', 'animal']); },
   bushRest() { return STRANDS.bush(['bush_scenic_hopper', 'bush_pickup_cargo', 'bush_recon_return'], 'composer-20261114'); }
 };
 if (!STRANDS[strand]) throw Error('Unbekannter Strang ' + strand);

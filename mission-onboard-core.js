@@ -163,6 +163,22 @@ function crewFor(list, scene) {
     fromIdea: !!(raw && raw.length)
   }));
 }
+// Prüft groundCast aus einer Ideen-Antwort: je Szene 0–3 Personen mit Rolle und Geschlecht.
+// Ungültiges fällt still weg (dann Standardperson); eine leere Liste bleibt „niemand“.
+// Prompt-Baustein für die Ideen-Stufen: GROUND_CAST_PROMPT.
+function groundCastFrom(raw = null) {
+  if (!raw || typeof raw !== 'object') return null;
+  const out = {};
+  for (const scene of ['start', 'arrival']) {
+    if (!Array.isArray(raw[scene])) continue;
+    const list = raw[scene].filter((p) => p && typeof p === 'object' && text(p.role, 100) && gender(p.gender))
+      .slice(0, MAX_CREW).map((p) => ({ role: text(p.role, 100), gender: gender(p.gender) }));
+    if (list.length || !raw[scene].length) out[scene] = list;
+  }
+  return Object.keys(out).length ? out : null;
+}
+const GROUND_CAST_PROMPT = 'groundCast nennt die Menschen am Boden, die die Szene zeigt: start = wer am Startflugplatz bringt bzw. anliefert, arrival = wer am Zielflugplatz entgegennimmt bzw. abholt; jeweils 0–2 Personen (meist eine; sie kommen mit einem eigenen Fahrzeug), [] wenn dort niemand wartet. Je Person role (kurze Rolle aus der Geschichte, bis 100 Zeichen) und gender "female" oder "male". Ist eine Person anderswo in der Idee genannt, ist es dieselbe Person mit demselben Geschlecht; sonst wähle das Geschlecht unabhängig von Berufsklischees.';
+
 function scenesFor(raw = null) {
   const src = raw && typeof raw === 'object' ? raw : {};
   return { start: { crew: crewFor(src.start, 'start') }, arrival: { crew: crewFor(src.arrival, 'arrival') } };
@@ -200,7 +216,7 @@ function normalize(raw = null) {
     groupLabel: text(raw.groupLabel, 100), passengers, cargo, scenes: scenesFor(raw.scenes) };
 }
 
-const api = { SCHEMA, MAX_PASSENGERS, MAX_CREW, fromIdea, scenesFor, fromPassenger, normalize, adapters: Object.keys(ADAPTERS) };
+const api = { SCHEMA, MAX_PASSENGERS, MAX_CREW, GROUND_CAST_PROMPT, groundCastFrom, fromIdea, scenesFor, fromPassenger, normalize, adapters: Object.keys(ADAPTERS) };
 root.MissionOnboardCore = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

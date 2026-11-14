@@ -132,3 +132,14 @@ test('Fracht, zerbrechliche Fracht und Tiertransport: Verpackung an den Composer
   assert.equal(animal.passengers[0].gender, 'male');
   assert.equal(animal.cargo.length, 0);
 });
+
+test('groundCast aus der Idee: geprüft, ungültige Personen fallen weg, leere Liste bleibt „niemand“', () => {
+  const cast = core.groundCastFrom({ start: [{ role: 'Lagerist', gender: 'male' }, { role: '', gender: 'female' }, { role: 'Ohne Geschlecht' }], arrival: [] });
+  assert.deepEqual(cast, { start: [{ role: 'Lagerist', gender: 'male' }], arrival: [] });
+  assert.equal(core.groundCastFrom(null), null);
+  assert.equal(core.groundCastFrom({ start: [{ role: 'x' }] }), null, 'nichts Gültiges → Standard');
+  const onboard = core.fromIdea({ schema: 'cargo-idea.v1', purpose: 'Ersatzteile', shipment: { label: 'Kiste', weightLbs: 40 }, groundCast: cast });
+  assert.deepEqual(onboard.scenes.start.crew.map((m) => [m.role, m.gender, m.fromIdea]), [['Lagerist', 'male', true]]);
+  assert.equal(onboard.scenes.arrival.crew.length, 0);
+  assert.match(core.GROUND_CAST_PROMPT, /groundCast/);
+});
