@@ -31,3 +31,10 @@ Zusammen ausgeliefert mit Web v2391 (Cache).
 - **Im Simulator und im MSFS-EFB noch nicht geprüft.**
 
 Stable bleibt unverändert.
+
+## Aktivierung
+
+Release `v635` (Release-Commit `e352c6bed`, gebaut im sauberen Worktree mit `--no-bytecode`),
+`VFR-Multitool-Tracker.exe` 175083918 Bytes,
+SHA-256 `951c046155fb9aba723c74678e6bb962090a1ee69dc8591294ed00d36679dd2b`,
+öffentlicher Download geprüft. Alpha-Kanal aktiviert, Stable unverändert.
