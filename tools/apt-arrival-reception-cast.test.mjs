@@ -49,7 +49,7 @@ test('Plausibilitätsprüfung: Planer-Aufstellung mit vorgegebenem Fahrzeug blei
 function syncContext({ entry, crew, paxFigures = [{ title: 'Pax_A', gender: 'female' }], items, bushPickup = false }) {
   const c = vm.createContext({ console, globalThis: {}, window: {},
     _missionAptArrivalPreviewItems: () => items, _missionCargoEnsureManifest: () => ({ items: [] }), _missionCargoIsPassengerItem: () => false,
-    _missionBushIsPickupPassengerMission: () => bushPickup, _missionAptArrivalAssetForItem: (item, i) => ({ title: `legacy-${item.role}-${i}`, candidates: [] }),
+    _missionBushIsPickupPassengerMission: () => bushPickup, _missionAptArrivalAssetForItem: (item, i, o) => ({ title: `legacy-${item.role}-${i}`, candidates: [], moving: o?.movingPerson === true }),
     _missionSceneGroundFigures: () => paxFigures, _missionSceneCrewFigures: () => crew, _missionSceneComposerScene: () => ({ entry }),
     _missionSceneGroundFigureCandidates: (f) => [f.title], _missionCargoStableObjectKey: () => 'k' });
   const a = sync.indexOf('function _missionAptArrivalSceneItems('), b = sync.indexOf('\nfunction ', a + 1);
@@ -82,4 +82,24 @@ test('Bush-Abholung: wartende Person ist der Pax und trägt dessen Figur', () =>
 test('Ohne Composer-Plan bleibt die Zielszene unverändert', () => {
   const c = syncContext({ entry: null, crew: null, paxFigures: null, items: [vehicle, person(1), person(2)] });
   assert.deepEqual(c._missionAptArrivalSceneItems({}).map((i) => i.objectTitle), ['legacy-vehicle.van-0', 'legacy-person.ground_crew-1', 'legacy-person.ground_crew-2']);
+});
+
+test('Zielszene: Empfänger steigen mit ins Abholfahrzeug, ohne Plan bleibt es wie bisher', () => {
+  const near = { ...vehicle, forwardM: -7, rightM: 5 };
+  const far = { ...person(2), forwardM: 60, rightM: 0 };
+  const c = syncContext({ entry: arrival({ seats: 8, seatsNeeded: 3 }), crew: [{ title: 'Crew_1' }, { title: 'Crew_2' }], items: [near, { ...person(1), forwardM: 2, rightM: 3 }, far] });
+  const out = c._missionAptArrivalSceneItems({});
+  assert.equal(out[0].departWithPickupVehicle, undefined, 'Fahrzeug selbst nicht');
+  assert.equal(out[1].departWithPickupVehicle, true);
+  assert.equal(out[2].departWithPickupVehicle, undefined, 'mehr als 45 m Weg: bleibt stehen');
+  const extra = syncContext({ entry: arrival({ seats: 8, seatsNeeded: 3 }), crew: [{ title: 'Crew_1' }], items: [near, person(1), person(2)] });
+  const ex = extra._missionAptArrivalSceneItems({});
+  assert.equal(ex[2].objectTitle, 'legacy-person.ground_crew-2');
+  assert.equal(ex[2].departWithPickupVehicle, true, 'zusätzliche Person der Szene steigt auch zu');
+  const pickup = syncContext({ entry: arrival(), crew: [{ title: 'Crew_1' }], items: [near, person(1), person(2)], bushPickup: true });
+  const p = pickup._missionAptArrivalSceneItems({});
+  assert.equal(p[1].departWithPickupVehicle, undefined, 'wartender Bush-Pax steigt selbst zu');
+  assert.equal(p[2].departWithPickupVehicle, true);
+  const legacy = syncContext({ entry: null, crew: null, items: [near, person(1)] });
+  assert.equal(legacy._missionAptArrivalSceneItems({})[1].departWithPickupVehicle, undefined);
 });

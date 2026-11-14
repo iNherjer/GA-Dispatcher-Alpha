@@ -6554,13 +6554,20 @@ function _missionAptArrivalSceneItems(plan = {}) {
     const arrivalPersonLimit = !arrivalEntry ? Infinity
         : (arrivalEntry.castFixed === true ? arrivalCrew.length : Math.max(arrivalCrew.length, Number(arrivalEntry.seats || 0) - arrivalPaxCount));
     let arrivalCrewIndex = 0;
+    // Empfänger aus dem Composer steigen nach dem Aussteigen mit ins Abholfahrzeug und fahren
+    // mit ab (Tracker planPickupReception), sofern der Weg zum Fahrzeug kurz genug ist.
+    const arrivalVehicleItem = arrivalEntry ? items.find(item => String(item?.kind || '') === 'arrival_vehicle') : null;
+    const boardsArrivalVehicle = item => !!arrivalVehicleItem && /^arrival_person_/.test(String(item?.kind || ''))
+        && Math.hypot(Number(item.forwardM || 0) - Number(arrivalVehicleItem.forwardM || 0),
+            Number(item.rightM || 0) - Number(arrivalVehicleItem.rightM || 0)) <= 45;
     return items.flatMap((item, index) => {
         const isMovingPickupPerson = index === movingPickupPersonIndex;
+        const itemRole = String(item?.role || '').trim();
+        const isPersonItem = /^person\./.test(itemRole) || String(item?.kind || '').toLowerCase().includes('arrival_person');
+        if (isPersonItem && !isMovingPickupPerson && arrivalCrew && boardsArrivalVehicle(item)) item = { ...item, departWithPickupVehicle: true };
         let asset = _missionAptArrivalAssetForItem(item, index, {
             movingPerson: isMovingPickupPerson || item.departWithPickupVehicle === true
         });
-        const itemRole = String(item?.role || '').trim();
-        const isPersonItem = /^person\./.test(itemRole) || String(item?.kind || '').toLowerCase().includes('arrival_person');
         if (isMovingPickupPerson && paxFigures?.[0]?.title) {
             asset = { title: paxFigures[0].title, candidates: _missionSceneGroundFigureCandidates(paxFigures[0]) };
         } else if (isPersonItem && !isMovingPickupPerson && arrivalCrew) {

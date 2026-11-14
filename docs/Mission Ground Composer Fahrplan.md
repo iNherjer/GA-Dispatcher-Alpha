@@ -413,8 +413,14 @@ Der Krankenwagen ist beim Patiententransfer an beiden Enden erlaubt (4 Plätze).
 Damit liefern alle Ideen-Stränge ihre Bodenpersonen; Bush, Training, SAR, Feuer und POI-Briefings laufen
 über die Besetzung aus der Geschichte.
 
-**Offen:** Tracker `planPickupReception` (Build nötig).
-Tracker-Log zeigt die Szenen ab dem nächsten Build (`GROUND_COMPOSER … scenes=`).
+**Empfänger steigen mit ein (umgesetzt, Web v2398):** Die Zielszene (`_missionAptArrivalSceneItems`) markiert
+mit Composer-Plan jede verbliebene Empfangsperson (`arrival_person_*`, höchstens 45 m vom Abholfahrzeug) als
+`departWithPickupVehicle`. Der Tracker (`planPickupReception`, seit v634 vorhanden, bisher nur beim Medien-Empfang
+genutzt) lässt sie nach dem Aussteigen der Pax zum Fahrzeug gehen, entfernt sie dort und schickt das Fahrzeug erst
+danach los. Die Figur wird dafür schon als laufende Person gewählt. Kein Tracker-Build nötig. Ausgenommen: die
+wartende Bush-Abholperson (ist selbst der Pax) und Szenen ohne Composer-Plan (unverändert).
+
+**Offen:** Tracker-Log zeigt die Szenen ab dem nächsten Build (`GROUND_COMPOSER … scenes=`).
 
 ### Etappe F – Aufräumen
 
