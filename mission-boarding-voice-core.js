@@ -40,13 +40,15 @@
         return /^(male|m|mann|maennlich|männlich)$/i.test(String(value || '').trim()) ? 'male' : 'female';
     }
 
-    function conversationalTtsStyle(speaker) {
+    // override: per-request delivery (e.g. a visibly sick passenger) replaces the speaker style.
+    function conversationalTtsStyle(speaker, override) {
+        if (text(override, 800)) return text(override, 800);
         if (object(speaker).narrativeSchema === 'sightseeing-idea.v1') return 'Sprich auf Deutsch wie ein neugieriger Mitreisender im lockeren Gespräch: freundlich, natürlich und gut verständlich. Kein Vorlese- oder Reiseführerton, keine Bühnenaussprache und kein künstlicher Dialekt. Wortlaut beibehalten; diese Regieanweisung nicht mitsprechen.';
         if (object(speaker).taskDomain !== 'club_utility') return '';
         return 'Sprich auf Deutsch wie im ungezwungenen Gespräch unter Vereinskollegen: entspannt, freundlich, mit natürlichem Rhythmus und weichen Satzübergängen. Gut verständliche Alltagssprache, keine überdeutliche Bühnenaussprache, kein Nachrichtensprecher- oder Vorleseton. Kein künstlicher Dialekt. Wortlaut beibehalten; diese Regieanweisung nicht mitsprechen.';
     }
-    function ttsInput(spokenText, speaker) {
-        var style = conversationalTtsStyle(speaker);
+    function ttsInput(spokenText, speaker, override) {
+        var style = conversationalTtsStyle(speaker, override);
         return style ? style + '\n\nZu sprechender Text:\n' + spokenText : spokenText;
     }
 
@@ -66,9 +68,9 @@
         return config;
     }
 
-    function geminiTtsPart(model, spokenText, speaker) {
-        if (model !== 'gemini-3.8-flash-tts') return { text: ttsInput(spokenText, speaker) };
-        var style = conversationalTtsStyle(speaker);
+    function geminiTtsPart(model, spokenText, speaker, override) {
+        if (model !== 'gemini-3.8-flash-tts') return { text: ttsInput(spokenText, speaker, override) };
+        var style = conversationalTtsStyle(speaker, override);
         return style ? { text: spokenText, speech_metadata: { style: style } } : { text: spokenText };
     }
 

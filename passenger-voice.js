@@ -7347,11 +7347,11 @@ window.paxVoiceApplyTrackerOutcome = function(outcome = null) {
     if (kind === 'boarding') return _applyTrackerBoardingVoicePresentation(source);
     if (kind === 'farewell') return _applyTrackerFarewellVoicePresentation(source);
     if (kind === 'approach') return _applyTrackerApproachVoicePresentation(source);
-    if (['poi', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event', 'weather_preset', 'time_shift', 'bush_story'].includes(kind)) {
+    if (['poi', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event', 'weather_preset', 'time_shift', 'bush_story', 'pax_distress', 'cargo_distress'].includes(kind)) {
         const key = `${kind}|${source.text}|${source.updatedAt}`;
         if (_paxTrackerVoicePresentationKey !== key) {
             _paxTrackerVoicePresentationKey = key;
-            _rememberAndShowPrepared(source.text, source.speaker, (['poi','bush_story'].includes(kind) && source.label) || ({ bush_story: 'Bush-Geschichte', time_shift: 'Zeitsprung', weather_preset: 'Wetterwechsel', poi: 'POI-Auftrag', comfort: 'Komfort-Hinweis', wrong_start: 'Route läuft ab hier', off_destination: 'Falscher Landeplatz', landing_roll: 'Nach der Landung', cargo_event: 'Ladung' })[kind]);
+            _rememberAndShowPrepared(source.text, source.speaker, (['poi','bush_story'].includes(kind) && source.label) || ({ bush_story: 'Bush-Geschichte', time_shift: 'Zeitsprung', weather_preset: 'Wetterwechsel', poi: 'POI-Auftrag', comfort: 'Komfort-Hinweis', wrong_start: 'Route läuft ab hier', off_destination: 'Falscher Landeplatz', landing_roll: 'Nach der Landung', cargo_event: 'Ladung', pax_distress: 'Übelkeit', cargo_distress: 'Ladungsschaden' })[kind]);
         }
         return true;
     }
@@ -7368,7 +7368,7 @@ window.addEventListener('ga:tracker-voice-playback', event => {
     if (kind === 'boarding') _applyTrackerBoardingVoicePresentation(detail);
     else if (kind === 'farewell') _applyTrackerFarewellVoicePresentation(detail);
     else if (kind === 'approach') _applyTrackerApproachVoicePresentation(detail);
-    else if (['poi', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event', 'weather_preset', 'time_shift', 'bush_story'].includes(kind)) window.paxVoiceApplyTrackerOutcome(detail);
+    else if (['poi', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event', 'weather_preset', 'time_shift', 'bush_story', 'pax_distress', 'cargo_distress'].includes(kind)) window.paxVoiceApplyTrackerOutcome(detail);
 });
 
 window.paxVoicePrepareGreeting = function(lat = null, lon = null) {

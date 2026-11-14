@@ -1916,3 +1916,27 @@ Freiflug mit Tracker: `navigation_adopt` nimmt optional `resetPoints` (die Dispa
 bei derselben `planId` die bisherigen `resetPoints`, wenn der Plan nach Bearbeitungen erneut aus der Cloud kommt.
 `freeflightNavigation` (`ga.freeflight-navigation.v1`) führt die Dispatch-Route optional als `resetPoints`; ältere
 Tracker verwerfen das Feld. Missionsläufe setzen weiterhin auf die ursprüngliche Missionsroute des Laufs zurück.
+
+## 14.11.2026 – Schwellen-Meldungen für Pax-Komfort und Ladungszustand (Tracker, unveröffentlicht)
+
+`ga-tracker-client/tracker-mission-distress-voice-core.js` ergänzt die Flug-Voice um einmalige Schwellen-Meldungen.
+Neue Erfolgsregeln gibt es dabei nicht:
+
+- Pax-Komfort (`comfortScore` aus `mission-comfort-core.js`) unter 50 %: `pax_distress/queasy` (ihm wird übel);
+  unter 30 %: `pax_distress/sick` (Spucktüte, bitte bald landen). Nur in der Luft und nur vor der Anflugansage.
+  Die Meldungen zählen nicht gegen die drei reaktiven Komfort-Hinweise.
+- Ladungszustand: dieselbe Formel wie bei der Ankunftsprüfung (`flightRecorderCore.stressDamage` auf den Rekord
+  `arrivalFlightRecord || aktuelles Recorder-Segment`), nur geladene Nicht-Pax-Positionen ohne `persistentEquipment`.
+  Bei ≤ 50 %: `cargo_distress/damaged`; bei ≤ 35 %: `cargo_distress/broken`. 35 % ist die bestehende Ausfallgrenze für
+  Pflichtladung. Bei kaputter Pflichtladung sagt der Pax, dass der Auftrag damit ein echtes Problem hat. Diese Meldung
+  geht der Übelkeit vor und darf auch nach dem Aufsetzen kommen (harte Landung).
+- Jede Stufe kommt einmal pro Lauf. Ein übersprungener Schritt zählt als erledigt, zwischen zwei Meldungen liegen mindestens
+  20 s. Ausgelöst wird nur, wenn keine andere Voice läuft oder angefordert ist. Ein Pax muss an Bord sein und die
+  Pax-Stimme aktiv. Unter Debug-Slew-Schutz kommt keine Meldung. Der Zustand liegt in `flightVoiceState.distress`;
+  committete Effekte gelten nach einer Wiederaufnahme als erledigt.
+- Die Texte erzeugt das Textmodell aus `baseContext` (Pax-Persönlichkeit). Der Pax-Prompt unterscheidet Pilot- und
+  Wetterursache. Pax-Meldungen tragen `ttsStyle` (gequält bzw. elend). `tracker-voice-service.js` reicht es als
+  Gemini-`speech_metadata.style` bzw. OpenAI-`instructions` weiter (`conversationalTtsStyle(speaker, override)`).
+- Ohne Pax: keine Stimme. `publicExecutionSnapshot.cargoLive` liefert den Live-Zustand, das EFB zeigt dann
+  „Ladung beschädigt“ (warn) bzw. „Ladung kaputt“ (danger) und nimmt den Live-Wert in Ladungs- und Pflichtzustand auf.
+- Log: `MISSION_DISTRESS_VOICE data={kind,stage,comfortScore,cargoPct,accepted}`.

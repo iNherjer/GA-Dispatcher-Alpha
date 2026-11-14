@@ -980,6 +980,57 @@ test('central comfort trigger persists its cooldown and does not repeat after ru
     'a requested approach already blocks comfort, before any voice ACK');
 });
 
+test('threshold remarks: nausea below 50/30 % comfort and broken cargo at 50/35 % condition, each once', async t => {
+  const bundle = aptBundle();
+  bundle.runtime.cargoManifest.items = [{ id: 'pax', itemType: 'passenger', status: 'pending', required: true, passengerCount: 1 },
+    { id: 'box', itemType: 'cargo', label: 'Ersatzteilkiste', status: 'pending', required: true, weightLbs: 20, healthPct: 100 }];
+  bundle.missionState.routeWaypoints = [{ lat: 48.1, lng: 8.2 }, { lat: 48.3, lng: 8.5 }];
+  bundle.executionEffectPlan.effects['voice.approach'] = { context: { supported: true, mode: 'passenger', passenger: {},
+    baseContext: 'Passenger', departure: { lat: 48.1, lng: 8.2 } } };
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+  const manager = committedManager(t, bundle);
+  const requests = [];
+  const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: true, playBoardingVoice: request => {
+    requests.push(request.effect);
+    return { ok: true, status: 'completed', voiceOutcome: { kind: request.effect.payload.kind || 'boarding', text: 'Test', status: 'ok' } };
+  } });
+  runtime.attachSimulator({ getLivePosition: () => ({ lat: 48.1, lon: 8.2 }),
+    dispatchCommand: () => ({ ok: true, status: 'completed' }), syncPayloadBeforeStart: () => ({ ok: true, status: 'completed' }),
+    syncPayloadManifestState: () => ({ ok: true, status: 'completed' }) });
+  let seq = 0;
+  for (const [intent, payload] of [['prepare_mission'], ['start_boarding'], ['set_manifest_item', { itemId: 'box', action: 'load' }],
+    ['sign_manifest'], ['confirm_load'], ['start_mission']]) {
+    const run = manager.getActiveRun();
+    const result = await runtime.executeIntent({ missionId: run.missionId, runId: run.runId, expectedRevision: run.revision,
+      commandId: `distress-${++seq}`, intent, payload: payload || {} });
+    assert.equal(result.ok, true, JSON.stringify(result));
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  // Hard pull-ups every 6 s: each one is a severe pilot event and raises the cargo stress peak.
+  for (let now = 100000; now <= 400000; now += 1000) {
+    const spike = (now / 1000) % 6 === 0;
+    runtime.observeTelemetry({ observedAt: now, lat: 48.2, lon: 8.3, onGround: false, gsKts: 90, aglFt: 2000, altFt: 2500,
+      gForce: spike ? Math.min(4.4, 2 + (now - 100000) / 60000) : 1, bankDeg: 0, vsFpm: 0, windKts: 5 });
+    await new Promise(resolve => setImmediate(resolve));
+  }
+  const distress = requests.filter(effect => effect.type === 'voice.flight' && /_distress$/.test(effect.payload.kind))
+    .map(effect => `${effect.payload.kind}:${effect.payload.stage}`);
+  assert.deepEqual([...distress].sort(), ['cargo_distress:broken', 'cargo_distress:damaged', 'pax_distress:queasy', 'pax_distress:sick'], distress.join(','));
+  const sick = requests.find(effect => effect.payload.kind === 'pax_distress' && effect.payload.stage === 'sick');
+  assert.match(sick.payload.prompt, /Spucktüte/);
+  assert.match(sick.payload.ttsStyle, /elend/);
+  const broken = requests.find(effect => effect.payload.kind === 'cargo_distress' && effect.payload.stage === 'broken');
+  assert.match(broken.payload.prompt, /Pflichtladung für diesen Auftrag \(Ersatzteilkiste\)/);
+  const control = manager.getPublicSnapshot().execution;
+  assert.ok(control.cargoLive.conditionPct <= 35, JSON.stringify(control.cargoLive));
+  assert.deepEqual(control.cargoLive.requiredBroken, ['Ersatzteilkiste']);
+  const { projectTrackerEfbMissionView } = require('./tracker-efb-mission-view-core.js');
+  const { view } = projectTrackerEfbMissionView(manager.getPublicSnapshot({ includeBundle: true }).activeRun, {}, null, control);
+  assert.equal(view.feedback.find(row => row.label === 'Ladung kaputt')?.tone, 'danger', JSON.stringify(view.feedback));
+  assert.ok(view.cargo.conditionPct <= 35);
+});
+
 // Run the real Standalone landing-fallback branch against the same trace.
 const vm = require('node:vm');
 const standaloneSync = fs.readFileSync(path.join(__dirname, '../sync.js'), 'utf8');

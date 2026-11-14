@@ -80,6 +80,23 @@ test('Gemini uses an API-key header and wraps raw PCM as browser-friendly WAV', 
   assert.equal(audio.body.subarray(8, 12).toString('ascii'), 'WAVE');
 });
 
+test('a per-request delivery style (sick passenger) reaches Gemini and OpenAI TTS', async () => {
+  const style = 'Sprich völlig fertig und elend.';
+  const bodies = [];
+  const gemini = createTrackerVoiceService({ provider: 'gemini', apiKey: 'k', ttsModels: ['gemini-3.8-flash-tts'],
+    fetchRemote: async (_url, options) => { bodies.push(JSON.parse(options.body)); return { ok: true, status: 200,
+      json: async () => ({ candidates: [{ content: { parts: [{ inlineData: { data: Buffer.from([1, 2, 3, 4]).toString('base64'), mimeType: 'audio/L16;codec=pcm;rate=24000' } }] } }] }) }; } });
+  gemini.request({ effectId: 'run-3:sick', kind: 'pax_distress', text: 'Tüte, bitte.', ttsStyle: style, ttsModels: ['gemini-3.8-flash-tts'], speaker: { gender: 'male' } });
+  await gemini.wait('run-3:sick');
+  assert.equal(bodies[0].contents[0].parts[0].speech_metadata.style, style);
+  const openAi = [];
+  const openai = createTrackerVoiceService({ provider: 'openai', apiKey: 'k',
+    fetchRemote: async (_url, options) => { openAi.push(JSON.parse(options.body)); return { ok: true, status: 200, arrayBuffer: async () => Buffer.from('audio') }; } });
+  openai.request({ effectId: 'run-3:sick-openai', kind: 'pax_distress', text: 'Tüte, bitte.', ttsStyle: style, speaker: { gender: 'male' } });
+  await openai.wait('run-3:sick-openai');
+  assert.equal(openAi[0].instructions, style);
+});
+
 test('only one cockpit client owns playback until release or lease expiry', async () => {
   let clock = 1000;
   const service = createTrackerVoiceService({

@@ -27,6 +27,7 @@ const EXECUTION_AUTHORITY_WEB = 'web';
 const EXECUTION_AUTHORITY_TRACKER = 'tracker';
 const EXECUTION_HANDOFF_RECIPE = 'apt';
 const poiRuntime = require('./tracker-mission-poi-runtime.js');
+const distressVoiceCore = require('./tracker-mission-distress-voice-core.js');
 const resumeAdapters = require('../mission-resume-adapters-core.js');
 const interruptionCore = require('./tracker-mission-interruption-core.js');
 const EXECUTION_PAYLOAD_RECOVERY_SCHEMA = 'ga.mission-payload-recovery.v1';
@@ -553,6 +554,11 @@ function publicExecutionSnapshot(run) {
     ...(poiRecipe?.taskDomain === 'mapping_survey' ? { surveySpec: poiRecipe.surveyPattern } : {}),
     ...(state.poiLifecycle ? { poiLifecycle: jsonClone(state.poiLifecycle) } : {}),
     ...(poiLifecycle ? { poiStatus: poiLifecycle.status, poiOutcome: exposeCompletionRecord ? poiLifecycle.outcome : null } : {}),
+    // Live cargo condition from the current stress record (same formula as the arrival check).
+    cargoLive: state.flags.active === true && !/^(closing|closed)$/.test(state.phase)
+      ? distressVoiceCore.cargoCondition(state.manifest, distressVoiceCore.stressRecord(runtime?.flightRecorder, runtime?.arrivalFlightRecord,
+        runtime?.latestTelemetry?.observedAt || runtime?.updatedAt || Date.now()), { motionProtectionEnabled: executionComfortContext(run).motionProtectionEnabled === true })
+      : null,
     manifest: jsonClone(state.manifest),
     flightEvents: jsonClone(view.flightEvents),
     payload: jsonClone(view.payload),

@@ -16,6 +16,7 @@ const complianceCore = require('../mission-compliance-domain-core.js');
 const farewellVoiceCore = require('../mission-farewell-voice-core.js');
 const boardingVoiceCore = require('../mission-boarding-voice-core.js');
 const flightRecorderCore = require('../mission-flight-recorder-core.js');
+const distressVoiceCore = require('./tracker-mission-distress-voice-core.js');
 const poiLifecycleCore = require('../mission-poi-lifecycle-core.js');
 const poiRuntime = require('./tracker-mission-poi-runtime.js');
 const sarSearchCore=require('../mission-sar-search-core.js');
@@ -1068,6 +1069,9 @@ function createTrackerMissionExecutionAdapter(options = {}) {
                 narrativeKind: ['fixed','geo'].includes(request.payload.narrativeKind) ? request.payload.narrativeKind : '',
                 fallbackText: cleanString(request.payload.fallbackText, 1200),
                 geo: request.payload.narrativeKind === 'geo' ? safeObject(request.payload.geo) : null
+              } : {}), ...(['pax_distress', 'cargo_distress'].includes(request.payload?.kind) ? {
+                stage: ['queasy', 'sick', 'damaged', 'broken'].includes(request.payload.stage) ? request.payload.stage : '',
+                ...(cleanString(request.payload.ttsStyle, 800) ? { ttsStyle: cleanString(request.payload.ttsStyle, 800) } : {})
               } : {}), narrativeEventId: cleanString(request.payload?.narrativeEventId, 80), intent: cleanString(request.payload?.intent, 600), kind: cleanString(request.payload?.kind, 40), prompt: cleanString(request.payload?.prompt, 24000),
               label: cleanString(request.payload?.label, 120), debugDetail: cleanString(request.payload?.debugDetail, 1800),
               delayMs: Math.max(0, Math.min(2000, Number(request.payload?.delayMs) || 0)),
@@ -1569,6 +1573,18 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     getCargoRevision() { const snapshot = current(); if (snapshot) resetObservationIfNeeded(snapshot); return observations.cargoObjectRevision; },
     setCargoRevision(value) { const snapshot = current(); if (snapshot) { resetObservationIfNeeded(snapshot); observations.cargoObjectRevision = Math.max(observations.cargoObjectRevision, value); persistRuntimeContext(snapshot, true); } },
     getFlightVoiceState: () => observations.flightVoiceState,
+    // Live comfort and cargo condition for the threshold remarks; read only.
+    getDistressInputs() {
+      const snapshot = current();
+      if (!snapshot) return null;
+      const observedAt = Number(observations.latestTelemetry?.observedAt) || now();
+      return {
+        comfort: observations.comfort?.summary || null,
+        cargo: distressVoiceCore.cargoCondition(snapshot.state.manifest,
+          distressVoiceCore.stressRecord(observations.flightRecorder, observations.arrivalFlightRecord, observedAt),
+          { motionProtectionEnabled: observations.comfortContext?.motionProtectionEnabled === true })
+      };
+    },
     hasNewLandingApproachCandidate: () => landingApproachCandidate,
     hasRecordedAirbornePhase: () => observations.flightRecorder.hadAirbornePhase === true,
     setFlightVoiceState(value, force = false) {

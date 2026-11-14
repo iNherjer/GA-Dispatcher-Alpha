@@ -14,6 +14,7 @@ const routeMapCore = require('./tracker-efb-map-snapshot-core.js');
 
 const { createFlightMotionBuffer } = require('./tracker-flight-motion-buffer.js');
 const { observeFlightVoice } = require('./tracker-flight-voice-core.js');
+const distressVoiceCore = require('./tracker-mission-distress-voice-core.js');
 const locationCore = require('../mission-location-core.js');
 const farewellVoiceCore = require('../mission-farewell-voice-core.js');
 const { createTrackerMissionExecutionAdapter } = require('./tracker-mission-execution-adapter.js');
@@ -1222,6 +1223,37 @@ function createTrackerMissionExecutionRuntime(options = {}) {
           for (const effect of detected.effects) adapter.applySystemEvent({ missionId: snapshot.missionId, runId: snapshot.runId,
             type: 'APT_FLIGHT_VOICE_REQUESTED', eventId: `flight-voice:${effect.kind}:${triggerAt}`, payload: { ...effect, triggerAt } });
           if (detected.effects.length) observationSnapshot = undefined;
+          // Threshold remarks: nausea below 50/30 % comfort, broken cargo at 50/35 % condition.
+          let distressTriggered = false;
+          {
+            const fresh = authorityManager.getExecutionSnapshot();
+            const inputs = adapter.getDistressInputs?.();
+            const settings = options.getAudioSettings?.();
+            const paxVoiceOn = settings ? settings.enabled === true && settings.paxEnabled === true : context.audioEnabled !== false;
+            const paxItems = fresh.state.manifest.items.filter(item => item.itemType === 'passenger');
+            const aboard = fresh.state.flags.boardingConfirmed && (!paxItems.length || paxItems.some(item => item.status === 'loaded'));
+            const committed = fresh.state.effects.filter(e => e.type === 'voice.flight' && ['pax_distress', 'cargo_distress'].includes(e.payload.kind))
+              .map(e => ({ kind: e.payload.kind, stage: e.payload.stage }));
+            const observed = distressVoiceCore.observe(previous.distress, {
+              now: triggerAt, committed, comfortScore: inputs?.comfort?.comfortScore, cargo: inputs?.cargo,
+              airborne: sample.onGround === false && !fresh.state.voice.approach && !fresh.state.effects.some(e => e.type === 'voice.approach'),
+              speakerReady: !!inputs && aboard && paxVoiceOn && fresh.state.flags.active && !context.motionProtectionEnabled
+                && !fresh.state.flags.closingPending && !fresh.state.flags.farewellStarted && !fresh.state.flags.unloadConfirmed
+                && sample.simPaused !== true && sample.inMenuOrMap !== true
+                && !voiceOperations.size && !comfortPending && !detected.effects.length
+                && !fresh.state.effects.some(e => e.type.startsWith('voice.') && e.status === 'requested')
+            });
+            detected.state.distress = observed.state;
+            const payload = distressVoiceCore.effectPayload(context, observed.event, inputs?.comfort, inputs?.cargo);
+            if (payload) {
+              const accepted = adapter.applySystemEvent({ missionId: fresh.missionId, runId: fresh.runId, type: 'APT_FLIGHT_VOICE_REQUESTED',
+                eventId: `distress:${fresh.runId}:${payload.kind}:${payload.stage}`, payload: { ...payload, triggerAt } });
+              log(`MISSION_DISTRESS_VOICE data=${JSON.stringify({ missionId: fresh.missionId, kind: payload.kind, stage: payload.stage,
+                comfortScore: inputs?.comfort?.comfortScore ?? null, cargoPct: inputs?.cargo?.conditionPct ?? null, accepted: accepted?.ok === true })}`);
+              if (accepted?.ok) { distressTriggered = true; observationSnapshot = undefined; }
+              else detected.state.distress = previous.distress;
+            }
+          }
           // Bush chapters share the same central voice lane and persistent claim state.
           const bushPlan = bushNarrativeCore.normalizePlan(context.bushNarrative);
           let bushState = previous.bushNarrative || {};
@@ -1316,8 +1348,8 @@ function createTrackerMissionExecutionRuntime(options = {}) {
               }
             } else routeState = observed.state;
           }
-          adapter.setFlightVoiceState({ ...detected.state, routeVoice: routeState }, detected.effects.length > 0 || routeTriggered || bushTriggered);
-          if (detected.effects.length) effectRunner.drain().catch(error => log(`MISSION_FLIGHT_VOICE_ERROR ${error?.message || error}`));
+          adapter.setFlightVoiceState({ ...detected.state, routeVoice: routeState }, detected.effects.length > 0 || routeTriggered || bushTriggered || distressTriggered);
+          if (detected.effects.length || distressTriggered) effectRunner.drain().catch(error => log(`MISSION_FLIGHT_VOICE_ERROR ${error?.message || error}`));
         }
       }
       const distance = result?.destination?.dMissionNm;

@@ -4,6 +4,7 @@ const poiTaskCore = require('../mission-poi-task-core.js');
 
 const aptUiCore = require('../mission-apt-ui-core.js');
 const payloadCore = require('../mission-payload-core.js');
+const distressVoiceCore = require('./tracker-mission-distress-voice-core.js');
 
 const MISSION_VIEW_SCHEMA = 'ga.efb-mission-view.v1';
 const MISSION_VIEW_VERSION = 1;
@@ -343,8 +344,10 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
     const controlCargo = object(control.cargo);
     const cargoSummary = object(controlCargo.summary);
     const health = manifest.items.filter(item => item.itemType !== 'passenger' && ['loaded', 'unloaded', 'dropped', 'handed_off'].includes(item.status)).map(item => item.healthPct);
+    const cargoLive = control.cargoLive && typeof control.cargoLive === 'object' ? control.cargoLive : null;
     const conditionPct = Math.round(Math.min(health.length ? Math.min(...health) : 100,
-      100 - Math.max(0, Math.min(100, finite(control.manifest?.maxStressDamagePct) ?? 0))));
+      100 - Math.max(0, Math.min(100, finite(control.manifest?.maxStressDamagePct) ?? 0)),
+      finite(cargoLive?.conditionPct) ?? 100));
     const controlPhase = text(control.phase, 80).toLowerCase() || 'planned';
     const phaseCurrent = /^(closing|closed)$/.test(controlPhase)
       ? 3
@@ -408,8 +411,9 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
     const requiredLoaded = required.filter(item => item.status === 'loaded').length;
     const requiredHealth = required.filter(item => item.itemType !== 'passenger');
     const requiredCondition = Math.round(Math.min(requiredHealth.length ? Math.min(...requiredHealth.map(item => item.healthPct)) : 100,
-      100 - Math.max(0, Math.min(100, finite(control.manifest?.maxStressDamagePct) ?? 0))));
-    const cargoTone = required.some(item => item.status === 'dropped' || item.healthPct <= 35)
+      100 - Math.max(0, Math.min(100, finite(control.manifest?.maxStressDamagePct) ?? 0)),
+      finite(cargoLive?.requiredConditionPct) ?? 100));
+    const cargoTone = required.some(item => item.status === 'dropped' || item.healthPct <= 35) || requiredCondition <= 35
       ? 'danger' : requiredLoaded < required.length || requiredCondition < 75 ? 'warn' : 'good';
     view.cargo.requiredTotal = required.length;
     view.cargo.requiredLoaded = requiredLoaded;
@@ -497,7 +501,9 @@ function projectTrackerEfbMissionView(activeRun, flightSnapshot, technicalSnapsh
       if (unloaded.length && control.recipe === 'poi') cargoFeedback.push({ label: 'Pflichtladung entladen', tone: 'info',
         detail: `${unloaded.map(item => item.label).join(', ')}: nicht an Bord; entladen zählt in der bestehenden POI-Prüfung nicht als fehlend.` });
     }
-    if (conditionPct < 75 && !taskItems?.damaged?.length) cargoFeedback.push({ label: 'Ladungszustand', tone: 'warn',
+    const distressRows = taskItems?.damaged?.length ? [] : distressVoiceCore.feedbackRows(cargoLive);
+    if (distressRows.length) cargoFeedback.push(...distressRows);
+    else if (conditionPct < 75 && !taskItems?.damaged?.length) cargoFeedback.push({ label: 'Ladungszustand', tone: 'warn',
       detail: `Ladung bei ${conditionPct} %. Ruhiger weiterfliegen.` });
     view.feedback = cargoFeedback.concat(view.feedback);
     if (comfort?.pilotEvents > 0) view.feedback.push({ label: 'PAX-Komfort', tone: comfort.pilotSevere > 0 ? 'danger' : 'warn',

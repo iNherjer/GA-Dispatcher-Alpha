@@ -62,7 +62,7 @@ function normalizeVoiceRequest(value = {}) {
     : {};
   const paxMenuRequest = value.paxMenuRequest === true;
   const requestedKind = String(value.kind || '').trim().toLowerCase();
-  const kind = ['poi', 'boarding', 'farewell', 'approach', 'cargo', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event', 'route_story', 'bush_story', 'weather_preset', 'time_shift'].includes(requestedKind) ? requestedKind : 'direct';
+  const kind = ['poi', 'boarding', 'farewell', 'approach', 'cargo', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event', 'route_story', 'bush_story', 'weather_preset', 'time_shift', 'pax_distress', 'cargo_distress'].includes(requestedKind) ? requestedKind : 'direct';
   const taskDomain = String(value.taskDomain || normalizedSpeaker.taskDomain || '').trim().toLowerCase().slice(0, 120);
   const cueSource = value.cue && typeof value.cue === 'object' && !Array.isArray(value.cue) ? value.cue : {};
   const requestedCueId = boardingVoiceCore.normalizeCueId(cueSource.id);
@@ -113,6 +113,8 @@ function normalizeVoiceRequest(value = {}) {
     gender: normalizedSpeaker.gender,
     voiceName,
     speaker: normalizedSpeaker,
+    // Per-request delivery (e.g. a visibly sick passenger); empty keeps the speaker style.
+    ttsStyle: String(value.ttsStyle || '').trim().slice(0, 800),
     cue: {
       id: cueId,
       variantSeed: cueId === 'none' ? '' : String(cueSource.variantSeed || '').trim().slice(0, 500),
@@ -241,7 +243,7 @@ async function synthesizeOpenAi({ apiKey, request, fetchRemote }) {
       const response = await fetchRemote('https://api.openai.com/v1/audio/speech', {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, voice: voiceName, input: request.text, ...(boardingVoiceCore.conversationalTtsStyle(request.speaker) ? { instructions: boardingVoiceCore.conversationalTtsStyle(request.speaker) } : {}), response_format: 'mp3' })
+        body: JSON.stringify({ model, voice: voiceName, input: request.text, ...(boardingVoiceCore.conversationalTtsStyle(request.speaker, request.ttsStyle) ? { instructions: boardingVoiceCore.conversationalTtsStyle(request.speaker, request.ttsStyle) } : {}), response_format: 'mp3' })
       });
       lastStatus = Number(response?.status) || 0;
       if (!response?.ok) continue;
@@ -260,7 +262,7 @@ async function synthesizeGeminiModel({ apiKey, request, fetchRemote, model, sign
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify({
-          contents: [{ role: 'user', parts: [boardingVoiceCore.geminiTtsPart(model, request.text, request.speaker)] }],
+          contents: [{ role: 'user', parts: [boardingVoiceCore.geminiTtsPart(model, request.text, request.speaker, request.ttsStyle)] }],
           generationConfig: {
             responseModalities: ['AUDIO'],
             speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } }
@@ -645,7 +647,7 @@ function createTrackerVoiceService(options = {}) {
         const record = {
           effectId,
           fingerprint: String(source.fingerprint || ''),
-          kind: ['poi', 'boarding', 'farewell', 'approach', 'cargo', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event', 'route_story', 'bush_story', 'weather_preset', 'time_shift'].includes(String(source.kind || '').trim().toLowerCase())
+          kind: ['poi', 'boarding', 'farewell', 'approach', 'cargo', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event', 'route_story', 'bush_story', 'weather_preset', 'time_shift', 'pax_distress', 'cargo_distress'].includes(String(source.kind || '').trim().toLowerCase())
             ? String(source.kind || '').trim().toLowerCase()
             : 'direct',
           missionScope: normalizeMissionVoiceScope(source.missionScope),
@@ -823,6 +825,7 @@ function createTrackerVoiceService(options = {}) {
         taskDomain: request.taskDomain,
         staticClipKey: request.staticClipKey,
         speaker: request.speaker,
+        ...(request.ttsStyle ? { ttsStyle: request.ttsStyle } : {}),
         cue: request.cue,
         ...((request.cueSequence.before.length || request.cueSequence.after.length) ? { cueSequence: request.cueSequence } : {}),
         voiceName: request.voiceName,

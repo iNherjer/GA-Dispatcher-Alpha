@@ -29,6 +29,14 @@ liefert alles Offene mit aus.
 
 ## Ausgeliefert
 
+### 2026-11-14 · Schwellen-Meldungen Übelkeit (<50/<30 %) und Ladungsschaden (≤50/≤35 %) — ausgeliefert in Tracker v637 Alpha / Web v2400 (14.11.2026)
+- **Artefakt:** Tracker-EXE; Web mit diesem Push
+- **Dateien:** `ga-tracker-client/tracker-mission-distress-voice-core.js` (neu), `tracker-mission-execution-runtime.js`, `tracker-mission-execution-adapter.js`, `tracker-mission-boarding-voice.js`, `tracker-voice-service.js`, `mission-authority-core.js`, `tracker-efb-mission-view-core.js`, `mission-boarding-voice-core.js`, `passenger-voice.js`
+- **Was:** Einmalige Pax-Meldungen bei Komfort unter 50 % / 30 % (hörbar elend per TTS-Stil) und Ladungsmeldungen bei ≤ 50 % / ≤ 35 % (Pflichtladung = Auftragsproblem); EFB-Zeile auch ohne Pax.
+- **Tests:** `tracker-mission-distress-voice-core.test.js`, Ende-zu-Ende in `tracker-mission-execution-runtime.test.js`, TTS-Stil in `tracker-voice-service.test.js`; Tracker-Suite 1567/1569.
+- **Doku beim Release:** `docs/Mission Runtime Authority Contract.md` (14.11.2026), `docs/Tracker-v637-Release.md`.
+- **Pruefen im Feld:** Mit harten Manövern fliegen: Übelkeit, Spucktüte, Ladungsmeldungen; Log `MISSION_DISTRESS_VOICE`.
+
 ### 2026-11-14 · Composer-Diagnose zeigt Fahrzeug und Bringer/Empfänger je Szene — ausgeliefert in Tracker v636 Alpha / Web v2399 (14.11.2026)
 - **Artefakt:** Tracker-EXE; Web live mit v2392
 - **Dateien:** `ga-tracker-client/tracker-ground-composer-log.js`
