@@ -64,8 +64,18 @@ function source(md) {
     groupLabel: text(md.party?.label, 100),
     passengerCount: passengerCount > 0 ? passengerCount : 0,
     lead: passengerCount > 0 ? { role: text(pax?.role, 100), gender: gender === 'male' || gender === 'female' ? gender : '' } : null,
-    cargoPost: cargo
+    cargoPost: cargo,
+    // Wo die Bodenszenen sind; Rückkehr-Missionen enden wieder am Abflugplatz (dort holt die Start-Szene ab).
+    places: { start: placeName(bush?.homeRef?.name, md.startName, md.start), arrival: placeName(bush?.targetRef?.name, md.targetName, md.destName, md.dest) },
+    returnHome: bush?.requiresReturnHome === true
   };
+}
+function placeName(...values) {
+  for (const value of values) {
+    const name = typeof value === 'string' ? value : (value && typeof value === 'object' ? value.n || value.name : '');
+    if (text(name, 80)) return text(name, 80);
+  }
+  return '';
 }
 
 // Folgemission mit derselben Person (z. B. Abholung des Bush-Gasts, POI-Fortsetzung): Die Anfrage

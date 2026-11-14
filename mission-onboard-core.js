@@ -123,7 +123,9 @@ const ADAPTERS = {
     passengers: Number(src.passengerCount) > 0
       ? passengersFor({ lead: src.lead, passengerCount: src.passengerCount, groupLabel: src.groupLabel, companions: src.companions }) : [],
     cargo: [src.cargoPost ? cargoPost('c1', src.cargoPost) : null].filter(Boolean),
-    scenes: src.groundCast || null
+    scenes: src.groundCast || null,
+    places: src.places || null,
+    returnHome: src.returnHome === true
   }),
   'apt-news-idea.v1': (idea) => ({
     occasion: join([idea.purpose, idea.background, idea.angle]),
@@ -139,7 +141,9 @@ function fromIdea(idea = null) {
   if (!idea || typeof idea !== 'object') return null;
   const adapter = ADAPTERS[idea.schema];
   if (!adapter) return null;
-  return normalize({ schema: SCHEMA, source: idea.schema, scenes: idea.groundCast || null, ...adapter(idea) });
+  const routePlaces = idea.route && typeof idea.route === 'object'
+    ? { start: idea.route.start?.name || idea.route.startName || '', arrival: idea.route.target?.name || idea.route.targetName || '' } : null;
+  return normalize({ schema: SCHEMA, source: idea.schema, scenes: idea.groundCast || null, places: routePlaces, ...adapter(idea) });
 }
 
 // Bodenszenen am Start und am Ziel: wer außer den Mitreisenden dort steht (Bringer bzw.
@@ -213,7 +217,8 @@ function normalize(raw = null) {
   const cargo = (Array.isArray(raw.cargo) ? raw.cargo : []).slice(0, 6)
     .map((post, index) => cargoPost(`c${index + 1}`, post || {})).filter(Boolean);
   return { schema: SCHEMA, source: text(raw.source, 60), occasion: text(raw.occasion, 600), task: text(raw.task, 300),
-    groupLabel: text(raw.groupLabel, 100), passengers, cargo, scenes: scenesFor(raw.scenes) };
+    groupLabel: text(raw.groupLabel, 100), passengers, cargo, scenes: scenesFor(raw.scenes),
+    places: { start: text(raw.places?.start, 80), arrival: text(raw.places?.arrival, 80) }, returnHome: raw.returnHome === true };
 }
 
 const api = { SCHEMA, MAX_PASSENGERS, MAX_CREW, GROUND_CAST_PROMPT, groundCastFrom, fromIdea, scenesFor, fromPassenger, normalize, adapters: Object.keys(ADAPTERS) };

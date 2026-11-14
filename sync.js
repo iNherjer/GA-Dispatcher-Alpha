@@ -8186,8 +8186,16 @@ function _missionSceneBuildBoardingEffectCommand(reason = 'boarding', position =
     return command;
 }
 
+// Wo ausgestiegen wird: am Ziel (arrival) oder – bei Rückkehr-Missionen (Bush strip_then_return,
+// Recon-Return) – wieder am Abflugplatz; dort holt die Start-Szene ab.
+function _missionSceneDeboardingComposerScene() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const bush = md?.bush || md?.missionContract?.bush || null;
+    return bush?.requiresReturnHome === true ? 'start' : 'arrival';
+}
+
 function _missionSceneBuildDeboardingCommand(reason, pos, sceneId, deboardingPaxCount, coordinateFarewell = false, aptPickupPoint = null, pickupSceneId = '') {
-    const vehicleAsset = _missionSceneVehicleAsset('arrival');
+    const vehicleAsset = _missionSceneVehicleAsset(typeof _missionSceneDeboardingComposerScene === 'function' ? _missionSceneDeboardingComposerScene() : 'arrival');
     const vehicleTitle = vehicleAsset?.title || MISSION_SCENE_DEFAULT_VEHICLE_TITLE;
     const commonFields = _missionSceneCommonSceneCommandFields();
     if (aptPickupPoint) {

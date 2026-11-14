@@ -210,3 +210,29 @@ test('Gruppen bleiben in der Tracker-Fahrzeugregel: 2 Pkw/Van, 3–5 Van', () =>
   const four = onboardCore.fromIdea({ ...idea(), passengerCount: 4 });
   assert.deepEqual(core.vehicleOptions(four, 'start', {}), ['van']);
 });
+
+test('Offene Besetzung: Composer legt Personen aus der Geschichte fest, Platzregel kürzt', () => {
+  const bush = { schema: 'mission-ground-source.v1', occasion: 'Funktechniker wartet am Strip bei Big Creek; der Hüttenwirt hat ihn hingefahren', passengerCount: 1,
+    lead: { role: 'Funktechniker', gender: 'male' } };
+  const onboard = onboardCore.fromIdea(bush);
+  const context = { roleProfile: 'bush_pickup_guest_v1' };
+  assert.match(core.prompt(onboard, undefined, context), /"personen":"offen"/);
+  const plan = core.validate({ passengers: [], scenes: { arrival: { vehicle: 'quad', persons: [
+    { role: 'Hüttenwirt', gender: 'male', look: 'outdoor' }, { role: 'Tochter des Hüttenwirts', gender: 'female', look: 'outdoor' }] } } }, onboard, context);
+  const arrival = plan.scenes.arrival;
+  assert.deepEqual(arrival.persons.map((p) => [p.id, p.role, p.gender, p.look]), [['a1', 'Hüttenwirt', 'male', 'outdoor'], ['a2', 'Tochter des Hüttenwirts', 'female', 'outdoor']]);
+  assert.equal(arrival.castSource, 'story');
+  assert.equal(arrival.castFixed, true);
+  assert.notEqual(arrival.vehicle, 'quad', 'drei Personen passen nicht aufs Quad');
+  assert.equal(arrival.seatsNeeded, 3);
+  assert.equal(plan.scenes.start.castSource, 'default', 'ohne Antwort bleibt die Standardperson');
+  assert.equal(plan.scenes.start.castFixed, false);
+});
+
+test('Besetzung aus der Idee bleibt fest, auch wenn der Composer andere Personen vorschlägt', () => {
+  const onboard = onboardCore.fromIdea({ ...idea(), groundCast: { arrival: [{ role: 'Hochzeitsplanerin', gender: 'female' }] } });
+  assert.doesNotMatch(core.prompt(onboard).split('SZENEN:')[1], /"arrival":\{"personen":"offen"/);
+  const plan = core.validate({ passengers: [], scenes: { arrival: { persons: [{ id: 'a1', role: 'Taxifahrer', gender: 'male', look: 'casual' }] } } }, onboard, {});
+  assert.deepEqual(plan.scenes.arrival.persons.map((p) => [p.role, p.gender, p.look]), [['Hochzeitsplanerin', 'female', 'casual']]);
+  assert.equal(plan.scenes.arrival.castSource, 'idea');
+});

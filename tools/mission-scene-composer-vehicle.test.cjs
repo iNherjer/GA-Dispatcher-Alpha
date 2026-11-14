@@ -53,5 +53,13 @@ test('Startszene setzt Bringer aus dem Plan an die Stelle der festen Fahrzeug-Cr
   assert.match(body, /_missionSceneCrewFigures\('start', groundFigures\)/);
   assert.match(body, /person_idle/);
   assert.match(body, /legacyPersonItems\.splice/, 'überzählige feste Crew fällt weg');
-  assert.match(sync, /_missionSceneBuildDeboardingCommand\([^)]*\) \{\n    const vehicleAsset = _missionSceneVehicleAsset\('arrival'\);/);
+  assert.match(sync, /_missionSceneBuildDeboardingCommand\([^)]*\) \{\n    const vehicleAsset = _missionSceneVehicleAsset\(typeof _missionSceneDeboardingComposerScene === 'function' \? _missionSceneDeboardingComposerScene\(\) : 'arrival'\);/);
+});
+
+test('Aussteigen bei Rückkehr-Missionen nutzt die Start-Szene (Abflugplatz), sonst das Ziel', () => {
+  for (const [md, scene] of [[{ bush: { requiresReturnHome: true } }, 'start'], [{ bush: { requiresReturnHome: false } }, 'arrival'], [{}, 'arrival']]) {
+    const c = vm.createContext({ currentMissionData: md });
+    extract(c, '_missionSceneDeboardingComposerScene');
+    assert.equal(c._missionSceneDeboardingComposerScene(), scene);
+  }
 });

@@ -381,8 +381,19 @@ Kurier bzw. Begleitperson ist Pax, nicht Teil von groundCast). Live-Probe:
 `analysis/ground-composer-cast-cargo-20261114.md`, `…-cast-courier-20261114.md` – Rollen passen zu
 Absender/Empfänger, nach dem Hinweis gegen Berufsklischees gemischte Geschlechter.
 
-**Offen:** Schritt 4 für die übrigen Stränge (Charter, Sightseeing, Verein, Medizin, Reporter, Privat;
-Bush nur mit Entscheidung, ob Writer oder Composer die Strip-Personen festlegt); Tracker `planPickupReception` (Build nötig).
+**Offene Besetzung aus der Geschichte (umgesetzt, Web v2395, User-Entscheidung 14.11.2026):** Nennt eine
+Mission ihre Bodenpersonen nicht selbst (Bush über den V4-Writer, Training, alle Stränge ohne
+`groundCast`), bekommt der Composer `personen: "offen"` und legt aus Anlass/Geschichte 1–2 Personen je
+Szene fest (Rolle, Geschlecht, Look; `castSource: 'story'`, gilt wie feste Besetzung). Die Platzregel
+kürzt auf das, was ins Fahrzeug passt. Kein Eingriff in den Bush-Writer. Jede Szene nennt dem Composer
+ihren Ort (`places` aus Idee-Route bzw. Bush `homeRef`/`targetRef`); Rückkehr-Missionen
+(`bush.requiresReturnHome`) enden am Abflugplatz – dort holt die Start-Szene ab, und das Aussteigen
+nimmt deren Fahrzeug (`_missionSceneDeboardingComposerScene`). Live-Probe Bush 6 Profile:
+`analysis/ground-composer-cast-places-bush*-20261114.md` – namentliche Figuren aus der Geschichte
+(Ranger Ben + Mechaniker), Werft am Heimatplatz, Techniker am Strip (ohne Ortsangabe vorher vertauscht).
+
+**Offen:** Schritt 4 für die übrigen Ideen-Stränge (Charter, Sightseeing, Verein, Medizin, Reporter,
+Privat) – laufen bis dahin über die offene Besetzung; Tracker `planPickupReception` (Build nötig).
 Tracker-Log zeigt die Szenen ab dem nächsten Build (`GROUND_COMPOSER … scenes=`).
 
 ### Etappe F – Aufräumen
