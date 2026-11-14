@@ -102,9 +102,16 @@ let pending = null;
 // Nach dem Erstellen aufrufen. Wartet nicht; das Ergebnis landet in md.groundComposer.
 function start(md, { aiModeEnabled = false } = {}) {
   const visual = root.MissionGroundVisualCore;
-  if (!visual?.enabled?.() || !aiModeEnabled || !md || hasOwnComposer(md) || md.groundComposer?.groundVisual) return null;
+  if (!md) return null;
+  // Diagnose (Tracker-Log GROUND_COMPOSER): warum der allgemeine Schritt nicht lief.
+  const skip = (reason) => { md.groundComposerStatus = { status: 'skipped', reason, at: Date.now() }; return null; };
+  if (!visual?.enabled?.()) return skip('disabled');
+  if (hasOwnComposer(md)) return skip('own-composer');
+  if (md.groundComposer?.groundVisual) return null;
+  if (!aiModeEnabled) return skip('no-ai');
   const src = source(md);
-  if (!src) return null;
+  if (!src) return skip('no-source');
+  delete md.groundComposerStatus;
   md.groundComposer = src;
   const missionId = md.missionId;
   const carry = carryFor(md);

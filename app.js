@@ -9879,7 +9879,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'category', 'profileId', 'requestedProfileId', 'appliedProfileId',
         'taskDomain', 'roleProfile', 'pax', 'cargo', 'paxText', 'initialPaxText',
         'passengerCount', 'plannedPassengerCount', 'party', 'aircraftCapability',
-        'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'sarBriefing', 'sarScenario', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'animalTransportIdea', 'aptNewsIdea', 'medicalTransferIdea', 'sightseeingIdea', 'groundComposer',
+        'cargoText', 'passenger', 'privateOuting', 'privateReturn', 'clubIdea', 'charterIdea', 'poiBriefing', 'infraBriefing', 'bioBriefing', 'sarBriefing', 'sarScenario', 'fireBriefing', 'geoBriefing', 'chainBriefing', 'knowledgeBriefing', 'mappingBriefing', 'poiContinuationBriefing', 'followUpNarrative', 'newsBriefing', 'cargoIdea', 'fragileCargoIdea', 'animalTransportIdea', 'aptNewsIdea', 'medicalTransferIdea', 'sightseeingIdea', 'groundComposer', 'groundComposerStatus',
         'sarHeli', 'sarHeliProgress', 'bush', 'bushNarrative', 'bushFollowUpNarrative', 'legacyCharterNarrative', 'bushReconInfo', 'environmentContext', 'airportInfoContext', 'airportInformation', 'departureAirportInfoContext', 'departureAirportInformation', 'poiInformation',
         'routeWaypoints', 'missionRouteWaypoints',
         'knowledgeContext',

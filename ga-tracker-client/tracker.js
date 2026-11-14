@@ -124,6 +124,7 @@ const {
   validateCloudMissionActivation
 } = require('./tracker-mission-cloud.js');
 const { createCloudMissionReconciler } = require('./tracker-cloud-mission-reconcile.js');
+const groundComposerLog = require('./tracker-ground-composer-log.js');
 const { createRotatingDebugLog } = require('./tracker-debug-log.js');
 const { createTrackerVoiceService } = require('./tracker-voice-service.js');
 const { createTrackerCockpitControl } = require('./tracker-cockpit-control-core.js');
@@ -171,8 +172,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v634';
-const TRACKER_VERSION_CODE = 634;
+const TRACKER_VERSION = 'v635';
+const TRACKER_VERSION_CODE = 635;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -4597,6 +4598,16 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         return { ok: false, error: 'mission_resume_teleport_failed' };
       }
     },
+    // Abgeschlossene Mission (kein aktiver Run mehr), die die Cloud löscht – etwa nach dem
+    // Debriefing: ausgeladene Fracht, Gepäck und übrige Szenenobjekte am Ziel abräumen.
+    async clearClosedMissionScenes(missionId = '', reason = 'mission-closed-cleared') {
+      const id = String(missionId || '').trim();
+      const activeRun = missionAuthority?.getActiveRun?.() || null;
+      if (!id || (activeRun?.missionId && activeRun.missionId === id)) return { ok: true, status: 'noop', cleared: 0 };
+      const cleared = await clearAuthorityRunEffects(id, reason);
+      debugLog(`MISSION_CLOSED_SCENES_CLEARED mission=${id} cleared=${cleared} reason=${reason}`);
+      return { ok: true, status: cleared > 0 ? 'ok' : 'noop', cleared };
+    },
     async cleanupExecutionRun(request = {}) {
       const activeRun = missionAuthority?.getActiveRun?.() || null;
       const missionId = String(request?.missionId || '').trim();
@@ -5365,6 +5376,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     return now - _cloudMissionLastAttemptAt >= (_cloudMissionRetryGapMs ? Math.min(gap, _cloudMissionRetryGapMs) : gap);
   };
   let cleanupLegacyCloudRun = null;
+  let clearClosedMissionScenes = null;
   let _cloudMissionReplacementCleanupInProgress = false;
   // Outside a loaded flight (MSFS menu/world map or no simulator at all) every
   // spawned object is already gone, and the next mission start writes its own
@@ -5511,6 +5523,8 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     // require the separate user-authored prepare_mission intent.
     _cloudMissionCandidate = null;
     debugLog(`MISSION_CLOUD_ACTIVATE mission=${candidate.missionId} run=${active.runId} status=loaded phase=planned`);
+    try { groundComposerLog.summarize(active.resumeBundle?.missionState, active.resumeBundle?.runtime?.cargoManifest).forEach(line => debugLog(`${line} mission=${candidate.missionId}`)); }
+    catch (error) { debugLog(`GROUND_COMPOSER status=log-error error=${error?.message || error}`); }
     return { ok: true, status: 'ok', cloudActivated: true, sideEffect: false };
   };
   const activateCloudMission = async request => {
@@ -5535,6 +5549,13 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       controllerSession: { clientId: 'tracker-cloud-control', role: 'cloud-sync', capabilities: ['mission.intent.v1'] }
     }, run),
     clear: async control => {
+      // Die Mission ist schon geschlossen (z. B. Debriefing): ihre Szenen am Ziel stehen noch.
+      // Abräumen vor dem Löschen des Missionsstands; ohne Simulator gibt es nichts abzuräumen.
+      const closedMissionId = missionAuthorityManager.getPublicSnapshot?.()?.lastRun?.missionId || '';
+      if (closedMissionId && clearClosedMissionScenes) {
+        try { await clearClosedMissionScenes(closedMissionId, control.status === 'deleted' ? 'cloud-mission-cleared' : 'cloud-mission-replacement'); }
+        catch (error) { debugLog(`MISSION_CLOSED_SCENES_CLEAR_ERROR mission=${closedMissionId} error=${error?.message || error}`); }
+      }
       const recovery = await missionAuthorityManager.clearMissionRecoveryState({
         commandId: `cloud-control:${control.epoch}:${control.revision}:clear`, reason: 'cloud-mission-control', clientId: 'tracker-cloud-control'
       });
@@ -5723,10 +5744,11 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     if (typeof patch.readPayload === 'function') readCockpitPayload = patch.readPayload;
     if (Object.hasOwn(patch, 'tuneRadio')) tuneCockpitRadio = patch.tuneRadio;
     if (typeof patch.cleanupLegacyCloudRun === 'function') cleanupLegacyCloudRun = patch.cleanupLegacyCloudRun;
+    if (typeof patch.clearClosedMissionScenes === 'function') clearClosedMissionScenes = patch.clearClosedMissionScenes;
     if (Object.hasOwn(patch, 'simulatorConnected')) {
       if (_simulatorConnected && patch.simulatorConnected !== true) navigationWarnings?.reset();
       _simulatorConnected = patch.simulatorConnected === true;
-      if (!_simulatorConnected) cleanupLegacyCloudRun = null;
+      if (!_simulatorConnected) { cleanupLegacyCloudRun = null; clearClosedMissionScenes = null; }
     }
     if (Object.hasOwn(patch, 'telemetryHibernate') && patch.telemetryHibernate && typeof patch.telemetryHibernate === 'object') {
       const previousKey = `${_telemetryHibernateState?.mode || ''}:${_telemetryHibernateState?.reason || ''}`;
@@ -6914,7 +6936,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         missionTransfer
       );
       if (typeof updateEfbState === 'function') updateEfbState({ readPayload: count => missionSmokeController.refreshPayloadSnapshot(count),
-        cleanupLegacyCloudRun: request => missionSmokeController.cleanupExecutionRun(request) });
+        cleanupLegacyCloudRun: request => missionSmokeController.cleanupExecutionRun(request),
+        clearClosedMissionScenes: (missionId, reason) => missionSmokeController.clearClosedMissionScenes(missionId, reason) });
       let payloadSnapshotRefreshPending = false;
       const refreshMissionPayloadSnapshot = () => {
         const execution = missionAuthorityManager?.getExecutionSnapshot?.();

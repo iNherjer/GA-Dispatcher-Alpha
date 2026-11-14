@@ -123,11 +123,14 @@ async function ensure(idea, json, options = {}) {
     // Rückflug/Fortsetzung: gleiche Personen behalten ihr Aussehen; nur das Gepäck kann neu sein.
     if (passengersMatch(idea.groundVisual, onboard)) {
       if (onboard.cargo.length) await cargoCore()?.ensure?.(idea, json);
+      idea.groundVisual.composer = { ...(idea.groundVisual.composer || {}), kept: true, keptAt: Date.now() };
       return idea.groundVisual;
     }
     const plan = validate(await json(prompt(onboard)), onboard, context);
     if (!plan) throw new Error('ungültige Antwort');
     plan.figureSeed = figureSeed();
+    // Diagnose (Tracker-Log GROUND_COMPOSER): Ergebnis des Abrufs.
+    plan.composer = { status: 'ai', source: text(onboard.source, 60), at: Date.now() };
     idea.groundVisual = plan;
     if (plan.cargo.c1) idea.cargoVisual = plan.cargo.c1;
     else if (onboard.cargo.length) await cargoCore()?.ensure?.(idea, json);
@@ -135,7 +138,11 @@ async function ensure(idea, json, options = {}) {
   } catch (error) {
     console.warn('[GroundVisual] Composer-Auswahl fehlgeschlagen, feste Liste:', error?.message || error);
     const plan = fallbackPlan(onboard, context);
-    if (plan) { plan.figureSeed = figureSeed(); idea.groundVisual = plan; }
+    if (plan) {
+      plan.figureSeed = figureSeed();
+      plan.composer = { status: 'fallback', source: text(onboard?.source, 60), error: text(String(error?.message || error || ''), 160), at: Date.now() };
+      idea.groundVisual = plan;
+    }
     if (onboard?.cargo?.length && !idea.cargoVisual) await cargoCore()?.ensure?.(idea, json);
     return plan;
   }

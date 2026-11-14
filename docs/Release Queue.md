@@ -27,7 +27,17 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-### 2026-11-13 · Privat-Rückflug übernimmt die Composer-Wahl (mitgepackter Kern)
+## Ausgeliefert
+
+### 2026-11-14 · Geschlossene Mission räumt ihre Szenen ab, Composer-Diagnose im Log — ausgeliefert in Tracker v635 Alpha / Web v2391 (14.11.2026)
+- **Artefakt:** Tracker-EXE; Web mit diesem Push
+- **Dateien:** `ga-tracker-client/tracker.js`, `ga-tracker-client/tracker-ground-composer-log.js`, `mission-ground-visual-core.js`, `mission-ground-composer-browser.js`, `app.js`, `sync.js`
+- **Was:** Löscht die Cloud eine schon geschlossene Mission (Debriefing), räumt der Tracker vorher deren Szenen ab (ausgeladene Fracht und Gepäck blieben stehen, Feldtest 13.11.). Neue Log-Zeilen `GROUND_COMPOSER` / `GROUND_COMPOSER_MANIFEST` beim Laden der Mission: Status (ai/fallback/übersprungen mit Grund), Quelle, Looks, Packstücke, Fehler, und was die Ladeliste tatsächlich nutzt.
+- **Tests:** `tracker-closed-mission-scene-cleanup.test.js` 2/2, `tracker-ground-composer-log.test.js` 2/2, Tracker-Suite 1563/1565 (2 übersprungen).
+- **Doku beim Release:** `docs/Tracker-v635-Release.md`.
+- **Pruefen im Feld:** Mission mit Fracht bis zum Debriefing fliegen und schließen: nichts bleibt am Ziel liegen; Log enthält `GROUND_COMPOSER`.
+
+### 2026-11-13 · Privat-Rückflug übernimmt die Composer-Wahl (mitgepackter Kern) — ausgeliefert in Tracker v635 Alpha (14.11.2026)
 - **Artefakt:** Tracker-EXE (bündelt `mission-private-return-core.js` und `mission-cargo-visual-core.js` per require); Web live mit v2381
 - **Dateien:** `mission-private-return-core.js`, `mission-cargo-visual-core.js`
 - **Was:** `privateReturn.outing` trägt `groundVisual`/`cargoVisual` des Hinflugs, damit die Begleitung beim Rückflug gleich aussieht; der Rückblick-Prompt lässt beides weg. `postFromIdea` kennt den Privatflug. Seit v2382 kennt `postFromIdea`/`ideaOf` auch die allgemeine Composer-Quelle `groundComposer` (im Tracker ohne Wirkung, er nutzt nur `pieceObjectKeys`/`expandSceneItem`). Seit v2383 ebenso die Vereinsidee `clubIdea` (gleiche Einschränkung); seit v2384 kennt `mission-onboard-core.js` die Medizin-Idee (Tracker bündelt die Datei nicht). Seit v2386 kennt `postFromIdea`/`ideaOf` Fracht und zerbrechliche Fracht, und `validate` kappt mehr als drei Packstücke statt die Wahl zu verwerfen (im Tracker ungenutzt).
@@ -35,7 +45,7 @@ liefert alles Offene mit aus.
 - **Doku beim Release:** keine (steht im Fahrplan, Etappe C).
 - **Pruefen im Feld:** Privatflug hin und zurück mit Schalter: gleiche Figur.
 
-### 2026-11-14 · EFB-Kopien i18n/en.js und profile.js: Figuren-Schalter entfernt
+### 2026-11-14 · EFB-Kopien i18n/en.js und profile.js: Figuren-Schalter entfernt — ausgeliefert in Tracker v635 Alpha (14.11.2026)
 - **Artefakt:** Tracker-EXE (EFB-Web-Assets); Web live mit v2388
 - **Dateien:** `ga-tracker-client/efb-web-assets/i18n/en.js`, `ga-tracker-client/efb-web-assets/profile.js` (Kopien per `sync-efb-web-assets.js`)
 - **Was:** Schlüssel `settings.boarding.figures`/`figuresHint` entfernt, Diagnosezeile „PAX-Figuren“ wertet den Schalter als „an, außer `off`“. Die Kopie von `profile.js` übernimmt dabei auch die Crew-Live-Diagnose aus Web v2387 (2988d7860), die noch nicht synchronisiert war. Im EFB ohne Wirkung; nur Gleichstand der Kopien.
@@ -43,15 +53,13 @@ liefert alles Offene mit aus.
 - **Doku beim Release:** keine.
 - **Pruefen im Feld:** nichts.
 
-### 2026-11-14 · Folgemissionen behalten die Figur der Hauptperson (mitgepackter Kern)
+### 2026-11-14 · Folgemissionen behalten die Figur der Hauptperson (mitgepackter Kern) — ausgeliefert in Tracker v635 Alpha / Web v2391 (14.11.2026)
 - **Artefakt:** Tracker-EXE (bündelt `mission-followup.js` per require für Folgeanfragen nach Missionsende); Web live mit v2390
 - **Dateien:** `mission-followup.js`
 - **Was:** Neue Folgeanfragen tragen `groundCarry` (Look, Alter, Losschlüssel der Hauptperson aus `md.groundComposer`). Bis zum Build legt der Tracker Anfragen ohne das Feld an; die Folgemission wählt dann wie bisher neu.
 - **Tests:** `tools/bush-followup-narrative.test.cjs` 7/7, `tools/mission-ground-composer-browser.test.cjs` 6/6, Tracker-Suite 1559/1561 (2 übersprungen).
 - **Doku beim Release:** keine (Fahrplan „Rückflüge und Fortsetzungen“).
 - **Pruefen im Feld:** Bush-Charter-Gast hinfliegen, Abholung als Folgemission: gleiche Figur.
-
-## Ausgeliefert
 
 ### 2026-11-13 · Empfang am Zielplatz: Fahrzeugregel v2, Aufräumen, EFB-Abholpunkt — ausgeliefert in Tracker v634 Alpha / Web v2380 (13.11.2026)
 - **Artefakt:** Tracker-EXE; Web mit diesem Push
