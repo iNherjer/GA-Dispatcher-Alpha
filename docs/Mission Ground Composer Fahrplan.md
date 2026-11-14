@@ -392,8 +392,20 @@ nimmt deren Fahrzeug (`_missionSceneDeboardingComposerScene`). Live-Probe Bush 6
 `analysis/ground-composer-cast-places-bush*-20261114.md` – namentliche Figuren aus der Geschichte
 (Ranger Ben + Mechaniker), Werft am Heimatplatz, Techniker am Strip (ohne Ortsangabe vorher vertauscht).
 
-**Offen:** Schritt 4 für die übrigen Ideen-Stränge (Charter, Sightseeing, Verein, Medizin, Reporter,
-Privat) – laufen bis dahin über die offene Besetzung; Tracker `planPickupReception` (Build nötig).
+**Langfrist-Entscheidung (User, 14.11.2026):** Alle Missionen liefern ihre Bodenpersonen selbst
+(`groundCast`); die Besetzung aus der Geschichte ist nur der erste Rückfall, die Standardperson der
+zweite. Reihenfolge: `castSource` idea → story → default. Bush-Writer erst, wenn er ohnehin umgebaut wird.
+
+**Charter und Reporter (umgesetzt, Web v2396):** Beide Ideen liefern `groundCast` (Charter: wer die
+Reisenden bringt und wer abholt; Reporter: wer bringt, wer am Ziel empfängt), der Writer bekommt
+`GROUND_CAST_WRITER_RULE` (dieselben Personen, keine erfundenen Empfänger). Rückreisen
+(`mission-charter-continuation-core.js` `mirrorGround`) tauschen Start und Ziel für `groundCast` und
+die gespeicherten Composer-Szenen: wer am Ziel empfangen hat, bringt jetzt zurück. Fest leere
+Start-Besetzung (Reporter kommt allein): das Startfahrzeug bleibt geparkt stehen
+(`_missionSceneStartVehicleStays`). Beide Ideen-Prompts verlangen jetzt ausdrücklich deutsche Texte (ein
+Probeabruf kam ohne diese Vorgabe auf Englisch). Live-Probe: `analysis/ground-composer-cast-charter-news*-20261114.md`.
+
+**Offen:** Schritt 4 für Sightseeing, Verein, Medizin, Privat – laufen bis dahin über die offene Besetzung; Tracker `planPickupReception` (Build nötig).
 Tracker-Log zeigt die Szenen ab dem nächsten Build (`GROUND_COMPOSER … scenes=`).
 
 ### Etappe F – Aufräumen

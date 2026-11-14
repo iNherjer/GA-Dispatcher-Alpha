@@ -63,3 +63,17 @@ test('Aussteigen bei Rückkehr-Missionen nutzt die Start-Szene (Abflugplatz), so
     assert.equal(c._missionSceneDeboardingComposerScene(), scene);
   }
 });
+
+test('Niemand bringt: Startfahrzeug bleibt geparkt; Standard- oder Gruppenfall fährt weg', () => {
+  const run = (entry, group = null) => {
+    const c = vm.createContext({ _missionSceneComposerScene: () => (entry ? { entry } : null), _missionSceneGroupPlan: () => group });
+    extract(c, '_missionSceneStartVehicleStays');
+    return c._missionSceneStartVehicleStays();
+  };
+  assert.equal(run({ castFixed: true, persons: [] }), true);
+  assert.equal(run({ castFixed: false, persons: [] }), false);
+  assert.equal(run({ castFixed: true, persons: [{ id: 's1' }] }), false);
+  assert.equal(run({ castFixed: true, persons: [] }, { valid: true }), false);
+  assert.equal(run(null), false);
+  assert.match(sync, /vehicleDeparture: vehicleSupportEnabled && !\(typeof _missionSceneStartVehicleStays === 'function' && _missionSceneStartVehicleStays\(\)\)/);
+});

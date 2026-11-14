@@ -35,6 +35,14 @@ liefert alles Offene mit aus.
 - **Doku beim Release:** keine (Fahrplan, Etappe E).
 - **Pruefen im Feld:** Log einer Mission mit Bringer/Empfänger enthält `scenes=`.
 
+### 2026-11-14 · Charter-Fortsetzung spiegelt die Bodenbesetzung (mitgepackter Kern)
+- **Artefakt:** Tracker-EXE bündelt `mission-charter-continuation-core.js` per require; Web live mit v2396
+- **Dateien:** `mission-charter-continuation-core.js`
+- **Was:** `mirrorGround` tauscht bei Rückreisen `groundCast` und `groundVisual.scenes` (Start ↔ Ziel). Im Tracker ohne Wirkung (er nutzt nur `voiceLeg` und `request`); nur Gleichstand der Kopie.
+- **Tests:** `tools/mission-charter-continuation.test.cjs` 13/13, `tracker-mission-followup.test.js` grün.
+- **Doku beim Release:** keine (Fahrplan, Etappe E).
+- **Pruefen im Feld:** Charter hin und zurück: der Empfänger vom Hinflug bringt beim Rückflug.
+
 ## Ausgeliefert
 
 ### 2026-11-14 · Geschlossene Mission räumt ihre Szenen ab, Composer-Diagnose im Log — ausgeliefert in Tracker v635 Alpha / Web v2391 (14.11.2026)

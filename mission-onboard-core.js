@@ -181,6 +181,7 @@ function groundCastFrom(raw = null) {
   }
   return Object.keys(out).length ? out : null;
 }
+const GROUND_CAST_WRITER_RULE = 'IDEE.groundCast legt die Menschen am Boden (Bringer am Start, Empfänger am Ziel) mit Rolle und Geschlecht fest. Erwähnst du sie, dann genau so; erfinde keine anderen Empfänger oder Abholer.';
 const GROUND_CAST_PROMPT = 'groundCast nennt die Menschen am Boden, die die Szene zeigt: start = wer am Startflugplatz bringt bzw. anliefert, arrival = wer am Zielflugplatz entgegennimmt bzw. abholt; jeweils 0–2 Personen (meist eine; sie kommen mit einem eigenen Fahrzeug), [] wenn dort niemand wartet. Je Person role (kurze Rolle aus der Geschichte, bis 100 Zeichen) und gender "female" oder "male". Ist eine Person anderswo in der Idee genannt, ist es dieselbe Person mit demselben Geschlecht; sonst wähle das Geschlecht unabhängig von Berufsklischees.';
 
 function scenesFor(raw = null) {
@@ -221,7 +222,7 @@ function normalize(raw = null) {
     places: { start: text(raw.places?.start, 80), arrival: text(raw.places?.arrival, 80) }, returnHome: raw.returnHome === true };
 }
 
-const api = { SCHEMA, MAX_PASSENGERS, MAX_CREW, GROUND_CAST_PROMPT, groundCastFrom, fromIdea, scenesFor, fromPassenger, normalize, adapters: Object.keys(ADAPTERS) };
+const api = { SCHEMA, MAX_PASSENGERS, MAX_CREW, GROUND_CAST_PROMPT, GROUND_CAST_WRITER_RULE, groundCastFrom, fromIdea, scenesFor, fromPassenger, normalize, adapters: Object.keys(ADAPTERS) };
 root.MissionOnboardCore = api;
 if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

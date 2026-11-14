@@ -88,14 +88,35 @@
         for(const e of result.narrativeEvents) if(e.geo&&!anchors.some(a=>a.id===e.geo.anchorId&&a.lat===e.geo.lat&&a.lon===e.geo.lon))return null;
         return result;
     }
+    // Rückreise: Start und Ziel tauschen. Wer am Ziel empfangen hat, bringt jetzt zum Flugzeug;
+    // wer zu Hause gebracht hat, holt dort wieder ab (groundCast und gespeicherte Composer-Szenen).
+    function mirrorGround(idea) {
+        if (!idea || typeof idea !== 'object') return idea;
+        const cast = idea.groundCast;
+        if (cast && typeof cast === 'object') {
+            const next = {};
+            if (Array.isArray(cast.arrival)) next.start = cast.arrival;
+            if (Array.isArray(cast.start)) next.arrival = cast.start;
+            idea.groundCast = next;
+        }
+        const scenes = idea.groundVisual && idea.groundVisual.scenes;
+        if (scenes && typeof scenes === 'object') {
+            const renamed = (entry, prefix) => entry && typeof entry === 'object'
+                ? Object.assign({}, entry, { persons: (Array.isArray(entry.persons) ? entry.persons : []).map((p, i) => Object.assign({}, p, { id: prefix + (i + 1) })) })
+                : entry;
+            idea.groundVisual.scenes = Object.assign({}, scenes, { start: renamed(scenes.arrival, 's'), arrival: renamed(scenes.start, 'a') });
+        }
+        return idea;
+    }
+
     function continuationIdea(req) {
         const c=context(req),draft=c&&validateDraft(c.experience,c);
         if(!draft)return null;
-        if(c.original.schema==='apt-news-idea.v1')return {...copy(c.original),purpose:draft.reason,background:draft.experience,groundPlan:draft.nextStep,publication:draft.nextStep,memory:draft.memory,narrativeEvents:draft.narrativeEvents,arrival:'Geplanter Empfang am vereinbarten Abstellbereich am Ausgangsplatz.',returnPlan:{offered:false,reason:'Der Reporter kehrt nach der Recherche zurück.'},route:{start:c.visited,target:c.home},continuation:copy(c)};
-        return {...copy(c.original),schema:'charter-idea.v1',reason:draft.reason,background:draft.experience,
+        if(c.original.schema==='apt-news-idea.v1')return mirrorGround({...copy(c.original),purpose:draft.reason,background:draft.experience,groundPlan:draft.nextStep,publication:draft.nextStep,memory:draft.memory,narrativeEvents:draft.narrativeEvents,arrival:'Geplanter Empfang am vereinbarten Abstellbereich am Ausgangsplatz.',returnPlan:{offered:false,reason:'Der Reporter kehrt nach der Recherche zurück.'},route:{start:c.visited,target:c.home},continuation:copy(c)});
+        return mirrorGround({...copy(c.original),schema:'charter-idea.v1',reason:draft.reason,background:draft.experience,
             arrival:draft.nextStep,memory:draft.memory,narrativeEvents:draft.narrativeEvents,
             returnPlan:{offered:false,reason:'Diese gebuchte Rückreise schließt den Charterauftrag ab.'},
-            route:{start:c.visited,target:c.home},continuation:copy(c)};
+            route:{start:c.visited,target:c.home},continuation:copy(c)});
     }
     function applyMission(req,base,writtenMission) {
         const idea=continuationIdea(req);
@@ -128,5 +149,5 @@
             &&Math.abs((p.lon??p.lng)-visited.lon)<0.003);
         return {ready:index>=0 && route.length>index+1,route:index>=0?route.slice(index):[]};
     }
-    return {SCHEMA,source,context,returnPlan,prospect,request,draftPrompt,validateDraft,continuationIdea,applyMission,voiceLeg};
+    return {SCHEMA,source,context,returnPlan,prospect,request,draftPrompt,validateDraft,continuationIdea,applyMission,voiceLeg,mirrorGround};
 });

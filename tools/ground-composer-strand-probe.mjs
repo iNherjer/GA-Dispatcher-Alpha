@@ -172,6 +172,27 @@ const STRANDS = {
     });
   },
   // Übrige Bush-Profile (Live-Läufe --run=composer-20261114): Abenteuer-Hopper, Fracht-Abholung, Aufklärung.
+  // Etappe E Schritt 4: Charter und Reporter liefern groundCast; zusätzlich Rückreise gespiegelt.
+  async charterCast() {
+    const out = [];
+    for (const [key, file, frameOf, taskDomain, roleProfile] of [
+      ['charter', '../mission-charter-ideas-core.js', (core, route) => core.frame(route, 3, [], []), 'charter', 'charter_professional_neutral_v1'],
+      ['news', '../mission-apt-news-ideas-core.js', (core, route) => core.frame(route, { name: 'PA-24 Comanche', maxPayloadKg: 380, passengerCapacity: 3 }, []), 'news_coverage', 'news_reporter_professional_v1']]) {
+      const core = require(file);
+      const frames = ['EDSH', 'EDTF'].map((icao, i) => ({ candidateId: key + '-' + i, ...frameOf(core, { start: apt('EDTW'), target: apt(icao) }) }));
+      let batch = {};
+      try { batch = await json(core.ideaPrompt(frames), key + '-ideas'); } catch (e) { batch = { error: String(e.message || e) }; }
+      for (const input of frames) {
+        const raw = (Array.isArray(batch) ? batch : batch.ideas || []).find((x) => x.candidateId === input.candidateId);
+        let idea = null;
+        try { idea = raw ? core.validate(raw, input) : null; } catch (e) { idea = null; }
+        out.push({ name: input.candidateId, idea, taskDomain, roleProfile,
+          check: idea ? { passenger: { role: idea.passenger.role, gender: idea.passenger.gender }, count: idea.passengerCount, arrival: idea.arrival, recipient: idea.recipient,
+            groundCast: idea.groundCast || null } : { invalid: batch.error || raw || 'fehlt' } });
+      }
+    }
+    return out;
+  },
   // Etappe E Schritt 4: Fracht-Idee liefert groundCast (Anlieferer/Empfänger).
   cargoCast() { return STRANDS.freight(['cargo']); },
   courierCast() { return STRANDS.freight(['fragile', 'animal']); },

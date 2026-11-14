@@ -7956,6 +7956,14 @@ function _missionSceneVehicleSupportEnabled() {
     return false;
 }
 
+// Niemand bringt (Besetzung fest leer, z. B. Reporter kommt allein): das Fahrzeug ist sein eigenes,
+// bleibt nach dem Einsteigen geparkt stehen statt leer wegzufahren. Gruppen unverändert.
+function _missionSceneStartVehicleStays() {
+    if (typeof _missionSceneComposerScene !== 'function' || _missionSceneGroupPlan()) return false;
+    const entry = _missionSceneComposerScene('start')?.entry;
+    return !!entry && entry.castFixed === true && Array.isArray(entry.persons) && entry.persons.length === 0;
+}
+
 function _missionSceneCommonSceneCommandFields() {
     const boardingConfig = _missionSceneBoardingConfig();
     const vehicleSupportEnabled = _missionSceneVehicleSupportEnabled();
@@ -7969,7 +7977,7 @@ function _missionSceneCommonSceneCommandFields() {
         aircraftName: boardingConfig.aircraftName || '',
         boarderCount: _missionSceneBoarderCount(),
         passengerCount: _missionScenePaxCount(),
-        vehicleDeparture: vehicleSupportEnabled,
+        vehicleDeparture: vehicleSupportEnabled && !(typeof _missionSceneStartVehicleStays === 'function' && _missionSceneStartVehicleStays()),
         vehicleArrival: vehicleSupportEnabled,
         splitCargoRoute: false,
         cargoArrivalSlackMs: 250,
@@ -8141,7 +8149,7 @@ function _missionSceneBuildSpawnEffectCommand(reason = 'scene-spawn', position =
             hdg: Number.isFinite(Number(pos.hdg ?? pos.heading)) ? Number(pos.hdg ?? pos.heading) : 0,
             boarderCount,
             passengerCount: _missionScenePaxCount(),
-            vehicleDeparture: vehicleSupportEnabled,
+            vehicleDeparture: vehicleSupportEnabled && !(typeof _missionSceneStartVehicleStays === 'function' && _missionSceneStartVehicleStays()),
             vehicleArrival: vehicleSupportEnabled,
             ..._missionSceneGroupCommandFields(),
             items: sceneItems.concat(cargoItems, personItems)

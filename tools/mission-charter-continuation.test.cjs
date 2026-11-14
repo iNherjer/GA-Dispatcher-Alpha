@@ -116,3 +116,16 @@ test('pickup weather briefs keep separate departure and return station bindings'
  const m=await c.window.MissionCharterBrowser.continuation({req,base,contract});assert.equal(calls,2);
  assert.match(m.s,/Leerflug zur Abholung:.*20 NM.*EDDS.*7 Knoten/s);assert.match(m.s,/Besetzter Rückflug:.*30 NM.*EDTE.*4 Knoten/s);
 });
+
+test('Rückreise spiegelt Bodenbesetzung und gespeicherte Composer-Szenen', () => {
+  const core = require('../mission-charter-continuation-core.js');
+  const idea = core.mirrorGround({
+    groundCast: { start: [{ role: 'Fahrer', gender: 'male' }], arrival: [{ role: 'Hochzeitsplanerin', gender: 'female' }] },
+    groundVisual: { scenes: { start: { vehicle: 'car', persons: [{ id: 's1', role: 'Fahrer' }] }, arrival: { vehicle: 'van', persons: [{ id: 'a1', role: 'Hochzeitsplanerin' }] } } }
+  });
+  assert.deepEqual(idea.groundCast, { start: [{ role: 'Hochzeitsplanerin', gender: 'female' }], arrival: [{ role: 'Fahrer', gender: 'male' }] });
+  assert.equal(idea.groundVisual.scenes.start.vehicle, 'van');
+  assert.deepEqual(idea.groundVisual.scenes.start.persons, [{ id: 's1', role: 'Hochzeitsplanerin' }]);
+  assert.deepEqual(idea.groundVisual.scenes.arrival.persons, [{ id: 'a1', role: 'Fahrer' }]);
+  assert.deepEqual(core.mirrorGround({ groundCast: { arrival: [] } }).groundCast, { start: [] }, 'nur vorhandene Szenen');
+});
