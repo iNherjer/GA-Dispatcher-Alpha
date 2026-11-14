@@ -6451,6 +6451,11 @@ function _missionAptArrivalAssetForItem(item = {}, index = 0, options = {}) {
     if (groupVehicle?.title) {
         return { title: groupVehicle.title, candidates: _sceneAssetCandidates(groupVehicle.title, groupVehicle.candidates.slice()) };
     }
+    // Etappe E: Fahrzeugart der Ziel-Szene aus dem Boden-Composer (Plätze/Ladung geprüft).
+    if (!groupPlan && /^vehicle\.(car|van|quad|truck)$/.test(role) && typeof _missionSceneComposerVehicleAsset === 'function') {
+        const composerVehicle = _missionSceneComposerVehicleAsset('arrival');
+        if (composerVehicle) return composerVehicle;
+    }
     // Einzelgast mit großer/schwerer Fracht: Van statt Pkw (gleiche Regel wie beim Aussteigen).
     if (!groupPlan && role === 'vehicle.car' && _missionSceneCargoNeedsVan() && MISSION_SCENE_ASSET_POOLS.vans.length) {
         const vanTitle = _scenePickTitle(MISSION_SCENE_ASSET_POOLS.vans, `apt-arrival-cargo-van-${index}`, MISSION_SCENE_ASSET_POOLS.vans[0]);
@@ -6537,11 +6542,33 @@ function _missionAptArrivalSceneItems(plan = {}) {
         })
         : -1;
     const expandPieces = globalThis.MissionCargoVisualCore?.expandSceneItem || (sceneItem => [sceneItem]);
+    // Etappe E: Empfänger aus dem Composer-Plan in Planer-Reihenfolge; vom Planer zusätzlich
+    // erfundene Personen entfallen. Die wartende Bush-Abholperson ist der Pax selbst und
+    // bekommt dessen Figur (gleiche Figur später beim Aussteigen daheim).
+    const paxFigures = typeof _missionSceneGroundFigures === 'function' ? _missionSceneGroundFigures() : null;
+    const arrivalCrew = typeof _missionSceneCrewFigures === 'function' ? _missionSceneCrewFigures('arrival', paxFigures) : null;
+    const arrivalEntry = arrivalCrew && typeof _missionSceneComposerScene === 'function' ? _missionSceneComposerScene('arrival')?.entry : null;
+    // Feste Besetzung (aus der Idee): genau diese Personen. Sonst behält die Szene ihre Personen,
+    // höchstens so viele, wie neben den Mitreisenden ins Fahrzeug passen.
+    const arrivalPaxCount = arrivalEntry ? Math.max(0, Number(arrivalEntry.seatsNeeded || 0) - arrivalCrew.length) : 0;
+    const arrivalPersonLimit = !arrivalEntry ? Infinity
+        : (arrivalEntry.castFixed === true ? arrivalCrew.length : Math.max(arrivalCrew.length, Number(arrivalEntry.seats || 0) - arrivalPaxCount));
+    let arrivalCrewIndex = 0;
     return items.flatMap((item, index) => {
         const isMovingPickupPerson = index === movingPickupPersonIndex;
-        const asset = _missionAptArrivalAssetForItem(item, index, {
+        let asset = _missionAptArrivalAssetForItem(item, index, {
             movingPerson: isMovingPickupPerson || item.departWithPickupVehicle === true
         });
+        const itemRole = String(item?.role || '').trim();
+        const isPersonItem = /^person\./.test(itemRole) || String(item?.kind || '').toLowerCase().includes('arrival_person');
+        if (isMovingPickupPerson && paxFigures?.[0]?.title) {
+            asset = { title: paxFigures[0].title, candidates: _missionSceneGroundFigureCandidates(paxFigures[0]) };
+        } else if (isPersonItem && !isMovingPickupPerson && arrivalCrew) {
+            const figure = arrivalCrew[arrivalCrewIndex];
+            arrivalCrewIndex += 1;
+            if (arrivalCrewIndex > arrivalPersonLimit) return [];
+            if (figure) asset = { title: figure.title, candidates: _missionSceneGroundFigureCandidates(figure) };
+        }
         if (!asset.title) return [];
         const isPickupCargoVisual = pickupCargoItem
             && !_missionCargoIsPassengerItem(pickupCargoItem)

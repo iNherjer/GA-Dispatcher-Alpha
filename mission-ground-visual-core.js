@@ -177,10 +177,15 @@ function validateScenes(rawScenes, onboard, context = {}, cargoPlans = {}) {
     const aiVehicle = options.includes(answer.vehicle) ? answer.vehicle : '';
     const byId = new Map((Array.isArray(answer.persons) ? answer.persons : []).filter((p) => p && typeof p === 'object').map((p) => [String(p.id || ''), p]));
     const fallbackLook = onboard.passengers.length ? 'casual' : 'workwear';
+    const vehicle = aiVehicle || defaultVehicle(options, context, onboard);
     out[scene] = {
-      vehicle: aiVehicle || defaultVehicle(options, context, onboard),
+      vehicle,
       vehicleSource: aiVehicle ? 'composer' : 'capacity',
       seatsNeeded: onboard.passengers.length + crew.length,
+      seats: VEHICLES[vehicle]?.seats || 0,
+      // Personen aus der Idee sind fest; sonst ist es eine neutrale Standardperson, und die
+      // Szene darf (bis zu den Plätzen) eigene Personen behalten.
+      castFixed: crew.some((member) => member.fromIdea),
       persons: crew.map((member) => {
         const p = byId.get(member.id) || {};
         const answeredGender = ['female', 'male'].includes(p.gender) ? p.gender : '';

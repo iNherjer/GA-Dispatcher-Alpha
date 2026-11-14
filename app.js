@@ -27513,6 +27513,29 @@ function scenePlannerV3ReporterPromptContext(md, contract, geo, truth) {
     }};
 }
 
+// Etappe E: Empfangsbesetzung aus dem Boden-Composer (Ziel-Szene). Der Planer bestimmt nur noch
+// Platz und Positionen; wer dort steht und womit er kommt, steht fest. Ohne Plan: null.
+const SCENE_PLANNER_V3_CAST_VEHICLE_ROLES = { quad: 'vehicle.quad', truck: 'vehicle.truck', car: 'vehicle.car', van: 'vehicle.van', bus: 'vehicle.van' };
+function scenePlannerV3ReceptionCast(md = {}, contract = {}) {
+    if (window.MissionGroundVisualCore?.enabled && !window.MissionGroundVisualCore.enabled()) return null;
+    const keys = ['charterIdea', 'sightseeingIdea', 'aptNewsIdea', 'privateOuting', 'clubIdea', 'medicalTransferIdea', 'cargoIdea', 'fragileCargoIdea', 'animalTransportIdea', 'groundComposer'];
+    const ideas = keys.flatMap(key => [md?.[key], contract?.[key]]).concat([md?.privateReturn?.outing, contract?.privateReturn?.outing]);
+    const plan = ideas.find(idea => idea && typeof idea === 'object' && idea.groundVisual?.scenes)?.groundVisual || null;
+    const scene = plan?.scenes?.arrival;
+    if (!scene || typeof scene !== 'object') return null;
+    const vehicleRole = SCENE_PLANNER_V3_CAST_VEHICLE_ROLES[scene.vehicle] || '';
+    const paxCount = Math.max(0, Number(scene.seatsNeeded || 0) - (Array.isArray(scene.persons) ? scene.persons.length : 0));
+    const maxPersons = Math.max(0, Math.min(3, Number(scene.seats || 0) - paxCount));
+    const persons = (scene.castFixed === true && Array.isArray(scene.persons) ? scene.persons : []).slice(0, 3).map((person, index) => ({
+        kind: `arrival_person_${index + 1}`,
+        role: 'person.ground_crew',
+        label: scenePlannerV3CleanText(person?.role || '', 80),
+        gender: person?.gender === 'male' || person?.gender === 'female' ? person.gender : ''
+    }));
+    if (!vehicleRole && !persons.length) return null;
+    return { fixed: true, vehicleRole, persons, maxPersons: persons.length || maxPersons };
+}
+
 async function scenePlannerV3ContextBundle({ md = {}, contract = {}, pax = {}, sceneIntent = null, targetGeoContext = null, missionTruth = null, missionPlanV2 = null, aptArrivalPlan = null, aptArrivalGeoContext = null } = {}) {
     const isPOI = !!(md.poiName || md.poiSource || md.isPOI);
     const missionMode = normalizeMissionType(md.missionType || contract.missionType || pax.missionType || '', isPOI);
@@ -27551,6 +27574,7 @@ async function scenePlannerV3ContextBundle({ md = {}, contract = {}, pax = {}, s
         targetGeoContext: _missionPipelineV3CompactGeoContext(geo),
         missionPlan: compactMissionPlanV2ForPrompt(missionPlanV2),
         aptArrivalPlan: scenePlannerV3CompactAptPlan(aptArrivalPlan),
+        ...(missionMode !== 'poi' && aptArrivalPlan && scenePlannerV3ReceptionCast(md, contract) ? { receptionCast: scenePlannerV3ReceptionCast(md, contract) } : {}),
         arrivalPlacementGeometry: aptCtx && aptArrivalPlan ? aptArrivalComposerGeometry(aptCtx, aptArrivalPlan) : null,
         aptArrivalGeoContext: aptCtx ? {
             source: aptCtx.source || '',
@@ -27668,6 +27692,7 @@ Arbeitsweise:
 3. POI: Plane targetScene fuer das gepruefte Ziel. Nutze requirements mit feature/count/arrangement/placement und, wenn sinnvoll, forwardM/rightM relativ zum sceneAnchor/mainTarget.
 4. APT: targetScene muss none bleiben. Plane stattdessen aptArrivalPlan: Waehle selbst preferredPlacement aus den angebotenen Kandidaten (osm_hangar_front, osm_parking_position, osm_apron oder osm_surface). Werden keine Kandidaten angeboten, lass preferredPlacement weg. osm_hangar_front liegt bahnseitig vor einem kartierten Hangar und ist bevorzugt, sofern Betreiber/Name zur Mission passen (z. B. keine Rettungsstation fuer eine Reporterabholung). Gibt es einen kartierten General-Aviation-Bereich (generalAviation in der Geometrie), bevorzuge Kandidaten dort. osm_surface umfasst kartierte Parkplatz-/Grasflaechen im Flughafenbereich oder nahe kartierten Hangars. Beruecksichtige Gebaeude und die ganze Aufstellung, nicht nur den Anker. Schreibe headingDeg und alle item-Offsets passend zur gewaehlten Flaeche. Bei headingDeg=0 ist forwardM Norden und rightM Osten. Ein Hangarname allein belegt keine freie Wiese oder Zufahrt.
 4b. BUSH: targetScene bleibt ebenfalls none. Fuer Strip-Missionen darf aptArrivalPlan eine kleine Handoff-/Dropoff-Szene mit Quad/Utility-Fahrzeug am Striprand beschreiben. Fuer Recon-Return ohne Ziel-Landung muss aptArrivalPlan none bleiben.
+4c. Liegt receptionCast vor (APT und BUSH), ist die Empfangsbesetzung fest: genau ein Fahrzeug mit receptionCast.vehicleRole (kind arrival_vehicle) und genau die Personen aus receptionCast.persons (kind und role wie angegeben, label = deren Rolle); ist persons leer, plane Personen wie bisher, hoechstens receptionCast.maxPersons. Keine weiteren Fahrzeuge; du waehlst nur Platz, headingDeg und Offsets. Ladung/Ausruestung planst du wie bisher.
 5. Fahrzeuge nur auf angebotenen geeigneten Stellflaechen; kartierte Grasflaechen sind fuer kleine Abhol-/Bush-Szenen zulaessig, Befestigung und Zufahrt bleiben bei fehlenden Daten unbekannt. Wasserobjekte nur an Wasser/Ufer. Bei Badesee/Teich/kleinem Binnensee nur kleine Boote. Keine Deko.
 6. Wenn targetScene.kind="none", muessen features=[], requirements=[], roles=[], density="none" und layout="" sein. Keine impliziten Autos/Personen als Deko fuer Historiker-, Lern- oder Sightseeing-Fluege.
 7. reporterScene ist der gemeinsame POI-Szenenkontext (historischer Feldname). Wenn er vorliegt, verwende dessen vollständige Idee, spatialContext und compositionRules für eine zusammenhängende Szene. Seine Objektplanung ersetzt die pauschale Standardausstattung.
@@ -27755,7 +27780,7 @@ function scenePlannerV3PreferredAptPlacement(basePlan = null, preferred = null) 
     };
 }
 
-function sanitizeScenePlannerV3AptArrivalPlan(raw = null, basePlan = null) {
+function sanitizeScenePlannerV3AptArrivalPlan(raw = null, basePlan = null, receptionCast = null) {
     if (!basePlan || typeof basePlan !== 'object') return null;
     const src = raw && typeof raw === 'object' ? raw : {};
     const out = { ...basePlan };
@@ -27763,9 +27788,11 @@ function sanitizeScenePlannerV3AptArrivalPlan(raw = null, basePlan = null) {
     const runwaySidePlacement = String(basePlan.source || '').toLowerCase() === 'osm_runway_side';
     const runwaySideSign = Math.sign(Number(fallbackItems.find(item => Number(item?.rightM))?.rightM || 0)) || 1;
     const rawItems = Array.isArray(src.items) ? src.items : [];
+    // Feste Empfangsbesetzung (Composer): deren Fahrzeugrolle passt immer zur Grundrolle.
     const baseRoleSet = new Set([
         ...(Array.isArray(basePlan.roles) ? basePlan.roles : []),
-        ...fallbackItems.map(item => item?.role)
+        ...fallbackItems.map(item => item?.role),
+        receptionCast?.vehicleRole || ''
     ].map(role => scenePlannerV3CleanText(role, 60)).filter(Boolean));
     const rawRoleSet = rawItems
         .map(item => scenePlannerV3CleanText(item?.role || '', 60))
@@ -27888,7 +27915,8 @@ function sanitizeScenePlannerV3Result(raw = null, fallback = {}, ctx = {}) {
         if (issues.length) fail('reporter_scene_invalid: ' + issues.join('; '));
     }
     const aptArrivalPlan = !isPOI
-        ? sanitizeScenePlannerV3AptArrivalPlan(parsed.aptArrivalPlan || parsed.arrivalPlan || null, ctx.aptArrivalPlan || null)
+        ? sanitizeScenePlannerV3AptArrivalPlan(parsed.aptArrivalPlan || parsed.arrivalPlan || null, ctx.aptArrivalPlan || null,
+            typeof scenePlannerV3ReceptionCast === 'function' ? scenePlannerV3ReceptionCast(ctx.md || {}, ctx.contract || {}) : null)
         : null;
     return {
         targetScene,

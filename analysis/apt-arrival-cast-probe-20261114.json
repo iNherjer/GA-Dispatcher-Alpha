@@ -1,0 +1,111 @@
+{
+  "scope": "Scene Planner V3 Produktiv-Prompt + Sanitizer, gemini-3-flash-preview thinking low, EDTF-Fixture",
+  "runs": [
+    {
+      "name": "Reporter-Abholung, offene Besetzung (Pkw, Standardperson)",
+      "cast": {
+        "fixed": true,
+        "vehicleRole": "vehicle.car",
+        "persons": [],
+        "maxPersons": 3
+      },
+      "baseItems": [
+        "arrival_vehicle:vehicle.van",
+        "arrival_person_editor:person.ground_crew",
+        "arrival_person_camera:person.ground_crew",
+        "arrival_equipment_camera:cargo.camera_equipment"
+      ],
+      "plannerItems": [
+        "arrival_vehicle:vehicle.car:Redaktions-Van @-7/5",
+        "arrival_person_1:person.ground_crew:Redakteur @1/3",
+        "arrival_person_2:person.ground_crew:Kameramann @3/4"
+      ],
+      "placement": {
+        "source": "osm_hangar_front",
+        "index": 0,
+        "reason": "Die Hangar-Vorderseite bietet ausreichend Platz und passt zum Szenario einer Medienabholung am Regionalflugplatz."
+      },
+      "sanitized": [
+        "arrival_vehicle:vehicle.car:Redaktions-Van @-7/5",
+        "arrival_person_editor:person.ground_crew:Redakteur @1/3",
+        "arrival_person_camera:person.ground_crew:Kameramann @3/4"
+      ],
+      "error": ""
+    },
+    {
+      "name": "Frachtübergabe, feste Besetzung (Pick-up, Lagerleiter)",
+      "cast": {
+        "fixed": true,
+        "vehicleRole": "vehicle.truck",
+        "persons": [
+          {
+            "kind": "arrival_person_1",
+            "role": "person.ground_crew",
+            "label": "Lagerleiter der Werft",
+            "gender": "male"
+          }
+        ],
+        "maxPersons": 1
+      },
+      "baseItems": [
+        "arrival_vehicle:vehicle.van",
+        "arrival_person_1:person.ground_crew",
+        "arrival_equipment_1:cargo.small_box"
+      ],
+      "plannerItems": [
+        "arrival_vehicle:vehicle.truck:Lager-Pick-up @-7/5",
+        "arrival_person_1:person.ground_crew:Lagerleiter der Werft @2/3",
+        "arrival_equipment_1:cargo.small_box:Ersatzteil-Kiste @0/5"
+      ],
+      "placement": {
+        "source": "osm_hangar_front",
+        "index": 0,
+        "reason": "Der gewählte Hangar (way/93255447) bietet eine plausible Werft-Kulisse mit ausreichend Platz auf der befestigten Vorfläche."
+      },
+      "sanitized": [
+        "arrival_vehicle:vehicle.truck:Lager-Pick-up @-7/5",
+        "arrival_person_1:person.ground_crew:Lagerleiter der Werft @2/3",
+        "arrival_equipment_1:cargo.small_box:Ersatzteil-Kiste @0/5"
+      ],
+      "error": ""
+    },
+    {
+      "name": "Charter-Abholung, feste Besetzung (Van, Planerin + Fahrer)",
+      "cast": {
+        "fixed": true,
+        "vehicleRole": "vehicle.van",
+        "persons": [
+          {
+            "kind": "arrival_person_1",
+            "role": "person.ground_crew",
+            "label": "Hochzeitsplanerin",
+            "gender": "female"
+          },
+          {
+            "kind": "arrival_person_2",
+            "role": "person.ground_crew",
+            "label": "Fahrer",
+            "gender": "male"
+          }
+        ],
+        "maxPersons": 2
+      },
+      "baseItems": [
+        "arrival_vehicle:vehicle.car",
+        "arrival_person_1:person.ground_crew"
+      ],
+      "plannerItems": [
+        "arrival_vehicle:vehicle.van:Abhol-Van @-8/5",
+        "arrival_person_1:person.ground_crew:Hochzeitsplanerin @2/3",
+        "arrival_person_2:person.ground_crew:Fahrer @1.5/4.5"
+      ],
+      "placement": {
+        "source": "osm_hangar_front",
+        "index": 0,
+        "reason": "Die Position vor dem Hangar (way/93255447) bietet ausreichend Platz und passt zum privaten Charter-Kontext der Mission."
+      },
+      "sanitized": null,
+      "error": "apt_arrival_scene_invalid: arrival_vehicle: Abstand zu building (hangar) zu klein"
+    }
+  ]
+}

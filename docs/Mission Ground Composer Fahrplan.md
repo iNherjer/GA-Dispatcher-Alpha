@@ -330,7 +330,7 @@ Inventar-Sitzungen mit fester Bordausrüstung, kein `generateMission`; der Compo
 | SAR-Vermisste | `sar.person_target` (`mmh_HikerRescue` …) | optional eigene Figuren (z. B. Wanderin liegend/winkend – eigene Animation nötig) |
 | Bodenpersonal/Marshaller | Stock | unverändert, später `uses: ground_crew` |
 
-### Etappe E – Arbeitsteilung und Umsetzung (ab 14.11.2026, Web v2392)
+### Etappe E – Arbeitsteilung und Umsetzung (ab 14.11.2026, Web v2392/v2393)
 
 Entscheidung mit dem User (14.11.2026): Szenenplaner und Composer werden **nicht**
 zusammengelegt, sondern sauber getrennt.
@@ -359,10 +359,23 @@ die Stelle der festen „Crew Fahrzeug“-Figuren (sie steigen ein und fahren mi
 Abholung am Ziel ohne Planer-Empfang nimmt das Zielfahrzeug. Unverändert: Gruppen (Tracker-Regel),
 Feuer, SAR, Medizin, schwere Fracht schlägt Pkw/Quad, Notaus `ga_person_figures_v1 = 'off'`.
 
-**Offen:** Schritt 3 – der Szenenplaner bekommt die Empfangsbesetzung (Personen, Fahrzeugart)
-als feste Vorgabe und platziert nur noch; Schritt 4 – `groundCast` aus den Ideen, Strang für
-Strang mit Live-Probe; Tracker `planPickupReception` (Build nötig). Tracker-Log zeigt die Szenen
-ab dem nächsten Build (`GROUND_COMPOSER … scenes=`).
+**Schritt 3 (umgesetzt, Web v2393):** Der Szenenplaner V3 bekommt im Kontextpaket
+`receptionCast` (`scenePlannerV3ReceptionCast`, app.js): Fahrzeugrolle der Ziel-Szene immer, die
+Personen nur, wenn sie aus der Idee kommen (`castFixed`); sonst plant er Personen wie bisher, höchstens
+`maxPersons` (Plätze minus Mitreisende). Prompt-Regel 4c: keine weiteren Fahrzeuge, er wählt nur Platz,
+Ausrichtung und Offsets. Die Plausibilitätsprüfung akzeptiert die vorgegebene Fahrzeugrolle, damit
+seine Aufstellung nicht auf die Grundrolle zurückfällt. Die Zielszene (`_missionAptArrivalSceneItems`)
+setzt die Besetzung auch durch, wenn der Planer abweicht oder nicht lief: Fahrzeug aus dem Composer,
+Personen der Reihe nach mit den Empfänger-Figuren, bei fester Besetzung überzählige Personen weg, sonst
+Begrenzung auf die Plätze. Die wartende Bush-Abholperson trägt die Figur des Pax. Live-Probe mit
+Freiburg-Geometrie: `analysis/apt-arrival-cast-probe-20261114.md` und `…-retry-20261114.md`. Der Planer
+hält sich an die Vorgabe (Pick-up + Lagerleiter, Van + Planerin + Fahrer, Pkw für die Reporterin);
+der größere Van stand zuerst zu nah am Hangar und landete nach der produktiven Korrekturrunde auf dem
+Vorfeld.
+
+**Offen:** Schritt 4 – `groundCast` aus den Ideen, Strang für Strang mit Live-Probe (erst dann sind
+Empfänger fest, z. B. Redaktion statt Standardperson); Tracker `planPickupReception` (Build nötig).
+Tracker-Log zeigt die Szenen ab dem nächsten Build (`GROUND_COMPOSER … scenes=`).
 
 ### Etappe F – Aufräumen
 
