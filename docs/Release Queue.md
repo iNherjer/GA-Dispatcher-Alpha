@@ -27,6 +27,14 @@ liefert alles Offene mit aus.
 
 ## Offen
 
+### 2026-11-15 · EFB-Kopie profile.js: Diagnose-Abschnitt Boden-Composer
+- **Artefakt:** Tracker-EXE (EFB-Web-Assets); Web live mit v2400
+- **Dateien:** `ga-tracker-client/efb-web-assets/profile.js` (Kopie per `sync-efb-web-assets.js`)
+- **Was:** Diagnosebericht bekommt den Abschnitt „Boden-Composer“ (Plan-Quelle, je Szene Fahrzeug/Plätze/Besetzungsquelle, Personen aus Idee und Composer, gewählte Figuren und Fahrzeugmodell, tatsächliche Zielszene mit „steigt-ein“). Im EFB ohne Wirkung; nur Gleichstand der Kopie.
+- **Tests:** `efb-web-assets-sync.test.js`, `tracker-efb-asset-syntax.test.js`.
+- **Doku beim Release:** keine.
+- **Pruefen im Feld:** nichts.
+
 ## Ausgeliefert
 
 ### 2026-11-14 · Schwellen-Meldungen Übelkeit (<50/<30 %) und Ladungsschaden (≤50/≤35 %) — ausgeliefert in Tracker v637 Alpha / Web v2400 (14.11.2026)

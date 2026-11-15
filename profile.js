@@ -3943,6 +3943,69 @@ function vpInstallGlobalDebugHooks() {
     }
 }
 
+// Diagnosebericht: Boden-Composer je Szene (Etappe E). Nur lesen; alle sync.js-Helfer optional.
+function vpAppendGroundComposerDiagnostics(lines, flattenText) {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const contract = md?.missionContract || {};
+    const keys = ['charterIdea', 'sightseeingIdea', 'aptNewsIdea', 'privateOuting', 'clubIdea', 'medicalTransferIdea',
+        'cargoIdea', 'fragileCargoIdea', 'animalTransportIdea', 'groundComposer'];
+    const candidates = [];
+    keys.forEach(key => candidates.push([key, md?.[key]], [`missionContract.${key}`, contract[key]]));
+    candidates.push(['privateReturn.outing', md?.privateReturn?.outing], ['missionContract.privateReturn.outing', contract.privateReturn?.outing]);
+    const found = candidates.find(([, idea]) => idea && typeof idea === 'object' && idea.groundVisual && typeof idea.groundVisual === 'object');
+    lines.push('Boden-Composer');
+    if (!found) {
+        const skipped = md?.groundComposerStatus;
+        lines.push(`- Plan: keiner | Grund=${skipped?.reason || (md ? 'no-plan' : 'no-mission')}`);
+        return;
+    }
+    const [key, idea] = found;
+    const plan = idea.groundVisual;
+    const info = plan.composer && typeof plan.composer === 'object' ? plan.composer : {};
+    const cast = idea.groundCast && typeof idea.groundCast === 'object' ? idea.groundCast : null;
+    const castText = scene => {
+        if (!cast || !Array.isArray(cast[scene])) return '-';
+        return cast[scene].length ? cast[scene].map(p => `${p?.role || '?'}(${p?.gender || '?'})`).join(', ') : 'niemand';
+    };
+    lines.push(`- Plan: idee=${key} | status=${info.status || '-'} | quelle=${info.source || '-'} | kept=${info.kept ? 1 : 0}${info.error ? ` | fehler=${flattenText(info.error, 160)}` : ''}`);
+    const paxFigures = typeof _missionSceneGroundFigures === 'function' ? (_missionSceneGroundFigures() || null) : null;
+    const scenes = plan.scenes && typeof plan.scenes === 'object' ? plan.scenes : {};
+    ['start', 'arrival'].forEach(scene => {
+        const entry = scenes[scene];
+        const label = scene === 'start' ? 'Start (Bringer)' : 'Ziel (Empfänger)';
+        if (!entry || typeof entry !== 'object') {
+            lines.push(`- ${label}: keine Szene im Plan`);
+            return;
+        }
+        const persons = (Array.isArray(entry.persons) ? entry.persons : [])
+            .map(p => `${p?.role || '?'}(${p?.gender || '?'}/${p?.look || '?'}${p?.ageBand ? `/${p.ageBand}` : ''})`).join(', ') || 'niemand';
+        let figures = '-';
+        let vehicle = '-';
+        try {
+            const crew = typeof _missionSceneCrewFigures === 'function' ? _missionSceneCrewFigures(scene, paxFigures) : null;
+            if (crew) figures = crew.map(f => f?.title || '?').join(', ') || 'niemand';
+            const asset = typeof _missionSceneComposerVehicleAsset === 'function' ? _missionSceneComposerVehicleAsset(scene) : null;
+            vehicle = asset?.title || 'Regel der Szene (Composer-Fahrzeug nicht genutzt)';
+        } catch (_) {}
+        lines.push(`- ${label}: fahrzeug=${entry.vehicle || '?'}(${entry.vehicleSource || '-'}) | plätze=${Number(entry.seatsNeeded || 0)}/${Number(entry.seats || 0)} | besetzung=${entry.castSource || '-'}${entry.castFixed ? ' fest' : ''}`);
+        lines.push(`  idee: ${castText(scene)} | composer: ${persons}`);
+        lines.push(`  figuren: ${figures} | fahrzeugmodell: ${vehicle}`);
+    });
+    // Was die Zielszene tatsächlich spawnt (inkl. Einsteigen der Empfänger ins Abholfahrzeug).
+    try {
+        const arrivalPlan = typeof _missionAptArrivalPlan === 'function' ? _missionAptArrivalPlan() : null;
+        if (arrivalPlan && typeof _missionAptArrivalSceneItems === 'function') {
+            const items = _missionAptArrivalSceneItems(arrivalPlan) || [];
+            const text = items.map(item => `${item.kind || '?'}="${item.objectTitle || '-'}"${item.departWithPickupVehicle ? ' steigt-ein' : ''}`).join(' | ');
+            lines.push(`- Zielszene ${arrivalPlan.role || '-'}: ${flattenText(text || '-', 600)}`);
+        } else {
+            lines.push('- Zielszene: kein Empfangsplan');
+        }
+    } catch (_) {
+        lines.push('- Zielszene: (nicht ermittelbar)');
+    }
+}
+
 function vpFormatDebugTs(ts) {
     if (!Number.isFinite(ts) || ts <= 0) return '-';
     try { return new Date(ts).toLocaleString(); } catch (_) { return String(ts); }
@@ -5101,6 +5164,12 @@ window.vpBuildWeatherDebugReport = function() {
         lines.push(`- PAX-Figuren: schalter=${figuresOn ? 'an' : 'aus'} | manifest=${manifestFigures} | aktuell=${currentText} | pack=${window.MISSION_PERSON_ASSETS?.packageVersion || '-'}`);
     } catch (_) {
         lines.push('- PAX-Figuren: (nicht ermittelbar)');
+    }
+    // Boden-Composer (Etappe E): Plan je Bodenszene und was die Szene daraus macht.
+    try {
+        vpAppendGroundComposerDiagnostics(lines, flattenText);
+    } catch (_) {
+        lines.push('- Boden-Composer: (nicht ermittelbar)');
     }
     if (voiceState) {
         lines.push(`- Voice: enabled=${voiceState.voiceEnabled ? '1' : '0'} | effects=${voiceState.audioEffectsEnabled ? '1' : '0'} | apiKey=${voiceState.hasApiKey ? '1' : '0'} | hasPassenger=${voiceState.hasPassenger ? '1' : '0'} | pax=${flattenText(voiceState.passengerName || '-', 80)}`);
