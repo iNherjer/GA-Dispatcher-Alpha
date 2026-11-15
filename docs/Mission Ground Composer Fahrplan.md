@@ -422,6 +422,14 @@ wartende Bush-Abholperson (ist selbst der Pax) und Szenen ohne Composer-Plan (un
 
 Tracker v636 Alpha liefert die Log-Zeile `GROUND_COMPOSER … scenes=` und die gespiegelte Besetzung für vom Tracker gebaute Privat-Rückflüge.
 
+**Art der Abhol-Szene aus der Idee (umgesetzt, Web v2402, User-Freigabe 15.11.2026):** `normalizeAptArrivalRole`
+(`mission-definition-core.js`) nimmt die Art der Abhol-Szene am Ziel zuerst aus dem Idee-Schema (Medizin → medizinische
+Übergabe, Fracht/zerbrechliche Fracht → Frachtübergabe, Tiere → Tierübergabe, Reporter → Medien-Abholung, Sightseeing →
+Tour-Abholung, Verein → Vereinstreffen, Privat → Privatausflug, Charter → Charter-Abholung), erst danach Plan-Aufgabe und
+Stichwortsuche. Feldtest: eine Charter mit „Laborassistent“ in der Story wurde über das Textmuster `labor` zur
+Frachtübergabe und landete vor dem Fracht-Hangar statt auf einer GA-/Parkfläche. Betrifft nur Platzwahl, Bezeichnung und
+Grundfahrzeug; Missionen ohne Idee unverändert. Test: `tools/apt-arrival-role-from-idea.test.cjs`.
+
 **Offen:** Sim-Tests (Empfänger steigen mit ein, Bringer fahren mit ab, Rückflug-Spiegelung).
 
 ### Etappe F – Aufräumen

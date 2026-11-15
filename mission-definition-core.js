@@ -1217,7 +1217,23 @@ function normalizeAptArrivalRole({ profileId = '', passenger = null, paxText = '
         };
     }
     const plan = getMissionPlanV2Plan(missionPlanV2);
-    const planTask = String(plan?.taskDomain || plan?.lockedFields?.taskDomain || '').toLowerCase();
+    // Die Idee bestimmt die Art der Abhol-Szene vor Plan und Stichwortsuche (Feldtest 15.11.2026:
+    // Charter mit „Laborassistent“ in der Story wurde über das Textmuster zur Frachtübergabe).
+    const ideaTask = [
+        ['medicalTransferIdea', 'medical-transfer-idea.v1', 'medical_transfer'],
+        ['cargoIdea', 'cargo-idea.v1', 'cargo'],
+        ['fragileCargoIdea', 'fragile-cargo-idea.v1', 'fragile_cargo'],
+        ['animalTransportIdea', 'animal-transport-idea.v1', 'animal_transport'],
+        ['aptNewsIdea', 'apt-news-idea.v1', 'media'],
+        ['sightseeingIdea', 'sightseeing-idea.v1', 'sightseeing'],
+        ['clubIdea', 'club-idea.v1', 'club'],
+        ['privateOuting', '', 'private_outing'],
+        ['charterIdea', 'charter-idea.v1', 'charter']
+    ].find(([key, schema]) => {
+        const idea = mission?.[key] || mission?.missionContract?.[key];
+        return !!idea && typeof idea === 'object' && (!schema || idea.schema === schema);
+    })?.[2] || '';
+    const planTask = ideaTask || String(plan?.taskDomain || plan?.lockedFields?.taskDomain || '').toLowerCase();
     if (planTask) {
         if (/training|instructor/.test(planTask)) {
             return { role: 'none' };
