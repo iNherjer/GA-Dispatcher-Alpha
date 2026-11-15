@@ -132,6 +132,7 @@ const { createCockpitTools } = require('./tracker-cockpit-tools.js');
 const { createTrackerFlightLogStore } = require('./tracker-flight-log-store.js');
 const { createFreeFlightRuntime } = require('./tracker-free-flight-runtime.js');
 const { createFlightLogbookCloud } = require('./tracker-flight-logbook-cloud.js');
+const boardingLayoutCore = require('./tracker-mission-boarding-layout-core.js');
 const {
   GROUP_VEHICLE_TITLES,
   evaluateGroupSequenceCompletion,
@@ -172,8 +173,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v637';
-const TRACKER_VERSION_CODE = 637;
+const TRACKER_VERSION = 'v638';
+const TRACKER_VERSION_CODE = 638;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -196,7 +197,7 @@ const TRACKER_POI_EXECUTION_ENABLED = TRACKER_APT_EXECUTION_ENABLED;
 const TRACKER_AUDIO_OUTPUT_ENABLED = TRACKER_APT_EXECUTION_ENABLED
   && Boolean(TRACKER_DESKTOP_CONTROL_TOKEN) && process.env.VFR_MULTITOOL_DESKTOP_AUDIO_PLAYER === '1';
 const TRACKER_EXECUTION_CAPABILITIES = TRACKER_APT_EXECUTION_ENABLED
-  ? ['mission.transfer.v1', 'mission.intent.v1', 'flight.logbook.v1', 'mission.cloud-load.v1', 'mission.cloud-control.v1', 'mission.cloud-knock.v1', 'mission.cargo-batch.v1', 'mission.compliance-debug.v1', 'voice.relay.v1', ...(TRACKER_POI_EXECUTION_ENABLED ? ['mission.poi.v1', 'mission.sar-search.v2', 'mission.bush-strip.v1', 'mission.bush-return.v1', 'mission.bush-narrative.v1'] : []), ...(TRACKER_AUDIO_OUTPUT_ENABLED ? ['audio.output.v1', ...(TRACKER_NAVIGATION_PLAYER_READY ? ['navigation.warnings.v1'] : [])] : [])] : [];
+  ? ['mission.transfer.v1', 'mission.intent.v1', 'mission.boarding-layout.v1', 'flight.logbook.v1', 'mission.cloud-load.v1', 'mission.cloud-control.v1', 'mission.cloud-knock.v1', 'mission.cargo-batch.v1', 'mission.compliance-debug.v1', 'voice.relay.v1', ...(TRACKER_POI_EXECUTION_ENABLED ? ['mission.poi.v1', 'mission.sar-search.v2', 'mission.bush-strip.v1', 'mission.bush-return.v1', 'mission.bush-narrative.v1'] : []), ...(TRACKER_AUDIO_OUTPUT_ENABLED ? ['audio.output.v1', ...(TRACKER_NAVIGATION_PLAYER_READY ? ['navigation.warnings.v1'] : [])] : [])] : [];
 const TRACKER_PROTOCOL_HELLO = createTrackerRelayHello({
   trackerVersion: TRACKER_VERSION,
   trackerVersionCode: TRACKER_VERSION_CODE,
@@ -4721,6 +4722,15 @@ function createMissionSmokeController(handle, getWs, syncId, pin, getLastGpsMsg 
         debugLog(`MISSION_EFFECT_DISPATCH type=${type} commandId=${commandId} scene=${sceneId}`);
         enqueueSceneOperation(sceneId, () => animateMissionSceneDeboarding(command)).catch(error => {
           sendAck({ type: 'mission_scene_deboarding_ack', commandId, sceneId, missionId, status: 'error', error: error?.message || String(error) });
+        });
+        return { ok: true, status: 'pending', sideEffect: true };
+      }
+      // Only the boarding marker preview of the run; mission scenes keep their own lifecycle.
+      if (type === 'mission_scene_clear' && boardingLayoutCore.isMarkerSceneId(command?.sceneId)) {
+        const sceneId = String(command.sceneId).trim();
+        debugLog(`MISSION_EFFECT_DISPATCH type=${type} commandId=${commandId} scene=${sceneId}`);
+        enqueueSceneOperation(sceneId, () => clearScene(sceneId, command?.reason || 'boarding-markers-clear', commandId)).catch(error => {
+          sendAck({ type: 'mission_scene_clear_ack', commandId, sceneId, missionId, status: 'error', error: error?.message || String(error) });
         });
         return { ok: true, status: 'pending', sideEffect: true };
       }

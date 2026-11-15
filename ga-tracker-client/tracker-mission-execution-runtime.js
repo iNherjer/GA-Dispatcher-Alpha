@@ -26,6 +26,7 @@ const boardingVoiceCore = require('../mission-boarding-voice-core.js');
 const { createMissionInterruptionController } = require('./tracker-mission-interruption-controller.js');
 const { createCargoCheckpointRecovery } = require('./tracker-cargo-checkpoint-recovery.js');
 const { missionRouteEnds } = require('./tracker-flightplan-export.js');
+const boardingLayoutCore = require('./tracker-mission-boarding-layout-core.js');
 
 function createTrackerMissionExecutionRuntime(options = {}) {
   const authorityManager = options.authorityManager;
@@ -79,6 +80,9 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   const cargoRecoveries = cargoCheckpointRecovery ? [cargoCheckpointRecovery] : [];
   const sceneRecoveryPrefix = `interruption-scene-${Date.now().toString(36)}-`;
   let sceneRecoverySequence = 0;
+  let simulatorDispatchCommand = null;
+  let boardingMarkerSequence = 0;
+  let boardingMarkersRunId = '';
   let interruption = null;
   const reconcileCargoCheckpoint = () => {
     if (interruption?.blocksRebuild()) return;
@@ -450,6 +454,9 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       }
       return result;
     }
+    if (String(request.intent || request.action || '').trim().toLowerCase() === 'update_boarding_layout') {
+      return updateBoardingLayout(request);
+    }
     reconcileCargoCheckpoint();
     const recipe = authorityManager.getActiveRun()?.executionRecipe;
     const trainingIntent = ['training_ready', 'training_abort', 'training_extra', 'training_repeat_instruction']
@@ -536,6 +543,10 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     const result = adapter.executeIntent(request);
     const cargoCommittedAt = Date.now();
     if (!result.ok) return result;
+    if (request.intent === 'start_boarding' && boardingMarkersRunId) {
+      const run = authorityManager.getActiveRun();
+      if (run) dispatchBoardingMarkers(run, false).catch(() => null);
+    }
     // Standalone ordering: commit the item, immediately queue its visual target,
     // then handle voice/payload and presentation independently. No global drain
     // or older unrelated effect may delay a new cargo target.
@@ -614,6 +625,87 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       adapter.applySystemEvent({ type: 'FIRE_SCENE_RECOVERY_REQUESTED', missionId: recoveringFire.missionId,
         runId: recoveringFire.runId, eventId: `${recoveringFire.runId}:fire-scene-recovery:${recoveringFire.executionRevision + 1}` });
     }
+  };
+
+  // Start scene rebuilt after the pilot moved the boarding points; same path as
+  // the interruption recovery, so no effect is added to the execution state.
+  const respawnPrepareScene = (reason) => {
+    const snapshot = authorityManager.getExecutionSnapshot();
+    if (!snapshot || !simulatorEffects) return 'simulator_not_connected';
+    const effects = snapshot.state.effects || [];
+    if (effects.some(effect => effect.type === 'scene.prepare' && effect.status === 'requested')) return 'prepare_pending';
+    const prepare = effects.filter(effect => effect.type === 'scene.prepare' && effect.status === 'completed').at(-1);
+    if (!prepare) return 'not_spawned_yet';
+    const effectId = `${sceneRecoveryPrefix}${++sceneRecoverySequence}`;
+    Promise.resolve(simulatorEffects.dispatch({
+      missionId: snapshot.missionId, runId: snapshot.runId, commandId: effectId,
+      effect: { effectId, type: prepare.type, payload: prepare.payload || {} }
+    })).catch(error => log(`MISSION_BOARDING_LAYOUT_RESPAWN_ERROR error=${error?.message || error}`));
+    log(`MISSION_BOARDING_LAYOUT_RESPAWN run=${snapshot.runId} reason=${reason}`);
+    return 'respawned';
+  };
+
+  const livePositionCommandFields = () => {
+    const raw = getSimulatorPosition() || {};
+    const lat = Number(raw.lat), lon = Number(raw.lon ?? raw.lng);
+    const altFt = Number(raw.altFt ?? raw.alt), hdg = Number(raw.hdg ?? raw.heading);
+    if (![lat, lon, hdg].every(Number.isFinite) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+    return { lat, lon, altFt: Number.isFinite(altFt) ? altFt : 0, hdg };
+  };
+
+  // Cones at the boarding points: a preview owned by the run, cleared with it.
+  const dispatchBoardingMarkers = async (run, spawn, labels = null) => {
+    if (!simulatorDispatchCommand) return 'simulator_not_connected';
+    const plan = executionEffectPlan();
+    const sceneId = boardingLayoutCore.markerSceneId(plan);
+    if (!sceneId) return 'not_supported';
+    if (!spawn && boardingMarkersRunId !== run.runId) return 'unchanged';
+    const position = livePositionCommandFields();
+    const items = spawn ? boardingLayoutCore.buildMarkerItems(plan, labels) : [];
+    if (spawn && (!position || items.length < 2)) return 'position_missing';
+    const commandId = `${run.runId}:boarding-markers:${++boardingMarkerSequence}-${Date.now().toString(36)}`;
+    const command = spawn
+      ? { type: 'mission_scene_spawn', commandId, missionId: run.missionId, runId: run.runId, sceneId,
+        reason: 'boarding-layout-markers', ...position, items }
+      : { type: 'mission_scene_clear', commandId, missionId: run.missionId, runId: run.runId, sceneId,
+        reason: 'boarding-layout-markers-clear' };
+    try {
+      const result = await simulatorDispatchCommand(command);
+      if (result?.ok === false) return result.error || 'dispatch_failed';
+    } catch (error) {
+      log(`MISSION_BOARDING_MARKERS_ERROR error=${error?.message || error}`);
+      return 'dispatch_failed';
+    }
+    boardingMarkersRunId = spawn ? run.runId : '';
+    return spawn ? 'spawned' : 'cleared';
+  };
+
+  const updateBoardingLayout = async (request = {}) => {
+    const run = authorityManager.getActiveRun();
+    if (!run || run.executionAuthority !== 'tracker') return { ok: false, status: 'blocked', error: 'mission_execution_authority_web', sideEffect: false };
+    if (String(request.missionId || '') !== run.missionId || String(request.runId || '') !== run.runId) {
+      return { ok: false, status: 'conflict', error: 'mission_run_conflict', sideEffect: false, activeRun: run };
+    }
+    const payload = request.payload && typeof request.payload === 'object' ? request.payload : {};
+    const markersOff = payload.markers === false ? await dispatchBoardingMarkers(run, false) : null;
+    const updated = await authorityManager.updateExecutionBoardingLayout({
+      missionId: run.missionId, runId: run.runId, commandId: request.commandId, layout: payload.layout
+    });
+    if (!updated?.ok) {
+      log(`MISSION_BOARDING_LAYOUT_REJECTED run=${run.runId} error=${updated?.error || 'unknown'}`);
+      return { ...updated, boardingLayout: { markers: markersOff || 'unchanged' }, activeRun: authorityManager.getActiveRun() };
+    }
+    const scene = updated.changed === true || payload.respawn === true
+      ? respawnPrepareScene(updated.changed ? 'layout-changed' : 'respawn-requested') : 'unchanged';
+    const markers = markersOff
+      || (payload.markers === true || (boardingMarkersRunId === run.runId && updated.changed === true)
+        ? await dispatchBoardingMarkers(run, true, Array.isArray(payload.markerLabels) ? payload.markerLabels : null)
+        : 'unchanged');
+    log(`MISSION_BOARDING_LAYOUT run=${run.runId} changed=${updated.changed ? 1 : 0} revision=${updated.layoutRevision || 0} scene=${scene} markers=${markers}`);
+    const acted = updated.changed === true || scene === 'respawned' || ['spawned', 'cleared'].includes(markers);
+    return { ok: true, status: acted ? 'ok' : 'noop', sideEffect: scene === 'respawned' || ['spawned', 'cleared'].includes(markers),
+      boardingLayout: { changed: updated.changed === true, layoutRevision: updated.layoutRevision || null, scene, markers },
+      activeRun: authorityManager.getActiveRun() };
   };
 
   // Scenes the simulator lost with its restart. Recreate the desired state of
@@ -806,6 +898,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       log
     });
     simulatorEffects = bridge;
+    simulatorDispatchCommand = typeof simulator.dispatchCommand === 'function' ? simulator.dispatchCommand : null;
     simulatorSetAircraftPosition = typeof simulator.setAircraftPosition === 'function' ? simulator.setAircraftPosition : null;
     reconcileCargoCheckpoint();
     cleanupExecutionRun = typeof simulator.cleanupMission === 'function' ? simulator.cleanupMission : null;
@@ -836,6 +929,8 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     getSimulatorPosition = () => null;
     simulatorEffects?.cancelPending?.({ preserveManual: true });
     simulatorEffects = null;
+    simulatorDispatchCommand = null;
+    boardingMarkersRunId = '';
     simulatorSetAircraftPosition = null;
     startReadiness?.reset();
     simulatorPayloadSyncBeforeStart = null;

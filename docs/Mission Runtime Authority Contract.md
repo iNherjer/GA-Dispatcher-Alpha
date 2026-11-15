@@ -911,6 +911,37 @@ Der Mission Core erzeugt einen deklarativen Effekt. Nur der Tracker fuehrt den
 Simulator-Effekt aus. Der fachliche Zustand schreitet erst an der im heutigen
 App-Ablauf vorgesehenen ACK-Stufe fort.
 
+### 7.1 Boarding-Punkte nach dem Szenenaufbau verschieben (seit Tracker v638)
+
+Die App friert Spawn-, Cargo- und Boarding-Punkte des Flugzeug-Presets beim
+Missionsstart in den Effektplan ein (`scene.prepare`, `scene.boarding`,
+`scene.deboarding`, `manualPassengerCommands`, `cargoPlacement`). Unter
+Tracker-Authority lehnt der Tracker eigene Szenenbefehle der App ab
+(`mission_execution_authority_tracker`); Preset-Editor, „Szene neu setzen“ und
+der Marker-Schalter liefen deshalb ins Leere (Feldbefund 15.11.2026).
+
+- Tracker meldet `mission.boarding-layout.v1`. Die App schickt dann jede
+  Aenderung im Boarding-Editor als Intent `update_boarding_layout`
+  (`payload.layout`, `markers`, `respawn`), entprellt, nur das Layout des
+  Missionsflugzeugs (`aircraftSlot`).
+- Erlaubt nur in `planned`/`prepare`, solange kein `scene.boarding`-Effekt
+  existiert, Boarding nicht bestaetigt und keine Ladung bewegt ist (sonst
+  `boarding_layout_locked` / `boarding_layout_cargo_moved`). Bush-Pickup ohne
+  Startszene: `boarding_layout_not_supported`.
+- `tracker-mission-boarding-layout-core.js` ersetzt nur Positionen:
+  wartende Boarder (am Spawnpunkt) und Cargo-Objekte werden um die Differenz
+  verschoben, Wege/Punkte in Boarding, Deboarding und manuellen Pax-Rezepten
+  ersetzt. Figuren, Fahrzeug, Titel, Manifest und Zeiten bleiben unveraendert.
+  Der Authority-Kern speichert den Plan (`boardingLayoutRevision`, neue
+  Run-Revision), ein Tracker-Neustart behaelt ihn.
+- Steht die Startszene schon, baut die Laufzeit sie ueber den Recovery-Pfad
+  neu auf (keine neuen Effekte im Ausfuehrungszustand).
+- Marker (Pylonen `Cone_Medium` an jedem Wegpunkt) sind eine Tracker-Vorschau
+  `<sceneId>-boarding-markers` mit der Run-`missionId`; `start_boarding` raeumt
+  sie ab, Missionsende/Abbruch ueber die normale Run-Aufraeumung.
+- Aeltere Tracker ohne Faehigkeit oder getrennter Tracker: die App speichert
+  nur das Preset und sagt das im Editor.
+
 ## 8. Voice-Vertrag
 
 Im Tracker-Modus entscheidet nur der Tracker ueber Voice-Trigger und Queue.

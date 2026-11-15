@@ -10,6 +10,17 @@
     'Noch nicht geprueft.': 'Not checked yet.',
     'Warte auf Login': 'Waiting for login',
     'Preset wählen oder anlegen': 'Choose or create a preset',
+    // Boarding editor during a tracker-led mission (sync.js trackerBoardingLayoutSchedule)
+    'Boarding-Punkte an den Tracker übergeben, die Szene wird neu gesetzt.': 'Boarding points sent to the tracker, the scene is being rebuilt.',
+    'Boarding-Punkte an den Tracker übergeben.': 'Boarding points sent to the tracker.',
+    'Marker an den Tracker übergeben.': 'Markers sent to the tracker.',
+    'Das Boarding läuft schon, die Änderung gilt ab der nächsten Mission.': 'Boarding has already started, the change applies from the next mission.',
+    'Es ist schon Ladung verladen, die Szene wird nicht mehr neu gesetzt.': 'Cargo is already loaded, the scene is no longer rebuilt.',
+    'Dieses Preset gehört nicht zum Flugzeug der laufenden Mission.': 'This preset does not belong to the aircraft of the running mission.',
+    'Diese Mission hat keine Boarding-Szene am Start.': 'This mission has no boarding scene at the start.',
+    'Der Tracker ist nicht verbunden, die Boarding-Punkte bleiben im Preset gespeichert.': 'The tracker is not connected, the boarding points stay saved in the preset.',
+    'Der Tracker ist zu alt für Änderungen während der Mission. Bitte den Tracker aktualisieren.': 'The tracker is too old for changes during the mission. Please update the tracker.',
+    'Der Tracker hat die Boarding-Punkte nicht übernommen.': 'The tracker did not accept the boarding points.',
     // Dispatch button (index.html generateBtn, app.js)
     'Auftrag generieren': 'Generate job',
     'Sucht Route & Daten...': 'Searching route & data...',

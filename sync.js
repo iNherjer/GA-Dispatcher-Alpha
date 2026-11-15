@@ -10608,8 +10608,106 @@ window.boardingMarkerSpawn = function(reason = 'boarding-marker') {
     });
 };
 
+// Tracker-led mission: the start scene and the markers belong to the tracker. Edits of the
+// boarding points go to it as one layout update; it rebuilds the scene until boarding begins.
+const BOARDING_LAYOUT_CAPABILITY = 'mission.boarding-layout.v1';
+let boardingLayoutTimer = null;
+let boardingLayoutPending = null;
+let boardingLayoutInFlight = null;
+
+window.trackerBoardingLayoutMode = function() {
+    if (window.simModeActive === true || !_missionExecutionAuthorityIsTracker()) return 'local';
+    if (window.liveTrackerConnected !== true) return 'tracker_offline';
+    return (window.liveTrackerCapabilities || []).includes(BOARDING_LAYOUT_CAPABILITY) ? 'tracker' : 'tracker_outdated';
+};
+
+const BOARDING_LAYOUT_MESSAGES = {
+    respawned: ['Boarding-Punkte an den Tracker übergeben, die Szene wird neu gesetzt.', '#4caf50'],
+    saved: ['Boarding-Punkte an den Tracker übergeben.', '#4caf50'],
+    markers: ['Marker an den Tracker übergeben.', '#4caf50'],
+    boarding_layout_locked: ['Das Boarding läuft schon, die Änderung gilt ab der nächsten Mission.', '#ff9800'],
+    boarding_layout_cargo_moved: ['Es ist schon Ladung verladen, die Szene wird nicht mehr neu gesetzt.', '#ff9800'],
+    boarding_layout_aircraft_mismatch: ['Dieses Preset gehört nicht zum Flugzeug der laufenden Mission.', '#ff9800'],
+    boarding_layout_not_supported: ['Diese Mission hat keine Boarding-Szene am Start.', '#ff9800'],
+    tracker_offline: ['Der Tracker ist nicht verbunden, die Boarding-Punkte bleiben im Preset gespeichert.', '#ff9800'],
+    tracker_outdated: ['Der Tracker ist zu alt für Änderungen während der Mission. Bitte den Tracker aktualisieren.', '#ff9800'],
+    failed: ['Der Tracker hat die Boarding-Punkte nicht übernommen.', '#f44336']
+};
+
+function _trackerBoardingLayoutReport(key) {
+    const [text, color] = BOARDING_LAYOUT_MESSAGES[key] || BOARDING_LAYOUT_MESSAGES.failed;
+    if (typeof setAircraftPresetStatus === 'function') setAircraftPresetStatus(_syncUiPhrase(text), color);
+}
+
+function _trackerBoardingLayoutPayload(options = {}) {
+    const slot = options.slot || window.getBoardingEditorSlot?.() || window.selectedAC;
+    const cfg = typeof window.getMissionSceneBoardingConfig === 'function' ? window.getMissionSceneBoardingConfig(slot) : null;
+    if (!cfg) return null;
+    const point = p => ({ forwardM: Number(p?.forwardM) || 0, rightM: Number(p?.rightM) || 0, altOffsetFt: Number(p?.altOffsetFt) || 0 });
+    return {
+        layout: {
+            aircraftSlot: String(cfg.aircraftSlot || slot || ''),
+            spawn: point(cfg.spawn), cargo: point(cfg.cargo), target: point(cfg.target),
+            path: (cfg.path || []).map(point), cargoIndex: Number(cfg.cargoIndex),
+            pathLabels: Array.isArray(cfg.pathLabels) ? cfg.pathLabels.slice(0, 12) : null,
+            walkSpeedKts: Number(cfg.walkSpeedKts), durationMs: Number(cfg.durationMs), openDoor: cfg.openDoor !== false
+        },
+        markers: isBoardingMarkerEnabled(),
+        markerLabels: Array.isArray(cfg.pathLabels) ? cfg.pathLabels.slice(0, 10) : null,
+        respawn: options.respawn === true
+    };
+}
+
+async function _trackerBoardingLayoutFlush() {
+    // A running request picks up the pending edit when it returns.
+    if (boardingLayoutInFlight) return;
+    const options = boardingLayoutPending;
+    boardingLayoutPending = null;
+    if (!options) return;
+    const mode = window.trackerBoardingLayoutMode();
+    if (mode !== 'tracker') {
+        if (mode !== 'local') _trackerBoardingLayoutReport(mode);
+        return;
+    }
+    const payload = _trackerBoardingLayoutPayload(options);
+    if (!payload) return;
+    const submit = () => _submitTrackerExecutionIntent('update_boarding_layout', payload, { silent: true, allowParallel: true });
+    boardingLayoutInFlight = (async () => {
+        let result = await submit();
+        if (result?.error === 'mission_revision_conflict') result = await submit();
+        const info = result?.boardingLayout || {};
+        _missionPhaseDebugPush('boarding_layout_update', {
+            status: result?.status || '', error: result?.error || '', changed: info.changed === true,
+            scene: info.scene || '', markers: info.markers || '', respawn: payload.respawn
+        });
+        if (result?.ok === true) {
+            _trackerBoardingLayoutReport(info.scene === 'respawned' ? 'respawned'
+                : (info.changed ? 'saved' : (['spawned', 'cleared'].includes(info.markers) ? 'markers' : 'saved')));
+        } else {
+            _trackerBoardingLayoutReport(BOARDING_LAYOUT_MESSAGES[result?.error] ? result.error : 'failed');
+        }
+        return result;
+    })();
+    try { await boardingLayoutInFlight; } finally { boardingLayoutInFlight = null; }
+    if (boardingLayoutPending) _trackerBoardingLayoutFlush();
+}
+
+window.trackerBoardingLayoutSchedule = function(options = {}) {
+    const mode = window.trackerBoardingLayoutMode();
+    if (mode === 'local') return false;
+    boardingLayoutPending = {
+        ...(boardingLayoutPending || {}),
+        ...options,
+        respawn: options.respawn === true || boardingLayoutPending?.respawn === true
+    };
+    clearTimeout(boardingLayoutTimer);
+    boardingLayoutTimer = setTimeout(() => { _trackerBoardingLayoutFlush(); }, options.immediate === true ? 0 : 650);
+    return true;
+};
+
 window.boardingMarkerClear = function(reason = 'boarding-marker-clear') {
     clearTimeout(boardingMarkerRefreshTimer);
+    if (window.trackerBoardingLayoutSchedule({ reason })) return true;
     return !!window.sendTrackerCommand({
         type: 'mission_scene_clear',
         sceneId: _boardingMarkerSceneId(),
@@ -10618,6 +10716,7 @@ window.boardingMarkerClear = function(reason = 'boarding-marker-clear') {
 };
 
 window.scheduleBoardingMarkerRefresh = function(reason = 'boarding-marker-refresh') {
+    if (window.trackerBoardingLayoutSchedule({ reason, respawn: reason === 'boarding-preset-preview' })) return true;
     if (!isBoardingMarkerEnabled()) return false;
     clearTimeout(boardingMarkerRefreshTimer);
     boardingMarkerRefreshTimer = setTimeout(() => {

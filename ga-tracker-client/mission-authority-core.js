@@ -7,6 +7,7 @@ const paxQueryCore = require('../mission-pax-query-core.js');
 const poiLifecycleCore = require('../mission-poi-lifecycle-core.js');
 const crypto = require('crypto');
 const routeEditCore = require('../map-route-edit-core.js');
+const boardingLayoutCore = require('./tracker-mission-boarding-layout-core.js');
 const fs = require('fs');
 const path = require('path');
 const executionCore = require('../mission-execution-core.js');
@@ -966,6 +967,53 @@ function createMissionAuthorityManager(options = {}) {
     active.navigationRoute = { points, revision: revision + 1 };
     if (!persist()) { active.navigationRoute = previous; return { ok: false, error: 'navigation_persist_failed' }; }
     return { ok: true, status: 'ok' };
+  };
+
+  // The pilot moved spawn, cargo or boarding points of the aircraft preset after
+  // the start scene was built. Only before boarding begins: the new layout
+  // replaces positions in the frozen effect plan; nothing else changes.
+  const updateExecutionBoardingLayout = (request = {}) => {
+    const active = state.activeRun;
+    if (!active || active.executionAuthority !== EXECUTION_AUTHORITY_TRACKER) {
+      return { ok: false, status: 'blocked', error: 'mission_execution_authority_web', sideEffect: false };
+    }
+    if (cleanString(request.missionId) !== active.missionId || cleanString(request.runId, 220) !== active.runId) {
+      return { ok: false, status: 'conflict', error: 'mission_run_conflict', sideEffect: false };
+    }
+    const execution = safeObject(active.executionState);
+    const flags = safeObject(execution.flags);
+    const boardingBegun = flags.boardingSceneConfirmed === true || flags.started === true
+      || (Array.isArray(execution.effects) && execution.effects.some(effect => effect?.type === 'scene.boarding'))
+      || !['planned', 'prepare'].includes(cleanString(execution.phase, 60));
+    if (boardingBegun) return { ok: false, status: 'blocked', error: 'boarding_layout_locked', sideEffect: false };
+    // A rebuilt start scene would bring back cargo that is already on board.
+    const manifestItems = Array.isArray(safeObject(execution.manifest).items) ? execution.manifest.items : [];
+    if (manifestItems.some(item => item?.persistentEquipment !== true
+        && ['loaded', 'unloaded', 'dropped'].includes(cleanString(item?.status, 40)))) {
+      return { ok: false, status: 'blocked', error: 'boarding_layout_cargo_moved', sideEffect: false };
+    }
+    const bundle = safeObject(active.resumeBundle);
+    const applied = boardingLayoutCore.applyLayout(bundle.executionEffectPlan, request.layout);
+    if (!applied.ok) return { ok: false, status: 'blocked', error: applied.error, sideEffect: false };
+    if (!applied.changed) return { ok: true, status: 'noop', changed: false, sideEffect: false, activeRun: publicRun(active) };
+    let nextBundle;
+    try { nextBundle = checkedInternalResumeBundle({ ...bundle, executionEffectPlan: applied.plan }); }
+    catch (error) { return { ok: false, status: 'error', error: error.code || error.message, sideEffect: false }; }
+    const previous = { resumeBundle: active.resumeBundle, revision: active.revision, updatedAt: active.updatedAt,
+      lastCommandType: active.lastCommandType, lastReason: active.lastReason };
+    active.resumeBundle = nextBundle;
+    active.revision += 1;
+    active.updatedAt = now();
+    active.lastCommandType = 'mission_boarding_layout';
+    active.lastReason = 'boarding-layout-update';
+    if (!persist()) {
+      Object.assign(active, previous);
+      return { ok: false, status: 'error', error: 'boarding_layout_persist_failed', sideEffect: false };
+    }
+    addEvent('boarding_layout', { missionId: active.missionId, runId: active.runId, commandId: request.commandId,
+      reason: `layout-revision:${applied.plan.boardingLayoutRevision}` });
+    return { ok: true, status: 'ok', changed: true, sideEffect: false,
+      layoutRevision: applied.plan.boardingLayoutRevision, activeRun: publicRun(active) };
   };
 
   const updateSnapshot = (request = {}) => {
@@ -2211,6 +2259,7 @@ function createMissionAuthorityManager(options = {}) {
     validate,
     updateSnapshot,
     editNavigationRoute,
+    updateExecutionBoardingLayout,
     prepareExecutionAuthority,
     requestSnapshot,
     rollbackExecutionAuthority,

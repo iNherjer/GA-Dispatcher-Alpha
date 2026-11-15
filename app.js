@@ -724,7 +724,13 @@ function setBoardingDoorOption(enabled) {
 }
 window.setBoardingDoorOption = setBoardingDoorOption;
 
+// Slot shown in the boarding editor; a tracker-led mission takes only its own aircraft.
+window.getBoardingEditorSlot = () => resolveAircraftPresetId(activeAircraftPresetSettingsSlot);
+
 function previewBoardingPresetScene() {
+    // Tracker-led mission: the tracker owns the start scene and rebuilds it itself.
+    if (typeof window.trackerBoardingLayoutSchedule === 'function'
+        && window.trackerBoardingLayoutSchedule({ respawn: true, immediate: true, reason: 'boarding-preset-preview' })) return;
     if (typeof window.clearMissionSceneObjects === 'function') window.clearMissionSceneObjects('boarding-preset-preview-clear');
     else if (typeof window.missionSceneClear === 'function') window.missionSceneClear('boarding-preset-preview-clear');
     setTimeout(() => {

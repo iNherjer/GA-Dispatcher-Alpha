@@ -27,15 +27,23 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-### 2026-11-15 · EFB-Kopie profile.js: Diagnose-Abschnitt Boden-Composer
+## Ausgeliefert
+
+### 2026-11-15 · Boarding-Punkte nach dem Szenenaufbau verschieben — ausgeliefert in Tracker v638 Alpha / Web v2404 (15.11.2026)
+- **Artefakt:** Tracker-EXE; Web mit diesem Push
+- **Dateien:** `ga-tracker-client/tracker-mission-boarding-layout-core.js` (neu), `mission-authority-core.js`, `tracker-mission-execution-runtime.js`, `tracker.js`, `sync.js`, `app.js`, `i18n/en-phrases.js`
+- **Was:** Unter Tracker-Authority gehen Boarding-Editor, „Szene neu setzen“ und Marker-Schalter als `update_boarding_layout` an den Tracker; der baut die Startszene bis zum Boarding-Start neu auf und setzt die Pylonen selbst.
+- **Tests:** `tracker-mission-boarding-layout.test.js`; Tracker-Suite 1574/1576.
+- **Doku beim Release:** `docs/Mission Runtime Authority Contract.md` 7.1, `docs/Tracker-v638-Release.md`.
+- **Pruefen im Feld:** Nach Szenenaufbau Cargo-Punkt verschieben, „Szene neu setzen“, Marker an/aus, danach Boarding; Log `MISSION_BOARDING_LAYOUT`.
+
+### 2026-11-15 · EFB-Kopie profile.js: Diagnose-Abschnitt Boden-Composer — ausgeliefert in Tracker v638 Alpha (15.11.2026)
 - **Artefakt:** Tracker-EXE (EFB-Web-Assets); Web live mit v2400
 - **Dateien:** `ga-tracker-client/efb-web-assets/profile.js` (Kopie per `sync-efb-web-assets.js`)
 - **Was:** Diagnosebericht bekommt den Abschnitt „Boden-Composer“ (Plan-Quelle, je Szene Fahrzeug/Plätze/Besetzungsquelle, Personen aus Idee und Composer, gewählte Figuren und Fahrzeugmodell, tatsächliche Zielszene mit „steigt-ein“). Im EFB ohne Wirkung; nur Gleichstand der Kopie.
 - **Tests:** `efb-web-assets-sync.test.js`, `tracker-efb-asset-syntax.test.js`.
 - **Doku beim Release:** keine.
 - **Pruefen im Feld:** nichts.
-
-## Ausgeliefert
 
 ### 2026-11-14 · Schwellen-Meldungen Übelkeit (<50/<30 %) und Ladungsschaden (≤50/≤35 %) — ausgeliefert in Tracker v637 Alpha / Web v2400 (14.11.2026)
 - **Artefakt:** Tracker-EXE; Web mit diesem Push
