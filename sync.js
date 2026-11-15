@@ -7609,8 +7609,15 @@ function _missionSceneComposerVehicleAsset(scene = 'start') {
     return { title: preferred, candidates: _sceneAssetCandidates(preferred, pool), composerKind: kind, composerScene: scene };
 }
 
-function _missionSceneVehicleAsset(scene = 'start') {
+function _missionSceneVehicleAsset(scene = 'start', { startSceneBuild = false } = {}) {
     const groupPlan = _missionSceneGroupPlan();
+    // Startszene einer Gruppe: der Tracker nimmt dort jedes Fahrzeug an (Titelliste gilt nur für
+    // das Abholfahrzeug beim Aussteigen). Das Composer-Fahrzeug hat Plätze und Ladung schon
+    // geprüft; Patiententransfer bleibt beim Krankenwagen.
+    if (groupPlan && startSceneBuild && groupPlan.groupVehicleKind !== 'medical' && typeof _missionSceneComposerVehicleAsset === 'function') {
+        const composerVehicle = _missionSceneComposerVehicleAsset('start');
+        if (composerVehicle) return composerVehicle;
+    }
     if (groupPlan && groupPlan.groupVehicleKind === 'car') {
         // Nur Titel, die der Tracker als Gruppen-Pkw annimmt (GROUP_VEHICLE_TITLES.car).
         const selection = window.GAMissionSceneGroup?.resolveGroupVehicleSelection?.(groupPlan);
@@ -8018,7 +8025,7 @@ function _missionSceneCommonSceneCommandFields() {
 function _missionSceneBuildSpawnEffectCommand(reason = 'scene-spawn', position = {}) {
     const sceneId = _missionSceneId();
     const vehicleSupportEnabled = _missionSceneVehicleSupportEnabled();
-    const vehicleAsset = vehicleSupportEnabled ? _missionSceneVehicleAsset() : null;
+    const vehicleAsset = vehicleSupportEnabled ? _missionSceneVehicleAsset('start', { startSceneBuild: true }) : null;
     const vehicleTitle = vehicleAsset?.title || '';
     const cargoAsset = _missionSceneCargoAsset();
     const boardingConfig = _missionSceneBoardingConfig();
@@ -8092,10 +8099,29 @@ function _missionSceneBuildSpawnEffectCommand(reason = 'scene-spawn', position =
     });
     // Bringer aus dem Composer ersetzen die festen „Crew Fahrzeug“-Figuren: so viele, wie der
     // Plan vorsieht (höchstens die zwei Plätze am Fahrzeug); sie steigen ein und fahren mit weg.
-    const startCrew = vehicleSupportEnabled && !groupPlan && typeof _missionSceneCrewFigures === 'function'
+    const startCrew = vehicleSupportEnabled && typeof _missionSceneCrewFigures === 'function'
         ? _missionSceneCrewFigures('start', groundFigures) : null;
     let startCrewPlaced = null;
-    if (startCrew) {
+    // Gruppen: der Tracker steigt nur person_boarder_* ins Flugzeug, nimmt aber jede person_idle_*
+    // beim Abfahren mit ins Fahrzeug – Bringer stehen daher auch hier an den „Crew Fahrzeug“-Plätzen
+    // (Feldtest 15.11.2026: Mitarbeiter der Orgelbauwerkstatt fehlte bei 2 Pax).
+    const groupCrewItems = groupPlan && startCrew ? startCrew.slice(0, 2).map((figure, index) => {
+        const spot = index === 0 ? vehicleCrewOne : vehicleCrewTwo;
+        const other = index === 0 ? vehicleCrewTwo : vehicleCrewOne;
+        return {
+            kind: `person_idle_${index + 1}`,
+            label: `Crew Fahrzeug ${index + 1}`,
+            objectTitle: figure.title,
+            titleCandidates: _missionSceneGroundFigureCandidates(figure),
+            forwardM: spot.forwardM,
+            rightM: spot.rightM,
+            headingMode: 'with_aircraft',
+            hdgOffsetDeg: _missionSceneHeadingOffsetBetween(spot, other, index === 0 ? 70 : 250),
+            altOffsetFt: 0
+        };
+    }) : [];
+    if (groupPlan && startCrew) startCrewPlaced = groupCrewItems.length;
+    if (startCrew && !groupPlan) {
         const idleItems = legacyPersonItems.filter(item => /^person_idle/.test(item.kind));
         idleItems.forEach((item, index) => {
             const figure = startCrew[index];
@@ -8126,7 +8152,7 @@ function _missionSceneBuildSpawnEffectCommand(reason = 'scene-spawn', position =
             headingMode: 'face_aircraft',
             altOffsetFt: Number.isFinite(Number(personSpawn.altOffsetFt)) ? Number(personSpawn.altOffsetFt) : 0
         };
-    }) : legacyPersonItems;
+    }).concat(groupCrewItems) : legacyPersonItems;
     const sceneItems = [];
     if (vehicleSupportEnabled && vehicleAsset && vehiclePoint) {
         const taskDomain = _missionSceneTaskDomain();

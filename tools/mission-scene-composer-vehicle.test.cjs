@@ -17,11 +17,12 @@ function extract(c, name) {
 const POOLS = { quads: ['Microsoft_Quad'], trucks: ['Truck Large Europe', 'Truck Utility NorthAm', 'Pickup 01'],
   cars: ['Microsoft_Car_EUR_01'], vans: ['Microsoft_Van_EUR'], buses: ['Bus'], medicalVehicles: ['Car Bush Medic'],
   vehicles: ['Microsoft_Quad', 'Microsoft_Car_EUR_01', 'Microsoft_Van_EUR'] };
-function context({ plan = null, domain = 'club_utility', needsVan = false, figuresOff = false } = {}) {
+function context({ plan = null, domain = 'club_utility', needsVan = false, figuresOff = false, group = null } = {}) {
   const c = vm.createContext({
     window: {}, MISSION_SCENE_ASSET_POOLS: POOLS, MISSION_SCENE_DEFAULT_VEHICLE_TITLE: 'Microsoft_Van_EUR',
     _missionPersonFiguresEnabled: () => !figuresOff, _missionSceneGroundIdea: () => (plan ? { groundVisual: plan } : null),
-    _missionSceneTaskDomain: () => domain, _missionSceneCargoNeedsVan: () => needsVan, _missionSceneGroupPlan: () => null,
+    _missionSceneTaskDomain: () => domain, _missionSceneCargoNeedsVan: () => needsVan, _missionSceneGroupPlan: () => group,
+    _missionSceneVehicleRuleV2: () => true,
     _missionBushIsPickupPassengerMission: () => false,
     _sceneUniqueTitles: (...lists) => [...new Set(lists.flat().filter(Boolean))],
     _missionSceneFilteredVehiclePool: (pool) => pool.slice(), _sceneObjectTitleOverride: (_k, title) => title,
@@ -95,4 +96,31 @@ test('Empfänger am Ziel bekommen nicht dieselbe Figur wie die Bringer am Start'
   const start = c._missionSceneCrewFigures('start', []), arrival = c._missionSceneCrewFigures('arrival', []);
   assert.ok(start[0].title && arrival[0].title);
   assert.notEqual(arrival[0].title, start[0].title);
+});
+
+// Feldtest 15.11.2026: 2 Pax = Gruppe; Startszene nahm Gruppen-Van statt Composer-Fahrzeug und ohne Bringer.
+test('Gruppen-Startszene nutzt das Composer-Fahrzeug; Aussteigen und Patiententransfer bleiben bei der Gruppenregel', () => {
+  const group = { valid: true, groupVehicleKind: 'car', expectedPassengerCount: 2 };
+  const c = context({ plan: plan('van', 'car'), group });
+  c.window.GAMissionSceneGroup = { resolveGroupVehicleSelection: () => ({ candidates: ['Microsoft_Car_EUR_04'] }) };
+  assert.equal(c._missionSceneVehicleAsset('start', { startSceneBuild: true }).title, 'Microsoft_Van_EUR');
+  assert.equal(c._missionSceneVehicleAsset('start', { startSceneBuild: true }).composerKind, 'van');
+  assert.equal(c._missionSceneVehicleAsset('start').title, 'Microsoft_Car_EUR_04', 'Aussteigen: Tracker-Titelliste');
+  const medical = context({ plan: plan('van'), group: { valid: true, groupVehicleKind: 'medical', expectedPassengerCount: 2 } });
+  assert.equal(medical._missionSceneVehicleAsset('start', { startSceneBuild: true }).title, 'Car Bush Medic');
+  const heavy = context({ plan: plan('car'), needsVan: true, group: { valid: true, groupVehicleKind: 'van', expectedPassengerCount: 2 } });
+  assert.equal(heavy._missionSceneVehicleAsset('start', { startSceneBuild: true }).title, 'Microsoft_Van_EUR', 'Pkw trotz schwerer Fracht → Gruppen-Van');
+  assert.match(sync, /_missionSceneVehicleAsset\('start', \{ startSceneBuild: true \}\)/);
+});
+
+test('Gruppen-Startszene stellt bis zu zwei Bringer als person_idle an das Fahrzeug', () => {
+  const body = sync.slice(sync.indexOf('const startCrew = vehicleSupportEnabled'), sync.indexOf('const sceneItems = [];', sync.indexOf('const startCrew = vehicleSupportEnabled')));
+  assert.doesNotMatch(body.split('\n')[0], /!groupPlan/, 'Bringer auch bei Gruppen');
+  assert.match(body, /const groupCrewItems = groupPlan && startCrew \? startCrew\.slice\(0, 2\)/);
+  assert.match(body, /kind: `person_idle_\$\{index \+ 1\}`/);
+  assert.match(body, /\}\)\.concat\(groupCrewItems\) : legacyPersonItems;/);
+  // Der Tracker steigt nur person_boarder_* ins Flugzeug und nimmt person_idle_* beim Abfahren mit.
+  const tracker = fs.readFileSync(path.join(root, 'ga-tracker-client', 'tracker.js'), 'utf8');
+  assert.match(tracker, /filter\(o => \/\^person_boarder\/i\.test/);
+  assert.match(tracker, /const boardVehiclePeople = rec\.objects\.filter\(o => \/\^person_idle\/i\.test/);
 });

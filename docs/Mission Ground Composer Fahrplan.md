@@ -488,3 +488,15 @@ Offen: Sim-Test mit Schalter; danach Etappe B (Live-Proben der Pilot-Stränge).
 Wortliste v2 freigegeben (12.11.2026): `uniform` aufgeteilt in `medical` und
 `fire_rescue`; neue Einsatzwerte `patient` und `escort` (bringt oder holt jemanden ab).
 Die Wanderin bekommt im nächsten Pack zusätzlich `escort`.
+
+## Gruppen-Startszene mit Bringern und Composer-Fahrzeug (Web v2407, 15.11.2026)
+
+Feldtest 15.11.2026 (Charter EDTW→EDTF, 2 Pax): Bei 2–5 Pax läuft die Startszene als
+Gruppe (`_missionSceneRequestedGroupPlan`). Dort fehlten bisher die Bringer aus dem Composer,
+und statt des Composer-Fahrzeugs kam der Gruppen-Van. Jetzt stehen bis zu zwei Bringer als
+`person_idle_*` an den „Crew Fahrzeug“-Plätzen. Der Tracker steigt nur `person_boarder_*` ins
+Flugzeug und nimmt jede `person_idle_*` beim Abfahren mit, also ohne Tracker-Build. Beim Aufbau
+der Startszene gilt das Composer-Fahrzeug (`startSceneBuild`), außer beim Patiententransfer.
+Das Abholfahrzeug beim Aussteigen bleibt bei der Gruppen-Titelliste des Trackers
+(`GROUP_VEHICLE_TITLES`), sonst schickt der Tracker ein zweites Fahrzeug.
+
