@@ -28201,11 +28201,28 @@ function updateMissionAcceptanceUi() {
         md.sceneCompositionStartedAt = 0;
         composing = false;
     }
-    if (btn) {
-        btn.disabled = composing || locked || draftPhase === 'generating';
-        btn.textContent = draftPhase === 'committing' ? 'Mission wird übernommen...' : composing ? 'Szene wird vorbereitet...' : 'Mission akzeptieren';
+    // OSM nicht erreichbar → ohne Abstellflaechen keine Empfangsszene: Neuversuch an Stelle von „Annehmen“.
+    const arrivalGeoFailed = !composing && draftPhase !== 'committing' && missionArrivalGeoFetchFailed(md);
+    const retrying = window._missionArrivalRetry?.running === true;
+    const retryBtn = document.getElementById('missionArrivalRetryBtn');
+    if (retryBtn) {
+        retryBtn.style.display = arrivalGeoFailed || retrying ? '' : 'none';
+        retryBtn.disabled = retrying || locked || draftPhase === 'generating';
+        retryBtn.textContent = retrying ? 'OSM wird abgefragt...' : 'Erneut versuchen';
     }
-    if (text) {
+    if (btn) {
+        btn.disabled = composing || locked || retrying || draftPhase === 'generating';
+        btn.classList.toggle('mission-reject-btn', arrivalGeoFailed || retrying);
+        btn.textContent = draftPhase === 'committing' ? 'Mission wird übernommen...' : composing ? 'Szene wird vorbereitet...'
+            : (arrivalGeoFailed || retrying) ? 'Ohne Empfangsszene akzeptieren' : 'Mission akzeptieren';
+    }
+    if (text && (arrivalGeoFailed || retrying)) {
+        const attempts = window._missionArrivalRetry?.md === md ? Number(window._missionArrivalRetry.attempts || 0) : 0;
+        text.textContent = retrying
+            ? 'Die Kartendaten des Zielflugplatzes werden erneut bei OSM abgefragt...'
+            : 'Der OSM-Server antwortet nicht, die Empfangsszene kann dadurch nicht korrekt erstellt werden. Möchtest du es nochmal versuchen? Ohne die Szene wird nach der Landung ein Abholfahrzeug zu deinem Flugzeug geschickt.'
+                + (attempts ? ` (Versuch ${attempts} ohne Erfolg)` : '');
+    } else if (text) {
         const isPOI = !!(md.poiName || md.poiSource || md.isPOI);
         const intent = sanitizeMissionSceneIntentSpec(md.sceneIntent || md.missionContract?.sceneIntent || null, {
             isPOI,
@@ -28219,6 +28236,54 @@ function updateMissionAcceptanceUi() {
     }
 }
 window.updateMissionAcceptanceUi = updateMissionAcceptanceUi;
+
+function missionArrivalGeoFetchFailed(md = null) {
+    if (!md || md.poiName || md.poiSource || md.isPOI) return false;
+    const plan = md.aptArrivalPlan || md.missionContract?.aptArrivalPlan || null;
+    const snap = plan?.snapStatus || null;
+    if (!snap || /^bush_strip_/.test(String(plan.role || ''))) return false;
+    return snap.geoFetchFailed === true || snap.reason === 'overpass_unavailable';
+}
+
+// Neuversuch durch den Piloten: fragt OSM ohne Cooldown erneut ab und uebernimmt einen
+// gefundenen Platz in Entwurf und MissionTruth; die Szene plant danach das Akzeptieren.
+async function retryMissionArrivalPlacement() {
+    const md = currentMissionData || null;
+    let state = window._missionArrivalRetry;
+    if (!state || state.md !== md) state = window._missionArrivalRetry = { running: false, attempts: 0, md };
+    if (!md || state.running || !missionArrivalGeoFetchFailed(md) || typeof resolveAptArrivalPlanPlacement !== 'function') return false;
+    const plan = md.aptArrivalPlan || md.missionContract?.aptArrivalPlan;
+    state.running = true;
+    updateMissionAcceptanceUi();
+    let resolved = null;
+    try {
+        resolved = await resolveAptArrivalPlanPlacement(plan, { force: true });
+    } catch (err) {
+        console.warn('[APT ARRIVAL GEO] Retry failed', err);
+    }
+    state.running = false;
+    const ok = !!resolved?.snapStatus && !missionArrivalGeoFetchFailed({ aptArrivalPlan: resolved });
+    if (resolved?.snapStatus && md === currentMissionData) {
+        md.aptArrivalPlan = resolved;
+        for (const target of [md.missionContract, window.activeMissionContract]) {
+            if (target && typeof target === 'object') target.aptArrivalPlan = resolved;
+        }
+        if (typeof attachAptArrivalPlanToMissionTruth === 'function') {
+            md.missionTruth = attachAptArrivalPlanToMissionTruth(md.missionTruth || md.missionContract?.missionTruth || null, resolved);
+            if (md.missionContract && typeof md.missionContract === 'object') md.missionContract.missionTruth = md.missionTruth;
+        }
+    }
+    state.attempts = ok ? 0 : state.attempts + 1;
+    try {
+        window._missionPhaseDebugPush?.('apt_arrival_placement_retry', {
+            ok, source: resolved?.source || null, snapReason: resolved?.snapStatus?.reason || null,
+            errors: resolved?.snapStatus?.geoFetchErrors || []
+        });
+    } catch (_) {}
+    updateMissionAcceptanceUi();
+    return ok;
+}
+window.retryMissionArrivalPlacement = retryMissionArrivalPlacement;
 
 function applyMissionTargetSceneComposition(composition = {}, reason = 'accept') {
     if (!currentMissionData) return false;

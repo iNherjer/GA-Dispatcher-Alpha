@@ -215,6 +215,15 @@ const APT_ARRIVAL_GEO_CONTEXT_TTL_MS = 12 * 60 * 60 * 1000;
 const APT_ARRIVAL_GEO_CONTEXT_CACHE_PREFIX = 'ga_apt_arrival_geo_context_v2_';
 const APT_ARRIVAL_GEO_CONTEXT_SESSION_MAX_ENTRIES = 8;
 const aptArrivalGeoContextInflight = new Map();
+const APT_ARRIVAL_OVERPASS_ENDPOINTS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter'];
+const APT_ARRIVAL_OSM_MAP_RADII_M = [1400, 900, 600];
+const APT_ARRIVAL_GEO_COOLDOWN_MS = 2 * 60 * 1000;
+const aptArrivalGeoCooldowns = new Map();
+let aptArrivalGeoLastFailure = null;
+function aptArrivalGeoHost(url) { return String(url || '').replace(/^https?:\/\//, '').split('/')[0]; }
+function aptArrivalGeoCooldownActive(url) { return (aptArrivalGeoCooldowns.get(url) || 0) > Date.now(); }
+function aptArrivalGeoCooldownSet(url) { aptArrivalGeoCooldowns.set(url, Date.now() + APT_ARRIVAL_GEO_COOLDOWN_MS); }
+function aptArrivalGeoCooldownClear(url) { aptArrivalGeoCooldowns.delete(url); }
 
 function aptArrivalClearPersistentGeoContextCache() {
     if (typeof localStorage === 'undefined' || typeof localStorage.key !== 'function') return 0;
@@ -558,7 +567,7 @@ function normalizeAptArrivalGeoContext(raw = null, airportLat = null, airportLon
     };
 }
 
-async function fetchAptArrivalGeoContext(plan = null) {
+async function fetchAptArrivalGeoContext(plan = null, { force = false } = {}) {
     const airportLat = Number(plan?.airportLat ?? plan?.targetLat);
     const airportLon = Number(plan?.airportLon ?? plan?.targetLon);
     if (!Number.isFinite(airportLat) || !Number.isFinite(airportLon)) return null;
@@ -605,52 +614,85 @@ async function fetchAptArrivalGeoContext(plan = null) {
 );
 out tags center geom;`;
     const promise = (async () => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 9500);
-        try {
-            const res = await fetch('https://overpass-api.de/api/interpreter', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-                body: `data=${encodeURIComponent(query)}`,
-                signal: controller.signal
-            });
-            if (!res.ok) throw new Error(`overpass_http_${res.status}`);
-            const raw = await res.json();
-            const normalized = normalizeAptArrivalGeoContext(raw, airportLat, airportLon, radiusM, {stripHandoff});
-            if (normalized) {
-                try { sessionStorage.setItem(key, JSON.stringify(normalized)); } catch (_) {}
-                aptArrivalPruneSessionGeoContextCache(key);
-            }
-            if (!normalized) throw new Error('overpass_geometry_incomplete');
+        const errors = [];
+        await null;
+        const store = normalized => {
+            try { sessionStorage.setItem(key, JSON.stringify(normalized)); } catch (_) {}
+            aptArrivalPruneSessionGeoContextCache(key);
             return normalized;
+        };
+        try {
+            // Overpass ist oft ueberlastet: zwei Server nacheinander, jeder nach einem Fehler
+            // eine Weile pausiert, damit Erstellen und Akzeptieren ihn nicht doppelt treffen.
+            for (const endpoint of APT_ARRIVAL_OVERPASS_ENDPOINTS) {
+                if (!force && aptArrivalGeoCooldownActive(endpoint)) { errors.push(`${aptArrivalGeoHost(endpoint)}:cooldown`); continue; }
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 9500);
+                try {
+                    const res = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+                        body: `data=${encodeURIComponent(query)}`,
+                        signal: controller.signal
+                    });
+                    if (!res.ok) throw new Error(`overpass_http_${res.status}`);
+                    const normalized = normalizeAptArrivalGeoContext(await res.json(), airportLat, airportLon, radiusM, {stripHandoff});
+                    if (!normalized) throw new Error('overpass_geometry_incomplete');
+                    aptArrivalGeoCooldownClear(endpoint);
+                    return store(normalized);
+                } catch (err) {
+                    const message = err?.name === 'AbortError' ? 'timeout' : String(err?.message || err || 'error');
+                    errors.push(`${aptArrivalGeoHost(endpoint)}:${message}`);
+                    if (message !== 'overpass_geometry_incomplete') aptArrivalGeoCooldownSet(endpoint);
+                    console.warn('[APT ARRIVAL GEO] Overpass context unavailable', endpoint, err);
+                } finally {
+                    clearTimeout(timeoutId);
+                }
+            }
+            // Ersatz: OSM-Karten-API (alle Wege/Knoten im Ausschnitt). Sie liefert hoechstens
+            // 50 000 Knoten; an Stadtflughaefen (Freiburg) wird der Ausschnitt dann verkleinert.
+            const mapEndpoint = 'https://api.openstreetmap.org/api/0.6/map';
+            if (!force && aptArrivalGeoCooldownActive(mapEndpoint)) {
+                errors.push('osm-map:cooldown');
+            } else {
+                for (const mapRadiusM of APT_ARRIVAL_OSM_MAP_RADII_M) {
+                    const mapController = new AbortController();
+                    const mapTimeout = setTimeout(() => mapController.abort(), 12000);
+                    try {
+                        const dy = mapRadiusM / 111320, dx = dy / Math.max(0.1, Math.cos(airportLat * Math.PI / 180));
+                        const bbox = [airportLon - dx, airportLat - dy, airportLon + dx, airportLat + dy].map(v => v.toFixed(6)).join(',');
+                        const response = await fetch(`${mapEndpoint}?bbox=${bbox}`, {signal: mapController.signal});
+                        if (!response.ok) {
+                            const body = response.status === 400 ? await response.text().catch(() => '') : '';
+                            if (/too many nodes/i.test(body)) { errors.push(`osm-map:${mapRadiusM}m:too_many_nodes`); continue; }
+                            throw new Error(`osm_map_http_${response.status}`);
+                        }
+                        const raw = aptArrivalParseOsmMapXml(await response.text());
+                        const normalized = normalizeAptArrivalGeoContext(raw, airportLat, airportLon, mapRadiusM, {stripHandoff});
+                        if (!normalized) throw new Error('osm_map_geometry_incomplete');
+                        normalized.source = 'osm-map';
+                        normalized.osmMapRadiusM = mapRadiusM;
+                        aptArrivalGeoCooldownClear(mapEndpoint);
+                        return store(normalized);
+                    } catch (error) {
+                        const message = error?.name === 'AbortError' ? 'timeout' : String(error?.message || error || 'error');
+                        errors.push(`osm-map:${mapRadiusM}m:${message}`);
+                        if (message !== 'osm_map_geometry_incomplete') aptArrivalGeoCooldownSet(mapEndpoint);
+                        console.warn('[APT ARRIVAL GEO] OSM map fallback unavailable', error);
+                        break;
+                    } finally { clearTimeout(mapTimeout); }
+                }
+            }
+            aptArrivalGeoLastFailure = { key, errors, at: Date.now() };
+            return null;
         } catch (err) {
-            console.warn('[APT ARRIVAL GEO] Overpass context unavailable', err);
-            // Public OSM map fallback includes all ways/nodes in the airport
-            // area. It is independent of an overloaded Overpass interpreter.
-            const mapController = new AbortController();
-            const mapTimeout = setTimeout(()=>mapController.abort(),12000);
-            try {
-                const dy=radiusM/111320, dx=dy/Math.max(0.1,Math.cos(airportLat*Math.PI/180));
-                const bbox=[airportLon-dx,airportLat-dy,airportLon+dx,airportLat+dy].join(',');
-                const response=await fetch(`https://api.openstreetmap.org/api/0.6/map?bbox=${bbox}`,{signal:mapController.signal});
-                if(!response.ok) throw new Error(`osm_map_http_${response.status}`);
-                const raw=aptArrivalParseOsmMapXml(await response.text());
-                const normalized=normalizeAptArrivalGeoContext(raw,airportLat,airportLon,radiusM,{stripHandoff});
-                if(!normalized) throw new Error('osm_map_geometry_incomplete');
-                normalized.source='osm-map';
-                try { sessionStorage.setItem(key,JSON.stringify(normalized)); } catch (_) {}
-                aptArrivalPruneSessionGeoContextCache(key);
-                return normalized;
-            } catch (error) {
-                console.warn('[APT ARRIVAL GEO] OSM map fallback unavailable',error);
-                return null;
-            } finally { clearTimeout(mapTimeout); }
-        } finally {
-            clearTimeout(timeoutId);
-            aptArrivalGeoContextInflight.delete(key);
+            aptArrivalGeoLastFailure = { key, errors: errors.concat(String(err?.message || err || 'error')), at: Date.now() };
+            return null;
         }
     })();
+    // Erst nach dem Eintragen aufraeumen: sind alle Server im Cooldown, endet der Abruf ohne await.
     aptArrivalGeoContextInflight.set(key, promise);
+    promise.finally(() => { if (aptArrivalGeoContextInflight.get(key) === promise) aptArrivalGeoContextInflight.delete(key); });
     return promise;
 }
 
@@ -1409,9 +1451,10 @@ function pickAptArrivalOsmPlacement(ctx = null, plan = null) {
     return null;
 }
 
-async function resolveAptArrivalPlanPlacement(plan = null) {
+async function resolveAptArrivalPlanPlacement(plan = null, { force = false } = {}) {
     if (!plan || typeof plan !== 'object') return plan || null;
-    let ctx = await fetchAptArrivalGeoContext(plan);
+    let ctx = await fetchAptArrivalGeoContext(plan, { force });
+    const geoFetchErrors = !ctx && aptArrivalGeoLastFailure ? aptArrivalGeoLastFailure.errors.slice(0, 8) : [];
     // Sparse strips may have no OSM runway. Reuse normalized airport runway
     // dimensions; the airport reference is only an estimated runway centre.
     if (/^bush_strip_/.test(String(plan.role || '')) && !(ctx?.avoidZones || []).some(z => z.type === 'runway')) {
@@ -1440,6 +1483,7 @@ async function resolveAptArrivalPlanPlacement(plan = null) {
                     : (ctx ? 'no_safe_osm_parking_or_apron_candidate' : 'overpass_unavailable'),
                 runwayEndResolved: false,
                 osmContextSummary: ctx?.summary || '',
+                ...(ctx ? {} : { geoFetchFailed: true, geoFetchErrors }),
                 resolvedAt: Date.now()
             }
         };
@@ -1457,6 +1501,7 @@ async function resolveAptArrivalPlanPlacement(plan = null) {
         osmContextSummary: ctx?.summary || '',
         runwayCenterEstimated: ctx?.runwayCenterEstimated === true,
         runwayEndResolved: placement.source === 'osm_runway_side',
+        ...(ctx?.osmMapRadiusM ? { osmMapRadiusM: ctx.osmMapRadiusM } : {}),
         resolvedAt: Date.now()
     };
     return {

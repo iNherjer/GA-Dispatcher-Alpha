@@ -22,6 +22,16 @@ werden nicht eingeführt.
    er zerlegt deren XML im Browser in die gemeinsam normalisierten Geometrien.
    Session-Cache v2 und Inflight-Join vermeiden wiederholte Downloads. Strip-
    und Standard-APT-Kontexte haben getrennte Cachekennungen.
+   Seit Web v2405 (15.11.2026): zwei Overpass-Server nacheinander
+   (`overpass-api.de`, `overpass.private.coffee`), danach die OSM-Map-API mit
+   1400, 900 und 600 m Ausschnitt, falls sie „too many nodes“ meldet (Freiburg
+   liegt seit November über 50 000 Knoten bei 1400 m). Jeder Server pausiert nach
+   einem Fehler 2 Minuten, damit Erstellen und Akzeptieren ihn nicht doppelt
+   treffen. Scheitern alle, traegt `snapStatus` `geoFetchFailed` und
+   `geoFetchErrors`; das Annehmen-Feld des Entwurfs bietet dann „Erneut
+   versuchen“ (ohne Cooldown) und „Ohne Empfangsszene akzeptieren“. Ohne Szene
+   schickt der Tracker nach der Landung ein Abholfahrzeug zum Flugzeug.
+   Tests: `tools/apt-arrival-geo-fetch.test.mjs`, `tools/mission-arrival-retry-ui.test.mjs`.
 3. Der bestehende Composer wählt `preferredPlacement.source` und `index`:
    `osm_parking_position`, `osm_apron` oder `osm_surface`. Letzteres benennt
    Einträge der angebotenen `placementCandidates.surface`, einschließlich Gras.

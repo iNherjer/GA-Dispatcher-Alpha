@@ -4553,7 +4553,7 @@ window.vpBuildWeatherDebugReport = function() {
             lines.push(`- APT Arrival Plan: ${aptArrival.roleLabel || aptArrival.role || '-'} | ${aptArrival.anchorType || '-'} | ${pos} | source=${aptArrival.source || '-'} | conf=${conf} | items=${itemCount}`);
             const snap = aptArrival.snapStatus || null;
             const sceneBuilt = snap ? snap.spawnAllowed !== false : aptArrival.source !== 'airport-representative-offset';
-            lines.push(`- APT Empfangsszene: ${sceneBuilt ? 'ja' : 'nein, Abholung kommt zum Flugzeug'} | status=${snap?.status || 'ungeprueft'} | grund=${snap?.reason || '-'}`);
+            lines.push(`- APT Empfangsszene: ${sceneBuilt ? 'ja' : 'nein, Abholung kommt zum Flugzeug'} | status=${snap?.status || 'ungeprueft'} | grund=${snap?.reason || '-'}${Array.isArray(snap?.geoFetchErrors) && snap.geoFetchErrors.length ? ` | abruf=${snap.geoFetchErrors.join(', ')}` : ''}${snap?.status === 'resolved' && snap?.osmMapRadiusM ? ` | osm-map=${snap.osmMapRadiusM} m` : ''}`);
             if (aptArrival.expectedBy || aptArrival.visibleCue) {
                 lines.push(`- APT Erwartung: ${aptArrival.expectedBy || '-'} | cue=${aptArrival.visibleCue || '-'}`);
             }
