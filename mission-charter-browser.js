@@ -3,12 +3,12 @@
 const core=()=>root.MissionCharterIdeasCore;
 const target=a=>({name:a.n||a.name||a.icao||'',icao:a.icao||'',lat:Number(a.lat),lon:Number(a.lon)});
 function capacity(){const c=getMissionAircraftCapabilitySnapshot();return Math.min(5,c.passengerCapacity||0);}
-async function frame(start,dest){const route={start:target(start),target:target(dest)};let places=[];try{places=(await root.MissionPrivateContextCore.resolveBrowser(route.target)).places||[];}catch{}
+async function frame(start,dest,occasion){const route={start:target(start),target:target(dest)};let places=[];try{places=(await root.MissionPrivateContextCore.resolveBrowser(route.target)).places||[];}catch{}
  const anchors=root.MissionClubIdeasCore.frame(route,[],null,'',places).geoAnchors;
- return {...core().frame(route,capacity(),core().history(localStorage),anchors),requireReturnPlan:true};}
+ return {...core().frame(route,capacity(),core().history(localStorage),anchors,occasion||core().pickOccasions(core().history(localStorage),1)[0]),requireReturnPlan:true};}
 async function json(prompt){const r=await fetchGeminiJsonWithFallback(prompt,getSelectedAiApiKey(),{promptVersion:'charter-v1',timeoutMs:40000});if(!r?.parsed)throw(root.createAiJsonFailure?root.createAiJsonFailure(r,'Charterauftrag'):Error('Charterauftrag konnte nicht erstellt werden. Bitte erneut versuchen.'));return r.parsed;}
 async function choices(airports,context){if(airports.length<3)throw Error('Für Chartervorschläge fehlen passende Zielflugplätze.');
- const selected=airports.slice(0,3),frames=await Promise.all(selected.map(async(a,i)=>({candidateId:'charter-'+i,...await frame(context.start,a)})));context.ensureAlive?.();
+ const selected=airports.slice(0,3),occasions=core().pickOccasions(core().history(localStorage),selected.length),frames=await Promise.all(selected.map(async(a,i)=>({candidateId:'charter-'+i,...await frame(context.start,a,occasions[i])})));context.ensureAlive?.();
  if(!frames[0].maxPassengers)throw Error('Das Flugzeug bietet keinen freien Passagierplatz.');
  const raw=await json(core().ideaPrompt(frames));context.ensureAlive?.();
  return frames.map((input,i)=>{const rows=raw.ideas?.filter(x=>x.candidateId===input.candidateId)||[];const idea=rows.length===1&&core().validate(rows[0],input);if(!idea)throw Error('Ein Chartervorschlag ist unvollständig.');return normalizeMissionProposalChoice({id:input.candidateId+'-'+Date.now(),mode:'apt',profileId:context.dispatchProfileId||'auto',selectedCategory:'charter',requestedCategory:'charter',target:missionProposalCompactTarget(selected[i],'apt'),title:idea.reason,description:idea.background,subtitle:idea.groupLabel,paxText:`${idea.passengerCount} PAX (${idea.groupLabel})`,cargoText:`${idea.luggageLabel} (${idea.luggageWeightLbs} lbs)`,routeLabel:missionProposalFormatRoute(context.start,selected[i],'apt').label,charterProposal:{schema:'charter-proposal.v1',input,idea}});});}

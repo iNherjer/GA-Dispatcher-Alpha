@@ -72,3 +72,19 @@ test('companions: role and gender per fellow traveller, tolerant when missing or
  }
  assert.match(core.ideaPrompt([{candidateId:'a',...frame}]),/companions: Liste aller weiteren Mitreisenden/);
 });
+test('occasions rotate in code: distinct per picker, recent ones damped, model cannot override',()=>{
+ const ids=core.OCCASIONS.map(o=>o.id);assert.ok(ids.includes('urlaub')&&ids.includes('vip')&&ids.includes('beruf'));
+ let n=0;const seq=()=>((n=(n*9301+49297)%233280)/233280);
+ const three=core.pickOccasions([],3,seq);assert.equal(new Set(three.map(o=>o.id)).size,3);
+ const recent=[{occasion:'urlaub'},{occasion:'vip'},{occasion:'fest'}];let hits=0;
+ for(let i=0;i<300;i++)if(['urlaub','vip','fest'].includes(core.pickOccasions(recent,1,Math.random)[0].id))hits++;
+ assert.ok(hits<90,'zuletzt genutzte Anlässe bleiben selten: '+hits);
+ const f=core.frame(route,4,[],[],{id:'vip'});assert.equal(f.occasion.id,'vip');assert.match(f.occasion.hint,/Diskretion/);
+ assert.equal(core.frame(route,4,[],[],{id:'erfunden'}).occasion,undefined);
+ const idea=core.validate({...raw,occasion:{id:'beruf',label:'x'}},f);assert.deepEqual(idea.occasion,{id:'vip',label:'VIP-Charter'});
+ assert.equal(core.validate(raw,frame).occasion,undefined);
+ assert.match(core.ideaPrompt([{candidateId:'a',...f}]),/legt mit occasion die Reiseart/);
+ assert.match(core.writerPrompt(idea,{context:{},bindings:{}},[]),/erfinde keine Arbeitsaufgabe/);
+ const data=new Map(),storage={getItem:k=>data.get(k),setItem:(k,v)=>data.set(k,v)};
+ core.remember(storage,'x',idea,written);assert.equal(core.history(storage)[0].occasion,'vip');
+});
