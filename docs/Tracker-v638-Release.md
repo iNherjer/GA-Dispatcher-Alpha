@@ -47,3 +47,10 @@ in den Effektplan ein.
 - **Im Simulator und im MSFS-EFB noch nicht geprüft.**
 
 Stable bleibt unverändert.
+
+## Aktivierung
+
+Release `v638` (Release-Commit `246f6113f`, gebaut im sauberen Worktree mit `--no-bytecode`),
+`VFR-Multitool-Tracker.exe` 175132206 Bytes,
+SHA-256 `504e56861fcbef2976345b148da6f632acc02f614bc807670f8a84cd014cf6a7`,
+öffentlicher Download geprüft. Alpha-Kanal aktiviert, Stable unverändert.
