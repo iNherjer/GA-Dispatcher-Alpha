@@ -1078,7 +1078,20 @@
         return null;
     }
 
+    // Tracker-run missions: the tracker's values, identical to the EFB.
+    function missionTrackerLiveCondition() {
+        try {
+            if (typeof window.gaTrackerLiveCondition === 'function') {
+                const live = window.gaTrackerLiveCondition();
+                return live && typeof live === 'object' ? live : null;
+            }
+        } catch (_) {}
+        return null;
+    }
+
     function missionComfortSummary() {
+        const live = missionTrackerLiveCondition();
+        if (live) return live.comfort && typeof live.comfort === 'object' ? { ...live.comfort } : null;
         try {
             if (typeof window.paxVoiceGetComfortSummary === 'function') {
                 const summary = window.paxVoiceGetComfortSummary();
@@ -1089,13 +1102,22 @@
     }
 
     function missionCargoOutcome() {
+        let outcome = null;
         try {
             if (typeof window.missionCargoEvaluateOutcome === 'function') {
-                const outcome = window.missionCargoEvaluateOutcome();
-                return outcome && outcome.status !== 'none' ? outcome : null;
+                const result = window.missionCargoEvaluateOutcome();
+                outcome = result && result.status !== 'none' ? result : null;
             }
         } catch (_) {}
-        return null;
+        const live = outcome ? missionTrackerLiveCondition() : null;
+        if (!live) return outcome;
+        const cargoLive = live.cargoLive && typeof live.cargoLive === 'object' ? live.cargoLive : null;
+        const conditionPct = live.cargoConditionPct != null && Number.isFinite(Number(live.cargoConditionPct))
+            ? Number(live.cargoConditionPct)
+            : Math.min(Number(outcome.conditionPct ?? 100), Number(cargoLive?.conditionPct ?? 100));
+        const broken = Array.isArray(cargoLive?.requiredBroken) ? cargoLive.requiredBroken : [];
+        return { ...outcome, conditionPct,
+            damagedRequired: [...new Set([...(outcome.damagedRequired || []), ...broken])] };
     }
 
     function missionSurveySpec(data) {

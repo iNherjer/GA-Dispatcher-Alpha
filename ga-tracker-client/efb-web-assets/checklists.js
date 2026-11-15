@@ -1253,7 +1253,20 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
     } catch (_) {}
     return null;
   }
+
+  // Tracker-run missions: the tracker's values, identical to the EFB.
+  function missionTrackerLiveCondition() {
+    try {
+      if (typeof window.gaTrackerLiveCondition === 'function') {
+        var live = window.gaTrackerLiveCondition();
+        return live && typeof live === 'object' ? live : null;
+      }
+    } catch (_) {}
+    return null;
+  }
   function missionComfortSummary() {
+    var live = missionTrackerLiveCondition();
+    if (live) return live.comfort && typeof live.comfort === 'object' ? _objectSpread({}, live.comfort) : null;
     try {
       if (typeof window.paxVoiceGetComfortSummary === 'function') {
         var summary = window.paxVoiceGetComfortSummary();
@@ -1263,13 +1276,23 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
     return null;
   }
   function missionCargoOutcome() {
+    var _outcome$conditionPct, _cargoLive$conditionP;
+    var outcome = null;
     try {
       if (typeof window.missionCargoEvaluateOutcome === 'function') {
-        var outcome = window.missionCargoEvaluateOutcome();
-        return outcome && outcome.status !== 'none' ? outcome : null;
+        var result = window.missionCargoEvaluateOutcome();
+        outcome = result && result.status !== 'none' ? result : null;
       }
     } catch (_) {}
-    return null;
+    var live = outcome ? missionTrackerLiveCondition() : null;
+    if (!live) return outcome;
+    var cargoLive = live.cargoLive && typeof live.cargoLive === 'object' ? live.cargoLive : null;
+    var conditionPct = live.cargoConditionPct != null && Number.isFinite(Number(live.cargoConditionPct)) ? Number(live.cargoConditionPct) : Math.min(Number((_outcome$conditionPct = outcome.conditionPct) !== null && _outcome$conditionPct !== void 0 ? _outcome$conditionPct : 100), Number((_cargoLive$conditionP = cargoLive === null || cargoLive === void 0 ? void 0 : cargoLive.conditionPct) !== null && _cargoLive$conditionP !== void 0 ? _cargoLive$conditionP : 100));
+    var broken = Array.isArray(cargoLive === null || cargoLive === void 0 ? void 0 : cargoLive.requiredBroken) ? cargoLive.requiredBroken : [];
+    return _objectSpread(_objectSpread({}, outcome), {}, {
+      conditionPct,
+      damagedRequired: _toConsumableArray(new Set([].concat(_toConsumableArray(outcome.damagedRequired || []), _toConsumableArray(broken))))
+    });
   }
   function missionSurveySpec(data) {
     var _data$md, _data$contract;

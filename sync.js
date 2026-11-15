@@ -1200,6 +1200,37 @@ function _missionExecutionAuthorityIsTracker() {
 }
 window.gaTrackerExecutionHandlesMission = _missionExecutionAuthorityIsTracker;
 
+// Live pax comfort and cargo condition for the web mission panel. While the tracker
+// runs the mission it is the only source (the same values the EFB shows); the local
+// legacy score would drift. Read from the local tracker HTTP endpoint at most every
+// 5 s while the panel asks for it, without applying a mission projection.
+const _trackerLiveCondition = { runId: '', comfort: null, cargoLive: null, cargoConditionPct: null, at: 0, pending: false, requestedAt: 0 };
+function _refreshTrackerLiveCondition(runId) {
+    const client = window.gaCockpitSessionClient;
+    if (!client || typeof client.missionSnapshot !== 'function' || _trackerLiveCondition.pending
+        || Date.now() - _trackerLiveCondition.requestedAt < 5000) return;
+    _trackerLiveCondition.pending = true;
+    _trackerLiveCondition.requestedAt = Date.now();
+    Promise.resolve().then(() => client.missionSnapshot()).then(snapshot => {
+        const control = snapshot?.control;
+        if (control?.executionAuthority !== 'tracker' || String(control.runId || '') !== runId) return;
+        const pct = Number(snapshot?.view?.cargo?.conditionPct);
+        Object.assign(_trackerLiveCondition, { runId, comfort: control.comfort || null, cargoLive: control.cargoLive || null,
+            cargoConditionPct: snapshot?.view?.cargo?.conditionPct != null && Number.isFinite(pct) ? pct : null, at: Date.now() });
+    }).catch(() => {}).finally(() => { _trackerLiveCondition.pending = false; });
+}
+window.gaTrackerLiveCondition = function() {
+    if (!_missionExecutionAuthorityIsTracker()) return null;
+    const control = window.gaTrackerExecutionControl || _missionExecutionControlSnapshot();
+    const runId = String(control?.runId || '');
+    if (!runId || control.executionAuthority !== 'tracker') return null;
+    _refreshTrackerLiveCondition(runId);
+    const polled = _trackerLiveCondition.runId === runId && _trackerLiveCondition.at >= Number(control.receivedAt || 0);
+    return polled
+        ? { comfort: _trackerLiveCondition.comfort, cargoLive: _trackerLiveCondition.cargoLive, cargoConditionPct: _trackerLiveCondition.cargoConditionPct }
+        : { comfort: control.comfort || null, cargoLive: control.cargoLive || null, cargoConditionPct: null };
+};
+
 // Outside the simulator mode missions run only under tracker authority.
 function _missionLocalExecutionBlocked(action = 'start') {
     if (window.simModeActive === true || _missionExecutionAuthorityIsTracker()) return false;
