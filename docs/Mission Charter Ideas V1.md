@@ -206,3 +206,15 @@ Cargo-/Tiertransport-Promptvorgaben und Tiertransport-Seed auf den tatsächliche
 Bedarf/Übergabe ausgerichtet. 79 relevante Regressionstests bestanden. Keine
 Zeitrechnung, Parser-, Klassifikations- oder Runtime-Änderung; kein Live-Test
 oder Rollout dieser lokalen Prompt-Präzisierung.
+
+## Reiseanlässe als Code-Rotation (15.11.2026, Web v2409–v2411)
+
+Nutzerbefund: Charter landeten fast immer bei Fachleuten mit Arbeitsauftrag; Urlaub oder VIP kamen nicht vor. Ursache: Der Prompt überließ die Vielfalt dem Modell, leitete zuerst einen Beruf ab, nannte VIP nur verneint, und Ortsanker wurden zum Arbeitsplatz. Nutzerentscheidung: Die Reiseart wählt der Code, die KI gestaltet sie frei aus.
+
+- `OCCASIONS` in `mission-charter-ideas-core.js`: zwölf Reisearten (Urlaub, VIP, Überraschung, Familienfest, Reise zu zweit, Genuss, Kultur, Sport/Hobby, Erlebnis, Wiedersehen, Neuanfang, Geschäftsreise). Jede hat nur `label` und `essence`: eine positive Beschreibung, was diese Reise ausmacht. **Keine Beispielanlässe oder -listen** (Nutzervorgabe, entspricht Narrative Design Guide Abschnitt 1/7): Beispiele ziehen das Modell auf das erste genannte Motiv.
+- `pickOccasions` wählt gewichtet ohne Wiederholung im Picker; die letzten drei Charter dämpfen stark (×0,1), vier bis sechs mittel (×0,4). Gewichte: Urlaub 1,6, VIP 1,5, Geschäftsreise 3 (Nutzerwunsch: etwa jeder siebte Charter, eher Geschäftsleute auf Dienstreise als Fachleute im Einsatz), Neuanfang 0,8, sonst 1.
+- Die Reiseart steht im Frame (`occasion`), wird von `validate` aus dem Frame übernommen (nie aus der Modellantwort), in `charterIdea.occasion` und der History gespeichert und in die Rückreise kopiert.
+- Prompt: Rolle, Persönlichkeit und Gepäck folgen aus dem Anliegen; außer bei Geschäftsreisen reisen die Menschen als Gäste, Ortsanker sind Kulisse. `passenger.role` ist Rolle oder Beziehung auf dieser Reise. Der Writer erzählt weiterhin ausführlich und persönlich; die Reiseart prägt Ton und Inhalt.
+- History bleibt gemeinsam über alle Reisearten (zwölf Einträge, jeweils mit Reiseart); das Modell vergleicht Motive innerhalb der aktuellen Reiseart.
+
+Live-Proben: `analysis/charter-occasions-live-20261115.json` (vier freie Rotationen: Kultur, VIP, Überraschung, Erlebnis; keine Fachaufträge) und `analysis/charter-occasions-same-kind-20261115.json` (erzwungen 3× Urlaub, 3× Überraschung mit wachsender History, nach Entfernen der Beispiele). Urlaub: Wanderwoche mit Freunden, Städtereise mit Wellness, Motorsport-Wochenende mit dem Onkel. Überraschung: 70. Geburtstag der Mutter, Hochzeitstag mit Operngala; ein Lauf scheiterte an der bestehenden Writer-Formatprüfung. Offen: Die KI nennt weiterhin reale Veranstaltungen ohne Beleg (DTM, Bregenzer Festspiele im November) – vorbestehendes Thema des Faktenvertrags, nicht Teil dieser Änderung. Längere Serie (20–30) zur Verteilung steht aus.

@@ -79,12 +79,12 @@ test('occasions rotate in code: distinct per picker, recent ones damped, model c
  const recent=[{occasion:'urlaub'},{occasion:'vip'},{occasion:'fest'}];let hits=0;
  for(let i=0;i<300;i++)if(['urlaub','vip','fest'].includes(core.pickOccasions(recent,1,Math.random)[0].id))hits++;
  assert.ok(hits<90,'zuletzt genutzte Anlässe bleiben selten: '+hits);
- const f=core.frame(route,4,[],[],{id:'vip'});assert.equal(f.occasion.id,'vip');assert.match(f.occasion.hint,/Diskretion/);
+ const f=core.frame(route,4,[],[],{id:'vip'});assert.equal(f.occasion.id,'vip');assert.match(f.occasion.essence,/Diskretion/);
  assert.equal(core.frame(route,4,[],[],{id:'erfunden'}).occasion,undefined);
  const idea=core.validate({...raw,occasion:{id:'beruf',label:'x'}},f);assert.deepEqual(idea.occasion,{id:'vip',label:'VIP-Charter'});
  assert.equal(core.validate(raw,frame).occasion,undefined);
  assert.match(core.ideaPrompt([{candidateId:'a',...f}]),/legt mit occasion die Reiseart/);
- assert.match(core.writerPrompt(idea,{context:{},bindings:{}},[]),/erfinde keine Arbeitsaufgabe/);
+ assert.match(core.writerPrompt(idea,{context:{},bindings:{}},[]),/nicht eine Arbeitsaufgabe/);
  const data=new Map(),storage={getItem:k=>data.get(k),setItem:(k,v)=>data.set(k,v)};
  core.remember(storage,'x',idea,written);assert.equal(core.history(storage)[0].occasion,'vip');
 });
