@@ -77,3 +77,22 @@ test('Niemand bringt: Startfahrzeug bleibt geparkt; Standard- oder Gruppenfall f
   assert.equal(run(null), false);
   assert.match(sync, /vehicleDeparture: vehicleSupportEnabled && !\(typeof _missionSceneStartVehicleStays === 'function' && _missionSceneStartVehicleStays\(\)\)/);
 });
+
+test('Empfänger am Ziel bekommen nicht dieselbe Figur wie die Bringer am Start', () => {
+  const vm = require('node:vm'), fs = require('node:fs');
+  const c = vm.createContext({ console, window: {}, globalThis: {} });
+  c.globalThis = c.window;
+  vm.runInContext(fs.readFileSync('data/mission-person-assets.js', 'utf8'), c);
+  vm.runInContext(fs.readFileSync('mission-person-figure-core.js', 'utf8'), c);
+  vm.runInContext(fs.readFileSync('mission-ground-visual-core.js', 'utf8'), c);
+  const plan = { figureSeed: 's2', scenes: {
+    start: { persons: [{ id: 's1', role: 'Sohn', gender: 'male', look: 'casual', ageBand: 'adult' }] },
+    arrival: { persons: [{ id: 'a1', role: 'Grabungsbegleiter', gender: 'male', look: 'outdoor', ageBand: 'adult' }] } } };
+  // Ohne Ausschluss ergibt dieser Seed für beide Szenen dieselbe Standardfigur (Feldtest 15.11.2026).
+  Object.assign(c, { _missionSceneComposerScene: (scene) => ({ plan, entry: plan.scenes[scene] }), _missionScenePassengerSeason: () => 'winter', _missionSceneId: () => 'scene-x' });
+  const code = fs.readFileSync('sync.js', 'utf8'), a = code.indexOf('function _missionSceneCrewFigures('), b = code.indexOf('\nfunction ', a + 1);
+  vm.runInContext(code.slice(a, b), c);
+  const start = c._missionSceneCrewFigures('start', []), arrival = c._missionSceneCrewFigures('arrival', []);
+  assert.ok(start[0].title && arrival[0].title);
+  assert.notEqual(arrival[0].title, start[0].title);
+});

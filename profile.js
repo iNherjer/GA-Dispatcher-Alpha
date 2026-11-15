@@ -3985,7 +3985,9 @@ function vpAppendGroundComposerDiagnostics(lines, flattenText) {
             const crew = typeof _missionSceneCrewFigures === 'function' ? _missionSceneCrewFigures(scene, paxFigures) : null;
             if (crew) figures = crew.map(f => f?.title || '?').join(', ') || 'niemand';
             const asset = typeof _missionSceneComposerVehicleAsset === 'function' ? _missionSceneComposerVehicleAsset(scene) : null;
-            vehicle = asset?.title || 'Regel der Szene (Composer-Fahrzeug nicht genutzt)';
+            const cargoVan = !asset && (entry.vehicle === 'car' || entry.vehicle === 'quad')
+                && typeof _missionSceneCargoNeedsVan === 'function' && _missionSceneCargoNeedsVan();
+            vehicle = asset?.title || (cargoVan ? 'Van nach Szenenregel (Fracht schwer/sperrig laut Ladeliste)' : 'Regel der Szene (Composer-Fahrzeug nicht genutzt)');
         } catch (_) {}
         lines.push(`- ${label}: fahrzeug=${entry.vehicle || '?'}(${entry.vehicleSource || '-'}) | plätze=${Number(entry.seatsNeeded || 0)}/${Number(entry.seats || 0)} | besetzung=${entry.castSource || '-'}${entry.castFixed ? ' fest' : ''}`);
         lines.push(`  idee: ${castText(scene)} | composer: ${persons}`);

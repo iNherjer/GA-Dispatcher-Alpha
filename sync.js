@@ -7805,10 +7805,16 @@ function _missionSceneGroundFigureCandidates(figure) {
 function _missionSceneCrewFigures(scene = 'start', paxFigures = null) {
     const found = _missionSceneComposerScene(scene);
     if (!found || !Array.isArray(found.entry.persons) || !window.MissionGroundVisualCore?.resolveSceneCrew) return null;
+    const exclude = (Array.isArray(paxFigures) ? paxFigures : []).map(figure => figure?.title).filter(Boolean);
+    // Empfänger am Ziel sind andere Menschen als die Bringer am Start: nicht dieselbe Figur, solange der Pool reicht.
+    if (scene === 'arrival') {
+        window.MissionGroundVisualCore.resolveSceneCrew(found.plan, 'start', { season: _missionScenePassengerSeason(), seed: _missionSceneId(), exclude: exclude.slice() })
+            .forEach(figure => { if (figure?.title) exclude.push(figure.title); });
+    }
     const crew = window.MissionGroundVisualCore.resolveSceneCrew(found.plan, scene, {
         season: _missionScenePassengerSeason(),
         seed: _missionSceneId(),
-        exclude: (Array.isArray(paxFigures) ? paxFigures : []).map(figure => figure?.title).filter(Boolean)
+        exclude
     });
     return crew.every(figure => figure.title) ? crew : null;
 }

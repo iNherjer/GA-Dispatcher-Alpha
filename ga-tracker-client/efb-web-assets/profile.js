@@ -5878,7 +5878,8 @@ function vpAppendGroundComposerDiagnostics(lines, flattenText) {
       var crew = typeof _missionSceneCrewFigures === 'function' ? _missionSceneCrewFigures(scene, paxFigures) : null;
       if (crew) figures = crew.map(f => (f === null || f === void 0 ? void 0 : f.title) || '?').join(', ') || 'niemand';
       var asset = typeof _missionSceneComposerVehicleAsset === 'function' ? _missionSceneComposerVehicleAsset(scene) : null;
-      vehicle = (asset === null || asset === void 0 ? void 0 : asset.title) || 'Regel der Szene (Composer-Fahrzeug nicht genutzt)';
+      var cargoVan = !asset && (entry.vehicle === 'car' || entry.vehicle === 'quad') && typeof _missionSceneCargoNeedsVan === 'function' && _missionSceneCargoNeedsVan();
+      vehicle = (asset === null || asset === void 0 ? void 0 : asset.title) || (cargoVan ? 'Van nach Szenenregel (Fracht schwer/sperrig laut Ladeliste)' : 'Regel der Szene (Composer-Fahrzeug nicht genutzt)');
     } catch (_) {}
     lines.push(`- ${label}: fahrzeug=${entry.vehicle || '?'}(${entry.vehicleSource || '-'}) | plätze=${Number(entry.seatsNeeded || 0)}/${Number(entry.seats || 0)} | besetzung=${entry.castSource || '-'}${entry.castFixed ? ' fest' : ''}`);
     lines.push(`  idee: ${castText(scene)} | composer: ${persons}`);
