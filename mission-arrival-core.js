@@ -220,6 +220,14 @@ const APT_ARRIVAL_OSM_MAP_RADII_M = [1400, 900, 600];
 const APT_ARRIVAL_GEO_COOLDOWN_MS = 2 * 60 * 1000;
 const aptArrivalGeoCooldowns = new Map();
 let aptArrivalGeoLastFailure = null;
+// Zwischenstand fuer den Piloten (Erstellen/Akzeptieren/Neuversuch): erst nach einem Fehler,
+// damit ein normaler Abruf die Fortschrittsanzeige nicht ueberschreibt.
+function aptArrivalGeoReportStatus(stage, text) {
+    try {
+        if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function' || typeof CustomEvent !== 'function') return;
+        window.dispatchEvent(new CustomEvent('ga-apt-arrival-geo-status', { detail: { stage, text, at: Date.now() } }));
+    } catch (_) {}
+}
 function aptArrivalGeoHost(url) { return String(url || '').replace(/^https?:\/\//, '').split('/')[0]; }
 function aptArrivalGeoCooldownActive(url) { return (aptArrivalGeoCooldowns.get(url) || 0) > Date.now(); }
 function aptArrivalGeoCooldownSet(url) { aptArrivalGeoCooldowns.set(url, Date.now() + APT_ARRIVAL_GEO_COOLDOWN_MS); }
@@ -639,12 +647,16 @@ out tags center geom;`;
                     const normalized = normalizeAptArrivalGeoContext(await res.json(), airportLat, airportLon, radiusM, {stripHandoff});
                     if (!normalized) throw new Error('overpass_geometry_incomplete');
                     aptArrivalGeoCooldownClear(endpoint);
+                    if (errors.length) aptArrivalGeoReportStatus('done', 'Kartendaten gefunden, weiter geht’s.');
                     return store(normalized);
                 } catch (err) {
                     const message = err?.name === 'AbortError' ? 'timeout' : String(err?.message || err || 'error');
                     errors.push(`${aptArrivalGeoHost(endpoint)}:${message}`);
                     if (message !== 'overpass_geometry_incomplete') aptArrivalGeoCooldownSet(endpoint);
                     console.warn('[APT ARRIVAL GEO] Overpass context unavailable', endpoint, err);
+                    aptArrivalGeoReportStatus('retry', endpoint === APT_ARRIVAL_OVERPASS_ENDPOINTS[APT_ARRIVAL_OVERPASS_ENDPOINTS.length - 1]
+                        ? 'OSM antwortet nicht. Ich lade die Karte des Zielflugplatzes auf anderem Weg, bitte hab etwas Geduld …'
+                        : 'OSM antwortet nicht. Ich versuche es bei einem anderen Server, bitte hab etwas Geduld …');
                 } finally {
                     clearTimeout(timeoutId);
                 }
@@ -664,7 +676,11 @@ out tags center geom;`;
                         const response = await fetch(`${mapEndpoint}?bbox=${bbox}`, {signal: mapController.signal});
                         if (!response.ok) {
                             const body = response.status === 400 ? await response.text().catch(() => '') : '';
-                            if (/too many nodes/i.test(body)) { errors.push(`osm-map:${mapRadiusM}m:too_many_nodes`); continue; }
+                            if (/too many nodes/i.test(body)) {
+                                errors.push(`osm-map:${mapRadiusM}m:too_many_nodes`);
+                                aptArrivalGeoReportStatus('retry', 'Der Kartenausschnitt ist OSM zu groß. Ich versuche einen kleineren, einen Moment …');
+                                continue;
+                            }
                             throw new Error(`osm_map_http_${response.status}`);
                         }
                         const raw = aptArrivalParseOsmMapXml(await response.text());
@@ -673,6 +689,7 @@ out tags center geom;`;
                         normalized.source = 'osm-map';
                         normalized.osmMapRadiusM = mapRadiusM;
                         aptArrivalGeoCooldownClear(mapEndpoint);
+                        if (errors.length) aptArrivalGeoReportStatus('done', 'Kartendaten gefunden, weiter geht’s.');
                         return store(normalized);
                     } catch (error) {
                         const message = error?.name === 'AbortError' ? 'timeout' : String(error?.message || error || 'error');
@@ -684,6 +701,9 @@ out tags center geom;`;
                 }
             }
             aptArrivalGeoLastFailure = { key, errors, at: Date.now() };
+            aptArrivalGeoReportStatus('failed', errors.every(e => e.endsWith(':cooldown'))
+                ? 'OSM hat eben nicht geantwortet. Die Empfangsszene wird vorerst ohne Kartendaten geplant.'
+                : 'OSM antwortet nicht. Die Empfangsszene wird vorerst ohne Kartendaten geplant.');
             return null;
         } catch (err) {
             aptArrivalGeoLastFailure = { key, errors: errors.concat(String(err?.message || err || 'error')), at: Date.now() };

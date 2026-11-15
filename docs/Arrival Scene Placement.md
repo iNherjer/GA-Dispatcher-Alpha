@@ -31,6 +31,11 @@ werden nicht eingeführt.
    `geoFetchErrors`; das Annehmen-Feld des Entwurfs bietet dann „Erneut
    versuchen“ (ohne Cooldown) und „Ohne Empfangsszene akzeptieren“. Ohne Szene
    schickt der Tracker nach der Landung ein Abholfahrzeug zum Flugzeug.
+   Seit Web v2406 meldet der Abruf jeden Fehlschritt als Ereignis
+   `ga-apt-arrival-geo-status` („OSM antwortet nicht. Ich versuche es bei einem
+   anderen Server, bitte hab etwas Geduld …“); die App zeigt es beim Erstellen im
+   Fortschrittsbalken, beim Akzeptieren und beim Neuversuch im Annehmen-Feld.
+   Ein Abruf ohne Fehler bleibt stumm.
    Tests: `tools/apt-arrival-geo-fetch.test.mjs`, `tools/mission-arrival-retry-ui.test.mjs`.
 3. Der bestehende Composer wählt `preferredPlacement.source` und `index`:
    `osm_parking_position`, `osm_apron` oder `osm_surface`. Letzteres benennt

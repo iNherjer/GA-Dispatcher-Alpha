@@ -28219,7 +28219,7 @@ function updateMissionAcceptanceUi() {
     if (text && (arrivalGeoFailed || retrying)) {
         const attempts = window._missionArrivalRetry?.md === md ? Number(window._missionArrivalRetry.attempts || 0) : 0;
         text.textContent = retrying
-            ? 'Die Kartendaten des Zielflugplatzes werden erneut bei OSM abgefragt...'
+            ? (missionArrivalGeoLiveStatus(md) || 'Die Kartendaten des Zielflugplatzes werden erneut bei OSM abgefragt …')
             : 'Der OSM-Server antwortet nicht, die Empfangsszene kann dadurch nicht korrekt erstellt werden. Möchtest du es nochmal versuchen? Ohne die Szene wird nach der Landung ein Abholfahrzeug zu deinem Flugzeug geschickt.'
                 + (attempts ? ` (Versuch ${attempts} ohne Erfolg)` : '');
     } else if (text) {
@@ -28231,11 +28231,16 @@ function updateMissionAcceptanceUi() {
         text.textContent = window.gaMissionDraftActive?.()
             ? (draftPhase === 'committing' ? 'Bisheriger Auftrag wird bereinigt und die neue Mission veröffentlicht.' : 'Lokaler Entwurf: Cloud und Tracker behalten den bisherigen Auftrag. Erst beim Akzeptieren wird er ersetzt.')
             : composing
-            ? (isPOI ? 'Scene Planner V3 lokalisiert die Zielszene fuer den Tracker.' : 'Scene Planner V3 lokalisiert die Abhol-/Uebergabeszene.')
+            ? (isPOI ? 'Scene Planner V3 lokalisiert die Zielszene fuer den Tracker.' : (missionArrivalGeoLiveStatus(md) || 'Scene Planner V3 lokalisiert die Abhol-/Uebergabeszene.'))
             : (intent.summary || 'Mission als Entwurf. Beim Akzeptieren wird die Szene vorbereitet.');
     }
 }
 window.updateMissionAcceptanceUi = updateMissionAcceptanceUi;
+
+function missionArrivalGeoLiveStatus(md = null) {
+    const status = window._missionArrivalGeoStatus;
+    return status?.text && status.md === md && (Date.now() - Number(status.at || 0)) < 60000 ? status.text : '';
+}
 
 function missionArrivalGeoFetchFailed(md = null) {
     if (!md || md.poiName || md.poiSource || md.isPOI) return false;
@@ -28284,6 +28289,17 @@ async function retryMissionArrivalPlacement() {
     return ok;
 }
 window.retryMissionArrivalPlacement = retryMissionArrivalPlacement;
+
+// OSM-Zwischenstand sichtbar machen: beim Erstellen im Fortschrittsbalken, beim Akzeptieren
+// und beim Neuversuch im Annehmen-Feld (sonst wirkt die Wartezeit wie ein Haenger).
+window.addEventListener?.('ga-apt-arrival-geo-status', event => {
+    const detail = event?.detail || {};
+    if (!detail.text) return;
+    window._missionArrivalGeoStatus = { ...detail, md: currentMissionData || null };
+    const progress = document.getElementById('missionGenerationProgress');
+    if (progress && !progress.hidden && window.gaIsDispatchBusy?.()) setMissionGenerationProgress({ status: detail.text });
+    try { updateMissionAcceptanceUi(); } catch (_) {}
+});
 
 function applyMissionTargetSceneComposition(composition = {}, reason = 'accept') {
     if (!currentMissionData) return false;

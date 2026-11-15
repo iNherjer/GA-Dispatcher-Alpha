@@ -17,7 +17,7 @@ function setup(resolver) {
   c.window = c;
   c.gaMissionDraftActive = () => true;
   c.gaMissionDraftPhase = () => 'ready';
-  for (const name of ['updateMissionAcceptanceUi', 'missionArrivalGeoFetchFailed', 'retryMissionArrivalPlacement']) vm.runInContext(declaration(app, name), c);
+  for (const name of ['updateMissionAcceptanceUi', 'missionArrivalGeoFetchFailed', 'missionArrivalGeoLiveStatus', 'retryMissionArrivalPlacement']) vm.runInContext(declaration(app, name), c);
   vm.runInContext('var currentMissionData = null;', c);
   c.currentMissionData = { sceneAccepted: false, aptArrivalPlan: failedPlan, missionContract: { aptArrivalPlan: failedPlan } };
   return { c, dom };
@@ -51,4 +51,31 @@ test('a failed retry counts the attempt and keeps offering it', async () => {
   assert.equal(await c.retryMissionArrivalPlacement(), false);
   assert.match(dom.missionAcceptText.textContent, /Versuch 1 ohne Erfolg/);
   assert.equal(dom.missionArrivalRetryBtn.disabled, false);
+});
+
+test('while retrying, the live OSM status replaces the generic waiting text', async () => {
+  let release;
+  const { c, dom } = setup(() => new Promise(r => { release = r; }));
+  const pending = c.retryMissionArrivalPlacement();
+  c._missionArrivalGeoStatus = { text: 'OSM antwortet nicht. Ich versuche es bei einem anderen Server, bitte hab etwas Geduld …', at: Date.now(), md: c.currentMissionData };
+  c.updateMissionAcceptanceUi();
+  assert.match(dom.missionAcceptText.textContent, /anderen Server, bitte hab etwas Geduld/);
+  assert.equal(dom.missionArrivalRetryBtn.textContent, 'OSM wird abgefragt...');
+  assert.equal(dom.missionAcceptBtn.disabled, true);
+  release(null);
+  await pending;
+});
+
+test('accepting while the scene planner waits for OSM shows why it takes long', () => {
+  const { c, dom } = setup(async () => null);
+  c.currentMissionData.aptArrivalPlan = { role: 'charter_pickup', source: 'airport-representative-offset' };
+  c.currentMissionData.sceneCompositionStatus = 'composing';
+  c.currentMissionData.sceneCompositionStartedAt = Date.now();
+  c.gaMissionDraftActive = () => false;
+  c._missionArrivalGeoStatus = { text: 'Der Kartenausschnitt ist OSM zu groß. Ich versuche einen kleineren, einen Moment …', at: Date.now(), md: c.currentMissionData };
+  c.updateMissionAcceptanceUi();
+  assert.match(dom.missionAcceptText.textContent, /zu groß/);
+  c._missionArrivalGeoStatus.at = Date.now() - 120000;
+  c.updateMissionAcceptanceUi();
+  assert.match(dom.missionAcceptText.textContent, /Scene Planner V3/);
 });
