@@ -23,6 +23,9 @@ Wrangler angemeldet (`npx wrangler whoami`), Internet.
 - **Karte:** Cloud-Plätze farbig (grün mit Flächen, orange fällig, grau Leer-Vermerk, lila nur
   manuelle Plätze); ab Zoom 8 alle Flugplätze der App-Datenbank (`data/airport-search`) als kleine
   graue Punkte, ebenfalls anklickbar. Suche nach ICAO, Name oder Ort.
+- **Filter Platzart** (Kopfzeile, Wahl bleibt gespeichert): Flugplätze, UL, Segelflug, Heli, Wasser,
+  geschlossen. Grundlage ist der OpenAIP-Typ (6 UL, 4/7 Heli, 1 Segelflug, 8 geschlossen, 10 Wasser),
+  bei OurAirports-Plätzen zusätzlich der Name (z. B. „Ultralight“). Geschlossene sind anfangs aus.
 - **Anzeige:** Umschalter oben rechts: Karte (OSM) oder Satellit (Esri World Imagery), optional Ortsnamen; die Wahl bleibt gespeichert. Vorfelder (blau), Flächen (grün), Parkpositionen (türkis), Hangars (lila),
   Gebäude (grau), Runways (rot), Rollwege (gelb), Platzgrenze (gestrichelt). Der gelbe Kreis zeigt,
   wo die App die Ankunftsszene aufbauen würde (echte Platzwahl aus `mission-arrival-core.js`,

@@ -50,6 +50,7 @@
     <span><i class="dot" style="background:var(--manual)"></i>manuell</span>
     <span><i class="dot" style="background:#6e7681;width:7px;height:7px"></i>ohne Eintrag (ab Zoom 8)</span>
   </div>
+  <div id="filters" class="legend" title="Platzarten auf der Karte ein-/ausblenden"></div>
   <div id="searchBox"><input id="search" placeholder="Flugplatz suchen (ICAO, Name, Ort)" autocomplete="off"><div id="results"></div></div>
 </header>
 <main>
@@ -81,6 +82,17 @@ map.on('baselayerchange', e => { try { localStorage.setItem('wbBase', e.layer ==
 const cloudLayer = L.layerGroup().addTo(map);
 const airportLayer = L.layerGroup().addTo(map);
 const geoLayer = L.layerGroup().addTo(map);
+// Platzart-Filter (Kategorie vom Server, airportCategory in server.mjs); Wahl bleibt im Browser.
+const CATEGORIES = [['airfield', 'Flugplätze'], ['ul', 'UL'], ['glider', 'Segelflug'], ['heli', 'Heli'], ['water', 'Wasser'], ['closed', 'geschlossen']];
+let shownCats = new Set(['airfield', 'ul', 'glider', 'heli', 'water']);
+try { const saved = JSON.parse(localStorage.getItem('wbCats') || 'null'); if (Array.isArray(saved)) shownCats = new Set(saved); } catch (_) {}
+const catShown = cat => shownCats.has(cat || 'airfield');
+document.getElementById('filters').innerHTML = CATEGORIES.map(([cat, label]) => `<label><input type="checkbox" data-cat="${cat}" ${shownCats.has(cat) ? 'checked' : ''}> ${label}</label>`).join('');
+document.querySelectorAll('#filters input').forEach(box => box.onchange = () => {
+    box.checked ? shownCats.add(box.dataset.cat) : shownCats.delete(box.dataset.cat);
+    try { localStorage.setItem('wbCats', JSON.stringify([...shownCats])); } catch (_) {}
+    drawCloud(); loadAirportsInView();
+});
 const state = { index: new Map(), sel: null, cloud: null, preview: null, draft: null, mode: 'view', log: [] };
 
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -97,15 +109,20 @@ async function loadIndex() {
     try {
         const data = await api('/api/cloud/index');
         state.index = new Map((data.entries || []).map(e => [e.key, e]));
-        cloudLayer.clearLayers();
-        for (const e of state.index.values()) {
-            L.circleMarker([e.lat, e.lon], { radius: 7, color: '#0d1117', weight: 1, fillColor: cssVar(colorOf(e)), fillOpacity: .95 })
-                .bindTooltip(`${esc(e.icao || e.key)} ${esc(e.name)}`).on('click', () => selectByKey(e)).addTo(cloudLayer);
-        }
+        drawCloud();
         const n = state.index.size, empty = [...state.index.values()].filter(e => e.empty).length;
         document.getElementById('stats').textContent = `${n} Plätze in der Cloud (${empty} Leer-Vermerke)`;
         loadAirportsInView();
     } catch (err) { document.getElementById('stats').textContent = 'Cloud-Index nicht erreichbar: ' + err.message; }
+}
+
+function drawCloud() {
+    cloudLayer.clearLayers();
+    for (const e of state.index.values()) {
+            if (!catShown(e.cat)) continue;
+            L.circleMarker([e.lat, e.lon], { radius: 7, color: '#0d1117', weight: 1, fillColor: cssVar(colorOf(e)), fillOpacity: .95 })
+                .bindTooltip(`${esc(e.code || e.icao || e.key)} ${esc(e.name)}`).on('click', () => selectByKey(e)).addTo(cloudLayer);
+    }
 }
 
 let airportTimer = 0;
@@ -115,7 +132,7 @@ async function loadAirportsInView() {
     const b = map.getBounds();
     const data = await api(`/api/airports?bbox=${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`).catch(() => ({ airports: [] }));
     for (const a of data.airports) {
-        if (state.index.has(keyOf(a.lat, a.lon))) continue;
+        if (state.index.has(keyOf(a.lat, a.lon)) || !catShown(a.cat)) continue;
         L.circleMarker([a.lat, a.lon], { radius: 4, color: '#6e7681', weight: 1, fillColor: '#6e7681', fillOpacity: .8 })
             .bindTooltip(`${esc(a.code)} ${esc(a.name)}`).on('click', () => select(a)).addTo(airportLayer);
     }
@@ -123,7 +140,7 @@ async function loadAirportsInView() {
 map.on('moveend', () => { clearTimeout(airportTimer); airportTimer = setTimeout(loadAirportsInView, 250); });
 
 async function selectByKey(entry) {
-    const found = await api('/api/airports?q=' + encodeURIComponent(entry.icao || '')).catch(() => ({ airports: [] }));
+    const found = await api('/api/airports?q=' + encodeURIComponent(entry.code || entry.icao || '')).catch(() => ({ airports: [] }));
     const match = found.airports.find(a => keyOf(a.lat, a.lon) === entry.key);
     select(match || { code: entry.icao || '', name: entry.name || '', lat: entry.lat, lon: entry.lon });
 }
@@ -325,7 +342,7 @@ search.oninput = () => {
     clearTimeout(searchTimer);
     searchTimer = setTimeout(async () => {
         const data = await api('/api/airports?q=' + encodeURIComponent(search.value)).catch(() => ({ airports: [] }));
-        results.innerHTML = data.airports.map((a, i) => `<div data-i="${i}">${state.index.has(keyOf(a.lat, a.lon)) ? '● ' : ''}<b>${esc(a.code)}</b> ${esc(a.name)} <span class="muted">${esc(a.city)} ${esc(a.country)}</span></div>`).join('');
+        results.innerHTML = data.airports.map((a, i) => `<div data-i="${i}">${state.index.has(keyOf(a.lat, a.lon)) ? '● ' : ''}<b>${esc(a.code)}</b> ${esc(a.name)} <span class="muted">${esc(a.city)} ${esc(a.country)} · ${esc((CATEGORIES.find(([c]) => c === a.cat) || [0, ''])[1])}</span></div>`).join('');
         results.style.display = data.airports.length ? 'block' : 'none';
         results.querySelectorAll('div').forEach(div => div.onclick = () => { results.style.display = 'none'; select(data.airports[Number(div.dataset.i)]); });
     }, 200);

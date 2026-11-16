@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createWorkbenchServer, cloudKey, searchAirports, airportsInBox } from './server.mjs';
+import { createWorkbenchServer, cloudKey, searchAirports, airportsInBox, airportCategory } from './server.mjs';
 
 const airports = [
     { code: 'EDTF', name: 'Freiburg i. Br. Airport', city: 'Freiburg', country: 'DE', type: '2', lat: 48.0227775574, lon: 7.8324999809 },
@@ -61,5 +61,26 @@ test('foreign origins and invalid keys are refused', async () => {
         const core = await fetch(`${s.base}/core/mission-arrival-core.js`);
         assert.equal(core.status, 200);
         assert.equal((await fetch(`${s.base}/core/../app.js`)).status, 404);
+    } finally { s.close(); }
+});
+
+test('airfield categories for the map filter', () => {
+    assert.equal(airportCategory('6', 'BELL-HUNDHEIM'), 'ul');
+    assert.equal(airportCategory('small_airport', 'Malsch-Ettlingen Ultralight Flightpark'), 'ul');
+    assert.equal(airportCategory('7', 'BAD BERLEBURG'), 'heli');
+    assert.equal(airportCategory('4', 'ANSBACH'), 'heli');
+    assert.equal(airportCategory('heliport', 'Klinikum'), 'heli');
+    assert.equal(airportCategory('1', 'ALTE EMS'), 'glider');
+    assert.equal(airportCategory('8', 'Old field'), 'closed');
+    assert.equal(airportCategory('10', 'See'), 'water');
+    assert.equal(airportCategory('2', 'Freiburg i. Br. Airport'), 'airfield');
+    assert.equal(airportCategory('', 'Flugplatz Sonnen'), 'airfield');
+});
+
+test('cloud index gets the airfield category and database code', async () => {
+    const s = await start(async () => new Response(JSON.stringify({ ok: true, entries: [{ key: 'airport_48.9017_8.3283', icao: '' }, { key: 'airport_48.0228_7.8325', icao: 'EDTF' }] })));
+    try {
+        const data = await (await fetch(`${s.base}/api/cloud/index`)).json();
+        assert.deepEqual(data.entries.map(e => [e.code, e.cat]), [['OUR-321125', 'ul'], ['EDTF', 'airfield']]);
     } finally { s.close(); }
 });

@@ -22,6 +22,18 @@ const TOKEN_FILE = path.join(os.homedir(), '.config', 'ga-dispatcher', 'airport-
 const KEY_RE = /^(airport|strip)_-?\d{1,2}\.\d{4}_-?\d{1,3}\.\d{4}$/;
 const MAX_BODY = 8 * 1024 * 1024; // grosse Flughaefen (EDDS) liegen roh bei 2–3 MB
 
+// Platzart fuer den Kartenfilter. OpenAIP-Typ (Zahl) zuerst, OurAirports-Plaetze zusaetzlich am Namen
+// (Malsch-Ettlingen ist dort nur „small_airport“, „Ultralight“ steht im Namen).
+export function airportCategory(type, name = '') {
+    const t = String(type ?? ''), n = String(name || '');
+    if (t === '8' || /\bclosed\b|geschlossen/i.test(n)) return 'closed';
+    if (t === '4' || t === '7' || t === 'heliport' || /heliport|hubschrauber|helipad/i.test(n)) return 'heli';
+    if (t === '6' || /ultra ?light|ultraleicht|\bUL\b|\bUL-|-UL\b/i.test(n)) return 'ul';
+    if (t === '1' || /segelflug|glider|gliding/i.test(n)) return 'glider';
+    if (t === '10' || t === 'seaplane_base' || /seaplane|wasserflug/i.test(n)) return 'water';
+    return 'airfield';
+}
+
 export function loadAirports(root = ROOT) {
     const manifest = JSON.parse(fs.readFileSync(path.join(root, 'data', 'airport-search', 'manifest.json'), 'utf8'));
     const dir = path.join(root, 'data', 'airport-search', manifest.packVersion);
@@ -32,7 +44,8 @@ export function loadAirports(root = ROOT) {
             for (const r of list) {
                 const lat = Number(r[6]), lon = Number(r[7]);
                 if (!r[0] || !Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-                if (!byCode.has(r[0])) byCode.set(r[0], { code: r[0], name: r[1] || '', city: r[2] || '', country: r[4] || '', type: String(r[5] ?? ''), lat, lon });
+                if (!byCode.has(r[0])) byCode.set(r[0], { code: r[0], name: r[1] || '', city: r[2] || '', country: r[4] || '', type: String(r[5] ?? ''),
+                    cat: airportCategory(r[5], r[1]), lat, lon });
             }
         }
     }
@@ -108,6 +121,7 @@ function readBody(req) {
 
 export function createWorkbenchServer({ port = 8910, airports = [], token = '', fetchImpl = fetch } = {}) {
     const allowed = new Set([`127.0.0.1:${port}`, `localhost:${port}`]);
+    const byKey = new Map(airports.map(a => [cloudKey(a.lat, a.lon), a]));
     const files = {
         '/': ['index.html', 'text/html; charset=utf-8', HERE],
         '/index.html': ['index.html', 'text/html; charset=utf-8', HERE],
@@ -136,7 +150,15 @@ export function createWorkbenchServer({ port = 8910, airports = [], token = '', 
             }
             if (url.pathname === '/api/cloud/index') {
                 const r = await worker(`${WORKER_URL}/index`);
-                return send(res, r.status, r.text);
+                if (r.status !== 200) return send(res, r.status, r.text);
+                // Platzart und Datenbank-Code fuer den Filter ergaenzen.
+                const data = JSON.parse(r.text);
+                for (const entry of data.entries || []) {
+                    const airport = byKey.get(entry.key);
+                    entry.cat = airport ? (airport.cat || airportCategory(airport.type, airport.name)) : 'airfield';
+                    if (airport) { entry.code = airport.code; entry.name = entry.name || airport.name; }
+                }
+                return send(res, 200, data);
             }
             const m = url.pathname.match(/^\/api\/cloud\/([^/]+)(\/admin)?$/);
             if (m && KEY_RE.test(m[1])) {
