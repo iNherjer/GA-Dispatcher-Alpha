@@ -43756,7 +43756,6 @@ function missionProposalRestoreBriefingPresentation() {
 
 function missionProposalClearBriefingState() {
     gaMissionProposalPending = null;
-    try { missionProposalDebugRecord({ selected: { ...missionProposalDebugSummary(normalized), at: Date.now() }, result: { status: 'running', at: Date.now() } }); } catch (_) {}
     missionProposalRestoreBriefingPresentation();
 }
 
@@ -44622,6 +44621,7 @@ window.acceptMissionProposalChoice = function acceptMissionProposalChoice(id) {
         return false;
     }
     gaMissionProposalPending = null;
+    try { missionProposalDebugRecord({ selected: { ...missionProposalDebugSummary(normalized), at: Date.now() }, result: { status: 'running', at: Date.now() } }); } catch (_) {}
     missionProposalRestoreBriefingPresentation();
     const story = document.getElementById('mStory');
     if (story) story.innerText = 'Auswahl übernommen. Dispatcher erstellt jetzt das Briefing...';

@@ -14,3 +14,8 @@ test('debug report prints the proposal section before the mission snapshot',()=>
  const src=fs.readFileSync('profile.js','utf8');const a=src.indexOf("lines.push('Missions-Vorschläge')"),b=src.indexOf("lines.push('Mission Snapshot')");assert.ok(a>0&&a<b);
  assert.match(src.slice(a,b),/Event-Suche/);assert.match(src.slice(a,b),/früheren Mission/);
 });
+test('selection is recorded where a proposal is accepted, not when the picker is cleared',()=>{
+ const src=fs.readFileSync('app.js','utf8');const a=src.indexOf('window.acceptMissionProposalChoice = function'),b=src.indexOf('\n};',a);
+ assert.match(src.slice(a,b),/missionProposalDebugRecord\(\{ selected:/);
+ const c=src.indexOf('function missionProposalClearBriefingState()'),d=src.indexOf('\n}',c);assert.doesNotMatch(src.slice(c,d),/missionProposalDebugRecord/);
+});
