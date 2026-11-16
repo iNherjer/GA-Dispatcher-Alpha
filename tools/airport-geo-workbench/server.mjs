@@ -8,6 +8,7 @@
 import { createServer } from 'node:http';
 import { execFile } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
+import { gzipSync } from 'node:zlib';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -151,7 +152,8 @@ export function createWorkbenchServer({ port = 8910, airports = [], token = '', 
                 }
                 if (req.method === 'POST') {
                     const body = await readBody(req);
-                    const r = await worker(`${WORKER_URL}/${m[1]}/admin`, { method: 'POST', body });
+                    // Komprimiert an den Worker (grosse Flughaefen: 2–3 MB roh).
+                    const r = await worker(`${WORKER_URL}/${m[1]}/admin`, { method: 'POST', body: gzipSync(body), headers: { 'X-Body-Encoding': 'gzip' } });
                     return send(res, r.status, r.text);
                 }
             }

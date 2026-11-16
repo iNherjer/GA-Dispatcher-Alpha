@@ -7,14 +7,14 @@ import vm from 'node:vm';
 const core = fs.readFileSync(new URL('../mission-arrival-core.js', import.meta.url), 'utf8');
 const osm = JSON.parse(fs.readFileSync(new URL('fixtures/arrival-edtw-osm-20261021.json', import.meta.url), 'utf8'));
 
-function setup(handler, cloud = null) {
+function setup(handler, cloud = null, extra = {}) {
   const cloudCalls = [];
   const storage = new Map();
   const sessionStorage = { getItem: k => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, String(v)), removeItem: k => storage.delete(k), key: i => [...storage.keys()][i] ?? null, get length() { return storage.size; } };
   const calls = [];
   const events = [];
   class CustomEvent { constructor(type, init) { this.type = type; this.detail = init?.detail; } }
-  const c = vm.createContext({ CustomEvent, window: { dispatchEvent: e => events.push(e.detail) }, console: { warn() {}, log() {}, debug() {} }, Map, sessionStorage, AbortController, setTimeout, clearTimeout,
+  const c = vm.createContext({ ...extra, CustomEvent, window: { dispatchEvent: e => events.push(e.detail) }, console: { warn() {}, log() {}, debug() {} }, Map, sessionStorage, AbortController, setTimeout, clearTimeout,
     fetch: async (url, opts) => {
       const u = String(url);
       if (u.includes('/api/airport-geo-v1/')) { cloudCalls.push({ url: u, opts }); return (cloud || (() => res(200, JSON.stringify({ ok: true, found: false }))))(u, opts); }
@@ -177,4 +177,26 @@ test('cloud empty marker: no OSM request, scene falls back without the OSM-failu
   assert.equal(resolved.snapStatus.reason, 'no_safe_osm_parking_or_apron_candidate');
   assert.equal(resolved.snapStatus.geoFetchFailed, undefined, 'no "OSM antwortet nicht" retry offer');
   assert.equal(resolved.snapStatus.geoOrigin.cloud.empty, true);
+});
+
+// Kompression (16.11.2026): Sitzungsspeicher und Upload gzip, wenn der Browser es kann.
+test('with CompressionStream: session cache and cloud upload are gzip, cache reads back the same place', async () => {
+  const extra = { CompressionStream, DecompressionStream, Blob, Response, btoa, atob, Uint8Array };
+  const { c, plan, cloudCalls, storage, calls } = setup(() => res(200, JSON.stringify(osm)), (u, opts) => opts?.method === 'POST'
+    ? res(200, JSON.stringify({ ok: true, result: 'stored' })) : res(200, JSON.stringify({ ok: true, found: false })), extra);
+  const first = await c.resolveAptArrivalPlanPlacement(plan);
+  for (let i = 0; i < 10; i++) await flush();
+  const upload = cloudCalls.find(call => call.opts?.method === 'POST');
+  assert.equal(upload.opts.headers['X-Body-Encoding'], 'gzip');
+  const unpacked = JSON.parse(await new Response(new Blob([upload.opts.body]).stream().pipeThrough(new DecompressionStream('gzip'))).text());
+  assert.equal(unpacked.context.schema, 'apt-arrival-geometry.v2');
+  const [, cachedRaw] = [...storage].find(([k]) => k.startsWith('ga_apt_arrival_geo_context_v2_'));
+  const cached = JSON.parse(cachedRaw);
+  assert.ok(cached.gz && cached.fetchedAt, 'compressed session entry');
+  assert.ok(cachedRaw.length < JSON.stringify(first.placementGeometry).length / 2);
+  const osmCalls = calls.length;
+  const second = await c.resolveAptArrivalPlanPlacement(plan);
+  assert.equal(calls.length, osmCalls, 'served from session cache');
+  assert.equal(second.lat, first.lat);
+  assert.equal(second.lon, first.lon);
 });

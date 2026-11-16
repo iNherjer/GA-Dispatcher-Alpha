@@ -44,6 +44,9 @@ test('admin calls carry the token to the worker, the browser never sees it', asy
         assert.ok(!text.includes('secret-token'));
         assert.equal(s.calls[0].url, 'https://ga-proxy.einherjer.workers.dev/api/airport-geo-v1/airport_48.0228_7.8325/admin');
         assert.equal(s.calls[0].init.headers['X-Admin-Token'], 'secret-token-abcdefghijklmnop');
+        assert.equal(s.calls[0].init.headers['X-Body-Encoding'], 'gzip');
+        const { gunzipSync } = await import('node:zlib');
+        assert.equal(JSON.parse(gunzipSync(s.calls[0].init.body).toString()).op, 'block');
         const page = await (await fetch(`${s.base}/`)).text();
         assert.ok(!page.includes('secret-token'));
     } finally { s.close(); }

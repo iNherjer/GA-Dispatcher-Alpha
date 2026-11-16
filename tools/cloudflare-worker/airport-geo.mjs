@@ -119,7 +119,11 @@ export class AirportGeoStore {
     async read(now) {
         const meta = await this.storage.get('meta');
         if (!meta) return reply({ ok: true, found: false });
-        const context = applyAirportGeoOverrides(await unpackAirportGeoContext(await this.storage.get('ctx')), meta);
+        const stored = await this.storage.get('ctx');
+        const raw = await unpackAirportGeoContext(stored);
+        // Eintraege von vor der Kompression einmalig nachpacken.
+        if (raw && !stored?.gz) await this.storage.put('ctx', await packAirportGeoContext(raw)).catch(() => {});
+        const context = applyAirportGeoOverrides(raw, meta);
         const ageMs = Math.max(0, now - Number(meta.refreshedAt || meta.storedAt || 0));
         const stale = ageMs > AIRPORT_GEO_STALE_MS;
         let refresh = null;
@@ -347,8 +351,15 @@ const adminOk = (request, env) => {
     return expected.length >= 24 && request.headers.get('X-Admin-Token') === expected;
 };
 
+// App und Workbench schicken gzip (X-Body-Encoding: gzip); aeltere Clients unkomprimiert.
 async function readBody(request) {
-    const raw = await request.text();
+    let raw;
+    if (String(request.headers.get('X-Body-Encoding') || '').toLowerCase() === 'gzip') {
+        const packed = await request.arrayBuffer();
+        if (packed.byteLength > MAX_BODY) return { error: reply({ error: 'request_too_large' }, 413) };
+        try { raw = await new Response(new Blob([packed]).stream().pipeThrough(new DecompressionStream('gzip'))).text(); }
+        catch (_) { return { error: reply({ error: 'gzip_invalid' }, 400) }; }
+    } else raw = await request.text();
     if (raw.length > MAX_BODY) return { error: reply({ error: 'request_too_large' }, 413) };
     try { return { body: JSON.parse(raw) }; } catch (_) { return { error: reply({ error: 'json_invalid' }, 400) }; }
 }

@@ -220,6 +220,38 @@ const APT_ARRIVAL_OSM_MAP_RADII_M = [1400, 900, 600];
 const APT_ARRIVAL_GEO_COOLDOWN_MS = 2 * 60 * 1000;
 const aptArrivalGeoCooldowns = new Map();
 let aptArrivalGeoLastFailure = null;
+// gzip fuer Sitzungsspeicher und Upload (EDDS: 2,1 MB roh, sessionStorage fasst nur ~5 MB).
+// Ohne CompressionStream (alte Browser, Tests) bleibt alles unkomprimiert.
+const aptArrivalGzipReady = () => typeof CompressionStream === 'function' && typeof DecompressionStream === 'function'
+    && typeof Blob === 'function' && typeof Response === 'function';
+async function aptArrivalGzip(text) {
+    const stream = new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+async function aptArrivalGunzip(bytes) {
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+    return new Response(stream).text();
+}
+function aptArrivalBytesToBase64(bytes) {
+    let out = '';
+    for (let i = 0; i < bytes.length; i += 0x8000) out += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+    return btoa(out);
+}
+function aptArrivalBase64ToBytes(b64) {
+    const bin = atob(b64);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+}
+async function aptArrivalSessionPut(key, context) {
+    let value = JSON.stringify(context);
+    if (aptArrivalGzipReady()) {
+        try { value = JSON.stringify({ fetchedAt: context.fetchedAt || Date.now(), gz: aptArrivalBytesToBase64(await aptArrivalGzip(value)) }); } catch (_) {}
+    }
+    try { sessionStorage.setItem(key, value); } catch (_) {}
+    aptArrivalPruneSessionGeoContextCache(key);
+}
+
 // Gemeinsamer Platzvorrat im Worker (tools/cloudflare-worker/airport-geo.mjs, 16.11.2026).
 const APT_ARRIVAL_CLOUD_GEO_URL = 'https://ga-proxy.einherjer.workers.dev/api/airport-geo-v1/';
 const APT_ARRIVAL_CLOUD_GEO_TIMEOUT_MS = 4000;
@@ -258,9 +290,11 @@ async function aptArrivalCloudGeoRead(cloudKey) {
 async function aptArrivalCloudGeoWrite(cloudKey, context, icao = '', leaseToken = '') {
     try {
         const { cloud, ...clean } = context || {};
+        const json = JSON.stringify({ context: clean, icao, leaseToken });
+        const gz = aptArrivalGzipReady() ? await aptArrivalGzip(json).catch(() => null) : null;
         const { status, data } = await aptArrivalCloudGeoRequest(cloudKey, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ context: clean, icao, leaseToken })
+            method: 'POST', headers: gz ? { 'Content-Type': 'application/json', 'X-Body-Encoding': 'gzip' } : { 'Content-Type': 'application/json' },
+            body: gz || json
         });
         return status === 200 && data?.ok ? String(data.result || 'ok') : `error:${data?.error || 'http_' + status}`;
     } catch (err) {
@@ -649,7 +683,7 @@ async function fetchAptArrivalGeoContext(plan = null, { force = false, fresh = f
     const stripHandoff = /^bush_strip_/.test(String(plan?.role || ''));
     const key = aptArrivalGeoContextCacheKey(plan?.icao || plan?.airportIcao || '', airportLat, airportLon, radiusM)
         + (stripHandoff ? '_strip' : '_airport');
-    const readCache = (store) => {
+    const readCache = async (store) => {
         try {
             const raw = store?.getItem?.(key);
             if (!raw) return null;
@@ -658,13 +692,13 @@ async function fetchAptArrivalGeoContext(plan = null, { force = false, fresh = f
                 try { store?.removeItem?.(key); } catch (_) {}
                 return null;
             }
-            return parsed;
+            return parsed.gz ? JSON.parse(await aptArrivalGunzip(aptArrivalBase64ToBytes(parsed.gz))) : parsed;
         } catch (_) {
             try { store?.removeItem?.(key); } catch (_) {}
             return null;
         }
     };
-    const cached = fresh ? null : readCache(sessionStorage);
+    const cached = fresh ? null : await readCache(sessionStorage);
     if (cached) {
         aptArrivalGeoOriginSessionHit(aptArrivalCloudGeoKey(airportLat, airportLon, stripHandoff), cached);
         return cached;
@@ -696,8 +730,7 @@ out tags center geom;`;
         const errors = [];
         await null;
         const store = normalized => {
-            try { sessionStorage.setItem(key, JSON.stringify(normalized)); } catch (_) {}
-            aptArrivalPruneSessionGeoContextCache(key);
+            aptArrivalSessionPut(key, normalized);
             return normalized;
         };
         // OSM-Kette: zwei Overpass-Server, dann OSM-Karten-API in kleiner werdenden Ausschnitten.

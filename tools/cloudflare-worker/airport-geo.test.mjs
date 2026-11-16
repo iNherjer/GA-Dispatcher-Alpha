@@ -276,4 +276,17 @@ test('entries stored before compression stay readable', async () => {
     const records = e.stores.get(KEY).storage.records;
     records.set('ctx', structuredClone(base));
     assert.equal((await get(e)).context.aprons.length, base.aprons.length);
+    assert.ok(records.get('ctx').gz instanceof ArrayBuffer, 'repacked on first read');
+    assert.equal((await get(e)).context.aprons.length, base.aprons.length);
+});
+
+test('gzip upload from app and workbench is unpacked; broken gzip is refused', async () => {
+    const e = env();
+    const json = JSON.stringify({ context: ctx(), icao: 'EDTW' });
+    const gz = await new Response(new Blob([json]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer();
+    const res = await handleAirportGeo(new Request('https://x/api/airport-geo-v1/' + KEY, { method: 'POST', headers: { 'X-Body-Encoding': 'gzip' }, body: gz }), e);
+    assert.equal((await res.json()).result, 'stored');
+    assert.equal((await get(e)).icao, 'EDTW');
+    const bad = await handleAirportGeo(new Request('https://x/api/airport-geo-v1/' + KEY, { method: 'POST', headers: { 'X-Body-Encoding': 'gzip' }, body: 'not gzip' }), e);
+    assert.equal(bad.status, 400);
 });

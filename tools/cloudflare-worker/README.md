@@ -357,6 +357,7 @@ aufbereitete OSM-Platzkontext der App (`apt-arrival-geometry.v2`, etwa 40–250 
   mit Flächen (`ignored_empty`); der bleibt fällig und wird beim nächsten Abruf erneut versucht.
 - Kein Login: Lesen und Schreiben sind offen, Schutz durch die strenge Prüfung und die
   Regeln oben. Ein Eintrag lässt sich bei Bedarf über die Vorversion zurückholen.
+- Übertragung: App und Workbench laden gzip-komprimiert hoch (`X-Body-Encoding: gzip`, ältere Clients unkomprimiert); Cloudflare liefert Antworten mit Brotli aus (EDDS 2,1 MB → 277 KB). Der Sitzungsspeicher der App hält den Platzkontext ebenfalls gzip (Base64).
 - Gespeichert wird gzip-komprimiert (ein DO-Wert darf höchstens 2 MB groß sein; EDDS liegt roh bei 2,1 MB, gepackt deutlich darunter). Upload bis 6 MB, bis 12 000 Sperrzonen; ältere unkomprimierte Einträge bleiben lesbar.
 - Kosten: Durable-Object-Anfragen und SQLite-Speicher im Free-Kontingent (eine Leseanfrage
   je Missionserstellung mit APT-Ankunft, ein Upload je neuem/erneuertem Platz). Kein KV.
