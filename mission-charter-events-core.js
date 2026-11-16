@@ -14,6 +14,14 @@ const PRIVATE_KINDS=['kultur','genuss','hobby','erlebnis'];
 const KINDS=['kultur','genuss','hobby','erlebnis','beruf'];
 // Welche Veranstaltungsarten zu welcher Charter-Reiseart passen. Reisearten ohne Eintrag suchen nicht.
 const FITS={kultur:['kultur'],genuss:['genuss'],hobby:['hobby'],erlebnis:['erlebnis','hobby'],beruf:['beruf'],vip:['kultur','hobby','beruf'],urlaub:['kultur','genuss','erlebnis'],paar:['kultur','genuss'],ueberraschung:['kultur','erlebnis','genuss']};
+// Reihenfolge mehrerer passender Treffer (Auswertung der Live-Suchen 16.11.2026: auch werktags gibt es
+// Spitzenkonzerte, am Wochenende nicht systematisch Besseres; Dauerangebote wie Märkte, Ausstellungen oder
+// Volksfeste laufen wochenlang und sind weniger besonders): belegt vor nur gesucht, kurze Termine vor
+// Dauerangeboten (über 14 Tage), dann der effektiv nächste Tag (laufende zählen ab heute), dann die kürzere Laufzeit, dann die Nähe.
+const LONG_RUNNING_DAYS=14;
+function today(){return new Date().toLocaleDateString('en-CA');}
+function days(a,b){return Math.round((Date.parse(b+'T12:00:00Z')-Date.parse(a+'T12:00:00Z'))/86400000);}
+function rank(a,b,now){const v=x=>x.e.verification==='supported'?0:1,l=x=>days(x.e.startsOn,x.e.endsOn)>LONG_RUNNING_DAYS?1:0,d=x=>x.e.startsOn<now?now:x.e.startsOn;return v(a)-v(b)||l(a)-l(b)||String(d(a)).localeCompare(String(d(b)))||days(a.e.startsOn,a.e.endsOn)-days(b.e.startsOn,b.e.endsOn)||a.km-b.km;}
 function windowFor(date){const d=new Date(date+'T12:00:00Z');if(!Number.isFinite(+d))throw Error('Ungültiges Missionsdatum');d.setUTCDate(d.getUTCDate()+WINDOW_DAYS);return {from:date,through:d.toISOString().slice(0,10)};}
 function placeName(airport){return String(airport?.city||airport?.municipality||airport?.name||airport?.n||'').trim();}
 function prompt(place,period,kinds){return `Suche nach Veranstaltungen in ${place.name} und direkter Umgebung (höchstens ${MATCH_KM} km um ${place.lat.toFixed(3)}, ${place.lon.toFixed(3)}) vom ${period.from} bis ${period.through}, einschließlich mehrtägiger Veranstaltungen, die in diesen Zeitraum fallen. Gesucht sind öffentliche Veranstaltungen, die für auswärtige Besucher interessant sind und zu einer dieser Arten gehören: ${kinds.map(k=>({kultur:'Konzert, Theater, Ausstellung, Fest',genuss:'Kulinarik, Wein, Markt',hobby:'Sportveranstaltung zum Zuschauen oder Mitmachen, Freizeitleidenschaft',erlebnis:'besonderes Erlebnisangebot mit festem Termin',beruf:'Fachmesse, Kongress'})[k]).join('; ')}. Nur Veranstaltungen, die tatsächlich an einem Ort in ${place.name} oder direkter Umgebung stattfinden. Keine Missionsideen, Personen oder Geschichten. Keine Termine aus Vorjahren. Maximal 8 möglichst verschiedenartige Treffer. kind ist genau einer von ${kinds.join(', ')}. visitorInfo nennt kurz, was Besucher erwartet, mit Uhrzeit nur, wenn sie in der Quelle steht. sourceUrl ist die tatsächlich verwendete Quelle. Keine Landeerlaubnis aus einer Veranstaltung ableiten.`;}
@@ -29,7 +37,7 @@ async function search({place,date,period:fixed=null,kinds=KINDS,apiKey,storage,f
  return result;
 }
 // Bester Treffer nahe dem Zielflugplatz zu einer der Arten (Privat: alle Ausflugsarten).
-function pickKinds(events,airport,kinds,distanceKm,recent=[]){const used=new Set((Array.isArray(recent)?recent:[]).map(r=>r&&r.eventId).filter(Boolean));const ok=events.filter(e=>kinds.includes(e.kind)&&!used.has(e.id)).map(e=>({e,km:distanceKm(e,airport)})).filter(x=>Number.isFinite(x.km)&&x.km<=MATCH_KM);ok.sort((a,b)=>(a.e.verification==='supported'?0:1)-(b.e.verification==='supported'?0:1)||String(a.e.startsOn).localeCompare(String(b.e.startsOn))||a.km-b.km);return ok[0]?{event:ok[0].e,km:Math.round(ok[0].km)}:null;}
+function pickKinds(events,airport,kinds,distanceKm,recent=[]){const used=new Set((Array.isArray(recent)?recent:[]).map(r=>r&&r.eventId).filter(Boolean));const ok=events.filter(e=>kinds.includes(e.kind)&&!used.has(e.id)).map(e=>({e,km:distanceKm(e,airport)})).filter(x=>Number.isFinite(x.km)&&x.km<=MATCH_KM);ok.sort((a,b)=>rank(a,b,today()));return ok[0]?{event:ok[0].e,km:Math.round(ok[0].km)}:null;}
 // Privat-Ortsfakt aus einem Event: Tag innerhalb des Fensters (mehrtägig: erster Tag im Fenster).
 function privateFact(event,window,airport,distanceKm){if(!event||!window)return null;if(event.endsOn<window.arrivalDate||event.startsOn>window.throughDate)return null;const day=event.startsOn<window.arrivalDate?window.arrivalDate:event.startsOn;return {kind:'event',topic:'event',eventId:event.id,name:event.title,title:event.title,venue:event.venue,lat:event.lat,lon:event.lon,eventDate:day,startsOn:event.startsOn,endsOn:event.endsOn,source:event.sourceUrl||(event.sourceDomains||[])[0]||'Websuche',verification:event.verification||null,distanceKm:Math.round(distanceKm(airport,event)*10)/10,text:`${event.title} (${event.venue||'Ort laut Quelle'}), ${event.startsOn===event.endsOn?event.startsOn:event.startsOn+' bis '+event.endsOn}: ${event.visitorInfo} Recherchierte öffentliche Veranstaltung; eine Möglichkeit, keine Pflicht. Uhrzeiten und Programm nur, soweit hier genannt.`};}
 // Bester Treffer nahe dem Zielflugplatz, passend zur Reiseart; belegte Treffer vor nur gesuchten,
@@ -38,12 +46,12 @@ function pick(events,airport,occasionId,distanceKm,recent=[]){
  const fits=FITS[occasionId]||[],used=new Set((Array.isArray(recent)?recent:[]).map(r=>r&&r.eventId).filter(Boolean));
  const ok=events.filter(e=>fits.includes(e.kind)&&!used.has(e.id)).map(e=>({e,km:distanceKm(e,airport)})).filter(x=>Number.isFinite(x.km)&&x.km<=MATCH_KM);
  // Belegte zuerst, dann die zeitlich nächste Veranstaltung (ein Charter fliegt heute), dann die nächstgelegene.
- ok.sort((a,b)=>(a.e.verification==='supported'?0:1)-(b.e.verification==='supported'?0:1)||String(a.e.startsOn).localeCompare(String(b.e.startsOn))||a.km-b.km);
+ ok.sort((a,b)=>rank(a,b,today()));
  return ok[0]?{event:ok[0].e,km:Math.round(ok[0].km)}:null;
 }
 // Der Picker sucht für den ersten Platz, dessen Reiseart eine Veranstaltung tragen kann.
 function searchSlot(occasions){return occasions.findIndex(o=>o&&FITS[o.id]);}
 // Kompakter Datensatz für Frame, Idee und Vertrag.
 function anchor(event){return event?{id:event.id,title:event.title,venue:event.venue,lat:event.lat,lon:event.lon,startsOn:event.startsOn,endsOn:event.endsOn,sourceUrl:event.sourceUrl,sourceDomains:event.sourceDomains||[],verification:event.verification||null,visitorInfo:event.visitorInfo,kind:event.kind}:null;}
-const api={KINDS,FITS,EVENT_EVERY,PRIVATE_KINDS,pickKinds,privateFact,WINDOW_DAYS,MATCH_KM,windowFor,placeName,prompt,parse,search,pick,searchSlot,anchor};root.MissionCharterEventsCore=api;if(typeof module!=='undefined')module.exports=api;
+const api={rank,LONG_RUNNING_DAYS,KINDS,FITS,EVENT_EVERY,PRIVATE_KINDS,pickKinds,privateFact,WINDOW_DAYS,MATCH_KM,windowFor,placeName,prompt,parse,search,pick,searchSlot,anchor};root.MissionCharterEventsCore=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof window!=='undefined'?window:globalThis);

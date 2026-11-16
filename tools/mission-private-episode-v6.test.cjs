@@ -174,3 +174,13 @@ test('ground plan may point at a researched event fact inside the region',()=>{
  const raw={...idea(),factIds:['f1'],groundPlan:{factId:'f1',intent:'Zum Spiel',transferPlan:'Taxi'},eventVisit:{factId:'f1',eventDate:'2026-11-18',stayPlan:'Abends zum Spiel'}};
  const checked=v6.validateIdea(raw,input);assert.ok(checked);assert.equal(checked.groundPlan.place.name,'EHC-Heimspiel');
 });
+test('0 lbs means no luggage: idea valid, cargo text and manifest without luggage item',()=>{
+ const input=v6.frame(contract(),[]);
+ assert.ok(v6.validateIdea({...idea(),luggage:{label:'Kein Gepäck',weightLbs:0}},input));
+ assert.equal(v6.validateIdea({...idea(),luggage:{label:'x',weightLbs:-1}},input),null);
+ const extract=(file,name,c)=>{const code=fs.readFileSync(file,'utf8'),a=code.indexOf('function '+name+'('),b=code.indexOf('\nfunction ',a+1);vm.runInContext(code.slice(a,b<0?undefined:b),c);};
+ const make=w=>{const c=vm.createContext({window:{currentMissionData:{privateOuting:{schema:'private-outing.v1',luggage:{label:'Tasche',weightLbs:w}}}},_missionCargoMissionKey:()=> 'test',_missionCargoAircraftSlot:()=> 'plane',_missionSceneTaskDomain:()=> 'private_outing',_activeBushMissionSpec:()=>null,_missionCargoPrimaryText:()=> w?'Tasche ('+w+' lbs)':'Kein Gepäck (0 lbs)',_missionCargoCleanLabel:x=>x,_missionCargoIsPoiMission:()=>false,_missionCargoHasPassengerMission:()=>false,_missionSceneCargoAsset:()=>({title:'Cardboard',candidates:['Cardboard']}),_missionCargoPushItem:(items,item)=>items.push(item),_missionCargoExtractWeight:()=>Math.max(1,w),_missionCargoPrimaryTravelsWithPassenger:()=>false,_missionCargoPersistentEquipmentDefinitions:()=>[],_missionCargoApplyStoredOnboardEquipment:()=>{},MISSION_SCENE_ASSET_POOLS:{cargo:['Cardboard'],palletCargo:['Pallet']}});
+  extract('mission-cargo-core.js','_missionCargoGenerateManifest',c);extract('mission-cargo-core.js','_missionCargoManifestCore',c);return c._missionCargoGenerateManifest();};
+ assert.equal(make(0).items.some(x=>x.id==='primary-cargo'),false,'kein Gepäckposten bei 0 lbs');
+ assert.equal(make(12).items.some(x=>x.id==='primary-cargo'),true,'mit Gepäck unverändert');
+});

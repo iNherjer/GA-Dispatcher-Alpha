@@ -35,3 +35,11 @@ test('search retried exactly once when Gemini answered without searching',async(
  const body=await g.request({prompt:'x',apiKey:'k',fetchImpl:f});assert.equal(calls.length,2);assert.equal(body.searchRetry,true);assert.equal(calls[1].generationConfig.thinkingConfig.thinkingLevel,'medium');
  calls.length=0;n=1;await g.request({prompt:'x',apiKey:'k',fetchImpl:async(u,o)=>{calls.push(1);return reply(['q']);}});assert.equal(calls.length,1,'mit Suche kein zweiter Abruf');
 });
+test('ranking: short events before long-running ones, ongoing counts from today',()=>{
+ const ev=require('../mission-charter-events-core.js');const now='2026-11-16';
+ const mk=(id,s,e,v='search')=>({e:{id,startsOn:s,endsOn:e,verification:v},km:5});
+ const list=[mk('ausstellung','2026-06-03','2026-11-30'),mk('volksfest','2026-11-06','2026-12-06'),mk('konzert-di','2026-11-17','2026-11-17'),mk('show-sa','2026-11-21','2026-11-21')];
+ assert.deepEqual(list.sort((a,b)=>ev.rank(a,b,now)).map(x=>x.e.id),['konzert-di','show-sa','volksfest','ausstellung']);
+ const sup=[mk('show-sa','2026-11-21','2026-11-21'),mk('markt','2026-11-19','2026-12-23','supported')];
+ assert.equal(sup.sort((a,b)=>ev.rank(a,b,now))[0].e.id,'markt','belegt bleibt vorn');
+});

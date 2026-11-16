@@ -190,7 +190,7 @@ FLUGDATEN: ${JSON.stringify(flight)}`;
         const passenger = {...req.passenger, privateReturn:c, targetAltFt:0, targetRadiusNm:0, targetDwellMin:0,
             storySeed:written?.continuity?.experienceRecap?.summary || '', personalStoryCue:written?.continuity?.experienceRecap?.companionReaction || '',
             greetingText:written?.greeting || 'Schön, dass wir zusammen unterwegs sind.'};
-        const cargo = `${c.outing.luggage.label} (${c.outing.luggage.weightLbs} lbs)`;
+        const cargo = c.outing.luggage.weightLbs > 0 ? `${c.outing.luggage.label} (${c.outing.luggage.weightLbs} lbs)` : 'Kein Gepäck (0 lbs)';
         const pax = `1 PAX (${passenger.role})`;
         // Offline/failed prose never substitutes an unrelated activity or fabricates an experience.
         const story = written ? `${written.story}\n\n${written.flightBriefing}`

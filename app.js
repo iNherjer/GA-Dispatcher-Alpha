@@ -41232,7 +41232,7 @@ async function fetchPrivateOutingStory(context = {}) {
     const narrativeStory = prose?.story || `${idea.occasion} ${idea.personalReason}`;
     const story = [narrativeStory, v6 ? prose?.flightBriefing : ''].filter(Boolean).join('\n\n');
     const title = prose?.title || `Mit ${idea.companion.name.split(' ')[0]} nach ${idea.targetName}`;
-    const cargo = `${idea.luggage.label} (${idea.luggage.weightLbs} lbs)`;
+    const cargo = idea.luggage.weightLbs > 0 ? `${idea.luggage.label} (${idea.luggage.weightLbs} lbs)` : 'Kein Gepäck (0 lbs)';
     const pax = `1 PAX (${idea.companion.relationship})`;
     const passenger = {
         name: idea.companion.name, role: idea.companion.relationship,
@@ -44193,7 +44193,7 @@ async function buildPrivateMissionProposalChoices(airports, context = {}) {
             selectedCategory: 'private', requestedCategory: context.selectedAptCategory || 'private',
             target: candidate.target, title: proposal.title, subtitle: `Mit ${idea.companion.name} nach ${idea.targetName}`,
             description: idea.occasion, locationLabel: missionProposalAirportLocationLabel(candidate.target),
-            routeLabel: candidate.routeLabel, cargoText: `${idea.luggage.label} (${idea.luggage.weightLbs} lbs)`,
+            routeLabel: candidate.routeLabel, cargoText: idea.luggage.weightLbs > 0 ? `${idea.luggage.label} (${idea.luggage.weightLbs} lbs)` : 'Kein Gepäck (0 lbs)',
             paxText: `1 PAX (${idea.companion.relationship})`, storySeed: idea.occasion,
             privateProposal: core.proposalSnapshot(candidate, idea)
         });

@@ -1065,6 +1065,13 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
         });
         else if (primary) items.splice(items.indexOf(primary),1);
     }
+    // Privatflug ohne Gepäck (luggage.weightLbs 0): kein Gepäckposten aus dem Text "Kein Gepäck (0 lbs)".
+    const privateIdea = window.currentMissionData?.privateOuting?.schema === 'private-outing.v1' ? window.currentMissionData.privateOuting
+        : window.currentMissionData?.privateReturn?.outing;
+    if (privateIdea?.luggage && Number(privateIdea.luggage.weightLbs) === 0) {
+        const primary = items.find(item => item.id === 'primary-cargo');
+        if (primary) items.splice(items.indexOf(primary), 1);
+    }
     const newsIdea=window.currentMissionData?.aptNewsIdea;
     if(isBushPickupPassenger && newsIdea?.schema==='apt-news-idea.v1' && newsIdea.continuation){
         const equipment=items.find(item=>item.id==='pickup-companion-cargo');
