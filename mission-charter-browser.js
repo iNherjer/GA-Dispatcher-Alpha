@@ -27,6 +27,7 @@ async function choices(airports,context){if(airports.length<3)throw Error('Für 
  const due=root.MissionGroundedEventsCore?.eventDue?root.MissionGroundedEventsCore.eventDue(recent,root.MissionCharterEventsCore?.EVENT_EVERY?.charter||2):true;
  const slot=root.MissionCharterEventsCore&&due?root.MissionCharterEventsCore.searchSlot(occasions):-1;
  if(!due)root.gaCharterEventSearch={status:'skipped',reason:'event-cadence'};
+ else if(slot<0)root.gaCharterEventSearch={status:'skipped',reason:'no-event-occasion'};
  const eventMatch=slot>=0?await findEvent(selected[slot],occasions[slot],recent):null;context.ensureAlive?.();
  const frames=await Promise.all(selected.map(async(a,i)=>({candidateId:'charter-'+i,...await frame(context.start,a,occasions[i],i===slot&&eventMatch?root.MissionCharterEventsCore.anchor(eventMatch.event):null)})));context.ensureAlive?.();
  if(!frames[0].maxPassengers)throw Error('Das Flugzeug bietet keinen freien Passagierplatz.');

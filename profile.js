@@ -4506,6 +4506,22 @@ window.vpBuildWeatherDebugReport = function() {
     lines.push(`- Unhandled Rejections: ${dbg.unhandledRejections || 0}`);
     lines.push(`- Letzter globaler Fehler: ${vpFormatDebugTs(dbg.lastGlobalErrorAt)}${dbg.lastGlobalErrorMsg ? ` (${dbg.lastGlobalErrorMsg})` : ''}`);
     lines.push('');
+    lines.push('Missions-Vorschläge');
+    let proposalDebug = window.gaMissionProposalDebug || null;
+    if (!proposalDebug) { try { proposalDebug = JSON.parse(localStorage.getItem('ga_mission_proposal_debug_v1') || 'null'); } catch (_) { proposalDebug = null; } }
+    if (!proposalDebug?.at) {
+        lines.push('- (noch kein Picker in diesem Browser)');
+    } else {
+        const pd = proposalDebug, es = pd.eventSearch;
+        lines.push(`- Picker: ${vpFormatDebugTs(pd.at)} | Strang=${pd.strand || '-'} | Start=${pd.start || '-'}`);
+        (pd.choices || []).forEach((c, i) => lines.push(`  ${i + 1}. ${c.target || '-'} | ${c.title || '-'}${c.occasion ? ` | Reiseart=${c.occasion}` : ''}${c.event ? ` | EVENT ${c.event.date || ''} ${c.event.title || ''}${c.event.verification ? ` (${c.event.verification})` : ''}` : ''}`));
+        lines.push(`- Event-Suche: ${es ? [es.status, es.reason, es.place || es.airport, es.queries != null ? `Suchanfragen=${es.queries}` : '', es.count != null ? `Treffer=${es.count}` : '', es.matchedTitle ? `Anker=${es.matchedTitle}${es.verification ? ` (${es.verification})` : ''}` : (es.status === 'ready' ? 'Anker=keiner' : ''), es.cacheHit ? 'Cache' : '', es.error ? `Fehler=${es.error}` : ''].filter(Boolean).join(' | ') : 'nicht gelaufen'}`);
+        lines.push(`- Auswahl: ${pd.selected ? `${vpFormatDebugTs(pd.selected.at)} | ${pd.selected.target || '-'} | ${pd.selected.title || '-'}` : 'noch keine'}`);
+        if (pd.result) lines.push(`- Ergebnis: ${pd.result.status}${pd.result.mission ? ` | ${pd.result.mission}` : ''}${pd.result.error ? ` | ${pd.result.error}` : ''} | ${vpFormatDebugTs(pd.result.at)}`);
+        const snapAt = Number((window.vpMissionDebugSnapshot || {}).ts) || 0;
+        if (pd.result?.status === 'error' || (snapAt && snapAt < pd.at)) lines.push('- Hinweis: Der folgende Mission Snapshot stammt von einer früheren Mission, nicht von diesem Picker.');
+    }
+    lines.push('');
     lines.push('Mission Snapshot');
     let missionSnap = window.vpMissionDebugSnapshot || null;
     if (!missionSnap) {

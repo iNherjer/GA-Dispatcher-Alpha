@@ -43756,6 +43756,7 @@ function missionProposalRestoreBriefingPresentation() {
 
 function missionProposalClearBriefingState() {
     gaMissionProposalPending = null;
+    try { missionProposalDebugRecord({ selected: { ...missionProposalDebugSummary(normalized), at: Date.now() }, result: { status: 'running', at: Date.now() } }); } catch (_) {}
     missionProposalRestoreBriefingPresentation();
 }
 
@@ -44477,9 +44478,37 @@ function missionProposalIsEligible(context = {}) {
     return false;
 }
 
+// Debug-Bericht "Missions-Vorschläge": letzter Picker mit Vorschlägen, Event-Suche, Auswahl und Ergebnis.
+// Nur lokal und klein (kein Cloud-Sync); der Mission Snapshot zeigt nur die zuletzt erfolgreiche Mission.
+const MISSION_PROPOSAL_DEBUG_KEY = 'ga_mission_proposal_debug_v1';
+function missionProposalDebugSummary(choice = {}) {
+    const charter = choice.charterProposal?.idea, privateIdea = choice.privateProposal?.idea, clubIdea = choice.clubProposal?.idea;
+    const event = charter?.event ? { title: charter.event.title, date: charter.event.startsOn, verification: charter.event.verification || null }
+        : privateIdea?.eventVisit ? { title: privateIdea.eventVisit.title || '', date: privateIdea.eventVisit.eventDate }
+        : clubIdea?.event ? { title: clubIdea.event.title, date: clubIdea.event.startsOn } : null;
+    const clip = (v, n = 140) => String(v || '').replace(/\s+/g, ' ').trim().slice(0, n);
+    return { id: clip(choice.id, 80), target: clip(choice.target?.icao || choice.target?.n, 40), targetName: clip(choice.target?.n, 80),
+        title: clip(choice.title), subtitle: clip(choice.subtitle, 120), occasion: clip(charter?.occasion?.label || '', 60) || null, event };
+}
+function missionProposalDebugRecord(patch = {}) {
+    let state = null;
+    try { state = JSON.parse(localStorage.getItem(MISSION_PROPOSAL_DEBUG_KEY) || 'null'); } catch (_) { state = null; }
+    state = { ...(state || {}), ...patch };
+    window.gaMissionProposalDebug = state;
+    try { localStorage.setItem(MISSION_PROPOSAL_DEBUG_KEY, JSON.stringify(state)); } catch (_) {}
+    return state;
+}
+window.missionProposalDebugRecord = missionProposalDebugRecord;
+
 function renderMissionProposalBriefing({ start = null, choices = [], context = {} } = {}) {
     const validChoices = choices.map(normalizeMissionProposalChoice).filter(Boolean).slice(0, 3);
     if (!validChoices.length) return false;
+    try {
+        const strand = validChoices[0].charterProposal ? 'charter' : validChoices[0].privateProposal ? 'private' : validChoices[0].clubProposal ? 'club' : String(validChoices[0].selectedCategory || context.selectedAptCategory || '-');
+        const search = strand === 'charter' ? window.gaCharterEventSearch : strand === 'private' ? window.gaPrivateEventSearch : strand === 'club' ? window.gaClubEventSearch : null;
+        missionProposalDebugRecord({ at: Date.now(), strand, start: currentStartICAO || start?.icao || '', choices: validChoices.map(missionProposalDebugSummary),
+            eventSearch: search ? JSON.parse(JSON.stringify(search)) : null, selected: null, result: null });
+    } catch (_) {}
     gaMissionProposalPending = {
         id: `proposal-${Date.now()}`,
         generatedAt: Date.now(),
@@ -48147,8 +48176,10 @@ async function generateMission(options = {}) {
             updateMissionAcceptanceUi(); window.refreshMissionRuntimeUi?.();
         }
     }, 800);
+    if (missionProposalChoice) try { missionProposalDebugRecord({ result: { status: 'ok', at: Date.now(), mission: String(currentMissionData?.t || currentMissionData?.mission || '').slice(0, 140) } }); } catch (_) {}
     return true;
     } catch (e) {
+        if (missionProposalChoice) try { missionProposalDebugRecord({ result: { status: e?.name === 'AbortError' ? 'cancelled' : 'error', at: Date.now(), error: String(e?.message || e).slice(0, 300) } }); } catch (_) {}
         if (e && e.name === 'AbortError') {
             // Benutzerabbruch über Clear: kein zusätzlicher Fehlerdialog.
         } else if (e?.code === 'AIRCRAFT_AUTO_PROFILE_EMPTY' || e?.code === 'MISSION_PASSENGER_CAPACITY') {
