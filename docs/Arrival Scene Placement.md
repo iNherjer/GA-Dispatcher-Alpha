@@ -41,7 +41,14 @@ werden nicht eingeführt.
    Fehlern „Returned response is null“); eine Zeitüberschreitung der OSM-Map-API
    führt zum nächstkleineren Ausschnitt statt zum Abbruch. Am 16.11.2026 morgens
    waren alle öffentlichen Overpass-Server und die OSM-API selbst überlastet
-   (502/503/Zeitgrenze) – dagegen hilft nur ein eigener Vorrat (offen).
+   (502/503/Zeitgrenze) – dagegen hilft der eigene Vorrat (Web v2422):
+   Seit Web v2422 fragt die App zuerst den gemeinsamen Platzvorrat im Worker
+   (`/api/airport-geo-v1/`, siehe `tools/cloudflare-worker/README.md`). Treffer → kein
+   OSM; fälliger Eintrag (> 90 Tage) wird trotzdem genommen, der Inhaber des
+   Erneuerungsauftrags fragt OSM still im Hintergrund und lädt hoch. Kein Eintrag →
+   OSM wie oben, Ergebnis wird für alle hochgeladen. Ohne erreichbaren Worker läuft
+   alles wie bisher. `snapStatus.geoOrigin` und die Diagnosezeile „APT Platzdaten“
+   zeigen Quelle, Alter, Version, Upload und Erneuerung.
    Tests: `tools/apt-arrival-geo-fetch.test.mjs`, `tools/mission-arrival-retry-ui.test.mjs`.
 3. Der bestehende Composer wählt `preferredPlacement.source` und `index`:
    `osm_parking_position`, `osm_apron` oder `osm_surface`. Letzteres benennt

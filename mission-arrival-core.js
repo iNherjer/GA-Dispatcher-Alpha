@@ -220,6 +220,71 @@ const APT_ARRIVAL_OSM_MAP_RADII_M = [1400, 900, 600];
 const APT_ARRIVAL_GEO_COOLDOWN_MS = 2 * 60 * 1000;
 const aptArrivalGeoCooldowns = new Map();
 let aptArrivalGeoLastFailure = null;
+// Gemeinsamer Platzvorrat im Worker (tools/cloudflare-worker/airport-geo.mjs, 16.11.2026).
+const APT_ARRIVAL_CLOUD_GEO_URL = 'https://ga-proxy.einherjer.workers.dev/api/airport-geo-v1/';
+const APT_ARRIVAL_CLOUD_GEO_TIMEOUT_MS = 4000;
+const aptArrivalGeoOrigins = new Map();
+function aptArrivalCloudGeoKey(lat, lon, strip = false) {
+    return `${strip ? 'strip' : 'airport'}_${Number(lat).toFixed(4)}_${Number(lon).toFixed(4)}`;
+}
+async function aptArrivalCloudGeoRequest(cloudKey, init = undefined) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), APT_ARRIVAL_CLOUD_GEO_TIMEOUT_MS * (init ? 3 : 1));
+    try {
+        const res = await fetch(APT_ARRIVAL_CLOUD_GEO_URL + encodeURIComponent(cloudKey), { ...(init || {}), signal: controller.signal });
+        const data = await res.json().catch(() => null);
+        return { status: res.status, data };
+    } finally { clearTimeout(timeoutId); }
+}
+// Liest den Cloud-Eintrag; nie ein Fehler nach aussen – ohne Cloud laeuft alles wie bisher ueber OSM.
+async function aptArrivalCloudGeoRead(cloudKey) {
+    try {
+        const { status, data } = await aptArrivalCloudGeoRequest(cloudKey);
+        if (status !== 200 || !data?.ok) return { context: null, summary: { status: 'error', error: data?.error || `http_${status}` } };
+        if (!data.found) return { context: null, summary: { status: 'miss' } };
+        const context = data.context && data.context.schema === 'apt-arrival-geometry.v2' ? data.context : null;
+        return {
+            context,
+            refreshToken: data.refresh?.token || '',
+            summary: { status: context ? (data.stale ? 'hit-stale' : 'hit') : 'error', error: context ? '' : 'context_invalid',
+                ageDays: Number(data.ageDays) || 0, stale: data.stale === true, version: Number(data.version) || 0,
+                storedAt: Number(data.storedAt) || 0, refreshedAt: Number(data.refreshedAt) || 0, pending: data.pending === true,
+                refreshLease: !!data.refresh?.token, origin: String(data.context?.source || '') }
+        };
+    } catch (err) {
+        return { context: null, summary: { status: 'error', error: err?.name === 'AbortError' ? 'timeout' : String(err?.message || err || 'error') } };
+    }
+}
+async function aptArrivalCloudGeoWrite(cloudKey, context, icao = '', leaseToken = '') {
+    try {
+        const { cloud, ...clean } = context || {};
+        const { status, data } = await aptArrivalCloudGeoRequest(cloudKey, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ context: clean, icao, leaseToken })
+        });
+        return status === 200 && data?.ok ? String(data.result || 'ok') : `error:${data?.error || 'http_' + status}`;
+    } catch (err) {
+        return `error:${err?.name === 'AbortError' ? 'timeout' : String(err?.message || err || 'error')}`;
+    }
+}
+// Herkunft je Flugplatz fuer den Diagnosebericht (Cloud/OSM, Alter, Upload, Hintergrund-Erneuerung).
+function aptArrivalGeoOriginStart(cloudKey, icao = '') {
+    return { key: cloudKey, icao, at: Date.now(), source: '', cloud: null, osm: null, upload: null, refresh: null, lastUse: 'fetch' };
+}
+function aptArrivalGeoOriginSave(origin) {
+    aptArrivalGeoOrigins.set(origin.key, { ...origin });
+}
+function aptArrivalGeoOriginSessionHit(cloudKey, cached) {
+    const known = aptArrivalGeoOrigins.get(cloudKey);
+    aptArrivalGeoOrigins.set(cloudKey, known ? { ...known, lastUse: 'session' }
+        : { ...aptArrivalGeoOriginStart(cloudKey), source: cached?.cloud ? 'cloud' : String(cached?.source || ''), cloud: cached?.cloud || null, lastUse: 'session' });
+}
+function aptArrivalGeoOrigin(cloudKey) {
+    const origin = aptArrivalGeoOrigins.get(cloudKey);
+    return origin ? JSON.parse(JSON.stringify(origin)) : null;
+}
+if (typeof window !== 'undefined') window.gaAptArrivalGeoOrigin = aptArrivalGeoOrigin;
+
 // Zwischenstand fuer den Piloten (Erstellen/Akzeptieren/Neuversuch): erst nach einem Fehler,
 // damit ein normaler Abruf die Fortschrittsanzeige nicht ueberschreibt.
 function aptArrivalGeoReportStatus(stage, text) {
@@ -599,7 +664,10 @@ async function fetchAptArrivalGeoContext(plan = null, { force = false } = {}) {
         }
     };
     const cached = readCache(sessionStorage);
-    if (cached) return cached;
+    if (cached) {
+        aptArrivalGeoOriginSessionHit(aptArrivalCloudGeoKey(airportLat, airportLon, stripHandoff), cached);
+        return cached;
+    }
     if (aptArrivalGeoContextInflight.has(key)) return aptArrivalGeoContextInflight.get(key);
     const query = `[out:json][timeout:8];
 (
@@ -621,6 +689,8 @@ async function fetchAptArrivalGeoContext(plan = null, { force = false } = {}) {
   way(around:${radiusM},${airportLat},${airportLon})["highway"];
 );
 out tags center geom;`;
+    const cloudKey = aptArrivalCloudGeoKey(airportLat, airportLon, stripHandoff);
+    const icao = String(plan?.icao || plan?.airportIcao || '').trim().toUpperCase();
     const promise = (async () => {
         const errors = [];
         await null;
@@ -629,7 +699,9 @@ out tags center geom;`;
             aptArrivalPruneSessionGeoContextCache(key);
             return normalized;
         };
-        try {
+        // OSM-Kette: zwei Overpass-Server, dann OSM-Karten-API in kleiner werdenden Ausschnitten.
+        // `report` meldet dem Piloten Zwischenstaende; die Hintergrund-Erneuerung bleibt stumm.
+        const osmChain = async (errors, report) => {
             // Overpass ist oft ueberlastet: zwei Server nacheinander, jeder nach einem Fehler
             // eine Weile pausiert, damit Erstellen und Akzeptieren ihn nicht doppelt treffen.
             for (const endpoint of APT_ARRIVAL_OVERPASS_ENDPOINTS) {
@@ -647,14 +719,14 @@ out tags center geom;`;
                     const normalized = normalizeAptArrivalGeoContext(await res.json(), airportLat, airportLon, radiusM, {stripHandoff});
                     if (!normalized) throw new Error('overpass_geometry_incomplete');
                     aptArrivalGeoCooldownClear(endpoint);
-                    if (errors.length) aptArrivalGeoReportStatus('done', 'Kartendaten gefunden, weiter geht’s.');
-                    return store(normalized);
+                    if (errors.length) report('done', 'Kartendaten gefunden, weiter geht’s.');
+                    return normalized;
                 } catch (err) {
                     const message = err?.name === 'AbortError' ? 'timeout' : String(err?.message || err || 'error');
                     errors.push(`${aptArrivalGeoHost(endpoint)}:${message}`);
                     if (message !== 'overpass_geometry_incomplete') aptArrivalGeoCooldownSet(endpoint);
                     console.warn('[APT ARRIVAL GEO] Overpass context unavailable', endpoint, err);
-                    aptArrivalGeoReportStatus('retry', endpoint === APT_ARRIVAL_OVERPASS_ENDPOINTS[APT_ARRIVAL_OVERPASS_ENDPOINTS.length - 1]
+                    report('retry', endpoint === APT_ARRIVAL_OVERPASS_ENDPOINTS[APT_ARRIVAL_OVERPASS_ENDPOINTS.length - 1]
                         ? 'OSM antwortet nicht. Ich lade die Karte des Zielflugplatzes auf anderem Weg, bitte hab etwas Geduld …'
                         : 'OSM antwortet nicht. Ich versuche es bei einem anderen Server, bitte hab etwas Geduld …');
                 } finally {
@@ -678,7 +750,7 @@ out tags center geom;`;
                             const body = response.status === 400 ? await response.text().catch(() => '') : '';
                             if (/too many nodes/i.test(body)) {
                                 errors.push(`osm-map:${mapRadiusM}m:too_many_nodes`);
-                                aptArrivalGeoReportStatus('retry', 'Der Kartenausschnitt ist OSM zu groß. Ich versuche einen kleineren, einen Moment …');
+                                report('retry', 'Der Kartenausschnitt ist OSM zu groß. Ich versuche einen kleineren, einen Moment …');
                                 continue;
                             }
                             throw new Error(`osm_map_http_${response.status}`);
@@ -689,15 +761,15 @@ out tags center geom;`;
                         normalized.source = 'osm-map';
                         normalized.osmMapRadiusM = mapRadiusM;
                         aptArrivalGeoCooldownClear(mapEndpoint);
-                        if (errors.length) aptArrivalGeoReportStatus('done', 'Kartendaten gefunden, weiter geht’s.');
-                        return store(normalized);
+                        if (errors.length) report('done', 'Kartendaten gefunden, weiter geht’s.');
+                        return normalized;
                     } catch (error) {
                         const message = error?.name === 'AbortError' ? 'timeout' : String(error?.message || error || 'error');
                         errors.push(`osm-map:${mapRadiusM}m:${message}`);
                         console.warn('[APT ARRIVAL GEO] OSM map fallback unavailable', error);
                         // Zu grosser Ausschnitt laeuft oft in die Zeitgrenze: kleiner weiterversuchen.
                         if (message === 'timeout' && mapRadiusM !== APT_ARRIVAL_OSM_MAP_RADII_M[APT_ARRIVAL_OSM_MAP_RADII_M.length - 1]) {
-                            aptArrivalGeoReportStatus('retry', 'OSM antwortet sehr langsam. Ich versuche einen kleineren Kartenausschnitt, bitte hab etwas Geduld …');
+                            report('retry', 'OSM antwortet sehr langsam. Ich versuche einen kleineren Kartenausschnitt, bitte hab etwas Geduld …');
                             continue;
                         }
                         if (message !== 'osm_map_geometry_incomplete') aptArrivalGeoCooldownSet(mapEndpoint);
@@ -705,6 +777,47 @@ out tags center geom;`;
                     } finally { clearTimeout(mapTimeout); }
                 }
             }
+            return null;
+        };
+        const origin = aptArrivalGeoOriginStart(cloudKey, icao);
+        try {
+            // Gemeinsamer Vorrat im Worker zuerst: ein Treffer erspart OSM ganz (auch veraltet).
+            const cloud = await aptArrivalCloudGeoRead(cloudKey);
+            origin.cloud = cloud.summary;
+            if (cloud.context) {
+                const ctx = { ...cloud.context, cloud: cloud.summary };
+                origin.source = 'cloud';
+                if (cloud.refreshToken) {
+                    // Faelliger Eintrag: dieser Pilot hat den Erneuerungsauftrag; OSM im Hintergrund.
+                    origin.refresh = { status: 'running', at: Date.now() };
+                    aptArrivalGeoOriginSave(origin);
+                    (async () => {
+                        const bgErrors = [];
+                        const fresh = await osmChain(bgErrors, () => {});
+                        origin.refresh = fresh
+                            ? { status: await aptArrivalCloudGeoWrite(cloudKey, fresh, icao, cloud.refreshToken), at: Date.now(), osmSource: fresh.source }
+                            : { status: 'osm_failed', at: Date.now(), errors: bgErrors.slice(0, 8) };
+                        aptArrivalGeoOriginSave(origin);
+                    })();
+                }
+                aptArrivalGeoOriginSave(origin);
+                return store(ctx);
+            }
+            const normalized = await osmChain(errors, aptArrivalGeoReportStatus);
+            origin.osm = { ok: !!normalized, errors: errors.slice(0, 8), source: normalized?.source || '' };
+            if (normalized) {
+                origin.source = normalized.source;
+                // Fuer alle: der naechste Pilot bekommt diesen Platz ohne OSM.
+                origin.upload = { status: 'running', at: Date.now() };
+                aptArrivalCloudGeoWrite(cloudKey, normalized, icao, '').then(status => {
+                    origin.upload = { status, at: Date.now() };
+                    aptArrivalGeoOriginSave(origin);
+                });
+                aptArrivalGeoOriginSave(origin);
+                return store(normalized);
+            }
+            origin.source = 'none';
+            aptArrivalGeoOriginSave(origin);
             aptArrivalGeoLastFailure = { key, errors, at: Date.now() };
             aptArrivalGeoReportStatus('failed', errors.every(e => e.endsWith(':cooldown'))
                 ? 'OSM hat eben nicht geantwortet. Die Empfangsszene wird vorerst ohne Kartendaten geplant.'
@@ -1509,6 +1622,7 @@ async function resolveAptArrivalPlanPlacement(plan = null, { force = false } = {
                 runwayEndResolved: false,
                 osmContextSummary: ctx?.summary || '',
                 ...(ctx ? {} : { geoFetchFailed: true, geoFetchErrors }),
+                geoOrigin: aptArrivalGeoOrigin(aptArrivalCloudGeoKey(plan.airportLat ?? plan.targetLat, plan.airportLon ?? plan.targetLon, /^bush_strip_/.test(String(plan.role || '')))),
                 resolvedAt: Date.now()
             }
         };
@@ -1527,6 +1641,7 @@ async function resolveAptArrivalPlanPlacement(plan = null, { force = false } = {
         runwayCenterEstimated: ctx?.runwayCenterEstimated === true,
         runwayEndResolved: placement.source === 'osm_runway_side',
         ...(ctx?.osmMapRadiusM ? { osmMapRadiusM: ctx.osmMapRadiusM } : {}),
+        geoOrigin: aptArrivalGeoOrigin(aptArrivalCloudGeoKey(plan.airportLat ?? plan.targetLat, plan.airportLon ?? plan.targetLon, /^bush_strip_/.test(String(plan.role || '')))),
         resolvedAt: Date.now()
     };
     return {

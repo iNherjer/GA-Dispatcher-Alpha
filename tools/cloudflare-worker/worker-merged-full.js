@@ -9,6 +9,8 @@ import { handleTestBoard } from './testboard.mjs';
 import { handleCrewFleet } from './crew-fleet.mjs';
 export { CrewFleet } from './crew-fleet.mjs';
 export { TestBoard } from './testboard.mjs';
+import { handleAirportGeo } from './airport-geo.mjs';
+export { AirportGeoStore } from './airport-geo.mjs';
 import { handleAudioSettings } from './audio-settings.mjs';
 const OPENAIP_KEY = "049026a617e1380ac056e1fd3cc237ae";
 const DEFAULT_OBS_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/tiles";
@@ -2762,6 +2764,10 @@ export default {
 
     if (requestUrl.pathname.startsWith("/api/crew-fleet-v1/")) {
       return handleCrewFleet(request, env, verifySyncProfileAuth, readCrewGroupForPresence);
+    }
+
+    if (requestUrl.pathname.startsWith("/api/airport-geo-v1/")) {
+      return handleAirportGeo(request, env);
     }
 
     if (requestUrl.pathname === "/api/testboard-v1" || requestUrl.pathname.startsWith("/api/testboard-v1/")) {

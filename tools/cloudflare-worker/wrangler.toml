@@ -36,6 +36,10 @@ class_name = "TestBoard"
 name = "GA_CREW_FLEET"
 class_name = "CrewFleet"
 
+[[durable_objects.bindings]]
+name = "GA_AIRPORT_GEO"
+class_name = "AirportGeoStore"
+
 [[migrations]]
 tag = "profile-sync-v1"
 new_sqlite_classes = ["ProfileSync"]
@@ -55,3 +59,7 @@ new_sqlite_classes = ["TestBoard"]
 [[migrations]]
 tag = "crew-fleet-v1"
 new_sqlite_classes = ["CrewFleet"]
+
+[[migrations]]
+tag = "airport-geo-v1"
+new_sqlite_classes = ["AirportGeoStore"]

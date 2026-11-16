@@ -29,6 +29,7 @@ Diese Worker-Datei ergänzt den bestehenden `ga-proxy` um:
 - `POST /api/crew-fleet-v1/:crew/reserve` / `release` (`{ key }`; 409 mit `holder`, wenn jemand anderes die Maschine reserviert hat, fliegt oder gelandet ist; Sperre 12 h)
 - `POST /api/crew-fleet-v1/:crew/event` (Tracker: `{ event: takeoff|parked, title, tail, lat, lon }`; setzt „In der Luft“/„Gelandet“)
 - `GET /api/crew-fleet-v1/:crew/ws` (WebSocket der Desktop-App, Hibernation; `{ type: 'fleet', rev }` bei jeder Änderung, „ping“ → „pong“ ohne Aufwecken). Jede Änderung schreibt `fleetRev` in das Crew-Status-DO; `GET /api/crew-presence-v1/:crew` liefert es mit.
+- `GET /api/airport-geo-v1/<key>` / `POST /api/airport-geo-v1/<key>` (gemeinsamer Vorrat der Flugplatz-Geometrie für Ankunftsszenen; Durable Object `GA_AIRPORT_GEO`, siehe unten)
 - `GET /api/tracker/download` (stabile Weiterleitung auf den aktuellen versionierten Tracker-Release)
 - `GET /api/tracker/download?format=json` (aktuelle Tracker-Version, Größe und SHA-256)
 
@@ -333,3 +334,29 @@ Schreibvorgang). Ohne Eintrag hilft weiter die Schlüsselliste, aber höchstens 
 auch bei vielen unbekannten IDs. `pilotidx:` ist über `/api/sync/` nicht lesbar. Worker-Version
 `180f737b-8c1b-4295-ae68-4b1cd2754df3`. Ein Zwischenspeicher für Anmeldungen wurde verworfen: Nach
 ID-Umbenennung oder PIN-Wechsel hätten alte Zugangsdaten noch bis zu 60 s lesen können.
+
+## Flugplatz-Geometrie-Vorrat v1 (16.11.2026)
+
+`airport-geo.mjs`, Durable Object `AirportGeoStore` (Binding `GA_AIRPORT_GEO`, Migration
+`airport-geo-v1`, SQLite, kostenloser Tarif). Ein Objekt je Flugplatz, Schlüssel
+`airport_<lat>_<lon>` bzw. `strip_<lat>_<lon>` (4 Nachkommastellen). Inhalt: der
+aufbereitete OSM-Platzkontext der App (`apt-arrival-geometry.v2`, etwa 40–250 KB).
+
+- `GET` liefert `{ found, stale, ageDays, storedAt, refreshedAt, version, context, refresh }`.
+- `POST { context, icao?, leaseToken? }` legt an oder erneuert; der Worker prüft Aufbau,
+  Obergrenzen, Lage zum Flugplatz (≤ 3 km) und „nicht leer“ (mindestens eine nutzbare Fläche).
+- Nach 90 Tagen ist ein Eintrag fällig, wird aber nie gelöscht und weiter ausgeliefert. Der
+  erste Leser bekommt für 10 Minuten den Erneuerungsauftrag (`refresh.token`) und fragt OSM im
+  Hintergrund; alle anderen nehmen solange den alten Eintrag.
+- Gleicher Inhalt → `confirmed` (nur Zeitstempel). Anderer, brauchbarer Inhalt → `updated`,
+  Vorversion bleibt als `prevCtx`/`meta.previous`. Schrumpft er unter die Hälfte der Flächen →
+  `pending_confirmation`; erst ein zweiter passender Abruf mindestens eine Minute später ersetzt.
+- Frische Einträge werden nicht überschrieben (`ignored_fresh`/`unchanged`).
+- Kein Login: Lesen und Schreiben sind offen, Schutz durch die strenge Prüfung und die
+  Regeln oben. Ein Eintrag lässt sich bei Bedarf über die Vorversion zurückholen.
+- Kosten: Durable-Object-Anfragen und SQLite-Speicher im Free-Kontingent (eine Leseanfrage
+  je Missionserstellung mit APT-Ankunft, ein Upload je neuem/erneuertem Platz). Kein KV.
+
+Tests: `airport-geo.test.mjs` (Teil von `npm test`). App-Seite: `mission-arrival-core.js`
+(`aptArrivalCloudGeoRead`/`Write`), Diagnosezeile „APT Platzdaten“ in `profile.js`.
+

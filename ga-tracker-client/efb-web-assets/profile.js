@@ -5899,6 +5899,40 @@ function vpAppendGroundComposerDiagnostics(lines, flattenText) {
     lines.push('- Zielszene: (nicht ermittelbar)');
   }
 }
+
+// Herkunft der Platzdaten der Ankunftsszene: Cloud-Vorrat (Alter, Version, faellig, Erneuerung)
+// oder OSM (Fehler je Server, Upload in den Vorrat). Live-Stand dieser Sitzung vor dem Missions-Snapshot.
+function vpAppendAptArrivalGeoOrigin(lines, snap) {
+  var saved = snap && snap.geoOrigin ? snap.geoOrigin : null;
+  var live = saved && typeof window.gaAptArrivalGeoOrigin === 'function' ? window.gaAptArrivalGeoOrigin(saved.key) : null;
+  var o = live || saved;
+  if (!o) {
+    lines.push('- APT Platzdaten: keine Herkunft erfasst (Mission vor Web v2422 oder ohne Abruf)');
+    return;
+  }
+  var day = ts => ts ? new Date(ts).toLocaleString('de-DE', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  }) : '-';
+  var c = o.cloud || null;
+  var cloudText = !c ? 'nicht gefragt' : c.status === 'miss' ? 'kein Eintrag' : c.status === 'error' ? `Fehler (${c.error || '-'})` : `${c.status === 'hit-stale' ? 'Treffer, fällig' : 'Treffer'} | Alter ${String(c.ageDays).replace('.', ',')} Tage | v${c.version || '-'} | gespeichert ${day(c.storedAt)} | bestätigt ${day(c.refreshedAt)}${c.origin ? ' | Ursprung ' + c.origin : ''}${c.pending ? ' | Abweichung wartet auf Bestätigung' : ''}`;
+  var sourceText = {
+    cloud: 'Cloud',
+    overpass: 'OSM Overpass',
+    'osm-map': 'OSM-Karte',
+    none: 'keine (OSM und Cloud ohne Daten)'
+  }[o.source] || o.source || '-';
+  lines.push(`- APT Platzdaten: quelle=${sourceText}${o.lastUse === 'session' ? ' (aus dem Sitzungsspeicher)' : ''} | schlüssel=${o.key}${o.icao ? ' ' + o.icao : ''} | cloud=${cloudText}`);
+  if (o.osm) lines.push(`  OSM: ${o.osm.ok ? 'geladen (' + (o.osm.source || '-') + ')' : 'ohne Daten'}${o.osm.errors && o.osm.errors.length ? ' | fehler=' + o.osm.errors.join(', ') : ''}`);
+  if (o.upload) lines.push(`  Upload in den Vorrat: ${o.upload.status}`);
+  if (c && c.status === 'hit-stale') {
+    var r = o.refresh;
+    lines.push(`  Erneuerung: ${!r ? c.refreshLease ? 'Auftrag erhalten, nicht gestartet' : 'anderer Nutzer erneuert gerade (Auftrag vergeben)' : r.status === 'running' ? 'läuft im Hintergrund' : r.status === 'osm_failed' ? 'OSM ohne Daten, alter Eintrag bleibt' + (r.errors && r.errors.length ? ' (' + r.errors.join(', ') + ')' : '') : 'Ergebnis ' + r.status}`);
+  }
+}
 function vpFormatDebugTs(ts) {
   if (!Number.isFinite(ts) || ts <= 0) return '-';
   try {
@@ -6475,6 +6509,9 @@ window.vpBuildWeatherDebugReport = function () {
       var snap = aptArrival.snapStatus || null;
       var sceneBuilt = snap ? snap.spawnAllowed !== false : aptArrival.source !== 'airport-representative-offset';
       lines.push(`- APT Empfangsszene: ${sceneBuilt ? 'ja' : 'nein, Abholung kommt zum Flugzeug'} | status=${(snap === null || snap === void 0 ? void 0 : snap.status) || 'ungeprueft'} | grund=${(snap === null || snap === void 0 ? void 0 : snap.reason) || '-'}${Array.isArray(snap === null || snap === void 0 ? void 0 : snap.geoFetchErrors) && snap.geoFetchErrors.length ? ` | abruf=${snap.geoFetchErrors.join(', ')}` : ''}${(snap === null || snap === void 0 ? void 0 : snap.status) === 'resolved' && snap !== null && snap !== void 0 && snap.osmMapRadiusM ? ` | osm-map=${snap.osmMapRadiusM} m` : ''}`);
+      try {
+        vpAppendAptArrivalGeoOrigin(lines, snap);
+      } catch (_) {}
       if (aptArrival.expectedBy || aptArrival.visibleCue) {
         lines.push(`- APT Erwartung: ${aptArrival.expectedBy || '-'} | cue=${aptArrival.visibleCue || '-'}`);
       }

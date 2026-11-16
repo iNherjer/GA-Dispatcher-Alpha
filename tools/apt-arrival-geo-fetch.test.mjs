@@ -7,20 +7,25 @@ import vm from 'node:vm';
 const core = fs.readFileSync(new URL('../mission-arrival-core.js', import.meta.url), 'utf8');
 const osm = JSON.parse(fs.readFileSync(new URL('fixtures/arrival-edtw-osm-20261021.json', import.meta.url), 'utf8'));
 
-function setup(handler) {
+function setup(handler, cloud = null) {
+  const cloudCalls = [];
   const storage = new Map();
   const sessionStorage = { getItem: k => storage.get(k) ?? null, setItem: (k, v) => storage.set(k, String(v)), removeItem: k => storage.delete(k), key: i => [...storage.keys()][i] ?? null, get length() { return storage.size; } };
   const calls = [];
   const events = [];
   class CustomEvent { constructor(type, init) { this.type = type; this.detail = init?.detail; } }
   const c = vm.createContext({ CustomEvent, window: { dispatchEvent: e => events.push(e.detail) }, console: { warn() {}, log() {}, debug() {} }, Map, sessionStorage, AbortController, setTimeout, clearTimeout,
-    fetch: async (url, opts) => { calls.push(String(url)); return handler(String(url), opts, calls); } });
+    fetch: async (url, opts) => {
+      const u = String(url);
+      if (u.includes('/api/airport-geo-v1/')) { cloudCalls.push({ url: u, opts }); return (cloud || (() => res(200, JSON.stringify({ ok: true, found: false }))))(u, opts); }
+      calls.push(u); return handler(u, opts, calls);
+    } });
   vm.runInContext(core, c);
   c.aptArrivalParseOsmMapXml = () => osm;
   c.normalizeAptArrivalRole = () => ({ role: 'charter_pickup', personRole: 'person.ground_crew', vehicleRole: 'vehicle.car' });
   c.normalizeMissionType = () => 'apt';
   const plan = c.buildAptArrivalPlan({ dest: { lat: 48.27917, lon: 8.42833, icao: 'EDTW' }, heading: 75 });
-  return { c, plan, calls, storage, events };
+  return { c, plan, calls, storage, events, cloudCalls };
 }
 const res = (status, body = '') => ({ ok: status >= 200 && status < 300, status, json: async () => JSON.parse(body), text: async () => body });
 
@@ -93,4 +98,70 @@ test('service worker never routes Overpass mirrors or the OSM map API through it
   const core = fs.readFileSync(new URL('../mission-arrival-core.js', import.meta.url), 'utf8');
   for (const host of ['overpass-api.de', 'overpass.private.coffee', 'api.openstreetmap.org']) assert.ok(list.includes(`'${host}'`), host);
   assert.match(core, /'https:\/\/overpass\.private\.coffee\/api\/interpreter'/);
+});
+
+// Gemeinsamer Platzvorrat im Worker (16.11.2026).
+const ctxOf = () => { const { c, plan } = setup(() => res(500)); return JSON.parse(JSON.stringify(c.normalizeAptArrivalGeoContext(osm, plan.airportLat, plan.airportLon, 1400, {}))); };
+const flush = () => new Promise(r => setTimeout(r, 0));
+
+test('cloud hit: no OSM request, the place comes from the shared store and the report knows its age', async () => {
+  const stored = ctxOf();
+  const { c, plan, calls, cloudCalls } = setup(() => res(500), () => res(200, JSON.stringify({ ok: true, found: true, stale: false, ageDays: 12.5, version: 2, storedAt: 1, refreshedAt: 2, context: stored })));
+  const resolved = await c.resolveAptArrivalPlanPlacement(plan);
+  assert.equal(resolved.snapStatus.status, 'resolved');
+  assert.equal(calls.length, 0, 'OSM not asked');
+  assert.equal(cloudCalls.length, 1);
+  assert.match(cloudCalls[0].url, /airport-geo-v1\/airport_48\.2792_8\.4283$/);
+  assert.equal(resolved.snapStatus.geoOrigin.source, 'cloud');
+  assert.equal(resolved.snapStatus.geoOrigin.cloud.ageDays, 12.5);
+  assert.equal(resolved.snapStatus.geoOrigin.cloud.status, 'hit');
+});
+
+test('cloud miss: OSM result is used and uploaded for everyone', async () => {
+  const { c, plan, cloudCalls } = setup(() => res(200, JSON.stringify(osm)), (u, opts) => opts?.method === 'POST'
+    ? res(200, JSON.stringify({ ok: true, result: 'stored' })) : res(200, JSON.stringify({ ok: true, found: false })));
+  const resolved = await c.resolveAptArrivalPlanPlacement(plan);
+  assert.equal(resolved.snapStatus.status, 'resolved');
+  await flush(); await flush();
+  const upload = cloudCalls.find(call => call.opts?.method === 'POST');
+  assert.ok(upload, 'uploaded');
+  const body = JSON.parse(upload.opts.body);
+  assert.equal(body.context.schema, 'apt-arrival-geometry.v2');
+  assert.equal(body.leaseToken, '');
+  const origin = c.window.gaAptArrivalGeoOrigin('airport_48.2792_8.4283');
+  assert.equal(origin.source, 'overpass');
+  assert.equal(origin.upload.status, 'stored');
+});
+
+test('stale cloud entry with lease: served at once, OSM refresh runs in the background and uploads with the lease', async () => {
+  const stored = ctxOf();
+  const { c, plan, calls, cloudCalls } = setup(() => res(200, JSON.stringify(osm)), (u, opts) => opts?.method === 'POST'
+    ? res(200, JSON.stringify({ ok: true, result: 'confirmed' }))
+    : res(200, JSON.stringify({ ok: true, found: true, stale: true, ageDays: 95, version: 1, context: stored, refresh: { token: 'lease-1' } })));
+  const resolved = await c.resolveAptArrivalPlanPlacement(plan);
+  assert.equal(resolved.snapStatus.status, 'resolved');
+  assert.equal(resolved.snapStatus.geoOrigin.refresh.status, 'running');
+  for (let i = 0; i < 5; i++) await flush();
+  assert.ok(calls.some(u => u.includes('interpreter')), 'background OSM request');
+  assert.equal(JSON.parse(cloudCalls.find(call => call.opts?.method === 'POST').opts.body).leaseToken, 'lease-1');
+  assert.equal(c.window.gaAptArrivalGeoOrigin('airport_48.2792_8.4283').refresh.status, 'confirmed');
+});
+
+test('stale entry and OSM down: old entry stays in use, report says so', async () => {
+  const stored = ctxOf();
+  const { c, plan } = setup(() => res(502), () => res(200, JSON.stringify({ ok: true, found: true, stale: true, ageDays: 120, version: 3, context: stored, refresh: { token: 't' } })));
+  const resolved = await c.resolveAptArrivalPlanPlacement(plan);
+  assert.equal(resolved.snapStatus.status, 'resolved');
+  for (let i = 0; i < 8; i++) await flush();
+  const origin = c.window.gaAptArrivalGeoOrigin('airport_48.2792_8.4283');
+  assert.equal(origin.source, 'cloud');
+  assert.equal(origin.refresh.status, 'osm_failed');
+});
+
+test('cloud unreachable: everything runs over OSM as before', async () => {
+  const { c, plan } = setup(() => res(200, JSON.stringify(osm)), () => { throw new TypeError('Load failed'); });
+  const resolved = await c.resolveAptArrivalPlanPlacement(plan);
+  assert.equal(resolved.snapStatus.status, 'resolved');
+  assert.equal(resolved.snapStatus.geoOrigin.cloud.status, 'error');
+  assert.equal(resolved.snapStatus.geoOrigin.source, 'overpass');
 });

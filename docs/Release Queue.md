@@ -27,7 +27,13 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-_(leer)_
+### 2026-11-16 · EFB-Kopie profile.js: Diagnosezeile „APT Platzdaten“
+- **Artefakt:** Tracker-EXE (EFB-Web-Assets); Web live mit v2422
+- **Dateien:** `ga-tracker-client/efb-web-assets/profile.js` (Kopie per `sync-efb-web-assets.js`)
+- **Was:** Diagnosezeile zur Herkunft der Platzdaten (Cloud-Vorrat/OSM, Alter, Upload, Erneuerung). Im EFB ohne Wirkung; nur Gleichstand der Kopie.
+- **Tests:** `efb-web-assets-sync.test.js`, `tracker-efb-asset-syntax.test.js`.
+- **Doku beim Release:** keine.
+- **Pruefen im Feld:** nichts.
 
 ## Ausgeliefert
 
