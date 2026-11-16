@@ -44570,6 +44570,8 @@ function renderMissionProposalBriefing({ start = null, choices = [], context = {
         ${cards}
         <button type="button" onclick="window.cancelMissionProposalSelection(); event.stopPropagation();" style="border:1px solid rgba(0,0,0,0.45); background:transparent; color:#222; border-radius:4px; padding:6px 9px; font-size:12px; cursor:pointer;">Abbrechen</button>
     `);
+    // Umschlag liest Überschrift und Startplatz aus mTitle/mDep*; sonst bliebe der Titel der vorigen Mission stehen.
+    window.gaBriefingEnvelope?.receive();
     const box = document.getElementById('briefingBox');
     if (box) {
         box.style.display = 'block';

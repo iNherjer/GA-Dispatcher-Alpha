@@ -118,3 +118,10 @@ test('charter events: grounded sources, two-week window, kind, match within reac
  assert.equal(core.validate(raw,core.frame(route,4,[],[],{id:'kultur'})).event,undefined);
  const two=core.pickOccasions([],2,Math.random,['kultur']);assert.equal(two.length,2);assert.ok(two.every(o=>o.id!=='kultur'));
 });
+
+test('overlong greeting is shortened at the last full sentence instead of failing the briefing',()=>{
+ const long='Guten Tag. '+'Wir freuen uns sehr auf den Flug über den Schwarzwald und die Tage in Freiburg. '.repeat(5)+'Bis gleich!';
+ assert.ok(long.length>400);const w=core.prose({...written,greeting:long});assert.ok(w);assert.ok(w.greeting.length<=400);assert.match(w.greeting,/[.!?]$/);
+ assert.equal(core.prose({...written,greeting:'x'.repeat(450)}),null,'ohne Satzende ungültig');
+ assert.equal(core.prose(written).greeting,written.greeting.trim());
+});
