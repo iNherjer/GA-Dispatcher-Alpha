@@ -1,0 +1,68 @@
+{
+  "prompt": "Suche nach Veranstaltungen in Freiburg im Breisgau und direkter Umgebung (höchstens 20 km) vom 2026-11-16 bis 2026-11-29: Konzerte, Theater, Ausstellungen, Märkte, Feste, Sportveranstaltungen, Messen. Nur Veranstaltungen, die tatsächlich an einem Ort in Freiburg oder direkter Umgebung stattfinden und für auswärtige Besucher interessant sind. kind ist genau einer von kultur, genuss, hobby, erlebnis, beruf. Maximal 8 Treffer.",
+  "usage": {
+    "promptTokenCount": 291,
+    "candidatesTokenCount": 1032,
+    "totalTokenCount": 1323,
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 291
+      }
+    ],
+    "serviceTier": "standard"
+  },
+  "queries": [
+    "Veranstaltungen Freiburg im Breisgau 16.11.2026 bis 29.11.2026",
+    "Konzerte Freiburg November 2026",
+    "Theater Freiburg Spielplan November 2026",
+    "Messen Freiburg 2026 Termine",
+    "Weihnachtsmarkt Freiburg 2026 Beginn",
+    "Sportveranstaltungen Freiburg November 2026"
+  ],
+  "chunks": [
+    "wurst-koch.de",
+    "reservix.de"
+  ],
+  "supports": 2,
+  "urlMeta": null,
+  "raw": "Kontrollverlust - Märchen schreit die Zeit Tour 2026 | 13460875 | Kontrollverlust - Märchen schreit die Zeit Tour 2026 | Jazzhaus Freiburg | 47.9942 | 7.8465 | 2026-11-16 | 2026-11-16 | kultur | https://www.eventim.de/event/kontrollverlust-maerchen-schreit-die-zeit-tour-202627-jazzhaus-18968958/ | Live-Konzert der Coverband Kontrollverlust mit neuem Programm im Jazzhaus.\nRAT BOY / ESCAPE | 21548231 | RAT BOY / ESCAPE | ArTik Freiburg | 47.9892 | 7.8398 | 2026-11-18 | 2026-11-18 | kultur | https://www.eventim.de/event/rat-boy-escape-artik-18698547/ | Punkrock-Konzert mit Acts aus Großbritannien und Frankreich.\nFreiburger Weihnachtsmarkt | 58249110 | Freiburger Weihnachtsmarkt 2026 | Rathausplatz und Innenstadt Freiburg | 47.9961 | 7.8489 | 2026-11-19 | 2026-12-23 | genuss | https://weihnachtsmarkt.freiburg.de/ | Traditioneller Markt mit über 120 Ständen, Kunsthandwerk und kulinarischen Spezialitäten.\nAmusez-vous: Jacques Offenbach | 33852104 | Amusez-vous: Jacques Offenbach | Theater Freiburg Großes Haus | 47.9947 | 7.8447 | 2026-11-20 | 2026-11-21 | kultur | https://theater.freiburg.de/de_DE/programm/amusez-vous-jacques-offenbach.17726587 | Operetten-Revue am Stadttheater Freiburg.\nKOK 130 - World Series in Freiburg | 44921035 | KOK 130 - World Series in Freiburg | Messe Freiburg SICK-Arena | 48.0211 | 7.8375 | 2026-11-21 | 2026-11-21 | erlebnis | https://www.eventim.de/event/kok-130-world-series-in-freiburg-sick-arena-messe-freiburg-19106096/ | Internationales Kampfsport-Event (King of Kings) in der SICK-Arena.\nHymnen der Seele | 12904873 | Hymnen der Seele - Konzert der Freiburger Kantorei | Christuskirche Freiburg | 47.9863 | 7.8492 | 2026-11-21 | 2026-11-21 | kultur | https://rausgegangen.de/events/hymnen-der-seele-0/ | Chorkonzert mit Werken von Bernstein (Chichester Psalms) und Rutter (Requiem).\nSophia oder Das Ende der Humanisten | 66921048 | Sophia oder Das Ende der Humanisten | Wallgraben Theater Freiburg | 47.9964 | 7.8496 | 2026-11-24 | 2026-11-25 | kultur | https://www.wallgraben-theater.com/ | Theateraufführung im historischen Gewölbekeller des Rathauses.\n20. Herdermer Weihnachtsmarkt | 77249150 | 20. Herdermer Weihnachtsmarkt | Kirchplatz Herdern Freiburg | 48.0069 | 7.8594 | 2026-11-28 | 2026-11-28 | genuss | https://visit.freiburg.de/veranstaltungskalender/20-herdermer-weihnachtsmarkt-2026 | Großer Stadtteil-Weihnachtsmarkt mit bürgerschaftlichem Engagement und Nikolausbesuch.",
+  "verified": [
+    {
+      "id": "58249110",
+      "title": "Freiburger Weihnachtsmarkt 2026",
+      "venue": "Rathausplatz und Innenstadt Freiburg",
+      "lat": 47.9961,
+      "lon": 7.8489,
+      "startsOn": "2026-11-19",
+      "endsOn": "2026-12-23",
+      "kind": "genuss",
+      "sourceUrl": "https://wurst-koch.de",
+      "sourceDomains": [
+        "wurst-koch.de"
+      ],
+      "sourceMatch": false,
+      "sourceFetched": false,
+      "visitorInfo": "Traditioneller Markt mit über 120 Ständen, Kunsthandwerk und kulinarischen Spezialitäten.",
+      "retrievedAt": "2026-11-16T05:16:39.346Z"
+    },
+    {
+      "id": "66921048",
+      "title": "Sophia oder Das Ende der Humanisten",
+      "venue": "Wallgraben Theater Freiburg",
+      "lat": 47.9964,
+      "lon": 7.8496,
+      "startsOn": "2026-11-24",
+      "endsOn": "2026-11-25",
+      "kind": "kultur",
+      "sourceUrl": "https://reservix.de",
+      "sourceDomains": [
+        "reservix.de"
+      ],
+      "sourceMatch": false,
+      "sourceFetched": false,
+      "visitorInfo": "Theateraufführung im historischen Gewölbekeller des Rathauses.",
+      "retrievedAt": "2026-11-16T05:16:39.346Z"
+    }
+  ]
+}

@@ -1,0 +1,358 @@
+{
+  "date": "2026-11-16",
+  "runs": [
+    {
+      "icao": "EDTF",
+      "occasion": "urlaub",
+      "place": "Freiburg im Breisgau",
+      "queries": 8,
+      "usage": {
+        "promptTokenCount": 396,
+        "candidatesTokenCount": 1007,
+        "totalTokenCount": 1403,
+        "promptTokensDetails": [
+          {
+            "modality": "TEXT",
+            "tokenCount": 396
+          }
+        ],
+        "serviceTier": "standard"
+      },
+      "events": [
+        {
+          "id": "cbs_2026",
+          "title": "City of Birmingham Symphony Orchestra",
+          "venue": "Konzerthaus Freiburg",
+          "lat": 47.9946,
+          "lon": 7.8415,
+          "startsOn": "2026-11-16",
+          "endsOn": "2026-11-16",
+          "kind": "kultur",
+          "sourceUrl": "https://concerti.de",
+          "sourceDomains": [
+            "concerti.de"
+          ],
+          "sourceMatch": false,
+          "sourceFetched": false,
+          "verification": "supported",
+          "visitorInfo": "Klassik-Konzert mit Werken von Brahms und Bartók unter der Leitung von Kazuki Yamada und Pianist Lukas Sternath um 20:00 Uhr im Rolf-Böhme-Saal.",
+          "retrievedAt": "2026-11-16T05:29:38.294Z"
+        },
+        {
+          "id": "reg_27_ex",
+          "title": "Regionale 27 - Kunstausstellung",
+          "venue": "E-WERK Freiburg",
+          "lat": 47.9968,
+          "lon": 7.8344,
+          "startsOn": "2026-11-26",
+          "endsOn": "2027-01-17",
+          "kind": "kultur",
+          "sourceUrl": "https://ewerk-freiburg.de/veranstaltungen/regionale-27-ausstellung/",
+          "sourceDomains": [
+            "ewerk-freiburg.de"
+          ],
+          "sourceMatch": true,
+          "sourceFetched": false,
+          "verification": "supported",
+          "visitorInfo": "Trinationales Ausstellungsprojekt zeitgenössischer Kunst aus der Region Basel, Elsass und Südbaden in der Galerie für Gegenwartskunst.",
+          "retrievedAt": "2026-11-16T05:29:38.294Z"
+        },
+        {
+          "id": "f_wm_2026",
+          "title": "Freiburger Weihnachtsmarkt",
+          "venue": "Rathausplatz und Innenstadt",
+          "lat": 47.9961,
+          "lon": 7.8491,
+          "startsOn": "2026-11-19",
+          "endsOn": "2026-12-23",
+          "kind": "genuss",
+          "sourceUrl": "https://weihnachtsmarkt.freiburg.de/",
+          "sourceDomains": [],
+          "sourceMatch": false,
+          "sourceFetched": false,
+          "verification": "search",
+          "visitorInfo": "Über 150 Stände mit Kunsthandwerk und kulinarischen Spezialitäten wie der Langen Roten; werktags ab 10:00 Uhr, sonntags ab 11:30 Uhr (am 22.11. geschlossen).",
+          "retrievedAt": "2026-11-16T05:29:38.294Z"
+        },
+        {
+          "id": "pd_fest_26",
+          "title": "Performing Democracy Festival",
+          "venue": "E-WERK Freiburg",
+          "lat": 47.9968,
+          "lon": 7.8344,
+          "startsOn": "2026-11-12",
+          "endsOn": "2026-11-16",
+          "kind": "kultur",
+          "sourceUrl": "https://ewerk-freiburg.de/veranstaltungen/performing-democracy-2026-festivaleroeffnung/",
+          "sourceDomains": [],
+          "sourceMatch": false,
+          "sourceFetched": false,
+          "verification": "search",
+          "visitorInfo": "Internationales Festival mit Gastspielen aus Tanz und Theater; das Programm umfasst Performances und Diskussionen zur Stärkung der Demokratie.",
+          "retrievedAt": "2026-11-16T05:29:38.294Z"
+        },
+        {
+          "id": "kv_2026",
+          "title": "Kontrollverlust - Märchen schreit die Zeit Tour",
+          "venue": "Jazzhaus Freiburg",
+          "lat": 47.994,
+          "lon": 7.8447,
+          "startsOn": "2026-11-16",
+          "endsOn": "2026-11-16",
+          "kind": "kultur",
+          "sourceUrl": "https://www.jazzhaus.de/programm/details/kontrollverlust.html",
+          "sourceDomains": [],
+          "sourceMatch": false,
+          "sourceFetched": false,
+          "verification": "search",
+          "visitorInfo": "Pop- und Rock-Konzert der Band Kontrollverlust mit Fokus auf Anime- und Gaming-Soundtracks um 20:00 Uhr.",
+          "retrievedAt": "2026-11-16T05:29:38.294Z"
+        },
+        {
+          "id": "nob_bg_26",
+          "title": "Nights on Broadway - A Tribute to the Bee Gees",
+          "venue": "Konzerthaus Freiburg",
+          "lat": 47.9946,
+          "lon": 7.8415,
+          "startsOn": "2026-11-21",
+          "endsOn": "2026-11-21",
+          "kind": "kultur",
+          "sourceUrl": "https://konzerthaus.freiburg.de/veranstaltungskalender",
+          "sourceDomains": [],
+          "sourceMatch": false,
+          "sourceFetched": false,
+          "verification": "search",
+          "visitorInfo": "Tribute-Show mit den großen Hits der Bee Gees performed by Night Fever um 20:00 Uhr.",
+          "retrievedAt": "2026-11-16T05:29:38.294Z"
+        },
+        {
+          "id": "fat_cat_26",
+          "title": "FATCAT - FOREVER Tour",
+          "venue": "Jazzhaus Freiburg",
+          "lat": 47.994,
+          "lon": 7.8447,
+          "startsOn": "2026-11-28",
+          "endsOn": "2026-11-28",
+          "kind": "kultur",
+          "sourceUrl": "https://www.jazzhaus.de/programm/details/fatcat.html",
+          "sourceDomains": [],
+          "sourceMatch": false,
+          "sourceFetched": false,
+          "verification": "search",
+          "visitorInfo": "Funk- und Disco-Konzert mit achtköpfiger Live-Band und energiegeladener Bühnenshow um 20:00 Uhr.",
+          "retrievedAt": "2026-11-16T05:29:38.294Z"
+        }
+      ],
+      "pick": {
+        "event": {
+          "id": "reg_27_ex",
+          "title": "Regionale 27 - Kunstausstellung",
+          "venue": "E-WERK Freiburg",
+          "lat": 47.9968,
+          "lon": 7.8344,
+          "startsOn": "2026-11-26",
+          "endsOn": "2027-01-17",
+          "kind": "kultur",
+          "sourceUrl": "https://ewerk-freiburg.de/veranstaltungen/regionale-27-ausstellung/",
+          "sourceDomains": [
+            "ewerk-freiburg.de"
+          ],
+          "sourceMatch": true,
+          "sourceFetched": false,
+          "verification": "supported",
+          "visitorInfo": "Trinationales Ausstellungsprojekt zeitgenössischer Kunst aus der Region Basel, Elsass und Südbaden in der Galerie für Gegenwartskunst.",
+          "retrievedAt": "2026-11-16T05:29:38.294Z"
+        },
+        "km": 3
+      }
+    },
+    {
+      "icao": "EDDH",
+      "occasion": "vip",
+      "place": "Hamburg",
+      "queries": 12,
+      "usage": {
+        "promptTokenCount": 2747,
+        "candidatesTokenCount": 862,
+        "totalTokenCount": 6591,
+        "cachedContentTokenCount": 873,
+        "promptTokensDetails": [
+          {
+            "modality": "TEXT",
+            "tokenCount": 2747
+          }
+        ],
+        "cacheTokensDetails": [
+          {
+            "modality": "TEXT",
+            "tokenCount": 873
+          }
+        ],
+        "thoughtsTokenCount": 2982,
+        "serviceTier": "standard"
+      },
+      "events": [
+        {
+          "id": "1",
+          "title": "Branford Marsalis & Dianne Reeves Celebrate John Coltrane",
+          "venue": "Elbphilharmonie Großer Saal",
+          "lat": 53.541,
+          "lon": 9.984,
+          "startsOn": "2026-11-16",
+          "endsOn": "2026-11-16",
+          "kind": "kultur",
+          "sourceUrl": "https://www.elbphilharmonie.de/de/programm/branford-marsalis-dianne-reeves-celebrate-john-coltrane/21639",
+          "sourceDomains": [
+            "elbphilharmonie.de"
+          ],
+          "sourceMatch": true,
+          "sourceFetched": false,
+          "verification": "supported",
+          "visitorInfo": "Jazz-Größen ehren die Legende John Coltrane mit einem Tribute-Konzert um 20:00 Uhr.",
+          "retrievedAt": "2026-11-16T05:29:57.948Z"
+        },
+        {
+          "id": "2",
+          "title": "GET NORD",
+          "venue": "Hamburg Messe",
+          "lat": 53.562,
+          "lon": 9.982,
+          "startsOn": "2026-11-19",
+          "endsOn": "2026-11-21",
+          "kind": "beruf",
+          "sourceUrl": "https://www.get-nord.de/",
+          "sourceDomains": [],
+          "sourceMatch": false,
+          "sourceFetched": false,
+          "verification": "search",
+          "visitorInfo": "Gemeinsame Fachmesse für Elektro, Sanitär, Heizung und Klima mit Fokus auf vernetzte Gebäudetechnik.",
+          "retrievedAt": "2026-11-16T05:29:57.948Z"
+        },
+        {
+          "id": "3",
+          "title": "Lebensfreude Herbstmesse Hamburg",
+          "venue": "Messehalle Hamburg-Schnelsen",
+          "lat": 53.629,
+          "lon": 9.921,
+          "startsOn": "2026-11-20",
+          "endsOn": "2026-11-22",
+          "kind": "hobby",
+          "sourceUrl": "https://www.lebensfreude-messen.de/lebensfreude-herbstmesse-hamburg/",
+          "sourceDomains": [],
+          "sourceMatch": false,
+          "sourceFetched": false,
+          "verification": "search",
+          "visitorInfo": "Messe für alternative Gesundheit, Achtsamkeit und Ernährung mit über 100 Ausstellern und Workshops ab 10:00 Uhr.",
+          "retrievedAt": "2026-11-16T05:29:57.948Z"
+        },
+        {
+          "id": "4",
+          "title": "Hamburger Winterdom",
+          "venue": "Heiligengeistfeld",
+          "lat": 53.553,
+          "lon": 9.969,
+          "startsOn": "2026-11-06",
+          "endsOn": "2026-12-06",
+          "kind": "kultur",
+          "sourceUrl": "https://www.hamburg.de/dom/",
+          "sourceDomains": [],
+          "sourceMatch": false,
+          "sourceFetched": false,
+          "verification": "search",
+          "visitorInfo": "Norddeutschlands größtes Volksfest mit Fahrgeschäften, Buden und Feuerwerk (jeden Freitag um 22:30 Uhr).",
+          "retrievedAt": "2026-11-16T05:29:57.948Z"
+        },
+        {
+          "id": "5",
+          "title": "40. DGI-Kongress",
+          "venue": "Hamburg Messe",
+          "lat": 53.562,
+          "lon": 9.982,
+          "startsOn": "2026-11-26",
+          "endsOn": "2026-11-28",
+          "kind": "beruf",
+          "sourceUrl": "https://www.dgi-kongress.de/",
+          "sourceDomains": [],
+          "sourceMatch": false,
+          "sourceFetched": false,
+          "verification": "search",
+          "visitorInfo": "Wissenschaftlicher Fachkongress der Deutschen Gesellschaft für Implantologie unter dem Motto Erfahrung trifft Innovation.",
+          "retrievedAt": "2026-11-16T05:29:57.948Z"
+        },
+        {
+          "id": "6",
+          "title": "Spielemesse Hamburg",
+          "venue": "Hamburg Messe",
+          "lat": 53.562,
+          "lon": 9.982,
+          "startsOn": "2026-11-27",
+          "endsOn": "2026-11-29",
+          "kind": "hobby",
+          "sourceUrl": "https://www.spielemesse-hh.de/",
+          "sourceDomains": [],
+          "sourceMatch": false,
+          "sourceFetched": false,
+          "verification": "search",
+          "visitorInfo": "Publikumsmesse für Brettspiele, Rollenspiele und LEGO-Sonderausstellung mit großen freien Spielflächen.",
+          "retrievedAt": "2026-11-16T05:29:57.948Z"
+        },
+        {
+          "id": "7",
+          "title": "Deportationen nach Minsk 1941",
+          "venue": "Info-Pavillon denk.mal Hannoverscher Bahnhof",
+          "lat": 53.541,
+          "lon": 10.005,
+          "startsOn": "2026-06-03",
+          "endsOn": "2026-11-30",
+          "kind": "kultur",
+          "sourceUrl": "https://www.hamburg.de/gedenkorte/",
+          "sourceDomains": [],
+          "sourceMatch": false,
+          "sourceFetched": false,
+          "verification": "search",
+          "visitorInfo": "Installation und Ausstellung mit Fotografien und Filmen zum Gedenken an die Deportationen jüdischer Bürger.",
+          "retrievedAt": "2026-11-16T05:29:57.948Z"
+        },
+        {
+          "id": "8",
+          "title": "Thierry Escaich - Mirrored Dances",
+          "venue": "Elbphilharmonie Großer Saal",
+          "lat": 53.541,
+          "lon": 9.984,
+          "startsOn": "2026-11-17",
+          "endsOn": "2026-11-17",
+          "kind": "kultur",
+          "sourceUrl": "https://www.elbphilharmonie.de/de/programm/thierry-escaich/21578",
+          "sourceDomains": [],
+          "sourceMatch": false,
+          "sourceFetched": false,
+          "verification": "search",
+          "visitorInfo": "Orgelkonzert mit Werken von Bach und Lully sowie eigenen Kompensationen und Improvisationen um 20:00 Uhr.",
+          "retrievedAt": "2026-11-16T05:29:57.948Z"
+        }
+      ],
+      "pick": {
+        "event": {
+          "id": "1",
+          "title": "Branford Marsalis & Dianne Reeves Celebrate John Coltrane",
+          "venue": "Elbphilharmonie Großer Saal",
+          "lat": 53.541,
+          "lon": 9.984,
+          "startsOn": "2026-11-16",
+          "endsOn": "2026-11-16",
+          "kind": "kultur",
+          "sourceUrl": "https://www.elbphilharmonie.de/de/programm/branford-marsalis-dianne-reeves-celebrate-john-coltrane/21639",
+          "sourceDomains": [
+            "elbphilharmonie.de"
+          ],
+          "sourceMatch": true,
+          "sourceFetched": false,
+          "verification": "supported",
+          "visitorInfo": "Jazz-Größen ehren die Legende John Coltrane mit einem Tribute-Konzert um 20:00 Uhr.",
+          "retrievedAt": "2026-11-16T05:29:57.948Z"
+        },
+        "km": 10
+      }
+    }
+  ]
+}

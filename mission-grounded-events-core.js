@@ -28,10 +28,15 @@ function supportsByLine(raw,meta){
  return {rows,map};
 }
 // Liefert geprüfte Veranstaltungen im Zeitraum; kinds optional (null = Feld wird ignoriert).
-function parse(body,period,{kinds=null,limit=8}={}){
+// Stufen: verification 'supported' = Zeile durch Suchbeleg gestützt oder Quellseite abgerufen;
+// 'search' (nur mit lenient) = Suche lief nachweislich, die Zeile selbst ist nicht einzeln belegt.
+// Gemini hängt über die Schnittstelle nur wenige Belege an (Live 16.11.2026: 2 von 8 lokalen Treffern),
+// deshalb nutzen Charter und Verein die gestufte Annahme; belegte Treffer werden bevorzugt.
+function parse(body,period,{kinds=null,limit=8,lenient=false}={}){
  const candidate=body?.candidates?.[0],raw=textOf(candidate);if(!raw)return [];
  const {rows,map}=supportsByLine(raw,candidate?.groundingMetadata);
  const fetchedUrls=new Set((candidate?.urlContextMetadata?.urlMetadata||candidate?.url_context_metadata?.url_metadata||[]).filter(m=>/SUCCESS/i.test(String(m.urlRetrievalStatus||m.url_retrieval_status||''))).map(m=>normUrl(m.retrievedUrl||m.retrieved_url)));
+ const searched=(candidate?.groundingMetadata?.webSearchQueries||[]).length>0;
  const out=[];
  rows.forEach((r,i)=>{
   const t=r.line.trim().replace(/^[-*•]\s*/,'');if(!t.includes('|'))return;
@@ -43,14 +48,16 @@ function parse(body,period,{kinds=null,limit=8}={}){
   const fetched=fetchedUrls.has(normUrl(cells[FIELDS.indexOf('sourceUrl')]));
   const domains=[...(map.get(i)||[])];
   if(fetched)domains.unshift(host(cells[FIELDS.indexOf('sourceUrl')]));
-  if(!domains.length)return; // weder durch Suchbeleg gestützt noch Quellseite nachweislich abgerufen
+  const supported=domains.length>0;
+  if(!supported&&!(lenient&&searched))return; // weder belegt noch (gelockert) aus einer tatsächlich ausgeführten Suche
   if(!e.id||!e.title||!e.visitorInfo||!Number.isFinite(e.lat)||!Number.isFinite(e.lon)||Math.abs(e.lat)>90||Math.abs(e.lon)>180)return;
   if(!validDate(e.startsOn)||!validDate(e.endsOn)||e.startsOn>e.endsOn||e.endsOn<period.from||e.startsOn>period.through)return;
   if(kinds&&!kinds.includes(e.kind))return;
   const matched=domains.find(d=>sameDomain(d,host(e.sourceUrl)));
   // Die Modell-URL bleibt nur, wenn ihre Domain belegt ist; sonst gilt die belegende Domain als Quelle.
-  out.push({id:e.id,title:e.title,venue:e.venue||'',lat:e.lat,lon:e.lon,startsOn:e.startsOn,endsOn:e.endsOn,...(kinds?{kind:e.kind}:{}),sourceUrl:matched&&/^https:\/\//.test(e.sourceUrl)?e.sourceUrl:'https://'+domains[0],sourceDomains:domains,sourceMatch:!!matched,sourceFetched:fetched,visitorInfo:e.visitorInfo,retrievedAt:new Date().toISOString()});
+  out.push({id:e.id,title:e.title,venue:e.venue||'',lat:e.lat,lon:e.lon,startsOn:e.startsOn,endsOn:e.endsOn,...(kinds?{kind:e.kind}:{}),sourceUrl:(matched||!supported)&&/^https:\/\//.test(e.sourceUrl)?e.sourceUrl:supported?'https://'+domains[0]:'',sourceDomains:domains,sourceMatch:!!matched,sourceFetched:fetched,verification:supported?'supported':'search',visitorInfo:e.visitorInfo,retrievedAt:new Date().toISOString()});
  });
+ out.sort((a,b)=>(a.verification==='supported'?0:1)-(b.verification==='supported'?0:1));
  return out.slice(0,limit);
 }
 async function request({prompt,apiKey,fetchImpl=fetch,maxOutputTokens=6000}){

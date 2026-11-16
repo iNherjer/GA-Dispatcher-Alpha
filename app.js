@@ -44175,7 +44175,7 @@ async function buildMissionProposalAptChoices(context = {}) {
         maxNM: context.searchMax,
         dirPref: context.dirPref,
         regionPref: context.regionPref,
-        limit: (profileId === 'club_utility' && context.aiModeEnabled) || charter ? 100 : 18
+        limit: profileId === 'club_utility' && context.aiModeEnabled ? 100 : 18
     });
     if (context.aiModeEnabled && profileId === 'sightseeing_tour') return window.MissionSightseeingBrowser.choices(airports,context);
     if (context.aiModeEnabled && profileId === 'news_coverage') return window.MissionAptNewsBrowser.choices(airports,context);
