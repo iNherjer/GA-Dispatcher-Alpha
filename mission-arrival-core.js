@@ -248,7 +248,7 @@ async function aptArrivalCloudGeoRead(cloudKey) {
             refreshToken: data.refresh?.token || '',
             summary: { status: context ? (data.stale ? 'hit-stale' : 'hit') : 'error', error: context ? '' : 'context_invalid',
                 ageDays: Number(data.ageDays) || 0, stale: data.stale === true, version: Number(data.version) || 0,
-                storedAt: Number(data.storedAt) || 0, refreshedAt: Number(data.refreshedAt) || 0, pending: data.pending === true,
+                storedAt: Number(data.storedAt) || 0, refreshedAt: Number(data.refreshedAt) || 0, pending: data.pending === true, empty: data.empty === true,
                 refreshLease: !!data.refresh?.token, origin: String(data.context?.source || '') }
         };
     } catch (err) {

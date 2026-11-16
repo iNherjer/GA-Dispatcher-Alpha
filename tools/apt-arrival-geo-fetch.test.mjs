@@ -165,3 +165,16 @@ test('cloud unreachable: everything runs over OSM as before', async () => {
   assert.equal(resolved.snapStatus.geoOrigin.cloud.status, 'error');
   assert.equal(resolved.snapStatus.geoOrigin.source, 'overpass');
 });
+
+// Feldtest 16.11.2026 (Malsch-Ettlingen UL): Leer-Vermerk aus der Cloud erspart die OSM-Abfrage.
+test('cloud empty marker: no OSM request, scene falls back without the OSM-failure retry', async () => {
+  const full = ctxOf();
+  const empty = { ...full, parkingPositions: [], aprons: [], surfaces: [], airportBoundaries: [], avoidZones: full.avoidZones.filter(z => z.type === 'runway') };
+  const { c, plan, calls } = setup(() => res(500), () => res(200, JSON.stringify({ ok: true, found: true, stale: false, empty: true, ageDays: 3, version: 1, context: empty })));
+  const resolved = await c.resolveAptArrivalPlanPlacement(plan);
+  assert.equal(calls.length, 0, 'OSM not asked');
+  assert.equal(resolved.snapStatus.spawnAllowed, false);
+  assert.equal(resolved.snapStatus.reason, 'no_safe_osm_parking_or_apron_candidate');
+  assert.equal(resolved.snapStatus.geoFetchFailed, undefined, 'no "OSM antwortet nicht" retry offer');
+  assert.equal(resolved.snapStatus.geoOrigin.cloud.empty, true);
+});

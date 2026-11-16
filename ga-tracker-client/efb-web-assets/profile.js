@@ -5918,7 +5918,7 @@ function vpAppendAptArrivalGeoOrigin(lines, snap) {
     minute: '2-digit'
   }) : '-';
   var c = o.cloud || null;
-  var cloudText = !c ? 'nicht gefragt' : c.status === 'miss' ? 'kein Eintrag' : c.status === 'error' ? `Fehler (${c.error || '-'})` : `${c.status === 'hit-stale' ? 'Treffer, fällig' : 'Treffer'} | Alter ${String(c.ageDays).replace('.', ',')} Tage | v${c.version || '-'} | gespeichert ${day(c.storedAt)} | bestätigt ${day(c.refreshedAt)}${c.origin ? ' | Ursprung ' + c.origin : ''}${c.pending ? ' | Abweichung wartet auf Bestätigung' : ''}`;
+  var cloudText = !c ? 'nicht gefragt' : c.status === 'miss' ? 'kein Eintrag' : c.status === 'error' ? `Fehler (${c.error || '-'})` : `${c.status === 'hit-stale' ? 'Treffer, fällig' : 'Treffer'}${c.empty ? ' (Vermerk: OSM kennt hier keine nutzbare Fläche, OSM wird bis zur Fälligkeit nicht gefragt)' : ''} | Alter ${String(c.ageDays).replace('.', ',')} Tage | v${c.version || '-'} | gespeichert ${day(c.storedAt)} | bestätigt ${day(c.refreshedAt)}${c.origin ? ' | Ursprung ' + c.origin : ''}${c.pending ? ' | Abweichung wartet auf Bestätigung' : ''}`;
   var sourceText = {
     cloud: 'Cloud',
     overpass: 'OSM Overpass',
@@ -6264,7 +6264,7 @@ window.vpBuildDisplayDiagnosticsReport = function () {
   return vpBuildDisplayDiagnosticsLines().join('\n');
 };
 window.vpBuildWeatherDebugReport = function () {
-  var _missionSnap, _missionSnap2, _missionSnap3, _missionSnap4, _missionSnap5, _sceneDbg$lastTargetS, _window$missionAptArr, _window$missionTarget, _window$missionSceneS, _ref31, _ref32, _activeSceneMission$s, _missionSnap6, _missionSnap7, _cargoManifest, _runtimeSnapshot$runt, _runtimeSnapshot$runt2, _runtimeSnapshot$runt3, _window$GAMissionCont, _window$missionSceneS2, _window$missionSceneS3, _window$missionSceneS4, _window$missionSceneS5, _window$missionSceneS6, _window$missionSceneS7, _window$missionSceneS8, _window$missionSceneS9, _window$missionSceneS0, _window$missionSceneS1, _window$missionSceneS10, _window$missionSceneS11, _window$missionSceneS12, _window$missionSceneS13, _window$missionSceneS14, _window$missionSceneS15, _window$missionSceneS16;
+  var _proposalDebug, _missionSnap, _missionSnap2, _missionSnap3, _missionSnap4, _missionSnap5, _sceneDbg$lastTargetS, _window$missionAptArr, _window$missionTarget, _window$missionSceneS, _ref31, _ref32, _activeSceneMission$s, _missionSnap6, _missionSnap7, _cargoManifest, _runtimeSnapshot$runt, _runtimeSnapshot$runt2, _runtimeSnapshot$runt3, _window$GAMissionCont, _window$missionSceneS2, _window$missionSceneS3, _window$missionSceneS4, _window$missionSceneS5, _window$missionSceneS6, _window$missionSceneS7, _window$missionSceneS8, _window$missionSceneS9, _window$missionSceneS0, _window$missionSceneS1, _window$missionSceneS10, _window$missionSceneS11, _window$missionSceneS12, _window$missionSceneS13, _window$missionSceneS14, _window$missionSceneS15, _window$missionSceneS16;
   vpHydrateObsTileCoverage();
   vpHydrateObsTileFailed();
   var dbg = window.vpWeatherDebug || {};
@@ -6418,6 +6418,30 @@ window.vpBuildWeatherDebugReport = function () {
   lines.push(`- Global Warnings: ${dbg.globalWarnings || 0}`);
   lines.push(`- Unhandled Rejections: ${dbg.unhandledRejections || 0}`);
   lines.push(`- Letzter globaler Fehler: ${vpFormatDebugTs(dbg.lastGlobalErrorAt)}${dbg.lastGlobalErrorMsg ? ` (${dbg.lastGlobalErrorMsg})` : ''}`);
+  lines.push('');
+  lines.push('Missions-Vorschläge');
+  var proposalDebug = window.gaMissionProposalDebug || null;
+  if (!proposalDebug) {
+    try {
+      proposalDebug = JSON.parse(localStorage.getItem('ga_mission_proposal_debug_v1') || 'null');
+    } catch (_) {
+      proposalDebug = null;
+    }
+  }
+  if (!((_proposalDebug = proposalDebug) !== null && _proposalDebug !== void 0 && _proposalDebug.at)) {
+    lines.push('- (noch kein Picker in diesem Browser)');
+  } else {
+    var _pd$result;
+    var pd = proposalDebug,
+      es = pd.eventSearch;
+    lines.push(`- Picker: ${vpFormatDebugTs(pd.at)} | Strang=${pd.strand || '-'} | Start=${pd.start || '-'}`);
+    (pd.choices || []).forEach((c, i) => lines.push(`  ${i + 1}. ${c.target || '-'} | ${c.title || '-'}${c.occasion ? ` | Reiseart=${c.occasion}` : ''}${c.event ? ` | EVENT ${c.event.date || ''} ${c.event.title || ''}${c.event.verification ? ` (${c.event.verification})` : ''}` : ''}`));
+    lines.push(`- Event-Suche: ${es ? [es.status, es.reason, es.place || es.airport, es.queries != null ? `Suchanfragen=${es.queries}` : '', es.count != null ? `Treffer=${es.count}` : '', es.matchedTitle ? `Anker=${es.matchedTitle}${es.verification ? ` (${es.verification})` : ''}` : es.status === 'ready' ? 'Anker=keiner' : '', es.cacheHit ? 'Cache' : '', es.error ? `Fehler=${es.error}` : ''].filter(Boolean).join(' | ') : 'nicht gelaufen'}`);
+    lines.push(`- Auswahl: ${pd.selected ? `${vpFormatDebugTs(pd.selected.at)} | ${pd.selected.target || '-'} | ${pd.selected.title || '-'}` : 'noch keine'}`);
+    if (pd.result) lines.push(`- Ergebnis: ${pd.result.status}${pd.result.mission ? ` | ${pd.result.mission}` : ''}${pd.result.error ? ` | ${pd.result.error}` : ''} | ${vpFormatDebugTs(pd.result.at)}`);
+    var snapAt = Number((window.vpMissionDebugSnapshot || {}).ts) || 0;
+    if (((_pd$result = pd.result) === null || _pd$result === void 0 ? void 0 : _pd$result.status) === 'error' || snapAt && snapAt < pd.at) lines.push('- Hinweis: Der folgende Mission Snapshot stammt von einer früheren Mission, nicht von diesem Picker.');
+  }
   lines.push('');
   lines.push('Mission Snapshot');
   var missionSnap = window.vpMissionDebugSnapshot || null;

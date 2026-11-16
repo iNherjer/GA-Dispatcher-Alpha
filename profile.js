@@ -4020,7 +4020,7 @@ function vpAppendAptArrivalGeoOrigin(lines, snap) {
     const cloudText = !c ? 'nicht gefragt'
         : c.status === 'miss' ? 'kein Eintrag'
         : c.status === 'error' ? `Fehler (${c.error || '-'})`
-        : `${c.status === 'hit-stale' ? 'Treffer, fällig' : 'Treffer'} | Alter ${String(c.ageDays).replace('.', ',')} Tage | v${c.version || '-'} | gespeichert ${day(c.storedAt)} | bestätigt ${day(c.refreshedAt)}${c.origin ? ' | Ursprung ' + c.origin : ''}${c.pending ? ' | Abweichung wartet auf Bestätigung' : ''}`;
+        : `${c.status === 'hit-stale' ? 'Treffer, fällig' : 'Treffer'}${c.empty ? ' (Vermerk: OSM kennt hier keine nutzbare Fläche, OSM wird bis zur Fälligkeit nicht gefragt)' : ''} | Alter ${String(c.ageDays).replace('.', ',')} Tage | v${c.version || '-'} | gespeichert ${day(c.storedAt)} | bestätigt ${day(c.refreshedAt)}${c.origin ? ' | Ursprung ' + c.origin : ''}${c.pending ? ' | Abweichung wartet auf Bestätigung' : ''}`;
     const sourceText = { cloud: 'Cloud', overpass: 'OSM Overpass', 'osm-map': 'OSM-Karte', none: 'keine (OSM und Cloud ohne Daten)' }[o.source] || o.source || '-';
     lines.push(`- APT Platzdaten: quelle=${sourceText}${o.lastUse === 'session' ? ' (aus dem Sitzungsspeicher)' : ''} | schlüssel=${o.key}${o.icao ? ' ' + o.icao : ''} | cloud=${cloudText}`);
     if (o.osm) lines.push(`  OSM: ${o.osm.ok ? 'geladen (' + (o.osm.source || '-') + ')' : 'ohne Daten'}${o.osm.errors && o.osm.errors.length ? ' | fehler=' + o.osm.errors.join(', ') : ''}`);

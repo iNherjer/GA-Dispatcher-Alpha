@@ -10,6 +10,8 @@
 // - Gleicher Inhalt → nur „bestaetigt“; anderer, brauchbarer Inhalt → ersetzt, Vorversion bleibt;
 //   schrumpft er auf unter die Haelfte der Flaechen, gilt er erst, wenn ein zweiter Abruf
 //   (mind. 1 Minute spaeter, auch von einem anderen Nutzer) dasselbe Bild liefert.
+// - Ohne nutzbare Flaeche wird ein Leer-Vermerk gespeichert (auch 90 Tage); ein leeres Ergebnis
+//   ersetzt nie einen Eintrag mit Flaechen – der bleibt faellig und wird spaeter erneut versucht.
 //
 // Routen:
 //   GET  /api/airport-geo-v1/<key>   { ok, found, stale, ageDays, storedAt, refreshedAt, version, context, refresh? }
@@ -74,9 +76,9 @@ export function validateAirportGeoContext(key, context) {
     }
     if (context.avoidZones.some(zone => !finitePoint(zone?.center))) return { ok: false, error: 'zone_invalid' };
     const signature = airportGeoSignature(context);
-    // „Nicht leer“: ohne nutzbare Flaeche kann keine Ankunftsszene stehen.
-    if (signature.areas < 1) return { ok: false, error: 'context_empty' };
-    return { ok: true, signature };
+    // Ohne nutzbare Flaeche (typisch UL-Plaetze) wird ein Vermerk „OSM kennt hier nichts“ gespeichert,
+    // damit nicht jede Mission OSM erneut fragt; er ersetzt aber nie einen echten Eintrag.
+    return { ok: true, signature, empty: signature.areas < 1 };
 }
 
 // Inhaltsvergleich ohne Abrufzeit und Quelle (Overpass und OSM-Karte liefern dieselbe Geometrie).
@@ -111,7 +113,7 @@ export class AirportGeoStore {
         return reply({
             ok: true, found: true, stale, ageDays: Math.round(ageMs / 864e5 * 10) / 10,
             storedAt: meta.storedAt, refreshedAt: meta.refreshedAt, version: meta.version, icao: meta.icao || '',
-            pending: !!meta.pending, refresh, context
+            pending: !!meta.pending, empty: !(Number(meta.signature?.areas) > 0), refresh, context
         });
     }
 
@@ -127,6 +129,12 @@ export class AirportGeoStore {
         if (!stale) return reply({ ok: true, result: meta.hash === hash ? 'unchanged' : 'ignored_fresh', version: meta.version });
         const lease = await this.storage.get('lease');
         if (lease && Number(lease.until) > now && lease.token !== leaseToken) return reply({ ok: true, result: 'lease_held', version: meta.version });
+        if (signature.areas < 1 && Number(meta.signature?.areas) > 0) {
+            // OSM ohne Flaechen: alter Eintrag bleibt, Auftrag frei fuer den naechsten Versuch.
+            await this.storage.put('meta', { ...meta, lastEmptyAt: now });
+            await this.storage.delete('lease');
+            return reply({ ok: true, result: 'ignored_empty', version: meta.version });
+        }
         if (meta.hash === hash) {
             await this.storage.put('meta', { ...meta, refreshedAt: now, pending: null });
             await this.storage.delete('lease');

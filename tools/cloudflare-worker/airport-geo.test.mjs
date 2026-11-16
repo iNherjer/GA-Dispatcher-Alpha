@@ -42,7 +42,9 @@ test.afterEach(() => { Date.now = realNow; });
 test('validation: real context passes; wrong place, empty, schema, kind and oversize are refused', () => {
     assert.equal(validateAirportGeoContext(KEY, ctx()).ok, true);
     assert.equal(validateAirportGeoContext('airport_48.0228_7.8325', ctx()).error, 'center_mismatch');
-    assert.equal(validateAirportGeoContext(KEY, ctx({ parkingPositions: [], aprons: [], surfaces: [] })).error, 'context_empty');
+    const empty = validateAirportGeoContext(KEY, ctx({ parkingPositions: [], aprons: [], surfaces: [] }));
+    assert.equal(empty.ok, true);
+    assert.equal(empty.empty, true);
     assert.equal(validateAirportGeoContext(KEY, ctx({ schema: 'x' })).error, 'schema_invalid');
     assert.equal(validateAirportGeoContext(KEY, ctx({ stripHandoff: true })).error, 'kind_mismatch');
     assert.equal(validateAirportGeoContext(KEY, ctx({ avoidZones: new Array(3001).fill(base.avoidZones[0]) })).error, 'avoidZones_too_many');
@@ -125,4 +127,41 @@ test('a strong shrink needs a second matching fetch at least a minute later', as
 test('without the Durable Object binding the route answers 503', async () => {
     const res = await handleAirportGeo(new Request('https://x/api/airport-geo-v1/' + KEY), {});
     assert.equal(res.status, 503);
+});
+
+// Feldtest 16.11.2026: UL-Platz Malsch-Ettlingen – OSM-Karte ohne nutzbare Flaeche.
+test('empty OSM result is kept as a marker so later missions skip OSM', async () => {
+    const e = env();
+    const empty = ctx({ parkingPositions: [], aprons: [], surfaces: [] });
+    assert.equal((await (await post(e, { context: empty })).json()).result, 'stored');
+    const read = await get(e);
+    assert.equal(read.found, true);
+    assert.equal(read.empty, true);
+    assert.equal(read.stale, false);
+});
+
+test('a due entry with areas is never replaced by an empty result', async () => {
+    const e = env();
+    const t0 = 1_800_000_000_000;
+    at(t0); await post(e, { context: ctx() });
+    at(t0 + AIRPORT_GEO_STALE_MS + 1000);
+    const lease = (await get(e)).refresh.token;
+    const empty = ctx({ parkingPositions: [], aprons: [], surfaces: [] });
+    assert.equal((await (await post(e, { context: empty, leaseToken: lease })).json()).result, 'ignored_empty');
+    const again = await get(e);
+    assert.equal(again.empty, false);
+    assert.equal(again.context.aprons.length, base.aprons.length);
+    assert.ok(again.refresh?.token, 'still due: the next reader tries OSM again');
+    at(t0 + AIRPORT_GEO_STALE_MS + 120_000);
+    assert.equal((await (await post(e, { context: empty, leaseToken: again.refresh.token })).json()).result, 'ignored_empty', 'also a second empty result');
+});
+
+test('an empty marker is replaced as soon as OSM delivers areas', async () => {
+    const e = env();
+    const t0 = 1_800_000_000_000;
+    at(t0); await post(e, { context: ctx({ parkingPositions: [], aprons: [], surfaces: [] }) });
+    at(t0 + AIRPORT_GEO_STALE_MS + 1000);
+    const lease = (await get(e)).refresh.token;
+    assert.equal((await (await post(e, { context: ctx(), leaseToken: lease })).json()).result, 'updated');
+    assert.equal((await get(e)).empty, false);
 });
