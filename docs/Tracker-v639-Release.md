@@ -47,3 +47,10 @@ Zusammen ausgeliefert mit Web v2420 (nur Cache).
 - Sim beenden, danach Debrief in der Web-App schließen.
 - Sim während des Trackerlaufs neu starten: Start ohne Tracker-Neustart möglich; im Log genau ein
   `TRACKER_SIMCONNECT_OPEN` je Verbindung, keine doppelten `SIM_CAMERA_STATE from=none`.
+
+## Artefakt
+
+- Release `v639` (Commit `4b055c7fc`), `VFR-Multitool-Tracker.exe`, 175 138 299 Bytes,
+  SHA-256 `e191ce16f31933fc74bd0ef1383fde60c91242f6876b5b47cbee6ba641acb54c`.
+- Öffentlicher Download geprüft (Größe und SHA-256 identisch). Alpha-Kanal aktiv; Stable unverändert.
+- Im MSFS-EFB und am Windows-Sim noch nicht geprüft.
