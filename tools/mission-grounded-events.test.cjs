@@ -26,5 +26,6 @@ test('private event fact sits inside the private window and carries identity int
  const f=ev.privateFact(e,w,apt,dist);assert.equal(f.kind,'event');assert.equal(f.eventDate,'2026-11-18','mehrtägig: erster Tag im Fenster');assert.equal(f.eventId,'wm');
  assert.equal(ev.privateFact({...e,startsOn:'2026-11-25',endsOn:'2026-11-25'},w,apt,dist),null,'nach Sonntag');
  assert.equal(ev.pickKinds([{...e,kind:'beruf'}],apt,ev.PRIVATE_KINDS,dist),null,'Messen nicht privat');
+ const soon={...e,id:'soon',startsOn:'2026-11-18',endsOn:'2026-11-18',verification:'search'},later={...e,id:'later',startsOn:'2026-11-21',endsOn:'2026-11-21',verification:'search'};assert.equal(ev.pickKinds([later,soon],apt,ev.PRIVATE_KINDS,dist).event.id,'soon','zeitlich nächste zuerst');
  assert.equal(ev.EVENT_EVERY.private,3);assert.equal(ev.EVENT_EVERY.charter,2);
 });

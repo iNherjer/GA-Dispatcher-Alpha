@@ -23,7 +23,7 @@ const near=(start,min,max,n)=>Object.keys(A).filter(id=>id!==start.icao&&Number.
 const geoStub={...geo,resolveBrowser:async t=>({airport:{name:t.name,lat:t.lat,lon:t.lon},radiusKm:50,places:[],stats:{probe:true}})};
 function sandbox(localStorage){
  const c={console,Date,Math,JSON,AbortSignal,window:{MissionPrivateEpisodeV6:v6,MissionPrivateOutingCore:v5,MissionPrivateContextCore:geoStub,MissionCharterEventsCore:charterEvents,MissionGroundedEventsCore:grounded,MissionClubEventsCore:clubEvents,MissionClubIdeasCore:club},
-  localStorage,currentStartICAO:'',getSelectedAiApiKey:()=>apiKey,getSelectedAiProvider:()=>'gemini',normalizeAirportIdent:x=>x,normalizeMissionText:x=>String(x).toLowerCase(),
+  localStorage,currentStartICAO:globalThis.PROBE_START||'',getSelectedAiApiKey:()=>apiKey,getSelectedAiProvider:()=>'gemini',normalizeAirportIdent:x=>x,normalizeMissionText:x=>String(x).toLowerCase(),
   missionProposalCompactTarget:t=>({...t,n:t.n||t.name}),missionProposalAirportLocationLabel:t=>t.n,missionProposalFormatRoute:(s,a)=>({label:(s.icao||'')+' → '+a.icao,nav:{dist:Math.round(geo.distanceKm(s,a)/1.852)}}),
   normalizeMissionProposalChoice:x=>x,getMissionTaskProfile:()=>({}),fetchGeminiJsonWithFallback:gemini};
  vm.createContext(c);
@@ -51,7 +51,7 @@ for(const startId of ONLY.includes('club')?['EDTF','EDHE']:[]){
 }
 // --- Privat A: Picker
 if(ONLY.includes('picker')){const start=norm('EDTW'),dest=norm('EDTF'),others=near(start,20,60,2),t={test:'picker',start:'EDTW',dest:'EDTF'};report.private.push(t);
- try{const c=sandbox(store());const choices=await c.buildPrivateMissionProposalChoices([dest,...others],{start});
+ try{globalThis.PROBE_START=start.icao;const c=sandbox(store());const choices=await c.buildPrivateMissionProposalChoices([dest,...others],{start});
   t.search=JSON.parse(JSON.stringify(c.window.gaPrivateEventSearch||null));
   t.choices=choices.map(x=>({target:x.target.icao,title:x.title,description:x.description,eventVisit:x.privateProposal.idea.eventVisit}));
   console.log(`\nPrivat Picker EDTW → EDTF: Suche ${t.search?.status}, Ortsfakt ${t.search?.matchedTitle||'keiner'}`);
