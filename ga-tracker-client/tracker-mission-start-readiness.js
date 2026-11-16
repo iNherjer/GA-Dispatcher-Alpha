@@ -28,7 +28,9 @@ function createMissionStartReadiness({ now = Date.now, stableMs = 3000, maxAgeMs
       : typeof value.gsKts !== 'number' || !Number.isFinite(value.gsKts) || value.gsKts < 0 || value.gsKts > 0.5 ? 'ground_stop_required'
       : '';
     if (reason) { since = null; anchor = null; return snapshot(); }
-    if (!previous || value.observedAt <= previous.observedAt || value.observedAt - previous.observedAt > maxAgeMs
+    // The same packet again (a system event re-emits the last position, or two
+    // packets land in one millisecond) is no new evidence, but no reset either.
+    if (!previous || value.observedAt < previous.observedAt || value.observedAt - previous.observedAt > maxAgeMs
         || !anchor || haversineNm(anchor.lat, anchor.lon, value.lat, value.lon) * 1852 > 3) {
       since = value.observedAt; anchor = { lat: value.lat, lon: value.lon };
     }

@@ -8,6 +8,8 @@ assert.deepEqual(core.classifyMissionCommandWithoutSimulator(intent('abort_missi
 assert.deepEqual(core.classifyMissionCommandWithoutSimulator(intent('close_cargo_window')), { action: 'execute_intent', intent: 'close_cargo_window' });
 // Resuming only records the decision; the rebuild waits for a running cockpit.
 assert.deepEqual(core.classifyMissionCommandWithoutSimulator(intent('resume_mission')), { action: 'execute_intent', intent: 'resume_mission' });
+// Closing the debrief of a finished run only stores a marker (field test 15.11.: sim quit first).
+assert.deepEqual(core.classifyMissionCommandWithoutSimulator(intent('close_debrief')), { action: 'execute_intent', intent: 'close_debrief' });
 assert.equal(core.classifyMissionCommandWithoutSimulator({ type: 'MISSION_EXECUTION_INTENT', intent: ' Abort_Mission ' }).action, 'execute_intent');
 
 // Everything else is rejected now instead of being replayed at the next simulator launch.

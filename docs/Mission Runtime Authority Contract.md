@@ -136,6 +136,10 @@ Verlade-Dialog, weil die Praesentationshistorie nur im Seitenspeicher lag.
     `trackerCockpitControl.submitTrustedIntent` (Rolle `web`, `deferEffects`).
     Abort ueberspringt die Sim-Bereinigung; Payload-Restore meldet wie bisher
     `mission_payload_restore_simulator_not_connected` als Warnung.
+  - Ebenso ohne Sim: `resume_mission` (merkt nur die Entscheidung vor) und
+    seit 16.11.2026 `close_debrief` (setzt nur `debriefClosedAt` eines
+    abgeschlossenen Laufs; Feldtest 15.11.: Pilot beendet erst den Sim und
+    schliesst danach das Debrief in der Web-App).
   - Alle anderen `mission_execution_intent` werden mit `simulator_disconnected`
     abgelehnt und nie gepuffert. Kein veralteter Intent wird spaeter nachgeholt.
   - `mission_snapshot_request` wird lesend aus der Authority beantwortet

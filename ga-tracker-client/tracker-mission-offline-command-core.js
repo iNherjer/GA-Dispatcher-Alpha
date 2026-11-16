@@ -4,8 +4,9 @@
 // The mission runtime and authority live outside SimConnect, so a closed
 // simulator must neither hide them nor replay stale user decisions later.
 //
-// - abort_mission / close_cargo_window / resume_mission: executed immediately. Abort skips the
-//   simulator cleanup (nothing is left in a closed simulator) per contract.
+// - abort_mission / close_cargo_window / resume_mission / close_debrief: executed immediately.
+//   Abort skips the simulator cleanup (nothing is left in a closed simulator) per contract;
+//   close_debrief only stores the closed marker of an already finished run.
 // - every other mission_execution_intent: rejected immediately with
 //   `simulator_disconnected` instead of being buffered until the next launch.
 // - mission_snapshot_request: read-only, answered from the authority.
@@ -13,7 +14,9 @@
 
 const SIMULATOR_DISCONNECTED = 'simulator_disconnected';
 // resume_mission only records the decision; rebuilding waits for the cockpit.
-const SIMULATOR_INDEPENDENT_INTENTS = Object.freeze(new Set(['abort_mission', 'close_cargo_window', 'resume_mission']));
+// close_debrief only marks the debrief of a finished run as seen; pilots often
+// quit the simulator first and close the debrief afterwards in the web app.
+const SIMULATOR_INDEPENDENT_INTENTS = Object.freeze(new Set(['abort_mission', 'close_cargo_window', 'resume_mission', 'close_debrief']));
 
 function normalizedType(command) {
   return String(command?.type || '').trim().toLowerCase();

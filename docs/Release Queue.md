@@ -27,15 +27,17 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-### 2026-11-15 · EFB-Kopie profile.js: Diagnosezeile „APT Empfangsszene“ nennt die OSM-Abruffehler
+_(leer)_
+
+## Ausgeliefert
+
+### 2026-11-15 · EFB-Kopie profile.js: Diagnosezeile „APT Empfangsszene“ nennt die OSM-Abruffehler — ausgeliefert in Tracker v639 Alpha (16.11.2026)
 - **Artefakt:** Tracker-EXE (EFB-Web-Assets); Web live mit v2405
 - **Dateien:** `ga-tracker-client/efb-web-assets/profile.js` (Kopie per `sync-efb-web-assets.js`)
 - **Was:** Die Zeile bekommt `abruf=` (Server und Fehler je Versuch) bzw. `osm-map=<Radius> m`. Im EFB ohne Wirkung; nur Gleichstand der Kopie.
 - **Tests:** `efb-web-assets-sync.test.js`, `tracker-efb-asset-syntax.test.js`.
 - **Doku beim Release:** keine.
 - **Pruefen im Feld:** nichts.
-
-## Ausgeliefert
 
 ### 2026-11-15 · Boarding-Punkte nach dem Szenenaufbau verschieben — ausgeliefert in Tracker v638 Alpha / Web v2404 (15.11.2026)
 - **Artefakt:** Tracker-EXE; Web mit diesem Push

@@ -173,8 +173,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v638';
-const TRACKER_VERSION_CODE = 638;
+const TRACKER_VERSION = 'v639';
+const TRACKER_VERSION_CODE = 639;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -6920,10 +6920,47 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
   for (const state of _relayStates.values()) connectRelay(state);
 }
 
+// Only one SimConnect chain may run at a time. Field test 15.11.2026: after the
+// simulator was restarted, two chains ran side by side in one tracker process
+// (doubled camera/clock/hibernate telemetry, two start-readiness sources), so the
+// start gate kept restarting its stillness check until the tracker was restarted.
+// Every attempt gets a generation; an older chain neither reconnects nor touches
+// shared state, and a handle whose setup failed is closed instead of kept alive.
+let simConnectGeneration = 0, simConnectHandle = null, simConnectRetryTimer = null, simConnectLastError = '';
 function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, setTrackerTelemetryWakeHandler = null, setTrackerCommandWakeFilter = null, isDirectHangarAckCommand = null, getHomebaseFallback = null, updateEfbState = null, missionAuthorityManager = null, trackerMissionShadow = null, missionExecutionRuntime = null, trackerCockpitControl = null, missionTransfer = null, getCloudAuthoritySnapshot = null, getHomebaseCloud = null) {
-  let independentReadiness = null, readinessGapMonitor = null;
+  let independentReadiness = null, readinessGapMonitor = null, openedHandle = null;
+  const generation = ++simConnectGeneration;
+  const isCurrentChain = () => generation === simConnectGeneration;
+  if (simConnectRetryTimer !== null) { clearTimeout(simConnectRetryTimer); simConnectRetryTimer = null; }
+  if (simConnectHandle) {
+    const stale = simConnectHandle;
+    simConnectHandle = null;
+    debugLog(`TRACKER_SIMCONNECT_STALE_CLOSE generation=${generation} reason=new-connect`);
+    try { stale.close(); } catch (_) {}
+  }
+  const scheduleSimReconnect = () => {
+    if (!isCurrentChain()) return;
+    if (simConnectRetryTimer !== null) clearTimeout(simConnectRetryTimer);
+    simConnectRetryTimer = setTimeout(() => {
+      simConnectRetryTimer = null;
+      if (isCurrentChain()) connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, setTrackerTelemetryWakeHandler, setTrackerCommandWakeFilter, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager, trackerMissionShadow, missionExecutionRuntime, trackerCockpitControl, missionTransfer, getCloudAuthoritySnapshot, getHomebaseCloud);
+    }, 5000);
+  };
+  // Timers and telemetry readers of this connection, torn down even when setup throws.
+  const teardown = [];
+  const runTeardown = () => { while (teardown.length) { try { teardown.pop()(); } catch (_) {} } };
+  const simTimer = (fn, ms) => { const timer = setInterval(fn, ms); teardown.push(() => clearInterval(timer)); return timer; };
   open('VFR-Multitool-v206', 5)
     .then(({ handle }) => {
+      openedHandle = handle;
+      if (!isCurrentChain()) {
+        debugLog(`TRACKER_SIMCONNECT_STALE_OPEN generation=${generation} current=${simConnectGeneration}`);
+        try { handle.close(); } catch (_) {}
+        return;
+      }
+      simConnectHandle = handle;
+      simConnectLastError = '';
+      debugLog(`TRACKER_SIMCONNECT_OPEN generation=${generation}`);
       const radioTuning = require('./tracker-radio-tuning').createRadioTuning(handle, {SimConnectDataType, SimConnectPeriod, SimConnectConstants, EventFlag});
       if (typeof updateEfbState === 'function') updateEfbState({ simulatorConnected: true, tuneRadio: payload => radioTuning.execute(payload) });
       trackerLog("✈️ MSFS gefunden! Warte auf Positionsdaten...");
@@ -6957,7 +6994,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
           .catch(() => null)
           .finally(() => { payloadSnapshotRefreshPending = false; });
       };
-      const payloadSnapshotInterval = setInterval(refreshMissionPayloadSnapshot, 5000);
+      const payloadSnapshotInterval = simTimer(refreshMissionPayloadSnapshot, 5000);
       refreshMissionPayloadSnapshot();
       missionSimulatorEffects = missionExecutionRuntime?.attachSimulator?.({
         getLivePosition: () => independentReadiness?.position() || lastGpsMsg,
@@ -7213,7 +7250,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       let lastTelemetryProcessingMs = 0;
       let telemetryDiagnosticAt = Date.now();
       let telemetryDiagnosticLoggedAt = 0;
-      const telemetryDiagnosticTimer = setInterval(() => {
+      const telemetryDiagnosticTimer = simTimer(() => {
         const at = Date.now();
         const loopLagMs = Math.max(0, at - telemetryDiagnosticAt - 1000);
         telemetryDiagnosticAt = at;
@@ -7298,7 +7335,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       subscribeSystemEventSafe(EVT_POSITION_CHANGED, 'PositionChanged');
       subscribeSystemEventSafe(EVT_FLIGHT_LOADED, 'FlightLoaded');
       requestRuntimeStates();
-      const runtimePollInterval = setInterval(requestRuntimeStates, 3000);
+      const runtimePollInterval = simTimer(requestRuntimeStates, 3000);
 
       handle.on('eventEx1', (recvEventEx1) => {
         if (recvEventEx1.clientEventId === EVT_PAUSE_EX1) {
@@ -7373,6 +7410,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         requestId: 210, float64Type: SimConnectDataType.FLOAT64,
         period: SimConnectPeriod.VISUAL_FRAME, intervalFrames: GPS_SOURCE_INTERVAL_FRAMES,
         log: debugLog});
+      teardown.push(() => slewTelemetry.dispose(), () => clockTelemetry.dispose(),
+        () => cameraTelemetry.dispose(), () => aircraftIdentity.dispose());
       const gpsDefinitionSends = new Map();
       const onGpsDefinitionException = recv => {
         const field = gpsDefinitionSends.get(recv?.sendId);
@@ -7902,7 +7941,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       // running for the EFB at half the rate; nothing goes to the relay then
       // (06.11.2026: a departing C182 vanished from the EFB after ground_idle).
       let lastHibernateTrafficPollAt = 0;
-      const trafficInterval = setInterval(() => {
+      const trafficInterval = simTimer(() => {
         if (currentTelemetryHibernateState.hibernating) {
           latestTrafficSnapshot = null;
           latestGroundTrafficSnapshot = []; // mission ground occupancy unchanged: empty while hibernating
@@ -7976,6 +8015,16 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       }, TRAFFIC_POLL_MS);
 
       handle.on('close', () => {
+        const current = isCurrentChain() && simConnectHandle === handle;
+        if (simConnectHandle === handle) simConnectHandle = null;
+        if (!current) {
+          // An older chain was replaced: stop its readers, leave shared state to the current one.
+          independentReadiness?.stop();
+          handle.removeListener('exception', onGpsDefinitionException);
+          runTeardown();
+          debugLog(`TRACKER_SIMCONNECT_STALE_CLOSED generation=${generation} current=${simConnectGeneration}`);
+          return;
+        }
         trackerFreeFlight?.simClosed();
         independentReadiness?.stop();
         missionExecutionRuntime?.detachSimulator?.(missionSimulatorEffects);
@@ -7999,12 +8048,27 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         clearInterval(runtimePollInterval);
         clearInterval(trafficInterval);
         clearInterval(payloadSnapshotInterval);
+        runTeardown();
+        debugLog(`TRACKER_SIMCONNECT_CLOSED generation=${generation}`);
         trackerWarn("⚠️  MSFS getrennt. Neuer SimConnect-Versuch in 5 Sekunden...");
-        setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, setTrackerTelemetryWakeHandler, setTrackerCommandWakeFilter, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager, trackerMissionShadow, missionExecutionRuntime, trackerCockpitControl, missionTransfer, getCloudAuthoritySnapshot, getHomebaseCloud), 5000);
+        scheduleSimReconnect();
       });
     })
     .catch(err => {
       independentReadiness?.stop();
+      const message = String(err?.message || err || 'unknown').slice(0, 240);
+      if (openedHandle) {
+        // Setup failed after the simulator accepted the connection: close it, or its
+        // listeners keep feeding shared state next to the next attempt.
+        if (simConnectHandle === openedHandle) simConnectHandle = null;
+        runTeardown();
+        debugLog(`TRACKER_SIMCONNECT_SETUP_ERROR generation=${generation} error=${message}`);
+        try { openedHandle.close(); } catch (_) {}
+      } else if (message !== simConnectLastError) {
+        debugLog(`TRACKER_SIMCONNECT_OPEN_ERROR generation=${generation} error=${message}`);
+      }
+      simConnectLastError = message;
+      if (!isCurrentChain()) return;
       if (typeof updateEfbState === 'function') updateEfbState({
         simulatorConnected: false,
         telemetryHibernate: disconnectedTelemetryHibernateState(),
@@ -8014,7 +8078,7 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
       trackerWarn("⚠️  MSFS nicht gefunden / SimConnect-Fehler. Neuer Versuch in 5 Sekunden...");
       if (typeof setTrackerTelemetryWakeHandler === 'function') setTrackerTelemetryWakeHandler(null);
       if (typeof setTrackerCommandWakeFilter === 'function') setTrackerCommandWakeFilter(null);
-      setTimeout(() => connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler, setTrackerTelemetryWakeHandler, setTrackerCommandWakeFilter, isDirectHangarAckCommand, getHomebaseFallback, updateEfbState, missionAuthorityManager, trackerMissionShadow, missionExecutionRuntime, trackerCockpitControl, missionTransfer, getCloudAuthoritySnapshot, getHomebaseCloud), 5000);
+      scheduleSimReconnect();
     });
 }
 
@@ -8205,11 +8269,15 @@ function main() {
 }
 
 // Globale Fehlerbehandlung: Prozess darf nie durch unbehandelte Fehler sterben
+// Also into the debug file: these were only on the console, so testers' logs hid them.
+const errorSummary = error => String(error?.stack || error?.message || error || 'unknown').split('\n').slice(0, 3).map(line => line.trim()).join(' | ').slice(0, 600);
 process.on('uncaughtException', (err) => {
-  trackerError("💥 Unbehandelter Fehler (Prozess läuft weiter):", err.message);
+  trackerError("💥 Unbehandelter Fehler (Prozess läuft weiter):", err?.message || err);
+  try { debugLog(`TRACKER_UNCAUGHT_EXCEPTION error=${errorSummary(err)}`); } catch (_) {}
 });
 process.on('unhandledRejection', (reason) => {
   trackerError("💥 Unbehandelte Promise-Ablehnung (Prozess läuft weiter):", reason);
+  try { debugLog(`TRACKER_UNHANDLED_REJECTION error=${errorSummary(reason)}`); } catch (_) {}
 });
 
 main();

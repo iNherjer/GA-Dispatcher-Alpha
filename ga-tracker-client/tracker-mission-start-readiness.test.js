@@ -52,3 +52,14 @@ test('late packets from a loaded simulator neither revoke readiness nor restart 
   f.tick(1000);f.tick(1000);f.tick(1000);assert.equal(f.guard.snapshot().ready,true);
   assert.equal(f.tick(1000,{lat:51.5001}).ready,false);
 });
+
+test('a repeated packet with the same timestamp keeps the stillness check running',()=>{
+  // Field test 15.11.: pause/system events re-emit the last packet and two packets
+  // can land in one millisecond; this restarted the 3 s check again and again.
+  const f=fixture();f.sample();f.tick(1000);f.tick(1000);
+  assert.equal(f.sample().stableForMs,2000,'same timestamp does not restart');
+  assert.equal(f.tick(1000).ready,true);
+  assert.equal(f.sample().ready,true,'re-emitted packet keeps readiness');
+  // A packet from the past still restarts it.
+  assert.equal(f.sample({observedAt:f.at()-500}).ready,false);
+});
