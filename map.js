@@ -8419,6 +8419,7 @@ function initMapBase() {
     const initialGlobalBaseId = gaReadStoredGlobalBaseId(globalBaseEntries, 'topo');
     const initialGlobalBaseLayer = globalBaseEntries.find(entry => entry.id === initialGlobalBaseId).layer;
     const regionalBaseEntries = createGaRegionalBaseMaps();
+    assignGaGlobalBaseMapsToGroup(globalBaseEntries);
 
     // Overlays
     const aeroOverlay = L.tileLayer('https://nwy-tiles-api.prod.newaydata.com/tiles/{z}/{x}/{y}.png?path=latest/aero/latest', {
@@ -8488,8 +8489,12 @@ function initMapBase() {
     });
     ensureTerrainAvoidOverlayLayer();
 
-    topoMap.setOpacity(0.5);
-    map = L.map('map', { layers: [initialGlobalBaseLayer], attributionControl: true, maxZoom: 18, tapHold: false }).setView([51.1657, 10.4515], 6);
+    map = L.map('map', { attributionControl: true, maxZoom: 18, tapHold: false }).setView([51.1657, 10.4515], 6);
+    // Basiskarten liegen in einer gemeinsamen Gruppe, die beim VFR-Overlay
+    // als Ganzes abgeblendet wird (map-basemap-catalog.js).
+    ensureGaBaseMapPanes(map);
+    initialGlobalBaseLayer.addTo(map);
+    let baseMapDimmer = null;
     installMapDragZoomControl(map);
     ensureGaMapOverlayPanes(map);
     setAirportTooltipLayerVisible(
@@ -8521,7 +8526,7 @@ function initMapBase() {
         const zoom = Number(map.getZoom && map.getZoom());
         const hiddenForZoom = Number.isFinite(zoom) && zoom >= VP_VFR_OVERLAY_AUTO_HIDE_ZOOM;
         aeroOverlay.setOpacity(hiddenForZoom ? 0 : 0.65);
-        if (map.hasLayer(topoMap)) topoMap.setOpacity(hiddenForZoom ? 1.0 : 0.5);
+        baseMapDimmer?.update();
     };
     window.updateAeroOverlayZoomVisibility = updateAeroOverlayZoomVisibility;
     const markMapInteraction = () => {
@@ -8559,13 +8564,15 @@ function initMapBase() {
     configureMapLayerControl(map, layerControl);
     installGaGlobalBaseMapMemory(map, globalBaseEntries);
     installGaRegionalBaseMaps(map, layerControl, regionalBaseEntries);
+    baseMapDimmer = installGaBaseMapDimming(map, layerControl, () => {
+        if (!map.hasLayer(aeroOverlay)) return false;
+        const zoom = Number(map.getZoom());
+        return !(Number.isFinite(zoom) && zoom >= VP_VFR_OVERLAY_AUTO_HIDE_ZOOM);
+    });
 
     map.on('overlayadd', function (e) {
         if (e.name === "🛩️ VFR Lufträume (Overlay)") {
             updateAeroOverlayZoomVisibility();
-        }
-        if (e.name === "🗺️ DFS ICAO Karte 1:500k") {
-            if (map.hasLayer(topoMap)) topoMap.setOpacity(1.0);
         }
         if (e.name === "🌧️ Wetterradar (Niederschlag)") localStorage.setItem('ga_radar_active', 'true');
         if (e.name === "⚠️ DWD Warnungen (Test)") localStorage.setItem('ga_dwd_warnings_active', 'true');
@@ -8595,7 +8602,7 @@ function initMapBase() {
             // setOpacity() würde auf dessen nicht mehr existierenden Container
             // zugreifen und in Safari als "null ... t.style" abbrechen.
             aeroOverlay.options.opacity = 0.65;
-            if (map.hasLayer(topoMap)) topoMap.setOpacity(1.0);
+            baseMapDimmer?.update();
         }
         if (e.name === "🌧️ Wetterradar (Niederschlag)") localStorage.setItem('ga_radar_active', 'false');
         if (e.name === "⚠️ DWD Warnungen (Test)") localStorage.setItem('ga_dwd_warnings_active', 'false');

@@ -27,6 +27,14 @@ liefert alles Offene mit aus.
 
 ## Offen
 
+### 2026-11-16 · EFB-Kopien fuer das Web-Kartenmenue
+- **Artefakt:** Tracker-EXE (EFB-Web-Assets). Web live mit v2432.
+- **Dateien:** `ga-tracker-client/efb-web-assets/styles.css`, `ga-tracker-client/efb-web-assets/i18n/en-phrases.js` (generiert per `sync-efb-web-assets.js`).
+- **Was:** Synchronisiert die gemeinsamen Styles und englischen Texte für die Kartenmenüs. Der Abblendregler und die Stapelung der regionalen Basiskarten gehören zur Web-App.
+- **Tests:** `efb-web-assets-sync.test.js`, `tracker-efb-asset-syntax.test.js`.
+- **Doku beim Release:** keine.
+- **Pruefen im Feld:** keine neue EFB-Funktion.
+
 ### 2026-11-16 · EFB-Kopie profile.js: Diagnosezeile „APT Platzdaten“
 - **Artefakt:** Tracker-EXE (EFB-Web-Assets); Web live mit v2422
 - **Dateien:** `ga-tracker-client/efb-web-assets/profile.js` (Kopie per `sync-efb-web-assets.js`)

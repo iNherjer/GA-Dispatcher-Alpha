@@ -37,7 +37,9 @@
         if (!['positron', 'dark', 'fiord'].includes(style)) throw new Error('unknown_vector_basemap');
         const L = root.L;
         const OpenFreeMapLayer = L.Layer.extend({
-            options: { attribution },
+            // L.Layer defaults to overlayPane; base maps belong in tilePane
+            // unless the caller assigns a base-map group pane.
+            options: { attribution, pane: 'tilePane' },
             onAdd(map) {
                 const generation = this._generation = (this._generation || 0) + 1;
                 const current = () => this._generation === generation && map.hasLayer(this);
@@ -70,7 +72,7 @@
                     });
                     this._inner = new Renderer({
                         style: `https://tiles.openfreemap.org/styles/${style}`,
-                        pane: 'tilePane',
+                        pane: this.options.pane || 'tilePane',
                         interactive: false,
                         attributionControl: false,
                         pitch: 0,

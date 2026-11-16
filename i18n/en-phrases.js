@@ -849,6 +849,8 @@
         "Basiskarte nicht verfügbar. Bitte andere Karte wählen.": "Base map not available. Please choose another map.",
         "Regionale Basiskarten": "Regional base maps",
         "Overlays": "Overlays",
+        "Basiskarte abblenden": "Dim base map",
+        "Wirkt, solange die VFR-Lufträume eingeblendet sind.": "Applies while the VFR airspace overlay is shown.",
 
         // API key check (app.js setApiKeyValidationStatus)
         'Pruefe API-Key...': 'Checking API key...',

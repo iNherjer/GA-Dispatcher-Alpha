@@ -20776,6 +20776,38 @@ html[lang="en"] #mapTableOverlay .leaflet-control-layers-list:has(.ga-layer-grou
     padding-top: 10px;
     border-top: 1px solid var(--layer-border);
 }
+#mapTableOverlay .ga-base-dim-control {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--layer-border);
+}
+#mapTableOverlay .leaflet-control-layers .ga-base-dim-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 8px;
+    border: 0;
+    background: none !important;
+    cursor: default;
+}
+#mapTableOverlay .leaflet-control-layers .ga-base-dim-row input[type="range"] {
+    flex: 1 1 auto;
+    width: auto !important;
+    min-width: 0 !important;
+    height: 18px !important;
+    accent-color: var(--layer-accent);
+}
+#mapTableOverlay .ga-base-dim-value {
+    flex: 0 0 auto !important;
+    min-width: 3.2em;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+#mapTableOverlay .ga-base-dim-hint {
+    padding: 0 8px 4px;
+    color: var(--layer-muted);
+    font: 11px/1.35 var(--layer-font);
+}
 #mapTableOverlay .leaflet-control-layers-separator {
     margin: 10px 0;
     border-top-color: var(--layer-border);
