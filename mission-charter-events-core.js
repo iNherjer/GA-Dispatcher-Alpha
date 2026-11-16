@@ -37,7 +37,8 @@ function privateFact(event,window,airport,distanceKm){if(!event||!window)return 
 function pick(events,airport,occasionId,distanceKm,recent=[]){
  const fits=FITS[occasionId]||[],used=new Set((Array.isArray(recent)?recent:[]).map(r=>r&&r.eventId).filter(Boolean));
  const ok=events.filter(e=>fits.includes(e.kind)&&!used.has(e.id)).map(e=>({e,km:distanceKm(e,airport)})).filter(x=>Number.isFinite(x.km)&&x.km<=MATCH_KM);
- ok.sort((a,b)=>(a.e.verification==='supported'?0:1)-(b.e.verification==='supported'?0:1)||a.km-b.km);
+ // Belegte zuerst, dann die zeitlich nächste Veranstaltung (ein Charter fliegt heute), dann die nächstgelegene.
+ ok.sort((a,b)=>(a.e.verification==='supported'?0:1)-(b.e.verification==='supported'?0:1)||String(a.e.startsOn).localeCompare(String(b.e.startsOn))||a.km-b.km);
  return ok[0]?{event:ok[0].e,km:Math.round(ok[0].km)}:null;
 }
 // Der Picker sucht für den ersten Platz, dessen Reiseart eine Veranstaltung tragen kann.

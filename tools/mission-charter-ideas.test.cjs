@@ -110,7 +110,9 @@ test('charter events: grounded sources, two-week window, kind, match within reac
  assert.match(ev.prompt({name:'Freiburg im Breisgau',lat:48.02,lon:7.83},period,['kultur']),/Veranstaltungen in Freiburg im Breisgau und direkter Umgebung/);
  const f=core.frame(route,4,[],[],{id:'kultur'},ev.anchor(good),'2026-11-16');
  assert.equal(f.event.title,'Jazznacht');assert.equal(f.missionDate,'2026-11-16');assert.ok(f.geoAnchors.some(a=>a.id==='event'&&a.lat===48.0));
- const idea=core.validate(raw,f);assert.equal(idea.event.id,'e1');
+ const idea=core.validate(raw,f);assert.equal(idea.event.id,'e1');assert.equal(idea.missionDate,'2026-11-16');
+ const later={...good,id:'e2',startsOn:'2026-11-25',endsOn:'2026-11-25'};assert.equal(ev.pick([later,good],{icao:'EDTF',lat:48.02,lon:7.83},'kultur',(a,b)=>Math.hypot(a.lat-b.lat,(a.lon-b.lon)*0.67)*111).event.id,'e1','zeitlich nähere Veranstaltung zuerst');
+ assert.match(core.writerPrompt(idea,{context:{},bindings:{}},[]),/erzähle sie nicht als heute/);
  assert.match(core.ideaPrompt([{candidateId:'a',...f}]),/recherchierte öffentliche Veranstaltung, die zu seiner Reiseart passt/);
  assert.match(core.writerPrompt(idea,{context:{},bindings:{}},[]),/Uhrzeit, Programm oder Mitwirkende nur, soweit/);
  assert.equal(core.validate(raw,core.frame(route,4,[],[],{id:'kultur'})).event,undefined);

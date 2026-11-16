@@ -246,3 +246,13 @@ Nutzerentscheidung: Events dürfen andere Ideen nicht verdrängen. `MissionGroun
 Privat (V6-Picker, `findPrivateMissionEvent` in `app.js`): eine Suche am ersten der drei Ziele mit den Ausflugsarten Kultur, Genuss, Hobby, Erlebnis (keine Messen) im bestehenden Privatfenster heute bis Sonntag. Ein Treffer wird als zusätzlicher Ortsfakt `kind:'event'` mit `eventId`, Tag im Fenster und Quelle vor die übrigen Ortsfakten gestellt; der Text sagt ausdrücklich „eine Möglichkeit, keine Pflicht“. Der Planner entscheidet weiter frei und nutzt den vorhandenen Vertrag `eventVisit` (Termin, Aufenthalt); `validateIdea` übernimmt `eventId` und Titel. Der Picker übergibt dafür jetzt das Missionsdatum, damit das Fenster bereits im Picker gilt. Direkter Privat-Dispatch sucht nicht.
 
 Live (ein Abruf, Ziel Freiburg, 16.–22.11.): 12 Suchanfragen, 8 lokale Treffer, davon 5 belegt (Konzerthaus, Theater, Weihnachtsmarkt, Münstermarkt, EHC-Heimspiel); Ortsfakt EHC Freiburg gegen Ravensburg am 22.11. mit Uhrzeit aus der Quelle. Kein Ideen- oder Writer-Abruf. Datei `analysis/private-events-freiburg-20261116.json`.
+
+### End-to-end-Probe drei Ziele (16.11.2026, Web v2415)
+
+`tools/charter-events-e2e-probe.mjs` fährt den echten `choices`-Pfad (Suche am Ziel + ein Ideenaufruf) und danach den Writer für den Event-Platz; 11 KI-Abrufe für drei Tests. Ergebnis `analysis/charter-events-e2e-20261116.json`:
+
+- Freiburg → Schramberg (EDTW): 8 Treffer in Schramberg, Anker Ausstellung „Junge Positionen der Kunst“ im Stadtmuseum; Kunstsammler mit zwei Weggefährtinnen zur Eröffnung.
+- Schramberg → Freiburg: 7 Treffer, Anker 30. Hayek-Vorlesung (Geschäftsreise); Dozent mit Mitarbeiterin, Übernachtung bis zum nächsten Vormittag.
+- Lübeck → Hamburg: 8 Treffer, Anker „Filmmusik Live“ in der Laeiszhalle am 20.11.; zwei Musikerfreunde. **Fehler:** Der Writer erzählte das Konzert als „heute Abend“, obwohl der Flug am 16.11. stattfand.
+
+Korrektur: Die Idee trägt bei einem Event den Flugtag (`missionDate`); der Writer nennt einen späteren Veranstaltungstag ausdrücklich und begründet die frühere Anreise aus der Reiseart. Die Auswahl bevorzugt nach belegten Treffern die zeitlich nächste Veranstaltung. Belegstufe und Belegdomains bleiben in `charterIdea.event` erhalten. Nicht erneut live geprüft. Kleinere Beobachtung: Ein Greeting begründete den Flug mit „Zeitersparnis“, was der Prompt eigentlich ausschließt.

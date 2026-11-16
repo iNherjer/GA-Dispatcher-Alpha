@@ -1,0 +1,216 @@
+{
+  "date": "2026-11-16",
+  "tests": [
+    {
+      "start": "EDTF",
+      "dest": "EDTW",
+      "search": {
+        "status": "ready",
+        "airport": "EDTW",
+        "place": "Schramberg",
+        "occasion": "kultur",
+        "count": 8,
+        "queries": 6,
+        "matched": "jungepositionen2026",
+        "matchedTitle": "Junge Positionen der Kunst",
+        "verification": "supported",
+        "cacheHit": false
+      },
+      "picker": [
+        {
+          "target": "EDTW",
+          "occasion": "kultur",
+          "event": "Junge Positionen der Kunst",
+          "title": "Der Besuch der Ausstellungseröffnung 'Junge Positionen der Kunst' im Stadtmuseum Schramberg. Die Gruppe möchte die Werke der Karlsruher Studierenden direkt zum Auftakt sehen.",
+          "subtitle": "2026-11-16 · Junge Positionen der Kunst",
+          "role": "Kunstförderer und Sammler",
+          "pax": "3 PAX (Kunstinteressierte Gruppe)"
+        },
+        {
+          "target": "LSPG",
+          "occasion": "ueberraschung",
+          "event": null,
+          "title": "Lars überrascht seine Frau Nele zu ihrem 40. Geburtstag mit einem Flug nach Kagiswil, um von dort aus zu einer abgelegenen Berghütte aufzubrechen, die sie aus ihrer Kennenlernzeit lieben.",
+          "subtitle": "Ehepaar",
+          "role": "Organisator der Geburtstagsüberraschung",
+          "pax": "2 PAX (Ehepaar)"
+        },
+        {
+          "target": "LSXH",
+          "occasion": "neuanfang",
+          "event": null,
+          "title": "Frau Dr. Mertens zieht nach ihrer Pensionierung in die Nähe ihrer Enkelkinder in den Aargau. Dieser Flug markiert den symbolischen und tatsächlichen Antritt ihres neuen Lebensabschnitts.",
+          "subtitle": "Einzelreisende",
+          "role": "Pensionierte Ärztin im Umzug",
+          "pax": "1 PAX (Einzelreisende)"
+        }
+      ],
+      "mission": {
+        "title": "Auf dem Weg zur Kunst: Vernissage im Stadtmuseum Schramberg",
+        "story": "Benedikt von Haltern hat sich heute ein besonderes Ziel gesetzt: Er möchte die nächste Generation der Kunstwelt unmittelbar an ihrem Wirkungsort erleben. Als leidenschaftlicher Sammler und Förderer hat er diesen kurzen Flug organisiert, um gemeinsam mit zwei langjährigen Weggefährtinnen – einer Galeristin im Ruhestand und einem engagierten Mitglied des Karlsruher Kunstvereins – die Eröffnung der Ausstellung „Junge Positionen der Kunst“ zu besuchen. Was diese drei verbindet, ist die neugierige Beobachtung der Karlsruher Akademie-Klasse, deren Werke nun im Stadtmuseum Schramberg präsentiert werden. Sein Privatfahrer hat die Gruppe bereits am Flughafen Freiburg abgesetzt, von wo aus sie nun den Sprung über den Schwarzwald antreten. Benedikt freut sich sichtlich auf den fachlichen Austausch; die Notizbücher für erste Eindrücke sind bereits griffbereit. Nach der Landung wird die Gruppe per Taxi direkt zum Museum eilen, um pünktlich zur Eröffnungsrede zu erscheinen. Der Plan sieht vor, dass sie nach der Vernissage noch zum gemeinsamen Abendessen mit den jungen Künstlern bleiben, bevor sie nach etwa sechs Stunden bis zum späten Abend die Rückreise antreten.",
+        "greeting": "Guten Tag. Ich bin Benedikt von Haltern. Meine Begleiterinnen und ich freuen uns sehr auf diesen kurzen Flug. Wir möchten pünktlich zur Eröffnung im Stadtmuseum sein, um die Werke der jungen Karlsruher Talente zu sehen. Es ist uns ein Anliegen, den Puls der neuen Kunstgeneration direkt vor Ort zu spüren. Bitte geben Sie uns Bescheid, wenn wir bereit für den Abflug sind.",
+        "pax": "3 PAX (Kunstinteressierte Gruppe)",
+        "cargo": "Drei schmale Aktenmappen mit Katalogen und Notizbüchern. (15 lbs)",
+        "event": {
+          "id": "jungepositionen2026",
+          "title": "Junge Positionen der Kunst",
+          "venue": "Stadtmuseum Schramberg",
+          "lat": 48.2281,
+          "lon": 8.3853,
+          "startsOn": "2026-11-16",
+          "endsOn": "2026-11-30",
+          "sourceUrl": "https://www.podiumkunst.com/ausstellungen/aktuelle-ausstellung/",
+          "visitorInfo": "Kunstausstellung von Podium Kunst mit Werken Studierender der Staatlichen Akademie der Bildenden Künste Karlsruhe. Di-Sa 13-17 Uhr, So 11-17 Uhr.",
+          "kind": "kultur"
+        },
+        "returnPlan": {
+          "offered": true,
+          "reason": "Die Gruppe besucht die Vernissage und bleibt für das anschließende Abendessen mit den Künstlern.",
+          "stayHours": 6,
+          "stayText": "etwa sechs Stunden bis zum späten Abend"
+        }
+      }
+    },
+    {
+      "start": "EDTW",
+      "dest": "EDTF",
+      "search": {
+        "status": "ready",
+        "airport": "EDTF",
+        "place": "Freiburg im Breisgau",
+        "occasion": "beruf",
+        "count": 7,
+        "queries": 5,
+        "matched": "hayek-vorlesung-2026",
+        "matchedTitle": "30. Friedrich A. von Hayek-Vorlesung",
+        "verification": "supported",
+        "cacheHit": false
+      },
+      "picker": [
+        {
+          "target": "EDTF",
+          "occasion": "beruf",
+          "event": "30. Friedrich A. von Hayek-Vorlesung",
+          "title": "Teilnahme an der 30. Friedrich A. von Hayek-Vorlesung an der Universität Freiburg, um neue Impulse für die wirtschaftsethische Debatte zu erhalten.",
+          "subtitle": "2026-11-16 · 30. Friedrich A. von Hayek-Vorlesung",
+          "role": "Dozent für Wirtschaftsethik",
+          "pax": "2 PAX (Wissenschaftliche Delegation)"
+        },
+        {
+          "target": "LFEX",
+          "occasion": "genuss",
+          "event": null,
+          "title": "Besuch einer traditionsreichen Confiserie in Nancy, um die berühmten Bergamotte-Bonbons und Macarons direkt vor Ort in ihrer reinsten Form zu genießen.",
+          "subtitle": "Feinschmecker-Zirkel",
+          "role": "Initiatorin der Genussreise",
+          "pax": "3 PAX (Feinschmecker-Zirkel)"
+        },
+        {
+          "target": "LFWO",
+          "occasion": "kultur",
+          "event": null,
+          "title": "Besuch einer exklusiven Matinee eines lokalen Streichquartetts, das in der Nähe des Zentrums auftritt.",
+          "subtitle": "Einzelreisender",
+          "role": "Kulturliebhaber",
+          "pax": "1 PAX (Einzelreisender)"
+        }
+      ],
+      "mission": {
+        "title": "Ordnungspolitische Impulse: Mit Dr. Benedikt Vauth zur Hayek-Vorlesung nach Freiburg",
+        "story": "Dr. Benedikt Vauth bricht heute zusammen mit seiner wissenschaftlichen Mitarbeiterin zu einer Reise auf, die den intellektuellen Kern seiner Arbeit als Dozent für Wirtschaftsethik berührt. Der Anlass ist die 30. Friedrich A. von Hayek-Vorlesung an der Universität Freiburg, bei der Prof. Dr. Sabine Döring über aktuelle ordnungspolitische Themen referieren wird. Für Benedikt ist dieser Termin weit mehr als eine bloße Verpflichtung; er sieht darin die Chance, seinen eigenen Forschungsansatz zur individuellen Freiheit in der Marktwirtschaft vor dem Hintergrund aktueller Thesen zu prüfen und zu schärfen. Die beiden wurden soeben vom Fahrer der Hochschule am Flugplatz abgesetzt. Nach der Landung in Freiburg wird sie eine Mitarbeiterin des Instituts für Wirtschaftsforschung in Empfang nehmen, um sie auf direktem Weg zur Universität zu begleiten. Dort ist vor dem abendlichen Fachvortrag noch Zeit für einen persönlichen Austausch innerhalb der Fakultät eingeplant. Da die wissenschaftliche Debatte erfahrungsgemäß bis in den späten Abend andauern wird, ist der Aufenthalt bis morgen Vormittag ausgelegt, was den Reisenden die nötige Ruhe für die Reflexion der neuen Impulse gibt.",
+        "greeting": "Guten Tag. Ich bin Dr. Benedikt Vauth. Meine Mitarbeiterin und ich freuen uns, dass wir diesen Flug heute mit Ihnen antreten können. Wir nehmen an der 30. Friedrich A. von Hayek-Vorlesung in Freiburg teil – ein bedeutender Termin für unsere Forschung. Wir schätzen die Zeitersparnis sehr, da uns noch vor dem Vortrag ein wichtiger Austausch an der Fakultät bevorsteht.",
+        "pax": "2 PAX (Wissenschaftliche Delegation)",
+        "cargo": "Laptoptaschen und Business-Trolleys mit Fachliteratur (45 lbs)",
+        "event": {
+          "id": "hayek-vorlesung-2026",
+          "title": "30. Friedrich A. von Hayek-Vorlesung",
+          "venue": "Universität Freiburg HS 1199",
+          "lat": 47.994,
+          "lon": 7.8465,
+          "startsOn": "2026-11-16",
+          "endsOn": "2026-11-16",
+          "sourceUrl": "https://www.eucken.de/veranstaltungen/",
+          "visitorInfo": "Fachvortrag von Prof. Dr. Sabine Döring (Universität Tübingen) zu ordnungspolitischen Themen ab 18:30 Uhr.",
+          "kind": "beruf"
+        },
+        "returnPlan": {
+          "offered": true,
+          "reason": "Die Vorlesung beginnt erst am Abend; eine Rückkehr ist nach einer Übernachtung in Freiburg sinnvoll.",
+          "stayHours": 18,
+          "stayText": "bis morgen Vormittag"
+        }
+      }
+    },
+    {
+      "start": "EDHL",
+      "dest": "EDDH",
+      "search": {
+        "status": "ready",
+        "airport": "EDDH",
+        "place": "Hamburg",
+        "occasion": "kultur",
+        "count": 8,
+        "queries": 6,
+        "matched": "filmmusik-live-laeiszhalle",
+        "matchedTitle": "Filmmusik Live – Philharmonie Leipzig",
+        "verification": "search",
+        "cacheHit": false
+      },
+      "picker": [
+        {
+          "target": "EDDH",
+          "occasion": "kultur",
+          "event": "Filmmusik Live – Philharmonie Leipzig",
+          "title": "Zwei Freunde besuchen das Konzert 'Filmmusik Live' in der Hamburger Laeiszhalle, um die Werke von Hans Zimmer und John Williams in historischer Kulisse zu erleben.",
+          "subtitle": "2026-11-20 · Filmmusik Live – Philharmonie Leipzig",
+          "role": "Musikliebhaber und Konzertgast",
+          "pax": "2 PAX (Konzertbesucher)"
+        },
+        {
+          "target": "EDXZ",
+          "occasion": "beruf",
+          "event": null,
+          "title": "Die Reisende besucht eine moderne Molkerei-Genossenschaft bei Bederkesa, um über nachhaltige Lieferketten und Verpackungslösungen zu verhandeln.",
+          "subtitle": "Einzelreisende",
+          "role": "Einkaufsleiterin für Nachhaltigkeit",
+          "pax": "1 PAX (Einzelreisende)"
+        },
+        {
+          "target": "OA-09445E41",
+          "occasion": "vip",
+          "event": null,
+          "title": "Ein bekannter Dirigent besucht seine betagte Mutter in Itzehoe, um mit ihr gemeinsam einen ruhigen Nachmittag im Garten ihres Hauses zu verbringen.",
+          "subtitle": "Einzelreisender",
+          "role": "Dirigent",
+          "pax": "1 PAX (Einzelreisender)"
+        }
+      ],
+      "mission": {
+        "title": "Klangvolle Reise über 28 NM: Erik Lindgren und sein Mentor auf dem Weg zur Laeiszhalle",
+        "story": "Heute begleiten wir Erik Lindgren und seinen ehemaligen Mentor auf einem kurzen Flug von Lubeck Blankensee Airport nach Hamburg. Die beiden Männer verbindet eine tiefe Freundschaft und die gemeinsame Geschichte beim Philharmonischen Orchester Lübeck, wo der ältere Begleiter jahrelang als Cellist tätig war. Erik, ein leidenschaftlicher Kenner der Partituren von John Williams, hat die Karten für das heutige Event „Filmmusik Live“ organisiert. Es ist eine Hommage an ihre gemeinsame Zeit und ihre Begeisterung für monumentale Soundtracks von Hans Zimmer bis John Williams. Am Startplatz wurden sie herzlich von Eriks Ehefrau verabschiedet. In Hamburg angekommen, wird sie ein Fahrer direkt zu ihrem Hotel bringen, damit sie vor dem Konzertbesuch um 20:00 Uhr noch ausreichend Zeit für ein gemeinsames Abendessen in der Nähe der traditionsreichen Laeiszhalle haben. Die beiden freuen sich besonders auf die Akustik des Großen Saals, die sie im Geiste bereits mit den Klängen der Philharmonie Leipzig füllen. Da der Abend im Zeichen des Genusses steht, bleiben sie über Nacht und treten die Rückreise erst entspannt am nächsten Vormittag an.",
+        "greeting": "Moin! Mein Mentor und ich freuen uns riesig auf den Flug. Wir sind beide große Fans von orchestralen Soundtracks – heute Abend lassen wir uns in der Laeiszhalle mal so richtig von den Klassikern von Hans Zimmer und John Williams berauschen. Schön, dass du uns rüberbringst, damit wir rechtzeitig zum Essen und zum Konzert sind. Wir bleiben dann bis morgen Vormittag in der Stadt.",
+        "pax": "2 PAX (Konzertbesucher)",
+        "cargo": "Zwei elegante Kleidersäcke mit Abendgarderobe und Handgepäck (45 lbs)",
+        "event": {
+          "id": "filmmusik-live-laeiszhalle",
+          "title": "Filmmusik Live – Philharmonie Leipzig",
+          "venue": "Laeiszhalle Großer Saal",
+          "lat": 53.556,
+          "lon": 9.98,
+          "startsOn": "2026-11-20",
+          "endsOn": "2026-11-20",
+          "sourceUrl": "https://www.elbphilharmonie.de/de/programm/filmmusik-live-philharmonie-leipzig/22904",
+          "visitorInfo": "Das Beste von Hans Zimmer bis John Williams live performed vom Orchester um 20:00 Uhr",
+          "kind": "kultur"
+        },
+        "returnPlan": {
+          "offered": true,
+          "reason": "Das Konzert findet am späten Abend statt, die Rückreise erfolgt nach einer Übernachtung in Hamburg am nächsten Vormittag.",
+          "stayHours": 18,
+          "stayText": "bis zum nächsten Vormittag nach dem Konzert"
+        }
+      }
+    }
+  ],
+  "requests": 11
+}
