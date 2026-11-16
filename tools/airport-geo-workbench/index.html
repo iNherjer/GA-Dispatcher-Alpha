@@ -65,6 +65,8 @@ window.normalizeAptArrivalRole = () => ({ role: window.wbRole, personRole: 'pers
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="/core/mission-arrival-core.js"></script>
 <script>
+// Kandidaten aus pickAptArrivalOsmPlacement().alternates; plannerMax wie app.js (Planer-Kontext).
+const CANDIDATE_TYPES = [['hangarFront', 'Hangar-Vorplatz', '#ffb86b', 12], ['apron', 'Vorfeld', '#58a6ff', 8], ['parking', 'Parkposition', '#39c5cf', 8], ['surface', 'Fläche', '#7ee787', 99]];
 const ROLES = [['charter_pickup', 'Charter-Abholung'], ['cargo_handoff', 'Fracht-Übergabe'], ['medical_handoff', 'Medizinische Übergabe'], ['media_pickup', 'Reporter-Abholung'], ['club_meetup', 'Vereinstreffen'], ['tour_pickup', 'Rundflug-Abholung'], ['animal_handoff', 'Tier-Übergabe']];
 const map = L.map('map', { worldCopyJump: true }).setView([49.5, 9], 6);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap contributors' }).addTo(map);
@@ -190,6 +192,17 @@ function drawGeometry() {
         const plan = planFor();
         const place = pickAptArrivalOsmPlacement(effective, plan) || pickAptArrivalBushRunwaySidePlacement(effective, plan);
         state.placement = place || null;
+        // Alle Kandidaten: der Szenenplaner (KI) waehlt beim Akzeptieren frei daraus, gelb = Standard ohne KI.
+        const alt = place?.alternates || {};
+        CANDIDATE_TYPES.forEach(([type, label, color, plannerMax]) => {
+            (alt[type] || []).forEach((c, i) => {
+                if (!Number.isFinite(Number(c.lat)) || !Number.isFinite(Number(c.lon))) return;
+                const seen = i < plannerMax;
+                L.circleMarker([c.lat, c.lon], { radius: 5, color: '#0d1117', weight: 1, fillColor: color, fillOpacity: seen ? .95 : .35 })
+                    .bindTooltip(`${label} #${i + 1}${c.name ? ' · ' + esc(c.name) : ''}${c.sourceId ? ' · ' + esc(c.sourceId) : ''}${seen ? '' : ' (Planer sieht ihn nicht)'}${c.contextMatch?.length ? ' · passt zu: ' + esc(c.contextMatch.join(', ')) : ''}`)
+                    .addTo(geoLayer);
+            });
+        });
         if (place?.point) L.circleMarker([place.point.lat, place.point.lon], { radius: 11, color: '#ffd33d', weight: 3, fillColor: '#ffd33d', fillOpacity: .5 })
             .bindTooltip(`App baut hier auf: ${esc(place.source)} (${esc(place.reason)})`, { permanent: false }).addTo(geoLayer);
     } catch (err) { state.placement = { error: err.message }; }
@@ -227,6 +240,7 @@ function render() {
         ${sig ? `<span>${state.preview ? 'OSM-Vorschau' : 'Inhalt'}</span><span>${sig.aprons} Vorfelder · ${sig.parking} Parkpositionen · ${sig.surfaces} Flächen · ${sig.hangars} Hangars · ${sig.runways} Runways</span>` : ''}
         <span>Sperren / manuell</span><span>${state.draft.blocked.size} gesperrt · ${state.draft.added.length} manuelle Plätze${dirty() ? ' · <b>ungespeichert</b>' : ''}</span>
         <span>App-Platzwahl</span><span>${place?.point ? `${esc(place.source)} (${esc(place.reason)})` : place?.error ? 'Fehler: ' + esc(place.error) : 'kein Platz → Abholung kommt zum Flugzeug'}</span>
+        <span>Kandidaten</span><span>${place?.alternates ? CANDIDATE_TYPES.map(([type, label, color, max]) => { const n = (place.alternates[type] || []).length; return n ? `<i class="dot" style="background:${color}"></i>${n} ${label}${n > max ? ` (Planer sieht ${max})` : ''}` : ''; }).filter(Boolean).join(' · ') || 'keine' : '-'}</span>
       </div></div>
       <div class="row"><label class="hint">Rolle für die Vorschau <select id="role">${ROLES.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></label></div>
       <div class="row">
@@ -239,7 +253,7 @@ function render() {
         <button id="bAdd" class="${state.mode === 'add' ? 'on' : ''}">Platz setzen</button>
         <button id="bApply" ${dirty() ? '' : 'disabled'} class="primary">Sperren &amp; Plätze speichern</button>
       </div>
-      <div class="hint">${state.mode === 'block' ? 'Vorfeld, Fläche, Parkposition oder Hangar anklicken = sperren/entsperren. Gesperrte Hangars bleiben Hindernis, geben aber keinen Vorplatz frei.' : state.mode === 'add' ? 'In die Karte klicken = manuellen Abstellplatz setzen; Marker ziehen = verschieben, anklicken = entfernen. Die App prüft ihn wie eine OSM-Parkposition (Abstand zu Runway, Gebäuden).' : 'Gelber Kreis = dort würde die App die Ankunftsszene aufbauen.'}</div>
+      <div class="hint">${state.mode === 'block' ? 'Vorfeld, Fläche, Parkposition oder Hangar anklicken = sperren/entsperren. Gesperrte Hangars bleiben Hindernis, geben aber keinen Vorplatz frei.' : state.mode === 'add' ? 'In die Karte klicken = manuellen Abstellplatz setzen; Marker ziehen = verschieben, anklicken = entfernen. Die App prüft ihn wie eine OSM-Parkposition (Abstand zu Runway, Gebäuden).' : 'Gelber Kreis = Standardplatz der App ohne KI. Kleine Punkte = alle Kandidaten; beim Akzeptieren wählt der Szenenplaner passend zur Geschichte einen davon (blasse Punkte bekommt er nicht zu sehen). Die Rolle ändert nur die Reihenfolge; gibt es Hangar-Vorplätze, ist der Standard immer einer davon.'}</div>
       <div class="row">
         <button id="bReload">Neu laden</button>
         <button id="bRestore" ${cloud?.hasPrevious ? '' : 'disabled'}>Vorversion wiederherstellen</button>

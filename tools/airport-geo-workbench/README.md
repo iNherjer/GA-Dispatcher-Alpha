@@ -26,7 +26,11 @@ Wrangler angemeldet (`npx wrangler whoami`), Internet.
 - **Anzeige:** Vorfelder (blau), Flächen (grün), Parkpositionen (türkis), Hangars (lila),
   Gebäude (grau), Runways (rot), Rollwege (gelb), Platzgrenze (gestrichelt). Der gelbe Kreis zeigt,
   wo die App die Ankunftsszene aufbauen würde (echte Platzwahl aus `mission-arrival-core.js`,
-  Rolle wählbar).
+  Rolle wählbar). Kleine Punkte zeigen alle Kandidaten der Platzwahl (Hangar-Vorplatz orange,
+  Vorfeld blau, Parkposition türkis, Fläche grün); beim Akzeptieren wählt der Szenenplaner (KI)
+  passend zur Geschichte einen davon. Blasse Punkte liegen über der Grenze, die der Planer sieht
+  (12 Hangar-Vorplätze, 8 Vorfeld, 8 Parkpositionen). Die Rolle ändert nur die Reihenfolge; gibt
+  es Hangar-Vorplätze, ist der Standard immer einer davon.
 - **OSM abrufen:** gleicher Abruf wie die App (Overpass-Server, dann OSM-Karte mit 1400/900/600 m),
   ohne Cloud und ohne Sitzungsspeicher. Ergebnis ist zunächst nur eine Vorschau; „in Cloud
   speichern/ersetzen“ schreibt sie (alte Version bleibt als Vorversion).
