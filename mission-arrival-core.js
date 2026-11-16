@@ -694,8 +694,13 @@ out tags center geom;`;
                     } catch (error) {
                         const message = error?.name === 'AbortError' ? 'timeout' : String(error?.message || error || 'error');
                         errors.push(`osm-map:${mapRadiusM}m:${message}`);
-                        if (message !== 'osm_map_geometry_incomplete') aptArrivalGeoCooldownSet(mapEndpoint);
                         console.warn('[APT ARRIVAL GEO] OSM map fallback unavailable', error);
+                        // Zu grosser Ausschnitt laeuft oft in die Zeitgrenze: kleiner weiterversuchen.
+                        if (message === 'timeout' && mapRadiusM !== APT_ARRIVAL_OSM_MAP_RADII_M[APT_ARRIVAL_OSM_MAP_RADII_M.length - 1]) {
+                            aptArrivalGeoReportStatus('retry', 'OSM antwortet sehr langsam. Ich versuche einen kleineren Kartenausschnitt, bitte hab etwas Geduld …');
+                            continue;
+                        }
+                        if (message !== 'osm_map_geometry_incomplete') aptArrivalGeoCooldownSet(mapEndpoint);
                         break;
                     } finally { clearTimeout(mapTimeout); }
                 }

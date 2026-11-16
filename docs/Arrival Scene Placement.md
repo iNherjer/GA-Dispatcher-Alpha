@@ -36,6 +36,12 @@ werden nicht eingeführt.
    anderen Server, bitte hab etwas Geduld …“); die App zeigt es beim Erstellen im
    Fortschrittsbalken, beim Akzeptieren und beim Neuversuch im Annehmen-Feld.
    Ein Abruf ohne Fehler bleibt stumm.
+   Web v2421 (16.11.2026): `api.openstreetmap.org` und `overpass.private.coffee`
+   stehen im Service Worker auf Network-Only (vorher lieferte der Cache-Pfad bei
+   Fehlern „Returned response is null“); eine Zeitüberschreitung der OSM-Map-API
+   führt zum nächstkleineren Ausschnitt statt zum Abbruch. Am 16.11.2026 morgens
+   waren alle öffentlichen Overpass-Server und die OSM-API selbst überlastet
+   (502/503/Zeitgrenze) – dagegen hilft nur ein eigener Vorrat (offen).
    Tests: `tools/apt-arrival-geo-fetch.test.mjs`, `tools/mission-arrival-retry-ui.test.mjs`.
 3. Der bestehende Composer wählt `preferredPlacement.source` und `index`:
    `osm_parking_position`, `osm_apron` oder `osm_surface`. Letzteres benennt

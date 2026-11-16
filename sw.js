@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v2420';
+const CACHE = 'ga-dispatcher-v2421';
 
 const STATIC = [
     './',
@@ -326,6 +326,10 @@ const NETWORK_ONLY = [
     'api.openai.com',
     'generativelanguage.googleapis.com',
     'overpass-api.de',
+    'overpass.private.coffee',
+    // OSM-Karten-API (Ersatz fuer Overpass): nie cachen, Fehler direkt an die App
+    // (Feldtest 16.11.2026: Cache-Pfad lieferte „Returned response is null“).
+    'api.openstreetmap.org',
     'nominatim.openstreetmap.org',
     'opensky-network.org',
     'tile.openstreetmap.org',

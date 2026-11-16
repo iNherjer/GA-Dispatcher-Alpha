@@ -73,3 +73,24 @@ test('total failure marks the plan, cools the servers down, and a forced retry a
   assert.equal(retried.snapStatus.geoFetchFailed, undefined);
   assert.ok(retried.placementGeometry);
 });
+
+// Feldtest 16.11.2026: OSM-Map lief bei 1400 m in die Zeitgrenze und der Ersatzweg gab auf.
+test('OSM map timeout at the large window steps down to a smaller one', async () => {
+  const { c, plan, calls, events } = setup((url, opts) => {
+    if (url.includes('interpreter')) return res(502);
+    if (calls.filter(u => u.includes('/map?')).length === 1) { const e = new Error('aborted'); e.name = 'AbortError'; throw e; }
+    return res(200, '<osm/>');
+  });
+  const resolved = await c.resolveAptArrivalPlanPlacement(plan);
+  assert.equal(resolved.snapStatus.status, 'resolved');
+  assert.equal(resolved.snapStatus.osmMapRadiusM, 900);
+  assert.ok(events.some(e => /sehr langsam/.test(e.text)));
+});
+
+test('service worker never routes Overpass mirrors or the OSM map API through its cache', () => {
+  const sw = fs.readFileSync(new URL('../sw.js', import.meta.url), 'utf8');
+  const list = sw.slice(sw.indexOf('const NETWORK_ONLY'), sw.indexOf('];', sw.indexOf('const NETWORK_ONLY')));
+  const core = fs.readFileSync(new URL('../mission-arrival-core.js', import.meta.url), 'utf8');
+  for (const host of ['overpass-api.de', 'overpass.private.coffee', 'api.openstreetmap.org']) assert.ok(list.includes(`'${host}'`), host);
+  assert.match(core, /'https:\/\/overpass\.private\.coffee\/api\/interpreter'/);
+});
