@@ -29,3 +29,9 @@ test('private event fact sits inside the private window and carries identity int
  const soon={...e,id:'soon',startsOn:'2026-11-18',endsOn:'2026-11-18',verification:'search'},later={...e,id:'later',startsOn:'2026-11-21',endsOn:'2026-11-21',verification:'search'};assert.equal(ev.pickKinds([later,soon],apt,ev.PRIVATE_KINDS,dist).event.id,'soon','zeitlich nächste zuerst');
  assert.equal(ev.EVENT_EVERY.private,3);assert.equal(ev.EVENT_EVERY.charter,2);
 });
+test('search retried exactly once when Gemini answered without searching',async()=>{
+ const calls=[];const reply=q=>({ok:true,json:async()=>({candidates:[{content:{parts:[{text:'KEINE'}]},groundingMetadata:{webSearchQueries:q}}]})});
+ let n=0;const f=async(url,opt)=>{calls.push(JSON.parse(opt.body));n++;return reply(n===1?[]:['Veranstaltungen Hamburg']);};
+ const body=await g.request({prompt:'x',apiKey:'k',fetchImpl:f});assert.equal(calls.length,2);assert.equal(body.searchRetry,true);assert.equal(calls[1].generationConfig.thinkingConfig.thinkingLevel,'medium');
+ calls.length=0;n=1;await g.request({prompt:'x',apiKey:'k',fetchImpl:async(u,o)=>{calls.push(1);return reply(['q']);}});assert.equal(calls.length,1,'mit Suche kein zweiter Abruf');
+});

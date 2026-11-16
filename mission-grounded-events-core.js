@@ -60,14 +60,25 @@ function parse(body,period,{kinds=null,limit=8,lenient=false}={}){
  out.sort((a,b)=>(a.verification==='supported'?0:1)-(b.verification==='supported'?0:1));
  return out.slice(0,limit);
 }
-async function request({prompt,apiKey,fetchImpl=fetch,maxOutputTokens=6000}){
- const res=await fetchImpl('https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':apiKey},body:JSON.stringify({contents:[{parts:[{text:prompt+'\n'+FORMAT}]}],tools:[{google_search:{}},{url_context:{}}],generationConfig:{maxOutputTokens,thinkingConfig:{thinkingLevel:'low'}}}),signal:AbortSignal.timeout(40000)});
+// Gemini entscheidet selbst, ob es sucht; die Suche lässt sich über die Schnittstelle nicht erzwingen.
+// Kommt eine Antwort ohne eine einzige Suchanfrage zurück (Modell antwortete aus dem Gedächtnis),
+// wird genau einmal neu gefragt; erst dann gilt die Suche als ohne Treffer.
+async function requestOnce({prompt,apiKey,fetchImpl,maxOutputTokens,thinkingLevel}){
+ const res=await fetchImpl('https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':apiKey},body:JSON.stringify({contents:[{parts:[{text:prompt+'\n'+FORMAT}]}],tools:[{google_search:{}},{url_context:{}}],generationConfig:{maxOutputTokens,thinkingConfig:{thinkingLevel}}}),signal:AbortSignal.timeout(40000)});
  if(!res.ok)throw Error('Veranstaltungssuche HTTP '+res.status);
  return res.json();
+}
+function searched(body){return (body?.candidates?.[0]?.groundingMetadata?.webSearchQueries||[]).length>0;}
+async function request({prompt,apiKey,fetchImpl=fetch,maxOutputTokens=6000}){
+ const first=await requestOnce({prompt,apiKey,fetchImpl,maxOutputTokens,thinkingLevel:'low'});
+ if(searched(first))return first;
+ const second=await requestOnce({prompt:prompt+'\nDeine vorige Antwort enthielt keine Google-Suche. Führe jetzt zuerst die Suche aus und antworte erst danach.',apiKey,fetchImpl,maxOutputTokens,thinkingLevel:'medium'});
+ if(second?.candidates?.[0])second.searchRetry=true;
+ return second;
 }
 // Taktung je Strang über die eigene History (älteste zuerst): Ein Event darf erst wieder vorkommen,
 // wenn in den letzten every-1 Einträgen keines tatsächlich genommen wurde. Suchen ohne Treffer oder
 // angebotene, aber nicht gewählte Events zählen nicht; dann darf schon der nächste Flug ein Event sein.
 function eventDue(recent,every,hasEvent=r=>!!(r&&r.eventId)){const n=Math.max(0,Math.floor(Number(every)||1)-1);if(!n)return true;return !(Array.isArray(recent)?recent:[]).slice(-n).some(hasEvent);}
-const api={FIELDS,FORMAT,parse,request,sameDomain,host,normUrl,validDate,eventDue};root.MissionGroundedEventsCore=api;if(typeof module!=='undefined')module.exports=api;
+const api={FIELDS,FORMAT,parse,request,searched,sameDomain,host,normUrl,validDate,eventDue};root.MissionGroundedEventsCore=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof window!=='undefined'?window:globalThis);
