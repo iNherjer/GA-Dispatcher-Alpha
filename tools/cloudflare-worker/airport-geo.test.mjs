@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
-import { AirportGeoStore, handleAirportGeo, validateAirportGeoContext, AIRPORT_GEO_STALE_MS, AIRPORT_GEO_LEASE_MS } from './airport-geo.mjs';
+import { AirportGeoStore, handleAirportGeo, validateAirportGeoContext, unpackAirportGeoContext, AIRPORT_GEO_STALE_MS, AIRPORT_GEO_LEASE_MS } from './airport-geo.mjs';
 
 // Echter aufbereiteter Platzkontext (EDTW) aus dem App-Kern, wie ihn die App hochlaedt.
 const core = fs.readFileSync(new URL('../../mission-arrival-core.js', import.meta.url), 'utf8');
@@ -50,7 +50,7 @@ test('validation: real context passes; wrong place, empty, schema, kind and over
     assert.equal(empty.empty, true);
     assert.equal(validateAirportGeoContext(KEY, ctx({ schema: 'x' })).error, 'schema_invalid');
     assert.equal(validateAirportGeoContext(KEY, ctx({ stripHandoff: true })).error, 'kind_mismatch');
-    assert.equal(validateAirportGeoContext(KEY, ctx({ avoidZones: new Array(3001).fill(base.avoidZones[0]) })).error, 'avoidZones_too_many');
+    assert.equal(validateAirportGeoContext(KEY, ctx({ avoidZones: new Array(12001).fill(base.avoidZones[0]) })).error, 'avoidZones_too_many');
     assert.equal(validateAirportGeoContext('../etc', ctx()).error, 'key_invalid');
 });
 
@@ -103,7 +103,8 @@ test('changed but plausible data replaces the entry and keeps the previous versi
     const store = e.stores.get(KEY).storage.records;
     assert.equal(store.get('meta').version, 2);
     assert.equal(store.get('meta').previous.version, 1);
-    assert.equal(store.get('prevCtx').surfaces.length, base.surfaces.length);
+    assert.equal((await unpackAirportGeoContext(store.get('prevCtx'))).surfaces.length, base.surfaces.length);
+    assert.ok(store.get('ctx').gz instanceof ArrayBuffer, 'stored compressed');
 });
 
 test('a strong shrink needs a second matching fetch at least a minute later', async () => {
@@ -250,4 +251,29 @@ test('delete removes the entry and its index row', async () => {
     assert.equal((await (await admin(e, KEY, { op: 'delete' })).json()).result, 'deleted');
     assert.equal((await get(e)).found, false);
     assert.equal((await (await index(e)).json()).entries.length, 0);
+});
+
+// Feldtest 16.11.2026: EDDS kam auf 2,1 MB mit 3807 Sperrzonen – roh ueber der 2-MB-Grenze eines DO-Werts.
+test('a large airport (EDDS size) is stored compressed and read back intact', async () => {
+    const e = env();
+    const zone = base.avoidZones.find(z => z.type === 'building' && z.polygon?.length) || base.avoidZones[0];
+    const avoidZones = Array.from({ length: 5000 }, (_, i) => ({ ...zone, id: 'way/' + (900000 + i), center: { lat: 48.2792 + (i % 50) * 0.0001, lon: 8.4283 + Math.floor(i / 50) * 0.0001 } }));
+    const big = ctx({ avoidZones });
+    const raw = JSON.stringify(big).length;
+    assert.ok(raw > 2 * 1024 * 1024, `fixture is ${raw} bytes`);
+    const res = await (await post(e, { context: big })).json();
+    assert.equal(res.result, 'stored');
+    const packed = e.stores.get(KEY).storage.records.get('ctx').gz.byteLength;
+    assert.ok(packed < raw / 4, `packed ${packed} bytes`);
+    const read = await get(e);
+    assert.equal(read.context.avoidZones.length, 5000);
+    assert.deepEqual(read.context.aprons, base.aprons);
+});
+
+test('entries stored before compression stay readable', async () => {
+    const e = env();
+    await post(e, { context: ctx() });
+    const records = e.stores.get(KEY).storage.records;
+    records.set('ctx', structuredClone(base));
+    assert.equal((await get(e)).context.aprons.length, base.aprons.length);
 });

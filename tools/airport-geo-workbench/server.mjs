@@ -19,7 +19,7 @@ const WORKER_DIR = path.join(ROOT, 'tools', 'cloudflare-worker');
 const WORKER_URL = 'https://ga-proxy.einherjer.workers.dev/api/airport-geo-v1';
 const TOKEN_FILE = path.join(os.homedir(), '.config', 'ga-dispatcher', 'airport-geo-admin-token');
 const KEY_RE = /^(airport|strip)_-?\d{1,2}\.\d{4}_-?\d{1,3}\.\d{4}$/;
-const MAX_BODY = 2 * 1024 * 1024;
+const MAX_BODY = 8 * 1024 * 1024; // grosse Flughaefen (EDDS) liegen roh bei 2–3 MB
 
 export function loadAirports(root = ROOT) {
     const manifest = JSON.parse(fs.readFileSync(path.join(root, 'data', 'airport-search', 'manifest.json'), 'utf8'));
@@ -99,8 +99,8 @@ const send = (res, status, body, type = 'application/json; charset=utf-8') => {
 function readBody(req) {
     return new Promise((resolve, reject) => {
         let size = 0; const chunks = [];
-        req.on('data', chunk => { size += chunk.length; if (size > MAX_BODY) { reject(new Error('too_large')); req.destroy(); } else chunks.push(chunk); });
-        req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
+        req.on('data', chunk => { size += chunk.length; if (size <= MAX_BODY) chunks.push(chunk); });
+        req.on('end', () => size > MAX_BODY ? reject(new Error('request_too_large')) : resolve(Buffer.concat(chunks).toString('utf8')));
         req.on('error', reject);
     });
 }

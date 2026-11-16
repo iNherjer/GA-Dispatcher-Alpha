@@ -29,8 +29,11 @@ export const AIRPORT_GEO_SCHEMA = 'apt-arrival-geometry.v2';
 export const AIRPORT_GEO_STALE_MS = 90 * 24 * 60 * 60 * 1000;
 export const AIRPORT_GEO_LEASE_MS = 10 * 60 * 1000;
 export const AIRPORT_GEO_CONFIRM_MIN_MS = 60 * 1000;
-const MAX_BODY = 1536 * 1024;
-const MAX_ITEMS = { parkingPositions: 200, aprons: 100, surfaces: 200, airportBoundaries: 20, avoidZones: 3000 };
+const MAX_BODY = 6 * 1024 * 1024;
+// Gespeichert wird gzip-komprimiert: ein Durable-Object-Wert darf hoechstens 2 MB gross sein,
+// grosse Flughaefen (EDDS 16.11.2026: 2,1 MB, 3807 Sperrzonen) liegen roh darueber.
+const MAX_PACKED = 1900 * 1024;
+const MAX_ITEMS = { parkingPositions: 200, aprons: 100, surfaces: 200, airportBoundaries: 20, avoidZones: 12000 };
 const KEY_RE = /^(airport|strip)_-?\d{1,2}\.\d{4}_-?\d{1,3}\.\d{4}$/;
 const ICAO_RE = /^[A-Z0-9-]{2,16}$/;
 
@@ -96,13 +99,27 @@ export async function airportGeoHash(context) {
 const close = (a, b) => Math.abs(a - b) <= Math.max(2, Math.round(Math.max(a, b) * 0.1));
 const sameShape = (a, b) => !!a && !!b && ['parking', 'aprons', 'surfaces', 'runways', 'buildings'].every(k => close(Number(a[k]) || 0, Number(b[k]) || 0));
 
+export async function packAirportGeoContext(context) {
+    const stream = new Blob([JSON.stringify(context)]).stream().pipeThrough(new CompressionStream('gzip'));
+    const gz = await new Response(stream).arrayBuffer();
+    if (gz.byteLength > MAX_PACKED) throw new Error('context_too_large');
+    return { gz };
+}
+
+// Aeltere Eintraege (vor 16.11.2026 nachmittags) liegen unkomprimiert.
+export async function unpackAirportGeoContext(value) {
+    if (!value || !value.gz) return value || null;
+    const stream = new Blob([value.gz]).stream().pipeThrough(new DecompressionStream('gzip'));
+    return JSON.parse(await new Response(stream).text());
+}
+
 export class AirportGeoStore {
     constructor(ctx) { this.ctx = ctx; this.storage = ctx.storage; }
 
     async read(now) {
         const meta = await this.storage.get('meta');
         if (!meta) return reply({ ok: true, found: false });
-        const context = applyAirportGeoOverrides(await this.storage.get('ctx'), meta);
+        const context = applyAirportGeoOverrides(await unpackAirportGeoContext(await this.storage.get('ctx')), meta);
         const ageMs = Math.max(0, now - Number(meta.refreshedAt || meta.storedAt || 0));
         const stale = ageMs > AIRPORT_GEO_STALE_MS;
         let refresh = null;
@@ -125,8 +142,8 @@ export class AirportGeoStore {
     async readAdmin(now) {
         const meta = await this.storage.get('meta');
         if (!meta) return reply({ ok: true, found: false });
-        const [context, prevCtx] = await Promise.all([this.storage.get('ctx'), this.storage.get('prevCtx')]);
-        return reply({ ok: true, found: true, meta, context, hasPrevious: !!prevCtx, summary: airportGeoSummary(meta, now) });
+        const [stored, prevCtx] = await Promise.all([this.storage.get('ctx'), this.storage.get('prevCtx')]);
+        return reply({ ok: true, found: true, meta, context: await unpackAirportGeoContext(stored), hasPrevious: !!prevCtx, summary: airportGeoSummary(meta, now) });
     }
 
     async write(body, now) {
@@ -135,7 +152,7 @@ export class AirportGeoStore {
         const record = { key, icao, name, storedAt: now, refreshedAt: now, version: 1, hash, signature, source: String(context.source || '') };
         const done = (result, nextMeta) => reply({ ok: true, result, version: nextMeta.version, summary: airportGeoSummary(nextMeta, now) });
         if (!meta) {
-            await this.storage.put({ meta: record, ctx: context });
+            await this.storage.put({ meta: record, ctx: await packAirportGeoContext(context) });
             return done('stored', record);
         }
         const stale = now - Number(meta.refreshedAt || meta.storedAt || 0) > AIRPORT_GEO_STALE_MS;
@@ -176,7 +193,7 @@ export class AirportGeoStore {
         // Sperren und manuelle Plaetze gelten fuer den Flugplatz, nicht fuer eine Datenversion: sie bleiben.
         const next = { ...record, name: record.name || meta.name || '', icao: record.icao || meta.icao || '', storedAt: now, version, previous,
             blocked: blocked || [], added: added || [] };
-        await this.storage.put({ meta: next, ctx: context, prevCtx: oldContext });
+        await this.storage.put({ meta: next, ctx: await packAirportGeoContext(context), ...(oldContext ? { prevCtx: oldContext } : {}) });
         await this.storage.delete('lease');
         return reply({ ok: true, result, version, summary: airportGeoSummary(next, now) });
     }
@@ -187,7 +204,7 @@ export class AirportGeoStore {
             const record = { key: body.key, icao: body.icao, name: body.name, storedAt: now, refreshedAt: now, version: 1,
                 hash: body.hash, signature: body.signature, source: String(body.context.source || ''), manual: true };
             if (!meta) {
-                await this.storage.put({ meta: record, ctx: body.context });
+                await this.storage.put({ meta: record, ctx: await packAirportGeoContext(body.context) });
                 return reply({ ok: true, result: 'stored', version: 1, summary: airportGeoSummary(record, now) });
             }
             return this.replace(meta, record, body.context, now, 'replaced');
@@ -197,7 +214,7 @@ export class AirportGeoStore {
             if (!meta) {
                 const record = { key: body.key, icao: body.icao, name: body.name, storedAt: now, refreshedAt: now, version: 1,
                     hash: '', signature: airportGeoSignature(body.baseContext), source: 'manual', manual: true, added: body.added, blocked: [] };
-                await this.storage.put({ meta: record, ctx: body.baseContext });
+                await this.storage.put({ meta: record, ctx: await packAirportGeoContext(body.baseContext) });
                 return reply({ ok: true, result: 'places', version: 1, summary: airportGeoSummary(record, now) });
             }
             const next = { ...meta, added: body.added };
