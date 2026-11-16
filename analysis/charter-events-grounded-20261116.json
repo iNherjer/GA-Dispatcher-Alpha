@@ -1,0 +1,65 @@
+{
+  "date": "2026-11-16",
+  "window": {
+    "from": "2026-11-16",
+    "through": "2026-11-30"
+  },
+  "starts": [
+    {
+      "start": "EDTF",
+      "candidates": 669,
+      "runs": [
+        {
+          "ms": 21403,
+          "usage": {
+            "promptTokenCount": 462,
+            "candidatesTokenCount": 901,
+            "totalTokenCount": 5300,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 462
+              }
+            ],
+            "thoughtsTokenCount": 3937,
+            "serviceTier": "standard"
+          },
+          "rawText": "EVENT | bern-zib-2026 | Zibelemärit (Zwiebelmarkt) | Altstadt Bern | 46.9479 | 7.4446 | 2026-11-23 | 2026-11-23 | genuss | https://www.bern.com/de/zibelemaerit | Traditionelles Volksfest mit über 50 Tonnen Zwiebeln und kulinarischen Spezialitäten in der Berner Altstadt.\nEVENT | stuttgart-mh-2026 | Stuttgarter MesseHerbst | Messe Stuttgart | 48.6942 | 9.1867 | 2026-11-21 | 2026-11-29 | hobby | https://www.messe-stuttgart.de/familie-heim/ | Große Publikumsausstellung mit den Themen Familie und Heim, Spiele, Mineralien und kulinarischen Angeboten.\nEVENT | stras-noel-2026 | Strasbourg Capitale de Noël | Grande Île Strasbourg | 48.5833 | 7.7458 | 2026-11-27 | 2026-12-24 | kultur | https://noel.strasbourg.eu/ | Einer der ältesten und größten Weihnachtsmärkte Europas (Christkindelsmärik) im gesamten Stadtzentrum.\nEVENT | basel-weihn-2026 | Basler Weihnachtsmarkt | Barfüsserplatz und Münsterplatz | 47.5547 | 7.5906 | 2026-11-26 | 2026-12-23 | kultur | https://www.basel.com/de/veranstaltungen/weihnachten/weihnachtsmarkt | Preisgekrönter Markt mit über 150 Ständen und festlicher Beleuchtung in der historischen Basler Innenstadt.\nEVENT | ravenna-weih-2026 | Weihnachtsmarkt in der Ravennaschlucht | Ravennaschlucht Breitnau | 47.9172 | 8.0778 | 2026-11-27 | 2026-11-29 | erlebnis | https://www.hochschwarzwald.de/weihnachtsmarkt-ravennaschlucht | Einzigartiger Adventsmarkt in einer beleuchteten Schlucht unter den Viaduktbögen der Höllentalbahn.\nEVENT | v-pro-fn-2026 | Vertical Pro | Messe Friedrichshafen | 47.6797 | 9.5095 | 2026-11-18 | 2026-11-19 | beruf | https://www.vertical-pro.de/ | Fachmesse für Seil- und Sicherungstechnik für Höhenarbeiter, Retter und den Klettersport.\nEVENT | colmar-noel-2026 | Colmar La Magie de Noël | Place de l'Ancienne Douane | 48.0794 | 7.3585 | 2026-11-26 | 2026-12-29 | kultur | https://www.noel-colmar.com/de/ | Sechs thematische Weihnachtsmärkte in der Kulisse der denkmalgeschützten Altstadt von Colmar.\nEVENT | baden-b-cm-2026 | Baden-Badener Christkindelsmarkt | Lichtentaler Allee | 48.7606 | 8.2412 | 2026-11-26 | 2026-11-30 | kultur | https://www.baden-baden.com/veranstaltungen/christkindelsmarkt | Stimmungsvoller Markt vor dem Kurhaus mit täglichem Live-Programm auf der Himmelsbühne.",
+          "chunks": [],
+          "supports": 0,
+          "queries": [],
+          "events": [],
+          "match": null
+        }
+      ]
+    },
+    {
+      "start": "EDHE",
+      "candidates": 373,
+      "runs": [
+        {
+          "ms": 23444,
+          "usage": {
+            "promptTokenCount": 460,
+            "candidatesTokenCount": 859,
+            "totalTokenCount": 5804,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 460
+              }
+            ],
+            "thoughtsTokenCount": 4485,
+            "serviceTier": "standard"
+          },
+          "rawText": "EVENT | getnord-2026 | GET NORD Fachmesse für Elektro, Sanitär, Heizung, Klima | Hamburg Messe und Congress | 53.5607 | 9.9697 | 2026-11-19 | 2026-11-21 | beruf | https://www.get-nord.de/ | Fachmesse für Gebäudetechnik mit Fokus auf Vernetzung und Energieeffizienz\nEVENT | winterdom-2026 | Hamburger Winterdom | Heiligengeistfeld Hamburg | 53.5531 | 9.9672 | 2026-11-06 | 2026-12-06 | kultur | https://www.hamburg.de/dom/ | Größtes Volksfest des Nordens mit zahlreichen Fahrgeschäften und Buden\nEVENT | koenig-loewen-2026 | Disneys Der König der Löwen | Stage Theater im Hafen Hamburg | 53.5401 | 9.9721 | 2026-11-16 | 2026-11-30 | kultur | https://www.stage-entertainment.de/musicals-shows/disneys-der-koenig-der-loewen-hamburg | Langjährig erfolgreiches Musical am Hamburger Hafen mit täglichen Aufführungen\nEVENT | weihnachtsmarkt-hh-2026 | Historischer Weihnachtsmarkt am Rathaus | Rathausmarkt Hamburg | 53.5511 | 9.9931 | 2026-11-23 | 2026-12-23 | genuss | https://www.hamburg.de/weihnachtsmaerkte/historischer-weihnachtsmarkt/ | Traditionsreicher Markt mit Kunsthandwerk und kulinarischen Spezialitäten vor der Rathauskulisse\nEVENT | luebeck-weihnacht-2026 | Lübecker Weihnachtsmarkt | Altstadt von Lübeck | 53.8672 | 10.6853 | 2026-11-23 | 2026-12-30 | genuss | https://www.visit-luebeck.com/kultur/weihnachtsmarkt | UNESCO-Welterbe-Kulisse mit maritimem Flair und historischem Marktplatz\nEVENT | bremen-weihnacht-2026 | Bremer Weihnachtsmarkt | Marktplatz Bremen | 53.0761 | 8.8073 | 2026-11-23 | 2026-12-23 | genuss | https://www.bremer-weihnachtsmarkt.de/ | Stimmungsvoller Markt rund um das Rathaus und den Roland mit Schlachte-Zauber an der Weser\nEVENT | rostock-weihnacht-2026 | Rostocker Weihnachtsmarkt | Neuer Markt Rostock | 54.0892 | 12.1395 | 2026-11-23 | 2026-12-22 | genuss | https://www.rostocker-weihnachtsmarkt.de/ | Größter Weihnachtsmarkt in Norddeutschland mit historischem Teil und Fahrgeschäften\nEVENT | hannover-weihnacht-2026 | Weihnachtsmarkt Hannover | Altstadt Hannover | 52.3718 | 9.7332 | 2026-11-23 | 2026-12-22 | genuss | https://www.visit-hannover.com/Events/Veranstaltungskalender/Weihnachtsmarkt-in-Hannover | Festlicher Markt in der historischen Altstadt inklusive Finnischem Weihnachtsdorf",
+          "chunks": [],
+          "supports": 0,
+          "queries": [],
+          "events": [],
+          "match": null
+        }
+      ]
+    }
+  ]
+}

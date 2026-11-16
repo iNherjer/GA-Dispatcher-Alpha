@@ -41,6 +41,8 @@ Die archivierten Live-Texte unten stammen weiterhin aus v1.2. Für v1.3 sind 36 
 - Die echte Eventsuche lieferte in dieser Probe keinen verwendbaren belegten Treffer. Der positive Event-Picker-Fall außerhalb der ersten drei Plätze sowie der Suchfehlerfall sind mit Fixtures getestet, noch nicht durch einen echten angenommenen Veranstaltungstermin belegt.
 - Redaktionelle Beobachtung: Die drei Ideen sind weiterhin fachlich geprägt, unterscheiden sich aber als Beratungsbesuch, gemeinsame Flugplanung und Lieferung. Der Code schreibt keine dieser Aktivitäten vor. Größere soziale Vielfalt ist im weiteren Gebrauch zu beurteilen, statt nachträglich eine Motivquote einzuführen.
 
+**Korrektur Belegprüfung (16.11.2026, Web v2412):** Der bisherige Abgleich `sourceUrl` gegen `groundingChunks.uri` konnte nie greifen, weil Google dort nur Weiterleitungs-URLs liefert – daher bisher kein verwendbarer Treffer. Die Vereinssuche nutzt jetzt die gemeinsame Prüfung `mission-grounded-events-core.js` (Textliste, Beleg-Stütze pro Zeile, Belegdomains; Details in Charter-Ideen V1). Suchtext, Zeitfenster bis Sonntag und Matching bleiben unverändert; Cache-Key `ga_club_events_v2`. Keine Live-Probe der Vereinssuche nach der Korrektur.
+
 ## Ziel und Umfang
 
 `club_utility` umfasst Vereinsleben und gegenseitige fliegerische Hilfe. Der Anlass darf sozial, persönlich oder praktisch sein. Ein Lieferauftrag ist eine mögliche Ausprägung, keine Voraussetzung. Bestehende A-B-Lieferungen bleiben erhalten. Der Pilot kann selbst Interesse am Vorhaben haben, gemeinsam teilnehmen oder jemandem helfen. Ein Vereinskollege begleitet ihn immer als Teammitglied an Bord.

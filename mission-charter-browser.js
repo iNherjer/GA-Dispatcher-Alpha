@@ -3,18 +3,35 @@
 const core=()=>root.MissionCharterIdeasCore;
 const target=a=>({name:a.n||a.name||a.icao||'',icao:a.icao||'',lat:Number(a.lat),lon:Number(a.lon)});
 function capacity(){const c=getMissionAircraftCapabilitySnapshot();return Math.min(5,c.passengerCapacity||0);}
-async function frame(start,dest,occasion){const route={start:target(start),target:target(dest)};let places=[];try{places=(await root.MissionPrivateContextCore.resolveBrowser(route.target)).places||[];}catch{}
+async function frame(start,dest,occasion,event=null){const route={start:target(start),target:target(dest)};let places=[];try{places=(await root.MissionPrivateContextCore.resolveBrowser(route.target)).places||[];}catch{}
  const anchors=root.MissionClubIdeasCore.frame(route,[],null,'',places).geoAnchors;
- return {...core().frame(route,capacity(),core().history(localStorage),anchors,occasion||core().pickOccasions(core().history(localStorage),1)[0]),requireReturnPlan:true};}
+ return {...core().frame(route,capacity(),core().history(localStorage),anchors,occasion||core().pickOccasions(core().history(localStorage),1)[0],event),requireReturnPlan:true};}
+function today(){return new Date().toLocaleDateString('en-CA');}
+// Veranstaltungssuche wie beim Verein: nur mit Gemini, Fehler blockieren den Picker nicht.
+async function findEvent(airports,context,recent){
+ const api=root.MissionCharterEventsCore;if(!api)return null;root.gaCharterEventSearch={status:'searching'};
+ try{
+  if(getSelectedAiProvider()!=='gemini')throw Error('Eventsuche benötigt derzeit Gemini');
+  const result=await api.search({start:target(context.start),maxNM:context.searchMax,date:today(),apiKey:getSelectedAiApiKey(),storage:localStorage});
+  const m=api.match(result.events,airports,root.MissionPrivateContextCore.distanceKm,recent);
+  root.gaCharterEventSearch={status:'ready',count:result.events.length,matched:m?.event.id||null,matchedTitle:m?.event.title||null,airport:m?.airport?.icao||null,cacheHit:result.cacheHit};
+  return m;
+ }catch(error){root.gaCharterEventSearch={status:'unavailable',error:String(error.message)};console.warn('[Charter] Optionale Veranstaltungssuche nicht verfügbar.');return null;}
+}
 async function json(prompt){const r=await fetchGeminiJsonWithFallback(prompt,getSelectedAiApiKey(),{promptVersion:'charter-v1',timeoutMs:40000});if(!r?.parsed)throw(root.createAiJsonFailure?root.createAiJsonFailure(r,'Charterauftrag'):Error('Charterauftrag konnte nicht erstellt werden. Bitte erneut versuchen.'));return r.parsed;}
 async function choices(airports,context){if(airports.length<3)throw Error('Für Chartervorschläge fehlen passende Zielflugplätze.');
- const selected=airports.slice(0,3),occasions=core().pickOccasions(core().history(localStorage),selected.length),frames=await Promise.all(selected.map(async(a,i)=>({candidateId:'charter-'+i,...await frame(context.start,a,occasions[i])})));context.ensureAlive?.();
+ // Optional: eine belegte Veranstaltung belegt höchstens einen Platz; ohne Treffer drei freie Vorschläge.
+ const recent=core().history(localStorage),eventMatch=await findEvent(airports,context,recent);context.ensureAlive?.();
+ const selected=eventMatch?[eventMatch.airport,...airports.filter(a=>a!==eventMatch.airport).slice(0,2)]:airports.slice(0,3);
+ const eventOccasion=eventMatch&&core().OCCASIONS.find(o=>o.id===eventMatch.event.kind);
+ const occasions=eventOccasion?[eventOccasion,...core().pickOccasions(recent,selected.length-1,Math.random,[eventOccasion.id])]:core().pickOccasions(recent,selected.length);
+ const frames=await Promise.all(selected.map(async(a,i)=>({candidateId:'charter-'+i,...await frame(context.start,a,occasions[i],i===0&&eventMatch?root.MissionCharterEventsCore.anchor(eventMatch.event):null)})));context.ensureAlive?.();
  if(!frames[0].maxPassengers)throw Error('Das Flugzeug bietet keinen freien Passagierplatz.');
  const raw=await json(core().ideaPrompt(frames));context.ensureAlive?.();
- return frames.map((input,i)=>{const rows=raw.ideas?.filter(x=>x.candidateId===input.candidateId)||[];const idea=rows.length===1&&core().validate(rows[0],input);if(!idea)throw Error('Ein Chartervorschlag ist unvollständig.');return normalizeMissionProposalChoice({id:input.candidateId+'-'+Date.now(),mode:'apt',profileId:context.dispatchProfileId||'auto',selectedCategory:'charter',requestedCategory:'charter',target:missionProposalCompactTarget(selected[i],'apt'),title:idea.reason,description:idea.background,subtitle:idea.groupLabel,paxText:`${idea.passengerCount} PAX (${idea.groupLabel})`,cargoText:`${idea.luggageLabel} (${idea.luggageWeightLbs} lbs)`,routeLabel:missionProposalFormatRoute(context.start,selected[i],'apt').label,charterProposal:{schema:'charter-proposal.v1',input,idea}});});}
+ return frames.map((input,i)=>{const rows=raw.ideas?.filter(x=>x.candidateId===input.candidateId)||[];const idea=rows.length===1&&core().validate(rows[0],input);if(!idea)throw Error('Ein Chartervorschlag ist unvollständig.');return normalizeMissionProposalChoice({id:input.candidateId+'-'+Date.now(),mode:'apt',profileId:context.dispatchProfileId||'auto',selectedCategory:'charter',requestedCategory:'charter',target:missionProposalCompactTarget(selected[i],'apt'),title:idea.reason,description:idea.background,subtitle:idea.event?`${idea.event.startsOn} · ${idea.event.title}`:idea.groupLabel,paxText:`${idea.passengerCount} PAX (${idea.groupLabel})`,cargoText:`${idea.luggageLabel} (${idea.luggageWeightLbs} lbs)`,routeLabel:missionProposalFormatRoute(context.start,selected[i],'apt').label,charterProposal:{schema:'charter-proposal.v1',input,idea}});});}
 async function story({start,dest,proposal,contract={}}){
  let input,idea;
- if(proposal){input={...proposal.input,maxPassengers:capacity(),recent:core().history(localStorage)};if(proposal.schema!=='charter-proposal.v1'||!root.MissionClubIdeasCore.sameRoute(input.route,{start:target(start),target:target(dest)}))throw Error('Charterauswahl passt nicht mehr zur Route.');idea=core().validate(proposal.idea,input);}
+ if(proposal){if(proposal.idea?.event&&proposal.idea.event.endsOn<today())throw Error('Der Veranstaltungstermin ist abgelaufen. Bitte neue Vorschläge erstellen.');input={...proposal.input,maxPassengers:capacity(),recent:core().history(localStorage)};if(proposal.schema!=='charter-proposal.v1'||!root.MissionClubIdeasCore.sameRoute(input.route,{start:target(start),target:target(dest)}))throw Error('Charterauswahl passt nicht mehr zur Route.');idea=core().validate(proposal.idea,input);}
  else{input=await frame(start,dest);if(!input.maxPassengers)throw Error('Das Flugzeug bietet keinen freien Passagierplatz.');const prompt=core().ideaPrompt([{candidateId:'direct',...input}]);let result=await json(prompt);idea=core().validate(result.ideas?.[0],input);if(!idea){result=await json(prompt+'\nFORMATKORREKTUR: Behalte den Reiseanlass und die Personen des Entwurfs bei. Prüfe alle Feldlängen, Passagierkapazität und Trigger. Geo darf nur eine exakt gelieferte anchorId samt Koordinaten verwenden; andernfalls einen passenden Prozenttrigger verwenden oder den Moment weglassen. Liefere erneut das vollständige JSON.\nENTWURF: '+JSON.stringify(result));idea=core().validate(result.ideas?.[0],input);}}
  if(!idea)throw Error('Charterauftrag ist unvollständig oder die Gruppe passt nicht zur aktuellen Kapazität. Bitte neu auswählen.');
  return write(idea,input,contract);

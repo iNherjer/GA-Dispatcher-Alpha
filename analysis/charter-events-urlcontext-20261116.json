@@ -1,0 +1,138 @@
+{
+  "date": "2026-11-16",
+  "window": {
+    "from": "2026-11-16",
+    "through": "2026-11-30"
+  },
+  "starts": [
+    {
+      "start": "EDTF",
+      "candidates": 669,
+      "runs": [
+        {
+          "ms": 8253,
+          "usage": {
+            "promptTokenCount": 525,
+            "candidatesTokenCount": 972,
+            "totalTokenCount": 1497,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 525
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "rawText": "EVENT | f-CBSO-2026 | City of Birmingham Symphony Orchestra | Konzerthaus Freiburg | 47.9942 | 7.8422 | 2026-11-16 | 2026-11-16 | kultur | https://veranstaltungen.freiburg.de/events/city-of-birmingham-symphony-orchestra-mao-fujita-klavier-kazuki-yamada-dirigent-4389 | Klassikkonzert mit Mao Fujita (Klavier) und Kazuki Yamada (Dirigent) im Rolf Böhme Saal.\nEVENT | b-Tension-2026 | Tension Winter Festival 2026 | MesseQuartier Basel | 47.5647 | 7.5986 | 2026-11-27 | 2026-11-28 | kultur | https://www.mqbasel.ch/en/event/tension-winter-festival-2026 | Zweitägiges Electronic-Music-Festival mit internationalen und lokalen Künstlern in der Messehalle.\nEVENT | s-Noel-2026 | Strasbourg Capitale de Noël | Place Kléber | 48.5833 | 7.7472 | 2026-11-27 | 2026-11-30 | genuss | https://noel.strasbourg.eu/en/the-markets | Historischer Weihnachtsmarkt mit ca. 300 Ständen und dem großen Weihnachtsbaum (Fortsetzung bis 24.12.).\nEVENT | z-Blickfang-2026 | Designmesse BLICKFANG Zürich | Kongresshaus Zürich | 47.3670 | 8.5375 | 2026-11-20 | 2026-11-22 | hobby | https://kongresshaus.ch/events/designmesse-blickfang-zuerich/ | Größter Concept Store für nachhaltiges Design mit rund 180 Labels aus Möbeln, Mode und Schmuck.\nEVENT | st-Brawo-2026 | BRAWO – Die Blasorchester-Messe | Messe Stuttgart | 48.6936 | 9.1869 | 2026-11-20 | 2026-11-22 | beruf | https://www.messe-stuttgart.de/brawo/besucher/konzerte-events/konzertprogramm | Fachmesse und Festival für Blasmusik mit über 30 Konzerten und Gemeinschaftsauftritten.\nEVENT | be-Voyage-2026 | Rendez-vous Bundesplatz VOYAGE | Bundesplatz Bern | 46.9472 | 7.4442 | 2026-11-16 | 2026-11-21 | kultur | https://madeinbern.com/en/experience/culture-and-customs/top-cultural-events | Spektakuläres Licht- und Ton-Spektakel am Bundeshaus zur Naturlandschaft der Schweiz.\nEVENT | k-ExpoSE-2026 | expoSE & expoDirekt 2026 | Messe Karlsruhe | 48.9958 | 8.3283 | 2026-11-18 | 2026-11-19 | beruf | https://www.messe-karlsruhe.de/de/veranstaltung/expose-2026-expodirekt-2026/ | Europas führende Fachmesse für Spargel- und Beerenproduktion sowie landwirtschaftliche Direktvermarktung.\nEVENT | c-Gourmet-2026 | Marché Gourmand Colmar | Place de la Montagne Verte | 48.0761 | 7.3601 | 2026-11-23 | 2026-11-30 | genuss | https://www.noel-colmar.com/en/the-6-markets/gourmet-market | Kulinarischer Weihnachtsmarkt mit 9 Hütten und 9 Meisterköchen für gehobene regionale Spezialitäten.",
+          "chunks": [
+            "kongresshaus.ch",
+            "messe-stuttgart.de"
+          ],
+          "supports": 2,
+          "urlMeta": [],
+          "queries": [
+            "Veranstaltungen Freiburg im Breisgau 16.11.2026 bis 30.11.2026",
+            "events Basel November 2026 culture music festivals",
+            "Strasbourg events November 2026 Christmas markets exhibitions",
+            "Zürich Veranstaltungen November 2026 Kongresse Messen Kultur",
+            "Stuttgart Veranstaltungen November 2026 Messe Konzert Sport",
+            "Bern events November 2026",
+            "Karlsruhe Veranstaltungen November 2026 Messe Kultur",
+            "Colmar events November 2026 Christmas market"
+          ],
+          "events": [
+            {
+              "id": "z-Blickfang-2026",
+              "title": "Designmesse BLICKFANG Zürich",
+              "venue": "Kongresshaus Zürich",
+              "lat": 47.367,
+              "lon": 8.5375,
+              "startsOn": "2026-11-20",
+              "endsOn": "2026-11-22",
+              "kind": "hobby",
+              "sourceUrl": "https://kongresshaus.ch/events/designmesse-blickfang-zuerich/",
+              "sourceDomains": [
+                "kongresshaus.ch"
+              ],
+              "sourceMatch": true,
+              "sourceFetched": false,
+              "visitorInfo": "Größter Concept Store für nachhaltiges Design mit rund 180 Labels aus Möbeln, Mode und Schmuck.",
+              "retrievedAt": "2026-11-16T05:10:29.848Z"
+            },
+            {
+              "id": "st-Brawo-2026",
+              "title": "BRAWO – Die Blasorchester-Messe",
+              "venue": "Messe Stuttgart",
+              "lat": 48.6936,
+              "lon": 9.1869,
+              "startsOn": "2026-11-20",
+              "endsOn": "2026-11-22",
+              "kind": "beruf",
+              "sourceUrl": "https://www.messe-stuttgart.de/brawo/besucher/konzerte-events/konzertprogramm",
+              "sourceDomains": [
+                "messe-stuttgart.de"
+              ],
+              "sourceMatch": true,
+              "sourceFetched": false,
+              "visitorInfo": "Fachmesse und Festival für Blasmusik mit über 30 Konzerten und Gemeinschaftsauftritten.",
+              "retrievedAt": "2026-11-16T05:10:29.848Z"
+            }
+          ],
+          "match": {
+            "event": "Designmesse BLICKFANG Zürich",
+            "kind": "hobby",
+            "airport": "LSHZ",
+            "km": 2
+          }
+        }
+      ],
+      "picker": [
+        {
+          "target": "LSHZ",
+          "occasion": "hobby",
+          "event": "Designmesse BLICKFANG Zürich",
+          "valid": true,
+          "reason": "Besuch der Blickfang Zürich zur Inspiration für das eigene kleine Designstudio. Die Reisenden wollen die Atmosphäre der Aufbauphase nutzen, um Kontakte zu knüpfen, bevor der große Besucherandrang beginnt.",
+          "background": "Simon und Elena betreiben eine kleine Manufaktur für nachhaltige Wohnaccessoires in Freiburg. Die Reise nach Zürich ist ihr jährliches Highlight, um Trends zu beobachten und sich mit Gleichgesinnten über Materialinnovationen auszutauschen.",
+          "role": "Produktdesigner",
+          "returnPlan": {
+            "offered": true,
+            "reason": "Die Gäste bleiben für die gesamte Dauer der Messe inklusive der Aufbauphase und der Vernissage in Zürich.",
+            "stayHours": 168,
+            "stayText": "eine volle Woche bis zum Messeende"
+          }
+        },
+        {
+          "target": "OA-09446E5C",
+          "occasion": "beruf",
+          "event": null,
+          "valid": true,
+          "reason": "Abnahme einer spezialisierten Fertigungsstraße bei einem Maschinenbauer in Riedlingen. Die persönliche Begutachtung der Präzisionsteile ist vor der finalen Auslieferung entscheidend.",
+          "background": "Dr. Berg leitet ein Unternehmen für Medizintechnik. Die neue Anlage in Riedlingen ist eine Maßanfertigung, die für die nächste Produktionsserie seines Hauses essenziell ist.",
+          "role": "Inhaber Medizintechnik-Unternehmen",
+          "returnPlan": {
+            "offered": true,
+            "reason": "Rückflug nach Abschluss der technischen Abnahme und der Vertragsunterzeichnung am Nachmittag.",
+            "stayHours": 6,
+            "stayText": "für die Dauer der Werksbesichtigung und Besprechung"
+          }
+        },
+        {
+          "target": "OA-09445D65",
+          "occasion": "vip",
+          "event": null,
+          "valid": true,
+          "reason": "Privater Besuch einer renommierten Staudengärtnerei in Illertissen zur Auswahl seltener Pflanzen für ihren Schlosspark. Sie schätzt die persönliche Beratung durch den Inhaber.",
+          "background": "Hannelore von Zitzewitz ist eine ehemalige Kammerschauspielerin, die sich nun leidenschaftlich der Gartenkunst widmet. Ihr privates Anwesen ist für seine botanische Vielfalt bekannt.",
+          "role": "Gartenliebhaberin und Mäzenin",
+          "returnPlan": {
+            "offered": true,
+            "reason": "Die Kundin möchte den Nachmittag in der Gärtnerei verbringen und vor der Dämmerung zurückkehren.",
+            "stayHours": 5,
+            "stayText": "für den Besuch der Staudengärtnerei und ein leichtes Mittagessen"
+          }
+        }
+      ]
+    }
+  ]
+}

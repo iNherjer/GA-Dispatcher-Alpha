@@ -1,0 +1,123 @@
+{
+  "date": "2026-11-16",
+  "window": {
+    "from": "2026-11-16",
+    "through": "2026-11-30"
+  },
+  "starts": [
+    {
+      "start": "EDTF",
+      "candidates": 669,
+      "runs": [
+        {
+          "ms": 8007,
+          "usage": {
+            "promptTokenCount": 387,
+            "candidatesTokenCount": 1487,
+            "totalTokenCount": 1874,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 387
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "events": [],
+          "match": null
+        },
+        {
+          "ms": 7897,
+          "usage": {
+            "promptTokenCount": 387,
+            "candidatesTokenCount": 1414,
+            "totalTokenCount": 1801,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 387
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "events": [],
+          "match": null
+        },
+        {
+          "ms": 6987,
+          "usage": {
+            "promptTokenCount": 387,
+            "candidatesTokenCount": 1427,
+            "totalTokenCount": 1814,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 387
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "events": [],
+          "match": null
+        }
+      ]
+    },
+    {
+      "start": "EDHE",
+      "candidates": 373,
+      "runs": [
+        {
+          "ms": 6537,
+          "usage": {
+            "promptTokenCount": 385,
+            "candidatesTokenCount": 1417,
+            "totalTokenCount": 1802,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 385
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "events": [],
+          "match": null
+        },
+        {
+          "ms": 7364,
+          "usage": {
+            "promptTokenCount": 385,
+            "candidatesTokenCount": 1409,
+            "totalTokenCount": 1794,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 385
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "events": [],
+          "match": null
+        },
+        {
+          "ms": 7630,
+          "usage": {
+            "promptTokenCount": 385,
+            "candidatesTokenCount": 1460,
+            "totalTokenCount": 1845,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 385
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "events": [],
+          "match": null
+        }
+      ]
+    }
+  ]
+}

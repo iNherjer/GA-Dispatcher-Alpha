@@ -1,0 +1,47 @@
+{
+  "date": "2026-11-16",
+  "window": {
+    "from": "2026-11-16",
+    "through": "2026-11-30"
+  },
+  "starts": [
+    {
+      "start": "EDHE",
+      "candidates": 373,
+      "runs": [
+        {
+          "ms": 24897,
+          "usage": {
+            "promptTokenCount": 3817,
+            "candidatesTokenCount": 886,
+            "totalTokenCount": 9078,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 3817
+              }
+            ],
+            "thoughtsTokenCount": 4375,
+            "serviceTier": "standard"
+          },
+          "rawText": "EVENT | get-nord-2026 | GET NORD - Fachmesse für Elektro Sanitär Heizung Klima | Hamburg Messe | 53.5607 | 9.9786 | 2026-11-19 | 2026-11-21 | beruf | https://www.get-nord.de/ | Einzige gemeinsame Fachmesse für Elektro, Sanitär, Heizung und Klima im Norden mit Fokus auf vernetzte Gebäudetechnik.\nEVENT | space-tech-expo-europe-2026 | Space Tech Expo Europe | Messe Bremen | 53.0881 | 8.8160 | 2026-11-17 | 2026-11-19 | beruf | https://www.spacetechexpo-europe.com/ | Europas größte Fachmesse und Konferenz für Raumfahrttechnologie und Innovation.\nEVENT | hamburger-winterdom-2026 | Hamburger Winterdom | Heiligengeistfeld Hamburg | 53.5530 | 9.9670 | 2026-11-06 | 2026-12-06 | kultur | https://www.hamburg.de/dom/ | Norddeutschlands größtes Volksfest mit zahlreichen Fahrgeschäften, Feuerwerk und Gastronomie auf dem Heiligengeistfeld.\nEVENT | fairground-festival-2026 | Fairground Festival | Messegelände Hannover | 52.3240 | 9.8050 | 2026-11-28 | 2026-11-28 | kultur | https://fairground-festival.de/ | Großes Indoor-Festival der elektronischen Tanzmusik mit international bekannten DJs in den Messehallen.\nEVENT | hist-weihnachtsmarkt-hh-2026 | Historischer Weihnachtsmarkt auf dem Rathausmarkt | Rathausmarkt Hamburg | 53.5511 | 9.9922 | 2026-11-23 | 2026-12-23 | genuss | https://www.hamburger-weihnachtsmarkt.com/ | Traditionsreicher Markt des Circus Roncalli mit Kunsthandwerkergassen und dem fliegenden Weihnachtsmann.\nEVENT | luebecker-weihnachtsmarkt-2026 | Lübecker Weihnachtsmarkt | Altstadt Lübeck | 53.8670 | 10.6850 | 2026-11-23 | 2026-12-30 | genuss | https://www.luebeck-tourismus.de/kultur/weihnachtsstadt/weihnachtsmaerkte | Weihnachtsmarkt in der UNESCO-Welterbe-Kulisse mit maritimem Flair und historischem Markttreiben.\nEVENT | bremer-weihnachtsmarkt-2026 | Bremer Weihnachtsmarkt und Schlachte-Zauber | Marktplatz und Weserpromenade Bremen | 53.0760 | 8.8070 | 2026-11-23 | 2026-12-23 | genuss | https://www.bremen-tourismus.de/weihnachtsmarkt | Stimmungsvoller Markt am Bremer Roland sowie historischer Schlachte-Zauber mit maritimem und mittelalterlichem Charakter.\nEVENT | bpt-kongress-2026 | bpt-Kongress 2026 - Veterinärmedizin | Deutsche Messe Hannover | 52.3240 | 9.8050 | 2026-11-19 | 2026-11-21 | beruf | https://www.tieraerzteverband.de/ | Einer der bedeutendsten Fortbildungskongresse für praktizierende Tierärzte im deutschsprachigen Raum mit großer Fachmesse.",
+          "chunks": [],
+          "supports": 0,
+          "urlMeta": [],
+          "queries": [
+            "GET Nord Hamburg 2026 Termine",
+            "Hamburger Winterdom 2026 Termine",
+            "Weihnachtsmarkt Hamburg Rathausmarkt 2026 Eröffnung",
+            "Lübecker Weihnachtsmarkt 2026 Eröffnung",
+            "Bremer Weihnachtsmarkt 2026 Eröffnung",
+            "Veranstaltungen Hannover November 2026 Fachmesse",
+            "Kieler Weihnachtsmarkt 2026 Eröffnung",
+            "Messe Bremen November 2026 Termine"
+          ],
+          "events": [],
+          "match": null
+        }
+      ]
+    }
+  ]
+}

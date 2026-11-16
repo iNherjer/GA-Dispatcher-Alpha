@@ -1,0 +1,47 @@
+{
+  "date": "2026-11-16",
+  "window": {
+    "from": "2026-11-16",
+    "through": "2026-11-30"
+  },
+  "starts": [
+    {
+      "start": "EDTF",
+      "candidates": 669,
+      "runs": [
+        {
+          "ms": 6186,
+          "usage": {
+            "promptTokenCount": 512,
+            "candidatesTokenCount": 921,
+            "totalTokenCount": 1433,
+            "promptTokensDetails": [
+              {
+                "modality": "TEXT",
+                "tokenCount": 512
+              }
+            ],
+            "serviceTier": "standard"
+          },
+          "rawText": "KONTROLLVERLUST - Märchen schreit die Zeit Tour 2026 | 1 | KONTROLLVERLUST - Märchen schreit die Zeit Tour 2026 | Jazzhaus Freiburg | 47.99424 | 7.84277 | 2026-11-16 | 2026-11-16 | kultur | https://veranstaltungen.freiburg.de/events/kontrollverlust-maerchen-schreit-die-zeit-tour-2026-27-2026-11-16 | Konzert der Rock- und Pop-Band im Rahmen ihrer Tournee.\nThe World of Hans Zimmer | 2 | The World of Hans Zimmer - A New Dimension | Hallenstadion Zürich | 47.4115 | 8.5518 | 2026-11-16 | 2026-11-16 | kultur | https://www.ticketcorner.ch/event/the-world-of-hans-zimmer-a-new-dimension-2026-hallenstadion-18501258/ | Große Filmmusik-Show mit Orchester und Solisten.\nTraumkonzert im Schloss | 3 | Traumkonzert im Schloss | Schloss Mannheim Rittersaal | 49.4831 | 8.4620 | 2026-11-18 | 2026-11-18 | kultur | https://rausgegangen.de/events/traumkonzerte-im-schloss-2026-2027-0/ | Entspannungskonzert zum Liegen und Lauschen im historischen Rittersaal.\nStuttgarter MesseHerbst | 4 | Stuttgarter MesseHerbst 2026 | Messe Stuttgart | 48.6932 | 9.1869 | 2026-11-19 | 2026-11-22 | beruf | https://www.messe-stuttgart.de/messeherbst/ | Großer Messeverbund mit Themen wie Spielemesse, Kreativ, Familie und Heim sowie Food.\nFreiburger Weihnachtsmarkt | 5 | Freiburger Weihnachtsmarkt | Innenstadt Freiburg | 47.9961 | 7.8521 | 2026-11-19 | 2026-12-23 | genuss | https://sonnenhof-sonnhalde.de/weihnachtsmarkt-schwarzwald/ | Traditioneller Markt mit über 140 Ständen in der historischen Altstadt.\nTension Winter Festival | 6 | Tension Winter Festival 2026 | Event Halle Basel | 47.5476 | 7.5896 | 2026-11-27 | 2026-11-28 | kultur | https://www.mqbasel.ch/de/events/tension-winter-festival-2026 | Elektronisches Musikfestival mit verschiedenen DJs in der Messe Basel.\nNight of the Proms | 7 | Night of the Proms 2026 | SAP Arena Mannheim | 49.4793 | 8.5183 | 2026-11-27 | 2026-11-27 | kultur | https://saparena.de/events/night-of-the-proms-2026-1130/ | Show-Event mit Popstars und klassischem Orchester.\nComic Con Stuttgart | 8 | CCON Comic Con Stuttgart 2026 | Messe Stuttgart | 48.6932 | 9.1869 | 2026-11-28 | 2026-11-29 | hobby | https://www.comiccon.de/ | Große Convention für Comic, Film, Cosplay und Nerd-Culture zum zehnjährigen Jubiläum.",
+          "chunks": [
+            "eventim.de"
+          ],
+          "supports": 1,
+          "queries": [
+            "Veranstaltungen Freiburg im Breisgau 16.11.2026 bis 30.11.2026",
+            "Events Basel 16.11.2026 bis 30.11.2026",
+            "Veranstaltungen Straßburg November 2026",
+            "Messen Stuttgart November 2026",
+            "Veranstaltungen Zürich 16.11.2026 bis 30.11.2026",
+            "Konzerte Mannheim November 2026",
+            "Weihnachtsmärkte Eröffnung 2026 Schwarzwald Elsass Schweiz",
+            "Sportevents November 2026 Südwestdeutschland Schweiz"
+          ],
+          "events": [],
+          "match": null
+        }
+      ]
+    }
+  ]
+}

@@ -88,3 +88,25 @@ test('occasions rotate in code: distinct per picker, recent ones damped, model c
  const data=new Map(),storage={getItem:k=>data.get(k),setItem:(k,v)=>data.set(k,v)};
  core.remember(storage,'x',idea,written);assert.equal(core.history(storage)[0].occasion,'vip');
 });
+test('charter events: grounded sources, two-week window, kind, match within reach, event carried into idea',()=>{
+ const ev=require('../mission-charter-events-core.js');
+ assert.deepEqual(ev.windowFor('2026-11-16'),{from:'2026-11-16',through:'2026-11-30'});
+ const period=ev.windowFor('2026-11-16');
+ const good={id:'e1',title:'Jazznacht',venue:'Konzerthaus',lat:48.0,lon:7.85,startsOn:'2026-11-20',endsOn:'2026-11-21',sourceUrl:'https://a.example/x',visitorInfo:'Tickets online',kind:'kultur'};
+ const body=(events,supported=true)=>{const text='Hier die Liste:\n'+events.map(e=>['EVENT',e.id,e.title,e.venue,e.lat,e.lon,e.startsOn,e.endsOn,e.kind,e.sourceUrl,e.visitorInfo].join(' | ')).join('\n');return {candidates:[{content:{parts:[{text}]},groundingMetadata:{groundingChunks:[{web:{uri:'https://vertexaisearch.cloud.google.com/grounding-api-redirect/y',title:'a.example'}}],groundingSupports:supported?text.split('\n').slice(1).map(l=>({segment:{text:l.slice(0,40)},groundingChunkIndices:[0]})):[]}}]};};
+ assert.equal(ev.parse(body([good]),period).length,1);
+ assert.equal(ev.parse(body([good],false),period).length,0,'Zeile muss durch einen Suchbeleg gestützt sein');assert.equal(ev.parse(body([{...good,sourceUrl:'https://erfunden.example'}]),period)[0].sourceUrl,'https://a.example','unbelegte Modell-URL wird durch Belegdomain ersetzt');
+ assert.equal(ev.parse(body([{...good,kind:'party'}]),period).length,0,'unbekannte Reiseart');
+ assert.equal(ev.parse(body([{...good,startsOn:'2026-12-20',endsOn:'2026-12-21'}]),period).length,0,'außerhalb des Fensters');
+ const dist=(a,b)=>Math.hypot(a.lat-b.lat,(a.lon-b.lon)*0.67)*111;
+ const airports=[{icao:'FAR',lat:49.5,lon:7.85},{icao:'EDTF',lat:48.02,lon:7.83}];
+ assert.equal(ev.match([good],airports,dist).airport.icao,'EDTF');
+ assert.equal(ev.match([good],airports,dist,[{eventId:'e1'}]),null,'zuletzt genutzte Veranstaltung übersprungen');
+ const f=core.frame(route,4,[],[],{id:'kultur'},ev.anchor(good),'2026-11-16');
+ assert.equal(f.event.title,'Jazznacht');assert.equal(f.missionDate,'2026-11-16');assert.ok(f.geoAnchors.some(a=>a.id==='event'&&a.lat===48.0));
+ const idea=core.validate(raw,f);assert.equal(idea.event.id,'e1');
+ assert.match(core.ideaPrompt([{candidateId:'a',...f}]),/belegte öffentliche Veranstaltung/);
+ assert.match(core.writerPrompt(idea,{context:{},bindings:{}},[]),/Titel und Termin dieser belegten Veranstaltung/);
+ assert.equal(core.validate(raw,core.frame(route,4,[],[],{id:'kultur'})).event,undefined);
+ const two=core.pickOccasions([],2,Math.random,['kultur']);assert.equal(two.length,2);assert.ok(two.every(o=>o.id!=='kultur'));
+});
