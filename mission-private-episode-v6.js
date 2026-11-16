@@ -33,7 +33,8 @@
     function bound(rows) {
         const result = rows.filter(row => row && typeof row === 'object' && text(row.id, 100) && memory(row.memory))
             .slice(-HISTORY_LIMIT).map(row => ({ id: text(row.id, 100), name: text(row.name, 100),
-                relationship: text(row.relationship, 100), target: text(row.target, 150), ...historyIntent(row), memory: memory(row.memory) }));
+                relationship: text(row.relationship, 100), target: text(row.target, 150), ...historyIntent(row), memory: memory(row.memory),
+                ...(text(row.eventId, 100) ? { eventId: text(row.eventId, 100) } : {}) }));
         while (result.length && JSON.stringify(result).length * 2 > HISTORY_MAX_BYTES) result.shift();
         return result;
     }
@@ -57,7 +58,8 @@
         if (!id || !accepted) return false;
         const rows = history(storage).filter(row => row.id !== id);
         rows.push({ id, name: core.companion.name, relationship: core.companion.relationship,
-            target: core.targetName, ...historyIntent(core), memory: accepted });
+            target: core.targetName, ...historyIntent(core), memory: accepted,
+            ...(core.eventVisit?.eventId ? { eventId: core.eventVisit.eventId } : {}) });
         try { storage.setItem(HISTORY_KEY, JSON.stringify(bound(rows))); return true; } catch (_) { return false; }
     }
     function frame(contract, rows = []) {
@@ -286,7 +288,8 @@ HISTORY: ${JSON.stringify(historyForWriter(input.recent))}`;
                 || !eventWindowFor(visit.eventDate) || visit.eventDate < input.eventWindow.arrivalDate
                 || visit.eventDate > input.eventWindow.throughDate || !text(visit.stayPlan)) return null;
             eventVisit = { factId: visit.factId, arrivalDate: input.eventWindow.arrivalDate,
-                eventDate: visit.eventDate, stayPlan: text(visit.stayPlan, 400) };
+                eventDate: visit.eventDate, stayPlan: text(visit.stayPlan, 400),
+                ...(text(fact.eventId, 100) ? { eventId: text(fact.eventId, 100), title: text(fact.title || fact.name, 160) } : {}) };
         }
         const creativeBasis = raw.creativeBasis || {};
         if (!['realAnchor', 'fictionalPart'].every(key => text(creativeBasis[key]))) return null;

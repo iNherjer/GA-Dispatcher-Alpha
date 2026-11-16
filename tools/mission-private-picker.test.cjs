@@ -30,7 +30,7 @@ function sandbox(){
   return {source:'stub',parsed:rawWriter()};
  }};
  vm.createContext(c);const src=fs.readFileSync(require.resolve('../app.js'),'utf8');
- for(const name of ['normalizeMissionProposalChoice','compactMissionProposalChoice','missionProposalAptProfileConfig','buildPrivateMissionProposalChoices','buildMissionProposalAptChoices','applyMissionProposalChoiceToMissionContractV4','fetchPrivateOutingStory','classifyAptMissionCategory','personalizeAptCharterMission']){
+ for(const name of ['normalizeMissionProposalChoice','compactMissionProposalChoice','missionProposalAptProfileConfig','findPrivateMissionEvent','buildPrivateMissionProposalChoices','buildMissionProposalAptChoices','applyMissionProposalChoiceToMissionContractV4','fetchPrivateOutingStory','classifyAptMissionCategory','personalizeAptCharterMission']){
   const at=src.indexOf('function '+name+'(');assert.ok(at>=0,name);
   const begin=src.slice(at-6,at)==='async '?at-6:at;
   vm.runInContext(src.slice(begin,src.indexOf('\n}',at)+2),c);

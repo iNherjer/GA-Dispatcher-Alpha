@@ -44122,6 +44122,34 @@ function missionProposalAptChoiceText(config = {}, params = {}) {
     };
 }
 
+// Privat-Picker: eine Veranstaltungssuche am ersten Ziel (gemeinsames System mit Charter/Verein),
+// nur mit Gemini und wenn die Taktung es erlaubt. Liefert einen Ortsfakt oder null.
+async function findPrivateMissionEvent(airport, missionDate, recent) {
+    const api = window.MissionCharterEventsCore, grounded = window.MissionGroundedEventsCore, geo = window.MissionPrivateContextCore;
+    const outing = window.MissionPrivateOutingCore;
+    if (!api || !grounded || !geo || !outing?.eventWindowFor || !airport) return null;
+    if (!grounded.eventDue(recent, api.EVENT_EVERY.private)) { window.gaPrivateEventSearch = { status: 'skipped', reason: 'event-cadence' }; return null; }
+    const target = missionProposalCompactTarget(airport, 'apt');
+    const window_ = outing.eventWindowFor(missionDate);
+    window.gaPrivateEventSearch = { status: 'searching', airport: target.icao };
+    try {
+        if (getSelectedAiProvider() !== 'gemini') throw new Error('Eventsuche benötigt derzeit Gemini');
+        const place = { name: api.placeName(airport) || target.n, lat: target.lat, lon: target.lon };
+        const result = await api.search({ place, date: missionDate, period: { from: window_.arrivalDate, through: window_.throughDate },
+            kinds: api.PRIVATE_KINDS, apiKey: getSelectedAiApiKey(), storage: localStorage });
+        const point = { lat: target.lat, lon: target.lon };
+        const match = api.pickKinds(result.events, point, api.PRIVATE_KINDS, geo.distanceKm, recent);
+        const fact = match && api.privateFact(match.event, window_, point, geo.distanceKm);
+        window.gaPrivateEventSearch = { status: 'ready', airport: target.icao, place: place.name, count: result.events.length,
+            queries: result.queries, matched: fact?.eventId || null, matchedTitle: fact?.title || null, verification: fact?.verification || null, cacheHit: result.cacheHit };
+        return fact;
+    } catch (error) {
+        window.gaPrivateEventSearch = { status: 'unavailable', airport: target.icao, error: String(error.message) };
+        console.warn('[PRIVAT] Optionale Veranstaltungssuche nicht verfügbar.');
+        return null;
+    }
+}
+
 async function buildPrivateMissionProposalChoices(airports, context = {}) {
     const core = window.MissionPrivateEpisodeV6;
     const geography = window.MissionPrivateContextCore;
@@ -44130,14 +44158,21 @@ async function buildPrivateMissionProposalChoices(airports, context = {}) {
     const key = getSelectedAiApiKey();
     if (!key) throw new Error('Für die drei Ausflugsideen wird ein KI-API-Key benötigt.');
     const recent = core.recent(localStorage);
+    // Optional: recherchierte Veranstaltung am ersten Ziel als zusätzlicher Ortsfakt, höchstens jeder dritte
+    // tatsächlich geflogene Privatentwurf (Taktung über die History); verdrängt keine anderen Ideen.
+    const missionDate = new Date().toLocaleDateString('en-CA');
+    const privateEvent = await findPrivateMissionEvent(airports[0], missionDate, recent).catch(() => null);
+    context.ensureAlive?.();
     const candidates = await Promise.all(airports.map(async (airport, index) => {
         const target = missionProposalCompactTarget(airport, 'apt');
         const region = await geography.resolveBrowser({ name: target.n, lat: target.lat, lon: target.lon });
         const route = missionProposalFormatRoute(context.start, airport, 'apt');
+        const knowledge = geography.knowledge(region);
+        if (index === 0 && privateEvent) Object.assign(knowledge, { status: 'accept', ok: true, facts: [privateEvent, ...knowledge.facts].slice(0, 10) });
         const input = core.frame({ target: { name: target.n, lat: target.lat, lon: target.lon },
             route: { startIcao: currentStartICAO || '', startName: String(context.start?.n || ''),
                 targetIcao: target.icao, targetName: target.n, distanceNm: Math.round(route.nav.dist * 10) / 10 },
-            knowledgeContext: geography.knowledge(region), privateRegionContext: region }, recent);
+            missionDate, knowledgeContext: knowledge, privateRegionContext: region }, recent);
         return { id: `private-${index + 1}`, target, input, routeLabel: route.label, stats: region.stats };
     }));
     context.ensureAlive?.();

@@ -6,6 +6,10 @@
 (function(root){
 'use strict';
 const CACHE_KEY='ga_charter_events_v3',CACHE_MS=3*3600000,WINDOW_DAYS=14,MATCH_KM=20;
+// Taktung je Strang (siehe MissionGroundedEventsCore.eventDue): Charter höchstens jeder zweite, Privat jeder dritte Flug.
+const EVENT_EVERY={charter:2,private:3};
+// Privat: Ausflugsarten, keine Messen.
+const PRIVATE_KINDS=['kultur','genuss','hobby','erlebnis'];
 // Art der Veranstaltung; das Suchergebnis ordnet jeden Treffer genau einer zu.
 const KINDS=['kultur','genuss','hobby','erlebnis','beruf'];
 // Welche Veranstaltungsarten zu welcher Charter-Reiseart passen. Reisearten ohne Eintrag suchen nicht.
@@ -15,8 +19,8 @@ function placeName(airport){return String(airport?.city||airport?.municipality||
 function prompt(place,period,kinds){return `Suche nach Veranstaltungen in ${place.name} und direkter Umgebung (höchstens ${MATCH_KM} km um ${place.lat.toFixed(3)}, ${place.lon.toFixed(3)}) vom ${period.from} bis ${period.through}, einschließlich mehrtägiger Veranstaltungen, die in diesen Zeitraum fallen. Gesucht sind öffentliche Veranstaltungen, die für auswärtige Besucher interessant sind und zu einer dieser Arten gehören: ${kinds.map(k=>({kultur:'Konzert, Theater, Ausstellung, Fest',genuss:'Kulinarik, Wein, Markt',hobby:'Sportveranstaltung zum Zuschauen oder Mitmachen, Freizeitleidenschaft',erlebnis:'besonderes Erlebnisangebot mit festem Termin',beruf:'Fachmesse, Kongress'})[k]).join('; ')}. Nur Veranstaltungen, die tatsächlich an einem Ort in ${place.name} oder direkter Umgebung stattfinden. Keine Missionsideen, Personen oder Geschichten. Keine Termine aus Vorjahren. Maximal 8 möglichst verschiedenartige Treffer. kind ist genau einer von ${kinds.join(', ')}. visitorInfo nennt kurz, was Besucher erwartet, mit Uhrzeit nur, wenn sie in der Quelle steht. sourceUrl ist die tatsächlich verwendete Quelle. Keine Landeerlaubnis aus einer Veranstaltung ableiten.`;}
 function grounded(){return root.MissionGroundedEventsCore||(typeof module!=='undefined'?require('./mission-grounded-events-core.js'):null);}
 function parse(body,period,kinds=KINDS){return grounded().parse(body,period,{kinds,limit:8,lenient:true});}
-async function search({place,date,kinds=KINDS,apiKey,storage,fetchImpl=fetch,useCache=true}){
- const period=windowFor(date),key=JSON.stringify([place.name,Math.round(place.lat*100)/100,Math.round(place.lon*100)/100,period,kinds]);
+async function search({place,date,period:fixed=null,kinds=KINDS,apiKey,storage,fetchImpl=fetch,useCache=true}){
+ const period=fixed||windowFor(date),key=JSON.stringify([place.name,Math.round(place.lat*100)/100,Math.round(place.lon*100)/100,period,kinds]);
  let cache={};try{cache=JSON.parse(storage?.getItem(CACHE_KEY)||'{}')||{};}catch{}
  const hit=cache[key];if(useCache&&hit&&Date.now()-hit.at<CACHE_MS)return {...hit,cacheHit:true};
  const body=await grounded().request({prompt:prompt(place,period,kinds),apiKey,fetchImpl});
@@ -24,6 +28,10 @@ async function search({place,date,kinds=KINDS,apiKey,storage,fetchImpl=fetch,use
  try{const fresh=Object.fromEntries(Object.entries(cache).filter(([,v])=>Date.now()-v.at<CACHE_MS).slice(-5));fresh[key]=result;storage?.setItem(CACHE_KEY,JSON.stringify(fresh));}catch{}
  return result;
 }
+// Bester Treffer nahe dem Zielflugplatz zu einer der Arten (Privat: alle Ausflugsarten).
+function pickKinds(events,airport,kinds,distanceKm,recent=[]){const used=new Set((Array.isArray(recent)?recent:[]).map(r=>r&&r.eventId).filter(Boolean));const ok=events.filter(e=>kinds.includes(e.kind)&&!used.has(e.id)).map(e=>({e,km:distanceKm(e,airport)})).filter(x=>Number.isFinite(x.km)&&x.km<=MATCH_KM);ok.sort((a,b)=>(a.e.verification==='supported'?0:1)-(b.e.verification==='supported'?0:1)||a.km-b.km);return ok[0]?{event:ok[0].e,km:Math.round(ok[0].km)}:null;}
+// Privat-Ortsfakt aus einem Event: Tag innerhalb des Fensters (mehrtägig: erster Tag im Fenster).
+function privateFact(event,window,airport,distanceKm){if(!event||!window)return null;if(event.endsOn<window.arrivalDate||event.startsOn>window.throughDate)return null;const day=event.startsOn<window.arrivalDate?window.arrivalDate:event.startsOn;return {kind:'event',topic:'event',eventId:event.id,name:event.title,title:event.title,venue:event.venue,lat:event.lat,lon:event.lon,eventDate:day,startsOn:event.startsOn,endsOn:event.endsOn,source:event.sourceUrl||(event.sourceDomains||[])[0]||'Websuche',verification:event.verification||null,distanceKm:Math.round(distanceKm(airport,event)*10)/10,text:`${event.title} (${event.venue||'Ort laut Quelle'}), ${event.startsOn===event.endsOn?event.startsOn:event.startsOn+' bis '+event.endsOn}: ${event.visitorInfo} Recherchierte öffentliche Veranstaltung; eine Möglichkeit, keine Pflicht. Uhrzeiten und Programm nur, soweit hier genannt.`};}
 // Bester Treffer nahe dem Zielflugplatz, passend zur Reiseart; belegte Treffer vor nur gesuchten,
 // zuletzt genutzte Veranstaltungen überspringen.
 function pick(events,airport,occasionId,distanceKm,recent=[]){
@@ -36,5 +44,5 @@ function pick(events,airport,occasionId,distanceKm,recent=[]){
 function searchSlot(occasions){return occasions.findIndex(o=>o&&FITS[o.id]);}
 // Kompakter Datensatz für Frame, Idee und Vertrag.
 function anchor(event){return event?{id:event.id,title:event.title,venue:event.venue,lat:event.lat,lon:event.lon,startsOn:event.startsOn,endsOn:event.endsOn,sourceUrl:event.sourceUrl,sourceDomains:event.sourceDomains||[],verification:event.verification||null,visitorInfo:event.visitorInfo,kind:event.kind}:null;}
-const api={KINDS,FITS,WINDOW_DAYS,MATCH_KM,windowFor,placeName,prompt,parse,search,pick,searchSlot,anchor};root.MissionCharterEventsCore=api;if(typeof module!=='undefined')module.exports=api;
+const api={KINDS,FITS,EVENT_EVERY,PRIVATE_KINDS,pickKinds,privateFact,WINDOW_DAYS,MATCH_KM,windowFor,placeName,prompt,parse,search,pick,searchSlot,anchor};root.MissionCharterEventsCore=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof window!=='undefined'?window:globalThis);

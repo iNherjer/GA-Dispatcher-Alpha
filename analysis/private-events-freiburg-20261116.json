@@ -1,0 +1,211 @@
+{
+  "window": {
+    "arrivalDate": "2026-11-16",
+    "throughDate": "2026-11-22"
+  },
+  "result": {
+    "at": 1794807706271,
+    "place": "Freiburg im Breisgau",
+    "period": {
+      "from": "2026-11-16",
+      "through": "2026-11-22"
+    },
+    "events": [
+      {
+        "id": "frbg-26-albert",
+        "title": "Lukas Sternath Kazuki Yamada & City of Birmingham Symphony Orchestra",
+        "venue": "Konzerthaus Freiburg",
+        "lat": 47.9961,
+        "lon": 7.8423,
+        "startsOn": "2026-11-16",
+        "endsOn": "2026-11-16",
+        "kind": "kultur",
+        "sourceUrl": "https://ehcf.de",
+        "sourceDomains": [
+          "ehcf.de",
+          "eventim.de",
+          "about-freiburg.de"
+        ],
+        "sourceMatch": false,
+        "sourceFetched": false,
+        "verification": "supported",
+        "visitorInfo": "Klassisches Konzert mit Klavierwerken von Brahms und Bartók. Beginn 20:00 Uhr.",
+        "retrievedAt": "2026-11-16T05:41:46.273Z"
+      },
+      {
+        "id": "frbg-26-sophia",
+        "title": "Sophia oder Das Ende der Humanisten",
+        "venue": "Wallgraben Theater",
+        "lat": 47.994,
+        "lon": 7.8502,
+        "startsOn": "2026-11-17",
+        "endsOn": "2026-11-18",
+        "kind": "kultur",
+        "sourceUrl": "https://ehcf.de",
+        "sourceDomains": [
+          "ehcf.de",
+          "freiburg.de"
+        ],
+        "sourceMatch": false,
+        "sourceFetched": false,
+        "verification": "supported",
+        "visitorInfo": "Theaterinszenierung nach dem Roman von Christoph Meckel. Beginn 20:00 Uhr (17.11.) bzw. 19:00 Uhr (18.11.).",
+        "retrievedAt": "2026-11-16T05:41:46.273Z"
+      },
+      {
+        "id": "frbg-26-weihnachtsmarkt",
+        "title": "Freiburger Weihnachtsmarkt 2026",
+        "venue": "Altstadt Freiburg",
+        "lat": 47.9963,
+        "lon": 7.8492,
+        "startsOn": "2026-11-19",
+        "endsOn": "2026-12-23",
+        "kind": "genuss",
+        "sourceUrl": "https://weihnachtsmarkt.freiburg.de/",
+        "sourceDomains": [
+          "ehcf.de",
+          "chilli-freiburg.de",
+          "freiburg.de",
+          "about-freiburg.de",
+          "eventim.de"
+        ],
+        "sourceMatch": true,
+        "sourceFetched": false,
+        "verification": "supported",
+        "visitorInfo": "Traditionsmarkt mit rund 151 Ständen und Kunsthandwerk. Eröffnung am 19.11. ab 14:00 Uhr. Am 22.11. (Totensonntag) geschlossen.",
+        "retrievedAt": "2026-11-16T05:41:46.273Z"
+      },
+      {
+        "id": "frbg-26-muenstermarkt",
+        "title": "Münstermarkt Freiburg",
+        "venue": "Münsterplatz Freiburg",
+        "lat": 47.9955,
+        "lon": 7.8524,
+        "startsOn": "2026-11-16",
+        "endsOn": "2026-11-21",
+        "kind": "genuss",
+        "sourceUrl": "https://visit.freiburg.de/freiburg-erleben/shopping-freiburg/muenstermarkt-freiburg",
+        "sourceDomains": [
+          "ehcf.de",
+          "freiburg.de"
+        ],
+        "sourceMatch": true,
+        "sourceFetched": false,
+        "verification": "supported",
+        "visitorInfo": "Täglicher Bauernmarkt am Freiburger Münster mit regionalen Spezialitäten. Werktags ab 07:30 Uhr.",
+        "retrievedAt": "2026-11-16T05:41:46.273Z"
+      },
+      {
+        "id": "frbg-26-ehc",
+        "title": "EHC Freiburg gegen Ravensburg Towerstars",
+        "venue": "Echte Helden Arena",
+        "lat": 48.0063,
+        "lon": 7.8228,
+        "startsOn": "2026-11-22",
+        "endsOn": "2026-11-22",
+        "kind": "hobby",
+        "sourceUrl": "https://ehcf.de/spielplan/",
+        "sourceDomains": [
+          "ehcf.de",
+          "calovo.de",
+          "about-freiburg.de"
+        ],
+        "sourceMatch": true,
+        "sourceFetched": false,
+        "verification": "supported",
+        "visitorInfo": "Eishockey-Heimspiel der Wölfe in der DEL2-Saison 2026/27. Spielbeginn 18:30 Uhr.",
+        "retrievedAt": "2026-11-16T05:41:46.273Z"
+      },
+      {
+        "id": "frbg-26-winterzauber",
+        "title": "Winterzauber im Kastaniengarten",
+        "venue": "Kastaniengarten Freiburg",
+        "lat": 47.9945,
+        "lon": 7.8565,
+        "startsOn": "2026-11-18",
+        "endsOn": "2027-01-31",
+        "kind": "genuss",
+        "sourceUrl": "https://mykaiserstuhl.de/events/winterzauber-im-kastaniengarten-2026-27/",
+        "sourceDomains": [],
+        "sourceMatch": false,
+        "sourceFetched": false,
+        "verification": "search",
+        "visitorInfo": "Gastronomisches Winterevent im Biergarten am Schlossberg mit Heißgetränken und regionalen Speisen.",
+        "retrievedAt": "2026-11-16T05:41:46.273Z"
+      },
+      {
+        "id": "frbg-26-fruehstueck",
+        "title": "Theater-Früh-Stück: Die Stadt",
+        "venue": "Wallgraben Theater Foyer",
+        "lat": 47.994,
+        "lon": 7.8502,
+        "startsOn": "2026-11-20",
+        "endsOn": "2026-11-20",
+        "kind": "erlebnis",
+        "sourceUrl": "https://www.wallgraben-theater.com/",
+        "sourceDomains": [],
+        "sourceMatch": false,
+        "sourceFetched": false,
+        "verification": "search",
+        "visitorInfo": "Kultur zum Sonnenaufgang mit Kaffee, Croissant und einer szenischen Lesung von Dürrenmatt. Beginn 06:36 Uhr.",
+        "retrievedAt": "2026-11-16T05:41:46.273Z"
+      },
+      {
+        "id": "frbg-26-beeges",
+        "title": "Nights on Broadway - Tribute to the Bee Gees",
+        "venue": "Konzerthaus Freiburg",
+        "lat": 47.9961,
+        "lon": 7.8423,
+        "startsOn": "2026-11-21",
+        "endsOn": "2026-11-21",
+        "kind": "kultur",
+        "sourceUrl": "https://www.eventim.de/event/nights-on-broadway-a-tribute-to-the-bee-gees-performed-by-night-fever-konzerthaus-freiburg-18361730/",
+        "sourceDomains": [],
+        "sourceMatch": false,
+        "sourceFetched": false,
+        "verification": "search",
+        "visitorInfo": "Tribute-Show mit den großen Hits der Bee Gees live aufgeführt von Night Fever. Beginn 20:00 Uhr.",
+        "retrievedAt": "2026-11-16T05:41:46.273Z"
+      }
+    ],
+    "queries": 12,
+    "usage": {
+      "promptTokenCount": 1965,
+      "candidatesTokenCount": 1059,
+      "totalTokenCount": 7511,
+      "cachedContentTokenCount": 569,
+      "promptTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 1965
+        }
+      ],
+      "cacheTokensDetails": [
+        {
+          "modality": "TEXT",
+          "tokenCount": 569
+        }
+      ],
+      "thoughtsTokenCount": 4487,
+      "serviceTier": "standard"
+    },
+    "cacheHit": false
+  },
+  "fact": {
+    "kind": "event",
+    "topic": "event",
+    "eventId": "frbg-26-ehc",
+    "name": "EHC Freiburg gegen Ravensburg Towerstars",
+    "title": "EHC Freiburg gegen Ravensburg Towerstars",
+    "venue": "Echte Helden Arena",
+    "lat": 48.0063,
+    "lon": 7.8228,
+    "eventDate": "2026-11-22",
+    "startsOn": "2026-11-22",
+    "endsOn": "2026-11-22",
+    "source": "https://ehcf.de/spielplan/",
+    "verification": "supported",
+    "distanceKm": 2,
+    "text": "EHC Freiburg gegen Ravensburg Towerstars (Echte Helden Arena), 2026-11-22: Eishockey-Heimspiel der Wölfe in der DEL2-Saison 2026/27. Spielbeginn 18:30 Uhr. Recherchierte öffentliche Veranstaltung; eine Möglichkeit, keine Pflicht. Uhrzeiten und Programm nur, soweit hier genannt."
+  }
+}

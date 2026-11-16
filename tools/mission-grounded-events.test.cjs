@@ -11,3 +11,20 @@ test('support must overlap the event line; domains carried; multi-line support o
  assert.equal(g.parse({candidates:[{content:{parts:[{text:'KEINE'}]}}]},period).length,0);
  assert.ok(g.sameDomain('www.messe-stuttgart.de','messe-stuttgart.de'));assert.ok(!g.sameDomain('evil-halle.de','halle.de'));
 });
+test('event cadence per strand counts only events actually taken',()=>{
+ assert.equal(g.eventDue([],3),true);
+ assert.equal(g.eventDue([{eventId:'a'},{},{}],3),true,'Event liegt drei Flüge zurück');
+ assert.equal(g.eventDue([{},{eventId:'a'},{}],3),false,'Event vor zwei Flügen sperrt bei Taktung 3');
+ assert.equal(g.eventDue([{eventId:'a'}],2),false);assert.equal(g.eventDue([{eventId:'a'},{}],2),true);
+ assert.equal(g.eventDue([{},{}],3),true,'Suchen ohne Treffer zählen nicht');
+});
+test('private event fact sits inside the private window and carries identity into eventVisit/history',()=>{
+ const ev=require('../mission-charter-events-core.js');
+ const dist=(a,b)=>Math.hypot(a.lat-b.lat,(a.lon-b.lon)*0.67)*111;
+ const w={arrivalDate:'2026-11-18',throughDate:'2026-11-22'},apt={lat:48.02,lon:7.83};
+ const e={id:'wm',title:'Weihnachtsmarkt',venue:'Rathausplatz',lat:48.0,lon:7.85,startsOn:'2026-11-12',endsOn:'2026-12-23',sourceUrl:'https://x.de',visitorInfo:'Stände',kind:'genuss',verification:'search'};
+ const f=ev.privateFact(e,w,apt,dist);assert.equal(f.kind,'event');assert.equal(f.eventDate,'2026-11-18','mehrtägig: erster Tag im Fenster');assert.equal(f.eventId,'wm');
+ assert.equal(ev.privateFact({...e,startsOn:'2026-11-25',endsOn:'2026-11-25'},w,apt,dist),null,'nach Sonntag');
+ assert.equal(ev.pickKinds([{...e,kind:'beruf'}],apt,ev.PRIVATE_KINDS,dist),null,'Messen nicht privat');
+ assert.equal(ev.EVENT_EVERY.private,3);assert.equal(ev.EVENT_EVERY.charter,2);
+});

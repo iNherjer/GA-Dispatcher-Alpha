@@ -65,5 +65,9 @@ async function request({prompt,apiKey,fetchImpl=fetch,maxOutputTokens=6000}){
  if(!res.ok)throw Error('Veranstaltungssuche HTTP '+res.status);
  return res.json();
 }
-const api={FIELDS,FORMAT,parse,request,sameDomain,host,normUrl,validDate};root.MissionGroundedEventsCore=api;if(typeof module!=='undefined')module.exports=api;
+// Taktung je Strang über die eigene History (älteste zuerst): Ein Event darf erst wieder vorkommen,
+// wenn in den letzten every-1 Einträgen keines tatsächlich genommen wurde. Suchen ohne Treffer oder
+// angebotene, aber nicht gewählte Events zählen nicht; dann darf schon der nächste Flug ein Event sein.
+function eventDue(recent,every,hasEvent=r=>!!(r&&r.eventId)){const n=Math.max(0,Math.floor(Number(every)||1)-1);if(!n)return true;return !(Array.isArray(recent)?recent:[]).slice(-n).some(hasEvent);}
+const api={FIELDS,FORMAT,parse,request,sameDomain,host,normUrl,validDate,eventDue};root.MissionGroundedEventsCore=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof window!=='undefined'?window:globalThis);

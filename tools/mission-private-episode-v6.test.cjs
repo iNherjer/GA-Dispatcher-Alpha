@@ -148,3 +148,14 @@ test('V6.3.1 keeps structured initiative in history and supplies actual phrases 
  assert.equal(v6.validateIdea({...raw,origin:{initiative:'random',trigger:'test'}},input),null);
  assert.equal(v6.history(storage).length,1);
 });
+test('researched event fact: eventVisit keeps event identity and history stores eventId for the cadence',()=>{
+ const fact={kind:'event',eventId:'wm-2026',name:'Weihnachtsmarkt',title:'Weihnachtsmarkt',lat:48,lon:7.85,eventDate:'2026-11-18',source:'https://x.de',text:'Weihnachtsmarkt am Rathausplatz'};
+ const input=v6.frame({...contract(),missionDate:'2026-11-18',knowledgeContext:{status:'accept',facts:[fact]}},[]);
+ assert.equal(input.eventWindow.throughDate,'2026-11-22');
+ const raw={...idea(),factIds:['f1'],eventVisit:{factId:'f1',eventDate:'2026-11-18',stayPlan:'Den Nachmittag auf dem Markt verbringen'}};
+ const checked=v6.validateIdea(raw,input);assert.ok(checked,'Idee mit Event gültig');
+ assert.equal(checked.eventVisit.eventId,'wm-2026');assert.equal(checked.eventVisit.title,'Weihnachtsmarkt');
+ const store=storage();assert.equal(v6.remember(store,{missionId:'m1',privateOuting:{...checked,writerMemory:memory()}}),true);
+ assert.equal(v6.history(store)[0].eventId,'wm-2026');
+ assert.equal(v6.recent(store).at(-1).eventId,'wm-2026');
+});
