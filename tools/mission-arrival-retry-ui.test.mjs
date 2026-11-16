@@ -43,7 +43,7 @@ test('a successful forced retry stores the checked place and restores the normal
   assert.equal(c.currentMissionData.missionTruth.arrivalScene.source, 'osm_apron');
   assert.equal(dom.missionArrivalRetryBtn.style.display, 'none');
   assert.equal(dom.missionAcceptBtn.textContent, 'Mission akzeptieren');
-  assert.match(dom.missionAcceptText.textContent, /^Lokaler Entwurf/);
+  assert.equal(dom.missionAcceptText.textContent, 'Kartendaten gefunden: Die Empfangsszene wird auf dem Vorfeld aufgebaut.');
 });
 
 test('a failed retry counts the attempt and keeps offering it', async () => {

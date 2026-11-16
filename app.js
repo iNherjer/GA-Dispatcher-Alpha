@@ -28222,6 +28222,8 @@ function updateMissionAcceptanceUi() {
             ? (missionArrivalGeoLiveStatus(md) || 'Die Kartendaten des Zielflugplatzes werden erneut bei OSM abgefragt …')
             : 'Der OSM-Server antwortet nicht, die Empfangsszene kann dadurch nicht korrekt erstellt werden. Möchtest du es nochmal versuchen? Ohne die Szene wird nach der Landung ein Abholfahrzeug zu deinem Flugzeug geschickt.'
                 + (attempts ? ` (Versuch ${attempts} ohne Erfolg)` : '');
+    } else if (text && window._missionArrivalRetry?.md === md && window._missionArrivalRetry.successText && !composing && draftPhase !== 'committing') {
+        text.textContent = window._missionArrivalRetry.successText;
     } else if (text) {
         const isPOI = !!(md.poiName || md.poiSource || md.isPOI);
         const intent = sanitizeMissionSceneIntentSpec(md.sceneIntent || md.missionContract?.sceneIntent || null, {
@@ -28279,6 +28281,9 @@ async function retryMissionArrivalPlacement() {
         }
     }
     state.attempts = ok ? 0 : state.attempts + 1;
+    // Erfolg sichtbar machen (Feldtest 16.11.2026: das Feld sprang stumm auf „Akzeptieren“ zurück).
+    const placeText = { osm_hangar_front: 'vor einem Hangar', osm_apron: 'auf dem Vorfeld', osm_parking_position: 'an einer Parkposition' }[resolved?.source] || 'auf einem kartierten Platz';
+    state.successText = ok ? `Kartendaten gefunden: Die Empfangsszene wird ${placeText} aufgebaut.` : '';
     try {
         window._missionPhaseDebugPush?.('apt_arrival_placement_retry', {
             ok, source: resolved?.source || null, snapReason: resolved?.snapStatus?.reason || null,

@@ -6432,7 +6432,7 @@ window.vpBuildWeatherDebugReport = function () {
   if (!missionSnap) {
     lines.push('- (keine aktive Mission oder noch kein Snapshot)');
   } else {
-    var _missionSnap$contract, _missionSnap$contract2, _window$isMissionPipe, _window, _missionSnap$storyDeb, _window$currentMissio, _missionSnap$contract3, _missionSnap$contract4, _missionSnap$contract5, _missionSnap$contract6, _missionSnap$contract7, _missionSnap$contract8, _missionSnap$contract9, _missionSnap$targetSc, _missionSnap$contract0;
+    var _missionSnap$contract, _liveMd$missionContra, _liveMd$missionContra2, _missionSnap$contract2, _window$isMissionPipe, _window, _missionSnap$storyDeb, _window$currentMissio, _missionSnap$contract3, _missionSnap$contract4, _missionSnap$contract5, _missionSnap$contract6, _missionSnap$contract7, _missionSnap$contract8, _missionSnap$contract9, _missionSnap$targetSc, _missionSnap$contract0;
     var p = missionSnap.passenger || {};
     var bushData = window.currentMissionData;
     if (['apt', 'poi'].includes(bushData === null || bushData === void 0 ? void 0 : bushData.missionType)) {
@@ -6500,7 +6500,12 @@ window.vpBuildWeatherDebugReport = function () {
       var cues = Array.isArray(truth.visibleCues) && truth.visibleCues.length ? ` | cues=${truth.visibleCues.join(', ')}` : '';
       lines.push(`- Scene Anchor: ${sa.kind || '-'} | ${saPos} | reason=${sa.reason || '-'}${cues}`);
     }
-    var aptArrival = missionSnap.aptArrivalPlan || ((_missionSnap$contract2 = missionSnap.contract) === null || _missionSnap$contract2 === void 0 ? void 0 : _missionSnap$contract2.aptArrivalPlan) || (truth === null || truth === void 0 ? void 0 : truth.arrivalScene) || null;
+    // Aktueller Stand vor dem Snapshot der Erstellung: ein späterer Neuversuch der Platzwahl
+    // („Erneut versuchen“, Akzeptieren) ändert nur die laufende Mission (Feldtest 16.11.2026).
+    var liveMd = typeof currentMissionData !== 'undefined' && currentMissionData ? currentMissionData : null;
+    var liveId = liveMd ? liveMd.missionId || ((_liveMd$missionContra = liveMd.missionContract) === null || _liveMd$missionContra === void 0 ? void 0 : _liveMd$missionContra.missionId) || '' : '';
+    var liveArrival = liveMd && (liveId && missionSnap.missionId ? liveId === missionSnap.missionId : liveMd.title === missionSnap.mission) ? liveMd.aptArrivalPlan || ((_liveMd$missionContra2 = liveMd.missionContract) === null || _liveMd$missionContra2 === void 0 ? void 0 : _liveMd$missionContra2.aptArrivalPlan) || null : null;
+    var aptArrival = liveArrival || missionSnap.aptArrivalPlan || ((_missionSnap$contract2 = missionSnap.contract) === null || _missionSnap$contract2 === void 0 ? void 0 : _missionSnap$contract2.aptArrivalPlan) || (truth === null || truth === void 0 ? void 0 : truth.arrivalScene) || null;
     if (aptArrival) {
       var pos = Number.isFinite(Number(aptArrival.lat)) && Number.isFinite(Number(aptArrival.lon)) ? `${Number(aptArrival.lat).toFixed(5)}, ${Number(aptArrival.lon).toFixed(5)}` : '-';
       var conf = Number.isFinite(Number(aptArrival.confidence)) ? Number(aptArrival.confidence).toFixed(2) : '-';

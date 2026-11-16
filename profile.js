@@ -4566,7 +4566,13 @@ window.vpBuildWeatherDebugReport = function() {
             const cues = Array.isArray(truth.visibleCues) && truth.visibleCues.length ? ` | cues=${truth.visibleCues.join(', ')}` : '';
             lines.push(`- Scene Anchor: ${sa.kind || '-'} | ${saPos} | reason=${sa.reason || '-'}${cues}`);
         }
-        const aptArrival = missionSnap.aptArrivalPlan || missionSnap.contract?.aptArrivalPlan || truth?.arrivalScene || null;
+        // Aktueller Stand vor dem Snapshot der Erstellung: ein späterer Neuversuch der Platzwahl
+        // („Erneut versuchen“, Akzeptieren) ändert nur die laufende Mission (Feldtest 16.11.2026).
+        const liveMd = typeof currentMissionData !== 'undefined' && currentMissionData ? currentMissionData : null;
+        const liveId = liveMd ? (liveMd.missionId || liveMd.missionContract?.missionId || '') : '';
+        const liveArrival = liveMd && (liveId && missionSnap.missionId ? liveId === missionSnap.missionId : liveMd.title === missionSnap.mission)
+            ? (liveMd.aptArrivalPlan || liveMd.missionContract?.aptArrivalPlan || null) : null;
+        const aptArrival = liveArrival || missionSnap.aptArrivalPlan || missionSnap.contract?.aptArrivalPlan || truth?.arrivalScene || null;
         if (aptArrival) {
             const pos = (Number.isFinite(Number(aptArrival.lat)) && Number.isFinite(Number(aptArrival.lon)))
                 ? `${Number(aptArrival.lat).toFixed(5)}, ${Number(aptArrival.lon).toFixed(5)}`
