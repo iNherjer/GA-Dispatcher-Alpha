@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Platz-Workbench</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root { --bg:#101418; --panel:#182028; --line:#2a3642; --text:#e6edf3; --muted:#93a1ad; --ok:#3fb950; --stale:#d29922; --empty:#8b949e; --manual:#bc8cff; --bad:#f85149; --accent:#58a6ff; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.4 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background:var(--bg); color:var(--text); height:100vh; display:flex; flex-direction:column; }
+  header { display:flex; gap:12px; align-items:center; padding:8px 12px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0; }
+  #stats { color:var(--muted); }
+  #searchBox { position:relative; margin-left:auto; }
+  #search { width:260px; padding:6px 8px; border-radius:6px; border:1px solid var(--line); background:#0d1117; color:var(--text); }
+  #results { position:absolute; right:0; top:34px; width:340px; background:var(--panel); border:1px solid var(--line); border-radius:6px; z-index:1000; display:none; max-height:360px; overflow:auto; }
+  #results div { padding:6px 8px; cursor:pointer; border-bottom:1px solid var(--line); }
+  #results div:hover { background:#22303c; }
+  main { flex:1; display:flex; min-height:0; }
+  #map { flex:1; }
+  #panel { width:400px; overflow:auto; background:var(--panel); border-left:1px solid var(--line); padding:12px; }
+  @media (max-width: 900px) { main { flex-direction:column; } #panel { width:auto; height:45vh; border-left:0; border-top:1px solid var(--line); } }
+  h2 { font-size:15px; margin:0 0 4px; }
+  .muted { color:var(--muted); }
+  .row { display:flex; gap:6px; flex-wrap:wrap; margin:8px 0; }
+  button { background:#21262d; color:var(--text); border:1px solid var(--line); border-radius:6px; padding:6px 10px; cursor:pointer; font:inherit; }
+  button:hover:not(:disabled) { border-color:var(--accent); }
+  button:disabled { opacity:.45; cursor:default; }
+  button.primary { background:#1f6feb; border-color:#1f6feb; }
+  button.danger { border-color:var(--bad); color:#ffb3ad; }
+  button.on { background:#30363d; border-color:var(--accent); }
+  .box { border:1px solid var(--line); border-radius:6px; padding:8px; margin:8px 0; }
+  .kv { display:grid; grid-template-columns:auto 1fr; gap:2px 10px; }
+  .kv span:nth-child(odd) { color:var(--muted); }
+  #log { font:12px/1.4 ui-monospace, Menlo, monospace; white-space:pre-wrap; color:var(--muted); max-height:140px; overflow:auto; }
+  .legend { display:flex; gap:10px; color:var(--muted); font-size:12px; flex-wrap:wrap; }
+  .dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:4px; vertical-align:-1px; }
+  .hint { font-size:12px; color:var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Platz-Workbench</h1>
+  <span id="stats">Lade Cloud-Index …</span>
+  <div class="legend">
+    <span><i class="dot" style="background:var(--ok)"></i>Cloud</span>
+    <span><i class="dot" style="background:var(--stale)"></i>fällig</span>
+    <span><i class="dot" style="background:var(--empty)"></i>Leer-Vermerk</span>
+    <span><i class="dot" style="background:var(--manual)"></i>manuell</span>
+    <span><i class="dot" style="background:#6e7681;width:7px;height:7px"></i>ohne Eintrag (ab Zoom 8)</span>
+  </div>
+  <div id="searchBox"><input id="search" placeholder="Flugplatz suchen (ICAO, Name, Ort)" autocomplete="off"><div id="results"></div></div>
+</header>
+<main>
+  <div id="map"></div>
+  <div id="panel"><p class="muted">Flugplatz auf der Karte anklicken oder suchen.</p></div>
+</main>
+<script>
+// App-Kern braucht diese Helfer aus anderen Dateien; die Workbench liefert schlichte Fassungen.
+window.normalizeMissionType = () => 'apt';
+window.wbRole = 'charter_pickup';
+window.normalizeAptArrivalRole = () => ({ role: window.wbRole, personRole: 'person.ground_crew', vehicleRole: window.wbRole === 'cargo_handoff' ? 'vehicle.van' : 'vehicle.car' });
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="/core/mission-arrival-core.js"></script>
+<script>
+const ROLES = [['charter_pickup', 'Charter-Abholung'], ['cargo_handoff', 'Fracht-Übergabe'], ['medical_handoff', 'Medizinische Übergabe'], ['media_pickup', 'Reporter-Abholung'], ['club_meetup', 'Vereinstreffen'], ['tour_pickup', 'Rundflug-Abholung'], ['animal_handoff', 'Tier-Übergabe']];
+const map = L.map('map', { worldCopyJump: true }).setView([49.5, 9], 6);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap contributors' }).addTo(map);
+const cloudLayer = L.layerGroup().addTo(map);
+const airportLayer = L.layerGroup().addTo(map);
+const geoLayer = L.layerGroup().addTo(map);
+const state = { index: new Map(), sel: null, cloud: null, preview: null, draft: null, mode: 'view', log: [] };
+
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const day = ts => ts ? new Date(ts).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
+const keyOf = (lat, lon) => `airport_${Number(lat).toFixed(4)}_${Number(lon).toFixed(4)}`;
+const api = async (url, init) => { const r = await fetch(url, init); const data = await r.json().catch(() => ({})); if (!r.ok) throw new Error(data.error || 'HTTP ' + r.status); return data; };
+const log = text => { state.log.unshift(new Date().toLocaleTimeString('de-DE') + ' ' + text); state.log = state.log.slice(0, 40); const el = document.getElementById('log'); if (el) el.textContent = state.log.join('\n'); };
+window.addEventListener('ga-apt-arrival-geo-status', e => log('OSM: ' + (e.detail?.text || '')));
+
+function colorOf(entry) { return entry.empty ? 'var(--empty)' : entry.stale ? 'var(--stale)' : (entry.added && !entry.aprons && !entry.parking && !entry.surfaces) ? 'var(--manual)' : 'var(--ok)'; }
+const cssVar = v => v.startsWith('var(') ? getComputedStyle(document.documentElement).getPropertyValue(v.slice(4, -1)).trim() : v;
+
+async function loadIndex() {
+    try {
+        const data = await api('/api/cloud/index');
+        state.index = new Map((data.entries || []).map(e => [e.key, e]));
+        cloudLayer.clearLayers();
+        for (const e of state.index.values()) {
+            L.circleMarker([e.lat, e.lon], { radius: 7, color: '#0d1117', weight: 1, fillColor: cssVar(colorOf(e)), fillOpacity: .95 })
+                .bindTooltip(`${esc(e.icao || e.key)} ${esc(e.name)}`).on('click', () => selectByKey(e)).addTo(cloudLayer);
+        }
+        const n = state.index.size, empty = [...state.index.values()].filter(e => e.empty).length;
+        document.getElementById('stats').textContent = `${n} Plätze in der Cloud (${empty} Leer-Vermerke)`;
+        loadAirportsInView();
+    } catch (err) { document.getElementById('stats').textContent = 'Cloud-Index nicht erreichbar: ' + err.message; }
+}
+
+let airportTimer = 0;
+async function loadAirportsInView() {
+    airportLayer.clearLayers();
+    if (map.getZoom() < 8) return;
+    const b = map.getBounds();
+    const data = await api(`/api/airports?bbox=${b.getWest()},${b.getSouth()},${b.getEast()},${b.getNorth()}`).catch(() => ({ airports: [] }));
+    for (const a of data.airports) {
+        if (state.index.has(keyOf(a.lat, a.lon))) continue;
+        L.circleMarker([a.lat, a.lon], { radius: 4, color: '#6e7681', weight: 1, fillColor: '#6e7681', fillOpacity: .8 })
+            .bindTooltip(`${esc(a.code)} ${esc(a.name)}`).on('click', () => select(a)).addTo(airportLayer);
+    }
+}
+map.on('moveend', () => { clearTimeout(airportTimer); airportTimer = setTimeout(loadAirportsInView, 250); });
+
+async function selectByKey(entry) {
+    const found = await api('/api/airports?q=' + encodeURIComponent(entry.icao || '')).catch(() => ({ airports: [] }));
+    const match = found.airports.find(a => keyOf(a.lat, a.lon) === entry.key);
+    select(match || { code: entry.icao || '', name: entry.name || '', lat: entry.lat, lon: entry.lon });
+}
+
+async function select(airport) {
+    state.sel = { ...airport, key: keyOf(airport.lat, airport.lon) };
+    state.preview = null; state.mode = 'view';
+    map.setView([airport.lat, airport.lon], Math.max(map.getZoom(), 15));
+    await reloadCloud();
+}
+
+async function reloadCloud() {
+    state.cloud = null;
+    try { const data = await api(`/api/cloud/${state.sel.key}/admin`); state.cloud = data.found ? data : null; }
+    catch (err) { log('Cloud: ' + err.message); }
+    const meta = state.cloud?.meta || {};
+    state.draft = { blocked: new Set(meta.blocked || []), added: (meta.added || []).map(p => ({ ...p })) };
+    render();
+}
+
+function planFor() {
+    return buildAptArrivalPlan({ dest: { lat: state.sel.lat, lon: state.sel.lon, icao: state.sel.code, n: state.sel.name }, heading: 0 });
+}
+
+// Gleiche Wirkung wie applyAirportGeoOverrides im Worker: Vorschau vor dem Speichern.
+function effectiveContext(ctx) {
+    if (!ctx) return null;
+    const ids = state.draft.blocked;
+    const keep = list => (list || []).filter(item => !ids.has(String(item.id || '')));
+    const manual = state.draft.added.map(p => ({ id: p.id, name: p.name || 'Manueller Abstellplatz', lat: p.lat, lon: p.lon, manual: true, distM: 0, bearingDeg: 0,
+        tags: { ref: '', name: p.name || '', shortName: '', aeroway: 'parking_position', operator: '', service: '', access: '', surface: '', parking: '', summary: 'manuell' } }));
+    return { ...ctx, parkingPositions: keep(ctx.parkingPositions).filter(p => !p.manual).concat(manual), aprons: keep(ctx.aprons), surfaces: keep(ctx.surfaces),
+        avoidZones: (ctx.avoidZones || []).map(z => ids.has(String(z.id || '')) && z.buildingType === 'hangar' ? { ...z, buildingType: 'hangar_blocked' } : z) };
+}
+
+function baseContext() {
+    return state.preview || state.cloud?.context || {
+        schema: 'apt-arrival-geometry.v2', stripHandoff: false, source: 'manual', radiusM: 1400, center: { lat: state.sel.lat, lon: state.sel.lon },
+        parkingPositions: [], aprons: [], surfaces: [], airportBoundaries: [], avoidZones: []
+    };
+}
+
+const ll = list => (list || []).map(p => [p.lat, p.lon]);
+function toggleBlock(id) { if (!id || state.mode !== 'block') return; state.draft.blocked.has(id) ? state.draft.blocked.delete(id) : state.draft.blocked.add(id); render(); }
+
+function drawGeometry() {
+    geoLayer.clearLayers();
+    if (!state.sel) return;
+    const ctx = baseContext();
+    const blocked = state.draft.blocked;
+    const style = (id, color, fill = .25) => blocked.has(id) ? { color: '#f85149', weight: 3, dashArray: '6 4', fillColor: '#f85149', fillOpacity: .15 } : { color, weight: 1.5, fillColor: color, fillOpacity: fill };
+    for (const b of ctx.airportBoundaries || []) if (b.polygon?.length) L.polygon(ll(b.polygon), { color: '#8b949e', weight: 1, dashArray: '4 4', fill: false, interactive: false }).addTo(geoLayer);
+    for (const z of ctx.avoidZones || []) {
+        if (z.type === 'runway' || z.type === 'taxiway') {
+            const line = z.line?.length ? z.line : z.polygon;
+            if (line?.length) L.polyline(ll(line), { color: z.type === 'runway' ? '#f85149' : '#d29922', weight: z.type === 'runway' ? 5 : 2, opacity: .8, interactive: false }).addTo(geoLayer);
+        } else if (z.type === 'building' && z.polygon?.length) {
+            const hangar = z.buildingType === 'hangar';
+            const layer = L.polygon(ll(z.polygon), hangar ? style(z.id, '#a371f7', .35) : { color: '#6e7681', weight: 1, fillColor: '#6e7681', fillOpacity: .3, interactive: false }).addTo(geoLayer);
+            if (hangar) layer.bindTooltip(`Hangar ${esc(z.name || z.id)}${blocked.has(z.id) ? ' (gesperrt: kein Vorplatz)' : ''}`).on('click', () => toggleBlock(z.id));
+        }
+    }
+    for (const a of ctx.aprons || []) if (a.polygon?.length) L.polygon(ll(a.polygon), style(a.id, '#58a6ff')).bindTooltip(`Vorfeld ${esc(a.name || a.id)}${blocked.has(a.id) ? ' (gesperrt)' : ''}`).on('click', () => toggleBlock(a.id)).addTo(geoLayer);
+    for (const s of ctx.surfaces || []) if (s.polygon?.length) L.polygon(ll(s.polygon), style(s.id, '#3fb950', .18)).bindTooltip(`${esc(s.type || 'Fläche')} ${esc(s.name || s.id)}${blocked.has(s.id) ? ' (gesperrt)' : ''}`).on('click', () => toggleBlock(s.id)).addTo(geoLayer);
+    for (const p of (ctx.parkingPositions || []).filter(p => !p.manual)) L.circleMarker([p.lat, p.lon], { radius: 6, ...style(p.id, '#39c5cf', .8) }).bindTooltip(`Parkposition ${esc(p.name || p.tags?.ref || p.id)}${blocked.has(p.id) ? ' (gesperrt)' : ''}`).on('click', () => toggleBlock(p.id)).addTo(geoLayer);
+    state.draft.added.forEach((p, i) => {
+        L.marker([p.lat, p.lon], { draggable: state.mode === 'add', title: p.name }).bindTooltip(`Manuell: ${esc(p.name || p.id)}${state.mode === 'add' ? ' (klicken = entfernen, ziehen = verschieben)' : ''}`)
+            .on('click', () => { if (state.mode === 'add') { state.draft.added.splice(i, 1); render(); } })
+            .on('dragend', e => { const q = e.target.getLatLng(); p.lat = +q.lat.toFixed(6); p.lon = +q.lng.toFixed(6); render(); }).addTo(geoLayer);
+    });
+    // Wo die App die Ankunftsszene aufbauen wuerde (echte Platzwahl aus mission-arrival-core.js).
+    try {
+        const effective = effectiveContext(ctx);
+        const plan = planFor();
+        const place = pickAptArrivalOsmPlacement(effective, plan) || pickAptArrivalBushRunwaySidePlacement(effective, plan);
+        state.placement = place || null;
+        if (place?.point) L.circleMarker([place.point.lat, place.point.lon], { radius: 11, color: '#ffd33d', weight: 3, fillColor: '#ffd33d', fillOpacity: .5 })
+            .bindTooltip(`App baut hier auf: ${esc(place.source)} (${esc(place.reason)})`, { permanent: false }).addTo(geoLayer);
+    } catch (err) { state.placement = { error: err.message }; }
+}
+
+map.on('click', e => {
+    if (state.mode !== 'add' || !state.sel) return;
+    const n = Math.max(0, ...state.draft.added.map(p => Number(String(p.id).split('/')[1]) || 0)) + 1;
+    const name = prompt('Name des Abstellplatzes (optional):', 'Abstellplatz ' + n);
+    if (name === null) return;
+    state.draft.added.push({ id: 'manual/' + n, lat: +e.latlng.lat.toFixed(6), lon: +e.latlng.lng.toFixed(6), name: name.trim() });
+    render();
+});
+
+function dirty() {
+    const meta = state.cloud?.meta || {};
+    const a = JSON.stringify([...state.draft.blocked].sort()), b = JSON.stringify([...(meta.blocked || [])].sort());
+    const c = JSON.stringify(state.draft.added), d = JSON.stringify(meta.added || []);
+    return a !== b || c !== d;
+}
+
+function render() {
+    drawGeometry();
+    const s = state.sel, cloud = state.cloud, meta = cloud?.meta || {}, sum = cloud?.summary || {};
+    const ctx = state.preview || cloud?.context;
+    const sig = ctx ? { aprons: ctx.aprons?.length || 0, parking: (ctx.parkingPositions || []).filter(p => !p.manual).length, surfaces: ctx.surfaces?.length || 0,
+        hangars: (ctx.avoidZones || []).filter(z => z.buildingType === 'hangar').length, runways: (ctx.avoidZones || []).filter(z => z.type === 'runway').length } : null;
+    const place = state.placement;
+    document.getElementById('panel').innerHTML = `
+      <h2>${esc(s.code)} · ${esc(s.name)}</h2>
+      <div class="muted">${esc(s.city || '')} ${esc(s.country || '')} · ${s.lat.toFixed(5)}, ${s.lon.toFixed(5)} · Schlüssel ${esc(s.key)}</div>
+      <div class="box"><div class="kv">
+        <span>Cloud</span><span>${cloud ? `v${sum.version} · ${sum.empty ? 'Leer-Vermerk' : 'mit Flächen'}${sum.stale ? ' · fällig' : ''}${meta.manual ? ' · manuell gepflegt' : ''}` : 'kein Eintrag'}</span>
+        ${cloud ? `<span>Gespeichert</span><span>${day(meta.storedAt)} · bestätigt ${day(meta.refreshedAt)}</span><span>Ursprung</span><span>${esc(meta.source || '-')}${meta.pending ? ' · Abweichung wartet auf Bestätigung' : ''}</span>` : ''}
+        ${sig ? `<span>${state.preview ? 'OSM-Vorschau' : 'Inhalt'}</span><span>${sig.aprons} Vorfelder · ${sig.parking} Parkpositionen · ${sig.surfaces} Flächen · ${sig.hangars} Hangars · ${sig.runways} Runways</span>` : ''}
+        <span>Sperren / manuell</span><span>${state.draft.blocked.size} gesperrt · ${state.draft.added.length} manuelle Plätze${dirty() ? ' · <b>ungespeichert</b>' : ''}</span>
+        <span>App-Platzwahl</span><span>${place?.point ? `${esc(place.source)} (${esc(place.reason)})` : place?.error ? 'Fehler: ' + esc(place.error) : 'kein Platz → Abholung kommt zum Flugzeug'}</span>
+      </div></div>
+      <div class="row"><label class="hint">Rolle für die Vorschau <select id="role">${ROLES.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select></label></div>
+      <div class="row">
+        <button id="bOsm" class="primary">OSM abrufen</button>
+        <button id="bSave" ${state.preview ? '' : 'disabled'}>${cloud ? 'OSM-Vorschau in Cloud ersetzen' : 'OSM-Vorschau in Cloud speichern'}</button>
+        <button id="bDrop" ${state.preview ? '' : 'disabled'}>Vorschau verwerfen</button>
+      </div>
+      <div class="row">
+        <button id="bBlock" class="${state.mode === 'block' ? 'on' : ''}">Sperren-Modus</button>
+        <button id="bAdd" class="${state.mode === 'add' ? 'on' : ''}">Platz setzen</button>
+        <button id="bApply" ${dirty() ? '' : 'disabled'} class="primary">Sperren &amp; Plätze speichern</button>
+      </div>
+      <div class="hint">${state.mode === 'block' ? 'Vorfeld, Fläche, Parkposition oder Hangar anklicken = sperren/entsperren. Gesperrte Hangars bleiben Hindernis, geben aber keinen Vorplatz frei.' : state.mode === 'add' ? 'In die Karte klicken = manuellen Abstellplatz setzen; Marker ziehen = verschieben, anklicken = entfernen. Die App prüft ihn wie eine OSM-Parkposition (Abstand zu Runway, Gebäuden).' : 'Gelber Kreis = dort würde die App die Ankunftsszene aufbauen.'}</div>
+      <div class="row">
+        <button id="bReload">Neu laden</button>
+        <button id="bRestore" ${cloud?.hasPrevious ? '' : 'disabled'}>Vorversion wiederherstellen</button>
+        <button id="bDelete" class="danger" ${cloud ? '' : 'disabled'}>Eintrag löschen</button>
+      </div>
+      <div class="box"><div class="hint">Protokoll</div><div id="log">${esc(state.log.join('\n'))}</div></div>`;
+    const role = document.getElementById('role'); role.value = window.wbRole;
+    role.onchange = () => { window.wbRole = role.value; render(); };
+    document.getElementById('bOsm').onclick = fetchOsm;
+    document.getElementById('bSave').onclick = savePreview;
+    document.getElementById('bDrop').onclick = () => { state.preview = null; render(); };
+    document.getElementById('bBlock').onclick = () => { state.mode = state.mode === 'block' ? 'view' : 'block'; render(); };
+    document.getElementById('bAdd').onclick = () => { state.mode = state.mode === 'add' ? 'view' : 'add'; render(); };
+    document.getElementById('bApply').onclick = saveOverrides;
+    document.getElementById('bReload').onclick = reloadCloud;
+    document.getElementById('bRestore').onclick = () => adminOp({ op: 'restore' }, 'Vorversion wiederhergestellt');
+    document.getElementById('bDelete').onclick = () => { if (confirm(`Cloud-Eintrag ${s.code} wirklich löschen? Sperren und manuelle Plätze gehen mit verloren.`)) adminOp({ op: 'delete' }, 'Eintrag gelöscht'); };
+}
+
+async function fetchOsm() {
+    const btn = document.getElementById('bOsm'); btn.disabled = true; btn.textContent = 'OSM läuft …';
+    log('OSM-Abruf gestartet (Overpass, dann OSM-Karte) …');
+    try {
+        const ctx = await fetchAptArrivalGeoContext(planFor(), { force: true, fresh: true });
+        if (!ctx) { log('OSM ohne Daten: ' + (aptArrivalGeoLastFailure?.errors || []).join(', ')); }
+        else { state.preview = JSON.parse(JSON.stringify(ctx)); log(`OSM geladen (${ctx.source}${ctx.osmMapRadiusM ? ', ' + ctx.osmMapRadiusM + ' m' : ''}): ${ctx.summary}`); }
+    } catch (err) { log('OSM-Fehler: ' + err.message); }
+    render();
+}
+
+async function adminOp(body, okText) {
+    try {
+        const res = await api(`/api/cloud/${state.sel.key}/admin`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        log(`${okText} (${res.result}${res.version ? ', v' + res.version : ''})`);
+    } catch (err) { log('Fehler: ' + err.message); }
+    await reloadCloud();
+    await loadIndex();
+}
+
+async function savePreview() {
+    if (state.cloud && !confirm('Bestehenden Cloud-Eintrag durch die OSM-Vorschau ersetzen? Die alte Version bleibt als Vorversion.')) return;
+    const { cloud: _c, blockedIds: _b, manualPlaces: _m, ...context } = state.preview;
+    await adminOp({ op: 'replace', context, icao: state.sel.code, name: state.sel.name }, 'In Cloud gespeichert');
+    state.preview = null;
+    render();
+}
+
+async function saveOverrides() {
+    const meta = state.cloud?.meta || {};
+    if (JSON.stringify(state.draft.added) !== JSON.stringify(meta.added || []) || !state.cloud) {
+        await adminOp({ op: 'places', added: state.draft.added, icao: state.sel.code, name: state.sel.name }, 'Manuelle Plätze gespeichert');
+    }
+    if (JSON.stringify([...state.draft.blocked].sort()) !== JSON.stringify([...(meta.blocked || [])].sort())) {
+        await adminOp({ op: 'block', blocked: [...state.draft.blocked] }, 'Sperren gespeichert');
+    }
+}
+
+let searchTimer = 0;
+const search = document.getElementById('search'), results = document.getElementById('results');
+search.oninput = () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(async () => {
+        const data = await api('/api/airports?q=' + encodeURIComponent(search.value)).catch(() => ({ airports: [] }));
+        results.innerHTML = data.airports.map((a, i) => `<div data-i="${i}">${state.index.has(keyOf(a.lat, a.lon)) ? '● ' : ''}<b>${esc(a.code)}</b> ${esc(a.name)} <span class="muted">${esc(a.city)} ${esc(a.country)}</span></div>`).join('');
+        results.style.display = data.airports.length ? 'block' : 'none';
+        results.querySelectorAll('div').forEach(div => div.onclick = () => { results.style.display = 'none'; select(data.airports[Number(div.dataset.i)]); });
+    }, 200);
+};
+document.addEventListener('click', e => { if (!e.target.closest('#searchBox')) results.style.display = 'none'; });
+loadIndex();
+</script>
+</body>
+</html>

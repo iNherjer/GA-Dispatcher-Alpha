@@ -360,6 +360,14 @@ aufbereitete OSM-Platzkontext der App (`apt-arrival-geometry.v2`, etwa 40–250 
 - Kosten: Durable-Object-Anfragen und SQLite-Speicher im Free-Kontingent (eine Leseanfrage
   je Missionserstellung mit APT-Ankunft, ein Upload je neuem/erneuertem Platz). Kein KV.
 
+Admin (Platz-Workbench, `tools/airport-geo-workbench`): Header `X-Admin-Token` = Secret
+`AIRPORT_GEO_ADMIN_TOKEN` (ohne Secret bleiben die Admin-Routen zu). `GET .../index` listet alle
+Plätze (Index-Instanz `__index__`, bei jedem Schreiben aktualisiert); `GET .../<key>/admin` liefert
+den ungefilterten Kontext; `POST .../<key>/admin` mit `op`: `replace` (manuell ersetzen, Vorversion
+bleibt), `delete`, `restore`, `block` (`blocked: [osm-ids]`), `places` (`added: [{ id: manual/<n>,
+lat, lon, name }]`, auch ohne OSM-Eintrag), `summary` (Index-Zeile auffrischen). Sperren und manuelle
+Plätze liegen in `meta`, überstehen Erneuerungen und wirken beim normalen `GET`.
+
 Tests: `airport-geo.test.mjs` (Teil von `npm test`). App-Seite: `mission-arrival-core.js`
 (`aptArrivalCloudGeoRead`/`Write`), Diagnosezeile „APT Platzdaten“ in `profile.js`.
 

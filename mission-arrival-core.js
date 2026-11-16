@@ -640,7 +640,8 @@ function normalizeAptArrivalGeoContext(raw = null, airportLat = null, airportLon
     };
 }
 
-async function fetchAptArrivalGeoContext(plan = null, { force = false } = {}) {
+// fresh: nur OSM, ohne Sitzungsspeicher, Cloud-Abruf und Upload (Platz-Workbench, tools/airport-geo-workbench).
+async function fetchAptArrivalGeoContext(plan = null, { force = false, fresh = false } = {}) {
     const airportLat = Number(plan?.airportLat ?? plan?.targetLat);
     const airportLon = Number(plan?.airportLon ?? plan?.targetLon);
     if (!Number.isFinite(airportLat) || !Number.isFinite(airportLon)) return null;
@@ -663,12 +664,12 @@ async function fetchAptArrivalGeoContext(plan = null, { force = false } = {}) {
             return null;
         }
     };
-    const cached = readCache(sessionStorage);
+    const cached = fresh ? null : readCache(sessionStorage);
     if (cached) {
         aptArrivalGeoOriginSessionHit(aptArrivalCloudGeoKey(airportLat, airportLon, stripHandoff), cached);
         return cached;
     }
-    if (aptArrivalGeoContextInflight.has(key)) return aptArrivalGeoContextInflight.get(key);
+    if (!fresh && aptArrivalGeoContextInflight.has(key)) return aptArrivalGeoContextInflight.get(key);
     const query = `[out:json][timeout:8];
 (
   node(around:${radiusM},${airportLat},${airportLon})["aeroway"="parking_position"];
@@ -782,7 +783,7 @@ out tags center geom;`;
         const origin = aptArrivalGeoOriginStart(cloudKey, icao);
         try {
             // Gemeinsamer Vorrat im Worker zuerst: ein Treffer erspart OSM ganz (auch veraltet).
-            const cloud = await aptArrivalCloudGeoRead(cloudKey);
+            const cloud = fresh ? { context: null, summary: { status: 'skipped' } } : await aptArrivalCloudGeoRead(cloudKey);
             origin.cloud = cloud.summary;
             if (cloud.context) {
                 const ctx = { ...cloud.context, cloud: cloud.summary };
@@ -805,6 +806,7 @@ out tags center geom;`;
             }
             const normalized = await osmChain(errors, aptArrivalGeoReportStatus);
             origin.osm = { ok: !!normalized, errors: errors.slice(0, 8), source: normalized?.source || '' };
+            if (normalized && fresh) return normalized;
             if (normalized) {
                 origin.source = normalized.source;
                 // Fuer alle: der naechste Pilot bekommt diesen Platz ohne OSM.
@@ -829,6 +831,7 @@ out tags center geom;`;
         }
     })();
     // Erst nach dem Eintragen aufraeumen: sind alle Server im Cooldown, endet der Abruf ohne await.
+    if (fresh) return promise;
     aptArrivalGeoContextInflight.set(key, promise);
     promise.finally(() => { if (aptArrivalGeoContextInflight.get(key) === promise) aptArrivalGeoContextInflight.delete(key); });
     return promise;
