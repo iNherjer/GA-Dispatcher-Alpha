@@ -23,7 +23,7 @@ Wrangler angemeldet (`npx wrangler whoami`), Internet.
 - **Karte:** Cloud-Plätze farbig (grün mit Flächen, orange fällig, grau Leer-Vermerk, lila nur
   manuelle Plätze); ab Zoom 8 alle Flugplätze der App-Datenbank (`data/airport-search`) als kleine
   graue Punkte, ebenfalls anklickbar. Suche nach ICAO, Name oder Ort.
-- **Anzeige:** Vorfelder (blau), Flächen (grün), Parkpositionen (türkis), Hangars (lila),
+- **Anzeige:** Umschalter oben rechts: Karte (OSM) oder Satellit (Esri World Imagery), optional Ortsnamen; die Wahl bleibt gespeichert. Vorfelder (blau), Flächen (grün), Parkpositionen (türkis), Hangars (lila),
   Gebäude (grau), Runways (rot), Rollwege (gelb), Platzgrenze (gestrichelt). Der gelbe Kreis zeigt,
   wo die App die Ankunftsszene aufbauen würde (echte Platzwahl aus `mission-arrival-core.js`,
   Rolle wählbar). Kleine Punkte zeigen alle Kandidaten der Platzwahl (Hangar-Vorplatz orange,

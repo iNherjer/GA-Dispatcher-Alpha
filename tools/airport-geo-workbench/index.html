@@ -69,7 +69,15 @@ window.normalizeAptArrivalRole = () => ({ role: window.wbRole, personRole: 'pers
 const CANDIDATE_TYPES = [['hangarFront', 'Hangar-Vorplatz', '#ffb86b', 12], ['apron', 'Vorfeld', '#58a6ff', 8], ['parking', 'Parkposition', '#39c5cf', 8], ['surface', 'Fläche', '#7ee787', 99]];
 const ROLES = [['charter_pickup', 'Charter-Abholung'], ['cargo_handoff', 'Fracht-Übergabe'], ['medical_handoff', 'Medizinische Übergabe'], ['media_pickup', 'Reporter-Abholung'], ['club_meetup', 'Vereinstreffen'], ['tour_pickup', 'Rundflug-Abholung'], ['animal_handoff', 'Tier-Übergabe']];
 const map = L.map('map', { worldCopyJump: true }).setView([49.5, 9], 6);
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap contributors' }).addTo(map);
+const osmTiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap contributors' });
+const satTiles = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, maxNativeZoom: 19,
+    attribution: 'Satellit © Esri, Maxar, Earthstar Geographics' });
+const labelTiles = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Beschriftung © Esri' });
+let baseChoice = 'osm';
+try { baseChoice = localStorage.getItem('wbBase') || 'osm'; } catch (_) {}
+(baseChoice === 'sat' ? satTiles : osmTiles).addTo(map);
+const layerControl = L.control.layers({ 'Karte (OSM)': osmTiles, 'Satellit': satTiles }, { 'Ortsnamen': labelTiles }, { position: 'topright', collapsed: false }).addTo(map);
+map.on('baselayerchange', e => { try { localStorage.setItem('wbBase', e.layer === satTiles ? 'sat' : 'osm'); } catch (_) {} });
 const cloudLayer = L.layerGroup().addTo(map);
 const airportLayer = L.layerGroup().addTo(map);
 const geoLayer = L.layerGroup().addTo(map);
