@@ -20758,6 +20758,24 @@ body.theme-win95 #mapTableOverlay .leaflet-control-layers {
 }
 #mapTableOverlay .leaflet-control-layers-base::before { content: "Basiskarte"; }
 #mapTableOverlay .leaflet-control-layers-overlays::before { content: "Zusatzebenen"; }
+/* Web-App mit regionalen Basiskarten: eigene Gruppenueberschriften aus
+   map-basemap-catalog.js ersetzen "Zusatzebenen". */
+#mapTableOverlay .leaflet-control-layers-list:has(.ga-layer-group-title) .leaflet-control-layers-base::before { content: "Globale Basiskarte"; }
+html[lang="en"] #mapTableOverlay .leaflet-control-layers-list:has(.ga-layer-group-title) .leaflet-control-layers-base::before { content: "Global base map"; }
+#mapTableOverlay .leaflet-control-layers-overlays:has(.ga-layer-group-title)::before { content: none; display: none; }
+#mapTableOverlay .ga-layer-group-title {
+    display: block;
+    padding: 4px 8px 7px;
+    color: var(--layer-muted);
+    font: 600 11px/1.4 var(--layer-font);
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+#mapTableOverlay .ga-layer-group-title ~ .ga-layer-group-title {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--layer-border);
+}
 #mapTableOverlay .leaflet-control-layers-separator {
     margin: 10px 0;
     border-top-color: var(--layer-border);

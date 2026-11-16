@@ -8407,6 +8407,18 @@ function initMapBase() {
     const positronMap = createOpenFreeMapLayer('positron');
     const darkMap = createOpenFreeMapLayer('dark');
     const fiordMap = createOpenFreeMapLayer('fiord');
+    const globalBaseEntries = [
+        { id: 'topo', label: "⛰️ Topografie (Mit Text)", layer: topoMap },
+        ...createGaExtraGlobalBaseMaps(osmAttribution),
+        { id: 'relief', label: "🗺️ Terrain (Ohne Text)", layer: topoLightMap },
+        { id: 'satellite', label: "🛰️ Satellit", layer: satMap },
+        { id: 'positron', label: "📝 Positron (Hell)", layer: positronMap },
+        { id: 'dark', label: "🌑 Dark", layer: darkMap },
+        { id: 'fiord', label: "🌊 Fiord", layer: fiordMap }
+    ];
+    const initialGlobalBaseId = gaReadStoredGlobalBaseId(globalBaseEntries, 'topo');
+    const initialGlobalBaseLayer = globalBaseEntries.find(entry => entry.id === initialGlobalBaseId).layer;
+    const regionalBaseEntries = createGaRegionalBaseMaps();
 
     // Overlays
     const aeroOverlay = L.tileLayer('https://nwy-tiles-api.prod.newaydata.com/tiles/{z}/{x}/{y}.png?path=latest/aero/latest', {
@@ -8477,7 +8489,7 @@ function initMapBase() {
     ensureTerrainAvoidOverlayLayer();
 
     topoMap.setOpacity(0.5);
-    map = L.map('map', { layers: [topoMap], attributionControl: true, maxZoom: 18, tapHold: false }).setView([51.1657, 10.4515], 6);
+    map = L.map('map', { layers: [initialGlobalBaseLayer], attributionControl: true, maxZoom: 18, tapHold: false }).setView([51.1657, 10.4515], 6);
     installMapDragZoomControl(map);
     ensureGaMapOverlayPanes(map);
     setAirportTooltipLayerVisible(
@@ -8525,18 +8537,14 @@ function initMapBase() {
     map.on('dragstart zoomstart movestart', markMapInteraction);
     map.on('dragend zoomend moveend', clearMapInteractionSoon);
 
-    const baseMaps = {
-        "⛰️ Topografie (Mit Text)": topoMap,
-        "🗺️ Terrain (Ohne Text)": topoLightMap,
-        "🛰️ Satellit": satMap,
-        "📝 Positron (Hell)": positronMap,
-        "🌑 Dark": darkMap,
-        "🌊 Fiord": fiordMap
-    };
+    const baseMaps = Object.fromEntries(globalBaseEntries.map(entry => [entry.label, entry.layer]));
 
     const radarOverlay = createMapRadarOverlay(map, GA_MAP_OVERLAY_PANES.weather.name);
 
+    // Regionale Basiskarten stehen zuerst in der Liste; installGaRegionalBaseMaps
+    // setzt die Gruppenueberschriften und legt sie unter alle Overlays.
     const overlayMaps = {
+        ...Object.fromEntries(regionalBaseEntries.map(entry => [entry.label, entry.layer])),
         [OPENAIP_OVERLAY_LABEL]: openAipVectorOverlay,
         "🛩️ VFR Lufträume (Overlay)": aeroOverlay,
         "🗺️ DFS ICAO Karte 1:500k": dfsIcaoOverlay,
@@ -8549,6 +8557,8 @@ function initMapBase() {
 
     const layerControl = L.control.layers(baseMaps, overlayMaps, { collapsed: true }).addTo(map);
     configureMapLayerControl(map, layerControl);
+    installGaGlobalBaseMapMemory(map, globalBaseEntries);
+    installGaRegionalBaseMaps(map, layerControl, regionalBaseEntries);
 
     map.on('overlayadd', function (e) {
         if (e.name === "🛩️ VFR Lufträume (Overlay)") {
