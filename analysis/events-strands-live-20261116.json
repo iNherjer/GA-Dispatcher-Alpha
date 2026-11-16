@@ -1,0 +1,41 @@
+{
+  "date": "2026-11-16",
+  "requests": 6,
+  "club": [
+    {
+      "start": "EDTF",
+      "events": [],
+      "match": null
+    },
+    {
+      "start": "EDHE",
+      "events": [],
+      "match": null
+    }
+  ],
+  "private": [
+    {
+      "test": "picker",
+      "start": "EDTW",
+      "dest": "EDTF",
+      "error": "Die drei Ausflugsideen konnten nicht vollständig erstellt werden. Bitte erneut Vorschläge anfordern."
+    },
+    {
+      "test": "direct",
+      "start": "EDHL",
+      "dest": "EDDH",
+      "search": {
+        "status": "ready",
+        "airport": "EDDH",
+        "place": "Hamburg",
+        "count": 8,
+        "queries": 12,
+        "matched": "laufen-sightseeing-hh-2026",
+        "matchedTitle": "Laufen & Sightseeing - Die sportliche Stadtführung",
+        "verification": "search",
+        "cacheHit": false
+      },
+      "error": "Die private Ausflugsidee konnte nicht vollständig erstellt werden. Bitte erneut generieren."
+    }
+  ]
+}

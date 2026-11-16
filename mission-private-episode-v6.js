@@ -271,7 +271,8 @@ HISTORY: ${JSON.stringify(historyForWriter(input.recent))}`;
         if (ground.factId !== null) {
             const fact = input.facts.find(f => f.id === ground.factId)?.value;
             const regionApi = root.MissionPrivateContextCore;
-            if (!fact || fact.kind !== 'place' || !raw.factIds.includes(ground.factId) || !regionApi || !input.region
+            // Bodenziel darf ein Ort oder eine recherchierte Veranstaltung (mit Koordinaten) sein.
+            if (!fact || !['place', 'event'].includes(fact.kind) || !raw.factIds.includes(ground.factId) || !regionApi || !input.region
                 || !Number.isFinite(input.region.radiusKm) || input.region.radiusKm <= 0
                 || !Number.isFinite(regionApi.distanceKm(input.region.airport, fact))
                 || regionApi.distanceKm(input.region.airport, fact) > input.region.radiusKm) return null;

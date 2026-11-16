@@ -159,3 +159,18 @@ test('researched event fact: eventVisit keeps event identity and history stores 
  assert.equal(v6.history(store)[0].eventId,'wm-2026');
  assert.equal(v6.recent(store).at(-1).eventId,'wm-2026');
 });
+test('direct dispatch: a researched event fact enables the event window, without it eventVisit stays excluded',async()=>{
+ const fact={kind:'event',eventId:'ehc',name:'EHC-Heimspiel',title:'EHC-Heimspiel',lat:48,lon:7.85,eventDate:new Date().toLocaleDateString('en-CA'),source:'https://x.de',text:'Eishockey'};
+ const withEvent={...idea(),factIds:['f1'],eventVisit:{factId:'f1',eventDate:fact.eventDate,stayPlan:'Abends zum Spiel'}};
+ const {c}=context([withEvent,prose()]);
+ const m=await c.fetchPrivateOutingStory({missionContractV4:{...contract(),knowledgeContext:{status:'accept',facts:[fact]}}});
+ assert.equal(m.privateOuting.eventVisit.eventId,'ehc');
+ const plain=context([withEvent]);
+ await assert.rejects(()=>plain.c.fetchPrivateOutingStory({missionContractV4:contract()}),/nicht vollständig/);
+});
+test('ground plan may point at a researched event fact inside the region',()=>{
+ const fact={kind:'event',eventId:'ehc',name:'EHC-Heimspiel',title:'EHC-Heimspiel',lat:48.01,lon:7.84,eventDate:'2026-11-18',source:'https://x.de',text:'Eishockey'};
+ const input=v6.frame({...contract(),missionDate:'2026-11-18',privateRegionContext:{airport:{lat:48.02,lon:7.83},radiusKm:50},knowledgeContext:{status:'accept',facts:[fact]}},[]);
+ const raw={...idea(),factIds:['f1'],groundPlan:{factId:'f1',intent:'Zum Spiel',transferPlan:'Taxi'},eventVisit:{factId:'f1',eventDate:'2026-11-18',stayPlan:'Abends zum Spiel'}};
+ const checked=v6.validateIdea(raw,input);assert.ok(checked);assert.equal(checked.groundPlan.place.name,'EHC-Heimspiel');
+});

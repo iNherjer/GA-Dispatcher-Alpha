@@ -41195,7 +41195,10 @@ async function fetchPrivateOutingStory(context = {}) {
     if (selected && !v6) throw new Error('Diese Ausflugsauswahl benötigt Privat-Writer V6. Bitte V6 aktivieren oder neue Vorschläge erstellen.');
     const planned = selected ? coreApi.selectedProposal(selected, contract, recent) : null;
     if (selected && !planned) throw new Error('Die gewählte Ausflugsidee passt nicht mehr zum Flugrahmen. Bitte neue Vorschläge erstellen.');
-    const input = planned?.input || coreApi.frame(contract, recent);
+    // Ein recherchierter Eventfakt (direkter Dispatch) braucht das Missionsdatum für das Zeitfenster.
+    const hasEventFact = (contract.knowledgeContext?.facts || []).some(f => f?.kind === 'event');
+    const input = planned?.input || coreApi.frame(hasEventFact && !contract.missionDate
+        ? { ...contract, missionDate: new Date().toLocaleDateString('en-CA') } : contract, recent);
     const writerLabel = v6 ? 'Episode Writer V6 Privat' : 'Story Planner V5 Privat';
     const apiKey = getSelectedAiApiKey();
     const options = { promptVersion: v6 ? 'mission-writer-private-v6-3-1' : 'mission-writer-private-v5-7', timeoutMs: contract.airportInfoContext || contract.departureAirportInfoContext ? 40000 : (getSelectedAiProvider() === 'openai' ? 26000 : 16000) };
@@ -44172,7 +44175,8 @@ async function buildPrivateMissionProposalChoices(airports, context = {}) {
         const input = core.frame({ target: { name: target.n, lat: target.lat, lon: target.lon },
             route: { startIcao: currentStartICAO || '', startName: String(context.start?.n || ''),
                 targetIcao: target.icao, targetName: target.n, distanceNm: Math.round(route.nav.dist * 10) / 10 },
-            missionDate, knowledgeContext: knowledge, privateRegionContext: region }, recent);
+            // Missionsdatum nur mit Eventfakt: ohne Fakt bleibt eventVisit wie bisher ausgeschlossen.
+            ...(index === 0 && privateEvent ? { missionDate } : {}), knowledgeContext: knowledge, privateRegionContext: region }, recent);
         return { id: `private-${index + 1}`, target, input, routeLabel: route.label, stats: region.stats };
     }));
     context.ensureAlive?.();
@@ -45653,6 +45657,13 @@ async function generateMission(options = {}) {
                 plannerKnowledgeContext = planned
                     ? { status: planned.input.facts.length ? 'accept' : 'reject', facts: planned.input.facts.map(f => f.value) }
                     : window.MissionPrivateContextCore.knowledge(region);
+                // Direkter Privat-Dispatch: dieselbe Veranstaltungssuche und Taktung wie im Picker (V6).
+                if (!planned && window.MissionPrivateEpisodeV6?.mode(localStorage) === 'v6') {
+                    const directEvent = await findPrivateMissionEvent(dest, new Date().toLocaleDateString('en-CA'),
+                        window.MissionPrivateEpisodeV6.recent(localStorage)).catch(() => null);
+                    if (directEvent) plannerKnowledgeContext = { ...plannerKnowledgeContext, status: 'accept', ok: true,
+                        facts: [directEvent, ...(plannerKnowledgeContext.facts || [])].slice(0, 10) };
+                }
                 dest.knowledgeContext = plannerKnowledgeContext;
             } else {
             const aptSightseeingContext = await dispatchMeasure('apt_sightseeing_wiki_context', async () => (
