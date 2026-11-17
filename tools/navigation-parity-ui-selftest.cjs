@@ -40,7 +40,7 @@ app.whenReady().then(async()=>{
  assert.equal(await b.webContents.executeJavaScript(`__navTest.client.snapshot().points.length`),3);
  assert.equal(await web.webContents.executeJavaScript('routeWaypoints.length'),3,'App receives the pushed change without polling');
  console.log('DRAG APP');
- await web.webContents.executeJavaScript(`(()=>{const marker=routeMarkers[1];marker.fire('dragstart');marker.setLatLng([48.41,7.87]);marker.fire('dragend');return routeWaypoints[1].lat;})()`);await pause(350);assert.equal(tools.navigation().points[1].lat,48.41);
+ await web.webContents.executeJavaScript(`(()=>{map.setView([48.41,7.87],15,{animate:false});const marker=routeMarkers[1];marker.fire('dragstart');marker.setLatLng([48.41,7.87]);marker.fire('dragend');return routeWaypoints[1].lat;})()`);await pause(350);assert.equal(tools.navigation().points[1].lat,48.41);
  await b.webContents.executeJavaScript(`__navTest.refresh(${JSON.stringify({available:true,...tools.snapshot()})});true;`);
  assert.equal(await b.webContents.executeJavaScript(`__navTest.client.snapshot().points[1].lat`),48.41);
  const blocked=await web.webContents.executeJavaScript(`(()=>{window.liveTrackerConnected=false;const m=routeMarkers[1];m.fire('dragstart');m.setLatLng([48.8,8.1]);m.fire('dragend');const lat=routeMarkers[1].getLatLng().lat;window.liveTrackerConnected=true;return lat;})()`);assert.equal(blocked,48.41,'offline drag restores the confirmed marker');
