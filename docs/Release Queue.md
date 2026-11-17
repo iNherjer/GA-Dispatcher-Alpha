@@ -27,7 +27,9 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-### 2026-11-17 · EFB-Kartenmenü: Esri Topo, regionale Basiskarten, Abblendstufen
+## Ausgeliefert
+
+### 2026-11-17 · EFB-Kartenmenü: Esri Topo, regionale Basiskarten, Abblendstufen — ausgeliefert in Tracker v640 Alpha (17.11.2026)
 - **Artefakt:** Tracker-EXE (EFB-Host, Kachel-Proxy, EFB-Web-Assets). Web live mit v2433.
 - **Dateien:** `ga-tracker-client/efb-app/map-shell-core.js` (+ Test), `ga-tracker-client/tracker-efb-kartentisch-host.js`, `ga-tracker-client/tracker-efb-tile-proxy.js`, `ga-tracker-client/efb-web-assets/styles.css`, `ga-tracker-client/efb-web-assets/i18n/en-phrases.js`.
 - **Was:** Globale Basiskarte „Esri Topo (Welt)“ zusätzlich; regionale Basiskarten basemap.de (DE) und swisstopo (CH) als kombinierbare Einträge über der globalen Karte und unter allen Overlays, basemap.de liegt immer über swisstopo; Auswahl und Reihenfolge in den EFB-Einstellungen gespeichert. Abblenden beim VFR-Overlay gilt jetzt für die ganze Basiskarten-Ebene (`gaBasePane`-Opacity statt Opacity je Kachel-Layer), Stärke 0–90 % per −/+ in 10er-Stufen (kein Range-Regler wegen Coherent/VR), Standard 50 % wie bisher. Menü mit Gruppenüberschriften (Klasse `ga-layer-groups` statt `:has()`). Proxy kennt die drei neuen Quellen als letzte Ausweichstufe. OSM/CyclOSM bewusst nicht im EFB (OSM-Kachelregeln verlangen Referrer bzw. App-Kennung, Coherent-Direktabruf erfüllt das nicht). Ersetzt beim Ausliefern den Feld-Hinweis des Eintrags „EFB-Kopien fuer das Web-Kartenmenue“.
@@ -36,7 +38,7 @@ liefert alles Offene mit aus.
 - **Doku beim Release:** `docs/EFB-Development-Plan.md` Abschnitt „17.11.2026 – EFB-Kartenmenü“ um Version ergänzen.
 - **Pruefen im Feld:** In MSFS/Coherent: Basiskarte bei VFR-Overlay abgeblendet, nicht schwarz (neu: Opacity auf der Ebene statt je Layer); basemap.de und swisstopo laden direkt; DE+CH an der Grenze Schaffhausen; −/+ in VR bedienbar.
 
-### 2026-11-16 · EFB-Kopien fuer das Web-Kartenmenue
+### 2026-11-16 · EFB-Kopien fuer das Web-Kartenmenue — ausgeliefert in Tracker v640 Alpha (17.11.2026)
 - **Artefakt:** Tracker-EXE (EFB-Web-Assets). Web live mit v2432.
 - **Dateien:** `ga-tracker-client/efb-web-assets/styles.css`, `ga-tracker-client/efb-web-assets/i18n/en-phrases.js` (generiert per `sync-efb-web-assets.js`).
 - **Was:** Synchronisiert die gemeinsamen Styles und englischen Texte für die Kartenmenüs. Der Abblendregler und die Stapelung der regionalen Basiskarten gehören zur Web-App.
@@ -44,15 +46,13 @@ liefert alles Offene mit aus.
 - **Doku beim Release:** keine.
 - **Pruefen im Feld:** keine neue EFB-Funktion.
 
-### 2026-11-16 · EFB-Kopie profile.js: Diagnosezeile „APT Platzdaten“
+### 2026-11-16 · EFB-Kopie profile.js: Diagnosezeile „APT Platzdaten“ — ausgeliefert in Tracker v640 Alpha (17.11.2026)
 - **Artefakt:** Tracker-EXE (EFB-Web-Assets); Web live mit v2422
 - **Dateien:** `ga-tracker-client/efb-web-assets/profile.js` (Kopie per `sync-efb-web-assets.js`)
 - **Was:** Diagnosezeile zur Herkunft der Platzdaten (Cloud-Vorrat/OSM, Alter, Upload, Erneuerung). Im EFB ohne Wirkung; nur Gleichstand der Kopie.
 - **Tests:** `efb-web-assets-sync.test.js`, `tracker-efb-asset-syntax.test.js`.
 - **Doku beim Release:** keine.
 - **Pruefen im Feld:** nichts.
-
-## Ausgeliefert
 
 ### 2026-11-15 · EFB-Kopie profile.js: Diagnosezeile „APT Empfangsszene“ nennt die OSM-Abruffehler — ausgeliefert in Tracker v639 Alpha (16.11.2026)
 - **Artefakt:** Tracker-EXE (EFB-Web-Assets); Web live mit v2405

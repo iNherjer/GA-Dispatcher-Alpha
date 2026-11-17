@@ -8946,7 +8946,7 @@ Offizieller Windows-SDK-Bau auf `27ebf30a4`: Exit 0, leeres RPTErrors, 65 Tests,
 Zeilenenden). Als `efb-app-v0.4.27` veröffentlicht, Alpha aktiviert, Stable unverändert.
 Zusammen mit Tracker v631 (Flugplan-Meldung obenauf).
 
-## 17.11.2026 – EFB-Kartenmenü: Esri Topo, regionale Basiskarten, Abblendstufen
+## 17.11.2026 – Tracker v640 Alpha: EFB-Kartenmenü mit Esri Topo, regionalen Basiskarten, Abblendstufen
 
 Anlass: Seit 15.11.2026 blendet OpenTopoMap (Betreiber Top-O-Map) im EFB auf
 manchen Kacheln ein Werbebanner ein (Gratisstufe, „You like this map, pilot?“).
@@ -8977,3 +8977,5 @@ Die Web-App hat seit v2431/v2432 globale und regionale Basiskarten; das EFB
   zeigt Esri Topo erst nach einem neuen Paket-Build; regionale Karten nutzt es
   nicht.
 
+Ausgeliefert mit Tracker v640 Alpha (`docs/Tracker-v640-Release.md`); im MSFS-EFB noch
+nicht geprüft.
