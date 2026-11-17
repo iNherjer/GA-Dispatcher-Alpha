@@ -87,3 +87,53 @@ const beforeTargeted = otherViewer.messages.length;
 await room.webSocketMessage(tracker, JSON.stringify({ type: 'gps', commandAckOnly: true, audioRecipientClientId: 'audio-phone', trackerAck: { type: 'mission_voice_playback_ack', payload: { data: 'audio' } } }));
 assert.equal(viewer.messages.at(-1).trackerAck.payload.data, 'audio');
 assert.equal(otherViewer.messages.length, beforeTargeted, 'audio bytes go only to the requesting socket');
+
+// PIN check on join against the account worker (17.11.2026).
+{
+    const accountPins = { 'PILOT-7': '4321' };
+    let verifyCalls = 0;
+    const env = { GA_PROXY: { fetch: async (_url, init) => {
+        verifyCalls += 1;
+        const body = JSON.parse(init.body);
+        if (!(body.pilotId in accountPins)) return new Response('{}', { status: 404 });
+        return new Response('{}', { status: accountPins[body.pilotId] === body.pin ? 200 : 401 });
+    } } };
+    const pilotRoom = await sha256Hex('PILOT-7');
+    const freshSocket = () => { const s = new MockSocket(); s.serializeAttachment({ joined: false, roomKey: pilotRoom, role: 'unknown', pinHash: '', lastTelemetryAt: 0 }); return s; };
+
+    // An old tab with a wrong PIN joined first under the old rule.
+    const staleTab = joinedSocket({ roomKey: pilotRoom, role: 'viewer', pinHash: await sha256Hex('0000') });
+    const trackerJoin = freshSocket();
+    const joinCtx = new MockContext([staleTab, trackerJoin]);
+    const joinRoom = new RelayRoom(joinCtx, env);
+    await joinRoom.webSocketMessage(trackerJoin, JSON.stringify({ type: 'join', syncId: 'pilot-7', pin: '4321', relayRole: 'tracker' }));
+    assert.equal(trackerJoin.closed, null, 'the account PIN gets in although another PIN was first');
+    assert.equal(trackerJoin.attachment.pinVerified, true);
+    assert.match(staleTab.closed?.reason || '', /Falscher PIN/, 'the stale wrong-PIN tab is dropped');
+
+    const wrongJoin = freshSocket();
+    joinCtx.sockets.push(wrongJoin);
+    await joinRoom.webSocketMessage(wrongJoin, JSON.stringify({ type: 'join', syncId: 'pilot-7', pin: '9999', relayRole: 'viewer' }));
+    assert.match(wrongJoin.closed?.reason || '', /Falscher PIN/, 'a wrong PIN cannot join even into an empty-looking room');
+
+    const callsBefore = verifyCalls;
+    const secondViewer = freshSocket();
+    joinCtx.sockets.push(secondViewer);
+    await joinRoom.webSocketMessage(secondViewer, JSON.stringify({ type: 'join', syncId: 'PILOT-7', pin: '4321', relayRole: 'viewer' }));
+    assert.equal(secondViewer.closed, null);
+    assert.equal(verifyCalls, callsBefore, 'a confirmed PIN is cached, reconnects do not ask again');
+
+    // Without an account answer (no binding / no account) the previous rule stays.
+    const noAccountRoom = await sha256Hex('SIM-ONLY');
+    const first = new MockSocket(); first.serializeAttachment({ joined: false, roomKey: noAccountRoom, role: 'unknown', pinHash: '', lastTelemetryAt: 0 });
+    const second = new MockSocket(); second.serializeAttachment({ joined: false, roomKey: noAccountRoom, role: 'unknown', pinHash: '', lastTelemetryAt: 0 });
+    const fallbackRoom = new RelayRoom(new MockContext([first, second]), env);
+    await fallbackRoom.webSocketMessage(first, JSON.stringify({ type: 'join', syncId: 'sim-only', pin: '1111', relayRole: 'tracker' }));
+    await fallbackRoom.webSocketMessage(second, JSON.stringify({ type: 'join', syncId: 'sim-only', pin: '2222', relayRole: 'viewer' }));
+    assert.equal(first.closed, null);
+    assert.match(second.closed?.reason || '', /Falscher PIN/);
+
+    const unboundRoom = new RelayRoom(new MockContext([]));
+    assert.equal(await unboundRoom.checkPin('X', '1', 'h', ''), 'unavailable');
+    console.log('relay PIN check on join ok');
+}

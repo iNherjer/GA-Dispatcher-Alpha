@@ -501,10 +501,30 @@
       return result.payload;
     }
 
+    // A restarted tracker no longer knows the old session token. It rejects
+    // the request before any side effect, so one fresh registration plus one
+    // resend of the same command is safe and keeps the button working.
+    function sessionRejected(result) {
+      if (!result) return false;
+      if (result.response && result.response.status === 401) return true;
+      const error = result.payload && result.payload.error;
+      return error === 'cockpit_session_invalid' || error === 'cockpit_session_required';
+    }
+
+    async function renewSession() {
+      session = null;
+      sessionToken = '';
+      await register();
+      return authEnvelope();
+    }
+
     async function submitTool(request = {}) {
       if (!authEnvelope()) await register();
       if (!authEnvelope()) return { ok: false, error: 'cockpit_session_unavailable' };
-      const result = await post('/cockpit/tools', Object.assign({}, request, authEnvelope()));
+      let result = await post('/cockpit/tools', Object.assign({}, request, authEnvelope()));
+      if (sessionRejected(result) && await renewSession()) {
+        result = await post('/cockpit/tools', Object.assign({}, request, authEnvelope()));
+      }
       return result.payload || { ok: false, error: 'cockpit_tool_unavailable' };
     }
 
@@ -517,16 +537,23 @@
       if (!auth) {
         return { ok: false, status: 'blocked', error: 'cockpit_session_unavailable', sideEffect: false };
       }
-      const submit = async value => {
-        const result = await post('/mission/intents', Object.assign({}, value, auth));
-        return result.payload || {
-          ok: false,
-          status: 'error',
-          error: `mission_intent_http_${result.response.status}`,
-          sideEffect: false
-        };
+      const send = value => post('/mission/intents', Object.assign({}, value, auth));
+      const toPayload = result => result.payload || {
+        ok: false,
+        status: 'error',
+        error: `mission_intent_http_${result.response.status}`,
+        sideEffect: false
       };
-      const first = await submit(request);
+      const submit = async value => toPayload(await send(value));
+      let firstResult = await send(request);
+      if (sessionRejected(firstResult)) {
+        const renewed = await renewSession();
+        if (renewed) {
+          auth = renewed;
+          firstResult = await send(request);
+        }
+      }
+      const first = toPayload(firstResult);
       const retryable = first && (first.error === 'mission_revision_conflict'
         || first.error === 'mission_intent_not_allowed_in_state'
         || first.error === 'mission_run_conflict');

@@ -29,6 +29,13 @@ liefert alles Offene mit aus.
 
 ## Ausgeliefert
 
+### 2026-11-17 · Relay-PIN-Grund und Knöpfe nach Tracker-Neustart — ausgeliefert in Tracker v642 Alpha (17.11.2026)
+- **Artefakt:** Tracker-EXE (Relay-Verbindung, Cockpit-Sitzungsclient für EFB/Toolbar/Web). Relay `ga-relay` c39be7aa deployt, Web v2437.
+- **Dateien:** `ga-tracker-client/tracker.js`, `ga-tracker-client/tracker-cockpit-session-client.js` (+ Test), `tools/cloudflare-relay/relay-worker.js` (+ Test, `wrangler.toml`, README).
+- **Was:** Relay prüft PIN beim Beitritt gegen das Konto; Tracker nennt den Ablehnungsgrund; EFB/Toolbar melden sich nach 401 neu an und senden den Befehl einmal nach.
+- **Doku beim Release:** `docs/Tracker-v642-Release.md`, `tools/cloudflare-relay/README.md`.
+- **Pruefen im Feld:** siehe `docs/Tracker-v642-Release.md`.
+
 ### 2026-11-17 · Missionsstart beim Losrollen (Taxi-Auto-Start) — ausgeliefert in Tracker v641 Alpha (17.11.2026)
 - **Artefakt:** Tracker-EXE (Missions-Prozess). Web zeigt den Countdown über den gemeinsamen UI-Kern, sobald der Tracker ihn liefert.
 - **Dateien:** `ga-tracker-client/tracker-mission-start-readiness.js` (+ Test), `ga-tracker-client/tracker-mission-execution-runtime.js` (+ Test), `ga-tracker-client/tracker-mission-execution-adapter.js`, `mission-apt-ui-core.js` (+ Test).

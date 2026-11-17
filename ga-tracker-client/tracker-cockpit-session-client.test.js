@@ -503,3 +503,51 @@ test('optional native preset observation travels over authenticated EFB heartbea
   const web=createClient({role:'web',fetchRemote:()=>{throw Error('must_not_fetch');}});t.after(()=>web.stop());
   assert.equal(await web.setWeatherPreset({index:1}),null);
 });
+
+test('after a tracker restart a rejected session re-registers once and the same button press goes through', async t => {
+  let registrations = 0;
+  const intents = [];
+  const tools = [];
+  const fetchRemote = async (url, init = {}) => {
+    const body = init.body ? JSON.parse(init.body) : null;
+    if (url.endsWith('/cockpit/sessions')) {
+      registrations += 1;
+      return response({ session: { sessionId: `s${registrations}`, expiresAt: Date.now() + 45000 }, sessionToken: `t${registrations}`, heartbeatAfterMs: 999999 });
+    }
+    if (url.endsWith('/mission/intents')) {
+      intents.push(body);
+      return body.sessionToken === 't1'
+        ? response({ ok: false, error: 'cockpit_session_invalid' }, 401)
+        : response({ ok: true, status: 'ok' });
+    }
+    if (url.endsWith('/cockpit/tools')) {
+      tools.push(body);
+      return body.sessionToken === 't2' ? response({ ok: false, error: 'cockpit_session_invalid' }, 401) : response({ ok: true });
+    }
+    throw new Error(`unexpected:${url}`);
+  };
+  const client = createClient({ role: 'efb', clientId: 'efb-restart', fetchRemote });
+  t.after(() => client.stop());
+  await client.register();
+  const intent = await client.submitIntent({ commandId: 'cmd-a', intent: 'start_mission', missionId: 'm', runId: 'r', expectedRevision: 1, payload: {} });
+  assert.equal(intent.ok, true);
+  assert.equal(registrations, 2);
+  assert.deepEqual(intents.map(item => [item.commandId, item.sessionToken]), [['cmd-a', 't1'], ['cmd-a', 't2']]);
+  const tool = await client.submitTool({ tool: 'x' });
+  assert.equal(tool.ok, true);
+  assert.equal(registrations, 3);
+  assert.deepEqual(tools.map(item => item.sessionToken), ['t2', 't3']);
+});
+
+test('a session that stays rejected is retried only once', async t => {
+  let intentsSent = 0;
+  const client = createClient({ role: 'efb', fetchRemote: async url => {
+    if (url.endsWith('/cockpit/sessions')) return response({ session: { sessionId: 's' }, sessionToken: 't', heartbeatAfterMs: 999999 });
+    if (url.endsWith('/mission/intents')) { intentsSent += 1; return response({ ok: false, error: 'cockpit_session_invalid' }, 401); }
+    return response({});
+  } });
+  t.after(() => client.stop());
+  const result = await client.submitIntent({ commandId: 'c', intent: 'start_mission', missionId: 'm', payload: {} });
+  assert.equal(result.error, 'cockpit_session_invalid');
+  assert.equal(intentsSent, 2);
+});

@@ -13,6 +13,13 @@ Render bleibt als unabhaengiger Fallback bestehen.
 - Befehle, ACKs und Tracker-Heartbeats werden sofort weitergegeben
 - Pilot-ID steht nur als SHA-256-Raumschluessel in der WebSocket-URL
 - PIN wird innerhalb des Durable Objects nur als SHA-256-Vergleichswert gehalten
+- Beitritt prueft den PIN gegen das Konto (17.11.2026): Service-Binding `GA_PROXY` →
+  `POST /api/auth/verify` auf `ga-proxy` (mit dessen Versuchsbremse). Bestaetigter PIN kommt
+  immer rein und wirft fruehere Beitritte mit anderem PIN (alter Tab, alter Tracker) raus;
+  falscher PIN wird abgewiesen. Ergebnis je PIN im Raum gecacht (OK 10 min, falsch 60 s).
+  Ohne Antwort (kein Binding, keine Konto-ID, Timeout, 4xx ausser 401/429, 5xx) gilt die alte
+  Regel „erster PIN im Raum“, wobei ein bestaetigter PIN Vorrang hat. Tracker ab dem naechsten
+  Build nennt den Ablehnungsgrund und versucht es bei falschem PIN alle 30 s statt 5 s.
 
 ## Test und Deployment
 

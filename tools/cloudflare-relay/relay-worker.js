@@ -2,6 +2,41 @@ import { CrewLiveRoom } from './crew-live-room.js';
 
 const MAX_MESSAGE_BYTES = 512 * 1024;
 const TELEMETRY_INTERVAL_MS = 450;
+const PIN_OK_CACHE_MS = 10 * 60 * 1000;
+const PIN_REJECT_CACHE_MS = 60 * 1000;
+const PIN_VERIFY_TIMEOUT_MS = 4000;
+const WRONG_PIN_MESSAGE = 'Falscher PIN für diesen Tracker-Raum.';
+const PIN_LIMITED_MESSAGE = 'Falscher PIN für diesen Tracker-Raum: zu viele Versuche, bitte später erneut.';
+
+// Asks the account worker whether syncId+PIN belong together.
+// 'ok' and 'invalid' are answers; 'unavailable' means no answer (no binding,
+// no account behind this ID, timeout, server error) and keeps the old rule.
+async function verifyAccountPin(env, syncId, pin, clientIp) {
+    if (!env || !env.GA_PROXY || typeof env.GA_PROXY.fetch !== 'function') return 'unavailable';
+    if (!syncId || !pin) return 'invalid';
+    const headers = { 'Content-Type': 'application/json' };
+    if (clientIp) headers['CF-Connecting-IP'] = clientIp;
+    let timer = null;
+    try {
+        const response = await Promise.race([
+            env.GA_PROXY.fetch('https://ga-proxy.internal/api/auth/verify', {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ pilotId: syncId, pin })
+            }),
+            new Promise(resolve => { timer = setTimeout(() => resolve(null), PIN_VERIFY_TIMEOUT_MS); })
+        ]);
+        if (!response) return 'unavailable';
+        if (response.status === 200) return 'ok';
+        if (response.status === 429) return 'limited';
+        if (response.status === 401) return 'invalid';
+        return 'unavailable';
+    } catch (_) {
+        return 'unavailable';
+    } finally {
+        if (timer) clearTimeout(timer);
+    }
+}
 
 function normalizeSyncId(value) {
     return String(value || '').trim().toUpperCase();
@@ -60,8 +95,21 @@ function closeWithError(socket, message, code = 1008) {
 }
 
 export class RelayRoom {
-    constructor(ctx) {
+    constructor(ctx, env) {
         this.ctx = ctx;
+        this.env = env;
+        this.pinChecks = new Map();
+    }
+
+    async checkPin(syncId, pin, pinHash, clientIp) {
+        const now = Date.now();
+        const cached = this.pinChecks.get(pinHash);
+        if (cached && cached.until > now) return cached.result;
+        const result = await verifyAccountPin(this.env, syncId, pin, clientIp);
+        if (result === 'ok') this.pinChecks.set(pinHash, { result, until: now + PIN_OK_CACHE_MS });
+        else if (result === 'invalid' || result === 'limited') this.pinChecks.set(pinHash, { result, until: now + PIN_REJECT_CACHE_MS });
+        if (this.pinChecks.size > 32) this.pinChecks.delete(this.pinChecks.keys().next().value);
+        return result;
     }
 
     async fetch(request) {
@@ -74,7 +122,8 @@ export class RelayRoom {
         const pair = new WebSocketPair();
         const client = pair[0];
         const server = pair[1];
-        server.serializeAttachment({ joined: false, roomKey, role: 'unknown', pinHash: '', lastTelemetryAt: 0 });
+        const clientIp = String(request.headers.get('CF-Connecting-IP') || '').slice(0, 64);
+        server.serializeAttachment({ joined: false, roomKey, role: 'unknown', pinHash: '', pinVerified: false, clientIp, lastTelemetryAt: 0 });
         this.ctx.acceptWebSocket(server, ['ga-relay']);
         server.send(JSON.stringify({ type: 'relay_status', relay: 'cloudflare', status: 'ready' }));
         return new Response(null, { status: 101, webSocket: client });
@@ -102,22 +151,41 @@ export class RelayRoom {
                 closeWithError(socket, 'Ungültiger Tracker-Raum.');
                 return;
             }
-            const incomingPinHash = await sha256Hex(String(data.pin || ''));
-            const joinedSockets = this.ctx.getWebSockets('ga-relay')
-                .filter(candidate => candidate !== socket)
-                .map(candidate => safeAttachment(candidate))
-                .filter(candidate => candidate.joined === true);
-            const roomPinHash = joinedSockets.find(candidate => candidate.pinHash)?.pinHash || '';
-            if (roomPinHash && roomPinHash !== incomingPinHash) {
-                closeWithError(socket, 'Falscher PIN für diesen Tracker-Raum.');
+            const pin = String(data.pin || '');
+            const incomingPinHash = await sha256Hex(pin);
+            const check = await this.checkPin(normalizedSyncId, pin, incomingPinHash, attachment.clientIp);
+            if (check === 'invalid' || check === 'limited') {
+                closeWithError(socket, check === 'limited' ? PIN_LIMITED_MESSAGE : WRONG_PIN_MESSAGE);
                 return;
+            }
+            const others = this.ctx.getWebSockets('ga-relay')
+                .filter(candidate => candidate !== socket)
+                .map(candidate => ({ candidate, attachment: safeAttachment(candidate) }))
+                .filter(entry => entry.attachment.joined === true);
+            if (check === 'ok') {
+                // The account confirmed this PIN: earlier joins with another PIN
+                // (an old tab, a stale tracker) no longer hold the room.
+                for (const entry of others) {
+                    if (entry.attachment.pinHash !== incomingPinHash) closeWithError(entry.candidate, WRONG_PIN_MESSAGE);
+                }
+            } else {
+                // No answer from the account worker: keep the previous rule, but a
+                // confirmed PIN in the room outranks unconfirmed ones.
+                const verified = others.find(entry => entry.attachment.pinVerified === true && entry.attachment.pinHash);
+                const first = others.find(entry => entry.attachment.pinHash);
+                const roomPinHash = (verified || first) ? (verified || first).attachment.pinHash : '';
+                if (roomPinHash && roomPinHash !== incomingPinHash) {
+                    closeWithError(socket, WRONG_PIN_MESSAGE);
+                    return;
+                }
             }
             socket.serializeAttachment({
                 ...attachment,
                 joined: true,
                 clientId: String(data.clientId || '').slice(0, 160),
                 role: data.relayRole === 'tracker' ? 'tracker' : (data.relayRole === 'viewer' ? 'viewer' : 'unknown'),
-                pinHash: incomingPinHash
+                pinHash: incomingPinHash,
+                pinVerified: check === 'ok'
             });
             return;
         }
@@ -179,5 +247,6 @@ export {
     messageKind,
     normalizeSyncId,
     recipientAccepts,
+    verifyAccountPin,
     sha256Hex
 };

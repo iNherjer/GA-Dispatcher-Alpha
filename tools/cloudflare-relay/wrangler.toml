@@ -21,3 +21,8 @@ new_sqlite_classes = ["CrewLiveRoom"]
 [observability.logs]
 enabled = true
 invocation_logs = true
+
+# PIN check on room join against the account (POST /api/auth/verify on ga-proxy).
+[[services]]
+binding = "GA_PROXY"
+service = "ga-proxy"

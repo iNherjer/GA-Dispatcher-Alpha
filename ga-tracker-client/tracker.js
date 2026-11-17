@@ -173,8 +173,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v641';
-const TRACKER_VERSION_CODE = 641;
+const TRACKER_VERSION = 'v642';
+const TRACKER_VERSION_CODE = 642;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -6787,6 +6787,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     const ws = new WebSocket(state.config.resolvedUrl, { handshakeTimeout: 10000 });
     state.socket = ws;
     let opened = false;
+    let relayRejectMessage = '';
     let awaitingPong = false;
     let pingInterval = null;
     let trackerStatusInterval = null;
@@ -6888,7 +6889,22 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       startSimConnectOnce();
     });
     ws.on('pong', () => { awaitingPong = false; });
-    ws.on('message', handleTrackerMessage);
+    ws.on('message', (raw) => {
+      // The relay explains a refused join (e.g. wrong PIN) with one error packet
+      // before it closes; keep it so the reconnect notice names the reason.
+      const text = String(raw || '');
+      if (text.length < 2000 && text.includes('"type":"error"')) {
+        try {
+          const info = JSON.parse(text);
+          if (info && info.type === 'error') {
+            relayRejectMessage = String(info.message || '').slice(0, 200);
+            debugLog(`TRACKER_RELAY_REJECT relay=${state.config.key} message=${relayRejectMessage}`);
+            return;
+          }
+        } catch (_) {}
+      }
+      return handleTrackerMessage(raw);
+    });
 
     ws.on('error', (err) => {
       trackerError(`❌ ${state.config.label}-Relay-Fehler:`, err.message);
@@ -6900,7 +6916,13 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       if (state.socket === ws) state.socket = null;
       refreshRelayConnectionState();
       debugLog(`TRACKER_RELAY_CLOSE relay=${state.config.key}`);
-      scheduleRelayReconnect(state, 'Verbindung getrennt. Neuer Versuch in 5 Sekunden...');
+      if (/falscher pin/i.test(relayRejectMessage)) {
+        scheduleRelayReconnect(state, `${relayRejectMessage} Bitte Pilot-ID und PIN im Tracker prüfen. Neuer Versuch in 30 Sekunden...`, 30000);
+      } else if (relayRejectMessage) {
+        scheduleRelayReconnect(state, `Verbindung abgelehnt: ${relayRejectMessage} Neuer Versuch in 5 Sekunden...`);
+      } else {
+        scheduleRelayReconnect(state, 'Verbindung getrennt. Neuer Versuch in 5 Sekunden...');
+      }
     });
   }
 
