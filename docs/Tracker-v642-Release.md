@@ -46,5 +46,5 @@ Sicherheits- und Ablaufprüfung vom 17.11.2026, Punkte 6 und 8:
 ## Artefakt
 
 - Tag `v642`, Asset `VFR-Multitool-Tracker.exe`
-- Größe: wird nach Build eingetragen
-- SHA-256: wird nach Build eingetragen
+- Größe: 175166431 Bytes
+- SHA-256: 494941cef27c0a567e311d1a4dca906c046e098730dd12de1d75191ef6c031f6 (öffentlicher Download geprüft)
