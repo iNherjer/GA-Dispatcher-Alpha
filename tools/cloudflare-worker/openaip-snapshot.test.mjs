@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import worker from './worker-merged-full.js';
+const TEST_ENV = { OPENAIP_API_KEY: 'test-openaip-key' };
 
 const originalFetch = globalThis.fetch;
 const originalCaches = globalThis.caches;
@@ -97,7 +98,7 @@ globalThis.fetch = async (url) => {
 
 try {
   const snapshotUrl = 'https://ga-proxy.test/api/openaip/snapshot?bbox=7.000,47.000,10.000,50.000';
-  const first = await worker.fetch(new Request(snapshotUrl), {}, {});
+  const first = await worker.fetch(new Request(snapshotUrl), TEST_ENV, {});
   assert.equal(first.status, 200);
   assert.equal(first.headers.get('X-GA-OpenAIP-Cache'), 'MISS');
   const firstPayload = await first.json();
@@ -115,7 +116,7 @@ try {
 
   const second = await worker.fetch(new Request(
     'https://ga-proxy.test/api/openaip/snapshot?bbox=7,47,10,50'
-  ), {}, {});
+  ), TEST_ENV, {});
   assert.equal(second.status, 200);
   assert.equal(second.headers.get('X-GA-OpenAIP-Cache'), 'HIT');
   assert.equal(upstreamCalls, 4);
@@ -123,8 +124,8 @@ try {
   const coalescedUrl = 'https://ga-proxy.test/api/openaip/snapshot?bbox=10,45,12,47';
   const callsBeforeCoalescing = upstreamCalls;
   const [coalescedA, coalescedB] = await Promise.all([
-    worker.fetch(new Request(coalescedUrl), {}, {}),
-    worker.fetch(new Request(coalescedUrl), {}, {})
+    worker.fetch(new Request(coalescedUrl), TEST_ENV, {}),
+    worker.fetch(new Request(coalescedUrl), TEST_ENV, {})
   ]);
   assert.equal(coalescedA.status, 200);
   assert.equal(coalescedB.status, 200);
@@ -132,7 +133,7 @@ try {
 
   const invalid = await worker.fetch(new Request(
     'https://ga-proxy.test/api/openaip/snapshot?bbox=0,0,6,2'
-  ), {}, {});
+  ), TEST_ENV, {});
   assert.equal(invalid.status, 400);
 
   const snapshotFetchMock = globalThis.fetch;
@@ -154,7 +155,7 @@ try {
   };
   const legacy = await worker.fetch(new Request(
     'https://ga-proxy.test/api/airports?bbox=7,47,10,50&limit=250'
-  ), {}, {});
+  ), TEST_ENV, {});
   assert.equal(legacy.status, 200);
   const legacyPayload = await legacy.json();
   assert.equal(legacyPayload.items[0].icaoCode, 'EDTT');
@@ -180,7 +181,7 @@ try {
     });
   };
   const partialUrl = 'https://ga-proxy.test/api/openaip/snapshot?bbox=12,45,14,47';
-  const partial = await worker.fetch(new Request(partialUrl), {}, {});
+  const partial = await worker.fetch(new Request(partialUrl), TEST_ENV, {});
   assert.equal(partial.status, 200);
   assert.equal(partial.headers.get('X-GA-OpenAIP-Cache'), 'PARTIAL');
   const partialPayload = await partial.json();
@@ -192,7 +193,7 @@ try {
   assert.equal(partialPayload.meta.collections.airspaces.errorStatus, 429);
   assert.equal(partialCalls, 4);
 
-  const partialCached = await worker.fetch(new Request(partialUrl), {}, {});
+  const partialCached = await worker.fetch(new Request(partialUrl), TEST_ENV, {});
   assert.equal(partialCached.status, 200);
   assert.equal(partialCached.headers.get('X-GA-OpenAIP-Cache'), 'HIT-PARTIAL');
   assert.equal(partialCalls, 4);
@@ -221,7 +222,7 @@ try {
       headers: { 'Content-Type': 'application/json' }
     });
   };
-  const completedPartial = await worker.fetch(new Request(partialUrl), {}, {});
+  const completedPartial = await worker.fetch(new Request(partialUrl), TEST_ENV, {});
   assert.equal(completedPartial.status, 200);
   assert.equal(completedPartial.headers.get('X-GA-OpenAIP-Cache'), 'REFRESH');
   const completedPartialPayload = await completedPartial.json();
@@ -250,7 +251,7 @@ try {
     });
   };
 
-  const stale = await worker.fetch(new Request(snapshotUrl), {}, {});
+  const stale = await worker.fetch(new Request(snapshotUrl), TEST_ENV, {});
   assert.equal(stale.status, 200);
   assert.equal(stale.headers.get('X-GA-OpenAIP-Cache'), 'STALE');
   const stalePayload = await stale.json();
@@ -262,4 +263,28 @@ try {
   globalThis.fetch = originalFetch;
   if (originalCaches === undefined) delete globalThis.caches;
   else globalThis.caches = originalCaches;
+}
+
+// Catch-all proxy: only the OpenAIP lists the apps read go out with the key.
+{
+  const blockedCalls = [];
+  const savedFetch = globalThis.fetch;
+  globalThis.fetch = async (url) => { blockedCalls.push(String(url)); return new Response('{"items":[]}', { status: 200 }); };
+  try {
+    for (const path of ['/api/users', '/', '/api/airports/../users', '/v1/anything']) {
+      const res = await worker.fetch(new Request('https://ga-proxy.test' + path), TEST_ENV, {});
+      assert.equal(res.status, 404, path);
+    }
+    const post = await worker.fetch(new Request('https://ga-proxy.test/api/airports', { method: 'POST', body: '{}' }), TEST_ENV, {});
+    assert.equal(post.status, 404);
+    assert.equal(blockedCalls.length, 0, 'nothing left the worker with the key');
+    const allowed = await worker.fetch(new Request('https://ga-proxy.test/v1/navaids?bbox=7,47,8,48'), TEST_ENV, {});
+    assert.equal(allowed.status, 200);
+    assert.match(blockedCalls[0], /api\.core\.openaip\.net\/api\/navaids/);
+    const unconfigured = await worker.fetch(new Request('https://ga-proxy.test/api/airspaces?bbox=7,47,8,48'), {}, {});
+    assert.equal(unconfigured.status, 503);
+  } finally {
+    globalThis.fetch = savedFetch;
+  }
+  console.log('openaip catch-all allow-list ok');
 }

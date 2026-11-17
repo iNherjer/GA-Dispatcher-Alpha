@@ -38,3 +38,13 @@ assert.equal(fanout.readyState, 3);
 assert.throws(() => fanout.send('offline'), /Kein Relay/);
 
 console.log('tracker relay routing tests passed');
+
+// Every relay command needs the pilot PIN on the envelope or the command.
+{
+  const { hasRelayCommandPin } = require('./tracker-relay-routing-core.js');
+  assert.equal(hasRelayCommandPin({ pin: '1234' }, { type: 'aircraft_var_set' }, '1234'), true);
+  assert.equal(hasRelayCommandPin({}, { type: 'mission_scene_spawn', pin: '1234' }, '1234'), true);
+  assert.equal(hasRelayCommandPin({}, { type: 'aircraft_payload_set' }, '1234'), false);
+  assert.equal(hasRelayCommandPin({ pin: '9999' }, { type: 'mission_authority_claim' }, '1234'), false);
+  assert.equal(hasRelayCommandPin({ pin: '' }, {}, ''), false);
+}

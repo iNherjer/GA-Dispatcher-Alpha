@@ -934,6 +934,7 @@
     'sync.login.hintSignedIn': 'You are signed in as {id}. Data is being synced.',
     'crew.status.connectedAs': 'Connected as {nick}',
     'crew.joined': "🤝 You joined the crew '{crew}'!",
+    'crew.joinRefused': "❌ Could not join the crew '{crew}':\n\n{reason}",
     'settings.apiKey.missing': '{provider} API key missing.',
     'settings.apiKey.checkedAgo': 'Last checked {minutes} min ago (ok).',
     'settings.apiKey.failedAgo': 'Last check {minutes} min ago failed.',

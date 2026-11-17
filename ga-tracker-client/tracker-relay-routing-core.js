@@ -40,6 +40,16 @@ function isTrustedMissionIntentEnvelope(envelope, command, expectedPin) {
   return String(command?.pin || '') === expected || String(envelope?.pin || '') === expected;
 }
 
+// Every command arriving over a relay must carry the pilot PIN, either on the
+// envelope or on the command. All App senders (sync.js sendTrackerCommand, the
+// mission transfer, the homebase workbench) set the envelope PIN; a room member
+// without the PIN (e.g. on a relay that does not check joins) is ignored.
+function hasRelayCommandPin(envelope, command, expectedPin) {
+  const expected = String(expectedPin || '');
+  if (!expected) return false;
+  return String(envelope && envelope.pin || '') === expected || String(command && command.pin || '') === expected;
+}
+
 function createRelayFanout(getStates, WebSocketImpl, onSendError = null) {
   if (typeof getStates !== 'function') throw new Error('Relay-State-Leser fehlt.');
   const OPEN = Number(WebSocketImpl?.OPEN ?? 1);
@@ -72,6 +82,7 @@ module.exports = {
   TRACKER_RELAY_ENDPOINTS,
   buildTrackerRelayUrl,
   createRelayFanout,
+  hasRelayCommandPin,
   isTrustedMissionIntentEnvelope,
   normalizeSyncId,
   trackerRoomKey

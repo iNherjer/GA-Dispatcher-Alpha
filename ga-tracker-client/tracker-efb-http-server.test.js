@@ -782,3 +782,28 @@ test('desktop shutdown is token-gated, answers first and then signs off', async 
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(calls, 1);
 });
+
+test('foreign websites cannot read mission, position or sessions from the loopback server', async t => {
+  const { isAllowedRequestOrigin } = require('./tracker-efb-http-server');
+  const server = createTrackerEfbHttpServer({
+    host: '127.0.0.1', port: 0,
+    hello: createTrackerEfbHttpHello({ trackerVersion: 'v642', trackerVersionCode: 642 }),
+    getStatus: () => ({ relayConnected: true }),
+    getSnapshot: () => ({ capturedAt: 2, lat: 48.1, lon: 11.5 }),
+    getMissionSnapshot: () => ({ version: 1, missionId: 'm', state: 'active', active: true })
+  });
+  t.after(() => server.stop());
+  const address = await server.start();
+  const read = origin => request(address, '/api/v1/mission', origin ? { headers: { Origin: origin } } : {});
+  assert.equal((await read()).statusCode, 200, 'EFB/Toolbar same-origin GETs carry no Origin');
+  assert.equal((await read('http://127.0.0.1:47123')).statusCode, 200);
+  assert.equal((await read('https://inherjer.github.io')).statusCode, 200, 'the App keeps reading');
+  for (const origin of ['https://evil.example', 'http://192.168.1.5', 'null']) {
+    const result = await read(origin);
+    assert.equal(result.statusCode, 403, origin);
+    assert.doesNotMatch(result.body, /missionId/);
+  }
+  assert.equal((await request(address, '/api/v1/snapshot', { headers: { Origin: 'https://evil.example' } })).statusCode, 403);
+  assert.equal(isAllowedRequestOrigin({ headers: { origin: 'coui://html_ui' } }), true, 'sim panels keep working');
+  assert.equal(isAllowedRequestOrigin({ headers: { origin: 'file://' } }), true);
+});

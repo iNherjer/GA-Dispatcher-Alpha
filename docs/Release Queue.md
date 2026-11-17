@@ -29,6 +29,13 @@ liefert alles Offene mit aus.
 
 ## Ausgeliefert
 
+### 2026-11-17 · PIN-Pflicht für Relay-Befehle, EFB-Server-Herkunft, Crew-Beitritt — ausgeliefert in Tracker v643 Alpha (17.11.2026)
+- **Artefakt:** Tracker-EXE (Relay-Befehle, lokaler EFB-Server). Worker `ga-proxy` 08e22ae3 deployt, Web v2438.
+- **Dateien:** `ga-tracker-client/tracker.js`, `ga-tracker-client/tracker-relay-routing-core.js` (+ Test), `ga-tracker-client/tracker-efb-http-server.js` (+ Test), `board.js`, `sync.js`, `i18n/en.js`, `i18n/en-phrases.js`, `tools/cloudflare-worker/worker-merged-full.js` (+ Test).
+- **Was:** siehe `docs/Tracker-v643-Release.md`.
+- **Doku beim Release:** `docs/Tracker-v643-Release.md`, `tools/cloudflare-worker/README.md`.
+- **Pruefen im Feld:** siehe `docs/Tracker-v643-Release.md`.
+
 ### 2026-11-17 · Relay-PIN-Grund und Knöpfe nach Tracker-Neustart — ausgeliefert in Tracker v642 Alpha (17.11.2026)
 - **Artefakt:** Tracker-EXE (Relay-Verbindung, Cockpit-Sitzungsclient für EFB/Toolbar/Web). Relay `ga-relay` c39be7aa deployt, Web v2437.
 - **Dateien:** `ga-tracker-client/tracker.js`, `ga-tracker-client/tracker-cockpit-session-client.js` (+ Test), `tools/cloudflare-relay/relay-worker.js` (+ Test, `wrangler.toml`, README).

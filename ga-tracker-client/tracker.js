@@ -145,6 +145,7 @@ const {
   TRACKER_RELAY_ENDPOINTS,
   buildTrackerRelayUrl,
   createRelayFanout,
+  hasRelayCommandPin,
   isTrustedMissionIntentEnvelope
 } = require('./tracker-relay-routing-core.js');
 const {
@@ -173,8 +174,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v642';
-const TRACKER_VERSION_CODE = 642;
+const TRACKER_VERSION = 'v643';
+const TRACKER_VERSION_CODE = 643;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -6704,6 +6705,10 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     }
     if (command.pin && String(command.pin) !== String(pin)) {
       debugLog(`RELAY_COMMAND_REJECT type=${commandType || 'unknown'} commandId=${commandId || 'none'} reason=command-pin-mismatch`);
+      return;
+    }
+    if (!hasRelayCommandPin(data, command, pin)) {
+      debugLog(`RELAY_COMMAND_REJECT type=${commandType || 'unknown'} commandId=${commandId || 'none'} reason=pin-required`);
       return;
     }
     if (['radio_tuning_request','media_control_request'].includes(commandType) && !require('./tracker-radio-relay').hasRadioPin(data, command, pin)) {

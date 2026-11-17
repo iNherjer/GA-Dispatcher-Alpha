@@ -361,15 +361,29 @@ async function joinGroup() {
             return;
         }
 
-        // Zugang gewährt: Wir speichern den Gruppen-Namen und den Anzeigenamen
+        // Eintragen: erst wenn der Server den Beitritt speichert, gilt er als beigetreten.
+        const previousGroup = localStorage.getItem('ga_group_name');
+        const previousNick = localStorage.getItem('ga_group_nick');
         localStorage.setItem('ga_group_name', gName);
         localStorage.setItem('ga_group_nick', gNick);
+        const saved = await forceGroupSync();
+        if (!saved || !saved.ok) {
+            if (previousGroup === null) localStorage.removeItem('ga_group_name'); else localStorage.setItem('ga_group_name', previousGroup);
+            if (previousNick === null) localStorage.removeItem('ga_group_nick'); else localStorage.setItem('ga_group_nick', previousNick);
+            const reason = saved && saved.status === 403 && saved.error
+                ? saved.error
+                : _boardUiPhrase("Der Crew-Server hat den Beitritt nicht gespeichert. Bitte später erneut versuchen.");
+            alert(_boardUiText('crew.joinRefused', { crew: gName, reason }, "❌ Beitritt zur Crew '{crew}' nicht möglich:\n\n{reason}"));
+            document.getElementById('groupStatus').innerText = _boardUiPhrase("Beitritt abgelehnt");
+            document.getElementById('groupStatus').style.color = "";
+            if (previousGroup) { try { await silentGroupSync(); } catch (_) {} }
+            return;
+        }
         window.gaCrewPresence?.reset();
-        
+
         document.getElementById('groupStatus').innerText = _boardUiText('crew.status.connectedAs', { nick: gNick }, 'Verbunden als {nick}');
         document.getElementById('groupStatus').style.color = "var(--green)";
 
-        forceGroupSync();
         window.homebaseGroupRefresh?.('group-joined');
         triggerCloudSave(true);
         alert(_boardUiText('crew.joined', { crew: gName }, "🤝 Du bist der Crew '{crew}' beigetreten!"));

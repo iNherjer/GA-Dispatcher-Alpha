@@ -1,4 +1,4 @@
-const OPENAIP_KEY = "049026a617e1380ac056e1fd3cc237ae";
+const OPENAIP_KEY = "REMOVED-USE-SECRET-OPENAIP_API_KEY";
 
 const AIP_POPUP_ROUTES = {
   AT: "/at/en/vfr/",

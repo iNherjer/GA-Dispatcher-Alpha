@@ -91,6 +91,21 @@ function isTrustedVoiceOrigin(request) {
 
 const isTrustedCockpitOrigin = isTrustedVoiceOrigin;
 
+// Websites open in the pilot's browser may not read mission, position or
+// sessions from the loopback server. Web origins (http/https and the opaque
+// "null" of sandboxed frames) must be the tracker itself, localhost or the App;
+// requests without Origin (EFB/Toolbar same-origin GETs, desktop, tools) and
+// non-web schemes (coui:, file:, app:) keep working as before.
+function isAllowedRequestOrigin(request) {
+  const origin = String(request?.headers?.origin || '').trim();
+  if (!origin) return true;
+  if (origin.toLowerCase() === 'null') return false;
+  let parsed = null;
+  try { parsed = new URL(origin); } catch (_) { return false; }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return true;
+  return isTrustedVoiceOrigin(request);
+}
+
 function createTrackerEfbHttpHello(options = {}) {
   const trackerVersion = String(options.trackerVersion || '').trim();
   const trackerVersionCode = Number(options.trackerVersionCode);
@@ -312,6 +327,12 @@ function createTrackerEfbHttpServer(options = {}) {
   const handler = async (request, response) => {
     if (!isLoopbackAddress(request.socket?.remoteAddress)) {
       jsonResponse(response, 403, { error: 'loopback_only' });
+      return;
+    }
+    if (!isAllowedRequestOrigin(request)) {
+      request.resume();
+      log(`EFB_ORIGIN_REJECT origin=${sanitizeLogField(request.headers.origin, 120)} method=${sanitizeLogField(request.method, 10)}`);
+      jsonResponse(response, 403, { error: 'origin_rejected' });
       return;
     }
     if (request.method === 'OPTIONS') {
@@ -864,6 +885,7 @@ module.exports = {
   createTrackerEfbHttpServer,
   hasDesktopControlToken,
   isLoopbackAddress,
+  isAllowedRequestOrigin,
   isTrustedCockpitOrigin,
   isTrustedVoiceOrigin,
   parseVoiceJobPath

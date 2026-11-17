@@ -925,6 +925,8 @@
         '❌ Authentifizierungs-Fehler!\n\nDeine Pilot-ID oder dein PIN ist falsch. Bitte prüfe die Eingaben oben im Sync-Bereich.': '❌ Authentication error!\n\nYour pilot ID or PIN is wrong. Please check the entries in the sync section above.',
         'Diese Pilot-ID wurde aus der Crew gebannt!': 'This pilot ID has been banned from the crew!',
         'Verbindungsfehler zum Crew-Server.': 'Connection error to the crew server.',
+        'Beitritt abgelehnt': 'Join refused',
+        'Der Crew-Server hat den Beitritt nicht gespeichert. Bitte später erneut versuchen.': 'The crew server did not save the join. Please try again later.',
         '🚪 Crew verlassen.': '🚪 Left the crew.'
     });
 })(typeof globalThis !== 'undefined' ? globalThis : this);

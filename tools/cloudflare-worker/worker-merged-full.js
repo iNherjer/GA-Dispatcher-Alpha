@@ -14,7 +14,10 @@ export { AirportGeoStore } from './airport-geo.mjs';
 import { handleAudioSettings } from './audio-settings.mjs';
 import { checkPinAttempt } from './auth-guard.mjs';
 export { AuthGuard } from './auth-guard.mjs';
-const OPENAIP_KEY = "049026a617e1380ac056e1fd3cc237ae";
+// OpenAIP key comes from the worker secret OPENAIP_API_KEY (wrangler secret put),
+// never from the source; set per request below because helpers read it directly.
+let OPENAIP_KEY = "";
+const OPENAIP_PROXY_PATH = /^\/api\/(airports|airspaces|navaids|reporting-points)(\/[A-Za-z0-9]{1,40})?$/;
 const DEFAULT_OBS_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/tiles";
 const DEFAULT_OBS_CORE_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/core-tiles";
 const DEFAULT_OBS_POI_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/poi-tiles";
@@ -2988,6 +2991,7 @@ async function handleOpenAipSnapshot(request, requestUrl) {
 
 export default {
   async fetch(request, env, ctx) {
+    OPENAIP_KEY = String(env?.OPENAIP_API_KEY || "").trim();
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders });
     }
@@ -3318,6 +3322,12 @@ export default {
     if (targetPath.includes("/v1/")) {
       targetPath = targetPath.replace("/v1/", "/api/");
     }
+    // Only the OpenAIP lists the apps read (airports, airspaces, navaids,
+    // reporting points, optionally one record by id) go out with our key.
+    if (request.method !== "GET" || !OPENAIP_PROXY_PATH.test(targetPath)) {
+      return json({ error: "Not found" }, 404);
+    }
+    if (!OPENAIP_KEY) return json({ error: "OpenAIP not configured" }, 503);
 
     const targetUrl = new URL(`https://api.core.openaip.net${targetPath}`);
     requestUrl.searchParams.forEach((value, key) => targetUrl.searchParams.append(key, value));

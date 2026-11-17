@@ -439,3 +439,12 @@ Tests: `sync-access-rules.test.mjs`, `auth-guard.test.mjs` (Teil von `npm test`)
   Lesefehltreffer fragt einmal die großgeschriebene Altform ab (gleiche Eigentümerprüfung); der
   nächste Upload der App schreibt den exakten Schlüssel. Alte großgeschriebene Kopien verfallen
   mit der KV-Laufzeit (1 Jahr).
+
+## OpenAIP-Schlüssel und Proxy-Freigabeliste (17.11.2026, deployed 08e22ae3)
+
+- Schlüssel nur noch als Secret `OPENAIP_API_KEY` (`npx wrangler secret put OPENAIP_API_KEY`), nicht im Quelltext.
+  Der alte Schlüssel steht noch in der Git-Historie des öffentlichen Repos: im OpenAIP-Konto neu erzeugen, alten löschen, neuen als Secret setzen.
+- Catch-all-Proxy nur `GET /api|v1/(airports|airspaces|navaids|reporting-points)` (optional `/<id>`), sonst 404; ohne Secret 503.
+- Befund beim Deploy: `api.core.openaip.net` antwortet derzeit auch direkt (mit und ohne Schlüssel) mit einer Cloudflare-403-Seite;
+  Proxy-Antwort daher 500, `/api/openaip/snapshot` 502. Nicht durch diese Änderung verursacht.
+

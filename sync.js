@@ -18191,6 +18191,12 @@ async function triggerGroupSave(immediate = false) {
         });
         result = { ok: saveRes.ok, status: saveRes.status };
         if (!saveRes.ok) {
+            // The worker explains refused crew changes (403 crew_forbidden), e.g. a ban.
+            try {
+                const refusal = await saveRes.json();
+                if (refusal && typeof refusal.error === 'string') result.error = refusal.error.slice(0, 200);
+                if (refusal && typeof refusal.code === 'string') result.code = refusal.code;
+            } catch (_) {}
             groupSyncTime = 0; // naechster Abgleich holt den echten Cloud-Stand
             try { console.warn('[Crew] save failed:', saveRes.status); } catch (_) {}
         }
@@ -18203,8 +18209,9 @@ async function triggerGroupSave(immediate = false) {
     return result;
 }
 async function forceGroupSync() {
-    await triggerGroupSave(true);
+    const saved = await triggerGroupSave(true);
     await silentGroupSync();
+    return saved;
 }
 // === Auto-Sync Trigger (Adaptive Polling & Idle-Conflict-Check) ===
 let syncLastActivityTime = Date.now();
