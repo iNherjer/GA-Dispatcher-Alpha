@@ -6514,6 +6514,9 @@ const OPENAIP_LEGACY_DATA_MODE_STORAGE_KEY = 'ga_openaip_data_mode';
 const OPENAIP_DATA_MODE_HOSTED = 'hosted';
 const OPENAIP_DATA_MODE_REGION = 'region';
 const OPENAIP_DATA_MODE_LEGACY = 'legacy';
+// OpenAIP-bbox-Abfragen (V2-Regionscache, Legacy-Modus) gibt es seit
+// 17.11.2026 nicht mehr; nur die gehostete Datenbank liefert Ausschnitte.
+const OPENAIP_BBOX_RETIRED = true;
 const OPENAIP_REGION_GRID_DEG = 0.5;
 const OPENAIP_REGION_MAX_SPAN_DEG = 5;
 const OPENAIP_VIEWPORT_MAX_SPAN_DEG = 20;
@@ -6601,6 +6604,9 @@ const openAipStaticReportingPointState = {
 };
 
 function getOpenAipDataMode() {
+    // V2 und Legacy brauchten OpenAIP-bbox-Abfragen, die es nicht mehr gibt;
+    // ein früher gespeicherter Modus fällt deshalb auf Hosted zurück.
+    if (OPENAIP_BBOX_RETIRED) return OPENAIP_DATA_MODE_HOSTED;
     const stored = localStorage.getItem(OPENAIP_DATA_MODE_STORAGE_KEY);
     if (stored === OPENAIP_DATA_MODE_LEGACY) return OPENAIP_DATA_MODE_LEGACY;
     if (stored === OPENAIP_DATA_MODE_REGION) return OPENAIP_DATA_MODE_REGION;
@@ -6965,6 +6971,16 @@ function rememberOpenAipAuxSnapshot(key, payload) {
 }
 
 async function fetchOpenAipV2SnapshotCoverage(coverage) {
+    // Seit 17.11.2026 stillgelegt: OpenAIP (API v1.1) kennt keine bbox-Abfragen
+    // mehr und sperrt sie; der Worker antwortet darauf nur noch mit 410.
+    // Ohne Netzabruf sofort ablehnen – die gehostete GA Aviation DB ist die
+    // einzige Quelle für Ausschnitte.
+    if (OPENAIP_BBOX_RETIRED) {
+        const error = new Error('openaip_bbox_retired');
+        error.status = 410;
+        error.retryAfterMs = 0;
+        throw error;
+    }
     const url = `${OPENAIP_PROXY_BASE}/api/openaip/snapshot?bbox=${encodeURIComponent(coverage.key)}`;
     const response = await fetch(url, { headers: { Accept: 'application/json' } });
     if (!response.ok) {
@@ -7023,7 +7039,7 @@ async function fetchOpenAipSnapshotCoverage(coverage, requiredCollection = '') {
             } catch (hostedError) {
                 window.gaHostedAviationData.recordFallback?.(hostedError);
                 console.warn(
-                    '[Aviation Data Hosted] Abruf fehlgeschlagen; OpenAIP V2 übernimmt:',
+                    '[Aviation Data Hosted] Abruf fehlgeschlagen (kein OpenAIP-Ausschnitt mehr als Rückfall):',
                     String(hostedError?.message || hostedError)
                 );
             }
@@ -7157,7 +7173,7 @@ window.gaGetAviationSnapshotForBounds = async function(bounds, collections = [])
             hostedFailed = true;
             window.gaHostedAviationData.recordFallback?.(hostedError);
             console.warn(
-                `[Aviation Data Hosted] ${requestedCollections.join(', ')} nicht verfügbar; OpenAIP V2 übernimmt:`,
+                `[Aviation Data Hosted] ${requestedCollections.join(', ')} nicht verfügbar (kein OpenAIP-Ausschnitt mehr als Rückfall):`,
                 String(hostedError?.message || hostedError)
             );
         }
@@ -7591,6 +7607,7 @@ async function ensureOpenAipRegionSnapshot() {
 }
 
 window.setOpenAipDataMode = function(mode) {
+    if (OPENAIP_BBOX_RETIRED) mode = OPENAIP_DATA_MODE_HOSTED;
     const nextMode = mode === OPENAIP_DATA_MODE_LEGACY
         ? OPENAIP_DATA_MODE_LEGACY
         : (mode === OPENAIP_DATA_MODE_REGION ? OPENAIP_DATA_MODE_REGION : OPENAIP_DATA_MODE_HOSTED);

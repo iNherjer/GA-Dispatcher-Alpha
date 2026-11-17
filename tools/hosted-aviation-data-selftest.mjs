@@ -229,6 +229,7 @@ const mapContext = vm.createContext({
     OPENAIP_PROXY_BASE: 'https://ga-proxy.example',
     OPENAIP_DATA_MODE_HOSTED: 'hosted',
     OPENAIP_DATA_MODE_REGION: 'region',
+    OPENAIP_BBOX_RETIRED: true,
     OPENAIP_AUX_CACHE_MS: 300000,
     OPENAIP_ROUTE_MAX_REGIONS: 12,
     openAipRegionState: { payload: null, key: '' },
@@ -277,19 +278,23 @@ for (const name of [
     vm.runInContext(extractFunctionDeclaration(mapSource, name), mapContext);
 }
 
-const fallbackPayload = await mapContext.fetchOpenAipSnapshotCoverage({
-    west: 7,
-    south: 47,
-    east: 9,
-    north: 49,
-    key: '7.000,47.000,9.000,49.000'
-}, 'airspaces');
-assert.equal(fallbackPayload.meta.source, 'v2');
-assert.equal(fallbackPayload.airspaces.length, 1);
+// OpenAIP-bbox-Abfragen sind seit 17.11.2026 stillgelegt: nach einem
+// Hosted-Fehler geht keine Anfrage mehr an den OpenAIP-Regionscache.
+await assert.rejects(
+    mapContext.fetchOpenAipSnapshotCoverage({
+        west: 7,
+        south: 47,
+        east: 9,
+        north: 49,
+        key: '7.000,47.000,9.000,49.000'
+    }, 'airspaces'),
+    /openaip_bbox_retired/,
+    'Hosted-Fehler darf keinen OpenAIP-Ausschnitt mehr abrufen'
+);
 assert.equal(fallbackRecorded, 1, 'Hosted-Fehler wurde nicht als Fallback erfasst');
-assert.equal(v2Requests, 1, 'V2 wurde nach Hosted-Fehler nicht genau einmal aufgerufen');
+assert.equal(v2Requests, 0, 'Nach Hosted-Fehler darf kein V2-Abruf mehr erfolgen');
 
 console.log(
     'Hosted aviation data ok: schema/hash validation, RAM cache, corruption rejection '
-    + 'and automatic V2 fallback verified'
+    + 'and no OpenAIP bbox fallback verified'
 );

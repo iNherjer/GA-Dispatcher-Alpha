@@ -18,6 +18,16 @@ export { AuthGuard } from './auth-guard.mjs';
 // never from the source; set per request below because helpers read it directly.
 let OPENAIP_KEY = "";
 const OPENAIP_PROXY_PATH = /^\/api\/(airports|airspaces|navaids|reporting-points)(\/[A-Za-z0-9]{1,40})?$/;
+// bbox queries are retired upstream (see route 8); answer without OpenAIP.
+function openAipBboxRetired() {
+  return new Response(JSON.stringify({
+    error: "openaip_bbox_retired",
+    message: "OpenAIP no longer supports bbox queries. Use the hosted GA Aviation DB."
+  }), {
+    status: 410,
+    headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "public, max-age=3600" }
+  });
+}
 const DEFAULT_OBS_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/tiles";
 const DEFAULT_OBS_CORE_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/core-tiles";
 const DEFAULT_OBS_POI_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/poi-tiles";
@@ -3309,10 +3319,13 @@ export default {
     }
 
     // ==========================================
-    // 8. OPENAIP REGION SNAPSHOT (gemeinsamer Cache)
+    // 8. OPENAIP REGION SNAPSHOT (stillgelegt 17.11.2026)
     // ==========================================
+    // OpenAIP's API (spec v1.1) no longer offers bbox queries and blocks them,
+    // so the region snapshot cannot work. Answer at once instead of spending
+    // upstream requests; the apps load the hosted GA Aviation DB instead.
     if (requestUrl.pathname === "/api/openaip/snapshot") {
-      return handleOpenAipSnapshot(request, requestUrl);
+      return openAipBboxRetired();
     }
 
     // ==========================================
@@ -3327,6 +3340,7 @@ export default {
     if (request.method !== "GET" || !OPENAIP_PROXY_PATH.test(targetPath)) {
       return json({ error: "Not found" }, 404);
     }
+    if (requestUrl.searchParams.has("bbox")) return openAipBboxRetired();
     if (!OPENAIP_KEY) return json({ error: "OpenAIP not configured" }, 503);
 
     const targetUrl = new URL(`https://api.core.openaip.net${targetPath}`);

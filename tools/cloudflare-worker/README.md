@@ -445,6 +445,12 @@ Tests: `sync-access-rules.test.mjs`, `auth-guard.test.mjs` (Teil von `npm test`)
 - Schlüssel nur noch als Secret `OPENAIP_API_KEY` (`npx wrangler secret put OPENAIP_API_KEY`), nicht im Quelltext.
   Der alte Schlüssel steht noch in der Git-Historie des öffentlichen Repos: im OpenAIP-Konto neu erzeugen, alten löschen, neuen als Secret setzen.
 - Catch-all-Proxy nur `GET /api|v1/(airports|airspaces|navaids|reporting-points)` (optional `/<id>`), sonst 404; ohne Secret 503.
-- Befund beim Deploy: `api.core.openaip.net` antwortet derzeit auch direkt (mit und ohne Schlüssel) mit einer Cloudflare-403-Seite;
-  Proxy-Antwort daher 500, `/api/openaip/snapshot` 502. Nicht durch diese Änderung verursacht.
+- Alter Schlüssel widerrufen, neuer als Secret gesetzt (17.11.2026). Abfragen nach `country`, `search`, `page` laufen damit (200).
+- bbox stillgelegt (17.11.2026): OpenAIP-API v1.1 (`/api/system/specs/v1/schema.json`) kennt keinen `bbox`-Parameter mehr
+  und sperrt solche Anfragen mit einer Cloudflare-403-Seite (auch ohne Schlüssel). Der Worker beantwortet deshalb
+  `/api/openaip/snapshot` und jede Catch-all-Anfrage mit `bbox` sofort mit `410 openaip_bbox_retired`, ohne OpenAIP.
+  Der Abschnitt „OpenAIP-Regionscache und Rollback“ oben beschreibt den alten Stand. Die Web-App nutzt nur noch die
+  gehostete GA Aviation DB (Umschaltknopf entfernt, gespeicherter V2/Legacy-Modus fällt auf Hosted zurück).
+- Weiter mit Schlüssel: der monatliche Build von `GA-Dispatcher-Aviation-Data` (Länder-/Seitenabruf über diesen Proxy,
+  alle 27 Tage) und die Frequenz-Suche nach Kennung (`/api/airports?search=`).
 
