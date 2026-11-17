@@ -12,6 +12,15 @@ const TILE_SOURCES = Object.freeze({
       'https://backup.opentopomap.org/{z}/{x}/{y}.png'
     ])
   }),
+  'esri-topo': Object.freeze({
+    urls: Object.freeze(['https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}'])
+  }),
+  'basemap-de': Object.freeze({
+    urls: Object.freeze(['https://sgx.geodatenzentrum.de/wmts_basemapde/tile/1.0.0/de_basemapde_web_raster_farbe/default/GLOBAL_WEBMERCATOR/{z}/{y}/{x}.png'])
+  }),
+  swisstopo: Object.freeze({
+    urls: Object.freeze(['https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg'])
+  }),
   terrain: Object.freeze({
     urls: Object.freeze(['https://server.arcgisonline.com/ArcGIS/rest/services/World_Shaded_Relief/MapServer/tile/{z}/{y}/{x}'])
   }),

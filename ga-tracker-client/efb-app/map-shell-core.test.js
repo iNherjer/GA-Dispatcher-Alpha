@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const core = require('./map-shell-core');
 
 test('map layer catalog keeps stable unique ids and secure endpoints', () => {
-  const layers = [...core.BASE_LAYERS, ...core.OVERLAY_LAYERS];
+  const layers = [...core.BASE_LAYERS, ...core.REGIONAL_BASE_LAYERS, ...core.OVERLAY_LAYERS];
   assert.equal(new Set(layers.map((layer) => layer.id)).size, layers.length);
   for (const layer of layers) {
     assert.match(layer.id, /^[a-z][a-z0-9-]*$/);
@@ -20,6 +20,8 @@ test('map preferences reject unknown layers and keep the Alpha default overlay',
   assert.deepEqual(core.normalizePreferences(), {
     baseLayer: 'topo',
     overlays: ['aero'],
+    regionalBases: [],
+    baseDimPercent: 50,
     follow: true,
     theme: 'classic',
     toolbarCollapsed: false,
@@ -32,6 +34,8 @@ test('map preferences reject unknown layers and keep the Alpha default overlay',
   }), {
     baseLayer: 'topo',
     overlays: ['dfs'],
+    regionalBases: [],
+    baseDimPercent: 50,
     follow: false,
     theme: 'classic',
     toolbarCollapsed: false,
@@ -183,4 +187,26 @@ test('EFB overlay zoom limits match the standalone map', () => {
  assert.equal(core.OVERLAY_LAYERS.find(x=>x.id==='aero').options.maxNativeZoom,12);
  assert.equal(core.OVERLAY_LAYERS.find(x=>x.id==='dfs').options.maxNativeZoom,11);
  assert.match(host,/maxZoom: 18/);
+});
+
+test('regional base maps keep activation order, drop unknown ids and outrank by priority', () => {
+  const preferences = core.normalizePreferences({ regionalBases: ['SWISSTOPO', 'missing', 'basemap-de', 'swisstopo'] });
+  assert.deepEqual(preferences.regionalBases, ['swisstopo', 'basemap-de']);
+  const priority = Object.fromEntries(core.REGIONAL_BASE_LAYERS.map((layer) => [layer.id, layer.priority]));
+  assert.ok(priority['basemap-de'] > priority.swisstopo, 'basemap.de must always lie above swisstopo');
+  for (const layer of core.REGIONAL_BASE_LAYERS) {
+    assert.equal(layer.options.bounds.length, 2);
+    assert.ok(layer.localUrl, 'regional maps keep the tracker proxy as last fallback');
+  }
+  assert.ok(core.BASE_LAYERS.some((layer) => layer.id === 'esri-topo'));
+});
+
+test('base dim strength is clamped, stepped in the menu and drives the aero base opacity', () => {
+  assert.equal(core.normalizePreferences({ baseDimPercent: 140 }).baseDimPercent, core.BASE_DIM_MAX_PERCENT);
+  assert.equal(core.normalizePreferences({ baseDimPercent: -5 }).baseDimPercent, 0);
+  assert.equal(core.normalizePreferences({ baseDimPercent: 'x' }).baseDimPercent, core.BASE_DIM_DEFAULT_PERCENT);
+  assert.equal(core.baseLayerOpacity({ overlays: ['aero'], baseDimPercent: 80 }), 0.2);
+  assert.equal(core.baseLayerOpacity({ overlays: ['aero'], baseDimPercent: 0 }), 1);
+  assert.equal(core.baseLayerOpacity({ overlays: ['dfs'], baseDimPercent: 80 }), 1);
+  assert.equal(core.BASE_DIM_MAX_PERCENT % core.BASE_DIM_STEP_PERCENT, 0);
 });

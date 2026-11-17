@@ -4,6 +4,11 @@ const DEFAULT_CENTER = Object.freeze({ lat: 51.1657, lon: 10.4515, zoom: 6 });
 // Match the Kartentisch: the basemap is deliberately subdued while the VFR
 // chart remains strong enough for airspace boundaries and labels to lead.
 const AERO_BASE_OPACITY = 0.5;
+// The dim strength is adjustable in the layer menu (percent of the base maps
+// hidden while the aero overlay is on); 50 % equals AERO_BASE_OPACITY.
+const BASE_DIM_DEFAULT_PERCENT = 50;
+const BASE_DIM_MAX_PERCENT = 90;
+const BASE_DIM_STEP_PERCENT = 10;
 const MISSION_EMPTY_DEBOUNCE_MS = 3000;
 const MISSION_SNAPSHOT_GAP_GRACE_MS = 12000;
 const MAP_SNAPSHOT_SCHEMA = 'ga.map-snapshot.v1';
@@ -23,6 +28,17 @@ const BASE_LAYERS = Object.freeze([
     options: Object.freeze({
       attribution: '&copy; OpenStreetMap-Mitwirkende, Kartendarstellung &copy; OpenTopoMap',
       maxNativeZoom: 17,
+      maxZoom: 18
+    })
+  }),
+  Object.freeze({
+    id: 'esri-topo',
+    label: 'Esri Topo (Welt)',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+    localUrl: '/api/v1/map-tile/esri-topo/{z}/{x}/{y}.png',
+    options: Object.freeze({
+      attribution: 'Tiles &copy; Esri &mdash; Esri, HERE, Garmin, USGS, &copy; OpenStreetMap-Mitwirkende',
+      maxNativeZoom: 18,
       maxZoom: 18
     })
   }),
@@ -53,6 +69,39 @@ const BASE_LAYERS = Object.freeze([
     url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
     localUrl: '/api/v1/map-tile/light/{z}/{x}/{y}.png',
     options: Object.freeze({ attribution: '&copy; OpenStreetMap-Mitwirkende, &copy; CARTO', maxNativeZoom: 20, maxZoom: 20 })
+  })
+]);
+
+// Regional base maps sit above the global base map and below every overlay.
+// They can be combined; a higher priority always lies on top (basemap.de is
+// transparent outside Germany, swisstopo delivers opaque tiles reaching into
+// the neighbouring countries), equal priorities stack by activation order.
+const REGIONAL_BASE_LAYERS = Object.freeze([
+  Object.freeze({
+    id: 'basemap-de',
+    label: 'basemap.de (Deutschland)',
+    priority: 20,
+    url: 'https://sgx.geodatenzentrum.de/wmts_basemapde/tile/1.0.0/de_basemapde_web_raster_farbe/default/GLOBAL_WEBMERCATOR/{z}/{y}/{x}.png',
+    localUrl: '/api/v1/map-tile/basemap-de/{z}/{x}/{y}.png',
+    options: Object.freeze({
+      attribution: '&copy; basemap.de / BKG (CC BY 4.0)',
+      maxNativeZoom: 18,
+      maxZoom: 18,
+      bounds: Object.freeze([[47.2, 5.8], [55.1, 15.1]])
+    })
+  }),
+  Object.freeze({
+    id: 'swisstopo',
+    label: 'swisstopo Landeskarte (Schweiz)',
+    priority: 10,
+    url: 'https://wmts.geo.admin.ch/1.0.0/ch.swisstopo.pixelkarte-farbe/default/current/3857/{z}/{x}/{y}.jpeg',
+    localUrl: '/api/v1/map-tile/swisstopo/{z}/{x}/{y}.png',
+    options: Object.freeze({
+      attribution: '&copy; swisstopo',
+      maxNativeZoom: 18,
+      maxZoom: 18,
+      bounds: Object.freeze([[45.4, 5.1], [48.3, 11.5]])
+    })
   })
 ]);
 
@@ -108,6 +157,7 @@ const OVERLAY_LAYERS = Object.freeze([
 
 const BASE_IDS = new Set(BASE_LAYERS.map((layer) => layer.id));
 const OVERLAY_IDS = new Set(OVERLAY_LAYERS.map((layer) => layer.id));
+const REGIONAL_BASE_IDS = new Set(REGIONAL_BASE_LAYERS.map((layer) => layer.id));
 const THEME_IDS = new Set(THEMES.map((theme) => theme.id));
 
 function finite(value) {
@@ -125,11 +175,20 @@ function normalizePreferences(value = {}) {
   const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
   const requestedBase = String(source.baseLayer || '').trim().toLowerCase();
   const requestedOverlays = Array.isArray(source.overlays) ? source.overlays : ['aero'];
+  const requestedRegional = Array.isArray(source.regionalBases) ? source.regionalBases : [];
+  const dimValue = finite(source.baseDimPercent);
   return {
     baseLayer: BASE_IDS.has(requestedBase) ? requestedBase : 'topo',
     overlays: Array.from(new Set(requestedOverlays
       .map((entry) => String(entry || '').trim().toLowerCase())
       .filter((entry) => OVERLAY_IDS.has(entry)))),
+    // Activation order, most recent last.
+    regionalBases: Array.from(new Set(requestedRegional
+      .map((entry) => String(entry || '').trim().toLowerCase())
+      .filter((entry) => REGIONAL_BASE_IDS.has(entry)))),
+    baseDimPercent: dimValue === null
+      ? BASE_DIM_DEFAULT_PERCENT
+      : Math.max(0, Math.min(BASE_DIM_MAX_PERCENT, Math.round(dimValue))),
     follow: source.follow !== false,
     theme: 'classic',
     toolbarCollapsed: source.toolbarCollapsed === true,
@@ -344,7 +403,9 @@ function evaluateCalculatorExpression(rawExpression) {
 }
 
 function baseLayerOpacity(value = {}) {
-  return normalizePreferences(value).overlays.includes('aero') ? AERO_BASE_OPACITY : 1;
+  const preferences = normalizePreferences(value);
+  if (!preferences.overlays.includes('aero')) return 1;
+  return Math.round((1 - preferences.baseDimPercent / 100) * 100) / 100;
 }
 
 function advanceMissionDisplay(incoming, previous = {}, now = Date.now()) {
@@ -437,7 +498,11 @@ function formatFlightLine(snapshot) {
 
 const mapShellCoreApi = Object.freeze({
   AERO_BASE_OPACITY,
+  BASE_DIM_DEFAULT_PERCENT,
+  BASE_DIM_MAX_PERCENT,
+  BASE_DIM_STEP_PERCENT,
   BASE_LAYERS,
+  REGIONAL_BASE_LAYERS,
   DEFAULT_CENTER,
   MISSION_EMPTY_DEBOUNCE_MS,
   MISSION_SNAPSHOT_GAP_GRACE_MS,

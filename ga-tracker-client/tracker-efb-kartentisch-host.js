@@ -72,6 +72,9 @@
   var previewLine = null;
   var baseLayers = {};
   var overlayLayers = {};
+  var regionalLayers = {};
+  var regionalStackCounter = 0;
+  var baseDimValueNode = null;
   var layerControl = null;
   var firstRouteFit = false;
   var pollTimer = 0;
@@ -2035,11 +2038,131 @@
     return EFB_OVERLAY_PANES[id] || 'gaVfrPane';
   }
 
+  // The global and the regional base maps share gaBasePane. Dimming the pane
+  // as a whole keeps overlapping base maps from blending into each other; the
+  // tile layers themselves stay fully opaque (no second opacity stage).
   function updateBaseOpacity() {
     var opacity = API.baseLayerOpacity(preferences);
+    var pane = map ? map.getPane('gaBasePane') : null;
+    if (pane) pane.style.opacity = opacity >= 1 ? '' : String(opacity);
     Object.keys(baseLayers).forEach(function (id) {
-      if (map && map.hasLayer(baseLayers[id])) baseLayers[id].setOpacity(opacity);
+      if (map && map.hasLayer(baseLayers[id])) baseLayers[id].setOpacity(1);
     });
+    if (baseDimValueNode) baseDimValueNode.textContent = String(preferences.baseDimPercent) + ' %';
+  }
+
+  function regionalDefinition(id) {
+    var found = null;
+    (API.REGIONAL_BASE_LAYERS || []).some(function (definition) {
+      if (definition.id !== id) return false;
+      found = definition;
+      return true;
+    });
+    return found;
+  }
+
+  function regionalIdForLayer(layer) {
+    var found = '';
+    Object.keys(regionalLayers).some(function (id) {
+      if (regionalLayers[id] !== layer) return false;
+      found = id;
+      return true;
+    });
+    return found;
+  }
+
+  // Higher priority always lies on top (basemap.de above swisstopo); equal
+  // priorities stack by activation order. Global base maps keep zIndex 1.
+  function stackRegionalLayer(id) {
+    var definition = regionalDefinition(id);
+    if (!definition || !regionalLayers[id]) return;
+    regionalStackCounter += 1;
+    regionalLayers[id].setZIndex((Number(definition.priority) || 0) * 1000 + regionalStackCounter);
+  }
+
+  function createLayerGroupTitle(text) {
+    var node = document.createElement('div');
+    node.className = 'ga-layer-group-title';
+    node.textContent = _hT(text);
+    return node;
+  }
+
+  // Group titles inside Leaflet's overlay list: regional base maps first,
+  // then the real overlays. Leaflet rebuilds the list on _update().
+  function decorateLayerControlGroups(control) {
+    if (!control || typeof control._update !== 'function') return;
+    var container = control.getContainer ? control.getContainer() : control._container;
+    if (container) container.classList.add('ga-layer-groups');
+    var regionalStamps = {};
+    Object.keys(regionalLayers).forEach(function (id) { regionalStamps[L.stamp(regionalLayers[id])] = true; });
+    var originalUpdate = control._update;
+    control._update = function () {
+      var result = originalUpdate.apply(this, arguments);
+      var list = this._overlaysList;
+      if (!list) return result;
+      Array.prototype.slice.call(list.querySelectorAll('.ga-layer-group-title')).forEach(function (node) {
+        if (node.parentNode) node.parentNode.removeChild(node);
+      });
+      var regionalTitleDone = false;
+      var overlayTitleDone = false;
+      Array.prototype.slice.call(list.children).forEach(function (label) {
+        var input = label.querySelector('input');
+        if (!input) return;
+        var isRegional = regionalStamps[input.layerId] === true;
+        if (isRegional && !regionalTitleDone) {
+          list.insertBefore(createLayerGroupTitle('Regionale Basiskarten'), label);
+          regionalTitleDone = true;
+        } else if (!isRegional && !overlayTitleDone) {
+          list.insertBefore(createLayerGroupTitle('Overlays'), label);
+          overlayTitleDone = true;
+        }
+      });
+      return result;
+    };
+    control._update();
+  }
+
+  // Coherent-friendly dim control: stepped buttons instead of a range input.
+  function installBaseDimControl(control) {
+    var section = control && control._section;
+    if (!section) return;
+    var wrap = document.createElement('div');
+    wrap.className = 'ga-base-dim-control';
+    wrap.appendChild(createLayerGroupTitle('Basiskarte abblenden'));
+    var row = document.createElement('div');
+    row.className = 'ga-base-dim-row';
+    function stepButton(text, delta, label) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'ga-base-dim-btn';
+      button.textContent = text;
+      button.setAttribute('aria-label', _hT(label));
+      button.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        var next = Number(preferences.baseDimPercent) + delta;
+        preferences.baseDimPercent = Math.max(0, Math.min(API.BASE_DIM_MAX_PERCENT, next));
+        updateBaseOpacity();
+        savePreferences();
+      });
+      return button;
+    }
+    baseDimValueNode = document.createElement('span');
+    baseDimValueNode.className = 'ga-base-dim-value';
+    row.appendChild(stepButton('-', -API.BASE_DIM_STEP_PERCENT, 'Weniger abblenden'));
+    row.appendChild(baseDimValueNode);
+    row.appendChild(stepButton('+', API.BASE_DIM_STEP_PERCENT, 'Stärker abblenden'));
+    wrap.appendChild(row);
+    var hint = document.createElement('div');
+    hint.className = 'ga-base-dim-hint';
+    hint.textContent = _hT('Wirkt, solange die VFR-Lufträume eingeblendet sind.');
+    wrap.appendChild(hint);
+    if (L.DomEvent) {
+      L.DomEvent.disableClickPropagation(wrap);
+      L.DomEvent.disableScrollPropagation(wrap);
+    }
+    section.appendChild(wrap);
+    updateBaseOpacity();
   }
 
   function initializeMap() {
@@ -2098,11 +2221,29 @@
     });
     overlayLayers.radar = createMapRadarOverlay(map, 'gaWeatherPane');
     overlayControl['🌧️ Wetterradar (Niederschlag)'] = overlayLayers.radar;
+    // Regional base maps share the base pane and are listed before overlays.
+    var layerMenuOverlays = {};
+    (API.REGIONAL_BASE_LAYERS || []).forEach(function (definition) {
+      var layer = createTileLayer(definition, 'gaBasePane');
+      regionalLayers[definition.id] = layer;
+      layerMenuOverlays[definition.label] = layer;
+    });
+    Object.keys(overlayControl).forEach(function (label) { layerMenuOverlays[label] = overlayControl[label]; });
     (baseLayers[preferences.baseLayer] || baseLayers.topo).addTo(map);
+    preferences.regionalBases.forEach(function (id) {
+      if (!regionalLayers[id]) return;
+      stackRegionalLayer(id);
+      regionalLayers[id].addTo(map);
+    });
     preferences.overlays.forEach(function (id) { if (overlayLayers[id]) overlayLayers[id].addTo(map); });
     updateBaseOpacity();
-    layerControl = L.control.layers(baseControl, overlayControl, { collapsed: true, position: 'topright' }).addTo(map);
+    layerControl = L.control.layers(baseControl, layerMenuOverlays, { collapsed: true, position: 'topright' }).addTo(map);
     configureMapLayerControl(map, layerControl);
+    // L.control.layers assigns its own auto zIndex to every listed layer;
+    // restore the regional stacking afterwards in the saved order.
+    preferences.regionalBases.forEach(function (id) { stackRegionalLayer(id); });
+    decorateLayerControlGroups(layerControl);
+    installBaseDimControl(layerControl);
     routeLayer = L.layerGroup().addTo(map);
     geometryLayer = L.layerGroup().addTo(map);
     previewLayer = L.layerGroup().addTo(map);
@@ -2115,7 +2256,17 @@
       updateBaseOpacity();
       savePreferences();
     });
-    map.on('overlayadd overlayremove', function () {
+    map.on('overlayadd overlayremove', function (event) {
+      var regionalId = regionalIdForLayer(event && event.layer);
+      if (regionalId) {
+        preferences.regionalBases = preferences.regionalBases.filter(function (id) { return id !== regionalId; });
+        if (event.type === 'overlayadd') {
+          preferences.regionalBases.push(regionalId);
+          stackRegionalLayer(regionalId);
+        }
+        savePreferences();
+        return;
+      }
       preferences.overlays = Object.keys(overlayLayers).filter(function (id) { return map.hasLayer(overlayLayers[id]); });
       updateBaseOpacity();
       savePreferences();

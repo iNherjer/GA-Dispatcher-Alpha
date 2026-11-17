@@ -8945,3 +8945,35 @@ Offizieller Windows-SDK-Bau auf `27ebf30a4`: Exit 0, leeres RPTErrors, 65 Tests,
 0.4.26: inhaltlich nur Brücke, App-Bundle, Layout, Manifest (übrige Abweichung nur
 Zeilenenden). Als `efb-app-v0.4.27` veröffentlicht, Alpha aktiviert, Stable unverändert.
 Zusammen mit Tracker v631 (Flugplan-Meldung obenauf).
+
+## 17.11.2026 – EFB-Kartenmenü: Esri Topo, regionale Basiskarten, Abblendstufen
+
+Anlass: Seit 15.11.2026 blendet OpenTopoMap (Betreiber Top-O-Map) im EFB auf
+manchen Kacheln ein Werbebanner ein (Gratisstufe, „You like this map, pilot?“).
+Die Web-App hat seit v2431/v2432 globale und regionale Basiskarten; das EFB
+übernimmt davon, was ohne Schlüssel und Coherent-tauglich geht.
+
+- Globale Basiskarte zusätzlich „Esri Topo (Welt)“ (Esri-Direktabruf wie
+  Terrain/Satellit). OSM/CyclOSM nicht im EFB: Die OSM-Kachelregeln verlangen
+  bei Browserabrufen einen Referrer bzw. eine eigene App-Kennung; der
+  Coherent-Direktabruf erfüllt das nicht.
+- Regionale Basiskarten `REGIONAL_BASE_LAYERS` (basemap.de, swisstopo) in
+  `map-shell-core.js`, im Menü vor den Overlays, gemeinsam mit der globalen
+  Karte in `gaBasePane`. Stapelung über zIndex = Priorität × 1000 + Aktivierung;
+  basemap.de (20) liegt immer über swisstopo (10, undurchsichtige Kacheln bis
+  ca. 48,3° N). `L.control.layers` vergibt beim Anlegen eigene zIndex-Werte,
+  deshalb wird nach dem Anlegen neu gestapelt.
+- Einstellungen: `regionalBases` (Aktivierungsreihenfolge) und
+  `baseDimPercent` (0–90, Standard 50) in `normalizePreferences`;
+  `baseLayerOpacity` = 1 − baseDimPercent/100 bei aktivem Aero-Overlay.
+- Abblenden als Opacity auf `gaBasePane`, Kachel-Layer bleiben bei 1 (eine
+  Opacity-Stufe, keine Mischung überlappender Basiskarten). Im Sim zu prüfen,
+  ob Coherent die Ebenen-Opacity wie die bisherige Layer-Opacity darstellt;
+  Rückfall wäre Opacity je Basiskarten-Layer.
+- Stärke per −/+ (10er-Stufen) statt Range-Regler, wegen Coherent und VR.
+- Gruppenüberschriften per Klasse `ga-layer-groups` statt `:has()`.
+- Tracker-Proxy kennt `esri-topo`, `basemap-de`, `swisstopo` als letzte
+  Ausweichstufe. Das EFB-Paket (VfrMultitool.tsx) liest `BASE_LAYERS` und
+  zeigt Esri Topo erst nach einem neuen Paket-Build; regionale Karten nutzt es
+  nicht.
+

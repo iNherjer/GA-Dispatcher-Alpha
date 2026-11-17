@@ -184,6 +184,7 @@ function installGaRegionalBaseMaps(map, layerControl, entries) {
         entry.layer.addTo(map);
     });
 
+    if (layerControl && layerControl._container) layerControl._container.classList.add('ga-layer-groups');
     if (layerControl && typeof layerControl._update === 'function') {
         const originalUpdate = layerControl._update;
         const decorate = function () {

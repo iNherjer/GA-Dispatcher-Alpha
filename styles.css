@@ -20758,11 +20758,13 @@ body.theme-win95 #mapTableOverlay .leaflet-control-layers {
 }
 #mapTableOverlay .leaflet-control-layers-base::before { content: "Basiskarte"; }
 #mapTableOverlay .leaflet-control-layers-overlays::before { content: "Zusatzebenen"; }
-/* Web-App mit regionalen Basiskarten: eigene Gruppenueberschriften aus
-   map-basemap-catalog.js ersetzen "Zusatzebenen". */
-#mapTableOverlay .leaflet-control-layers-list:has(.ga-layer-group-title) .leaflet-control-layers-base::before { content: "Globale Basiskarte"; }
-html[lang="en"] #mapTableOverlay .leaflet-control-layers-list:has(.ga-layer-group-title) .leaflet-control-layers-base::before { content: "Global base map"; }
-#mapTableOverlay .leaflet-control-layers-overlays:has(.ga-layer-group-title)::before { content: none; display: none; }
+/* Kartenmenue mit regionalen Basiskarten (Web: map-basemap-catalog.js, EFB:
+   tracker-efb-kartentisch-host.js setzen .ga-layer-groups): eigene
+   Gruppenueberschriften ersetzen "Zusatzebenen". Klasse statt :has(), weil
+   Coherent :has() nicht zuverlaessig kennt. */
+#mapTableOverlay .ga-layer-groups .leaflet-control-layers-base::before { content: "Globale Basiskarte"; }
+html[lang="en"] #mapTableOverlay .ga-layer-groups .leaflet-control-layers-base::before { content: "Global base map"; }
+#mapTableOverlay .ga-layer-groups .leaflet-control-layers-overlays::before { content: none; display: none; }
 #mapTableOverlay .ga-layer-group-title {
     display: block;
     padding: 4px 8px 7px;
@@ -20802,6 +20804,29 @@ html[lang="en"] #mapTableOverlay .leaflet-control-layers-list:has(.ga-layer-grou
     min-width: 3.2em;
     text-align: right;
     font-variant-numeric: tabular-nums;
+}
+/* EFB: Stufenknoepfe statt Range-Regler (Coherent/VR). */
+#mapTableOverlay .leaflet-control-layers .ga-base-dim-btn {
+    flex: 0 0 auto;
+    width: 36px;
+    height: 32px;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--layer-border);
+    border-radius: 6px;
+    background: var(--layer-hover);
+    color: inherit;
+    font: 700 18px/1 var(--layer-font);
+    text-align: center;
+    cursor: pointer;
+}
+#mapTableOverlay .leaflet-control-layers .ga-base-dim-btn + .ga-base-dim-value,
+#mapTableOverlay .leaflet-control-layers .ga-base-dim-value + .ga-base-dim-btn {
+    margin-left: 0;
+}
+#mapTableOverlay .leaflet-control-layers .ga-base-dim-btn ~ .ga-base-dim-value {
+    flex: 1 1 auto !important;
+    text-align: center;
 }
 #mapTableOverlay .ga-base-dim-hint {
     padding: 0 8px 4px;
