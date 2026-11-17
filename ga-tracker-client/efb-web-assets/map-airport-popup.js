@@ -34,7 +34,7 @@ function _buildAptPopup(label, name, elev, icaoForRunways) {
   var compactLayout = Boolean(options.compactLayout);
   var dividerMargin = compactLayout ? '2px 0' : '5px 0';
   var detailLineHeight = compactLayout ? '1.28' : '1.7';
-  var titleHtml = options.title || `<b style="font-size:13px;">${label}: ${name || '–'}</b>`;
+  var titleHtml = options.title || `<b style="font-size:13px;">${label}: ${name ? escapePopupText(name) : '–'}</b>`;
   var showDirectTo = Boolean(options.showDirectTo && icaoForRunways && Number.isFinite(options.lat) && Number.isFinite(options.lon));
   var aipUrl = icaoForRunways ? getAipPopupUrl(icaoForRunways, countryCode) : null;
   var showAip = Boolean(aipUrl);
@@ -93,8 +93,9 @@ function _buildAptPopup(label, name, elev, icaoForRunways) {
   html += `<div style="font-size:10px; color:#aaa; text-align:center; padding:${compactLayout ? '4px' : '8px'} 0;">${_apT('Wetter lädt…')}</div>`;
   html += `</div>`;
   if (showDirectTo) {
-    var encodedName = encodeURIComponent(options.directToName || name || icaoForRunways);
-    html += `<button onclick="window.confirmAirportDirectTo('${icaoForRunways}', ${Number(options.lat)}, ${Number(options.lon)}, '${encodedName}')" style="margin-top:${compactLayout ? '4px' : '8px'}; width:100%; background:#1f7a45; color:#fff; border:none; padding:${compactLayout ? '6px 8px' : '8px 10px'}; cursor:pointer; border-radius:4px; font-weight:bold;">✈️ Direct To</button>`;
+    // encodeURIComponent keeps ' which would end the onclick string literal.
+    var encodedName = encodeURIComponent(options.directToName || name || icaoForRunways).replace(/'/g, '%27');
+    html += `<button onclick="window.confirmAirportDirectTo('${escapePopupText(escapeJsSingleQuoted(icaoForRunways))}', ${Number(options.lat)}, ${Number(options.lon)}, '${encodedName}')" style="margin-top:${compactLayout ? '4px' : '8px'}; width:100%; background:#1f7a45; color:#fff; border:none; padding:${compactLayout ? '6px 8px' : '8px 10px'}; cursor:pointer; border-radius:4px; font-weight:bold;">✈️ Direct To</button>`;
   }
   html += `</div>`;
   return html;
@@ -160,7 +161,7 @@ function openAirportInfoPopup(airport) {
     var _apt$elevation2, _globalAirports$apt$i, _globalAirports;
     var elev = (_apt$elevation2 = apt.elevation) !== null && _apt$elevation2 !== void 0 ? _apt$elevation2 : (_globalAirports$apt$i = (_globalAirports = globalAirports) === null || _globalAirports === void 0 || (_globalAirports = _globalAirports[apt.icao]) === null || _globalAirports === void 0 ? void 0 : _globalAirports.elevation) !== null && _globalAirports$apt$i !== void 0 ? _globalAirports$apt$i : null;
     var countryCode = getAirportCountryCode(apt.icao, apt.country);
-    var title = `<b style="font-size:13px;">${apt.icao}</b><div style="font-size:11px; color:#555; margin-top:2px;">${apt.name}</div>`;
+    var title = `<b style="font-size:13px;">${escapePopupText(apt.icao)}</b><div style="font-size:11px; color:#555; margin-top:2px;">${escapePopupText(apt.name)}</div>`;
     var content = document.createElement('div');
     content.innerHTML = _buildAptPopup('APT', apt.name, elev, apt.icao, {
       title,

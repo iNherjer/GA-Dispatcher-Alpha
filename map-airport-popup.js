@@ -12,7 +12,7 @@ function _buildAptPopup(label, name, elev, icaoForRunways, options = {}) {
     const compactLayout = Boolean(options.compactLayout);
     const dividerMargin = compactLayout ? '2px 0' : '5px 0';
     const detailLineHeight = compactLayout ? '1.28' : '1.7';
-    const titleHtml = options.title || `<b style="font-size:13px;">${label}: ${name || '–'}</b>`;
+    const titleHtml = options.title || `<b style="font-size:13px;">${label}: ${name ? escapePopupText(name) : '–'}</b>`;
     const showDirectTo = Boolean(options.showDirectTo && icaoForRunways && Number.isFinite(options.lat) && Number.isFinite(options.lon));
     const aipUrl = icaoForRunways ? getAipPopupUrl(icaoForRunways, countryCode) : null;
     const showAip = Boolean(aipUrl);
@@ -91,8 +91,9 @@ function _buildAptPopup(label, name, elev, icaoForRunways, options = {}) {
     html += `</div>`;
 
     if (showDirectTo) {
-        const encodedName = encodeURIComponent(options.directToName || name || icaoForRunways);
-        html += `<button onclick="window.confirmAirportDirectTo('${icaoForRunways}', ${Number(options.lat)}, ${Number(options.lon)}, '${encodedName}')" style="margin-top:${compactLayout ? '4px' : '8px'}; width:100%; background:#1f7a45; color:#fff; border:none; padding:${compactLayout ? '6px 8px' : '8px 10px'}; cursor:pointer; border-radius:4px; font-weight:bold;">✈️ Direct To</button>`;
+        // encodeURIComponent keeps ' which would end the onclick string literal.
+        const encodedName = encodeURIComponent(options.directToName || name || icaoForRunways).replace(/'/g, '%27');
+        html += `<button onclick="window.confirmAirportDirectTo('${escapePopupText(escapeJsSingleQuoted(icaoForRunways))}', ${Number(options.lat)}, ${Number(options.lon)}, '${encodedName}')" style="margin-top:${compactLayout ? '4px' : '8px'}; width:100%; background:#1f7a45; color:#fff; border:none; padding:${compactLayout ? '6px 8px' : '8px 10px'}; cursor:pointer; border-radius:4px; font-weight:bold;">✈️ Direct To</button>`;
     }
 
     html += `</div>`;
@@ -167,7 +168,7 @@ function openAirportInfoPopup(airport) {
     if (!entry) {
         const elev = apt.elevation ?? (globalAirports?.[apt.icao]?.elevation ?? null);
         const countryCode = getAirportCountryCode(apt.icao, apt.country);
-        const title = `<b style="font-size:13px;">${apt.icao}</b><div style="font-size:11px; color:#555; margin-top:2px;">${apt.name}</div>`;
+        const title = `<b style="font-size:13px;">${escapePopupText(apt.icao)}</b><div style="font-size:11px; color:#555; margin-top:2px;">${escapePopupText(apt.name)}</div>`;
         const content = document.createElement('div');
         content.innerHTML = _buildAptPopup('APT', apt.name, elev, apt.icao, {
             title,

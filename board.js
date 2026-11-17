@@ -2807,7 +2807,7 @@ window.executeMSFSImport = async function(mode) {
 
 function populateBriefingUI(mTitle, mStory, mPax, mCargo, isPOI, newRoute, sData, dData) {
     const isGpsStart = currentStartICAO === 'GPS';
-    document.getElementById("mTitle").innerHTML = mTitle;
+    document.getElementById("mTitle").textContent = gaHtmlToPlainText(mTitle);
     document.getElementById("mStory").innerText = mStory;
     
     document.getElementById("mDepICAO").innerText = currentStartICAO;

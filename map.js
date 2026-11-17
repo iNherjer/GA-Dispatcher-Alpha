@@ -5757,9 +5757,9 @@ function renderMainRoute() {
             bindRouteAirportPopup(marker, isStart, latlng);
         } else if (isPOI) {
             // POIs bekommen ein spezielles lila Popup ohne Löschen-Button (da es das Missionsziel ist)
-            marker.bindPopup(`<div style="text-align:center; color:#b266ff;"><b>${routeWaypoints[index].name}</b></div>`);
+            marker.bindPopup(`<div style="text-align:center; color:#b266ff;"><b>${gaEscapeHtml(routeWaypoints[index].name)}</b></div>`);
         } else {
-            let wpName = routeWaypoints[index].name ? `<b>${routeWaypoints[index].name}</b>` : `<b>Wegpunkt</b>`;
+            let wpName = routeWaypoints[index].name ? `<b>${gaEscapeHtml(routeWaypoints[index].name)}</b>` : `<b>Wegpunkt</b>`;
             const wpAirport = findNearestAirport(L.latLng(latlng.lat, latlng.lng || latlng.lon), getAirportTapRadiusPx(18));
             const infoBtn = wpAirport
                 ? `<button onclick="openRouteWaypointAirportInfo(${index})" style="margin-top:5px; margin-right:4px; background:#235ea7; color:#fff; border:none; padding:4px 8px; cursor:pointer; border-radius:2px;">ℹ️ Info</button>`
@@ -5913,7 +5913,7 @@ function renderMainRoute() {
                             let m = await fetchGeminiMission(currentSName, newName, totalDist, true, paxText, cargoText);
 
                             if (m) {
-                                if (titleEl) titleEl.innerHTML = `${m.i ? m.i + ' ' : ''}${m.t}`;
+                                if (titleEl) titleEl.textContent = gaHtmlToPlainText(`${m.i ? m.i + ' ' : ''}${m.t}`);
                                 if (storyEl) storyEl.innerText = m.s;
                                 currentMissionData.mission = m.t;
                             } else {
@@ -5932,7 +5932,7 @@ function renderMainRoute() {
                                     fallbackM = { t: "Privater Rundflug", s: `Umgeleiteter Flugpunkt: ${newName}`, i: "📋" };
                                 }
 
-                                if (titleEl) titleEl.innerHTML = `${fallbackM.i ? fallbackM.i + ' ' : '📋 '}${fallbackM.t}`;
+                                if (titleEl) titleEl.textContent = gaHtmlToPlainText(`${fallbackM.i ? fallbackM.i + ' ' : '📋 '}${fallbackM.t}`);
                                 if (storyEl) storyEl.innerText = fallbackM.s;
                                 currentMissionData.mission = fallbackM.t;
                             }
@@ -6454,7 +6454,7 @@ function updateRoutePerformance() {
         const c2 = isV2 ? 'var(--navlog-text)' : 'var(--navlog-freq)';
 
         blHTML += `<tr style="border-bottom:1px dashed var(--navlog-border);">`;
-        blHTML += `<td style="padding:8px 0 8px 8px; color:var(--navlog-text); line-height: 1.4;"><span style="display:inline-block; min-width:20px; text-align:right;">${i + 1}.</span> ${cleanName1}<br><span style="display:inline-block; min-width:20px; text-align:left;">➔</span> ${cleanName2}</td>`;
+        blHTML += `<td style="padding:8px 0 8px 8px; color:var(--navlog-text); line-height: 1.4;"><span style="display:inline-block; min-width:20px; text-align:right;">${i + 1}.</span> ${gaEscapeHtml(cleanName1)}<br><span style="display:inline-block; min-width:20px; text-align:left;">➔</span> ${gaEscapeHtml(cleanName2)}</td>`;
         blHTML += `<td style="padding:8px 0 8px 4px; font-size:14px; line-height: 1.6;"><span style="color:${c1}">${f1}</span><br><span style="color:${c2}">${f2}</span></td>`;
         blHTML += `<td style="padding:8px 0 8px 16px; color:var(--navlog-data); vertical-align:middle;">${nav.brng}°</td>`;
         blHTML += `<td style="padding:8px 0; color:var(--navlog-data); vertical-align:middle;">${formatNm(nav.dist)}</td>`;
@@ -6462,7 +6462,7 @@ function updateRoutePerformance() {
         blHTML += `<td style="padding:8px 0; color:var(--navlog-data); vertical-align:middle;">${legFuel.toFixed(1)}</td>`;
         blHTML += `</tr>`;
 
-        wpHTML += `<div class="wp-row"><span class="wp-name">${cleanName1.replace(/<[^>]+>/g, '').trim()} ➔ ${cleanName2.replace(/<[^>]+>/g, '').trim()}</span><span class="wp-data">${nav.brng}° | ${formatNm(nav.dist)} NM</span></div>`;
+        wpHTML += `<div class="wp-row"><span class="wp-name">${gaEscapeHtml(cleanName1.replace(/<[^>]+>/g, '').trim())} ➔ ${gaEscapeHtml(cleanName2.replace(/<[^>]+>/g, '').trim())}</span><span class="wp-data">${nav.brng}° | ${formatNm(nav.dist)} NM</span></div>`;
     }
 
     const totalNmDisplay = formatNm(totalNM);

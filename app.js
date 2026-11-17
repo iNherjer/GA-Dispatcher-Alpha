@@ -10604,6 +10604,53 @@ function restoreMissionV3Context(md, state = {}, restoredPassenger = null, resto
     return { missionData: md, missionContract: nextContract };
 }
 
+// Saved/shared mission states can come from other pilots, so their titles render as text.
+// Older saves stored the title via innerHTML: entities are decoded in an inert template.
+function gaHtmlToPlainText(value) {
+    if (value == null) return value;
+    const raw = String(value);
+    if (!/[<&]/.test(raw)) return raw;
+    const tpl = document.createElement('template');
+    tpl.innerHTML = raw;
+    tpl.content.querySelectorAll('script,style,template,noscript').forEach(node => node.remove());
+    return tpl.content.textContent;
+}
+
+function gaEscapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// For a JS string literal in single quotes inside an HTML attribute (onclick="f('…')").
+function gaEscapeJsAttr(value) {
+    return gaEscapeHtml(String(value == null ? '' : value).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/[\r\n]/g, ' '));
+}
+
+// Frequency blocks (fetchAirportFreq) legitimately hold text, <br> and the radio-tuning span.
+function gaSanitizeFrequencyHtml(value) {
+    if (value == null) return value;
+    const tpl = document.createElement('template');
+    tpl.innerHTML = String(value);
+    const out = document.createElement('div');
+    const spanAttrs = ['role', 'tabindex', 'aria-disabled', 'data-radio-kind', 'data-radio-value'];
+    const blocked = /^(SCRIPT|STYLE|TEMPLATE|NOSCRIPT|SVG|MATH|IFRAME|OBJECT|EMBED|TEXTAREA|TITLE)$/i;
+    const copy = (source, target) => {
+        Array.from(source.childNodes).forEach(node => {
+            if (node.nodeType === 3) { target.appendChild(document.createTextNode(node.textContent)); return; }
+            if (node.nodeType !== 1 || blocked.test(node.tagName)) return;
+            if (node.tagName === 'BR') { target.appendChild(document.createElement('br')); return; }
+            if (node.tagName !== 'SPAN') { copy(node, target); return; }
+            const span = document.createElement('span');
+            if (node.classList.contains('ga-radio-value')) span.className = 'ga-radio-value';
+            spanAttrs.forEach(name => { if (node.hasAttribute(name)) span.setAttribute(name, node.getAttribute(name)); });
+            if (node.style.color) span.style.color = node.style.color;
+            target.appendChild(span);
+            copy(node, span);
+        });
+    };
+    copy(tpl.content, out);
+    return out.innerHTML;
+}
+
 async function restoreMissionState(state, options = {}) {
     const restoreEpoch = window.gaDispatchGeneration?.() || 0;
     const external = /cloud|tracker/.test(String(options.source || ''));
@@ -10663,7 +10710,7 @@ async function restoreMissionState(state, options = {}) {
     state.mStory = (['bush-charter-preserve-writer-v1', 'bush-preserve-writer-v1'].includes(state.currentMissionData?._missionWriterV4Debug?.textPolicy) || window.MissionPoiBriefingCore?.owns(state.currentMissionData) || window.MissionInfraBriefingCore?.owns(state.currentMissionData) || window.MissionBioBriefingCore?.owns(state.currentMissionData) || window.MissionChainBriefingCore?.owns(state.currentMissionData) || window.MissionKnowledgeBriefingCore?.owns(state.currentMissionData) || window.MissionSarBriefingCore?.owns(state.currentMissionData) || window.MissionFireBriefingCore?.owns(state.currentMissionData) || window.MissionGeoBriefingCore?.owns(state.currentMissionData) || window.MissionMappingBriefingCore?.owns(state.currentMissionData) || window.MissionPoiFollowupNarrativeCore?.ownsContinuation(state.currentMissionData) || window.MissionNewsBriefingCore?.owns(state.currentMissionData) || state.currentMissionData?.sightseeingIdea?.schema === 'sightseeing-idea.v1' || state.currentMissionData?.animalTransportIdea?.schema === 'animal-transport-idea.v1' || state.currentMissionData?.aptNewsIdea?.schema === 'apt-news-idea.v1' || state.currentMissionData?.medicalTransferIdea?.schema === 'medical-transfer-idea.v1' || state.currentMissionData?.fragileCargoIdea?.schema === 'fragile-cargo-idea.v1' || state.currentMissionData?.cargoIdea?.schema === 'cargo-idea.v1' || state.currentMissionData?.charterIdea?.schema === 'charter-idea.v1' || state.currentMissionData?.clubIdea?.schema === 'club-idea.v1' || state.currentMissionData?.privateOuting?.writerVersion === 'private-v6' || state.currentMissionData?.privateReturn?.schema === 'private-return.v1')
         ? String(state.mStory || '').trim()
         : _cleanupNarrativeArtifacts(state.mStory || '');
-    document.getElementById('mTitle').innerHTML = state.mTitle; document.getElementById('mStory').innerText = state.mStory;
+    document.getElementById('mTitle').textContent = gaHtmlToPlainText(state.mTitle); document.getElementById('mStory').innerText = state.mStory;
     document.getElementById("mDepICAO").innerText = state.mDepICAO; document.getElementById("mDepName").innerText = state.mDepName;
     document.getElementById("mDepCoords").innerText = state.mDepCoords; document.getElementById("mDepRwy").innerText = "Sucht Pisten...";
     const rDepName = document.getElementById('wikiDepNameDisplay');
@@ -10685,8 +10732,8 @@ async function restoreMissionState(state, options = {}) {
         lon: state.currentMissionData?.initialStartLon ?? state.currentMissionData?.departureAirport?.lon
     });
 
-    if (document.getElementById("wikiDepFreqText")) document.getElementById("wikiDepFreqText").innerHTML = state.wikiDepFreqText || "";
-    if (document.getElementById("wikiDestFreqText")) document.getElementById("wikiDestFreqText").innerHTML = state.wikiDestFreqText || "";
+    if (document.getElementById("wikiDepFreqText")) document.getElementById("wikiDepFreqText").innerHTML = gaSanitizeFrequencyHtml(state.wikiDepFreqText || "");
+    if (document.getElementById("wikiDestFreqText")) document.getElementById("wikiDestFreqText").innerHTML = gaSanitizeFrequencyHtml(state.wikiDestFreqText || "");
 
     const imgDepContainer = document.getElementById("wikiDepImageContainer");
     const imgDepEl = document.getElementById("wikiDepImage");
@@ -47972,7 +48019,7 @@ async function generateMission(options = {}) {
     );
 
     if (window.MissionChainBriefingCore?.owns(m) || window.MissionKnowledgeBriefingCore?.owns(m) || window.MissionNewsBriefingCore?.owns(m) || window.MissionBioBriefingCore?.owns(m) || window.MissionFireBriefingCore?.owns(m) || window.MissionGeoBriefingCore?.owns(m) || window.MissionMappingBriefingCore?.owns(m) || window.MissionPoiFollowupNarrativeCore?.ownsContinuation(m) || window.MissionInfraBriefingCore?.owns(m) || window.MissionPoiBriefingCore?.owns(m)) document.getElementById("mTitle").innerText = m.t;
-    else document.getElementById("mTitle").innerHTML = `${m.i ? m.i + ' ' : ''}${m.t}`;
+    else document.getElementById("mTitle").textContent = gaHtmlToPlainText(`${m.i ? m.i + ' ' : ''}${m.t}`);
     let storyForBriefing = String(m.s || '');
     const briefingTaskDomain = String(window.activePassenger?.taskDomain || currentMissionData?.missionContract?.taskDomain || m?.passenger?.taskDomain || '').toLowerCase();
     const suppressPublicPoiAltitudeHint = /^(poi_learning_guide|sightseeing_tour|historian_guided_tour)$/.test(briefingTaskDomain);
@@ -48679,11 +48726,11 @@ function renderFPL(left, right) {
         const visible = legs.slice(start, start + 6);
         left.innerHTML = visible.map((l, idx) => {
             const isEnd = (start + idx) === 0 || (start + idx) === legs.length - 1;
-            return `<div class="kln90b-line ${isEnd ? 'highlight' : ''}" style="font-size:10px; line-height:1.5; white-space:nowrap;">${l.n1}\u2192${l.n2}&nbsp;&nbsp;<span class="dim">${l.brng}\u00b0&thinsp;${l.dist}&thinsp;NM</span></div>`;
+            return `<div class="kln90b-line ${isEnd ? 'highlight' : ''}" style="font-size:10px; line-height:1.5; white-space:nowrap;">${gaEscapeHtml(l.n1)}\u2192${gaEscapeHtml(l.n2)}&nbsp;&nbsp;<span class="dim">${l.brng}\u00b0&thinsp;${l.dist}&thinsp;NM</span></div>`;
         }).join('');
         if (legs.length === 0) {
             const missionLikePoi = !!(currentMissionData?.poiName || missionUsesPoiPresentation(currentMissionData));
-            left.innerHTML = `<div class="kln90b-line highlight">${currentStartICAO}</div><div class="kln90b-line dim">→${missionLikePoi ? 'POI' : currentDestICAO}</div>`;
+            left.innerHTML = `<div class="kln90b-line highlight">${gaEscapeHtml(currentStartICAO)}</div><div class="kln90b-line dim">→${missionLikePoi ? 'POI' : gaEscapeHtml(currentDestICAO)}</div>`;
         }
 
         const _d = Math.round((currentMissionData.dist || 0) * 10) / 10;
@@ -48713,8 +48760,8 @@ async function renderAirportInfo(left, right, type) {
     const lon = data ? data.lon.toFixed(4) : '---';
 
     left.innerHTML =
-        `<div class="kln90b-line highlight" style="font-size:11px;">${icao}</div>` +
-        `<div class="kln90b-line" style="font-size:9px; white-space:normal; line-height:1.35;">${name}</div>` +
+        `<div class="kln90b-line highlight" style="font-size:11px;">${gaEscapeHtml(icao)}</div>` +
+        `<div class="kln90b-line" style="font-size:9px; white-space:normal; line-height:1.35;">${gaEscapeHtml(name)}</div>` +
         `<div class="kln90b-line dim" style="font-size:9px; margin-top:2px;">${lat}</div>` +
         `<div class="kln90b-line dim" style="font-size:9px;">${lon}</div>`;
 
@@ -48910,8 +48957,8 @@ function renderAIP(left, right) {
 
     left.innerHTML =
         `<div class="kln90b-line highlight">${label}</div>` +
-        `<div class="kln90b-line" style="font-size:10px;">${icao || '----'}</div>` +
-        `<div class="kln90b-line dim" style="font-size:9px; white-space:normal;">${name || ''}</div>`;
+        `<div class="kln90b-line" style="font-size:10px;">${gaEscapeHtml(icao || '----')}</div>` +
+        `<div class="kln90b-line dim" style="font-size:9px; white-space:normal;">${gaEscapeHtml(name || '')}</div>`;
 
     if (!icao) { right.innerHTML = '<div class="kln90b-line dim">NO DATA</div>'; return; }
     const aipUrl = (typeof getAipPopupUrl === 'function')
@@ -48921,7 +48968,7 @@ function renderAIP(left, right) {
 
     right.innerHTML =
         `<div class="kln90b-line dim">AIP VFR</div>` +
-        `<div class="kln90b-line highlight" style="cursor:pointer;" onclick="window.open('${aipUrl}','_blank')">OPEN ▸</div>` +
+        `<div class="kln90b-line highlight" style="cursor:pointer;" onclick="window.open('${gaEscapeJsAttr(aipUrl)}','_blank')">OPEN ▸</div>` +
         `<div class="kln90b-line dim" style="font-size:9px;">aip.aero</div>`;
 }
 
@@ -48934,14 +48981,14 @@ function renderWX(left, right) {
 
     left.innerHTML =
         `<div class="kln90b-line highlight">${label}</div>` +
-        `<div class="kln90b-line" style="font-size:10px;">${icao || '----'}</div>` +
-        `<div class="kln90b-line dim" style="font-size:9px; white-space:normal;">${name || ''}</div>`;
+        `<div class="kln90b-line" style="font-size:10px;">${gaEscapeHtml(icao || '----')}</div>` +
+        `<div class="kln90b-line dim" style="font-size:9px; white-space:normal;">${gaEscapeHtml(name || '')}</div>`;
 
     if (!icao) { right.innerHTML = '<div class="kln90b-line dim">NO DATA</div>'; return; }
 
     right.innerHTML =
         `<div class="kln90b-line dim">METAR/TAF</div>` +
-        `<div class="kln90b-line highlight" style="cursor:pointer;" onclick="window.open('https://metar-taf.com/de/${icao}','_blank')">OPEN ▸</div>` +
+        `<div class="kln90b-line highlight" style="cursor:pointer;" onclick="window.open('https://metar-taf.com/de/${gaEscapeJsAttr(icao)}','_blank')">OPEN ▸</div>` +
         `<div class="kln90b-line dim" style="font-size:9px;">metar-taf.com</div>`;
 }
 
