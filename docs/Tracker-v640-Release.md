@@ -49,5 +49,6 @@ Mitgeliefert aus der Release-Queue: „EFB-Kopien fuer das Web-Kartenmenue“ un
 ## Artefakt
 
 - Release `v640`, Asset `VFR-Multitool-Tracker.exe`
-- Größe: _wird nach Build eingetragen_
-- SHA-256: _wird nach Build eingetragen_
+- Größe: 175156420 Bytes
+- SHA-256: `8bf21bd2e5a613406463271e9bee63a678671c78fca6a22eb018bf36194ece9e`
+- Öffentlicher Download geprüft (Größe und SHA-256 identisch), Alpha aktiviert, Stable unverändert.
