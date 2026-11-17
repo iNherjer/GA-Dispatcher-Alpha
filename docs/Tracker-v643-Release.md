@@ -39,5 +39,5 @@ Sicherheitsprüfung vom 17.11.2026, Punkte 7, 9 und 10 sowie Crew-Beitrittsanzei
 ## Artefakt
 
 - Tag `v643`, Asset `VFR-Multitool-Tracker.exe`
-- Größe: wird nach Build eingetragen
-- SHA-256: wird nach Build eingetragen
+- Größe: 175168604 Bytes
+- SHA-256: 898587068773109ce6375dfb0f35976dfd2259b8d22a19abef9fd885511be730 (öffentlicher Download geprüft)
