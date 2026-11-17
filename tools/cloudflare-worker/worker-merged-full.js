@@ -12,6 +12,8 @@ export { TestBoard } from './testboard.mjs';
 import { handleAirportGeo } from './airport-geo.mjs';
 export { AirportGeoStore } from './airport-geo.mjs';
 import { handleAudioSettings } from './audio-settings.mjs';
+import { checkPinAttempt } from './auth-guard.mjs';
+export { AuthGuard } from './auth-guard.mjs';
 const OPENAIP_KEY = "049026a617e1380ac056e1fd3cc237ae";
 const DEFAULT_OBS_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/tiles";
 const DEFAULT_OBS_CORE_TILE_BASE = "https://raw.githubusercontent.com/iNherjer/GA-Dispatcher-Alpha/main/obstacles/core-tiles";
@@ -427,6 +429,136 @@ function activeGroupMember(group, pilotId, now = Date.now()) {
   }, null);
 }
 
+// --- Crew group write rules (legacy /api/sync/GROUP_*) ---
+// Clients write back the whole record they read, so the server checks the transition
+// old -> new against the authenticated caller. Both sides are hydrated first, so renamed
+// accounts and server-side lastSeen never count as a change.
+const CREW_MAX_MEMBERS = 10; // web client keeps the 10 most recently seen (sync.js triggerGroupSave)
+const CREW_FLIGHT_NOTE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
+// Client and server read lastSeen at slightly different times; never reject a legit prune for that.
+const CREW_TRANSITION_SLACK_MS = 10 * 60 * 1000;
+const CREW_VOLATILE_FIELDS = new Set(["members", "notes", "kicked", "lastModified", "pin", "syncId"]);
+
+function crewMemberMap(group) {
+  const map = new Map();
+  for (const member of (Array.isArray(group?.members) ? group.members : [])) {
+    const id = normalizePilotIdLookup(member?.syncId);
+    if (!id) continue;
+    const lastSeen = normalizeFinite(member.lastSeen, 0, 0, Number.MAX_SAFE_INTEGER);
+    const previous = map.get(id);
+    map.set(id, {
+      isAdmin: member.isAdmin === true || previous?.isAdmin === true,
+      nick: previous ? previous.nick : String(member.nick ?? ""),
+      lastSeen: Math.max(lastSeen, previous?.lastSeen || 0)
+    });
+  }
+  return map;
+}
+
+function crewKickedList(group) {
+  return [...new Set((Array.isArray(group?.kicked) ? group.kicked : []).map(normalizePilotIdLookup).filter(Boolean))].sort();
+}
+
+function crewMemberStale(member, now) {
+  const timeout = member.isAdmin ? CREW_ADMIN_INACTIVITY_MS : CREW_MEMBER_INACTIVITY_MS;
+  return now - member.lastSeen >= timeout - CREW_TRANSITION_SLACK_MS;
+}
+
+// Same rule as board.js pinboardCrewFlightExpired, with a day of slack for client clocks.
+function crewFlightNoteExpired(note, now) {
+  if (!note || note.type !== "flight") return false;
+  const created = Number(note.createdAt) || (Number(note.id) > 1e12 ? Number(note.id) : 0);
+  return created > 0 && now - created > CREW_FLIGHT_NOTE_MAX_AGE_MS - 24 * 60 * 60 * 1000;
+}
+
+function crewForbidden(error) {
+  return json({ ok: false, code: "crew_forbidden", error }, 403);
+}
+
+function crewCallerKicked(group, callerId) {
+  return crewKickedList(group).includes(normalizePilotIdLookup(callerId));
+}
+
+// Returns null when the caller may write `next` over `current`, else a German error text.
+function crewTransitionError(current, next, callerId, now = Date.now()) {
+  const caller = normalizePilotIdLookup(callerId);
+  if (crewCallerKicked(current, caller)) return "Du wurdest aus dieser Crew entfernt.";
+  const oldMembers = crewMemberMap(current);
+  if (!current || !oldMembers.size) return null; // new or empty crew: the caller creates it
+  const me = oldMembers.get(caller);
+  if (me?.isAdmin) return null; // admins may kick, promote and edit as before
+  const newMembers = crewMemberMap(next);
+  const stranger = !me;
+
+  if (JSON.stringify(crewKickedList(current)) !== JSON.stringify(crewKickedList(next))) {
+    return "Nur Crew-Admins dürfen die Sperrliste ändern.";
+  }
+  for (const [id, member] of newMembers) {
+    if (id === caller) continue;
+    const before = oldMembers.get(id);
+    if (!before) return "Nur Crew-Admins dürfen andere Piloten hinzufügen.";
+    if (before.isAdmin !== member.isAdmin) return "Nur Crew-Admins dürfen Admin-Rechte vergeben oder entziehen.";
+    if (before.nick !== member.nick) return "Andere Mitglieder dürfen nicht umbenannt werden.";
+  }
+  // Removals: own entry, inactive members, and the least recently seen when the crew is full.
+  const oldOthers = [...oldMembers].filter(([id]) => id !== caller);
+  const removedActive = oldOthers.filter(([id, member]) => !newMembers.has(id) && !crewMemberStale(member, now));
+  if (removedActive.length) {
+    const activeBefore = oldOthers.filter(([, member]) => !crewMemberStale(member, now)).length;
+    const keptSeen = oldOthers.filter(([id]) => newMembers.has(id)).map(([, member]) => member.lastSeen);
+    const oldestKept = keptSeen.length ? Math.min(...keptSeen) : Infinity;
+    const capacityPrune = newMembers.size === CREW_MAX_MEMBERS
+      && newMembers.has(caller)
+      && removedActive.length <= activeBefore + 1 - CREW_MAX_MEMBERS
+      && removedActive.every(([, member]) => member.lastSeen <= oldestKept + CREW_TRANSITION_SLACK_MS);
+    if (!capacityPrune) return "Nur Crew-Admins dürfen aktive Mitglieder entfernen.";
+  }
+  const nextMe = newMembers.get(caller);
+  // The web client makes the caller admin only when nobody else is left ("wer die Gruppe belebt").
+  if (nextMe?.isAdmin && newMembers.size !== 1) return "Admin-Rechte kann nur ein Crew-Admin vergeben.";
+  if (!stranger) return null; // members edit the shared board freely, as before
+
+  if (!nextMe) return "Ohne Mitgliedschaft darfst du nur dich selbst eintragen.";
+  for (const key of Object.keys(next || {})) {
+    if (CREW_VOLATILE_FIELDS.has(key)) continue;
+    if (JSON.stringify(next[key]) !== JSON.stringify(current[key])) return "Ohne Mitgliedschaft darfst du nur dich selbst eintragen.";
+  }
+  // Board on join: others' notes stay, except expired crew flights; own notes (by the new nick) may change.
+  const nick = nextMe.nick;
+  const nickTaken = oldOthers.some(([, member]) => member.nick === nick);
+  const ownNote = note => !!nick && note?.author === nick;
+  const noteKey = note => String(note?.id ?? "");
+  const nextNotes = new Map((Array.isArray(next?.notes) ? next.notes : []).map(note => [noteKey(note), note]));
+  const oldNotes = Array.isArray(current?.notes) ? current.notes : [];
+  for (const note of oldNotes) {
+    if (ownNote(note) && !nickTaken) continue;
+    const after = nextNotes.get(noteKey(note));
+    if (after ? JSON.stringify(after) !== JSON.stringify(note) : !crewFlightNoteExpired(note, now)) {
+      return "Ohne Mitgliedschaft darfst du die Crew-Pinnwand nicht ändern.";
+    }
+  }
+  const oldNoteKeys = new Set(oldNotes.map(noteKey));
+  for (const [key, note] of nextNotes) {
+    if (!oldNoteKeys.has(key) && !ownNote(note)) return "Ohne Mitgliedschaft darfst du die Crew-Pinnwand nicht ändern.";
+  }
+  return null;
+}
+
+// A kicked pilot reads only the kick notice; the clients show "entfernt"/"gebannt" from it
+// (board.js joinGroup, sync.js silentGroupSync). Their writes are rejected, so nothing is written back.
+function crewKickNotice(group, callerId) {
+  const caller = normalizePilotIdLookup(callerId);
+  const own = (Array.isArray(group?.kicked) ? group.kicked : []).find(id => normalizePilotIdLookup(id) === caller) || callerId;
+  return { members: [], notes: [], kicked: [own], lastModified: Number(group?.lastModified) || Date.now() };
+}
+
+// Group records used to carry the last writer's PIN (sync.js triggerGroupSave); never store or return it.
+function withoutGroupPin(group) {
+  if (!group || typeof group !== "object" || !Object.hasOwn(group, "pin")) return group;
+  const { pin: _pin, ...rest } = group;
+  return rest;
+}
+
 // Crew record for the presence membership check (crew-presence.mjs). Member IDs are
 // normalized through account renames like the crew homebase view.
 async function readCrewGroupForPresence(env, crew) {
@@ -741,6 +873,26 @@ async function accountStorageOwner(env, pilotId, profile) {
 }
 function accountAnchorError() { return json({ ok:false, code:"account_identity_unavailable", error:"Konto-Zuordnung wird aktualisiert oder muss geprüft werden. Bitte später erneut versuchen." },409); }
 
+function tooManyAttemptsResponse(retryAfterSeconds) {
+  const seconds = Math.max(1, Math.ceil(Number(retryAfterSeconds) || 60));
+  const minutes = Math.ceil(seconds / 60);
+  return json({
+    ok: false,
+    code: "too_many_attempts",
+    error: `Zu viele falsche PIN-Versuche. Bitte in ${minutes} ${minutes === 1 ? "Minute" : "Minuten"} erneut versuchen.`,
+    retryAfterSeconds: seconds
+  }, 429, { "Retry-After": String(seconds), "Cache-Control": "no-store" });
+}
+
+// Every pilot PIN comparison goes through here, so the attempt limiter (auth-guard.mjs)
+// sees all of them. Only call it for an existing account. `correct` is the caller's own
+// comparison; while locked the answer is 429 regardless of it.
+async function verifyPilotPin(request, env, pilotId, providedPin, correct) {
+  const result = await checkPinAttempt(env, request, pilotId, providedPin, correct);
+  if (result.retryAfterSeconds) return { ok: false, response: tooManyAttemptsResponse(result.retryAfterSeconds) };
+  return { ok: result.ok === true };
+}
+
 async function verifyChecklistCommunityAuth(request, env) {
   const requestedOwnerId = normalizeOneLine(request.headers.get("X-Pilot-ID"), 160);
   const pin = trimText(request.headers.get("X-Pilot-PIN"), 160);
@@ -751,9 +903,12 @@ async function verifyChecklistCommunityAuth(request, env) {
   if (resolutionError) return { ok: false, response: resolutionError };
 
   const profile = resolution.raw ? safeJsonParse(resolution.raw, null) : null;
-  if (resolution.status !== "found" || !profile || String(profile.pin ?? "") !== pin) {
+  if (resolution.status !== "found" || !profile) {
     return { ok: false, response: json({ error: "Falscher PIN oder Pilot-ID unbekannt" }, 401) };
   }
+  const pinCheck = await verifyPilotPin(request, env, resolution.pilotId, pin, String(profile.pin ?? "") === pin);
+  if (pinCheck.response) return { ok: false, response: pinCheck.response };
+  if (!pinCheck.ok) return { ok: false, response: json({ error: "Falscher PIN oder Pilot-ID unbekannt" }, 401) };
 
   const storageOwnerId = await accountStorageOwner(env, resolution.pilotId, profile);
   if (!storageOwnerId) return { ok:false, response:accountAnchorError() };
@@ -770,9 +925,12 @@ async function verifySyncProfileAuth(request, env) {
   if (resolutionError) return { ok: false, response: resolutionError };
 
   const profile = resolution.raw ? safeJsonParse(resolution.raw, null) : null;
-  if (resolution.status !== "found" || !profile || String(profile.pin ?? "") !== pin) {
+  if (resolution.status !== "found" || !profile) {
     return { ok: false, response: json({ error: "Falscher PIN oder Pilot-ID unbekannt" }, 401) };
   }
+  const pinCheck = await verifyPilotPin(request, env, resolution.pilotId, pin, String(profile.pin ?? "") === pin);
+  if (pinCheck.response) return { ok: false, response: pinCheck.response };
+  if (!pinCheck.ok) return { ok: false, response: json({ error: "Falscher PIN oder Pilot-ID unbekannt" }, 401) };
 
   const storageOwnerId = await accountStorageOwner(env, resolution.pilotId, profile);
   if (!storageOwnerId) return { ok:false, response:accountAnchorError() };
@@ -1114,6 +1272,22 @@ function isReservedSyncKvKey(keyName) {
     || name === COMMUNITY_CHECKLIST_AGGREGATE_INDEX_KEY;
 }
 
+// A requested ID whose case-folded form starts with a reserved prefix is never a pilot ID and
+// never creatable as an account (e.g. "group_edtk" would otherwise be stored as GROUP_EDTK).
+// Exact-case CHK_/CHKIDX_ keys stay valid: they are the apps' checklist storage.
+const RESERVED_UPPER_PREFIXES = ["GROUP_", "AUDIO_SETTINGS_"];
+const RESERVED_LOWER_PREFIXES = ["bug:", HOMEBASE_PREFIX, PILOT_ID_INDEX_PREFIX, COMMUNITY_CHECKLIST_PREFIX];
+function isReservedPilotIdForm(value) {
+  const raw = normalizeOneLine(value, 160);
+  const name = raw.normalize("NFKC");
+  if (!name) return true;
+  const upper = name.toUpperCase();
+  const lower = name.toLowerCase();
+  if (RESERVED_UPPER_PREFIXES.some(prefix => upper.startsWith(prefix) || lower.startsWith(prefix.toLowerCase()))) return true;
+  if (RESERVED_LOWER_PREFIXES.some(prefix => lower.startsWith(prefix) || upper.startsWith(prefix.toUpperCase()))) return true;
+  return /^CHK(IDX)?_/.test(upper) && !/^CHK(IDX)?_/.test(raw);
+}
+
 function normalizePilotIdLookup(value) {
   return normalizeOneLine(value, 160).normalize("NFKC").toLowerCase();
 }
@@ -1125,7 +1299,7 @@ function canonicalNewPilotId(value) {
 async function resolveSyncPilotId(env, requestedPilotId) {
   const requested = normalizeOneLine(requestedPilotId, 160);
   const lookup = normalizePilotIdLookup(requested);
-  if (!requested || !lookup || requested.startsWith("GROUP_") || isReservedSyncKvKey(requested)) {
+  if (!requested || !lookup || requested.startsWith("GROUP_") || isReservedSyncKvKey(requested) || isReservedPilotIdForm(requested)) {
     return { status: "invalid", pilotId: "", raw: null };
   }
 
@@ -1145,7 +1319,8 @@ async function resolveSyncPilotId(env, requestedPilotId) {
   // 1. Index entry written at registration or by an earlier list lookup.
   try {
     const indexed = normalizeOneLine(await env.GA_SYNC_KV.get(PILOT_ID_INDEX_PREFIX + lookup), 160);
-    if (indexed && indexed !== requested && normalizePilotIdLookup(indexed) === lookup) {
+    if (indexed && indexed !== requested && normalizePilotIdLookup(indexed) === lookup
+      && !isReservedSyncKvKey(indexed) && !isReservedPilotIdForm(indexed) && !/^CHK(IDX)?_/i.test(indexed)) {
       const raw = await env.GA_SYNC_KV.get(indexed);
       if (raw) return classifyAccountResolution(indexed, raw);
     }
@@ -1175,12 +1350,78 @@ async function resolveSyncPilotId(env, requestedPilotId) {
   }
 }
 
+// --- Checklist storage keys (CHKIDX_<id> / CHK_<id>_<checklistId>, checklists.js and
+// tracker-efb-checklist-cloud.js) ---
+// <id> is encodeURIComponent(pilotId) with "%" replaced by "_", and both pilot IDs and
+// checklist IDs may contain "_", so the owner is found by trying the possible splits.
+// An exact (case-sensitive) account match wins over a case-insensitive one, and within each
+// pass the longest ID wins: apps use the canonical upper-case ID while generated checklist IDs
+// start with lower-case "custom_", so a newly registered account cannot claim another's key.
+// Never uses KV list and never trusts the stored record (anyone could create it before).
+const CHECKLIST_OWNER_MAX_CANDIDATES = 16;
+function checklistOwnerCandidates(key) {
+  const match = /^CHK(IDX)?_(.+)$/.exec(String(key || ""));
+  if (!match) return [];
+  const rest = match[2];
+  const parts = rest.split("_");
+  const encoded = match[1] ? [rest] : parts.slice(0, -1).map((_, index) => parts.slice(0, parts.length - 1 - index).join("_"));
+  const ids = [];
+  for (const enc of encoded) {
+    if (enc) ids.push(enc);
+    if (/_[0-9A-Fa-f]{2}/.test(enc)) {
+      try {
+        const decoded = decodeURIComponent(enc.replace(/_([0-9A-Fa-f]{2})/g, "%$1"));
+        if (decoded && decoded !== enc) ids.push(decoded);
+      } catch {}
+    }
+    if (ids.length >= CHECKLIST_OWNER_MAX_CANDIDATES) break;
+  }
+  return [...new Set(ids)].slice(0, CHECKLIST_OWNER_MAX_CANDIDATES)
+    .filter(id => !isReservedSyncKvKey(id) && !isReservedPilotIdForm(id) && !/^CHK(IDX)?_/i.test(id));
+}
+
+async function resolveChecklistOwner(env, key) {
+  const candidates = checklistOwnerCandidates(key);
+  try {
+    for (const id of candidates) {
+      const raw = await env.GA_SYNC_KV.get(id);
+      if (raw) return classifyAccountResolution(id, raw);
+    }
+    for (const id of candidates) {
+      const lookup = normalizePilotIdLookup(id);
+      const indexed = normalizeOneLine(await env.GA_SYNC_KV.get(PILOT_ID_INDEX_PREFIX + lookup), 160);
+      if (!indexed || normalizePilotIdLookup(indexed) !== lookup || isReservedSyncKvKey(indexed) || isReservedPilotIdForm(indexed) || /^CHK(IDX)?_/i.test(indexed)) continue;
+      const raw = await env.GA_SYNC_KV.get(indexed);
+      if (raw) return classifyAccountResolution(indexed, raw);
+    }
+  } catch (error) {
+    return { status: "error", error, pilotId: "", raw: null };
+  }
+  return { status: "missing", pilotId: "", raw: null };
+}
+
+// Owner PIN for CHK_/CHKIDX_ read and write. Clients send it as X-Pilot-PIN header and
+// ?pin= query, the web app also in the POST body.
+async function verifyChecklistKeyAuth(request, env, requestUrl, key, bodyPin = "") {
+  const pin = trimText(request.headers.get("X-Pilot-PIN") || requestUrl.searchParams.get("pin") || bodyPin, 160);
+  const denied = () => json({ error: "Falscher PIN oder Pilot-ID unbekannt" }, 401);
+  if (!pin) return denied();
+  const owner = await resolveChecklistOwner(env, key);
+  const resolutionError = syncPilotResolutionError(owner);
+  if (resolutionError) return resolutionError;
+  const profile = owner.status === "found" ? safeJsonParse(owner.raw, null) : null;
+  if (!profile || profile.pin == null || profile.pin === "") return denied();
+  const pinCheck = await verifyPilotPin(request, env, owner.pilotId, pin, String(profile.pin) === pin);
+  if (pinCheck.response) return pinCheck.response;
+  return pinCheck.ok ? null : denied();
+}
+
 let pilotKeyListCache = null;
 async function cachedPilotKeyNames(env) {
   const now = Date.now();
   if (pilotKeyListCache && pilotKeyListCache.kv === env.GA_SYNC_KV && now - pilotKeyListCache.at < PILOT_KEY_LIST_CACHE_MS) return pilotKeyListCache.names;
   const listed = await listKvKeys(env, { limit: ADMIN_KV_LIST_MAX });
-  const names = (listed.keys || []).map(key => String(key?.name || "")).filter(key => !isReservedSyncKvKey(key) && !/^CHK(IDX)?_/.test(key));
+  const names = (listed.keys || []).map(key => String(key?.name || "")).filter(key => !isReservedSyncKvKey(key) && !isReservedPilotIdForm(key) && !/^CHK(IDX)?_/i.test(key));
   pilotKeyListCache = { kv: env.GA_SYNC_KV, at: now, names };
   return names;
 }
@@ -1258,9 +1499,10 @@ async function handlePilotAuthVerify(request, env) {
   if (resolution.status === "missing") return json({ ok: false, code: "pilot_not_found", error: "Pilot-ID nicht gefunden" }, 404);
 
   const profile = safeJsonParse(resolution.raw, null);
-  if (!profile || String(profile.pin ?? "") !== pin) {
-    return json({ ok: false, code: "pin_invalid", error: "PIN ist falsch" }, 401);
-  }
+  if (!profile) return json({ ok: false, code: "pin_invalid", error: "PIN ist falsch" }, 401);
+  const pinCheck = await verifyPilotPin(request, env, resolution.pilotId, pin, String(profile.pin ?? "") === pin);
+  if (pinCheck.response) return pinCheck.response;
+  if (!pinCheck.ok) return json({ ok: false, code: "pin_invalid", error: "PIN ist falsch" }, 401);
 
   if (!await accountStorageOwner(env, resolution.pilotId, profile)) return accountAnchorError();
   await touchPilotAppActivityForDay(env, resolution.pilotId, profile);
@@ -2818,14 +3060,37 @@ export default {
       const pathParts = requestUrl.pathname.split("/").filter(Boolean);
       const pilotId = decodeURIComponent(pathParts[2] || "");
       const isGroupKey = typeof pilotId === "string" && pilotId.startsWith("GROUP_");
+      const isChecklistKey = /^CHK(IDX)?_/.test(pilotId);
 
       if (!pilotId) {
         return json({ error: "Keine ID angegeben" }, 400);
       }
 
+      let groupAuth = null;
       if (isGroupKey) {
-        const auth = await verifySyncProfileAuth(request, env);
-        if (!auth.ok) return auth.response;
+        groupAuth = await verifySyncProfileAuth(request, env);
+        if (!groupAuth.ok) return groupAuth.response;
+      }
+
+      if (isChecklistKey && request.method === "GET") {
+        const denied = await verifyChecklistKeyAuth(request, env, requestUrl, pilotId);
+        if (denied) return denied;
+        // Checklist records are plain app data, not accounts: exact key, no profile merge.
+        // Before 17.11.2026 new checklist keys were stored upper-cased (the account path),
+        // so a miss falls back to that form once; the next app upload rewrites the exact key.
+        let rawData = null;
+        try {
+          rawData = await env.GA_SYNC_KV.get(pilotId);
+          const legacyKey = canonicalNewPilotId(pilotId);
+          if (!rawData && legacyKey !== pilotId) rawData = await env.GA_SYNC_KV.get(legacyKey);
+        } catch (error) {
+          return json({ error: "KV-Read fehlgeschlagen", message: String(error?.message || error) }, 502);
+        }
+        if (!rawData) return json({ error: "Leer oder abgelaufen" }, 404);
+        const stored = safeJsonParse(rawData, null);
+        if (!stored || typeof stored !== "object") return json({ error: "Datenformat ungültig" }, 500);
+        delete stored.pin;
+        return new Response(JSON.stringify(stored), { headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": "no-store", "X-Pilot-ID": pilotId } });
       }
 
       if (request.method === "GET") {
@@ -2854,12 +3119,17 @@ export default {
           let storedData = JSON.parse(rawData);
           const requestPin = requestUrl.searchParams.get("pin");
 
-          if (!isGroupKey && storedData.pin && storedData.pin !== requestPin) {
-            return json({ error: "Falscher PIN" }, 401);
+          // Checklist keys were checked against the owner's PIN above.
+          if (!isGroupKey && !isChecklistKey && storedData.pin) {
+            const pinCheck = await verifyPilotPin(request, env, storagePilotId, requestPin, storedData.pin === requestPin);
+            if (pinCheck.response) return pinCheck.response;
+            if (!pinCheck.ok) return json({ error: "Falscher PIN" }, 401);
           }
 
           if (isGroupKey) {
             storedData = await hydrateGroupMemberActivity(storedData, env);
+            if (crewCallerKicked(storedData, groupAuth.ownerId)) storedData = crewKickNotice(storedData, groupAuth.ownerId);
+            storedData = withoutGroupPin(storedData);
           }
           const storageOwnerId = !isGroupKey ? await accountStorageOwner(env, storagePilotId, storedData) : storagePilotId;
           if (!storageOwnerId) return accountAnchorError();
@@ -2884,6 +3154,19 @@ export default {
 
         try {
           const incomingData = JSON.parse(rawBody);
+          if (isChecklistKey) {
+            const denied = await verifyChecklistKeyAuth(request, env, requestUrl, pilotId, incomingData?.pin);
+            if (denied) return denied;
+            // Stored under the exact key the apps read back; the owner's PIN is checked above, not kept.
+            if (!incomingData || typeof incomingData !== "object" || Array.isArray(incomingData)) return json({ error: "Ungültiges JSON beim Speichern" }, 400);
+            delete incomingData.pin;
+            try {
+              await env.GA_SYNC_KV.put(pilotId, JSON.stringify(incomingData), { expirationTtl: 31536000 });
+            } catch (error) {
+              return json({ error: "KV-Write fehlgeschlagen", message: String(error?.message || error) }, 502);
+            }
+            return json({ success: true, pilotId }, 200, { "X-Pilot-ID": pilotId });
+          }
           let existingRaw = null;
           let storagePilotId = pilotId;
           if (isGroupKey) {
@@ -2906,8 +3189,10 @@ export default {
 
           if (existingRaw) {
             const existingData = JSON.parse(existingRaw);
-            if (!isGroupKey && existingData.pin && existingData.pin !== incomingData.pin) {
-              return json({ error: "Falscher PIN" }, 401);
+            if (!isGroupKey && !isChecklistKey && existingData.pin) {
+              const pinCheck = await verifyPilotPin(request, env, storagePilotId, String(incomingData?.pin ?? ""), existingData.pin === incomingData?.pin);
+              if (pinCheck.response) return pinCheck.response;
+              if (!pinCheck.ok) return json({ error: "Falscher PIN" }, 401);
             }
             const storageOwnerId = !isGroupKey ? await accountStorageOwner(env, storagePilotId, existingData) : storagePilotId;
             if (!storageOwnerId) return accountAnchorError();
@@ -2944,7 +3229,10 @@ export default {
 
           if (isGroupKey) {
             const hydrated = await hydrateGroupMemberActivity(incomingData, env);
-            rawBody = JSON.stringify(hydrated);
+            const current = existingRaw ? await hydrateGroupMemberActivity(JSON.parse(existingRaw), env) : null;
+            const forbidden = crewTransitionError(current, hydrated, groupAuth.ownerId);
+            if (forbidden) return crewForbidden(forbidden);
+            rawBody = JSON.stringify(withoutGroupPin(hydrated));
           }
 
           // Ein normaler Profil-Save ist bereits ein KV-Write. Deshalb kann er

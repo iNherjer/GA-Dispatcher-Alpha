@@ -373,3 +373,66 @@ Plätze liegen in `meta`, überstehen Erneuerungen und wirken beim normalen `GET
 Tests: `airport-geo.test.mjs` (Teil von `npm test`). App-Seite: `mission-arrival-core.js`
 (`aptArrivalCloudGeoRead`/`Write`), Diagnosezeile „APT Platzdaten“ in `profile.js`.
 
+
+## Zugriffsschutz Sync, Checklisten, Crew und PIN-Versuche (17.11.2026, noch nicht deployed)
+
+Reine Worker-Änderung, **noch nicht deployed**. Das Deployment muss vor jeder anderen
+Worker-Änderung erfolgen. Neues Durable Object `AuthGuard` (`auth-guard.mjs`), Binding
+`GA_AUTH_GUARD`, Migration `auth-guard-v1` (`new_sqlite_classes`) in `wrangler.toml`.
+Kein Web-, Tracker- oder EFB-Release nötig; Erfolgsantworten behalten ihre Form.
+
+- **Reservierte Schlüssel:** Eine angefragte ID, deren NFKC-Groß- oder Kleinschreibung mit
+  `GROUP_`, `AUDIO_SETTINGS_`, `bug:`, `homebase:`, `pilotidx:` oder `checklist:community:`
+  beginnt (oder `CHK_`/`CHKIDX_` in anderer Schreibweise), ist nie eine Pilot-ID und wird
+  nie als Konto angelegt: `400 invalid_pilot_id` (auch Anmeldung und Header-Auth). Bisher
+  überschrieb `POST /api/sync/group_edtk` ohne Anmeldung den Crew-Datensatz. Ein
+  `pilotidx:`-Eintrag kann nie auf einen reservierten Schlüssel zeigen. Exakte `GROUP_`-Schlüssel
+  laufen weiter über den Crew-Weg.
+- **Checklisten-Schlüssel** `CHKIDX_<id>` / `CHK_<id>_<checklistId>` (`<id>` =
+  `encodeURIComponent(PilotId)` mit `%` → `_`): Lesen und Schreiben nur noch mit dem PIN des
+  Eigentümers aus dem Schlüssel (Header `X-Pilot-PIN`, sonst `?pin=`, beim Schreiben auch
+  `pin` im Body; genau die Formen von `checklists.js` und `tracker-efb-checklist-cloud.js`).
+  Der im Datensatz gespeicherte `pin` entscheidet nicht mehr. Eigentümer: alle möglichen
+  Trennstellen am `_` (höchstens 16, plus dekodierte Variante); zuerst exakte Konto-Treffer,
+  dann über `pilotidx:`, jeweils die längste ID; nie KV-List, nie der gespeicherte Datensatz.
+  Fehlt der PIN, ist er falsch oder gehört der Eigentümer nicht zu einem Konto: 401.
+- **Crew-Datensätze** (`/api/sync/GROUP_*`): Lesen bleibt mit gültiger Anmeldung möglich
+  (Gruppen-Code = Beitrittsgeheimnis), immer vollständig. Gesperrte (`kicked`) Piloten bekommen
+  nur einen Sperrhinweis `{ members:[], notes:[], kicked:[eigene ID], lastModified }`, den
+  `board.js`/`sync.js` als „gebannt/entfernt“ auswerten; ihre Schreibversuche → 403. Schreiben
+  prüft den Übergang alt → neu (beide Seiten über Umbenennungen normalisiert, `lastSeen` und
+  `accountUid` zählen nicht):
+  - Gruppe fehlt oder hat keine Mitglieder: Anlegen wie bisher (Ersteller wird Admin).
+  - Admin: alles wie bisher (kicken, Rollen, Admin-Übergabe beim Verlassen).
+  - Mitglied ohne Admin: Pinnwand frei; `kicked`, Admin-Flags und Spitznamen anderer
+    unverändert; entfernen darf es nur sich selbst, seit 90/365 Tagen inaktive Mitglieder und bei
+    voller Crew (10) die zuletzt gesehenen; Admin wird es nur, wenn sonst niemand übrig bleibt.
+  - Nicht-Mitglied: nur sich selbst als Nicht-Admin eintragen (Ausnahmen wie oben: inaktive
+    entfernen, volle Crew, Wiederbelebung einer Crew ohne aktive Mitglieder). Fremde Zettel
+    bleiben unverändert außer abgelaufenen Crew-Flügen (30 Tage); eigene Zettel unter dem neuen
+    Spitznamen dürfen dazukommen.
+  - Verstoß: `403 { ok:false, code:'crew_forbidden', error }`.
+  - Der PIN des letzten Schreibers (`triggerGroupSave` legt ihn in den Datensatz) wird nicht
+    mehr gespeichert und nie mehr ausgeliefert.
+- **PIN-Versuche** (`auth-guard.mjs`, ein Objekt je Pilot, nur für existierende Konten): gezählt
+  werden **verschiedene** falsche PINs (nur kurzer Hash), nie Wiederholungen. Je Pilot und IP
+  (`CF-Connecting-IP`): 5 verschiedene in 15 min → diese IP 15 min gesperrt. Je Pilot gesamt:
+  30 verschiedene in 24 h → globale Sperre 1 h, je weiterer Auslösung doppelt bis 24 h, nach
+  7 ruhigen Tagen wieder 1 h; IPs mit erfolgreicher Anmeldung in den letzten 30 Tagen sind von
+  der globalen Sperre ausgenommen. Gesperrt: `429 { ok:false, code:'too_many_attempts', error,
+  retryAfterSeconds }` plus `Retry-After`, auch bei richtigem PIN. Gilt an jeder PIN-Prüfung
+  (`/api/auth/verify`, Header-Auth aller Endpunkte, Legacy-`/api/sync/<Pilot>`, Checklisten-
+  Schlüssel). Kosten: kein zusätzlicher KV-Write; je Isolate werden Erfolge 10 min und bekannte
+  Fehlversuche 5 min gemerkt (kein DO-Aufruf), bekannte IPs werden höchstens einmal am Tag
+  gespeichert. Ohne Binding oder bei DO-Fehler: unveränderter einfacher PIN-Vergleich.
+
+Tests: `sync-access-rules.test.mjs`, `auth-guard.test.mjs` (Teil von `npm test`).
+- **Checklisten-Speicherfehler behoben:** Neue Schlüssel wie `CHK_<ID>_custom_…` liefen über
+  den Konto-Pfad, wurden großgeschrieben gespeichert (`canonicalNewPilotId`), seit dem
+  KV-List-Sparfix (28.10.2026) aber nur exakt gelesen. Folge: nie wieder lesbar, die Web-App lud
+  sie bei jedem Abgleich erneut hoch (Dauer-KV-Writes), auf neuen Geräten keine Wiederherstellung.
+  Checklisten haben jetzt einen eigenen Pfad: exakter Schlüssel, keine Konto-Felder, keine
+  Profil-DO-Anfrage beim Lesen, kein `pin` im gespeicherten oder ausgelieferten Datensatz. Ein
+  Lesefehltreffer fragt einmal die großgeschriebene Altform ab (gleiche Eigentümerprüfung); der
+  nächste Upload der App schreibt den exakten Schlüssel. Alte großgeschriebene Kopien verfallen
+  mit der KV-Laufzeit (1 Jahr).

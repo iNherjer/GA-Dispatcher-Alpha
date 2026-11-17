@@ -40,6 +40,10 @@ class_name = "CrewFleet"
 name = "GA_AIRPORT_GEO"
 class_name = "AirportGeoStore"
 
+[[durable_objects.bindings]]
+name = "GA_AUTH_GUARD"
+class_name = "AuthGuard"
+
 [[migrations]]
 tag = "profile-sync-v1"
 new_sqlite_classes = ["ProfileSync"]
@@ -63,3 +67,7 @@ new_sqlite_classes = ["CrewFleet"]
 [[migrations]]
 tag = "airport-geo-v1"
 new_sqlite_classes = ["AirportGeoStore"]
+
+[[migrations]]
+tag = "auth-guard-v1"
+new_sqlite_classes = ["AuthGuard"]
