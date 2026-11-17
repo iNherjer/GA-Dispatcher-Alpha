@@ -374,10 +374,13 @@ Tests: `airport-geo.test.mjs` (Teil von `npm test`). App-Seite: `mission-arrival
 (`aptArrivalCloudGeoRead`/`Write`), Diagnosezeile „APT Platzdaten“ in `profile.js`.
 
 
-## Zugriffsschutz Sync, Checklisten, Crew und PIN-Versuche (17.11.2026, noch nicht deployed)
+## Zugriffsschutz Sync, Checklisten, Crew und PIN-Versuche (17.11.2026, deployed)
 
-Reine Worker-Änderung, **noch nicht deployed**. Das Deployment muss vor jeder anderen
-Worker-Änderung erfolgen. Neues Durable Object `AuthGuard` (`auth-guard.mjs`), Binding
+Am 17.11.2026 nach Nutzerfreigabe produktiv deployed, Worker-Version
+`a75fd9d5-2643-40c5-b1a3-bb4a4497d870` (auf Basis von `fe6eeef2`, Flugplatz-Geometrie). Nach dem
+Deploy live geprüft: `group_…`/`audio_settings_…` → 400, Checkliste ohne PIN → 401, Normalbetrieb
+unverändert. Crews sollten ihre PINs ändern (ältere Crew-Datensätze enthielten den PIN des letzten
+Schreibers). Neues Durable Object `AuthGuard` (`auth-guard.mjs`), Binding
 `GA_AUTH_GUARD`, Migration `auth-guard-v1` (`new_sqlite_classes`) in `wrangler.toml`.
 Kein Web-, Tracker- oder EFB-Release nötig; Erfolgsantworten behalten ihre Form.
 
