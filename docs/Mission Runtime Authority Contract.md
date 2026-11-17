@@ -1975,3 +1975,35 @@ Neue Erfolgsregeln gibt es dabei nicht:
 - Ohne Pax: keine Stimme. `publicExecutionSnapshot.cargoLive` liefert den Live-Zustand, das EFB zeigt dann
   „Ladung beschädigt“ (warn) bzw. „Ladung kaputt“ (danger) und nimmt den Live-Wert in Ladungs- und Pflichtzustand auf.
 - Log: `MISSION_DISTRESS_VOICE data={kind,stage,comfortScore,cargoPct,accepted}`.
+
+## 17.11.2026 – Missionsstart beim Losrollen (Tracker v641)
+
+Ausnahme zu „kein automatischer Missionsbeginn“ aus dem Startfreigabe-Abschnitt,
+nur für den letzten Start (`start_mission` in Phase `boarded`, also nach
+Manifestunterschrift und bestätigter Verladung). `prepare_mission`,
+`start_boarding` und `confirm_load` bleiben Klicks mit Stillstandpflicht.
+
+- Rollt das Flugzeug dort am Boden mit mindestens 1 kt
+  (`TAXI_AUTOSTART_MIN_KTS`) und ist die Startfreigabe nur wegen der Bewegung
+  entzogen (`worldReady=true`, `reason=ground_stop_required`), zählt
+  `createTaxiAutoStart` (`tracker-mission-start-readiness.js`) die Readiness-Pakete.
+  Nach 3 s Rollen am Stück (`TAXI_AUTOSTART_ROLL_MS`) löst die Runtime selbst
+  `start_mission` aus: `commandId=taxi-autostart:<run>:<zeit>`,
+  `controllerSession.role=tracker`, ohne `expectedRevision`. Lauf-Identität und
+  die erlaubten Aktionen der Phase `boarded` prüft der Kern beim Ausführen.
+- Dieser interne Start (nur er) übergeht die Stillstandprüfung der
+  Startfreigabe und die Bush-Grenze 2 kt (`bush_ground_stop_required`). Simulator,
+  Cockpit, Position und Bodenkontakt bleiben Pflicht. Unterbrechung, fehlender
+  Simulator oder Web-Authority verhindern ihn. Clients können diesen Weg nicht
+  anfordern: Die Option wird intern übergeben und ist kein Feld der Anfrage.
+- Anhalten (unter 1 kt), Pause, Menü, Slew, Abheben oder Laufwechsel setzen den
+  Countdown zurück. Ein fehlgeschlagener Start kehrt zum Zählen zurück.
+- Projektion: `startReadiness.taxiAutoStart` = `{status:'counting', remainingS 3..1}`,
+  `{status:'starting'}` bzw. 3 s (`TAXI_AUTOSTART_NOTICE_MS`) `{status:'started'}`.
+  Banner im gemeinsamen `mission-apt-ui-core.js` (EFB und Web): „Taxi gestartet,
+  Mission beginnt automatisch in“, Knopf „3 Sek.“/„2 Sek.“/„1 Sek.“ (deaktiviert),
+  danach „Mission gestartet. Guten Flug!“.
+- Log: `MISSION_TAXI_AUTOSTART status=counting|idle|starting|started|failed`.
+  Abschaltbar über die Laufzeitoption `taxiAutoStart:false`.
+- Anlass: Tester vergaßen den zweiten Startknopf. Nach dem Losrollen war er wegen
+  der Stillstandpflicht nicht mehr erreichbar.

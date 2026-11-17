@@ -83,6 +83,8 @@
         var subphase = text(control.subphase, 80).toLowerCase();
         var flags = object(control.flags);
         var readiness = object(control.startReadiness);
+        var taxiStart = object(readiness.taxiAutoStart);
+        if (taxiStart.runId && control.runId && taxiStart.runId !== control.runId) taxiStart = {};
         var sampleAge = Date.now() - readiness.observedAt;
         // Same limit as the tracker start gate (START_READINESS_MAX_AGE_MS).
         var waitingReason = readiness.ready === true
@@ -127,6 +129,26 @@
                 text: 'Mission aus der Cloud laden.', button: 'Neue Mission laden',
                 className: 'is-begin-action', disabled: false
             };
+        } else if (phase === 'boarded' && (taxiStart.status === 'counting' || taxiStart.status === 'starting')) {
+            // Taxiing after the load was confirmed: the tracker starts the mission itself.
+            model = {
+                intent: '', kind: 'wait', kicker: 'Taxi gestartet',
+                text: taxiStart.status === 'counting'
+                    ? 'Taxi gestartet, Mission beginnt automatisch in'
+                    : 'Taxi gestartet, Mission wird gestartet.',
+                button: taxiStart.status === 'counting'
+                    ? Math.max(1, Math.min(9, Math.round(Number(taxiStart.remainingS) || 1))) + ' Sek.'
+                    : 'Bitte warten...',
+                className: 'is-begin-action', disabled: true
+            };
+            model.closeHidden = true;
+        } else if (taxiStart.status === 'started' && !/^(planned|prepare|boarding|boarded)$/.test(phase)) {
+            model = {
+                intent: '', kind: 'notice', kicker: 'Mission gestartet',
+                text: 'Mission gestartet. Guten Flug!',
+                button: '', buttonHidden: true, className: 'is-begin-action', disabled: true
+            };
+            model.closeHidden = true;
         } else if ((phase === 'planned' || phase === 'boarded') && waitingForGroundData) {
             model = {
                 intent: '', kind: 'wait', kicker: 'Mission wartet',

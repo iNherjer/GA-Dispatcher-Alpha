@@ -63,3 +63,36 @@ test('a repeated packet with the same timestamp keeps the stillness check runnin
   // A packet from the past still restarts it.
   assert.equal(f.sample({observedAt:f.at()-500}).ready,false);
 });
+const { createTaxiAutoStart } = require('./tracker-mission-start-readiness');
+function taxiFixture(context = {}) {
+  const f = fixture(); const taxi = createTaxiAutoStart({ now: f.at });
+  const ctx = { runId: 'run-1', phase: 'boarded', startAllowed: true, ...context };
+  const roll = (ms = 1000, patch = {}) => { const readiness = f.tick(ms, { gsKts: 6, ...patch });
+    return taxi.observe({ observedAt: f.at(), onGround: true, gsKts: 6, ...patch }, readiness, ctx); };
+  return { f, taxi, ctx, roll };
+}
+test('taxi auto-start counts three, two, one and is due after three seconds of continuous rolling', () => {
+  const { f, taxi, roll } = taxiFixture(); f.ready();
+  assert.equal(roll().snapshot.remainingS, 3); assert.equal(roll().snapshot.remainingS, 2);
+  assert.equal(roll().snapshot.remainingS, 1); const due = roll();
+  assert.equal(due.due, true); assert.equal(due.snapshot.status, 'starting');
+  assert.equal(roll().due, false, 'one start command only');
+  taxi.settle(true, 'run-1'); assert.equal(taxi.snapshot().status, 'started');
+  f.advance(3001); assert.equal(taxi.snapshot(), null);
+});
+test('taxi auto-start never runs outside the boarded start state or with a paused/menu simulator', () => {
+  for (const context of [{ phase: 'boarding' }, { phase: 'active' }, { startAllowed: false }, { runId: null }]) {
+    const { f, roll } = taxiFixture(context); f.ready();
+    for (let n = 0; n < 5; n++) assert.equal(roll().due, false, JSON.stringify(context));
+  }
+  for (const patch of [{ simPaused: true }, { inMenuOrMap: true }, { onGround: false }, { cameraState: 12 }, { gsKts: 0.8 }]) {
+    const { f, roll } = taxiFixture(); f.ready(); roll(); roll();
+    assert.equal(roll(1000, patch).snapshot, null, JSON.stringify(patch));
+    assert.equal(roll().snapshot.remainingS, 3, 'countdown restarts');
+  }
+});
+test('a failed taxi start returns to the countdown instead of retrying in the same second', () => {
+  const { f, taxi, roll } = taxiFixture(); f.ready(); roll(); roll(); roll();
+  assert.equal(roll().due, true); taxi.settle(false, 'run-1');
+  assert.equal(taxi.snapshot(), null); assert.equal(roll().snapshot.remainingS, 3);
+});

@@ -382,7 +382,8 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     return { ok: true, snapshot };
   };
 
-  const validateIntent = (request = {}) => {
+  // internal: tracker-own options (taxi auto-start), never part of a client request.
+  const validateIntent = (request = {}, internal = null) => {
     const commandId = cleanString(request.commandId, 220);
     const intent = cleanString(request.intent || request.action, 80).toLowerCase();
     if (!commandId) return errorResult('command_id_required');
@@ -407,7 +408,8 @@ function createTrackerMissionExecutionAdapter(options = {}) {
       if (!sample || !sample.valid || sample.simPaused || sample.inMenuOrMap
           || now()-sample.observedAt<0 || now()-sample.observedAt>5000) return errorResult('bush_fresh_telemetry_required');
       const airborneCargo=['set_manifest_item','set_manifest_items'].includes(intent) && sample.onGround===false;
-      if (!airborneCargo && !(sample.onGround===true && (Number.isFinite(sample.gsKts) && sample.gsKts>=0 && sample.gsKts<=2))) return errorResult('bush_ground_stop_required');
+      const taxiStart = internal?.taxiAutoStart === true && intent === 'start_mission' && sample.onGround === true;
+      if (!airborneCargo && !taxiStart && !(sample.onGround===true && (Number.isFinite(sample.gsKts) && sample.gsKts>=0 && sample.gsKts<=2))) return errorResult('bush_ground_stop_required');
       const pickupAction=validated.snapshot.bushRecipe.kind==='pickup_return' && !validated.snapshot.state.progress.returnLeg
         && (intent==='confirm_pickup' || (validated.snapshot.state.phase==='on_task' && ['sign_manifest','set_manifest_item','set_manifest_items','request_pax_interaction'].includes(intent)));
       if(pickupAction && !locationCore.resolveAptDestination(validated.snapshot.bushRecipe.location,sample).atDestination)return errorResult('bush_pickup_target_required');
@@ -844,8 +846,8 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     );
   };
 
-  const executeIntent = (request = {}) => {
-    const validated = validateIntent(request);
+  const executeIntent = (request = {}, internal = null) => {
+    const validated = validateIntent(request, internal);
     if (!validated.ok) return validated;
     const commandId = cleanString(request.commandId, 220);
     const intent = validated.intent;

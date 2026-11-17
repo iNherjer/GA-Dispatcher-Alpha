@@ -47,6 +47,50 @@ function createMissionStartReadiness({ now = Date.now, stableMs = 3000, maxAgeMs
   };
   return { observe, snapshot, reset };
 }
+// The last start (phase boarded: signed, loaded, confirmed) also follows the
+// pilot: taxiing for TAXI_AUTOSTART_ROLL_MS without a break starts the mission.
+// Only the stillness requirement is waived; simulator, cockpit, position and
+// ground evidence stay as strict as for the button. The countdown is counted in
+// readiness packets (1 Hz), so every client shows the same number.
+const TAXI_AUTOSTART_ROLL_MS = 3000;
+const TAXI_AUTOSTART_MIN_KTS = 1;
+const TAXI_AUTOSTART_NOTICE_MS = 3000;
+function createTaxiAutoStart({ now = Date.now, rollMs = TAXI_AUTOSTART_ROLL_MS, minKts = TAXI_AUTOSTART_MIN_KTS,
+  noticeMs = TAXI_AUTOSTART_NOTICE_MS } = {}) {
+  let runId = null, rollingSince = null, rollingAt = null, pending = false, startedUntil = 0, startedRunId = null;
+  const clearCount = () => { rollingSince = null; rollingAt = null; };
+  const reset = () => { runId = null; clearCount(); pending = false; startedUntil = 0; startedRunId = null; };
+  // context: { runId, phase, startAllowed } from the unprojected execution view.
+  const observe = (sample, readiness, context = {}) => {
+    const run = context.runId || null;
+    if (run !== runId) { clearCount(); pending = false; runId = run; }
+    if (!run || context.phase !== 'boarded' || context.startAllowed !== true || pending) {
+      clearCount(); return { due: false, snapshot: snapshot() };
+    }
+    const rolling = Boolean(readiness && readiness.worldReady === true && readiness.reason === 'ground_stop_required'
+      && sample && sample.onGround === true && typeof sample.gsKts === 'number' && Number.isFinite(sample.gsKts)
+      && sample.gsKts >= minKts && Number.isFinite(sample.observedAt));
+    if (!rolling) { clearCount(); return { due: false, snapshot: snapshot() }; }
+    if (rollingSince === null || sample.observedAt < rollingAt || sample.observedAt - rollingAt > START_READINESS_MAX_AGE_MS) rollingSince = sample.observedAt;
+    rollingAt = sample.observedAt;
+    const due = rollingAt - rollingSince >= rollMs;
+    if (due) pending = true;
+    return { due, snapshot: snapshot() };
+  };
+  // The start command itself decides; a failed start returns to the countdown.
+  const settle = (ok, run) => {
+    pending = false; clearCount();
+    if (ok && run) { startedRunId = run; startedUntil = now() + noticeMs; }
+  };
+  const snapshot = () => {
+    if (startedRunId && now() < startedUntil) return { status: 'started', runId: startedRunId };
+    if (pending) return { status: 'starting', runId, remainingS: 0 };
+    if (rollingSince === null) return null;
+    const rolledMs = Math.max(0, rollingAt - rollingSince);
+    return { status: 'counting', runId, rolledMs, remainingS: Math.max(1, Math.ceil((rollMs - rolledMs) / 1000)) };
+  };
+  return { observe, settle, snapshot, reset };
+}
 function projectStartReadiness(control, readiness, now = Date.now()) {
   if (!control || !readiness) return control;
   if ((readiness.ready || readiness.worldReady) && (!Number.isFinite(readiness.observedAt) || now - readiness.observedAt < 0 || now - readiness.observedAt > START_READINESS_MAX_AGE_MS)) readiness = { ...readiness, ready: false, worldReady: false, reason: 'telemetry_stale' };
@@ -54,4 +98,5 @@ function projectStartReadiness(control, readiness, now = Date.now()) {
   return { ...control, startReadiness: readiness, allowedActions,
     nextStep: START_INTENTS.has(control.nextStep) && !readiness.ready ? null : control.nextStep };
 }
-module.exports = { createMissionStartReadiness, projectStartReadiness, START_INTENTS, START_READINESS_MAX_AGE_MS };
+module.exports = { createMissionStartReadiness, createTaxiAutoStart, projectStartReadiness, START_INTENTS, START_READINESS_MAX_AGE_MS,
+  TAXI_AUTOSTART_ROLL_MS, TAXI_AUTOSTART_MIN_KTS, TAXI_AUTOSTART_NOTICE_MS };

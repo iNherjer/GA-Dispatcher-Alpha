@@ -1,5 +1,5 @@
 'use strict';
-const { createMissionStartReadiness, START_INTENTS } = require('./tracker-mission-start-readiness');
+const { createMissionStartReadiness, createTaxiAutoStart, START_INTENTS } = require('./tracker-mission-start-readiness');
 const {describeWeather} = require('./tracker-environment-diagnostics.js');
 const bushNarrativeCore = require('../mission-bush-narrative-core.js');
 const weatherPresetCore = require('../mission-weather-preset-core.js');
@@ -53,6 +53,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   }
 
   const startReadiness = options.requireCockpitReady === true ? createMissionStartReadiness({ now: options.now }) : null;
+  const taxiAutoStart = startReadiness && options.taxiAutoStart !== false ? createTaxiAutoStart({ now: options.now }) : null;
   const adapter = createTrackerMissionExecutionAdapter({
     now: options.now,
     random: options.random,
@@ -438,11 +439,13 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     }
   };
 
-  const executeIntent = async (request = {}) => {
+  // internal is only set by the tracker itself (taxi auto-start), never from a request.
+  const runIntent = async (request = {}, internal = null) => {
     await recoveryDrain;
     const interrupted = await interruption.handleIntent(request);
     if (interrupted) return { ...interrupted, activeRun: authorityManager.getActiveRun() };
-    if (startReadiness && START_INTENTS.has(String(request.intent || request.action || '').trim().toLowerCase())) {
+    const taxiStart = internal?.taxiAutoStart === true && String(request.intent || '').trim().toLowerCase() === 'start_mission';
+    if (startReadiness && !taxiStart && START_INTENTS.has(String(request.intent || request.action || '').trim().toLowerCase())) {
       const readiness = startReadiness.snapshot();
       if (!simulatorEffects || !readiness.ready) return { ok: false, status: 'blocked', error: 'mission_cockpit_not_ready', startReadiness: readiness, sideEffect: false };
     }
@@ -465,7 +468,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       // Training clicks must capture the latest buffered preparation values.
       // Validate the controller's original revision before the private flush.
       // Only our own synchronous checkpoint may rebase that accepted request.
-      const validated = adapter.validateIntent(request);
+      const validated = adapter.validateIntent(request, internal);
       if (!validated.ok) return validated;
       const flushed = flushPoiCheckpoint('intent');
       if (!flushed.ok) return flushed;
@@ -540,7 +543,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     }
     if (['poi_status', 'poi_orientation'].includes(request.intent)) request = { ...request, livePosition: getSimulatorPosition() };
     const cargoStartedAt = Date.now();
-    const result = adapter.executeIntent(request);
+    const result = adapter.executeIntent(request, internal);
     const cargoCommittedAt = Date.now();
     if (!result.ok) return result;
     if (request.intent === 'start_boarding' && boardingMarkersRunId) {
@@ -587,6 +590,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       }
     };
   };
+  const executeIntent = request => runIntent(request, null);
 
   // All completed asynchronous work follows the same gate/notification order.
   let voiceSettlementScheduled = false, voiceSettlementRunning = false, voiceSettlementDirty = false;
@@ -817,6 +821,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
 
   const attachSimulator = (simulator = {}) => {
     startReadiness?.reset();
+    taxiAutoStart?.reset();
     getSimulatorPosition = typeof simulator.getLivePosition === 'function' ? simulator.getLivePosition : () => null;
     simulatorPayloadSyncBeforeStart = typeof simulator.syncPayloadBeforeStart === 'function'
       ? simulator.syncPayloadBeforeStart
@@ -933,6 +938,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     boardingMarkersRunId = '';
     simulatorSetAircraftPosition = null;
     startReadiness?.reset();
+    taxiAutoStart?.reset();
     simulatorPayloadSyncBeforeStart = null;
     simulatorPayloadSyncManifestState = null;
     if (cancelSimulatorPayloadSync) {
@@ -1062,12 +1068,50 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     return !poi.ok || poi.activeRun ? poi : training;
   };
 
+  // Taxiing out of the boarded state starts the mission after the countdown.
+  const observeTaxiAutoStart = (sample, readiness) => {
+    if (!taxiAutoStart || !readiness) return;
+    const snapshot = authorityManager.getExecutionSnapshot?.() || null;
+    const tracker = snapshot && snapshot.executionAuthority === 'tracker' && !interruption.record() && Boolean(simulatorEffects);
+    const before = taxiAutoStart.snapshot()?.status || 'idle';
+    const { due } = taxiAutoStart.observe(sample, readiness, {
+      runId: tracker ? snapshot.runId : null,
+      phase: tracker ? snapshot.state?.phase : null,
+      startAllowed: tracker && Array.isArray(snapshot.view?.allowedActions) && snapshot.view.allowedActions.includes('start_mission')
+    });
+    const after = taxiAutoStart.snapshot()?.status || 'idle';
+    if (before !== after && after !== 'starting') log(`MISSION_TAXI_AUTOSTART status=${after} run=${snapshot?.runId || ''} gsKts=${Number.isFinite(Number(sample?.gsKts)) ? Number(sample.gsKts).toFixed(1) : 'n/a'}`);
+    if (!due) return;
+    const commandId = `taxi-autostart:${snapshot.runId}:${Math.round(Number(sample.observedAt) || clockNow())}`;
+    log(`MISSION_TAXI_AUTOSTART status=starting run=${snapshot.runId} command=${commandId}`);
+    // No expectedRevision: telemetry may advance the revision meanwhile; run
+    // identity and the boarded allowedActions are checked at execution time.
+    runIntent({ intent: 'start_mission', commandId, missionId: snapshot.missionId, runId: snapshot.runId, deferEffects: true,
+      controllerSession: { clientId: 'tracker-taxi-autostart', role: 'tracker' } }, { taxiAutoStart: true })
+      .then(result => {
+        taxiAutoStart.settle(result?.ok === true, snapshot.runId);
+        log(`MISSION_TAXI_AUTOSTART status=${result?.ok === true ? 'started' : 'failed'} run=${snapshot.runId} error=${result?.ok === true ? '' : (result?.error || result?.status || 'unknown')}`);
+        try { onAuthorityChanged('taxi-autostart', authorityManager.getExecutionSnapshot?.()); }
+        catch (error) { log(`MISSION_EXECUTION_NOTIFY_ERROR reason=taxi-autostart error=${error.message}`); }
+      })
+      .catch(error => {
+        taxiAutoStart.settle(false, snapshot.runId);
+        log(`MISSION_TAXI_AUTOSTART status=failed run=${snapshot.runId} error=${error?.code || error?.message || error}`);
+      });
+  };
+  const readinessState = () => {
+    if (!startReadiness) return null;
+    const readiness = startReadiness.snapshot();
+    const taxi = taxiAutoStart?.snapshot();
+    return taxi ? { ...readiness, taxiAutoStart: taxi } : readiness;
+  };
   const observeStartReadiness = sample => {
     const wasReady = startReadiness?.snapshot().ready;
     const readiness = startReadiness?.observe(sample);
     if (readiness?.ready && !wasReady) effectRunner.drain().catch(error => log(`MISSION_PREFLIGHT_RESUME_ERROR error=${error.message}`));
     if (readiness?.worldReady) interruption.maybeRebuild('cockpit-ready').catch(error => log(`MISSION_INTERRUPTION_REBUILD_ERROR error=${error?.message || error}`));
-    return readiness;
+    observeTaxiAutoStart(sample, readiness);
+    return readinessState();
   };
   return Object.freeze({
     enabled: true,
@@ -1535,7 +1579,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
       simulatorAttached: Boolean(simulatorEffects),
       interruption: interruption.record()?.status || null,
       startReadinessSource: options.independentStartReadiness === true ? 'independent-simconnect' : 'mission-telemetry',
-      startReadiness: startReadiness?.snapshot() || null,
+      startReadiness: readinessState(),
       effects: effectRunner.publicState()
     })
   });

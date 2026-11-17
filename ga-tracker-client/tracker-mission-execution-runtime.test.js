@@ -1910,3 +1910,65 @@ test('a ground interruption before take-off points back to the departure airport
   assert.deepEqual(record.zone, { lat: 48.0225, lon: 7.8325, radiusNm: 1.5, airborne: false, kind: 'departure', label: 'EDTF' });
   assert.equal(manager.getPublicSnapshot().execution.interruption.zone.label, 'EDTF');
 });
+
+test('taxiing for three seconds after the confirmed load starts the mission without the final button', async (t) => {
+  const bundle = aptBundle();
+  bundle.runtime.cargoManifest.items = [{ id: 'pax', itemType: 'passenger', status: 'loaded', passengerCount: 1 }];
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+  const manager = committedManager(t, bundle);
+  const commands = [], logs = [], changes = [];
+  let clock = 400000;
+  const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: true,
+    requireCockpitReady: true, independentStartReadiness: true, now: () => clock,
+    playBoardingVoice: () => ({ ok: true, status: 'completed', sideEffect: false }),
+    onAuthorityChanged: reason => changes.push(reason), log: line => logs.push(line) });
+  const bridge = runtime.attachSimulator({
+    getLivePosition: () => ({ lat: 48.01, lon: 8.02, alt: 1200, hdg: 180 }),
+    syncPayloadBeforeStart: () => ({ ok: true, status: 'completed', sideEffect: false }),
+    dispatchCommand: command => { commands.push(command); return { ok: true, status: 'pending', sideEffect: true }; }
+  });
+  const sample = (over = {}) => runtime.observeStartReadiness({ observedAt: clock, simRunning: 1, simPaused: false,
+    inMenuOrMap: false, slewActive: false, cameraState: 2, lat: 48.01, lon: 8.02, altFt: 1200, onGround: true, gsKts: 0, ...over });
+  const stand = () => { for (let n = 0; n < 7; n++) { sample(); clock += 500; } sample(); };
+  const taxi = () => runtime.publicState().startReadiness.taxiAutoStart || null;
+  const intent = async name => {
+    const run = manager.getActiveRun();
+    return runtime.executeIntent({ commandId: `taxi-${name}`, intent: name, missionId: run.missionId, runId: run.runId, expectedRevision: run.revision });
+  };
+  stand();
+  assert.equal((await intent('prepare_mission')).ok, true);
+  bridge.handleAck({ type: 'mission_scene_spawn_ack', commandId: commands[0].commandId, status: 'ok' });
+  assert.equal(await waitUntil(() => manager.getExecutionSnapshot().view.allowedActions.includes('start_boarding')), true);
+  assert.equal((await intent('start_boarding')).ok, true);
+  assert.equal(await waitUntil(() => commands.length === 2), true);
+  assert.equal((await intent('confirm_load')).ok, true);
+  bridge.handleAck({ type: 'mission_scene_boarding_ack', commandId: commands[1].commandId, status: 'ok' });
+  assert.equal(await waitUntil(() => manager.getExecutionSnapshot().state.phase === 'boarded'), true);
+  assert.equal(taxi(), null, 'standing still keeps the normal start button');
+
+  // Rolling revokes the manual start; the countdown follows the 1 Hz packets.
+  clock += 1000; sample({ gsKts: 6 });
+  assert.equal(runtime.publicState().startReadiness.ready, false);
+  assert.deepEqual([taxi().status, taxi().remainingS], ['counting', 3]);
+  clock += 1000; sample({ gsKts: 6, lat: 48.0101 });
+  assert.equal(taxi().remainingS, 2);
+  // A stop resets the countdown, the next roll starts again at three.
+  clock += 1000; sample({ gsKts: 0.3 });
+  assert.equal(taxi(), null);
+  clock += 1000; sample({ gsKts: 5 });
+  assert.equal(taxi().remainingS, 3);
+  clock += 1000; sample({ gsKts: 5 });
+  clock += 1000; sample({ gsKts: 5 });
+  assert.equal(taxi().remainingS, 1);
+  assert.equal(manager.getExecutionSnapshot().state.phase, 'boarded');
+  clock += 1000; sample({ gsKts: 5 });
+  assert.equal(await waitUntil(() => manager.getExecutionSnapshot().state.phase === 'active'), true);
+  assert.equal(await waitUntil(() => taxi()?.status === 'started'), true);
+  assert.equal(changes.includes('taxi-autostart'), true);
+  assert.match(logs.join('\n'), /MISSION_TAXI_AUTOSTART status=started/);
+  clock += 1000; sample({ gsKts: 8 });
+  assert.equal(taxi().status, 'started', 'the started notice stays for three seconds');
+  clock += 2500; sample({ gsKts: 12 });
+  assert.equal(taxi(), null);
+});

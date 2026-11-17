@@ -29,6 +29,15 @@ liefert alles Offene mit aus.
 
 ## Ausgeliefert
 
+### 2026-11-17 · Missionsstart beim Losrollen (Taxi-Auto-Start) — ausgeliefert in Tracker v641 Alpha (17.11.2026)
+- **Artefakt:** Tracker-EXE (Missions-Prozess). Web zeigt den Countdown über den gemeinsamen UI-Kern, sobald der Tracker ihn liefert.
+- **Dateien:** `ga-tracker-client/tracker-mission-start-readiness.js` (+ Test), `ga-tracker-client/tracker-mission-execution-runtime.js` (+ Test), `ga-tracker-client/tracker-mission-execution-adapter.js`, `mission-apt-ui-core.js` (+ Test).
+- **Was:** Nur der letzte Start (Phase `boarded`: Manifest unterschrieben, Verladung bestätigt). Rollt der Pilot dort am Boden mit mindestens 1 kt drei Readiness-Pakete am Stück (3 s), startet der Tracker die Mission selbst (`start_mission`, `controllerSession.role=tracker`, Kommando `taxi-autostart:<run>:<zeit>`). Der Banner bleibt sichtbar: „Taxi gestartet, Mission beginnt automatisch in“, Knopf zählt „3 Sek.“, „2 Sek.“, „1 Sek.“ (deaktiviert). Danach 3 s „Mission gestartet. Guten Flug!“. Anhalten, Pause, Menü, Slew oder Abheben setzen den Countdown zurück, beim nächsten Losrollen beginnt er wieder bei 3. Entfällt nur die Stillstand-Pflicht der Startfreigabe (auch die Bush-Grenze 2 kt) und nur für diesen tracker-internen Start; Sim-, Cockpit-, Positions- und Bodenprüfung bleiben. Status reist als `startReadiness.taxiAutoStart` mit. Log: `MISSION_TAXI_AUTOSTART status=counting|idle|starting|started|failed`. Abschaltbar per Laufzeit-Option `taxiAutoStart:false`.
+- **Warum:** Tester vergessen nach der Verladung den zweiten Startknopf; nach dem Losrollen war er wegen der Stillstand-Pflicht nicht mehr erreichbar.
+- **Tests:** `tracker-mission-start-readiness.test.js` (31), `tracker-mission-execution-runtime.test.js` (56, neu: Taxi-Start Ende-zu-Ende), `tracker-mission-execution-adapter.test.js`, `mission-apt-ui-core.test.js` (18), `tracker-efb-mission-view-core.test.js`, `tracker-mission-process.test.js`; alle Testdateien einzeln grün (`tracker-mission-sar-integration.test.js` ist nur unter Parallellast flackernd, auch ohne diese Änderung).
+- **Doku beim Release:** erledigt, `docs/Mission Runtime Authority Contract.md` Abschnitt 17.11.2026; `docs/Tracker-v641-Release.md`.
+- **Pruefen im Feld:** Nach „Verladung bestätigen“ losrollen: Countdown 3-2-1 im EFB und im Web, Mission startet, 3 s Hinweis. Kurz anrollen und wieder stehen: Countdown verschwindet, normaler Knopf kommt zurück. Bush-Mission ebenso.
+
 ### 2026-11-17 · EFB-Kartenmenü: Esri Topo, regionale Basiskarten, Abblendstufen — ausgeliefert in Tracker v640 Alpha (17.11.2026)
 - **Artefakt:** Tracker-EXE (EFB-Host, Kachel-Proxy, EFB-Web-Assets). Web live mit v2433.
 - **Dateien:** `ga-tracker-client/efb-app/map-shell-core.js` (+ Test), `ga-tracker-client/tracker-efb-kartentisch-host.js`, `ga-tracker-client/tracker-efb-tile-proxy.js`, `ga-tracker-client/efb-web-assets/styles.css`, `ga-tracker-client/efb-web-assets/i18n/en-phrases.js`.

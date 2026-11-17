@@ -451,3 +451,26 @@ test('preflight sheets offer replacement for lost boardbook and chocks, with aut
     assert.ok(inspection.items.every(item => item.action.disabled));
   }
 });
+
+test('taxi auto-start replaces the final start banner with a countdown and a short started notice', () => {
+  const poi = require('./mission-poi-ui-core');
+  for (const ui of [core, poi]) {
+    const rolling = (taxiAutoStart) => ({ ...control('boarded', ['abort_mission'], { boardingConfirmed: true, loadConfirmed: true }),
+      runId: 'run-1', startReadiness: { ready: false, worldReady: true, cameraState: 2, reason: 'ground_stop_required', taxiAutoStart } });
+    for (const [remainingS, button] of [[3, '3 Sek.'], [2, '2 Sek.'], [1, '1 Sek.']]) {
+      const model = ui.bannerModel(rolling({ status: 'counting', runId: 'run-1', remainingS }));
+      assert.equal(model.kicker, 'Taxi gestartet');
+      assert.equal(model.text, 'Taxi gestartet, Mission beginnt automatisch in');
+      assert.equal(model.button, button);
+      assert.equal(model.disabled, true); assert.equal(model.intent, ''); assert.equal(model.closeHidden, true);
+    }
+    assert.equal(ui.bannerModel(rolling({ status: 'starting', runId: 'run-1', remainingS: 0 })).button, 'Bitte warten...');
+    assert.equal(ui.bannerModel(rolling({ status: 'counting', runId: 'old-run', remainingS: 2 })), null, 'foreign run is ignored');
+    const started = ui.bannerModel({ ...control('active', ['abort_mission'], { active: true }), runId: 'run-1',
+      startReadiness: { ready: false, worldReady: true, cameraState: 2, reason: 'ground_stop_required', taxiAutoStart: { status: 'started', runId: 'run-1' } } });
+    assert.equal(started.kind, 'notice'); assert.equal(started.text, 'Mission gestartet. Guten Flug!');
+    assert.equal(started.buttonHidden, true);
+    assert.equal(ui.bannerModel({ ...control('active', ['abort_mission'], { active: true }), runId: 'run-1',
+      startReadiness: { ready: false, worldReady: true, cameraState: 2, reason: 'ground_stop_required' } }), null);
+  }
+});
