@@ -38,5 +38,5 @@ Bush-Mission ebenso.
 ## Artefakt
 
 - Tag `v641`, Asset `VFR-Multitool-Tracker.exe`
-- Größe: offen
-- SHA-256: offen
+- Größe: 175164076 Bytes
+- SHA-256: fd32808ea32d552d53ed44363d2dfe49f8a3d5b52f29f7cc0cdd7cd31e4fb49b (öffentlicher Download geprüft)
