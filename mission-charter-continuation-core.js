@@ -71,11 +71,20 @@
             ui:{title:`Rückflug von ${visited.name} nach ${home.name}`,subtitle:`Fortsetzung mit ${idea.passenger.name}`,
                 previewText:offerPreview(c)}};
     }
+    function wholeSentences(value,max) {
+        const sentences=String(value||'').replace(/\s+/g,' ').trim().match(/[^.!?]+[.!?]+(?:\s|$)/g)||[];
+        let out='';
+        for(const sentence of sentences){if((out+sentence).trim().length>max)break;out+=sentence;}
+        return out.trim().length>=40?out.trim():'';
+    }
     // Card text before the return story exists: past stay, current request. Never the outbound purpose.
     function offerPreview(c) {
         if(!c?.home?.name || !c?.visited?.name)return '';
         const written=c.experience&&validateDraft(c.experience,c);
         if(written?.offerText)return written.offerText;
+        // Stays written before offerText existed: their return reason already looks back on the stay.
+        const reason=written&&wholeSentences(written.reason,350);
+        if(reason)return reason;
         const name=text(c.original?.passenger?.name,80) || (c.original?.schema==='apt-news-idea.v1'?'Die Reporterin bzw. der Reporter':'Der Chartergast');
         if(c.original?.schema==='apt-news-idea.v1')
             return `${name} hat die Recherche in ${c.visited.name} abgeschlossen und bittet um den Rückflug nach ${c.home.name}.`;

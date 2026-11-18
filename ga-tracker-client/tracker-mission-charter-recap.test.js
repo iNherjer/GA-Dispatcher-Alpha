@@ -63,7 +63,8 @@ test('card text: written retrospective wins, otherwise the neutral stay-is-over 
   assert.equal(core.offerPreview({ ...c, experience: draft }), draft.offerText);
   const { offerText, ...older } = draft;
   assert.ok(core.validateDraft(older, c));
-  assert.equal(core.offerPreview({ ...c, experience: older }), core.offerPreview(c));
+  assert.equal(core.offerPreview({ ...c, experience: older }), draft.reason, 'older stay: its return reason');
+  assert.equal(core.offerPreview({ ...c, experience: { ...older, reason: 'x'.repeat(400) } }), core.offerPreview(c), 'no whole sentence fits: neutral text');
   assert.ok(needsRecap(req));
   assert.equal(needsRecap({ ...req, charterContinuation: { ...c, experience: draft } }), false);
 });
@@ -215,4 +216,25 @@ test('touchdown: no farewell text within the wait still starts the retrospective
   const worker = createCharterRecapWorker({ authorityManager: manager, pilotId: 'PILOT', provider: 'gemini', apiKey: 'test-key', fetchRemote: gemini([JSON.stringify(draft)]).fetchRemote });
   assert.equal(await worker.onTouchdown({ getFarewellText: () => '', farewellWaitMs: 3, pollMs: 1 }), true);
   assert.equal(closedCharterManager(t, { followupRecapEnabled: true }, 'boarding').manager.prepareFollowupRecap('PILOT', { touchdown: true }), false, 'no touchdown before departure');
+});
+
+test('provisional retrospective is dropped when the close creates no offer or the run is aborted', async t => {
+  const first = closedCharterManager(t, { followupRecapEnabled: true }, 'end_unloading');
+  assert.equal(first.manager.prepareFollowupRecap('PILOT'), true);
+  // Close without proof of a measured flight: no offer, so no reason to keep the draft job.
+  const current = JSON.parse(fs.readFileSync(first.file, 'utf8'));
+  current.activeRun.executionRuntimeContext.missionFlightRecord.distanceSource = 'planned';
+  fs.writeFileSync(first.file, JSON.stringify(current));
+  const closed = first.close();
+  assert.equal(closed.finalizeExecutionRun({ pilotId: 'PILOT' }).ok, true);
+  assert.deepEqual(closed.getFollowupOutbox('PILOT'), []);
+  assert.equal(closed.nextFollowupRecap('PILOT'), null);
+  assert.equal(JSON.parse(fs.readFileSync(first.file, 'utf8')).followupRecapQueue.length, 0);
+
+  const second = closedCharterManager(t, { followupRecapEnabled: true }, 'end_unloading');
+  assert.equal(second.manager.prepareFollowupRecap('PILOT'), true);
+  const run = second.manager.getActiveRun();
+  const aborted = second.manager.abortExecutionRun({ reason: 'test', missionId: run.missionId, runId: run.runId, expectedRevision: run.revision });
+  assert.equal(aborted.ok, true, JSON.stringify(aborted));
+  assert.equal(second.manager.nextFollowupRecap('PILOT'), null);
 });

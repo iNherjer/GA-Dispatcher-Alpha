@@ -886,11 +886,14 @@
     // the attempt is stored on the request so no device asks again. Accepting still writes it if missing.
     const charterRecapTried = new Set();
     let charterRecapBusy = false;
+    const CHARTER_RECAP_TRACKER_GRACE_MS = 10 * 60000;
     function maybeWriteCharterRecap(req) {
         if (environment.headless || charterRecapBusy || !req || charterRecapTried.has(req.id)) return false;
         const core = window.MissionCharterContinuationCore, c = core?.context?.(req);
         if (!c || getStatus(req) !== 'pending' || Number(req.eligibleAt || 0) > nowMs() || req.recapAttemptedAt) return false;
         if (core.validateDraft(c.experience, c)) return false;
+        // The tracker writes it from touchdown on; give its result time to arrive through the cloud.
+        if (nowMs() - Number(c.completedAt || 0) < CHARTER_RECAP_TRACKER_GRACE_MS) return false;
         let aiOff = false;
         try { aiOff = localStorage.getItem('ga_ai_enabled') === 'false'; } catch (_) {}
         const key = typeof window.getSelectedAiApiKey === 'function' ? window.getSelectedAiApiKey() : '';
@@ -3188,6 +3191,11 @@
                 : '-';
             const stay = req.temporalContext?.stayText || req.stayText || req.narrativeMemory?.stayText || '-';
             lines.push(`- ${req.id} | ${status} | ${req.sourceKind || '-'} -> ${req.followUpKind || '-'} | Zeitraum ${stay} | ab ${formatLocal(req.eligibleAt)} | bis ${formatLocal(req.expiresAt)} | ETA ${eta}`);
+            const charterCore = window.MissionCharterContinuationCore, charter = charterCore?.context?.(req);
+            if (charter) {
+                const draft = charterCore.validateDraft(charter.experience, charter);
+                lines.push(`  Rückblick: ${draft ? `vorhanden seit ${formatLocal(charter.experienceCreatedAt)} | Kartentext ${draft.offerText ? 'ja' : 'nein (Rückkehrgrund/fester Satz)'}` : 'fehlt'} | App-Versuch ${req.recapAttemptedAt ? formatLocal(req.recapAttemptedAt) : '-'}`);
+            }
         });
         return lines.join('\n');
     }

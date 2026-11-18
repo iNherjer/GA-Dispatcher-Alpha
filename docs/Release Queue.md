@@ -27,6 +27,13 @@ liefert alles Offene mit aus.
 
 ## Offen
 
+### 2026-11-18 · Vorläufige Rückblick-Entwürfe sofort aufräumen
+- **Artefakt:** Tracker-EXE (`ga-tracker-client/mission-authority-core.js`).
+- **Dateien:** `ga-tracker-client/mission-authority-core.js`, `ga-tracker-client/tracker-mission-charter-recap.test.js`.
+- **Was:** Ein beim Aufsetzen angelegter vorläufiger Rückblick-Auftrag wird bei Abschluss ohne Angebot und bei Abbruch sofort aus `followupRecapQueue` entfernt (bisher bis zu 2 Tage in der Zustandsdatei).
+- **Doku beim Release:** `docs/Mission Runtime Authority Contract.md` (Abschnitt Rückflug-Rückblick: „Ohne Angebot verfällt er nach 2 Tagen“ → „wird beim Abschluss ohne Angebot und beim Abbruch sofort entfernt“).
+- **Pruefen im Feld:** Mission nach dem Aufsetzen abbrechen: kein `MISSION_FOLLOWUP_RECAP_WRITTEN` danach.
+
 ## Ausgeliefert
 
 ### 2026-11-18 · Abschied beim Aufsetzen, Rückblick ab dem Aufsetzen — ausgeliefert in Tracker v645 Alpha (18.11.2026)

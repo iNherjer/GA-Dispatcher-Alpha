@@ -1534,6 +1534,12 @@ function createMissionAuthorityManager(options = {}) {
 
   const getExecutionSnapshot = () => buildExecutionSnapshot();
 
+  // A provisional retrospective of this run that did not become an offer is dropped at once.
+  const dropProvisionalRecaps = missionId => {
+    state.followupRecapQueue = (state.followupRecapQueue || []).filter(item => !(item.provisional === true
+      && cleanString(item.request?.sourceMissionId, 180) === cleanString(missionId, 180)));
+  };
+
   const finalizeExecutionRun = (request = {}) => {
     const active = state.activeRun;
     if (!active) return { ok: true, status: 'noop', activeRun: null, releasedRun: publicRun(state.lastRun) };
@@ -1574,6 +1580,7 @@ function createMissionAuthorityManager(options = {}) {
         }
         state.followupOutbox.push({ id: active.runId, pilotId, createdAt: now(), requests: followup.requests });
       }
+      dropProvisionalRecaps(active.missionId);
     } catch (error) { state = previousState; return { ok: false, error: 'followup_prepare_failed', detail: error.message }; }
     queueLogbookRecord(active, 'completed');
     active.active = false;
@@ -1740,6 +1747,7 @@ function createMissionAuthorityManager(options = {}) {
     }
     const previousState = jsonClone(state);
     queueLogbookRecord(active, 'aborted');
+    dropProvisionalRecaps(active.missionId);
     active.active = false;
     active.state = 'aborted';
     active.phase = 'closed';
