@@ -92,6 +92,8 @@
         'efb.fontLarger': 'Larger text',
         'efb.directTo.confirm': 'Use {target} as destination?',
         'efb.directTo.abortMission': 'Mission {mission} is still running.\n\nCancel the mission explicitly and start Direct To?',
+        'mission.arrival.attemptsFailed': ' (attempt {n} without success)',
+        'mission.arrival.found': 'Map data found: the arrival scene will be built {place}.',
         'pplQuiz.questionN': 'Question {n}',
         'pplQuiz.viewQuestionN': 'View question {n}',
         'pplQuiz.score': '{right} of {total} correct',

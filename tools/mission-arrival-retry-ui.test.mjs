@@ -11,6 +11,9 @@ function setup(resolver) {
   const failedPlan = { role: 'charter_pickup', lat: 48.02316, lon: 7.83258, source: 'airport-representative-offset',
     snapStatus: { status: 'unavailable', spawnAllowed: false, reason: 'overpass_unavailable', geoFetchFailed: true } };
   const c = vm.createContext({ console, document: { getElementById: id => dom[id] || null },
+    // UI-language helpers of app.js as pass-through (German, like without GAI18n).
+    _appUiPhrase: text => text,
+    _appUiText: (key, vars, german) => String(german).replace(/\{(\w+)\}/g, (m, n) => (vars && n in vars ? String(vars[n]) : m)),
     sanitizeMissionSceneIntentSpec: () => ({ summary: 'Charter-Abholung' }),
     resolveAptArrivalPlanPlacement: resolver,
     attachAptArrivalPlanToMissionTruth: (truth, plan) => ({ ...(truth || {}), arrivalScene: plan }) });

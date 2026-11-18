@@ -326,6 +326,40 @@ berührt werden.
    Berg nicht weiter.
 6. **Service Worker**: Wörterbücher in `sw.js` cachen.
 
+### 2.9 Bestandsaufnahme vor der Missionsphase (2026-11-18, Basis `0774341aa`)
+
+Seit dem 05.11. (167 Commits) kamen u. a. Personen-Assets, Boden-Composer, Boarding-Layout,
+Ankunfts-/Onboard-Kerne, Rückflug-Rückblick, Schwellen-Meldungen, Crew-Live und Verkehr dazu.
+- **Textprüfungen auf Deutsch:** 696 → 698 (fast unverändert; 549 in `app.js`). Neu nur
+  `mission-airport-information-core.js` (Pisten-Satz) und `mission-ground-visual-core.js`
+  (`pallet|palette|crate|kiste`, schon zweisprachig). Neue Missionslogik arbeitet auf Feldern.
+  **Variante C bleibt tragfähig**, die Pipeline-Prüfungen laufen weiter auf Deutsch.
+- **Feste Sprachvorgabe Deutsch** in Prompts: 14 Stellen in 9 Dateien (`app.js` 4,
+  `tracker-mission-distress-voice-core.js` 2, `mission-boarding-voice-core.js` 2, je 1 in den
+  Ideen-Kernen Charter/Sightseeing/News/Medical, `mission-private-episode-v6.js`, `checklists.js`).
+  Die übrigen Prompts sind deutsch formuliert und erzeugen dadurch deutschen Text.
+- **Sprachausgabe liegt jetzt größtenteils im Tracker** (`tracker-mission-*-voice.js`,
+  `tracker-flight-voice-core.js`, `tracker-mission-charter-recap.js`, Distress-Kern): Gemini-
+  Prompts plus feste deutsche Rückfallsätze. Für Variante B (Live-Stimme Englisch) kann der
+  Tracker die Sprache aus `display.ui.language` lesen (seit v615 vorhanden).
+- **Noch keine englischen Missionsfelder** (`*En`) und keine Sprachangabe in Prompts – wie geplant.
+- **UI-Lücken seit Phase 1/2** (neue Funktionen ohne Übersetzung, ~25 Anzeigetexte):
+  `crew-live-client.js` (Zuschauer-Status), `map-basemap-catalog.js` (CyclOSM-Name, Dimm-Hinweis),
+  `map-display-controls.js` (Flugzeug-Icon-Hinweise), `sync.js` Boarding-Layout-Rückmeldungen
+  (Z. ~10682 ff.), `traffic-warning-core.js` („gleiche Höhe“, ggf. Sprachausgabe),
+  `app.js` „Kein Gepäck (0 lbs)“ und OSM-Statuszeilen. `profile.js`-Debugbericht bleibt deutsch.
+  Die meisten neuen Funktionen haben Übersetzungen schon mitgeliefert (14 neue `data-i18n` in
+  `index.html`, Einträge in `i18n/en*.js`).
+- **Geschlossen am 2026-11-18:** Boarding-Layout-Rückmeldungen (`sync.js`, Sätze ergänzt), Annehmen-Knopf
+  und OSM-Neuversuch der Empfangsszene (`app.js`; Erfolgsmeldung wird erst bei der Anzeige gebaut,
+  gespeichert bleibt der deutsche Text). Schon übersetzt waren Flugzeug-Icon-Hinweise und
+  Basiskarten-Dimmung. **Bewusst deutsch:** Crew-Live-Meldungen (Diagnose für die Debug-Konsole,
+  wortgenauer Vergleich), Basiskarten-Namen (Ebenen-Schlüssel, wie seit Phase 1), Verkehrswarnung
+  „gleiche Höhe“ (beschreibt deutsche Sprachclips → Phase 5), „Kein Gepäck (0 lbs)“ (Missionsdaten).
+  Die Liste „not in baseline“ im Prüfskript bleibt absichtlich als Merkliste für die Missionsphase.
+- **Noch deutsch durch Missionsphase:** EFB-Missionstexte (Verlade-Manager, Banner,
+  `mission-control-ui-core.js`), Web-Legacy-Banner, Tracker-Statuszeilen an EFB/Web.
+
 ## 4. Etappen
 
 | Phase | Inhalt | Größe | Abhängig von |

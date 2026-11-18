@@ -28255,22 +28255,25 @@ function updateMissionAcceptanceUi() {
     if (retryBtn) {
         retryBtn.style.display = arrivalGeoFailed || retrying ? '' : 'none';
         retryBtn.disabled = retrying || locked || draftPhase === 'generating';
-        retryBtn.textContent = retrying ? 'OSM wird abgefragt...' : 'Erneut versuchen';
+        retryBtn.textContent = _appUiPhrase(retrying ? 'OSM wird abgefragt...' : 'Erneut versuchen');
     }
     if (btn) {
         btn.disabled = composing || locked || retrying || draftPhase === 'generating';
         btn.classList.toggle('mission-reject-btn', arrivalGeoFailed || retrying);
-        btn.textContent = draftPhase === 'committing' ? 'Mission wird übernommen...' : composing ? 'Szene wird vorbereitet...'
-            : (arrivalGeoFailed || retrying) ? 'Ohne Empfangsszene akzeptieren' : 'Mission akzeptieren';
+        btn.textContent = _appUiPhrase(draftPhase === 'committing' ? 'Mission wird übernommen...' : composing ? 'Szene wird vorbereitet...'
+            : (arrivalGeoFailed || retrying) ? 'Ohne Empfangsszene akzeptieren' : 'Mission akzeptieren');
     }
     if (text && (arrivalGeoFailed || retrying)) {
         const attempts = window._missionArrivalRetry?.md === md ? Number(window._missionArrivalRetry.attempts || 0) : 0;
         text.textContent = retrying
-            ? (missionArrivalGeoLiveStatus(md) || 'Die Kartendaten des Zielflugplatzes werden erneut bei OSM abgefragt …')
-            : 'Der OSM-Server antwortet nicht, die Empfangsszene kann dadurch nicht korrekt erstellt werden. Möchtest du es nochmal versuchen? Ohne die Szene wird nach der Landung ein Abholfahrzeug zu deinem Flugzeug geschickt.'
-                + (attempts ? ` (Versuch ${attempts} ohne Erfolg)` : '');
+            ? _appUiPhrase(missionArrivalGeoLiveStatus(md) || 'Die Kartendaten des Zielflugplatzes werden erneut bei OSM abgefragt …')
+            : _appUiPhrase('Der OSM-Server antwortet nicht, die Empfangsszene kann dadurch nicht korrekt erstellt werden. Möchtest du es nochmal versuchen? Ohne die Szene wird nach der Landung ein Abholfahrzeug zu deinem Flugzeug geschickt.')
+                + (attempts ? _appUiText('mission.arrival.attemptsFailed', { n: attempts }, ' (Versuch {n} ohne Erfolg)') : '');
     } else if (text && window._missionArrivalRetry?.md === md && window._missionArrivalRetry.successText && !composing && draftPhase !== 'committing') {
-        text.textContent = window._missionArrivalRetry.successText;
+        // Stored German text stays; the display follows the UI language (found place via its source).
+        text.textContent = window._missionArrivalRetry.successPlace
+            ? _appUiText('mission.arrival.found', { place: _appUiPhrase(window._missionArrivalRetry.successPlace) }, 'Kartendaten gefunden: Die Empfangsszene wird {place} aufgebaut.')
+            : window._missionArrivalRetry.successText;
     } else if (text) {
         const isPOI = !!(md.poiName || md.poiSource || md.isPOI);
         const intent = sanitizeMissionSceneIntentSpec(md.sceneIntent || md.missionContract?.sceneIntent || null, {
@@ -28331,6 +28334,7 @@ async function retryMissionArrivalPlacement() {
     // Erfolg sichtbar machen (Feldtest 16.11.2026: das Feld sprang stumm auf „Akzeptieren“ zurück).
     const placeText = { osm_hangar_front: 'vor einem Hangar', osm_apron: 'auf dem Vorfeld', osm_parking_position: 'an einer Parkposition' }[resolved?.source] || 'auf einem kartierten Platz';
     state.successText = ok ? `Kartendaten gefunden: Die Empfangsszene wird ${placeText} aufgebaut.` : '';
+    state.successPlace = ok ? placeText : '';
     try {
         window._missionPhaseDebugPush?.('apt_arrival_placement_retry', {
             ok, source: resolved?.source || null, snapReason: resolved?.snapStatus?.reason || null,
