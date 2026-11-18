@@ -45,6 +45,15 @@ liefert alles Offene mit aus.
 - **Doku beim Release:** keine weitere.
 - **Pruefen im Feld:** EFB auf Englisch: Missionskarte (Abschnittstitel, aktueller Auftrag, Fortschritt), Mission abbrechen (Rückfrage), Unterbrechung nach Sim-Neustart.
 
+### 2026-11-18 · EFB-Verlade-Manager und Missionsbanner auf Englisch
+- **Artefakt:** Tracker-EXE (EFB-Host, `mission-control-ui-core.js`, EFB-Kopie von `i18n/en-phrases.js`)
+- **Dateien:** `ga-tracker-client/tracker-efb-kartentisch-host.js`, `ga-tracker-client/mission-control-ui-core.js`, `ga-tracker-client/efb-web-assets/i18n/en-phrases.js` (+ Tests `mission-transport-size`, `tracker-flightplan-host`)
+- **Was:** Verlade-Manager (Frachtgutliste, Unterschrift, Knöpfe, Hinweise, Zuladung), Missionsbanner mit Flugplan-/Unterbrechungsknöpfen und Entlade-Rückfrage erscheinen bei englischer Oberfläche englisch. Übersetzt wird das fertig gezeichnete Fenster (`translateDom`), deutsche Quelle bleibt erhalten; Sprachwechsel zeichnet neu.
+- **Warum:** Phase 3 der englischen Übersetzung (`docs/English Translation Plan.md` 2.12). Web ist schon live (v2449).
+- **Tests:** alle Host-/Kern-Tests grün, Browser-Test mit nachgebautem Fenster (Englisch vollständig, Zurückschalten stellt Deutsch exakt her).
+- **Doku beim Release:** keine weitere.
+- **Pruefen im Feld:** EFB auf Englisch: Verlade-Manager beim Boarding und Entladen, Missionsbanner (Start, Taxi-Countdown, Ankunft), Sprachwechsel bei offenem Fenster.
+
 ## Ausgeliefert
 
 ### 2026-11-18 · Tolerante Rückblick-Prüfung, Folgemission immer baubar — ausgeliefert in Tracker v647 Alpha (18.11.2026)

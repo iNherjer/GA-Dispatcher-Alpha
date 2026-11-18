@@ -13274,7 +13274,7 @@ function _missionCriticalActionConfirmMessage(action = 'end', options = {}) {
 function _confirmMissionCriticalAction(action = 'end', options = {}) {
     if (options?.skipConfirm) return true;
     const message = _missionCriticalActionConfirmMessage(action, options);
-    try { return !!confirm(message); } catch (_) { return false; }
+    try { return !!confirm(_syncBannerText(message)); } catch (_) { return false; }
 }
 window.confirmMissionCriticalAction = _confirmMissionCriticalAction;
 

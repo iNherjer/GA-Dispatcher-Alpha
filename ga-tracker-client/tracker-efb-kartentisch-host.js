@@ -4,6 +4,15 @@
   // UI language (i18n-core.js via the tracker's display setting ui.language). Without
   // GAI18n, or in German, the German text stays exactly as before. Mission texts follow later.
   function _hT(text) { return window.GAI18n ? window.GAI18n.phrase(text) : text; }
+  // Mission texts: phrases plus the number sentences of the shared mission control core.
+  function _mT(text) {
+    var core = window.GAMissionControlUiCore;
+    return core && typeof core.displayText === 'function' ? core.displayText(text) : _hT(text);
+  }
+  function _mDom(node) {
+    var core = window.GAMissionControlUiCore;
+    if (core && typeof core.translateDom === 'function') core.translateDom(node);
+  }
   function _hK(key, german, vars) {
     if (window.GAI18n) return window.GAI18n.t(key, vars, german);
     return String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, function (m, n) { return vars && Object.prototype.hasOwnProperty.call(vars, n) ? String(vars[n]) : m; });
@@ -1447,7 +1456,7 @@
         }
         if (intent === 'request_pax_interaction' && !payload.action) payload.action = 'deboard';
         if (intent === 'confirm_unload' && action !== 'item') {
-          if (!window.confirm('Entladung abschließen und Mission beenden?\n\nDanach startet der Missionsabschluss mit Farewell/Endszene.')) return;
+          if (!window.confirm(_mT('Entladung abschließen und Mission beenden?\n\nDanach startet der Missionsabschluss mit Farewell/Endszene.'))) return;
         }
         var requested = requestMissionIntent(intent, payload);
         if (intent === 'clear_manifest_signature') {
@@ -1488,6 +1497,7 @@
       .map(function (node) { return node ? { top: node.scrollTop, left: node.scrollLeft } : null; });
     cargoManagerSignature = markup;
     body.innerHTML = markup;
+    _mDom(body);
     normalizeCoherentGlyphs(body);
     applyEfbFontScale();
     var signatureName = body.querySelector('.mission-cargo-signature.is-animating .mission-cargo-signature-name');
@@ -3437,10 +3447,10 @@
     if (model.className === 'is-resumed') banner.classList.add('is-resumed');
     banner.style.display = 'flex';
     banner.setAttribute('data-mission-id', model.missionId);
-    banner.setAttribute('aria-label', model.kicker + ': ' + model.text + '. ' + model.button);
-    setText('missionStartBannerKicker', model.kicker);
-    setText('missionStartBannerText', missionIntentTone === 'danger' && missionIntentStatus ? missionIntentStatus : model.text);
-    setText('missionStartBannerBtn', model.button);
+    banner.setAttribute('aria-label', _mT(model.kicker) + ': ' + _mT(model.text) + '. ' + _mT(model.button));
+    setText('missionStartBannerKicker', _mT(model.kicker));
+    setText('missionStartBannerText', _mT(missionIntentTone === 'danger' && missionIntentStatus ? missionIntentStatus : model.text));
+    setText('missionStartBannerBtn', _mT(model.button));
     var button = byId('missionStartBannerBtn');
     if (button) {
       button.disabled = missionIntentPending || model.disabled === true;
@@ -3448,6 +3458,8 @@
     }
     var close = banner.querySelector ? banner.querySelector('.mission-start-banner-close') : null;
     if (close) close.style.display = model.closeHidden === true ? 'none' : '';
+    _mDom(byId('gaFlightPlanStartActions'));
+    _mDom(byId('gaInterruptionActions'));
   }
 
   function updateMissionLiveFields(view) {
@@ -4186,6 +4198,8 @@
       if (bootNode && bootNode.hasAttribute('data-boot-message')) bootNode.textContent = _hT(bootNode.getAttribute('data-boot-message'));
       var contextButton = document.querySelector('.ga-efb-host-context');
       if (contextButton) contextButton.textContent = contextPickActive ? _hT('Was ist hier (An)') : _hT('Was ist hier');
+      try { cargoManagerSignature = ''; renderCargoManager(); } catch (_) {}
+      try { renderMissionActionBanner(missionSnapshot); } catch (_) {}
     });
   }
 

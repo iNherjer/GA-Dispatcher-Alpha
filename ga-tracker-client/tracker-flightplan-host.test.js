@@ -18,7 +18,9 @@ function harness() {
     missionActionBannerModel:()=>banner._gaMissionActionModel,
     // Interruption helpers live outside the sliced banner source (see tracker-cloud-load.test.js).
     interruptionView:()=>null,scheduleInterruptionRecheck(){},resumedNoticeUntil:0,resumedNoticeKey:'',
-    setText:(id,text)=>{node(id).textContent=text;}};
+    setText:(id,text)=>{node(id).textContent=text;},
+    // Display translation helpers of the host (pass-through, German).
+    _mT:value=>value,_mDom(){}};
   vm.createContext(context);
   const bridge=source.slice(source.indexOf('  var flightPlanBridgeReadyUntil'),source.indexOf('  var cargoManagerOpen'));
   const setup=source.slice(source.indexOf('  function setupMissionActionBanner()'),source.indexOf('  function missionToolbarProjection('));

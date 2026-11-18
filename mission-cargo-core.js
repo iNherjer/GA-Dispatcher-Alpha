@@ -4713,7 +4713,15 @@ function _missionCargoConfirmCriticalAction(action = 'cargo-end') {
     const msg = action === 'cargo-unload'
         ? 'Entladung wirklich abschliessen?'
         : 'Entladung abschliessen und Mission beenden?';
-    try { return !!confirm(msg); } catch (_) { return false; }
+    try { return !!confirm(window.GAMissionControlUiCore?.displayText?.(msg) || msg); } catch (_) { return false; }
+}
+
+// Language switch: retranslate an open loading manager in place (it keeps its German source).
+if (typeof window !== 'undefined' && window.GAI18n && typeof window.GAI18n.onChange === 'function') {
+    window.GAI18n.onChange(() => {
+        const overlay = document.getElementById('missionCargoOverlay');
+        if (overlay && overlay.style.display === 'flex') window.GAMissionControlUiCore?.translateDom?.(overlay);
+    });
 }
 
 function _missionCargoRenderDialog(mode = 'load', options = {}) {
@@ -5324,6 +5332,8 @@ function _missionCargoRenderDialog(mode = 'load', options = {}) {
                 <button class="mission-cargo-primary" ${trackerCargoPresentation?.actions?.primary?.disabled === true || (!trackerCargoPresentation && (!trackerPrimaryAllowed || (isUnload && (!groundHandlingAllowed || signatureAnimating || manualPassengerSceneBusy || complianceActionBusy || requiredUnloadBlockingMissing > 0)) || (isPickup && (!groundHandlingAllowed || !pickupItemsComplete || signatureAnimating || manualPassengerSceneBusy)) || (isLoad && (!groundHandlingAllowed || signatureAnimating || payloadFinalizeRunning || manualPassengerSceneBusy || requiredMissing > 0)))) ? 'disabled' : ''} onclick="${primaryActionJs}">${_missionCargoEscape(primaryActionLabel)}</button>
             </div>
         </div>`;
+    // English UI: translate the rendered window (display only, German stays the source).
+    window.GAMissionControlUiCore?.translateDom?.(overlay);
     overlay.style.display = 'flex';
     if (previousScroll) {
         window.missionCargoStatus.dialogScroll = previousScroll;

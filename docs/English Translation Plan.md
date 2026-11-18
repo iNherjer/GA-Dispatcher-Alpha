@@ -398,6 +398,21 @@ Noch deutsch: Missionstitel und Story (generiert → Phase 4), Ladungsnamen, POI
 (`control.poiStatus`), Trainingsanweisungen (`guidance.*`), Banner und Verlade-Manager im
 EFB-Host, Verlade-Manager im Web (`mission-cargo-core.js`), Debrief und Flugbuch.
 
+### 2.12 Phase 3, Schritt 3: Verlade-Manager und Missionsbanner (2026-11-18)
+
+Der Verlade-Manager hat in Web (`mission-cargo-core.js`, mehrere Pfade, ~150 Textstellen in HTML-
+Vorlagen) und EFB-Host eigene Vorlagen; die Texte des Tracker-Modells kommen aus
+`mission-apt-ui-core.js`. Statt jede Stelle umzubauen, übersetzt
+`GAMissionControlUiCore.translateDom(node)` das fertig gezeichnete Fenster: Textknoten und
+`title`/`aria-label`/`placeholder` laufen durch `displayText()` (Satz, Muster, „Label: Wert“,
+Teile an „ · “). Jeder Knoten merkt sich seinen deutschen Ursprung, ein Wechsel zurück stellt ihn
+exakt wieder her. Eingesetzt: Web-Verlade-Dialog (auch beim Sprachwechsel), EFB-Verlade-Manager,
+EFB-Bannerknöpfe; Bannertexte im EFB über `_mT()`, Rückfragen über `_syncBannerText`/`_mT`.
+
+Grenzen: Ladungsnamen (Missionsdaten, Phase 4), Behördenkontroll-Sätze mit Namen und Fristen
+(`mission-compliance-domain-core.js`, Sprachausgabe → Phase 4/5), Fallback-Manager im EFB ohne
+Tracker-Modell (Kopfzeile „Mission/Phase/Stand“ bleibt technisch).
+
 ## 4. Etappen
 
 | Phase | Inhalt | Größe | Abhängig von |

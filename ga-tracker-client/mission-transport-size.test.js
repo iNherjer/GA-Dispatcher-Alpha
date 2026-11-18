@@ -41,7 +41,8 @@ test('start banner displays failed intent directly, and restores normal text aft
     missionBannerDismissedKey: '', missionIntentTone: 'danger', missionIntentStatus: 'Paket zu gross', missionIntentPending: false,
     setText: (id, value) => { text[id] = value; }, byId: () => null,
     // Helpers defined outside the sliced banner source.
-    flightPlanJobs: {}, interruptionView: () => null, preflightPlanningModel: () => null, syncFlightPlanRecallButton() {} };
+    flightPlanJobs: {}, interruptionView: () => null, preflightPlanningModel: () => null, syncFlightPlanRecallButton() {},
+    _mT: value => value, _mDom() {} };
   vm.createContext(ctx); vm.runInContext(source.slice(start, end), ctx);
   ctx.renderMissionActionBanner({}); assert.equal(text.missionStartBannerText, 'Paket zu gross');
   ctx.missionIntentTone = 'good'; ctx.renderMissionActionBanner({}); assert.equal(text.missionStartBannerText, 'Normal');

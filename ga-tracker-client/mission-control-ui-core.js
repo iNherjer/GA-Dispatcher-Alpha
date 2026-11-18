@@ -7,7 +7,7 @@
 }(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this), function () {
   'use strict';
 
-  var BUILD_ID = 'tracker-mission-ui-20261118-01';
+  var BUILD_ID = 'tracker-mission-ui-20261118-02';
 
   var ACTION_LABELS = Object.freeze({
     activate_cloud_mission: 'Mission aus der Cloud beginnen',
@@ -98,7 +98,35 @@
     [/^(\d+) Scanlinien vollständig abfliegen$/, function (m) { return 'Fly all ' + m[1] + ' scan lines completely'; }],
     [/^Nächster Punkt: ([\s\S]+) · Radius ([\d.]+) NM$/, function (m) { return 'Next point: ' + m[1] + ' · radius ' + m[2] + ' NM'; }],
     [/^Suchgebiet ([\d.]+) NM · Sichtung über PAX melden$/, function (m) { return 'Search area ' + m[1] + ' NM · report sightings via PAX'; }],
-    [/^([\s\S]+) anfliegen$/, function (m) { return 'Fly to ' + m[1]; }]
+    [/^([\s\S]+) anfliegen$/, function (m) { return 'Fly to ' + m[1]; }],
+    // Loading manager and mission banner (mission-apt-ui-core.js, mission-cargo-core.js).
+    [/^(\d+) Sek\.$/, function (m) { return m[1] + ' s'; }],
+    [/^Du stehst am Ziel\. ([\d.]+) NM zum Empfangspunkt\.$/, function (m) { return 'You are at the destination. ' + m[1] + ' NM to the reception point.'; }],
+    [/^seit (\d+) (Tag|Tagen) abgelaufen$/, function (m) { return 'expired ' + m[1] + (m[1] === '1' ? ' day ago' : ' days ago'); }],
+    [/^noch (\d+) (Tag|Tage) g(?:ue|ü)ltig$/, function (m) { return 'valid for ' + m[1] + (m[1] === '1' ? ' more day' : ' more days'); }],
+    [/^Gültig bis ([\s\S]+)$/, function (m) { return 'Valid until ' + m[1]; }],
+    [/^Pickup ist nur im Stillstand am (Zielplatz|Zielstrip) m(?:oe|ö)glich\.$/, function (m) {
+      return 'Pickup is only possible when stationary at the ' + (m[1] === 'Zielplatz' ? 'destination airfield' : 'destination strip') + '.'; }],
+    [/^Hier l(?:ae|ä)dst du ([\s\S]+) am (Zielplatz|Zielstrip) ein\. Erst nach Unterschrift und Best(?:ae|ä)tigung wird der R(?:ue|ü)ckflug freigegeben\.$/, function (m) {
+      var what = { 'wartenden Pickup-Gast und seine Begleitfracht': 'the waiting pickup guest and their accompanying cargo', 'Rueckholfracht': 'the return cargo', 'wartenden Pickup-Gast': 'the waiting pickup guest' }[m[1]] || m[1];
+      return 'Here you load ' + what + ' at the ' + (m[2] === 'Zielplatz' ? 'destination airfield' : 'destination strip') + '. The return flight is released only after signing and confirming.'; }],
+    [/^Pickup am (Zielplatz|Zielstrip)$/, function (m) { return 'Pickup at the ' + (m[1] === 'Zielplatz' ? 'destination airfield' : 'destination strip'); }],
+    [/^(\d+) Pflicht-Items noch zu entladen$/, function (m) { return m[1] + ' required items still to unload'; }],
+    [/^(\d+) Pflicht-Items offen$/, function (m) { return m[1] + ' required items open'; }],
+    [/^(\d+) Pickup-Items offen$/, function (m) { return m[1] + ' pickup items open'; }],
+    [/^(\d+) Bord-Items an Bord$/, function (m) { return m[1] + ' onboard items on board'; }],
+    [/^(\d+) lbs an Bord$/, function (m) { return m[1] + ' lbs on board'; }],
+    [/^(\d+) lbs entladen$/, function (m) { return m[1] + ' lbs unloaded'; }],
+    [/^Distanz (\d+) m$/, function (m) { return 'Distance ' + m[1] + ' m'; }],
+    [/^(Gesamt|Leer|Fuel|Pax|Cargo|Zusatz) (\S+) lbs$/, function (m) { return displayText(m[1]) + ' ' + m[2] + ' lbs'; }],
+    [/^(Abflug und Boarding|Auftrag am Ziel|Ankunft und Entladung|Synchroner Missionsstand)\. Jede Änderung wird direkt an den Tracker gesendet und auf allen verbundenen Ansichten aktualisiert\.$/, function (m) {
+      return displayText(m[1]) + '. Every change is sent straight to the tracker and updated on all connected views.'; }],
+    [/^Die automatische Sim-Zuladung ist bei diesem Flugzeug nicht moeglich\.(?: Missionszuladung: (\d+) lbs\.)?(?: Zielwerte: ([\s\S]+?)\.)? Wenn du die Zuladung im Simulator abbilden moechtest, setze diese Werte bitte manuell im Weight-&-Balance- oder Tablet-Menue\. Die Mission kann trotzdem gestartet werden\.$/, function (m) {
+      return 'Automatic sim payload is not possible for this aircraft.' + (m[1] ? ' Mission payload: ' + m[1] + ' lbs.' : '') + (m[2] ? ' Target values: ' + m[2] + '.' : '')
+        + ' If you want the payload in the simulator, please set these values manually in the weight & balance or tablet menu. The mission can still be started.'; }],
+    [/^Sim-Zuladung noch nicht synchron \(([^)]+)\)\.$/, function (m) { return 'Sim payload not in sync yet (' + m[1] + ').'; }],
+    [/^Sim-Gewichte nicht verfügbar \(([^)]+)\)\.$/, function (m) { return 'Sim weights not available (' + m[1] + ').'; }],
+    [/^Accu-Sim Comanche · Sitze S2\/S3\/S4 · Baggage S5 \(max\. (\d+) lbs\)$/, function (m) { return 'Accu-Sim Comanche · seats S2/S3/S4 · baggage S5 (max. ' + m[1] + ' lbs)'; }]
   ];
   function displayText(value) {
     var source = value == null ? '' : String(value);
@@ -111,13 +139,68 @@
       var match = DISPLAY_PATTERNS[i][0].exec(source);
       if (match) return build(match);
     }
-    // "Kicker: sentence" as joined by the interruption view.
+    // "Kicker: sentence" as joined by the interruption view, or "Label: value".
     var joined = /^([^:]{2,60}): ([\s\S]+)$/.exec(source);
     if (joined) {
       var left = api.phrase(joined[1]);
       if (left !== joined[1]) return left + ': ' + displayText(joined[2]);
     }
+    var label = /^([^:]{2,60}):$/.exec(source);
+    if (label && api.phrase(label[1]) !== label[1]) return api.phrase(label[1]) + ':';
+    // "Pflicht · 12 lbs · geladen": translate each part on its own.
+    if (source.indexOf(' · ') > 0) {
+      var parts = source.split(' · ');
+      var changed = false;
+      var shown = parts.map(function (part) { var out = displayText(part); if (out !== part) changed = true; return out; });
+      if (changed) return shown.join(' · ');
+    }
     return source;
+  }
+
+  // Translates an already rendered subtree (loading manager, EFB banner) in place.
+  // Every text node remembers its German source, so switching back restores it.
+  var DOM_ATTRIBUTES = ['title', 'aria-label', 'placeholder'];
+  function translateTextValue(raw) {
+    // Keep surrounding spaces and "·" separators of text split by <b> tags.
+    var parts = /^([\s·]*)([\s\S]*?)([\s·]*)$/.exec(String(raw));
+    var core = parts ? parts[2] : '';
+    if (!core || !/[A-Za-zÄÖÜäöüß]/.test(core)) return raw;
+    var out = displayText(core);
+    return out === core ? raw : parts[1] + out + parts[3];
+  }
+  function translateDom(rootNode) {
+    if (!rootNode || typeof rootNode !== 'object') return rootNode;
+    var stack = [rootNode];
+    while (stack.length) {
+      var node = stack.pop();
+      if (node.nodeType === 3) {
+        var current = node.nodeValue;
+        var german = node.__gaI18nShown !== undefined && current === node.__gaI18nShown ? node.__gaI18nGerman : current;
+        var shownText = translateTextValue(german);
+        node.__gaI18nGerman = german;
+        node.__gaI18nShown = shownText;
+        if (shownText !== current) node.nodeValue = shownText;
+        continue;
+      }
+      if (node.nodeType !== 1 && node.nodeType !== 11) continue;
+      if (node.nodeType === 1) {
+        var tag = String(node.tagName || '').toUpperCase();
+        if (tag === 'SCRIPT' || tag === 'STYLE') continue;
+        var memory = node.__gaI18nAttributes || (node.__gaI18nAttributes = {});
+        for (var a = 0; a < DOM_ATTRIBUTES.length; a++) {
+          var name = DOM_ATTRIBUTES[a];
+          if (!node.hasAttribute || !node.hasAttribute(name)) continue;
+          var value = node.getAttribute(name);
+          var entry = memory[name];
+          var source = entry && value === entry.shown ? entry.german : value;
+          var shownValue = translateTextValue(source);
+          memory[name] = { german: source, shown: shownValue };
+          if (shownValue !== value) node.setAttribute(name, shownValue);
+        }
+      }
+      for (var child = node.firstChild; child; child = child.nextSibling) stack.push(child);
+    }
+    return rootNode;
   }
   function dt(value) { return escapeHtml(displayText(value)); }
 
@@ -620,6 +703,7 @@
     cargoWorldAvailable: cargoWorldAvailable,
     formatIntentResult: formatIntentResult,
     displayText: displayText,
+    translateDom: translateDom,
     abortConfirmation: abortConfirmation
   });
 }));
