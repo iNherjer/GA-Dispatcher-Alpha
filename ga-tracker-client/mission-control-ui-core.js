@@ -528,7 +528,9 @@
     var phase = view.phase && typeof view.phase === 'object' ? view.phase : {};
     var stages = Array.isArray(phase.stages) ? phase.stages : [];
     var current = Math.max(0, Math.min(Math.max(0, stages.length - 1), Math.round(Number(phase.current) || 0)));
-    var story = String(view.story || view.detail || '');
+    // Generated mission text stays as written (phase 4); the fixed detail line used as a
+    // fallback is translated like the other card texts.
+    var story = view.story ? String(view.story) : displayText(String(view.detail || ''));
     var storyExpandable = story.length > 160;
     var expanded = settings.storyExpanded === true;
     var taskTone = safeTone(view.taskTone, 'active');

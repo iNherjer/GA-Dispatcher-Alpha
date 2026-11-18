@@ -16135,7 +16135,9 @@ function _syncBannerText(text) {
         const match = pattern.exec(text);
         if (match) return build(match);
     }
-    return text;
+    // Shared mission display patterns (countdown, loading manager, POI status lines).
+    const shared = window.GAMissionControlUiCore?.displayText;
+    return typeof shared === 'function' ? shared(text) : text;
 }
 function updateSyncStatus(msg, isError = false) {
     const el = document.getElementById('syncStatus');

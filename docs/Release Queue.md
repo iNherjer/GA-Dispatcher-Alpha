@@ -27,43 +27,43 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-### 2026-11-18 · EFB-Passagierfenster: Titel auf Englisch
+## Ausgeliefert
+
+### 2026-11-18 · EFB-Passagierfenster: Titel auf Englisch — ausgeliefert in Tracker v648 Alpha (18.11.2026)
 - **Artefakt:** Tracker-EXE (EFB-Host und EFB-Kopie von `i18n/en-phrases.js`)
 - **Dateien:** `ga-tracker-client/tracker-efb-kartentisch-host.js`, `ga-tracker-client/efb-web-assets/i18n/en-phrases.js`
 - **Was:** Passagierfenster im EFB zeigt Titel, Platzhalter „Passagier“ und „Noch keine Nachricht.“ bei englischer Oberfläche englisch (nur Anzeige, `_hT`).
-- **Warum:** Phase 3 der englischen Übersetzung, Schritt 1 (`docs/English Translation Plan.md` 2.10). Web ist schon live (v2447).
+- **Warum:** Phase 3 der englischen Übersetzung, Schritt 1 (`docs/English Translation Plan.md` 2.10). Web war schon live (v2447).
 - **Tests:** `tracker-efb-poi-actions`, `efb-web-assets-sync`, `tracker-efb-asset-syntax`, alle Tests mit `tracker-efb-kartentisch-host` grün.
 - **Doku beim Release:** keine weitere.
 - **Pruefen im Feld:** EFB auf Englisch: Passagierfenster vor der ersten Nachricht „Passenger“ / „No message yet.“
 
-### 2026-11-18 · EFB-Missionskarte auf Englisch
+### 2026-11-18 · EFB-Missionskarte auf Englisch — ausgeliefert in Tracker v648 Alpha (18.11.2026)
 - **Artefakt:** Tracker-EXE (EFB lädt `ga-tracker-client/mission-control-ui-core.js` und die EFB-Kopie von `i18n/en-phrases.js`)
 - **Dateien:** `ga-tracker-client/mission-control-ui-core.js`, `ga-tracker-client/efb-web-assets/i18n/en-phrases.js`
 - **Was:** Missionskarte, Bedienknöpfe, Unterbrechungshinweise, Aktionsmeldungen, Bordbuch-Erinnerung und Abbruch-Rückfrage erscheinen bei englischer Oberfläche englisch. Übersetzt wird nur beim Zeichnen (`displayText`); die Tracker-Ansicht bleibt deutsch.
-- **Warum:** Phase 3 der englischen Übersetzung (`docs/English Translation Plan.md` 2.11). Web ist schon live (v2448).
+- **Warum:** Phase 3 der englischen Übersetzung (`docs/English Translation Plan.md` 2.11). Web war schon live (v2448).
 - **Tests:** `mission-control-ui-core`, `tracker-efb-web-client`, `efb-web-assets-sync`, `tracker-efb-asset-syntax`, `tools/efb-interruption-host`, `tools/tracker-sim-interruption-web` grün; deutsche Ausgabe zeichengleich zum Vorstand geprüft.
 - **Doku beim Release:** keine weitere.
 - **Pruefen im Feld:** EFB auf Englisch: Missionskarte (Abschnittstitel, aktueller Auftrag, Fortschritt), Mission abbrechen (Rückfrage), Unterbrechung nach Sim-Neustart.
 
-### 2026-11-18 · EFB-Verlade-Manager und Missionsbanner auf Englisch
+### 2026-11-18 · EFB-Verlade-Manager und Missionsbanner auf Englisch — ausgeliefert in Tracker v648 Alpha (18.11.2026)
 - **Artefakt:** Tracker-EXE (EFB-Host, `mission-control-ui-core.js`, EFB-Kopie von `i18n/en-phrases.js`)
 - **Dateien:** `ga-tracker-client/tracker-efb-kartentisch-host.js`, `ga-tracker-client/mission-control-ui-core.js`, `ga-tracker-client/efb-web-assets/i18n/en-phrases.js` (+ Tests `mission-transport-size`, `tracker-flightplan-host`)
 - **Was:** Verlade-Manager (Frachtgutliste, Unterschrift, Knöpfe, Hinweise, Zuladung), Missionsbanner mit Flugplan-/Unterbrechungsknöpfen und Entlade-Rückfrage erscheinen bei englischer Oberfläche englisch. Übersetzt wird das fertig gezeichnete Fenster (`translateDom`), deutsche Quelle bleibt erhalten; Sprachwechsel zeichnet neu.
-- **Warum:** Phase 3 der englischen Übersetzung (`docs/English Translation Plan.md` 2.12). Web ist schon live (v2449).
+- **Warum:** Phase 3 der englischen Übersetzung (`docs/English Translation Plan.md` 2.12). Web war schon live (v2449).
 - **Tests:** alle Host-/Kern-Tests grün, Browser-Test mit nachgebautem Fenster (Englisch vollständig, Zurückschalten stellt Deutsch exakt her).
 - **Doku beim Release:** keine weitere.
 - **Pruefen im Feld:** EFB auf Englisch: Verlade-Manager beim Boarding und Entladen, Missionsbanner (Start, Taxi-Countdown, Ankunft), Sprachwechsel bei offenem Fenster.
 
-### 2026-11-18 · EFB-Missionskarte: POI-Statuszeilen auf Englisch
+### 2026-11-18 · EFB-Missionskarte: POI-Statuszeilen auf Englisch — ausgeliefert in Tracker v648 Alpha (18.11.2026)
 - **Artefakt:** Tracker-EXE (`mission-control-ui-core.js`, EFB-Kopie von `i18n/en-phrases.js`)
 - **Dateien:** `ga-tracker-client/mission-control-ui-core.js`, `ga-tracker-client/efb-web-assets/i18n/en-phrases.js`
 - **Was:** „Aktueller Auftrag“ und Detailzeile bei POI-, SAR-, Survey-, Ketten- und Trainingsmissionen (`control.poiStatus`) erscheinen englisch.
-- **Warum:** Phase 3 der englischen Übersetzung (`docs/English Translation Plan.md` 2.13). Web ist schon live (v2450).
+- **Warum:** Phase 3 der englischen Übersetzung (`docs/English Translation Plan.md` 2.13). Web war schon live (v2450).
 - **Tests:** Kern-/Host-Tests grün, deutsche Ausgabe zeichengleich.
 - **Doku beim Release:** keine weitere.
 - **Pruefen im Feld:** EFB auf Englisch: POI-Mission (Arbeitszeit, Nächster Schritt), SAR-Heli.
-
-## Ausgeliefert
 
 ### 2026-11-18 · Tolerante Rückblick-Prüfung, Folgemission immer baubar — ausgeliefert in Tracker v647 Alpha (18.11.2026)
 - **Artefakt:** Tracker-EXE (gemeinsame Prüfung im Hintergrund-Schreiber), Web v2446.
