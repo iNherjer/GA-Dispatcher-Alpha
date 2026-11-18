@@ -116,9 +116,15 @@ Ideen-Weiche greift, laufen `fetchMissionPlannerV4` und danach `fetchMissionWrit
    Folge über `mission-followup.js`). Eigener Zweig `writer_v5_bush` (~Z. 46176).
 2. **Charter-Rückflug `apt_charter_pickup` alter Missionen ohne `charterIdea`**
    (`MissionLegacyCharterNarrativeCore`). Läuft aus, sobald alte Charter abgeflogen sind.
-3. **POI-Folgeaufträge ohne Fortsetzungs-Kern**: Abgedeckt sind nur Foto/Inspektion
-   (`usePoiContinuation`) und Mapping; alle anderen POI-Folgeaufträge und ein Foto-/Inspektions-
-   Folgeauftrag ohne gültigen `MissionPoiFollowupNarrativeCore.context` fallen auf V4/V5.
+3. **POI-Folgeaufträge ohne Fortsetzungs-Kern**: Alle heutigen POI-Folgeaufträge stammen aus der
+   Infrastruktur-Kette (`infra_recheck`/`infra_final_review` → Inspektion, `infra_repair_photo` →
+   Foto, `infra_damage_mapping` → Mapping) und sind abgedeckt. Auf V4/V5 fällt nur ein alter
+   Folgeauftrag ohne POI-Zielbezug (`MissionPoiFollowupNarrativeCore.context` liefert `null`).
+
+Ideen-Missionen sind von den alten Text-Profilprüfungen ausgenommen (`missionMatchesTaskProfile`
+erkennt sie über ihr Schema). Für Englisch bleiben bei APT/POI nur die gemeinsamen Folgeschritte
+aus Abschnitt 3, die auch Ideen-Missionen betreffen (Fracht-SimObject, SAR-Erkennung,
+Szenen-Art, Infrastruktur-Ergebnis, Ankunfts-Hinweis, Voice-Landeerkennung).
 4. **Rückfälle**: `infra_chain_recon` ohne `dest.poiChain`; ein Ideen-Kern per Testschalter
    (`ga_*_briefing_v1 = off`) abgeschaltet; V4-Planer scheitert → V2-Planer, Writer bleibt V5.
 
