@@ -69,7 +69,18 @@
             temporalContext:{...prospect(md,completedAt).temporalContext},
             source:{title:text(md.mission || md.t,180),completedAt,outcomeSource:'confirmed-completion'},
             ui:{title:`Rückflug von ${visited.name} nach ${home.name}`,subtitle:`Fortsetzung mit ${idea.passenger.name}`,
-                previewText:`${idea.purpose || idea.reason} ${plan.reason}`}};
+                previewText:offerPreview(c)}};
+    }
+    // Card text before the return story exists: past stay, current request. Never the outbound purpose.
+    function offerPreview(c) {
+        if(!c?.home?.name || !c?.visited?.name)return '';
+        const name=text(c.original?.passenger?.name,80) || (c.original?.schema==='apt-news-idea.v1'?'Die Reporterin bzw. der Reporter':'Der Chartergast');
+        if(c.original?.schema==='apt-news-idea.v1')
+            return `${name} hat die Recherche in ${c.visited.name} abgeschlossen und bittet um den Rückflug nach ${c.home.name}.`;
+        const group=Number.isInteger(c.original?.passengerCount)&&c.original.passengerCount>1;
+        return group
+            ? `${name} und die Mitreisenden haben ihren Aufenthalt in ${c.visited.name} hinter sich und bitten um den Rückflug nach ${c.home.name}.`
+            : `${name} hat den Aufenthalt in ${c.visited.name} hinter sich und bittet um den Rückflug nach ${c.home.name}.`;
     }
     function draftPrompt(c) {
         const narrativeTiming = 'Der Rückflug ist bereits beauftragt; erzähle das persönliche Anliegen und die Entwicklung am Ziel, ohne die Flugwahl gegenüber einer Straßenfahrt zu rechtfertigen. original.returnPlan.stayHours ist die interne Terminplanung. Beschreibe denselben Aufenthalt natürlich und ungefähr aus stayText, ohne präzise Stundenangaben oder einen erfundenen fachlichen Mindestbedarf. Der Zeitraum trägt die Entwicklung der Geschichte, kein Ereignis pro Stunde oder Tag.';
@@ -149,5 +160,5 @@
             &&Math.abs((p.lon??p.lng)-visited.lon)<0.003);
         return {ready:index>=0 && route.length>index+1,route:index>=0?route.slice(index):[]};
     }
-    return {SCHEMA,source,context,returnPlan,prospect,request,draftPrompt,validateDraft,continuationIdea,applyMission,voiceLeg,mirrorGround};
+    return {SCHEMA,source,context,returnPlan,prospect,request,offerPreview,draftPrompt,validateDraft,continuationIdea,applyMission,voiceLeg,mirrorGround};
 });

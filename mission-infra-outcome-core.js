@@ -240,30 +240,30 @@
             road: 'entlang der Fahrbahn oder Zufahrt',
             rail: 'entlang der Trasse',
             power: 'an Trasse, Mast oder Technikpunkt',
-            solar: 'am Rand der Modul-/Technikflaeche',
+            solar: 'am Rand der Modul-/Technikfläche',
             wind: 'am Windenergie-Ziel oder Wartungsweg',
             industry: 'am Werks-/Technikbereich'
         }[family] || 'nahe am Infrastrukturziel';
         const damage = (type !== 'clear' && damageType) ? ` Befundtyp: ${damageLabelFor(damageType)}.` : '';
-        return `${severity} ${target}; sparsam platzieren und nicht als Rettungs-/SAR-Lage erzaehlen.${damage}`;
+        return `${severity} ${target}; sparsam platzieren und nicht als Rettungs-/SAR-Lage erzählen.${damage}`;
     }
 
     function damageLabelFor(type = '') {
         return {
-            access_blocked: 'blockierte Zufahrt oder Arbeitsflaeche',
+            access_blocked: 'blockierte Zufahrt oder Arbeitsfläche',
             debris_blockage: 'Hindernis oder Treibgut im Zugangsbereich',
-            electrical_fault: 'technische oder elektrische Auffaelligkeit',
-            equipment_fault: 'Auffaelligkeit an der technischen Anlage',
+            electrical_fault: 'technische oder elektrische Auffälligkeit',
+            equipment_fault: 'Auffälligkeit an der technischen Anlage',
             route_obstruction: 'Hindernis oder Schadstelle an der Trasse',
-            structural_wear: 'struktureller Verschleiss',
-            water_structure_wear: 'Verschleiss am Wasserbauwerk',
-            visible_anomaly: 'sichtbare Auffaelligkeit'
-        }[String(type || '').toLowerCase()] || 'sichtbare Auffaelligkeit';
+            structural_wear: 'struktureller Verschleiß',
+            water_structure_wear: 'Verschleiß am Wasserbauwerk',
+            visible_anomaly: 'sichtbare Auffälligkeit'
+        }[String(type || '').toLowerCase()] || 'sichtbare Auffälligkeit';
     }
 
     function labelFor(type = '') {
         return {
-            clear: 'Inspektion unauffaellig',
+            clear: 'Inspektion unauffällig',
             monitor: 'Beobachtung empfohlen',
             minor_damage: 'Kleiner Schadenshinweis',
             major_damage: 'Deutlicher Schadensbefund',
@@ -274,35 +274,35 @@
     function resultTextFor(md = null, type = '', damageType = '') {
         const target = cleanText(md?.targetName || md?.poiName || md?.initialTargetName || 'dem Zielobjekt', 140);
         if (type === 'clear') {
-            return `Die Sichtpruefung bei ${target} ist unauffaellig: keine akuten Risse, Blockaden oder technischen Warnzeichen aus der Luft erkennbar.`;
+            return `Die Sichtprüfung bei ${target} ist unauffällig: keine akuten Risse, Blockaden oder technischen Warnzeichen aus der Luft erkennbar.`;
         }
         if (type === 'monitor') {
-            return `Bei ${target} bleibt ein kleiner unklarer Punkt fuer die Beobachtung: heute keine akute Sperrung, aber eine spaetere Nachpruefung ist sinnvoll.`;
+            return `Bei ${target} bleibt ein kleiner unklarer Punkt für die Beobachtung: heute keine akute Sperrung, aber eine spätere Nachprüfung ist sinnvoll.`;
         }
         if (type === 'blocked_access') {
-            return `Bei ${target} wirkt eine Zufahrt, Trasse oder Arbeitsflaeche blockiert; der Befund sollte gezielt kartiert und an die Bodenteams weitergegeben werden.`;
+            return `Bei ${target} wirkt eine Zufahrt, Trasse oder Arbeitsfläche blockiert; der Befund sollte gezielt kartiert und an die Bodenteams weitergegeben werden.`;
         }
         if (type === 'major_damage') {
             return `Bei ${target} ist ein deutlicher Befund sichtbar; vor einer Freigabe braucht es gezielte Dokumentation und technische Nacharbeit. Schwerpunkt ist ${damageLabelFor(damageType)}.`;
         }
-        return `Bei ${target} ist ein begrenzter Befund sichtbar; die Stelle sollte dokumentiert und spaeter kontrolliert werden. Schwerpunkt ist ${damageLabelFor(damageType)}.`;
+        return `Bei ${target} ist ein begrenzter Befund sichtbar; die Stelle sollte dokumentiert und später kontrolliert werden. Schwerpunkt ist ${damageLabelFor(damageType)}.`;
     }
 
     function resultPromptFor(md = null, type = '', damageType = '') {
         const target = cleanText(md?.targetName || md?.poiName || md?.initialTargetName || 'dem Zielobjekt', 140);
         if (type === 'clear') {
-            return `Inspektionsfazit: Bei "${target}" konntest du keinen relevanten Schaden erkennen. Nenne kurz, welche kritischen Punkte sauber aussehen und dass vorerst keine akute Reparatur noetig wirkt.`;
+            return `Inspektionsfazit: Bei "${target}" konntest du keinen relevanten Schaden erkennen. Nenne kurz, welche kritischen Punkte sauber aussehen und dass vorerst keine akute Reparatur nötig wirkt.`;
         }
         if (type === 'monitor') {
-            return `Inspektionsfazit: Bei "${target}" ist nur eine unklare oder kleine Auffaelligkeit offen. Sage, was unauffaellig wirkt, was beobachtet werden sollte und dass eine spaetere Nachpruefung reicht.`;
+            return `Inspektionsfazit: Bei "${target}" ist nur eine unklare oder kleine Auffälligkeit offen. Sage, was unauffällig wirkt, was beobachtet werden sollte und dass eine spätere Nachprüfung reicht.`;
         }
         if (type === 'blocked_access') {
-            return `Inspektionsfazit: Bei "${target}" wirkt eine Zufahrt, Trasse oder Arbeitsflaeche blockiert. Beschreibe den sichtbaren Befund kurz und dass daraus eine gezielte Dokumentations- oder Raeumungspruefung folgt.`;
+            return `Inspektionsfazit: Bei "${target}" wirkt eine Zufahrt, Trasse oder Arbeitsfläche blockiert. Beschreibe den sichtbaren Befund kurz und dass daraus eine gezielte Dokumentations- oder Räumungsprüfung folgt.`;
         }
         if (type === 'major_damage') {
-            return `Inspektionsfazit: Bei "${target}" hast du einen klaren Schaden gesehen. Sage konkret, was betroffen wirkt, wie ernst es aussieht und dass der Befund weiter dokumentiert oder technisch geprueft werden muss.`;
+            return `Inspektionsfazit: Bei "${target}" hast du einen klaren Schaden gesehen. Sage konkret, was betroffen wirkt, wie ernst es aussieht und dass der Befund weiter dokumentiert oder technisch geprüft werden muss.`;
         }
-        return `Inspektionsfazit: Bei "${target}" hast du eine begrenzte Schadstelle gesehen. Nenne kurz, was betroffen wirkt, dass keine Panik noetig ist, aber eine gezielte Dokumentation oder Nachpruefung folgen sollte.`;
+        return `Inspektionsfazit: Bei "${target}" hast du eine begrenzte Schadstelle gesehen. Nenne kurz, was betroffen wirkt, dass keine Panik nötig ist, aber eine gezielte Dokumentation oder Nachprüfung folgen sollte.`;
     }
 
     function followUpFor(type = '') {

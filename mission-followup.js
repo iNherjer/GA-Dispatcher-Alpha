@@ -2441,7 +2441,9 @@
         sub.textContent = `${privateUi?.subtitle || req.ui?.subtitle || req.sourceLabel || 'Mission'} · bis ${formatLocal(req.expiresAt)}`;
         const preview = document.createElement('div');
         preview.className = 'followup-request-preview';
-        preview.textContent = privateUi?.previewText || req.ui?.previewText || req.narrativeMemory?.whyNowReturn || '';
+        const charterCore = window.MissionCharterContinuationCore;
+        const charterPreview = charterCore?.context?.(req) ? charterCore.offerPreview?.(charterCore.context(req)) : '';
+        preview.textContent = privateUi?.previewText || charterPreview || req.ui?.previewText || req.narrativeMemory?.whyNowReturn || '';
         text.append(title, sub, preview);
         const actions = document.createElement('div');
         actions.className = 'followup-request-actions';
