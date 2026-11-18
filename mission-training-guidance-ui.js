@@ -5,6 +5,26 @@ function tgEfbViewport() { return root.GAEfbUiScale ? root.GAEfbUiScale.viewport
 function tgEfbRect(element) { var r = element.getBoundingClientRect(); return {left:tgEfbDelta(r.left),right:tgEfbDelta(r.right),top:tgEfbDelta(r.top),bottom:tgEfbDelta(r.bottom),width:tgEfbDelta(r.width),height:tgEfbDelta(r.height)}; }
 
 
+  // English UI: the shared mission control core translates the rendered banner in place
+  // (display only; the tracker guidance stays German).
+  function translateNode(node) {
+    var core = root.GAMissionControlUiCore;
+    if (node && core && typeof core.translateDom === 'function') core.translateDom(node);
+  }
+  function displayText(value) {
+    var core = root.GAMissionControlUiCore;
+    return core && typeof core.displayText === 'function' ? core.displayText(value) : value;
+  }
+  if (root.GAI18n && typeof root.GAI18n.onChange === 'function' && root.document) {
+    root.GAI18n.onChange(function () {
+      var nodes = root.document.querySelectorAll('.training-guidance');
+      for (var i = 0; i < nodes.length; i++) {
+        nodes[i]._trainingSignature = ''; // the next tracker update redraws (aria-label included)
+        translateNode(nodes[i]);
+      }
+    });
+  }
+
   function clampProgress(value) {
     var number = Number(value);
     return isFinite(number) ? Math.max(0, Math.min(1, number)) : 0;
@@ -122,12 +142,13 @@ function tgEfbRect(element) { var r = element.getBoundingClientRect(); return {l
         if (button) {
           button.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
           button.textContent = collapsed ? 'Aufklappen' : 'Einklappen';
+          translateNode(button);
         }
       } else if (action === 'start' || action === 'restart' || action === 'abort') {
         if (node._trainingBusy || event.target.disabled) return;
-        if (action !== 'start' && !root.confirm(action === 'restart'
+        if (action !== 'start' && !root.confirm(displayText(action === 'restart'
           ? 'Aktuellen Durchgang neu ansetzen? Bestandene Übungen bleiben erhalten.'
-          : 'Aktuellen Durchgang abbrechen? Bestandene Übungen bleiben erhalten.')) return;
+          : 'Aktuellen Durchgang abbrechen? Bestandene Übungen bleiben erhalten.'))) return;
         var callback = node._trainingActions[action];
         if (typeof callback !== 'function') return;
         node._trainingBusy = true;
@@ -151,6 +172,7 @@ function tgEfbRect(element) { var r = element.getBoundingClientRect(); return {l
           var isOpen = history && !history.hidden;
           historyButton.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
           historyButton.textContent = (isOpen ? 'Verlauf ausblenden (' : 'Verlauf anzeigen (') + node._trainingHistoryCount + ')';
+          translateNode(historyButton);
         }
       }
     });
@@ -295,7 +317,7 @@ function tgEfbRect(element) { var r = element.getBoundingClientRect(); return {l
     node._trainingHistoryCount = view.history.length;
     restorePosition(node);
     node.classList.toggle('has-error', view.rows.some(function (row) { return row.status === 'error'; }));
-    node.setAttribute('aria-label', view.title + (view.phaseLabel ? ', ' + view.phaseLabel : ''));
+    node.setAttribute('aria-label', displayText(view.title) + (view.phaseLabel ? ', ' + displayText(view.phaseLabel) : ''));
     while (node.firstChild) node.removeChild(node.firstChild);
 
     var header = el(root.document, 'header', 'training-guidance-head', null);
@@ -355,6 +377,7 @@ function tgEfbRect(element) { var r = element.getBoundingClientRect(); return {l
     grip.setAttribute('aria-orientation', 'vertical');
     grip.title = 'Zum Verändern der Höhe nach oben oder unten ziehen';
     node.appendChild(grip);
+    translateNode(node);
     if (!node.classList.contains('is-collapsed')) resizeHeight(node, node._trainingHeight || tgEfbRect(node).height);
     body.scrollTop = previousScrollTop;
     if (node._trainingHasSavedPosition) {

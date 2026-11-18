@@ -58,6 +58,27 @@
   }
   function dot(value) { return String(value).replace(',', '.'); }
   var PLACE_EN = { 'am Startplatz': 'at the departure airfield', 'am Zielplatz': 'at the destination airfield', 'am Speicherpunkt': 'at the save point' };
+  // Measurement wording inside training rows only (never applied to free text).
+  var TRAINING_WORDS = [
+    [/(\d+) s Korrekturfrist bei Sollwertabweichung/g, '$1 s to correct deviations'],
+    [/Geschwindigkeit bei Übungsstart (±\d+ kt) halten/g, 'hold the speed at exercise start $1'],
+    [/am Ziel ≤350 ft\/min für (\d+) s/g, 'at the target ≤350 ft/min for $1 s'],
+    [/Stallwarnung beenden/g, 'end the stall warning'],
+    [/Stallwarnung aktiv/g, 'stall warning on'],
+    [/Stallwarnung aus/g, 'stall warning off'],
+    [/Sinkrate unter (\d+) ft\/min/g, 'sink rate below $1 ft/min'],
+    [/(\d+) s stabil\b/g, '$1 s stable'],
+    [/nicht verfügbar/g, 'not available'],
+    [/\bmaximal\b/g, 'max.'],
+    [/\bHöhe\b/g, 'altitude'],
+    [/\bKurs\b/g, 'heading'],
+    [/\bBank\b/g, 'bank']
+  ];
+  function trainingTerms(value, capitalise) {
+    var out = String(value);
+    for (var i = 0; i < TRAINING_WORDS.length; i++) out = out.replace(TRAINING_WORDS[i][0], TRAINING_WORDS[i][1]);
+    return capitalise ? out.charAt(0).toUpperCase() + out.slice(1) : out;
+  }
   var TASK_LABELS_EN = { 'POI-Auftrag': 'POI task', 'Auftrag im Zielgebiet': 'Task in the target area', 'Recon-/Arbeitsauftrag im Zielgebiet': 'Recon/work task in the target area',
     'Feuerbeobachtung': 'Fire watch', 'Suchauftrag': 'Search task', 'Trainingsaufgabe': 'Training task', 'Flyover-Auftrag': 'Flyover task' };
   function lowerFirst(value) {
@@ -159,7 +180,52 @@
     [/^Infrastruktur-Kette erfüllt\. Alle (\d+) Punkte sind abgeschlossen\.$/, function (m) { return 'Infrastructure chain done. All ' + m[1] + ' points are complete.'; }],
     [/^Infrastruktur-Kette offen\. Punkte abgeschlossen: (\d+)\/(\d+)\.$/, function (m) { return 'Infrastructure chain open. Points complete: ' + m[1] + '/' + m[2] + '.'; }],
     [/^Nächster Schritt: nächsten markierten Punkt anfliegen: ([\s\S]+)$/, function (m) { return 'Next step: fly to the next marked point: ' + m[1]; }],
-    [/^Mapping\/Survey offen\. (Kreise|Linien) abgeschlossen: (\d+)\/(\d+)\.$/, function (m) { return 'Mapping/survey open. ' + (m[1] === 'Kreise' ? 'Circles' : 'Lines') + ' complete: ' + m[2] + '/' + m[3] + '.'; }]
+    [/^Mapping\/Survey offen\. (Kreise|Linien) abgeschlossen: (\d+)\/(\d+)\.$/, function (m) { return 'Mapping/survey open. ' + (m[1] === 'Kreise' ? 'Circles' : 'Lines') + ' complete: ' + m[2] + '/' + m[3] + '.'; }],
+    // Training banner (ga-tracker-client/tracker-mission-training-coaching.js rows and notices).
+    [/^(Starthöhen-Vorschau|Höhe) (-?\d+) ft MSL · ±(\d+) ft$/, function (m) { return (m[1] === 'Höhe' ? 'Altitude ' : 'Start altitude preview ') + m[2] + ' ft MSL · ±' + m[3] + ' ft'; }],
+    [/^Aktuell (-?\d[\s\S]*)$/, function (m) { return 'Now ' + m[1]; }],
+    [/^Startkurs bei „Übung starten“ festlegen · aktuell (\d{3}°)$/, function (m) { return 'Start heading is set with “Start exercise” · now ' + m[1]; }],
+    [/^Kurs (\d{3}°) · ±(\d+)°$/, function (m) { return 'Heading ' + m[1] + ' · ±' + m[2] + '°'; }],
+    [/^Flügel waagerecht, Vertikalgeschwindigkeit ≤350 ft\/min · mindestens (\d+) ft AGL(?: · einschließlich (\d+) ft Startreserve)?$/, function (m) {
+      return 'Wings level, vertical speed ≤350 ft/min · at least ' + m[1] + ' ft AGL' + (m[2] ? ' · including ' + m[2] + ' ft start reserve' : ''); }],
+    [/^(Gestartet|Bereit – Übung starten|Drei Sekunden stabilisieren) · ([\s\S]+)$/, function (m) {
+      return { 'Gestartet': 'Started', 'Bereit – Übung starten': 'Ready – start exercise', 'Drei Sekunden stabilisieren': 'Stabilise for three seconds' }[m[1]] + ' · ' + trainingTerms(m[2]); }],
+    [/^(180|360)° (links oder rechts|links|rechts) · ([\s\S]+)$/, function (m) {
+      return m[1] + '° ' + ({ 'links oder rechts': 'left or right', 'links': 'left', 'rechts': 'right' })[m[2]] + ' · ' + trainingTerms(m[3]); }],
+    [/^(Zielkurs-Vorschau|Ausleiten auf) (\d{3}°) · ([\s\S]+)$/, function (m) {
+      return (m[1] === 'Ausleiten auf' ? 'Roll out on ' : 'Target heading preview ') + m[2] + ' · ' + trainingTerms(m[3]); }],
+    [/^(\d+) s auf (-?\d+) ft ±(\d+) ft halten · ([\s\S]+)$/, function (m) { return 'Hold ' + m[2] + ' ft ±' + m[3] + ' ft for ' + m[1] + ' s · ' + trainingTerms(m[4]); }],
+    [/^(\d+) s auf (-?\d+) ft MSL · ±(\d+) ft halten · ([\s\S]+)$/, function (m) { return 'Hold ' + m[2] + ' ft MSL ±' + m[3] + ' ft for ' + m[1] + ' s · ' + trainingTerms(m[4]); }],
+    [/^(Sinken|Steigen) auf (-?\d+) ft MSL · ([\s\S]+)$/, function (m) { return (m[1] === 'Sinken' ? 'Descend' : 'Climb') + ' to ' + m[2] + ' ft MSL · ' + trainingTerms(m[3]); }],
+    [/^Ausgangslage (\d+) s stabilisieren · ([\s\S]+)$/, function (m) { return 'Stabilise the starting attitude for ' + m[1] + ' s · ' + trainingTerms(m[2]); }],
+    [/^Stall annähern · ([\s\S]+) halten$/, function (m) { return 'Approach the stall · hold ' + trainingTerms(m[1]); }],
+    [/^Bis zum erkannten Break halten · ([\s\S]+)$/, function (m) { return 'Hold until the break is detected · ' + trainingTerms(m[1]); }],
+    [/^Recovery · ([\s\S]+)$/, function (m) { return 'Recovery · ' + trainingTerms(m[1]); }],
+    [/^((?:\d+ \/ \d+ s · )?)((?:Höhe|Kurs) -?\d[\s\S]*)$/, function (m) { return m[1] + trainingTerms(m[2], !m[1]); }],
+    [/^(\d+)° \/ (\d+)° · ([\s\S]+)$/, function (m) { return m[1] + '° / ' + m[2] + '° · ' + trainingTerms(m[3]); }],
+    [/^Mindestens ([\d.]+) NM vom Start entfernen$/, function (m) { return 'Get at least ' + m[1] + ' NM away from the departure'; }],
+    [/^Mindestens (\d+) ft AGL erreichen(?: · einschließlich (\d+) ft Startreserve)?$/, function (m) {
+      return 'Reach at least ' + m[1] + ' ft AGL' + (m[2] ? ' · including ' + m[2] + ' ft start reserve' : ''); }],
+    [/^(nicht verfügbar|[\d.]+) \/ ([\d.]+ NM|\d+ ft AGL)( \(letzter Messwert\))?$/, function (m) {
+      return (m[1] === 'nicht verfügbar' ? 'not available' : m[1]) + ' / ' + m[2] + (m[3] ? ' (last reading)' : ''); }],
+    [/^Flugdaten unvollständig: (Position\/Entfernung|AGL-Höhe)(?: und (Position\/Entfernung|AGL-Höhe))? nicht verfügbar\.$/, function (m) {
+      var name = function (v) { return v === 'AGL-Höhe' ? 'AGL height' : 'position/distance'; };
+      return 'Flight data incomplete: ' + name(m[1]) + (m[2] ? ' and ' + name(m[2]) : '') + ' not available.'; }],
+    [/^Mindestens (\d+) ft AGL erforderlich\.$/, function (m) { return 'At least ' + m[1] + ' ft AGL required.'; }],
+    [/^Sicherheitshöhe unterschritten\. Durchgang unterbrochen; mindestens (\d+) ft AGL herstellen\.$/, function (m) {
+      return 'Below safety altitude. Run interrupted; get to at least ' + m[1] + ' ft AGL.'; }],
+    [/^Sollwerte länger als (\d+) Sekunden verlassen\. Diesen Durchgang neu ansetzen; abgeschlossene Übungen bleiben erhalten\.$/, function (m) {
+      return 'Target values left for more than ' + m[1] + ' seconds. Restart this run; completed exercises are kept.'; }],
+    [/^Pflichtteil abgeschlossen\. ([\s\S]+?) Verfügbare Zusatzübungen können im PAX-Menü angefragt werden\.$/, function (m) {
+      return 'Required part complete. ' + displayText(m[1]) + ' Available extra exercises can be requested in the PAX menu.'; }],
+    [/^(Kurvenauswertung|Stallauswertung|Höhenwechselauswertung) aktualisiert\. Aktuellen Durchgang neu stabilisieren und starten; abgeschlossene Übungen bleiben erhalten\.$/, function (m) {
+      return ({ 'Kurvenauswertung': 'Turn evaluation', 'Stallauswertung': 'Stall evaluation', 'Höhenwechselauswertung': 'Altitude change evaluation' })[m[1]]
+        + ' updated. Stabilise and start the current run again; completed exercises are kept.'; }],
+    [/^Versuch (\d+)$/, function (m) { return 'Attempt ' + m[1]; }],
+    [/^Schritt (\d+)$/, function (m) { return 'Step ' + m[1]; }],
+    [/^Verlauf (anzeigen|ausblenden) \((\d+)\)$/, function (m) { return (m[1] === 'anzeigen' ? 'Show history (' : 'Hide history (') + m[2] + ')'; }],
+    [/^(Kurve einleiten|Kurve fliegen|Ausleiten|Ausgangslage halten|Höhenwechsel|Neue Höhe halten|Stabilisieren|Stall annähern|Break abwarten|Recovery|Vorbereitung|Freigabe)\. ([\s\S]+)$/, function (m) {
+      return displayText(m[1]) + '. ' + displayText(m[2]); }]
   ];
   function displayText(value) {
     var source = value == null ? '' : String(value);

@@ -27,6 +27,15 @@ liefert alles Offene mit aus.
 
 ## Offen
 
+### 2026-11-18 · EFB-Trainingsbanner auf Englisch
+- **Artefakt:** Tracker-EXE (EFB-Kopie von `mission-training-guidance-ui.js`, `mission-control-ui-core.js`, EFB-Kopie von `i18n/en-phrases.js`)
+- **Dateien:** `mission-training-guidance-ui.js`, `ga-tracker-client/efb-web-assets/mission-training-guidance-ui.js`, `ga-tracker-client/mission-control-ui-core.js`, `ga-tracker-client/efb-web-assets/i18n/en-phrases.js` (+ Test `mission-training-guidance-ui.test.js`)
+- **Was:** Trainingsbanner (Titel/Phase, Zeilen mit Sollwerten, Details, Hinweise, Knöpfe, Rückfragen, Verlauf-Knopf) bei englischer Oberfläche englisch; Übersetzung des gezeichneten Banners (`translateDom`) mit Trainingsmustern.
+- **Warum:** Phase 3 der englischen Übersetzung, letzter Schritt (`docs/English Translation Plan.md` 2.14). Web ist schon live (v2452).
+- **Tests:** alle `tracker-mission-training*`-Tests, Kern-/EFB-Tests grün; 121 echte Bannerzeilen (Kurve, Höhenwechsel, Stall) vollständig englisch; Banner in der echten EFB-Seite (Electron) inkl. Neuzeichnen und Zurückschalten geprüft.
+- **Doku beim Release:** keine weitere.
+- **Pruefen im Feld:** EFB auf Englisch: Trainingsmission (Freischalten, Übung starten, Kurve/Höhenwechsel/Stall), Sprachwechsel bei offenem Banner.
+
 ## Ausgeliefert
 
 ### 2026-11-18 · EFB-Passagierfenster: Titel auf Englisch — ausgeliefert in Tracker v648 Alpha (18.11.2026)

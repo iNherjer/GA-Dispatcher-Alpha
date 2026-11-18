@@ -425,6 +425,22 @@ Tracker-Modell (Kopfzeile „Mission/Phase/Stand“ bleibt technisch).
   `ga-tracker-client/tracker-mission-training-coaching.js` mit Sollwerten, Kursen, Fristen;
   Übungsnamen aus den Rezepten). Eigener Schritt.
 
+### 2.14 Phase 3, Schritt 5: Trainingsbanner (2026-11-18)
+
+`mission-training-guidance-ui.js` (Web und EFB, ins EFB unverändert kopiert → ES5) zeichnet das
+Banner aus `guidance` des Trackers (`tracker-mission-training-coaching.js`, Hinweise aus
+`-runtime.js`). Nach dem Zeichnen läuft `translateDom`; Klappen/Verlauf-Knopf und Rückfragen
+übersetzen einzeln; Sprachwechsel übersetzt sofort und lässt das nächste Tracker-Update neu zeichnen.
+Zahlenzeilen über eigene Trainingsmuster in `DISPLAY_PATTERNS`; die Messbegriffe
+(`TRAINING_WORDS`: Höhe → altitude, Kurs → heading, Korrekturfrist …) gelten nur innerhalb dieser
+Muster, nie für freien Text. Geprüft mit 121 echten Zeilen aus Kurve, Höhenwechsel und Stall.
+
+Noch deutsch: Übungsnamen und Tipps (`ex.label`, `inflightTip` aus den Rezepten) und die
+gesprochenen Instruktor-Sätze im Verlauf (→ Phase 4/5).
+
+**Phase 3 ist damit abgeschlossen** (feste Missionstexte). Weiter mit Phase 4 (generierte Inhalte,
+Variante C) bzw. Phase 5 (Audio).
+
 ## 4. Etappen
 
 | Phase | Inhalt | Größe | Abhängig von |

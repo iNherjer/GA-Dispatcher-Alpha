@@ -32,7 +32,10 @@ in Phase 3), Behördenkontroll-Sätze mit Namen und Fristen.
   `tracker-free-flight-runtime`, `tracker-mission-fire-integration`, `tracker-mission-sar-integration`
   ×2) sind zeitabhängig, laden keine geänderte Datei und schwanken auf dem v647-Stand genauso
   (SAR dort 2/1/0 Fehler bei drei Läufen); einzeln wiederholt grün.
-- Alle 17 Electron-EFB-Oberflächentests (`tools/efb-*-ui-selftest.cjs` u. a.) grün, wie auf v647.
+- Electron-EFB-Oberflächentests (`tools/efb-*-ui-selftest.cjs` u. a., mit Electron gestartet): 13 von 17 grün.
+  Die 4 roten (`efb-autozoom-terrain`, `efb-navigation-prediction`, `efb-profile`, `efb-sidebar-layer`) sind
+  auf v647 genauso rot (z. B. erwartete Schriftfarbe der Ebenenauswahl seit 16.09. veraltet). Korrektur
+  18.11.: eine erste Auswertung hatte den Rückgabewert falsch gelesen und „alle grün“ gemeldet.
 - Echte EFB-Seite in Electron auf Englisch: Missionskarte, Verlade-Fenster, Tooltip, Rückkehr zu
   Deutsch, keine Konsolenfehler.
 - MSFS noch nicht geprüft.

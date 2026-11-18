@@ -60,7 +60,8 @@ assert.equal(signature(null), 'none');
   const listeners={};
   const root={confirm:()=>confirmed,addEventListener:()=>{},console};
   const node={addEventListener:(name,fn)=>{listeners[name]=fn;},_trainingActions:{start:()=>{submitted++;},restart:()=>{submitted++;},abort:()=>{submitted++;}}};
-  new Function('root',code+';return bindControls;')(root)(node);
+  // Display translation helpers live outside the sliced source (pass-through, German).
+  new Function('root','displayText','translateNode',code+';return bindControls;')(root,v=>v,()=>{})(node);
   const click=(action,disabled=false)=>listeners.click({target:{disabled,getAttribute:()=>action}});
   click('abort'); click('restart');
   await new Promise(resolve=>setImmediate(resolve));
