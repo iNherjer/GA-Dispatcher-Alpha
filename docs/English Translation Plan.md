@@ -360,6 +360,26 @@ Ankunfts-/Onboard-Kerne, Rückflug-Rückblick, Schwellen-Meldungen, Crew-Live un
 - **Noch deutsch durch Missionsphase:** EFB-Missionstexte (Verlade-Manager, Banner,
   `mission-control-ui-core.js`), Web-Legacy-Banner, Tracker-Statuszeilen an EFB/Web.
 
+### 2.10 Phase 3, Schritt 1: Ereignis-Schlüssel der Passagierstimme (2026-11-18)
+
+Ergebnis der Prüfung: **kein Logikumbau nötig.** Der Tracker meldet Sprachereignisse schon
+als feste Schlüssel (`kind`: `boarding`, `farewell`, `approach`, `poi`, `bush_story`,
+`pax_distress` …, Schema `ga.mission-voice-outcome.v1`). Die Web-App macht daraus deutsche
+Titel (`paxVoiceApplyTrackerOutcome` in `passenger-voice.js`), und diese Titel sind intern
+selbst Schlüssel: Das Erzählgedächtnis (`_capture*NarrativeMemory`) und `_isLandingPhaseEvent`
+vergleichen sie wörtlich.
+
+Regel ab jetzt: **Ereignistitel (`eventLabel`, Tracker-`label`) bleiben deutsch und werden nie an
+der Quelle übersetzt.** Übersetzt wird nur beim Anzeigen: Web `_paxRenderEventTitle` in
+`_showPaxMessage` (mit Neuzeichnen beim Sprachwechsel), EFB `_hT` im Passagierfenster. Die
+Titel stehen in `i18n/en-phrases.js` (rund 75, gesammelt per AST über alle Aufrufe mit
+Ereignistitel). Neuer Titel = Satz dort ergänzen, sonst erscheint er deutsch.
+
+Für Phase 4 vorgemerkt: Einige Prüfungen lesen den **gesprochenen Text** selbst
+(`_isLandingPhaseEvent`/`_isTrainingLandingInstructorEvent`: „landung|anflug|aufsetzen“,
+Pattonville-Hinweise). Wenn Gemini für Variante B direkt Englisch schreibt, müssen diese
+zweisprachig werden (Freigabe nötig, Regex-Logik).
+
 ## 4. Etappen
 
 | Phase | Inhalt | Größe | Abhängig von |

@@ -2561,6 +2561,23 @@ function _ensurePaxWidgetOnScreen(persist = false) {
     }
 }
 
+// Display only: the German event title stays the internal key (narrative memory, tracker kinds).
+function _paxUiPhrase(text) {
+    return window.GAI18n ? GAI18n.phrase(text) : text;
+}
+let _paxShownEventLabel = '';
+function _paxRenderEventTitle(nameEl, eventLabel) {
+    const pax = window.activePassenger;
+    const label = _paxUiPhrase(eventLabel);
+    nameEl.textContent = pax ? `${pax.name} · ${label}` : label;
+}
+if (window.GAI18n && typeof GAI18n.onChange === 'function') {
+    GAI18n.onChange(() => {
+        const nameEl = document.getElementById('paxVoiceName');
+        if (nameEl && _paxShownEventLabel) _paxRenderEventTitle(nameEl, _paxShownEventLabel);
+    });
+}
+
 function _showPaxMessage(text, eventLabel, debugDetail = '') {
     const widget = document.getElementById('paxVoiceWidget');
     const panel  = document.getElementById('paxVoicePanel');
@@ -2573,8 +2590,8 @@ function _showPaxMessage(text, eventLabel, debugDetail = '') {
     if (!widget) return;
     _lastPaxText = text;
 
-    const pax = window.activePassenger;
-    if (nameEl) nameEl.textContent = pax ? `${pax.name} · ${eventLabel}` : eventLabel;
+    _paxShownEventLabel = String(eventLabel || '');
+    if (nameEl) _paxRenderEventTitle(nameEl, eventLabel);
     if (textEl) textEl.textContent = text;
     if (debugEl) {
         debugEl.textContent = String(debugDetail || '');
@@ -2957,7 +2974,7 @@ function _refreshFireMissionMenu() {
     const textEl = document.getElementById('paxVoiceText');
     if (nameEl && !nameEl.textContent) {
         const pax = window.activePassenger;
-        nameEl.textContent = pax ? `${pax.name} · Feuerwache` : 'Feuerwache';
+        _paxShownEventLabel = 'Feuerwache'; _paxRenderEventTitle(nameEl, 'Feuerwache');
     }
     if (textEl && !textEl.textContent) {
         textEl.textContent = 'Feuermeldung aktiv. Lagebeobachtung laeuft.';
@@ -3582,7 +3599,7 @@ function _refreshMissionActionMenu() {
     const textEl = document.getElementById('paxVoiceText');
     if (nameEl && !nameEl.textContent) {
         const pax = window.activePassenger;
-        nameEl.textContent = pax ? `${pax.name} · Mission` : 'Mission';
+        _paxShownEventLabel = 'Mission'; _paxRenderEventTitle(nameEl, 'Mission');
     }
     if (textEl && !textEl.textContent) {
         textEl.textContent = isPoi ? 'Mission laeuft. Status und Orientierung sind abrufbar.' : 'Mission laeuft. Zustand und Wetter sind abrufbar.';
@@ -3664,7 +3681,7 @@ function _refreshTrainingProcedureMenu() {
     const textEl = document.getElementById('paxVoiceText');
     if (visible && nameEl && !nameEl.textContent) {
         const pax = window.activePassenger;
-        nameEl.textContent = pax ? `${pax.name} · Training` : 'Training';
+        _paxShownEventLabel = 'Training'; _paxRenderEventTitle(nameEl, 'Training');
     }
     if (visible && textEl && !textEl.textContent) {
         textEl.textContent = state.readyVisible

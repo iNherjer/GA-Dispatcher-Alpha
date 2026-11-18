@@ -27,6 +27,15 @@ liefert alles Offene mit aus.
 
 ## Offen
 
+### 2026-11-18 · EFB-Passagierfenster: Titel auf Englisch
+- **Artefakt:** Tracker-EXE (EFB-Host und EFB-Kopie von `i18n/en-phrases.js`)
+- **Dateien:** `ga-tracker-client/tracker-efb-kartentisch-host.js`, `ga-tracker-client/efb-web-assets/i18n/en-phrases.js`
+- **Was:** Passagierfenster im EFB zeigt Titel, Platzhalter „Passagier“ und „Noch keine Nachricht.“ bei englischer Oberfläche englisch (nur Anzeige, `_hT`).
+- **Warum:** Phase 3 der englischen Übersetzung, Schritt 1 (`docs/English Translation Plan.md` 2.10). Web ist schon live (v2447).
+- **Tests:** `tracker-efb-poi-actions`, `efb-web-assets-sync`, `tracker-efb-asset-syntax`, alle Tests mit `tracker-efb-kartentisch-host` grün.
+- **Doku beim Release:** keine weitere.
+- **Pruefen im Feld:** EFB auf Englisch: Passagierfenster vor der ersten Nachricht „Passenger“ / „No message yet.“
+
 ## Ausgeliefert
 
 ### 2026-11-18 · Tolerante Rückblick-Prüfung, Folgemission immer baubar — ausgeliefert in Tracker v647 Alpha (18.11.2026)

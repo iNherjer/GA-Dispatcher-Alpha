@@ -3212,8 +3212,8 @@
     var run = payload && payload.available !== false ? String(payload.runId || (control && control.runId) || payload.missionId || '') : '';
     if (run !== paxWidgetRun) {
       paxWidgetRun = run; paxWidgetTextKey = '';
-      byId('paxVoiceName').textContent = 'Passagier';
-      byId('paxVoiceText').textContent = 'Noch keine Nachricht.';
+      byId('paxVoiceName').textContent = _hT('Passagier');
+      byId('paxVoiceText').textContent = _hT('Noch keine Nachricht.');
       byId('paxVoicePanel').hidden = true;
       byId('paxVoiceBtn').classList.remove('has-message'); byId('paxUnreadBadge').hidden = true;
     }
@@ -3224,7 +3224,7 @@
       if (key !== paxWidgetTextKey) {
         paxWidgetTextKey = key;
         var speaker = typeof voice.speaker === 'string' ? voice.speaker : voice.speaker && (voice.speaker.name || voice.speaker.role);
-        byId('paxVoiceName').textContent = speaker || voice.label || 'Passagier';
+        byId('paxVoiceName').textContent = speaker || _hT(voice.label || 'Passagier');
         byId('paxVoiceText').textContent = String(voice.text);
         if (byId('paxVoicePanel').hidden) { byId('paxVoiceBtn').classList.add('has-message'); byId('paxUnreadBadge').hidden = false; }
       }
