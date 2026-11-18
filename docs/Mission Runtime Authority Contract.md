@@ -29,7 +29,8 @@
   `atDestination` legt `prepareFollowupRecap` einen vorlaeufigen Auftrag mit derselben
   Anfrage-ID an (`previewRecapRequest`, keine Freigabe-Entscheidung). Ist der Entwurf bis
   `finalizeExecutionRun` fertig, haengt er direkt am Angebot (kein Nachtrag); laeuft er noch,
-  wird er zum normalen Nachtrag fuer das echte Angebot. Ohne Angebot verfaellt er nach 2 Tagen.
+  wird er zum normalen Nachtrag fuer das echte Angebot. Ohne Angebot (Abschluss ohne Angebot,
+  Abbruch) wird er sofort entfernt (v646); sonst verfaellt er nach 2 Tagen.
 - `tracker-mission-charter-recap.js` prueft alle 5 s (v644: 15 s) und schreibt hoechstens einen Eintrag mit
   `draftPrompt`/`validateDraft` aus `mission-charter-continuation-core.js` (dieselben wie
   in der App, eine Strukturkorrektur) ueber den Voice-Schluessel (Gemini oder OpenAI).
