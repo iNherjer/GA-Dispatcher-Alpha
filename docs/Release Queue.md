@@ -29,6 +29,13 @@ liefert alles Offene mit aus.
 
 ## Ausgeliefert
 
+### 2026-11-18 · Tolerante Rückblick-Prüfung, Folgemission immer baubar — ausgeliefert in Tracker v647 Alpha (18.11.2026)
+- **Artefakt:** Tracker-EXE (gemeinsame Prüfung im Hintergrund-Schreiber), Web v2446.
+- **Dateien:** `mission-charter-continuation-core.js`, `mission-charter-browser.js`, `mission-apt-news-browser.js`, `mission-followup.js`, `ga-tracker-client/tracker-mission-charter-recap.js` (+ Tests).
+- **Was:** siehe `docs/Tracker-v647-Release.md`.
+- **Doku beim Release:** `docs/Tracker-v647-Release.md`, `docs/Mission Runtime Authority Contract.md`.
+- **Pruefen im Feld:** siehe `docs/Tracker-v647-Release.md`.
+
 ### 2026-11-18 · Vorläufige Rückblick-Entwürfe sofort aufräumen — ausgeliefert in Tracker v646 Alpha (18.11.2026)
 - **Artefakt:** Tracker-EXE (`ga-tracker-client/mission-authority-core.js`).
 - **Dateien:** `ga-tracker-client/mission-authority-core.js`, `ga-tracker-client/tracker-mission-charter-recap.test.js`.

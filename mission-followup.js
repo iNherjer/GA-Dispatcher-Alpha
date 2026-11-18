@@ -887,13 +887,18 @@
     const charterRecapTried = new Set();
     let charterRecapBusy = false;
     const CHARTER_RECAP_TRACKER_GRACE_MS = 10 * 60000;
+    // 2 = tolerant check with repair (18.11.2026); earlier failures were judged too strictly.
+    const CHARTER_RECAP_RULE = 2;
     function maybeWriteCharterRecap(req) {
         if (environment.headless || charterRecapBusy || !req || charterRecapTried.has(req.id)) return false;
         const core = window.MissionCharterContinuationCore, c = core?.context?.(req);
         if (!c || getStatus(req) !== 'pending' || Number(req.eligibleAt || 0) > nowMs()) return false;
         // A recorded failure is final. An attempt without outcome (App closed meanwhile, or made by
         // v2441/v2442 which recorded none) may run once more after 10 minutes; another device may be busy before.
-        if (req.recapError || (req.recapAttemptedAt && (req.recapRetried || nowMs() - Number(req.recapAttemptedAt) < CHARTER_RECAP_TRACKER_GRACE_MS))) return false;
+        // Attempts under an older, stricter check (recapRule < CHARTER_RECAP_RULE) get one new chance.
+        const legacy = !!req.recapAttemptedAt && Number(req.recapRule || 0) < CHARTER_RECAP_RULE;
+        if (!legacy && (req.recapError || (req.recapAttemptedAt && (req.recapRetried || nowMs() - Number(req.recapAttemptedAt) < CHARTER_RECAP_TRACKER_GRACE_MS)))) return false;
+        if (legacy && !req.recapError && nowMs() - Number(req.recapAttemptedAt) < CHARTER_RECAP_TRACKER_GRACE_MS) return false;
         if (core.validateDraft(c.experience, c)) return false;
         // The tracker writes it from touchdown on; give its result time to arrive through the cloud.
         if (nowMs() - Number(c.completedAt || 0) < CHARTER_RECAP_TRACKER_GRACE_MS) return false;
@@ -903,8 +908,12 @@
         if (aiOff || !key || typeof window.fetchGeminiJsonWithFallback !== 'function') return false;
         charterRecapTried.add(req.id);
         charterRecapBusy = true;
-        const retry = !!req.recapAttemptedAt;
-        saveMutated(list => list.map(row => row.id === req.id ? { ...row, recapAttemptedAt: nowMs(), ...(retry ? { recapRetried: true } : {}), updatedAt: nowMs() } : row), { cloud: true });
+        const retry = !!req.recapAttemptedAt && !legacy;
+        saveMutated(list => list.map(row => {
+            if (row.id !== req.id) return row;
+            const { recapError: _previousError, ...rest } = row;
+            return { ...rest, recapAttemptedAt: nowMs(), recapRule: CHARTER_RECAP_RULE, recapRetried: retry, updatedAt: nowMs() };
+        }), { cloud: true });
         let lastError = '';
         const ask = async prompt => {
             const result = await window.fetchGeminiJsonWithFallback(prompt, key, { promptVersion: 'charter-recap-v1', timeoutMs: 40000 });
@@ -914,12 +923,14 @@
         (async () => {
             try {
                 const prompt = core.draftPrompt(c);
-                let raw = await ask(prompt), draft = core.validateDraft(raw, c);
-                if (!draft && raw) {
-                    raw = await ask(`${prompt}\nKorrigiere nur die Struktur des bisherigen Entwurfs. Bewahre dessen Inhalt und Identitäten. Vollständiges JSON als einzelnes Objekt, gültige Feldlängen und belegte Geo-Anker. ENTWURF: ${JSON.stringify(raw)}`);
-                    draft = core.validateDraft(raw, c);
-                    if (!draft && raw) lastError = 'invalid_draft';
+                let raw = await ask(prompt), repaired = core.repairDraft(raw, c);
+                if (!repaired.draft && raw) {
+                    // Tell the model what was rejected and why.
+                    raw = await ask(core.correctionPrompt(prompt, raw, repaired.issues));
+                    repaired = core.repairDraft(raw, c);
                 }
+                const draft = repaired.draft;
+                if (!draft && raw) lastError = `invalid_draft: ${repaired.issues.filter(i => /fehlt|kein einzelnes/.test(i)).join(', ') || 'unbekannt'}`;
                 const saved = draft && saveCharterExperience(req.id, draft);
                 console.info('[FollowUp] Rückflug-Rückblick bei Fälligkeit', { id: req.id, written: !!saved, card: !!draft?.offerText, error: saved ? '' : lastError });
                 if (saved) render();

@@ -57,13 +57,14 @@ async function writeRecap({ request, provider, apiKey, fetchRemote }) {
   if (!c) return { ok: false, error: 'recap_no_context' };
   const prompt = core.draftPrompt(c);
   let raw = await requestJson({ provider, apiKey, fetchRemote, prompt });
-  let draft = core.validateDraft(raw, c);
-  if (!draft && raw) {
-    // Same structural correction the App uses: keep content and identities, fix the form.
-    raw = await requestJson({ provider, apiKey, fetchRemote, prompt: `${prompt}\nKorrigiere nur die Struktur des bisherigen Entwurfs. Bewahre dessen Inhalt und Identitäten. Vollständiges JSON als einzelnes Objekt, gültige Feldlängen und belegte Geo-Anker. ENTWURF: ${JSON.stringify(raw)}` });
-    draft = core.validateDraft(raw, c);
+  let repaired = core.repairDraft(raw, c);
+  if (!repaired.draft && raw) {
+    // Same as the App: the model is told what was rejected and why.
+    raw = await requestJson({ provider, apiKey, fetchRemote, prompt: core.correctionPrompt(prompt, raw, repaired.issues) });
+    repaired = core.repairDraft(raw, c);
   }
-  return draft ? { ok: true, draft } : { ok: false, error: raw ? 'recap_invalid' : 'recap_no_answer' };
+  const draft = repaired.draft;
+  return draft ? { ok: true, draft, issues: repaired.issues } : { ok: false, error: raw ? 'recap_invalid' : 'recap_no_answer', issues: repaired.issues };
 }
 
 function createCharterRecapWorker({ authorityManager, pilotId, provider, apiKey, fetchRemote = globalThis.fetch, log = () => {} }) {
@@ -81,11 +82,11 @@ function createCharterRecapWorker({ authorityManager, pilotId, provider, apiKey,
       const result = await writeRecap({ request: item.request, provider, apiKey, fetchRemote });
       if (result.ok) {
         const saved = await authorityManager.completeFollowupRecap(item.id, pilotId, result.draft);
-        log(`MISSION_FOLLOWUP_RECAP_WRITTEN id=${item.id} card=${result.draft.offerText ? 1 : 0} stage=${item.provisional ? 'deboarding' : 'after-close'} saved=${saved ? 1 : 0}`);
+        log(`MISSION_FOLLOWUP_RECAP_WRITTEN id=${item.id} card=${result.draft.offerText ? 1 : 0} stage=${item.provisional ? 'deboarding' : 'after-close'} repaired=${result.issues?.length || 0} saved=${saved ? 1 : 0}`);
         return { status: saved ? 'written' : 'persist_failed' };
       }
       await authorityManager.failFollowupRecap(item.id, pilotId, result.error);
-      log(`MISSION_FOLLOWUP_RECAP_FAILED id=${item.id} attempt=${Number(item.attempts || 0) + 1} error=${result.error}`);
+      log(`MISSION_FOLLOWUP_RECAP_FAILED id=${item.id} attempt=${Number(item.attempts || 0) + 1} error=${result.error} issues=${JSON.stringify(result.issues || [])}`);
       return { status: 'failed', error: result.error };
     } catch (error) {
       if (item) await Promise.resolve(authorityManager.failFollowupRecap(item.id, pilotId, error?.message || 'recap_error')).catch(() => {});

@@ -62,12 +62,21 @@ async function continuation({req,base,contract,aiEnabled=true}){
  if(!aiEnabled)throw Error('Für den Reporter-Rückblick bitte die KI aktivieren. Das Angebot bleibt erhalten.');
  if(getMissionAircraftCapabilitySnapshot().passengerCapacity<1)throw Error('Für den Reporter fehlt ein Passagierplatz.');
  if(!api.validateDraft(c.experience,c)){
-  const prompt=api.draftPrompt(c);let raw=await json(prompt),draft=api.validateDraft(raw,c);
-  if(!draft){raw=await json(prompt+'\nFORMATKORREKTUR: Antworte als einzelnes JSON-Objekt mit experience, reason, nextStep, memory und narrativeEvents, niemals als Liste. Alle vier Textfelder sind nichtleer und haben mindestens 40 Zeichen; experience maximal 1200, die übrigen maximal 600. Bewahre Personen und Ereignisse; korrigiere nur Form, fehlende Felder und Textlängen. ENTWURF: '+JSON.stringify(raw));draft=api.validateDraft(raw,c);}
-  if(!draft)throw Error('Der Reporter-Rückblick ist unvollständig. Das Angebot bleibt erhalten.');
-  const saved=root.missionFollowupSaveCharterExperience(req.id,draft);
-  if(!saved)throw Error('Der Reporter-Rückblick konnte nicht gespeichert werden.');
-  req.charterContinuation=saved;
+  // The follow-up mission is always buildable: repair, one specific correction, then a plain stay.
+  const prompt=api.draftPrompt(c);let raw=null,repaired={draft:null,issues:[]};
+  try{raw=await json(prompt);repaired=api.repairDraft(raw,c);}catch(error){repaired.issues=[error?.message||'keine Antwort'];}
+  if(!repaired.draft&&raw){try{raw=await json(api.correctionPrompt(prompt,raw,repaired.issues));repaired=api.repairDraft(raw,c);}catch(_){}}
+  if(repaired.draft){
+    const saved=root.missionFollowupSaveCharterExperience(req.id,repaired.draft);
+    if(!saved)throw Error('Der Reporter-Rückblick konnte nicht gespeichert werden. Bitte Speicher prüfen und erneut versuchen.');
+    req.charterContinuation=saved;c.experience=saved.experience;
+  }else{
+   // Not stored: a later accept (after discarding the preview) gets a new chance at a real stay.
+   const plain=api.fallbackDraft(c);
+   console.warn('[Reporter-Fortsetzung] Rückblick ersetzt durch schlichten Aufenthalt',repaired.issues);
+   if(!plain)throw Error('Der Reporter-Ursprung ist unvollständig. Das Angebot bleibt erhalten.');
+   req.charterContinuation={...req.charterContinuation,experience:plain};c.experience=plain;
+  }
  }
  req.charterContinuation={...req.charterContinuation,pickupRequired:!!base.bush};
  const idea=api.continuationIdea(req);

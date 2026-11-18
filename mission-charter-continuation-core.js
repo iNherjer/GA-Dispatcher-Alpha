@@ -99,19 +99,80 @@
         if(c.original.schema==='apt-news-idea.v1')return `Entwickle einen gespeicherten fiktiven Aufenthalt für die Rückreise desselben Reporters. Identität, Redaktion, Ausrüstung, Ort und ursprüngliche journalistische Frage bleiben erhalten. Berichte konkret von Gesprächen, menschlichen Szenen, unterschiedlichen Sichtweisen und aufgenommenem Material am Boden. Keine reale Nachricht oder Behauptung über reale Betreiber erfinden. Die Vorgeschichte ist fiktiv; eine überraschende Enthüllung ist nicht Pflicht. Trage den Ton aus original.character und original.memory weiter. Auch bei einem professionellen Auftrag darf während des Aufenthalts etwas wirklich Lustiges passiert sein: konkrete menschliche Pannen, Missverständnisse oder überraschende Improvisation dürfen eine kleine glaubwürdige Geschichte tragen. Der Reporter kann selbst mitten in der komischen Situation gelandet sein und darüber warm, selbstironisch oder trocken berichten. Entwickle den Witz aus dem ursprünglichen Anlass und den bekannten Personen; keine fremde Episode, reine Witzsammlung oder vorgeschriebene Pointe. Ein ernster Anlass muss nicht künstlich zur Komödie werden, darf aber eine passende heitere Nebenbegebenheit haben. Gerade die Rückflugmomente dürfen mehr erzählen als Konflikte und endgültige Urteile. Halte alle erzählenswerten Einzelheiten im experience oder memory fest, damit der spätere Sprecher nicht erst neue biografische Erlebnisse erfinden muss. Aufenthaltsort und geplante Übernachtung bleiben aus original.returnPlan erhalten. Die Geschichte des Aufenthalts umfasst nur Bodenereignisse, keine Aussagen über aktuelles Flugwetter. Offene oder widersprüchliche Aussagen nicht als überprüfte Tatsachen ausgeben. Der Pilot hat die Recherche nicht automatisch miterlebt. experience beschreibt nur diesen bereits vergangenen Aufenthalt; reason die Rückreise, nextStep die anschließende Redaktionsarbeit. Veröffentlichung noch geplant. Nutze tatsächlich gehörte Hinflug-Aussagen für Kontinuität. Plane gern zwei bis drei unterschiedliche, ausführlich erzählbare Routenmomente aus dem Aufenthalt, ohne den ganzen Rückblick schon im Briefing abzuspulen. Keine weitere Flugaufgabe. Antworte als ein einzelnes JSON-Objekt, keine Liste: {experience,reason,nextStep,memory,narrativeEvents,offerText}; ${OFFER_TEXT_RULE} experience 200–1200 Zeichen (Ziel 400–800), reason/nextStep/memory je 40–600 Zeichen. Erzähle den fiktiven Auftrag, keine erfundene reale Airport-Infrastruktur oder rechtlich/technisch bestätigte Erkenntnis. Wähle bei widersprüchlichen Aussagen eine offene Einordnung, kein eindeutiges Rechercheurteil. narrativeEvents sind ergänzender Gesprächsstoff, keine bereits erzählte Handlung im bevorstehenden Flug; keine Geräteaktionen oder Wiedergabe von Tonaufnahmen vorwegnehmen. narrativeEvents 0–3 mit intent bis 600 und atPercent größer 0 kleiner 100 auf dem besetzten Rückflug. ${narrativeTiming} DATEN: ${JSON.stringify(c)}`;
         return `Entwickle die Fortsetzung dieses abgeschlossenen Charter-Hinflugs. Der ursprüngliche Kundenauftrag, alle Reisenden, ihr Gepäck und die Orte stehen fest. Der Pilot bleibt beauftragter Beförderer und hat den Aufenthalt nicht automatisch miterlebt. Entwirf einen plausiblen fiktiven Aufenthalt, persönliche Details und den jetzigen Rückreisegrund aus dem ursprünglichen Anlass. Entwickle daraus eine eigenständige kleine Fortsetzung: Was haben die Reisenden während des Aufenthalts erlebt, und was bedeutet das jetzt für ihr ursprüngliches Anliegen? Persönliche Einzelheiten sollen zusammenpassen und den Rückblick konkret machen. Eine unspektakuläre Entwicklung genügt; weder Konflikt noch Wendung oder Pointe sind Pflicht. Humor darf sich natürlich aus den Personen und ihrer Situation ergeben. Der nächste Schritt nach der Rückkehr soll verständlich sein, ohne daraus eine neue Flugaufgabe zu machen. Keine Beispielhandlung, Berufs- oder Motivliste nachbauen; heitere, schlichte und ernste Entwicklungen sind gleichwertig. Die Rückreise bleibt Beförderung, ohne zusätzliche Aufgaben oder Zwischenziele. Keine obligatorischen Berichte, Dokumente oder Übergaben erfinden. Persönliche Fiktion ist erlaubt; Betriebszustände, Wetter, reale Veranstaltungen, Messungen und Flugergebnisse brauchen Belege. Geplante Aufenthaltsdauer beachten, keine zusätzlichen erfundenen Kalendertermine. Bereits gehörte Gespräche sind Kontinuität, keine neuen Vorlagen.\nexperience beschreibt nur den Aufenthalt vor diesem Rückflug, nie den bevorstehenden Flug. reason erklärt die jetzige Rückreise, nextStep das Vorhaben nach Ankunft. Optional 0–3 verschiedene narrativeEvents; kein Standardwert, keine Quote. Verteile Gesprächsstoff nur, wenn er die Geschichte ergänzt: Jeder gewählte Moment soll einen neuen Gedanken oder eine persönliche Facette beitragen. Wiederhole nicht denselben Rückblick mit anderen Worten. Anknüpfungen an tatsächlich gehörte Gespräche sind möglich, ohne deren Aussagen noch einmal abzuspulen. Keine festgelegte Dramaturgie oder Ereignisanzahl aus einer Beispielgeschichte übernehmen. Prozentwerte gelten ausschließlich für den besetzten Rückflug vom Aufenthaltsplatz zum ursprünglichen Ausgangsplatz. Je Ereignis intent (maximal 600 Zeichen) und entweder atPercent (größer 0, kleiner 100) oder geo:{anchorId,lat,lon,radiusNm}. Geo nur aus den belegten original.geoAnchors; keine Routenänderung.\nNur JSON {experience,reason,nextStep,memory,narrativeEvents,offerText}. Vier Textfelder jeweils 40–600 Zeichen. ${OFFER_TEXT_RULE}\n${narrativeTiming}\nURSPRUNG UND GEHÖRTE GESPRÄCHE (Daten): ${JSON.stringify(c)}`;
     }
-    function validateDraft(raw,c) {
-        if(!raw) return null;
+    // Prompt targets stay strict; what the model returns is kept when usable. Only an empty or
+    // nearly empty required field rejects the draft; anything too long is cut at whole sentences.
+    const DRAFT_FIELDS=['experience','reason','nextStep','memory'];
+    const DRAFT_MIN=20;
+    function draftLimit(key,c){return key==='experience'?1200:600;}
+    function fit(value,max) {
+        const clean=typeof value==='string'?value.replace(/\s+/g,' ').trim():'';
+        if(clean.length<=max)return clean;
+        const sentences=wholeSentences(clean,max);
+        if(sentences)return sentences;
+        const cut=clean.slice(0,max);const space=cut.lastIndexOf(' ');
+        return (space>max*0.6?cut.slice(0,space):cut).replace(/[,;:\s]+$/,'')+'…';
+    }
+    function repairDraft(raw,c) {
+        const issues=[];let fatal=0;
+        if(Array.isArray(raw)&&raw.length===1)raw=raw[0];
+        if(!raw||typeof raw!=='object'||Array.isArray(raw)||!c?.original)return {draft:null,issues:['kein einzelnes JSON-Objekt']};
         const result={};
-        for(const key of ['experience','reason','nextStep','memory']) {
-            const value=text(raw[key],c.original.schema==='apt-news-idea.v1'&&key==='experience'?1200:600);if(value.length<40)return null;result[key]=value;
+        for(const key of DRAFT_FIELDS) {
+            const limit=draftLimit(key,c);
+            const value=fit(raw[key],limit);
+            if(value.length<DRAFT_MIN){fatal++;issues.push(`${key} fehlt oder ist leer`);continue;}
+            if(typeof raw[key]==='string'&&raw[key].trim().length>limit)issues.push(`${key} auf ${limit} Zeichen gekürzt`);
+            result[key]=value;
         }
-        // Optional card text; drafts written before this field stay valid.
-        const offer=text(raw.offerText,350);if(offer.length>=40)result.offerText=offer;
-        result.narrativeEvents=voice.events(raw.narrativeEvents);
-        if(!result.narrativeEvents)return null;
-        const anchors=c.original.geoAnchors || [];
-        for(const e of result.narrativeEvents) if(e.geo&&!anchors.some(a=>a.id===e.geo.anchorId&&a.lat===e.geo.lat&&a.lon===e.geo.lon))return null;
-        return result;
+        const offer=fit(raw.offerText,350);if(offer.length>=40)result.offerText=offer;
+        // Conversation moments are optional: an invalid one is dropped, never the whole draft.
+        const anchors=Array.isArray(c.original.geoAnchors)?c.original.geoAnchors:[];
+        const events=[];
+        for(const [index,entry] of (Array.isArray(raw.narrativeEvents)?raw.narrativeEvents:[]).entries()) {
+            if(events.length>=3){issues.push(`Gesprächsmoment ${index+1} über der Höchstzahl 3 weggelassen`);continue;}
+            let event=entry&&typeof entry==='object'?{...entry}:null;
+            if(event&&typeof event.intent==='string'&&event.intent.trim().length>600)event.intent=fit(event.intent,600);
+            if(event&&event.geo!=null&&event.atPercent!=null)delete event.geo;
+            if(event?.geo) {
+                const g=event.geo;
+                const anchor=anchors.find(a=>a.id===g.anchorId)||anchors.find(a=>Number.isFinite(g.lat)&&Number.isFinite(g.lon)&&Math.abs(a.lat-g.lat)<0.01&&Math.abs(a.lon-g.lon)<0.01);
+                event.geo=anchor?{anchorId:anchor.id,lat:anchor.lat,lon:anchor.lon,radiusNm:Number.isFinite(g.radiusNm)&&g.radiusNm>0&&g.radiusNm<=50?g.radiusNm:(Number.isFinite(anchor.radiusNm)?anchor.radiusNm:2)}:null;
+                if(!event.geo){issues.push(`Gesprächsmoment ${index+1} ohne belegten Ortsbezug weggelassen`);continue;}
+            }
+            const checked=voice.events([event]);
+            if(!checked||!checked.length){issues.push(`Gesprächsmoment ${index+1} ungültig (intent und genau eins von atPercent 1–99 oder geo) weggelassen`);continue;}
+            events.push({...checked[0],id:'route-story-'+events.length});
+        }
+        result.narrativeEvents=events;
+        if(raw.fallback===true)result.fallback=true;
+        return {draft:fatal?null:result,issues};
+    }
+    function validateDraft(raw,c){return repairDraft(raw,c).draft;}
+    // Specific feedback for the one correction round: the model learns what was rejected and why.
+    function correctionPrompt(prompt,raw,issues) {
+        return `${prompt}\nKORREKTUR DES BISHERIGEN ENTWURFS: ${issues.length?issues.join('; '):'Struktur unvollständig'}. Behebe genau diese Punkte, bewahre Inhalt, Personen und Ereignisse. Antworte als ein einzelnes JSON-Objekt mit experience, reason, nextStep, memory, narrativeEvents und offerText. ENTWURF: ${JSON.stringify(raw)}`;
+    }
+    // Last resort when accepting: the follow-up mission must always be buildable. A plain stay from
+    // the fixed original data, without invented events.
+    function fallbackDraft(c) {
+        if(!c?.original||!c.visited?.name||!c.home?.name)return null;
+        const news=c.original.schema==='apt-news-idea.v1';
+        const name=text(c.original.passenger?.name,80)||(news?'Die Reporterin bzw. der Reporter':'Der Chartergast');
+        const group=!news&&Number.isInteger(c.original.passengerCount)&&c.original.passengerCount>1;
+        const who=group?`${name} und die Mitreisenden`:name;
+        const stay=text(c.original.returnPlan?.stayText,240);
+        const draft=news?{
+            experience:`${name} hat die Recherche in ${c.visited.name} wie geplant abgeschlossen${stay?` (${stay})`:''}. Gespräche und Material sind gesammelt; die Auswertung folgt in der Redaktion.`,
+            reason:`Die Arbeit vor Ort ist erledigt, deshalb geht es jetzt mit dem gesammelten Material zurück nach ${c.home.name}.`,
+            nextStep:`Nach der Ankunft in ${c.home.name} wertet ${name} das Material in der Redaktion aus.`,
+            memory:`Ein ruhiger Aufenthalt in ${c.visited.name} ohne besondere Zwischenfälle.`
+        }:{
+            experience:`${who} ${group?'haben':'hat'} den Aufenthalt in ${c.visited.name} wie geplant verbracht${stay?` (${stay})`:''}. Der Anlass der Reise ist ohne besondere Zwischenfälle verlaufen.`,
+            reason:`Der Aufenthalt ist vorbei, deshalb ${group?'fliegen':'fliegt'} ${who} jetzt wie gebucht zurück nach ${c.home.name}.`,
+            nextStep:`Nach der Ankunft in ${c.home.name} geht es für ${group?'die Reisenden':name} wieder nach Hause.`,
+            memory:`Ein ruhiger Aufenthalt in ${c.visited.name} ohne besondere Zwischenfälle.`
+        };
+        return {...draft,narrativeEvents:[],fallback:true};
     }
     // Rückreise: Start und Ziel tauschen. Wer am Ziel empfangen hat, bringt jetzt zum Flugzeug;
     // wer zu Hause gebracht hat, holt dort wieder ab (groundCast und gespeicherte Composer-Szenen).
@@ -174,5 +235,5 @@
             &&Math.abs((p.lon??p.lng)-visited.lon)<0.003);
         return {ready:index>=0 && route.length>index+1,route:index>=0?route.slice(index):[]};
     }
-    return {SCHEMA,source,context,returnPlan,prospect,request,offerPreview,draftPrompt,validateDraft,continuationIdea,applyMission,voiceLeg,mirrorGround};
+    return {SCHEMA,source,context,returnPlan,prospect,request,offerPreview,draftPrompt,validateDraft,repairDraft,correctionPrompt,fallbackDraft,continuationIdea,applyMission,voiceLeg,mirrorGround};
 });

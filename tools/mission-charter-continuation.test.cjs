@@ -129,3 +129,35 @@ test('Rückreise spiegelt Bodenbesetzung und gespeicherte Composer-Szenen', () =
   assert.deepEqual(idea.groundVisual.scenes.arrival.persons, [{ id: 'a1', role: 'Fahrer' }]);
   assert.deepEqual(core.mirrorGround({ groundCast: { arrival: [] } }).groundCast, { start: [] }, 'nur vorhandene Szenen');
 });
+
+test('tolerant stay check: too long is cut, broken moments are dropped, only empty fields reject',()=>{
+ const c=core.context(request());
+ const long='Die Gruppe hat in Eutingen viel erlebt und lange beisammengesessen. '.repeat(30);
+ const r=core.repairDraft({...draft,experience:long,narrativeEvents:[{intent:'Gut',atPercent:30},{intent:'Kaputt',atPercent:130},{intent:'Ort ohne Anker',geo:{lat:48.5,lon:8.8,radiusNm:2}},{intent:'Beides',atPercent:40,geo:{lat:1,lon:1,radiusNm:1}}]},c);
+ assert.ok(r.draft);assert.ok(r.draft.experience.length<=1200);assert.match(r.draft.experience,/beisammengesessen\.$/);
+ assert.deepEqual(r.draft.narrativeEvents.map(e=>e.intent),['Gut','Beides']);
+ assert.ok(r.issues.some(i=>/gekürzt/.test(i)));assert.ok(r.issues.some(i=>/Ortsbezug/.test(i)));
+ assert.equal(core.repairDraft({...draft,memory:'  '},c).draft,null);
+ assert.ok(core.repairDraft([draft],c).draft,'a one-element list is accepted');
+ assert.match(core.correctionPrompt('P',{},['memory fehlt oder ist leer']),/memory fehlt oder ist leer/);
+ const plain=core.fallbackDraft(c);
+ assert.ok(core.validateDraft(plain,c));assert.equal(plain.fallback,true);assert.deepEqual(plain.narrativeEvents,[]);
+ assert.match(plain.experience,/Ada und die Mitreisenden haben den Aufenthalt in Eutingen/);
+});
+
+test('accept always builds the follow-up: unusable drafts get one specific correction, then a plain unsaved stay',async()=>{
+ const charter=require('../mission-charter-ideas-core.js');require('../mission-private-outing-core.js');const flight=require('../mission-private-episode-v6.js');
+ const req=request();req.acceptance=service([],now).buildAcceptance(req,B);const api=service([req],now);
+ const base=api.buildDispatchMission(req,{start:B,dest:A}).mission;
+ const story='Nach ihrem gemeinsamen Aufenthalt ist Ada mit ihrer Reisegruppe bereit für den gebuchten Rückflug. Die Gespräche vor Ort haben ihnen neue Einblicke gegeben, die sie auf der Heimreise noch beschäftigen. Du bringst dieselben Reisenden und ihre Reisetaschen wieder zum ursprünglichen Ausgangsplatz zurück.';
+ const prompts=[];
+ const c=vm.createContext({console:{...console,warn(){}},window:{MissionCharterIdeasCore:charter,MissionCharterContinuationCore:core,MissionPrivateEpisodeV6:flight,missionFollowupSaveCharterExperience:api.saveCharterExperience},localStorage:{getItem:()=>null},getMissionAircraftCapabilitySnapshot:()=>({passengerCapacity:4}),missionTrackerSupportsGroupGeneration:()=>true,getSelectedAiApiKey:()=>'',fetchGeminiJsonWithFallback:async prompt=>{
+  if(prompt.startsWith('Entwickle die Fortsetzung')){prompts.push(prompt);return {parsed:{experience:'kurz'}};}
+  return {parsed:{title:'Gebuchter Rückflug',story,greeting:'Guten Tag, wir sind bereit für die Rückreise.',memory:draft.memory,flightBriefing:''}};
+ }});vm.runInContext(fs.readFileSync('mission-charter-browser.js','utf8'),c);
+ const m=await c.window.MissionCharterBrowser.continuation({req:clone(api.requests()[0]),base,contract:{route:{startName:B.name,targetName:A.name,distanceNm:20}}});
+ assert.equal(prompts.length,2,'draft plus one correction');
+ assert.match(prompts[1],/KORREKTUR DES BISHERIGEN ENTWURFS: experience fehlt oder ist leer; reason fehlt/);
+ assert.match(m.charterIdea.background,/wie geplant verbracht/);
+ assert.equal(api.requests()[0].charterContinuation.experience,null,'plain stay is not stored: a later accept may still get a real one');
+});

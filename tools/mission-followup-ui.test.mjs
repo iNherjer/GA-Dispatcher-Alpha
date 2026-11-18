@@ -99,3 +99,26 @@ test('two due return offers both get their turn, even with the banner closed; a 
  const recentAttempt={...lahr,recapError:undefined,recapAttemptedAt:now-60000,charterContinuation:{...lahr.charterContinuation,experience:null}};
  assert.equal(fresh.maybeWriteCharterRecap(recentAttempt),false,'another device may still be writing');
 });
+
+test('a failure under the old strict check gets exactly one new attempt, with the specific correction',async()=>{
+ const {createRequire}=await import('node:module');const require=createRequire(import.meta.url);
+ const core=require('../mission-charter-continuation-core.js');
+ const now=Date.now(),A={icao:'A',name:'Offenburg',lat:48.45,lon:7.94},B={icao:'B',name:'Lahr',lat:48.37,lon:7.83};
+ const idea={schema:'charter-idea.v1',reason:'Ein Grund für diese Reise.',background:'Ein Hintergrund der Reise.',arrival:'Ankunft am Platz.',passengerCount:3,groupLabel:'Gruppe',passenger:{name:'Adrian',role:'Gast',gender:'male',personality:'Ruhig'},luggageLabel:'Tasche',luggageWeightLbs:10,memory:'Erinnerung.',geoAnchors:[],narrativeEvents:[],route:{start:A,target:B},returnPlan:{offered:true,reason:'Rückreise gebucht.',stayHours:0,stayText:'Kurz'}};
+ let list=[{...core.request({missionId:'lahr',mission:'M',charterIdea:idea,passenger:idea.passenger,departureAirport:A,destinationAirport:B},{missionId:'lahr',completionId:'d',endedAt:now-86400000,result:'completed',privateOutingEvidence:{flown:true,atTarget:true,groundStill:true}},now),
+  recapAttemptedAt:now-60000,recapRetried:true,recapError:'invalid_draft'}];
+ const prompts=[];let answer={experience:'Adrian und die Gruppe haben in Lahr '+'sehr viel erlebt und gefeiert. '.repeat(60),reason:'Nach dem langen Tag möchte die Gruppe wieder nach Hause.',nextStep:'Zu Hause wird alles erzählt und gefeiert.',memory:'Der Abend am Fluss bleibt allen im Gedächtnis.',narrativeEvents:[{intent:'kaputt',atPercent:0}]};
+ const env={console:{info(){},warn(){}},setTimeout,localStorage:{getItem:()=>null},environment:{},getStatus:r=>r.status,nowMs:()=>now,render(){},getRequests:()=>list,
+  saveMutated:fn=>{list=fn(list);},
+  saveCharterExperience:(id,raw)=>{const c=core.context(list[0]);const d=core.validateDraft(raw,c);list=[{...list[0],charterContinuation:{...c,experience:d}}];return list[0].charterContinuation;},
+  window:{MissionCharterContinuationCore:core,getSelectedAiApiKey:()=>'key',fetchGeminiJsonWithFallback:async p=>{prompts.push(p);return {parsed:answer};}}};
+ vm.createContext(env);vm.runInContext(source.slice(source.indexOf('const charterRecapTried'),source.indexOf('function getProfileId(')),env);
+ env.scheduleCharterRecaps(list);await new Promise(r=>setTimeout(r,30));
+ assert.equal(prompts.length,1,'too long text and a broken moment no longer reject the draft');
+ assert.equal(list[0].recapRule,2);assert.equal(list[0].recapError,undefined);
+ assert.ok(list[0].charterContinuation.experience.experience.length<=1200);
+ assert.deepEqual(list[0].charterContinuation.experience.narrativeEvents,[]);
+ // Under the new rule a recorded failure stays final.
+ const fresh={...env};vm.createContext(fresh);vm.runInContext(source.slice(source.indexOf('const charterRecapTried'),source.indexOf('function getProfileId(')),fresh);
+ assert.equal(fresh.maybeWriteCharterRecap({...list[0],recapError:'invalid_draft: memory fehlt',charterContinuation:{...list[0].charterContinuation,experience:null}}),false);
+});

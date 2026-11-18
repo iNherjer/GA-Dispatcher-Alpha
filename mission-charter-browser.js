@@ -98,14 +98,22 @@ async function continuation({req,base,contract,aiEnabled=true}) {
  if(!c)throw Error('Der Charter-Ursprung fehlt.');
  if(c.original.passengerCount>capacity())throw Error('Die ursprüngliche Chartergruppe passt nicht zur aktuellen Kapazität. Sie wird nicht verkleinert.');
  if(!aiEnabled)throw Error('Für die Charter-Fortsetzung bitte die KI aktivieren. Das Angebot bleibt erhalten.');
- if(!api.validateDraft(c.experience,c)) {
-  const prompt=api.draftPrompt(c);
-  let raw=await json(prompt),draft=api.validateDraft(raw,c);
-  if(!draft){raw=await json(prompt+'\nKorrigiere nur die Struktur des bisherigen Entwurfs. Bewahre dessen Inhalt und Identitäten. Vollständiges JSON, gültige Feldlängen und belegte Geo-Anker. ENTWURF: '+JSON.stringify(raw));draft=api.validateDraft(raw,c);}
-  if(!draft)throw Error('Der Charter-Rückblick ist unvollständig. Das Rückflugangebot bleibt verfügbar.');
-  const saved=root.missionFollowupSaveCharterExperience(req.id,draft);
-  if(!saved)throw Error('Der Charter-Rückblick konnte nicht gespeichert werden. Bitte Speicher prüfen und erneut versuchen.');
-  req.charterContinuation=saved;c.experience=saved.experience;
+ if(!api.validateDraft(c.experience,c)){
+  // The follow-up mission is always buildable: repair, one specific correction, then a plain stay.
+  const prompt=api.draftPrompt(c);let raw=null,repaired={draft:null,issues:[]};
+  try{raw=await json(prompt);repaired=api.repairDraft(raw,c);}catch(error){repaired.issues=[error?.message||'keine Antwort'];}
+  if(!repaired.draft&&raw){try{raw=await json(api.correctionPrompt(prompt,raw,repaired.issues));repaired=api.repairDraft(raw,c);}catch(_){}}
+  if(repaired.draft){
+    const saved=root.missionFollowupSaveCharterExperience(req.id,repaired.draft);
+    if(!saved)throw Error('Der Charter-Rückblick konnte nicht gespeichert werden. Bitte Speicher prüfen und erneut versuchen.');
+    req.charterContinuation=saved;c.experience=saved.experience;
+  }else{
+   // Not stored: a later accept (after discarding the preview) gets a new chance at a real stay.
+   const plain=api.fallbackDraft(c);
+   console.warn('[Charter-Fortsetzung] Rückblick ersetzt durch schlichten Aufenthalt',repaired.issues);
+   if(!plain)throw Error('Der Charter-Ursprung ist unvollständig. Das Angebot bleibt erhalten.');
+   req.charterContinuation={...req.charterContinuation,experience:plain};c.experience=plain;
+  }
  }
  // Mode is runtime data, never chosen by the language model.
  req.charterContinuation={...req.charterContinuation,pickupRequired:!!base.bush};

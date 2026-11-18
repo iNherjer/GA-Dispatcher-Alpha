@@ -1,5 +1,21 @@
 # Mission Runtime Authority Contract
 
+## Rueckblick-Pruefung tolerant, Folgemission immer baubar (v647, Web v2446)
+
+- `repairDraft` in `mission-charter-continuation-core.js` (auch hinter `validateDraft`): Der
+  Prompt nennt weiter Zielwerte; die Pruefung uebernimmt, was brauchbar ist. Zu lange Felder
+  werden auf ganze Saetze gekuerzt (Aufenthalt 1200, uebrige 600, Kartentext 350). Ungueltige
+  Gespraechsmomente werden einzeln weggelassen, Ortsmomente ueber `anchorId` bzw. Naehe
+  (< 0,01 Grad) an den belegten Ortsbezug gebunden. Verworfen wird nur bei fehlendem oder fast
+  leerem Pflichtfeld (< 20 Zeichen) oder ohne einzelnes JSON-Objekt.
+- `correctionPrompt`: Die eine Korrekturrunde nennt der KI die konkreten Gruende.
+- Annehmen (App, Charter und Reporter): Entwurf retten, eine gezielte Korrektur, sonst
+  `fallbackDraft` (schlichter Aufenthalt aus den festen Daten). Der Ersatz wird nicht gespeichert,
+  ein spaeteres Annehmen bekommt eine neue Chance. Die Folgemission scheitert nicht mehr am
+  Rueckblick.
+- App-Rueckfall: Fehlergrund mit fehlenden Feldern in `recapError`; Versuche mit
+  `recapRule` < 2 (alte strenge Pruefung) bekommen einen neuen Versuch.
+
 ## Abschieds-Vorbereitung beim Aufsetzen (v645)
 
 - Seit dem getrennten Missionsprozess (17.09.2026) lief die Vorbereitung nicht mehr: Worker und
