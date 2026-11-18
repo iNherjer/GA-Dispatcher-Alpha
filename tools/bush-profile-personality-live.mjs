@@ -8,6 +8,7 @@ import {setupContext,loadScript,initUiForRun} from './mission-pipeline-dryrun.mj
 import {assertClean} from './gemini-migration-harness.mjs';
 
 const live=process.argv.includes('--live');
+const bushIdeaRun=process.argv.includes('--bush-idea');
 const resumeFile=process.argv.find(x=>x.startsWith('--resume-report='))?.slice(16)||'';
 const resume=!!resumeFile;
 const testSpeed=Number(process.argv.find(x=>x.startsWith('--speed='))?.slice(8)||110);
@@ -55,7 +56,7 @@ context.fetch=async(url,options={})=>{
   save();return response;
  }catch(error){entry.durationMs=Date.now()-requestBegan;entry.error=String(error.message).replaceAll(key,'[redacted]');blocked=true;save();throw Error('Live network request failed');}
 };
-for(const file of ['datenbank.js','missions.js','data/mission-scene-assets.js','mission-private-context-core.js','mission-private-outing-core.js','mission-private-episode-v6.js','mission-poi-briefing-shared-core.js','mission-private-return-core.js','mission-definition-core.js','mission-variety-core.js','mission-arrival-core.js','mission-runtime-core.js','mission-cargo-core.js','mission-poi-chain.js','map-route-edit-core.js','map-navigation-geometry.js','map-navigation-client.js','map-live-presentation.js','sync.js','aircraft-mission-capability-core.js','aircraft-mission-profile-core.js','airport-weather.js','mission-airport-information-core.js','mission-airport-information-browser.js','mission-environment-core.js','mission-environment-browser.js','mission-bush-narrative-core.js','mission-bush-narrative-browser.js','mission-bush-pickup-voice-core.js','mission-bush-execution-core.js','app.js'])loadScript(context,file);
+for(const file of ['datenbank.js','missions.js','data/mission-scene-assets.js','mission-private-context-core.js','mission-private-outing-core.js','mission-private-episode-v6.js','mission-poi-briefing-shared-core.js','mission-private-return-core.js','mission-definition-core.js','mission-variety-core.js','mission-arrival-core.js','mission-runtime-core.js','mission-cargo-core.js','mission-poi-chain.js','map-route-edit-core.js','map-navigation-geometry.js','map-navigation-client.js','map-live-presentation.js','sync.js','aircraft-mission-capability-core.js','aircraft-mission-profile-core.js','airport-weather.js','mission-airport-information-core.js','mission-airport-information-browser.js','mission-environment-core.js','mission-environment-browser.js','mission-bush-narrative-core.js','mission-bush-ideas-core.js','mission-bush-narrative-browser.js','mission-bush-pickup-voice-core.js','mission-bush-execution-core.js','app.js'])loadScript(context,file);
 initUiForRun(context,'bush:all+'+profile,{pipelineV4:true,apiKey:live?key:'PREPARATION_ONLY'});
 context.__key=key;
 context.__scenario=scenario;
@@ -63,6 +64,7 @@ context.__profile=profile;
 context.__mast=process.argv.includes('--mast-info')||process.argv.includes('--mast-proof');
 context.__testSpeed=testSpeed;
 context.__sourceProof=process.argv.includes('--source-proof');
+context.__bushIdea=null;
 await vm.runInContext(`(async()=>{
  const start={icao:'KMYL',n:'McCall Municipal Airport',lat:44.8897,lon:-116.101,elevation:5024,country:'US'};
  const dest=__mast?{n:'Test-Funkmast',name:'Test-Funkmast',lat:45.133202,lon:-115.321999,country:'US',man_made:'communications_tower'}:buildAirportDispatchRecord('U60',{ident:'U60',name:'Big Creek Airport',lat:45.133202,lon:-115.321999,elevation:5743,country:'US'});
@@ -84,7 +86,8 @@ try{
  assert.equal(report.planner?.status,'ready','Production planner rejected output');context.__plan=report.planner;
  if(!resume)report.contract=vm.runInContext('buildMissionContractV4({plannerContext:__plannerContext,plannerResult:__plan})',context);save();
  assert.equal(report.contract.status,'ready');assert.equal(report.contract.profile.id,profile);context.__contract=report.contract;
- report.mission=await vm.runInContext('fetchMissionWriterV5({...__plannerContext,missionContractV4:__contract,bushSpec:__bush})',context);save();
+ if(bushIdeaRun){context.localStorage.setItem('ga_bush_idea_v1','on');context.__bushIdea=vm.runInContext('MissionBushIdeasCore.fromContract(__contract)',context);assert.ok(context.__bushIdea,'Planner contract yields no bush-idea.v1');report.bushIdea=context.__bushIdea;}
+ report.mission=await vm.runInContext('fetchMissionWriterV5({...__plannerContext,missionContractV4:__contract,bushSpec:__bush,bushIdea:__bushIdea})',context);save();
  if(profile==='bush_recon_return'){assert.ok(report.contract.bushReconPlan,'Planner omitted Recon game plan');assert.equal(report.mission.bush?.success.minAreaTimeSec,report.contract.bushReconPlan.observationSeconds);assert.equal(report.mission.passenger?.targetDwellMin*60,report.contract.bushReconPlan.observationSeconds);}
  assert.ok(report.mission?.s?.length>=100,'Missing production writer story');
  // Cargo-only intentionally has no passenger speaker.

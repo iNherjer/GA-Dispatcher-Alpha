@@ -40804,10 +40804,12 @@ function sanitizeMissionWriterV5Payload(raw = null, context = {}) {
         ...context,
         storyHint: src.story || ''
     });
-    if (requiredTaskDomain === 'bush_pickup_return') {
+    // bush-idea.v1: the writer's person follows the planned idea; no candidate or template override.
+    const bushIdeaActive = context.missionType === 'bush' && !!window.MissionBushIdeasCore?.validIdea(context.bushIdea);
+    if (requiredTaskDomain === 'bush_pickup_return' && !bushIdeaActive) {
         passenger = _missionWriterV5BushPickupCanonicalPassenger(passenger, contract);
     }
-    passenger = _missionPipelineV4EnforceBushPickupNameCandidates(passenger, contract).passenger;
+    if (!bushIdeaActive) passenger = _missionPipelineV4EnforceBushPickupNameCandidates(passenger, contract).passenger;
     if (requiredTaskDomain === 'private_outing') {
         passenger = _missionPrivateOutingNormalizePassenger(passenger, getMissionTaskProfile('private_outing', 'apt'), contract);
     }
@@ -40892,7 +40894,9 @@ function sanitizeMissionWriterV5Payload(raw = null, context = {}) {
         finalCargo = _missionPipelineV4CargoLabel(contract, { cargoText: storyCargoText });
     }
     if (!finalCargo && storyCargoText) finalCargo = storyCargoText;
-    const nameAligned = _missionPipelineV4EnforceBushPickupNameCandidates(passenger, contract, finalStory);
+    const nameAligned = bushIdeaActive
+        ? { passenger, story: finalStory }
+        : _missionPipelineV4EnforceBushPickupNameCandidates(passenger, contract, finalStory);
     passenger = nameAligned.passenger;
     finalStory = nameAligned.story;
     if (missionHasNoPassenger) {
@@ -40911,7 +40915,9 @@ function sanitizeMissionWriterV5Payload(raw = null, context = {}) {
     const profileId = String(contract?.profile?.id || context.dispatchProfileId || context.selectedProfile || requiredTaskDomain || 'auto').toLowerCase();
     const family = briefingBrief.missionFamily || _missionWriterV5MissionFamily(contract);
     const rawTitle = _missionWriterV5Text(src.title || '', 120);
-    const titleCandidate = _missionWriterV5TitleNeedsFallback(rawTitle, contract, requiredTaskDomain, isPOI)
+    const titleCandidate = (bushIdeaActive
+        ? (!rawTitle || /\b(contract|pipeline|writer|json|taskdomain)\b/i.test(rawTitle))
+        : _missionWriterV5TitleNeedsFallback(rawTitle, contract, requiredTaskDomain, isPOI))
         ? _missionWriterV5DefaultTitle(contract, family)
         : rawTitle;
     let finalTitle = _missionWriterV5NormalizeNewsEditorialTerms(titleCandidate, requiredTaskDomain);
@@ -41512,10 +41518,12 @@ async function fetchMissionWriterV5(context = {}) {
     if (/^(training|club_training_basic|club_training_advanced)$/.test(contract.profile?.taskDomain || '') || context.selectedCategory === 'trn') return fetchTrainingNarrative(context);
     const reconContext = contract.profile?.id === 'bush_recon_return' ? context.bushReconContext : null;
     if (contract.bushReconPlan && context.bushSpec) context = {...context,bushSpec:applyBushReconPlan(context.bushSpec,contract.bushReconPlan)};
+    const bushIdea = context.missionType === 'bush' && window.MissionBushIdeasCore?.validIdea(context.bushIdea) ? context.bushIdea : null;
+    const bushIdeaPrompt = bushIdea ? window.MissionBushIdeasCore.writerPrompt(bushIdea, contract) : '';
     const reconContractPrompt = contract.bushReconPlan ? '\nBINDENDER RECON-SPIELPLAN: '+JSON.stringify(contract.bushReconPlan)+' Beschreibe genau diese Beobachtungsdauer und diesen Ablauf; bei längerem Aufenthalt keinen einmaligen Überflug als ausreichend bezeichnen. Der heutige saisonale Anlass folgt dem gelieferten Datum. Diese Zahlen sind vertraglich, passenger.targetRadiusNm und targetDwellMin müssen ihnen entsprechen (Sekunden/60). Keine neue niedrigere Flugzielhöhe erfinden.' : '';
     const selectedProvider = getSelectedAiProvider();
     const result = await fetchGeminiJsonWithFallback(
-        buildMissionWriterV5Prompt(contract, context) + (window.MissionLegacyCharterNarrativeCore?.prompt(context) || '') + reconContractPrompt + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionBushNarrativeCore?.followupPrompt(context) || '') + (window.MissionBushNarrativeCore?.sourcePrompt({...context,airportInfoContext:contract.airportInfoContext,environmentContext:contract.environmentContext}) || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (context.missionType === 'bush' ? (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext,contract.departureAirportInfoContext)||'') : (window.MissionAirportInformationCore?.pagesPrompt(contract)||'')) + (window.MissionBushNarrativeCore?.reconWriterPrompt(reconContext, window.MissionPoiBriefingSharedCore, window.MissionAirportInformationCore) || ''),
+        buildMissionWriterV5Prompt(contract, context) + (window.MissionLegacyCharterNarrativeCore?.prompt(context) || '') + reconContractPrompt + bushIdeaPrompt + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionBushNarrativeCore?.followupPrompt(context) || '') + (window.MissionBushNarrativeCore?.sourcePrompt({...context,airportInfoContext:contract.airportInfoContext,environmentContext:contract.environmentContext}) || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (context.missionType === 'bush' ? (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext,contract.departureAirportInfoContext)||'') : (window.MissionAirportInformationCore?.pagesPrompt(contract)||'')) + (window.MissionBushNarrativeCore?.reconWriterPrompt(reconContext, window.MissionPoiBriefingSharedCore, window.MissionAirportInformationCore) || ''),
         apiKey,
         { promptVersion: 'mission-writer-v5', timeoutMs: context.missionType === 'bush' ? 45000 : (contract.airportInfoContext || contract.departureAirportInfoContext || contract.poiInformationContext ? 40000 : (selectedProvider === 'openai' ? 26000 : 16000)) }
     );
@@ -41545,6 +41553,7 @@ async function fetchMissionWriterV5(context = {}) {
         mission.bush = context.bushSpec;
         if (mission.passenger) {mission.passenger.targetRadiusNm=contract.bushReconPlan.radiusNm;mission.passenger.targetDwellMin=contract.bushReconPlan.observationSeconds/60;}
     }
+    if (bushIdea) window.MissionBushIdeasCore.accept(mission, result.parsed, bushIdea);
     window.MissionBushNarrativeCore?.attachRecon(mission, result.parsed, reconContext, window.MissionPoiBriefingSharedCore);
     window.MissionBushNarrativeCore?.attachFollowup(mission, result.parsed, context);
     window.MissionLegacyCharterNarrativeCore?.attach(mission, result.parsed, context);
@@ -46177,12 +46186,19 @@ async function generateMission(options = {}) {
         if (aiModeEnabled) {
             if (isMissionPipelineV4Enabled() && missionContractV4 && String(missionContractV4.status || '').toLowerCase() === 'ready') {
                 const writerMode = getMissionWriterMode();
-                const writerPassenger = _missionWriterV5BushPickupCanonicalPassenger(
-                    plannerContext.followUpContext?.lockedPassenger || {},
-                    missionContractV4
-                );
+                // bush-idea.v1 (Testschalter ga_bush_idea_v1): the planned idea decides the person.
+                const bushIdea = writerMode === 'v5' && window.MissionBushIdeasCore?.enabled(localStorage)
+                    ? window.MissionBushIdeasCore.fromContract(missionContractV4)
+                    : null;
+                const writerPassenger = bushIdea
+                    ? window.MissionBushIdeasCore.writerPassengerSeed(bushIdea)
+                    : _missionWriterV5BushPickupCanonicalPassenger(
+                        plannerContext.followUpContext?.lockedPassenger || {},
+                        missionContractV4
+                    );
                 const writerContext = {
                     bushReconContext,
+                    bushIdea,
                     followUpContext: plannerFollowUpContext,
                     missionContractV4,
                     missionPlanV2,
@@ -46382,6 +46398,7 @@ async function generateMission(options = {}) {
                 });
                 const fallbackMission = pickupFallback?.mission || null;
                 const fallbackBushSpec = applyFollowupAcceptanceToBushSpec(fallbackMission?.bush || null);
+                const bushIdeaOwnsPickup = !!window.MissionBushIdeasCore?.owns(m);
                 if (fallbackBushSpec) {
                     const existingBush = dispatchBushSpec && typeof dispatchBushSpec === 'object' ? dispatchBushSpec : {};
                     const aiPassenger = m?.passenger && typeof m.passenger === 'object' ? m.passenger : null;
@@ -46421,7 +46438,16 @@ async function generateMission(options = {}) {
                             .map(item => _missionPipelineV4BushPickupDisplayText(item))
                             .filter(Boolean)
                         : [];
-                    const pickupCargoLabel = pickupEquipmentIdeas.length
+                    // bush-idea.v1: the guest's luggage comes from the writer's cargo for the planned person.
+                    const ideaPickupCargo = bushIdeaOwnsPickup
+                        ? String(m?.cargo || m?.cargoText || '').replace(/\s*\(\s*\d+(?:[.,]\d+)?\s*lbs?\s*\)\s*$/i, '').trim()
+                        : '';
+                    const ideaPickupCargoWeight = bushIdeaOwnsPickup
+                        ? Number((String(m?.cargo || m?.cargoText || '').match(/\(\s*(\d+(?:[.,]\d+)?)\s*lbs?\s*\)\s*$/i) || [])[1]?.replace(',', '.'))
+                        : NaN;
+                    const pickupCargoLabel = ideaPickupCargo
+                        ? ideaPickupCargo
+                        : pickupEquipmentIdeas.length
                         ? _missionPipelineV4JoinNaturalList(pickupEquipmentIdeas)
                         : String(
                             existingBush.pickupCargoLabel
@@ -46442,7 +46468,8 @@ async function generateMission(options = {}) {
                             ? (aiPassenger?.greetingText || existingBush.pickupGreetingText || fallbackBushSpec.pickupGreetingText)
                             : (existingBush.pickupGreetingText || aiPassenger?.greetingText || fallbackBushSpec.pickupGreetingText),
                         pickupCargoLabel,
-                        pickupCargoWeightLbs: Number(existingBush.pickupCargoWeightLbs || fallbackBushSpec.pickupCargoWeightLbs) || 18,
+                        pickupCargoWeightLbs: (Number.isFinite(ideaPickupCargoWeight) && ideaPickupCargoWeight > 0 ? ideaPickupCargoWeight : 0)
+                            || Number(existingBush.pickupCargoWeightLbs || fallbackBushSpec.pickupCargoWeightLbs) || 18,
                         pickupStory: selectedPickupStory || fallbackBushSpec.pickupStory
                     });
                     if (hydratedBush) {
@@ -46464,7 +46491,11 @@ async function generateMission(options = {}) {
                     const storyLooksFlat = !storyText
                         || storyText.length < 260
                         || /mission gilt|mission endet|beendet,?\s*wenn|abgeschlossen,?\s*wenn|rueckkehr.*ausstieg|ruckkehr.*ausstieg|rückkehr.*ausstieg/i.test(storyText);
-                    if (storyLooksFlat && fallbackMission?.s) {
+                    if (bushIdeaOwnsPickup) {
+                        // Writer prose stays; the legacy checks are diagnostics only.
+                        const ideaDebug = m._missionWriterV4Debug?.bushIdea;
+                        if (ideaDebug) ideaDebug.legacyPickupChecks = { storyLooksFlat: !!storyLooksFlat, storyHasPickupName: !!storyHasPickupName };
+                    } else if (storyLooksFlat && fallbackMission?.s) {
                         m.s = fallbackMission.s;
                     } else if (pickupNameForStory && !storyHasPickupName) {
                         m.s = addBushPickupNameToStory(storyText, {

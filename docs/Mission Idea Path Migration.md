@@ -221,3 +221,45 @@ beabsichtigt ist.
 Prüfregel je Schritt: vorher/nachher je Profil drei echte KI-Läufe vergleichen (Story, Begrüßung,
 Voice-Sätze, Ladung, Szene); Stub-Tests allein reichen nicht. Änderungen an Wortmustern/Prüfungen
 nur mit Freigabe (`AGENTS.md`).
+
+## 7. Umsetzung Bush-Ideen-Kern, Bauweise A (18.11.2026)
+
+Vom User gewählt: Bauweise A – der bestehende Bush-Plan wird zur geprüften Idee, Planer-/Writer-
+Prompts und Abfragen bleiben. Kein eigener Ideen-Aufruf (Bauweise B verworfen).
+
+**Befund, der den Umbau trägt** (gespeicherter Live-Lauf `bush_pickup_strip-composer-20261113.json`):
+Der Planer plante „Mark, USFS-Funktechniker“. `_missionWriterV5BushPickupCanonicalPassenger` gab dem
+Writer den ersten Listenvorschlag („Kartenmacherin“) vor; der Writer schrieb „Elena Vance“. Danach
+ersetzte der Code Name (Sierra Lane, Story behielt „Elena“), Begrüßung (Schablone „Gut, dass du da
+bist …“) und Titel („Bush-Pickup bei …“); `bush.pickupStory` nannte eine vierte Person. Die übrigen
+fünf Bush-Profile waren in allen gespeicherten Läufen stimmig (Plan = Person = Story).
+
+**Umsetzung** (`mission-bush-ideas-core.js`, seit Web v2453 Standard an; Rückweg per
+`localStorage ga_bush_idea_v1 = 'off'`):
+
+- `fromContract`: `bush-idea.v1` aus `storyFrame` (subjectDetail, incidentContext, whyNow,
+  soughtOutcome Pflicht) plus gesperrter Folge-Passagier. Unvollständiger Plan → alter Weg.
+- Nur `bush_pickup_strip`: kein Listen-Passagier als Vorgabe, Writer-Zusatz mit BUSH_IDEA,
+  `passenger.pickupStory`-Feldern (Regeln wie V4-Writer 19c/19e) und Namensliste. In
+  `sanitizeMissionWriterV5Payload` entfallen bei aktiver Idee Listen-Überschreibung, Namens-
+  Ersatz und deutscher Titel-Rückfall; im Bush-Zweig kommen Gepäck und Gewicht aus dem Writer,
+  „flach“-Ersatz und Namens-Voranstellung sind nur noch Diagnose.
+- Übrige fünf Profile: Writer-Prompt unverändert (Test), Idee wird nur mitgeschrieben.
+- Unberührt: Planer, Abfragen, Routenblock, Pisten/Platzinfos, Wetter, Routen-Voices, Recon-Plan,
+  Folge-Gedächtnis, Tracker.
+
+**Nachweise:**
+
+- `tools/mission-bush-ideas.test.cjs` (Kern, alle sechs gespeicherten Planer-Verträge ergeben
+  eine Idee), `tools/bush-idea-writer-wiring.test.mjs` (echter V5-Writer im VM mit der gespeicherten
+  KI-Antwort: alt Sierra Lane/Standardtitel/Schablone, neu Elena Vance/„Abholung der
+  Kartenmacherin“/KI-Begrüßung; Story, Fracht, PAX, Platzinfos, Bush-Spec gleich).
+- Gesamte `tools/*.test.*` gegen den Stand ohne Änderung: kein Test neu rot.
+- Ein Live-Lauf (1 Gemini-Aufruf, gespeicherter Plan wiederverwendet,
+  `bush_pickup_strip-idea-20261118.json`): Writer übernimmt die geplante Person (Elias Thorne,
+  USFS-Funktechniker, Funkrelais winterfest), Titel „Winterfeste Funkrelais am Big Creek“, eigene
+  Begrüßung, alle fünf Abhol-Felder geliefert, Diagnose leer. Platzinfos/Abflugseite vorhanden.
+  Harness: `--bush-idea --resume-report=…`.
+
+Vom User freigegeben und standardmäßig eingeschaltet (Web v2453). Offen: MSFS-Feldtest der Abholung (Voice-Sätze),
+Sprachvorgabe für Englisch (Phase 4) als nächster Schritt im Kern.
