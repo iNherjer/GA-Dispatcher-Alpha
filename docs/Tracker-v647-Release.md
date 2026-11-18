@@ -38,3 +38,7 @@ Folgemission mit „Der Charter-Rückblick ist unvollständig“ abgebrochen.
 - Rückflug annehmen: Mission entsteht auch bei schlechter KI-Antwort.
 
 ## Artefakt
+
+- Tag `v647`, Asset `VFR-Multitool-Tracker.exe`
+- Größe: 175202422 Bytes
+- SHA-256: 13132177d0aeb29b3520064728393634e3bafc8e2a3e4ac504111bb5894cb00e (öffentlicher Download geprüft)
