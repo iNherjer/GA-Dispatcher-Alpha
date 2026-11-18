@@ -43,3 +43,7 @@ Zusammen ausgeliefert mit Web v2442 (18.11.2026).
   `MISSION_FOLLOWUP_RECAP_WRITTEN … stage=deboarding`.
 
 ## Artefakt
+
+- Tag `v645`, Asset `VFR-Multitool-Tracker.exe`
+- Größe: 175190643 Bytes
+- SHA-256: 42bbe4055b651bae7e0a312cddea7cbc3c6d57d653bf49073e63966fcfb25a36 (öffentlicher Download geprüft)
