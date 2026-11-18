@@ -175,8 +175,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v644';
-const TRACKER_VERSION_CODE = 644;
+const TRACKER_VERSION = 'v645';
+const TRACKER_VERSION_CODE = 645;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -5116,6 +5116,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     playBoardingVoice: request => missionBoardingVoice.dispatch(request),
     prepareBoardingVoice: request => missionBoardingVoice.prepare(request),
     playFarewellVoice: request => missionFarewellVoice.dispatch(request),
+    prepareFarewellVoice: request => prepareFarewellAndRecap(request),
     playComplianceVoice: request => missionComplianceVoice.dispatch(request),
     recordAuthoritySanction: complianceSanctions.record,
     onAuthorityChanged: (reason, snapshot) => broadcastMissionAuthorityUpdate(
@@ -5132,8 +5133,17 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
   // Return offers: stay retrospective written after landing, with the voice key; App writes it on accept otherwise.
   const charterRecap = createCharterRecapWorker({ authorityManager: missionAuthorityManager, pilotId: String(syncId),
     provider: voiceCredentials?.provider, apiKey: voiceCredentials?.apiKey, log: debugLog });
-  const charterRecapTimer = charterRecap.configured ? setInterval(() => { void charterRecap.tick(); }, 15000) : null;
+  const charterRecapTimer = charterRecap.configured ? setInterval(() => { void charterRecap.tick(); }, 5000) : null;
   charterRecapTimer?.unref?.();
+  // Touchdown near the target: prewarm the farewell (restored for the mission process) and start the
+  // stay retrospective of a return offer, with the farewell text as optional continuity once generated.
+  const prepareFarewellAndRecap = request => {
+    const prepared = missionFarewellVoice.prepare(request);
+    if (charterRecap.configured) void charterRecap.onTouchdown({
+      getFarewellText: () => prepared?.effectId ? trackerVoiceService.get?.(prepared.effectId)?.text : ''
+    }).catch(error => debugLog(`MISSION_FOLLOWUP_RECAP_TOUCHDOWN_ERROR ${error?.message || error}`));
+    return prepared;
+  };
   const sanctionSyncTimer = setInterval(() => { void complianceSanctions.flush(); }, 5000);
   sanctionSyncTimer.unref?.();
   void complianceSanctions.flush();
@@ -5241,6 +5251,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     playBoardingVoice: missionBoardingVoice.dispatch,
     prepareBoardingVoice: missionBoardingVoice.prepare,
     playFarewellVoice: missionFarewellVoice.dispatch,
+    prepareFarewellVoice: request => prepareFarewellAndRecap(request),
     playComplianceVoice: missionComplianceVoice.dispatch,
     recordAuthoritySanction: complianceSanctions.record,
     flightLog: trackerFlightLogStore,

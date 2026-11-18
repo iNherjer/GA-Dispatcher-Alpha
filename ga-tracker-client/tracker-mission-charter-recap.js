@@ -75,12 +75,13 @@ function createCharterRecapWorker({ authorityManager, pilotId, provider, apiKey,
     let item = null;
     try {
       // The authority core may live in the mission worker process: every call is awaited.
+      await authorityManager.prepareFollowupRecap?.(pilotId);
       item = await authorityManager.nextFollowupRecap?.(pilotId);
       if (!item) return { status: 'idle' };
       const result = await writeRecap({ request: item.request, provider, apiKey, fetchRemote });
       if (result.ok) {
         const saved = await authorityManager.completeFollowupRecap(item.id, pilotId, result.draft);
-        log(`MISSION_FOLLOWUP_RECAP_WRITTEN id=${item.id} card=${result.draft.offerText ? 1 : 0} saved=${saved ? 1 : 0}`);
+        log(`MISSION_FOLLOWUP_RECAP_WRITTEN id=${item.id} card=${result.draft.offerText ? 1 : 0} stage=${item.provisional ? 'deboarding' : 'after-close'} saved=${saved ? 1 : 0}`);
         return { status: saved ? 'written' : 'persist_failed' };
       }
       await authorityManager.failFollowupRecap(item.id, pilotId, result.error);
@@ -92,7 +93,22 @@ function createCharterRecapWorker({ authorityManager, pilotId, provider, apiKey,
       return { status: 'failed', error: error?.message || 'recap_error' };
     } finally { busy = false; }
   }
-  return { tick, configured };
+  // Touchdown near the target: same trigger as the farewell prewarm. The farewell text is optional
+  // continuity; the retrospective never waits longer than farewellWaitMs for it.
+  async function onTouchdown({ getFarewellText = () => '', farewellWaitMs = 20000, pollMs = 1000 } = {}) {
+    if (!configured) return false;
+    let farewellText = '';
+    for (let waited = 0; waited <= farewellWaitMs; waited += pollMs) {
+      try { farewellText = String(getFarewellText() || '').trim(); } catch (_) { farewellText = ''; }
+      if (farewellText || waited >= farewellWaitMs) break;
+      await new Promise(resolve => setTimeout(resolve, pollMs));
+    }
+    const queued = await authorityManager.prepareFollowupRecap?.(pilotId, { touchdown: true, farewellText });
+    log(`MISSION_FOLLOWUP_RECAP_TOUCHDOWN queued=${queued ? 1 : 0} farewell=${farewellText ? 1 : 0}`);
+    if (queued) void tick();
+    return !!queued;
+  }
+  return { tick, onTouchdown, configured };
 }
 
 module.exports = { createCharterRecapWorker, writeRecap, parseJson };

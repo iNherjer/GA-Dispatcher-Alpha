@@ -1,12 +1,36 @@
 # Mission Runtime Authority Contract
 
+## Abschieds-Vorbereitung beim Aufsetzen (v645)
+
+- Seit dem getrennten Missionsprozess (17.09.2026) lief die Vorbereitung nicht mehr: Worker und
+  Elternprozess reichten `prepareFarewellVoice` nicht weiter. Ab v645 wieder verdrahtet
+  (`tracker-mission-worker.js`, `tracker-mission-process.js`, `tracker.js`; Test
+  `tracker-mission-farewell-prewarm-wiring.test.js`).
+- Wiederverwenden statt Neu-Erzeugen (APT-Passagierabschiede): `farewellMaterialKey` vergleicht
+  beim Aussteigen nur Wesentliches mit dem Stand beim Aufsetzen: gescheitert/Fracht offen,
+  fester Text, Audio, Cue, Sprecher, Landeband (sanft < 200 / normal / holprig > 500 ft/min),
+  G > 1,6, Bank > 34 Grad, Sinkflug <= -1500 ft/min, Sim-Datensatz. Exakte Zahlen, Live-Wetter
+  und waehrend des Rollens fertig gesprochene Gespraeche loesen keine Neu-Erzeugung mehr aus
+  (Log `MISSION_FAREWELL_VOICE_PREWARM_REUSED`). Schulung und POI vergleichen weiter den
+  ganzen Prompt.
+
 ## Rueckflug-Rueckblick schreibt der Tracker nach der Landung (18.11.2026, Tracker v644)
 
 - Legt `finalizeExecutionRun` eine Charter- oder Reporter-Rueckreise an
   (`charterContinuation` ohne gueltige `experience`), merkt der Authority-Kern sie in
   `state.followupRecapQueue` vor (neustartfest, max. 16). Das Angebot selbst geht wie
   bisher sofort in den Folgeauftrags-Postausgang und wartet nie auf den Text.
-- `tracker-mission-charter-recap.js` schreibt alle 15 s hoechstens einen Eintrag mit
+- Start beim Aufsetzen (ab v645): Derselbe Ausloeser wie die Abschieds-Vorbereitung
+  (TOUCHDOWN hoechstens 1,2 NM vom Ziel) ruft `prepareFarewellAndRecap` in `tracker.js`. Der
+  Rueckblick wartet bis 20 s auf den vorbereiteten Abschiedstext und gibt ihn als letzte
+  gehoerte Aussage (`arrival-farewell`) mit; ohne Text startet er trotzdem. Kein Neuschreiben,
+  wenn sich der Abschied spaeter aendert (der Rueckblick haengt nicht von Fracht/Landung ab).
+- Rueckfall ohne Aufsetz-Meldung: Ab `end_unloading`/`end_ready`/`closing` mit
+  `atDestination` legt `prepareFollowupRecap` einen vorlaeufigen Auftrag mit derselben
+  Anfrage-ID an (`previewRecapRequest`, keine Freigabe-Entscheidung). Ist der Entwurf bis
+  `finalizeExecutionRun` fertig, haengt er direkt am Angebot (kein Nachtrag); laeuft er noch,
+  wird er zum normalen Nachtrag fuer das echte Angebot. Ohne Angebot verfaellt er nach 2 Tagen.
+- `tracker-mission-charter-recap.js` prueft alle 5 s (v644: 15 s) und schreibt hoechstens einen Eintrag mit
   `draftPrompt`/`validateDraft` aus `mission-charter-continuation-core.js` (dieselben wie
   in der App, eine Strukturkorrektur) ueber den Voice-Schluessel (Gemini oder OpenAI).
   Ohne Voice-Schluessel bleibt er aus. Fehlschlaege: Pause 2/4 min, nach 3 Versuchen

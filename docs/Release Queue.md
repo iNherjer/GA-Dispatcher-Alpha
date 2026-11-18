@@ -29,6 +29,13 @@ liefert alles Offene mit aus.
 
 ## Ausgeliefert
 
+### 2026-11-18 · Abschied beim Aufsetzen, Rückblick ab dem Aufsetzen — ausgeliefert in Tracker v645 Alpha (18.11.2026)
+- **Artefakt:** Tracker-EXE (Missionsprozess-Verdrahtung, Abschieds-Vorbereitung, Rückblick), Web v2442.
+- **Dateien:** `ga-tracker-client/tracker.js`, `tracker-mission-worker.js`, `tracker-mission-process.js`, `tracker-mission-farewell-voice.js` (+ Test), `tracker-mission-farewell-prewarm-wiring.test.js`, `mission-authority-core.js`, `tracker-mission-followup.js`, `tracker-mission-charter-recap.js` (+ Test).
+- **Was:** siehe `docs/Tracker-v645-Release.md`.
+- **Doku beim Release:** `docs/Tracker-v645-Release.md`, `docs/Mission Runtime Authority Contract.md`.
+- **Pruefen im Feld:** siehe `docs/Tracker-v645-Release.md`.
+
 ### 2026-11-18 · Rückflug-Rückblick nach der Landung — ausgeliefert in Tracker v644 Alpha (18.11.2026)
 - **Artefakt:** Tracker-EXE (Folgeauftrag-Rückblick im Hintergrund), Web v2441.
 - **Dateien:** `ga-tracker-client/tracker.js`, `ga-tracker-client/mission-authority-core.js`, `ga-tracker-client/tracker-mission-followup.js`, `ga-tracker-client/tracker-mission-charter-recap.js` (+ Test), `mission-charter-continuation-core.js`, `mission-followup.js` (+ `tools/mission-followup-ui.test.mjs`).

@@ -1554,17 +1554,25 @@ function createMissionAuthorityManager(options = {}) {
         const pilotId = cleanString(request.pilotId || active.executionState?.manifest?.pilotId, 180);
         if (!pilotId) return { ok: false, error: 'followup_pilot_required' };
         if (state.followupOutbox.length >= 64) return { ok: false, error: 'followup_outbox_full' };
-        state.followupOutbox.push({ id: active.runId, pilotId, createdAt: now(), requests: followup.requests });
-        // The stay retrospective is written later in the background; the offer itself never waits for it.
+        // The stay retrospective never delays the offer. A draft prewritten while deboarding is
+        // attached directly; one still being written finishes later as an outbox addendum.
         // Only with a configured writer (voice key); stale entries never stay in the hot state file.
         if (options.followupRecapEnabled === true) {
           const fresh = state.followupRecapQueue.filter(item => now() - Number(item.createdAt || 0) < FOLLOWUP_RECAP_MAX_AGE_MS);
-          for (const req of followup.requests.filter(followupCore.needsRecap)) {
-            if (fresh.some(item => item.id === req.id)) continue;
-            fresh.push({ id: req.id, pilotId, createdAt: now(), attempts: 0, nextAt: 0, request: req });
-          }
+          followup.requests = followup.requests.map(req => {
+            if (!followupCore.needsRecap(req)) return req;
+            const queued = fresh.find(item => item.id === req.id);
+            if (queued?.draft) {
+              fresh.splice(fresh.indexOf(queued), 1);
+              return { ...req, charterContinuation: { ...req.charterContinuation, experience: queued.draft, experienceCreatedAt: queued.draftAt } };
+            }
+            if (queued) fresh.splice(fresh.indexOf(queued), 1, { ...queued, provisional: false, request: req });
+            else fresh.push({ id: req.id, pilotId, createdAt: now(), attempts: 0, nextAt: 0, request: req });
+            return req;
+          });
           state.followupRecapQueue = fresh.slice(-MAX_FOLLOWUP_RECAPS);
         }
+        state.followupOutbox.push({ id: active.runId, pilotId, createdAt: now(), requests: followup.requests });
       }
     } catch (error) { state = previousState; return { ok: false, error: 'followup_prepare_failed', detail: error.message }; }
     queueLogbookRecord(active, 'completed');
@@ -2335,15 +2343,36 @@ function createMissionAuthorityManager(options = {}) {
       if (persist()) return true;
       state.followupOutbox = previous; return false;
     },
+    // Queues a provisional job: on touchdown near the target (with the prewarmed farewell, if ready),
+    // otherwise by the writer's poll once the plane stands at the target.
+    prepareFollowupRecap(pilotId, hint = {}) {
+      const active = state.activeRun;
+      if (options.followupRecapEnabled !== true || !pilotId || !active || active.executionAuthority !== EXECUTION_AUTHORITY_TRACKER) return false;
+      const fresh = state.followupRecapQueue.filter(item => now() - Number(item.createdAt || 0) < FOLLOWUP_RECAP_MAX_AGE_MS);
+      let req = null;
+      try { req = followupCore.previewRecapRequest(active, publicExecutionSnapshot(active), now(), {
+        touchdown: safeObject(hint).touchdown === true, farewellText: cleanString(safeObject(hint).farewellText, 600) }); } catch (_) { return false; }
+      if (!req || fresh.some(item => item.id === req.id)) return false;
+      const previous = state.followupRecapQueue;
+      state.followupRecapQueue = [...fresh, { id: req.id, pilotId, createdAt: now(), attempts: 0, nextAt: 0, request: req, provisional: true }].slice(-MAX_FOLLOWUP_RECAPS);
+      if (persist()) return true;
+      state.followupRecapQueue = previous; return false;
+    },
     nextFollowupRecap(pilotId) {
       const at = now();
-      const item = state.followupRecapQueue.find(entry => entry.pilotId === pilotId && Number(entry.nextAt || 0) <= at);
+      const item = state.followupRecapQueue.find(entry => entry.pilotId === pilotId && !entry.draft && Number(entry.nextAt || 0) <= at);
       return item ? jsonClone(item) : null;
     },
     completeFollowupRecap(id, pilotId, experience) {
-      const item = state.followupRecapQueue.find(entry => entry.id === id && entry.pilotId === pilotId);
+      const item = state.followupRecapQueue.find(entry => entry.id === id && entry.pilotId === pilotId && !entry.draft);
       if (!item) return false;
       const previous = { queue: state.followupRecapQueue, outbox: state.followupOutbox };
+      if (item.provisional) {
+        // Offer not created yet (still deboarding): keep the draft until finalizeExecutionRun.
+        state.followupRecapQueue = previous.queue.map(entry => entry === item ? { ...entry, draft: experience, draftAt: now() } : entry);
+        if (persist()) return true;
+        state.followupRecapQueue = previous.queue; return false;
+      }
       if (previous.outbox.length >= 64) return false;
       const c = item.request.charterContinuation;
       state.followupRecapQueue = previous.queue.filter(entry => entry !== item);

@@ -359,3 +359,46 @@ test('ordinary farewell does not inherit specialized conversation histories', as
   assert.equal(calls.length, 1);
   assert.equal(calls[0].prompt, 'Verabschiede dich beim Piloten.');
 });
+
+test('APT prewarm survives minor changes until deboarding, but not a different outcome or landing', async () => {
+  const context = authorityContext();
+  const touchdown = { record: { durationSec: 1200, distanceNm: 40.2, maxAltFt: 5000, maxBankDeg: 21.4, maxGForce: 1.21, touchdownVsFpm: -240 },
+    cargoOutcome: { failed: false }, liveWeather: { windKts: 8, windDeg: 250, tempC: 14 } };
+  const minor = { record: { durationSec: 1260, distanceNm: 40.6, maxAltFt: 5000, maxBankDeg: 22.9, maxGForce: 1.27, touchdownVsFpm: -310 },
+    cargoOutcome: { failed: false }, liveWeather: { windKts: 11, windDeg: 260, tempC: 15 } };
+  const hardLanding = { ...minor, record: { ...minor.record, touchdownVsFpm: -720 } };
+  const failedDelivery = { ...minor, cargoOutcome: { failed: true, notDeliveredRequired: ['Koffer'] }, missionFailed: true };
+  for (const [dynamic, reused] of [[minor, true], [hardLanding, false], [failedDelivery, false]]) {
+    const jobs = new Map(), requests = [], cancelled = [], activated = [];
+    const run = activeRunWithContext(context);
+    run.executionRecipe = 'apt';
+    const handler = createTrackerMissionFarewellVoice({
+      authorityManager: { getActiveRun: () => run },
+      voiceService: {
+        publicState: () => ({ configured: true }),
+        get: id => jobs.get(id),
+        request: value => {
+          requests.push(value);
+          const signature = JSON.stringify({ ...value, effectId: null, deferPlayback: null, isPlaybackAllowed: null });
+          const prior = jobs.get(value.effectId);
+          if (prior && prior.signature !== signature) throw Object.assign(new Error('changed'), { code: 'effect_id_conflict' });
+          if (prior) return prior;
+          const job = { effectId: value.effectId, status: 'ready', audioAvailable: true, text: value.text || 'Danke fürs Mitnehmen.', signature };
+          jobs.set(value.effectId, job);
+          return job;
+        },
+        cancel: (id, reason) => cancelled.push(reason),
+        activatePlayback: id => activated.push(id),
+        wait: async id => jobs.get(id),
+        waitForPlayback: async () => ({ status: 'completed', completed: true })
+      },
+      getAudioPlaybackCandidates: () => 0
+    });
+    assert.equal(handler.prepare({ ...request(), farewellDynamicContext: touchdown }).sideEffect, true);
+    const result = await handler.dispatch({ ...request(), farewellDynamicContext: dynamic });
+    assert.equal(result.ok, true);
+    assert.equal(requests.length, reused ? 1 : 3, JSON.stringify(dynamic.record)); // strict: re-request, conflict, fresh job
+    assert.equal(activated.length, reused ? 1 : 0);
+    assert.equal(cancelled.includes('farewell_preload_stale'), !reused);
+  }
+});

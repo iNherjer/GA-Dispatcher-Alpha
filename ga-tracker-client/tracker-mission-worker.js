@@ -96,6 +96,7 @@ function runMissionWorker() {
         playBoardingVoice: request => invokeParent('playBoardingVoice', request),
         prepareBoardingVoice: request => invokeParent('prepareBoardingVoice', request),
         playFarewellVoice: request => invokeParent('playFarewellVoice', request),
+        prepareFarewellVoice: request => invokeParent('prepareFarewellVoice', request),
         playComplianceVoice: request => invokeParent('playComplianceVoice', request),
         recordAuthoritySanction: request => invokeParent('recordAuthoritySanction', request),
         onAuthorityChanged(reason, snapshot) {

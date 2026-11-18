@@ -32,7 +32,7 @@ function gemini(answers) {
   return { fetchRemote, calls };
 }
 
-function closedCharterManager(t, extra = { followupRecapEnabled: true }) {
+function closedCharterManager(t, extra = { followupRecapEnabled: true }, phase = 'closed') {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'charter-recap-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   let clock = now;
@@ -41,12 +41,18 @@ function closedCharterManager(t, extra = { followupRecapEnabled: true }) {
   manager.acquire({ missionId: md.missionId, clientId: 'app', resumeBundle: { missionState: { currentMissionData: md } } });
   const stored = JSON.parse(fs.readFileSync(options.storageFile, 'utf8'));
   stored.activeRun.executionAuthority = 'tracker';
-  stored.activeRun.executionState = { phase: 'closed', flags: { closed: true, groundStill: true }, effects: [], manifest: { items: [] } };
+  stored.activeRun.executionState = { phase, flags: { closed: phase === 'closed', groundStill: true }, effects: [], manifest: { items: [] } };
   stored.activeRun.executionRuntimeContext = { schema: 'ga.mission-runtime-context.v1', version: 1, missionId: md.missionId, runId: stored.activeRun.runId,
     missionFlightRecord: { createdAt: now, durationSec: 600, telemetrySampleCount: 100, distanceNm: 20, distanceSource: 'gps' }, latestDestination: { atDestination: true } };
   fs.writeFileSync(options.storageFile, JSON.stringify(stored));
   manager = createMissionAuthorityManager(options);
-  return { manager, file: options.storageFile, reload: () => createMissionAuthorityManager(options), advance: ms => { clock += ms; } };
+  const close = () => {
+    const current = JSON.parse(fs.readFileSync(options.storageFile, 'utf8'));
+    current.activeRun.executionState = { ...current.activeRun.executionState, phase: 'closed', flags: { closed: true, groundStill: true } };
+    fs.writeFileSync(options.storageFile, JSON.stringify(current));
+    return createMissionAuthorityManager(options);
+  };
+  return { manager, file: options.storageFile, close, reload: () => createMissionAuthorityManager(options), advance: ms => { clock += ms; } };
 }
 
 test('card text: written retrospective wins, otherwise the neutral stay-is-over text; old drafts stay valid', () => {
@@ -149,4 +155,64 @@ test('no voice key: nothing is queued; full outbox keeps the job queued', async 
   full.acknowledgeFollowupOutbox('x0', 'PILOT');
   assert.equal(full.completeFollowupRecap(item.id, 'PILOT', draft), true);
   assert.equal(full.nextFollowupRecap('PILOT'), null);
+});
+
+test('deboarding: written before close, the offer leaves the tracker with its retrospective already attached', async t => {
+  const { manager, close } = closedCharterManager(t, { followupRecapEnabled: true }, 'end_unloading');
+  const ai = gemini([JSON.stringify(draft)]);
+  const worker = createCharterRecapWorker({ authorityManager: viaIpc(manager), pilotId: 'PILOT', provider: 'gemini', apiKey: 'test-key', fetchRemote: ai.fetchRemote });
+  assert.equal((await worker.tick()).status, 'written');
+  assert.equal((await worker.tick()).status, 'idle', 'one job per landing');
+  assert.equal(ai.calls.length, 1);
+  assert.deepEqual(manager.getFollowupOutbox('PILOT'), [], 'no offer before close');
+  const closed = close();
+  assert.equal(closed.finalizeExecutionRun({ pilotId: 'PILOT' }).ok, true);
+  const outbox = closed.getFollowupOutbox('PILOT');
+  assert.equal(outbox.length, 1, 'no addendum needed');
+  assert.equal(outbox[0].requests[0].charterContinuation.experience.offerText, draft.offerText);
+  assert.equal(closed.nextFollowupRecap('PILOT'), null);
+});
+
+test('deboarding: close while still writing turns the job into an addendum for the real offer', async t => {
+  const { manager, close } = closedCharterManager(t, { followupRecapEnabled: true }, 'end_unloading');
+  assert.equal(manager.prepareFollowupRecap('PILOT'), true);
+  assert.equal(manager.prepareFollowupRecap('PILOT'), false, 'queued once');
+  const job = manager.nextFollowupRecap('PILOT');
+  assert.equal(job.provisional, true);
+  const closed = close();
+  assert.equal(closed.finalizeExecutionRun({ pilotId: 'PILOT' }).ok, true);
+  assert.equal(closed.getFollowupOutbox('PILOT')[0].requests[0].charterContinuation.experience, null);
+  assert.equal(closed.nextFollowupRecap('PILOT').provisional, false);
+  assert.equal(closed.completeFollowupRecap(job.id, 'PILOT', draft), true);
+  const outbox = closed.getFollowupOutbox('PILOT');
+  assert.equal(outbox.length, 2);
+  assert.equal(outbox[1].requests[0].charterContinuation.experience.offerText, draft.offerText);
+  assert.equal(outbox[1].requests[0].charterContinuation.sourceCompletionId, outbox[0].requests[0].charterContinuation.sourceCompletionId, 'real offer, not the preview');
+});
+
+test('no prewrite before standing at the target or without voice key', t => {
+  assert.equal(closedCharterManager(t, { followupRecapEnabled: true }, 'enroute').manager.prepareFollowupRecap('PILOT'), false);
+  assert.equal(closedCharterManager(t, {}, 'end_unloading').manager.prepareFollowupRecap('PILOT'), false);
+});
+
+test('touchdown: starts with the farewell prewarm and passes the farewell words as heard speech', async t => {
+  const { manager } = closedCharterManager(t, { followupRecapEnabled: true }, 'enroute');
+  const ai = gemini([JSON.stringify(draft)]);
+  const worker = createCharterRecapWorker({ authorityManager: viaIpc(manager), pilotId: 'PILOT', provider: 'gemini', apiKey: 'test-key', fetchRemote: ai.fetchRemote });
+  let polls = 0;
+  const farewell = 'Danke fürs Mitnehmen, ich gehe jetzt gleich als Erstes in den Dom.';
+  assert.equal(await worker.onTouchdown({ getFarewellText: () => (++polls < 3 ? '' : farewell), pollMs: 1 }), true);
+  assert.equal(polls, 3, 'waits briefly for the generated farewell text');
+  await new Promise(resolve => setTimeout(resolve, 20));
+  assert.equal(ai.calls.length, 1);
+  const prompt = ai.calls[0].body.contents[0].parts[0].text;
+  assert.ok(prompt.includes('gleich als Erstes in den Dom'), 'farewell is continuity data for the stay');
+  assert.equal(await worker.onTouchdown({ getFarewellText: () => farewell, pollMs: 1 }), false, 'only once per landing');
+});
+
+test('touchdown: no farewell text within the wait still starts the retrospective', async t => {
+  const { manager } = closedCharterManager(t, { followupRecapEnabled: true }, 'enroute');
+  const worker = createCharterRecapWorker({ authorityManager: manager, pilotId: 'PILOT', provider: 'gemini', apiKey: 'test-key', fetchRemote: gemini([JSON.stringify(draft)]).fetchRemote });
+  assert.equal(await worker.onTouchdown({ getFarewellText: () => '', farewellWaitMs: 3, pollMs: 1 }), true);
+  assert.equal(closedCharterManager(t, { followupRecapEnabled: true }, 'boarding').manager.prepareFollowupRecap('PILOT', { touchdown: true }), false, 'no touchdown before departure');
 });

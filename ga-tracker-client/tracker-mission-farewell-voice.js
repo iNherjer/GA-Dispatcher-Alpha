@@ -46,6 +46,30 @@ function voiceOutcome(recipe, values = {}) {
   };
 }
 
+// What a touchdown-prewarmed APT passenger farewell must still agree with at deboarding. Exact
+// numbers, live weather and speech that finished during taxi are not material; outcome, landing
+// band, motion highlights, speaker and audio are. null = compare the full prompt (training, POI).
+function farewellMaterialKey(run, request, recipe) {
+  const effectPlan = object(object(object(run?.resumeBundle?.executionEffectPlan).effects)['voice.farewell']);
+  if (run?.executionRecipe !== 'apt' || effectPlan.trainingContextRef === true || effectPlan.poiContextRef === true || !recipe) return null;
+  const dynamic = object(request?.farewellDynamicContext);
+  const record = object(dynamic.record);
+  const cargo = object(dynamic.cargoOutcome);
+  const touchdown = Math.abs(Number(record.touchdownVsFpm));
+  return JSON.stringify({
+    failed: dynamic.missionFailed === true || cargo.failed === true || record.missionFailed === true,
+    fixedText: !!recipe.text && !recipe.prompt,
+    audio: recipe.audioEnabled === true,
+    cue: recipe.playCue === true,
+    speaker: cleanString(recipe.speaker?.name, 80),
+    landing: Number.isFinite(touchdown) && record.touchdownVsFpm != null ? (touchdown < 200 ? 'soft' : (touchdown > 500 ? 'hard' : 'normal')) : '',
+    highG: Number(record.maxGForce || 1) > 1.6,
+    steepBank: Math.abs(Number(record.maxBankDeg || 0)) > 34,
+    steepDescent: Number(record.maxDescentFpm || 0) <= -1500,
+    simulated: record.simulated === true
+  });
+}
+
 function createTrackerMissionFarewellVoice(options = {}) {
   const authorityManager = options.authorityManager;
   const voiceService = options.voiceService;
@@ -115,6 +139,7 @@ function createTrackerMissionFarewellVoice(options = {}) {
     return recipe && settings ? { ...recipe, audioEnabled: settings.enabled && settings.paxEnabled, playCue: recipe.playCue && settings.effectsEnabled } : recipe;
   };
 
+  const prewarmKeys = new Map();
   const scopeAllowed = createMissionVoiceScopeGuard(authorityManager);
   const voiceRequest = (effectId, recipe, deferPlayback = false, scope = null) => ({
     missionScope: scope, isPlaybackAllowed: () => scopeAllowed(scope),
@@ -155,6 +180,8 @@ function createTrackerMissionFarewellVoice(options = {}) {
     const effectId = preloadEffectId(run.runId);
     try {
       const job = voiceService.request(voiceRequest(effectId, recipe, true, missionVoiceScope(request)));
+      const materialKey = farewellMaterialKey(run, request, recipe);
+      if (materialKey) prewarmKeys.set(run.runId, materialKey); else prewarmKeys.delete(run.runId);
       log(`MISSION_FAREWELL_VOICE_PREWARM effect=${effectId} status=${job?.status || 'pending'}`);
       return { ok: true, status: job?.status || 'pending', sideEffect: true, effectId };
     } catch (error) {
@@ -201,14 +228,22 @@ function createTrackerMissionFarewellVoice(options = {}) {
       const preparedEffectId = preloadEffectId(run.runId);
       try {
         const prepared = voiceService.get?.(preparedEffectId);
-        // Re-request with the current recipe: the service deduplicates identical
-        // content, but rejects a stale preload after cargo/outcome changes.
         const needsAudio = prepared?.status === 'ready' && recipe.audioEnabled && !prepared.audioAvailable;
-        if (needsAudio) voiceService.cancel?.(preparedEffectId, 'audio_enabled_after_preload');
-        if (prepared && !['pending', 'ready'].includes(prepared.status)) {
-          throw Object.assign(new Error('farewell_preload_unavailable'), { code: 'effect_id_conflict' });
+        const materialKey = farewellMaterialKey(run, request, recipe);
+        if (materialKey && prewarmKeys.get(run.runId) === materialKey && !needsAudio
+            && ['pending', 'ready'].includes(prepared?.status)) {
+          // Same outcome and landing as at touchdown: play the prepared farewell without regenerating.
+          log(`MISSION_FAREWELL_VOICE_PREWARM_REUSED effect=${preparedEffectId} status=${prepared.status}`);
+        } else {
+          // Re-request with the current recipe: the service deduplicates identical
+          // content, but rejects a stale preload after cargo/outcome changes.
+          if (needsAudio) voiceService.cancel?.(preparedEffectId, 'audio_enabled_after_preload');
+          if (prepared && !['pending', 'ready'].includes(prepared.status)) {
+            throw Object.assign(new Error('farewell_preload_unavailable'), { code: 'effect_id_conflict' });
+          }
+          voiceService.request(voiceRequest(preparedEffectId, recipe, true, missionVoiceScope(request)));
         }
-        voiceService.request(voiceRequest(preparedEffectId, recipe, true, missionVoiceScope(request)));
+        prewarmKeys.delete(run.runId);
         voiceEffectId = preparedEffectId;
         voiceService.activatePlayback?.(voiceEffectId);
       } catch (preloadError) {
@@ -301,4 +336,4 @@ function createTrackerMissionFarewellVoice(options = {}) {
   return Object.freeze({ dispatch, prepare });
 }
 
-module.exports = { createTrackerMissionFarewellVoice };
+module.exports = { createTrackerMissionFarewellVoice, farewellMaterialKey };
