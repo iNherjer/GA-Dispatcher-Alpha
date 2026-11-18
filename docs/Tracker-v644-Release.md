@@ -39,3 +39,7 @@ der Aufenthalt noch bevor. Die Rückflug-Geschichte entstand erst beim Annehmen.
 - Annehmen: Mission erzählt denselben Aufenthalt, keine Wartezeit für den Rückblick.
 
 ## Artefakt
+
+- Tag `v644`, Asset `VFR-Multitool-Tracker.exe`
+- Größe: 175182779 Bytes
+- SHA-256: 59b00f87a29f493287ee653157e6beb8ae317feb8c83488432c469dd67856713 (öffentlicher Download geprüft)
