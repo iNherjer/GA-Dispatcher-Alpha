@@ -890,7 +890,10 @@
     function maybeWriteCharterRecap(req) {
         if (environment.headless || charterRecapBusy || !req || charterRecapTried.has(req.id)) return false;
         const core = window.MissionCharterContinuationCore, c = core?.context?.(req);
-        if (!c || getStatus(req) !== 'pending' || Number(req.eligibleAt || 0) > nowMs() || req.recapAttemptedAt) return false;
+        if (!c || getStatus(req) !== 'pending' || Number(req.eligibleAt || 0) > nowMs()) return false;
+        // A recorded failure is final. An attempt without outcome (App closed meanwhile, or made by
+        // v2441/v2442 which recorded none) may run once more after 10 minutes; another device may be busy before.
+        if (req.recapError || (req.recapAttemptedAt && (req.recapRetried || nowMs() - Number(req.recapAttemptedAt) < CHARTER_RECAP_TRACKER_GRACE_MS))) return false;
         if (core.validateDraft(c.experience, c)) return false;
         // The tracker writes it from touchdown on; give its result time to arrive through the cloud.
         if (nowMs() - Number(c.completedAt || 0) < CHARTER_RECAP_TRACKER_GRACE_MS) return false;
@@ -900,8 +903,14 @@
         if (aiOff || !key || typeof window.fetchGeminiJsonWithFallback !== 'function') return false;
         charterRecapTried.add(req.id);
         charterRecapBusy = true;
-        saveMutated(list => list.map(row => row.id === req.id ? { ...row, recapAttemptedAt: nowMs(), updatedAt: nowMs() } : row), { cloud: true });
-        const ask = async prompt => (await window.fetchGeminiJsonWithFallback(prompt, key, { promptVersion: 'charter-recap-v1', timeoutMs: 40000 }))?.parsed || null;
+        const retry = !!req.recapAttemptedAt;
+        saveMutated(list => list.map(row => row.id === req.id ? { ...row, recapAttemptedAt: nowMs(), ...(retry ? { recapRetried: true } : {}), updatedAt: nowMs() } : row), { cloud: true });
+        let lastError = '';
+        const ask = async prompt => {
+            const result = await window.fetchGeminiJsonWithFallback(prompt, key, { promptVersion: 'charter-recap-v1', timeoutMs: 40000 });
+            if (!result?.parsed) lastError = String(result?.error || 'no_answer').slice(0, 120);
+            return result?.parsed || null;
+        };
         (async () => {
             try {
                 const prompt = core.draftPrompt(c);
@@ -909,15 +918,39 @@
                 if (!draft && raw) {
                     raw = await ask(`${prompt}\nKorrigiere nur die Struktur des bisherigen Entwurfs. Bewahre dessen Inhalt und Identitäten. Vollständiges JSON als einzelnes Objekt, gültige Feldlängen und belegte Geo-Anker. ENTWURF: ${JSON.stringify(raw)}`);
                     draft = core.validateDraft(raw, c);
+                    if (!draft && raw) lastError = 'invalid_draft';
                 }
                 const saved = draft && saveCharterExperience(req.id, draft);
-                console.info('[FollowUp] Rückflug-Rückblick bei Fälligkeit', { id: req.id, written: !!saved, card: !!draft?.offerText });
+                console.info('[FollowUp] Rückflug-Rückblick bei Fälligkeit', { id: req.id, written: !!saved, card: !!draft?.offerText, error: saved ? '' : lastError });
                 if (saved) render();
+                else markCharterRecapError(req.id, lastError || 'save_failed');
             } catch (error) {
                 console.warn('[FollowUp] Rückflug-Rückblick bei Fälligkeit fehlgeschlagen; Karte bleibt beim festen Text.', error?.message || error);
-            } finally { charterRecapBusy = false; }
+                markCharterRecapError(req.id, error?.message || 'error');
+            } finally {
+                charterRecapBusy = false;
+                setTimeout(drainCharterRecaps, 0);
+            }
         })();
         return true;
+    }
+    function markCharterRecapError(id, error) {
+        try { saveMutated(list => list.map(row => row.id === id ? { ...row, recapError: String(error).slice(0, 120) } : row), { cloud: true }); } catch (_) {}
+    }
+    // Every due return offer gets its turn, one after another, whether or not the banner is open.
+    const charterRecapWaiting = [];
+    function scheduleCharterRecaps(due) {
+        if (environment.headless) return;
+        for (const req of due || []) {
+            if (!charterRecapTried.has(req.id) && !charterRecapWaiting.includes(req.id)) charterRecapWaiting.push(req.id);
+        }
+        if (charterRecapWaiting.length) setTimeout(drainCharterRecaps, 0);
+    }
+    function drainCharterRecaps() {
+        while (!charterRecapBusy && charterRecapWaiting.length) {
+            const id = charterRecapWaiting.shift();
+            if (maybeWriteCharterRecap(getRequests().find(row => row.id === id))) return;
+        }
     }
 
     function getProfileId(md = null) {
@@ -2406,6 +2439,8 @@
             return;
         }
         root.hidden = false;
+        // After this render pass (saving the attempt re-renders the list).
+        scheduleCharterRecaps(due);
         const seen = readSeenIds();
         const unseen = due.filter(req => !seen.has(req.id));
         const isOpen = readBannerOpen();
@@ -2480,8 +2515,6 @@
         sub.textContent = `${privateUi?.subtitle || req.ui?.subtitle || req.sourceLabel || 'Mission'} · bis ${formatLocal(req.expiresAt)}`;
         const preview = document.createElement('div');
         preview.className = 'followup-request-preview';
-        // After this render pass: saving the attempt re-renders the list.
-        if (!charterRecapTried.has(req.id)) setTimeout(() => maybeWriteCharterRecap(getRequests().find(row => row.id === req.id)), 0);
         const charterCore = window.MissionCharterContinuationCore;
         const charterPreview = charterCore?.context?.(req) ? charterCore.offerPreview?.(charterCore.context(req)) : '';
         preview.textContent = privateUi?.previewText || charterPreview || req.ui?.previewText || req.narrativeMemory?.whyNowReturn || '';
@@ -3194,7 +3227,7 @@
             const charterCore = window.MissionCharterContinuationCore, charter = charterCore?.context?.(req);
             if (charter) {
                 const draft = charterCore.validateDraft(charter.experience, charter);
-                lines.push(`  Rückblick: ${draft ? `vorhanden seit ${formatLocal(charter.experienceCreatedAt)} | Kartentext ${draft.offerText ? 'ja' : 'nein (Rückkehrgrund/fester Satz)'}` : 'fehlt'} | App-Versuch ${req.recapAttemptedAt ? formatLocal(req.recapAttemptedAt) : '-'}`);
+                lines.push(`  Rückblick: ${draft ? `vorhanden seit ${formatLocal(charter.experienceCreatedAt)} | Kartentext ${draft.offerText ? 'ja' : 'nein (Rückkehrgrund/fester Satz)'}` : 'fehlt'} | App-Versuch ${req.recapAttemptedAt ? formatLocal(req.recapAttemptedAt) : '-'}${req.recapError ? ` | Fehler ${req.recapError}` : ''}`);
             }
         });
         return lines.join('\n');

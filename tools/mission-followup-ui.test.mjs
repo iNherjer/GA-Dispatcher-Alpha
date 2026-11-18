@@ -41,7 +41,7 @@ test('due charter offer without stay retrospective gets exactly one background a
  let req=core.request(md,{missionId:'c1',completionId:'d',endedAt:now-20*60000,result:'completed',privateOutingEvidence:{flown:true,atTarget:true,groundStill:true}},now);
  const draft={experience:'Ada hat den Aufenthalt genutzt und viele gute Gespräche geführt.',reason:'Nach dem Aufenthalt möchte Ada wieder nach Hause zurückkehren.',nextStep:'Zu Hause wird sie die Ergebnisse in Ruhe ordnen und weitergeben.',memory:'Die Gespräche des Aufenthalts bleiben ihr besonders in Erinnerung.',narrativeEvents:[],offerText:'Ada hat in Eutingen viel geredet und gelacht und bittet nun um den Rückflug nach Winzeln.'};
  let calls=0,renders=0,saves=[];
- const env={console:{info(){},warn(){}},localStorage:{getItem:()=>null},environment:{},getStatus:r=>r.status,nowMs:()=>now,render:()=>{renders++;},
+ const env={console:{info(){},warn(){}},setTimeout,getRequests:()=>[req],localStorage:{getItem:()=>null},environment:{},getStatus:r=>r.status,nowMs:()=>now,render:()=>{renders++;},
   saveMutated:(fn,opts)=>{req=fn([req])[0];saves.push(opts);},
   saveCharterExperience:(id,d)=>{req={...req,charterContinuation:{...req.charterContinuation,experience:d}};return req.charterContinuation;},
   window:{MissionCharterContinuationCore:core,getSelectedAiApiKey:()=>'key',fetchGeminiJsonWithFallback:async()=>{calls++;return {parsed:draft};}}};
@@ -59,4 +59,43 @@ test('due charter offer without stay retrospective gets exactly one background a
  assert.equal(fresh.maybeWriteCharterRecap({...req,charterContinuation:{...req.charterContinuation,experience:null}}),false);
  fresh.localStorage={getItem:()=>'false'};
  assert.equal(fresh.maybeWriteCharterRecap({...req,id:'x',recapAttemptedAt:null,charterContinuation:{...req.charterContinuation,experience:null}}),false,'AI switched off');
+});
+
+test('two due return offers both get their turn, even with the banner closed; a failure is recorded',async()=>{
+ const {createRequire}=await import('node:module');const require=createRequire(import.meta.url);
+ const core=require('../mission-charter-continuation-core.js');
+ const now=Date.now(),A={icao:'A',name:'Offenburg',lat:48.45,lon:7.94};
+ const mk=(id,visited)=>{const idea={schema:'charter-idea.v1',reason:'Ein Grund für diese Reise.',background:'Ein Hintergrund der Reise.',arrival:'Ankunft am Platz.',passengerCount:1,groupLabel:'Gast',passenger:{name:id,role:'Gast',gender:'male',personality:'Ruhig'},luggageLabel:'Tasche',luggageWeightLbs:10,memory:'Erinnerung.',geoAnchors:[],narrativeEvents:[],route:{start:A,target:visited},returnPlan:{offered:true,reason:'Rückreise gebucht.',stayHours:0,stayText:'Kurz'}};
+  return core.request({missionId:id,mission:'M',charterIdea:idea,passenger:idea.passenger,departureAirport:A,destinationAirport:visited},{missionId:id,completionId:'d',endedAt:now-86400000,result:'completed',privateOutingEvidence:{flown:true,atTarget:true,groundStill:true}},now);};
+ let list=[mk('Adrian',{icao:'B',name:'Lahr',lat:48.37,lon:7.83}),mk('Elena',{icao:'C',name:'Freiburg',lat:48.02,lon:7.83})];
+ const draft=n=>({experience:`${n} hat den Aufenthalt genossen und viel erlebt in diesen Tagen.`,reason:`Nach dem Aufenthalt möchte ${n} jetzt wieder nach Hause fliegen.`,nextStep:'Zu Hause wird alles in Ruhe geordnet und weitergegeben werden.',memory:'Die Gespräche bleiben in guter Erinnerung, ganz besonders am Abend.',narrativeEvents:[],offerText:`${n} hat viel erlebt und bittet nun um den Rückflug nach Offenburg.`});
+ const calls=[];let fail=true;
+ const env={console:{info(){},warn(){}},setTimeout,localStorage:{getItem:()=>null},environment:{},getStatus:r=>r.status,nowMs:()=>now,
+  render(){}, getRequests:()=>list,
+  saveMutated:fn=>{list=fn(list);},
+  saveCharterExperience:(id,d)=>{list=list.map(r=>r.id===id?{...r,charterContinuation:{...r.charterContinuation,experience:d}}:r);return list.find(r=>r.id===id).charterContinuation;},
+  window:{MissionCharterContinuationCore:core,getSelectedAiApiKey:()=>'key',fetchGeminiJsonWithFallback:async p=>{
+   const n=p.includes('"name":"Adrian"')?'Adrian':'Elena';calls.push(n);
+   await new Promise(r=>setTimeout(r,5));
+   if(n==='Adrian'&&fail)return {parsed:null,error:'timeout_40000'};
+   return {parsed:draft(n)};}}};
+ vm.createContext(env);vm.runInContext(source.slice(source.indexOf('const charterRecapTried'),source.indexOf('function getProfileId(')),env);
+ env.scheduleCharterRecaps(list);
+ env.scheduleCharterRecaps(list);
+ for(let i=0;i<20&&calls.length<2;i++)await new Promise(r=>setTimeout(r,10));
+ await new Promise(r=>setTimeout(r,30));
+ assert.deepEqual(calls,['Adrian','Elena'],'one after another, each once');
+ const [lahr,freiburg]=list;
+ assert.equal(lahr.recapError,'timeout_40000');assert.ok(lahr.recapAttemptedAt);
+ assert.equal(core.offerPreview(core.context(freiburg)),draft('Elena').offerText);
+ env.scheduleCharterRecaps(list);await new Promise(r=>setTimeout(r,30));
+ assert.equal(calls.length,2,'a failed attempt stays final');
+ // An old attempt without recorded outcome (v2441/v2442) gets one more chance after 10 minutes.
+ const fresh={...env,getRequests:()=>list};vm.createContext(fresh);vm.runInContext(source.slice(source.indexOf('const charterRecapTried'),source.indexOf('function getProfileId(')),fresh);
+ const legacy={...lahr,recapError:undefined,recapAttemptedAt:now-11*60000};
+ list=[legacy,freiburg];fail=false;
+ fresh.scheduleCharterRecaps(list);await new Promise(r=>setTimeout(r,40));
+ assert.equal(calls.length,3);assert.ok(list[0].charterContinuation.experience);assert.equal(list[0].recapRetried,true);
+ const recentAttempt={...lahr,recapError:undefined,recapAttemptedAt:now-60000,charterContinuation:{...lahr.charterContinuation,experience:null}};
+ assert.equal(fresh.maybeWriteCharterRecap(recentAttempt),false,'another device may still be writing');
 });
