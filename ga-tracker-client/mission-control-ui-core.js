@@ -58,6 +58,16 @@
   }
   function dot(value) { return String(value).replace(',', '.'); }
   var PLACE_EN = { 'am Startplatz': 'at the departure airfield', 'am Zielplatz': 'at the destination airfield', 'am Speicherpunkt': 'at the save point' };
+  var TASK_LABELS_EN = { 'POI-Auftrag': 'POI task', 'Auftrag im Zielgebiet': 'Task in the target area', 'Recon-/Arbeitsauftrag im Zielgebiet': 'Recon/work task in the target area',
+    'Feuerbeobachtung': 'Fire watch', 'Suchauftrag': 'Search task', 'Trainingsaufgabe': 'Training task', 'Flyover-Auftrag': 'Flyover task' };
+  function lowerFirst(value) {
+    var text = String(value);
+    return /^[A-Z][a-z]/.test(text) ? text.charAt(0).toLowerCase() + text.slice(1) : text;
+  }
+  function taskLabel(german) {
+    var key = Object.keys(TASK_LABELS_EN).filter(function (k) { return k.toLowerCase() === String(german).toLowerCase(); })[0];
+    return key ? TASK_LABELS_EN[key] : String(german);
+  }
   // Sentences the interruption model and the tracker mission view build from numbers.
   var DISPLAY_PATTERNS = [
     [/^ Noch ([\d,.]+) NM, Kurs (\d{3})°\.$/, function (m) { return ' ' + dot(m[1]) + ' NM to go, course ' + m[2] + '°.'; }],
@@ -126,7 +136,30 @@
         + ' If you want the payload in the simulator, please set these values manually in the weight & balance or tablet menu. The mission can still be started.'; }],
     [/^Sim-Zuladung noch nicht synchron \(([^)]+)\)\.$/, function (m) { return 'Sim payload not in sync yet (' + m[1] + ').'; }],
     [/^Sim-Gewichte nicht verfügbar \(([^)]+)\)\.$/, function (m) { return 'Sim weights not available (' + m[1] + ').'; }],
-    [/^Accu-Sim Comanche · Sitze S2\/S3\/S4 · Baggage S5 \(max\. (\d+) lbs\)$/, function (m) { return 'Accu-Sim Comanche · seats S2/S3/S4 · baggage S5 (max. ' + m[1] + ' lbs)'; }]
+    [/^Accu-Sim Comanche · Sitze S2\/S3\/S4 · Baggage S5 \(max\. (\d+) lbs\)$/, function (m) { return 'Accu-Sim Comanche · seats S2/S3/S4 · baggage S5 (max. ' + m[1] + ' lbs)'; }],
+    // POI status lines (mission-poi-lifecycle-core.js _missionPoiRuntimeStatus, mission outcome).
+    [/^(POI-Auftrag|Auftrag im Zielgebiet|Recon-\/Arbeitsauftrag im Zielgebiet|Feuerbeobachtung|Suchauftrag|Trainingsaufgabe|Flyover-Auftrag) wurde nicht abgeschlossen\.$/, function (m) { return taskLabel(m[1]) + ' was not completed.'; }],
+    [/^(POI-Auftrag|Auftrag im Zielgebiet|Recon-\/Arbeitsauftrag im Zielgebiet|Feuerbeobachtung|Suchauftrag|Trainingsaufgabe|Flyover-Auftrag) wurde im Zielgebiet abgebrochen\.$/, function (m) { return taskLabel(m[1]) + ' was aborted in the target area.'; }],
+    [/^(POI-Auftrag|Auftrag im Zielgebiet|Recon-\/Arbeitsauftrag im Zielgebiet|Feuerbeobachtung|Suchauftrag|Trainingsaufgabe|Flyover-Auftrag)-Status noch nicht sicher verfügbar\.$/, function (m) { return taskLabel(m[1]) + ' status not reliably available yet.'; }],
+    [/^(POI-Auftrag|Auftrag im Zielgebiet|Recon-\/Arbeitsauftrag im Zielgebiet|Feuerbeobachtung|Suchauftrag|Trainingsaufgabe|Flyover-Auftrag) fehlgeschlagen\.$/, function (m) { return taskLabel(m[1]) + ' failed.'; }],
+    [/^(POI-Auftrag|Auftrag im Zielgebiet|Recon-\/Arbeitsauftrag im Zielgebiet|Feuerbeobachtung|Suchauftrag|Trainingsaufgabe|Flyover-Auftrag) erfüllt\. ([\s\S]+)$/, function (m) { return taskLabel(m[1]) + ' done. ' + displayText(m[2]); }],
+    [/^(POI-Auftrag|Auftrag im Zielgebiet|Recon-\/Arbeitsauftrag im Zielgebiet|Feuerbeobachtung|Suchauftrag|Trainingsaufgabe|Flyover-Auftrag) noch offen\. Arbeitszeit im Zielgebiet: (\d+)s(?: · Hinweise: (\d+))?\.$/, function (m) {
+      return taskLabel(m[1]) + ' still open. Work time in the target area: ' + m[2] + 's' + (m[3] ? ' · hints: ' + m[3] : '') + '.'; }],
+    [/^Nächster Schritt: Zielgebiet anfliegen und ([\s\S]+) erfuellen$/, function (m) { return 'Next step: fly to the target area and complete the ' + lowerFirst(taskLabel(m[1])); }],
+    [/^Nächster Schritt: (POI-Auftrag|Auftrag im Zielgebiet|Recon-\/Arbeitsauftrag im Zielgebiet|Feuerbeobachtung|Suchauftrag|Trainingsaufgabe|Flyover-Auftrag) sauber erfuellen und danach landen$/, function (m) { return 'Next step: complete the ' + lowerFirst(taskLabel(m[1])) + ' cleanly and then land'; }],
+    [/^SAR-Heli: Patient am medizinischen Ziel ([\s\S]+) uebergeben\.$/, function (m) { return 'SAR heli: patient handed over at the medical destination ' + m[1] + '.'; }],
+    [/^SAR-Heli: Patient aufgenommen\. Medizinisches Ziel: ([\s\S]+)\.$/, function (m) { return 'SAR heli: patient on board. Medical destination: ' + m[1] + '.'; }],
+    [/^Training Pflichtteil abgeschlossen\. Pflichtuebungen: (\d+)\/(\d+)(?:, optionale Uebungen offen: (\d+))?\.$/, function (m) {
+      return 'Required training part complete. Required exercises: ' + m[1] + '/' + m[2] + (m[3] ? ', optional exercises open: ' + m[3] : '') + '.'; }],
+    [/^Trainingshoehe erreicht\. Pflichtuebungen offen: (\d+)\/(\d+)\.$/, function (m) { return 'Training altitude reached. Required exercises open: ' + m[1] + '/' + m[2] + '.'; }],
+    [/^Training wartet auf passende Trainingshoehe\. Pflichtuebungen offen: (\d+)\/(\d+)\.$/, function (m) { return 'Training is waiting for a suitable training altitude. Required exercises open: ' + m[1] + '/' + m[2] + '.'; }],
+    [/^Training offen\. Pflichtuebungen abgeschlossen: (\d+)\/(\d+)(?:, aktuell: ([\s\S]+))?\.$/, function (m) {
+      return 'Training open. Required exercises complete: ' + m[1] + '/' + m[2] + (m[3] ? ', current: ' + displayText(m[3]) : '') + '.'; }],
+    [/^Nächster Schritt: Trainingsuebung fliegen: ([\s\S]+)$/, function (m) { return 'Next step: fly the training exercise: ' + displayText(m[1]); }],
+    [/^Infrastruktur-Kette erfüllt\. Alle (\d+) Punkte sind abgeschlossen\.$/, function (m) { return 'Infrastructure chain done. All ' + m[1] + ' points are complete.'; }],
+    [/^Infrastruktur-Kette offen\. Punkte abgeschlossen: (\d+)\/(\d+)\.$/, function (m) { return 'Infrastructure chain open. Points complete: ' + m[1] + '/' + m[2] + '.'; }],
+    [/^Nächster Schritt: nächsten markierten Punkt anfliegen: ([\s\S]+)$/, function (m) { return 'Next step: fly to the next marked point: ' + m[1]; }],
+    [/^Mapping\/Survey offen\. (Kreise|Linien) abgeschlossen: (\d+)\/(\d+)\.$/, function (m) { return 'Mapping/survey open. ' + (m[1] === 'Kreise' ? 'Circles' : 'Lines') + ' complete: ' + m[2] + '/' + m[3] + '.'; }]
   ];
   function displayText(value) {
     var source = value == null ? '' : String(value);
@@ -143,7 +176,11 @@
     var joined = /^([^:]{2,60}): ([\s\S]+)$/.exec(source);
     if (joined) {
       var left = api.phrase(joined[1]);
-      if (left !== joined[1]) return left + ': ' + displayText(joined[2]);
+      if (left !== joined[1]) {
+        var right = displayText(joined[2]);
+        // "Next step: end mission" (the German imperative is capitalised as a button text).
+        return left + ': ' + (left === 'Next step' ? lowerFirst(right) : right);
+      }
     }
     var label = /^([^:]{2,60}):$/.exec(source);
     if (label && api.phrase(label[1]) !== label[1]) return api.phrase(label[1]) + ':';

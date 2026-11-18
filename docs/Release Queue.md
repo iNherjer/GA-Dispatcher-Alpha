@@ -54,6 +54,15 @@ liefert alles Offene mit aus.
 - **Doku beim Release:** keine weitere.
 - **Pruefen im Feld:** EFB auf Englisch: Verlade-Manager beim Boarding und Entladen, Missionsbanner (Start, Taxi-Countdown, Ankunft), Sprachwechsel bei offenem Fenster.
 
+### 2026-11-18 · EFB-Missionskarte: POI-Statuszeilen auf Englisch
+- **Artefakt:** Tracker-EXE (`mission-control-ui-core.js`, EFB-Kopie von `i18n/en-phrases.js`)
+- **Dateien:** `ga-tracker-client/mission-control-ui-core.js`, `ga-tracker-client/efb-web-assets/i18n/en-phrases.js`
+- **Was:** „Aktueller Auftrag“ und Detailzeile bei POI-, SAR-, Survey-, Ketten- und Trainingsmissionen (`control.poiStatus`) erscheinen englisch.
+- **Warum:** Phase 3 der englischen Übersetzung (`docs/English Translation Plan.md` 2.13). Web ist schon live (v2450).
+- **Tests:** Kern-/Host-Tests grün, deutsche Ausgabe zeichengleich.
+- **Doku beim Release:** keine weitere.
+- **Pruefen im Feld:** EFB auf Englisch: POI-Mission (Arbeitszeit, Nächster Schritt), SAR-Heli.
+
 ## Ausgeliefert
 
 ### 2026-11-18 · Tolerante Rückblick-Prüfung, Folgemission immer baubar — ausgeliefert in Tracker v647 Alpha (18.11.2026)

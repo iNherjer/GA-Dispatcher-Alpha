@@ -413,6 +413,18 @@ Grenzen: Ladungsnamen (Missionsdaten, Phase 4), Behördenkontroll-Sätze mit Nam
 (`mission-compliance-domain-core.js`, Sprachausgabe → Phase 4/5), Fallback-Manager im EFB ohne
 Tracker-Modell (Kopfzeile „Mission/Phase/Stand“ bleibt technisch).
 
+### 2.13 Phase 3, Schritt 4: Debrief, Flugbuch, POI-Statuszeilen (2026-11-18)
+
+- **Debrief (`flight-debrief.js`) und Flugbuch (`flight-logbook-view.js`)** waren seit Phase 1
+  schon übersetzt (`_fdT`/`_fdK`, `_flvT`/`_flvK`, Datum nach `locale()`). Deutsch bleiben dort nur
+  gespeicherte Inhalte: Missionstitel, Abschiedssatz, SAR-Suchergebnis (→ Phase 4).
+- **POI-Statuszeilen** (`mission-poi-lifecycle-core.js` → `control.poiStatus` → Missionskarte):
+  Muster in `DISPLAY_PATTERNS` (Auftragsart über `TASK_LABELS_EN`), „Nächster Schritt: …“ über die
+  „Label: Wert“-Regel mit kleinem Anfangsbuchstaben rechts.
+- **Noch offen in Phase 3:** Trainingsbanner (`mission-training-guidance-ui.js`, Zeilen aus
+  `ga-tracker-client/tracker-mission-training-coaching.js` mit Sollwerten, Kursen, Fristen;
+  Übungsnamen aus den Rezepten). Eigener Schritt.
+
 ## 4. Etappen
 
 | Phase | Inhalt | Größe | Abhängig von |
