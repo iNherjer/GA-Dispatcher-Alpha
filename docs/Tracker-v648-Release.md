@@ -48,5 +48,5 @@ in Phase 3), Behördenkontroll-Sätze mit Namen und Fristen.
 ## Artefakt
 
 - Tag `v648`, Asset `VFR-Multitool-Tracker.exe`
-- Größe: (nach Build)
-- SHA-256: (nach Build)
+- Größe: 175257958 Bytes
+- SHA-256: 6447c9637da154bfc4ae4c49e175c746d4329fbec9081ede16b4ad9b640efaea (öffentlicher Download geprüft)
