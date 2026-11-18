@@ -912,10 +912,14 @@ Ergebnisse:
 ## 5. Offene Entscheidungen
 
 1. ~~Weg für generierte Inhalte (2.2)~~ entschieden: C, Live-Stimme B.
-2. Sollen englische Missionen nur für dieselben Gebiete laufen, oder auch
-   englischsprachige Regionen bekommen (z. B. FAA-Plätze)? Das ändert Phase 3/4 stark.
-3. Funk-Phraseologie in der englischen Fassung: ICAO-Englisch statt deutscher
-   Sprechgruppen?
+2. ~~Region~~ entschieden 18.11.2026: keine eigene Regionslogik. Missionen entstehen
+   überall wie bisher; auf Englisch sieht und hört der Nutzer alles komplett englisch.
+   Intern (Prompts, Prüfungen, gespeicherte Daten) darf weiter deutsch gedacht werden.
+3. ~~Funk-Phraseologie~~ entschieden 18.11.2026: Sprachausgabe übernimmt fürs Erste die
+   bestehende Logik (Auswahl, Reihenfolge, Zusammensetzung) und ruft englische Clips
+   statt der deutschen auf (gleiche Clip-Struktur, englische Packs). Nur die
+   Zahlenzusammensetzung braucht eine englische Regel (2.4). Feinschliff Richtung
+   ICAO-Wortlaut später möglich.
 4. Sprache pro Gerät oder pro Pilotenprofil (Cloud)?
 5. ~~PPL-Quiz auf Englisch ausblenden?~~ entschieden: sichtbar, Oberfläche englisch, Fragen deutsch (BZF: CC BY-ND).
 6. Welche Stimmen für Englisch (ElevenLabs-Auswahl, Kosten pro Pack)?
