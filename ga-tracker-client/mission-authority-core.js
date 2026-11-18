@@ -21,6 +21,9 @@ const checkpointBlobs = require('./tracker-mission-checkpoint-blobs.js');
 const STATE_SCHEMA = 'ga.mission-authority.v1';
 const STATE_VERSION = 1;
 const MAX_EVENTS = 120;
+const MAX_FOLLOWUP_RECAPS = 16;
+const MAX_FOLLOWUP_RECAP_ATTEMPTS = 3;
+const FOLLOWUP_RECAP_MAX_AGE_MS = 2 * 86400000;
 const MAX_EFFECTS = 160;
 const MAX_RESUME_BYTES = require('../mission-resume-adapters-core.js').MAX_RESUME_BYTES;
 const MAX_EXECUTION_EVENTS = 160;
@@ -622,6 +625,7 @@ function newState() {
     activeRun: null,
     lastRun: null,
     followupOutbox: [],
+    followupRecapQueue: [],
     logbookOutbox: [],
     events: []
   };
@@ -746,6 +750,7 @@ function createMissionAuthorityManager(options = {}) {
         activeRun: normalizeStoredRun(parsed.activeRun),
         lastRun: normalizeStoredRun(parsed.lastRun),
         followupOutbox: Array.isArray(parsed.followupOutbox) ? parsed.followupOutbox : [],
+        followupRecapQueue: Array.isArray(parsed.followupRecapQueue) ? parsed.followupRecapQueue.slice(-MAX_FOLLOWUP_RECAPS) : [],
         logbookOutbox: Array.isArray(parsed.logbookOutbox) ? parsed.logbookOutbox : [],
         events: Array.isArray(parsed.events) ? parsed.events.slice(-MAX_EVENTS) : []
       };
@@ -1550,6 +1555,16 @@ function createMissionAuthorityManager(options = {}) {
         if (!pilotId) return { ok: false, error: 'followup_pilot_required' };
         if (state.followupOutbox.length >= 64) return { ok: false, error: 'followup_outbox_full' };
         state.followupOutbox.push({ id: active.runId, pilotId, createdAt: now(), requests: followup.requests });
+        // The stay retrospective is written later in the background; the offer itself never waits for it.
+        // Only with a configured writer (voice key); stale entries never stay in the hot state file.
+        if (options.followupRecapEnabled === true) {
+          const fresh = state.followupRecapQueue.filter(item => now() - Number(item.createdAt || 0) < FOLLOWUP_RECAP_MAX_AGE_MS);
+          for (const req of followup.requests.filter(followupCore.needsRecap)) {
+            if (fresh.some(item => item.id === req.id)) continue;
+            fresh.push({ id: req.id, pilotId, createdAt: now(), attempts: 0, nextAt: 0, request: req });
+          }
+          state.followupRecapQueue = fresh.slice(-MAX_FOLLOWUP_RECAPS);
+        }
       }
     } catch (error) { state = previousState; return { ok: false, error: 'followup_prepare_failed', detail: error.message }; }
     queueLogbookRecord(active, 'completed');
@@ -2319,6 +2334,36 @@ function createMissionAuthorityManager(options = {}) {
       if (state.followupOutbox.length === previous.length) return true;
       if (persist()) return true;
       state.followupOutbox = previous; return false;
+    },
+    nextFollowupRecap(pilotId) {
+      const at = now();
+      const item = state.followupRecapQueue.find(entry => entry.pilotId === pilotId && Number(entry.nextAt || 0) <= at);
+      return item ? jsonClone(item) : null;
+    },
+    completeFollowupRecap(id, pilotId, experience) {
+      const item = state.followupRecapQueue.find(entry => entry.id === id && entry.pilotId === pilotId);
+      if (!item) return false;
+      const previous = { queue: state.followupRecapQueue, outbox: state.followupOutbox };
+      if (previous.outbox.length >= 64) return false;
+      const c = item.request.charterContinuation;
+      state.followupRecapQueue = previous.queue.filter(entry => entry !== item);
+      // Same request id: the cloud merge keeps the stored stay on the pending offer.
+      state.followupOutbox = [...previous.outbox.filter(entry => entry.id !== `recap:${id}`), { id: `recap:${id}`, pilotId, createdAt: now(),
+        requests: [{ ...item.request, charterContinuation: { ...c, experience, experienceCreatedAt: now() } }] }];
+      if (persist()) return true;
+      state.followupRecapQueue = previous.queue; state.followupOutbox = previous.outbox; return false;
+    },
+    failFollowupRecap(id, pilotId, error = '') {
+      const previous = state.followupRecapQueue;
+      const item = previous.find(entry => entry.id === id && entry.pilotId === pilotId);
+      if (!item) return false;
+      const attempts = Number(item.attempts || 0) + 1;
+      const expired = Number(item.request?.expiresAt || 0) > 0 && now() > Number(item.request.expiresAt);
+      state.followupRecapQueue = attempts >= MAX_FOLLOWUP_RECAP_ATTEMPTS || expired
+        ? previous.filter(entry => entry !== item)
+        : previous.map(entry => entry === item ? { ...entry, attempts, nextAt: now() + 60000 * 2 ** attempts, lastError: cleanString(error, 120) } : entry);
+      if (persist()) return true;
+      state.followupRecapQueue = previous; return false;
     },
     getExecutionComfortContext() {
       return executionComfortContext(state.activeRun);

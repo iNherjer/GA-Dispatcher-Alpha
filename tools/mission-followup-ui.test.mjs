@@ -31,3 +31,29 @@ test('availability refresh reaches due time, reschedules expiry and handles slee
  now=200000;timer.callback();assert.equal(env.availabilityTimer,null,'wake after expiry leaves no stale timer');
  env.environment.headless=true;timer=null;env.scheduleAvailabilityRefresh();assert.equal(timer,null,'tracker schedules no UI work');
 });
+test('due charter offer without stay retrospective gets exactly one background attempt from the App',async()=>{
+ const {createRequire}=await import('node:module');const require=createRequire(import.meta.url);
+ const core=require('../mission-charter-continuation-core.js');
+ const A={icao:'EDTW',name:'Winzeln',lat:48.27,lon:8.42},B={icao:'EDTE',name:'Eutingen',lat:48.48,lon:8.77},now=Date.now();
+ const idea={schema:'charter-idea.v1',reason:'Eine Gruppe reist zum persönlichen Austausch.',background:'Der gemeinsame Aufenthalt bietet Zeit für die geplante Zusammenarbeit.',arrival:'Die Gruppe setzt ihre Reise nach der Ankunft zusammen fort.',passengerCount:1,groupLabel:'Gast',passenger:{name:'Ada',role:'Auftraggeberin',gender:'female',personality:'Offen'},luggageLabel:'Tasche',luggageWeightLbs:10,memory:'Eine Reise mit Gesprächen.',geoAnchors:[],narrativeEvents:[],route:{start:A,target:B},returnPlan:{offered:true,reason:'Rückreise gebucht.',stayHours:0,stayText:'Kurzer Aufenthalt'}};
+ const md={missionId:'c1',mission:'Reise',charterIdea:idea,passenger:idea.passenger,departureAirport:A,destinationAirport:B};
+ let req=core.request(md,{missionId:'c1',completionId:'d',endedAt:now-1000,result:'completed',privateOutingEvidence:{flown:true,atTarget:true,groundStill:true}},now);
+ const draft={experience:'Ada hat den Aufenthalt genutzt und viele gute Gespräche geführt.',reason:'Nach dem Aufenthalt möchte Ada wieder nach Hause zurückkehren.',nextStep:'Zu Hause wird sie die Ergebnisse in Ruhe ordnen und weitergeben.',memory:'Die Gespräche des Aufenthalts bleiben ihr besonders in Erinnerung.',narrativeEvents:[],offerText:'Ada hat in Eutingen viel geredet und gelacht und bittet nun um den Rückflug nach Winzeln.'};
+ let calls=0,renders=0,saves=[];
+ const env={console:{info(){},warn(){}},localStorage:{getItem:()=>null},environment:{},getStatus:r=>r.status,nowMs:()=>now,render:()=>{renders++;},
+  saveMutated:(fn,opts)=>{req=fn([req])[0];saves.push(opts);},
+  saveCharterExperience:(id,d)=>{req={...req,charterContinuation:{...req.charterContinuation,experience:d}};return req.charterContinuation;},
+  window:{MissionCharterContinuationCore:core,getSelectedAiApiKey:()=>'key',fetchGeminiJsonWithFallback:async()=>{calls++;return {parsed:draft};}}};
+ vm.createContext(env);vm.runInContext(source.slice(source.indexOf('const charterRecapTried'),source.indexOf('function getProfileId(')),env);
+ assert.equal(env.maybeWriteCharterRecap(req),true);
+ assert.ok(req.recapAttemptedAt,'attempt is stored on the request');assert.equal(saves[0].cloud,true);
+ assert.equal(env.maybeWriteCharterRecap(req),false,'never twice');
+ await new Promise(resolve=>setImmediate(resolve));await new Promise(resolve=>setImmediate(resolve));
+ assert.equal(calls,1);assert.equal(renders,1);
+ assert.equal(core.offerPreview(core.context(req)),draft.offerText);
+ // Another device/session: stored attempt or existing stay prevent a new call.
+ const fresh={...env};vm.createContext(fresh);vm.runInContext(source.slice(source.indexOf('const charterRecapTried'),source.indexOf('function getProfileId(')),fresh);
+ assert.equal(fresh.maybeWriteCharterRecap({...req,charterContinuation:{...req.charterContinuation,experience:null}}),false);
+ fresh.localStorage={getItem:()=>'false'};
+ assert.equal(fresh.maybeWriteCharterRecap({...req,id:'x',recapAttemptedAt:null,charterContinuation:{...req.charterContinuation,experience:null}}),false,'AI switched off');
+});

@@ -1,5 +1,27 @@
 # Mission Runtime Authority Contract
 
+## Rueckflug-Rueckblick schreibt der Tracker nach der Landung (18.11.2026, Tracker v644)
+
+- Legt `finalizeExecutionRun` eine Charter- oder Reporter-Rueckreise an
+  (`charterContinuation` ohne gueltige `experience`), merkt der Authority-Kern sie in
+  `state.followupRecapQueue` vor (neustartfest, max. 16). Das Angebot selbst geht wie
+  bisher sofort in den Folgeauftrags-Postausgang und wartet nie auf den Text.
+- `tracker-mission-charter-recap.js` schreibt alle 15 s hoechstens einen Eintrag mit
+  `draftPrompt`/`validateDraft` aus `mission-charter-continuation-core.js` (dieselben wie
+  in der App, eine Strukturkorrektur) ueber den Voice-Schluessel (Gemini oder OpenAI).
+  Ohne Voice-Schluessel bleibt er aus. Fehlschlaege: Pause 2/4 min, nach 3 Versuchen
+  oder abgelaufenem Angebot verworfen.
+- Erfolg legt `recap:<requestId>` mit derselben Anfrage und gespeicherter `experience`
+  in den Postausgang; der Cloud-Abgleich (`chooseRequest`) uebernimmt sie in das
+  offene Angebot, abgelehnte oder angenommene bleiben unveraendert.
+- Die Anfragekarte zeigt `experience.offerText` (optional, 40-350 Zeichen, Rueckblick
+  der Disposition); ohne ihn einen festen Satz "Aufenthalt hinter sich, bittet um
+  Rueckflug" (`offerPreview`), nie mehr den Hinflug-Reisegrund. Beim Annehmen nutzt die
+  App eine vorhandene `experience` weiter, sonst schreibt sie sie wie bisher selbst.
+- Zweiter Rueckfall in der App: Ist die Karte faellig und fehlt die `experience`, versucht die
+  App einmal im Hintergrund (Vermerk `recapAttemptedAt`, abgeglichen); scheitert er, bleibt der
+  feste Satz. Ausgeliefert mit Tracker v644 Alpha / Web v2441.
+
 ## Flugbuch-Eintraege schreibt der Tracker (27.10.2026, Tracker v595)
 
 - Bei `finalizeExecutionRun` (erledigt) und `abortExecutionRun` (abgebrochen, nur mit

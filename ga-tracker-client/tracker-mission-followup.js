@@ -28,5 +28,7 @@ function createForCompletedRun(run,control,now=Date.now()) {
  const result=api.create(mission,record.cargo,{source:'tracker-confirmed-completion',completionRecord:record});
  return {result,requests:api.requests()};
 }
+// A charter/reporter return offer without a stored stay gets its retrospective written by the tracker.
+function needsRecap(req) {const c=charterContinuation.context(req);return !!c&&req.status==='pending'&&!charterContinuation.validateDraft(c.experience,c);}
 function mergeRequests(remote,incoming,now=Date.now()) {const api=service(remote,now);api.merge(incoming);return api.requests();}
-module.exports={createForCompletedRun,mergeRequests,service};
+module.exports={createForCompletedRun,mergeRequests,needsRecap,service};

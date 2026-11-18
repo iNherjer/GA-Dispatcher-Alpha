@@ -5,6 +5,7 @@ if (process.argv.includes('--mission-worker') && typeof process.send === 'functi
 } else {
 const missionTransferCore = require('../mission-transfer-core.js');
 const { createFollowupCloud } = require('./tracker-mission-followup-cloud.js');
+const { createCharterRecapWorker } = require('./tracker-mission-charter-recap.js');
 const { createComplianceSanctions } = require('./tracker-compliance-sanctions.js');
 const { createNavigationData } = require('./tracker-navigation-data.js');
 const { createNavigationWarnings } = require('./tracker-navigation-warnings.js');
@@ -174,8 +175,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v643';
-const TRACKER_VERSION_CODE = 643;
+const TRACKER_VERSION = 'v644';
+const TRACKER_VERSION_CODE = 644;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -5101,7 +5102,8 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
     checkpointBlobs: missionCheckpointBlobs,
     executionAuthorityEnabled: TRACKER_APT_EXECUTION_ENABLED,
     poiExecutionEnabled: TRACKER_POI_EXECUTION_ENABLED,
-    poiLifecycleRequired: true
+    poiLifecycleRequired: true,
+    followupRecapEnabled: !!voiceCredentials?.apiKey
   };
   const complianceSanctions = createComplianceSanctions({
     storageFile: path.join(TRACKER_DATA_DIR, 'compliance-sanctions-v1.json'),
@@ -5127,6 +5129,11 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
   const followupSyncTimer = setInterval(() => { void followupCloud.flush(); }, 5000);
   followupSyncTimer.unref?.();
   void followupCloud.flush();
+  // Return offers: stay retrospective written after landing, with the voice key; App writes it on accept otherwise.
+  const charterRecap = createCharterRecapWorker({ authorityManager: missionAuthorityManager, pilotId: String(syncId),
+    provider: voiceCredentials?.provider, apiKey: voiceCredentials?.apiKey, log: debugLog });
+  const charterRecapTimer = charterRecap.configured ? setInterval(() => { void charterRecap.tick(); }, 15000) : null;
+  charterRecapTimer?.unref?.();
   const sanctionSyncTimer = setInterval(() => { void complianceSanctions.flush(); }, 5000);
   sanctionSyncTimer.unref?.();
   void complianceSanctions.flush();

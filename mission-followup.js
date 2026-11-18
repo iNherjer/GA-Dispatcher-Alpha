@@ -881,6 +881,42 @@
         return next;
     }
 
+    // Second fallback for return offers: if the tracker wrote no stay retrospective (no voice key,
+    // failures, sim mode), the App tries once when the due card is shown. The card never waits for it;
+    // the attempt is stored on the request so no device asks again. Accepting still writes it if missing.
+    const charterRecapTried = new Set();
+    let charterRecapBusy = false;
+    function maybeWriteCharterRecap(req) {
+        if (environment.headless || charterRecapBusy || !req || charterRecapTried.has(req.id)) return false;
+        const core = window.MissionCharterContinuationCore, c = core?.context?.(req);
+        if (!c || getStatus(req) !== 'pending' || Number(req.eligibleAt || 0) > nowMs() || req.recapAttemptedAt) return false;
+        if (core.validateDraft(c.experience, c)) return false;
+        let aiOff = false;
+        try { aiOff = localStorage.getItem('ga_ai_enabled') === 'false'; } catch (_) {}
+        const key = typeof window.getSelectedAiApiKey === 'function' ? window.getSelectedAiApiKey() : '';
+        if (aiOff || !key || typeof window.fetchGeminiJsonWithFallback !== 'function') return false;
+        charterRecapTried.add(req.id);
+        charterRecapBusy = true;
+        saveMutated(list => list.map(row => row.id === req.id ? { ...row, recapAttemptedAt: nowMs(), updatedAt: nowMs() } : row), { cloud: true });
+        const ask = async prompt => (await window.fetchGeminiJsonWithFallback(prompt, key, { promptVersion: 'charter-recap-v1', timeoutMs: 40000 }))?.parsed || null;
+        (async () => {
+            try {
+                const prompt = core.draftPrompt(c);
+                let raw = await ask(prompt), draft = core.validateDraft(raw, c);
+                if (!draft && raw) {
+                    raw = await ask(`${prompt}\nKorrigiere nur die Struktur des bisherigen Entwurfs. Bewahre dessen Inhalt und Identitäten. Vollständiges JSON als einzelnes Objekt, gültige Feldlängen und belegte Geo-Anker. ENTWURF: ${JSON.stringify(raw)}`);
+                    draft = core.validateDraft(raw, c);
+                }
+                const saved = draft && saveCharterExperience(req.id, draft);
+                console.info('[FollowUp] Rückflug-Rückblick bei Fälligkeit', { id: req.id, written: !!saved, card: !!draft?.offerText });
+                if (saved) render();
+            } catch (error) {
+                console.warn('[FollowUp] Rückflug-Rückblick bei Fälligkeit fehlgeschlagen; Karte bleibt beim festen Text.', error?.message || error);
+            } finally { charterRecapBusy = false; }
+        })();
+        return true;
+    }
+
     function getProfileId(md = null) {
         if (window.MissionCharterContinuationCore?.source(md)) return 'apt_charter';
         const explicit = String(
@@ -2441,6 +2477,8 @@
         sub.textContent = `${privateUi?.subtitle || req.ui?.subtitle || req.sourceLabel || 'Mission'} · bis ${formatLocal(req.expiresAt)}`;
         const preview = document.createElement('div');
         preview.className = 'followup-request-preview';
+        // After this render pass: saving the attempt re-renders the list.
+        if (!charterRecapTried.has(req.id)) setTimeout(() => maybeWriteCharterRecap(getRequests().find(row => row.id === req.id)), 0);
         const charterCore = window.MissionCharterContinuationCore;
         const charterPreview = charterCore?.context?.(req) ? charterCore.offerPreview?.(charterCore.context(req)) : '';
         preview.textContent = privateUi?.previewText || charterPreview || req.ui?.previewText || req.narrativeMemory?.whyNowReturn || '';

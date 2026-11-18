@@ -29,6 +29,13 @@ liefert alles Offene mit aus.
 
 ## Ausgeliefert
 
+### 2026-11-18 · Rückflug-Rückblick nach der Landung — ausgeliefert in Tracker v644 Alpha (18.11.2026)
+- **Artefakt:** Tracker-EXE (Folgeauftrag-Rückblick im Hintergrund), Web v2441.
+- **Dateien:** `ga-tracker-client/tracker.js`, `ga-tracker-client/mission-authority-core.js`, `ga-tracker-client/tracker-mission-followup.js`, `ga-tracker-client/tracker-mission-charter-recap.js` (+ Test), `mission-charter-continuation-core.js`, `mission-followup.js` (+ `tools/mission-followup-ui.test.mjs`).
+- **Was:** siehe `docs/Tracker-v644-Release.md`.
+- **Doku beim Release:** `docs/Tracker-v644-Release.md`, `docs/Mission Runtime Authority Contract.md`.
+- **Pruefen im Feld:** siehe `docs/Tracker-v644-Release.md`.
+
 ### 2026-11-17 · PIN-Pflicht für Relay-Befehle, EFB-Server-Herkunft, Crew-Beitritt — ausgeliefert in Tracker v643 Alpha (17.11.2026)
 - **Artefakt:** Tracker-EXE (Relay-Befehle, lokaler EFB-Server). Worker `ga-proxy` 08e22ae3 deployt, Web v2438.
 - **Dateien:** `ga-tracker-client/tracker.js`, `ga-tracker-client/tracker-relay-routing-core.js` (+ Test), `ga-tracker-client/tracker-efb-http-server.js` (+ Test), `board.js`, `sync.js`, `i18n/en.js`, `i18n/en-phrases.js`, `tools/cloudflare-worker/worker-merged-full.js` (+ Test).
