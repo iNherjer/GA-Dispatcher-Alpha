@@ -36,6 +36,15 @@ liefert alles Offene mit aus.
 - **Doku beim Release:** keine weitere.
 - **Pruefen im Feld:** EFB auf Englisch: Passagierfenster vor der ersten Nachricht „Passenger“ / „No message yet.“
 
+### 2026-11-18 · EFB-Missionskarte auf Englisch
+- **Artefakt:** Tracker-EXE (EFB lädt `ga-tracker-client/mission-control-ui-core.js` und die EFB-Kopie von `i18n/en-phrases.js`)
+- **Dateien:** `ga-tracker-client/mission-control-ui-core.js`, `ga-tracker-client/efb-web-assets/i18n/en-phrases.js`
+- **Was:** Missionskarte, Bedienknöpfe, Unterbrechungshinweise, Aktionsmeldungen, Bordbuch-Erinnerung und Abbruch-Rückfrage erscheinen bei englischer Oberfläche englisch. Übersetzt wird nur beim Zeichnen (`displayText`); die Tracker-Ansicht bleibt deutsch.
+- **Warum:** Phase 3 der englischen Übersetzung (`docs/English Translation Plan.md` 2.11). Web ist schon live (v2448).
+- **Tests:** `mission-control-ui-core`, `tracker-efb-web-client`, `efb-web-assets-sync`, `tracker-efb-asset-syntax`, `tools/efb-interruption-host`, `tools/tracker-sim-interruption-web` grün; deutsche Ausgabe zeichengleich zum Vorstand geprüft.
+- **Doku beim Release:** keine weitere.
+- **Pruefen im Feld:** EFB auf Englisch: Missionskarte (Abschnittstitel, aktueller Auftrag, Fortschritt), Mission abbrechen (Rückfrage), Unterbrechung nach Sim-Neustart.
+
 ## Ausgeliefert
 
 ### 2026-11-18 · Tolerante Rückblick-Prüfung, Folgemission immer baubar — ausgeliefert in Tracker v647 Alpha (18.11.2026)

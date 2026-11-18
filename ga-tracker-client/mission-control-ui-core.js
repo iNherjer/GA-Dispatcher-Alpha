@@ -7,7 +7,7 @@
 }(typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : this), function () {
   'use strict';
 
-  var BUILD_ID = 'tracker-mission-ui-20261020-05';
+  var BUILD_ID = 'tracker-mission-ui-20261118-01';
 
   var ACTION_LABELS = Object.freeze({
     activate_cloud_mission: 'Mission aus der Cloud beginnen',
@@ -45,6 +45,82 @@
       .replace(/'/g, '&#39;');
   }
 
+  // Display only: models and tracker views stay German (some callers compare them); the
+  // rendered HTML and returned dialog texts are translated when English is selected.
+  function i18nApi() {
+    var host = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : null);
+    var api = host && host.GAI18n;
+    return api && typeof api.phrase === 'function' && typeof api.getLanguage === 'function' ? api : null;
+  }
+  function numberLocale() {
+    var api = i18nApi();
+    return api && typeof api.locale === 'function' ? api.locale() : 'de-DE';
+  }
+  function dot(value) { return String(value).replace(',', '.'); }
+  var PLACE_EN = { 'am Startplatz': 'at the departure airfield', 'am Zielplatz': 'at the destination airfield', 'am Speicherpunkt': 'at the save point' };
+  // Sentences the interruption model and the tracker mission view build from numbers.
+  var DISPLAY_PATTERNS = [
+    [/^ Noch ([\d,.]+) NM, Kurs (\d{3})°\.$/, function (m) { return ' ' + dot(m[1]) + ' NM to go, course ' + m[2] + '°.'; }],
+    [/^Zum Fortsetzen an den Speicherpunkt fliegen \(([\d,.]+) NM Zone\)\. Die Mission läuft weiter, sobald du dort 10 Sekunden normal fliegst\.([\s\S]*)$/,
+      function (m) { return 'To continue, fly to the save point (' + dot(m[1]) + ' NM zone). The mission continues once you have flown normally there for 10 seconds.' + displayText(m[2]); }],
+    [/^Flugzeug (am Startplatz|am Zielplatz|am Speicherpunkt)( .+?)? abstellen \(innerhalb ([\d,.]+) NM\)\. Die Mission läuft weiter, sobald es dort 5 Sekunden am Boden steht\.([\s\S]*)$/,
+      function (m) { return 'Park the aircraft ' + PLACE_EN[m[1]] + (m[2] || '') + ' (within ' + dot(m[3]) + ' NM). The mission continues once it has stood on the ground there for 5 seconds.' + displayText(m[4]); }],
+    [/^(\d+) geladen \/ (\d+) entladen$/, function (m) { return m[1] + ' loaded / ' + m[2] + ' unloaded'; }],
+    [/^(\d+) Positionen noch offen$/, function (m) { return m[1] + (m[1] === '1' ? ' item still open' : ' items still open'); }],
+    [/^(\d+)\/(\d+) an Bord · Zustand (\d+)%$/, function (m) { return m[1] + '/' + m[2] + ' on board · condition ' + m[3] + '%'; }],
+    [/^(\d+)\/(\d+) an Bord$/, function (m) { return m[1] + '/' + m[2] + ' on board'; }],
+    [/^(\d+) Pilot · (\d+) Wetter$/, function (m) { return m[1] + ' pilot · ' + m[2] + ' weather'; }],
+    [/^(\d+)\/(\d+) Übungen erfüllt · ([\s\S]+)$/, function (m) { return m[1] + '/' + m[2] + ' exercises done · ' + displayText(m[3]); }],
+    [/^(\d+)\/(\d+) erfüllte Übungen · ([\s\S]+)$/, function (m) { return m[1] + '/' + m[2] + ' exercises done · ' + displayText(m[3]); }],
+    [/^(\d+:\d\d) \/ (\d+:\d\d)( · erfüllt| · Sichtung im PAX-Menü melden)?$/, function (m) {
+      return m[1] + ' / ' + m[2] + (m[3] ? (m[3] === ' · erfüllt' ? ' · done' : ' · report sightings in the PAX menu') : ''); }],
+    [/^(\d+)\/(\d+) abgeschlossen · laufender Abschnitt (\d+)%$/, function (m) { return m[1] + '/' + m[2] + ' complete · current section ' + m[3] + '%'; }],
+    [/^(\d+)\/(\d+) dokumentiert$/, function (m) { return m[1] + '/' + m[2] + ' documented'; }],
+    [/^(\d+)\/(\d+) Abschnitte · laufend (\d+)%$/, function (m) { return m[1] + '/' + m[2] + ' sections · current ' + m[3] + '%'; }],
+    [/^Beschädigt: ([\s\S]+)\.$/, function (m) { return 'Damaged: ' + m[1] + '.'; }],
+    [/^Abgeworfen: ([\s\S]+)\.$/, function (m) { return 'Dropped: ' + m[1] + '.'; }],
+    [/^Noch nicht geladen: ([\s\S]+)\.$/, function (m) { return 'Not loaded yet: ' + m[1] + '.'; }],
+    [/^([\s\S]+): nicht an Bord; entladen zählt in der bestehenden POI-Prüfung nicht als fehlend\.$/, function (m) {
+      return m[1] + ': not on board; unloaded items do not count as missing in the POI check.'; }],
+    [/^Ladung bei (\d+) %\. Ruhiger weiterfliegen\.$/, function (m) { return 'Cargo at ' + m[1] + ' %. Fly more smoothly.'; }],
+    [/^([\s\S]+) bei (\d+) %: Pflichtladung zerstört, der Auftrag ist so nicht mehr erfüllbar\.$/, function (m) {
+      return m[1] + ' at ' + m[2] + ' %: required cargo destroyed, the task can no longer be completed.'; }],
+    [/^([\s\S]+) bei (\d+) %: kaputt\. Keine Pflichtladung, der Auftrag hängt nicht daran\.$/, function (m) {
+      return m[1] + ' at ' + m[2] + ' %: broken. Not required cargo, the task does not depend on it.'; }],
+    [/^([\s\S]+) bei (\d+) %: da ist wohl etwas zu Bruch gegangen\. Bei 35 % ist Pflichtladung verloren\.$/, function (m) {
+      return m[1] + ' at ' + m[2] + ' %: something seems to have broken. At 35 % required cargo is lost.'; }],
+    [/^(\d+) auffällige Flugbewegungen, davon (\d+) schwer\.$/, function (m) { return m[1] + ' noticeable flight movements, ' + m[2] + ' of them severe.'; }],
+    [/^(\d+) Wetterereignisse; getrennt von Pilotenereignissen gewertet\.$/, function (m) { return m[1] + ' weather events; rated separately from pilot events.'; }],
+    [/^Radius ([\d.]+) NM · aktuell (unbekannt|[\d.]+ NM)$/, function (m) { return 'Radius ' + m[1] + ' NM · now ' + (m[2] === 'unbekannt' ? 'unknown' : m[2]); }],
+    [/^(\d+) ft MSL( ± \d+ ft)? · aktuell (unbekannt|-?\d+ ft MSL)$/, function (m) { return m[1] + ' ft MSL' + (m[2] || '') + ' · now ' + (m[3] === 'unbekannt' ? 'unknown' : m[3]); }],
+    [/^(\d+:\d\d) erforderlich$/, function (m) { return m[1] + ' required'; }],
+    [/^(\d+) Kreise bei ([\d.]+) NM Radius$/, function (m) { return m[1] + ' circles at ' + m[2] + ' NM radius'; }],
+    [/^(\d+) Scanlinien vollständig abfliegen$/, function (m) { return 'Fly all ' + m[1] + ' scan lines completely'; }],
+    [/^Nächster Punkt: ([\s\S]+) · Radius ([\d.]+) NM$/, function (m) { return 'Next point: ' + m[1] + ' · radius ' + m[2] + ' NM'; }],
+    [/^Suchgebiet ([\d.]+) NM · Sichtung über PAX melden$/, function (m) { return 'Search area ' + m[1] + ' NM · report sightings via PAX'; }],
+    [/^([\s\S]+) anfliegen$/, function (m) { return 'Fly to ' + m[1]; }]
+  ];
+  function displayText(value) {
+    var source = value == null ? '' : String(value);
+    var api = i18nApi();
+    if (!api || !source || api.getLanguage() === 'de') return source;
+    var exact = api.phrase(source);
+    if (exact !== source) return exact;
+    for (var i = 0; i < DISPLAY_PATTERNS.length; i++) {
+      var build = DISPLAY_PATTERNS[i][1];
+      var match = DISPLAY_PATTERNS[i][0].exec(source);
+      if (match) return build(match);
+    }
+    // "Kicker: sentence" as joined by the interruption view.
+    var joined = /^([^:]{2,60}): ([\s\S]+)$/.exec(source);
+    if (joined) {
+      var left = api.phrase(joined[1]);
+      if (left !== joined[1]) return left + ': ' + displayText(joined[2]);
+    }
+    return source;
+  }
+  function dt(value) { return escapeHtml(displayText(value)); }
+
   function safeTone(value, fallback) {
     var tone = String(value || fallback || 'active').toLowerCase();
     return /^(active|good|warn|danger|muted|neutral|info)$/.test(tone) ? tone : String(fallback || 'active');
@@ -74,7 +150,7 @@
   function formatTime(value) {
     var date = new Date(Number(value) || Date.now());
     try {
-      return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      return date.toLocaleTimeString(numberLocale(), { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     } catch (_) {
       return date.toTimeString().slice(0, 8);
     }
@@ -87,13 +163,13 @@
     return {
       targetLine: target.distanceNm != null && Number.isFinite(Number(target.distanceNm))
         ? formatNumber(target.distanceNm, 1) + ' NM · ' + padHeading(target.bearingDeg) + '°'
-        : (flight.trackerLive ? 'Zielposition offen' : 'Tracker wartet'),
+        : displayText(flight.trackerLive ? 'Zielposition offen' : 'Tracker wartet'),
       altitudeLine: flight.mslFt != null && Number.isFinite(Number(flight.mslFt))
-        ? Math.round(Number(flight.mslFt)).toLocaleString('de-DE') + ' ft MSL'
-        : 'Keine Live-Höhe',
+        ? Math.round(Number(flight.mslFt)).toLocaleString(numberLocale()) + ' ft MSL'
+        : displayText('Keine Live-Höhe'),
       altitudeDetail: flight.aglFt != null && Number.isFinite(Number(flight.aglFt))
-        ? Math.round(Number(flight.aglFt)).toLocaleString('de-DE') + ' ft AGL'
-        : (flight.gsKts != null && Number.isFinite(Number(flight.gsKts)) ? Math.round(Number(flight.gsKts)) + ' kt GS' : 'Live-Daten offen')
+        ? Math.round(Number(flight.aglFt)).toLocaleString(numberLocale()) + ' ft AGL'
+        : (flight.gsKts != null && Number.isFinite(Number(flight.gsKts)) ? Math.round(Number(flight.gsKts)) + ' kt GS' : displayText('Live-Daten offen'))
     };
   }
 
@@ -276,8 +352,8 @@
   function renderEmpty() {
     return '<div class="mission-control-empty">'
       + '<span aria-hidden="true">&#9678;</span>'
-      + '<b>Keine aktive Mission</b>'
-      + '<p>Nach dem Annehmen eines Auftrags erscheinen hier Aufgabe, Bedingungen, Live-Fortschritt, Pax-Stimmung und Ladungszustand.</p>'
+      + '<b>' + dt('Keine aktive Mission') + '</b>'
+      + '<p>' + dt('Nach dem Annehmen eines Auftrags erscheinen hier Aufgabe, Bedingungen, Live-Fortschritt, Pax-Stimmung und Ladungszustand.') + '</p>'
       + '</div>';
   }
 
@@ -292,34 +368,34 @@
       return allowed.indexOf(intent) >= 0;
     }).map(function (intent) {
       return '<button type="button" data-action="mission-control-intent" data-efb-drawer-action="mission-intent" data-mission-intent="'
-        + escapeHtml(intent) + '"' + disabled + '>' + escapeHtml(ACTION_LABELS[intent] || intent) + '</button>';
+        + escapeHtml(intent) + '"' + disabled + '>' + dt(ACTION_LABELS[intent] || intent) + '</button>';
     }).join('');
     var abortHtml = allowed.indexOf('abort_mission') >= 0
       ? '<div class="mission-control-actions is-danger"><button type="button" data-action="mission-control-intent" data-efb-drawer-action="mission-intent" data-mission-intent="abort_mission"'
-        + disabled + '>Mission abbrechen</button></div>'
+        + disabled + '>' + dt('Mission abbrechen') + '</button></div>'
       : '';
     var toolbar = missionToolbarModel(control, { banner: settings.banner || null, interrupted: interrupted, interruption: interruption });
-    var interruptedText = interruption ? interruption.kicker + ': ' + interruption.text
-      : 'Simulator getrennt: Die Mission ist unterbrochen. Zum Fortsetzen MSFS starten und einen Flug laden – die Mission geht dann an derselben Stelle weiter. Alternativ die Mission neu starten oder abbrechen.';
+    var interruptedText = interruption ? displayText(interruption.kicker) + ': ' + displayText(interruption.text)
+      : displayText('Simulator getrennt: Die Mission ist unterbrochen. Zum Fortsetzen MSFS starten und einen Flug laden – die Mission geht dann an derselben Stelle weiter. Alternativ die Mission neu starten oder abbrechen.');
     var interruptedHtml = interrupted
       ? '<div class="mission-control-actions is-interrupted"><p>' + escapeHtml(interruptedText) + '</p>'
         + (interruption && interruption.primary ? '<button type="button" data-action="mission-control-intent" data-efb-drawer-action="mission-intent" data-mission-intent="'
-          + escapeHtml(interruption.primary.intent) + '"' + disabled + '>' + escapeHtml(interruption.primary.label) + '</button>' : '')
+          + escapeHtml(interruption.primary.intent) + '"' + disabled + '>' + dt(interruption.primary.label) + '</button>' : '')
         + '</div>'
       : '';
     var cargoHtml = toolbar && toolbar.cargo && toolbar.cargo.visible
       ? '<div class="mission-control-actions"><button type="button" data-action="mission-control-open-cargo" data-efb-drawer-action="open-cargo"'
-        + disabled + '>Verlade-Manager öffnen</button></div>'
+        + disabled + '>' + dt('Verlade-Manager öffnen') + '</button></div>'
       : '';
     var status = String(settings.intentStatus || '');
     var statusTone = safeTone(settings.intentTone || (/abgelehnt|fehlgeschlagen|nicht verfuegbar|nicht verfügbar/i.test(status) ? 'danger' : 'info'), 'info');
     return '<section class="mission-control-card mission-control-operations">'
-      + '<div class="mission-control-section-kicker">BEDIENUNG</div>'
+      + '<div class="mission-control-section-kicker">' + dt('BEDIENUNG') + '</div>'
       + interruptedHtml
       + cargoHtml
       + (actionHtml ? '<div class="mission-control-actions">' + actionHtml + '</div>' : '')
       + abortHtml
-      + (status ? '<p class="mission-control-intent-status is-' + statusTone + '">' + escapeHtml(status) + '</p>' : '')
+      + (status ? '<p class="mission-control-intent-status is-' + statusTone + '">' + dt(status) + '</p>' : '')
       + '</section>';
   }
 
@@ -343,24 +419,24 @@
     var phaseHtml = stages.map(function (stage, index) {
       var label = stage && typeof stage === 'object' ? stage.label : stage;
       return '<div class="mission-control-phase' + (index < current ? ' is-done' : '') + (index === current ? ' is-current' : '') + '">'
-        + '<span>' + (index < current ? '&#10003;' : String(index + 1)) + '</span><b>' + escapeHtml(label || 'Phase') + '</b></div>';
+        + '<span>' + (index < current ? '&#10003;' : String(index + 1)) + '</span><b>' + dt(label || 'Phase') + '</b></div>';
     }).join('');
     var progressHtml = (Array.isArray(view.progress) ? view.progress : []).map(function (row) {
       var pct = clampPct(row && row.percent);
       var tone = safeTone(row && row.tone, pct >= 100 ? 'good' : 'active');
       return '<div class="mission-control-progress-row"><div class="mission-control-progress-head"><span>'
-        + escapeHtml(row && row.label) + '</span><b>' + escapeHtml(valueOf(row, 'detail', 'value', '')) + '</b></div>'
+        + dt(row && row.label) + '</span><b>' + dt(valueOf(row, 'detail', 'value', '')) + '</b></div>'
         + '<div class="mission-control-progress-track is-' + tone + '"><span style="width:' + pct + '%"></span></div></div>';
     }).join('');
     var requirementsHtml = (Array.isArray(view.requirements) ? view.requirements : []).map(function (row) {
       return '<div class="mission-control-requirement is-' + safeTone(valueOf(row, 'state', 'tone', 'neutral'), 'neutral') + '"><span>'
-        + escapeHtml(row && row.label) + '</span><b>' + escapeHtml(valueOf(row, 'value', 'detail', '')) + '</b></div>';
+        + dt(row && row.label) + '</span><b>' + dt(valueOf(row, 'value', 'detail', '')) + '</b></div>';
     }).join('');
     var feedbackHtml = (Array.isArray(view.feedback) ? view.feedback : []).map(function (row) {
       var tone = safeTone(row && row.tone, 'info');
       var icon = tone === 'danger' ? '!' : (tone === 'warn' ? '&#9651;' : (tone === 'good' ? '&#10003;' : 'i'));
       return '<div class="mission-control-feedback is-' + tone + '"><span aria-hidden="true">' + icon + '</span><p>'
-        + escapeHtml(valueOf(row, 'text', 'detail', '')) + '</p></div>';
+        + dt(valueOf(row, 'text', 'detail', '')) + '</p></div>';
     }).join('');
     var comfort = view.comfort && typeof view.comfort === 'object' ? view.comfort : {};
     var cargo = view.cargo && typeof view.cargo === 'object' ? view.cargo : {};
@@ -368,30 +444,30 @@
     return '<div class="mission-control-shared" data-mission-control-schema="ga.efb-mission-view.v1">'
       + '<section class="mission-control-hero is-' + taskTone + '"><div class="mission-control-hero-top">'
       + '<span class="mission-control-live' + (flight.trackerLive ? ' is-live' : '') + '">' + (flight.trackerLive ? '&#9679; LIVE' : '&#9675; STANDBY') + '</span>'
-      + '<span>' + escapeHtml(view.status || 'Mission aktiv') + '</span></div><h3>' + escapeHtml(view.title || 'Aktive Mission') + '</h3>'
+      + '<span>' + dt(view.status || 'Mission aktiv') + '</span></div><h3>' + dt(view.title || 'Aktive Mission') + '</h3>'
       + '<div class="mission-control-story ' + (storyExpandable ? (expanded ? 'is-expanded' : 'is-collapsed') : 'is-static') + '"><p id="missionControlStory">'
       + escapeHtml(story) + '</p>'
       + (storyExpandable ? '<button class="mission-control-story-toggle" type="button" data-action="toggle-mission-story" data-efb-drawer-action="toggle-mission-story" aria-controls="missionControlStory" aria-expanded="'
-        + (expanded ? 'true' : 'false') + '"><span>' + (expanded ? 'Missionstext einklappen' : 'Gesamten Missionstext lesen') + '</span><b aria-hidden="true">'
+        + (expanded ? 'true' : 'false') + '"><span>' + dt(expanded ? 'Missionstext einklappen' : 'Gesamten Missionstext lesen') + '</span><b aria-hidden="true">'
         + (expanded ? '&#8963;' : '&#8964;') + '</b></button>' : '')
       + '</div></section>'
-      + '<section class="mission-control-order is-' + taskTone + '"><div class="mission-control-section-kicker">AKTUELLER AUFTRAG</div>'
-      + '<div class="mission-control-order-text">' + escapeHtml(view.currentTask || 'Missionsstatus prüfen') + '</div>'
-      + '<div class="mission-control-order-detail">' + escapeHtml(view.detail || '') + '</div></section>'
-      + (phaseHtml ? '<section class="mission-control-card"><div class="mission-control-section-kicker">MISSIONSVERLAUF</div><div class="mission-control-phase-rail">' + phaseHtml + '</div></section>' : '')
-      + '<div class="mission-control-metrics"><div class="mission-control-metric"><span>ZIEL</span><b id="gaEfbMissionTargetLine">' + escapeHtml(targetLine) + '</b><small>'
-      + escapeHtml(target.name || '') + '</small></div><div class="mission-control-metric"><span>FLUGHÖHE</span><b id="gaEfbMissionAltitude">'
+      + '<section class="mission-control-order is-' + taskTone + '"><div class="mission-control-section-kicker">' + dt('AKTUELLER AUFTRAG') + '</div>'
+      + '<div class="mission-control-order-text">' + dt(view.currentTask || 'Missionsstatus prüfen') + '</div>'
+      + '<div class="mission-control-order-detail">' + dt(view.detail || '') + '</div></section>'
+      + (phaseHtml ? '<section class="mission-control-card"><div class="mission-control-section-kicker">' + dt('MISSIONSVERLAUF') + '</div><div class="mission-control-phase-rail">' + phaseHtml + '</div></section>' : '')
+      + '<div class="mission-control-metrics"><div class="mission-control-metric"><span>' + dt('ZIEL') + '</span><b id="gaEfbMissionTargetLine">' + escapeHtml(targetLine) + '</b><small>'
+      + escapeHtml(target.name || '') + '</small></div><div class="mission-control-metric"><span>' + dt('FLUGHÖHE') + '</span><b id="gaEfbMissionAltitude">'
       + escapeHtml(altitudeLine) + '</b><small id="gaEfbMissionAltitudeDetail">' + escapeHtml(altitudeDetail) + '</small></div></div>'
-      + (progressHtml ? '<section class="mission-control-card"><div class="mission-control-section-kicker">LIVE-FORTSCHRITT</div>' + progressHtml + '</section>' : '')
-      + (requirementsHtml ? '<section class="mission-control-card"><div class="mission-control-section-kicker">BEDINGUNGEN</div><div class="mission-control-requirements">' + requirementsHtml + '</div></section>' : '')
-      + '<div class="mission-control-condition-grid"><section class="mission-control-condition is-' + safeTone(comfort.tone, 'muted') + '"><span>PAX-STIMMUNG</span><strong>'
-      + (comfort.score == null ? '—' : escapeHtml(comfort.score) + '%') + '</strong><b>' + escapeHtml(comfort.state || 'Keine Wertung') + '</b><small>'
-      + escapeHtml(comfort.detail || '') + '</small></section><section class="mission-control-condition is-' + safeTone(cargo.tone, 'muted') + '"><span>LADUNGSZUSTAND</span><strong>'
-      + (cargo.conditionPct == null ? '—' : escapeHtml(cargo.conditionPct) + '%') + '</strong><b>' + escapeHtml(cargo.state || 'Keine Ladung') + '</b><small>'
-      + escapeHtml(cargo.detail || '') + '</small></section></div>'
+      + (progressHtml ? '<section class="mission-control-card"><div class="mission-control-section-kicker">' + dt('LIVE-FORTSCHRITT') + '</div>' + progressHtml + '</section>' : '')
+      + (requirementsHtml ? '<section class="mission-control-card"><div class="mission-control-section-kicker">' + dt('BEDINGUNGEN') + '</div><div class="mission-control-requirements">' + requirementsHtml + '</div></section>' : '')
+      + '<div class="mission-control-condition-grid"><section class="mission-control-condition is-' + safeTone(comfort.tone, 'muted') + '"><span>' + dt('PAX-STIMMUNG') + '</span><strong>'
+      + (comfort.score == null ? '—' : escapeHtml(comfort.score) + '%') + '</strong><b>' + dt(comfort.state || 'Keine Wertung') + '</b><small>'
+      + dt(comfort.detail || '') + '</small></section><section class="mission-control-condition is-' + safeTone(cargo.tone, 'muted') + '"><span>' + dt('LADUNGSZUSTAND') + '</span><strong>'
+      + (cargo.conditionPct == null ? '—' : escapeHtml(cargo.conditionPct) + '%') + '</strong><b>' + dt(cargo.state || 'Keine Ladung') + '</b><small>'
+      + dt(cargo.detail || '') + '</small></section></div>'
       + renderActions(control, settings)
-      + (feedbackHtml ? '<section class="mission-control-card"><div class="mission-control-section-kicker">LAGEBERICHT</div><div class="mission-control-feedback-list">' + feedbackHtml + '</div></section>' : '')
-      + '<div class="mission-control-updated">Stand ' + escapeHtml(formatTime(view.capturedAt || settings.now)) + ' · aktualisiert sich automatisch</div>'
+      + (feedbackHtml ? '<section class="mission-control-card"><div class="mission-control-section-kicker">' + dt('LAGEBERICHT') + '</div><div class="mission-control-feedback-list">' + feedbackHtml + '</div></section>' : '')
+      + '<div class="mission-control-updated">' + dt('Stand') + ' ' + escapeHtml(formatTime(view.capturedAt || settings.now)) + ' · ' + dt('aktualisiert sich automatisch') + '</div>'
       + '</div>';
   }
 
@@ -518,13 +594,14 @@
   }
 
   function boardBookReminderMarkup(field) {
-    var label = field === 'landing' ? 'Landezeit' : 'Startzeit';
-    return '<div class="mission-boardbook-reminder-copy"><strong>BORDBUCH</strong><span>' + label
-      + ' des aktuellen Fluges eintragen?</span></div><button type="button">' + label + ' eintragen</button>';
+    var landing = field === 'landing';
+    return '<div class="mission-boardbook-reminder-copy"><strong>' + dt('BORDBUCH') + '</strong><span>'
+      + dt(landing ? 'Landezeit des aktuellen Fluges eintragen?' : 'Startzeit des aktuellen Fluges eintragen?')
+      + '</span></div><button type="button">' + dt(landing ? 'Landezeit eintragen' : 'Startzeit eintragen') + '</button>';
   }
 
   function abortConfirmation() {
-    return 'Mission wirklich abbrechen?\n\nDer Tracker beendet die Mission auf allen verbundenen Ansichten und entfernt ihre Sim-Objekte. Der Flug wird nicht als abgeschlossen gewertet.';
+    return displayText('Mission wirklich abbrechen?\n\nDer Tracker beendet die Mission auf allen verbundenen Ansichten und entfernt ihre Sim-Objekte. Der Flug wird nicht als abgeschlossen gewertet.');
   }
 
   return Object.freeze({
@@ -542,6 +619,7 @@
     RESUMED_NOTICE_TEXT: RESUMED_NOTICE_TEXT,
     cargoWorldAvailable: cargoWorldAvailable,
     formatIntentResult: formatIntentResult,
+    displayText: displayText,
     abortConfirmation: abortConfirmation
   });
 }));

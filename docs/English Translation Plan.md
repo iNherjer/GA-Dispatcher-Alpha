@@ -380,6 +380,24 @@ Für Phase 4 vorgemerkt: Einige Prüfungen lesen den **gesprochenen Text** selbs
 Pattonville-Hinweise). Wenn Gemini für Variante B direkt Englisch schreibt, müssen diese
 zweisprachig werden (Freigabe nötig, Regex-Logik).
 
+### 2.11 Phase 3, Schritt 2: Missionskarte Web und EFB (2026-11-18)
+
+`ga-tracker-client/mission-control-ui-core.js` zeichnet die Missionskarte für Web (`checklists.js`)
+und EFB. Die Inhalte baut der Tracker (`tracker-efb-mission-view-core.js`) auf Deutsch; er filtert
+selbst nach deutschen Zeilentiteln (z. B. „Pflichtmanifest“, „Arbeitsbereich“), deshalb bleibt er
+unverändert. Neu: `displayText()` im UI-Kern übersetzt beim Zeichnen – feste Sätze über
+`i18n/en-phrases.js`, Sätze mit Zahlen über `DISPLAY_PATTERNS` (Fortschritt, Bedingungen,
+Lagebericht, Unterbrechung). Modelle (`missionToolbarModel`, `interruptionModel`,
+`formatIntentResult`) liefern weiter Deutsch, ihre Abnehmer übersetzen beim Anzeigen
+(`_syncBannerText`, `_syncUiPhrase`). Zahlen und Uhrzeit folgen `GAI18n.locale()`.
+
+Bekannte Doppelung: Die drei Unterbrechungsmuster stehen auch in `sync.js` (`_SYNC_BANNER_PATTERNS`).
+Später zusammenlegen (`_syncBannerText` kann `GAMissionControlUiCore.displayText` nutzen).
+
+Noch deutsch: Missionstitel und Story (generiert → Phase 4), Ladungsnamen, POI-Statuszeilen
+(`control.poiStatus`), Trainingsanweisungen (`guidance.*`), Banner und Verlade-Manager im
+EFB-Host, Verlade-Manager im Web (`mission-cargo-core.js`), Debrief und Flugbuch.
+
 ## 4. Etappen
 
 | Phase | Inhalt | Größe | Abhängig von |
