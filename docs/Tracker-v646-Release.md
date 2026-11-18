@@ -27,3 +27,7 @@ Zusammen ausgeliefert mit Web v2445 (18.11.2026; enthält Web v2443/v2444).
 - Zwei offene Rückflüge ohne Rückblick: beide bekommen nach dem App-Start nacheinander Text.
 
 ## Artefakt
+
+- Tag `v646`, Asset `VFR-Multitool-Tracker.exe`
+- Größe: 175194250 Bytes
+- SHA-256: 8f5fa2740f42a6e7b8d821567462c3eb1c56b1133fe6cded9846d40653dff80d (öffentlicher Download geprüft)
