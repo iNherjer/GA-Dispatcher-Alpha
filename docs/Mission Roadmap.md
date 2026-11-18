@@ -1,5 +1,7 @@
 # Mission Roadmap
 
+Offene Grundsatzfrage (18.11.2026): Umbau der restlichen Missionsarten (Bush, Legacy-APT/POI) von V4/V5 auf den Ideen-Weg – Stand und Fragen in [Mission Idea Path Migration](Mission%20Idea%20Path%20Migration.md).
+
 Aktuelle APT-/POI-Restliste (04.10.2026): [Bestandsaufnahme der Modernisierung](Mission%20Sets%20Handoff.md#bestandsaufnahme-der-apt-poi-modernisierung-04102026). Tiertransport wird mit Alpha v1910 veröffentlicht; als Nächstes folgen Medizin-Transfer und Reporter; SAR Heli bleibt deaktiviert und kommt auf Nutzerwunsch zuletzt. Ältere Prioritätslisten unten gelten nicht als aktueller Release-Status.
 
 

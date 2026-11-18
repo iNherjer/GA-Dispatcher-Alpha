@@ -993,6 +993,8 @@ Ergebnisse:
 ## 5. Offene Entscheidungen
 
 1. ~~Weg für generierte Inhalte (2.2)~~ entschieden: C, Live-Stimme B.
+   Ergänzung 18.11.2026 (Vorschlag, offen): Missionsarten auf dem Ideen-Weg schreiben direkt Englisch,
+   die alte V4/V5-Pipeline bleibt bei C. Umbau-Klärung: `docs/Mission Idea Path Migration.md`.
 2. ~~Region~~ entschieden 18.11.2026: keine eigene Regionslogik. Missionen entstehen
    überall wie bisher; auf Englisch sieht und hört der Nutzer alles komplett englisch.
    Intern (Prompts, Prüfungen, gespeicherte Daten) darf weiter deutsch gedacht werden.
