@@ -41,15 +41,24 @@
     }
 
     // override: per-request delivery (e.g. a visibly sick passenger) replaces the speaker style.
-    function conversationalTtsStyle(speaker, override) {
+    // English mission (language 'en'): same delivery in English; German stays as before.
+    var TTS_STYLE_EN = {
+        sightseeing: 'Speak in English like a curious fellow traveller in a relaxed conversation: friendly, natural and easy to follow. No reading-aloud or tour-guide tone, no stage pronunciation and no artificial accent. Keep the wording exactly; do not speak this direction.',
+        club: 'Speak in English like a casual chat between flying club friends: relaxed, friendly, with a natural rhythm and smooth transitions. Easy everyday speech, no over-articulated stage voice, no newsreader or reading-aloud tone. No artificial accent. Keep the wording exactly; do not speak this direction.'
+    };
+    function conversationalTtsStyle(speaker, override, language) {
         if (text(override, 800)) return text(override, 800);
+        if (language === 'en') {
+            if (object(speaker).narrativeSchema === 'sightseeing-idea.v1') return TTS_STYLE_EN.sightseeing;
+            return object(speaker).taskDomain === 'club_utility' ? TTS_STYLE_EN.club : '';
+        }
         if (object(speaker).narrativeSchema === 'sightseeing-idea.v1') return 'Sprich auf Deutsch wie ein neugieriger Mitreisender im lockeren Gespräch: freundlich, natürlich und gut verständlich. Kein Vorlese- oder Reiseführerton, keine Bühnenaussprache und kein künstlicher Dialekt. Wortlaut beibehalten; diese Regieanweisung nicht mitsprechen.';
         if (object(speaker).taskDomain !== 'club_utility') return '';
         return 'Sprich auf Deutsch wie im ungezwungenen Gespräch unter Vereinskollegen: entspannt, freundlich, mit natürlichem Rhythmus und weichen Satzübergängen. Gut verständliche Alltagssprache, keine überdeutliche Bühnenaussprache, kein Nachrichtensprecher- oder Vorleseton. Kein künstlicher Dialekt. Wortlaut beibehalten; diese Regieanweisung nicht mitsprechen.';
     }
-    function ttsInput(spokenText, speaker, override) {
-        var style = conversationalTtsStyle(speaker, override);
-        return style ? style + '\n\nZu sprechender Text:\n' + spokenText : spokenText;
+    function ttsInput(spokenText, speaker, override, language) {
+        var style = conversationalTtsStyle(speaker, override, language);
+        return style ? style + (language === 'en' ? '\n\nText to speak:\n' : '\n\nZu sprechender Text:\n') + spokenText : spokenText;
     }
 
     // Explicit per-request policy: automatic cues and briefing recipes keep their defaults.
@@ -68,9 +77,9 @@
         return config;
     }
 
-    function geminiTtsPart(model, spokenText, speaker, override) {
-        if (model !== 'gemini-3.8-flash-tts') return { text: ttsInput(spokenText, speaker, override) };
-        var style = conversationalTtsStyle(speaker, override);
+    function geminiTtsPart(model, spokenText, speaker, override, language) {
+        if (model !== 'gemini-3.8-flash-tts') return { text: ttsInput(spokenText, speaker, override, language) };
+        var style = conversationalTtsStyle(speaker, override, language);
         return style ? { text: spokenText, speech_metadata: { style: style } } : { text: spokenText };
     }
 
@@ -180,10 +189,10 @@
         var taskDomain = text(source.taskDomain, 120).toLowerCase();
         if (!TRAINING_DOMAINS.test(taskDomain)) return generated || fallback;
         if (!generated) return fallback;
-        var looksMetaAck = /^(verstanden|okay|alles klar|klar)[\s,.!]/i.test(generated)
-            && /(ich\s+(?:bleibe|werde|halte|liefere|formuliere|achte)|keine\s+markdown|nur\s+die\s+naechsten|nur\s+die\s+nächsten|sinnvollen\s+hinweise)/i.test(generated);
-        var hasTrainingCue = /(uebung|übung|training|trainingshoehe|trainingshöhe|bereitschaft|bereit-button|vollkreis|stall)/i.test(generated);
-        var hasBriefingListLeak = /(pflichtprogramm|pflichtteil|pflichtuebung|pflichtübung|pflicht\s+heute|optional\s*(?:danach|:)|voller\s+plan)/i.test(generated);
+        var looksMetaAck = /^(verstanden|okay|alles klar|klar|understood|got it|sure)[\s,.!]/i.test(generated)
+            && /(ich\s+(?:bleibe|werde|halte|liefere|formuliere|achte)|keine\s+markdown|nur\s+die\s+naechsten|nur\s+die\s+nächsten|sinnvollen\s+hinweise|i\s+will\s+(?:keep|stay|deliver|write|focus)|no\s+markdown|only\s+the\s+next)/i.test(generated);
+        var hasTrainingCue = /(uebung|übung|training|trainingshoehe|trainingshöhe|bereitschaft|bereit-button|vollkreis|stall|exercise|ready button|full circle|360)/i.test(generated);
+        var hasBriefingListLeak = /(pflichtprogramm|pflichtteil|pflichtuebung|pflichtübung|pflicht\s+heute|optional\s*(?:danach|:)|voller\s+plan|mandatory\s+(?:programme|program|part|exercise)|optional\s+afterwards|full\s+plan)/i.test(generated);
         return !looksMetaAck && hasTrainingCue && !hasBriefingListLeak ? generated : (fallback || generated);
     }
 

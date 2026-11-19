@@ -9951,7 +9951,7 @@ function compactMissionObjectForQuotaStorage(value = null) {
         'activeMissionCreatedAt', 'activeMissionSavedAt',
         'activeMissionRuntimeStartedAt', 'activeMissionRuntimeSavedAt',
         'activeMissionRuntimePhase', 'activeMissionRuntimeMissionId',
-        'generatedAt', 'createdAt', 'updatedAt', 'savedAt',
+        'generatedAt', 'createdAt', 'updatedAt', 'savedAt', 'outputLanguage',
         'missionTitle', 'missionStory', 'summary', 'missionType', 'missionSubType', 'missionPipelineMode',
         'start', 'dest', 'initialDest', 'initialStartLat', 'initialStartLon',
         'airportTypes', 'departureAirport', 'destinationAirport',

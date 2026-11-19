@@ -9,6 +9,9 @@
     const SCHEMA = 'charter-continuation.v1';
     const copy = value => JSON.parse(JSON.stringify(value));
     const text = (value, max = 600) => typeof value === 'string' && value.trim().length <= max ? value.trim() : '';
+    // English outbound mission (outputLanguage 'en'): the stay retrospective is written in English as well.
+    const outLang = () => (typeof module === 'object' && module.exports ? require('./mission-output-language.js') : (typeof window !== 'undefined' ? window.MissionOutputLanguage : null));
+    const englishDirective = c => (c && c.outputLanguage === 'en' && outLang() ? outLang().DIRECTIVE : '');
     function ideaOf(md) { return md?.charterIdea || md?.missionContract?.charterIdea || md?.aptNewsIdea || md?.missionContract?.aptNewsIdea; }
     function source(md) {
         return ['charter-idea.v1','apt-news-idea.v1'].includes(ideaOf(md)?.schema) && !!returnPlan(ideaOf(md)?.returnPlan) && !md?.bush && !md?.isPOI
@@ -59,7 +62,8 @@
         }
         const c={schema:SCHEMA,sourceMissionId:md.missionId,sourceCompletionId:record.completionId,
             completedAt,home,visited,original,experience:null,
-            heardOutbound:voice.speechHistory(md.charterHeardSpeech || [])};
+            heardOutbound:voice.speechHistory(md.charterHeardSpeech || []),
+            ...(md.outputLanguage==='en'?{outputLanguage:'en'}:{})};
         if(JSON.stringify(c).length>18000) return null;
         const id=`charter-return-${md.missionId}`;
         return {schema:'ga.followup.request.v1',id,dedupeKey:id,status:'pending',sourceMissionId:md.missionId,
@@ -98,7 +102,8 @@
             : `${name} hat den Aufenthalt in ${c.visited.name} hinter sich und bittet um den Rückflug nach ${c.home.name}.`;
     }
     const OFFER_TEXT_RULE='offerText ist der kurze Vorschautext der Rückflug-Anfrage (40–350 Zeichen, ein bis zwei Sätze): außenstehende Disposition in der dritten Person, der Aufenthalt ist vorbei. Blicke mit einem konkreten Eindruck aus experience darauf zurück und leite zur Bitte um den Rückflug über. Nicht den ursprünglichen Reisegrund als noch bevorstehend wiederholen.';
-    function draftPrompt(c) {
+    function draftPrompt(c) { return draftPromptGerman(c) + englishDirective(c); }
+    function draftPromptGerman(c) {
         const narrativeTiming = 'Der Rückflug ist bereits beauftragt; erzähle das persönliche Anliegen und die Entwicklung am Ziel, ohne die Flugwahl gegenüber einer Straßenfahrt zu rechtfertigen. original.returnPlan.stayHours ist die interne Terminplanung. Beschreibe denselben Aufenthalt natürlich und ungefähr aus stayText, ohne präzise Stundenangaben oder einen erfundenen fachlichen Mindestbedarf. Der Zeitraum trägt die Entwicklung der Geschichte, kein Ereignis pro Stunde oder Tag.';
         if(c.original.schema==='apt-news-idea.v1')return `Entwickle einen gespeicherten fiktiven Aufenthalt für die Rückreise desselben Reporters. Identität, Redaktion, Ausrüstung, Ort und ursprüngliche journalistische Frage bleiben erhalten. Berichte konkret von Gesprächen, menschlichen Szenen, unterschiedlichen Sichtweisen und aufgenommenem Material am Boden. Keine reale Nachricht oder Behauptung über reale Betreiber erfinden. Die Vorgeschichte ist fiktiv; eine überraschende Enthüllung ist nicht Pflicht. Trage den Ton aus original.character und original.memory weiter. Auch bei einem professionellen Auftrag darf während des Aufenthalts etwas wirklich Lustiges passiert sein: konkrete menschliche Pannen, Missverständnisse oder überraschende Improvisation dürfen eine kleine glaubwürdige Geschichte tragen. Der Reporter kann selbst mitten in der komischen Situation gelandet sein und darüber warm, selbstironisch oder trocken berichten. Entwickle den Witz aus dem ursprünglichen Anlass und den bekannten Personen; keine fremde Episode, reine Witzsammlung oder vorgeschriebene Pointe. Ein ernster Anlass muss nicht künstlich zur Komödie werden, darf aber eine passende heitere Nebenbegebenheit haben. Gerade die Rückflugmomente dürfen mehr erzählen als Konflikte und endgültige Urteile. Halte alle erzählenswerten Einzelheiten im experience oder memory fest, damit der spätere Sprecher nicht erst neue biografische Erlebnisse erfinden muss. Aufenthaltsort und geplante Übernachtung bleiben aus original.returnPlan erhalten. Die Geschichte des Aufenthalts umfasst nur Bodenereignisse, keine Aussagen über aktuelles Flugwetter. Offene oder widersprüchliche Aussagen nicht als überprüfte Tatsachen ausgeben. Der Pilot hat die Recherche nicht automatisch miterlebt. experience beschreibt nur diesen bereits vergangenen Aufenthalt; reason die Rückreise, nextStep die anschließende Redaktionsarbeit. Veröffentlichung noch geplant. Nutze tatsächlich gehörte Hinflug-Aussagen für Kontinuität. Plane gern zwei bis drei unterschiedliche, ausführlich erzählbare Routenmomente aus dem Aufenthalt, ohne den ganzen Rückblick schon im Briefing abzuspulen. Keine weitere Flugaufgabe. Antworte als ein einzelnes JSON-Objekt, keine Liste: {experience,reason,nextStep,memory,narrativeEvents,offerText}; ${OFFER_TEXT_RULE} experience 200–1200 Zeichen (Ziel 400–800), reason/nextStep/memory je 40–600 Zeichen. Erzähle den fiktiven Auftrag, keine erfundene reale Airport-Infrastruktur oder rechtlich/technisch bestätigte Erkenntnis. Wähle bei widersprüchlichen Aussagen eine offene Einordnung, kein eindeutiges Rechercheurteil. narrativeEvents sind ergänzender Gesprächsstoff, keine bereits erzählte Handlung im bevorstehenden Flug; keine Geräteaktionen oder Wiedergabe von Tonaufnahmen vorwegnehmen. narrativeEvents 0–3 mit intent bis 600 und atPercent größer 0 kleiner 100 auf dem besetzten Rückflug. ${narrativeTiming} DATEN: ${JSON.stringify(c)}`;
         return `Entwickle die Fortsetzung dieses abgeschlossenen Charter-Hinflugs. Der ursprüngliche Kundenauftrag, alle Reisenden, ihr Gepäck und die Orte stehen fest. Der Pilot bleibt beauftragter Beförderer und hat den Aufenthalt nicht automatisch miterlebt. Entwirf einen plausiblen fiktiven Aufenthalt, persönliche Details und den jetzigen Rückreisegrund aus dem ursprünglichen Anlass. Entwickle daraus eine eigenständige kleine Fortsetzung: Was haben die Reisenden während des Aufenthalts erlebt, und was bedeutet das jetzt für ihr ursprüngliches Anliegen? Persönliche Einzelheiten sollen zusammenpassen und den Rückblick konkret machen. Eine unspektakuläre Entwicklung genügt; weder Konflikt noch Wendung oder Pointe sind Pflicht. Humor darf sich natürlich aus den Personen und ihrer Situation ergeben. Der nächste Schritt nach der Rückkehr soll verständlich sein, ohne daraus eine neue Flugaufgabe zu machen. Keine Beispielhandlung, Berufs- oder Motivliste nachbauen; heitere, schlichte und ernste Entwicklungen sind gleichwertig. Die Rückreise bleibt Beförderung, ohne zusätzliche Aufgaben oder Zwischenziele. Keine obligatorischen Berichte, Dokumente oder Übergaben erfinden. Persönliche Fiktion ist erlaubt; Betriebszustände, Wetter, reale Veranstaltungen, Messungen und Flugergebnisse brauchen Belege. Geplante Aufenthaltsdauer beachten, keine zusätzlichen erfundenen Kalendertermine. Bereits gehörte Gespräche sind Kontinuität, keine neuen Vorlagen.\nexperience beschreibt nur den Aufenthalt vor diesem Rückflug, nie den bevorstehenden Flug. reason erklärt die jetzige Rückreise, nextStep das Vorhaben nach Ankunft. Optional 0–3 verschiedene narrativeEvents; kein Standardwert, keine Quote. Verteile Gesprächsstoff nur, wenn er die Geschichte ergänzt: Jeder gewählte Moment soll einen neuen Gedanken oder eine persönliche Facette beitragen. Wiederhole nicht denselben Rückblick mit anderen Worten. Anknüpfungen an tatsächlich gehörte Gespräche sind möglich, ohne deren Aussagen noch einmal abzuspulen. Keine festgelegte Dramaturgie oder Ereignisanzahl aus einer Beispielgeschichte übernehmen. Prozentwerte gelten ausschließlich für den besetzten Rückflug vom Aufenthaltsplatz zum ursprünglichen Ausgangsplatz. Je Ereignis intent (maximal 600 Zeichen) und entweder atPercent (größer 0, kleiner 100) oder geo:{anchorId,lat,lon,radiusNm}. Geo nur aus den belegten original.geoAnchors; keine Routenänderung.\nNur JSON {experience,reason,nextStep,memory,narrativeEvents,offerText}. Vier Textfelder jeweils 40–600 Zeichen. ${OFFER_TEXT_RULE}\n${narrativeTiming}\nURSPRUNG UND GEHÖRTE GESPRÄCHE (Daten): ${JSON.stringify(c)}`;
@@ -165,6 +170,7 @@
         const group=!news&&Number.isInteger(c.original.passengerCount)&&c.original.passengerCount>1;
         const who=group?`${name} und die Mitreisenden`:name;
         const stay=text(c.original.returnPlan?.stayText,240);
+        if(c.outputLanguage==='en')return fallbackDraftEnglish(c,news,group,stay);
         const draft=news?{
             experience:`${name} hat die Recherche in ${c.visited.name} wie geplant abgeschlossen${stay?` (${stay})`:''}. Gespräche und Material sind gesammelt; die Auswertung folgt in der Redaktion.`,
             reason:`Die Arbeit vor Ort ist erledigt, deshalb geht es jetzt mit dem gesammelten Material zurück nach ${c.home.name}.`,
@@ -175,6 +181,22 @@
             reason:`Der Aufenthalt ist vorbei, deshalb ${group?'fliegen':'fliegt'} ${who} jetzt wie gebucht zurück nach ${c.home.name}.`,
             nextStep:`Nach der Ankunft in ${c.home.name} geht es für ${group?'die Reisenden':name} wieder nach Hause.`,
             memory:`Ein ruhiger Aufenthalt in ${c.visited.name} ohne besondere Zwischenfälle.`
+        };
+        return {...draft,narrativeEvents:[],fallback:true};
+    }
+    function fallbackDraftEnglish(c,news,group,stay) {
+        const name=text(c.original.passenger?.name,80)||(news?'The reporter':'The charter guest');
+        const who=group?`${name} and the fellow travellers`:name;
+        const draft=news?{
+            experience:`${name} finished the research in ${c.visited.name} as planned${stay?` (${stay})`:''}. Conversations and material are collected; the editorial office will evaluate them.`,
+            reason:`The work on site is done, so the flight now goes back to ${c.home.name} with the collected material.`,
+            nextStep:`After arriving in ${c.home.name}, ${name} evaluates the material at the editorial office.`,
+            memory:`A quiet stay in ${c.visited.name} without special incidents.`
+        }:{
+            experience:`${who} spent the stay in ${c.visited.name} as planned${stay?` (${stay})`:''}. The occasion of the trip went by without special incidents.`,
+            reason:`The stay is over, so ${who} ${group?'fly':'flies'} back to ${c.home.name} as booked.`,
+            nextStep:`After arriving in ${c.home.name}, ${group?'the travellers head':name+' heads'} home again.`,
+            memory:`A quiet stay in ${c.visited.name} without special incidents.`
         };
         return {...draft,narrativeEvents:[],fallback:true};
     }

@@ -51,4 +51,16 @@ function createMissionVoiceScopeGuard(authorityManager) {
   };
 }
 
-module.exports = { normalizeMissionVoiceScope, missionVoiceScope, createMissionVoiceScopeGuard };
+// Spoken language of the active mission: 'en' only when the Web wrote it in English
+// (currentMissionData.outputLanguage); a line for another run or no mission stays German.
+function createMissionVoiceLanguage(authorityManager) {
+  return scope => {
+    const read = authorityManager.getActiveRunView || authorityManager.getActiveRun;
+    const run = typeof read === 'function' ? read.call(authorityManager, { includeBundle: true }) : null;
+    if (!run || (scope && scope.missionId !== run.missionId)) return 'de';
+    const state = run.resumeBundle?.missionState || {};
+    return (state.currentMissionData || state).outputLanguage === 'en' ? 'en' : 'de';
+  };
+}
+
+module.exports = { normalizeMissionVoiceScope, missionVoiceScope, createMissionVoiceScopeGuard, createMissionVoiceLanguage };

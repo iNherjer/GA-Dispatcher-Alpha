@@ -585,6 +585,24 @@ Noch offen in Phase 4: Privat-Ausflug/Heimreise (eigene deutsche Textpolitur), T
 - **Entschieden 19.11.2026:** KI-aus bleibt deutsch (rund 20 lokale Bausteine, geschätzt 2.000–3.000
   sichtbare Textstücke). In englischer Oberfläche zeigt der Sprach-Hinweis (2.22) „created in German“.
 
+### 2.24 Phase 4: Passagierstimme im Tracker in Missionssprache (2026-11-19, Tracker v650 Alpha)
+
+- **Sprachquelle:** `currentMissionData.outputLanguage` der laufenden Mission (`createMissionVoiceLanguage`
+  in `tracker-mission-voice-scope.js`, an `createTrackerVoiceService` als `missionLanguage`). Englisch nur bei
+  KI-Missionen in englischer Oberfläche; KI-aus und deutsche Missionen bleiben deutsch. Auch `app.js`
+  (Speicher-Kurzfassung) behält das Feld.
+- **Zentral im Sprachdienst** (`tracker-voice-service.js`): KI-Prompt + `MissionOutputLanguage.DIRECTIVE`,
+  englische OpenAI-Systemzeile; feste deutsche Zeilen (`text`, Rückfall ohne/bei gescheitertem Prompt) werden
+  vor dem Sprechen per KI übersetzt; deutsche Fertig-Clips (Survey/Training) entfallen, Zeile wird live
+  gesprochen; Übelkeits-Sprechweise englisch (`ttsStyleForLanguage`), Vereins-/Sightseeing-Sprechweise
+  englisch (`conversationalTtsStyle(..., 'en')`). Deutsch: Prompt, Fingerabdruck und Ablauf unverändert.
+- **Charter-/Reporter-Rückblick:** `charterContinuation.outputLanguage` aus der Hinflug-Mission;
+  `draftPrompt` hängt die Vorgabe an (Tracker und App), Ersatz-Rückblick englisch (`fallbackDraftEnglish`).
+- **Trainings-Begrüßung:** `finalizeBoardingText` kennt englische Trainingswörter (sonst fiele eine gute
+  englische Zeile auf den Rückfall).
+- Tests: `ga-tracker-client/tracker-voice-language.test.js`, `tools/mission-charter-continuation.test.cjs`.
+- **Bleibt Phase 5:** fertige deutsche Clips (`audio-pax/`, `audio-warnings/`), Zahlenzusammensetzung.
+
 ## 4. Etappen
 
 | Phase | Inhalt | Größe | Abhängig von |

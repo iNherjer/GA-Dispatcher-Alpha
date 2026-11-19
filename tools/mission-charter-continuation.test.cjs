@@ -169,3 +169,16 @@ test('cutting to whole sentences never ends at a title, abbreviation, initial or
  assert.match(fitted.offerText,/^Ada hat mit Dr\. Berger am 3\. Oktober z\. B\. die Werkstatt .* erfahren\./);
  assert.doesNotMatch(fitted.offerText,/(?:Dr|z\. B|3)\.$/);
 });
+test('English outbound mission: stay retrospective prompt and fallback in English; German unchanged',()=>{
+ const out=require('../mission-output-language.js');
+ const german=core.request(md,record,now), english=core.request({...md,outputLanguage:'en'},record,now);
+ assert.equal('outputLanguage' in german.charterContinuation,false,'German request unchanged');
+ assert.equal(english.charterContinuation.outputLanguage,'en');
+ const gc=core.context(german), ec=core.context(english);
+ assert.ok(core.draftPrompt(ec).endsWith(out.DIRECTIVE));
+ assert.equal(core.draftPrompt(gc).includes('OUTPUT LANGUAGE'),false);
+ const fb=core.fallbackDraft(ec);
+ assert.match(fb.experience,/spent the stay in Eutingen as planned/);assert.equal(fb.fallback,true);
+ assert.match(core.fallbackDraft(gc).experience,/Aufenthalt in Eutingen wie geplant verbracht/);
+ assert.ok(core.validateDraft(fb,ec));
+});

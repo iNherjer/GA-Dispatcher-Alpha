@@ -6,6 +6,8 @@ const path = require('node:path');
 const boardingVoiceCore = require('../mission-boarding-voice-core.js');
 const warningCore = require('../navigation-warning-core.js');
 const { normalizeMissionVoiceScope } = require('./tracker-mission-voice-scope.js');
+const outputLanguage = require('../mission-output-language.js');
+const distressVoiceCore = require('./tracker-mission-distress-voice-core.js');
 
 const VOICE_PROVIDERS = new Set(['gemini', 'openai']);
 const EFFECT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/;
@@ -115,6 +117,8 @@ function normalizeVoiceRequest(value = {}) {
     speaker: normalizedSpeaker,
     // Per-request delivery (e.g. a visibly sick passenger); empty keeps the speaker style.
     ttsStyle: String(value.ttsStyle || '').trim().slice(0, 800),
+    // Spoken language: 'en' only for English missions; everything else stays German.
+    language: value.language === 'en' ? 'en' : 'de',
     cue: {
       id: cueId,
       variantSeed: cueId === 'none' ? '' : String(cueSource.variantSeed || '').trim().slice(0, 500),
@@ -171,6 +175,11 @@ function normalizeGeminiAudio(buffer, mimeType) {
   return { audio: Buffer.from(buffer), contentType: String(mimeType || 'application/octet-stream') };
 }
 
+// English mission: the German prompt gets the English output directive; German stays unchanged.
+function voicePrompt(request) {
+  return request.language === 'en' ? request.prompt + outputLanguage.DIRECTIVE : request.prompt;
+}
+
 async function generateOpenAiText({ apiKey, request, fetchRemote }) {
   for (const model of request.textModels.openai) {
     try {
@@ -180,8 +189,10 @@ async function generateOpenAiText({ apiKey, request, fetchRemote }) {
         body: JSON.stringify({
           model,
           messages: [
-            { role: 'system', content: 'Schreibe kurze, natuerliche deutsche Passenger-Voice-Zeilen. Keine Markdown-Formatierung.' },
-            { role: 'user', content: request.prompt }
+            { role: 'system', content: request.language === 'en'
+              ? 'Write short, natural English passenger voice lines. No Markdown formatting.'
+              : 'Schreibe kurze, natuerliche deutsche Passenger-Voice-Zeilen. Keine Markdown-Formatierung.' },
+            { role: 'user', content: voicePrompt(request) }
           ]
         })
       });
@@ -201,7 +212,7 @@ async function generateGeminiText({ apiKey, request, fetchRemote }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: request.prompt }] }],
+          contents: [{ parts: [{ text: voicePrompt(request) }] }],
           generationConfig: boardingVoiceCore.geminiTextGenerationConfig(model, request.paxMenuRequest)
         })
       });
@@ -214,8 +225,26 @@ async function generateGeminiText({ apiKey, request, fetchRemote }) {
   return { generatedText: '', textModel: '' };
 }
 
+// English mission: a fixed German line (text, or the fallback when no prompt or the prompt failed)
+// is translated right before it is spoken. Without an answer the German line stays.
+async function translateFixedLine({ provider, apiKey, request, fetchRemote, line }) {
+  if (request.language !== 'en' || !line) return null;
+  const translation = { ...request, language: 'de', prompt: 'Translate this spoken passenger or crew line into natural, idiomatic English. '
+    + 'Keep names, place and airfield names, ICAO codes, numbers and units. Answer with the line only, no quotes.\n\n' + line };
+  try {
+    const generated = provider === 'openai'
+      ? await generateOpenAiText({ apiKey, request: translation, fetchRemote })
+      : await generateGeminiText({ apiKey, request: translation, fetchRemote });
+    const text = boardingVoiceCore.normalizeSpokenText(generated.generatedText);
+    return text ? { text, textModel: generated.textModel } : null;
+  } catch (_) { return null; }
+}
+
 async function resolveRequestText({ provider, apiKey, request, fetchRemote }) {
-  if (request.text) return { text: request.text, textModel: '' };
+  if (request.text) {
+    return await translateFixedLine({ provider, apiKey, request, fetchRemote, line: request.text })
+      || { text: request.text, textModel: '' };
+  }
   let generated = { generatedText: '', textModel: '' };
   if (request.prompt) {
     try {
@@ -232,6 +261,11 @@ async function resolveRequestText({ provider, apiKey, request, fetchRemote }) {
     })
     : (boardingVoiceCore.normalizeSpokenText(generated.generatedText) || request.text || request.fallbackText);
   if (!text) throw voiceError('voice_text_generation_empty', 502, 'Voice-Textgenerierung lieferte keinen verwendbaren Text.');
+  // Text that is not the generated line is a German fallback.
+  if (request.language === 'en' && text !== boardingVoiceCore.normalizeSpokenText(generated.generatedText)) {
+    const translated = await translateFixedLine({ provider, apiKey, request, fetchRemote, line: text });
+    if (translated) return translated;
+  }
   return { text, textModel: generated.textModel };
 }
 
@@ -243,7 +277,7 @@ async function synthesizeOpenAi({ apiKey, request, fetchRemote }) {
       const response = await fetchRemote('https://api.openai.com/v1/audio/speech', {
         method: 'POST',
         headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model, voice: voiceName, input: request.text, ...(boardingVoiceCore.conversationalTtsStyle(request.speaker, request.ttsStyle) ? { instructions: boardingVoiceCore.conversationalTtsStyle(request.speaker, request.ttsStyle) } : {}), response_format: 'mp3' })
+        body: JSON.stringify({ model, voice: voiceName, input: request.text, ...(boardingVoiceCore.conversationalTtsStyle(request.speaker, request.ttsStyle, request.language) ? { instructions: boardingVoiceCore.conversationalTtsStyle(request.speaker, request.ttsStyle, request.language) } : {}), response_format: 'mp3' })
       });
       lastStatus = Number(response?.status) || 0;
       if (!response?.ok) continue;
@@ -262,7 +296,7 @@ async function synthesizeGeminiModel({ apiKey, request, fetchRemote, model, sign
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
         body: JSON.stringify({
-          contents: [{ role: 'user', parts: [boardingVoiceCore.geminiTtsPart(model, request.text, request.speaker, request.ttsStyle)] }],
+          contents: [{ role: 'user', parts: [boardingVoiceCore.geminiTtsPart(model, request.text, request.speaker, request.ttsStyle, request.language)] }],
           generationConfig: {
             responseModalities: ['AUDIO'],
             speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } }
@@ -376,6 +410,8 @@ function createTrackerVoiceService(options = {}) {
   const playbackClients = new Map();
   const playbackGuards = new Map();
   const isMissionPlaybackAllowed = typeof options.isMissionPlaybackAllowed === 'function' ? options.isMissionPlaybackAllowed : null;
+  // Language of the mission the line belongs to ('en' | 'de'); the request may also carry it.
+  const missionLanguage = typeof options.missionLanguage === 'function' ? options.missionLanguage : null;
   function checkPlaybackGuard(effectId) {
     const record = records.get(effectId);
     if (!record) { playbackGuards.delete(effectId); return true; }
@@ -798,6 +834,14 @@ function createTrackerVoiceService(options = {}) {
   function request(rawRequest) {
     const request = normalizeVoiceRequest(rawRequest);
     const missionScope = normalizeMissionVoiceScope(rawRequest.missionScope);
+    if (rawRequest.language == null && missionLanguage) {
+      try { request.language = missionLanguage(missionScope) === 'en' ? 'en' : 'de'; } catch (_) { request.language = 'de'; }
+    }
+    if (request.language === 'en') {
+      // Prerecorded clips are German: an English line is spoken live instead.
+      request.staticClipKey = '';
+      request.ttsStyle = distressVoiceCore.ttsStyleForLanguage(request.ttsStyle, 'en');
+    }
     if (rawRequest.missionScope != null && !missionScope) throw voiceError('invalid_mission_voice_scope', 400, 'Ungueltige Missionszuordnung fuer Voice.');
     const bindScope = record => {
       if (record.missionScope && (!missionScope || record.missionScope.missionId !== missionScope.missionId || record.missionScope.runId !== missionScope.runId))
@@ -826,6 +870,7 @@ function createTrackerVoiceService(options = {}) {
         staticClipKey: request.staticClipKey,
         speaker: request.speaker,
         ...(request.ttsStyle ? { ttsStyle: request.ttsStyle } : {}),
+        ...(request.language === 'en' ? { language: 'en' } : {}),
         cue: request.cue,
         ...((request.cueSequence.before.length || request.cueSequence.after.length) ? { cueSequence: request.cueSequence } : {}),
         voiceName: request.voiceName,

@@ -114,6 +114,12 @@ const TTS_STYLE = {
   queasy: 'Sprich auf Deutsch angeschlagen und leicht gequält: etwas leiser und langsamer, mit hörbarem Unwohlsein im Magen und gelegentlich einem schweren Ausatmen. Nicht witzig, nicht übertrieben gespielt. Wortlaut beibehalten; diese Regieanweisung nicht mitsprechen.',
   sick: 'Sprich auf Deutsch völlig fertig und elend: schwach, gepresst und kurzatmig, mit deutlich hörbarer Übelkeit, kurzen Pausen und schwerem Schlucken oder Atmen zwischen den Worten. Man muss hören, dass es dir richtig schlecht geht. Wortlaut beibehalten; diese Regieanweisung nicht mitsprechen.'
 };
+// English missions: same delivery in English (the voice service swaps the German style).
+const TTS_STYLE_EN = {
+  queasy: 'Speak in English, unwell and slightly strained: a little quieter and slower, with audible discomfort in the stomach and the occasional heavy exhale. Not funny, not overacted. Keep the wording exactly; do not speak this direction.',
+  sick: 'Speak in English, completely worn out and miserable: weak, pressed and short of breath, with clearly audible nausea, short pauses and heavy swallowing or breathing between the words. It must be audible that you feel really bad. Keep the wording exactly; do not speak this direction.'
+};
+
 
 function paxPrompt(context, stage, summary) {
   const base = String(context?.baseContext || '').trim();
@@ -173,4 +179,11 @@ function feedbackRows(cargo) {
     detail: `${names} bei ${cargo.conditionPct} %: da ist wohl etwas zu Bruch gegangen. Bei 35 % ist Pflichtladung verloren.` }];
 }
 
-module.exports = { observe, cargoCondition, stressRecord, effectPayload, feedbackRows, paxStage, cargoStage, TTS_STYLE, MIN_SPACING_MS };
+// The English delivery for a German distress style; any other style comes back unchanged.
+function ttsStyleForLanguage(style, language) {
+  if (language !== 'en') return style;
+  const stage = Object.keys(TTS_STYLE).find(key => TTS_STYLE[key] === style);
+  return stage ? TTS_STYLE_EN[stage] : style;
+}
+
+module.exports = { observe, cargoCondition, stressRecord, effectPayload, feedbackRows, paxStage, cargoStage, TTS_STYLE, TTS_STYLE_EN, ttsStyleForLanguage, MIN_SPACING_MS };
