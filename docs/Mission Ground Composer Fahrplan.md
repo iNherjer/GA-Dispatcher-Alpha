@@ -434,6 +434,14 @@ Grundfahrzeug; Missionen ohne Idee unverändert. Test: `tools/apt-arrival-role-f
 
 ### Etappe F – Aufräumen
 
+Bestandsaufnahme 19.11.2026: Die Rückfälle greifen nur noch in Altfällen (KI aus, Notausschalter
+`ga_person_figures_v1`, alte Missionen, POI-Zielszene `cargo_site`). Ein Textrückfall im
+Cargo-Bildkern existiert nicht mehr (nur feste Rollenliste). Die Stichwort-Zuordnung für
+**Bordausrüstung** (Bordbuch, Löscher, Radkeile, Verbandzeug) bleibt dauerhaft. User-Entscheidung:
+Entfernen erst zusammen mit dem Altcode für „KI aus“; jetzt nur `_missionScenePassengerGender`
+auf Missionsdaten umgestellt (Web v2468: liest `paxText`/Rolle statt des Briefing-Felds `mPay`,
+das in der englischen Oberfläche übersetzt ist).
+
 - Regex-Geschlechtserkennung in `_missionScenePassengerGender` entfernen.
 - Stichwort-Zuordnung `_missionSceneSemanticCargoAsset` und Textrückfall in
   `mission-cargo-visual-core.js` entfernen, sobald alle Stränge umgestellt sind.

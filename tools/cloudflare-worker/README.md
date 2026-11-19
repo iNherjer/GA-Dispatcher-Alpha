@@ -352,7 +352,8 @@ aufbereitete OSM-Platzkontext der App (`apt-arrival-geometry.v2`, etwa 40–250 
   Vorversion bleibt als `prevCtx`/`meta.previous`. Schrumpft er unter die Hälfte der Flächen →
   `pending_confirmation`; erst ein zweiter passender Abruf mindestens eine Minute später ersetzt.
 - Frische Einträge werden nicht überschrieben (`ignored_fresh`/`unchanged`).
-- Ohne nutzbare Fläche (typisch UL-Plätze) wird ein Leer-Vermerk gespeichert (`empty: true`, ebenfalls
+- Nutzbar sind Vorfelder, Parkpositionen, Flächen **und Hangars** (Hangar-Vorplatz, seit 19.11.2026; vorher standen Hangar-Plätze wie EDSU fälschlich als leer da, ältere Signaturen werden beim Lesen nachgerechnet).
+- Ohne nutzbare Fläche und ohne Hangar (typisch UL-Plätze) wird ein Leer-Vermerk gespeichert (`empty: true`, ebenfalls
   90 Tage), damit nicht jede Mission OSM erneut fragt. Ein leeres Ergebnis ersetzt nie einen Eintrag
   mit Flächen (`ignored_empty`); der bleibt fällig und wird beim nächsten Abruf erneut versucht.
 - Kein Login: Lesen und Schreiben sind offen, Schutz durch die strenge Prüfung und die

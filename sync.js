@@ -7763,7 +7763,10 @@ function _missionScenePassengerGender() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     const raw = String(window.activePassenger?.gender || md?.passenger?.gender || md?.missionContract?.passenger?.gender || '').toLowerCase();
     if (raw === 'male' || raw === 'female') return raw;
-    const roleText = String(`${window.activePassenger?.role || ''} ${md?.paxText || ''} ${document.getElementById('mPay')?.innerText || ''}`).toLowerCase();
+    // Rueckfall nur ohne Geschlechtsfeld (KI aus, alte Missionen; Etappe F: faellt mit dem Altcode).
+    // Aus den Missionsdaten statt aus dem Briefing-Feld lesen: das zeigt in der englischen Oberflaeche
+    // uebersetzten Text, die deutschen Woerter griffen dann nicht (19.11.2026).
+    const roleText = String(`${window.activePassenger?.role || ''} ${md?.passenger?.role || ''} ${md?.paxText || md?.initialPaxText || md?.missionContract?.paxText || ''}`).toLowerCase();
     if (/(frau|female|reporterin|fotografin|biologin|geologin|historikerin|koordinatorin|beobachterin|instruktorin|passagierin)/i.test(roleText)) return 'female';
     return 'male';
 }

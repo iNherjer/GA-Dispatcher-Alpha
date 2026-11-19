@@ -10,7 +10,7 @@
 // - Gleicher Inhalt → nur „bestaetigt“; anderer, brauchbarer Inhalt → ersetzt, Vorversion bleibt;
 //   schrumpft er auf unter die Haelfte der Flaechen, gilt er erst, wenn ein zweiter Abruf
 //   (mind. 1 Minute spaeter, auch von einem anderen Nutzer) dasselbe Bild liefert.
-// - Ohne nutzbare Flaeche wird ein Leer-Vermerk gespeichert (auch 90 Tage); ein leeres Ergebnis
+// - Ohne nutzbare Flaeche und ohne Hangar wird ein Leer-Vermerk gespeichert (auch 90 Tage); ein leeres Ergebnis
 //   ersetzt nie einen Eintrag mit Flaechen – der bleibt faellig und wird spaeter erneut versucht.
 //
 // Routen:
@@ -57,11 +57,19 @@ export function airportGeoSignature(context) {
     const zones = Array.isArray(context?.avoidZones) ? context.avoidZones : [];
     const count = type => zones.filter(z => z?.type === type).length;
     const parking = context.parkingPositions.length, aprons = context.aprons.length, surfaces = context.surfaces.length;
-    return { parking, aprons, surfaces, areas: parking + aprons + surfaces, runways: count('runway'), buildings: count('building'),
+    // Hangars zaehlen mit: vor ihnen baut die App die Szene auf (Hangar-Vorplatz), auch ohne
+    // Vorfeld oder Flaeche (Feldtest 19.11.2026: EDSU stand faelschlich als Leer-Vermerk da).
+    const hangars = zones.filter(z => z?.type === 'building' && z.buildingType === 'hangar').length;
+    return { parking, aprons, surfaces, areas: parking + aprons + surfaces, hangars, runways: count('runway'), buildings: count('building'),
         boundaries: context.airportBoundaries.length, radiusM: Number(context.radiusM) || 0 };
 }
 
 // Strenge Pruefung eines hochgeladenen Kontexts: Aufbau, Grenzen, Lage zum Flugplatz, nicht leer.
+// Nutzbare Aufbauorte: Flaechen plus Hangars (Hangar-Vorplatz).
+export function airportGeoUsable(signature) {
+    return (Number(signature?.areas) || 0) + (Number(signature?.hangars) || 0);
+}
+
 export function validateAirportGeoContext(key, context) {
     const center = airportGeoKeyCenter(key);
     if (!center) return { ok: false, error: 'key_invalid' };
@@ -85,7 +93,7 @@ export function validateAirportGeoContext(key, context) {
     const signature = airportGeoSignature(context);
     // Ohne nutzbare Flaeche (typisch UL-Plaetze) wird ein Vermerk „OSM kennt hier nichts“ gespeichert,
     // damit nicht jede Mission OSM erneut fragt; er ersetzt aber nie einen echten Eintrag.
-    return { ok: true, signature, empty: signature.areas < 1 };
+    return { ok: true, signature, empty: airportGeoUsable(signature) < 1 };
 }
 
 // Inhaltsvergleich ohne Abrufzeit und Quelle (Overpass und OSM-Karte liefern dieselbe Geometrie).
@@ -116,13 +124,22 @@ export async function unpackAirportGeoContext(value) {
 export class AirportGeoStore {
     constructor(ctx) { this.ctx = ctx; this.storage = ctx.storage; }
 
+    // Signaturen von vor dem 19.11.2026 kennen keine Hangars: einmal aus dem Kontext nachrechnen.
+    async migrateSignature(meta, context) {
+        if (!meta || !context || meta.signature?.hangars !== undefined) return meta;
+        const next = { ...meta, signature: airportGeoSignature(context) };
+        await this.storage.put('meta', next);
+        return next;
+    }
+
     async read(now) {
-        const meta = await this.storage.get('meta');
+        let meta = await this.storage.get('meta');
         if (!meta) return reply({ ok: true, found: false });
         const stored = await this.storage.get('ctx');
         const raw = await unpackAirportGeoContext(stored);
         // Eintraege von vor der Kompression einmalig nachpacken.
         if (raw && !stored?.gz) await this.storage.put('ctx', await packAirportGeoContext(raw)).catch(() => {});
+        meta = await this.migrateSignature(meta, raw);
         const context = applyAirportGeoOverrides(raw, meta);
         const ageMs = Math.max(0, now - Number(meta.refreshedAt || meta.storedAt || 0));
         const stale = ageMs > AIRPORT_GEO_STALE_MS;
@@ -144,10 +161,12 @@ export class AirportGeoStore {
 
     // Workbench: ungefilterter Kontext mit Sperrliste und Vorversion.
     async readAdmin(now) {
-        const meta = await this.storage.get('meta');
+        let meta = await this.storage.get('meta');
         if (!meta) return reply({ ok: true, found: false });
         const [stored, prevCtx] = await Promise.all([this.storage.get('ctx'), this.storage.get('prevCtx')]);
-        return reply({ ok: true, found: true, meta, context: await unpackAirportGeoContext(stored), hasPrevious: !!prevCtx, summary: airportGeoSummary(meta, now) });
+        const context = await unpackAirportGeoContext(stored);
+        meta = await this.migrateSignature(meta, context);
+        return reply({ ok: true, found: true, meta, context, hasPrevious: !!prevCtx, summary: airportGeoSummary(meta, now) });
     }
 
     async write(body, now) {
@@ -163,7 +182,7 @@ export class AirportGeoStore {
         if (!stale) return reply({ ok: true, result: meta.hash === hash ? 'unchanged' : 'ignored_fresh', version: meta.version });
         const lease = await this.storage.get('lease');
         if (lease && Number(lease.until) > now && lease.token !== leaseToken) return reply({ ok: true, result: 'lease_held', version: meta.version });
-        if (signature.areas < 1 && Number(meta.signature?.areas) > 0) {
+        if (airportGeoUsable(signature) < 1 && airportGeoUsable(meta.signature) > 0) {
             // OSM ohne Flaechen: alter Eintrag bleibt, Auftrag frei fuer den naechsten Versuch.
             await this.storage.put('meta', { ...meta, lastEmptyAt: now });
             await this.storage.delete('lease');
@@ -175,7 +194,7 @@ export class AirportGeoStore {
             await this.storage.delete('lease');
             return done('confirmed', next);
         }
-        const shrinks = signature.areas < Math.ceil((Number(meta.signature?.areas) || 0) * 0.5);
+        const shrinks = airportGeoUsable(signature) < Math.ceil(airportGeoUsable(meta.signature) * 0.5);
         if (shrinks) {
             const pending = meta.pending;
             const confirmed = pending && now - Number(pending.at) >= AIRPORT_GEO_CONFIRM_MIN_MS
@@ -243,7 +262,10 @@ export class AirportGeoStore {
             await this.storage.put('meta', next);
             return reply({ ok: true, result: 'blocked', version: meta.version, summary: airportGeoSummary(next, now) });
         }
-        if (body.op === 'summary') return reply({ ok: true, result: 'summary', summary: airportGeoSummary(meta, now) });
+        if (body.op === 'summary') {
+            const migrated = await this.migrateSignature(meta, await unpackAirportGeoContext(await this.storage.get('ctx')));
+            return reply({ ok: true, result: 'summary', summary: airportGeoSummary(migrated, now) });
+        }
         return reply({ error: 'op_invalid' }, 400);
     }
 
@@ -279,7 +301,7 @@ const MANUAL_ID_RE = /^manual\/\d{1,9}$/;
 const MAX_ADDED = 50;
 
 export function airportGeoIsEmpty(meta) {
-    return !(Number(meta?.signature?.areas) > 0) && !(Array.isArray(meta?.added) && meta.added.length);
+    return !(airportGeoUsable(meta?.signature) > 0) && !(Array.isArray(meta?.added) && meta.added.length);
 }
 
 function bearingDeg(a, b) {
@@ -341,7 +363,7 @@ export function airportGeoSummary(meta, now = Date.now()) {
         key: meta.key, lat: center.lat, lon: center.lon, icao: meta.icao || '', name: meta.name || '',
         version: Number(meta.version) || 1, storedAt: meta.storedAt, refreshedAt: meta.refreshedAt,
         stale: now - Number(meta.refreshedAt || meta.storedAt || 0) > AIRPORT_GEO_STALE_MS,
-        empty: airportGeoIsEmpty(meta), added: (meta.added || []).length, aprons: sig.aprons || 0, parking: sig.parking || 0, surfaces: sig.surfaces || 0,
+        empty: airportGeoIsEmpty(meta), added: (meta.added || []).length, hangars: sig.hangars || 0, aprons: sig.aprons || 0, parking: sig.parking || 0, surfaces: sig.surfaces || 0,
         source: meta.source || '', manual: meta.manual === true, blocked: (meta.blocked || []).length, pending: !!meta.pending
     };
 }
@@ -400,7 +422,7 @@ export async function handleAirportGeo(request, env) {
     const stub = ns.get(ns.idFromName(key));
     if (parts[1] === 'admin') {
         if (!adminOk(request, env)) return reply({ error: 'admin_required' }, 401);
-        if (request.method === 'GET') return stub.fetch(new Request(`https://airport-geo/${key}/admin`));
+        if (request.method === 'GET') return syncIndex(await stub.fetch(new Request(`https://airport-geo/${key}/admin`)));
         const { body, error } = await readBody(request);
         if (error) return error;
         let payload = { op: String(body?.op || '') };

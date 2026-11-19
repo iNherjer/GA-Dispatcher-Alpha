@@ -38,6 +38,8 @@ function env() {
 const get = (e, key = KEY) => handleAirportGeo(new Request('https://x/api/airport-geo-v1/' + key), e).then(r => r.json());
 const post = (e, body, key = KEY) => handleAirportGeo(new Request('https://x/api/airport-geo-v1/' + key, { method: 'POST', body: JSON.stringify(body) }), e);
 const ctx = (patch = {}) => ({ ...structuredClone(base), ...patch });
+// Wirklich leer: keine Flaeche und kein Hangar (Hangar-Vorplaetze sind nutzbar).
+const emptyCtx = () => ctx({ parkingPositions: [], aprons: [], surfaces: [], avoidZones: base.avoidZones.filter(z => z.buildingType !== 'hangar') });
 const realNow = Date.now;
 const at = ms => { Date.now = () => ms; };
 test.afterEach(() => { Date.now = realNow; });
@@ -45,7 +47,7 @@ test.afterEach(() => { Date.now = realNow; });
 test('validation: real context passes; wrong place, empty, schema, kind and oversize are refused', () => {
     assert.equal(validateAirportGeoContext(KEY, ctx()).ok, true);
     assert.equal(validateAirportGeoContext('airport_48.0228_7.8325', ctx()).error, 'center_mismatch');
-    const empty = validateAirportGeoContext(KEY, ctx({ parkingPositions: [], aprons: [], surfaces: [] }));
+    const empty = validateAirportGeoContext(KEY, emptyCtx());
     assert.equal(empty.ok, true);
     assert.equal(empty.empty, true);
     assert.equal(validateAirportGeoContext(KEY, ctx({ schema: 'x' })).error, 'schema_invalid');
@@ -136,7 +138,7 @@ test('without the Durable Object binding the route answers 503', async () => {
 // Feldtest 16.11.2026: UL-Platz Malsch-Ettlingen – OSM-Karte ohne nutzbare Flaeche.
 test('empty OSM result is kept as a marker so later missions skip OSM', async () => {
     const e = env();
-    const empty = ctx({ parkingPositions: [], aprons: [], surfaces: [] });
+    const empty = emptyCtx();
     assert.equal((await (await post(e, { context: empty })).json()).result, 'stored');
     const read = await get(e);
     assert.equal(read.found, true);
@@ -150,7 +152,7 @@ test('a due entry with areas is never replaced by an empty result', async () => 
     at(t0); await post(e, { context: ctx() });
     at(t0 + AIRPORT_GEO_STALE_MS + 1000);
     const lease = (await get(e)).refresh.token;
-    const empty = ctx({ parkingPositions: [], aprons: [], surfaces: [] });
+    const empty = emptyCtx();
     assert.equal((await (await post(e, { context: empty, leaseToken: lease })).json()).result, 'ignored_empty');
     const again = await get(e);
     assert.equal(again.empty, false);
@@ -163,7 +165,7 @@ test('a due entry with areas is never replaced by an empty result', async () => 
 test('an empty marker is replaced as soon as OSM delivers areas', async () => {
     const e = env();
     const t0 = 1_800_000_000_000;
-    at(t0); await post(e, { context: ctx({ parkingPositions: [], aprons: [], surfaces: [] }) });
+    at(t0); await post(e, { context: emptyCtx() });
     at(t0 + AIRPORT_GEO_STALE_MS + 1000);
     const lease = (await get(e)).refresh.token;
     assert.equal((await (await post(e, { context: ctx(), leaseToken: lease })).json()).result, 'updated');
@@ -289,4 +291,22 @@ test('gzip upload from app and workbench is unpacked; broken gzip is refused', a
     assert.equal((await get(e)).icao, 'EDTW');
     const bad = await handleAirportGeo(new Request('https://x/api/airport-geo-v1/' + KEY, { method: 'POST', headers: { 'X-Body-Encoding': 'gzip' }, body: 'not gzip' }), e);
     assert.equal(bad.status, 400);
+});
+
+// Feldtest 19.11.2026: EDSU (Musbach) hat nur einen Hangar, keine Flaeche – und stand als Leer-Vermerk da.
+test('a field with only a hangar is usable, not an empty marker; old signatures are migrated on read', async () => {
+    const e = env();
+    const hangarOnly = ctx({ parkingPositions: [], aprons: [], surfaces: [] });
+    assert.ok(base.avoidZones.some(z => z.buildingType === 'hangar'), 'fixture has a hangar');
+    const check = validateAirportGeoContext(KEY, hangarOnly);
+    assert.equal(check.empty, false);
+    assert.ok(check.signature.hangars > 0);
+    await post(e, { context: hangarOnly });
+    assert.equal((await get(e)).empty, false);
+    // Alt-Eintrag ohne Hangar-Zaehlung: Lesen rechnet nach und der Index bekommt die richtige Zeile.
+    const records = e.stores.get(KEY).storage.records;
+    const meta = records.get('meta'); delete meta.signature.hangars; records.set('meta', meta);
+    assert.equal((await (await admin(e, KEY)).json()).summary.empty, false);
+    assert.ok(records.get('meta').signature.hangars > 0, 'signature migrated');
+    assert.equal((await (await index(e)).json()).entries.find(x => x.key === KEY).empty, false);
 });
