@@ -10355,7 +10355,30 @@ window.gaMissionDraftActive = () => missionDraftSession().active();
 window.gaMissionDraftPhase = () => missionDraftSession().status();
 window.gaMissionDraftRead = () => missionDraftSession().read();
 window.gaMissionDraftDiscard = () => missionDraftSession().discard();
-window.gaStoreMissionDraft = state => missionDraftSession().save(state);
+window.gaStoreMissionDraft = state => missionDraftSession().save(slimMissionDraftGeometry(state));
+
+// Der Entwurf speichert die OSM-Platzdaten (aptArrivalPlan.placementGeometry, EDDS 2,1 MB je Kopie)
+// nicht mit: sie liegen im Sitzungsspeicher und im gemeinsamen Platzvorrat. Die laufende Mission
+// behaelt sie; nach einem Neuladen holt der Szenenplaner sie beim Akzeptieren neu
+// (composeMissionScenePlanV3WithGemini → resolveAptArrivalPlanPlacement bei fehlender Geometrie).
+function slimMissionDraftGeometry(state) {
+    if (!state || typeof state !== 'object') return state;
+    const slimPlan = plan => {
+        if (!plan || typeof plan !== 'object' || !plan.placementGeometry) return plan;
+        const { placementGeometry, ...rest } = plan;
+        return rest;
+    };
+    const slimHolder = holder => holder && typeof holder === 'object' && holder.aptArrivalPlan?.placementGeometry
+        ? { ...holder, aptArrivalPlan: slimPlan(holder.aptArrivalPlan) } : holder;
+    const md = state.currentMissionData;
+    const next = { ...state };
+    if (md && typeof md === 'object') {
+        next.currentMissionData = slimHolder(md);
+        if (md.missionContract && typeof md.missionContract === 'object') next.currentMissionData = { ...next.currentMissionData, missionContract: slimHolder(md.missionContract) };
+    }
+    if (state.activeMissionContract && typeof state.activeMissionContract === 'object') next.activeMissionContract = slimHolder(state.activeMissionContract);
+    return next;
+}
 window.gaMissionDraftPilotMatches = () => _localMissionDraftPilot === String(getSyncId() || 'local').toUpperCase();
 window.gaMissionDraftCommit = adapters => missionDraftSession().commit({ ...adapters, isCurrent: window.gaMissionDraftPilotMatches });
 window.gaMissionDraftCommandBlocked = command => {

@@ -49,6 +49,11 @@ werden nicht eingeführt.
    OSM wie oben, Ergebnis wird für alle hochgeladen. Ohne erreichbaren Worker läuft
    alles wie bisher. `snapStatus.geoOrigin` und die Diagnosezeile „APT Platzdaten“
    zeigen Quelle, Alter, Version, Upload und Erneuerung.
+   Seit Web v2466 (19.11.2026) speichern Missions-Entwürfe die Platzdaten
+   (`aptArrivalPlan.placementGeometry`) nicht mehr mit (`slimMissionDraftGeometry` in
+   `app.js`); die laufende Mission behält sie. Nach einem Neuladen holt der Szenenplaner sie
+   beim Akzeptieren neu (Sitzungsspeicher → Cloud → OSM). Nach dem Akzeptieren entfernt
+   `pruneAcceptedMissionSceneBallast` sie wie bisher. Test: `tools/mission-draft-geometry-slim.test.mjs`.
    Tests: `tools/apt-arrival-geo-fetch.test.mjs`, `tools/mission-arrival-retry-ui.test.mjs`.
 3. Der bestehende Composer wählt `preferredPlacement.source` und `index`:
    `osm_parking_position`, `osm_apron` oder `osm_surface`. Letzteres benennt
