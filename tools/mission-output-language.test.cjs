@@ -86,3 +86,40 @@ delete globalThis.GAI18n;
 
 console.log('mission output language step 3: ok');
 
+
+// Generation errors are shown right away, so they follow the UI language; German stays word for word.
+function errorFunctions(language) {
+  const context = appFunctions(language);
+  context.getAircraftPresetData = () => ({ name: 'C172' });
+  const take = name => { const a = app.indexOf('function ' + name + '('); const b = app.indexOf('\nfunction ', a + 1); return app.slice(a, b); };
+  vm.runInContext(['formatAiJsonFailure', 'createAiJsonFailure', 'aircraftAutoMissionProfileError', 'missionPassengerCapacityError'].map(take).join('\n'), context);
+  return context;
+}
+const quota = { attempts: [{ status: 'http_429', quotaPeriod: 'day', quotaKind: 'tokens' }] };
+const germanQuota = 'Der Frachtauftrag konnte nicht erstellt werden. Dein Tokenlimit für heute ist erreicht. Bitte versuche es morgen erneut oder wechsle auf einen bezahlten API-Plan beim KI-Anbieter. [HTTP 429]';
+assert.equal(errorFunctions('de').formatAiJsonFailure(quota, 'Der Frachtauftrag'), germanQuota);
+assert.equal(errorFunctions(null).formatAiJsonFailure(quota, 'Der Frachtauftrag'), germanQuota);
+assert.equal(errorFunctions('en').formatAiJsonFailure(quota, 'Der Frachtauftrag'), 'The cargo mission could not be created. Your token limit for today has been reached. Please try again tomorrow or switch to a paid API plan with the AI provider. [HTTP 429]');
+assert.equal(errorFunctions('en').formatAiJsonFailure({}, 'Unbekannt'), 'The mission could not be created. The AI returned no usable answer. Please try again.');
+const seatsArgs = { capability: { name: 'Cub', totalSeats: 1 }, category: 'cargo' };
+assert.equal(errorFunctions('de').missionPassengerCapacityError(seatsArgs).message, 'Cub hat mit 1 Sitz keinen freien Passagierplatz. Kategorie „cargo“ benötigt mindestens eine Person an Bord. Wähle eine 0-PAX-Mission oder ein Preset mit mindestens zwei Sitzen.');
+assert.equal(errorFunctions('en').missionPassengerCapacityError(seatsArgs).message, 'Cub has 1 seat and no free passenger seat. Category "cargo" needs at least one person on board. Pick a 0-PAX mission or a preset with at least two seats.');
+assert.equal(errorFunctions('de').aircraftAutoMissionProfileError({ baseType: 'bush', preset: { name: 'Cub' } }).message, 'Im Preset „Cub“ ist kein passendes Einsatzprofil aktiviert. Aktiviere für Bush-Auto Bush / STOL, Cargo oder Utility / Arbeit oder wähle im Mission Picker ein konkretes Profil.');
+assert.equal(errorFunctions('en').aircraftAutoMissionProfileError({ baseType: 'bush', preset: { name: 'Cub' } }).message, 'No matching mission profile is enabled in the preset "Cub". Enable Bush / STOL, Cargo or Utility / Work for Bush auto, or pick a specific profile in the Mission Picker.');
+// Every label a browser passes has an English name.
+const labels = new Set();
+for (const name of fs.readdirSync(root).filter(n => n.endsWith('.js'))) for (const m of fs.readFileSync(path.join(root, name), 'utf8').matchAll(/(?:create|format)AiJsonFailure\([^,()]+, *'([^']+)'/g)) labels.add(m[1]);
+const enLabels = errorFunctions('en');
+for (const label of labels) assert.doesNotMatch(enLabels.formatAiJsonFailure({}, label), /^The mission could not/, 'label without English name: ' + label);
+console.log('mission output language errors: ok (' + labels.size + ' labels)');
+
+// Dispatch status line: every generation phase label has an English phrase (translated on display).
+const i18n = { console }; i18n.globalThis = i18n; i18n.window = i18n; vm.createContext(i18n);
+for (const f of ['i18n-core.js', 'i18n/de.js', 'i18n/en.js', 'i18n/en-phrases.js']) vm.runInContext(fs.readFileSync(path.join(root, f), 'utf8'), i18n);
+i18n.GAI18n.setLanguage('en');
+const phaseBlock = app.slice(app.indexOf('const MISSION_GENERATION_PROGRESS_PHASES = ['), app.indexOf('function getMissionGenerationPhaseMeta('));
+const phaseLabels = [...phaseBlock.matchAll(/(?:label|doneLabel): '([^']+)'/g)].map(m => m[1]);
+assert.ok(phaseLabels.length > 60);
+for (const label of phaseLabels) assert.notEqual(i18n.GAI18n.phrase(label), label, 'phase label without English phrase: ' + label);
+assert.match(app, /function _installAppStatusLineTranslation\(\)/);
+console.log('mission output language status line: ok (' + phaseLabels.length + ' phase labels)');

@@ -550,6 +550,19 @@ Noch offen in Phase 4: Privat-Ausflug/Heimreise (eigene deutsche Textpolitur), T
 - Deutsch-Nachweis: Projektion identisch (Platzinfo-Ersatztext ist unverändert, nur in
   `fallbackGerman` umbenannt).
 
+### 2.21 Phase 4: Fehlermeldungen und Statuszeile beim Erstellen (2026-11-19)
+
+- **KI-Fehlermeldungen** (`formatAiJsonFailure`): Grund und Auftragsname in der Oberflächensprache;
+  alle 17 Auftragsnamen der Browser-Dateien haben einen englischen Namen (Test prüft das).
+  Flugzeug-Vorprüfung (`aircraftAutoMissionProfileError`, `missionPassengerCapacityError`) ebenso.
+  Die Texte entstehen beim Auftreten, daher gilt die gerade gewählte Sprache.
+- **Statuszeile unter dem Dispatch-Knopf** (`#searchIndicator`): Viele Stellen schreiben fertige
+  deutsche Sätze hinein. Statt jede Stelle umzubauen, übersetzt `_installAppStatusLineTranslation`
+  beim Anzeigen (Phrasentabelle + wenige Muster für Sätze mit Werten). Im deutschen Modus wird
+  nichts geschrieben, nur der letzte Text gemerkt; beim Zurückschalten kommt der deutsche Text zurück.
+  Alle Phasen-Labels des Fortschrittsbalkens und alle festen Statussätze (132) stehen in
+  `i18n/en-phrases.js`. Unbekannte Sätze bleiben, wie sie sind.
+
 ## 4. Etappen
 
 | Phase | Inhalt | Größe | Abhängig von |

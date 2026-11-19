@@ -8210,6 +8210,55 @@ if (typeof window !== 'undefined' && window.GAI18n) {
     });
 }
 
+// Dispatch status line (#searchIndicator): many places write finished German text into it.
+// In English the line is translated on display (phrase table, then the patterns below).
+// In German nothing is written: the observer only remembers the last text.
+const _APP_STATUS_SOURCE_EN = { 'Manuell': 'Manual', 'Generiert': 'Generated', 'Vorschlagsauswahl': 'Proposal pick',
+    'Freiflug/Planung': 'Free flight/planning', 'Lokaler Bush-Generator': 'Local bush generator', 'Lokale DB': 'Local DB',
+    'Lokale Training DB': 'Local training DB', 'Abbruch': 'Cancelled', 'Mission löschen': 'Mission deleted',
+    'Entwurf nicht angenommen': 'Draft not accepted', 'Entwurf durch geladenen Flug ersetzt': 'Draft replaced by a loaded flight' };
+const _APP_STATUS_PATTERNS_EN = [
+    [/^Mission nach (.+) h auf geplant zurückgesetzt\.$/, m => `Mission reset to planned after ${m[1]} h.`],
+    [/^Alte gestartete Mission verworfen \((.+) h alt\)\.$/, m => `Old started mission discarded (${m[1]} h old).`],
+    [/^Dispatch abgebrochen \((.+)\)\.$/, m => `Dispatch cancelled (${_APP_STATUS_SOURCE_EN[m[1]] || m[1]}).`],
+    [/^Entwurf bleibt lokal: ([\s\S]*)$/, m => `Draft stays local: ${_appUiPhrase(m[1])}`],
+    [/^Flugplan bereit \((.+)\)\. Lade Infos\.\.\.$/, m => `Flight plan ready (${_APP_STATUS_SOURCE_EN[m[1]] || m[1]}). Loading info...`]
+];
+function _appStatusLineEnglish(text) {
+    const value = String(text || '');
+    const direct = _appUiPhrase(value);
+    if (direct !== value) return direct;
+    for (const [pattern, build] of _APP_STATUS_PATTERNS_EN) {
+        const match = value.match(pattern);
+        if (match) return build(match);
+    }
+    return value;
+}
+function _installAppStatusLineTranslation() {
+    const el = document.getElementById('searchIndicator');
+    if (!el || !window.GAI18n || typeof MutationObserver !== 'function' || el._gaStatusTranslation) return;
+    const state = el._gaStatusTranslation = { german: el.innerText, shown: null };
+    const translate = () => {
+        const now = el.innerText;
+        if (state.shown !== null && now === state.shown) return;
+        state.german = now;
+        state.shown = null;
+        if (GAI18n.getLanguage() !== 'en') return;
+        const next = _appStatusLineEnglish(now);
+        if (next !== now) { state.shown = next; el.innerText = next; }
+    };
+    new MutationObserver(translate).observe(el, { childList: true, characterData: true, subtree: true });
+    GAI18n.onChange(() => {
+        if (GAI18n.getLanguage() === 'en') { if (state.shown === null) translate(); return; }
+        if (state.shown !== null && el.innerText === state.shown) { const german = state.german; state.shown = null; el.innerText = german; }
+    });
+    translate();
+}
+if (typeof document !== 'undefined' && typeof window !== 'undefined' && window.GAI18n) {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _installAppStatusLineTranslation);
+    else _installAppStatusLineTranslation();
+}
+
 function setApiKeyValidationStatus(message, tone = 'neutral', provider = 'gemini') {
     const statusEl = document.getElementById(normalizeAiProvider(provider) === 'openai' ? 'openAiApiKeyStatus' : 'apiKeyStatus');
     if (!statusEl) return;
@@ -23984,7 +24033,20 @@ function aircraftAutoMissionProfileError({ baseType = 'apt', preset = null, modu
     const reason = moduleMissing
         ? 'Der Profilfilter konnte nicht geladen werden.'
         : `Im Preset „${presetName}“ ist kein passendes Einsatzprofil aktiviert.`;
-    const error = new Error(`${reason} Aktiviere für ${typeLabel}-Auto ${tagHint} oder wähle im Mission Picker ein konkretes Profil.`);
+    let message = `${reason} Aktiviere für ${typeLabel}-Auto ${tagHint} oder wähle im Mission Picker ein konkretes Profil.`;
+    if (globalThis.MissionOutputLanguage?.language?.() === 'en') {
+        // Shown right away, so it follows the UI language.
+        const hintEn = baseType === 'bush'
+            ? 'Bush / STOL, Cargo or Utility / Work'
+            : (baseType === 'poi'
+                ? 'Private / Travel, Utility / Work or Training'
+                : 'Private / Travel, Business / Charter, Cargo, Utility / Work or Training');
+        const reasonEn = moduleMissing
+            ? 'The profile filter could not be loaded.'
+            : `No matching mission profile is enabled in the preset "${String(activePreset?.name || selectedAC || 'Active preset').trim()}".`;
+        message = `${reasonEn} Enable ${hintEn} for ${typeLabel} auto, or pick a specific profile in the Mission Picker.`;
+    }
+    const error = new Error(message);
     error.code = 'AIRCRAFT_AUTO_PROFILE_EMPTY';
     return error;
 }
@@ -23995,7 +24057,14 @@ function missionPassengerCapacityError({ capability = null, baseType = 'apt', ca
     const missionLabel = String(profileId || 'auto').toLowerCase() !== 'auto'
         ? `Profil „${profileId}“`
         : `Kategorie „${category || baseType}“`;
-    const error = new Error(`${aircraftName} hat mit ${seats} Sitz${seats === 1 ? '' : 'en'} keinen freien Passagierplatz. ${missionLabel} benötigt mindestens eine Person an Bord. Wähle eine 0-PAX-Mission oder ein Preset mit mindestens zwei Sitzen.`);
+    let message = `${aircraftName} hat mit ${seats} Sitz${seats === 1 ? '' : 'en'} keinen freien Passagierplatz. ${missionLabel} benötigt mindestens eine Person an Bord. Wähle eine 0-PAX-Mission oder ein Preset mit mindestens zwei Sitzen.`;
+    if (globalThis.MissionOutputLanguage?.language?.() === 'en') {
+        // Shown right away, so it follows the UI language.
+        const nameEn = String(capability?.name || capability?.slotId || 'Active preset').trim();
+        const labelEn = String(profileId || 'auto').toLowerCase() !== 'auto' ? `Profile "${profileId}"` : `Category "${category || baseType}"`;
+        message = `${nameEn} has ${seats} seat${seats === 1 ? '' : 's'} and no free passenger seat. ${labelEn} needs at least one person on board. Pick a 0-PAX mission or a preset with at least two seats.`;
+    }
+    const error = new Error(message);
     error.code = 'MISSION_PASSENGER_CAPACITY';
     return error;
 }
@@ -29245,23 +29314,32 @@ async function fetchAiJsonWithFallback(prompt, { apiKey = '', provider = '', pro
 window.fetchAiJsonWithFallback = fetchAiJsonWithFallback;
 
 function formatAiJsonFailure(result, label = 'Der Auftrag') {
+    // Shown right away, so it follows the UI language (German stays as before).
+    const L = (de, en) => (globalThis.MissionOutputLanguage ? globalThis.MissionOutputLanguage.text(de, en) : de);
+    const LABELS_EN = { 'Der Auftrag': 'The mission', 'Charterauftrag': 'The charter mission', 'Der Besuchsplan': 'The visit plan',
+        'Der Frachtauftrag': 'The cargo mission', 'Der Kettenauftrag': 'The chain mission', 'Der Medizin-Transferauftrag': 'The medical transfer mission',
+        'Der Reporterauftrag': 'The reporter mission', 'Der SAR-Auftrag': 'The SAR mission', 'Der Tiertransportauftrag': 'The animal transport mission',
+        'Vereinsidee': 'The club idea', 'Der POI-Einsatzauftrag': 'The POI operation', 'Der POI-Fotoauftrag': 'The POI photo mission',
+        'Der POI-Inspektionsauftrag': 'The POI inspection mission', 'Der POI-Mapping-Auftrag': 'The POI mapping mission',
+        'Der POI-Reporterauftrag': 'The POI reporter mission', 'Der POI-Studienauftrag': 'The POI study mission',
+        'Der Wissensflug': 'The knowledge flight', 'Das Bush-Briefing': 'The bush briefing' };
     const attempts = result?.attempts || [];
     const has = status => attempts.some(a => a.status === 'http_' + status);
-    let reason = 'Die KI hat keine verwertbare Antwort geliefert. Bitte erneut versuchen.';
-    if (result?.error === 'missing_api_key') reason = 'Der API-Key fehlt. Bitte die KI-Einstellungen prüfen.';
+    let reason = L('Die KI hat keine verwertbare Antwort geliefert. Bitte erneut versuchen.', 'The AI returned no usable answer. Please try again.');
+    if (result?.error === 'missing_api_key') reason = L('Der API-Key fehlt. Bitte die KI-Einstellungen prüfen.', 'The API key is missing. Please check the AI settings.');
     else if (attempts.some(a => a.status === 'http_429' && a.quotaPeriod === 'day')) {
         const tokens = attempts.some(a => a.status === 'http_429' && a.quotaPeriod === 'day' && a.quotaKind === 'tokens');
-        reason = (tokens ? 'Dein Tokenlimit für heute ist erreicht.' : 'Dein tägliches Limit für KI-Anfragen ist erreicht.')
-            + ' Bitte versuche es morgen erneut oder wechsle auf einen bezahlten API-Plan beim KI-Anbieter.';
+        reason = (tokens ? L('Dein Tokenlimit für heute ist erreicht.', 'Your token limit for today has been reached.') : L('Dein tägliches Limit für KI-Anfragen ist erreicht.', 'Your daily limit for AI requests has been reached.'))
+            + L(' Bitte versuche es morgen erneut oder wechsle auf einen bezahlten API-Plan beim KI-Anbieter.', ' Please try again tomorrow or switch to a paid API plan with the AI provider.');
     }
-    else if (attempts.some(a => a.status === 'http_429' && a.quotaPeriod === 'minute')) reason = 'Du hast das kurzfristige Anfrage- oder Tokenlimit erreicht. Bitte warte kurz und versuche es erneut.';
-    else if (has(429)) reason = 'Das API-Anfrage- oder Tokenlimit wurde erreicht. Bitte prüfe deine Quote beim KI-Anbieter. Bei ausgeschöpfter Tagesquote versuche es morgen erneut oder wechsle auf einen bezahlten API-Plan.';
-    else if (has(401) || has(403)) reason = 'Der API-Zugang wurde abgewiesen. Bitte API-Key und Berechtigungen prüfen.';
-    else if ([502, 503, 504].some(has)) reason = 'Der KI-Dienst ist vorübergehend nicht verfügbar. Bitte später erneut versuchen.';
-    else if (has(404)) reason = 'Die gewählten KI-Modelle sind für diesen API-Zugang nicht verfügbar (HTTP 404). Bitte die KI-Einstellungen prüfen.';
-    else if (attempts.some(a => a.status === 'timeout')) reason = 'Die KI-Anfrage hat das Zeitlimit überschritten. Bitte erneut versuchen.';
+    else if (attempts.some(a => a.status === 'http_429' && a.quotaPeriod === 'minute')) reason = L('Du hast das kurzfristige Anfrage- oder Tokenlimit erreicht. Bitte warte kurz und versuche es erneut.', 'You have reached the short-term request or token limit. Please wait a moment and try again.');
+    else if (has(429)) reason = L('Das API-Anfrage- oder Tokenlimit wurde erreicht. Bitte prüfe deine Quote beim KI-Anbieter. Bei ausgeschöpfter Tagesquote versuche es morgen erneut oder wechsle auf einen bezahlten API-Plan.', 'The API request or token limit has been reached. Please check your quota with the AI provider. If the daily quota is used up, try again tomorrow or switch to a paid API plan.');
+    else if (has(401) || has(403)) reason = L('Der API-Zugang wurde abgewiesen. Bitte API-Key und Berechtigungen prüfen.', 'The API access was rejected. Please check the API key and permissions.');
+    else if ([502, 503, 504].some(has)) reason = L('Der KI-Dienst ist vorübergehend nicht verfügbar. Bitte später erneut versuchen.', 'The AI service is temporarily unavailable. Please try again later.');
+    else if (has(404)) reason = L('Die gewählten KI-Modelle sind für diesen API-Zugang nicht verfügbar (HTTP 404). Bitte die KI-Einstellungen prüfen.', 'The selected AI models are not available for this API access (HTTP 404). Please check the AI settings.');
+    else if (attempts.some(a => a.status === 'timeout')) reason = L('Die KI-Anfrage hat das Zeitlimit überschritten. Bitte erneut versuchen.', 'The AI request timed out. Please try again.');
     const codes = [...new Set(attempts.map(a => a.status).filter(s => /^http_\d+$/.test(s)))].map(s => s.replace('http_', 'HTTP '));
-    return label + ' konnte nicht erstellt werden. ' + reason + (codes.length ? ' [' + codes.join(', ') + ']' : '');
+    return L(label + ' konnte nicht erstellt werden. ', (LABELS_EN[label] || 'The mission') + ' could not be created. ') + reason + (codes.length ? ' [' + codes.join(', ') + ']' : '');
 }
 window.formatAiJsonFailure = formatAiJsonFailure;
 
@@ -41586,7 +41664,7 @@ async function fetchMissionWriterV5(context = {}) {
     const requestDiagnostics = _missionWriterRequestDiagnostics(result);
     if (context.missionType === 'bush' && !String(result?.parsed?.story || '').trim()) {
         console.warn('[Mission Writer V5] Bush-Text nicht erstellt', requestDiagnostics);
-        const error = new Error(formatAiJsonFailure(result, 'Das Bush-Briefing') + ' Es wurde keine Ersatzmission mit einem anderen Passagier erstellt.');
+        const error = new Error(formatAiJsonFailure(result, 'Das Bush-Briefing') + (globalThis.MissionOutputLanguage ? globalThis.MissionOutputLanguage.text(' Es wurde keine Ersatzmission mit einem anderen Passagier erstellt.', ' No replacement mission with another passenger was created.') : ' Es wurde keine Ersatzmission mit einem anderen Passagier erstellt.'));
         error.writerDiagnostics = requestDiagnostics;
         throw error;
     }
@@ -48343,7 +48421,7 @@ async function generateMission(options = {}) {
             console.error('[Dispatch] Fehler:', e);
             const indicator = document.getElementById('searchIndicator');
             const quotaShown = showDispatchQuotaFailure(e);
-            if (indicator && !quotaShown) indicator.innerText = 'Fehler beim Dispatch. Bitte erneut versuchen.';
+            if (indicator && !quotaShown) indicator.innerText = _appUiPhrase('Fehler beim Dispatch. Bitte erneut versuchen.');
             setMissionGenerationProgress('error', { error: true });
             const btn = document.getElementById('generateBtn');
             resetBtn(btn);
