@@ -20835,6 +20835,17 @@ html[lang="en"] #mapTableOverlay .ga-layer-groups .leaflet-control-layers-base::
     flex: 1 1 auto !important;
     text-align: center;
 }
+/* EFB: Kartenspeicher-Schalter (Zustand links, Knopf rechts). */
+#mapTableOverlay .leaflet-control-layers .ga-tile-cache-control .ga-base-dim-value {
+    flex: 1 1 auto !important;
+    text-align: left;
+}
+#mapTableOverlay .leaflet-control-layers .ga-base-dim-btn.ga-tile-cache-toggle {
+    width: auto;
+    min-width: 56px;
+    padding: 0 12px;
+    font-size: 14px;
+}
 #mapTableOverlay .ga-base-dim-hint {
     padding: 0 8px 4px;
     color: var(--layer-muted);

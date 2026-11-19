@@ -8979,3 +8979,29 @@ Die Web-App hat seit v2431/v2432 globale und regionale Basiskarten; das EFB
 
 Ausgeliefert mit Tracker v640 Alpha (`docs/Tracker-v640-Release.md`); im MSFS-EFB noch
 nicht geprüft.
+
+## 19.11.2026 – Kartenspeicher auf dem PC, Flugplan holen, Senden ohne Mission
+
+Vorbild FSPM/OSM VFR Map (Connector mit lokalem Kachelspeicher, EFB-Route auf der Karte).
+
+- **Kartenspeicher (Tracker):** `tracker-efb-tile-proxy.js` speichert Kacheln unter
+  `%LOCALAPPDATA%\VFR Multitool\Map Tile Cache` (nicht im synchronisierten Dokumente-Ordner),
+  gemeinsam für Stable und Alpha. Frisch 7–30 Tage (`max-age`, mindestens 7 Tage nach OSM-Regel),
+  danach Nachfrage mit `If-None-Match`/`If-Modified-Since` (304 verlängert), bei Ausfall des
+  Servers alte Kopie (`X-EFB-Tile-Cache: disk|revalidated|stale|miss`). Grenze 1 GiB, älteste
+  Kacheln zuerst raus (auf 90 %). Kein Komplett-Download, kein Vorladen.
+  Endpunkte: `GET /api/v1/tracker/map-tile-cache` (Größe), `POST /api/v1/tracker/map-tile-cache/clear`
+  (nur mit Desktop-Steuertoken).
+- **EFB lädt zuerst über den Tracker** (Einstellung `tileCache`, Standard an), direkt und Backup
+  bleiben Rückfall. Im Kartenmenü Block „Kartenspeicher“ mit Ein/Aus. Hintergrund: v334 zeigte
+  Loopback-Bilder in Coherent schwarz; FSPM liefert seine EFB-Karte über einen lokalen Server
+  aus, deshalb erneuter Feldtest. Bleibt es schwarz → Schalter aus, Rückfall wie vor v335.
+- **Desktop-App:** Knopf „Karten-Cache leeren“ neben „Datenordner“ mit Rückfrage (Größe und
+  Kachelzahl). Läuft der Tracker, leert er über seinen Endpunkt (Speicher und Platte), sonst
+  löscht die App den Ordner.
+- **Flugplan holen / Senden ohne Mission:** siehe `docs/MSFS Flight Plan Transfer.md`
+  (19.11.2026) und `docs/EFB-0.4.28-SDK-Handoff.md`. Holen braucht EFB-/Toolbar-Paket 0.4.28
+  (offizieller Windows-SDK-Bau) und Tracker v651.
+
+Im Simulator noch nicht geprüft: Kacheln über den Tracker sichtbar (nicht schwarz) in EFB,
+Toolbar und VR; Holen/Senden wie im Handoff beschrieben.

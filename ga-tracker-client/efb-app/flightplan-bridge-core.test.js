@@ -95,3 +95,75 @@ test('ATC variant: airports as airport fixes, other points as unique user waypoi
   const result=await f.bridge.execute({jobId:'alps',target:'atc',plan:alps});
   assert.equal(result.atc,'confirmed');assert.equal(filed.enroute[2].fixIcao.ident,'LOJO');
 });
+
+const importCore = require('./flightplan-bridge-core');
+function icao(type, ident, airport = '') { return { __Type: 'JS_ICAO', type, region: 'ED', airport, ident }; }
+function leg(fields) {
+  return Object.assign({ __Type: 'JS_EnrouteLeg', fixIcao: icao('', ''), via: '', isPpos: false, hasLatLon: false, lat: 0, lon: 0,
+    hasPointBearingDistance: false, referenceIcao: icao('', ''), bearing: 0, distance: 0, altitude: null, name: '' }, fields);
+}
+const facilities = { EDTL: { lat: 48.3693, lon: 7.8277 }, EDTO: { lat: 48.4500, lon: 7.9200 }, KRH: { lat: 49.0, lon: 8.3 }, ANEKI: { lat: 48.6, lon: 8.1 } };
+const resolveFacility = async (value) => facilities[value.ident] || null;
+
+test('a simulator route becomes navigation points with airports, fixes, user points and bearing/distance fixes', async () => {
+  const route = { __Type: 'JS_FlightPlanRoute', departureAirport: icao('A', 'EDTL'), destinationAirport: icao('A', 'EDTO'),
+    departure: '', arrival: '', approach: { type: '' }, isVfr: true, cruiseAltitude: { altitude: 4500, isFlightLevel: false },
+    enroute: [
+      leg({ fixIcao: icao('V', 'KRH'), name: 'KRH' }),
+      leg({ hasLatLon: true, lat: 48.7, lon: 8.2, name: 'Baden-Baden' }),
+      leg({ hasPointBearingDistance: true, referenceIcao: icao('V', 'KRH'), bearing: 180, distance: 30, name: 'KRH180030' }),
+      leg({ fixIcao: icao('W', 'ANEKI'), via: 'T104', name: 'ANEKI' })
+    ] };
+  const parsed = await importCore.parseRoute(route, resolveFacility, 'efb');
+  assert.equal(parsed.plan.schema, 'ga.flightplan-import.v1');
+  assert.equal(parsed.plan.departureIcao, 'EDTL');
+  assert.equal(parsed.plan.destinationIcao, 'EDTO');
+  assert.equal(parsed.plan.cruiseAltitudeFt, 4500);
+  assert.deepEqual(parsed.plan.points.map((point) => point.name), ['EDTL', 'KRH', 'Baden-Baden', 'KRH180030', 'ANEKI', 'EDTO']);
+  assert.equal(parsed.plan.points[0].icao, 'EDTL');
+  assert.equal(parsed.plan.points[1].icao, '');
+  // 30 nm due south of 49.0 N is 0.5 degrees of latitude.
+  assert.ok(Math.abs(parsed.plan.points[3].lat - 48.5) < 0.001);
+  assert.ok(Math.abs(parsed.plan.points[3].lon - 8.3) < 0.001);
+  assert.deepEqual(parsed.warnings, ['airway_direct:T104']);
+});
+
+test('procedures and unknown fixes become warnings; a route without two points is rejected', async () => {
+  const route = { __Type: 'JS_FlightPlanRoute', departureAirport: icao('A', 'EDTL'), destinationAirport: icao('A', 'EDTO'),
+    departure: 'RILAX2B', arrival: 'BADSO1A', approach: { type: 'ILS' }, isVfr: false, cruiseAltitude: null,
+    enroute: [leg({ fixIcao: icao('W', 'NOWHERE'), name: 'NOWHERE' }), leg({ isPpos: true })] };
+  const parsed = await importCore.parseRoute(route, resolveFacility, 'atc');
+  assert.deepEqual(parsed.plan.points.map((point) => point.name), ['EDTL', 'EDTO']);
+  assert.deepEqual(parsed.warnings, ['procedure_skipped:SID RILAX2B', 'fix_unresolved:NOWHERE', 'ppos_skipped',
+    'procedure_skipped:STAR BADSO1A', 'procedure_skipped:APPROACH']);
+  await assert.rejects(importCore.parseRoute({ __Type: 'JS_FlightPlanRoute', departureAirport: icao('', ''), destinationAirport: icao('', ''), enroute: [] }, resolveFacility, 'efb'),
+    /flightplan_import_empty/);
+  await assert.rejects(importCore.parseRoute({ __Type: 'JS_FlightPlanRoute', departureAirport: icao('A', 'XXXX'), destinationAirport: icao('', ''), enroute: [] }, resolveFacility, 'efb'),
+    /flightplan_import_unresolved/);
+  // Without a facility database only coordinate legs survive.
+  const noLookup = await importCore.parseRoute({ __Type: 'JS_FlightPlanRoute', departureAirport: icao('A', 'EDTL'), destinationAirport: icao('', ''),
+    enroute: [leg({ hasLatLon: true, lat: 48.1, lon: 8.1, name: 'A' }), leg({ hasLatLon: true, lat: 48.2, lon: 8.2, name: 'B' })] }, undefined, 'efb');
+  assert.deepEqual(noLookup.plan.points.map((point) => point.name), ['A', 'B']);
+  assert.ok(noLookup.warnings.includes('facility_lookup_unavailable'));
+});
+
+test('fetchRoute reads the chosen source only and never writes to the simulator', async () => {
+  const calls = [];
+  const route = { __Type: 'JS_FlightPlanRoute', departureAirport: icao('A', 'EDTL'), destinationAirport: icao('A', 'EDTO'), enroute: [] };
+  const manager = {
+    getEfbRoute: async () => { calls.push('efb'); return route; },
+    getAtcRoute: async () => { calls.push('atc'); return route; },
+    readAvionicsRoute: async () => { calls.push('avionics'); return { route, via: 'request' }; },
+    saveEfbRoute: async () => calls.push('WRITE'), sendRouteToEfb: async () => calls.push('WRITE'), sendRouteToAvionics: async () => calls.push('WRITE')
+  };
+  const bridge = importCore.create({ getManager: async () => manager, resolveFacility });
+  for (const source of ['efb', 'atc', 'avionics']) {
+    const result = await bridge.fetchRoute({ jobId: 'f-' + source, source });
+    assert.equal(result.ok, true);
+    assert.equal(result.plan.points.length, 2);
+  }
+  assert.deepEqual(calls, ['efb', 'atc', 'avionics']);
+  assert.equal((await bridge.fetchRoute({ jobId: 'bad', source: 'fms' })).error, 'flightplan_request_invalid');
+  const noAvionics = importCore.create({ getManager: async () => ({ getEfbRoute: manager.getEfbRoute }), resolveFacility });
+  assert.equal((await noAvionics.fetchRoute({ jobId: 'n', source: 'avionics' })).error, 'flightplan_avionics_unavailable');
+});

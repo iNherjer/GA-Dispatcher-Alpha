@@ -163,3 +163,56 @@ test('own aircraft icon: mission manifest aircraft first, otherwise the main-men
   h.context.missionSnapshot={control:{missionId:'m',runId:'r',phase:'enroute'},mission:{manifest:{aircraftSlot:'UNKNOWN'}}};
   assert.equal(h.context.window.gaActivePlaneIconProfile().id,'R44','unknown mission aircraft falls back to the menu preset');
 });
+function freeHarness() {
+  const h=harness();
+  h.context.missionSnapshot={control:null};
+  h.context.mapSnapshot={missionId:'',routeEdit:{id:'nav-1',revision:3},route:{waypoints:[{lat:48.36,lng:7.83,name:'EDTL'},{lat:48.45,lng:7.92,name:'EDTO'}]}};
+  h.context.fetchJson=async()=>({});h.context.renderMapPayload=()=>{};h.context.safePayload=value=>value;
+  const fetched=result=>h.listeners.message({source:h.parent,data:{type:'ga-flightplan-fetched',channel:'channel',result}});
+  return {...h,fetched};
+}
+const importPlan={schema:'ga.flightplan-import.v1',source:'efb',departureIcao:'EDTL',destinationIcao:'EDTO',cruiseAltitudeFt:4500,
+  points:[{lat:48.3693,lon:7.8277,name:'EDTL',icao:'EDTL'},{lat:49,lon:8.3,name:'KRH <b>',icao:''},{lat:48.45,lon:7.92,name:'EDTO',icao:'EDTO'}]};
+test('without a mission the free route can be sent; fetch buttons need a package with the fetch capability',async()=>{
+  const h=freeHarness();h.capability({atcReady:true});
+  let markup=h.context.flightPlanTransferMarkup();
+  assert.match(markup,/Flugplan an MSFS senden/);assert.match(markup,/Flugplan an Flugsicherung senden/);assert.doesNotMatch(markup,/holen/);
+  h.context.window.gaCockpitSessionClient.submitTool=async req=>{h.exports.push(req);return {ok:true,plan:{routeHash:'free',navigationRevision:3,free:true}};};
+  assert.equal(await h.context.transferCurrentMissionFlightPlan('avionics'),true);
+  assert.equal(JSON.stringify(h.exports[0].payload),JSON.stringify({free:true,routeId:'nav-1',navigationRevision:3}));assert.equal(h.starts.length,0);
+  assert.equal(h.posted.at(-1).type,'ga-flightplan-send');assert.equal(h.posted.at(-1).job.target,'avionics');
+  const jobId=h.posted.at(-1).job.jobId;
+  h.listeners.message({source:h.parent,data:{type:'ga-flightplan-result',channel:'channel',result:{jobId,routeHash:'free',ok:true,msfs:'confirmed',avionics:'sent',atc:'not_requested'}}});
+  assert.equal(h.nodes.gaFlightPlanStatus.textContent,'Flugplan an MSFS übertragen und an Avionik gesendet.');
+  h.capability({fetch:true,avionicsFetch:true,atcReady:true});markup=h.context.flightPlanTransferMarkup();
+  assert.match(markup,/Flugplan aus EFB-Planung holen/);assert.match(markup,/Flugplan von Flugsicherung holen/);assert.match(markup,/Flugplan aus Avionik holen/);
+});
+test('a fetched route is previewed escaped and replaces the free route only after confirmation',async()=>{
+  const h=freeHarness();h.capability({fetch:true});
+  assert.equal(await h.context.fetchSimulatorFlightPlan('efb'),true);
+  const request=h.posted.at(-1);assert.equal(request.type,'ga-flightplan-fetch');assert.equal(request.job.source,'efb');
+  assert.equal(await h.context.fetchSimulatorFlightPlan('atc'),false,'one fetch at a time');
+  h.fetched({jobId:request.job.jobId,source:'efb',ok:true,plan:importPlan,warnings:['procedure_skipped:STAR BADSO1A']});
+  const markup=h.context.flightPlanTransferMarkup();
+  assert.match(markup,/Route aus EFB-Planung/);assert.match(markup,/EDTL → EDTO, 3 Punkte, 4500 ft/);
+  assert.match(markup,/KRH &lt;b&gt;/);assert.doesNotMatch(markup,/KRH <b>/);assert.match(markup,/Verfahren nicht übernommen: STAR BADSO1A/);
+  h.context.window.gaCockpitSessionClient.submitTool=async req=>{h.exports.push(req);return {ok:true};};
+  assert.equal(await h.context.decideFlightPlanImport('adopt'),true);
+  const adopt=h.exports.at(-1);assert.equal(adopt.intent,'navigation_adopt');assert.equal(adopt.expectedRevision,3);
+  assert.equal(adopt.payload.routeId,'nav-1');assert.equal(adopt.payload.points[1].lng,8.3);assert.equal(adopt.payload.points[0].icao,'EDTL');
+  assert.match(h.nodes.gaFlightPlanStatus.textContent,/übernommen: 3 Punkte/);
+  assert.doesNotMatch(h.context.flightPlanTransferMarkup(),/Route übernehmen/);
+});
+test('discarding keeps the route; errors and an active mission never touch the navigation route',async()=>{
+  const h=freeHarness();h.capability({fetch:true});
+  await h.context.fetchSimulatorFlightPlan('efb');
+  h.fetched({jobId:h.posted.at(-1).job.jobId,source:'efb',ok:true,plan:importPlan,warnings:[]});
+  assert.equal(await h.context.decideFlightPlanImport('discard'),true);assert.equal(h.exports.length,0);
+  await h.context.fetchSimulatorFlightPlan('avionics');
+  h.fetched({jobId:h.posted.at(-1).job.jobId,source:'avionics',ok:false,error:'flightplan_avionics_no_reply'});
+  assert.equal(h.nodes.gaFlightPlanStatus.textContent,'Die Avionik dieses Flugzeugs gibt ihren Flugplan nicht heraus.');
+  h.context.missionSnapshot={control:{missionId:'m',runId:'r',phase:'active'}};
+  assert.equal(await h.context.fetchSimulatorFlightPlan('efb'),false);
+  assert.match(h.nodes.gaFlightPlanStatus.textContent,/Während einer Mission/);
+  assert.equal(h.exports.length,0);
+});

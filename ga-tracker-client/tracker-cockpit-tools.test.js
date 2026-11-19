@@ -77,3 +77,26 @@ test('Direct To keeps known departure and destination elevations including sea l
   const route=buildRoute(start,{icao:'TEST',name:'Mountain',lat:49,lon:9,elevation:5432},'Start','ZERO');
   assert.equal(route[0].elevationFt,0);assert.equal(route[1].elevationFt,5432);
 });
+
+test('free navigation route is exported for EFB send and an imported simulator route replaces it', async () => {
+  const f = fixture();
+  assert.equal((await f.tools.execute({ intent: 'flightplan_export', payload: { free: true } })).error, 'flightplan_route_invalid');
+  const adopted = await f.tools.execute({ intent: 'navigation_adopt', expectedRevision: 0, payload: { routeId: '',
+    departureIcao: 'EDTL', destinationIcao: 'EDTO',
+    points: [{ lat: 48.3693, lng: 7.8277, name: 'EDTL', icao: 'EDTL' }, { lat: 49, lng: 8.3, name: 'KRH' }, { lat: 48.45, lng: 7.92, name: 'EDTO', icao: 'EDTO' }] } });
+  assert.equal(adopted.ok, true);
+  const nav = adopted.navigation;
+  const exported = await f.tools.execute({ intent: 'flightplan_export', payload: { free: true, routeId: nav.id, navigationRevision: nav.revision, cruiseAltitudeFt: 4500 } });
+  assert.equal(exported.ok, true);
+  assert.equal(exported.plan.schema, 'ga.flightplan-export.v1');
+  assert.equal(exported.plan.free, true);
+  assert.equal(exported.plan.missionId, '');
+  assert.equal(exported.plan.departureIcao, 'EDTL');
+  assert.equal(exported.plan.destinationIcao, 'EDTO');
+  assert.equal(exported.plan.cruiseAltitudeFt, 4500);
+  assert.deepEqual(exported.plan.points.map((point) => point.name), ['EDTL', 'KRH', 'EDTO']);
+  assert.match(exported.plan.routeHash, /^[0-9a-f]{64}$/);
+  assert.equal((await f.tools.execute({ intent: 'flightplan_export', payload: { free: true, routeId: nav.id, navigationRevision: nav.revision + 1 } })).error, 'flightplan_route_changed');
+  f.setRun({ missionId: 'active', runId: 'r' });
+  assert.equal((await f.tools.execute({ intent: 'flightplan_export', payload: { free: true } })).error, 'mission_authority_conflict');
+});

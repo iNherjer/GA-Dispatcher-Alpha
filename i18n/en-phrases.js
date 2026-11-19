@@ -1380,6 +1380,11 @@
         "Wirkt, solange die VFR-Lufträume eingeblendet sind.": "Applies while the VFR airspace overlay is shown.",
         "Weniger abblenden": "Dim less",
         "Stärker abblenden": "Dim more",
+        "Kartenspeicher": "Map cache",
+        "Ein": "On",
+        "Über Tracker (gespeichert)": "Via tracker (cached)",
+        "Direkt aus dem Internet": "Directly from the internet",
+        "Lädt Karten über den Tracker und speichert sie auf dem PC. Bleiben Kacheln schwarz, hier ausschalten.": "Loads maps through the tracker and keeps them on the PC. If tiles stay black, switch this off here.",
 
         // API key check (app.js setApiKeyValidationStatus)
         'Pruefe API-Key...': 'Checking API key...',

@@ -29,6 +29,7 @@ const { EfbPackageManager } = require('./lib/efb-package-manager');
 const { HomebaseAssetManager } = require('./lib/homebase-manager');
 const { TrackerRuntimeManager } = require('./lib/runtime-manager');
 const { TrackerProcess } = require('./lib/tracker-process');
+const { clearMapTileCache, formatCacheSize, mapTileCacheDirectory, mapTileCacheStats } = require('./lib/map-tile-cache');
 const { UpdateController } = require('./lib/update-controller');
 const { WindowsMedia } = require('./lib/windows-media');
 const windowsMedia = new WindowsMedia();
@@ -672,6 +673,20 @@ function registerIpc() {
   ipcMain.handle('efb:uninstall', (_event, payload) => {
     if (payload?.confirmed !== true) return { ok: false, message: 'Ausdrückliche Bestätigung fehlt.' };
     return efbPackageManager.uninstall();
+  });
+  // Local map tile cache (EFB/Toolbar maps): size and clearing after confirmation in the UI.
+  ipcMain.handle('map-tile-cache:stats', async () => {
+    const stats = await mapTileCacheStats(mapTileCacheDirectory(trackerApplicationRoot));
+    return { ok: true, ...stats, sizeLabel: formatCacheSize(stats.bytes) };
+  });
+  ipcMain.handle('map-tile-cache:clear', async (_event, payload) => {
+    if (payload?.confirmed !== true) return { ok: false, message: 'Ausdrückliche Bestätigung fehlt.' };
+    try {
+      const result = await clearMapTileCache({ directory: mapTileCacheDirectory(trackerApplicationRoot), trackerProcess });
+      return { ...result, sizeLabel: formatCacheSize(result.removedBytes) };
+    } catch (error) {
+      return { ok: false, message: String(error?.message || error) };
+    }
   });
   ipcMain.handle('system:open-data-folder', async () => {
     const error = await shell.openPath(configStore.dataDirectory);

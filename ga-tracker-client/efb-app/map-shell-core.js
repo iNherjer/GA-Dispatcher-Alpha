@@ -189,6 +189,8 @@ function normalizePreferences(value = {}) {
     baseDimPercent: dimValue === null
       ? BASE_DIM_DEFAULT_PERCENT
       : Math.max(0, Math.min(BASE_DIM_MAX_PERCENT, Math.round(dimValue))),
+    // Load tiles through the tracker disk cache first (switchable in the layer menu).
+    tileCache: source.tileCache !== false,
     follow: source.follow !== false,
     theme: 'classic',
     toolbarCollapsed: source.toolbarCollapsed === true,

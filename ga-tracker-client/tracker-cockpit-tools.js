@@ -62,7 +62,15 @@ function createCockpitTools(options) {
       return options.tuneRadio ? options.tuneRadio(data) : {ok:false,error:'radio_unavailable'};
     }
     if (request.intent === 'flightplan_export') {
-      try { return { ok: true, status: 'ok', plan: require('./tracker-flightplan-export').createFlightPlanExport(options.getRun(), data) }; }
+      const exporter = require('./tracker-flightplan-export');
+      try {
+        // Without a mission the free navigation route is sent (EFB/Toolbar).
+        if (data.free === true) {
+          if (options.getRun()) return { ok: false, status: 'conflict', error: 'mission_authority_conflict' };
+          return { ok: true, status: 'ok', plan: exporter.createFreeFlightPlanExport(route, data) };
+        }
+        return { ok: true, status: 'ok', plan: exporter.createFlightPlanExport(options.getRun(), data) };
+      }
       catch (error) { return { ok: false, error: error.message }; }
     }
     if (request.intent === 'navigation_get') return { ok: true, status: 'ok', navigation: navigation(), map: snapshot() };

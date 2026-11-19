@@ -27,6 +27,23 @@ liefert alles Offene mit aus.
 
 ## Offen
 
+### 2026-11-19 · EFB-/Toolbar-Paket 0.4.28: Flugplan aus Simulator holen
+- **Artefakt:** EFB-Paket (offizieller Windows-SDK-Bau, nicht auf dem Mac)
+- **Dateien:** `ga-tracker-client/efb-app/flightplan-bridge-core.js`, `ga-tracker-client/efb-app/native-flightplan-bridge.js` und die identischen Toolbar-Kopien unter `toolbar-panel/PackageSources/html_ui/InGamePanels/VfrMultitool/`; Version 0.4.28 in `PackageDefinitions/vfr-multitool-efb.xml`, `package.json`, `package-lock.json`.
+- **Was:** Route aus EFB-Planung (`GET_EFB_ROUTE`), Flugsicherung (`GET_ATC_ROUTE`) und Avionik (`REQUEST_AVIONICS_ROUTE` + Ereignis, Rückfall `AvionicsRouteSync`) lesen und als Navigationsroute melden; Fixe über die Facility-Datenbank aufgelöst, Verfahren/Airways nur als Hinweis. Neue Nachricht `ga-flightplan-fetch`, Fähigkeit `fetch`.
+- **Warum:** Rückweg zu „Flugplan senden“ (Anregung FSPM/OSM VFR Map).
+- **Tests:** `efb-app/flightplan-bridge-core.test.js` (15), `efb-app/flightplan-native.test.js` (7), `tracker-efb-asset-syntax.test.js`.
+- **Doku beim Release:** `docs/EFB-0.4.28-SDK-Handoff.md` mit Build-Hash ergänzen, `docs/EFB-Community-Package.md`.
+- **Pruefen im Feld:** siehe Handoff (EFB und Toolbar, Avionik mit/ohne Antwort).
+
+### 2026-11-19 · Desktop-App: Knopf „Karten-Cache leeren“
+- **Artefakt:** Desktop-App (nächste Version nach 1.6.40)
+- **Dateien:** `ga-tracker-client/desktop/lib/map-tile-cache.js` (neu), `lib/tracker-process.js`, `main.js`, `preload.js`, `ui/index.html`, `ui/renderer.js`, `ui/i18n-en.js`, `tests/map-tile-cache.test.js`.
+- **Was:** Knopf neben „Datenordner“, Rückfrage mit Größe und Kachelzahl; bei laufendem Tracker über dessen Endpunkt, sonst Ordner löschen.
+- **Tests:** `cd ga-tracker-client/desktop && npm test` (152 bestanden, 3 übersprungen).
+- **Doku beim Release:** `docs/EFB-Development-Plan.md` Abschnitt 19.11.2026 um Desktop-Version ergänzen.
+- **Pruefen im Feld:** Knopf mit leerem und gefülltem Speicher, Tracker an und aus.
+
 ## Ausgeliefert
 
 ### 2026-11-19 · Passagierstimme in der Missionssprache — ausgeliefert in Tracker v650 Alpha (19.11.2026)

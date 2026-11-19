@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const source = fs.readFileSync(require.resolve('./tracker-efb-kartentisch-host.js'), 'utf8');
 
-function fixture() {
+function fixture({ tileCache = false } = {}) {
   let nextTimer = 0;
   const timers = new Map(), requests = [], completions = [];
   const document = { createElement() { return {
@@ -25,7 +25,7 @@ function fixture() {
       Object.assign(Layer.prototype, methods); return Layer;
     } }
   };
-  const context = vm.createContext({ document, L, tileHealthReported: {}, report() {}, window: {
+  const context = vm.createContext({ document, L, tileHealthReported: {}, report() {}, preferences: { tileCache }, window: {
     setTimeout(fn, ms) { const id = ++nextTimer; timers.set(id, { fn, ms }); return id; },
     clearTimeout(id) { timers.delete(id); }
   } });
@@ -89,4 +89,13 @@ test('zoom abort cancels a pending backup and ignores late callbacks', () => {
  const fresh=f.layer.createTile({x:12,y:15,z:18},()=>{});
  fresh.onerror();fresh.onload();
  assert.equal(f.timers.size,0,'new visible tiles still complete after an abort');
+});
+
+test('with the map tile cache on, the tracker proxy is tried first and the direct source is the fallback', () => {
+  const f = fixture({ tileCache: true });
+  assert.equal(f.requests[0], '/proxy/11/12/15');
+  assert.equal(f.advance(), 4500);
+  assert.equal(f.requests[1], 'https://primary/11/12/15');
+  assert.equal(f.advance(), 7000);
+  assert.equal(f.requests[2], 'https://backup/11/12/15');
 });

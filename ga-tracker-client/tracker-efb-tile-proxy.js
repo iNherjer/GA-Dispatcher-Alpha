@@ -1,9 +1,31 @@
 'use strict';
 
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+
 const MAX_TILE_BYTES = 2 * 1024 * 1024;
 const DEFAULT_TILE_CACHE_ENTRIES = 192;
 const DEFAULT_TILE_CACHE_BYTES = 32 * 1024 * 1024;
 const DEFAULT_TILE_TIMEOUT_MS = 9000;
+// Local disk cache (FSPM-style): tiles are served from the PC until they are
+// old, then revalidated. At least 7 days (OSM tile policy), at most 30 days.
+const DEFAULT_DISK_CACHE_BYTES = 1024 * 1024 * 1024;
+const DISK_CACHE_MIN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const DISK_CACHE_MAX_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const DISK_CACHE_DIRNAME = 'Map Tile Cache';
+
+// Outside the synced Documents folder: next to the runtimes in LocalAppData.
+function defaultTileCacheDirectory(env = process.env) {
+  const base = String(env.VFR_MULTITOOL_LOCAL_APP_DATA_DIR || env.LOCALAPPDATA || '').trim() || os.tmpdir();
+  return path.join(base, 'VFR Multitool', DISK_CACHE_DIRNAME);
+}
+
+function cacheTtlMs(cacheControl) {
+  const match = /max-age\s*=\s*(\d+)/i.exec(String(cacheControl || ''));
+  const seconds = match ? Number(match[1]) : 0;
+  return Math.max(DISK_CACHE_MIN_TTL_MS, Math.min(DISK_CACHE_MAX_TTL_MS, seconds * 1000));
+}
 
 const TILE_SOURCES = Object.freeze({
   topo: Object.freeze({
@@ -82,6 +104,130 @@ function createTrackerEfbTileProxy(options = {}) {
   const inflight = new Map();
   const readyLayers = new Set();
   const lastErrorAt = new Map();
+  const now = typeof options.now === 'function' ? options.now : Date.now;
+  const diskDir = options.cacheDir ? path.resolve(String(options.cacheDir)) : '';
+  const maxDiskBytes = Math.max(16 * 1024 * 1024, Number(options.maxDiskBytes) || DEFAULT_DISK_CACHE_BYTES);
+  let diskBytes = 0;
+  let diskFiles = 0;
+  let diskGeneration = 0;
+  let evicting = null;
+  let diskErrorLogged = false;
+  const diskStats = { hits: 0, revalidated: 0, stale: 0, writes: 0 };
+
+  function diskError(stage, error) {
+    if (diskErrorLogged) return;
+    diskErrorLogged = true;
+    log(`EFB_TILE_CACHE_ERROR stage=${stage} error=${sanitize(error && error.message || error)}`);
+  }
+
+  function diskPaths(tile) {
+    const dir = path.join(diskDir, tile.layer, String(tile.z), String(tile.x));
+    return { dir, body: path.join(dir, `${tile.y}.tile`), meta: path.join(dir, `${tile.y}.json`) };
+  }
+
+  async function walkDisk(visit) {
+    async function walk(dir, depth) {
+      let entries = [];
+      try { entries = await fs.promises.readdir(dir, { withFileTypes: true }); } catch (_) { return; }
+      for (const entry of entries) {
+        const full = path.join(dir, entry.name);
+        if (entry.isDirectory() && depth < 3) await walk(full, depth + 1);
+        else if (entry.isFile() && entry.name.endsWith('.json')) await visit(full);
+      }
+    }
+    await walk(diskDir, 0);
+  }
+
+  async function readMeta(file) {
+    try { return JSON.parse(await fs.promises.readFile(file, 'utf8')); } catch (_) { return null; }
+  }
+
+  // Total size on start; the cache only grows through this process afterwards.
+  const scanned = !diskDir ? Promise.resolve() : walkDisk(async (file) => {
+    const meta = await readMeta(file);
+    if (!meta) return;
+    diskBytes += Number(meta.bytes) || 0;
+    diskFiles += 1;
+  }).catch((error) => diskError('scan', error));
+
+  async function readDisk(tile) {
+    if (!diskDir) return null;
+    const files = diskPaths(tile);
+    const meta = await readMeta(files.meta);
+    if (!meta || !String(meta.contentType || '').startsWith('image/')) return null;
+    try {
+      const body = await fs.promises.readFile(files.body);
+      if (!body.length || body.length > MAX_TILE_BYTES) return null;
+      return { body, contentType: meta.contentType, meta };
+    } catch (_) { return null; }
+  }
+
+  async function writeDisk(tile, result, headerInfo, previous) {
+    if (!diskDir) return;
+    const generation = diskGeneration;
+    const files = diskPaths(tile);
+    const fetchedAt = now();
+    const meta = {
+      contentType: result.contentType,
+      bytes: result.body.length,
+      fetchedAt,
+      expiresAt: fetchedAt + cacheTtlMs(headerInfo.cacheControl),
+      etag: headerInfo.etag || '',
+      lastModified: headerInfo.lastModified || ''
+    };
+    try {
+      await fs.promises.mkdir(files.dir, { recursive: true });
+      if (generation !== diskGeneration) return;
+      const suffix = `.${process.pid}.${Math.random().toString(36).slice(2)}.tmp`;
+      await fs.promises.writeFile(files.body + suffix, result.body);
+      await fs.promises.rename(files.body + suffix, files.body);
+      await fs.promises.writeFile(files.meta + suffix, JSON.stringify(meta));
+      await fs.promises.rename(files.meta + suffix, files.meta);
+      if (generation !== diskGeneration) return;
+      diskBytes += meta.bytes - (previous ? Number(previous.meta.bytes) || 0 : 0);
+      if (!previous) diskFiles += 1;
+      diskStats.writes += 1;
+      if (diskBytes > maxDiskBytes) void evictDisk();
+    } catch (error) { diskError('write', error); }
+  }
+
+  async function touchDisk(tile, previous, headerInfo) {
+    const files = diskPaths(tile);
+    const fetchedAt = now();
+    const meta = Object.assign({}, previous.meta, {
+      fetchedAt,
+      expiresAt: fetchedAt + cacheTtlMs(headerInfo.cacheControl || ''),
+      etag: headerInfo.etag || previous.meta.etag || '',
+      lastModified: headerInfo.lastModified || previous.meta.lastModified || ''
+    });
+    try { await fs.promises.writeFile(files.meta, JSON.stringify(meta)); } catch (error) { diskError('touch', error); }
+  }
+
+  // Oldest tiles go first until the cache is back at 90 % of its limit.
+  function evictDisk() {
+    if (evicting) return evicting;
+    evicting = (async () => {
+      const items = [];
+      await walkDisk(async (file) => {
+        const meta = await readMeta(file);
+        items.push({ file, bytes: meta ? Number(meta.bytes) || 0 : 0, fetchedAt: meta ? Number(meta.fetchedAt) || 0 : 0 });
+      });
+      items.sort((a, b) => a.fetchedAt - b.fetchedAt);
+      let total = items.reduce((sum, item) => sum + item.bytes, 0);
+      let files = items.length;
+      for (const item of items) {
+        if (total <= maxDiskBytes * 0.9) break;
+        await fs.promises.rm(item.file, { force: true }).catch(() => {});
+        await fs.promises.rm(item.file.replace(/\.json$/, '.tile'), { force: true }).catch(() => {});
+        total -= item.bytes;
+        files -= 1;
+      }
+      diskBytes = total;
+      diskFiles = files;
+      log(`EFB_TILE_CACHE_EVICT bytes=${total} files=${files}`);
+    })().catch((error) => diskError('evict', error)).finally(() => { evicting = null; });
+    return evicting;
+  }
 
   function touch(key, value) {
     const previous = cache.get(key);
@@ -97,7 +243,7 @@ function createTrackerEfbTileProxy(options = {}) {
     }
   }
 
-  async function fetchTile(tile) {
+  async function fetchTile(tile, previous) {
     const source = TILE_SOURCES[tile.layer];
     let lastError = null;
     for (const template of source.urls) {
@@ -105,20 +251,29 @@ function createTrackerEfbTileProxy(options = {}) {
       const controller = typeof AbortController === 'function' ? new AbortController() : null;
       const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
       try {
+        const headers = {
+          Accept: 'image/avif,image/webp,image/apng,image/png,image/*,*/*;q=0.8',
+          'User-Agent': 'VFR-Multitool-Tracker-EFB/1.0'
+        };
+        // Expired disk copy: ask the server whether it is still current.
+        if (previous && previous.meta.etag) headers['If-None-Match'] = previous.meta.etag;
+        if (previous && previous.meta.lastModified) headers['If-Modified-Since'] = previous.meta.lastModified;
         const response = await fetchRemote(upstreamUrl, {
-          headers: {
-            Accept: 'image/avif,image/webp,image/apng,image/png,image/*,*/*;q=0.8',
-            'User-Agent': 'VFR-Multitool-Tracker-EFB/1.0'
-          },
+          headers,
           redirect: 'follow',
           signal: controller?.signal
         });
+        const header = (name) => String(response?.headers?.get?.(name) || '');
+        const headerInfo = { cacheControl: header('cache-control'), etag: header('etag'), lastModified: header('last-modified') };
+        if (previous && Number(response?.status) === 304) {
+          return { body: previous.body, contentType: previous.contentType, upstreamUrl, headerInfo, notModified: true };
+        }
         if (!response || response.ok !== true) throw new Error(`upstream_http_${Number(response?.status) || 0}`);
         const contentType = String(response.headers?.get?.('content-type') || 'image/png').split(';')[0].trim().toLowerCase();
         if (!contentType.startsWith('image/')) throw new Error(`upstream_content_type_${contentType || 'missing'}`);
         const body = Buffer.from(await response.arrayBuffer());
         if (!body.length || body.length > MAX_TILE_BYTES) throw new Error(`upstream_tile_size_${body.length}`);
-        const result = { body, contentType, upstreamUrl };
+        const result = { body, contentType, upstreamUrl, headerInfo };
         if (!readyLayers.has(tile.layer)) {
           readyLayers.add(tile.layer);
           log(`EFB_TILE_PROXY_READY layer=${tile.layer} bytes=${body.length}`);
@@ -146,27 +301,84 @@ function createTrackerEfbTileProxy(options = {}) {
       return { ...cached, cache: 'hit' };
     }
     if (inflight.has(key)) return inflight.get(key);
-    const pending = fetchTile(tile).then((result) => {
-      touch(key, result);
-      return { ...result, cache: 'miss' };
-    }).finally(() => inflight.delete(key));
+    const pending = (async () => {
+      const disk = await readDisk(tile);
+      if (disk && Number(disk.meta.expiresAt) > now()) {
+        diskStats.hits += 1;
+        const hit = { body: disk.body, contentType: disk.contentType };
+        touch(key, hit);
+        return { ...hit, cache: 'disk' };
+      }
+      let result;
+      try {
+        result = await fetchTile(tile, disk);
+      } catch (error) {
+        // Offline or upstream down: an old copy is better than no map.
+        if (!disk) throw error;
+        diskStats.stale += 1;
+        const stale = { body: disk.body, contentType: disk.contentType };
+        touch(key, stale);
+        return { ...stale, cache: 'stale' };
+      }
+      const fresh = { body: result.body, contentType: result.contentType, upstreamUrl: result.upstreamUrl };
+      touch(key, fresh);
+      if (result.notModified) {
+        diskStats.revalidated += 1;
+        void touchDisk(tile, disk, result.headerInfo);
+        return { ...fresh, cache: 'revalidated' };
+      }
+      void writeDisk(tile, fresh, result.headerInfo, disk);
+      return { ...fresh, cache: 'miss' };
+    })().finally(() => inflight.delete(key));
     inflight.set(key, pending);
     return pending;
   }
 
+  async function stats() {
+    await scanned;
+    return { enabled: !!diskDir, directory: diskDir, bytes: diskBytes, files: diskFiles, maxBytes: maxDiskBytes,
+      memoryEntries: cache.size, memoryBytes: cacheBytes, ...diskStats };
+  }
+
+  // Removes every cached tile (disk and memory). Running fetches finish but do
+  // not write into the emptied cache.
+  async function clear() {
+    await scanned;
+    if (evicting) await evicting;
+    diskGeneration += 1;
+    const removedBytes = diskBytes;
+    const removedFiles = diskFiles;
+    cache.clear();
+    cacheBytes = 0;
+    if (diskDir) await fs.promises.rm(diskDir, { recursive: true, force: true });
+    diskBytes = 0;
+    diskFiles = 0;
+    log(`EFB_TILE_CACHE_CLEARED bytes=${removedBytes} files=${removedFiles}`);
+    return { ok: true, removedBytes, removedFiles };
+  }
+
   return {
     get,
+    stats,
+    clear,
+    ready: () => scanned,
     get cacheSize() { return cache.size; },
-    get cacheBytes() { return cacheBytes; }
+    get cacheBytes() { return cacheBytes; },
+    get diskBytes() { return diskBytes; }
   };
 }
 
 module.exports = {
+  DEFAULT_DISK_CACHE_BYTES,
+  DISK_CACHE_MAX_TTL_MS,
+  DISK_CACHE_MIN_TTL_MS,
   DEFAULT_TILE_CACHE_BYTES,
   DEFAULT_TILE_CACHE_ENTRIES,
   MAX_TILE_BYTES,
   TILE_SOURCES,
+  cacheTtlMs,
   createTrackerEfbTileProxy,
+  defaultTileCacheDirectory,
   parseTrackerEfbTilePath,
   tileUrl
 };

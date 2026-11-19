@@ -37,6 +37,8 @@ const EFB_COCKPIT_SESSION_HEARTBEAT_PATH = '/api/v1/cockpit/sessions/heartbeat';
 const EFB_COCKPIT_SESSION_RELEASE_PATH = '/api/v1/cockpit/sessions/release';
 const EFB_MISSION_INTENT_PATH = '/api/v1/mission/intents';
 const TRACKER_MISSION_HARD_RESET_PATH = '/api/v1/tracker/mission/hard-reset';
+const TRACKER_MAP_TILE_CACHE_PATH = '/api/v1/tracker/map-tile-cache';
+const TRACKER_MAP_TILE_CACHE_CLEAR_PATH = '/api/v1/tracker/map-tile-cache/clear';
 const TRACKER_SHUTDOWN_PATH = '/api/v1/tracker/shutdown';
 const MAX_EFB_CLIENT_LOG_BYTES = 8192;
 const MAX_EFB_VOICE_REQUEST_BYTES = 16384;
@@ -316,6 +318,7 @@ function createTrackerEfbHttpServer(options = {}) {
   let clientLogRateLimitReported = false;
   const tileProxy = createTrackerEfbTileProxy({
     fetchRemote: options.fetchRemote,
+    cacheDir: options.tileCacheDir || '',
     log
   });
   const mapContextProvider = options.mapContextProvider || createTrackerEfbMapContextProvider({
@@ -501,6 +504,26 @@ function createTrackerEfbHttpServer(options = {}) {
       }
       jsonResponse(response, 202, { hello, message: createMessage('tracker.shutdown', { accepted: true }) });
       setImmediate(() => { void shutdown(); });
+      return;
+    }
+    // Local map tile cache: size for the desktop app, clearing only with its control token.
+    if (request.method === 'GET' && pathname === TRACKER_MAP_TILE_CACHE_PATH) {
+      jsonResponse(response, 200, { hello, message: createMessage('tracker.map-tile-cache', await tileProxy.stats()) });
+      return;
+    }
+    if (request.method === 'POST' && pathname === TRACKER_MAP_TILE_CACHE_CLEAR_PATH) {
+      request.resume();
+      if (!hasDesktopControlToken(request, desktopControlToken)) {
+        jsonResponse(response, 403, { error: 'tracker_desktop_control_rejected' });
+        return;
+      }
+      try {
+        const result = await tileProxy.clear();
+        jsonResponse(response, 200, { hello, message: createMessage('tracker.map-tile-cache.clear', Object.assign(result, await tileProxy.stats())) });
+      } catch (error) {
+        log(`EFB_TILE_CACHE_CLEAR_ERROR error=${sanitizeLogField(error?.message || error, 120)}`);
+        jsonResponse(response, 500, { error: 'map_tile_cache_clear_failed' });
+      }
       return;
     }
     if (request.method === 'POST' && pathname === TRACKER_MISSION_HARD_RESET_PATH) {
@@ -872,6 +895,8 @@ module.exports = {
   EFB_COCKPIT_SESSION_RELEASE_PATH,
   EFB_MISSION_INTENT_PATH,
   TRACKER_MISSION_HARD_RESET_PATH,
+  TRACKER_MAP_TILE_CACHE_CLEAR_PATH,
+  TRACKER_MAP_TILE_CACHE_PATH,
   EFB_VOICE_JOB_PATH,
   EFB_VOICE_PLAYBACK_CLAIM_PATH,
   EFB_VOICE_PLAYBACK_NEXT_PATH,

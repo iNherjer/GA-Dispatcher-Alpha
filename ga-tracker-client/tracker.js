@@ -6010,6 +6010,8 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
       mapContextProvider: navigationData.aviation,
       profileData: require('./tracker-profile-data').createProfileData(navigationData),
       desktopControlToken: TRACKER_DESKTOP_CONTROL_TOKEN,
+      // Local map tile cache in LocalAppData (not the synced Documents folder).
+      tileCacheDir: require('./tracker-efb-tile-proxy').defaultTileCacheDirectory(),
       hardResetMission: hardResetTrackerMission,
       shutdown: () => shutdownTracker('desktop-stop'),
       log: debugLog

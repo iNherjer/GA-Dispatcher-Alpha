@@ -101,8 +101,91 @@
     }) && (expected.cruiseAltitude === null || actual.cruiseAltitude && actual.cruiseAltitude.isFlightLevel === false
       && Math.abs(actual.cruiseAltitude.altitude - expected.cruiseAltitude.altitude) < 1);
   }
+  // ---- Reading a simulator route (EFB planner, ATC or avionics) ----
+  var IMPORT_SOURCES = ['efb', 'atc', 'avionics'];
+  var IMPORT_MAX_POINTS = 128; // limit of the navigation route
+  var EARTH_RADIUS_NM = 3440.065;
+  function identOf(icao) { return icao && icao.ident ? String(icao.ident).trim().toUpperCase() : ''; }
+  // Point at a true bearing and distance (nm) from a reference (great circle).
+  function destinationPoint(lat, lon, bearingDeg, distanceNm) {
+    var rad = Math.PI / 180, d = distanceNm / EARTH_RADIUS_NM, b = bearingDeg * rad;
+    var lat1 = lat * rad, lon1 = lon * rad;
+    var lat2 = Math.asin(Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(b));
+    var lon2 = lon1 + Math.atan2(Math.sin(b) * Math.sin(d) * Math.cos(lat1), Math.cos(d) - Math.sin(lat1) * Math.sin(lat2));
+    return { lat: lat2 / rad, lon: ((lon2 / rad + 540) % 360) - 180 };
+  }
+  function validCoordinate(lat, lon) {
+    return typeof lat === 'number' && typeof lon === 'number' && isFinite(lat) && isFinite(lon)
+      && Math.abs(lat) <= 90 && Math.abs(lon) <= 180 && !(lat === 0 && lon === 0);
+  }
+  function routeIsEmpty(route) {
+    return !identOf(route.departureAirport) && !identOf(route.destinationAirport)
+      && !(Array.isArray(route.enroute) && route.enroute.length);
+  }
+  // Converts a JS_FlightPlanRoute into the navigation route format. Fixes without
+  // coordinates are looked up in the simulator's facility database. Procedures
+  // (SID/STAR/approach) and airways are not expanded: they become warnings and a
+  // direct line to the next fix.
+  async function parseRoute(route, resolveFacility, source) {
+    if (!route || route.__Type !== 'JS_FlightPlanRoute' || routeIsEmpty(route)) throw new Error('flightplan_import_empty');
+    var points = [], warnings = [];
+    async function locate(icao) {
+      if (!identOf(icao)) return null;
+      if (typeof resolveFacility !== 'function') { if (warnings.indexOf('facility_lookup_unavailable') < 0) warnings.push('facility_lookup_unavailable'); return null; }
+      try {
+        var found = await resolveFacility(icao);
+        return found && validCoordinate(found.lat, found.lon) ? found : null;
+      } catch (_) { return null; }
+    }
+    function push(lat, lon, name, icao) {
+      if (!validCoordinate(lat, lon)) return false;
+      var last = points[points.length - 1];
+      if (last && Math.abs(last.lat - lat) < 1e-6 && Math.abs(last.lon - lon) < 1e-6) return true;
+      points.push({ lat: lat, lon: lon, name: String(name || 'WP' + (points.length + 1)).slice(0, 100), icao: icao || '' });
+      return true;
+    }
+    async function airport(icao) {
+      var ident = identOf(icao);
+      if (!ident) return '';
+      var found = await locate(icao);
+      if (!found || !push(found.lat, found.lon, ident, ident)) warnings.push('airport_unresolved:' + ident);
+      return ident;
+    }
+    var departureIcao = await airport(route.departureAirport);
+    if (route.departure) warnings.push('procedure_skipped:SID ' + String(route.departure).slice(0, 12));
+    var legs = Array.isArray(route.enroute) ? route.enroute : [];
+    for (var index = 0; index < legs.length; index++) {
+      var leg = legs[index] || {}, ident = identOf(leg.fixIcao);
+      var name = String(leg.name || ident || 'WP' + (index + 1));
+      if (leg.isPpos === true) { warnings.push('ppos_skipped'); continue; }
+      if (leg.via) warnings.push('airway_direct:' + String(leg.via).slice(0, 8));
+      if (leg.hasLatLon === true) {
+        if (!push(leg.lat, leg.lon, name, '')) warnings.push('point_invalid:' + name.slice(0, 24));
+        continue;
+      }
+      if (leg.hasPointBearingDistance === true) {
+        var reference = await locate(leg.referenceIcao);
+        var at = reference && destinationPoint(reference.lat, reference.lon, Number(leg.bearing) || 0, Number(leg.distance) || 0);
+        if (!at || !push(at.lat, at.lon, name, '')) warnings.push('fix_unresolved:' + (identOf(leg.referenceIcao) || name).slice(0, 24));
+        continue;
+      }
+      var fix = await locate(leg.fixIcao);
+      var isAirport = leg.fixIcao && String(leg.fixIcao.type || '') === 'A';
+      if (!fix || !push(fix.lat, fix.lon, ident || name, isAirport ? ident : '')) warnings.push('fix_unresolved:' + (ident || name).slice(0, 24));
+    }
+    if (route.arrival) warnings.push('procedure_skipped:STAR ' + String(route.arrival).slice(0, 12));
+    if (route.approach && route.approach.type) warnings.push('procedure_skipped:APPROACH');
+    var destinationIcao = await airport(route.destinationAirport);
+    if (points.length < 2) throw new Error(warnings.length ? 'flightplan_import_unresolved' : 'flightplan_import_empty');
+    if (points.length > IMPORT_MAX_POINTS) throw new Error('flightplan_import_too_long');
+    var altitude = route.cruiseAltitude && typeof route.cruiseAltitude.altitude === 'number' && route.cruiseAltitude.altitude > 0
+      ? Math.round(route.cruiseAltitude.altitude) : null;
+    return { plan: { schema: 'ga.flightplan-import.v1', source: source, departureIcao: departureIcao, destinationIcao: destinationIcao,
+      isVfr: route.isVfr === true, cruiseAltitudeFt: altitude, points: points }, warnings: warnings };
+  }
+
   function create(options) {
-    var jobs = new Map(), busy = false;
+    var jobs = new Map(), busy = false, fetching = false;
     var timeoutMs = options.timeoutMs || 8000;
     function log(stage, data) { try { if (options.log) options.log(stage, data); } catch (_) {} }
     function execute(job) {
@@ -162,7 +245,40 @@
       if (jobs.size > 128) jobs.delete(jobs.keys().next().value);
       return promise;
     }
-    return { execute: execute, cancel: function(jobId) { var job = jobs.get(jobId); if (job) job.cancel(); } };
+    // Reads one simulator route. Read-only: never writes to the simulator.
+    function fetchRoute(job) {
+      if (!job || !job.jobId || IMPORT_SOURCES.indexOf(job.source) < 0) return Promise.resolve({ ok: false, jobId: job && job.jobId, error: 'flightplan_request_invalid' });
+      if (fetching) return Promise.resolve({ ok: false, jobId: job.jobId, source: job.source, error: 'flightplan_busy' });
+      fetching = true;
+      var result = { jobId: job.jobId, source: job.source };
+      var started = Date.now();
+      log('fetch:start', result);
+      return Promise.resolve().then(async function() {
+        var manager = await deadline(options.getManager, timeoutMs);
+        var route;
+        if (job.source === 'efb') route = await deadline(function() { return manager.getEfbRoute(); }, timeoutMs);
+        else if (job.source === 'atc') {
+          if (typeof manager.getAtcRoute !== 'function') throw new Error('flightplan_atc_unavailable');
+          route = await deadline(function() { return manager.getAtcRoute(); }, timeoutMs);
+        } else {
+          if (typeof manager.readAvionicsRoute !== 'function') throw new Error('flightplan_avionics_unavailable');
+          var avionics = await manager.readAvionicsRoute(options.avionicsTimeoutMs || 6000);
+          route = avionics.route;
+          if (avionics.via) result.via = avionics.via;
+        }
+        result.received = describeRoute(route);
+        var parsed = await parseRoute(route, options.resolveFacility, job.source);
+        return Object.assign(result, { ok: true, plan: parsed.plan, warnings: parsed.warnings });
+      }).catch(function(error) {
+        return Object.assign(result, { ok: false, error: String(error && error.message || error).slice(0, 180) });
+      }).then(function(value) {
+        fetching = false;
+        log('fetch:result', Object.assign({}, value, { plan: value.plan ? { points: value.plan.points.length, departureIcao: value.plan.departureIcao, destinationIcao: value.plan.destinationIcao } : undefined, durationMs: Date.now() - started }));
+        return value;
+      });
+    }
+    return { execute: execute, fetchRoute: fetchRoute, cancel: function(jobId) { var job = jobs.get(jobId); if (job) job.cancel(); } };
   }
-  return { create: create, buildRoute: buildRoute, buildAtcRoute: buildAtcRoute, matches: matches, matchesAtc: matchesAtc, deadline: deadline };
+  return { create: create, buildRoute: buildRoute, buildAtcRoute: buildAtcRoute, matches: matches, matchesAtc: matchesAtc, deadline: deadline,
+    parseRoute: parseRoute, destinationPoint: destinationPoint };
 });

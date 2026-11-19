@@ -74,6 +74,8 @@ contextBridge.exposeInMainWorld('trackerDesktop', {
   openWiliModPage: () => ipcRenderer.invoke('wili:open-mod-page'),
   openWiliModFolder: () => ipcRenderer.invoke('wili:open-mod-folder'),
   openDataFolder: () => ipcRenderer.invoke('system:open-data-folder'),
+  mapTileCacheStats: () => ipcRenderer.invoke('map-tile-cache:stats'),
+  clearMapTileCache: () => ipcRenderer.invoke('map-tile-cache:clear', { confirmed: true }),
   showAptTestLog: () => ipcRenderer.invoke('system:show-apt-test-log'),
   onStateChanged: (callback) => {
     if (typeof callback !== 'function') return () => {};

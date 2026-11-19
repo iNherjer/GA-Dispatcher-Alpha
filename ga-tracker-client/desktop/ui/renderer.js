@@ -121,6 +121,8 @@ const elements = {
   stopButton: document.getElementById('stopButton'),
   aptTestLogButton: document.getElementById('aptTestLogButton'),
   openFolderButton: document.getElementById('openFolderButton'),
+  clearMapTileCacheButton: document.getElementById('clearMapTileCacheButton'),
+  mapTileCacheMessage: document.getElementById('mapTileCacheMessage'),
   detailStatus: document.getElementById('detailStatus'),
   logOutput: document.getElementById('logOutput'),
   updateDialog: document.getElementById('updateDialog'),
@@ -1214,6 +1216,32 @@ elements.aptTestLogButton.addEventListener('click', async () => {
   }
 });
 elements.openFolderButton.addEventListener('click', () => window.trackerDesktop.openDataFolder());
+
+let mapTileCachePending = false;
+elements.clearMapTileCacheButton.addEventListener('click', async () => {
+  if (mapTileCachePending) return;
+  const stats = await window.trackerDesktop.mapTileCacheStats().catch(() => null);
+  const message = elements.mapTileCacheMessage;
+  if (!stats || !stats.files) {
+    message.className = 'form-message';
+    message.textContent = _dT('Der lokale Karten-Cache ist leer.');
+    return;
+  }
+  const detail = _dT('Lokalen Karten-Cache leeren?') + '\n\n' + stats.sizeLabel + ' · ' + stats.files + ' ' + _dT('Kacheln')
+    + '\n\n' + _dT('EFB und Toolbar laden die Karten danach wieder aus dem Internet.');
+  if (!window.confirm(detail)) return;
+  mapTileCachePending = true;
+  elements.clearMapTileCacheButton.disabled = true;
+  message.className = 'form-message';
+  message.textContent = _dT('Karten-Cache wird geleert …');
+  const result = await window.trackerDesktop.clearMapTileCache().catch((error) => ({ ok: false, message: String(error) }));
+  mapTileCachePending = false;
+  elements.clearMapTileCacheButton.disabled = false;
+  message.className = result?.ok ? 'form-message success' : 'form-message error';
+  message.textContent = result?.ok
+    ? _dT('Karten-Cache geleert') + ': ' + result.sizeLabel + ' · ' + result.removedFiles + ' ' + _dT('Kacheln')
+    : _dT('Karten-Cache konnte nicht vollständig geleert werden.');
+});
 elements.checkDesktopUpdateButton.addEventListener('click', () => window.trackerDesktop.checkDesktopUpdate());
 elements.installDesktopUpdateButton.addEventListener('click', () => window.trackerDesktop.installDesktopUpdate());
 elements.checkRuntimeButton.addEventListener('click', () => window.trackerDesktop.checkRuntimeUpdate());

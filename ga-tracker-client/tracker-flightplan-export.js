@@ -45,6 +45,35 @@ function missionRouteEnds(run) {
   return { departure: point(raw[0], state.currentStartICAO), destination: point(raw[raw.length - 1], state.currentDestICAO) };
 }
 
+function exportPoint(point, index) {
+  const latValue = point.lat ?? point.latitude, lonValue = point.lon ?? point.lng ?? point.longitude;
+  const lat = Number(latValue), lon = Number(lonValue);
+  if (latValue == null || lonValue == null || latValue === '' || lonValue === ''
+    || !Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) throw new Error('flightplan_point_invalid');
+  return { lat, lon, name: String(point.name || point.label || point.icao || `WP${index + 1}`).slice(0, 100),
+    icao: String(point.icao || point.airportIdent || '').trim().toUpperCase().slice(0, 12) };
+}
+
+function airportIdent(value) {
+  const ident = String(value || '').trim().toUpperCase();
+  return /^[A-Z0-9]{3,4}$/.test(ident) && ident !== 'GPS' ? ident : '';
+}
+
+// Free navigation route without a mission (EFB/Toolbar "Flugplan senden").
+function createFreeFlightPlanExport(route, request = {}) {
+  if (!route || !Array.isArray(route.points) || route.points.length < 2 || route.points.length > 512) throw new Error('flightplan_route_invalid');
+  if (request.routeId != null && String(request.routeId) !== String(route.id || '')) throw new Error('flightplan_route_changed');
+  const navigationRevision = Number(route.revision || 0);
+  if (request.navigationRevision != null && Number(request.navigationRevision) !== navigationRevision) throw new Error('flightplan_route_changed');
+  const points = route.points.map(exportPoint);
+  const cruise = Number(request.cruiseAltitudeFt);
+  const plan = { schema: 'ga.flightplan-export.v1', missionId: '', runId: '', free: true, routeId: String(route.id || ''), navigationRevision,
+    departureIcao: airportIdent(route.departureIcao) || airportIdent(points[0].icao),
+    destinationIcao: airportIdent(route.destinationIcao) || airportIdent(points[points.length - 1].icao),
+    cruiseAltitudeFt: Number.isFinite(cruise) && cruise >= 500 && cruise <= 45000 ? Math.round(cruise) : null, isVfr: true, points };
+  return { ...plan, routeHash: crypto.createHash('sha256').update(JSON.stringify(plan)).digest('hex') };
+}
+
 // Read the private, complete route. Never export the bounded map projection.
 function createFlightPlanExport(run, request = {}) {
   if (!run || run.missionId !== request.missionId || run.runId !== request.runId) throw new Error('flightplan_run_changed');
@@ -55,14 +84,7 @@ function createFlightPlanExport(run, request = {}) {
   const contract = mission.missionContract || state.activeMissionContract || {};
   const raw = missionRouteSource(run);
   if (!raw || raw.length > 512) throw new Error('flightplan_route_invalid');
-  let points = raw.map((point, index) => {
-    const latValue = point.lat ?? point.latitude, lonValue = point.lon ?? point.lng ?? point.longitude;
-    const lat = Number(latValue), lon = Number(lonValue);
-    if (latValue == null || lonValue == null || latValue === '' || lonValue === ''
-      || !Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) throw new Error('flightplan_point_invalid');
-    return { lat, lon, name: String(point.name || point.label || point.icao || `WP${index + 1}`).slice(0, 100),
-      icao: String(point.icao || point.airportIdent || '').trim().toUpperCase().slice(0, 12) };
-  });
+  let points = raw.map(exportPoint);
   // Only the World Map air start uses the save point; everything else gets the
   // complete mission plan.
   const savePoint = resumeStart(request.startAt);
@@ -82,4 +104,4 @@ function createFlightPlanExport(run, request = {}) {
     ...(resume ? { resumeFrom: { lat: resume.lat, lon: resume.lon }, airStart: 'spawn-only' } : {}) };
   return { ...plan, routeHash: crypto.createHash('sha256').update(JSON.stringify(plan)).digest('hex') };
 }
-module.exports = { createFlightPlanExport, missionRouteEnds };
+module.exports = { createFlightPlanExport, createFreeFlightPlanExport, missionRouteEnds };

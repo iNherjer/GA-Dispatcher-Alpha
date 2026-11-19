@@ -126,6 +126,29 @@
   var flightPlanRequestPending = false;
   // Run whose route the simulator ATC changed on the World Map (field test 09.11.2026).
   var atcRouteChangedRun = '';
+  // Reading simulator routes (EFB/Toolbar package 0.4.28+, capability flag "fetch").
+  var flightPlanFetchSupported = false;
+  var flightPlanAvionicsFetch = false;
+  var flightPlanFetchJob = null;
+  var flightPlanImport = null;
+  var flightPlanImportPending = false;
+  var FLIGHTPLAN_SOURCE_LABELS = { efb: 'EFB-Planung', atc: 'Flugsicherung', avionics: 'Avionik' };
+  function flightPlanEscape(value) {
+    return String(value == null ? '' : value).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function missionRunActive() {
+    var control = missionSnapshot && missionSnapshot.control;
+    return !!(control && control.runId && control.missionId && control.phase !== 'closed');
+  }
+  // The free navigation route (no mission); empty when no route exists yet.
+  function freeNavigationRoute() {
+    if (mapSnapshot && mapSnapshot.missionId) return null;
+    var edit = mapSnapshot && mapSnapshot.routeEdit || {};
+    var points = mapSnapshot && mapSnapshot.route && Array.isArray(mapSnapshot.route.waypoints) ? mapSnapshot.route.waypoints : [];
+    return { id: String(edit.id || ''), revision: Number(edit.revision) || 0, points: points };
+  }
 
   function flightPlanMessage(type, data) {
     window.parent.postMessage(Object.assign({ type: type, channel: window.__gaEfbChannel }, data || {}), '*');
@@ -159,14 +182,23 @@
       flightPlanAtcReadyUntil = data.ready === true && data.atcReady === true && flightPlanBridgeHost ? Date.now() + 12000 : 0;
       if (flightPlanAtcReadyUntil) flightPlanAtcKnownHost = flightPlanBridgeHost;
       else if (flightPlanAtcKnownHost !== flightPlanBridgeHost) flightPlanAtcKnownHost = '';
+      var fetchBefore = flightPlanFetchSupported + ':' + flightPlanAvionicsFetch;
+      flightPlanFetchSupported = data.ready === true && data.fetch === true && !!flightPlanBridgeHost;
+      flightPlanAvionicsFetch = flightPlanFetchSupported && data.avionicsFetch === true;
+      if (fetchBefore !== flightPlanFetchSupported + ':' + flightPlanAvionicsFetch) requestSideDrawerRefresh();
       renderMissionActionBanner(missionSnapshot);
       if (wasReady !== (Date.now() < flightPlanBridgeReadyUntil)) requestSideDrawerRefresh();
+    }
+    if (data.type === 'ga-flightplan-fetched' && data.result && flightPlanFetchJob && data.result.jobId === flightPlanFetchJob.jobId) {
+      handleFetchedFlightPlan(flightPlanFetchJob, data.result);
+      return;
     }
     if (data.type === 'ga-flightplan-result' && data.result && flightPlanJobs[data.result.jobId]) {
       var pending = flightPlanJobs[data.result.jobId];
       var result = data.result;
       if (result.routeHash !== pending.routeHash) { report('warn', 'flightplan-export', 'reject-result', 'Routenhash der Antwort passt nicht', result.jobId); return; }
       clearTimeout(pending.timer); delete flightPlanJobs[data.result.jobId]; requestSideDrawerRefresh();
+      if (pending.free) { flightPlanStatus(freeFlightPlanResultText(pending, result), result); return; }
       var current = missionSnapshot && missionSnapshot.control;
       if (!current || current.missionId !== pending.missionId || current.runId !== pending.runId) {
         report('warn', 'flightplan-export', 'stale-result', 'Antwort für früheren Missionslauf', JSON.stringify(result)); return;
@@ -243,21 +275,200 @@
       button:available ? 'Flugplan an Flugsicherung senden' : 'Bitte warten...', closeHidden:false, recallable:true,
       disabled:!available || flightPlanRequestPending || Object.keys(flightPlanJobs).length > 0};
   }
+  function flightPlanButton(attrs, label, disabled) {
+    return '<button type="button" class="checklist-action-btn" style="white-space:normal;min-height:44px;flex:0 0 auto;width:100%;line-height:1.3" '
+      + attrs + (disabled ? ' disabled' : '') + '>' + label + '</button>';
+  }
+  function flightPlanWarningText(warning) {
+    var text = String(warning || '');
+    if (text.indexOf('procedure_skipped:') === 0) return 'Verfahren nicht übernommen: ' + text.slice(18);
+    if (text.indexOf('airway_direct:') === 0) return 'Airway ' + text.slice(14) + ' als Direktstrecke';
+    if (text.indexOf('fix_unresolved:') === 0) return 'Punkt nicht gefunden: ' + text.slice(15);
+    if (text.indexOf('airport_unresolved:') === 0) return 'Flugplatz nicht gefunden: ' + text.slice(19);
+    if (text === 'facility_lookup_unavailable') return 'Navigationsdatenbank nicht verfügbar, nur Koordinatenpunkte übernommen';
+    if (text === 'ppos_skipped') return 'Punkt „aktuelle Position“ ausgelassen';
+    return text;
+  }
+  // Without a mission: send the free route, or read a route planned in the simulator.
+  function freeFlightPlanMarkup() {
+    var nav = freeNavigationRoute();
+    // The map still shows a (closed) mission route: wait for the free route.
+    if (!nav) return '';
+    var busy = flightPlanRequestPending || Object.keys(flightPlanJobs).length > 0 || !!flightPlanFetchJob || flightPlanImportPending;
+    var html = '<section class="mission-flightplan-transfer" aria-label="Flugplan" style="margin-top:12px"><b>Flugplan</b>';
+    if (nav.points.length >= 2) {
+      html += '<p>Sendet die Route der Karte an den Simulator. Für die Avionik-Übernahme das Gerät vorher einschalten und hochfahren lassen.</p>'
+        + '<div style="display:flex;flex-direction:column;gap:8px">'
+        + flightPlanButton('data-action="mission-flightplan-transfer" data-target="msfs"', 'Flugplan an MSFS senden', busy)
+        + flightPlanButton('data-action="mission-flightplan-transfer" data-target="avionics"', 'Flugplan an MSFS und Avionik senden', busy)
+        + (Date.now() < flightPlanAtcReadyUntil ? flightPlanButton('data-action="mission-flightplan-transfer" data-target="atc"', 'Flugplan an Flugsicherung senden', busy) : '')
+        + '</div>';
+    } else {
+      html += '<p>Noch keine Route auf der Karte. Eine im Simulator geplante Route kann unten geholt werden.</p>';
+    }
+    if (flightPlanFetchSupported) {
+      html += '<p style="margin-top:12px">Holt eine im Simulator geplante Route und ersetzt nach Bestätigung die Route der Karte.</p>'
+        + '<div style="display:flex;flex-direction:column;gap:8px">'
+        + flightPlanButton('data-action="mission-flightplan-fetch" data-source="efb"', flightPlanFetchJob && flightPlanFetchJob.source === 'efb' ? 'Lese EFB-Planung ...' : 'Flugplan aus EFB-Planung holen', busy)
+        + (Date.now() < flightPlanAtcReadyUntil ? flightPlanButton('data-action="mission-flightplan-fetch" data-source="atc"', flightPlanFetchJob && flightPlanFetchJob.source === 'atc' ? 'Lese Flugsicherung ...' : 'Flugplan von Flugsicherung holen', busy) : '')
+        + (flightPlanAvionicsFetch ? flightPlanButton('data-action="mission-flightplan-fetch" data-source="avionics"', flightPlanFetchJob && flightPlanFetchJob.source === 'avionics' ? 'Lese Avionik ...' : 'Flugplan aus Avionik holen', busy) : '')
+        + '</div>';
+    }
+    if (flightPlanImport) {
+      var plan = flightPlanImport.plan, points = plan.points || [];
+      var route = (plan.departureIcao || points[0] && points[0].name || '?') + ' → ' + (plan.destinationIcao || points[points.length - 1] && points[points.length - 1].name || '?');
+      html += '<div class="mission-flightplan-import" style="margin-top:12px;padding:10px;border:1px solid #ffb000;border-radius:8px">'
+        + '<b>Route aus ' + flightPlanEscape(FLIGHTPLAN_SOURCE_LABELS[flightPlanImport.source] || flightPlanImport.source) + '</b>'
+        + '<p>' + flightPlanEscape(route) + ', ' + points.length + ' Punkte' + (plan.cruiseAltitudeFt ? ', ' + plan.cruiseAltitudeFt + ' ft' : '') + '</p>'
+        + '<p style="font-size:12px">' + flightPlanEscape(points.map(function (point) { return point.name; }).join(' - ')) + '</p>'
+        + (flightPlanImport.warnings.length ? '<ul style="font-size:12px;margin:6px 0 0 16px">' + flightPlanImport.warnings.slice(0, 8).map(function (warning) {
+          return '<li>' + flightPlanEscape(flightPlanWarningText(warning)) + '</li>'; }).join('') + '</ul>' : '')
+        + '<p>Die aktuelle Route der Karte wird ersetzt.</p>'
+        + '<div style="display:flex;flex-direction:column;gap:8px">'
+        + flightPlanButton('data-action="mission-flightplan-import" data-decision="adopt"', flightPlanImportPending ? 'Übernehme ...' : 'Route übernehmen', flightPlanImportPending)
+        + flightPlanButton('data-action="mission-flightplan-import" data-decision="discard"', 'Verwerfen', flightPlanImportPending)
+        + '</div></div>';
+    }
+    return html + '</section>';
+  }
   function flightPlanTransferMarkup() {
     var control = missionSnapshot && missionSnapshot.control;
     // An interrupted run offers only its own resume route in the banner.
     if (interruptionView(missionSnapshot)) return '';
-    if (!control || !control.runId || !control.missionId || control.phase === 'closed' || missionSnapshot.cloudPending
-      || Date.now() >= flightPlanBridgeReadyUntil || !window.gaCockpitSessionClient || !window.gaCockpitSessionClient.submitTool) return '';
+    if (Date.now() >= flightPlanBridgeReadyUntil || !window.gaCockpitSessionClient || !window.gaCockpitSessionClient.submitTool) return '';
+    if (!missionRunActive()) return missionSnapshot && missionSnapshot.cloudPending ? '' : freeFlightPlanMarkup();
+    if (!control || !control.runId || !control.missionId || control.phase === 'closed' || missionSnapshot.cloudPending) return '';
     var disabled = flightPlanRequestPending || Object.keys(flightPlanJobs).length > 0 || missionIntentPending;
     var attr = disabled ? ' disabled' : '';
     return '<section class="mission-flightplan-transfer" aria-label="Flugplan übertragen" style="margin-top:12px">'
       + '<b>Flugplan übertragen</b><p>Sendet die aktuelle Missionsroute. Für die Avionik-Übernahme das Gerät vorher einschalten und hochfahren lassen.</p>'
       + '<div style="display:flex;flex-direction:column;gap:8px">'
       + '<button type="button" class="checklist-action-btn" style="white-space:normal;min-height:44px;flex:0 0 auto;width:100%;line-height:1.3" data-action="mission-flightplan-transfer" data-target="msfs"' + attr + '>Flugplan an MSFS senden</button>'
-      + '<button type="button" class="checklist-action-btn" style="white-space:normal;min-height:44px;flex:0 0 auto;width:100%;line-height:1.3" data-action="mission-flightplan-transfer" data-target="avionics"' + attr + '>Flugplan an MSFS und Avionik senden</button></div></section>';
+      + '<button type="button" class="checklist-action-btn" style="white-space:normal;min-height:44px;flex:0 0 auto;width:100%;line-height:1.3" data-action="mission-flightplan-transfer" data-target="avionics"' + attr + '>Flugplan an MSFS und Avionik senden</button></div>'
+      + (flightPlanFetchSupported ? '<p style="margin-top:10px;font-size:12px">Flugplan holen ist während einer Mission gesperrt, damit die Missionsroute erhalten bleibt.</p>' : '')
+      + '</section>';
+  }
+  function fetchSimulatorFlightPlan(source) {
+    if (['efb', 'atc', 'avionics'].indexOf(source) < 0 || flightPlanFetchJob || flightPlanImportPending) return Promise.resolve(false);
+    if (missionRunActive()) {
+      flightPlanStatus('Während einer Mission kann kein Flugplan geholt werden.', { ok: false, error: 'mission_authority_conflict' });
+      return Promise.resolve(false);
+    }
+    if (!flightPlanFetchSupported || Date.now() >= flightPlanBridgeReadyUntil) {
+      flightPlanStatus('Flugplan holen ist gerade nicht verfügbar.', { ok: false, error: 'flightplan_host_unavailable' });
+      return Promise.resolve(false);
+    }
+    var jobId = 'fetch-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+    var job = { jobId: jobId, source: source, timer: 0 };
+    job.timer = setTimeout(function () {
+      if (flightPlanFetchJob !== job) return;
+      flightPlanFetchJob = null; requestSideDrawerRefresh();
+      flightPlanStatus('Keine Antwort beim Lesen des Flugplans.', { ok: false, jobId: jobId, error: 'flightplan_timeout' });
+    }, 20000);
+    flightPlanFetchJob = job;
+    flightPlanImport = null;
+    report('info', 'flightplan-import', 'request', 'Flugplan aus Simulator holen', JSON.stringify({ jobId: jobId, source: source, host: flightPlanBridgeHost }));
+    flightPlanMessage('ga-flightplan-fetch', { job: { jobId: jobId, source: source } });
+    requestSideDrawerRefresh();
+    return Promise.resolve(true);
+  }
+  function fetchedFlightPlanErrorText(result) {
+    var label = FLIGHTPLAN_SOURCE_LABELS[result.source] || 'Simulator';
+    var error = String(result.error || '');
+    if (error === 'flightplan_import_empty') return 'In der ' + label + ' ist keine Route vorhanden.';
+    if (error === 'flightplan_import_unresolved') return 'Die Route aus der ' + label + ' enthält keine auflösbaren Punkte.';
+    if (error === 'flightplan_import_too_long') return 'Die Route aus der ' + label + ' hat mehr als 128 Punkte.';
+    if (error === 'flightplan_avionics_no_reply' || error === 'flightplan_avionics_unavailable') return 'Die Avionik dieses Flugzeugs gibt ihren Flugplan nicht heraus.';
+    return 'Flugplan aus der ' + label + ' konnte nicht gelesen werden.';
+  }
+  function handleFetchedFlightPlan(job, result) {
+    clearTimeout(job.timer);
+    flightPlanFetchJob = null;
+    report(result.ok ? 'info' : 'warn', 'flightplan-import', 'result', result.ok ? 'Flugplan gelesen' : 'Flugplan nicht gelesen',
+      JSON.stringify({ jobId: result.jobId, source: job.source, ok: result.ok, error: result.error, via: result.via,
+        points: result.plan && result.plan.points ? result.plan.points.length : 0, warnings: result.warnings, received: result.received }).slice(0, 790));
+    if (!result.ok || !result.plan || !Array.isArray(result.plan.points) || result.plan.points.length < 2) {
+      requestSideDrawerRefresh();
+      flightPlanStatus(fetchedFlightPlanErrorText(Object.assign({ source: job.source }, result)), result);
+      return;
+    }
+    if (missionRunActive()) { requestSideDrawerRefresh(); flightPlanStatus('Während einer Mission kann kein Flugplan übernommen werden.', { ok: false, error: 'mission_authority_conflict' }); return; }
+    flightPlanImport = { source: job.source, plan: result.plan, warnings: Array.isArray(result.warnings) ? result.warnings : [], via: result.via || '' };
+    requestSideDrawerRefresh();
+  }
+  function refreshMapAfterImport() {
+    if (typeof fetchJson !== 'function' || typeof renderMapPayload !== 'function') return;
+    fetchJson('/api/v1/map', 5000).then(function (value) { renderMapPayload(safePayload(value)); }).catch(function () {});
+  }
+  function decideFlightPlanImport(decision) {
+    var pending = flightPlanImport;
+    if (!pending || flightPlanImportPending) return Promise.resolve(false);
+    if (decision !== 'adopt') { flightPlanImport = null; requestSideDrawerRefresh(); return Promise.resolve(true); }
+    var nav = freeNavigationRoute();
+    var client = window.gaCockpitSessionClient;
+    if (missionRunActive() || !nav || !client || !client.submitTool) {
+      flightPlanStatus('Flugplan kann gerade nicht übernommen werden.', { ok: false, error: 'navigation_import_unavailable' });
+      return Promise.resolve(false);
+    }
+    var plan = pending.plan;
+    var label = FLIGHTPLAN_SOURCE_LABELS[pending.source] || 'Simulator';
+    flightPlanImportPending = true; requestSideDrawerRefresh();
+    return client.submitTool({ commandId: 'nav-import-' + Date.now() + '-' + Math.random().toString(36).slice(2), intent: 'navigation_adopt',
+      expectedRevision: nav.revision,
+      payload: { routeId: nav.id, departureIcao: plan.departureIcao || '', destinationIcao: plan.destinationIcao || '',
+        points: plan.points.map(function (point) { return { lat: point.lat, lng: point.lon, name: point.name, icao: point.icao || '' }; }) }
+    }).then(function (result) {
+      if (!result || !result.ok) throw new Error(result && result.error || 'navigation_import_failed');
+      flightPlanImport = null;
+      report('info', 'flightplan-import', 'adopted', 'Flugplan übernommen', JSON.stringify({ source: pending.source, points: plan.points.length }));
+      flightPlanStatus('Flugplan aus der ' + label + ' übernommen: ' + plan.points.length + ' Punkte.', { ok: true });
+      refreshMapAfterImport();
+      return true;
+    }).catch(function (error) {
+      flightPlanStatus('Flugplan konnte nicht übernommen werden. Bitte die aktuelle Route prüfen.', { ok: false, error: String(error && error.message || error) });
+      return false;
+    }).then(function (value) { flightPlanImportPending = false; requestSideDrawerRefresh(); return value; });
+  }
+  function freeFlightPlanResultText(pending, result) {
+    var nav = freeNavigationRoute();
+    if (nav && nav.revision !== pending.navigationRevision) return 'Die Route wurde inzwischen geändert. Aktuellen Flugplan bitte erneut übertragen.';
+    if (result.atc === 'confirmed') return 'Flugplan an die Flugsicherung übertragen und zurückgelesen.';
+    if (result.error === 'flightplan_atc_readback_mismatch') return 'Die Flugsicherung des Simulators hat die Route verändert. Für das GPS „Flugplan an MSFS und Avionik senden“ verwenden.';
+    if (result.atc && result.atc !== 'not_requested') return 'Übernahme in die Simulator-Flugplanung nicht bestätigt.';
+    if (result.ok) return result.avionics === 'sent' ? 'Flugplan an MSFS übertragen und an Avionik gesendet.' : 'Flugplan an MSFS übertragen.';
+    if (['flightplan_timeout', 'flightplan_readback_mismatch'].indexOf(result.error) >= 0) return 'Flugplanübertragung nicht bestätigt.';
+    if (result.msfs === 'confirmed') return 'Flugplan an MSFS übertragen; Senden an Avionik fehlgeschlagen.';
+    return 'Flugplanübertragung fehlgeschlagen.';
+  }
+  function transferFreeFlightPlan(target) {
+    var nav = freeNavigationRoute();
+    var client = window.gaCockpitSessionClient;
+    var jobId = 'flightplan-' + Date.now() + '-' + Math.random().toString(36).slice(2);
+    if (!nav || nav.points.length < 2 || ['msfs', 'avionics', 'atc'].indexOf(target) < 0) return Promise.resolve(false);
+    if (target === 'atc' && Date.now() >= flightPlanAtcReadyUntil) return Promise.resolve(false);
+    if (!client || !client.submitTool || Date.now() >= flightPlanBridgeReadyUntil) {
+      flightPlanStatus('Flugplanübertragung nicht verfügbar.', { ok: false, jobId: jobId, error: 'flightplan_host_unavailable' }); return Promise.resolve(false);
+    }
+    if (flightPlanRequestPending || Object.keys(flightPlanJobs).length || flightPlanFetchJob) return Promise.resolve(false);
+    flightPlanRequestPending = true; requestSideDrawerRefresh();
+    report('info', 'flightplan-export', 'request', 'Flugplan ohne Mission senden', JSON.stringify({ jobId: jobId, target: target, host: flightPlanBridgeHost, routeId: nav.id, revision: nav.revision }));
+    return client.submitTool({ commandId: jobId, intent: 'flightplan_export', payload: { free: true, routeId: nav.id, navigationRevision: nav.revision } }).then(function (result) {
+      if (!result || !result.ok || !result.plan) throw new Error(result && result.error || 'flightplan_export_unavailable');
+      if (missionRunActive()) throw new Error('mission_authority_conflict');
+      if (Date.now() >= flightPlanBridgeReadyUntil) throw new Error('flightplan_host_unavailable');
+      var timer = setTimeout(function () {
+        delete flightPlanJobs[jobId]; flightPlanBridgeReadyUntil = 0; requestSideDrawerRefresh();
+        flightPlanStatus('Flugplanübertragung nicht bestätigt.', { ok: false, jobId: jobId, routeHash: result.plan.routeHash, error: 'flightplan_timeout' });
+      }, 65000);
+      flightPlanJobs[jobId] = { timer: timer, routeHash: result.plan.routeHash, missionId: '', runId: '', free: true,
+        navigationRevision: result.plan.navigationRevision, trigger: 'manual', airStart: false, resumeKey: '', planningKey: '' };
+      flightPlanMessage('ga-flightplan-send', { job: { jobId: jobId, target: target, plan: result.plan } });
+      return true;
+    }).catch(function (error) { flightPlanStatus('Flugplanübertragung fehlgeschlagen.', { ok: false, jobId: jobId, error: String(error.message || error) }); return false; })
+      .then(function (value) { flightPlanRequestPending = false; requestSideDrawerRefresh(); return value; });
   }
   function transferCurrentMissionFlightPlan(target) {
+    if (!missionRunActive()) return transferFreeFlightPlan(target);
     var control = missionSnapshot && missionSnapshot.control;
     if (!control || control.phase === 'closed' || missionSnapshot.cloudPending || missionIntentPending || ['msfs','avionics','atc'].indexOf(target) < 0) return Promise.resolve(false);
     if (target === 'atc' && !preflightPlanningModel(missionSnapshot)) return Promise.resolve(false);
@@ -1656,6 +1867,8 @@
       },
       flightPlanActions: flightPlanTransferMarkup,
       transferFlightPlan: transferCurrentMissionFlightPlan,
+      fetchFlightPlan: fetchSimulatorFlightPlan,
+      importFlightPlan: decideFlightPlanImport,
       missionView: function() { return missionSnapshot && missionSnapshot.available !== false && (missionSnapshot.view || missionSnapshot) || null; },
       missionSummary: function() { var view = missionSnapshot && missionSnapshot.view; return view && (view.taskText || view.title) || 'Keine aktive Mission'; },
       cargoAction: function(action, itemId, field) {
@@ -1930,6 +2143,21 @@
       'source=' + String(sourceLabel || 'unknown') + (details ? ' ' + details : ''));
   }
 
+  // Map tile cache (tracker disk cache, FSPM-style): with the setting on, the
+  // tracker proxy is tried first and the direct HTTPS source is the fallback.
+  // Loopback images stayed black in Coherent in August 2026 (v334); the switch
+  // in the layer menu returns to the direct path if that happens again.
+  function tileCachePreferred() {
+    return typeof preferences === 'undefined' || !preferences || preferences.tileCache !== false;
+  }
+
+  function orderedTileSources(sources) {
+    if (!tileCachePreferred()) return sources;
+    var proxy = sources.filter(function (source) { return source.label === 'tracker-proxy'; });
+    if (!proxy.length) return sources;
+    return proxy.concat(sources.filter(function (source) { return source.label !== 'tracker-proxy'; }));
+  }
+
   function createResilientTileLayer(definition, options) {
     var sources = [];
     [
@@ -1948,9 +2176,11 @@
       createTile: function (coords, done) {
         var layer = this;
         var tile = document.createElement('img');
+        // Order per tile: the map tile cache setting can change while the map runs.
+        var tileSources = orderedTileSources(sources);
         // Resolve the native zoom now: the map can zoom again before a retry.
-        var sourceUrls = sources.map(function (source, index) {
-          return index === 0 ? layer.getTileUrl(coords) : tileTemplateUrl(source.url, layer, coords);
+        var sourceUrls = tileSources.map(function (source, index) {
+          return index === 0 && source === sources[0] ? layer.getTileUrl(coords) : tileTemplateUrl(source.url, layer, coords);
         });
         var sourceIndex = 0;
         var settled = false;
@@ -1985,7 +2215,7 @@
           clearTimer();
           tile.onload = null;
           tile.onerror = null;
-          var source = sources[sourceIndex] || {};
+          var source = tileSources[sourceIndex] || {};
           if (error) reportTileHealth(definition, 'failed', source.label, String(error.message || error));
           else reportTileHealth(definition, 'ready', source.label, 'fallbacks=' + sourceIndex);
           done(error, tile);
@@ -1996,14 +2226,14 @@
           clearTimer();
           tile.src = sourceUrls[sourceIndex];
           timeout = window.setTimeout(function () {
-            if (sourceIndex + 1 < sources.length) loadSource(sourceIndex + 1);
+            if (sourceIndex + 1 < tileSources.length) loadSource(sourceIndex + 1);
             else finish(new Error('map_tile_timeout'));
           }, sourceIndex === 0 ? 4500 : 7000);
         }
         tile.onload = function () { finish(null); };
         tile.onerror = function () {
           if (settled) return;
-          if (sourceIndex + 1 < sources.length) loadSource(sourceIndex + 1);
+          if (sourceIndex + 1 < tileSources.length) loadSource(sourceIndex + 1);
           else finish(new Error('map_tile_failed'));
         };
         loadSource(0);
@@ -2173,6 +2403,58 @@
     }
     section.appendChild(wrap);
     updateBaseOpacity();
+    installTileCacheControl(section);
+  }
+
+  function redrawTileLayers() {
+    [baseLayers, regionalLayers, overlayLayers].forEach(function (group) {
+      Object.keys(group).forEach(function (id) {
+        var layer = group[id];
+        if (map && map.hasLayer(layer) && typeof layer.redraw === 'function') layer.redraw();
+      });
+    });
+  }
+
+  function installTileCacheControl(section) {
+    var wrap = document.createElement('div');
+    wrap.className = 'ga-base-dim-control ga-tile-cache-control';
+    wrap.appendChild(createLayerGroupTitle('Kartenspeicher'));
+    var row = document.createElement('div');
+    row.className = 'ga-base-dim-row';
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'ga-base-dim-btn ga-tile-cache-toggle';
+    var state = document.createElement('span');
+    state.className = 'ga-base-dim-value';
+    function render() {
+      var on = tileCachePreferred();
+      button.textContent = on ? _hT('Aus') : _hT('Ein');
+      button.setAttribute('aria-pressed', on ? 'true' : 'false');
+      state.textContent = on ? _hT('Über Tracker (gespeichert)') : _hT('Direkt aus dem Internet');
+    }
+    button.addEventListener('click', function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      preferences.tileCache = !tileCachePreferred();
+      savePreferences();
+      render();
+      tileHealthReported = {};
+      redrawTileLayers();
+      report('info', 'map-tile', 'cache', preferences.tileCache ? 'Kartenspeicher eingeschaltet' : 'Kartenspeicher ausgeschaltet', '');
+    });
+    row.appendChild(state);
+    row.appendChild(button);
+    wrap.appendChild(row);
+    var hint = document.createElement('div');
+    hint.className = 'ga-base-dim-hint';
+    hint.textContent = _hT('Lädt Karten über den Tracker und speichert sie auf dem PC. Bleiben Kacheln schwarz, hier ausschalten.');
+    wrap.appendChild(hint);
+    if (L.DomEvent) {
+      L.DomEvent.disableClickPropagation(wrap);
+      L.DomEvent.disableScrollPropagation(wrap);
+    }
+    section.appendChild(wrap);
+    render();
   }
 
   function initializeMap() {

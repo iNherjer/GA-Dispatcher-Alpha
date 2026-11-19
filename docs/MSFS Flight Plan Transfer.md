@@ -148,3 +148,54 @@ wurde erfolgreich an die Flugsicherung uebertragen. Du kannst den Flug jetzt
 starten.“ Der Zustand gilt pro Lauf und Routen-Revision; eine Routenaenderung
 bietet das Senden wieder an. Der Toolbar-Knopf „🗺️ Flugplan“ erscheint nach
 der Uebertragung und holt den Senden-Knopf zurueck.
+
+## Flugplan holen und ohne Mission senden (19.11.2026, Quelle; Tracker v651 / EFB 0.4.28)
+
+Anlass: FSPM/OSM VFR Map zeigt die im MSFS-2024-EFB geplante Route auf der eigenen Karte. Wir
+bieten den Rückweg zu „Flugplan senden“: Route aus dem Simulator holen und auf der Karte übernehmen.
+
+Bedienung (EFB- und Toolbar-Seitenmenü, Reiter „Mission“):
+
+- **Ohne laufende Mission** erscheint der Block „Flugplan“ mit
+  - Senden der freien Kartenroute: „an MSFS“, „an MSFS und Avionik“, „an Flugsicherung“
+    (letzteres nur mit bestätigter ATC-Fähigkeit). Tracker-Intent `flightplan_export` mit
+    `payload.free = true` (`createFreeFlightPlanExport`, Revision- und Routen-ID-geprüft).
+  - Holen „aus EFB-Planung“ (`GET_EFB_ROUTE`), „von Flugsicherung“ (`GET_ATC_ROUTE`) und „aus
+    Avionik“ (`REQUEST_AVIONICS_ROUTE`, Antwort per Ereignis `AvionicsRouteRequestResponse`
+    (route, requestId); antwortet die Avionik nicht innerhalb von 6 s, wird die zuletzt per
+    `AvionicsRouteSync` gemeldete Route genommen, sonst Fehler „gibt ihren Flugplan nicht heraus“).
+    Ein direkter Getter für die Avionik-Route existiert im SDK nicht (`FlightPlanRouteManager`).
+  - Eine geholte Route erscheint zuerst als Vorschau (Start → Ziel, Punktzahl, Reiseflughöhe,
+    Punktnamen, Hinweise). Erst „Route übernehmen“ ersetzt die Kartenroute per
+    `navigation_adopt` (erwartete Revision der freien Route); „Verwerfen“ ändert nichts.
+    Kein `window.confirm` (Coherent).
+- **Während einer Mission** bleibt Senden wie bisher; Holen ist gesperrt (Missionsroute und
+  Aufgabenpunkte bleiben erhalten), der Block nennt das.
+
+Umrechnung (`flightplan-bridge-core.js` `parseRoute`, rein lesend):
+
+- Start- und Zielflugplatz sowie Fixe ohne Koordinaten werden über die Facility-Datenbank des
+  Simulators aufgelöst (`FacilityLoader.getFacility`, Typ aus `ICAO.getFacilityTypeFromValue`
+  bzw. Kennbuchstabe A/V/N/W/U). Koordinatenlegs direkt; Peilung/Distanz-Fixe per Großkreis
+  von der Referenz (rechtweisende Peilung laut SDK).
+- Nicht erweitert: SID, STAR, Anflug (Hinweis „Verfahren nicht übernommen“), Airways
+  (Direktstrecke zum Endpunkt, Hinweis), PPOS-Legs (ausgelassen). Unauflösbare Fixe werden
+  ausgelassen und genannt. Weniger als zwei Punkte → Fehler, mehr als 128 → Fehler (Grenze
+  der Navigationsroute).
+- Toolbar ohne SDK-FacilityLoader: nur Koordinatenpunkte, Hinweis „Navigationsdatenbank nicht
+  verfügbar“.
+
+Fähigkeiten: Das Paket meldet in `ga-flightplan-capabilities` zusätzlich `fetch: true`,
+`avionicsFetch` (Listener mit `on`) und `facilities`. Ältere Pakete melden das nicht; der Host
+zeigt dann nur die bisherigen Sendeknöpfe. Neue Nachrichten: `ga-flightplan-fetch`
+{job:{jobId, source}} → `ga-flightplan-fetched` {result:{ok, source, plan|error, warnings, via,
+received}}. Logs: `flightplan-import` (request/result/adopted) im Tracker-Clientlog.
+
+Tests: `efb-app/flightplan-bridge-core.test.js` (Umrechnung, nur lesend), `efb-app/flightplan-native.test.js`
+(Adapter, Avionik-Anfrage, Sync-Rückfall), `tracker-flightplan-host.test.js` (freier Block,
+Vorschau escaped, Übernehmen/Verwerfen, Missionssperre), `tracker-cockpit-tools.test.js`
+(freier Export). Im Simulator noch nicht geprüft.
+
+Im MSFS prüfen: Route im EFB planen (Flugplatz, VOR, eigener Punkt, Airway, SID/STAR) und
+holen; ATC-Route nach „an Flugsicherung senden“ zurückholen; Avionik G1000/GNS mit und ohne
+eigenen Flugplan; Toolbar ohne FacilityLoader; Übernehmen ersetzt die Route auch in der Web-App.

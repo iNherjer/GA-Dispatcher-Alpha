@@ -4711,6 +4711,15 @@ ${routeLines}`;
             window.gaChecklistHost.transferFlightPlan(button.dataset.target);
             return;
         }
+        // EFB/Toolbar: read a route planned in the simulator, then confirm or discard it.
+        if (action === 'mission-flightplan-fetch' && window.gaChecklistHost?.fetchFlightPlan) {
+            window.gaChecklistHost.fetchFlightPlan(button.dataset.source);
+            return;
+        }
+        if (action === 'mission-flightplan-import' && window.gaChecklistHost?.importFlightPlan) {
+            window.gaChecklistHost.importFlightPlan(button.dataset.decision);
+            return;
+        }
         if (window.gaChecklistHost?.cargoAction && ['cargo-load', 'cargo-unload', 'cargo-replace', 'cargo-boardbook-time'].includes(action)) {
             const itemId = button.dataset.itemId || '';
             button.disabled = true;

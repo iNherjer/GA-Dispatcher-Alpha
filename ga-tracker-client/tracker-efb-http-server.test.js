@@ -7,6 +7,8 @@ const boardingVoiceCore = require('../mission-boarding-voice-core.js');
 const {
   MAX_EFB_CLIENT_LOG_BYTES,
   TRACKER_MISSION_HARD_RESET_PATH,
+  TRACKER_MAP_TILE_CACHE_CLEAR_PATH,
+  TRACKER_MAP_TILE_CACHE_PATH,
   TRACKER_EFB_HTTP_CAPABILITIES,
   createTrackerEfbHttpHello,
   createTrackerEfbHttpServer
@@ -329,6 +331,44 @@ test('desktop hard reset is a token-gated loopback recovery command', async (t) 
   assert.equal(body.message.type, 'tracker.mission.hard-reset');
   assert.equal(body.message.payload.hardReset, true);
   assert.deepEqual(calls, [{ source: 'desktop' }]);
+});
+
+test('map tile disk cache reports its size and clears only with the desktop control token', async (t) => {
+  const os = require('node:os');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ga-http-tile-cache-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const hello = createTrackerEfbHttpHello({ trackerVersion: 'v641', trackerVersionCode: 641 });
+  const server = createTrackerEfbHttpServer({
+    host: '127.0.0.1',
+    port: 0,
+    hello,
+    tileCacheDir: dir,
+    desktopControlToken: 'desktop-control-test-token',
+    fetchRemote: async () => ({ ok: true, status: 200,
+      headers: { get: (name) => (String(name).toLowerCase() === 'content-type' ? 'image/png' : null) },
+      arrayBuffer: async () => Buffer.from('png-tile') })
+  });
+  t.after(() => server.stop());
+  const address = await server.start();
+  const tile = await request(address, '/api/v1/map-tile/topo/8/133/88.png');
+  assert.equal(tile.statusCode, 200);
+  assert.equal(tile.headers['x-efb-tile-cache'], 'miss');
+  await new Promise((resolve) => setTimeout(resolve, 80));
+  const stats = JSON.parse((await request(address, TRACKER_MAP_TILE_CACHE_PATH)).body).message.payload;
+  assert.equal(stats.enabled, true);
+  assert.equal(stats.files, 1);
+  assert.equal(stats.bytes, 8);
+  const rejected = await request(address, TRACKER_MAP_TILE_CACHE_CLEAR_PATH, { method: 'POST' });
+  assert.equal(rejected.statusCode, 403);
+  assert.equal(fs.existsSync(path.join(dir, 'topo', '8', '133', '88.tile')), true);
+  const cleared = await request(address, TRACKER_MAP_TILE_CACHE_CLEAR_PATH, { method: 'POST',
+    headers: { 'X-GA-Tracker-Desktop-Control': 'desktop-control-test-token' } });
+  assert.equal(cleared.statusCode, 200);
+  const result = JSON.parse(cleared.body).message.payload;
+  assert.equal(result.ok, true);
+  assert.equal(result.removedFiles, 1);
+  assert.equal(result.bytes, 0);
+  assert.equal(fs.existsSync(dir), false);
 });
 
 test('map tiles are fetched once through the bounded loopback proxy and then cached', async (t) => {

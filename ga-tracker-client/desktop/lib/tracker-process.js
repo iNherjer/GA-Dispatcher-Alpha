@@ -9,6 +9,7 @@ const { createTrackerStatus, statusFromLine } = require('./status-parser');
 const DEFAULT_EFB_HTTP_PORT = 49880;
 const TRACKER_MISSION_HARD_RESET_PATH = '/api/v1/tracker/mission/hard-reset';
 const TRACKER_SHUTDOWN_PATH = '/api/v1/tracker/shutdown';
+const TRACKER_MAP_TILE_CACHE_CLEAR_PATH = '/api/v1/tracker/map-tile-cache/clear';
 // The engine signs off (crew status offline, crew fleet aircraft left, logs) before it exits;
 // a hard kill skips that (Windows has no SIGTERM), so it is only the fallback.
 const GRACEFUL_STOP_MS = 4000;
@@ -337,6 +338,36 @@ class TrackerProcess extends EventEmitter {
       request.end(body);
     });
   }
+
+  // Clears the tracker's map tile cache (memory and disk). Resolves with
+  // ok:false when the tracker is not running or does not know the endpoint.
+  clearMapTileCache() {
+    const token = String(this.desktopControlToken || '').trim();
+    if (!this.child || !token) return Promise.resolve({ ok: false, error: 'tracker_not_running' });
+    return new Promise((resolve) => {
+      const request = http.request({
+        host: '127.0.0.1',
+        port: this.localControlPort || DEFAULT_EFB_HTTP_PORT,
+        path: TRACKER_MAP_TILE_CACHE_CLEAR_PATH,
+        method: 'POST',
+        headers: { 'Content-Length': 0, 'X-GA-Tracker-Desktop-Control': token }
+      }, (response) => {
+        const chunks = [];
+        response.on('data', (chunk) => chunks.push(chunk));
+        response.on('end', () => {
+          let envelope = null;
+          try { envelope = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch (_) {}
+          const payload = envelope?.message?.payload;
+          resolve(response.statusCode === 200 && payload?.ok === true
+            ? payload
+            : { ok: false, error: envelope?.error || `tracker_http_${response.statusCode}` });
+        });
+      });
+      request.setTimeout(15000, () => request.destroy(new Error('tracker_map_tile_cache_timeout')));
+      request.on('error', (error) => resolve({ ok: false, error: error?.code || error?.message || 'tracker_unreachable' }));
+      request.end();
+    });
+  }
 }
 
-module.exports = { DEFAULT_EFB_HTTP_PORT, TRACKER_MISSION_HARD_RESET_PATH, TrackerProcess, cleanLogLine };
+module.exports = { DEFAULT_EFB_HTTP_PORT, TRACKER_MAP_TILE_CACHE_CLEAR_PATH, TRACKER_MISSION_HARD_RESET_PATH, TrackerProcess, cleanLogLine };

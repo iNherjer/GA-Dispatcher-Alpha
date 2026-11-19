@@ -22,6 +22,7 @@ test('map preferences reject unknown layers and keep the Alpha default overlay',
     overlays: ['aero'],
     regionalBases: [],
     baseDimPercent: 50,
+    tileCache: true,
     follow: true,
     theme: 'classic',
     toolbarCollapsed: false,
@@ -36,6 +37,7 @@ test('map preferences reject unknown layers and keep the Alpha default overlay',
     overlays: ['dfs'],
     regionalBases: [],
     baseDimPercent: 50,
+    tileCache: true,
     follow: false,
     theme: 'classic',
     toolbarCollapsed: false,
@@ -209,4 +211,10 @@ test('base dim strength is clamped, stepped in the menu and drives the aero base
   assert.equal(core.baseLayerOpacity({ overlays: ['aero'], baseDimPercent: 0 }), 1);
   assert.equal(core.baseLayerOpacity({ overlays: ['dfs'], baseDimPercent: 80 }), 1);
   assert.equal(core.BASE_DIM_MAX_PERCENT % core.BASE_DIM_STEP_PERCENT, 0);
+});
+
+test('map tile cache is on by default and can be switched off', () => {
+  assert.equal(core.normalizePreferences().tileCache, true);
+  assert.equal(core.normalizePreferences({ tileCache: false }).tileCache, false);
+  assert.equal(core.normalizePreferences({ tileCache: 'no' }).tileCache, true);
 });
