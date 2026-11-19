@@ -10,6 +10,9 @@
 
 ## Aktivierung
 
-_wird nach Build und Download-Prüfung eingetragen_
+Release `tracker-desktop-v1.6.41` (Release-Commit `1d9c8c89b`, Worktree-Build mit kopierten `node_modules`),
+Installer 100328141 Bytes, SHA-512 wie `latest.yml`, öffentlicher Download geprüft. App-Paket enthält
+`clearMapTileCacheButton` und `lib/map-tile-cache.js`. Tests: Desktop 152 bestanden (3 übersprungen).
+`channel/desktop/latest.yml` und `alpha.yml` aktiviert (Autoupdate).
 
 Nicht geprüft: Installation, Start und Update auf Windows (kein Windows-System hier) – erster Test durch User/Tester.

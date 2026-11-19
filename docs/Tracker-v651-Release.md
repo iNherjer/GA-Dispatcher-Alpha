@@ -18,7 +18,8 @@ Zusammen mit Desktop 1.6.41. Quelle: Commit `2ac55247f` (19.11.2026), Details in
 
 ## Tests
 
-Tracker-Suite im Release-Worktree, siehe unten.
+Tracker-Suite im sauberen Release-Worktree `1d9c8c89b`: 1616/1618 bestanden, 2 übersprungen, 0 Fehler.
+Desktop-Suite 152 bestanden, 3 übersprungen.
 
 ## Im Feld prüfen (noch nicht geprüft)
 
@@ -30,5 +31,6 @@ Tracker-Suite im Release-Worktree, siehe unten.
 ## Artefakt
 
 - Release `v651`, Asset `VFR-Multitool-Tracker.exe`
-- Größe: _wird nach Build eingetragen_
-- SHA-256: _wird nach Build eingetragen_
+- Größe: 175334355 Bytes
+- SHA-256: `df0e7098bc0ae3f8ec8545ac132a746cbc6126d02f04d6bbe5a3a447c444a24e`
+- Öffentlicher Download geprüft (Größe und SHA-256 identisch), Alpha aktiviert, Stable unverändert.
