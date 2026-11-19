@@ -36,15 +36,15 @@ liefert alles Offene mit aus.
 - **Doku beim Release:** `docs/EFB-0.4.28-SDK-Handoff.md` mit Build-Hash ergänzen, `docs/EFB-Community-Package.md`.
 - **Pruefen im Feld:** siehe Handoff (EFB und Toolbar, Avionik mit/ohne Antwort).
 
-### 2026-11-19 · Desktop-App: Knopf „Karten-Cache leeren“
+## Ausgeliefert
+
+### 2026-11-19 · Desktop-App: Knopf „Karten-Cache leeren“ — ausgeliefert in Desktop 1.6.41 (19.11.2026)
 - **Artefakt:** Desktop-App (nächste Version nach 1.6.40)
 - **Dateien:** `ga-tracker-client/desktop/lib/map-tile-cache.js` (neu), `lib/tracker-process.js`, `main.js`, `preload.js`, `ui/index.html`, `ui/renderer.js`, `ui/i18n-en.js`, `tests/map-tile-cache.test.js`.
 - **Was:** Knopf neben „Datenordner“, Rückfrage mit Größe und Kachelzahl; bei laufendem Tracker über dessen Endpunkt, sonst Ordner löschen.
 - **Tests:** `cd ga-tracker-client/desktop && npm test` (152 bestanden, 3 übersprungen).
 - **Doku beim Release:** `docs/EFB-Development-Plan.md` Abschnitt 19.11.2026 um Desktop-Version ergänzen.
 - **Pruefen im Feld:** Knopf mit leerem und gefülltem Speicher, Tracker an und aus.
-
-## Ausgeliefert
 
 ### 2026-11-19 · Passagierstimme in der Missionssprache — ausgeliefert in Tracker v650 Alpha (19.11.2026)
 - **Was:** siehe `docs/Tracker-v650-Release.md`.

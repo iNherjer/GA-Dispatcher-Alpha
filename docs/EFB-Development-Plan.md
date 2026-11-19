@@ -9005,3 +9005,6 @@ Vorbild FSPM/OSM VFR Map (Connector mit lokalem Kachelspeicher, EFB-Route auf de
 
 Im Simulator noch nicht geprüft: Kacheln über den Tracker sichtbar (nicht schwarz) in EFB,
 Toolbar und VR; Holen/Senden wie im Handoff beschrieben.
+
+Ausgeliefert: Tracker v651 Alpha und Desktop 1.6.41 (`docs/Tracker-v651-Release.md`,
+`docs/Tracker-Desktop-1.6.41-Release.md`). EFB-/Toolbar-Paket 0.4.28 wartet auf den Windows-SDK-Bau.
