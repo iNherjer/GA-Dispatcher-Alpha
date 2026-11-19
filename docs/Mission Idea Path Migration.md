@@ -267,3 +267,5 @@ Sprachvorgabe für Englisch (Phase 4) als nächster Schritt im Kern.
 **Nachtrag 19.11.2026:** Plan-Schritt 2b (Frachtart als Feld) umgesetzt: Bush-V5-Writer liefert
 `cargoAssetKind` (nur Bush-Profile, Liste aus `mission-cargo-asset-kinds.js`), die Szene nutzt es vor
 der Wortsuche. Details: `docs/English Translation Plan.md` 2.15. Offen: Sprachvorgabe (2c), Training (3).
+Ergänzt 19.11.2026: Vereins-Idee (`delivery.assetKind`, `luggage.assetKind`, Prompt club-v1.11) und
+Charter-Idee (`luggageAssetKind`) benennen die Frachtart ebenfalls; die Szene liest Lieferung vor Gepäck.

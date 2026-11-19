@@ -7390,8 +7390,11 @@ function _missionSceneCargoNamedKind() {
     const ideas = [md.cargoIdea, md.fragileCargoIdea, md.medicalTransferIdea, md.clubIdea, md.charterIdea,
         contract.cargoIdea, contract.fragileCargoIdea, contract.medicalTransferIdea, contract.clubIdea, contract.charterIdea];
     for (const idea of ideas) {
-        const kind = String(idea?.shipment?.assetKind || '');
-        if (MISSION_CARGO_ASSET_KINDS.includes(kind)) return kind;
+        // Freight: shipment; club: delivery before luggage; charter: luggageAssetKind.
+        for (const value of [idea?.shipment?.assetKind, idea?.delivery?.assetKind, idea?.luggage?.assetKind, idea?.luggageAssetKind]) {
+            const kind = String(value || '');
+            if (MISSION_CARGO_ASSET_KINDS.includes(kind)) return kind;
+        }
     }
     const direct = String(md.cargoAssetKind || contract.cargoAssetKind || '');
     return MISSION_CARGO_ASSET_KINDS.includes(direct) ? direct : '';

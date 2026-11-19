@@ -572,6 +572,14 @@ Noch offen in Phase 4: Privat-Ausflug/Heimreise (eigene deutsche Textpolitur), T
   Oberflächensprache abweichen. Ältere Missionen ohne Feld gelten als deutsch; neuere ohne Feld =
   unbekannt, kein Hinweis. Deutsche Mission bei deutscher Oberfläche: unverändert, kein Hinweis.
 
+### 2.23 Phase 4: Frachtart für Verein und Charter (2026-11-19)
+
+- Vereins- und Charter-Idee benennen die Frachtart aus der festen Liste (wie Fracht/Medizin in 2.15),
+  damit das Bodenobjekt nicht mehr an deutschen Wörtern im Ladungstext hängt. Wortsuche bleibt Rückfall.
+- `_pickClubUtilityCargo` (Raten aus deutschem Text) läuft nur noch auf dem alten Weg ohne Vereins-Idee
+  und auf festen deutschen Vorschlagsvorlagen; der Ideenweg liefert seine Ladung selbst.
+- Offen (Entscheidung): KI-aus nutzt die deutsche Missionssammlung; englisch wäre eine eigene Sammlung.
+
 ## 4. Etappen
 
 | Phase | Inhalt | Größe | Abhängig von |

@@ -143,3 +143,4 @@ test('Vereinsbriefing bindet frische Dispatchwerte auch bei einer gespeicherten 
  assert.match(missing.s,/keine Messwerte/);assert.match(prompt,/fehlende|Fehlende/);
  assert.equal(missing._missionWriterV4Debug.flightBriefingStatus,'accepted-bindings');
 });
+test('Frachtart der Lieferung wird gefiltert übernommen',()=>{const base=core.validate(raw,input);assert.ok(base);const withKind=core.validate({...raw,luggage:raw.luggage?{...raw.luggage,assetKind:'duffel'}:null,delivery:{label:'Kiste Funkakkus',weightLbs:12,receiver:'Platzwart',purpose:'Für den Flugtag',assetKind:'toolbox'}},input);assert.ok(withKind,'delivery fixture valid');assert.equal(withKind.delivery.assetKind,'toolbox');const bad=core.validate({...raw,delivery:{label:'Kiste',weightLbs:12,receiver:'Platzwart',purpose:'Für den Flugtag',assetKind:'rocket'}},input);assert.ok(bad);assert.equal('assetKind' in bad.delivery,false);assert.equal(base.delivery?.assetKind,undefined);});

@@ -2377,6 +2377,13 @@ body.theme-retro .slider-label {
     color: var(--blue);
 }
 
+.mission-language-hint {
+    margin: 4px 0 8px;
+    font-size: 12px;
+    opacity: 0.75;
+}
+.mission-language-hint[hidden] { display: none; }
+
 .story {
     font-style: italic;
     color: #bbb;
