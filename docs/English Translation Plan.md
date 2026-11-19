@@ -454,8 +454,15 @@ Vom User freigegeben („wie vorgeschlagen“). Voraussetzung dafür, dass Write
 | Landeerkennung alte Web-Stimme (`passenger-voice.js`) | Englische Wörter ergänzt. |
 | SAR-Erkennung | keine Änderung nötig (`sar-search.v2` mit Feldern). |
 
-Noch offen in diesem Bereich: Fracht-Erraten aus Story bei Verein/Charter (`_pickClubUtilityCargo`
-u. a.) und echte KI-Probeläufe für die geänderten Prompts (je Missionsart). Danach Schritt 2:
+**KI-Probeläufe 19.11.2026** (`analysis/assetkind-probe-20261119/`, lokal): Fracht, zerbrechliche
+Fracht, Medizin je zwei Durchgänge (11 Ideen) und drei Bush-Profile (Versorgung, Fracht-Abholung,
+Charter; gespeicherter Plan, je 1 Aufruf). Alle 14 lieferten eine gültige Frachtart. Wo die alte
+Wortsuche nichts fand (Palette/Karton nach Gewicht), wählte das Feld 9-mal ein passendes Objekt
+(Gerätekoffer, Holzkiste); 2-mal korrigierte es eine falsche Zuordnung (z. B. Cembalo-Gehäuse nicht
+mehr „persönliches Gepäck“). Ein abgelehnter Durchgang (zerbrechliche Fracht) lag an der
+Zuladungsgrenze des Testflugzeugs, nicht am Feld (Prüfung mit/ohne Feld gleich).
+
+Noch offen in diesem Bereich: Fracht-Erraten aus Story bei Verein/Charter (`_pickClubUtilityCargo` u. a.). Danach Schritt 2:
 Sprachvorgabe in Ideen-Kernen, Bush und Training.
 
 ## 4. Etappen
