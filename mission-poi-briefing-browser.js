@@ -1,5 +1,6 @@
 (function(root){
 'use strict';
+const L=(de,en)=>root.MissionOutputLanguage?root.MissionOutputLanguage.text(de,en):de;
 const core=()=>root.MissionPoiBriefingCore;
 const FLAG='ga_poi_briefing_v1';
 function enabled({isPOI=true,profileId,category='',aiModeEnabled=true,followup=false,planning=false,bush=false}={}) {
@@ -21,7 +22,7 @@ async function choices(candidates,dispatch) {
  const recent=core().history(localStorage),raw=await json(core().ideaPrompt(contexts.map(c=>core().frame(c,recent))));dispatch.ensureAlive?.();
  return contexts.map((c,i)=>{
   const idea=core().readIdea(raw,c),poi=selected[i];
-  return normalizeMissionProposalChoice({id:c.id+'-'+Date.now(),mode:'poi',profileId:'media_photo',selectedCategory:poi.poiCategory||dispatch.selectedPoiCategory,requestedCategory:dispatch.requestedPoiCategory||dispatch.selectedPoiCategory,target:missionProposalCompactTarget(poi,'poi'),title:idea.intent,description:idea.situation,subtitle:idea.person.role,paxText:'1 PAX ('+idea.person.role+')',cargoText:'Foto-/Videoausrüstung (12 lbs)',routeLabel:missionProposalFormatRoute(dispatch.start,poi,'poi').label,poiProposal:{schema:'poi-photo-proposal.v1',start:core().point(dispatch.start),context:c,idea}});
+  return normalizeMissionProposalChoice({id:c.id+'-'+Date.now(),mode:'poi',profileId:'media_photo',selectedCategory:poi.poiCategory||dispatch.selectedPoiCategory,requestedCategory:dispatch.requestedPoiCategory||dispatch.selectedPoiCategory,target:missionProposalCompactTarget(poi,'poi'),title:idea.intent,description:idea.situation,subtitle:idea.person.role,paxText:'1 PAX ('+idea.person.role+')',cargoText:L('Foto-/Videoausrüstung (12 lbs)','Photo/video gear (12 lbs)'),routeLabel:missionProposalFormatRoute(dispatch.start,poi,'poi').label,poiProposal:{schema:'poi-photo-proposal.v1',start:core().point(dispatch.start),context:c,idea}});
  });
 }
 async function story({start,dest,proposal,contract={},terrainEnvelope=null,ensureAlive}) {

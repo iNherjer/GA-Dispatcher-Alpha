@@ -508,6 +508,21 @@ der Ausgabesprache (`MissionOutputLanguage.text(de, en)`, `.locale()`); Deutsch 
 Noch offen in Phase 4: Privat-Ausflug/Heimreise (eigene deutsche Textpolitur), Tracker-Texte
 (Rückblick, Stimme), Übersetzung bei Bedarf für alte Pfade und schon erstellte Missionen (Schritt 4).
 
+### 2.18 Phase 4, Schritt 3b: Privatmissionen und restliche feste Sätze (2026-11-19)
+
+- **Privat-Ausflug (V5/V6), Privatvorschläge, Heimreise** schreiben in der Ausgabesprache
+  (`fetchPrivateOutingStory`, `buildPrivateMissionProposalChoices`, `fetchPrivateReturnStory`).
+  `_sanitizePrivateOutingNarrative` (deutsche Politur) läuft für Ideen-Ausflüge nicht (springt bei
+  `private-outing.v1` sofort zurück). Feste Ersatztexte (Titel, Gepäck, Begrüßung, Heimreise-Angebot
+  und -Ersatzgeschichte) englisch.
+- **Ausgabevorgabe** ersetzt ausdrücklich Prompt-Anweisungen wie „Alle Texte auf Deutsch“
+  (Charter, Besichtigung, Reporter, Medizin, Verein, Tiertransport, Privat).
+- **Browser-Teile der Ideen-/POI-Kerne:** „keine verwertbaren Wetterbeobachtungen“, Leerflug-/
+  Rückflug-Zeilen, feste POI-Ausrüstungstexte englisch (Frachtart-Wortsuche liefert dasselbe Objekt).
+- **Probeläufe englisch:** Charter, Besichtigung, Reporter, private Vorschläge – vollständig englisch.
+- **Deutsch-Nachweis:** Für alle 19 geänderten Dateien ist die deutsche Projektion des Codes
+  (jede Sprachauswahl → deutscher Teil) identisch mit dem Stand davor; Testsuite unverändert.
+
 ## 4. Etappen
 
 | Phase | Inhalt | Größe | Abhängig von |

@@ -1,5 +1,6 @@
 (function(root){
 'use strict';
+const L=(de,en)=>root.MissionOutputLanguage?root.MissionOutputLanguage.text(de,en):de;
 const core=()=>root.MissionFireBriefingCore;
 const FLAG='ga_fire_briefing_v1';
 function enabled({isPOI=true,profileId,category='',aiModeEnabled=true,followup=false,planning=false,bush=false}={}){try{return localStorage.getItem(FLAG)!=='off'&&isPOI&&profileId==='fire_watch'&&aiModeEnabled&&String(getSelectedAiApiKey()||'').trim().length>0&&!followup&&!planning&&!bush&&category!=='chain';}catch{return false;}}
@@ -25,7 +26,7 @@ async function choices(candidates,dispatch) {
  const recent=core().history(localStorage),raw=await json(core().ideaPrompt(contexts.map(c=>core().frame(c,recent))));dispatch.ensureAlive?.();
  return contexts.map((c,i)=>{
   const idea=core().readIdea(raw,c),poi=selected[i];
-  return normalizeMissionProposalChoice({id:c.id+'-'+Date.now(),mode:'poi',profileId:'fire_watch',selectedCategory:poi.poiCategory||dispatch.selectedPoiCategory,requestedCategory:dispatch.requestedPoiCategory||dispatch.selectedPoiCategory,target:missionProposalCompactTarget(poi,'poi'),title:idea.observationFocus,description:idea.alarm.reportedObservation,subtitle:idea.person.role,paxText:'1 PAX ('+idea.person.role+')',cargoText:'Wärmebildkamera mit Monitor, Karten und Funkgerät (18 lbs)',routeLabel:missionProposalFormatRoute(dispatch.start,poi,'poi').label,fireProposal:{schema:'fire-proposal.v1',start:root.MissionPoiBriefingSharedCore.point(dispatch.start),context:c,idea}});
+  return normalizeMissionProposalChoice({id:c.id+'-'+Date.now(),mode:'poi',profileId:'fire_watch',selectedCategory:poi.poiCategory||dispatch.selectedPoiCategory,requestedCategory:dispatch.requestedPoiCategory||dispatch.selectedPoiCategory,target:missionProposalCompactTarget(poi,'poi'),title:idea.observationFocus,description:idea.alarm.reportedObservation,subtitle:idea.person.role,paxText:'1 PAX ('+idea.person.role+')',cargoText:L('Wärmebildkamera mit Monitor, Karten und Funkgerät (18 lbs)','Thermal camera with monitor, maps and radio (18 lbs)'),routeLabel:missionProposalFormatRoute(dispatch.start,poi,'poi').label,fireProposal:{schema:'fire-proposal.v1',start:root.MissionPoiBriefingSharedCore.point(dispatch.start),context:c,idea}});
  });
 }
 async function story({start,dest,proposal,contract={},terrainEnvelope=null,ensureAlive}) {

@@ -1,5 +1,6 @@
 (function(root){
 'use strict';
+const L=(de,en)=>root.MissionOutputLanguage?root.MissionOutputLanguage.text(de,en):de;
 const core=()=>root.MissionFragileCargoIdeasCore;
 const target=a=>({name:a.n||a.name||a.icao||'',icao:a.icao||'',lat:Number(a.lat),lon:Number(a.lon)});
 const frame=(start,dest)=>core().frame({start:target(start),target:target(dest)},getMissionAircraftCapabilitySnapshot(),core().history(localStorage));
@@ -36,7 +37,7 @@ async function story({start,dest,proposal,contract={}}){
  if(!written){raw=await pageWriter(prompt+'\nFORMATKORREKTUR: Behalte Auftrag und Sendung bei. Prüfe Textlängen, ausschließlich bekannte Referenzen, genau einen Frachtbegleiter, natürliche Begrüßung und konkrete pilotNotes zur Handhabung. In doppelten eckigen Klammern ausschließlich SCHLÜSSEL, niemals deren Werte. Erlaubt: '+Object.keys(flight.bindings).map(k=>'[['+k+']]').join(', ')+'. Vollständiges JSON. ENTWURF: '+JSON.stringify(raw));written=parse(raw);}
  if(!written)throw Error('Das Frachtbriefing enthält ungültige Texte oder Referenzen. Bitte erneut versuchen.');
  let brief=api.resolveFlightBriefing(raw.flightBriefing,context);
- if(!context.weather.some(w=>w.rawMetar||w.windKts!==null||w.visibilityKm!==null))brief='Für Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.';
+ if(!context.weather.some(w=>w.rawMetar||w.windKts!==null||w.visibilityKm!==null))brief=L('Für Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.','No usable weather observations are currently available for departure and destination.');
  else if(!brief){try{const repair=await json('Erstelle ausschließlich den Wetterabsatz. Die Geschichte bleibt unverändert. Nur JSON {flightBriefing}. '+core().weatherPrompt(flight));brief=api.resolveFlightBriefing(repair.flightBriefing,context);raw.flightBriefing=repair.flightBriefing;}catch{console.warn('[Cargo] Wetterabsatz konnte nicht separat korrigiert werden.');}}
  if(groundVisualTask)await groundVisualTask;
  const m=core().mission(idea,written,brief,contract.route);

@@ -1,5 +1,6 @@
 (function(root){
 'use strict';
+const L=(de,en)=>root.MissionOutputLanguage?root.MissionOutputLanguage.text(de,en):de;
 const core=()=>root.MissionSightseeingIdeasCore;
 const target=a=>({name:a.n||a.name||a.icao||'',icao:a.icao||'',lat:Number(a.lat),lon:Number(a.lon)});
 function capacity(){const c=getMissionAircraftCapabilitySnapshot();return Math.min(5,c.passengerCapacity||0);}
@@ -50,7 +51,7 @@ async function story({start,dest,proposal,contract={}}){
  if(!written){raw=await pageWriter(prompt+'\nPRÜFBEFUNDE: '+JSON.stringify(core().proseErrors(resolveText(raw,flight.bindings),idea))+'\nFORMATKORREKTUR: Bewahre Orte, Fakten und Perspektive. Jeder gewählte Ort genau einmal mit gültigen factIds. Prüfe Textlängen und Referenzen. Vollständiges JSON. ENTWURF: '+JSON.stringify(raw));written=parse(raw);}
  if(!written)throw Error('Das Sightseeing-Briefing enthält ungültige Texte oder Ortsverweise. Bitte erneut versuchen.');
  let brief=api.resolveFlightBriefing(raw.flightBriefing,context),weatherBriefingStatus=brief?'accepted-bindings':'pending';
- if(!context.weather.some(w=>w.rawMetar||w.windKts!==null||w.visibilityKm!==null)){brief='Für Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.';weatherBriefingStatus='unavailable';}
+ if(!context.weather.some(w=>w.rawMetar||w.windKts!==null||w.visibilityKm!==null)){brief=L('Für Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.','No usable weather observations are currently available for departure and destination.');weatherBriefingStatus='unavailable';}
  else if(!brief){try{const repair=await json('Erstelle ausschließlich den Wetterabsatz. Nur JSON {flightBriefing}. '+core().weatherPrompt(flight));brief=api.resolveFlightBriefing(repair.flightBriefing,context);raw.flightBriefing=repair.flightBriefing;}catch{console.warn('[Sightseeing] Wetterabsatz konnte nicht separat korrigiert werden.');}}
  if(!brief){brief=core().weatherFallback(context);weatherBriefingStatus='observations-fallback';}
  else if(weatherBriefingStatus==='pending')weatherBriefingStatus='repaired-bindings';

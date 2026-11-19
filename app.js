@@ -41250,6 +41250,8 @@ function attachMissionBriefingContexts(contract, sources = {}) {
 }
 
 async function fetchPrivateReturnStory(context = {}) {
+    // Phase 4: write in the UI language (German UI: prompt unchanged, see mission-output-language.js).
+    const _missionOutputPrompt = text => (globalThis.MissionOutputLanguage ? globalThis.MissionOutputLanguage.wrap(text) : text);
     const core = window.MissionPrivateReturnCore;
     const contract = context.missionContractV4;
     const seed = context.followupSeed;
@@ -41258,7 +41260,7 @@ async function fetchPrivateReturnStory(context = {}) {
     let prose = null;
     if (context.aiModeEnabled) {
         context.onPrivateStoryPhase?.('writer', 'v6');
-        const response = await fetchGeminiJsonWithFallback(core.prompt(pipeline.privateReturn, contract) + (window.MissionAirportInformationCore?.pagesPrompt(contract) || ''), getSelectedAiApiKey(), {
+        const response = await fetchGeminiJsonWithFallback(_missionOutputPrompt(core.prompt(pipeline.privateReturn, contract) + (window.MissionAirportInformationCore?.pagesPrompt(contract) || '')), getSelectedAiApiKey(), {
             promptVersion: 'mission-private-return-' + core.REVISION, timeoutMs: contract.airportInfoContext || contract.departureAirportInfoContext ? 40000 : (getSelectedAiProvider() === 'openai' ? 26000 : 20000)
         });
         const pageNarrative = window.MissionAirportInformationCore?.acceptPages(response?.parsed, contract) || response?.parsed;
@@ -41292,6 +41294,9 @@ async function fetchPrivateReturnStory(context = {}) {
 }
 
 async function fetchPrivateOutingStory(context = {}) {
+    // Phase 4: write in the UI language (German UI: prompt unchanged, see mission-output-language.js).
+    const _missionOutputPrompt = text => (globalThis.MissionOutputLanguage ? globalThis.MissionOutputLanguage.wrap(text) : text);
+    const _missionOutputText = (de, en) => (globalThis.MissionOutputLanguage ? globalThis.MissionOutputLanguage.text(de, en) : de);
     const v6 = window.MissionPrivateEpisodeV6?.mode(localStorage) === 'v6';
     const coreApi = v6 ? window.MissionPrivateEpisodeV6 : window.MissionPrivateOutingCore;
     const contract = context.missionContractV4;
@@ -41310,7 +41315,7 @@ async function fetchPrivateOutingStory(context = {}) {
     let ideaResult = null;
     if (!planned) {
         context.onPrivateStoryPhase?.('idea', v6 ? 'v6' : 'v5');
-        ideaResult = await fetchGeminiJsonWithFallback(coreApi.ideaPrompt(input), apiKey, options);
+        ideaResult = await fetchGeminiJsonWithFallback(_missionOutputPrompt(coreApi.ideaPrompt(input)), apiKey, options);
     }
     const idea = planned?.idea || coreApi.validateIdea(ideaResult?.parsed, input);
     if (!idea) throw new Error('Die private Ausflugsidee konnte nicht vollständig erstellt werden. Bitte erneut generieren.');
@@ -41323,7 +41328,7 @@ async function fetchPrivateOutingStory(context = {}) {
             return r.parsed;
         }, { taskDomain: 'private_outing', roleProfile: 'general_passenger_v1' }).catch(() => null)
         : null;
-    const written = await fetchGeminiJsonWithFallback(coreApi.writerPrompt(idea, input) + (window.MissionAirportInformationCore?.pagesPrompt(contract) || ''), apiKey, options);
+    const written = await fetchGeminiJsonWithFallback(_missionOutputPrompt(coreApi.writerPrompt(idea, input) + (window.MissionAirportInformationCore?.pagesPrompt(contract) || '')), apiKey, options);
     const pageNarrative = window.MissionAirportInformationCore?.acceptPages(written?.parsed, contract) || written?.parsed;
     const prose = coreApi.prose(pageNarrative, idea, input);
     if (groundVisualTask) await groundVisualTask;
@@ -41336,8 +41341,8 @@ async function fetchPrivateOutingStory(context = {}) {
     // If only the prose request fails, retain the chosen idea verbatim, never draw another activity.
     const narrativeStory = prose?.story || `${idea.occasion} ${idea.personalReason}`;
     const story = [narrativeStory, v6 ? prose?.flightBriefing : ''].filter(Boolean).join('\n\n');
-    const title = prose?.title || `Mit ${idea.companion.name.split(' ')[0]} nach ${idea.targetName}`;
-    const cargo = idea.luggage.weightLbs > 0 ? `${idea.luggage.label} (${idea.luggage.weightLbs} lbs)` : 'Kein Gepäck (0 lbs)';
+    const title = prose?.title || _missionOutputText(`Mit ${idea.companion.name.split(' ')[0]} nach ${idea.targetName}`, `With ${idea.companion.name.split(' ')[0]} to ${idea.targetName}`);
+    const cargo = idea.luggage.weightLbs > 0 ? `${idea.luggage.label} (${idea.luggage.weightLbs} lbs)` : _missionOutputText('Kein Gepäck (0 lbs)', 'No luggage (0 lbs)');
     const pax = `1 PAX (${idea.companion.relationship})`;
     const passenger = {
         name: idea.companion.name, role: idea.companion.relationship,
@@ -41347,7 +41352,7 @@ async function fetchPrivateOutingStory(context = {}) {
         stomachSensitivity: 'mittel', comfortPriority: 'hoch', urgencyPriority: 'niedrig',
         targetAltFt: 0, targetRadiusNm: 0, targetDwellMin: 0,
         storySeed: idea.occasion, personalStoryCue: idea.personalReason, storyHint: narrativeStory,
-        greetingText: prose?.greeting || `Hi, ich freue mich auf unseren Ausflug nach ${idea.targetName}.`,
+        greetingText: prose?.greeting || _missionOutputText(`Hi, ich freue mich auf unseren Ausflug nach ${idea.targetName}.`, `Hi, I'm looking forward to our trip to ${idea.targetName}.`),
         privateOuting: idea, knowledgeContext: contract.knowledgeContext || null
     };
     const storyFrame = { trigger: idea.occasion, subjectDetail: idea.personalReason,
@@ -44298,7 +44303,7 @@ async function buildPrivateMissionProposalChoices(airports, context = {}) {
         return { id: `private-${index + 1}`, target, input, routeLabel: route.label, stats: region.stats };
     }));
     context.ensureAlive?.();
-    const response = await fetchGeminiJsonWithFallback(core.proposalPrompt(candidates, recent), key,
+    const response = await fetchGeminiJsonWithFallback((globalThis.MissionOutputLanguage ? globalThis.MissionOutputLanguage.wrap(core.proposalPrompt(candidates, recent)) : core.proposalPrompt(candidates, recent)), key,
         { promptVersion: 'mission-private-picker-v6-3-1', timeoutMs: 40000 });
     context.ensureAlive?.();
     const proposals = core.proposals(response?.parsed, candidates);

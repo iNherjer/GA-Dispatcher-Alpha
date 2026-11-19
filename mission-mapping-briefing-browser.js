@@ -1,5 +1,6 @@
 (function(root){
 'use strict';
+const L=(de,en)=>root.MissionOutputLanguage?root.MissionOutputLanguage.text(de,en):de;
 const core=()=>root.MissionMappingBriefingCore;
 const FLAG='ga_mapping_briefing_v1';
 function sceneCapabilities(){
@@ -33,7 +34,7 @@ async function choices(candidates,dispatch) {
  const recent=core().history(localStorage),raw=await json(core().ideaPrompt(contexts.map(c=>core().frame(c,recent))));dispatch.ensureAlive?.();
  return contexts.map((c,i)=>{
   const idea=core().readIdea(raw,c),poi=selected[i];
-  return normalizeMissionProposalChoice({id:c.id+'-'+Date.now(),mode:'poi',profileId:'mapping_survey',selectedCategory:poi.poiCategory||dispatch.selectedPoiCategory,requestedCategory:dispatch.requestedPoiCategory||dispatch.selectedPoiCategory,target:missionProposalCompactTarget(poi,'poi'),title:idea.purpose,description:idea.commission,subtitle:idea.person.role,paxText:'1 PAX ('+idea.person.role+')',cargoText:'Aufnahmekamera, Datenlogger und Missions-Tablet (36 lbs)',routeLabel:missionProposalFormatRoute(dispatch.start,poi,'poi').label,mappingProposal:{schema:'mapping-proposal.v1',start:root.MissionPoiBriefingSharedCore.point(dispatch.start),context:c,idea}});
+  return normalizeMissionProposalChoice({id:c.id+'-'+Date.now(),mode:'poi',profileId:'mapping_survey',selectedCategory:poi.poiCategory||dispatch.selectedPoiCategory,requestedCategory:dispatch.requestedPoiCategory||dispatch.selectedPoiCategory,target:missionProposalCompactTarget(poi,'poi'),title:idea.purpose,description:idea.commission,subtitle:idea.person.role,paxText:'1 PAX ('+idea.person.role+')',cargoText:L('Aufnahmekamera, Datenlogger und Missions-Tablet (36 lbs)','Survey camera, data logger and mission tablet (36 lbs)'),routeLabel:missionProposalFormatRoute(dispatch.start,poi,'poi').label,mappingProposal:{schema:'mapping-proposal.v1',start:root.MissionPoiBriefingSharedCore.point(dispatch.start),context:c,idea}});
  });
 }
 async function story({start,dest,proposal,contract={},terrainEnvelope=null,poiTerrainFt=null,poiTerrainMaxFt=null,missionTruth=null,followup=null,ensureAlive}) {

@@ -1,5 +1,6 @@
 (function(root){
 'use strict';
+const L=(de,en)=>root.MissionOutputLanguage?root.MissionOutputLanguage.text(de,en):de;
 const core=()=>root.MissionCharterIdeasCore;
 const target=a=>({name:a.n||a.name||a.icao||'',icao:a.icao||'',lat:Number(a.lat),lon:Number(a.lon)});
 function capacity(){const c=getMissionAircraftCapabilitySnapshot();return Math.min(5,c.passengerCapacity||0);}
@@ -67,7 +68,7 @@ async function write(idea,input,contract,extraPrompt=''){
  }
  if(!written){console.warn('[Charter] Writer-Prüfung fehlgeschlagen:',JSON.stringify({first:firstIssues,retry:writerIssues(raw,flight.bindings)}));throw Error('Das Charterbriefing enthält ungültige Texte oder Referenzen. Bitte erneut versuchen.');}
  const hasWeather=context.weather.some(w=>w.rawMetar||w.windKts!==null||w.visibilityKm!==null);
- if(!hasWeather)brief='Für Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.';
+ if(!hasWeather)brief=L('Für Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.','No usable weather observations are currently available for departure and destination.');
  else if(!brief){
   try {
    const repair=await json('Erstelle ausschließlich den Wetterabsatz für den bestehenden Flug. Die Geschichte bleibt unverändert. Nur JSON {flightBriefing}. Maximal 850 Zeichen. Zahlen und Einheiten nur über die folgenden Referenzschlüssel in doppelten eckigen Klammern: '+Object.keys(flight.bindings).map(k=>'[['+k+']]').join(', ')+'. Vorhandene route.distance, start.gust und target.gust verwenden. Stationsbezug und Beobachtungszeit nennen; alte oder zeitlich unbekannte Meldungen als solche kennzeichnen. Fehlende Werte sind unbekannt, nicht null Wind oder böenfrei. Keine technischen Feldnamen in der Prosa. Keine aktuellen Bedingungen zwischen den Stationen oder Ankunftsprognosen behaupten. FLUGDATEN: '+JSON.stringify(context)+' WERTE: '+JSON.stringify(flight.bindings));
@@ -77,14 +78,14 @@ async function write(idea,input,contract,extraPrompt=''){
 
  if(contract.returnFlight){
   const returnContext=api.flightContext(contract.returnFlight),bindings=api.flightBindings(returnContext);
-  let returnBrief='Für den besetzten Rückflug liegen derzeit keine verwertbaren Wetterbeobachtungen vor.';
+  let returnBrief=L('Für den besetzten Rückflug liegen derzeit keine verwertbaren Wetterbeobachtungen vor.','No usable weather observations are currently available for the occupied return flight.');
   if(returnContext.weather.some(w=>w.rawMetar||w.windKts!==null||w.visibilityKm!==null)){
    try{
     const rawReturn=await json('Schreibe nur den Wetterabsatz für den besetzten Charter-Rückflug. Nur JSON {flightBriefing}, maximal 850 Zeichen. Zahlen/Einheiten ausschließlich als [[Referenz]] aus WERTE. Vorhandene route.distance, start.gust und target.gust nennen. Stationsbezug, Aktualität und Datenlücken korrekt einordnen; keine Prognose oder Flugfreigabe. FLUGDATEN: '+JSON.stringify(returnContext)+' WERTE: '+JSON.stringify(bindings));
     returnBrief=api.resolveFlightBriefing(rawReturn.flightBriefing,returnContext)||'Der Wetterabsatz für den besetzten Rückflug konnte nicht erstellt werden; die einzelnen Wetterdaten bitte separat prüfen.';
    }catch{ returnBrief='Der Wetterabsatz für den besetzten Rückflug konnte nicht erstellt werden; die einzelnen Wetterdaten bitte separat prüfen.'; }
   }
-  brief='Leerflug zur Abholung: '+(brief||'Der Wetterabsatz konnte nicht erstellt werden; die Wetterdaten bitte separat prüfen.')+'\n\nBesetzter Rückflug: '+returnBrief;
+  brief=L('Leerflug zur Abholung: ','Empty positioning flight for the pickup: ')+(brief||'Der Wetterabsatz konnte nicht erstellt werden; die Wetterdaten bitte separat prüfen.')+L('\n\nBesetzter Rückflug: ','\n\nOccupied return flight: ')+returnBrief;
  }
  await cargoVisualTask;
  const m=core().mission(idea,written,brief,contract.route||{});

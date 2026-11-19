@@ -1,5 +1,6 @@
 (function(root){
 'use strict';
+const L=(de,en)=>root.MissionOutputLanguage?root.MissionOutputLanguage.text(de,en):de;
 const core=()=>root.MissionMedicalTransferIdeasCore;
 const target=a=>({name:a.n||a.name||a.icao||'',icao:a.icao||'',lat:Number(a.lat),lon:Number(a.lon)});
 const frame=(start,dest)=>core().frame({start:target(start),target:target(dest)},{...getMissionAircraftCapabilitySnapshot(),patientTransferEnabled:true},core().history(localStorage));
@@ -17,7 +18,7 @@ async function choices(airports,context){
  if(airports.length<3)throw Error('Für Medizin-Transfervorschläge fehlen passende Zielflugplätze.');
  const selected=airports.slice(0,3),frames=selected.map((a,i)=>({candidateId:'medical-transfer-'+i,...frame(context.start,a)}));
  const drafts=await ideas(frames);context.ensureAlive?.();
- return frames.map((input,i)=>normalizeMissionProposalChoice({id:input.candidateId+'-'+Date.now(),mode:'apt',profileId:'medical_transfer',selectedCategory:'cargo',requestedCategory:'cargo',target:missionProposalCompactTarget(selected[i],'apt'),title:drafts[i].purpose,description:drafts[i].background,subtitle:drafts[i].shipment.label,paxText:drafts[i].transportKind==='patient_transfer'?'2 PAX (Patient und medizinische Begleitung)':`1 PAX (${drafts[i].passenger.role})`,cargoText:core().cargoText(drafts[i]),routeLabel:missionProposalFormatRoute(context.start,selected[i],'apt').label,medicalTransferProposal:{schema:'medical-transfer-proposal.v1',input,idea:drafts[i]}}));
+ return frames.map((input,i)=>normalizeMissionProposalChoice({id:input.candidateId+'-'+Date.now(),mode:'apt',profileId:'medical_transfer',selectedCategory:'cargo',requestedCategory:'cargo',target:missionProposalCompactTarget(selected[i],'apt'),title:drafts[i].purpose,description:drafts[i].background,subtitle:drafts[i].shipment.label,paxText:drafts[i].transportKind==='patient_transfer'?L('2 PAX (Patient und medizinische Begleitung)','2 PAX (patient and medical escort)'):`1 PAX (${drafts[i].passenger.role})`,cargoText:core().cargoText(drafts[i]),routeLabel:missionProposalFormatRoute(context.start,selected[i],'apt').label,medicalTransferProposal:{schema:'medical-transfer-proposal.v1',input,idea:drafts[i]}}));
 }
 async function story({start,dest,proposal,contract={}}){
  const input=frame(start,dest);let idea;
@@ -36,7 +37,7 @@ async function story({start,dest,proposal,contract={}}){
  if(!written){raw=await pageWriter(prompt+'\nFORMATKORREKTUR: Behalte Auftrag und Sendung bei. Prüfe Textlängen, ausschließlich bekannte Referenzen, die Personen laut transportKind, natürliche Begrüßung und konkrete pilotNotes zur Handhabung. In doppelten eckigen Klammern ausschließlich SCHLÜSSEL, niemals deren Werte. Erlaubt: '+Object.keys(flight.bindings).map(k=>'[['+k+']]').join(', ')+'. Vollständiges JSON. ENTWURF: '+JSON.stringify(raw));written=parse(raw);}
  if(!written)throw Error('Das Medizin-Transferbriefing enthält ungültige Texte oder Referenzen. Bitte erneut versuchen.');
  let brief=api.resolveFlightBriefing(raw.flightBriefing,context);
- if(!context.weather.some(w=>w.rawMetar||w.windKts!==null||w.visibilityKm!==null))brief='Für Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.';
+ if(!context.weather.some(w=>w.rawMetar||w.windKts!==null||w.visibilityKm!==null))brief=L('Für Start und Ziel liegen derzeit keine verwertbaren Wetterbeobachtungen vor.','No usable weather observations are currently available for departure and destination.');
  else if(!brief){try{const repair=await json('Erstelle ausschließlich den Wetterabsatz. Die Geschichte bleibt unverändert. Nur JSON {flightBriefing}. '+core().weatherPrompt(flight));brief=api.resolveFlightBriefing(repair.flightBriefing,context);raw.flightBriefing=repair.flightBriefing;}catch{console.warn('[Medizin-Transfer] Wetterabsatz konnte nicht separat korrigiert werden.');}}
  if(groundVisualTask)await groundVisualTask;
  const m=core().mission(idea,written,brief,contract.route);

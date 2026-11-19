@@ -5,6 +5,7 @@
  if(node)module.exports=api;else root.MissionPoiBriefingSharedCore=api;
 })(typeof globalThis!=='undefined'?globalThis:this,function(geo,api){
 'use strict';
+const L=(de,en)=>((typeof globalThis!=='undefined'&&globalThis.MissionOutputLanguage)?globalThis.MissionOutputLanguage.text(de,en):de);
 function relation(from, to) {
   const distanceKm = geo.distanceKm(from, to);
   if (!Number.isFinite(distanceKm)) throw Error('Invalid coordinates');
@@ -288,7 +289,7 @@ function resolveWeather(template,flightContext) {
  // Same no-observation handling as APT charter. No fabricated station values
  // and no additional model request for a paragraph with no weather evidence.
  if(!flightContext.weather.some(w=>w.rawMetar||[w.windKts,w.gustKts,w.visibilityKm,w.ceilingFtAgl,w.cloudBaseFtAgl].some(v=>typeof v==='number'&&Number.isFinite(v)))) {
-  written.flightBriefing='Für Start und Zielbereich liegen derzeit keine verwertbaren Wetterbeobachtungen vor.';
+  written.flightBriefing=L('Für Start und Zielbereich liegen derzeit keine verwertbaren Wetterbeobachtungen vor.','No usable weather observations are currently available for departure and target area.');
   written.flightBriefingStatus='no-observations';
  } else if(flightContext.sharedWeatherObservation||!written.flightBriefing) {
   written.flightBriefing=api.weatherFallback(flightContext,{targetLabel:((typeof globalThis!=='undefined'&&globalThis.MissionOutputLanguage)?globalThis.MissionOutputLanguage.text('Zielgebiet','target area'):'Zielgebiet')});

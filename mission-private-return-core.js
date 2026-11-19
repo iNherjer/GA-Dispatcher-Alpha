@@ -6,6 +6,9 @@
     const text = (s, max = 600) => typeof s === 'string' ? s.trim().slice(0, max) : '';
     const copy = x => JSON.parse(JSON.stringify(x));
     const episodeApi = () => root.MissionPrivateEpisodeV6;
+    // Fixed texts in the output language of the mission (phase 4); German without i18n.
+    const outLang = () => root.MissionOutputLanguage || (typeof module !== 'undefined' && module.exports ? require('./mission-output-language.js') : null);
+    const L = (de, en) => outLang() ? outLang().text(de, en) : de;
     function context(md = {}) {
         const candidates = [md.privateReturn, md.passenger?.privateReturn, md.missionContract?.privateReturn,
             md.missionContractV4?.privateReturn, md.followUpContext?.privateReturn];
@@ -109,10 +112,11 @@
             ui: offerUi(continuity)};
     }
     function offerUi(c) {
-        return {title: `Rückflug von ${c.visited.name} nach ${c.home.name}`,
-            subtitle: c.debugCompletion ? 'Testfortsetzung – kein geflogener Hinflug' : `Heimreise mit ${c.outing.companion.name}`,
+        return {title: L(`Rückflug von ${c.visited.name} nach ${c.home.name}`, `Return flight from ${c.visited.name} to ${c.home.name}`),
+            subtitle: c.debugCompletion ? L('Testfortsetzung – kein geflogener Hinflug', 'Test continuation – no outbound flight flown') : L(`Heimreise mit ${c.outing.companion.name}`, `Trip home with ${c.outing.companion.name}`),
             previewText: text(c.outing.returnOfferText, 350)
-                || `Dein Ausflug mit ${c.outing.companion.name} liegt hinter euch. Jetzt geht es gemeinsam wieder nach Hause.`};
+                || L(`Dein Ausflug mit ${c.outing.companion.name} liegt hinter euch. Jetzt geht es gemeinsam wieder nach Hause.`,
+                    `Your outing with ${c.outing.companion.name} is behind you. Now you head home together.`)};
     }
 
     function acceptance(req, start) {
@@ -189,13 +193,14 @@ FLUGDATEN: ${JSON.stringify(flight)}`;
         const c = written?.continuity || p.privateReturn;
         const passenger = {...req.passenger, privateReturn:c, targetAltFt:0, targetRadiusNm:0, targetDwellMin:0,
             storySeed:written?.continuity?.experienceRecap?.summary || '', personalStoryCue:written?.continuity?.experienceRecap?.companionReaction || '',
-            greetingText:written?.greeting || 'Schön, dass wir zusammen unterwegs sind.'};
-        const cargo = c.outing.luggage.weightLbs > 0 ? `${c.outing.luggage.label} (${c.outing.luggage.weightLbs} lbs)` : 'Kein Gepäck (0 lbs)';
+            greetingText:written?.greeting || L('Schön, dass wir zusammen unterwegs sind.', 'Great that we are travelling together.')};
+        const cargo = c.outing.luggage.weightLbs > 0 ? `${c.outing.luggage.label} (${c.outing.luggage.weightLbs} lbs)` : L('Kein Gepäck (0 lbs)', 'No luggage (0 lbs)');
         const pax = `1 PAX (${passenger.role})`;
         // Offline/failed prose never substitutes an unrelated activity or fabricates an experience.
         const story = written ? `${written.story}\n\n${written.flightBriefing}`
-            : `Ihr bereitet mit ${passenger.name} die gemeinsame Heimreise von ${c.visited.name} nach ${c.home.name} vor. Euer Ausflugsplan: ${c.outing.occasion}`;
-        return {mission:{t:written?.title || `Gemeinsam zurück nach ${c.home.name}`, s:story, story, missionStory:story,
+            : L(`Ihr bereitet mit ${passenger.name} die gemeinsame Heimreise von ${c.visited.name} nach ${c.home.name} vor. Euer Ausflugsplan: ${c.outing.occasion}`,
+                `You and ${passenger.name} are getting ready for the trip home from ${c.visited.name} to ${c.home.name}. Your outing plan: ${c.outing.occasion}`);
+        return {mission:{t:written?.title || L(`Gemeinsam zurück nach ${c.home.name}`, `Back to ${c.home.name} together`), s:story, story, missionStory:story,
             i:'📋', cat:'private', missionType:'apt', profileId:PROFILE, _requestedProfile:PROFILE, _appliedProfile:PROFILE,
             passenger, pax, cargo, cargoText:cargo, privateReturn:c, followUpContext:{...p, privateReturn:c},
             followUpRequestId:req.id, followUpContinuation:{sourceMissionId:c.sourceMissionId, followUpKind:PROFILE},

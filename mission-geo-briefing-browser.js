@@ -1,5 +1,6 @@
 (function(root){
 'use strict';
+const L=(de,en)=>root.MissionOutputLanguage?root.MissionOutputLanguage.text(de,en):de;
 const core=()=>root.MissionGeoBriefingCore;
 const FLAG='ga_geo_briefing_v1';
 function sceneCapabilities(){
@@ -33,7 +34,7 @@ async function choices(candidates,dispatch) {
  const recent=core().history(localStorage),raw=await json(core().ideaPrompt(contexts.map(c=>core().frame(c,recent))));dispatch.ensureAlive?.();
  return contexts.map((c,i)=>{
   const idea=core().readIdea(raw,c),poi=selected[i];
-  return normalizeMissionProposalChoice({id:c.id+'-'+Date.now(),mode:'poi',profileId:'science_geo',selectedCategory:poi.poiCategory||dispatch.selectedPoiCategory,requestedCategory:dispatch.requestedPoiCategory||dispatch.selectedPoiCategory,target:missionProposalCompactTarget(poi,'poi'),title:idea.studyFocus,description:idea.situation,subtitle:idea.person.role,paxText:'1 PAX ('+idea.person.role+')',cargoText:'Reliefkarten, Feldnotizen, Kamera und Tablet (12 lbs)',routeLabel:missionProposalFormatRoute(dispatch.start,poi,'poi').label,geoProposal:{schema:'geo-proposal.v1',start:root.MissionPoiBriefingSharedCore.point(dispatch.start),context:c,idea}});
+  return normalizeMissionProposalChoice({id:c.id+'-'+Date.now(),mode:'poi',profileId:'science_geo',selectedCategory:poi.poiCategory||dispatch.selectedPoiCategory,requestedCategory:dispatch.requestedPoiCategory||dispatch.selectedPoiCategory,target:missionProposalCompactTarget(poi,'poi'),title:idea.studyFocus,description:idea.situation,subtitle:idea.person.role,paxText:'1 PAX ('+idea.person.role+')',cargoText:L('Reliefkarten, Feldnotizen, Kamera und Tablet (12 lbs)','Relief maps, field notes, camera and tablet (12 lbs)'),routeLabel:missionProposalFormatRoute(dispatch.start,poi,'poi').label,geoProposal:{schema:'geo-proposal.v1',start:root.MissionPoiBriefingSharedCore.point(dispatch.start),context:c,idea}});
  });
 }
 async function story({start,dest,proposal,contract={},terrainEnvelope=null,ensureAlive}) {

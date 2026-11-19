@@ -45,6 +45,8 @@ async function request(prompt){
  return {parsed:parse(entry.raw)};
 }
 const context=vm.createContext({window:{liveTrackerCapabilities:process.argv.includes('--patient')?['mission.scene.group.v1','mission.scene.medical-group.v1']:[],MissionMedicalTransferIdeasCore:core,MissionCharterIdeasCore:charter,MissionClubIdeasCore:club,MissionPrivateEpisodeV6:flight,MissionPrivateContextCore:{resolveBrowser:async()=>({places:[]})}},localStorage:storage,getMissionAircraftCapabilitySnapshot:()=>({name:'PA-24',maxPayloadKg:520,passengerCapacity:3}),missionTrackerSupportsGroupGeneration:()=>true,getSelectedAiApiKey:()=>'',fetchGeminiJsonWithFallback:request});
+// --english: simulate the English UI (phase 4 output language).
+if(process.argv.includes('--english')){context.window.MissionOutputLanguage=(()=>{const out=require('../mission-output-language.js');return {...out,language:()=>'en',directive:()=>out.DIRECTIVE,wrap:p=>typeof p==='string'?p+out.DIRECTIVE:p,text:(de,en)=>typeof en==='string'?en:de,locale:()=>'en-GB',decimal:v=>String(v)};})();process.env.GA_MISSION_OUTPUT_LANGUAGE='en';}
 vm.runInContext(fs.readFileSync('mission-medical-transfer-browser.js','utf8'),context);
 if(process.argv.includes('--picker')){
  for(const name of ['normalizeMissionProposalChoice','compactMissionProposalChoice']){

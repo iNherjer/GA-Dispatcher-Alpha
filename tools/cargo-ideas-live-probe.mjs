@@ -36,7 +36,7 @@ async function request(prompt){
 }
 const context=vm.createContext({window:{MissionCargoIdeasCore:core,MissionCharterIdeasCore:charter,MissionClubIdeasCore:club,MissionPrivateEpisodeV6:flight,MissionPrivateContextCore:{resolveBrowser:async()=>({places:[]})}},localStorage:storage,getMissionAircraftCapabilitySnapshot:()=>({name:'PA-24',maxPayloadKg:520}),missionTrackerSupportsGroupGeneration:()=>true,getSelectedAiApiKey:()=>'',fetchGeminiJsonWithFallback:request});
 // --english: simulate the English UI (phase 4 output-language directive).
-if(process.argv.includes('--english'))context.window.MissionOutputLanguage=(()=>{const out=require('../mission-output-language.js');return {...out,language:()=>'en',directive:()=>out.DIRECTIVE,wrap:p=>typeof p==='string'?p+out.DIRECTIVE:p};})();
+if(process.argv.includes('--english'))context.window.MissionOutputLanguage=(()=>{const out=require('../mission-output-language.js');return {...out,language:()=>'en',directive:()=>out.DIRECTIVE,wrap:p=>typeof p==='string'?p+out.DIRECTIVE:p,text:(de,en)=>typeof en==='string'?en:de,locale:()=>'en-GB',decimal:v=>String(v)};})();
 vm.runInContext(fs.readFileSync('mission-cargo-browser.js','utf8'),context);
 try{
  for(const [i,id] of ['LOIJ','EDTF','EDSH','EDNY'].slice(0,Number(process.argv.find(x=>x.startsWith('--count='))?.slice(8)||4)).entries()){
