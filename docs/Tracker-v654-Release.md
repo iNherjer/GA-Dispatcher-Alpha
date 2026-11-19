@@ -22,5 +22,5 @@ Zusammen ausgeliefert mit Web v2473 (nur Cache).
 ## Artefakt
 
 - Tag `v654`, Asset `VFR-Multitool-Tracker.exe`
-- Größe: offen
-- SHA-256: offen
+- Größe: 175353250 Bytes
+- SHA-256: 082b510d7c901e005d8e7aa65c479ff860bc8e5054911b6d7c04aa80ace973b4 (öffentlicher Download geprüft)
