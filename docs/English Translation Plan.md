@@ -582,7 +582,8 @@ Noch offen in Phase 4: Privat-Ausflug/Heimreise (eigene deutsche Textpolitur), T
   damit das Bodenobjekt nicht mehr an deutschen Wörtern im Ladungstext hängt. Wortsuche bleibt Rückfall.
 - `_pickClubUtilityCargo` (Raten aus deutschem Text) läuft nur noch auf dem alten Weg ohne Vereins-Idee
   und auf festen deutschen Vorschlagsvorlagen; der Ideenweg liefert seine Ladung selbst.
-- Offen (Entscheidung): KI-aus nutzt die deutsche Missionssammlung; englisch wäre eine eigene Sammlung.
+- **Entschieden 19.11.2026:** KI-aus bleibt deutsch (rund 20 lokale Bausteine, geschätzt 2.000–3.000
+  sichtbare Textstücke). In englischer Oberfläche zeigt der Sprach-Hinweis (2.22) „created in German“.
 
 ## 4. Etappen
 
