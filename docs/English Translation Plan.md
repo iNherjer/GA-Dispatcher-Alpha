@@ -563,6 +563,15 @@ Noch offen in Phase 4: Privat-Ausflug/Heimreise (eigene deutsche Textpolitur), T
   Alle Phasen-Labels des Fortschrittsbalkens und alle festen Statussätze (132) stehen in
   `i18n/en-phrases.js`. Unbekannte Sätze bleiben, wie sie sind.
 
+### 2.22 Phase 4 Schritt 4: Sprachwechsel nach dem Erstellen (2026-11-19, User-Entscheidung)
+
+- **Keine nachträgliche Übersetzung** (Sprache wird meist einmal eingestellt, keine API-Kosten).
+- Jede neue Mission merkt sich `outputLanguage` ('en' nur bei KI an und englischer Oberfläche, sonst
+  'de'); `sync.js` behält das Feld beim Cloud-Verdichten.
+- Briefing-Seite 1 zeigt unter dem Titel einen Hinweis (`#mLanguageHint`), wenn Missions- und
+  Oberflächensprache abweichen. Ältere Missionen ohne Feld gelten als deutsch; neuere ohne Feld =
+  unbekannt, kein Hinweis. Deutsche Mission bei deutscher Oberfläche: unverändert, kein Hinweis.
+
 ## 4. Etappen
 
 | Phase | Inhalt | Größe | Abhängig von |

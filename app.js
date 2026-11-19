@@ -8234,6 +8234,32 @@ function _appStatusLineEnglish(text) {
     }
     return value;
 }
+// Briefing hint when the mission was written in another language than the UI shows now.
+// Missions are not translated afterwards; new missions follow the UI language.
+// Without the field: created before v2461 = German; newer without the field = unknown, no hint.
+const _MISSION_LANGUAGE_FIELD_SINCE = 1795084000000;
+function _missionTextLanguage(md) {
+    if (!md || typeof md !== 'object') return '';
+    if (md.outputLanguage === 'en' || md.outputLanguage === 'de') return md.outputLanguage;
+    const created = Number(md.generatedAt || md.createdAt || md.activeMissionCreatedAt) || 0;
+    return created && created < _MISSION_LANGUAGE_FIELD_SINCE ? 'de' : '';
+}
+function updateMissionLanguageHint() {
+    const el = document.getElementById('mLanguageHint');
+    if (!el) return;
+    const md = typeof currentMissionData !== 'undefined' ? currentMissionData : null;
+    const missionLanguage = _missionTextLanguage(md);
+    const ui = window.GAI18n ? GAI18n.getLanguage() : 'de';
+    const show = !!missionLanguage && missionLanguage !== ui && !!(md && (md.t || md.mission || md.missionTitle || md.s));
+    el.hidden = !show;
+    if (!show) { el.textContent = ''; return; }
+    el.textContent = ui === 'en'
+        ? 'This mission was created in German. New missions are created in English.'
+        : 'Diese Mission wurde auf Englisch erstellt. Neue Missionen entstehen auf Deutsch.';
+}
+window.updateMissionLanguageHint = updateMissionLanguageHint;
+if (typeof window !== 'undefined' && window.GAI18n) GAI18n.onChange(() => { try { updateMissionLanguageHint(); } catch (_) {} });
+
 function _installAppStatusLineTranslation() {
     const el = document.getElementById('searchIndicator');
     if (!el || !window.GAI18n || typeof MutationObserver !== 'function' || el._gaStatusTranslation) return;
@@ -10994,6 +11020,7 @@ async function restoreMissionState(state, options = {}) {
     window.gaBriefingEnvelope?.receive();
     document.getElementById("briefingBox").style.display = "block";
     if (typeof window.updateMissionAcceptanceUi === 'function') window.updateMissionAcceptanceUi();
+    try { updateMissionLanguageHint(); } catch (_) {}
     renderMainRoute(); setDrumCounter('distDrum', currentMissionData?.dist || state.currentMissionData?.dist || 0);
     refreshMissionSurveyOverlaySoon(currentMissionData, window.activePassenger || null, 'mission-restore');
     refreshMissionPoiChainOverlaySoon(currentMissionData, window.activePassenger || null, 'mission-restore');
@@ -47530,6 +47557,8 @@ async function generateMission(options = {}) {
     currentMissionData = {
         missionId: missionRuntimeId,
         generatedAt: missionCreatedAt,
+        // Language the mission text was written in (AI off stays German). Used for the briefing hint.
+        outputLanguage: aiModeEnabled && window.MissionOutputLanguage?.language?.() === 'en' ? 'en' : 'de',
         missionKey: [currentStartICAO, currentDestICAO, isPOI ? dest.n : dest.n, m?.t, followupMissionKeyTag].filter(Boolean).join('|'),
         followUpRequestId: followupSeed?.id || m?.followUpRequestId || null,
         followUpContinuation: followupSeed ? {
@@ -47773,6 +47802,7 @@ async function generateMission(options = {}) {
         }
     }
     window.currentMissionData = currentMissionData;
+    try { updateMissionLanguageHint(); } catch (_) {}
     if (currentMissionData.sightseeingIdea) window.MissionSightseeingIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.sightseeingIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.sightseeingIdea.writerMemory});
     if (currentMissionData.fragileCargoIdea) window.MissionFragileCargoIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.fragileCargoIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.fragileCargoIdea.writerMemory});
     if (currentMissionData.aptNewsIdea) window.MissionAptNewsIdeasCore.remember(localStorage,currentMissionData.missionId,currentMissionData.aptNewsIdea,{story:m._missionWriterV4Debug?.rawAiStory||m.s,memory:currentMissionData.aptNewsIdea.writerMemory});

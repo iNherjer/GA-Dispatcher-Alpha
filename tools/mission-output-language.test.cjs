@@ -123,3 +123,17 @@ assert.ok(phaseLabels.length > 60);
 for (const label of phaseLabels) assert.notEqual(i18n.GAI18n.phrase(label), label, 'phase label without English phrase: ' + label);
 assert.match(app, /function _installAppStatusLineTranslation\(\)/);
 console.log('mission output language status line: ok (' + phaseLabels.length + ' phase labels)');
+
+// Language hint: missions are not translated afterwards; the briefing says so when languages differ.
+assert.match(app, /outputLanguage: aiModeEnabled && window\.MissionOutputLanguage\?\.language\?\.\(\) === 'en' \? 'en' : 'de',/);
+assert.match(fs.readFileSync(path.join(root, 'sync.js'), 'utf8'), /'savedAt', 'outputLanguage',/, 'cloud compaction keeps the language');
+assert.match(fs.readFileSync(path.join(root, 'index.html'), 'utf8'), /<p id="mLanguageHint" class="mission-language-hint" hidden><\/p>/);
+{
+  const take = name => { const a = app.indexOf('function ' + name + '('); const b = app.indexOf('\n}\n', a); return app.slice(a, b + 2); };
+  const c = {}; vm.createContext(c);
+  vm.runInContext('const _MISSION_LANGUAGE_FIELD_SINCE = 1795084000000;\n' + take('_missionTextLanguage') + '\nthis.f=_missionTextLanguage;', c);
+  assert.equal(c.f({ outputLanguage: 'en' }), 'en');
+  assert.equal(c.f({ generatedAt: 1790000000000 }), 'de', 'older missions are German');
+  assert.equal(c.f({ generatedAt: 1796000000000 }), '', 'newer without field: unknown, no hint');
+}
+console.log('mission output language hint: ok');
