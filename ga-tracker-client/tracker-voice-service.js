@@ -8,6 +8,7 @@ const warningCore = require('../navigation-warning-core.js');
 const { normalizeMissionVoiceScope } = require('./tracker-mission-voice-scope.js');
 const outputLanguage = require('../mission-output-language.js');
 const distressVoiceCore = require('./tracker-mission-distress-voice-core.js');
+const prematureTaxiCore = require('./tracker-mission-premature-taxi-core.js');
 
 const VOICE_PROVIDERS = new Set(['gemini', 'openai']);
 const EFFECT_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,159}$/;
@@ -64,7 +65,7 @@ function normalizeVoiceRequest(value = {}) {
     : {};
   const paxMenuRequest = value.paxMenuRequest === true;
   const requestedKind = String(value.kind || '').trim().toLowerCase();
-  const kind = ['poi', 'boarding', 'farewell', 'approach', 'cargo', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event', 'route_story', 'bush_story', 'weather_preset', 'time_shift', 'pax_distress', 'cargo_distress'].includes(requestedKind) ? requestedKind : 'direct';
+  const kind = ['poi', 'boarding', 'farewell', 'approach', 'cargo', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event', 'route_story', 'bush_story', 'weather_preset', 'time_shift', 'pax_distress', 'cargo_distress', 'premature_taxi'].includes(requestedKind) ? requestedKind : 'direct';
   const taskDomain = String(value.taskDomain || normalizedSpeaker.taskDomain || '').trim().toLowerCase().slice(0, 120);
   const cueSource = value.cue && typeof value.cue === 'object' && !Array.isArray(value.cue) ? value.cue : {};
   const requestedCueId = boardingVoiceCore.normalizeCueId(cueSource.id);
@@ -683,7 +684,7 @@ function createTrackerVoiceService(options = {}) {
         const record = {
           effectId,
           fingerprint: String(source.fingerprint || ''),
-          kind: ['poi', 'boarding', 'farewell', 'approach', 'cargo', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event', 'route_story', 'bush_story', 'weather_preset', 'time_shift', 'pax_distress', 'cargo_distress'].includes(String(source.kind || '').trim().toLowerCase())
+          kind: ['poi', 'boarding', 'farewell', 'approach', 'cargo', 'comfort', 'wrong_start', 'off_destination', 'landing_roll', 'cargo_event', 'route_story', 'bush_story', 'weather_preset', 'time_shift', 'pax_distress', 'cargo_distress', 'premature_taxi'].includes(String(source.kind || '').trim().toLowerCase())
             ? String(source.kind || '').trim().toLowerCase()
             : 'direct',
           missionScope: normalizeMissionVoiceScope(source.missionScope),
@@ -840,7 +841,7 @@ function createTrackerVoiceService(options = {}) {
     if (request.language === 'en') {
       // Prerecorded clips are German: an English line is spoken live instead.
       request.staticClipKey = '';
-      request.ttsStyle = distressVoiceCore.ttsStyleForLanguage(request.ttsStyle, 'en');
+      request.ttsStyle = prematureTaxiCore.ttsStyleForLanguage(distressVoiceCore.ttsStyleForLanguage(request.ttsStyle, 'en'), 'en');
     }
     if (rawRequest.missionScope != null && !missionScope) throw voiceError('invalid_mission_voice_scope', 400, 'Ungueltige Missionszuordnung fuer Voice.');
     const bindScope = record => {

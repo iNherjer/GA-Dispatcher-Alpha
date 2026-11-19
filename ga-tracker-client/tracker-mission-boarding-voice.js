@@ -8,6 +8,7 @@ const bushPickupVoiceCore = require('../mission-bush-pickup-voice-core.js');
 const { observeFlightVoice } = require('./tracker-flight-voice-core.js');
 const locationCore = require('../mission-location-core.js');
 const { createTrackerMissionCargoAudio } = require('./tracker-mission-cargo-audio.js');
+const prematureTaxiCore = require('./tracker-mission-premature-taxi-core.js');
 const { buildApproachPrompt } = require('./tracker-mission-approach-voice.js');
 const { recordGeneratedText } = require('./tracker-mission-poi-voice.js');
 
@@ -132,7 +133,21 @@ function createTrackerMissionBoardingVoice(options = {}) {
         }
       }
     }
-    if (request.effect?.type === 'voice.flight') {
+    const prematureTaxi = request.effect?.type === 'voice.flight' && object(request.effect.payload).kind === 'premature_taxi';
+    if (prematureTaxi) {
+      // Warning before the start: passenger (still here) or dispatcher radio; phase must still be prepare/boarding.
+      const payload = object(request.effect.payload);
+      const current = authorityManager.getExecutionSnapshot?.();
+      if (!payload.fallbackText || !current || current.runId !== run.runId || current.state.flags.active
+          || !['prepare', 'boarding'].includes(current.state.phase)) return completed(request, { voiceStatus: 'premature_taxi_superseded' });
+      const passenger = payload.speakerRole === 'passenger' && (recipe?.speaker || flightContext?.speaker || flightContext?.passenger);
+      recipe = { missionId: run.missionId, enabled: true, kind: 'premature_taxi',
+        prompt: passenger ? cleanString(payload.prompt, 24000) : '', fallbackText: cleanString(payload.fallbackText, 600),
+        label: cleanString(payload.label, 120), playCue: false, taskDomain: passenger ? recipe?.taskDomain || '' : '',
+        speaker: passenger || prematureTaxiCore.DISPATCHER_SPEAKER,
+        ...(payload.ttsStyle ? { ttsStyle: String(payload.ttsStyle) } : {}) };
+    }
+    if (request.effect?.type === 'voice.flight' && !prematureTaxi) {
       let payload = object(request.effect.payload);
       if (payload.kind === 'cargo_event' && flightContext?.supported) {
         payload = observeFlightVoice(flightContext, {}, { cargoEvent: { type: 'dropped_required', item: payload.item } }).effects[0] || {};
@@ -215,7 +230,7 @@ function createTrackerMissionBoardingVoice(options = {}) {
     const cancelAtMissionEnd = !(request.prepareOnly && request.effect?.payload?.sarSearchHint)
       && (request.effect?.type === 'voice.poi' || request.effect?.type === 'voice.bush' || request.effect?.type === 'voice.approach'
       || (request.effect?.type === 'voice.flight' && ['landing_roll', 'route_story', 'private_return_departure', 'pax_query', 'bush_story', 'weather_preset', 'time_shift', 'pax_distress', 'cargo_distress'].includes(request.effect?.payload?.kind)));
-    const scope = missionVoiceScope(request, request.prepareOnly ? 'run'
+    const scope = missionVoiceScope(request, request.prepareOnly || prematureTaxi ? 'run'
       : request.effect?.type === 'voice.poi' ? 'poi' : request.effect?.type === 'voice.bush' ? 'bush'
         : ['voice.flight', 'voice.approach'].includes(request.effect?.type) ? 'flight' : 'run');
     const isPlaybackAllowed = () => {

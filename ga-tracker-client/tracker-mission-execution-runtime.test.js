@@ -1972,3 +1972,61 @@ test('taxiing for three seconds after the confirmed load starts the mission with
   clock += 2500; sample({ gsKts: 12 });
   assert.equal(taxi(), null);
 });
+
+test('rolling away during boarding calls the pilot back by dispatcher radio, the run stays in boarding', async (t) => {
+  const bundle = aptBundle();
+  bundle.runtime.cargoManifest.items = [{ id: 'box', itemType: 'cargo', status: 'pending', required: true }];
+  bundle.executionReplay = executionCore.createExecutionBundle(bundle);
+  bundle.execution = executionCore.createReplayShadowEnvelope(bundle.executionReplay, { sourceRevision: 1, legacyBundle: bundle });
+  const manager = committedManager(t, bundle);
+  const commands = [], logs = [], voices = [];
+  let clock = 600000, lat = 48.01;
+  const runtime = createTrackerMissionExecutionRuntime({ authorityManager: manager, enabled: true,
+    requireCockpitReady: true, independentStartReadiness: true, now: () => clock,
+    getAudioSettings: () => ({ enabled: true, paxEnabled: true, effectsEnabled: true }),
+    playBoardingVoice: request => { voices.push(request.effect); return { ok: true, status: 'completed', sideEffect: false }; },
+    log: line => logs.push(line) });
+  const bridge = runtime.attachSimulator({
+    getLivePosition: () => ({ lat, lon: 8.02, alt: 1200, hdg: 180 }),
+    syncPayloadBeforeStart: () => ({ ok: true, status: 'completed', sideEffect: false }),
+    dispatchCommand: command => { commands.push(command); return { ok: true, status: 'pending', sideEffect: true }; }
+  });
+  const sample = (over = {}) => runtime.observeStartReadiness({ observedAt: clock, simRunning: 1, simPaused: false,
+    inMenuOrMap: false, slewActive: false, cameraState: 2, lat, lon: 8.02, altFt: 1200, onGround: true, gsKts: 0, ...over });
+  const stand = () => { for (let n = 0; n < 7; n++) { sample(); clock += 500; } sample(); };
+  const roll = (over = {}) => { clock += 1000; lat += 0.00003; return sample({ gsKts: 5, ...over }); };
+  const intent = async name => {
+    const run = manager.getActiveRun();
+    return runtime.executeIntent({ commandId: `early-${name}`, intent: name, missionId: run.missionId, runId: run.runId, expectedRevision: run.revision });
+  };
+  stand();
+  assert.equal((await intent('prepare_mission')).ok, true);
+  bridge.handleAck({ type: 'mission_scene_spawn_ack', commandId: commands[0].commandId, status: 'ok' });
+  assert.equal(await waitUntil(() => manager.getExecutionSnapshot().view.allowedActions.includes('start_boarding')), true);
+  assert.equal((await intent('start_boarding')).ok, true);
+  assert.equal(manager.getExecutionSnapshot().state.phase, 'boarding');
+  const flightVoice = () => manager.getExecutionSnapshot().state.effects.filter(effect => effect.type === 'voice.flight');
+
+  roll();
+  assert.deepEqual(flightVoice(), [], 'one packet is no evidence');
+  roll();
+  assert.equal(await waitUntil(() => voices.some(effect => effect.payload?.kind === 'premature_taxi')), true, logs.join('\n'));
+  const [effect] = flightVoice();
+  assert.equal(effect.payload.kind, 'premature_taxi');
+  assert.equal(effect.payload.stage, 'taxi');
+  assert.equal(effect.payload.speakerRole, 'dispatcher', 'cargo only: dispatcher radio');
+  assert.match(effect.payload.fallbackText, /Verladung ist noch nicht abgeschlossen/);
+  assert.equal(runtime.publicState().startReadiness.prematureTaxi.status, 'away');
+  assert.equal(manager.getExecutionSnapshot().state.phase, 'boarding', 'warning only');
+  roll(); roll();
+  assert.equal(flightVoice().length, 1, 'no repeat while rolling on');
+  clock += 1000; sample({ onGround: false, gsKts: 65 });
+  clock += 1000; sample({ onGround: false, gsKts: 70 });
+  assert.equal(await waitUntil(() => flightVoice().length === 2), true);
+  assert.equal(flightVoice()[1].payload.stage, 'airborne');
+  assert.equal(runtime.publicState().startReadiness.prematureTaxi.airborne, true);
+  assert.match(logs.join('\n'), /MISSION_PREMATURE_TAXI_VOICE .*"speaker":"dispatcher","accepted":true/);
+  // Back at the stand: the warning disappears.
+  stand();
+  assert.equal(runtime.publicState().startReadiness.prematureTaxi, undefined);
+});

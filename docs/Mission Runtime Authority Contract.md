@@ -2087,3 +2087,35 @@ Manifestunterschrift und bestätigter Verladung). `prepare_mission`,
   Abschaltbar über die Laufzeitoption `taxiAutoStart:false`.
 - Anlass: Tester vergaßen den zweiten Startknopf. Nach dem Losrollen war er wegen
   der Stillstandpflicht nicht mehr erreichbar.
+
+## 19.11.2026 – Warnung beim Losrollen vor dem Start (Tracker v653)
+
+Ergänzung zum Taxi-Auto-Start (17.11.2026). Rollt das Flugzeug, bevor die Mission
+startbereit ist, warnt der Tracker. Die Mission wird dabei nicht verändert, der Pilot
+muss zurück.
+
+- **Phasen:** nur `prepare` (Mission begonnen, Passagier wartet) und `boarding`
+  (Einsteigen und Verladen laufen). `planned` (noch nicht begonnen) und `boarded`
+  (Taxi-Auto-Start) bleiben unberührt.
+- **Erkennung** (`tracker-mission-premature-taxi-core.js`, Readiness-Pakete mit 1 Hz):
+  zwei Pakete am Stück am Boden mit GS ≥ 2 kt, und beim auslösenden Paket mindestens
+  3 m Abstand vom letzten Standplatz (Position der letzten Startfreigabe). Pause, Menü,
+  Slew und fehlende Cockpitdaten zählen nicht. Abheben (zwei Pakete in der Luft) ist eine
+  eigene Stufe.
+- **Stufen:** `taxi` (erstes Losrollen), `taxi_again` (nach einem Halt mit Startfreigabe
+  erneut losgerollt), `airborne` (trotzdem gestartet). Jede Stufe kommt einmal pro Lauf,
+  maximal eine Bodenwarnung pro Standplatz.
+- **Meldung:** `APT_FLIGHT_VOICE_REQUESTED` mit `kind=premature_taxi`, als einzige
+  Flug-Meldung vor dem Start zugelassen (`mission-execution-core.js`, nur `prepare` und
+  `boarding`). Sprecher ist der Passagier, wenn ein Passagier am Abflugort zum Manifest
+  gehört (kein Bush-Pickup am Ziel) und ein Stimmkontext existiert, sonst der Dispatcher
+  per Funk (fester Sprecher „Dispatch“, eigener Funkton). Feste Sätze als Rückfall (KI aus),
+  mit KI formuliert die Persönlichkeit des Passagiers sie um. Sprachbereich `run`, damit
+  die Meldung vor dem Start spielt. Englische Missionen übersetzen den Satz wie andere feste
+  Zeilen.
+- **Banner** (`mission-apt-ui-core.js`, EFB und Web): `startReadiness.prematureTaxi` mit
+  `status=away` zeigt „Halt! Anhalten“ bzw. in der Luft „Umkehren“ ohne Knopf, bis das
+  Flugzeug wieder steht und die Startfreigabe hat.
+- Log: `MISSION_PREMATURE_TAXI status=away|idle`, `MISSION_PREMATURE_TAXI_VOICE`.
+  Abschaltbar über die Laufzeitoption `prematureTaxiWarning:false`.
+- Anlass: Ein Tester ist vor Abschluss der Verladung losgeflogen.

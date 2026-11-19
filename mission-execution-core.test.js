@@ -779,3 +779,25 @@ test('Bush pickup voice ACK keeps complete spoken history and a compact continui
     assert.deepEqual(restored.voice.bushHistory, state.voice.bushHistory);
     assert.equal(restored.voice.bush.text, state.voice.bush.text);
 });
+
+test('premature taxi warning is the only flight remark accepted before the start, in prepare and boarding', () => {
+    const voice = (state, kind, id) => {
+        try { return core.reduce(state, { eventId: id, type: 'APT_FLIGHT_VOICE_REQUESTED', sequence: state.revision + 1,
+            payload: { kind, stage: 'taxi', fallbackText: 'Halt, stopp!' } }); }
+        catch (error) { return error; }
+    };
+    const accepted = (before, after) => !(after instanceof Error) && after.effects.length === before.effects.length + 1
+        && after.effects.at(-1).type === 'voice.flight';
+    let state = core.projectLegacyBundle(makeLegacyBundle());
+    assert.equal(accepted(state, voice(state, 'premature_taxi', 'early-planned')), false, 'planned: mission not begun');
+    state = core.reduce(state, { eventId: 'early-prepare', type: 'PREPARE_REQUESTED', sequence: 1 });
+    assert.equal(accepted(state, voice(state, 'premature_taxi', 'early-prep')), true);
+    assert.equal(accepted(state, voice(state, 'comfort', 'early-comfort')), false, 'other remarks still need the start');
+    state = core.reduce(state, { eventId: 'early-prepare-ack', type: 'EFFECT_ACKNOWLEDGED', sequence: 2,
+        payload: { effectId: state.effects.find(effect => effect.type === 'scene.prepare').effectId, status: 'completed' } });
+    state = core.reduce(state, { eventId: 'early-boarding', type: 'BOARDING_STARTED', sequence: 3 });
+    const boarding = voice(state, 'premature_taxi', 'early-board');
+    assert.equal(accepted(state, boarding), true);
+    assert.equal(boarding.phase, 'boarding', 'warning only, no phase change');
+    assert.equal(boarding.effects.at(-1).payload.kind, 'premature_taxi');
+});

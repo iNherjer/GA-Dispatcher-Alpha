@@ -602,3 +602,34 @@ test('environment voice diagnostics bind actual resolved text to effect and play
  const playback=JSON.parse(rows.find(x=>x.startsWith('SIM_ENV_VOICE_PLAYBACK')).split('data=')[1]);
  assert.equal(playback.clientId,'pc-audio');assert.equal(playback.status,'completed');
 });
+
+test('premature taxi warning speaks before the start: dispatcher radio voice or the waiting passenger, never after the start', async () => {
+  const prematureTaxiCore = require('./tracker-mission-premature-taxi-core.js');
+  const requests = [];
+  let phase = 'boarding', active = false;
+  const handler = createTrackerMissionBoardingVoice({
+    authorityManager: { getActiveRun: () => run(), getExecutionSnapshot: () => ({ missionId: 'mission-a', runId: 'run-a', recipe: 'apt',
+      state: { phase, flags: { active, closingPending: false, farewellStarted: false } } }) },
+    getAudioPlaybackCandidates: () => 1,
+    voiceService: { publicState: () => ({ configured: true }), request: value => { requests.push(value); return {}; },
+      wait: async () => ({ status: 'ready', audioAvailable: true, text: 'x' }),
+      waitForPlayback: async () => ({ status: 'completed', job: { playback: {} } }) }
+  });
+  const radio = prematureTaxiCore.effectPayload({ stage: 'taxi', phase: 'boarding', role: 'dispatcher' });
+  await handler.dispatch({ ...request(), effect: { effectId: 'early-1', type: 'voice.flight', payload: radio } });
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].kind, 'premature_taxi');
+  assert.equal(requests[0].speaker.name, 'Dispatch');
+  assert.equal(requests[0].prompt, '');
+  assert.equal(requests[0].fallbackText, radio.fallbackText);
+  assert.equal(requests[0].ttsStyle, prematureTaxiCore.TTS_STYLE.dispatcher);
+  assert.equal(requests[0].isPlaybackAllowed(), true, 'run scope speaks before the start');
+  const pax = prematureTaxiCore.effectPayload({ stage: 'taxi', phase: 'boarding', role: 'passenger', context: { baseContext: 'Du bist Mara.' } });
+  await handler.dispatch({ ...request(), effect: { effectId: 'early-2', type: 'voice.flight', payload: pax } });
+  assert.equal(requests[1].speaker.name, 'Mara', 'same voice as the boarding greeting');
+  assert.match(requests[1].prompt, /^Du bist Mara\./);
+  phase = 'active'; active = true;
+  const late = await handler.dispatch({ ...request(), effect: { effectId: 'early-3', type: 'voice.flight', payload: radio } });
+  assert.equal(requests.length, 2);
+  assert.equal(late.voiceStatus, 'premature_taxi_superseded');
+});

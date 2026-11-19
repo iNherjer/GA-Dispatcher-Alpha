@@ -1120,6 +1120,11 @@
                 );
         }
         if (event.type === 'BUSH_VOICE_REQUESTED') return state.bushTask?.kind === 'pickup_return' && state.flags.active && !state.flags.closingPending && !!event.payload.resolvedRecipe;
+        // Rolling away before the mission is ready (tracker-mission-premature-taxi-core): the only
+        // flight remark that is spoken before the start, in prepare and boarding only.
+        if (event.type === 'APT_FLIGHT_VOICE_REQUESTED' && object(event.payload).kind === 'premature_taxi') {
+            return (phase === 'prepare' || phase === 'boarding') && !state.flags.active && !state.flags.closingPending;
+        }
         if (event.type === 'APT_FLIGHT_VOICE_REQUESTED') return state.flags.active && !state.flags.closingPending
             && !state.flags.farewellStarted && !state.flags.farewellCompleted && phase !== 'closing';
         if (event.type === 'APT_APPROACH_VOICE_REQUESTED') {

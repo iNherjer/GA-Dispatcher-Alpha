@@ -85,6 +85,8 @@
         var readiness = object(control.startReadiness);
         var taxiStart = object(readiness.taxiAutoStart);
         if (taxiStart.runId && control.runId && taxiStart.runId !== control.runId) taxiStart = {};
+        var prematureTaxi = object(readiness.prematureTaxi);
+        if (prematureTaxi.runId && control.runId && prematureTaxi.runId !== control.runId) prematureTaxi = {};
         var sampleAge = Date.now() - readiness.observedAt;
         // Same limit as the tracker start gate (START_READINESS_MAX_AGE_MS).
         var waitingReason = readiness.ready === true
@@ -129,6 +131,21 @@
                 text: 'Mission aus der Cloud laden.', button: 'Neue Mission laden',
                 className: 'is-begin-action', disabled: false
             };
+        } else if ((phase === 'prepare' || phase === 'boarding') && prematureTaxi.status === 'away') {
+            // Rolled away before the start: warning only, the pilot has to return.
+            model = {
+                intent: '', kind: 'notice', kicker: prematureTaxi.airborne === true ? 'Umkehren' : 'Halt! Anhalten',
+                text: prematureTaxi.airborne === true
+                    ? (phase === 'prepare'
+                        ? 'Die Mission ist noch nicht gestartet: Boarding und Verladung fehlen. Kehre um und lande am Abflugplatz.'
+                        : 'Die Mission ist noch nicht gestartet: Die Verladung ist nicht abgeschlossen. Kehre um und lande am Abflugplatz.')
+                    : (phase === 'prepare'
+                        ? 'Boarding und Verladung haben noch nicht begonnen. Bitte anhalten und zurück zur Parkposition.'
+                        : 'Die Verladung ist noch nicht abgeschlossen. Bitte anhalten und zurück zur Parkposition.'),
+                button: '', buttonHidden: true, className: 'is-end-ready', disabled: true
+            };
+            model.closeHidden = true;
+            model.endReady = false;
         } else if (phase === 'boarded' && (taxiStart.status === 'counting' || taxiStart.status === 'starting')) {
             // Taxiing after the load was confirmed: the tracker starts the mission itself.
             model = {

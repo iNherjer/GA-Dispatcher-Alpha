@@ -15,6 +15,7 @@ const routeMapCore = require('./tracker-efb-map-snapshot-core.js');
 const { createFlightMotionBuffer } = require('./tracker-flight-motion-buffer.js');
 const { observeFlightVoice } = require('./tracker-flight-voice-core.js');
 const distressVoiceCore = require('./tracker-mission-distress-voice-core.js');
+const prematureTaxiCore = require('./tracker-mission-premature-taxi-core.js');
 const locationCore = require('../mission-location-core.js');
 const farewellVoiceCore = require('../mission-farewell-voice-core.js');
 const { createTrackerMissionExecutionAdapter } = require('./tracker-mission-execution-adapter.js');
@@ -54,6 +55,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
 
   const startReadiness = options.requireCockpitReady === true ? createMissionStartReadiness({ now: options.now }) : null;
   const taxiAutoStart = startReadiness && options.taxiAutoStart !== false ? createTaxiAutoStart({ now: options.now }) : null;
+  const prematureTaxi = startReadiness && options.prematureTaxiWarning !== false ? prematureTaxiCore.createPrematureTaxiWatch() : null;
   const adapter = createTrackerMissionExecutionAdapter({
     now: options.now,
     random: options.random,
@@ -822,6 +824,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
   const attachSimulator = (simulator = {}) => {
     startReadiness?.reset();
     taxiAutoStart?.reset();
+    prematureTaxi?.reset();
     getSimulatorPosition = typeof simulator.getLivePosition === 'function' ? simulator.getLivePosition : () => null;
     simulatorPayloadSyncBeforeStart = typeof simulator.syncPayloadBeforeStart === 'function'
       ? simulator.syncPayloadBeforeStart
@@ -939,6 +942,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     simulatorSetAircraftPosition = null;
     startReadiness?.reset();
     taxiAutoStart?.reset();
+    prematureTaxi?.reset();
     simulatorPayloadSyncBeforeStart = null;
     simulatorPayloadSyncManifestState = null;
     if (cancelSimulatorPayloadSync) {
@@ -1099,11 +1103,45 @@ function createTrackerMissionExecutionRuntime(options = {}) {
         log(`MISSION_TAXI_AUTOSTART status=failed run=${snapshot.runId} error=${error?.code || error?.message || error}`);
       });
   };
+  // Rolling away in prepare/boarding: passenger or dispatcher calls the pilot back.
+  const observePrematureTaxi = (sample, readiness) => {
+    if (!prematureTaxi || !readiness) return;
+    const snapshot = authorityManager.getExecutionSnapshot?.() || null;
+    const tracker = snapshot && snapshot.executionAuthority === 'tracker' && !interruption.record() && Boolean(simulatorEffects);
+    const done = tracker ? snapshot.state.effects.filter(effect => effect.type === 'voice.flight' && effect.payload?.kind === 'premature_taxi')
+      .map(effect => effect.payload.stage) : [];
+    const before = prematureTaxi.snapshot()?.status || 'idle';
+    prematureTaxi.observe(sample, readiness, { runId: tracker ? snapshot.runId : null, phase: tracker ? snapshot.state.phase : null, done });
+    const after = prematureTaxi.snapshot()?.status || 'idle';
+    if (before !== after) log(`MISSION_PREMATURE_TAXI status=${after} run=${snapshot?.runId || ''} phase=${snapshot?.state?.phase || ''} gsKts=${Number.isFinite(Number(sample?.gsKts)) ? Number(sample.gsKts).toFixed(1) : 'n/a'} onGround=${sample?.onGround === false ? 0 : 1}`);
+    const due = prematureTaxi.due();
+    if (!due || !tracker) return;
+    const settings = options.getAudioSettings?.();
+    const context = executionEffectPlan()?.effects?.['voice.approach']?.context || null;
+    let role = prematureTaxiCore.speakerRole(snapshot.state.manifest, context);
+    if (settings && role === 'passenger' && settings.paxEnabled !== true) role = 'dispatcher';
+    if (settings && settings.enabled !== true) return;
+    const payload = prematureTaxiCore.effectPayload({ stage: due.stage, phase: due.phase, role, context });
+    if (!payload) { prematureTaxi.settle(due.stage, false); return; }
+    const triggerAt = Number(sample?.observedAt) || clockNow();
+    const accepted = adapter.applySystemEvent({ missionId: snapshot.missionId, runId: snapshot.runId, type: 'APT_FLIGHT_VOICE_REQUESTED',
+      eventId: `premature-taxi:${snapshot.runId}:${due.stage}`, payload: { ...payload, triggerAt } });
+    // A rejected event (e.g. duplicate or phase just changed) is not retried every second.
+    prematureTaxi.settle(due.stage, true);
+    log(`MISSION_PREMATURE_TAXI_VOICE data=${JSON.stringify({ missionId: snapshot.missionId, stage: due.stage, phase: payload.phase,
+      speaker: payload.speakerRole, accepted: accepted?.ok === true, error: accepted?.ok === true ? undefined : accepted?.error })}`);
+    if (accepted?.ok === true) {
+      effectRunner.drain().catch(error => log(`MISSION_PREMATURE_TAXI_ERROR error=${error?.message || error}`));
+      try { onAuthorityChanged('premature-taxi', authorityManager.getExecutionSnapshot?.()); }
+      catch (error) { log(`MISSION_EXECUTION_NOTIFY_ERROR reason=premature-taxi error=${error.message}`); }
+    }
+  };
   const readinessState = () => {
     if (!startReadiness) return null;
     const readiness = startReadiness.snapshot();
     const taxi = taxiAutoStart?.snapshot();
-    return taxi ? { ...readiness, taxiAutoStart: taxi } : readiness;
+    const away = prematureTaxi?.snapshot();
+    return taxi || away ? { ...readiness, ...(taxi ? { taxiAutoStart: taxi } : {}), ...(away ? { prematureTaxi: away } : {}) } : readiness;
   };
   const observeStartReadiness = sample => {
     const wasReady = startReadiness?.snapshot().ready;
@@ -1111,6 +1149,7 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     if (readiness?.ready && !wasReady) effectRunner.drain().catch(error => log(`MISSION_PREFLIGHT_RESUME_ERROR error=${error.message}`));
     if (readiness?.worldReady) interruption.maybeRebuild('cockpit-ready').catch(error => log(`MISSION_INTERRUPTION_REBUILD_ERROR error=${error?.message || error}`));
     observeTaxiAutoStart(sample, readiness);
+    observePrematureTaxi(sample, readiness);
     return readinessState();
   };
   return Object.freeze({

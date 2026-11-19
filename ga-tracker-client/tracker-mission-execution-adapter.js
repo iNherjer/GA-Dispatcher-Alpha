@@ -1078,6 +1078,12 @@ function createTrackerMissionExecutionAdapter(options = {}) {
               } : {}), ...(['pax_distress', 'cargo_distress'].includes(request.payload?.kind) ? {
                 stage: ['queasy', 'sick', 'damaged', 'broken'].includes(request.payload.stage) ? request.payload.stage : '',
                 ...(cleanString(request.payload.ttsStyle, 800) ? { ttsStyle: cleanString(request.payload.ttsStyle, 800) } : {})
+              } : {}), ...(request.payload?.kind === 'premature_taxi' ? {
+                stage: ['taxi', 'taxi_again', 'airborne'].includes(request.payload.stage) ? request.payload.stage : '',
+                phase: request.payload.phase === 'prepare' ? 'prepare' : 'boarding',
+                speakerRole: request.payload.speakerRole === 'passenger' ? 'passenger' : 'dispatcher',
+                fallbackText: cleanString(request.payload.fallbackText, 600),
+                ...(cleanString(request.payload.ttsStyle, 800) ? { ttsStyle: cleanString(request.payload.ttsStyle, 800) } : {})
               } : {}), narrativeEventId: cleanString(request.payload?.narrativeEventId, 80), intent: cleanString(request.payload?.intent, 600), kind: cleanString(request.payload?.kind, 40), prompt: cleanString(request.payload?.prompt, 24000),
               label: cleanString(request.payload?.label, 120), debugDetail: cleanString(request.payload?.debugDetail, 1800),
               delayMs: Math.max(0, Math.min(2000, Number(request.payload?.delayMs) || 0)),

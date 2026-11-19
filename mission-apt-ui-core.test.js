@@ -474,3 +474,21 @@ test('taxi auto-start replaces the final start banner with a countdown and a sho
       startReadiness: { ready: false, worldReady: true, cameraState: 2, reason: 'ground_stop_required' } }), null);
   }
 });
+
+test('rolling away before the start shows a warning banner without a button until the aircraft stands again', () => {
+  const poi = require('./mission-poi-ui-core');
+  for (const ui of [core, poi]) {
+    const state = (phase, prematureTaxi) => ({ ...control(phase, ['abort_mission', 'set_manifest_item'], { boardingConfirmed: true }),
+      runId: 'run-1', startReadiness: { ready: false, worldReady: true, cameraState: 2, reason: 'ground_stop_required', prematureTaxi } });
+    const rolling = ui.bannerModel(state('boarding', { status: 'away', runId: 'run-1', airborne: false }));
+    assert.equal(rolling.kicker, 'Halt! Anhalten');
+    assert.equal(rolling.text, 'Die Verladung ist noch nicht abgeschlossen. Bitte anhalten und zurück zur Parkposition.');
+    assert.equal(rolling.buttonHidden, true); assert.equal(rolling.intent, ''); assert.equal(rolling.endReady, false);
+    const prepare = ui.bannerModel(state('prepare', { status: 'away', runId: 'run-1', airborne: false }));
+    assert.match(prepare.text, /^Boarding und Verladung haben noch nicht begonnen/);
+    const airborne = ui.bannerModel(state('boarding', { status: 'away', runId: 'run-1', airborne: true }));
+    assert.equal(airborne.kicker, 'Umkehren'); assert.match(airborne.text, /Kehre um und lande am Abflugplatz\.$/);
+    assert.equal(ui.bannerModel(state('boarding', { status: 'away', runId: 'old', airborne: false })).kicker, 'Mission bereit', 'foreign run ignored');
+    assert.equal(ui.bannerModel(state('boarding')).kicker, 'Mission bereit', 'normal loading banner without the warning');
+  }
+});
