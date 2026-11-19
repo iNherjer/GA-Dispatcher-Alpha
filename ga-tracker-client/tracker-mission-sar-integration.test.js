@@ -34,9 +34,10 @@ async function harness(t, value = bundle()) {
   assert.equal(manager.commitExecutionAuthority({ missionId, runId: prepared.activeRun.runId, clientId: 'app',
     expectedRevision: prepared.activeRun.revision, expectedExecutionStateHash: prepared.activeRun.executionStateHash,
     handoffId: prepared.handoff.handoffId }).ok, true);
-  const commands = [], farewells = [];
+  const commands = [], farewells = [], prewarms = [];
   const runtime = createTrackerMissionExecutionRuntime({ enabled: true, authorityManager: manager, now,
-    payloadSyncBeforeStart: completed, playBoardingVoice: completed, playFarewellVoice: request => {farewells.push(request);return completed();} });
+    payloadSyncBeforeStart: completed, playBoardingVoice: completed, playFarewellVoice: request => {farewells.push(request);return completed();},
+    prepareFarewellVoice: request => { prewarms.push(request); return { ok: true, status: 'skipped', sideEffect: false }; } });
   runtime.attachSimulator({ getLivePosition: () => ({ lat: 48.3, lon: 8.5, altFt: 940, hdg: 0 }),
     dispatchCommand: command => { commands.push(command); return completed(); }, syncPayloadManifestState: completed, cleanupMission: completed });
   await tick();
@@ -57,7 +58,7 @@ async function harness(t, value = bundle()) {
     for (let i = 0; i < 5; i++) await tick();
     await runtime.flush();
   }
-  return { b, manager, runtime, commands, farewells, intent, sample, directory };
+  return { b, manager, runtime, commands, farewells, prewarms, intent, sample, directory };
 }
 
 async function start(h) {
@@ -221,6 +222,9 @@ test('SAR V2 tracker authority alone finds, reports, returns and closes with tru
  snapshot=h.manager.getExecutionSnapshot();assert.equal(snapshot.state.phase,'closed');
  assert.equal(h.farewells.at(-1).farewellDynamicContext.record.sarSearchSummary.outcome,'contact_reported');
  assert.match(h.farewells.at(-1).farewellDynamicContext.record.sarSearchSummary.text,/Identität, Zustand/);
+ assert.ok(h.prewarms.length>=1,'touchdown still reaches the prewarm hook');
+ assert.ok(h.prewarms.every(p=>p.farewellDynamicContext.summaryAtDeboarding===true&&!p.farewellDynamicContext.record.sarSearchSummary),'prewarm is told the summary comes later');
+ assert.equal(h.farewells.at(-1).farewellDynamicContext.summaryAtDeboarding,undefined);
 });
 
 test('SAR V2 no contact waits through search time, returns and closes without invented rescue',async t=>{

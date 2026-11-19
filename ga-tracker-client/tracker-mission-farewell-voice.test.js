@@ -402,3 +402,19 @@ test('APT prewarm survives minor changes until deboarding, but not a different o
     assert.equal(cancelled.includes('farewell_preload_stale'), !reused);
   }
 });
+
+test('SAR and fire watch farewells are not prewarmed: their end summary only exists at deboarding', async () => {
+  const requests = [];
+  const logs = [];
+  const handler = createTrackerMissionFarewellVoice({
+    authorityManager: { getActiveRun: () => activeRun() },
+    voiceService: { publicState: () => ({ configured: true }), get: () => undefined, request: value => { requests.push(value); return { status: 'pending' }; } },
+    log: line => logs.push(line)
+  });
+  const prepared = handler.prepare({ missionId: 'mission-farewell', runId: 'run-farewell',
+    farewellDynamicContext: { summaryAtDeboarding: true, record: { touchdownVsFpm: -160 } } });
+  assert.equal(prepared.status, 'skipped');
+  assert.equal(prepared.sideEffect, false);
+  assert.equal(requests.length, 0, 'no text or speech paid at touchdown');
+  assert.ok(logs.some(line => line.includes('reason=summary_at_deboarding')));
+});

@@ -36,6 +36,12 @@ function needsRecap(req) {const c=charterContinuation.context(req);return !!c&&r
 // Touchdown near the target is reported by the same trigger that prewarms the farewell voice.
 const RECAP_PREVIEW_PHASES=/^(end_unloading|end_ready|closing)$/;
 const RECAP_TOUCHDOWN_PHASES=/^(active|enroute|on_task|return_leg|end_unloading|end_ready|closing)$/;
+// Cheap check before snapshot and clone: only charter/reporter outbound flights with a return plan.
+function recapCandidateId(run) {
+ const root=run?.resumeBundle?.missionState||{};
+ if(run?.executionAuthority!=='tracker'||!run.missionId||!charterContinuation.source(root.currentMissionData||root))return null;
+ return `charter-return-${run.missionId}`;
+}
 function previewRecapRequest(run,control,now=Date.now(),hint={}) {
  if(run?.executionAuthority!=='tracker'||control?.cargo?.summary?.failed===true)return null;
  const phase=String(control?.phase||'');
@@ -50,4 +56,4 @@ function previewRecapRequest(run,control,now=Date.now(),hint={}) {
  return req&&needsRecap(req)?req:null;
 }
 function mergeRequests(remote,incoming,now=Date.now()) {const api=service(remote,now);api.merge(incoming);return api.requests();}
-module.exports={createForCompletedRun,mergeRequests,needsRecap,previewRecapRequest,service};
+module.exports={createForCompletedRun,mergeRequests,needsRecap,previewRecapRequest,recapCandidateId,service};

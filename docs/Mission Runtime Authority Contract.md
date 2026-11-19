@@ -1,5 +1,22 @@
 # Mission Runtime Authority Contract
 
+## Rueckblick und Abschied: Last und Kosten (18.11.2026, nach v648)
+
+- Vorpruefung vor dem 5-s-Takt: `prepareFollowupRecap` fragt zuerst
+  `recapCandidateId(run)` (`tracker-mission-followup.js`): nur Charter-/Reporter-Hinflug mit
+  Rueckreiseplan, Kennung `charter-return-<missionId>`. Andere Missionen und schon vorgemerkte
+  Auftraege kommen ohne Snapshot und ohne Kopie der Missionsdaten aus.
+- Beim Aussteigen dreimal gescheitert: Der vorlaeufige Auftrag bleibt als Merker (`gaveUp`) in der
+  Warteschlange, damit der Takt ihn nicht neu einreiht. Beim Abschluss geht das Angebot ohne
+  Aufenthalt hinaus, die App schreibt ihn einmal bei Faelligkeit.
+- SAR und Brandwache: Die Abschluss-Zusammenfassung (`sarSearchSummary`, `fireWatchSummary`)
+  entsteht erst beim Aussteigen. `getFarewellDynamicContext({anticipateDelivery:true})` setzt dann
+  `summaryAtDeboarding`, die Abschieds-Vorbereitung beim Aufsetzen entfaellt
+  (Log `MISSION_FAREWELL_VOICE_PREWARM_SKIPPED reason=summary_at_deboarding`). Der Rueckblick-Start
+  beim Aufsetzen laeuft unveraendert.
+- Kuerzen auf ganze Saetze (`wholeSentences`): Punkte nach Titeln, gaengigen Abkuerzungen,
+  Einzelbuchstaben und Ordnungszahlen ("Dr.", "z. B.", "3.") beenden keinen Satz.
+
 ## Rueckblick-Pruefung tolerant, Folgemission immer baubar (v647, Web v2446)
 
 - `repairDraft` in `mission-charter-continuation-core.js` (auch hinter `validateDraft`): Der

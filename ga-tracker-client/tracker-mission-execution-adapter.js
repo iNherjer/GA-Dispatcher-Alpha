@@ -345,7 +345,11 @@ function createTrackerMissionExecutionAdapter(options = {}) {
     if (latest.onGround===true && options.anticipateDelivery!==true && snapshot.state.poiTask?.fireState) record.fireWatchSummary=fireWatchCore.completionSummary(snapshot.state.poiTask.fireState.scenario);
     record.missionCargoOutcome = cargoOutcome;
     record.missionFailed = cargoOutcome.failed === true;
+    // SAR search / fire watch summaries only exist after deboarding: a touchdown prewarm could never match.
+    const summaryAtDeboarding = options.anticipateDelivery === true
+      && !!(snapshot.state.poiTask?.sarSearchState || snapshot.state.poiTask?.fireState);
     return {
+      ...(summaryAtDeboarding ? { summaryAtDeboarding: true } : {}),
       record,
       poiProgress,
       cargoOutcome,

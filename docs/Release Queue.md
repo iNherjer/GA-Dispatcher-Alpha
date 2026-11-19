@@ -27,7 +27,14 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-### 2026-11-19 · Infrastruktur-Ergebnis: Zielkategorie vor Text, englische Wörter
+## Ausgeliefert
+
+### 2026-11-19 · Rückblick-Vorprüfung, SAR/Brand ohne Abschieds-Vorbereitung, Abkürzungen — ausgeliefert in Tracker v649 Alpha (19.11.2026)
+- **Was:** siehe `docs/Tracker-v649-Release.md`.
+- **Doku beim Release:** `docs/Tracker-v649-Release.md`, `docs/Mission Runtime Authority Contract.md`.
+- **Pruefen im Feld:** siehe `docs/Tracker-v649-Release.md`.
+
+### 2026-11-19 · Infrastruktur-Ergebnis: Zielkategorie vor Text, englische Wörter — ausgeliefert in Tracker v649 Alpha (19.11.2026)
 - **Artefakt:** Tracker-EXE (`tracker-mission-followup.js` lädt `mission-infra-outcome-core.js`)
 - **Dateien:** `mission-infra-outcome-core.js`
 - **Was:** Eindeutige Zielkategorie entscheidet die Zielfamilie, der Missionstext nur noch bei „allgemein“; englische Wörter in den Mustern (Phase 4 der Übersetzung).
@@ -36,7 +43,7 @@ liefert alles Offene mit aus.
 - **Doku beim Release:** keine weitere.
 - **Pruefen im Feld:** Infrastruktur-Folgeauftrag nach einer Inspektion (Ergebnis passt zur Zielart).
 
-### 2026-11-18 · EFB-Trainingsbanner auf Englisch
+### 2026-11-18 · EFB-Trainingsbanner auf Englisch — ausgeliefert in Tracker v649 Alpha (19.11.2026)
 - **Artefakt:** Tracker-EXE (EFB-Kopie von `mission-training-guidance-ui.js`, `mission-control-ui-core.js`, EFB-Kopie von `i18n/en-phrases.js`)
 - **Dateien:** `mission-training-guidance-ui.js`, `ga-tracker-client/efb-web-assets/mission-training-guidance-ui.js`, `ga-tracker-client/mission-control-ui-core.js`, `ga-tracker-client/efb-web-assets/i18n/en-phrases.js` (+ Test `mission-training-guidance-ui.test.js`)
 - **Was:** Trainingsbanner (Titel/Phase, Zeilen mit Sollwerten, Details, Hinweise, Knöpfe, Rückfragen, Verlauf-Knopf) bei englischer Oberfläche englisch; Übersetzung des gezeichneten Banners (`translateDom`) mit Trainingsmustern.
@@ -44,8 +51,6 @@ liefert alles Offene mit aus.
 - **Tests:** alle `tracker-mission-training*`-Tests, Kern-/EFB-Tests grün; 121 echte Bannerzeilen (Kurve, Höhenwechsel, Stall) vollständig englisch; Banner in der echten EFB-Seite (Electron) inkl. Neuzeichnen und Zurückschalten geprüft.
 - **Doku beim Release:** keine weitere.
 - **Pruefen im Feld:** EFB auf Englisch: Trainingsmission (Freischalten, Übung starten, Kurve/Höhenwechsel/Stall), Sprachwechsel bei offenem Banner.
-
-## Ausgeliefert
 
 ### 2026-11-18 · EFB-Passagierfenster: Titel auf Englisch — ausgeliefert in Tracker v648 Alpha (18.11.2026)
 - **Artefakt:** Tracker-EXE (EFB-Host und EFB-Kopie von `i18n/en-phrases.js`)

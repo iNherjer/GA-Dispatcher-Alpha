@@ -169,6 +169,11 @@ function createTrackerMissionFarewellVoice(options = {}) {
       return { ok: false, status: 'blocked', error: 'mission_run_conflict', sideEffect: false };
     }
     if (request.farewellDynamicContext?.error) return { ok: true, status: 'pending', sideEffect: false, error: request.farewellDynamicContext.error };
+    // SAR/fire watch: the end summary joins the prompt only at deboarding; prewarming would be paid twice.
+    if (request.farewellDynamicContext?.summaryAtDeboarding === true) {
+      log(`MISSION_FAREWELL_VOICE_PREWARM_SKIPPED run=${run.runId} reason=summary_at_deboarding`);
+      return { ok: true, status: 'skipped', sideEffect: false, reason: 'summary_at_deboarding' };
+    }
     const recipe = resolveRecipe(request, run);
     if (!recipe || recipe.missionId && recipe.missionId !== run.missionId || recipe.enabled !== true
         || (!recipe.prompt && !recipe.text && !recipe.fallbackText)) {

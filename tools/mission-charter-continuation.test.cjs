@@ -161,3 +161,11 @@ test('accept always builds the follow-up: unusable drafts get one specific corre
  assert.match(m.charterIdea.background,/wie geplant verbracht/);
  assert.equal(api.requests()[0].charterContinuation.experience,null,'plain stay is not stored: a later accept may still get a real one');
 });
+test('cutting to whole sentences never ends at a title, abbreviation, initial or ordinal',()=>{
+ const c=core.context(request());
+ const offer='Ada hat mit Dr. Berger am 3. Oktober z. B. die Werkstatt in Eutingen besucht und viel über alte Flugzeuge erfahren. '+'Danach saß die Gruppe lange zusammen und erzählte von früheren Reisen über die Alb. '.repeat(6);
+ const fitted=core.repairDraft({...clone(draft),offerText:offer},c).draft;
+ assert.ok(fitted.offerText.length<=350);
+ assert.match(fitted.offerText,/^Ada hat mit Dr\. Berger am 3\. Oktober z\. B\. die Werkstatt .* erfahren\./);
+ assert.doesNotMatch(fitted.offerText,/(?:Dr|z\. B|3)\.$/);
+});

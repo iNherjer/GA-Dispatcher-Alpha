@@ -238,3 +238,35 @@ test('provisional retrospective is dropped when the close creates no offer or th
   assert.equal(aborted.ok, true, JSON.stringify(aborted));
   assert.equal(second.manager.nextFollowupRecap('PILOT'), null);
 });
+
+test('deboarding poll: given up once, the job is not queued again; the offer goes out without a stay', async t => {
+  const { manager, close, advance } = closedCharterManager(t, { followupRecapEnabled: true }, 'end_unloading');
+  const ai = gemini(['{"experience":"zu kurz"}']);
+  const worker = createCharterRecapWorker({ authorityManager: manager, pilotId: 'PILOT', provider: 'gemini', apiKey: 'test-key', fetchRemote: ai.fetchRemote });
+  assert.equal((await worker.tick()).status, 'failed');
+  advance(10 * 60000); assert.equal((await worker.tick()).status, 'failed');
+  advance(60 * 60000); assert.equal((await worker.tick()).status, 'failed');
+  const calls = ai.calls.length;
+  for (let i = 0; i < 3; i += 1) { advance(5000); assert.equal((await worker.tick()).status, 'idle'); }
+  assert.equal(ai.calls.length, calls, 'no new attempt while still deboarding');
+  assert.equal(manager.prepareFollowupRecap('PILOT'), false);
+  const closed = close();
+  assert.equal(closed.finalizeExecutionRun({ pilotId: 'PILOT' }).ok, true);
+  assert.equal(closed.getFollowupOutbox('PILOT')[0].requests[0].charterContinuation.experience, null, 'App writes it once when due');
+  assert.equal(closed.nextFollowupRecap('PILOT'), null);
+});
+
+test('deboarding poll skips snapshot and clone for other missions and already queued jobs', t => {
+  const { manager } = closedCharterManager(t, { followupRecapEnabled: true }, 'end_unloading');
+  const followup = require('./tracker-mission-followup.js');
+  const original = followup.previewRecapRequest;
+  let previews = 0;
+  followup.previewRecapRequest = (...args) => { previews += 1; return original(...args); };
+  t.after(() => { followup.previewRecapRequest = original; });
+  assert.equal(manager.prepareFollowupRecap('PILOT'), true);
+  assert.equal(previews, 1);
+  for (let i = 0; i < 5; i += 1) assert.equal(manager.prepareFollowupRecap('PILOT'), false);
+  assert.equal(previews, 1, 'queued job: no further preview');
+  assert.equal(followup.recapCandidateId({ executionAuthority: 'tracker', missionId: 'cargo', resumeBundle: { missionState: { currentMissionData: { missionId: 'cargo', mission: 'Fracht' } } } }), null);
+  assert.equal(followup.recapCandidateId({ executionAuthority: 'tracker', missionId: md.missionId, resumeBundle: { missionState: { currentMissionData: md } } }), `charter-return-${md.missionId}`);
+});

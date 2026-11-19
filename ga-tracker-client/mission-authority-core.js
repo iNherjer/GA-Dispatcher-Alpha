@@ -1572,7 +1572,8 @@ function createMissionAuthorityManager(options = {}) {
               fresh.splice(fresh.indexOf(queued), 1);
               return { ...req, charterContinuation: { ...req.charterContinuation, experience: queued.draft, experienceCreatedAt: queued.draftAt } };
             }
-            if (queued) fresh.splice(fresh.indexOf(queued), 1, { ...queued, provisional: false, request: req });
+            if (queued?.gaveUp) fresh.splice(fresh.indexOf(queued), 1);
+            else if (queued) fresh.splice(fresh.indexOf(queued), 1, { ...queued, provisional: false, request: req });
             else fresh.push({ id: req.id, pilotId, createdAt: now(), attempts: 0, nextAt: 0, request: req });
             return req;
           });
@@ -2357,6 +2358,9 @@ function createMissionAuthorityManager(options = {}) {
       const active = state.activeRun;
       if (options.followupRecapEnabled !== true || !pilotId || !active || active.executionAuthority !== EXECUTION_AUTHORITY_TRACKER) return false;
       const fresh = state.followupRecapQueue.filter(item => now() - Number(item.createdAt || 0) < FOLLOWUP_RECAP_MAX_AGE_MS);
+      // Polled every few seconds: skip snapshot and mission clone for other missions and queued jobs.
+      const candidateId = followupCore.recapCandidateId(active);
+      if (!candidateId || fresh.some(item => item.id === candidateId)) return false;
       let req = null;
       try { req = followupCore.previewRecapRequest(active, publicExecutionSnapshot(active), now(), {
         touchdown: safeObject(hint).touchdown === true, farewellText: cleanString(safeObject(hint).farewellText, 600) }); } catch (_) { return false; }
@@ -2368,11 +2372,12 @@ function createMissionAuthorityManager(options = {}) {
     },
     nextFollowupRecap(pilotId) {
       const at = now();
-      const item = state.followupRecapQueue.find(entry => entry.pilotId === pilotId && !entry.draft && Number(entry.nextAt || 0) <= at);
+      const item = state.followupRecapQueue.find(entry => entry.pilotId === pilotId && !entry.draft && entry.gaveUp !== true
+        && Number(entry.nextAt || 0) <= at);
       return item ? jsonClone(item) : null;
     },
     completeFollowupRecap(id, pilotId, experience) {
-      const item = state.followupRecapQueue.find(entry => entry.id === id && entry.pilotId === pilotId && !entry.draft);
+      const item = state.followupRecapQueue.find(entry => entry.id === id && entry.pilotId === pilotId && !entry.draft && entry.gaveUp !== true);
       if (!item) return false;
       const previous = { queue: state.followupRecapQueue, outbox: state.followupOutbox };
       if (item.provisional) {
@@ -2396,8 +2401,12 @@ function createMissionAuthorityManager(options = {}) {
       if (!item) return false;
       const attempts = Number(item.attempts || 0) + 1;
       const expired = Number(item.request?.expiresAt || 0) > 0 && now() > Number(item.request.expiresAt);
+      // A provisional job that gave up stays as a marker until close, so the deboarding poll does not
+      // queue it again; the offer then goes out without a stay and the App writes it once.
       state.followupRecapQueue = attempts >= MAX_FOLLOWUP_RECAP_ATTEMPTS || expired
-        ? previous.filter(entry => entry !== item)
+        ? (item.provisional === true && !expired
+          ? previous.map(entry => entry === item ? { ...entry, attempts, gaveUp: true, nextAt: 0, lastError: cleanString(error, 120) } : entry)
+          : previous.filter(entry => entry !== item))
         : previous.map(entry => entry === item ? { ...entry, attempts, nextAt: now() + 60000 * 2 ** attempts, lastError: cleanString(error, 120) } : entry);
       if (persist()) return true;
       state.followupRecapQueue = previous; return false;

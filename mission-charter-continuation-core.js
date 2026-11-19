@@ -71,8 +71,12 @@
             ui:{title:`Rückflug von ${visited.name} nach ${home.name}`,subtitle:`Fortsetzung mit ${idea.passenger.name}`,
                 previewText:offerPreview(c)}};
     }
+    // A period after a title, a common abbreviation, an initial or an ordinal ("Dr.", "z. B.", "3.") ends no sentence.
+    const NO_SENTENCE_END=/(?:^|[\s(])(?:Dr|Prof|St|Nr|Hr|Fr|ca|bzw|vgl|inkl|evtl|ggf|bspw|Mio|Mrd|Std|Min|[A-Za-zÄÖÜäöü]|\d+)\.\s*$/;
     function wholeSentences(value,max) {
-        const sentences=String(value||'').replace(/\s+/g,' ').trim().match(/[^.!?]+[.!?]+(?:\s|$)/g)||[];
+        const pieces=String(value||'').replace(/\s+/g,' ').trim().match(/[^.!?]+[.!?]+(?:\s|$)/g)||[];
+        const sentences=[];let pending='';
+        for(const piece of pieces){pending+=piece;if(!NO_SENTENCE_END.test(pending)){sentences.push(pending);pending='';}}
         let out='';
         for(const sentence of sentences){if((out+sentence).trim().length>max)break;out+=sentence;}
         return out.trim().length>=40?out.trim():'';
