@@ -20,7 +20,8 @@ Zusammen ausgeliefert mit Web v2465 (19.11.2026). Phase 4 der englischen Überse
 
 ## Build
 
-- Tag `v650` auf `<commit>`, EXE `<size>` Bytes, SHA-256 `<sha>`, öffentlicher Download geprüft.
+- Tag `v650` auf `fa5244f66`, EXE 175300630 Bytes, SHA-256
+  `9e0880e9f565da66f24acf051874527aa2a6ad1018b802a080620d3034773f12`, öffentlicher Download geprüft.
 
 ## Tests
 
