@@ -20,6 +20,11 @@ Release-Warteschlange aus (EFB-Trainingsbanner auf Englisch, Infrastruktur-Ergeb
   Zielkategorie vor Missionstext, englische Wörter in den Mustern (2.15).
 - `EFB_WEB_ASSET_REVISION` 64901.
 
+## Build
+
+- Tag `v649` auf `21dc07a66`, EXE 175176214 Bytes, SHA-256
+  `fba6e43698fae67ef29629c45be9c7cacd9595dbb98e8da11bcbc33e8e6ec233`, öffentlicher Download geprüft.
+
 ## Tests
 
 - Neue Tests: `tracker-mission-charter-recap.test.js` (aufgegebener Auftrag, Vorprüfung),
