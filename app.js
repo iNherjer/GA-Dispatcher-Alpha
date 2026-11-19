@@ -28388,7 +28388,7 @@ function updateMissionAcceptanceUi() {
         text.textContent = window.gaMissionDraftActive?.()
             ? (draftPhase === 'committing' ? 'Bisheriger Auftrag wird bereinigt und die neue Mission veröffentlicht.' : 'Lokaler Entwurf: Cloud und Tracker behalten den bisherigen Auftrag. Erst beim Akzeptieren wird er ersetzt.')
             : composing
-            ? (isPOI ? 'Scene Planner V3 lokalisiert die Zielszene fuer den Tracker.' : (missionArrivalGeoLiveStatus(md) || 'Scene Planner V3 lokalisiert die Abhol-/Uebergabeszene.'))
+            ? (isPOI ? 'Scene Planner V3 lokalisiert die Zielszene fuer den Tracker.' : (_appUiPhrase(missionArrivalGeoLiveStatus(md)) || 'Scene Planner V3 lokalisiert die Abhol-/Uebergabeszene.'))
             : (intent.summary || 'Mission als Entwurf. Beim Akzeptieren wird die Szene vorbereitet.');
     }
 }

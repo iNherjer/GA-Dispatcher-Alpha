@@ -1588,6 +1588,11 @@
         "Flugplan bereit.": "Flight plan ready.",
         "Direct-To Flug bereit.": "Direct-To flight ready.",
         "OSM hat eben nicht geantwortet. Die Empfangsszene wird vorerst ohne Kartendaten geplant.": "OSM did not answer just now. The reception scene is planned without map data for now.",
-        "OSM antwortet nicht. Die Empfangsszene wird vorerst ohne Kartendaten geplant.": "OSM is not answering. The reception scene is planned without map data for now."
+        "OSM antwortet nicht. Die Empfangsszene wird vorerst ohne Kartendaten geplant.": "OSM is not answering. The reception scene is planned without map data for now.",
+        "OSM antwortet nicht. Ich versuche es bei einem anderen Server, bitte hab etwas Geduld …": "OSM is not answering. I am trying another server, please be patient …",
+        "OSM antwortet nicht. Ich lade die Karte des Zielflugplatzes auf anderem Weg, bitte hab etwas Geduld …": "OSM is not answering. I am loading the destination airfield map another way, please be patient …",
+        "Der Kartenausschnitt ist OSM zu groß. Ich versuche einen kleineren, einen Moment …": "The map area is too large for OSM. I am trying a smaller one, one moment …",
+        "OSM antwortet sehr langsam. Ich versuche einen kleineren Kartenausschnitt, bitte hab etwas Geduld …": "OSM is answering very slowly. I am trying a smaller map area, please be patient …",
+        "Kartendaten gefunden, weiter geht’s.": "Map data found, carrying on."
     });
 })(typeof globalThis !== 'undefined' ? globalThis : this);
