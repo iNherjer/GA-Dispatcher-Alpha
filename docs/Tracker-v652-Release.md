@@ -12,6 +12,11 @@ Quelle: Commit `aab31cb10` (19.11.2026). Worker ga-proxy deployed vorab (Version
   v652, freie Flüge ohne Auftrag); VFR-Index-Cache gepackt (nur Web).
 - `EFB_WEB_ASSET_REVISION` 65201.
 
+## Artefakt
+
+Release-Commit `2b74235a1`, Tag `v652`, EXE 175334444 Bytes, SHA-256
+`9f28ec3903b492072b0d48f473f9b5410164e5ef5851d1d7b8d045561687b6dd` (öffentlicher Download geprüft).
+
 ## Tests
 
 Tracker-Suite: 1616/1618 bestanden, 2 übersprungen, 0 Fehler. Worker `crew-presence.test.mjs` 15/15.

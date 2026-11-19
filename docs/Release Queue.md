@@ -38,6 +38,10 @@ liefert alles Offene mit aus.
 
 ## Ausgeliefert
 
+### 2026-11-19 · Geteilter Crew-Auftrag bis 1 MiB — ausgeliefert in Tracker v652 Alpha (19.11.2026)
+- **Was:** siehe `docs/Tracker-v652-Release.md` (Worker ga-proxy `757af9ba` vorab deployed, Web v2470).
+- **Pruefen im Feld:** `CREW_PRESENCE_MISSION` statt `_SKIPPED`, „Selbst fliegen“ durch ein anderes Crew-Mitglied.
+
 ### 2026-11-19 · Desktop-App: Knopf „Karten-Cache leeren“ — ausgeliefert in Desktop 1.6.41 (19.11.2026)
 - **Artefakt:** Desktop-App (nächste Version nach 1.6.40)
 - **Dateien:** `ga-tracker-client/desktop/lib/map-tile-cache.js` (neu), `lib/tracker-process.js`, `main.js`, `preload.js`, `ui/index.html`, `ui/renderer.js`, `ui/i18n-en.js`, `tests/map-tile-cache.test.js`.
