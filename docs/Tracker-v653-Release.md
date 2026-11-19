@@ -30,7 +30,7 @@ Ein Tester ist losgeflogen, bevor die Verladung abgeschlossen war. Der Taxi-Auto
 
 ## Tests
 
-- Tracker-Suite `node --test *.test.js`: siehe unten.
+- Tracker-Suite `node --test *.test.js`: 1623/1625 bestanden, 2 übersprungen, 0 Fehler; Web-Testdateien alle einzeln grün.
 - Neu: `tracker-mission-premature-taxi-core.test.js` (Erkennung, Schwankungen, Stufen,
   Sprecher), Laufzeit Ende-zu-Ende (Frachtmission: Dispatcher, Abheben, Rückkehr),
   Sprachausgabe (Dispatcher, Passagier, nach dem Start verworfen), Kern-Freigabe, Banner.
@@ -49,5 +49,5 @@ Ein Tester ist losgeflogen, bevor die Verladung abgeschlossen war. Der Taxi-Auto
 ## Artefakt
 
 - Tag `v653`, Asset `VFR-Multitool-Tracker.exe`
-- Größe: offen
-- SHA-256: offen
+- Größe: 175352295 Bytes
+- SHA-256: b5e62752631bb20cd39fff82cd8250749120cc556787474ffd189be65be427bb (öffentlicher Download geprüft)

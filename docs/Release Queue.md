@@ -43,7 +43,7 @@ liefert alles Offene mit aus.
 - **Dateien:** `ga-tracker-client/tracker-mission-premature-taxi-core.js` (neu, + Test), `ga-tracker-client/tracker-mission-execution-runtime.js` (+ Test), `ga-tracker-client/tracker-mission-execution-adapter.js`, `ga-tracker-client/tracker-mission-boarding-voice.js` (+ Test), `ga-tracker-client/tracker-voice-service.js`, `mission-execution-core.js` (+ Test), `mission-apt-ui-core.js` (+ Test), `passenger-voice.js`, `i18n/en-phrases.js` (+ EFB-Kopie).
 - **Was:** In `prepare`/`boarding` ruft nach zwei Paketen Rollen (mindestens 2 kt, mindestens 3 m vom Standplatz) der Passagier oder, ohne Passagier am Abflugort, der Dispatcher per Funk zum Anhalten auf; nach einem Halt höchstens noch eine Bodenwarnung, beim Abheben eine Meldung zum Umkehren. Banner „Halt! Anhalten“ bzw. „Umkehren“, bis das Flugzeug wieder steht. Mission bleibt unverändert.
 - **Warum:** Tester ist vor Abschluss der Verladung losgeflogen.
-- **Tests:** siehe `docs/Tracker-v653-Release.md`.
+- **Tests:** Tracker-Suite 1623/1625 (2 übersprungen, 0 Fehler), Web-Testdateien einzeln grün; Details in `docs/Tracker-v653-Release.md`.
 - **Doku beim Release:** erledigt (Vertrag Abschnitt 19.11.2026, Release-Notiz).
 - **Pruefen im Feld:** siehe Release-Notiz, Abschnitt Feldtest.
 
