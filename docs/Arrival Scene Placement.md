@@ -55,6 +55,13 @@ werden nicht eingeführt.
    beim Akzeptieren neu (Sitzungsspeicher → Cloud → OSM). Nach dem Akzeptieren entfernt
    `pruneAcceptedMissionSceneBallast` sie wie bisher. Test: `tools/mission-draft-geometry-slim.test.mjs`.
    Tests: `tools/apt-arrival-geo-fetch.test.mjs`, `tools/mission-arrival-retry-ui.test.mjs`.
+   Gleiches Muster seit Web v2467 (19.11.2026) für den POI-Zielkontext
+   (`fetchMissionTargetGeoContext` in `app.js`; die Zielauswahl selbst kommt aus den POI-Kacheln):
+   zwei Overpass-Server, gemeinsame Fehlerpause mit der Ankunft (`aptArrivalGeoCooldown*`),
+   danach OSM-Karte mit 750/500/350 m (Reporter 800/500/350 m, eigene Szenengeometrie) über
+   `fetchMissionTargetOsmMapRaw` (Wege und markierte Einzelpunkte), zuletzt die
+   Orientierungspunkte aus den Kacheln. Kein Cloud-Vorrat: POI-Ziele wiederholen sich kaum.
+   Test: `tools/mission-target-geo-fetch.test.mjs`.
 3. Der bestehende Composer wählt `preferredPlacement.source` und `index`:
    `osm_parking_position`, `osm_apron` oder `osm_surface`. Letzteres benennt
    Einträge der angebotenen `placementCandidates.surface`, einschließlich Gras.

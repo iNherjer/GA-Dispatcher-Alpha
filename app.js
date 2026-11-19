@@ -26662,6 +26662,58 @@ const MISSION_SCENE_COMPOSER_MODEL_TIMEOUT_MS = 9000;
 const MISSION_SCENE_COMPOSER_TOTAL_TIMEOUT_MS = 18000;
 const MISSION_SCENE_PLANNER_V3_VERSION = 'scene-v3-arrival-hangar-front-2026-10-21';
 const missionTargetGeoContextInflight = new Map();
+// OSM-Abruf fuer POI-Ziele wie bei der Flughafen-Ankunft gehaertet (19.11.2026): zwei Overpass-Server,
+// Pause nach Fehlern (gemeinsam mit mission-arrival-core.js, gleiche Server), OSM-Karte mit kleiner
+// werdendem Ausschnitt. Die Zielauswahl selbst kommt aus den vorgebauten POI-Kacheln.
+const MISSION_TARGET_OVERPASS_ENDPOINTS = ['https://overpass-api.de/api/interpreter', 'https://overpass.private.coffee/api/interpreter'];
+const MISSION_TARGET_OSM_MAP_ENDPOINT = 'https://api.openstreetmap.org/api/0.6/map';
+function missionGeoCooldownActive(url) { return typeof aptArrivalGeoCooldownActive === 'function' && aptArrivalGeoCooldownActive(url); }
+function missionGeoCooldownSet(url) { if (typeof aptArrivalGeoCooldownSet === 'function') aptArrivalGeoCooldownSet(url); }
+function missionGeoCooldownClear(url) { if (typeof aptArrivalGeoCooldownClear === 'function') aptArrivalGeoCooldownClear(url); }
+
+// OSM-Karten-API als Overpass-Ersatz: Wege mit Geometrie und markierte Einzelpunkte im Format der
+// Overpass-Antwort. Meldet OSM „too many nodes“ oder laeuft in die Zeitgrenze, kommt der naechstkleinere
+// Ausschnitt. Liefert { raw, radiusM } oder null.
+async function fetchMissionTargetOsmMapRaw(lat, lon, radii = [750, 500, 350], timeoutMs = 12000) {
+    if (missionGeoCooldownActive(MISSION_TARGET_OSM_MAP_ENDPOINT)) return null;
+    for (const radiusM of radii) {
+        const deltaLat = radiusM / 111320;
+        const deltaLon = deltaLat / Math.max(0.1, Math.cos(lat * Math.PI / 180));
+        const bbox = [lon - deltaLon, lat - deltaLat, lon + deltaLon, lat + deltaLat].map(n => n.toFixed(7)).join(',');
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+            const response = await fetch(`${MISSION_TARGET_OSM_MAP_ENDPOINT}?bbox=${bbox}`, { signal: controller.signal });
+            if (!response.ok) {
+                const body = response.status === 400 ? await response.text().catch(() => '') : '';
+                if (/too many nodes/i.test(body)) continue;
+                missionGeoCooldownSet(MISSION_TARGET_OSM_MAP_ENDPOINT);
+                return null;
+            }
+            const xml = new DOMParser().parseFromString(await response.text(), 'application/xml');
+            if (xml.querySelector('parsererror')) return null;
+            const tagsOf = el => Object.fromEntries(Array.from(el.querySelectorAll('tag'), t => [t.getAttribute('k'), t.getAttribute('v')]));
+            const nodes = new Map();
+            const elements = [];
+            for (const node of xml.querySelectorAll('osm > node')) {
+                const point = { lat: Number(node.getAttribute('lat')), lon: Number(node.getAttribute('lon')) };
+                nodes.set(node.getAttribute('id'), point);
+                if (node.querySelector('tag')) elements.push({ type: 'node', id: node.getAttribute('id'), ...point, tags: tagsOf(node) });
+            }
+            for (const way of xml.querySelectorAll('osm > way')) {
+                const refs = Array.from(way.querySelectorAll('nd'), n => n.getAttribute('ref'));
+                if (refs.some(ref => !nodes.has(ref))) continue;
+                elements.push({ type: 'way', id: way.getAttribute('id'), tags: tagsOf(way), geometry: refs.map(ref => nodes.get(ref)) });
+            }
+            missionGeoCooldownClear(MISSION_TARGET_OSM_MAP_ENDPOINT);
+            return elements.length ? { raw: { elements }, radiusM } : null;
+        } catch (err) {
+            if (err?.name === 'AbortError') continue;
+            return null;
+        } finally { clearTimeout(timer); }
+    }
+    return null;
+}
 
 function missionTargetGeoContextCacheKey(lat, lon, radiusM = MISSION_TARGET_GEO_CONTEXT_RADIUS_M) {
     const la = Math.round(Number(lat) * 1000) / 1000;
@@ -27440,33 +27492,13 @@ async function fetchMissionLocalVisualLandmarks(lat, lon, radiusM = MISSION_TARG
 }
 
 async function fetchReporterSceneMapFallback(lat, lon) {
-    const deltaLat = 800 / 111320;
-    const deltaLon = deltaLat / Math.cos(lat * Math.PI / 180);
-    const bbox = [lon-deltaLon,lat-deltaLat,lon+deltaLon,lat+deltaLat].map(n=>n.toFixed(7)).join(',');
-    const controller = new AbortController();
-    const timer = setTimeout(()=>controller.abort(),15000);
-    try {
-        const response = await fetch(`https://api.openstreetmap.org/api/0.6/map?bbox=${bbox}`,{signal:controller.signal});
-        if (!response.ok) return null;
-        const xml = new DOMParser().parseFromString(await response.text(),'application/xml');
-        if (xml.querySelector('parsererror')) return null;
-        const nodes = new Map(Array.from(xml.querySelectorAll('osm > node'),node=>[node.getAttribute('id'),{lat:Number(node.getAttribute('lat')),lon:Number(node.getAttribute('lon'))}]));
-        const elements = [];
-        for (const way of xml.querySelectorAll('osm > way')) {
-            const refs = Array.from(way.querySelectorAll('nd'),n=>n.getAttribute('ref'));
-            if (refs.some(ref=>!nodes.has(ref))) continue;
-            const tags = Object.fromEntries(Array.from(way.querySelectorAll('tag'),t=>[t.getAttribute('k'),t.getAttribute('v')]));
-            elements.push({type:'way',id:way.getAttribute('id'),tags,geometry:refs.map(ref=>nodes.get(ref))});
-        }
-        if (!elements.length) return null;
-        const raw = {elements};
-        const context = normalizeMissionTargetGeoContext(raw,lat,lon,350);
-        if (!context) return null;
-        context.source = 'osm-api';
-        context.reporterPlacement = window.MissionReporterSceneCore.geometry(raw,{lat,lon});
-        return context;
-    } catch (_) { return null; }
-    finally {clearTimeout(timer);}
+    const map = await fetchMissionTargetOsmMapRaw(lat, lon, [800, 500, 350], 15000);
+    if (!map) return null;
+    const context = normalizeMissionTargetGeoContext(map.raw, lat, lon, 350);
+    if (!context) return null;
+    context.source = 'osm-api';
+    context.reporterPlacement = window.MissionReporterSceneCore.geometry(map.raw, { lat, lon });
+    return context;
 }
 
 async function fetchMissionTargetGeoContext(missionData = null) {
@@ -27524,18 +27556,34 @@ async function fetchMissionTargetGeoContext(missionData = null) {
 out tags center geom ${reporter ? '' : '160'};`;
 
     const promise = (async () => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), reporter ? 25000 : 9000);
         const localLandmarksPromise = fetchMissionLocalVisualLandmarks(lat, lon, MISSION_TARGET_GEO_CONTEXT_RADIUS_M).catch(() => []);
+        const overpass = async () => {
+            let lastError = new Error('overpass_cooldown');
+            for (const endpoint of MISSION_TARGET_OVERPASS_ENDPOINTS) {
+                if (missionGeoCooldownActive(endpoint)) continue;
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), reporter ? 25000 : 9000);
+                try {
+                    const res = await fetch(endpoint, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+                        body: `data=${encodeURIComponent(query)}`,
+                        signal: controller.signal
+                    });
+                    if (!res.ok) throw new Error(`overpass_http_${res.status}`);
+                    const raw = await res.json();
+                    missionGeoCooldownClear(endpoint);
+                    return raw;
+                } catch (err) {
+                    lastError = err;
+                    missionGeoCooldownSet(endpoint);
+                    console.warn('[MISSION GEO] Overpass context unavailable', endpoint, err);
+                } finally { clearTimeout(timeoutId); }
+            }
+            throw lastError;
+        };
         try {
-            const res = await fetch('https://overpass-api.de/api/interpreter', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-                body: `data=${encodeURIComponent(query)}`,
-                signal: controller.signal
-            });
-            if (!res.ok) throw new Error(`overpass_http_${res.status}`);
-            const raw = await res.json();
+            const raw = await overpass();
             const normalized = mergeMissionVisualLandmarks(
                 normalizeMissionTargetGeoContext(raw, lat, lon, radiusM),
                 await localLandmarksPromise
@@ -27547,7 +27595,6 @@ out tags center geom ${reporter ? '' : '160'};`;
             }
             return normalized;
         } catch (err) {
-            console.warn('[MISSION GEO] Overpass context unavailable', err);
             if (reporter) {
                 const directMap = await fetchReporterSceneMapFallback(lat,lon);
                 if (directMap) {
@@ -27556,6 +27603,16 @@ out tags center geom ${reporter ? '' : '160'};`;
                 }
             }
             const localLandmarks = await localLandmarksPromise;
+            if (!reporter) {
+                const map = await fetchMissionTargetOsmMapRaw(lat, lon);
+                const mapped = map ? mergeMissionVisualLandmarks(normalizeMissionTargetGeoContext(map.raw, lat, lon, map.radiusM), localLandmarks) : null;
+                if (mapped) {
+                    mapped.source = 'osm-map';
+                    try { window.GAMissionStorageCore.writeGeo(sessionStorage, key, mapped); } catch (_) {}
+                    try { window.GAMissionStorageCore.writeGeo(localStorage, key, mapped); } catch (_) {}
+                    return mapped;
+                }
+            }
             if (localLandmarks.length) {
                 const localOnly = mergeMissionVisualLandmarks(null, localLandmarks);
                 localOnly.center = { lat: Math.round(lat * 100000) / 100000, lon: Math.round(lon * 100000) / 100000 };
@@ -27565,7 +27622,6 @@ out tags center geom ${reporter ? '' : '160'};`;
             }
             return null;
         } finally {
-            clearTimeout(timeoutId);
             missionTargetGeoContextInflight.delete(key);
         }
     })();
