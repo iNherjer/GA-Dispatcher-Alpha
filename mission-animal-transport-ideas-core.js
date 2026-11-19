@@ -1,6 +1,8 @@
 /* Animal APT transport: narrative data only; loading and delivery remain runtime-owned. */
 (function(root){
 'use strict';
+const outLang=()=>root.MissionOutputLanguage||(typeof module!=='undefined'?require('./mission-output-language.js'):null);
+const L=(de,en)=>outLang()?outLang().text(de,en):de;
 const VERSION='animal-transport-idea.v1', PROMPT_VERSION='animal-transport-v1.8', HISTORY_KEY='ga_animal_transport_idea_history_v1';
 const onboard=()=>root.MissionOnboardCore||(typeof module!=='undefined'?require('./mission-onboard-core.js'):null);
 const text=(value,max=600)=>typeof value==='string'&&value.trim().length<=max?value.trim():'';
@@ -64,8 +66,8 @@ function prose(raw,idea){
 }
 function cargoText(idea){return `${idea.shipment.label} (${idea.shipment.weightLbs} lbs)`;}
 function mission(idea,written,brief,route={}){
- const routeText=`Route: ${route.startName||idea.route.start.name} → ${route.targetName||idea.route.target.name}${Number.isFinite(route.distanceNm)?` · ${route.distanceNm.toLocaleString('de-DE',{maximumFractionDigits:1})} NM`:''}.`;
- const story=[written.story,routeText,brief||'Der Wetterabsatz konnte nicht erstellt werden; bitte die Wetterdaten separat prüfen.',written.pilotNotes?`Besondere Hinweise: ${written.pilotNotes}`:''].filter(Boolean).join('\n\n');
+ const routeText=`Route: ${route.startName||idea.route.start.name} → ${route.targetName||idea.route.target.name}${Number.isFinite(route.distanceNm)?` · ${route.distanceNm.toLocaleString(outLang()?outLang().locale():'de-DE',{maximumFractionDigits:1})} NM`:''}.`;
+ const story=[written.story,routeText,brief||L('Der Wetterabsatz konnte nicht erstellt werden; bitte die Wetterdaten separat prüfen.','The weather paragraph could not be created; please check the weather data separately.'),written.pilotNotes?`${L('Besondere Hinweise: ','Special notes: ')}${written.pilotNotes}`:''].filter(Boolean).join('\n\n');
  return {t:written.title,s:story,story,missionStory:story,cat:'cargo',missionType:'apt',pax:`1 PAX (${idea.passenger.role})`,paxText:`1 PAX (${idea.passenger.role})`,passengerCount:1,plannedPassengerCount:1,passenger:{...idea.passenger,greetingText:written.greeting,personalStoryCue:idea.passenger.connection,storySeed:idea.purpose,roleProfile:'general_passenger_v1',taskDomain:'animal_transport',gTolerance:'niedrig',bankTolerance:'niedrig',cargoSensitivity:'hoch',stomachSensitivity:'hoch',comfortPriority:'hoch',urgencyPriority:'niedrig',targetAltitudeFt:0,targetRadiusNm:0,targetDwellMin:0},party:null,cargo:cargoText(idea),cargoText:cargoText(idea),animalTransportIdea:{...idea,writerMemory:written.memory},_source:'Tiertransport-Ideen V1',_missionPlanV2:{status:'ready',plan:{taskDomain:'animal_transport',primaryObjective:idea.purpose,storyFrame:{shipment:idea.shipment.label,receiver:idea.recipient,arrival:idea.arrival},sceneKind:'none'}},sceneIntent:{summary:'A-B-Tiertransport mit Übergabe am Zielflugplatz.',visibleIdeas:[],densityHint:'none'},_missionWriterV4Debug:{writerMode:PROMPT_VERSION,writerAccepted:true,rawAiStory:written.story,writerStory:story,flightBriefing:brief,flightBriefingStatus:brief?'accepted-bindings':'unavailable'}};
 }
 const api={VERSION,PROMPT_VERSION,HISTORY_KEY,history,remember,frame,ideaPrompt,validate,weatherPrompt,writerPrompt,prose,cargoText,mission};

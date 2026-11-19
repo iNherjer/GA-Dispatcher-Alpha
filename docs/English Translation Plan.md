@@ -489,6 +489,25 @@ Geschichte, Fracht, Begrüßung und Abhol-Felder des Passagiers englisch, Fracht
 Aufruf. Befund außerhalb der Übersetzung: `bush.pickupStory` im gespeicherten Planer-Plan nennt eine
 andere Person als der Writer (auch im deutschen Lauf vom 18.11.) – an Bush-Kern melden.
 
+### 2.17 Phase 4, Schritt 3: feste Bausteine im Briefing (2026-11-19)
+
+Code-Bausteine, die an den erzeugten Text angehängt und mit ihm gespeichert werden, entstehen jetzt in
+der Ausgabesprache (`MissionOutputLanguage.text(de, en)`, `.locale()`); Deutsch unverändert.
+
+- **Briefing (`app.js`, `generateMission`):** Arbeits-Hinweis, Feuerlage (DWD, Stufenname englisch),
+  Ankunfts-Hinweis (feste Sätze aus `mission-definition-core.js` über `_MISSION_ARRIVAL_HINTS_EN`;
+  Hinweise aus Ideen sind schon in der Ausgabesprache), Guide-Hinweis, Strecken-/Entfernungszeile
+  (+ Erkennung englischer Routenangaben), Passagierzeile („travel group“, „lead“).
+- **Wetter (`mission-private-episode-v6.js`):** `flightBindings` (Einheiten „ft AGL“, „kt“,
+  Dezimalpunkt), `observationTime`, englischer Ersatzabsatz `weatherFallbackEnglish`; POI-Ziel-Label.
+- **Ideen-Kerne** (Fracht, zerbrechlich, Medizin, Tiertransport, Reporter, Charter, Besichtigung):
+  Wetter-Ersatzsatz, „Besondere Hinweise“, Zahlenformat, Gepäck-/PAX-Ersatztexte.
+- **Verlade-Kern:** „no cargo“/„standard equipment“ zählen wie „keine Fracht“ als keine Ladung.
+- Test: `tools/mission-output-language.test.cjs` (Deutsch zeichengleich, Englisch korrekt).
+
+Noch offen in Phase 4: Privat-Ausflug/Heimreise (eigene deutsche Textpolitur), Tracker-Texte
+(Rückblick, Stimme), Übersetzung bei Bedarf für alte Pfade und schon erstellte Missionen (Schritt 4).
+
 ## 4. Etappen
 
 | Phase | Inhalt | Größe | Abhängig von |

@@ -24127,6 +24127,38 @@ function compactPoiKnowledgeContextForMission(context = null, maxFacts = POI_KNO
     return compact;
 }
 
+// Fixed briefing building blocks in the output language of the generated text (phase 4). German
+// UI: the German text exactly as before.
+function _missionBriefingText(german, english) {
+    return globalThis.MissionOutputLanguage ? globalThis.MissionOutputLanguage.text(german, english) : german;
+}
+function _missionBriefingEnglish() {
+    return globalThis.MissionOutputLanguage?.language?.() === 'en';
+}
+// English versions of the fixed arrival hints (mission-definition-core.js); hints written by an
+// idea core are already in the output language and pass unchanged.
+const _MISSION_ARRIVAL_HINTS_EN = [
+    [/^Am Ziel ist ein kurzer privater Treffpunkt am Vorfeld vorgesehen; danach beginnt der Ausflug\.$/, () => 'A short private meeting point on the apron is planned at the destination; the outing starts from there.'],
+    [/^Am Zielstrip wartet eine kurze Uebergabe am Bahnrand fuer (.+)\.$/, m => `A short handover at the strip edge is waiting at the destination strip for ${m[1]}.`],
+    [/^Am Zielstrip ist ein kurzer Bush-Dropoff fuer (.+) vorgesehen\.$/, m => `A short bush drop-off for ${m[1]} is planned at the destination strip.`],
+    [/^Am Zielstrip ist ein kurzer Treffpunkt am Bahnrand bei (.+) vorgesehen\.$/, m => `A short meeting point at the strip edge near ${m[1]} is planned at the destination strip.`],
+    [/^Am Ziel wartet die Frachtuebergabe an einem sicheren Vorfeld- oder Parkingbereich\.$/, () => 'The cargo handover waits at a safe apron or parking area at the destination.'],
+    [/^Am Ziel ist eine stressarme Uebergabe fuer (.+) am Vorfeld vorgesehen\.$/, m => `A low-stress handover for ${m[1]} is planned on the apron at the destination.`],
+    [/^Am Ziel wartet die vorbereitete Abholung fuer den Chartergast an einem sicheren Vorfeldbereich\.$/, () => 'The prepared pickup for the charter guest waits at a safe apron area at the destination.'],
+    [/^Am Ziel ist ein lokaler Kontakt am Vorfeld als Treffpunkt vorgesehen\.$/, () => 'A local contact on the apron is planned as the meeting point at the destination.'],
+    [/^Am Ziel wartet ein Platz- oder Vereinskontakt an einem sicheren Vorfeldbereich\.$/, () => 'An airfield or club contact waits at a safe apron area at the destination.']
+];
+function _missionBriefingArrivalHint(hint = '') {
+    const text = String(hint || '').trim();
+    if (!_missionBriefingEnglish()) return _missionPipelineV4PolishGermanVisibleText(text);
+    for (const [pattern, build] of _MISSION_ARRIVAL_HINTS_EN) {
+        const match = pattern.exec(text);
+        if (match) return build(match);
+    }
+    return text;
+}
+const _MISSION_FIRE_LEVEL_LABELS_EN = { 'sehr gering': 'very low', 'gering': 'low', 'mittel': 'medium', 'mäßig': 'moderate', 'hoch': 'high', 'sehr hoch': 'very high' };
+
 function buildPoiKnowledgeBriefingBlock(missionData = null, passenger = null) {
     const md = missionData && typeof missionData === 'object' ? missionData : null;
     const pax = passenger || md?.passenger || md?.missionContract?.passenger || null;
@@ -24142,6 +24174,9 @@ function buildPoiKnowledgeBriefingBlock(missionData = null, passenger = null) {
     if (factCount <= 0) return '';
     const target = String(context.title || md?.poiName || md?.targetName || 'Zielgebiet').replace(/\s+/g, ' ').trim();
     const paxName = String(pax?.name || 'Der Lern-Guide').replace(/\s+/g, ' ').trim();
+    if (_missionBriefingEnglish()) {
+        return `Guide note: ${paxName === 'Der Lern-Guide' ? 'The learning guide' : paxName} has prepared verified local facts about ${target === 'Zielgebiet' ? 'the target area' : target}. The details follow en route as short guide announcements; the briefing stays with the frame of a calm sightseeing flight.`;
+    }
     return `Guide-Hinweis: ${paxName} hat gesicherte Ortsfakten zu ${target} vorbereitet. Die Details kommen unterwegs als kurze Guide-Ansagen; das Briefing bleibt beim Rahmen des ruhigen Rundflugs.`;
 }
 
@@ -24186,7 +24221,7 @@ function _missionBriefingRouteWaypointLabels(missionData = null) {
         if (labels[labels.length - 1] !== label) labels.push(label);
     }
     if (labels.length <= 4) return labels;
-    return [labels[0], `${labels.length - 2} Wegpunkte`, labels[labels.length - 1]];
+    return [labels[0], _missionBriefingText(`${labels.length - 2} Wegpunkte`, `${labels.length - 2} waypoints`), labels[labels.length - 1]];
 }
 
 function buildMissionBriefingRouteInfoLine(missionData = null, options = {}) {
@@ -24217,17 +24252,18 @@ function buildMissionBriefingRouteInfoLine(missionData = null, options = {}) {
         md.dist ?? md.initialDist ?? contractRoute.distanceNm ?? options.dist
     );
     if (labels.length >= 2) {
-        return `Strecke: ${labels.join(' -> ')}${distanceLabel ? `, ca. ${distanceLabel} NM` : ''}.`;
+        return _missionBriefingText(`Strecke: ${labels.join(' -> ')}${distanceLabel ? `, ca. ${distanceLabel} NM` : ''}.`,
+            `Route: ${labels.join(' -> ')}${distanceLabel ? `, approx. ${distanceLabel} NM` : ''}.`);
     }
-    if (distanceLabel) return `Entfernung: ca. ${distanceLabel} NM.`;
+    if (distanceLabel) return _missionBriefingText(`Entfernung: ca. ${distanceLabel} NM.`, `Distance: approx. ${distanceLabel} NM.`);
     return '';
 }
 
 function missionBriefingAlreadyHasStructuredRouteInfo(text = '') {
     const raw = String(text || '');
-    if (/(^|\n)\s*(?:Strecke|Route|Distanz|Entfernung)\s*:/i.test(raw)) return true;
-    const hasRoutePhrase = /\b(?:die\s+route\s+f(?:ü|ue)hrt|von\s+\S.{1,80}?\s+nach\s+\S)/i.test(raw);
-    const hasDistance = /\b\d{1,4}(?:[,.]\d+)?\s*(?:NM|Seemeilen)\b/i.test(raw);
+    if (/(^|\n)\s*(?:Strecke|Route|Distanz|Entfernung|Distance)\s*:/i.test(raw)) return true;
+    const hasRoutePhrase = /\b(?:die\s+route\s+f(?:ü|ue)hrt|von\s+\S.{1,80}?\s+nach\s+\S|the\s+route\s+(?:leads|takes|runs)|from\s+\S.{1,80}?\s+to\s+\S)/i.test(raw);
+    const hasDistance = /\b\d{1,4}(?:[,.]\d+)?\s*(?:NM|Seemeilen|nautical miles)\b/i.test(raw);
     return hasRoutePhrase && hasDistance;
 }
 
@@ -25139,8 +25175,8 @@ function formatPaxBriefingText(paxText, passenger, party = null) {
         const partyCount = Math.max(0, Math.min(5, Math.round(Number(party?.count) || 0)));
         const partyLabel = String(party?.label || '').replace(/\s+/g, ' ').trim();
         if (partyCount > 1) {
-            const descriptor = partyLabel || inner || 'Reisegruppe';
-            return `${left} (${descriptor} · Hauptperson: ${name})`.trim();
+            const descriptor = partyLabel || inner || _missionBriefingText('Reisegruppe', 'travel group');
+            return `${left} (${descriptor} · ${_missionBriefingText('Hauptperson', 'lead')}: ${name})`.trim();
         }
         const descriptor = role || inner;
         if (!descriptor) return `${left} (${name})`.trim();
@@ -48079,13 +48115,15 @@ async function generateMission(options = {}) {
     if (!suppressPublicPoiAltitudeHint && (isPOI || missionUsesPoiTaskRecipe(currentMissionData)) && Number(window.activePassenger?.targetAltFt || 0) > 0) {
         const plannedAltFt = Math.round(Number(window.activePassenger.targetAltFt));
         if (!new RegExp(`\\b${plannedAltFt}\\s*ft\\b`, 'i').test(storyForBriefing)) {
-            storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}Arbeits-Hinweis: Für das Zielgebiet ist eine geplante Höhe von ungefähr ${plannedAltFt} ft vorgesehen.`;
+            storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}${_missionBriefingText(`Arbeits-Hinweis: Für das Zielgebiet ist eine geplante Höhe von ungefähr ${plannedAltFt} ft vorgesehen.`, `Work note: a planned altitude of about ${plannedAltFt} ft is intended for the target area.`)}`;
         }
     }
     if (String(window.activePassenger?.taskDomain || '').toLowerCase() === 'fire_watch' && Number.isFinite(Number(missionFireHazard?.level))) {
         const fireDate = _formatWbiDate(missionFireHazard?.date) || String(missionFireHazard?.dateIso || '').trim();
-        const fireLine = `Feuerlage-Hinweis (DWD): Waldbrandgefahrenindex Stufe ${Math.round(Number(missionFireHazard.level))} von 5 (${String(missionFireHazard.label || 'n/a')})${fireDate ? `, Stand ${fireDate}` : ''}.`;
-        if (!/waldbrandgefahrenindex|dwd/i.test(storyForBriefing)) {
+        const fireLabel = String(missionFireHazard.label || 'n/a');
+        const fireLine = _missionBriefingText(`Feuerlage-Hinweis (DWD): Waldbrandgefahrenindex Stufe ${Math.round(Number(missionFireHazard.level))} von 5 (${fireLabel})${fireDate ? `, Stand ${fireDate}` : ''}.`,
+            `Fire situation (DWD): forest fire danger index level ${Math.round(Number(missionFireHazard.level))} of 5 (${_MISSION_FIRE_LEVEL_LABELS_EN[fireLabel.toLowerCase()] || fireLabel})${fireDate ? `, as of ${fireDate}` : ''}.`);
+        if (!/waldbrandgefahrenindex|dwd|fire danger index/i.test(storyForBriefing)) {
             storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}${fireLine}`;
         }
     }
@@ -48110,12 +48148,12 @@ async function generateMission(options = {}) {
     const briefingAlreadyCoversArrival = /ankunft|uebergabe|übergabe|uebernimmt|übernimmt|uebernahme|übernahme|vorfeld|parking|tierarztkontakt|tierpflege|stationskontakt|zielkontakt|\barriv\w*|hand(?:s|ed|ing)?[\s-]?over|\bapron\b|reception|vet contact|station contact|destination contact/i.test(storyForBriefing)
         || (isPickupReturnBriefing && /\b(pickup|abhol\w*|wartepunkt|striprand|treffpunkt|zielstrip|zielplatz|ga-bereich|vorfeld|pistenrand|parkpunkt|wartet|pick[\s-]?up|waiting point|strip edge|meeting point|destination strip|destination airfield|ga area|runway edge|parking spot|wait(?:s|ing)?)\b/i.test(storyForBriefing));
     if (arrivalHint && !isPrivateOutingBriefing && !briefingAlreadyCoversArrival) {
-        storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}Ankunfts-Hinweis: ${_missionPipelineV4PolishGermanVisibleText(arrivalHint)}`;
+        storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}${_missionBriefingText('Ankunfts-Hinweis: ', 'Arrival note: ')}${_missionBriefingArrivalHint(arrivalHint)}`;
     }
     const knowledgeBriefing = buildPoiKnowledgeBriefingBlock(currentMissionData, window.activePassenger || plannedBriefingPassenger);
     const storyAlreadyHasGuideFrame = /lern-guide|guide/i.test(storyForBriefing)
         && /fakten|einordnung|orientierung|ansagen/i.test(storyForBriefing);
-    if (knowledgeBriefing && !/(?:Wissens|Guide)-Hinweis:/i.test(storyForBriefing) && !storyAlreadyHasGuideFrame) {
+    if (knowledgeBriefing && !/(?:Wissens|Guide)-Hinweis:|Guide note:/i.test(storyForBriefing) && !storyAlreadyHasGuideFrame) {
         storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}${knowledgeBriefing}`;
     }
     if (missionIsSarHeliMission(currentMissionData)) {

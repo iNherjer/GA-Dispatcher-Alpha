@@ -27,7 +27,7 @@ async function choices(airports,context){
  const drafts=await ideas(frames);context.ensureAlive?.();
  return frames.map((input,i)=>normalizeMissionProposalChoice({id:input.candidateId+'-'+Date.now(),mode:'apt',profileId:'sightseeing_tour',selectedCategory:'std',requestedCategory:'std',target:missionProposalCompactTarget(selected[i].airport,'apt'),title:drafts[i].theme,description:drafts[i].summary,subtitle:drafts[i].visits.map(v=>v.place.name).join(' · '),paxText:`${drafts[i].passengerCount} PAX (${drafts[i].groupLabel})`,cargoText:bag(drafts[i]),routeLabel:missionProposalFormatRoute(context.start,selected[i].airport,'apt').label,sightseeingProposal:{schema:'sightseeing-proposal.v1',input,idea:drafts[i]}}));
 }
-function bag(idea){return idea.luggageWeightLbs?`${idea.luggageLabel} (${idea.luggageWeightLbs} lbs)`:'Keine Fracht';}
+function bag(idea){return idea.luggageWeightLbs?`${idea.luggageLabel} (${idea.luggageWeightLbs} lbs)`:(root.MissionOutputLanguage?root.MissionOutputLanguage.text('Keine Fracht','No cargo'):'Keine Fracht');}
 function resolveText(raw,bindings){
  // Resolve only narrative strings, never source/identity fields or weather tokens.
  const resolve=s=>{if(typeof s!=='string')return s;return s.replace(/\[\[([^\]]+)\]\]/g,(whole,k)=>Object.prototype.hasOwnProperty.call(bindings,k)?String(bindings[k]):whole);};

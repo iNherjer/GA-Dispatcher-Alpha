@@ -1,6 +1,8 @@
 /* Medical APT transfer: narrative data only; loading and delivery remain runtime-owned. */
 (function(root){
 'use strict';
+const outLang=()=>root.MissionOutputLanguage||(typeof module!=='undefined'?require('./mission-output-language.js'):null);
+const L=(de,en)=>outLang()?outLang().text(de,en):de;
 const assetKinds=()=>(root.MissionCargoAssetKinds||(typeof module!=='undefined'?require('./mission-cargo-asset-kinds.js'):null));
 const VERSION='medical-transfer-idea.v1', PROMPT_VERSION='medical-transfer-v1.6', HISTORY_KEY='ga_medical_transfer_idea_history_v1';
 const onboard=()=>root.MissionOnboardCore||(typeof module!=='undefined'?require('./mission-onboard-core.js'):null);
@@ -51,10 +53,10 @@ function prose(raw,idea){
 function cargoText(idea){return `${idea.shipment.label} (${idea.shipment.weightLbs} lbs)`;}
 function mission(idea,written,brief,route={}){
  const isPatient=idea.transportKind==='patient_transfer',count=isPatient?2:1;
- const party=isPatient?{count:2,kind:'group',label:'Patient und medizinische Begleitung'}:null;
- const pax=isPatient?'2 PAX (Patient und medizinische Begleitung)':`1 PAX (${idea.passenger.role})`;
- const routeText=`Route: ${route.startName||idea.route.start.name} → ${route.targetName||idea.route.target.name}${Number.isFinite(route.distanceNm)?` · ${route.distanceNm.toLocaleString('de-DE',{maximumFractionDigits:1})} NM`:''}.`;
- const story=[written.story,routeText,brief||'Der Wetterabsatz konnte nicht erstellt werden; bitte die Wetterdaten separat prüfen.',written.pilotNotes?`Besondere Hinweise: ${written.pilotNotes}`:''].filter(Boolean).join('\n\n');
+ const party=isPatient?{count:2,kind:'group',label:L('Patient und medizinische Begleitung','Patient and medical escort')}:null;
+ const pax=isPatient?L('2 PAX (Patient und medizinische Begleitung)','2 PAX (patient and medical escort)'):`1 PAX (${idea.passenger.role})`;
+ const routeText=`Route: ${route.startName||idea.route.start.name} → ${route.targetName||idea.route.target.name}${Number.isFinite(route.distanceNm)?` · ${route.distanceNm.toLocaleString(outLang()?outLang().locale():'de-DE',{maximumFractionDigits:1})} NM`:''}.`;
+ const story=[written.story,routeText,brief||L('Der Wetterabsatz konnte nicht erstellt werden; bitte die Wetterdaten separat prüfen.','The weather paragraph could not be created; please check the weather data separately.'),written.pilotNotes?`${L('Besondere Hinweise: ','Special notes: ')}${written.pilotNotes}`:''].filter(Boolean).join('\n\n');
  return {t:written.title,s:story,story,missionStory:story,cat:'cargo',missionType:'apt',pax,paxText:pax,passengerCount:count,plannedPassengerCount:count,passenger:{...idea.passenger,party,partyLead:isPatient,greetingText:written.greeting,personalStoryCue:idea.passenger.connection,storySeed:idea.purpose,roleProfile:'medical_sensitive_v1',taskDomain:'medical_transfer',gTolerance:'niedrig',bankTolerance:'niedrig',cargoSensitivity:'hoch',stomachSensitivity:'hoch',comfortPriority:'hoch',urgencyPriority:idea.urgency==='time_sensitive'?'hoch':'niedrig',targetAltitudeFt:0,targetRadiusNm:0,targetDwellMin:0},party,cargo:cargoText(idea),cargoText:cargoText(idea),medicalTransferIdea:{...idea,writerMemory:written.memory},_source:'Medizin-Transfer-Ideen V1',_missionPlanV2:{status:'ready',plan:{taskDomain:'medical_transfer',primaryObjective:idea.purpose,storyFrame:{shipment:idea.shipment.label,receiver:idea.recipient,arrival:idea.arrival},sceneKind:'none'}},sceneIntent:{summary:'A-B-Medizin-Transfer mit Übergabe am Zielflugplatz.',visibleIdeas:[],densityHint:'none'},_missionWriterV4Debug:{writerMode:PROMPT_VERSION,writerAccepted:true,rawAiStory:written.story,writerStory:story,flightBriefing:brief,flightBriefingStatus:brief?'accepted-bindings':'unavailable'}};
 }
 const api={VERSION,PROMPT_VERSION,HISTORY_KEY,history,remember,frame,ideaPrompt,validate,weatherPrompt,writerPrompt,prose,cargoText,mission};

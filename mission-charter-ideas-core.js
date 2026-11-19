@@ -1,6 +1,8 @@
 /* APT charter narrative contract. Runtime remains the existing A-B passenger flight. */
 (function(root){
 'use strict';
+const outLang=()=>root.MissionOutputLanguage||(typeof module!=='undefined'?require('./mission-output-language.js'):null);
+const L=(de,en)=>outLang()?outLang().text(de,en):de;
 const VERSION='charter-idea.v1',HISTORY_KEY='ga_charter_idea_history_v1';
 const voice=typeof module!=='undefined'&&module.exports?require('./mission-route-voice-core.js'):root.GAMissionRouteVoiceCore;
 const continuation=typeof module!=='undefined'&&module.exports?require('./mission-charter-continuation-core.js'):root.MissionCharterContinuationCore;
@@ -64,10 +66,10 @@ function fitGreeting(value,max=400,tolerance=480){const g=typeof value==="string
 function prose(raw){const greeting=fitGreeting(raw&&raw.greeting);if(!raw||!text(raw.title,110)||text(raw.story,Infinity).length<250||!greeting||!text(raw.memory,600))return null;return {title:raw.title.trim(),story:raw.story.trim(),greeting,memory:raw.memory.trim(),pilotNotes:text(raw.pilotNotes,500)};}
 function mission(idea,written,flightBriefing,route){
  const party={count:idea.passengerCount,kind:idea.passengerCount===1?'single':'group',label:idea.groupLabel};
- const cargo=idea.luggageWeightLbs?`${idea.luggageLabel} (${idea.luggageWeightLbs} lbs)`:'Kein gebuchtes Gepäck (0 lbs)';
+ const cargo=idea.luggageWeightLbs?`${idea.luggageLabel} (${idea.luggageWeightLbs} lbs)`:L('Kein gebuchtes Gepäck (0 lbs)','No booked luggage (0 lbs)');
  const pax=`${idea.passengerCount} PAX (${idea.groupLabel})`;
- const routeText=`Route: ${route.startName} → ${route.targetName}${Number.isFinite(route.distanceNm)?` · ${route.distanceNm.toLocaleString('de-DE',{maximumFractionDigits:1})} NM`:''}.`;
- const story=[written.story,routeText,flightBriefing||'Wetterbriefing: Für diesen Entwurf liegt kein gültiger Wetterabsatz vor.',written.pilotNotes ? `Besondere Hinweise: ${written.pilotNotes}` : ''].filter(Boolean).join('\n\n');
+ const routeText=`Route: ${route.startName} → ${route.targetName}${Number.isFinite(route.distanceNm)?` · ${route.distanceNm.toLocaleString(outLang()?outLang().locale():'de-DE',{maximumFractionDigits:1})} NM`:''}.`;
+ const story=[written.story,routeText,flightBriefing||L('Wetterbriefing: Für diesen Entwurf liegt kein gültiger Wetterabsatz vor.','Weather briefing: no valid weather paragraph is available for this draft.'),written.pilotNotes ? `${L('Besondere Hinweise: ','Special notes: ')}${written.pilotNotes}` : ''].filter(Boolean).join('\n\n');
  return {t:written.title,s:story,story,missionStory:story,cat:'charter',missionType:'apt',pax,cargo,passengerCount:idea.passengerCount,party,charterIdea:{...idea,writerMemory:written.memory},passenger:{...idea.passenger,party,partyLead:true,taskDomain:'charter',narrativeSchema:VERSION,roleProfile:'charter_professional_neutral_v1',greetingText:written.greeting,personalStoryCue:idea.background,gTolerance:'mittel',bankTolerance:'mittel',cargoSensitivity:'niedrig',stomachSensitivity:'mittel',comfortPriority:'mittel',urgencyPriority:'niedrig'},_source:'Charter-Ideen V1',sceneIntent:{summary:'A-B-Charter zum Zielflugplatz.',visibleIdeas:[],densityHint:'none'},_missionWriterV4Debug:{writerMode:'charter-v1',writerAccepted:true,rawAiStory:written.story,writerStory:story,flightBriefing,flightBriefingStatus:flightBriefing?'accepted-bindings':'unavailable'}};
 }
 function resolveReferences(raw,bindings){

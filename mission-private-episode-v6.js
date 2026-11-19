@@ -3,6 +3,9 @@
     // V5 remains a frozen selectable baseline. Only transport formatting/frame helpers are reused.
     const base = typeof module !== 'undefined' && module.exports ? require('./mission-private-outing-core.js') : root.MissionPrivateOutingCore;
     const VERSION = 'private-outing.v1'; // Stable runtime/voice contract, independent of writer version.
+    // Output language of the generated text (phase 4 of the translation); German without i18n.
+    const outLang = () => root.MissionOutputLanguage || (typeof module !== 'undefined' && module.exports ? require('./mission-output-language.js') : null);
+    const english = () => outLang()?.language?.() === 'en';
     const WRITER_VERSION = 'private-v6';
     const PROMPT_REVISION = 'v6.3.1';
     const MODE_KEY = 'ga_private_story_writer_version';
@@ -110,8 +113,10 @@
         const values = {};
         if (text(flight?.startName)) values['route.start'] = text(flight.startName, 150);
         if (text(flight?.targetName)) values['route.target'] = text(flight.targetName, 150);
+        const en = english();
+        const units = { ' Fuß über Grund': ' ft AGL', ' Knoten': ' kt' };
         const add = (id, value, unit) => {
-            if (typeof value === 'number' && Number.isFinite(value)) values[id] = `${String(value).replace('.', ',')}${unit}`;
+            if (typeof value === 'number' && Number.isFinite(value)) values[id] = en ? `${String(value)}${units[unit] || unit}` : `${String(value).replace('.', ',')}${unit}`;
         };
         add('route.distance', flight?.distanceNm, ' NM');
         for (const row of flight?.weather || []) {
@@ -132,8 +137,10 @@
     }
     function observationTime(value) {
         const d=new Date(value);
-        if(!value||!Number.isFinite(d.getTime()))return value||'Beobachtungszeit unbekannt';
-        return `${d.getUTCDate()}.${d.getUTCMonth()+1}.${d.getUTCFullYear()}, ${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')} UTC`;
+        if(!value||!Number.isFinite(d.getTime()))return value||(english()?'observation time unknown':'Beobachtungszeit unbekannt');
+        const hm=`${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')} UTC`;
+        if(english())return `${d.getUTCDate()} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.getUTCMonth()]} ${d.getUTCFullYear()}, ${hm}`;
+        return `${d.getUTCDate()}.${d.getUTCMonth()+1}.${d.getUTCFullYear()}, ${hm}`;
     }
     function sameWeatherObservation(a,b) {
         if(!a?.station||a.station!==b?.station||!a.observedAt||a.observedAt!==b.observedAt)return false;
@@ -141,6 +148,7 @@
         return keys.every(k=>JSON.stringify(a[k]??null)===JSON.stringify(b[k]??null));
     }
     function weatherFallback(flight, options={}){
+     if(english())return weatherFallbackEnglish(flight,options);
      const number=v=>typeof v==='number'&&Number.isFinite(v);
      const fmt=v=>String(v).replace('.',',');
      const weather=flight?.weather||[];
@@ -166,6 +174,36 @@
       return (combined?`Für Start und ${options.targetLabel||'Ziel'} verwenden wir dieselbe Meldung von ${location}${distance}. ${timing}: ${parts.length?parts.join(', '):w.rawMetar}.`:`${label} – ${location}${distance} (${timing}): ${parts.length?parts.join(', '):w.rawMetar}.`)+(missing.length?` Zu ${missing.join(', ')} fehlen Angaben.`:'');
      });
      return rows.join(' ')+' Stationsbeobachtungen bei Erstellung, keine Strecken- oder Ankunftsprognose.';
+    }
+    // Same facts as weatherFallback, written in English (English UI, phase 4).
+    function weatherFallbackEnglish(flight, options={}){
+     const number=v=>typeof v==='number'&&Number.isFinite(v);
+     const weather=flight?.weather||[];
+     const combined=weather.length===2&&sameWeatherObservation(weather[0],weather[1]);
+     const target=options.targetLabel||'destination';
+     const rows=(combined?[weather[0]]:weather).map(w=>{
+      const label=combined?'Departure and '+target:w.scope==='departure'?'Departure':(options.targetLabel||'Destination');
+      const location=w.station||'unknown station';
+      const nm=v=>number(v)?String(Math.round(v*10)/10)+' NM':'';
+      const distance=combined?` (${nm(weather[0].stationDistanceNm)?nm(weather[0].stationDistanceNm)+' from departure':'distance to departure unknown'}, ${nm(weather[1].stationDistanceNm)?nm(weather[1].stationDistanceNm)+' from '+target:'distance to '+target+' unknown'})`
+       :(nm(w.stationDistanceNm)?`, ${nm(w.stationDistanceNm)} from the reference point`:'');
+      const parts=[];
+      if(number(w.windKts))parts.push(`wind ${w.windKts} kt`+(number(w.windDeg)?` from ${w.windDeg}°`:''));
+      if(number(w.gustKts))parts.push(`gusts ${w.gustKts} kt`);
+      if(number(w.visibilityKm))parts.push(`visibility ${w.visibilityKm} km`);
+      if(number(w.ceilingFtAgl))parts.push(`ceiling ${w.ceilingFtAgl} ft AGL`);
+      else if(number(w.cloudBaseFtAgl))parts.push(`cloud base ${w.cloudBaseFtAgl} ft AGL`);
+      if(!parts.length&&!w.rawMetar)return `${label}: no usable weather observation.`;
+      const age=w.freshness==='stale'?'older report':w.freshness==='recent'?'':'age unknown';
+      const timing=[w.observedAt?`report of ${observationTime(w.observedAt)}`:'observation time unknown',age].filter(Boolean).join(', ');
+      const missing=[];
+      if(!number(w.windKts))missing.push('wind');
+      if(!number(w.gustKts))missing.push('gusts');
+      if(!number(w.visibilityKm))missing.push('visibility');
+      if(!number(w.ceilingFtAgl)&&!number(w.cloudBaseFtAgl))missing.push('cloud height');
+      return (combined?`For departure and ${target} we use the same report from ${location}${distance}. ${timing}: ${parts.length?parts.join(', '):w.rawMetar}.`:`${label} – ${location}${distance} (${timing}): ${parts.length?parts.join(', '):w.rawMetar}.`)+(missing.length?` No data for ${missing.join(', ')}.`:'');
+     });
+     return rows.join(' ')+' Station observations at creation time, no en-route or arrival forecast.';
     }
     function resolveFlightBriefing(template, flight) {
         if (!flight || typeof template !== 'string' || !template.trim() || template.length > 850 || /[{}]|```/.test(template)) return '';

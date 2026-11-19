@@ -291,7 +291,7 @@ function resolveWeather(template,flightContext) {
   written.flightBriefing='Für Start und Zielbereich liegen derzeit keine verwertbaren Wetterbeobachtungen vor.';
   written.flightBriefingStatus='no-observations';
  } else if(flightContext.sharedWeatherObservation||!written.flightBriefing) {
-  written.flightBriefing=api.weatherFallback(flightContext,{targetLabel:'Zielgebiet'});
+  written.flightBriefing=api.weatherFallback(flightContext,{targetLabel:((typeof globalThis!=='undefined'&&globalThis.MissionOutputLanguage)?globalThis.MissionOutputLanguage.text('Zielgebiet','target area'):'Zielgebiet')});
   written.flightBriefingStatus=flightContext.sharedWeatherObservation?'shared-observation':'observations-fallback';
  }
  return written;

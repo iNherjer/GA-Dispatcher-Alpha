@@ -11,6 +11,11 @@ const DIRECTIVE='\n\nOUTPUT LANGUAGE: English. Write every text that the pilot o
 function language(){const g=root.GAI18n;return g&&typeof g.getLanguage==='function'&&g.getLanguage()==='en'?'en':'de';}
 function directive(){return language()==='en'?DIRECTIVE:'';}
 function wrap(prompt){return typeof prompt==='string'?prompt+directive():prompt;}
-const api={DIRECTIVE,language,directive,wrap};
+// Fixed building blocks that code adds to generated mission text: German or English by output language.
+function text(german,english){return language()==='en'&&typeof english==='string'?english:german;}
+function locale(){return language()==='en'?'en-GB':'de-DE';}
+// Decimal numbers inside generated text: German comma, English point.
+function decimal(value){return language()==='en'?String(value):String(value).replace('.',',');}
+const api={DIRECTIVE,language,directive,wrap,text,locale,decimal};
 root.MissionOutputLanguage=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof window!=='undefined'?window:globalThis);

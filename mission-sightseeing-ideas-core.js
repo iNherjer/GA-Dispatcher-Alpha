@@ -1,6 +1,8 @@
 /* APT transfer to a grounded ground visit; no POI flight task. */
 (function(root){
 'use strict';
+const outLang=()=>root.MissionOutputLanguage||(typeof module!=='undefined'?require('./mission-output-language.js'):null);
+const L=(de,en)=>outLang()?outLang().text(de,en):de;
 const flightApi=typeof module!=='undefined'&&module.exports?require('./mission-private-episode-v6.js'):root.MissionPrivateEpisodeV6;
 const VERSION='sightseeing-idea.v1',PROMPT_VERSION='sightseeing-v1.2',HISTORY_KEY='ga_sightseeing_idea_history_v1';
 const routeVoice=typeof module!=='undefined'&&module.exports?require('./mission-route-voice-core.js'):root.GAMissionRouteVoiceCore;
@@ -70,8 +72,8 @@ function proseErrors(raw,idea){
 function voiceContext(idea){return `BESUCHSPLAN: ${JSON.stringify({theme:idea.theme,groundPlan:idea.groundPlan,visits:idea.visits,passenger:idea.passenger})}. Du bist der benannte mitreisende Gast. Erzähle anschaulich über die belegten Orte und darüber, was du dort nach der Landung anschauen möchtest. Tatsachen ausschließlich aus visits.place.facts, persönliche Erwartungen dürfen fiktiv sein. Die Orte werden erst am Boden besucht; keine Sichtbarkeit, Öffnung oder tatsächliche Ankunft dort behaupten. Alle gewählten Orte dürfen im Gespräch vorkommen; ergänze bereits Gesagtes, statt das Briefing zu wiederholen.`;}
 function mission(idea,written,brief,route={}){
  const party={count:idea.passengerCount,kind:idea.passengerCount>1?'group':'single',label:idea.groupLabel};
- const story=[written.story,`Route: ${route.startName||idea.route.start.name} → ${route.targetName||idea.route.target.name}.`,brief||'Keine verwertbaren Wetterbeobachtungen verfügbar.'].join('\n\n');
- const baggage=idea.luggageWeightLbs?`${idea.luggageLabel} (${idea.luggageWeightLbs} lbs)`:'Keine Fracht';
+ const story=[written.story,`Route: ${route.startName||idea.route.start.name} → ${route.targetName||idea.route.target.name}.`,brief||L('Keine verwertbaren Wetterbeobachtungen verfügbar.','No usable weather observations available.')].join('\n\n');
+ const baggage=idea.luggageWeightLbs?`${idea.luggageLabel} (${idea.luggageWeightLbs} lbs)`:L('Keine Fracht','No cargo');
  return {t:written.title,s:story,story,missionStory:story,cat:'std',missionType:'apt',pax:`${idea.passengerCount} PAX (${idea.groupLabel})`,cargo:baggage,passengerCount:idea.passengerCount,plannedPassengerCount:idea.passengerCount,party,sightseeingIdea:{...idea,writerMemory:written.memory,visitSections:written.visitSections},passenger:{...idea.passenger,party,partyLead:true,narrativeSchema:VERSION,taskDomain:'sightseeing_tour',roleProfile:'tour_guide_relaxed_v1',greetingText:written.greeting,personalStoryCue:idea.summary,gTolerance:'niedrig',bankTolerance:'niedrig',cargoSensitivity:'niedrig',stomachSensitivity:'hoch',comfortPriority:'hoch',urgencyPriority:'niedrig',targetAltFt:0,targetRadiusNm:0,targetDwellMin:0},_source:'Sightseeing Besuchsplan V1',_missionPlanV2:{status:'ready',plan:{taskDomain:'sightseeing_tour',primaryObjective:idea.summary,sceneKind:'none'}},sceneIntent:{summary:'APT-Transfer; anschließender Besuch am Boden.',visibleIdeas:[],densityHint:'none'},_missionWriterV4Debug:{writerMode:PROMPT_VERSION,writerAccepted:true,rawAiStory:written.story,writerStory:story,flightBriefing:brief,visitCount:idea.visits.length,eventCount:idea.narrativeEvents.length}};
 }
 const api={VERSION,PROMPT_VERSION,HISTORY_KEY,history,remember,frame,ideaPrompt,validate,validationErrors,weatherPrompt,weatherFallback,writerPrompt,prose,proseErrors,mission,voiceContext};root.MissionSightseeingIdeasCore=api;if(typeof module!=='undefined')module.exports=api;

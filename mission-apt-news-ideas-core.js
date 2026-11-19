@@ -1,6 +1,8 @@
 /* APT reporter transfer: narrative data only; reporting takes place after arrival. */
 (function(root){
 'use strict';
+const outLang=()=>root.MissionOutputLanguage||(typeof module!=='undefined'?require('./mission-output-language.js'):null);
+const L=(de,en)=>outLang()?outLang().text(de,en):de;
 const VERSION='apt-news-idea.v1', PROMPT_VERSION='apt-news-v1.7', HISTORY_KEY='ga_apt_news_idea_history_v1';
 const routeVoice=typeof module!=='undefined'&&module.exports?require('./mission-route-voice-core.js'):root.GAMissionRouteVoiceCore;
 const continuity=()=>typeof module!=='undefined'&&module.exports?require('./mission-charter-continuation-core.js'):root.MissionCharterContinuationCore;
@@ -54,8 +56,8 @@ function prose(raw,idea){
 }
 function cargoText(idea){return `${idea.shipment.label} (${idea.shipment.weightLbs} lbs)`;}
 function mission(idea,written,brief,route={}){
- const routeText=`Route: ${route.startName||idea.route.start.name} → ${route.targetName||idea.route.target.name}${Number.isFinite(route.distanceNm)?` · ${route.distanceNm.toLocaleString('de-DE',{maximumFractionDigits:1})} NM`:''}.`;
- const story=[written.story,routeText,brief||'Der Wetterabsatz konnte nicht erstellt werden; bitte die Wetterdaten separat prüfen.',written.pilotNotes?`Besondere Hinweise: ${written.pilotNotes}`:''].filter(Boolean).join('\n\n');
+ const routeText=`Route: ${route.startName||idea.route.start.name} → ${route.targetName||idea.route.target.name}${Number.isFinite(route.distanceNm)?` · ${route.distanceNm.toLocaleString(outLang()?outLang().locale():'de-DE',{maximumFractionDigits:1})} NM`:''}.`;
+ const story=[written.story,routeText,brief||L('Der Wetterabsatz konnte nicht erstellt werden; bitte die Wetterdaten separat prüfen.','The weather paragraph could not be created; please check the weather data separately.'),written.pilotNotes?`${L('Besondere Hinweise: ','Special notes: ')}${written.pilotNotes}`:''].filter(Boolean).join('\n\n');
  return {t:written.title,s:story,story,missionStory:story,cat:'std',missionType:'apt',pax:`1 PAX (${idea.passenger.role})`,paxText:`1 PAX (${idea.passenger.role})`,passengerCount:1,plannedPassengerCount:1,passenger:{...idea.passenger,greetingText:written.greeting,personalStoryCue:idea.passenger.connection,storySeed:idea.purpose,narrativeSchema:VERSION,roleProfile:'news_reporter_professional_v1',taskDomain:'news_coverage',gTolerance:'mittel',bankTolerance:'mittel',cargoSensitivity:'mittel',stomachSensitivity:'mittel',comfortPriority:'mittel',urgencyPriority:idea.urgency==='time_sensitive'?'hoch':'niedrig',targetAltitudeFt:0,targetRadiusNm:0,targetDwellMin:0},party:null,cargo:cargoText(idea),cargoText:cargoText(idea),aptNewsIdea:{...idea,writerMemory:written.memory},_source:'APT Reporter-Ideen V1',_missionPlanV2:{status:'ready',plan:{taskDomain:'news_coverage',primaryObjective:idea.purpose,storyFrame:{angle:idea.angle,groundPlan:idea.groundPlan,publication:idea.publication,arrival:idea.arrival},sceneKind:'none'}},sceneIntent:{summary:'A-B-Reportertransfer zum journalistischen Bodenauftrag.',visibleIdeas:[],densityHint:'none'},_missionWriterV4Debug:{writerMode:PROMPT_VERSION,writerAccepted:true,rawAiStory:written.story,writerStory:story,flightBriefing:brief,flightBriefingStatus:brief?'accepted-bindings':'unavailable'}};
 }
 function voiceContext(idea){

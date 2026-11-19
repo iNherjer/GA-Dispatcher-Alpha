@@ -886,7 +886,7 @@ function _missionCargoGenerateManifest(cargoAsset = null) {
     const isBushReturnHomeRecon = !!(bush && bush.targetMode === 'area_then_return' && bushCompletionMode === 'return_home');
     const cargoText = _missionCargoPrimaryText() || _missionSceneCargoText();
     const cleanedCargo = _missionCargoCleanLabel(cargoText);
-    const hasCargo = !isBushPickupPassenger && !isBushPickupCargo && cleanedCargo && !/^(?:-|none|kein cargo|keine fracht|standard-ausruestung|standard ausruestung)$/i.test(cleanedCargo);
+    const hasCargo = !isBushPickupPassenger && !isBushPickupCargo && cleanedCargo && !/^(?:-|none|kein cargo|keine fracht|standard-ausruestung|standard ausruestung|no cargo|standard equipment)$/i.test(cleanedCargo);
     const isPoi = _missionCargoIsPoiMission();
     const items = [];
     if (_missionCargoHasPassengerMission()) {
