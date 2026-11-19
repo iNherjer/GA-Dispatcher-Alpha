@@ -29,6 +29,11 @@ liefert alles Offene mit aus.
 
 ## Ausgeliefert
 
+### 2026-11-19 · Passagierstimme in der Missionssprache — ausgeliefert in Tracker v650 Alpha (19.11.2026)
+- **Was:** siehe `docs/Tracker-v650-Release.md`.
+- **Doku beim Release:** `docs/Tracker-v650-Release.md`, `docs/English Translation Plan.md` 2.24.
+- **Pruefen im Feld:** siehe `docs/Tracker-v650-Release.md`.
+
 ### 2026-11-19 · Rückblick-Vorprüfung, SAR/Brand ohne Abschieds-Vorbereitung, Abkürzungen — ausgeliefert in Tracker v649 Alpha (19.11.2026)
 - **Was:** siehe `docs/Tracker-v649-Release.md`.
 - **Doku beim Release:** `docs/Tracker-v649-Release.md`, `docs/Mission Runtime Authority Contract.md`.
