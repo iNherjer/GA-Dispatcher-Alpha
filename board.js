@@ -106,6 +106,7 @@ function pinboardPruneLocalStorageForQuota(options = {}) {
     const exact = [
         'ga_mission_debug_snapshot',
         'ga_vfr_overlay_cache_v1',
+        'ga_vfr_overlay_cache_v2',
         'ga_obs_pool_v1',
         'ga_obs_tile_cov_v1',
         'ga_obs_tile_failed_v1',

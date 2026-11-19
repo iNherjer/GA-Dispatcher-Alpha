@@ -287,8 +287,14 @@ const vpGaforSectorRefCache = new Map();
 const vpGaforSectorDefsCache = new Map();
 const vpGaforSectorDatasetCache = Object.create(null);
 let vpVfrIndexLayer = null;
-const VP_VFR_PERSIST_CACHE_KEY = 'ga_vfr_overlay_cache_v1';
+// v2: every entry gzip-compressed (base64), only valid entries kept. An entry (68 sectors plus
+// the raw weather timeline of ~1000 points) is ~1.8 MB as JSON, ~90 KB packed; v1 kept it raw
+// and never dropped expired entries, which filled the iPhone localStorage (quota exceeded).
+const VP_VFR_PERSIST_CACHE_KEY = 'ga_vfr_overlay_cache_v2';
+const VP_VFR_PERSIST_LEGACY_KEY = 'ga_vfr_overlay_cache_v1';
 const VP_VFR_PERSIST_MAX_AGE_MS = 30 * 60 * 1000;
+const VP_VFR_PERSIST_MAX_ENTRIES = 3;
+try { localStorage.removeItem(VP_VFR_PERSIST_LEGACY_KEY); } catch (_) {}
 const vpVfrIndexState = {
     selectedCountry: localStorage.getItem('ga_vfr_index_country') || 'auto',
     vfrModel: localStorage.getItem('ga_vfr_index_model') || 'robust_sector',
@@ -333,10 +339,26 @@ function vpBuildPersistVfrCacheKey(country, model, ampelMode) {
     return `${c}|${m}|${a}`;
 }
 
+function vpVfrPersistCompressionAvailable() {
+    return typeof CompressionStream === 'function' && typeof DecompressionStream === 'function';
+}
+
+async function vpVfrGzipBase64(text) {
+    const bytes = new Uint8Array(await new Response(new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer());
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 32768) binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 32768));
+    return btoa(binary);
+}
+
+async function vpVfrGunzipBase64(data) {
+    const bytes = Uint8Array.from(atob(String(data || '')), c => c.charCodeAt(0));
+    return new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+}
+
+// Store: { savedAt, entries: { key: { ts, gz } } }; expired entries are dropped on every write.
 function vpReadPersistVfrStore() {
     try {
-        const raw = localStorage.getItem(VP_VFR_PERSIST_CACHE_KEY);
-        const parsed = JSON.parse(raw || '{}');
+        const parsed = JSON.parse(localStorage.getItem(VP_VFR_PERSIST_CACHE_KEY) || '{}');
         const entries = parsed && typeof parsed.entries === 'object' && parsed.entries ? parsed.entries : {};
         return { entries };
     } catch (_) {
@@ -345,14 +367,17 @@ function vpReadPersistVfrStore() {
 }
 
 function vpWritePersistVfrStore(store) {
-    const payload = {
-        savedAt: Date.now(),
-        entries: (store && store.entries && typeof store.entries === 'object') ? store.entries : {}
-    };
-    localStorage.setItem(VP_VFR_PERSIST_CACHE_KEY, JSON.stringify(payload));
+    const now = Date.now();
+    const valid = Object.entries((store && store.entries && typeof store.entries === 'object') ? store.entries : {})
+        .filter(([, e]) => e && typeof e.gz === 'string' && Number(e.ts) > 0 && now - Number(e.ts) <= VP_VFR_PERSIST_MAX_AGE_MS)
+        .sort((a, b) => Number(b[1].ts) - Number(a[1].ts))
+        .slice(0, VP_VFR_PERSIST_MAX_ENTRIES);
+    if (!valid.length) { localStorage.removeItem(VP_VFR_PERSIST_CACHE_KEY); return; }
+    localStorage.setItem(VP_VFR_PERSIST_CACHE_KEY, JSON.stringify({ savedAt: now, entries: Object.fromEntries(valid) }));
 }
 
-function vpPersistCurrentVfrOverlay(activeCountry, model, ampelMode) {
+async function vpPersistCurrentVfrOverlay(activeCountry, model, ampelMode) {
+    if (!vpVfrPersistCompressionAvailable()) return;
     const key = vpBuildPersistVfrCacheKey(activeCountry, model, ampelMode);
     if (!key) return;
     const entry = {
@@ -371,30 +396,31 @@ function vpPersistCurrentVfrOverlay(activeCountry, model, ampelMode) {
         lastRenderedSectors: Array.isArray(vpVfrIndexState.lastRenderedSectors) ? vpVfrIndexState.lastRenderedSectors : []
     };
     try {
+        const gz = await vpVfrGzipBase64(JSON.stringify(entry));
         const store = vpReadPersistVfrStore();
-        store.entries[key] = entry;
-        vpWritePersistVfrStore(store);
-    } catch (_) {
-        // Fallback bei localStorage-Quota: ohne Timeline erneut probieren.
+        store.entries[key] = { ts: entry.ts, gz };
         try {
-            const store = vpReadPersistVfrStore();
-            store.entries[key] = { ...entry, timeline: null };
             vpWritePersistVfrStore(store);
-        } catch (__) {
-            // persist optional
+        } catch (_) {
+            // Quota: keep only this entry.
+            vpWritePersistVfrStore({ entries: { [key]: store.entries[key] } });
         }
+    } catch (_) {
+        // persist optional
     }
 }
 
-function vpTryHydrateVfrOverlayFromPersist(activeCountry, model, ampelMode) {
+async function vpTryHydrateVfrOverlayFromPersist(activeCountry, model, ampelMode) {
     const key = vpBuildPersistVfrCacheKey(activeCountry, model, ampelMode);
-    if (!key) return false;
-    const store = vpReadPersistVfrStore();
-    const entry = store.entries && store.entries[key];
+    if (!key || !vpVfrPersistCompressionAvailable()) return false;
+    const stored = vpReadPersistVfrStore().entries[key];
+    if (!stored || typeof stored.gz !== 'string') return false;
+    const storedTs = Number(stored.ts || 0);
+    if (!Number.isFinite(storedTs) || storedTs <= 0 || (Date.now() - storedTs) > VP_VFR_PERSIST_MAX_AGE_MS) return false;
+    let entry;
+    try { entry = JSON.parse(await vpVfrGunzipBase64(stored.gz)); } catch (_) { return false; }
     if (!entry || typeof entry !== 'object') return false;
-    const ts = Number(entry.ts || entry.lastUpdatedAt || entry.lastFetchAt || 0);
-    if (!Number.isFinite(ts) || ts <= 0) return false;
-    if ((Date.now() - ts) > VP_VFR_PERSIST_MAX_AGE_MS) return false;
+    const ts = Number(entry.ts || storedTs);
     const isSector = String(entry.lastRenderMode || '') === 'gafor_sector';
     const hasPayload = isSector
         ? (Array.isArray(entry.lastRenderedSectors) && entry.lastRenderedSectors.length > 0)
@@ -4345,7 +4371,7 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
         || activeVfrModel === 'robust_sector'
     );
     if (!forceFetch) {
-        const hydrated = vpTryHydrateVfrOverlayFromPersist(active, activeVfrModel, vpVfrIndexState.ampelWindowMode);
+        const hydrated = await vpTryHydrateVfrOverlayFromPersist(active, activeVfrModel, vpVfrIndexState.ampelWindowMode);
         if (hydrated) {
             vpRefreshVfrLayerFromCache();
         }
@@ -4580,7 +4606,7 @@ window.renderVfrIndexOverlay = async function(forceFetch = false) {
         if (timelines && timelines.byKey) {
             vpVfrIndexState.timeline = timelines;
         }
-        vpPersistCurrentVfrOverlay(active, activeVfrModel, vpVfrIndexState.ampelWindowMode);
+        void vpPersistCurrentVfrOverlay(active, activeVfrModel, vpVfrIndexState.ampelWindowMode);
         finishRenderPerf('done', { active, model: activeVfrModel, pointCount: vpVfrIndexState.lastPointCount });
     } catch (e) {
         vpVfrIndexState.lastError = (e && e.message) ? e.message : 'unknown';

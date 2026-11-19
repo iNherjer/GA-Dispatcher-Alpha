@@ -13,7 +13,8 @@ const core = globalThis.GACrewPresenceCore;
 const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' };
 const reply = (data, status = 200) => new Response(JSON.stringify(data), { status, headers });
 const MAX_BODY = 8 * 1024;
-const MAX_MISSION_BODY = 64 * 1024;
+// Shared mission (gzip-base64): same 1 MiB budget as the crew pinboard (GROUP_), missions grew past 64 KB.
+const MAX_MISSION_BODY = 1024 * 1024;
 const FLIGHT_ID = /^[A-Za-z0-9_.:-]{1,120}$/;
 const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
 const PURGE_AFTER_MS = 2 * 24 * 60 * 60 * 1000;

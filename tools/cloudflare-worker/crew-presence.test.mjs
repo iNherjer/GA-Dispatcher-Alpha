@@ -146,6 +146,16 @@ test('compressed missions are stored as-is and returned compressed; bad encoding
     assert.equal(restored.activeMissionContract.crewArrivalPlanFromMission, undefined);
 });
 
+test('large missions (pinboard budget, 1 MiB) are accepted, larger ones refused', async () => {
+    const env = { GA_CREW_PRESENCE: namespace() };
+    await client(env, 'ALICE')({ source: 'tracker', flight: flight() });
+    const post = client(env, 'ALICE', 'EDTW', '/mission');
+    const big = 'A'.repeat(200 * 1024); // like a current 130 KB+ mission, above the old 64 KB limit
+    assert.equal((await post({ flightId: 'run-1', encoding: 'gzip-base64', data: big })).status, 200);
+    assert.equal((await client(env, 'BOB', 'EDTW', '/mission/ALICE')()).body.data.length, big.length);
+    assert.equal((await post({ flightId: 'run-1', encoding: 'gzip-base64', data: 'A'.repeat(1100 * 1024) })).status, 413);
+});
+
 test('beats carry position and a bounded route', async () => {
     const env = { GA_CREW_PRESENCE: namespace() };
     const route = Array.from({ length: 80 }, (_, i) => ({ lat: 49 + i * 0.01, lon: 8, name: 'WP' + i }));

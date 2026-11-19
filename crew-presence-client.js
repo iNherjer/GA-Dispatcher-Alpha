@@ -318,7 +318,7 @@
             if (!state) {
                 alert(data?.encoding && typeof DecompressionStream !== 'function'
                     ? tr('crew.fly.unpackFailed', 'Dieser Browser kann den Auftrag nicht entpacken. Bitte einen aktuellen Browser verwenden.')
-                    : tr('crew.fly.notShared', 'Für diesen Flug ist kein Auftrag verfügbar. Er wird geteilt, sobald der Tracker des Piloten (ab v597) den Flug meldet.'));
+                    : tr('crew.fly.notShared', 'Für diesen Flug liegt kein Auftrag vor. Der Tracker des Piloten lädt ihn beim Start der Mission hoch; größere Aufträge erst ab Tracker v652. Bei freien Flügen gibt es keinen Auftrag.'));
                 return;
             }
             const busy = typeof window.gaMissionDraftActive === 'function' && window.gaMissionDraftActive();

@@ -406,7 +406,7 @@
         'crew.fly.button': '✈️ Fly this job yourself',
         'crew.fly.loading': 'Loading job …',
         'crew.fly.unpackFailed': 'This browser cannot unpack the job. Please use a current browser.',
-        'crew.fly.notShared': 'No job is available for this flight. It is shared as soon as the pilot\'s tracker (v597 or later) reports the flight.',
+        'crew.fly.notShared': 'No job is available for this flight. The pilot\'s tracker uploads it when the mission starts; larger jobs need tracker v652 or later. Free flights have no job.',
         'crew.fly.replaceConfirm': 'Your current job will be replaced by this job. Continue?',
         'crew.fly.loadFailed': 'The job could not be loaded.',
 
