@@ -537,6 +537,19 @@ Noch offen in Phase 4: Privat-Ausflug/Heimreise (eigene deutsche Textpolitur), T
   wegen fremder offener Änderungen zurückgestellt).
 - Deutsch-Nachweis: Projektion von `mission-followup.js` identisch (bis auf `${'bis'}` = `bis`).
 
+### 2.20 Phase 4: POI-Ziel-Info, Platzinfo-Seiten, Writer-Platzhalter (2026-11-19)
+
+- **Lücke aus Schritt 2 geschlossen:** POI-Writer setzen Platzhalter (`[[id.location]]`,
+  `[[id.targetLocation]]`, `[[id.name]]`, Gelände-Werte), die der Code mit Ortsangaben füllt
+  (`bindings`, `writerContext` in `mission-poi-briefing-shared-core.js`). Bei englischer Ausgabe jetzt
+  englisch („about 300 m north of the target“, „railway bridge …“, „river …“, Dezimalpunkt).
+- **POI-Ziel-Info-Seite** (Lage/Orientierung, Gelände, Hindernisse, Umgebung, Datenqualität,
+  Überschriften) als englische Zweige (`renderStructuredReportEnglish`, `environmentProseEnglish`).
+- **Platzinfo-Seiten:** Überschriften/Grundlage-Zeilen in der Oberflächensprache; „Geplante Ankunft …“
+  beim Anzeigen; Ersatztext ohne KI englisch (Pistenbeläge übersetzt).
+- Deutsch-Nachweis: Projektion identisch (Platzinfo-Ersatztext ist unverändert, nur in
+  `fallbackGerman` umbenannt).
+
 ## 4. Etappen
 
 | Phase | Inhalt | Größe | Abhängig von |

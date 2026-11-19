@@ -6,6 +6,12 @@
 })(typeof globalThis!=='undefined'?globalThis:this,function(geo,api){
 'use strict';
 const L=(de,en)=>((typeof globalThis!=='undefined'&&globalThis.MissionOutputLanguage)?globalThis.MissionOutputLanguage.text(de,en):de);
+// English output (phase 4): language-specific wording of code-built POI text. German code paths
+// below stay unchanged; German direction nouns remain the data keys.
+const english=()=>!!(typeof globalThis!=='undefined'&&globalThis.MissionOutputLanguage&&globalThis.MissionOutputLanguage.language&&globalThis.MissionOutputLanguage.language()==='en');
+const DIR_EN={Norden:'north',Nordosten:'northeast',Osten:'east',Südosten:'southeast',Süden:'south',Südwesten:'southwest',Westen:'west',Nordwesten:'northwest'};
+const ENV_EN={Wald:'forest',Wohnbebauung:'housing',Industriegebiet:'an industrial area',Gewerbegebiet:'a commercial area',Wiesenfläche:'a meadow',Ackerfläche:'farmland',Wasserfläche:'a water surface',Industriefläche:'industrial land',Wiese:'meadow',Landbedeckung:'land cover'};
+const KIND_EN={'kartierte Windkraftanlage':'mapped wind turbine','kartierter Schornstein':'mapped chimney','kartierter Leitungspunkt':'mapped power line point','kartierter Strommast':'mapped power pylon','kartierter Mast':'mapped mast','kartierter Wasserturm':'mapped water tower','kartierter Fernmeldeturm':'mapped telecom tower','kartierter Turm':'mapped tower','Eisenbahnbrücke':'railway bridge','Straßenbrücke':'road bridge','Fluss':'river','Berg':'mountain','Stadt':'town','Ort':'village','Bauwerksreferenzpunkt':'structure reference point'};
 function relation(from, to) {
   const distanceKm = geo.distanceKm(from, to);
   if (!Number.isFinite(distanceKm)) throw Error('Invalid coordinates');
@@ -35,10 +41,12 @@ function uniquePoints(rows) {
 }
 
 function approximateDistance(m) {
+  if(english())return m<1000?`${Math.round(m/50)*50} m`:`${Math.round(m/100)/10} km`;
   return m<1000?`${Math.round(m/50)*50} m`:`${String(Math.round(m/100)/10).replace('.',',')} km`;
 }
 function referenceName(f) {
   const label=landmarkLabel(f),t=f.tags||f;
+  if(english())return t.infra_type==='bridge'||t.man_made==='bridge'||t.type==='river'||t.waterway==='river'?'the '+label:label;
   return t.infra_type==='bridge'||t.man_made==='bridge'?'der '+label:t.type==='river'||t.waterway==='river'?'dem '+label:label;
 }
 function landmarkPriority(x) {
@@ -51,6 +59,8 @@ function landmarkPriority(x) {
 }
 function landmarkLabel(f) {
   const t=f.tags||f, name=f.name||'';
+  if(english()&&(t.infra_type==='bridge'||t.man_made==='bridge'))return (t.railway?'railway bridge':['path','footway','cycleway','steps','bridleway'].includes(t.highway)?'foot or cycle bridge':t.highway?'road bridge':'bridge')+' '+name.replace(/;/g,' / ');
+  if(english()&&(t.type==='river'||t.waterway==='river'))return 'river '+name;
   if(t.infra_type==='bridge'||t.man_made==='bridge')return (t.railway?'Eisenbahnbrücke':['path','footway','cycleway','steps','bridleway'].includes(t.highway)?'Fuß- oder Radwegbrücke':t.highway?'Straßenbrücke':'Brücke')+' '+name.replace(/;/g,' / ');
   if(t.type==='river'||t.waterway==='river')return 'Fluss '+name;
   if(['city','town'].includes(t.place))return name;
@@ -101,7 +111,25 @@ function environmentFacts(target,payload) {
  const seen=new Set();return facts.sort((a,b)=>a.distanceM-b.distanceM).filter(f=>{if(seen.has(f.kind))return false;seen.add(f.kind);return true;}).slice(0,4);
 }
 
+function environmentProseEnglish(facts=[]) {
+ const nearby=new Map(),surface=[],legacy=[];
+ const list=items=>items.length<2?items[0]||'':items.slice(0,-1).join(', ')+' and '+items.at(-1);
+ for(const f of facts.slice(0,4)) {
+  const noun=ENV_EN[f.kind];
+  if(f.evidence!=='osm-tags-and-polygon'||!noun||!DIR_EN[f.direction]||!Number.isFinite(f.distanceM)) {if(f.fact)legacy.push(f.fact);continue;}
+  if(f.surfaceAtTarget)surface.push(`At the marked target point the surface is ${noun}.`);
+  else {
+   const key=f.distanceM<75?'right next to the target':DIR_EN[f.direction];
+   if(!nearby.has(key))nearby.set(key,[]);
+   nearby.get(key).push(f.distanceM<75?noun:`${noun} about ${approximateDistance(f.distanceM)} away`);
+  }
+ }
+ const adjacent=[...nearby].map(([direction,items])=>direction==='right next to the target'?`right next to the target ${items.length>1?'are':'is'} ${list(items)}`:`to the ${direction} of the target ${items.length>1?'are':'is'} ${list(items)}`).join('; ');
+ return [adjacent?adjacent[0].toUpperCase()+adjacent.slice(1)+'.':'',...surface,...legacy].filter(Boolean).join(' ');
+}
+
 function environmentProse(facts=[]) {
+ if(english())return environmentProseEnglish(facts);
  const directions={Norden:'nördlich',Nordosten:'nordöstlich',Osten:'östlich',Südosten:'südöstlich',Süden:'südlich',Südwesten:'südwestlich',Westen:'westlich',Nordwesten:'nordwestlich'};
  const nouns={Wald:'Wald',Wohnbebauung:'Wohnbebauung',Industriegebiet:'ein Industriegebiet',Gewerbegebiet:'ein Gewerbegebiet',Wiesenfläche:'eine Wiesenfläche',Ackerfläche:'eine Ackerfläche',Wasserfläche:'eine Wasserfläche'};
  const nearby=new Map(),surface=[],legacy=[];
@@ -160,6 +188,14 @@ function selectFacts(target, rows, radiusM = 5556) {
 
 function bindings(context) {
   const result = { 'target.name':context.target.name, 'area.radius':`${context.radiusM} m` };
+  if(english()) {
+    for (const f of context.facts) {
+      result[`${f.id}.name`] = (f.role==='orientation'?landmarkLabel(f):f.name) || Object.values(f.tags)[0] || 'object';
+      result[`${f.id}.location`] = `about ${approximateDistance(f.relativeToTarget.distanceM)} ${DIR_EN[f.relativeToTarget.direction]} of the target`;
+      result[`${f.id}.targetLocation`] = `about ${approximateDistance(f.targetRelativeToFeature.distanceM)} ${DIR_EN[f.targetRelativeToFeature.direction]} of ${referenceName(f)}`;
+    }
+    return result;
+  }
   const directions = {Norden:'nördlich',Nordosten:'nordöstlich',Osten:'östlich',Südosten:'südöstlich',Süden:'südlich',Südwesten:'südwestlich',Westen:'westlich',Nordwesten:'nordwestlich'};
   for (const f of context.facts) {
     result[`${f.id}.name`] = (f.role==='orientation'?landmarkLabel(f):f.name) || Object.values(f.tags)[0] || 'Objekt';
@@ -190,13 +226,17 @@ function writerContext(context) {
     : f.tags.place ? (['city','town'].includes(f.tags.place)?'Stadt':'Ort')
     : 'Bauwerksreferenzpunkt';
   const terrain=context.terrain?.status==='sampled'?context.terrain:null;
-  const terrainBindings=terrain?{
+  const terrainBindings=terrain&&english()?{
+    'terrain.range':`${terrain.minSampleM} to ${terrain.maxSampleM} m`,
+    'terrain.sampleCount':`${terrain.sampleCount}`,
+    'terrain.highestPoint':`${terrain.highestSample.offsetM} m to the ${DIR_EN[terrain.highestSample.direction]||terrain.highestSample.direction} of the target point`,
+  }:terrain?{
     'terrain.range':`${terrain.minSampleM} bis ${terrain.maxSampleM} m`,
     'terrain.sampleCount':`${terrain.sampleCount}`,
     'terrain.highestPoint':`${terrain.highestSample.offsetM} m im ${terrain.highestSample.direction} des Zielpunkts`,
   }:{};
   return {id:context.id,target:context.target.name,task:context.task,
-    facts:facts.map(f=>({id:f.id,role:f.role,name:(f.role==='orientation'?landmarkLabel(f):f.name)||kind(f),kind:kind(f),
+    facts:facts.map(f=>({id:f.id,role:f.role,name:(f.role==='orientation'?landmarkLabel(f):f.name)||(english()?KIND_EN[kind(f)]||kind(f):kind(f)),kind:kind(f),
       evidence:'Repräsentativer Kartenpunkt; Sichtbarkeit, Ausdehnung und Höhenlage nicht geprüft.',
       positionReference:f.role==='orientation'?`[[${f.id}.targetLocation]]`:`[[${f.id}.location]]`,
       relationSubject:f.role==='orientation'?context.target.name:(f.name||kind(f))})),
@@ -218,6 +258,7 @@ function renderStructuredReport(selection, context) {
   if (!selection || Object.keys(selection).some(k=>!['orientationIds','orientationText'].includes(k)) || !Array.isArray(ids)
     || ids.length>(Math.min(2,candidates.length)) || (candidates.length && !ids.length)
     || new Set(ids).size!==ids.length || ids.some(id=>!candidates.some(f=>f.id===id))) throw Error('Invalid orientation selection');
+  if(english())return renderStructuredReportEnglish(ids,context,projection);
   const adjectives={Norden:'nördlich',Nordosten:'nordöstlich',Osten:'östlich',Südosten:'südöstlich',Süden:'südlich',Südwesten:'südwestlich',Westen:'westlich',Nordwesten:'nordwestlich'};
   const references=ids.map((id,index)=>{
     const f=context.facts.find(f=>f.id===id), r=f.targetRelativeToFeature;
@@ -240,6 +281,27 @@ function renderStructuredReport(selection, context) {
   return {orientation,terrain,obstacles,dataQuality:'Die Karte kann unvollständig sein; weitere Hindernisse sind möglich. Ob alle Merkmale in der Szenerie sichtbar sind, ist nicht geprüft. Eine sichere Flughöhe oder Kreisbahn lässt sich daraus nicht ableiten.'};
 }
 
+function renderStructuredReportEnglish(ids,context,projection) {
+  const references=ids.map((id,index)=>{
+    const f=context.facts.find(f=>f.id===id), r=f.targetRelativeToFeature;
+    const position=`about ${approximateDistance(r.distanceM)} ${DIR_EN[r.direction]} of it`;
+    const tags=f.tags||{},label=(tags.infra_type==='bridge'||tags.man_made==='bridge'||tags.type==='river'||tags.waterway==='river'?'the ':'')+landmarkLabel(f);
+    return index===0?`For orientation, use ${label}: the target lies ${position}.`:`Another reference point is ${label}; the target lies ${position}.`;
+  });
+  const orientation=references.join(' ')||'Suitable orientation points are still missing for this target.';
+  const t=context.terrain?.status==='sampled'?context.terrain:null;
+  const terrain=[...context.supplements.map(s=>s.fact), t
+    ? `The highest sampled terrain point is at ${t.maxSampleM} m MSL, ${t.highestSample.offsetM} m to the ${DIR_EN[t.highestSample.direction]||t.highestSample.direction} of the target.`
+    : 'No terrain heights are available here.'].join(' ');
+  const hazards=projection.facts.filter(f=>f.role==='hazard');
+  const objects=hazards.map(f=>{
+    const kind=KIND_EN[f.kind]||f.kind;
+    return `${kind}${f.name!==f.kind?` “${f.name}”`:''} ${projection.bindings[f.id+'.location']}`;
+  });
+  const obstacles=objects.length?`Mapped near the target: ${objects.join('; ')}. Obstacle heights are not verified; power lines lack their full course.`:'No obstacles are mapped here; this does not mean the area is free of obstacles.';
+  return {orientation,terrain,obstacles,dataQuality:'The map may be incomplete; further obstacles are possible. Whether all features are visible in the scenery has not been checked. No safe altitude or orbit can be derived from it.'};
+}
+
 function point(p) {
  const name=p?.name||p?.n;
  if(typeof name!=='string'||!name.trim()||typeof p.lat!=='number'||typeof p.lon!=='number'||!Number.isFinite(p.lat)||!Number.isFinite(p.lon)||Math.abs(p.lat)>90||Math.abs(p.lon)>180)throw Error('Ungültiges POI-Ziel.');
@@ -258,16 +320,26 @@ function buildReport(selection,c) {
  // Existing runtime DEM envelope is a sample set, not a certified terrain maximum.
  const e=c.terrainEnvelope;
  if(e&&typeof e.centerFt==='number'&&Number.isFinite(e.centerFt)) {
+  if(english()) {
+   report.terrain=`The terrain at the target is at ${Math.round(e.centerFt)} ft MSL.`;
+   if(e.source==='terrarium-area'&&typeof e.maxFt==='number'&&Number.isFinite(e.maxFt)&&e.sampleCount>1&&typeof e.radiusNm==='number'&&Number.isFinite(e.radiusNm))report.terrain+=` The highest sampled point within ${e.radiusNm} NM is at ${Math.round(e.maxFt)} ft MSL.`;
+  } else {
   report.terrain=`Am Ziel liegt das Gelände auf ${Math.round(e.centerFt)} ft MSL.`;
   if(e.source==='terrarium-area'&&typeof e.maxFt==='number'&&Number.isFinite(e.maxFt)&&e.sampleCount>1&&typeof e.radiusNm==='number'&&Number.isFinite(e.radiusNm))report.terrain+=` Der höchste erfasste Punkt im Umkreis von ${e.radiusNm} NM liegt auf ${Math.round(e.maxFt)} ft MSL.`;
 
  }
+  }
  report.environment=environmentProse(c.environmentFacts);
  const labels={forest:'Wald',wood:'Wald',residential:'Wohnbebauung',industrial:'Industriefläche',meadow:'Wiese',farmland:'Ackerfläche'};
  const cover=(c.environmentFacts?.length?[]:c.facts).filter(f=>f.role==='cover-nearby-only'&&!f.tags.man_made&&!f.tags.infra_type).slice(0,2);
  const facilities=c.facts.filter(f=>f.role==='cover-nearby-only'&&f.tags.man_made==='wastewater_plant'&&f.relativeToTarget.distanceM<=1500);
+ if(english()) {
+  if(facilities.length)report.environment+=' '+facilities.slice(0,1).map(f=>`Mapped sewage plant: ${bindings(c)[f.id+'.location']}.`).join(' ');
+  if(cover.length)report.environment+=' '+cover.map(f=>`Mapped in the surroundings: ${ENV_EN[labels[f.tags.landuse||f.tags.natural]||'Landbedeckung']||'land cover'}, ${bindings(c)[f.id+'.location']}.`).join(' ');
+ } else {
  if(facilities.length)report.environment+=' '+facilities.slice(0,1).map(f=>`Kartierte Kläranlage: ${bindings(c)[f.id+'.location']}.`).join(' ');
  if(cover.length)report.environment+=' '+cover.map(f=>`In der Umgebung ist ${labels[f.tags.landuse||f.tags.natural]||'Landbedeckung'} kartiert: ${bindings(c)[f.id+'.location']}.`).join(' ');
+ }
  report.situation=[report.orientation,report.environment.trim()].filter(Boolean).join(' ');
  return {report,reportStatus};
 }
@@ -299,6 +371,7 @@ function resolveWeather(template,flightContext) {
 }
 
 function formatReport(report) {
+ if(english())return ['Situation and orientation',report.situation||report.orientation,'','Terrain heights',report.terrain,'','Obstacles',report.obstacles].join('\n');
  return ['Lage und Orientierung',report.situation||report.orientation,'','Geländehöhen',report.terrain,'','Hindernisse',report.obstacles].join('\n');
 }
 function sourceSnapshot(c) {

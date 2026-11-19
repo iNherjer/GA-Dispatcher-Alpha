@@ -10,6 +10,9 @@
  function matchAirport(target,rows=[]) {const ids=identifiers(target);return rows.filter(a=>distance(target,a)<=1&&((target.sourceId&&target.sourceId===(a.sourceId||a._id))||identifiers(a).some(id=>ids.includes(id)))).sort((a,b)=>distance(target,a)-distance(target,b))[0]||null;}
  // OpenAIP runway.surface.mainComposite, verified against the official airport JSON schema.
  // https://api.core.openaip.net/api/schemas/response/airport/airport-schema.json
+ // English output (phase 4): page texts built by code; German paths unchanged.
+ const english=()=>!!(root&&root.MissionOutputLanguage&&root.MissionOutputLanguage.language&&root.MissionOutputLanguage.language()==='en');
+ const SURFACE_EN={Asphalt:'asphalt',Beton:'concrete',Gras:'grass',Sand:'sand',Wasser:'water','Bituminöse Mischung':'bituminous mix',Ziegel:'brick','Wassergebundener Schotter':'water-bound macadam',Stein:'stone',Koralle:'coral',Lehm:'clay',Laterit:'laterite',Kies:'gravel',Erde:'earth',Eis:'ice',Schnee:'snow',Schutzlaminat:'protective laminate',Metall:'metal',Landematten:'landing mats',Stahlplatten:'steel planking',Holz:'wood','Nichtbituminöse Mischung':'non-bituminous mix'};
  const surfaceNames=['Asphalt','Beton','Gras','Sand','Wasser','Bituminöse Mischung','Ziegel','Wassergebundener Schotter','Stein','Koralle','Lehm','Laterit','Kies','Erde','Eis','Schnee','Schutzlaminat','Metall','Landematten','Stahlplatten','Holz','Nichtbituminöse Mischung'];
  function runwaySurface(s){if(typeof s==='string')return text(s,70)||null;if(!s||typeof s!=='object')return null;
   const label=[s.name,s.label,s.compositionName,s.mainCompositeName].find(v=>typeof v==='string'&&v.trim());if(label)return text(label,70);
@@ -128,13 +131,22 @@ UMGEBUNGSMODELL (optionale datierte Daten): ${JSON.stringify(environmentContext)
   const anchor={lat:plan.airportLat,lon:plan.airportLon},hasAnchor=location(anchor).lat!==null&&location(anchor).lon!==null;
   if(hasAnchor?distance(airport,anchor)>1:!planIds.some(id=>ids.includes(id)))return '';
   const contact=text(plan.expectedBy,160),vehicle=(Array.isArray(plan.items)?plan.items:[]).find(i=>i?.kind==='arrival_vehicle');
+  if(english()){
+   const en=[contact&&'Met by '+contact,vehicle?.label&&'Vehicle: '+text(vehicle.label,120)].filter(Boolean);
+   if(plan.snapStatus?.spawnAllowed===false)en.push('Safe scene position not determined yet; no static arrival scene');
+   const enPlace=plan.snapStatus?.status==='resolved'?text(plan.osmPlacement?.name||plan.snapStatus.name,180):'';
+   if(enPlace)en.push('Meeting point at '+enPlace);
+   return en.length?'Planned arrival: '+en.join('; ')+'.':'';
+  }
   const parts=[contact&&'Empfang durch '+contact,vehicle?.label&&'Fahrzeug: '+text(vehicle.label,120)].filter(Boolean);
   if(plan.snapStatus?.spawnAllowed===false)parts.push('Sichere Szenenposition noch nicht bestimmt; keine statische Empfangsszene');
   const place=plan.snapStatus?.status==='resolved'?text(plan.osmPlacement?.name||plan.snapStatus.name,180):'';
   if(place)parts.push('Treffpunkt bei '+place);
   return parts.length?'Geplante Ankunft: '+parts.join('; ')+'.':'';
  }
- function fallback(c){const a=c.airport,r=a.runways.filter(r=>r.lengthM||r.designator).map(r=>[r.designator&&'Piste '+r.designator,r.lengthM&&Math.round(r.lengthM)+' m Länge',r.widthM&&Math.round(r.widthM)+' m Breite',r.surface].filter(Boolean).join(', '));const s=[a.name+(a.ident?' ('+a.ident+')':''),a.elevationFt!==null?'Platzhöhe: '+Math.round(a.elevationFt)+' ft MSL.':'',...r.map(t=>t+'.')].filter(Boolean).join(' ');return {schema:'airport-information-text.v1',flightBriefing:s,destinationInfo:s+' Weitere Angaben zur Umgebung und aktuelle betriebliche Hinweise liegen für diesen Text nicht vor.',sourceIds:[],generated:false};}
+ function fallbackEnglish(c){const a=c.airport,r=a.runways.filter(r=>r.lengthM||r.designator).map(r=>[r.designator&&'Runway '+r.designator,r.lengthM&&Math.round(r.lengthM)+' m long',r.widthM&&Math.round(r.widthM)+' m wide',r.surface&&(SURFACE_EN[r.surface]||r.surface)].filter(Boolean).join(', '));const s=[a.name+(a.ident?' ('+a.ident+')':''),a.elevationFt!==null?'Elevation: '+Math.round(a.elevationFt)+' ft MSL.':'',...r.map(t=>t+'.')].filter(Boolean).join(' ');const g=fallbackGerman(c);return {...g,flightBriefing:s,destinationInfo:s+' No further information about the surroundings or current operational notes is available for this text.'};}
+function fallback(c){return english()?fallbackEnglish(c):fallbackGerman(c);}
+function fallbackGerman(c){const a=c.airport,r=a.runways.filter(r=>r.lengthM||r.designator).map(r=>[r.designator&&'Piste '+r.designator,r.lengthM&&Math.round(r.lengthM)+' m Länge',r.widthM&&Math.round(r.widthM)+' m Breite',r.surface].filter(Boolean).join(', '));const s=[a.name+(a.ident?' ('+a.ident+')':''),a.elevationFt!==null?'Platzhöhe: '+Math.round(a.elevationFt)+' ft MSL.':'',...r.map(t=>t+'.')].filter(Boolean).join(' ');return {schema:'airport-information-text.v1',flightBriefing:s,destinationInfo:s+' Weitere Angaben zur Umgebung und aktuelle betriebliche Hinweise liegen für diesen Text nicht vor.',sourceIds:[],generated:false};}
  function judgesRunway(t){return /\b(piste|bahn|landebahn|runway)\b[^.!?]{0,80}\b(ausreichend|genügend|lang genug|knapp bemessen|geeignet|reicht)/i.test(String(t||''));}
  function attach(m,raw,c,departure=null){attachDeparture(m,raw,departure);if(!m||!c)return m;
   // Bush: when only own technical data and general handbooks exist, there is

@@ -1,5 +1,7 @@
 (function(root){
  'use strict';
+// Page headings are UI: current UI language (phase 4).
+const L=(de,en)=>root.MissionOutputLanguage?root.MissionOutputLanguage.text(de,en):de;
  const memory=new Map(),cooldown=new Map(),MAX=16,CACHE='ga-airport-information-v1',TTL={wikipedia:7*86400000,faa:12*3600000};
  // Wikimedia recommends at most three concurrent requests, across languages/places.
  let wikiActive=0;const wikiWaiting=[];
@@ -89,20 +91,20 @@
   for(const id of ids)root.document?.getElementById(id)?.replaceChildren();
  }
  function render(m,point){const core=root.MissionAirportInformationCore,c=m?.airportInfoContext,info=m?.airportInformation;clear('destination');
-  const doc=root.document,heading=doc?.getElementById('airportFlightBriefingHeading');if(heading)heading.textContent='Zielplatz und Flugbedingungen';
+  const doc=root.document,heading=doc?.getElementById('airportFlightBriefingHeading');if(heading)heading.textContent=L('Zielplatz und Flugbedingungen','Destination airfield and flight conditions');
   const poi=m?.poiInformation;
   if(m?.missionType==='poi'&&poi?.schema==='poi-target-information.v1'&&typeof poi.text==='string'&&core.distance(poi.target,point||{lat:m.targetLat??m.initialTargetLat,lon:m.targetLon??m.initialTargetLon})<=.15){
    const d=doc?.getElementById('wikiDestDescText');if(d)d.textContent=poi.text;
    const sources=doc?.getElementById('airportDestinationInfoSources');
-   if(sources)sources.textContent='Grundlage: zielgebundene Orts- und Kartenbelege';
+   if(sources)sources.textContent=L('Grundlage: zielgebundene Orts- und Kartenbelege','Basis: target-related local and map evidence');
    return true;
   }
   const recon=m?.bushReconInfo;
   if(m?.missionType==='bush'&&recon?.schema==='bush-recon-information.v1'&&core.distance(recon.target,point||recon.target)<=.15){
    const b=doc?.getElementById('airportFlightBriefing'),t=doc?.getElementById('airportFlightBriefingText'),d=doc?.getElementById('wikiDestDescText');
-   if(heading)heading.textContent='Zielgebiet und Beobachtungsbedingungen';
+   if(heading)heading.textContent=L('Zielgebiet und Beobachtungsbedingungen','Target area and observation conditions');
    if(b&&t){t.textContent=recon.flightBriefing||recon.text;b.hidden=false;}if(d)d.textContent=recon.text;
-   const sources=doc?.getElementById('airportFlightBriefingSources');if(sources){sources.textContent='Grundlage: Zieldaten und allgemeine fliegerische Hinweise';for(const source of recon.handbookSources||[]){if(!/^https:\/\//.test(source.url||''))continue;const a=doc.createElement('a');a.href=source.url;a.target='_blank';a.rel='noopener noreferrer';a.textContent=source.title;sources.append(doc.createTextNode(' · '),a);}}
+   const sources=doc?.getElementById('airportFlightBriefingSources');if(sources){sources.textContent=L('Grundlage: Zieldaten und allgemeine fliegerische Hinweise','Basis: target data and general flying notes');for(const source of recon.handbookSources||[]){if(!/^https:\/\//.test(source.url||''))continue;const a=doc.createElement('a');a.href=source.url;a.target='_blank';a.rel='noopener noreferrer';a.textContent=source.title;sources.append(doc.createTextNode(' · '),a);}}
    return true;
   }
  if(!c?.airport||!Array.isArray(c.sources)||!info||typeof info.flightBriefing!=='string'||typeof info.destinationInfo!=='string'||!Array.isArray(info.sourceIds)||!['bush','apt','poi'].includes(m.missionType)||core.distance(c.airport,point||{lat:m.targetLat??m.initialTargetLat,lon:m.targetLon??m.initialTargetLon})>.15)return false;
