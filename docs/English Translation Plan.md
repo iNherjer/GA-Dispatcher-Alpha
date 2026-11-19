@@ -488,6 +488,10 @@ Deutsch oder ohne i18n bleibt jeder Prompt zeichengleich (Test `tools/mission-ou
 Geschichte, Fracht, Begrüßung und Abhol-Felder des Passagiers englisch, Frachtart gesetzt, je ein
 Aufruf. Befund außerhalb der Übersetzung: `bush.pickupStory` im gespeicherten Planer-Plan nennt eine
 andere Person als der Writer (auch im deutschen Lauf vom 18.11.) – an Bush-Kern melden.
+**Geklärt 19.11.2026:** Kein App-Fehler. `generateMission` gleicht bei Bush-Pickup nach dem Writer
+`bush.pickupStory`/`pickupLabel`/Rolle/Begrüßung an den Writer-Gast an (`app.js`, Abschnitt
+`shouldHydratePickupStory`); Stimme und Tracker lesen danach den angeglichenen Plan. Das Probe-Werkzeug
+`tools/bush-profile-personality-live.mjs` lässt diesen Schritt aus und zeigt deshalb den alten Planer-Gast.
 
 ### 2.17 Phase 4, Schritt 3: feste Bausteine im Briefing (2026-11-19)
 
