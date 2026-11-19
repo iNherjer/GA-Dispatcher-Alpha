@@ -20,7 +20,7 @@ async function context(dest,terrainEnvelope=null) {
  return {...c,targetSelection,sceneCapabilities:sceneCapabilities(),targetCategory:category,targetFacts:[...c.targetFacts,...(Object.keys(explicitTags).length?[{id:'target-selection-tags',fact:'Explizite Tags am ausgewählten POI: '+JSON.stringify(explicitTags),source:targetSelection.source}]:[]),{id:'target-selection-category',fact:'Ausgewählte Zielkategorie: '+category,source:dest.poiSource||'existing-poi-picker'}],task:{recipe:'survey_pattern',passengers:1,return:'home'}};
 }
 async function json(prompt) {
- const result=await fetchGeminiJsonWithFallback(prompt,getSelectedAiApiKey(),{promptVersion:core().PROMPT_VERSION,timeoutMs:40000});
+ const result=await fetchGeminiJsonWithFallback(root.MissionOutputLanguage?root.MissionOutputLanguage.wrap(prompt):prompt,getSelectedAiApiKey(),{promptVersion:core().PROMPT_VERSION,timeoutMs:40000});
  if(!result?.parsed)throw(root.createAiJsonFailure?root.createAiJsonFailure(result,'Der POI-Mapping-Auftrag'):Error('Der POI-Mapping-Auftrag konnte nicht erstellt werden. Bitte erneut versuchen.'));
  return result.parsed;
 }

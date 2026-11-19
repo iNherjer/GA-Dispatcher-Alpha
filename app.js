@@ -36433,6 +36433,8 @@ function _missionPipelineV4StoryFieldCovered(story = '', phrase = '', minHits = 
 }
 
 function _missionPipelineV4LooksEnglish(text = '') {
+    // With English output (phase 4) English text is expected, not a leak.
+    if (window.MissionOutputLanguage?.language?.() === 'en') return false;
     const normalized = normalizeMissionText(text);
     if (!normalized) return false;
     const englishHits = (normalized.match(/\b(the|with|from|near|last|confirmed|position|reported|wearing|their|group|during|steep|section|climber|ground|teams|immediate|aerial|required|before|light|conditions|confirmation|assessment|accessibility|handover|coordinates|coordination|center|need|needs|retrieve|someone|something|remote|location|specific|operational|context|completed|counting|inventory|weekend|secured|forgotten|special|order|ready|transport|transported|return|flight|logical|step|collected|data|base|processing|planning|pickup|passenger|cargo|departure|destination|prevail|involve|personnel|essential|items|common|operation)\b/g) || []).length;
@@ -41410,6 +41412,8 @@ function trainingNarrativeIssues(raw, frame) {
 }
 
 async function fetchTrainingCoaching(frame, story, recent = []) {
+    // Phase 4: write in the UI language (German UI: prompt unchanged, see mission-output-language.js).
+    const _missionOutputPrompt = text => (globalThis.MissionOutputLanguage ? globalThis.MissionOutputLanguage.wrap(text) : text);
     const exercises=[...frame.requiredExercises,...frame.optionalExercises];
     const context={instructor:frame.instructor,knowledge:frame.knowledge,
         requiredExerciseIds:frame.requiredExercises.map(e=>e.id),allExerciseIds:exercises.map(e=>e.id),
@@ -41432,13 +41436,15 @@ Die Satzanzahl ist ein Richtwert, keine Pflicht zum Auffüllen: ein fachlicher S
         if(texts.some(t=>typeof t==='string' && /\[\[|\]\]/.test(t))) errors.push('Fachhinweise dürfen keine Referenzplatzhalter enthalten');
         return errors;
     };
-    let result=await fetchGeminiJsonWithFallback(prompt,getSelectedAiApiKey(),{promptVersion:'training-coaching-v4',timeoutMs:26000});
-    if(issues(result?.parsed).length) result=await fetchGeminiJsonWithFallback(prompt+' KORREKTURBEDARF: '+JSON.stringify(issues(result?.parsed))+' ENTWURF: '+JSON.stringify(result?.parsed||{}),getSelectedAiApiKey(),{promptVersion:'training-coaching-v4',timeoutMs:26000});
+    let result=await fetchGeminiJsonWithFallback(_missionOutputPrompt(prompt),getSelectedAiApiKey(),{promptVersion:'training-coaching-v4',timeoutMs:26000});
+    if(issues(result?.parsed).length) result=await fetchGeminiJsonWithFallback(_missionOutputPrompt(prompt+' KORREKTURBEDARF: '+JSON.stringify(issues(result?.parsed))+' ENTWURF: '+JSON.stringify(result?.parsed||{})),getSelectedAiApiKey(),{promptVersion:'training-coaching-v4',timeoutMs:26000});
     if(issues(result?.parsed).length) throw Error('Die fachlichen Trainingshinweise konnten nicht vollständig erstellt werden. Bitte erneut versuchen.');
     return result.parsed;
 }
 
 async function fetchTrainingNarrative(context = {}) {
+    // Phase 4: write in the UI language (German UI: prompt unchanged, see mission-output-language.js).
+    const _missionOutputPrompt = text => (globalThis.MissionOutputLanguage ? globalThis.MissionOutputLanguage.wrap(text) : text);
     const contract = enforceTrainingContractFields(context.missionContractV4, {isPOI:!!context.isPOI});
     const prepared = enforceAptTrainingMission({passenger:context.passenger}, contract.target?.name || contract.route?.targetName || '', {
         isPOI:!!context.isPOI, startName:contract.route?.startName
@@ -41465,8 +41471,8 @@ async function fetchTrainingNarrative(context = {}) {
         && typeof raw.story==='string' && raw.story.trim().length>=180 && raw.story.length<=2000
         && typeof raw.greeting==='string' && raw.greeting.trim().length>=20 && raw.greeting.length<=400
         && !/\[\[|\]\]/.test(raw.title+raw.story+raw.greeting);
-    let result=await fetchGeminiJsonWithFallback(prompt+(window.MissionAirportInformationCore?.pagesPrompt(contract)||''),getSelectedAiApiKey(),{promptVersion:'training-narrative-v9',timeoutMs:26000});
-    if(!validNarrative(result?.parsed)) result=await fetchGeminiJsonWithFallback(prompt+(window.MissionAirportInformationCore?.pagesPrompt(contract)||'')+' FORMATKORREKTUR: Die vier bisherigen Textfelder und zusätzliche Seitenfelder in gültigem JSON und den angegebenen Längen. ENTWURF: '+JSON.stringify(result?.parsed||{}),getSelectedAiApiKey(),{promptVersion:'training-narrative-v9',timeoutMs:26000});
+    let result=await fetchGeminiJsonWithFallback(_missionOutputPrompt(prompt+(window.MissionAirportInformationCore?.pagesPrompt(contract)||'')),getSelectedAiApiKey(),{promptVersion:'training-narrative-v9',timeoutMs:26000});
+    if(!validNarrative(result?.parsed)) result=await fetchGeminiJsonWithFallback(_missionOutputPrompt(prompt+(window.MissionAirportInformationCore?.pagesPrompt(contract)||'')+' FORMATKORREKTUR: Die vier bisherigen Textfelder und zusätzliche Seitenfelder in gültigem JSON und den angegebenen Längen. ENTWURF: '+JSON.stringify(result?.parsed||{})),getSelectedAiApiKey(),{promptVersion:'training-narrative-v9',timeoutMs:26000});
     if(!validNarrative(result?.parsed)) throw Error('Der Trainingsrahmen konnte nicht vollständig erstellt werden. Bitte erneut versuchen.');
     const raw=window.MissionAirportInformationCore?.acceptPages(result.parsed,contract)||result.parsed;
     const hints = await fetchTrainingCoaching(frame, raw.story, recent);
@@ -41515,6 +41521,8 @@ function _missionWriterRequestDiagnostics(result) {
         attempts:(result?.attempts || []).slice(-8).map(a=>({model:clean(a.model),status:clean(a.status),error:clean(a.error)}))};
 }
 async function fetchMissionWriterV5(context = {}) {
+    // Phase 4: write in the UI language (German UI: prompt unchanged, see mission-output-language.js).
+    const _missionOutputPrompt = text => (globalThis.MissionOutputLanguage ? globalThis.MissionOutputLanguage.wrap(text) : text);
     const apiKey = getSelectedAiApiKey();
     if (!apiKey || !document.getElementById('aiToggle')?.checked) return null;
     const contract = context.missionContractV4 || null;
@@ -41527,8 +41535,10 @@ async function fetchMissionWriterV5(context = {}) {
     const bushIdeaPrompt = bushIdea ? window.MissionBushIdeasCore.writerPrompt(bushIdea, contract) : '';
     const reconContractPrompt = contract.bushReconPlan ? '\nBINDENDER RECON-SPIELPLAN: '+JSON.stringify(contract.bushReconPlan)+' Beschreibe genau diese Beobachtungsdauer und diesen Ablauf; bei längerem Aufenthalt keinen einmaligen Überflug als ausreichend bezeichnen. Der heutige saisonale Anlass folgt dem gelieferten Datum. Diese Zahlen sind vertraglich, passenger.targetRadiusNm und targetDwellMin müssen ihnen entsprechen (Sekunden/60). Keine neue niedrigere Flugzielhöhe erfinden.' : '';
     const selectedProvider = getSelectedAiProvider();
-    const result = await fetchGeminiJsonWithFallback(
-        buildMissionWriterV5Prompt(contract, context) + (window.MissionLegacyCharterNarrativeCore?.prompt(context) || '') + reconContractPrompt + bushIdeaPrompt + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionBushNarrativeCore?.followupPrompt(context) || '') + (window.MissionBushNarrativeCore?.sourcePrompt({...context,airportInfoContext:contract.airportInfoContext,environmentContext:contract.environmentContext}) || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (context.missionType === 'bush' ? (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext,contract.departureAirportInfoContext)||'') : (window.MissionAirportInformationCore?.pagesPrompt(contract)||'')) + (window.MissionBushNarrativeCore?.reconWriterPrompt(reconContext, window.MissionPoiBriefingSharedCore, window.MissionAirportInformationCore) || ''),
+    // Bush writes in the UI language (phase 4); other V5 users stay German (translated later).
+    const writerLanguage = context.missionType === 'bush' ? _missionOutputPrompt : (text => text);
+    const result = await fetchGeminiJsonWithFallback(writerLanguage(
+        buildMissionWriterV5Prompt(contract, context) + (window.MissionLegacyCharterNarrativeCore?.prompt(context) || '') + reconContractPrompt + bushIdeaPrompt + (window.MissionEnvironmentCore?.prompt(contract.environmentContext) || '') + (context.missionType === 'bush' ? '\n' + (window.MissionBushNarrativeCore?.writerInstructions || '') + (window.MissionBushNarrativeCore?.followupPrompt(context) || '') + (window.MissionBushNarrativeCore?.sourcePrompt({...context,airportInfoContext:contract.airportInfoContext,environmentContext:contract.environmentContext}) || '') + (contract.profile?.id === 'bush_supply_strip' ? '\n' + (window.MissionBushNarrativeCore?.supplyInstructions || '') : '') : '') + (context.missionType === 'bush' ? (window.MissionAirportInformationCore?.writerPrompt(contract.airportInfoContext,contract.departureAirportInfoContext)||'') : (window.MissionAirportInformationCore?.pagesPrompt(contract)||'')) + (window.MissionBushNarrativeCore?.reconWriterPrompt(reconContext, window.MissionPoiBriefingSharedCore, window.MissionAirportInformationCore) || '')),
         apiKey,
         { promptVersion: 'mission-writer-v5', timeoutMs: context.missionType === 'bush' ? 45000 : (contract.airportInfoContext || contract.departureAirportInfoContext || contract.poiInformationContext ? 40000 : (selectedProvider === 'openai' ? 26000 : 16000)) }
     );

@@ -12,7 +12,7 @@ async function context(dest,terrainEnvelope=null) {
  return {...c,targetCategory:category,targetFacts:[...c.targetFacts,{id:'target-selection-category',fact:'Ausgewählte Zielkategorie: '+category,source:dest.poiSource||'existing-poi-picker'}],task:{recipe:'poi_on_task',passengers:1,return:'home'}};
 }
 async function json(prompt) {
- const result=await fetchGeminiJsonWithFallback(prompt,getSelectedAiApiKey(),{promptVersion:core().PROMPT_VERSION,timeoutMs:40000});
+ const result=await fetchGeminiJsonWithFallback(root.MissionOutputLanguage?root.MissionOutputLanguage.wrap(prompt):prompt,getSelectedAiApiKey(),{promptVersion:core().PROMPT_VERSION,timeoutMs:40000});
  if(!result?.parsed)throw(root.createAiJsonFailure?root.createAiJsonFailure(result,'Der POI-Inspektionsauftrag'):Error('Der POI-Inspektionsauftrag konnte nicht erstellt werden. Bitte erneut versuchen.'));
  return result.parsed;
 }

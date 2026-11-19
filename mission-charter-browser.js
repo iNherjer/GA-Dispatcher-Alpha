@@ -19,7 +19,7 @@ async function findEvent(airport,occasion,recent){
   return m;
  }catch(error){root.gaCharterEventSearch={status:'unavailable',airport:t.icao,error:String(error.message)};console.warn('[Charter] Optionale Veranstaltungssuche nicht verfügbar.');return null;}
 }
-async function json(prompt){const r=await fetchGeminiJsonWithFallback(prompt,getSelectedAiApiKey(),{promptVersion:'charter-v1',timeoutMs:40000});if(!r?.parsed)throw(root.createAiJsonFailure?root.createAiJsonFailure(r,'Charterauftrag'):Error('Charterauftrag konnte nicht erstellt werden. Bitte erneut versuchen.'));return r.parsed;}
+async function json(prompt){const r=await fetchGeminiJsonWithFallback(root.MissionOutputLanguage?root.MissionOutputLanguage.wrap(prompt):prompt,getSelectedAiApiKey(),{promptVersion:'charter-v1',timeoutMs:40000});if(!r?.parsed)throw(root.createAiJsonFailure?root.createAiJsonFailure(r,'Charterauftrag'):Error('Charterauftrag konnte nicht erstellt werden. Bitte erneut versuchen.'));return r.parsed;}
 async function choices(airports,context){if(airports.length<3)throw Error('Für Chartervorschläge fehlen passende Zielflugplätze.');
  // Ziele und Reisearten stehen zuerst fest. Danach höchstens eine Veranstaltungssuche am Ziel des ersten
  // Platzes, dessen Reiseart eine Veranstaltung tragen kann; ein Treffer muss zu dieser Reiseart passen.

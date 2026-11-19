@@ -465,6 +465,30 @@ Zuladungsgrenze des Testflugzeugs, nicht am Feld (Prüfung mit/ohne Feld gleich)
 Noch offen in diesem Bereich: Fracht-Erraten aus Story bei Verein/Charter (`_pickClubUtilityCargo` u. a.). Danach Schritt 2:
 Sprachvorgabe in Ideen-Kernen, Bush und Training.
 
+### 2.16 Phase 4, Schritt 2: Writer schreiben in der Oberflächensprache (2026-11-19)
+
+`mission-output-language.js` (`MissionOutputLanguage.wrap`): bei englischer Oberfläche hängt es eine
+englische Ausgabevorgabe an den Prompt (Texte für Pilot und Passagiere englisch; JSON-Schlüssel,
+IDs, Zahlen und feste Auswahlwerte – auch deutsche wie `niedrig|mittel|hoch` – unverändert). Bei
+Deutsch oder ohne i18n bleibt jeder Prompt zeichengleich (Test `tools/mission-output-language.test.cjs`).
+
+- **Alle 18 Ideen-/Briefing-Kerne** (`mission-*-browser.js`, ohne Boden-Composer): Ideen-, Writer-,
+  Wetter- und Korrektur-Prompts laufen über `wrap`.
+- **Training** (`fetchTrainingNarrative`, `fetchTrainingCoaching`, nur Strukturprüfungen) und
+  **Bush-V5-Writer** (nur `missionType === 'bush'`): lokaler Helfer `_missionOutputPrompt`.
+- `_missionPipelineV4LooksEnglish` gibt bei englischer Ausgabe `false` zurück (Englisch ist dann
+  erwartet, kein Ausreißer); bei Deutsch unverändert.
+- **Bewusst noch deutsch:** alte V4/V5-Pfade außer Bush, Privat-Ausflug/Heimreise/Privatvorschläge
+  (eigene deutsche Textpolitur in `app.js`, eigener Schritt), Tracker-Texte (Rückblick, Stimme →
+  Tracker-Build), feste deutsche Bausteine im Briefing (Ankunfts-Hinweis, Routenblock, Rückfallsätze
+  → Schritt 3).
+
+**Englische Probeläufe 19.11.2026** (`--english` in `tools/cargo-ideas-live-probe.mjs` und
+`tools/bush-profile-personality-live.mjs`): Fracht (2), Bush-Abholung, Bush-Versorgung – Titel,
+Geschichte, Fracht, Begrüßung und Abhol-Felder des Passagiers englisch, Frachtart gesetzt, je ein
+Aufruf. Befund außerhalb der Übersetzung: `bush.pickupStory` im gespeicherten Planer-Plan nennt eine
+andere Person als der Writer (auch im deutschen Lauf vom 18.11.) – an Bush-Kern melden.
+
 ## 4. Etappen
 
 | Phase | Inhalt | Größe | Abhängig von |

@@ -6,6 +6,8 @@ import crypto from 'node:crypto';
 import assert from 'node:assert/strict';
 import {setupContext,loadScript,initUiForRun} from './mission-pipeline-dryrun.mjs';
 import {assertClean} from './gemini-migration-harness.mjs';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url);
 
 const live=process.argv.includes('--live');
 const bushIdeaRun=process.argv.includes('--bush-idea');
@@ -38,6 +40,8 @@ const {context}=setupContext(seedArg);
 // Suppress UI/debug logs, including any accidental secret-bearing exception.
 context.console={log(){},info(){},debug(){},warn(){},error(){}};
 context.Response=Response;
+// --english: simulate the English UI (phase 4 output-language directive).
+if(process.argv.includes('--english')){const english=(()=>{const out=require('../mission-output-language.js');return {...out,language:()=>'en',directive:()=>out.DIRECTIVE,wrap:p=>typeof p==='string'?p+out.DIRECTIVE:p};})();context.MissionOutputLanguage=english;if(context.window)context.window.MissionOutputLanguage=english;}
 let blocked=false;
 const offlineFetch=context.fetch;
 context.fetch=async(url,options={})=>{
