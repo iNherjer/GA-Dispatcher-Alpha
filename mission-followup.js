@@ -142,11 +142,40 @@
         return Number(ts || 0) + Math.max(0, Number(days || 0)) * 24 * 60 * 60 * 1000;
     }
 
+    // Follow-up panel and offer cards are UI: shown in the current UI language, stored German
+    // (offers may be created by the tracker, which has no UI language).
+    function uiText(german, english) {
+        const out = typeof window !== 'undefined' ? window.MissionOutputLanguage : null;
+        return out ? out.text(german, english) : german;
+    }
+    const OFFER_PREVIEW_EN = [
+        [/^(.+) meldet sich vom Strip zur Rückholung\.$/, m => `${m[1] === 'Der Gast' ? 'The guest' : m[1]} is asking to be picked up from the strip.`],
+        [/^(.+) meldet sich vom Zielplatz zur Rückholung\.$/, m => `${m[1] === 'Der Chartergast' ? 'The charter guest' : m[1]} is asking to be picked up from the destination airfield.`],
+        [/^(.+) soll den Recon-Befund am Strip prüfen\.$/, m => `${m[1] === 'Der Techniker' ? 'The technician' : m[1]} is to check the recon finding at the strip.`],
+        [/^Am Strip wartet Rückfracht aus dem Supply Run\.$/, () => 'Return cargo from the supply run is waiting at the strip.'],
+        [/^Der Inspektionsbefund wird als POI-Folgeflug weiterbearbeitet\.$/, () => 'The inspection finding is followed up with a POI follow-up flight.'],
+        [/^Die Basis plant aus dem Recon-Befund einen Service Run\.$/, () => 'Base is planning a service run from the recon finding.']
+    ];
+    function offerPreviewText(text = '') {
+        const value = String(text || '');
+        if (uiText('de', 'en') !== 'en') return value;
+        for (const [pattern, build] of OFFER_PREVIEW_EN) {
+            const match = pattern.exec(value);
+            if (match) return build(match);
+        }
+        return value;
+    }
+    function offerSubtitleText(text = '') {
+        const value = String(text || '');
+        const match = /^Fortsetzung von (.+)$/.exec(value);
+        return match ? uiText(value, `Continuation of ${match[1]}`) : value;
+    }
+
     function formatLocal(ts) {
         const n = Number(ts || 0);
         if (!Number.isFinite(n) || n <= 0) return '-';
         try {
-            return new Date(n).toLocaleString('de-DE', {
+            return new Date(n).toLocaleString(uiText('de-DE', 'en-GB'), {
                 day: '2-digit',
                 month: '2-digit',
                 hour: '2-digit',
@@ -2467,19 +2496,19 @@
         header.type = 'button';
         header.className = 'followup-banner-header followup-banner-toggle';
         header.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-        header.title = isOpen ? 'Missionsanfragen einklappen' : 'Missionsanfragen anzeigen';
+        header.title = isOpen ? uiText('Missionsanfragen einklappen', 'Collapse mission requests') : uiText('Missionsanfragen anzeigen', 'Show mission requests');
         const chev = document.createElement('span');
         chev.className = 'followup-banner-chevron';
         chev.textContent = '▸';
         const title = document.createElement('span');
         title.className = 'followup-banner-title';
-        title.textContent = `Missionsanfragen (${due.length})`;
+        title.textContent = uiText(`Missionsanfragen (${due.length})`, `Mission requests (${due.length})`);
         header.append(chev, title);
         if (badgeCount > 0) {
             const badge = document.createElement('span');
             badge.className = 'followup-banner-badge';
             badge.textContent = String(badgeCount);
-            badge.title = badgeCount === 1 ? '1 neue Anfrage' : `${badgeCount} neue Anfragen`;
+            badge.title = badgeCount === 1 ? uiText('1 neue Anfrage', '1 new request') : uiText(`${badgeCount} neue Anfragen`, `${badgeCount} new requests`);
             header.appendChild(badge);
         }
         header.addEventListener('click', () => {
@@ -2520,15 +2549,15 @@
         const title = document.createElement('div');
         title.className = 'followup-request-item-title';
         const privateUi = req.followUpKind === 'private_return' && req.privateReturn && window.MissionPrivateReturnCore?.offerUi?.(req.privateReturn);
-        title.textContent = privateUi?.title || req.ui?.title || req.followUpLabel || 'Folgeanfrage';
+        title.textContent = privateUi?.title || req.ui?.title || req.followUpLabel || uiText('Folgeanfrage', 'Follow-up request');
         const sub = document.createElement('div');
         sub.className = 'followup-request-item-subtitle';
-        sub.textContent = `${privateUi?.subtitle || req.ui?.subtitle || req.sourceLabel || 'Mission'} · bis ${formatLocal(req.expiresAt)}`;
+        sub.textContent = `${privateUi?.subtitle || offerSubtitleText(req.ui?.subtitle) || req.sourceLabel || 'Mission'} · ${uiText('bis', 'until')} ${formatLocal(req.expiresAt)}`;
         const preview = document.createElement('div');
         preview.className = 'followup-request-preview';
         const charterCore = window.MissionCharterContinuationCore;
         const charterPreview = charterCore?.context?.(req) ? charterCore.offerPreview?.(charterCore.context(req)) : '';
-        preview.textContent = privateUi?.previewText || charterPreview || req.ui?.previewText || req.narrativeMemory?.whyNowReturn || '';
+        preview.textContent = privateUi?.previewText || charterPreview || offerPreviewText(req.ui?.previewText) || req.narrativeMemory?.whyNowReturn || '';
         text.append(title, sub, preview);
         const actions = document.createElement('div');
         actions.className = 'followup-request-actions';
@@ -2536,14 +2565,14 @@
         accept.type = 'button';
         accept.className = 'followup-request-action accept';
         accept.textContent = '✓';
-        accept.title = 'Folgemission annehmen';
+        accept.title = uiText('Folgemission annehmen', 'Accept follow-up mission');
         accept.disabled = acceptingIds.has(req.id);
         accept.addEventListener('click', () => acceptRequest(req.id));
         const dismiss = document.createElement('button');
         dismiss.type = 'button';
         dismiss.className = 'followup-request-action dismiss';
         dismiss.textContent = '×';
-        dismiss.title = 'Anfrage löschen';
+        dismiss.title = uiText('Anfrage löschen', 'Delete request');
         dismiss.addEventListener('click', () => dismissRequest(req.id));
         actions.append(accept, dismiss);
         item.append(text, actions);
@@ -3287,6 +3316,8 @@
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) writeRequests(getRequests(), { cloud: false });
         });
+        // Language switch: redraw the request panel (display only).
+        if (window.GAI18n && typeof window.GAI18n.onChange === 'function') window.GAI18n.onChange(() => { try { render(); } catch (_) {} });
     }
 
     window.missionFollowupSaveCharterExperience = saveCharterExperience;

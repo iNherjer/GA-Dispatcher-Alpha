@@ -523,6 +523,20 @@ Noch offen in Phase 4: Privat-Ausflug/Heimreise (eigene deutsche Textpolitur), T
 - **Deutsch-Nachweis:** Für alle 19 geänderten Dateien ist die deutsche Projektion des Codes
   (jede Sprachauswahl → deutscher Teil) identisch mit dem Stand davor; Testsuite unverändert.
 
+### 2.19 Phase 4: Folgemissionen (2026-11-19)
+
+- **Inhalt einer Folgemission** schreibt der jeweilige Writer (Bush-V5, Heimreise, POI-Kerne) und ist
+  damit schon in der Ausgabesprache; die Seeds aus `mission-followup.js` (Aufenthalt, Ausstieg,
+  Rückkehrgründe) gehen nur in Prompts und Stimme.
+- **Angebots-Panel und -Karten** (`render`, `renderRequestItem`) sind Anzeige in der aktuellen
+  Oberflächensprache: Panel-Texte, „Fortsetzung von …“, „bis …“, Datumsformat und die festen
+  Vorschau-Sätze; Neuzeichnen beim Sprachwechsel. Angebote bleiben deutsch gespeichert (sie können
+  vom Tracker angelegt werden, der keine Ausgabesprache hat).
+- **Noch deutsch:** Vorschauen aus Code-Vorlagen mit Inhalt (Inspektionsergebnis, Recon-Befund
+  `serviceRun.observedIssue`, `whyNowReturn`), Charter-Fortsetzung (`mission-charter-continuation-core.js`,
+  wegen fremder offener Änderungen zurückgestellt).
+- Deutsch-Nachweis: Projektion von `mission-followup.js` identisch (bis auf `${'bis'}` = `bis`).
+
 ## 4. Etappen
 
 | Phase | Inhalt | Größe | Abhängig von |
