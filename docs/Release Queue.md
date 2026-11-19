@@ -27,6 +27,15 @@ liefert alles Offene mit aus.
 
 ## Offen
 
+### 2026-11-19 · Infrastruktur-Ergebnis: Zielkategorie vor Text, englische Wörter
+- **Artefakt:** Tracker-EXE (`tracker-mission-followup.js` lädt `mission-infra-outcome-core.js`)
+- **Dateien:** `mission-infra-outcome-core.js`
+- **Was:** Eindeutige Zielkategorie entscheidet die Zielfamilie, der Missionstext nur noch bei „allgemein“; englische Wörter in den Mustern (Phase 4 der Übersetzung).
+- **Warum:** `docs/English Translation Plan.md` 2.15. Web ist schon live.
+- **Tests:** `tools/mission-infra-briefing.test.mjs`, Tracker-Folge-/Bush-/POI-Ketten-Tests grün.
+- **Doku beim Release:** keine weitere.
+- **Pruefen im Feld:** Infrastruktur-Folgeauftrag nach einer Inspektion (Ergebnis passt zur Zielart).
+
 ### 2026-11-18 · EFB-Trainingsbanner auf Englisch
 - **Artefakt:** Tracker-EXE (EFB-Kopie von `mission-training-guidance-ui.js`, `mission-control-ui-core.js`, EFB-Kopie von `i18n/en-phrases.js`)
 - **Dateien:** `mission-training-guidance-ui.js`, `ga-tracker-client/efb-web-assets/mission-training-guidance-ui.js`, `ga-tracker-client/mission-control-ui-core.js`, `ga-tracker-client/efb-web-assets/i18n/en-phrases.js` (+ Test `mission-training-guidance-ui.test.js`)

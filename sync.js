@@ -7291,7 +7291,42 @@ function _missionSceneSafeBoardingCargoTitle(title = '', label = '', weightLbs =
     return rawTitle || 'Cardboard';
 }
 
-function _missionSceneSemanticCargoAsset(cargoText = '', cargoWeightLbs = null) {
+// Cargo asset kinds: writers and idea cores may name one (shipment.assetKind / cargoAssetKind);
+// the German/English word search below stays the fallback. Order = search order.
+const MISSION_CARGO_ASSET_KINDS = Object.freeze([
+    'logbook', 'fire_extinguisher', 'first_aid_case', 'wheel_chocks', 'mail', 'cooler', 'animal_box',
+    'medical_kit', 'jerrycan', 'tool_cart', 'toolbox', 'camera_backpack', 'camping', 'camera_gear',
+    'hard_case', 'duffel', 'suitcase', 'daypack', 'backpack', 'personal_luggage', 'wood_crate'
+]);
+window.MISSION_CARGO_ASSET_KINDS = MISSION_CARGO_ASSET_KINDS;
+
+function _missionSceneCargoKindFromText(cargoText = '') {
+    const text = String(cargoText || '').toLowerCase();
+    if (/(luftfahrzeug[\s-]?(?:bordbuch|flugbuch)|aircraft[\s-]?logbook|bordbuch|flugbuch)/i.test(text)) return 'logbook';
+    if (/(feuerloesch|feuerlösch|fire[\s-]?extinguisher)/i.test(text)) return 'fire_extinguisher';
+    if (/(verband(?:kasten|zeug)|erste[\s-]?hilfe[\s-]?(?:koffer|kasten|case)|first[\s-]?aid[\s-]?case)/i.test(text)) return 'first_aid_case';
+    if (/(radkeil|wheel[\s-]?chock|\bchocks?\b)/i.test(text)) return 'wheel_chocks';
+    if (/(postsack|postsendung|postbeutel|briefsendung)/i.test(text)) return 'mail';
+    if (/(kuehlbox|kühlbox|blutkonserven|serum|laborproben|probenbeutel)/i.test(text)) return 'cooler';
+    if (/(transportbox|tiertransportbox|reisebox|reha[\s-]?box|vogelbox|wildvogelbox|greifvogelbox|igelbox|fledermaus[\s-]?kleinbox|tiertransport)/i.test(text)) return 'animal_box';
+    if (/(sanitaets|sanitäts|sanitaet|sanität|medpack|hems[\s-]?rucksack|erste[\s-]?hilfe[\s-]?(?:pack|tasche|kit)|rettungs[\s-]?(?:und[\s-]?)?sanitaetskit|rettungs[\s-]?(?:und[\s-]?)?sanitätskit|medizinischer notfallkoffer|notfallkoffer)/i.test(text)) return 'medical_kit';
+    if (/(kanister|kraftstoff|treibstoff)/i.test(text)) return 'jerrycan';
+    if (/(werkzeugwagen|tool\s*cart)/i.test(text)) return 'tool_cart';
+    if (/(werkzeug|toolbox|werkzeugkiste|werkzeugtasche|wartungskit|prueflampe|prüflampe|sicherungsdraht)/i.test(text)) return 'toolbox';
+    if (/(kamerarucksack|museumrucksack|notizrucksack)/i.test(text)) return 'camera_backpack';
+    if (/(campingausruestung|campingausrüstung|camp[\s-]?proviant|angel[\s-]?(?:und[\s-]?)?camptaschen|packraft|trockenbeutel|provianttasche|wasserfilter|solarlader|trail[\s-]?crew[\s-]?proviant)/i.test(text)) return 'camping';
+    if (/(kamera|camera|fotoequipment|fotoausruestung|fotoausrüstung|foto[\s-]?kit|stativ|gimbal|teleobjektiv|film[\s-]?(?:und[\s-]?)?akkukoffer|audio[\s-]?set|waermebildkamera|wärmebildkamera|thermal[\s-]?handkamera)/i.test(text)) return 'camera_gear';
+    if (/(hardcase|flightcase|schutzcase|transportcase|kuriercase|klimacase|schaumcase|polstercase|acrylcase|alukoffer|schutzverpackung|instrumentenkoffer|sensorkoffer|kalibrierkoffer|messkoffer|probenkoffer|arbeitskoffer|werkzeugkoffer|funkakku[\s-]?case|tabletcase)/i.test(text)) return 'hard_case';
+    if (/(duffel|reisetasche|wochenendtasche)/i.test(text)) return 'duffel';
+    if (/(reisekoffer|rollkoffer|kabinen[\s-]?(?:koffer|trolley)|cabin[\s-]?trolley|handgepaeck|handgepäck|urlaubskoffer|\bkoffer\b)/i.test(text)) return 'suitcase';
+    if (/(tagesrucksack|daypack|wanderrucksack|trailrucksack|outdoor-kit)/i.test(text)) return 'daypack';
+    if (/(rucksack|rucksäcke)/i.test(text)) return 'backpack';
+    if (/(privat[\s-]?gepaeck|privat[\s-]?gepäck|reisegepaeck|reisegepäck|\bgepaeck\b|\bgepäck\b|persoenliche sachen|persönliche sachen|kleidung|jacken|sonnenbrill)/i.test(text)) return 'personal_luggage';
+    if (/(holz\s*kiste|versorgungskisten?|ersatzteilkiste|materialkiste|utility-kiste|frachtkiste)/i.test(text)) return 'wood_crate';
+    return '';
+}
+
+function _missionSceneCargoAssetForKind(kind = '', cargoText = '', cargoWeightLbs = null) {
     const text = String(cargoText || '').toLowerCase();
     const weight = Number(cargoWeightLbs);
     const pick = (pool, salt, fallback = '') => {
@@ -7302,79 +7337,64 @@ function _missionSceneSemanticCargoAsset(cargoText = '', cargoWeightLbs = null) 
         const title = String(pool?.[0] || fallback || '').trim();
         return title ? { title, candidates: _sceneAssetCandidates(title, pool) } : null;
     };
-    if (/(luftfahrzeug[\s-]?(?:bordbuch|flugbuch)|aircraft[\s-]?logbook|bordbuch|flugbuch)/i.test(text)) {
-        return pickPrimary(MISSION_SCENE_ASSET_POOLS.aircraftLogbooks);
-    }
-    if (/(feuerloesch|feuerlösch|fire[\s-]?extinguisher)/i.test(text)) {
-        return pickPrimary(MISSION_SCENE_ASSET_POOLS.fireExtinguishers);
-    }
-    if (/(verband(?:kasten|zeug)|erste[\s-]?hilfe[\s-]?(?:koffer|kasten|case)|first[\s-]?aid[\s-]?case)/i.test(text)) {
-        return pickPrimary(MISSION_SCENE_ASSET_POOLS.firstAidCases);
-    }
-    if (/(radkeil|wheel[\s-]?chock|\bchocks?\b)/i.test(text)) {
-        return pickPrimary(MISSION_SCENE_ASSET_POOLS.wheelChocks);
-    }
-    if (/(postsack|postsendung|postbeutel|briefsendung)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.mailSacks, `cargo-mail-${text}`);
-    if (/(kuehlbox|kühlbox|blutkonserven|serum|laborproben|probenbeutel)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.coolers, `cargo-cooler-${text}`);
-    if (/(transportbox|tiertransportbox|reisebox|reha[\s-]?box|vogelbox|wildvogelbox|greifvogelbox|igelbox|fledermaus[\s-]?kleinbox|tiertransport)/i.test(text)) {
-        return pickPrimary(MISSION_SCENE_ASSET_POOLS.animalTransportBoxes);
-    }
-    if (/(sanitaets|sanitäts|sanitaet|sanität|medpack|hems[\s-]?rucksack|erste[\s-]?hilfe[\s-]?(?:pack|tasche|kit)|rettungs[\s-]?(?:und[\s-]?)?sanitaetskit|rettungs[\s-]?(?:und[\s-]?)?sanitätskit|medizinischer notfallkoffer|notfallkoffer)/i.test(text)) {
-        return pickPrimary(MISSION_SCENE_ASSET_POOLS.medicalEquipment);
-    }
-    if (/(kanister|kraftstoff|treibstoff)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.jerrycanPairs, `cargo-jerrycan-${text}`);
-    if (/(werkzeugwagen|tool\s*cart)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.toolCarts, `cargo-tool-cart-${text}`);
-    if (/(werkzeug|toolbox|werkzeugkiste|werkzeugtasche|wartungskit|prueflampe|prüflampe|sicherungsdraht)/i.test(text)) return pick(MISSION_SCENE_ASSET_POOLS.toolboxes, `cargo-toolbox-${text}`);
-    if (/(kamerarucksack|museumrucksack|notizrucksack)/i.test(text)) {
-        const asset = pick(MISSION_SCENE_ASSET_POOLS.luggageBackpacks, `cargo-backpack-${text}`);
-        return asset
-            ? { ...asset, candidates: _sceneAssetCandidates(asset.title, MISSION_SCENE_ASSET_POOLS.personalLuggage) }
-            : null;
-    }
-    if (/(campingausruestung|campingausrüstung|camp[\s-]?proviant|angel[\s-]?(?:und[\s-]?)?camptaschen|packraft|trockenbeutel|provianttasche|wasserfilter|solarlader|trail[\s-]?crew[\s-]?proviant)/i.test(text)) {
-        return pickPrimary(MISSION_SCENE_ASSET_POOLS.campingEquipment);
-    }
-    if (/(kamera|camera|fotoequipment|fotoausruestung|fotoausrüstung|foto[\s-]?kit|stativ|gimbal|teleobjektiv|film[\s-]?(?:und[\s-]?)?akkukoffer|audio[\s-]?set|waermebildkamera|wärmebildkamera|thermal[\s-]?handkamera)/i.test(text)) {
-        return pickPrimary(MISSION_SCENE_ASSET_POOLS.cameraEquipment);
-    }
-    if (/(hardcase|flightcase|schutzcase|transportcase|kuriercase|klimacase|schaumcase|polstercase|acrylcase|alukoffer|schutzverpackung|instrumentenkoffer|sensorkoffer|kalibrierkoffer|messkoffer|probenkoffer|arbeitskoffer|werkzeugkoffer|funkakku[\s-]?case|tabletcase)/i.test(text)) {
+    const luggage = asset => asset
+        ? { ...asset, candidates: _sceneAssetCandidates(asset.title, MISSION_SCENE_ASSET_POOLS.personalLuggage) }
+        : null;
+    const pools = MISSION_SCENE_ASSET_POOLS;
+    switch (kind) {
+    case 'logbook': return pickPrimary(pools.aircraftLogbooks);
+    case 'fire_extinguisher': return pickPrimary(pools.fireExtinguishers);
+    case 'first_aid_case': return pickPrimary(pools.firstAidCases);
+    case 'wheel_chocks': return pickPrimary(pools.wheelChocks);
+    case 'mail': return pick(pools.mailSacks, `cargo-mail-${text}`);
+    case 'cooler': return pick(pools.coolers, `cargo-cooler-${text}`);
+    case 'animal_box': return pickPrimary(pools.animalTransportBoxes);
+    case 'medical_kit': return pickPrimary(pools.medicalEquipment);
+    case 'jerrycan': return pick(pools.jerrycanPairs, `cargo-jerrycan-${text}`);
+    case 'tool_cart': return pick(pools.toolCarts, `cargo-tool-cart-${text}`);
+    case 'toolbox': return pick(pools.toolboxes, `cargo-toolbox-${text}`);
+    case 'camera_backpack': return luggage(pick(pools.luggageBackpacks, `cargo-backpack-${text}`));
+    case 'camping': return pickPrimary(pools.campingEquipment);
+    case 'camera_gear': return pickPrimary(pools.cameraEquipment);
+    case 'hard_case': {
         const caseIndex = Number.isFinite(weight) && weight >= 36 ? 2 : (Number.isFinite(weight) && weight >= 20 ? 1 : 0);
-        const title = MISSION_SCENE_ASSET_POOLS.equipmentCases[caseIndex] || MISSION_SCENE_ASSET_POOLS.equipmentCases[0] || '';
-        return title ? { title, candidates: _sceneAssetCandidates(title, MISSION_SCENE_ASSET_POOLS.personalLuggage) } : null;
+        const title = pools.equipmentCases[caseIndex] || pools.equipmentCases[0] || '';
+        return title ? { title, candidates: _sceneAssetCandidates(title, pools.personalLuggage) } : null;
     }
-    if (/(duffel|reisetasche|wochenendtasche)/i.test(text)) {
-        const asset = pick(MISSION_SCENE_ASSET_POOLS.luggageDuffels, `cargo-duffel-${text}`);
-        return asset
-            ? { ...asset, candidates: _sceneAssetCandidates(asset.title, MISSION_SCENE_ASSET_POOLS.personalLuggage) }
-            : null;
-    }
-    if (/(reisekoffer|rollkoffer|kabinen[\s-]?(?:koffer|trolley)|cabin[\s-]?trolley|handgepaeck|handgepäck|urlaubskoffer|\bkoffer\b)/i.test(text)) {
-        const asset = pick(MISSION_SCENE_ASSET_POOLS.luggageSuitcases, `cargo-suitcase-${text}`);
-        return asset
-            ? { ...asset, candidates: _sceneAssetCandidates(asset.title, MISSION_SCENE_ASSET_POOLS.personalLuggage) }
-            : null;
-    }
-    if (/(tagesrucksack|daypack|wanderrucksack|trailrucksack|outdoor-kit)/i.test(text)) {
-        const asset = pick(MISSION_SCENE_ASSET_POOLS.luggageBackpacks.slice(1), `cargo-daypack-${text}`, MISSION_SCENE_ASSET_POOLS.luggageBackpacks[0]);
-        return asset
-            ? { ...asset, candidates: _sceneAssetCandidates(asset.title, MISSION_SCENE_ASSET_POOLS.personalLuggage) }
-            : null;
-    }
-    if (/(rucksack|rucksäcke)/i.test(text)) {
-        const asset = pick(MISSION_SCENE_ASSET_POOLS.luggageBackpacks, `cargo-backpack-${text}`);
-        return asset
-            ? { ...asset, candidates: _sceneAssetCandidates(asset.title, MISSION_SCENE_ASSET_POOLS.personalLuggage) }
-            : null;
-    }
-    if (/(privat[\s-]?gepaeck|privat[\s-]?gepäck|reisegepaeck|reisegepäck|\bgepaeck\b|\bgepäck\b|persoenliche sachen|persönliche sachen|kleidung|jacken|sonnenbrill)/i.test(text)) {
-        return pick(MISSION_SCENE_ASSET_POOLS.personalLuggage, `cargo-personal-${text}`);
-    }
-    if (/(holz\s*kiste|versorgungskisten?|ersatzteilkiste|materialkiste|utility-kiste|frachtkiste)/i.test(text)) {
+    case 'duffel': return luggage(pick(pools.luggageDuffels, `cargo-duffel-${text}`));
+    case 'suitcase': return luggage(pick(pools.luggageSuitcases, `cargo-suitcase-${text}`));
+    case 'daypack': return luggage(pick(pools.luggageBackpacks.slice(1), `cargo-daypack-${text}`, pools.luggageBackpacks[0]));
+    case 'backpack': return luggage(pick(pools.luggageBackpacks, `cargo-backpack-${text}`));
+    case 'personal_luggage': return pick(pools.personalLuggage, `cargo-personal-${text}`);
+    case 'wood_crate': {
         const crateIndex = Number.isFinite(weight) && weight >= 75 ? 2 : (Number.isFinite(weight) && weight >= 35 ? 1 : 0);
-        const title = MISSION_SCENE_ASSET_POOLS.woodCrates[crateIndex] || MISSION_SCENE_ASSET_POOLS.woodCrates[0] || '';
-        return title ? { title, candidates: _sceneAssetCandidates(title, MISSION_SCENE_ASSET_POOLS.woodCrates) } : null;
+        const title = pools.woodCrates[crateIndex] || pools.woodCrates[0] || '';
+        return title ? { title, candidates: _sceneAssetCandidates(title, pools.woodCrates) } : null;
     }
-    return null;
+    default: return null;
+    }
+}
+
+// Named kind first (language independent), then the word search on the cargo text.
+function _missionSceneSemanticCargoAsset(cargoText = '', cargoWeightLbs = null, assetKind = '') {
+    const named = MISSION_CARGO_ASSET_KINDS.includes(String(assetKind || '')) ? String(assetKind) : '';
+    const kind = named || _missionSceneCargoKindFromText(cargoText);
+    return kind ? _missionSceneCargoAssetForKind(kind, cargoText, cargoWeightLbs) : null;
+}
+
+// The kind a writer or idea core chose for the main shipment, if any.
+function _missionSceneCargoNamedKind() {
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : window.currentMissionData;
+    if (!md) return '';
+    const contract = md.missionContract || window.activeMissionContract || {};
+    const ideas = [md.cargoIdea, md.fragileCargoIdea, md.medicalTransferIdea, md.clubIdea, md.charterIdea,
+        contract.cargoIdea, contract.fragileCargoIdea, contract.medicalTransferIdea, contract.clubIdea, contract.charterIdea];
+    for (const idea of ideas) {
+        const kind = String(idea?.shipment?.assetKind || '');
+        if (MISSION_CARGO_ASSET_KINDS.includes(kind)) return kind;
+    }
+    const direct = String(md.cargoAssetKind || contract.cargoAssetKind || '');
+    return MISSION_CARGO_ASSET_KINDS.includes(direct) ? direct : '';
 }
 
 function _missionSceneCargoAsset() {
@@ -7387,7 +7407,7 @@ function _missionSceneCargoAsset() {
     }
     const cargoText = _missionSceneCargoText().toLowerCase();
     const cargoWeightLbs = _missionSceneCargoWeightLbs();
-    const semanticAsset = _missionSceneSemanticCargoAsset(cargoText, cargoWeightLbs);
+    const semanticAsset = _missionSceneSemanticCargoAsset(cargoText, cargoWeightLbs, _missionSceneCargoNamedKind());
     if (semanticAsset) {
         const title = _missionSceneSafeBoardingCargoTitle(_sceneObjectTitleOverride('cargo', semanticAsset.title), cargoText, cargoWeightLbs);
         return {
@@ -9191,7 +9211,7 @@ function _missionTargetScenePoint(options = {}) {
 
 function _missionTargetSceneHasPowerlineContext(text = '') {
     const t = String(text || '').toLowerCase();
-    return /(strommast|stromtrasse|stromleitung|freileitung|hochspann|hochspannung|powerline|power\s+line|power\s+pylon|power\s+tower|umspannwerk|transformator|energieinfrastruktur|leitungsmast|stromnetz)/.test(t);
+    return /(strommast|stromtrasse|stromleitung|freileitung|hochspann|hochspannung|powerline|power\s+line|power\s+pylon|power\s+tower|umspannwerk|transformator|energieinfrastruktur|leitungsmast|stromnetz|transmission\s+line|overhead\s+line|electricity\s+pylon|pylons?\b|substation|transformer)/.test(t);
 }
 
 function _missionTargetSceneHasWindTurbineContext(text = '') {
@@ -9201,12 +9221,12 @@ function _missionTargetSceneHasWindTurbineContext(text = '') {
 
 function _missionTargetSceneHasWindTerrainText(text = '') {
     const t = String(text || '').toLowerCase();
-    return /(berg|gipfel|ruecken|rücken|kuppe|hochflaeche|hochfläche|hoehe|höhe|wiese|wiesen|feld|felder|acker|farmland|meadow|offenes gelaende|offenes gelände|weide|landwirtschaft)/.test(t);
+    return /(berg|gipfel|ruecken|rücken|kuppe|hochflaeche|hochfläche|hoehe|höhe|wiese|wiesen|feld|felder|acker|farmland|meadow|offenes gelaende|offenes gelände|weide|landwirtschaft|\bhills?\b|ridge|summit|plateau|\bfields?\b|pasture|open terrain|open country|agricultur)/.test(t);
 }
 
 function _missionTargetSceneHasWindBadTerrainText(text = '') {
     const t = String(text || '').toLowerCase();
-    return /(stadt|innenstadt|city|wohngebiet|siedlung|urban|bebauung|tal|talsohle|schlucht|enge lage|industriegebiet)/.test(t);
+    return /(stadt|innenstadt|city|wohngebiet|siedlung|urban|bebauung|tal|talsohle|schlucht|enge lage|industriegebiet|\btown\b|residential|settlement|built-up|valley|gorge|ravine|industrial area|industrial estate)/.test(t);
 }
 
 function _missionTargetSceneGeoAllowsWindTurbine() {

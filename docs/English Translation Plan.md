@@ -441,6 +441,23 @@ gesprochenen Instruktor-Sätze im Verlauf (→ Phase 4/5).
 **Phase 3 ist damit abgeschlossen** (feste Missionstexte). Weiter mit Phase 4 (generierte Inhalte,
 Variante C) bzw. Phase 5 (Audio).
 
+### 2.15 Phase 4, Schritt 1: Folgeschritte, die den fertigen Text lesen (2026-11-19)
+
+Vom User freigegeben („wie vorgeschlagen“). Voraussetzung dafür, dass Writer direkt Englisch schreiben:
+
+| Stelle | Änderung |
+|---|---|
+| Fracht-Objekt der Szene (`sync.js` `_missionSceneSemanticCargoAsset`) | Neues Feld `shipment.assetKind` (Ideen-Kerne Fracht, zerbrechliche Fracht, Medizin) bzw. `cargoAssetKind` (Bush-V5-Writer, nur Bush-Profile); Liste in `mission-cargo-asset-kinds.js`. Feld zuerst, Wortsuche bleibt Rückfall (gegen 6.221 echte Texte zeichengleich geprüft). |
+| Infrastruktur-Ergebnis (`mission-infra-outcome-core.js`) | Eindeutige Zielkategorie entscheidet, Text verfeinert nur „allgemein“; englische Wörter in Familien-, Schadens- und Gewichtungsmustern. Wird auch vom Tracker geladen (`tracker-mission-followup.js`) → nächster Build. |
+| Ankunfts-Hinweis (`app.js` `briefingAlreadyCoversArrival`) | Englische Wörter ergänzt. |
+| Szenen-Zusatzprüfungen Stromleitung/Windrad-Gelände (`sync.js`) | Englische Wörter ergänzt. |
+| Landeerkennung alte Web-Stimme (`passenger-voice.js`) | Englische Wörter ergänzt. |
+| SAR-Erkennung | keine Änderung nötig (`sar-search.v2` mit Feldern). |
+
+Noch offen in diesem Bereich: Fracht-Erraten aus Story bei Verein/Charter (`_pickClubUtilityCargo`
+u. a.) und echte KI-Probeläufe für die geänderten Prompts (je Missionsart). Danach Schritt 2:
+Sprachvorgabe in Ideen-Kernen, Bush und Training.
+
 ## 4. Etappen
 
 | Phase | Inhalt | Größe | Abhängig von |

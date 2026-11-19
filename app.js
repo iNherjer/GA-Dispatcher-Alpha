@@ -36294,6 +36294,11 @@ function buildMissionWriterV5Prompt(contract = {}, context = {}) {
     const bushSupplyDelivery = contract?.profile?.id === 'bush_supply_strip';
     const bushCargoPickup = contract?.profile?.id === 'bush_pickup_cargo';
     const bushReconBriefing = contract?.profile?.id === 'bush_recon_return';
+    // Bush only: a language-independent cargo kind for the boarding scene (sync.js).
+    const bushCargoKindKinds = /^bush_/.test(String(contract?.profile?.id || '')) ? (window.MissionCargoAssetKinds?.KINDS || []) : [];
+    const bushCargoKindLine = bushCargoKindKinds.length
+        ? `\n  "cargoAssetKind": "Art des Hauptgepäck- oder Frachtstücks aus: ${bushCargoKindKinds.join('|')}; leerer String, wenn keine passt",`
+        : '';
     if (personalCharterReturn) {
         const personalStyle = {
             tone: 'warme persönliche Rückkehrgeschichte',
@@ -36369,7 +36374,7 @@ Antworte ausschliesslich als JSON ohne Markdown:
   "title": "Kurzer, passender Missionstitel",
   "story": "${personalCharterReturn ? 'Persönliche Geschichte aus dem Aufenthalt in Erzählerperspektive, mit konkreten Erlebnissen und Reaktionen, eingebettet in die vereinbarte Abholung' : (bushAdventureOutbound ? 'Persönlicher Dispatch an den Piloten über den Gast, seine Vorgeschichte und sein Vorhaben draußen; Umfang nach Erzählstoff' : bushSupplyDelivery ? 'Persönlicher Dispatch an den Piloten über den Empfänger, seine Arbeit draußen und was die Sendung ermöglicht; Umfang nach Erzählstoff' : bushCargoPickup ? 'Persönlicher Dispatch an den Piloten über den Kontakt draußen, die Geschichte der Sache und was an der Basis mit ihr passiert; Umfang nach Erzählstoff' : bushReconBriefing ? 'Persönlicher Dispatch an den Piloten über den Aufklärungsanlass, den Menschen, der den Befund braucht, und die Entscheidung danach; Umfang nach Erzählstoff' : '4-6 natuerliche Saetze als zusammenhaengender Dispatch-Zettel')}",
   "pax": "z.B. 1 PAX (...) oder 0 PAX",
-  "cargo": "z.B. Tagesrucksack (12 lbs)",
+  "cargo": "z.B. Tagesrucksack (12 lbs)",${bushCargoKindLine}
   "targetInfo": "Bei POI: 2-3 sachliche Saetze fuer die Ziel-Info-Seite aus belegten Daten; bei A-B leerer String",
   "passenger": {
     "name": "Vollstaendiger Name",
@@ -41554,6 +41559,8 @@ async function fetchMissionWriterV5(context = {}) {
         if (mission.passenger) {mission.passenger.targetRadiusNm=contract.bushReconPlan.radiusNm;mission.passenger.targetDwellMin=contract.bushReconPlan.observationSeconds/60;}
     }
     if (bushIdea) window.MissionBushIdeasCore.accept(mission, result.parsed, bushIdea);
+    const bushCargoKind = context.missionType === 'bush' ? window.MissionCargoAssetKinds?.clean(result.parsed?.cargoAssetKind) : '';
+    if (bushCargoKind) mission.cargoAssetKind = bushCargoKind;
     window.MissionBushNarrativeCore?.attachRecon(mission, result.parsed, reconContext, window.MissionPoiBriefingSharedCore);
     window.MissionBushNarrativeCore?.attachFollowup(mission, result.parsed, context);
     window.MissionLegacyCharterNarrativeCore?.attach(mission, result.parsed, context);
@@ -47478,6 +47485,7 @@ async function generateMission(options = {}) {
         bush: bushSpec,
         bushNarrative, bushNarrativeDebug,
         bushFollowUpNarrative: m?.bushFollowUpNarrative || null,
+        cargoAssetKind: window.MissionCargoAssetKinds?.clean(m?.cargoAssetKind) || null,
         legacyCharterNarrative: m?.legacyCharterNarrative || null,
         bushProgress: bushSpec ? buildInitialBushMissionProgress(bushSpec) : null,
         isPOI,
@@ -48088,8 +48096,9 @@ async function generateMission(options = {}) {
             || briefingProfileId === 'apt_charter_pickup'
             || String(bushSpec?.targetMode || '') === 'strip_then_return'
             || String(currentMissionData?.passenger?.roleProfile || m?.passenger?.roleProfile || '').toLowerCase() === 'bush_pickup_guest_v1');
-    const briefingAlreadyCoversArrival = /ankunft|uebergabe|übergabe|uebernimmt|übernimmt|uebernahme|übernahme|vorfeld|parking|tierarztkontakt|tierpflege|stationskontakt|zielkontakt/i.test(storyForBriefing)
-        || (isPickupReturnBriefing && /\b(pickup|abhol\w*|wartepunkt|striprand|treffpunkt|zielstrip|zielplatz|ga-bereich|vorfeld|pistenrand|parkpunkt|wartet)\b/i.test(storyForBriefing));
+    // German and English wording (phase 4: writers may answer in English).
+    const briefingAlreadyCoversArrival = /ankunft|uebergabe|übergabe|uebernimmt|übernimmt|uebernahme|übernahme|vorfeld|parking|tierarztkontakt|tierpflege|stationskontakt|zielkontakt|\barriv\w*|hand(?:s|ed|ing)?[\s-]?over|\bapron\b|reception|vet contact|station contact|destination contact/i.test(storyForBriefing)
+        || (isPickupReturnBriefing && /\b(pickup|abhol\w*|wartepunkt|striprand|treffpunkt|zielstrip|zielplatz|ga-bereich|vorfeld|pistenrand|parkpunkt|wartet|pick[\s-]?up|waiting point|strip edge|meeting point|destination strip|destination airfield|ga area|runway edge|parking spot|wait(?:s|ing)?)\b/i.test(storyForBriefing));
     if (arrivalHint && !isPrivateOutingBriefing && !briefingAlreadyCoversArrival) {
         storyForBriefing = `${storyForBriefing}${storyForBriefing ? '\n\n' : ''}Ankunfts-Hinweis: ${_missionPipelineV4PolishGermanVisibleText(arrivalHint)}`;
     }

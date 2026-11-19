@@ -3,6 +3,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
 
 const catalogContext = { window: {} };
 vm.runInNewContext(
@@ -156,7 +158,9 @@ const pools = {
 
 const matcherContext = {
     MISSION_SCENE_ASSET_POOLS: pools,
-    _scenePickTitle: (pool, _salt, fallback = '') => pool?.[0] || fallback
+    _scenePickTitle: (pool, _salt, fallback = '') => pool?.[0] || fallback,
+    // Cargo kinds (mission-cargo-asset-kinds.js, used by the kind-first lookup since phase 4).
+    MISSION_CARGO_ASSET_KINDS: require('../mission-cargo-asset-kinds.js').KINDS
 };
 vm.runInNewContext(
     [
@@ -165,6 +169,8 @@ vm.runInNewContext(
         functionSource('_missionSceneSafeBoardingCargoCandidates'),
         functionSource('_missionSceneCargoIsPersonalLuggageTitle'),
         functionSource('_missionSceneBoardingCargoCandidates'),
+        functionSource('_missionSceneCargoKindFromText'),
+        functionSource('_missionSceneCargoAssetForKind'),
         functionSource('_missionSceneSemanticCargoAsset')
     ].join('\n'),
     matcherContext
@@ -172,6 +178,9 @@ vm.runInNewContext(
 
 const matchAsset = (label, weight) => matcherContext._missionSceneSemanticCargoAsset(label, weight) || null;
 const match = (label, weight) => matchAsset(label, weight)?.title || '';
+// A named kind wins over the word search (English cargo text since phase 4).
+assert.equal(matcherContext._missionSceneSemanticCargoAsset('two boxes of lab samples', 5, 'cooler')?.title, pools.coolers[0]);
+assert.equal(matcherContext._missionSceneSemanticCargoAsset('two boxes of lab samples', 5, 'spaceship'), null);
 const CAMERA = 'VFR Multitool Mission Camera Equipment Cargo';
 const CAMPING = 'VFR Multitool Mission Camping Equipment Cargo';
 const MEDICAL = 'VFR Multitool Mission Medical Backpack Cargo';

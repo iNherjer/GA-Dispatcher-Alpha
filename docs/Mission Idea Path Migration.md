@@ -263,3 +263,7 @@ fünf Bush-Profile waren in allen gespeicherten Läufen stimmig (Plan = Person =
 
 Vom User freigegeben und standardmäßig eingeschaltet (Web v2453). Offen: MSFS-Feldtest der Abholung (Voice-Sätze),
 Sprachvorgabe für Englisch (Phase 4) als nächster Schritt im Kern.
+
+**Nachtrag 19.11.2026:** Plan-Schritt 2b (Frachtart als Feld) umgesetzt: Bush-V5-Writer liefert
+`cargoAssetKind` (nur Bush-Profile, Liste aus `mission-cargo-asset-kinds.js`), die Szene nutzt es vor
+der Wortsuche. Details: `docs/English Translation Plan.md` 2.15. Offen: Sprachvorgabe (2c), Training (3).

@@ -119,17 +119,22 @@
         return raw || 'generic';
     }
 
+    var KNOWN_FAMILIES = ['wind', 'solar', 'power', 'bridge', 'dam', 'road', 'rail', 'industry'];
+
     function inferTargetFamily(md = null) {
         const category = targetCategoryOf(md);
+        // A specific target category decides; the mission text only refines a generic target
+        // (it may be written in English since phase 4 of the translation).
+        if (KNOWN_FAMILIES.indexOf(category) >= 0) return category;
         const text = missionText(md);
-        if (/\b(windpark|windkraft|windrad|windturbine|wind farm|windenergie)\b/.test(text)) return 'wind';
-        if (/\b(solarpark|solaranlage|photovoltaik|pv|modulreihe|wechselrichter)\b/.test(text)) return 'solar';
-        if (/\b(umspannwerk|substation|freileitung|hochspannung|stromtrasse|strommast|leitung|trafopunkt|transformator|trafo|energienetz)\b/.test(text)) return 'power';
-        if (/\b(brueck|bruck|bridge|ueberfuehr|überführ|viadukt)\b/.test(text)) return 'bridge';
-        if (/\b(staudamm|talsperre|stausee|wehr|damm|hydro|wasserkraft)\b/.test(text)) return 'dam';
-        if (/\b(strasse|straße|fahrbahn|zufahrt|bundesstrasse|landstrasse|road|highway)\b/.test(text)) return 'road';
-        if (/\b(gleis|bahn|rail|schiene|trasse)\b/.test(text)) return 'rail';
-        if (/\b(werk|industrie|anlage|factory|plant|lager|depot)\b/.test(text)) return 'industry';
+        if (/\b(windpark|windkraft|windrad|windturbine|wind farm|windenergie|wind turbines?|wind power)\b/.test(text)) return 'wind';
+        if (/\b(solarpark|solaranlage|photovoltaik|pv|modulreihe|wechselrichter|solar farm|solar park|photovoltaic|inverter|panel rows?)\b/.test(text)) return 'solar';
+        if (/\b(umspannwerk|substation|freileitung|hochspannung|stromtrasse|strommast|leitung|trafopunkt|transformator|trafo|energienetz|power lines?|overhead lines?|transmission lines?|pylons?|transformer|power grid)\b/.test(text)) return 'power';
+        if (/\b(brueck|bruck|bridge|ueberfuehr|überführ|viadukt|overpass|viaduct)\b/.test(text)) return 'bridge';
+        if (/\b(staudamm|talsperre|stausee|wehr|damm|hydro|wasserkraft|reservoir|weir)\b/.test(text)) return 'dam';
+        if (/\b(strasse|straße|fahrbahn|zufahrt|bundesstrasse|landstrasse|road|highway|carriageway|access road)\b/.test(text)) return 'road';
+        if (/\b(gleis|bahn|rail|schiene|trasse|railway|railroad|tracks?)\b/.test(text)) return 'rail';
+        if (/\b(werk|industrie|anlage|factory|plant|lager|depot|industrial|warehouse)\b/.test(text)) return 'industry';
         return category;
     }
 
@@ -137,9 +142,9 @@
         const text = missionText(md);
         const family = inferTargetFamily(md);
         if (type === 'blocked_access') return 'access_blocked';
-        if (/\b(rauch|smoke|qualm|brand|heiss|heiß|thermal|hitze|kurzschluss|trafo|transformator|wechselrichter)\b/.test(text)) return 'electrical_fault';
-        if (/\b(sturm|baum|ast|treibgut|ladung|kisten|blockiert|blockade|hindernis)\b/.test(text)) return 'debris_blockage';
-        if (/\b(riss|korrosion|lager|fuge|beton|unterspuel|unterspül|auswasch|erosion)\b/.test(text)) return 'structural_wear';
+        if (/\b(rauch|smoke|qualm|brand|heiss|heiß|thermal|hitze|kurzschluss|trafo|transformator|wechselrichter|fire|heat|short circuit|transformer|inverter)\b/.test(text)) return 'electrical_fault';
+        if (/\b(sturm|baum|ast|treibgut|ladung|kisten|blockiert|blockade|hindernis|storm|fallen tree|trees?|branch(?:es)?|debris|blocked|blockage|obstacle)\b/.test(text)) return 'debris_blockage';
+        if (/\b(riss|korrosion|lager|fuge|beton|unterspuel|unterspül|auswasch|erosion|cracks?|corrosion|bearing|joint|concrete|undermin\w*|washout|washed out)\b/.test(text)) return 'structural_wear';
         if (family === 'power' || family === 'solar' || family === 'wind') return 'equipment_fault';
         if (family === 'road' || family === 'rail') return 'route_obstruction';
         if (family === 'dam') return 'water_structure_wear';
@@ -174,7 +179,7 @@
             ['major_damage', 0.14],
             ['blocked_access', 0.06]
         ];
-        if (/\b(schaden|damage|defekt|stoer|stör|rauch|smoke|block|hindernis|baum|sturm|unterspuel|unterspül|korrosion|riss|ausfall)\b/.test(text)) {
+        if (/\b(schaden|damage|defekt|stoer|stör|rauch|smoke|block|hindernis|baum|sturm|unterspuel|unterspül|korrosion|riss|ausfall|damaged|defect|fault|failure|outage|blocked|obstacle|tree|storm|corrosion|crack|undermin\w*)\b/.test(text)) {
             weights = [
                 ['clear', 0.12],
                 ['monitor', 0.18],
@@ -182,7 +187,7 @@
                 ['major_damage', 0.22],
                 ['blocked_access', 0.10]
             ];
-        } else if (/\b(routine|turnus|regelmaess|regelmäß|sichtpruef|sichtprüf|kontroll)\b/.test(text)) {
+        } else if (/\b(routine|turnus|regelmaess|regelmäß|sichtpruef|sichtprüf|kontroll|scheduled|regular|visual inspection|check)\b/.test(text)) {
             weights = [
                 ['clear', 0.36],
                 ['monitor', 0.24],

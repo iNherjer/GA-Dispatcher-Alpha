@@ -915,7 +915,7 @@ function _isLandingPhaseEvent(eventLabel, text) {
     const msg = String(text || '').toLowerCase();
     if (/landung|verabschiedung/.test(ev)) return true;
     // Trainings-Landing-Calls laufen über "Instruktor", daher zusätzlich Textheuristik.
-    return /landung|anflug|endanflug|aufsetzen/.test(msg);
+    return /landung|anflug|endanflug|aufsetzen|landing|approach|touchdown|touch down/.test(msg);
 }
 
 function _isTrainingLandingInstructorEvent(eventLabel, text) {
@@ -923,7 +923,7 @@ function _isTrainingLandingInstructorEvent(eventLabel, text) {
     const msg = String(text || '').toLowerCase();
     if (ev !== 'instruktor') return false;
     if (!_activeAptTrainingPlan()) return false;
-    return /landung|anflug|endanflug|aufsetzen/.test(msg);
+    return /landung|anflug|endanflug|aufsetzen|landing|approach|touchdown|touch down/.test(msg);
 }
 
 function _injectPattonvilleJuliusEasteregg(text, eventLabel) {
