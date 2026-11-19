@@ -88,3 +88,19 @@ test('speaker: local passenger with voice context, otherwise dispatcher radio', 
   assert.equal(core.ttsStyleForLanguage(radio.ttsStyle, 'en'), core.TTS_STYLE_EN.dispatcher);
   assert.equal(core.ttsStyleForLanguage(radio.ttsStyle, 'de'), radio.ttsStyle);
 });
+
+test('suppressed states never warn, and a restart while rolling does not jump to the second warning', () => {
+  const quiet = fixture(); quiet.stand();
+  const watch = core.createPrematureTaxiWatch();
+  // Same rolling evidence, but the runtime reports nothing to wait for.
+  const readiness = { worldReady: true, ready: false, reason: 'ground_stop_required' };
+  for (let n = 0; n < 4; n++) watch.observe({ observedAt: 1000 + n * 1000, onGround: true, gsKts: 6, lat: 48 + n * 0.0001, lon: 8 },
+    readiness, { runId: 'run-1', phase: 'boarding', done: [], suppressed: true });
+  assert.equal(watch.due(), null); assert.equal(watch.snapshot(), null);
+  // Restart: first warning already committed, watch has never seen a stand.
+  const restarted = core.createPrematureTaxiWatch();
+  for (let n = 0; n < 4; n++) restarted.observe({ observedAt: 1000 + n * 1000, onGround: true, gsKts: 6, lat: 48 + n * 0.0001, lon: 8 },
+    readiness, { runId: 'run-1', phase: 'boarding', done: ['taxi'] });
+  assert.equal(restarted.due(), null, 'no instant taxi_again');
+  assert.equal(restarted.snapshot().status, 'away', 'the banner still warns');
+});

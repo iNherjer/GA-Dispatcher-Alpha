@@ -26,13 +26,14 @@ function createPrematureTaxiWatch({ minKts = PREMATURE_TAXI_MIN_KTS, packets = P
   let done = new Set();
   const clearStreak = () => { streak = 0; streakKind = null; };
   const reset = () => { runId = null; phase = null; anchor = null; clearStreak(); lastAt = null; away = false; pending = null; standWarned = false; done = new Set(); };
-  // context: { runId, phase } of the active tracker run; done: stages already committed.
+  // context: { runId, phase, suppressed } of the active tracker run; done: stages already committed.
+  // suppressed: nothing left for the pilot to wait for (see runtime), or no scene yet.
   const observe = (sample, readiness, context = {}) => {
     const run = context.runId || null;
     if (run !== runId) { reset(); runId = run; }
     (Array.isArray(context.done) ? context.done : []).forEach(stage => { if (STAGES.includes(stage)) done.add(stage); });
     phase = context.phase || null;
-    if (!run || !PREMATURE_TAXI_PHASES.has(phase)) { clearStreak(); away = false; pending = null; anchor = null; return snapshot(); }
+    if (!run || !PREMATURE_TAXI_PHASES.has(phase) || context.suppressed === true) { clearStreak(); away = false; pending = null; anchor = null; return snapshot(); }
     const at = finite(sample?.observedAt);
     const live = Boolean(readiness && readiness.worldReady === true && at !== null);
     if (!live) { clearStreak(); return snapshot(); }
@@ -56,7 +57,10 @@ function createPrematureTaxiWatch({ minKts = PREMATURE_TAXI_MIN_KTS, packets = P
     if (streak < packets || (kind === 'taxi' && movedM !== null && movedM < minMeters)) return snapshot();
     away = true;
     // One ground warning per stand; the second one needs a stop in between.
-    const stage = kind === 'airborne' ? 'airborne' : standWarned ? null : done.has('taxi') ? 'taxi_again' : 'taxi';
+    // taxi_again also needs a stand seen by this watch: after a tracker restart while
+    // rolling, the remembered first warning must not turn into an instant second one.
+    const stage = kind === 'airborne' ? 'airborne' : standWarned ? null
+      : done.has('taxi') ? (anchor ? 'taxi_again' : null) : 'taxi';
     if (stage && !done.has(stage)) { if (!pending || pending.stage !== stage) pending = { stage, phase, at }; }
     else if (pending && pending.stage !== 'airborne') pending = null;
     return snapshot();
@@ -67,7 +71,7 @@ function createPrematureTaxiWatch({ minKts = PREMATURE_TAXI_MIN_KTS, packets = P
     if (ok && stage !== 'airborne') standWarned = true;
     if (pending && pending.stage === stage) pending = null;
   };
-  const snapshot = () => away && PREMATURE_TAXI_PHASES.has(phase)
+  const snapshot = () => away && PREMATURE_TAXI_PHASES.has(phase) && runId
     ? { status: 'away', phase, runId, airborne: streakKind === 'airborne' }
     : null;
   return { observe, settle, snapshot, reset, due: () => pending };

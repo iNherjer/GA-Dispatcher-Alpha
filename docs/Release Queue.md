@@ -38,6 +38,15 @@ liefert alles Offene mit aus.
 
 ## Ausgeliefert
 
+### 2026-11-19 · Korrekturen der Losroll-Warnung — ausgeliefert in Tracker v654 Alpha (19.11.2026)
+- **Artefakt:** Tracker-EXE (Missions-Prozess). Web v2473 nur Cache.
+- **Dateien:** `ga-tracker-client/tracker-mission-premature-taxi-core.js` (+ Test), `ga-tracker-client/tracker-mission-execution-runtime.js`.
+- **Was:** Keine Warnung, wenn die Verladung bestätigt und der Passagier eingestiegen ist (nur die Begrüßung läuft), keine in `prepare` vor der Startszene; nach einem Neustart während des Rollens kommt die zweite Warnung erst nach einem Halt.
+- **Warum:** Durchsicht der Logik nach v653.
+- **Tests:** Tracker-Suite 1624/1626 (2 übersprungen, 0 Fehler).
+- **Doku beim Release:** erledigt (Vertrag, Nachtrag 19.11.2026; `docs/Tracker-v654-Release.md`).
+- **Pruefen im Feld:** Verladung bestätigen, während der Passagier noch spricht losrollen: keine Warnung, danach startet die Mission per Taxi-Auto-Start.
+
 ### 2026-11-19 · Warnung beim Losrollen vor dem Start — ausgeliefert in Tracker v653 Alpha (19.11.2026)
 - **Artefakt:** Tracker-EXE (Missions-Prozess, Voice). Web v2472 (Banner, Pax-Fenster, englische Texte).
 - **Dateien:** `ga-tracker-client/tracker-mission-premature-taxi-core.js` (neu, + Test), `ga-tracker-client/tracker-mission-execution-runtime.js` (+ Test), `ga-tracker-client/tracker-mission-execution-adapter.js`, `ga-tracker-client/tracker-mission-boarding-voice.js` (+ Test), `ga-tracker-client/tracker-voice-service.js`, `mission-execution-core.js` (+ Test), `mission-apt-ui-core.js` (+ Test), `passenger-voice.js`, `i18n/en-phrases.js` (+ EFB-Kopie).

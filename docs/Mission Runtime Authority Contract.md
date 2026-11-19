@@ -2119,3 +2119,18 @@ muss zurück.
 - Log: `MISSION_PREMATURE_TAXI status=away|idle`, `MISSION_PREMATURE_TAXI_VOICE`.
   Abschaltbar über die Laufzeitoption `prematureTaxiWarning:false`.
 - Anlass: Ein Tester ist vor Abschluss der Verladung losgeflogen.
+
+### Nachtrag 19.11.2026 – Korrekturen (Tracker v654)
+
+- Keine Warnung in `boarding`, wenn die Verladung bestätigt (`loadConfirmed`, setzt
+  Unterschrift voraus) und der Passagier eingestiegen ist (`boardingSceneConfirmed`): Dann
+  läuft nur noch die Begrüßung, danach folgt `boarded` und gegebenenfalls der
+  Taxi-Auto-Start. Ohne Unterschrift oder Bestätigung bleibt die Warnung aktiv.
+- Keine Warnung in `prepare`, solange `scene.prepare` nicht abgeschlossen ist: Die Szene
+  erscheint erst, wenn das Flugzeug steht, und zwar an dieser Stelle.
+- `taxi_again` braucht einen Stand, den die aktuelle Beobachtung selbst gesehen hat. Nach
+  einem Tracker- oder Simulator-Neustart während des Rollens kommt also nicht sofort die
+  zweite Warnung.
+- Bekannt und unverändert: Vor dem Start gibt es keine Entfernungsprüfung zur Parkposition.
+  Nach einer Landung an einem anderen Platz kann dort fertig verladen und gestartet werden.
+  Eine 200-m-Regel zum Szenenplatz ist vorgeschlagen, aber noch nicht freigegeben.

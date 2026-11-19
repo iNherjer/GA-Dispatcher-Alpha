@@ -1111,7 +1111,15 @@ function createTrackerMissionExecutionRuntime(options = {}) {
     const done = tracker ? snapshot.state.effects.filter(effect => effect.type === 'voice.flight' && effect.payload?.kind === 'premature_taxi')
       .map(effect => effect.payload.stage) : [];
     const before = prematureTaxi.snapshot()?.status || 'idle';
-    prematureTaxi.observe(sample, readiness, { runId: tracker ? snapshot.runId : null, phase: tracker ? snapshot.state.phase : null, done });
+    const flags = snapshot?.state?.flags || {};
+    // Load confirmed and passenger aboard: only the greeting is still running, the start
+    // follows by itself (taxi auto-start). Prepare before the scene exists: it spawns
+    // where the aircraft stops, so nobody is waiting yet.
+    const suppressed = !tracker ? false
+      : snapshot.state.phase === 'boarding' ? flags.loadConfirmed === true && flags.boardingSceneConfirmed === true
+      : snapshot.state.phase === 'prepare' ? !snapshot.state.effects.some(effect => effect.type === 'scene.prepare' && effect.status === 'completed')
+      : false;
+    prematureTaxi.observe(sample, readiness, { runId: tracker ? snapshot.runId : null, phase: tracker ? snapshot.state.phase : null, done, suppressed });
     const after = prematureTaxi.snapshot()?.status || 'idle';
     if (before !== after) log(`MISSION_PREMATURE_TAXI status=${after} run=${snapshot?.runId || ''} phase=${snapshot?.state?.phase || ''} gsKts=${Number.isFinite(Number(sample?.gsKts)) ? Number(sample.gsKts).toFixed(1) : 'n/a'} onGround=${sample?.onGround === false ? 0 : 1}`);
     const due = prematureTaxi.due();
