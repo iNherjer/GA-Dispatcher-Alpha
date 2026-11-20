@@ -42,6 +42,56 @@ const BASE_LAYERS = Object.freeze([
       maxZoom: 18
     })
   }),
+  // OpenStreetMap community servers: only through the tracker (own app
+  // identification, disk cache of at least 7 days, no prefetching) as their
+  // tile usage policies require; never fetched directly by Coherent.
+  Object.freeze({
+    id: 'osm',
+    label: 'OpenStreetMap',
+    proxyOnly: true,
+    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    localUrl: '/api/v1/map-tile/osm/{z}/{x}/{y}.png',
+    options: Object.freeze({ attribution: '&copy; OpenStreetMap-Mitwirkende', maxNativeZoom: 19, maxZoom: 18 })
+  }),
+  Object.freeze({
+    id: 'osm-de',
+    label: 'OpenStreetMap.de',
+    proxyOnly: true,
+    url: 'https://tile.openstreetmap.de/{z}/{x}/{y}.png',
+    localUrl: '/api/v1/map-tile/osm-de/{z}/{x}/{y}.png',
+    options: Object.freeze({ attribution: '&copy; OpenStreetMap-Mitwirkende, Tiles openstreetmap.de', maxNativeZoom: 18, maxZoom: 18 })
+  }),
+  Object.freeze({
+    id: 'osm-swiss',
+    label: 'OSM Swiss Style (Europa)',
+    proxyOnly: true,
+    url: 'https://tile.osm.ch/osm-swiss-style/{z}/{x}/{y}.png',
+    localUrl: '/api/v1/map-tile/osm-swiss/{z}/{x}/{y}.png',
+    options: Object.freeze({ attribution: '&copy; OpenStreetMap-Mitwirkende, Tiles osm.ch', maxNativeZoom: 18, maxZoom: 18 })
+  }),
+  Object.freeze({
+    id: 'cyclosm',
+    label: 'CyclOSM (mit Relief)',
+    proxyOnly: true,
+    url: 'https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png',
+    localUrl: '/api/v1/map-tile/cyclosm/{z}/{x}/{y}.png',
+    options: Object.freeze({ attribution: '&copy; OpenStreetMap-Mitwirkende, CyclOSM', maxNativeZoom: 18, maxZoom: 18 })
+  }),
+  // NASA GIBS (public domain), native up to zoom 8.
+  Object.freeze({
+    id: 'nasa-bluemarble',
+    label: 'NASA Blue Marble',
+    url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg',
+    localUrl: '/api/v1/map-tile/nasa-bluemarble/{z}/{x}/{y}.png',
+    options: Object.freeze({ attribution: 'Imagery &copy; NASA Blue Marble (GIBS)', maxNativeZoom: 8, maxZoom: 18 })
+  }),
+  Object.freeze({
+    id: 'nasa-night',
+    label: 'NASA Earth at Night',
+    url: 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_Black_Marble/default/2016-01-01/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png',
+    localUrl: '/api/v1/map-tile/nasa-night/{z}/{x}/{y}.png',
+    options: Object.freeze({ attribution: 'Imagery &copy; NASA Earth Observatory / VIIRS Black Marble (GIBS)', maxNativeZoom: 8, maxZoom: 18 })
+  }),
   Object.freeze({
     id: 'terrain',
     label: 'Terrain',

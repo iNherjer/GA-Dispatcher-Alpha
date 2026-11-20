@@ -1019,6 +1019,8 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
     L.control.zoom({ position: 'bottomright' }).addTo(this.map);
 
     for (const definition of MapShellCore.BASE_LAYERS) {
+      // OSM community maps load only through the tracker host, never from this native map.
+      if (definition.proxyOnly) continue;
       const layer = this.createResilientTileLayer(definition, {
         ...definition.options,
         pane: 'efbBasePane'
@@ -1056,7 +1058,7 @@ class VfrMultitoolView extends AppView<RequiredProps<AppViewProps, 'bus'>> {
   private activateBaseLayer(layerId: string, persist = true): void {
     const normalized = MapShellCore.normalizePreferences({ ...this.preferences, baseLayer: layerId });
     const nextId = normalized.baseLayer;
-    const nextLayer = this.baseLayers.get(nextId);
+    const nextLayer = this.baseLayers.get(nextId) || (nextId !== 'topo' ? this.baseLayers.get('topo') : undefined);
     if (!this.map || !nextLayer) return;
     if (this.currentBaseLayerId) {
       const current = this.baseLayers.get(this.currentBaseLayerId);

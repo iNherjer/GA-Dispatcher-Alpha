@@ -14,6 +14,8 @@ const DEFAULT_DISK_CACHE_BYTES = 1024 * 1024 * 1024;
 const DISK_CACHE_MIN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const DISK_CACHE_MAX_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const DISK_CACHE_DIRNAME = 'Map Tile Cache';
+// Stable app identification with a contact link (OSM tile usage policy).
+const TILE_USER_AGENT = 'VFR-Multitool-Tracker-EFB/1.1 (+https://github.com/iNherjer/GA-Dispatcher-Alpha)';
 
 // Outside the synced Documents folder: next to the runtimes in LocalAppData.
 function defaultTileCacheDirectory(env = process.env) {
@@ -33,6 +35,26 @@ const TILE_SOURCES = Object.freeze({
       'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
       'https://backup.opentopomap.org/{z}/{x}/{y}.png'
     ])
+  }),
+  osm: Object.freeze({
+    urls: Object.freeze(['https://tile.openstreetmap.org/{z}/{x}/{y}.png'])
+  }),
+  'osm-de': Object.freeze({
+    urls: Object.freeze(['https://tile.openstreetmap.de/{z}/{x}/{y}.png'])
+  }),
+  'osm-swiss': Object.freeze({
+    urls: Object.freeze(['https://tile.osm.ch/osm-swiss-style/{z}/{x}/{y}.png'])
+  }),
+  cyclosm: Object.freeze({
+    urls: Object.freeze(['https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png'])
+  }),
+  'nasa-bluemarble': Object.freeze({
+    urls: Object.freeze(['https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg']),
+    maxZoom: 8
+  }),
+  'nasa-night': Object.freeze({
+    urls: Object.freeze(['https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_Black_Marble/default/2016-01-01/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png']),
+    maxZoom: 8
   }),
   'esri-topo': Object.freeze({
     urls: Object.freeze(['https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}'])
@@ -74,7 +96,8 @@ function parseTrackerEfbTilePath(pathname = '') {
   const x = Number(match[3]);
   const y = Number(match[4]);
   const limit = 2 ** z;
-  if (!Number.isSafeInteger(z) || z < 0 || z > 20
+  const maxZoom = Number(TILE_SOURCES[match[1]].maxZoom) || 20;
+  if (!Number.isSafeInteger(z) || z < 0 || z > maxZoom
     || !Number.isSafeInteger(x) || x < 0 || x >= limit
     || !Number.isSafeInteger(y) || y < 0 || y >= limit) return null;
   return { layer: match[1], z, x, y };
@@ -253,7 +276,7 @@ function createTrackerEfbTileProxy(options = {}) {
       try {
         const headers = {
           Accept: 'image/avif,image/webp,image/apng,image/png,image/*,*/*;q=0.8',
-          'User-Agent': 'VFR-Multitool-Tracker-EFB/1.0'
+          'User-Agent': TILE_USER_AGENT
         };
         // Expired disk copy: ask the server whether it is still current.
         if (previous && previous.meta.etag) headers['If-None-Match'] = previous.meta.etag;
@@ -369,6 +392,7 @@ function createTrackerEfbTileProxy(options = {}) {
 }
 
 module.exports = {
+  TILE_USER_AGENT,
   DEFAULT_DISK_CACHE_BYTES,
   DISK_CACHE_MAX_TTL_MS,
   DISK_CACHE_MIN_TTL_MS,

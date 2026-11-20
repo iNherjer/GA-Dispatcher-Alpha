@@ -218,3 +218,21 @@ test('map tile cache is on by default and can be switched off', () => {
   assert.equal(core.normalizePreferences({ tileCache: false }).tileCache, false);
   assert.equal(core.normalizePreferences({ tileCache: 'no' }).tileCache, true);
 });
+
+test('OSM community maps are proxy-only and every proxied layer is known to the tracker proxy', () => {
+  const proxy = require('../tracker-efb-tile-proxy');
+  const layers = [...core.BASE_LAYERS, ...core.REGIONAL_BASE_LAYERS, ...core.OVERLAY_LAYERS];
+  for (const id of ['osm', 'osm-de', 'osm-swiss', 'cyclosm']) {
+    const layer = core.BASE_LAYERS.find((entry) => entry.id === id);
+    assert.equal(layer.proxyOnly, true, id + ' must never be fetched directly by Coherent');
+    assert.ok(layer.localUrl);
+  }
+  for (const layer of layers) {
+    if (!layer.localUrl) continue;
+    const id = layer.localUrl.split('/')[4];
+    assert.ok(proxy.TILE_SOURCES[id], 'proxy source for ' + id);
+  }
+  assert.match(proxy.TILE_USER_AGENT, /^VFR-Multitool-Tracker-EFB\/[0-9.]+ \(\+https:\/\//);
+  assert.equal(proxy.parseTrackerEfbTilePath('/api/v1/map-tile/nasa-night/9/1/1.png'), null, 'NASA tiles stop at zoom 8');
+  assert.ok(proxy.parseTrackerEfbTilePath('/api/v1/map-tile/nasa-night/8/1/1.png'));
+});

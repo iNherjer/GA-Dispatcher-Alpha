@@ -2160,11 +2160,13 @@
 
   function createResilientTileLayer(definition, options) {
     var sources = [];
-    [
+    // OSM community maps: only through the tracker (tile usage policy), regardless
+    // of the map tile cache switch.
+    (definition.proxyOnly === true ? [{ url: definition.localUrl, label: 'tracker-proxy' }] : [
       { url: definition.url, label: 'direct' },
       { url: definition.fallbackUrl, label: 'backup' },
       { url: definition.localUrl, label: 'tracker-proxy' }
-    ].forEach(function (candidate) {
+    ]).forEach(function (candidate) {
       var source = String(candidate.url || '').trim();
       var duplicate = sources.some(function (entry) { return entry.url === source; });
       if (source && !duplicate) sources.push({ url: source, label: candidate.label });

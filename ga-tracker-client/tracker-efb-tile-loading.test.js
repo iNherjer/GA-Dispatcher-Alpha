@@ -13,6 +13,7 @@ function fixture({ tileCache = false } = {}) {
     get src() { return requests[requests.length - 1]; }
   }; } };
   const L = {
+    tileLayer(url, options) { return { plainUrl: url, options }; },
     Browser: {}, Util: { emptyImageUrl: 'data:empty', template(url, data) { return url.replace(/\{(\w+)\}/g, (_, k) => data[k]); } },
     TileLayer: { extend(methods) {
       class Layer {
@@ -98,4 +99,13 @@ test('with the map tile cache on, the tracker proxy is tried first and the direc
   assert.equal(f.requests[1], 'https://primary/11/12/15');
   assert.equal(f.advance(), 7000);
   assert.equal(f.requests[2], 'https://backup/11/12/15');
+});
+
+test('proxy-only maps (OSM community servers) load only through the tracker, even with the cache switch off', () => {
+  const context = vm.createContext({ document: { createElement() { return {}; } }, tileHealthReported: {}, report() {}, preferences: { tileCache: false },
+    L: { tileLayer(url, options) { return { plainUrl: url, options }; }, TileLayer: { extend() { throw new Error('no resilient layer expected'); } }, Util: { template: (u) => u } },
+    window: { setTimeout() { return 0; }, clearTimeout() {} } });
+  vm.runInContext(source.slice(source.indexOf('  function tileTemplateUrl('), source.indexOf('  function createTileLayer(')), context);
+  const plain = context.createResilientTileLayer({ id: 'osm', proxyOnly: true, url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', localUrl: '/api/v1/map-tile/osm/{z}/{x}/{y}.png' }, {});
+  assert.equal(plain.plainUrl, '/api/v1/map-tile/osm/{z}/{x}/{y}.png');
 });

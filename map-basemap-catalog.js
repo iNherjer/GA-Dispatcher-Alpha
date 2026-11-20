@@ -78,12 +78,45 @@ function createGaExtraGlobalBaseMaps(osmAttribution) {
             })
         },
         {
+            id: 'osm-de',
+            label: '🗺️ OpenStreetMap.de (deutscher Stil)',
+            layer: L.tileLayer('https://tile.openstreetmap.de/{z}/{x}/{y}.png', {
+                maxNativeZoom: 18,
+                attribution: osmAttribution + ', Tiles <a href="https://www.openstreetmap.de" target="_blank" rel="noopener noreferrer">openstreetmap.de</a>'
+            })
+        },
+        {
+            id: 'osm-swiss',
+            label: '⛰️ OSM Swiss Style (Europa, mit Relief)',
+            layer: L.tileLayer('https://tile.osm.ch/osm-swiss-style/{z}/{x}/{y}.png', {
+                maxNativeZoom: 18,
+                attribution: osmAttribution + ', Tiles <a href="https://osm.ch" target="_blank" rel="noopener noreferrer">osm.ch</a>'
+            })
+        },
+        {
             id: 'cyclosm',
             label: '🚲 CyclOSM (mit Relief)',
             layer: L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', {
                 subdomains: 'abc',
                 maxNativeZoom: 18,
                 attribution: osmAttribution + ', <a href="https://www.cyclosm.org" target="_blank" rel="noopener noreferrer">CyclOSM</a>'
+            })
+        },
+        {
+            // NASA GIBS, gemeinfrei, nur bis Zoomstufe 8 (danach vergrößert).
+            id: 'nasa-bluemarble',
+            label: '🌍 NASA Blue Marble',
+            layer: L.tileLayer('https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/BlueMarble_ShadedRelief_Bathymetry/default/GoogleMapsCompatible_Level8/{z}/{y}/{x}.jpeg', {
+                maxNativeZoom: 8,
+                attribution: 'Imagery &copy; NASA Blue Marble (GIBS)'
+            })
+        },
+        {
+            id: 'nasa-night',
+            label: '🌃 NASA Earth at Night',
+            layer: L.tileLayer('https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/VIIRS_Black_Marble/default/2016-01-01/GoogleMapsCompatible_Level8/{z}/{y}/{x}.png', {
+                maxNativeZoom: 8,
+                attribution: 'Imagery &copy; NASA Earth Observatory / VIIRS Black Marble (GIBS)'
             })
         }
     ];

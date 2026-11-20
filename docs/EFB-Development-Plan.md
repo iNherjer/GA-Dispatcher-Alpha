@@ -9009,3 +9009,21 @@ Toolbar und VR; Holen/Senden wie im Handoff beschrieben.
 Ausgeliefert: Tracker v651 Alpha und Desktop 1.6.41 (`docs/Tracker-v651-Release.md`,
 `docs/Tracker-Desktop-1.6.41-Release.md`). EFB-/Toolbar-Paket 0.4.28 am 20.11.2026 auf Windows gebaut, als `efb-app-v0.4.28` veröffentlicht
 und im Alpha-Kanal aktiviert (`docs/EFB-0.4.28-SDK-Handoff.md`, Abschnitt Ergebnis). Simulatortest offen.
+
+## 20.11.2026 – OSM- und NASA-Karten (wie FSPM/OSM VFR Map), Quelle; Release nach Feldtest Kartenspeicher
+
+Online-Karten ohne Schlüssel, die FSPM anbietet, jetzt auch bei uns (Web-App live ab v2474, EFB mit nächstem Tracker):
+
+- **Nur über den Tracker** (`proxyOnly: true` in `map-shell-core.js`, unabhängig vom Schalter „Kartenspeicher“):
+  OpenStreetMap (`tile.openstreetmap.org`), OpenStreetMap.de (FOSSGIS, deutscher Stil), OSM Swiss Style
+  (`tile.osm.ch/osm-swiss-style`, Europa mit Relief), CyclOSM. Grund: Die Kachelregeln dieser Server verlangen eine
+  eindeutige App-Kennung bzw. Referrer, Zwischenspeicherung (mind. 7 Tage) und kein Vorladen. Der Tracker-Proxy
+  schickt `VFR-Multitool-Tracker-EFB/1.1 (+https://github.com/iNherjer/GA-Dispatcher-Alpha)` und speichert auf der
+  Platte; Coherent ruft diese Server nie direkt ab.
+- **Direkt mit Tracker als Rückfall:** NASA Blue Marble und NASA Earth at Night (GIBS, gemeinfrei), nur bis
+  Zoomstufe 8 (Proxy lehnt höhere Stufen ab, Leaflet vergrößert).
+- FSPM-Karten mit Schlüssel (MapTiler, CARTO-Key) und deren Offline-Pakete bleiben außen vor.
+- Paket-Notfallkarte (`VfrMultitool.tsx`) überspringt `proxyOnly`-Karten (wirkt ab dem nächsten SDK-Bau; lokal kein
+  Typecheck möglich, SDK-Typen fehlen auf dem Mac).
+
+Voraussetzung im Feld: Kacheln über den Tracker sind in Coherent sichtbar (Feldtest v651+). Erst danach Tracker-Build.
