@@ -2003,6 +2003,13 @@ window.gaNavigationEdit = function(edit) {
     if (!navigationClient.edit(edit) && typeof renderMainRoute === 'function') renderMainRoute();
     return true;
 };
+// Vom Tracker gesperrte Route (z. B. laufende Mission): Profil-Punkte duerfen dann keine Wegpunkte setzen.
+window.gaNavigationRouteLocked = function() {
+    if (!window.gaNavigationAvailable?.()) return false;
+    return !!(navigationReceived && navigationCanDisplay(navigationReceived)
+        && Array.isArray(navigationReceived.points) && navigationReceived.points.length >= 2
+        && navigationReceived.editable === false);
+};
 window.gaNavigationDirectTo = async function(airport, options) {
     await navigationRead();
     let nav = navigationClient.snapshot();

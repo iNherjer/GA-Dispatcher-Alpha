@@ -12,7 +12,7 @@
         ['name', 'icao', 'rppAirportIcao', 'poiChainPointId', 'radioKind'].forEach(k => {
             if (typeof p[k] === 'string') out[k] = p[k].slice(0, 180);
         });
-        ['isPOI', 'isPoiChainEndpoint', 'isPoiChainReturnHome'].forEach(k => { if (p[k] === true) out[k] = true; });
+        ['isPOI', 'isPoiChainEndpoint', 'isPoiChainReturnHome', 'profilePoint'].forEach(k => { if (p[k] === true) out[k] = true; });
         const legAlt = legAltFt(p.legAltFt);
         if (legAlt !== null) out.legAltFt = legAlt;
         return out;
@@ -29,12 +29,20 @@
         if (!Array.isArray(previous) || !Array.isArray(next)) return next;
         const key = p => Number(p.lat).toFixed(6) + ',' + Number(p.lng ?? p.lon).toFixed(6);
         const known = new Map();
-        previous.forEach(p => { if (p && legAltFt(p.legAltFt) !== null) known.set(key(p), legAltFt(p.legAltFt)); });
-        if (!known.size) return next;
+        const profilePoints = new Set();
+        previous.forEach(p => {
+            if (!p) return;
+            if (legAltFt(p.legAltFt) !== null) known.set(key(p), legAltFt(p.legAltFt));
+            if (p.profilePoint === true) profilePoints.add(key(p));
+        });
+        if (!known.size && !profilePoints.size) return next;
         const prevKeys = new Set(previous.filter(Boolean).map(key));
         const out = next.map(p => {
-            if (!p || legAltFt(p.legAltFt) !== null || !known.has(key(p))) return p;
-            return Object.assign({}, p, { legAltFt: known.get(key(p)) });
+            if (!p) return p;
+            const extra = {};
+            if (legAltFt(p.legAltFt) === null && known.has(key(p))) extra.legAltFt = known.get(key(p));
+            if (p.profilePoint !== true && profilePoints.has(key(p))) extra.profilePoint = true;
+            return Object.keys(extra).length ? Object.assign({}, p, extra) : p;
         });
         for (let i = out.length - 2; i >= 1; i--) {
             const p = out[i];

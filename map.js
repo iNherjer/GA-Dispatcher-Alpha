@@ -5361,6 +5361,8 @@ window.gaApplyNavigationRoute = function(nav) {
     let next = normalizeMapRouteWaypoints(nav.points);
     // Kennt der Tracker die Hoehen der Teilstrecken noch nicht, bleiben die bisherigen erhalten.
     if (window.GAMapRouteEditCore?.carryLegAlts) next = window.GAMapRouteEditCore.carryLegAlts(routeWaypoints, next);
+    // Ein im Profil gesetzter Punkt, den der Tracker gerade eingefuegt hat, behaelt seine Markierung.
+    if (typeof window.vpClaimPendingProfilePoint === 'function') next = window.vpClaimPendingProfilePoint(next);
     if (JSON.stringify(normalizeMapRouteWaypoints(routeWaypoints)) === JSON.stringify(next)) return;
     navigationApplying = true;
     try {
@@ -5394,6 +5396,7 @@ function normalizeMapRouteWaypoint(point) {
     if (typeof point.rppAirportIcao === 'string' && point.rppAirportIcao.trim()) out.rppAirportIcao = point.rppAirportIcao.trim();
     const legAlt = window.GAMapRouteEditCore?.legAltFt?.(point.legAltFt);
     if (legAlt !== null && legAlt !== undefined) out.legAltFt = legAlt;
+    if (point.profilePoint === true) out.profilePoint = true;
     return out;
 }
 

@@ -2469,7 +2469,7 @@ function vpRouteLegAltFt(point) {
 }
 
 function vpRouteHasLegAlts(points = routeWaypoints) {
-    return Array.isArray(points) && points.some((p, i) => i > 0 && vpRouteLegAltFt(p) !== null);
+    return Array.isArray(points) && points.some((p, i) => i > 0 && (vpRouteLegAltFt(p) !== null || p?.profilePoint === true));
 }
 
 function vpBuildRouteLegAnchors(points, elevationData, cruiseAlt) {
@@ -2486,7 +2486,7 @@ function vpBuildRouteLegAnchors(points, elevationData, cruiseAlt) {
         const from = Number(distances[idx]) * scale, to = Number(distances[idx + 1]) * scale;
         const last = runs[runs.length - 1];
         if (last && last.alt === alt) last.to = to;
-        else runs.push({ alt, from, to });
+        else runs.push({ alt, from, to, startWp: idx });
     });
 
     const tas = typeof vpGetProfileTas === 'function' ? vpGetProfileTas() : 100;
@@ -2501,22 +2501,37 @@ function vpBuildRouteLegAnchors(points, elevationData, cruiseAlt) {
     const pts = [];
     const firstRun = runs[0];
     const tocDist = Math.min(climbNm + 0.5, firstRun.from + (firstRun.to - firstRun.from) * 0.8);
-    if (tocDist > 0.1 && tocDist < firstRun.to - 0.1) pts.push({ distNM: tocDist, altFt: firstRun.alt, segAfter: firstRun.alt });
+    if (tocDist > 0.1 && tocDist < firstRun.to - 0.1) pts.push({ distNM: tocDist, altFt: firstRun.alt, segAfter: firstRun.alt, kind: 'toc', wpIndex: null });
+    const boundaryWps = new Set();
     for (let r = 1; r < runs.length; r++) {
-        pts.push({ distNM: runs[r].from, altFt: Math.min(runs[r - 1].alt, runs[r].alt), segAfter: runs[r].alt });
+        boundaryWps.add(runs[r].startWp);
+        pts.push({ distNM: runs[r].from, altFt: Math.min(runs[r - 1].alt, runs[r].alt), segAfter: runs[r].alt,
+            kind: points[runs[r].startWp]?.profilePoint === true ? 'point' : 'boundary', wpIndex: runs[r].startWp });
+    }
+    // Im Profil gesetzte Wegpunkte ohne Hoehenwechsel bleiben als greifbarer Punkt sichtbar.
+    for (let i = 1; i < points.length - 1; i++) {
+        if (points[i]?.profilePoint !== true || boundaryWps.has(i)) continue;
+        pts.push({ distNM: Number(distances[i]) * scale, altFt: legAlts[i], segAfter: legAlts[i], kind: 'point', wpIndex: i });
     }
     const lastRun = runs[runs.length - 1];
     const todDist = Math.max(totalDist - descentNm - 0.5, lastRun.from + (lastRun.to - lastRun.from) * 0.2);
-    if (todDist > lastRun.from + 0.1 && todDist < totalDist - 0.1) pts.push({ distNM: todDist, altFt: lastRun.alt, segAfter: lastRun.alt });
+    if (todDist > lastRun.from + 0.1 && todDist < totalDist - 0.1) pts.push({ distNM: todDist, altFt: lastRun.alt, segAfter: lastRun.alt, kind: 'tod', wpIndex: null });
 
-    const anchors = pts
+    // Wegpunkte gehen bei sehr dichtem Abstand vor Steig-/Sinkflugpunkten.
+    const sorted = pts
         .filter(p => Number.isFinite(p.distNM) && p.distNM > 0 && p.distNM < totalDist)
-        .sort((a, b) => a.distNM - b.distNM)
-        .filter((p, idx, arr) => idx === 0 || Math.abs(p.distNM - arr[idx - 1].distNM) > 0.05);
+        .sort((a, b) => a.distNM - b.distNM);
+    const anchors = [];
+    sorted.forEach(p => {
+        const prev = anchors[anchors.length - 1];
+        if (!prev || Math.abs(p.distNM - prev.distNM) > 0.05) { anchors.push(p); return; }
+        if (prev.wpIndex === null && p.wpIndex !== null) anchors[anchors.length - 1] = p;
+    });
     if (anchors.length < 2) return null;
     return {
         altWaypoints: anchors.map(p => ({ distNM: Math.round(p.distNM * 100) / 100, altFt: Math.round(p.altFt) })),
-        segmentAlts: anchors.slice(0, -1).map(p => Math.round(p.segAfter))
+        segmentAlts: anchors.slice(0, -1).map(p => Math.round(p.segAfter)),
+        meta: anchors.map(p => ({ kind: p.kind, wpIndex: p.wpIndex }))
     };
 }
 
@@ -2526,6 +2541,7 @@ function vpSyncRouteLegAnchors(cruiseAltFt = null, elevationData = vpElevationDa
     if (!vpRouteHasLegAlts()) {
         window._vpLegAnchorsSig = null;
         window._vpLegAnchorsJson = null;
+        window._vpLegAnchorMeta = null;
         return false;
     }
     if (!Array.isArray(elevationData) || elevationData.length < 2) return false;
@@ -2533,18 +2549,20 @@ function vpSyncRouteLegAnchors(cruiseAltFt = null, elevationData = vpElevationDa
         ? Math.round(Number(cruiseAltFt))
         : (parseInt(document.getElementById('altSlider')?.value || 4500, 10) || 4500);
     const sig = [
-        routeWaypoints.map(p => `${(p.lat || 0).toFixed(4)},${((p.lng || p.lon) || 0).toFixed(4)}:${vpRouteLegAltFt(p) ?? ''}`).join('|'),
+        routeWaypoints.map(p => `${(p.lat || 0).toFixed(5)},${((p.lng || p.lon) || 0).toFixed(5)}:${vpRouteLegAltFt(p) ?? ''}:${p?.profilePoint ? 'P' : ''}`).join('|'),
         cruise,
         elevationData.length,
         Math.round(Number(elevationData[elevationData.length - 1]?.distNM || 0) * 100)
     ].join('#');
-    if (window._vpLegAnchorsSig === sig) return false;
     const current = Array.isArray(vpAltWaypoints) ? vpAltWaypoints : [];
+    // Unveraendert und noch vorhanden: nichts zu tun. Hat ein Neuzeichnen sie geleert, neu berechnen.
+    if (window._vpLegAnchorsSig === sig && current.length > 0) return false;
     const ownCurrent = current.length === 0 || JSON.stringify({ a: current, s: vpSegmentAlts }) === window._vpLegAnchorsJson;
     if (!ownCurrent) return false;
     const built = vpBuildRouteLegAnchors(routeWaypoints, elevationData, cruise);
     vpAltWaypoints = built ? built.altWaypoints : [];
     vpSegmentAlts = built ? built.segmentAlts : [];
+    window._vpLegAnchorMeta = built ? built.meta : null;
     window._vpLegAnchorsSig = sig;
     window._vpLegAnchorsJson = JSON.stringify({ a: vpAltWaypoints, s: vpSegmentAlts });
     window.vpBgNeedsUpdate = true;
@@ -2554,8 +2572,8 @@ function vpSyncRouteLegAnchors(cruiseAltFt = null, elevationData = vpElevationDa
 // Nach dem Ziehen im Profil (nur auf Routen mit Wegpunkt-Hoehen): die Hoehe jeder Teilstrecke aus
 // dem Profil in ihrer Mitte ablesen und an den Wegpunkt schreiben. Strecken auf Reiseflughoehe
 // verlieren ihren Eintrag. Danach rechnet das Profil die Punkte aus den Wegpunkten neu.
-function vpWriteProfileToRouteLegs(cruiseAltFt) {
-    if (!vpRouteHasLegAlts() || !Array.isArray(vpAltWaypoints) || vpAltWaypoints.length < 1) return false;
+function vpWriteProfileToRouteLegs(cruiseAltFt, options = {}) {
+    if ((!options.force && !vpRouteHasLegAlts()) || !Array.isArray(vpAltWaypoints) || vpAltWaypoints.length < 1) return false;
     if (!Array.isArray(vpElevationData) || vpElevationData.length < 2) return false;
     const distances = vpRouteWaypointDistances(routeWaypoints);
     const totalDist = Number(vpElevationData[vpElevationData.length - 1]?.distNM || 0);
@@ -2592,6 +2610,116 @@ function vpWriteProfileToRouteLegs(cruiseAltFt) {
     window._vpLegAnchorsSig = null;
     vpSyncRouteLegAnchors(cruise);
     return true;
+}
+
+// === Profil-Punkte als Wegpunkte ===
+// Ein im Profil gesetzter Hoehenpunkt wird ein Wegpunkt genau auf der Route (profilePoint). Er
+// teilt eine Teilstrecke, beide Teile behalten deren Hoehe; die Hoehe selbst stellt man ueber die
+// Baender ein. Solange er auf der Linie zwischen seinen Nachbarn liegt, laesst er sich im Profil
+// entlang der Route schieben. Nicht bei SAR-Heli oder einer vom Tracker gesperrten Route.
+function vpProfilePointsAllowed() {
+    if (!Array.isArray(routeWaypoints) || routeWaypoints.length < 2) return false;
+    if (!Array.isArray(vpElevationData) || vpElevationData.length < 2) return false;
+    if (vpZoomLevel < 100 && vpHighResData) return false;
+    if (typeof vpIsSarHeliProfileMission === 'function' && vpIsSarHeliProfileMission()) return false;
+    if (typeof vpMode !== 'undefined' && vpMode === 'HDG') return false;
+    if (window.gaNavigationRouteLocked?.()) return false;
+    // Manuelle Punkte ohne Wegpunkt-Bezug (alte Art) bleiben unangetastet, bis die Route Wegpunkt-Hoehen hat.
+    return true;
+}
+
+function vpRouteProfileScale() {
+    const distances = vpRouteWaypointDistances(routeWaypoints);
+    const totalDist = Number(vpElevationData?.[vpElevationData.length - 1]?.distNM || 0);
+    const routeDist = Number(distances[distances.length - 1] || 0);
+    return { distances, scale: routeDist > 0 && totalDist > 0 ? totalDist / routeDist : 1 };
+}
+
+// Position auf der Route zu einer Profil-Entfernung: Einfuege-Index und Koordinate.
+function vpRoutePositionAtProfileDist(profileDist) {
+    const { distances, scale } = vpRouteProfileScale();
+    const d = Number(profileDist) / scale;
+    for (let i = 1; i < routeWaypoints.length; i++) {
+        const a = Number(distances[i - 1]), b = Number(distances[i]);
+        if (d >= a && d <= b && b > a) {
+            const f = (d - a) / (b - a);
+            const p = routeWaypoints[i - 1], q = routeWaypoints[i];
+            const lat = Number(p.lat) + (Number(q.lat) - Number(p.lat)) * f;
+            const lng = Number(p.lng ?? p.lon) + (Number(q.lng ?? q.lon) - Number(p.lng ?? p.lon)) * f;
+            return { index: i, lat: Math.round(lat * 1e6) / 1e6, lng: Math.round(lng * 1e6) / 1e6, fromNm: a * scale, toNm: b * scale };
+        }
+    }
+    return null;
+}
+
+// Liegt Wegpunkt i auf der Linie zwischen seinen Nachbarn (also noch nicht seitlich verschoben)?
+function vpRoutePointOnLine(i) {
+    if (!(i > 0 && i < routeWaypoints.length - 1) || typeof calcNav !== 'function') return false;
+    const p = routeWaypoints[i - 1], w = routeWaypoints[i], q = routeWaypoints[i + 1];
+    const dist = (a, b) => calcNav(Number(a.lat), Number(a.lng ?? a.lon), Number(b.lat), Number(b.lng ?? b.lon)).dist;
+    const direct = dist(p, q);
+    return dist(p, w) + dist(w, q) - direct <= Math.max(0.05, direct * 0.002);
+}
+
+function vpApplyRouteEdit(edit) {
+    try {
+        if (window.gaNavigationEdit?.(edit)) return true;
+        routeWaypoints = window.GAMapRouteEditCore.apply(routeWaypoints, edit);
+        if (typeof renderMainRoute === 'function') renderMainRoute();
+        return true;
+    } catch (error) {
+        console.warn('Profil-Wegpunkt nicht gesetzt:', error?.message || error);
+        return false;
+    }
+}
+
+// Der Tracker kennt die Markierung (noch) nicht: den gerade eingefuegten Punkt wiedererkennen.
+window.vpClaimPendingProfilePoint = function(points) {
+    const pending = window._vpPendingProfilePoint;
+    if (!pending || !Array.isArray(points)) return points;
+    if (Date.now() - pending.at > 15000) { window._vpPendingProfilePoint = null; return points; }
+    const hit = points.findIndex(p => p && Math.abs(Number(p.lat) - pending.lat) < 1e-6 && Math.abs(Number(p.lng ?? p.lon) - pending.lng) < 1e-6);
+    if (hit < 0) return points;
+    window._vpPendingProfilePoint = null;
+    if (points[hit].profilePoint === true) return points;
+    return points.map((p, i) => i === hit ? Object.assign({}, p, { profilePoint: true }) : p);
+};
+
+function vpInsertProfilePoint(profileDist, cruiseAlt) {
+    const pos = vpRoutePositionAtProfileDist(profileDist);
+    if (!pos) return false;
+    // Nicht direkt auf einen bestehenden Wegpunkt setzen.
+    if (Math.min(profileDist - pos.fromNm, pos.toNm - profileDist) < 0.3) return false;
+    // Erster Profil-Punkt auf einer Route mit alten, manuellen Hoehenpunkten: deren Verlauf vorher
+    // an die Teilstrecken uebernehmen, damit nichts verloren geht.
+    if (!vpRouteHasLegAlts() && Array.isArray(vpAltWaypoints) && vpAltWaypoints.length > 0) {
+        vpWriteProfileToRouteLegs(cruiseAlt, { force: true });
+    }
+    window._vpPendingProfilePoint = { lat: pos.lat, lng: pos.lng, at: Date.now() };
+    return vpApplyRouteEdit({ action: 'insert', index: pos.index, point: { lat: pos.lat, lng: pos.lng, profilePoint: true } });
+}
+
+function vpRemoveProfilePoint(wpIndex) {
+    if (!(wpIndex > 0 && wpIndex < routeWaypoints.length - 1) || routeWaypoints[wpIndex]?.profilePoint !== true) return false;
+    return vpApplyRouteEdit({ action: 'remove', index: wpIndex });
+}
+
+// Profil-Punkt entlang der Route verschieben (nur solange er auf der Linie liegt).
+function vpMoveProfilePoint(wpIndex, profileDist) {
+    if (routeWaypoints[wpIndex]?.profilePoint !== true || !vpRoutePointOnLine(wpIndex)) return false;
+    const { distances, scale } = vpRouteProfileScale();
+    const prev = routeWaypoints[wpIndex - 1], next = routeWaypoints[wpIndex + 1];
+    const from = Number(distances[wpIndex - 1]) * scale, to = Number(distances[wpIndex + 1]) * scale;
+    const d = Math.max(from + 0.3, Math.min(to - 0.3, Number(profileDist)));
+    if (!(to - from > 0.6)) return false;
+    const f = (d - from) / (to - from);
+    const lat = Math.round((Number(prev.lat) + (Number(next.lat) - Number(prev.lat)) * f) * 1e6) / 1e6;
+    const lng = Math.round((Number(prev.lng ?? prev.lon) + (Number(next.lng ?? next.lon) - Number(prev.lng ?? prev.lon)) * f) * 1e6) / 1e6;
+    const point = { lat, lng, profilePoint: true };
+    const legAlt = vpRouteLegAltFt(routeWaypoints[wpIndex]);
+    if (legAlt !== null) point.legAltFt = legAlt;
+    window._vpPendingProfilePoint = { lat, lng, at: Date.now() };
+    return vpApplyRouteEdit({ action: 'move', index: wpIndex, point });
 }
 
 function vpRouteWaypointLabel(index, point = null) {
@@ -10069,9 +10197,24 @@ function initAltWaypoints() {
         }, 50);
     }
 
+    // Gehoert Hoehenpunkt idx zu den aus Wegpunkt-Hoehen berechneten Punkten? Liefert dessen Meta.
+    function vpLegAnchorMeta(idx) {
+        const meta = window._vpLegAnchorMeta;
+        if (!vpRouteHasLegAlts() || !Array.isArray(meta) || meta.length !== vpAltWaypoints.length) return null;
+        return meta[idx] || null;
+    }
+
     function vpHandleDoubleHit(mx, my, m) {
+        const pointsMode = vpProfilePointsAllowed();
         // 1. Try removing existing waypoint
         const wpIdx = vpHitTestWaypoint(mx, my, m);
+        if (wpIdx >= 0 && pointsMode && vpLegAnchorMeta(wpIdx)) {
+            // Berechnete Punkte: nur im Profil gesetzte Wegpunkte lassen sich hier loeschen,
+            // Hoehenwechsel an anderen Wegpunkten aendert man ueber die Baender.
+            const meta = vpLegAnchorMeta(wpIdx);
+            if (meta.kind === 'point') vpRemoveProfilePoint(meta.wpIndex);
+            return true;
+        }
         if (wpIdx >= 0) {
             const wp = vpAltWaypoints[wpIdx];
             vpRemoveWaypoint(wp.distNM, m.totalDist);
@@ -10084,6 +10227,10 @@ function initAltWaypoints() {
             const profObj = typeof computeFlightProfile === 'function' ? computeFlightProfile(m.elevData, m.cruiseAlt, vpClimbRate, vpDescentRate, tas) : null;
             let exactAlt = getExactAltAtDist(clickDistNM, profObj, m.cruiseAlt);
             exactAlt = Math.round(exactAlt / 100) * 100;
+            if (pointsMode) {
+                vpInsertProfilePoint(clickDistNM, m.cruiseAlt);
+                return true;
+            }
             vpAddWaypoint(clickDistNM, exactAlt, m.cruiseAlt, m.totalDist);
             return true;
         }
@@ -10095,7 +10242,18 @@ function initAltWaypoints() {
         if (!m) return;
         const deltaY = vpEfbLogicalDelta(dragStartY - clientY);
         const altChange = (deltaY / m.plotH) * m.maxAlt;
-        if (vpDraggingWP >= 0) {
+        if (vpDraggingWP >= 0 && vpLegAnchorMeta(vpDraggingWP)) {
+            // Berechnete Punkte: Hoehe bleibt (Baender), nur Profil-Wegpunkte auf der Linie wandern.
+            const meta = vpLegAnchorMeta(vpDraggingWP);
+            if (meta.kind === 'point' && vpProfilePointsAllowed() && vpRoutePointOnLine(meta.wpIndex)) {
+                const deltaX = vpEfbLogicalDelta(clientX - dragStartX);
+                const { distances, scale } = vpRouteProfileScale();
+                const from = Number(distances[meta.wpIndex - 1]) * scale + 0.3;
+                const to = Number(distances[meta.wpIndex + 1]) * scale - 0.3;
+                vpAltWaypoints[vpDraggingWP].distNM = Math.max(from, Math.min(to, dragOrigWP.distNM + (deltaX / m.plotW) * m.totalDist));
+            }
+            vpAltWaypoints[vpDraggingWP].altFt = dragOrigWP.altFt;
+        } else if (vpDraggingWP >= 0) {
             const deltaX = vpEfbLogicalDelta(clientX - dragStartX);
             const distChange = (deltaX / m.plotW) * m.totalDist;
             let newDist = dragOrigWP.distNM + distChange;
@@ -10138,9 +10296,22 @@ function initAltWaypoints() {
                 const finalAlt = parseInt(document.getElementById('altMapInput').textContent) || 4500;
                 syncAltFromInput(finalAlt);
             }
-            if (vpDraggingWP >= 0) vpAltWaypoints.sort((a, b) => a.distNM - b.distNM);
+            // Berechneter Punkt gezogen: Profil-Wegpunkt auf der Route verschieben, sonst nichts aendern.
+            const legMeta = vpDraggingWP >= 0 ? vpLegAnchorMeta(vpDraggingWP) : null;
+            let handledLegPoint = false;
+            if (legMeta) {
+                handledLegPoint = true;
+                const moved = vpAltWaypoints[vpDraggingWP];
+                if (legMeta.kind === 'point' && dragOrigWP && Math.abs(moved.distNM - dragOrigWP.distNM) > 0.05) {
+                    vpMoveProfilePoint(legMeta.wpIndex, moved.distNM);
+                } else if (dragOrigWP) {
+                    moved.distNM = dragOrigWP.distNM;
+                    moved.altFt = dragOrigWP.altFt;
+                }
+            }
+            if (vpDraggingWP >= 0 && !handledLegPoint) vpAltWaypoints.sort((a, b) => a.distNM - b.distNM);
             // Routen mit Wegpunkt-Hoehen: das Gezogene an die Teilstrecken schreiben (bleibt so erhalten).
-            if (needsSave && !(vpDraggingSegment && vpDraggingSegment.segIdx === -1) && typeof vpWriteProfileToRouteLegs === 'function') {
+            if (needsSave && !handledLegPoint && !(vpDraggingSegment && vpDraggingSegment.segIdx === -1) && typeof vpWriteProfileToRouteLegs === 'function') {
                 const legCruise = parseInt(document.getElementById('altSlider')?.value || document.getElementById('altMapInput')?.textContent || 4500, 10) || 4500;
                 vpWriteProfileToRouteLegs(legCruise);
             }
