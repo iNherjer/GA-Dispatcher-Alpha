@@ -159,3 +159,15 @@ test('Flugsimulator-Szene wird erkannt und vor Fly-ins bevorzugt',()=>{
  assert.equal(events.match(parsed,[{n:'Fly-in-Platz',lat:48,lon:8}],km).event.id,'flyin','ohne passenden Platz bleibt das Fly-in');
  assert.match(core.ideaPrompt([{candidateId:'x',...input}]),/kind flightsim ist eine Veranstaltung der Flugsimulator-Szene/);
 });
+
+test('Festes Ziel ohne Picker sucht Events am Zielplatz und gibt den Treffer an die Idee',async()=>{
+ const dest={n:'Paderborn',icao:'EDLP',lat:51.614,lon:8.616};const event={id:'fsc',title:'FS Conference',kind:'flightsim',lat:51.614,lon:8.616,startsOn:'2026-11-21',endsOn:'2026-11-21',visitorInfo:'Eintritt frei'};
+ let searchArgs,ideaInput;
+ const ctx={window:{MissionClubIdeasCore:core,MissionClubEventsCore:{search:async a=>{searchArgs=a;return {events:[event]};},match:events.match},MissionPrivateContextCore:{resolveBrowser:async()=>({places:[]}),distanceKm:(a,b)=>Math.hypot(a.lat-b.lat,a.lon-b.lon)*111}},localStorage:storage(),console:{warn(){}},Date,getSelectedAiProvider:()=> 'gemini',getSelectedAiApiKey:()=> 'test',
+  fetchGeminiJsonWithFallback:async prompt=>{if(prompt.includes('RAHMEN:')){ideaInput=JSON.parse(prompt.split('RAHMEN: ')[1])[0];return {parsed:{ideas:[{...raw,candidateId:'club-direct',eventId:'fsc'}]}};}return {parsed:{...prose,greeting:{speaker:'passenger',speakerName:'Ada',location:'onboard',text:prose.greeting}}};}};
+ vm.createContext(ctx);vm.runInContext(fs.readFileSync('mission-club-browser.js','utf8'),ctx);
+ const mission=await ctx.window.MissionClubBrowser.story({start:{n:'Pattonville',icao:'EDTQ',lat:48.864,lon:9.225},dest});
+ assert.equal(searchArgs.start.icao,'EDLP');assert.equal(searchArgs.maxNM,20);
+ assert.equal(ideaInput.event.id,'fsc');assert.equal(mission.clubIdea.event.title,'FS Conference');
+ assert.equal(ctx.window.gaClubEventSearch.mode,'destination');assert.equal(ctx.window.gaClubEventSearch.matched,'fsc');
+});
