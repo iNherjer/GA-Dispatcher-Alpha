@@ -144,3 +144,18 @@ test('Vereinsbriefing bindet frische Dispatchwerte auch bei einer gespeicherten 
  assert.equal(missing._missionWriterV4Debug.flightBriefingStatus,'accepted-bindings');
 });
 test('Frachtart der Lieferung wird gefiltert übernommen',()=>{const base=core.validate(raw,input);assert.ok(base);const withKind=core.validate({...raw,luggage:raw.luggage?{...raw.luggage,assetKind:'duffel'}:null,delivery:{label:'Kiste Funkakkus',weightLbs:12,receiver:'Platzwart',purpose:'Für den Flugtag',assetKind:'toolbox'}},input);assert.ok(withKind,'delivery fixture valid');assert.equal(withKind.delivery.assetKind,'toolbox');const bad=core.validate({...raw,delivery:{label:'Kiste',weightLbs:12,receiver:'Platzwart',purpose:'Für den Flugtag',assetKind:'rocket'}},input);assert.ok(bad);assert.equal('assetKind' in bad.delivery,false);assert.equal(base.delivery?.assetKind,undefined);});
+
+test('Flugsimulator-Szene wird erkannt und vor Fly-ins bevorzugt',()=>{
+ const period=events.windowFor('2026-11-20');assert.equal(period.through,'2026-11-22');
+ assert.match(events.prompt({name:'EDLP',lat:51.61,lon:8.62},100,period),/Flugsimulator-Szene[\s\S]*kind = flightsim[\s\S]*Fly-ins und Flugfeste; kind = aviation/);
+ const row=(id,kind,lat,lon)=>['EVENT',id,id,'Ort',lat,lon,'2026-11-21','2026-11-21',kind,'https://example.org/'+id,'Eintritt frei'].join(' | ');
+ const text=[row('flyin','aviation',48.01,8),row('fsc','flightsim',48.5,8),row('leer','',48.2,8)].join('\n');
+ const body={candidates:[{content:{parts:[{text}]},groundingMetadata:{webSearchQueries:['q'],groundingChunks:[{web:{title:'example.org'}}],groundingSupports:[{segment:{text},groundingChunkIndices:[0]}]}}]};
+ const parsed=events.parse(body,period);assert.deepEqual(parsed.map(e=>e.kind),['aviation','flightsim','aviation']);
+ assert.deepEqual(events.prioritized(parsed).map(e=>e.id),['fsc','flyin','leer']);
+ const km=(a,b)=>Math.abs(a.lat-b.lat)*111;
+ const m=events.match(parsed,[{n:'Fly-in-Platz',lat:48,lon:8},{n:'Flughafen',lat:48.5,lon:8}],km);
+ assert.equal(m.event.id,'fsc');assert.equal(m.airport.n,'Flughafen');
+ assert.equal(events.match(parsed,[{n:'Fly-in-Platz',lat:48,lon:8}],km).event.id,'flyin','ohne passenden Platz bleibt das Fly-in');
+ assert.match(core.ideaPrompt([{candidateId:'x',...input}]),/kind flightsim ist eine Veranstaltung der Flugsimulator-Szene/);
+});

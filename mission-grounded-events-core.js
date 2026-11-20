@@ -27,12 +27,13 @@ function supportsByLine(raw,meta){
  }
  return {rows,map};
 }
-// Liefert geprüfte Veranstaltungen im Zeitraum; kinds optional (null = Feld wird ignoriert).
+// Liefert geprüfte Veranstaltungen im Zeitraum; kinds optional (null = Feld wird ignoriert,
+// mit keepKind bleibt es ungefiltert erhalten, z. B. für die Sim-Szene-Priorität im Verein).
 // Stufen: verification 'supported' = Zeile durch Suchbeleg gestützt oder Quellseite abgerufen;
 // 'search' (nur mit lenient) = Suche lief nachweislich, die Zeile selbst ist nicht einzeln belegt.
 // Gemini hängt über die Schnittstelle nur wenige Belege an (Live 16.11.2026: 2 von 8 lokalen Treffern),
 // deshalb nutzen Charter und Verein die gestufte Annahme; belegte Treffer werden bevorzugt.
-function parse(body,period,{kinds=null,limit=8,lenient=false}={}){
+function parse(body,period,{kinds=null,limit=8,lenient=false,keepKind=false}={}){
  const candidate=body?.candidates?.[0],raw=textOf(candidate);if(!raw)return [];
  const {rows,map}=supportsByLine(raw,candidate?.groundingMetadata);
  const fetchedUrls=new Set((candidate?.urlContextMetadata?.urlMetadata||candidate?.url_context_metadata?.url_metadata||[]).filter(m=>/SUCCESS/i.test(String(m.urlRetrievalStatus||m.url_retrieval_status||''))).map(m=>normUrl(m.retrievedUrl||m.retrieved_url)));
@@ -55,7 +56,7 @@ function parse(body,period,{kinds=null,limit=8,lenient=false}={}){
   if(kinds&&!kinds.includes(e.kind))return;
   const matched=domains.find(d=>sameDomain(d,host(e.sourceUrl)));
   // Die Modell-URL bleibt nur, wenn ihre Domain belegt ist; sonst gilt die belegende Domain als Quelle.
-  out.push({id:e.id,title:e.title,venue:e.venue||'',lat:e.lat,lon:e.lon,startsOn:e.startsOn,endsOn:e.endsOn,...(kinds?{kind:e.kind}:{}),sourceUrl:(matched||!supported)&&/^https:\/\//.test(e.sourceUrl)?e.sourceUrl:supported?'https://'+domains[0]:'',sourceDomains:domains,sourceMatch:!!matched,sourceFetched:fetched,verification:supported?'supported':'search',visitorInfo:e.visitorInfo,retrievedAt:new Date().toISOString()});
+  out.push({id:e.id,title:e.title,venue:e.venue||'',lat:e.lat,lon:e.lon,startsOn:e.startsOn,endsOn:e.endsOn,...(kinds||keepKind?{kind:e.kind||''}:{}),sourceUrl:(matched||!supported)&&/^https:\/\//.test(e.sourceUrl)?e.sourceUrl:supported?'https://'+domains[0]:'',sourceDomains:domains,sourceMatch:!!matched,sourceFetched:fetched,verification:supported?'supported':'search',visitorInfo:e.visitorInfo,retrievedAt:new Date().toISOString()});
  });
  out.sort((a,b)=>(a.verification==='supported'?0:1)-(b.verification==='supported'?0:1));
  return out.slice(0,limit);
