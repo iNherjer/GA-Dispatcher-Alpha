@@ -26,6 +26,9 @@ Tracker-Suite im sauberen Release-Worktree `973acfbfa`: 1625/1627 bestanden, 2 �
 
 ## Im Feld prüfen
 
+Feldtest 20.11.2026 (User): alle neuen Karten werden im EFB dargestellt.
+
+
 - OpenStreetMap, OpenStreetMap.de, OSM Swiss Style, CyclOSM im EFB sichtbar (nur über den Tracker).
 - NASA Blue Marble/Earth at Night, ab Zoom 9 vergrößert.
 - Schalter liest sich eindeutig.
