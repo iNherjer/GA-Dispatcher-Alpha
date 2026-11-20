@@ -915,6 +915,7 @@
         "Keine gültigen Wegpunkte in dieser .pln gefunden.": "No valid waypoints found in this .pln.",
         "Koordinaten konnten nicht gelesen werden.": "Coordinates could not be read.",
         "Keine gültigen Wegpunkte in dieser Datei gefunden.": "No valid waypoints found in this file.",
+        "Mission wurde nicht angenommen. Der Entwurf bleibt lokal, du kannst es erneut versuchen.": "The mission was not accepted. The draft stays local, you can try again.",
         "Dateiformat nicht erkannt. Unterstützt: MSFS .pln, Garmin .fpl, SkyDemon .flightplan, .gpx, Little Navmap .lnmpln.": "File format not recognised. Supported: MSFS .pln, Garmin .fpl, SkyDemon .flightplan, .gpx, Little Navmap .lnmpln.",
         "Möchtest du das Ziel für den Rundflug an diese Position verschieben?": "Move the destination of the local flight to this position?",
         "Ohne bestehenden Flugplan brauche ich eine aktive Tracker-Verbindung, damit die aktuelle GPS-Position als Start gesetzt werden kann.": "Without an existing flight plan, an active tracker connection is needed to set the current GPS position as the start.",

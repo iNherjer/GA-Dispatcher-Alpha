@@ -28808,6 +28808,15 @@ async function prepareMissionDraftScene() {
     }
 }
 
+// Gescheitertes Annehmen deutlich melden: die Statuszeile allein uebersieht man leicht
+// (vor allem am Handy), dann wirkt der stehenbleibende Knopf wie ein Haenger.
+function missionAcceptFailedNotice(reason) {
+    const detail = String(reason || '').trim() || _appUiPhrase('Übernahme nicht bestätigt.');
+    try {
+        alert(_appUiPhrase('Mission wurde nicht angenommen. Der Entwurf bleibt lokal, du kannst es erneut versuchen.') + '\n\n' + detail);
+    } catch (_) {}
+}
+
 window.acceptMissionDraft = async function() {
     const session = missionDraftSession();
     if (!session.active()) return prepareMissionDraftScene(); // Existing accepted/legacy scene behavior.
@@ -28821,6 +28830,7 @@ window.acceptMissionDraft = async function() {
         if (!result?.ok) {
             const indicator = document.getElementById('searchIndicator');
             if (indicator) indicator.innerText = 'Entwurf bleibt lokal: ' + (result?.error || 'Übernahme nicht bestätigt.');
+            missionAcceptFailedNotice(result?.error);
             return false;
         }
         if (currentMissionData?.followUpRequestId) window.missionFollowupMarkAccepted?.(currentMissionData.followUpRequestId, currentMissionData);
@@ -28830,6 +28840,7 @@ window.acceptMissionDraft = async function() {
     } catch (error) {
         const indicator = document.getElementById('searchIndicator');
         if (indicator) indicator.innerText = 'Entwurf bleibt lokal: ' + (error?.message || error);
+        missionAcceptFailedNotice(error?.message || error);
         return false;
     } finally {
         if (session.active() && session.status() !== 'committing') session.phase('review');
