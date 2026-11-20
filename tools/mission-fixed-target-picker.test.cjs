@@ -3,12 +3,12 @@ const {test}=require('node:test'),assert=require('node:assert/strict'),fs=requir
 const charter=require('../mission-charter-ideas-core.js'),events=require('../mission-charter-events-core.js'),grounded=require('../mission-grounded-events-core.js'),club=require('../mission-club-ideas-core.js');
 const start={n:'Winzeln',icao:'EDTW',lat:48.27,lon:8.42},dest={n:'Freiburg',icao:'EDTF',lat:48.0225,lon:7.8325,city:'Freiburg im Breisgau'};
 const match={id:'scf',title:'SC Freiburg – Heimspiel',venue:'Europa-Park Stadion',kind:'hobby',lat:48.0213,lon:7.8297,startsOn:'2026-11-22',endsOn:'2026-11-22',visitorInfo:'Bundesliga-Heimspiel',verification:'supported',sourceDomains:['scfreiburg.com']};
-function sandbox(recent){
+function sandbox(recent,found=[match]){
  let searchArgs=null,frames=null;
  const store={getItem:k=>k===charter.HISTORY_KEY?JSON.stringify(recent):null,setItem(){}};
  const c=vm.createContext({console:{warn(){}},Date,Math,JSON,localStorage:store,
   window:{MissionCharterIdeasCore:charter,MissionGroundedEventsCore:grounded,MissionClubIdeasCore:club,
-   MissionCharterEventsCore:{...events,search:async a=>{searchArgs=a;return {events:[match],queries:1,cacheHit:false};}},
+   MissionCharterEventsCore:{...events,search:async a=>{searchArgs=a;return {events:found,queries:1,cacheHit:false};}},
    MissionPrivateContextCore:{resolveBrowser:async()=>({places:[]}),distanceKm:(a,b)=>Math.hypot(a.lat-b.lat,(a.lon-b.lon)*0.67)*111}},
   getMissionAircraftCapabilitySnapshot:()=>({passengerCapacity:4}),getSelectedAiProvider:()=>'gemini',getSelectedAiApiKey:()=>'k',
   fetchGeminiJsonWithFallback:async prompt=>{frames=JSON.parse(prompt.slice(prompt.lastIndexOf('RAHMEN: ')+8).split('\n')[0]);throw Error('stop');}});
@@ -50,4 +50,28 @@ test('Privat: festes Ziel hebt die Event-Taktung auf, sonst bleibt sie',async()=
  const recent=[{eventId:'x'}];
  assert.equal(await c.findPrivateMissionEvent(dest,'2026-11-20',recent),null);assert.equal(searched,0,'Taktung greift ohne festes Ziel');
  const fact=await c.findPrivateMissionEvent(dest,'2026-11-20',recent,{fixedTarget:true});assert.equal(searched,1);assert.equal(fact.eventId,'scf');
+});
+
+const concert={...match,id:'konzert',title:'Symphoniekonzert',kind:'kultur',venue:'Konzerthaus',startsOn:'2026-11-21',endsOn:'2026-11-21'};
+const concert2={...concert,id:'konzert2',title:'Kammerkonzert',startsOn:'2026-11-23',endsOn:'2026-11-23'};
+test('Zwei Events am festen Ziel: je eines auf zwei Vorschlägen, verschiedene Arten bevorzugt, dritter frei',async()=>{
+ const top=events.pickKindsTop([concert,concert2,match],dest,events.KINDS,(a,b)=>1,[],2);
+ assert.deepEqual(top.map(x=>x.event.id),['konzert','scf'],'zweiter Treffer aus anderer Art vor gleichartigem');
+ assert.equal(events.pickKindsTop([concert,concert2],dest,events.KINDS,()=>1,[],2).length,2,'gibt es nur eine Art, zählt auch der zweite gleicher Art');
+ const s=sandbox([],[concert,concert2,match]);
+ await assert.rejects(()=>s.c.window.MissionCharterBrowser.choices([dest,dest,dest],{start,fixedTarget:dest}),/stop/);
+ const f=s.frames();assert.equal(f.filter(x=>x.event).length,2);assert.equal(f[2].event,undefined);
+ assert.deepEqual([f[0].event.id,f[1].event.id],['konzert','scf']);
+ assert.ok(events.FITS[f[0].occasion.id].includes('kultur'));assert.ok(events.FITS[f[1].occasion.id].includes('hobby'));
+ assert.equal(new Set(f.map(x=>x.occasion.id)).size,3);
+});
+test('Privat: festes Ziel liefert zwei Ortsfakten für zwei Vorschläge',async()=>{
+ const code=fs.readFileSync('app.js','utf8'),at=code.indexOf('async function findPrivateMissionEvent('),end=code.indexOf('\nasync function ',at+1);
+ const outing={eventWindowFor:()=>({arrivalDate:'2026-11-21',throughDate:'2026-11-23'})};
+ const c=vm.createContext({console:{warn(){}},localStorage:{},getSelectedAiProvider:()=>'gemini',getSelectedAiApiKey:()=>'k',missionProposalCompactTarget:a=>({n:a.n,icao:a.icao,lat:a.lat,lon:a.lon}),
+  window:{MissionCharterEventsCore:{...events,search:async()=>({events:[concert,match],queries:1})},MissionGroundedEventsCore:grounded,MissionPrivateOutingCore:outing,MissionPrivateContextCore:{distanceKm:()=>2}}});
+ vm.runInContext(code.slice(at,end),c);
+ const facts=await c.findPrivateMissionEvent(dest,'2026-11-20',[{eventId:'x'}],{fixedTarget:true,count:2});
+ assert.equal(facts.map(f=>f.eventId).join(),'konzert,scf');
+ assert.equal((await c.findPrivateMissionEvent(dest,'2026-11-20',[],{})).eventId,'konzert','ohne count bleibt ein einzelner Fakt');
 });

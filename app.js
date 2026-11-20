@@ -44435,12 +44435,14 @@ function missionProposalAptChoiceText(config = {}, params = {}) {
 
 // Privat-Picker: eine Veranstaltungssuche am ersten Ziel (gemeinsames System mit Charter/Verein),
 // nur mit Gemini und wenn die Taktung es erlaubt. Liefert einen Ortsfakt oder null.
-async function findPrivateMissionEvent(airport, missionDate, recent, { fixedTarget = false } = {}) {
+// count > 0 liefert eine Liste von bis zu count Ortsfakten (fester Zielplatz: zwei Events auf zwei Vorschläge).
+async function findPrivateMissionEvent(airport, missionDate, recent, { fixedTarget = false, count = 0 } = {}) {
     const api = window.MissionCharterEventsCore, grounded = window.MissionGroundedEventsCore, geo = window.MissionPrivateContextCore;
     const outing = window.MissionPrivateOutingCore;
-    if (!api || !grounded || !geo || !outing?.eventWindowFor || !airport) return null;
+    const none = count ? [] : null;
+    if (!api || !grounded || !geo || !outing?.eventWindowFor || !airport) return none;
     // Fester Zielplatz: keine Taktung, der Pilot hat den Termin am Ziel womöglich gezielt im Kopf.
-    if (!fixedTarget && !grounded.eventDue(recent, api.EVENT_EVERY.private)) { window.gaPrivateEventSearch = { status: 'skipped', reason: 'event-cadence' }; return null; }
+    if (!fixedTarget && !grounded.eventDue(recent, api.EVENT_EVERY.private)) { window.gaPrivateEventSearch = { status: 'skipped', reason: 'event-cadence' }; return none; }
     const target = missionProposalCompactTarget(airport, 'apt');
     const window_ = outing.eventWindowFor(missionDate);
     window.gaPrivateEventSearch = { status: 'searching', airport: target.icao };
@@ -44450,15 +44452,16 @@ async function findPrivateMissionEvent(airport, missionDate, recent, { fixedTarg
         const result = await api.search({ place, date: missionDate, period: { from: window_.arrivalDate, through: window_.throughDate },
             kinds: api.PRIVATE_KINDS, apiKey: getSelectedAiApiKey(), storage: localStorage });
         const point = { lat: target.lat, lon: target.lon };
-        const match = api.pickKinds(result.events, point, api.PRIVATE_KINDS, geo.distanceKm, recent);
-        const fact = match && api.privateFact(match.event, window_, point, geo.distanceKm);
+        const facts = api.pickKindsTop(result.events, point, api.PRIVATE_KINDS, geo.distanceKm, recent, Math.max(1, count))
+            .map(match => api.privateFact(match.event, window_, point, geo.distanceKm)).filter(Boolean);
+        const fact = facts[0] || null;
         window.gaPrivateEventSearch = { status: 'ready', airport: target.icao, place: place.name, count: result.events.length,
-            queries: result.queries, matched: fact?.eventId || null, matchedTitle: fact?.title || null, verification: fact?.verification || null, cacheHit: result.cacheHit };
-        return fact;
+            queries: result.queries, matched: fact?.eventId || null, matchedIds: facts.map(f => f.eventId), matchedTitle: fact?.title || null, verification: fact?.verification || null, cacheHit: result.cacheHit };
+        return count ? facts : fact;
     } catch (error) {
         window.gaPrivateEventSearch = { status: 'unavailable', airport: target.icao, error: String(error.message) };
         console.warn('[PRIVAT] Optionale Veranstaltungssuche nicht verfügbar.');
-        return null;
+        return none;
     }
 }
 
@@ -44473,19 +44476,23 @@ async function buildPrivateMissionProposalChoices(airports, context = {}) {
     // Optional: recherchierte Veranstaltung am ersten Ziel als zusätzlicher Ortsfakt, höchstens jeder dritte
     // tatsächlich geflogene Privatentwurf (Taktung über die History); verdrängt keine anderen Ideen.
     const missionDate = new Date().toLocaleDateString('en-CA');
-    const privateEvent = await findPrivateMissionEvent(airports[0], missionDate, recent, { fixedTarget: !!context.fixedTarget }).catch(() => null);
+    // Fester Zielplatz: bis zu zwei Events, je eines pro Vorschlag; sonst höchstens eines am ersten Ziel.
+    const privateEvents = context.fixedTarget
+        ? await findPrivateMissionEvent(airports[0], missionDate, recent, { fixedTarget: true, count: window.MissionCharterEventsCore?.FIXED_TARGET_EVENTS || 2 }).catch(() => [])
+        : [await findPrivateMissionEvent(airports[0], missionDate, recent).catch(() => null)].filter(Boolean);
     context.ensureAlive?.();
     const candidates = await Promise.all(airports.map(async (airport, index) => {
         const target = missionProposalCompactTarget(airport, 'apt');
         const region = await geography.resolveBrowser({ name: target.n, lat: target.lat, lon: target.lon });
         const route = missionProposalFormatRoute(context.start, airport, 'apt');
         const knowledge = geography.knowledge(region);
-        if (index === 0 && privateEvent) Object.assign(knowledge, { status: 'accept', ok: true, facts: [privateEvent, ...knowledge.facts].slice(0, 10) });
+        const privateEvent = privateEvents[index] || null;
+        if (privateEvent) Object.assign(knowledge, { status: 'accept', ok: true, facts: [privateEvent, ...knowledge.facts].slice(0, 10) });
         const input = core.frame({ target: { name: target.n, lat: target.lat, lon: target.lon },
             route: { startIcao: currentStartICAO || '', startName: String(context.start?.n || ''),
                 targetIcao: target.icao, targetName: target.n, distanceNm: Math.round(route.nav.dist * 10) / 10 },
             // Missionsdatum nur mit Eventfakt: ohne Fakt bleibt eventVisit wie bisher ausgeschlossen.
-            ...(index === 0 && privateEvent ? { missionDate } : {}), knowledgeContext: knowledge, privateRegionContext: region }, recent);
+            ...(privateEvent ? { missionDate } : {}), knowledgeContext: knowledge, privateRegionContext: region }, recent);
         return { id: `private-${index + 1}`, target, input, routeLabel: route.label, stats: region.stats };
     }));
     context.ensureAlive?.();

@@ -37,7 +37,9 @@ async function search({place,date,period:fixed=null,kinds=KINDS,apiKey,storage,f
  return result;
 }
 // Bester Treffer nahe dem Zielflugplatz zu einer der Arten (Privat: alle Ausflugsarten).
-function pickKinds(events,airport,kinds,distanceKm,recent=[]){const used=new Set((Array.isArray(recent)?recent:[]).map(r=>r&&r.eventId).filter(Boolean));const ok=events.filter(e=>kinds.includes(e.kind)&&!used.has(e.id)).map(e=>({e,km:distanceKm(e,airport)})).filter(x=>Number.isFinite(x.km)&&x.km<=MATCH_KM);ok.sort((a,b)=>rank(a,b,today()));return ok[0]?{event:ok[0].e,km:Math.round(ok[0].km)}:null;}
+function pickKinds(events,airport,kinds,distanceKm,recent=[]){return pickKindsTop(events,airport,kinds,distanceKm,recent,1)[0]||null;}
+// Bis zu n Treffer in Rangfolge; weitere Treffer bevorzugt aus einer anderen Art, damit der Picker echte Auswahl bietet.
+function pickKindsTop(events,airport,kinds,distanceKm,recent=[],n=1){const used=new Set((Array.isArray(recent)?recent:[]).map(r=>r&&r.eventId).filter(Boolean));const ok=(Array.isArray(events)?events:[]).filter(e=>kinds.includes(e.kind)&&!used.has(e.id)).map(e=>({e,km:distanceKm(e,airport)})).filter(x=>Number.isFinite(x.km)&&x.km<=MATCH_KM);ok.sort((a,b)=>rank(a,b,today()));const out=[];for(const pass of [0,1])for(const x of ok){if(out.length>=n)break;if(out.includes(x))continue;if(pass===0&&out.some(o=>o.e.kind===x.e.kind))continue;out.push(x);}return out.map(x=>({event:x.e,km:Math.round(x.km)}));}
 // Privat-Ortsfakt aus einem Event: Tag innerhalb des Fensters (mehrtägig: erster Tag im Fenster).
 function privateFact(event,window,airport,distanceKm){if(!event||!window)return null;if(event.endsOn<window.arrivalDate||event.startsOn>window.throughDate)return null;const day=event.startsOn<window.arrivalDate?window.arrivalDate:event.startsOn;return {kind:'event',topic:'event',eventId:event.id,name:event.title,title:event.title,venue:event.venue,lat:event.lat,lon:event.lon,eventDate:day,startsOn:event.startsOn,endsOn:event.endsOn,source:event.sourceUrl||(event.sourceDomains||[])[0]||'Websuche',verification:event.verification||null,distanceKm:Math.round(distanceKm(airport,event)*10)/10,text:`${event.title} (${event.venue||'Ort laut Quelle'}), ${event.startsOn===event.endsOn?event.startsOn:event.startsOn+' bis '+event.endsOn}: ${event.visitorInfo} Recherchierte öffentliche Veranstaltung; eine Möglichkeit, keine Pflicht. Uhrzeiten und Programm nur, soweit hier genannt.`};}
 // Bester Treffer nahe dem Zielflugplatz, passend zur Reiseart; belegte Treffer vor nur gesuchten,
@@ -53,5 +55,6 @@ function pick(events,airport,occasionId,distanceKm,recent=[]){
 function searchSlot(occasions){return occasions.findIndex(o=>o&&FITS[o.id]);}
 // Kompakter Datensatz für Frame, Idee und Vertrag.
 function anchor(event){return event?{id:event.id,title:event.title,venue:event.venue,lat:event.lat,lon:event.lon,startsOn:event.startsOn,endsOn:event.endsOn,sourceUrl:event.sourceUrl,sourceDomains:event.sourceDomains||[],verification:event.verification||null,visitorInfo:event.visitorInfo,kind:event.kind}:null;}
-const api={rank,LONG_RUNNING_DAYS,KINDS,FITS,EVENT_EVERY,PRIVATE_KINDS,pickKinds,privateFact,WINDOW_DAYS,MATCH_KM,windowFor,placeName,prompt,parse,search,pick,searchSlot,anchor};root.MissionCharterEventsCore=api;if(typeof module!=='undefined')module.exports=api;
+const FIXED_TARGET_EVENTS=2;
+const api={rank,LONG_RUNNING_DAYS,KINDS,FITS,EVENT_EVERY,PRIVATE_KINDS,FIXED_TARGET_EVENTS,pickKinds,pickKindsTop,privateFact,WINDOW_DAYS,MATCH_KM,windowFor,placeName,prompt,parse,search,pick,searchSlot,anchor};root.MissionCharterEventsCore=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof window!=='undefined'?window:globalThis);
