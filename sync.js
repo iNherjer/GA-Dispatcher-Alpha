@@ -2003,13 +2003,6 @@ window.gaNavigationEdit = function(edit) {
     if (!navigationClient.edit(edit) && typeof renderMainRoute === 'function') renderMainRoute();
     return true;
 };
-// Vom Tracker gesperrte Route (z. B. laufende Mission): Profil-Punkte duerfen dann keine Wegpunkte setzen.
-window.gaNavigationRouteLocked = function() {
-    if (!window.gaNavigationAvailable?.()) return false;
-    return !!(navigationReceived && navigationCanDisplay(navigationReceived)
-        && Array.isArray(navigationReceived.points) && navigationReceived.points.length >= 2
-        && navigationReceived.editable === false);
-};
 window.gaNavigationDirectTo = async function(airport, options) {
     await navigationRead();
     let nav = navigationClient.snapshot();
@@ -16370,6 +16363,7 @@ function _syncCompactFlightDataState(state, level = 1) {
         }
         delete out.missionRouteWaypoints;
         delete out.vpAltWaypoints;
+        delete out.vpRouteAltAnchors;
     }
     if (level >= 3) {
         out.wikiDepImageUrl = '';

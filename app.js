@@ -9246,7 +9246,6 @@ function normalizeRouteWaypointForStorage(point) {
     if (Number.isFinite(Number(point.simHoldSec))) out.simHoldSec = Math.max(0, Math.round(Number(point.simHoldSec)));
     if (Number.isFinite(Number(point.altFt))) out.altFt = Math.round(Number(point.altFt));
     if (Number.isFinite(Number(point.legAltFt)) && Number(point.legAltFt) >= 500) out.legAltFt = Math.round(Number(point.legAltFt));
-    if (point.profilePoint === true) out.profilePoint = true;
     if (typeof point.icao === 'string' && point.icao.trim()) out.icao = point.icao.trim().toUpperCase();
     if (typeof point.rppAirportIcao === 'string' && point.rppAirportIcao.trim()) out.rppAirportIcao = point.rppAirportIcao.trim();
     return out;
@@ -10016,7 +10015,6 @@ function compactRouteWaypointsForQuotaStorage(points = []) {
         if (Number.isFinite(Number(point?.simHoldSec))) out.simHoldSec = Math.max(0, Math.round(Number(point.simHoldSec)));
         if (Number.isFinite(Number(point?.altFt))) out.altFt = Math.round(Number(point.altFt));
         if (Number.isFinite(Number(point?.legAltFt)) && Number(point.legAltFt) >= 500) out.legAltFt = Math.round(Number(point.legAltFt));
-        if (point?.profilePoint === true) out.profilePoint = true;
         if (!out.name && idx === 0) out.name = 'Start';
         return out;
     }).filter(Boolean);
@@ -10180,6 +10178,8 @@ function compactActiveMissionStateForQuotaStorage(state = {}) {
         freqCache: freqCompact,
         vpAltWaypoints: compactAltWaypointsForQuotaStorage(state.vpAltWaypoints),
         vpSegmentAlts: compactSegmentAltsForQuotaStorage(state.vpSegmentAlts),
+        vpRouteAltAnchors: state.vpRouteAltAnchors && Array.isArray(state.vpRouteAltAnchors.pts) && state.vpRouteAltAnchors.pts.length <= 60
+            ? state.vpRouteAltAnchors : null,
         vpElevationData: compactElevationDataForQuotaStorage(state.vpElevationData),
         activePassenger: compactPassengerForQuotaStorage(state.activePassenger),
         activeMissionContract: slimMissionObjectForActiveState(state.activeMissionContract)
@@ -10564,6 +10564,7 @@ function saveMissionState() {
         freqCache: freqCache,
         vpAltWaypoints: typeof vpAltWaypoints !== 'undefined' ? vpAltWaypoints : [],
         vpSegmentAlts: typeof vpSegmentAlts !== 'undefined' ? vpSegmentAlts : [],
+        vpRouteAltAnchors: window._vpRouteAltAnchors || null,
         vpElevationData: typeof vpElevationData !== 'undefined' ? vpElevationData : null,
         activePassenger: window.activePassenger || null,
         activeMissionContract: window.activeMissionContract || currentMissionData?.missionContract || null
@@ -11012,6 +11013,13 @@ async function restoreMissionState(state, options = {}) {
     freqCache = state.freqCache || {};
     vpAltWaypoints = state.vpAltWaypoints || [];
     vpSegmentAlts  = state.vpSegmentAlts  || [];
+    // Hoehenpunkte an der Route verankert; aeltere Staende ohne Verankerung einmalig umrechnen.
+    window._vpRouteAltAnchors = state.vpRouteAltAnchors || null;
+    if (!window._vpRouteAltAnchors && vpAltWaypoints.length && typeof vpRouteAltAnchorsFromDistances === 'function') {
+        const storedElev = Array.isArray(state.vpElevationData) ? state.vpElevationData : null;
+        const storedTotal = storedElev && storedElev.length ? Number(storedElev[storedElev.length - 1]?.distNM) : NaN;
+        try { window._vpRouteAltAnchors = vpRouteAltAnchorsFromDistances(vpAltWaypoints, vpSegmentAlts, routeWaypoints, storedTotal); } catch (_) {}
+    }
     vpElevationData = state.vpElevationData || null;
     // Routenwechsel-Detektor vorbelegen – verhindert, dass vpAltWaypoints nach dem Restore
     // sofort wieder gelöscht werden (window._lastVpRouteKey ist nach Reload undefined)
@@ -11186,7 +11194,7 @@ function clearAppMissionState(options = {}) {
     clearMissionDebugSnapshot(options.reason || 'reset-app');
     if (typeof window.updateMissionAcceptanceUi === 'function') window.updateMissionAcceptanceUi();
     window._lastReplayRouteKey = '';
-    vpAltWaypoints = []; vpSegmentAlts = [];
+    vpAltWaypoints = []; vpSegmentAlts = []; window._vpRouteAltAnchors = null;
     vpElevationData = null; window.vpElevationData = null;
     window._lastVpRouteKey = null; window.vpBgNeedsUpdate = true;
     if (map) { routeMarkers.forEach(m => map.removeLayer(m)); if (polyline) { map.removeLayer(polyline); polyline = null; } if (window.hitBoxPolyline) { map.removeLayer(window.hitBoxPolyline); window.hitBoxPolyline = null; } clearAirspaceMapLayers(); if (typeof wxMapMarkers !== 'undefined') { wxMapMarkers.forEach(m => map.removeLayer(m)); wxMapMarkers = []; } }

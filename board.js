@@ -149,6 +149,7 @@ function pinboardCompactFlightDataState(state, level = 1) {
     delete out.freqCache;
     if (level >= 2) {
         delete out.vpAltWaypoints;
+        delete out.vpRouteAltAnchors;
         delete out.missionRouteWaypoints;
     }
     if (level >= 3) {
@@ -3007,8 +3008,11 @@ window.executeMSFSImport = async function(mode) {
     const { newRoute, startIcao, destIcao, cruiseAlt, format } = pendingMSFSImport;
     pendingMSFSImport = null;
     
-    // Geplante Hoehen je Teilstrecke (SkyDemon) stehen als legAltFt an den Wegpunkten; das
-    // Hoehenprofil rechnet daraus seine Hoehenpunkte (vpSyncRouteLegAnchors in profile.js).
+    // Neuer Plan: alte Hoehenpunkte verfallen. Geplante Hoehen je Teilstrecke (SkyDemon) stehen als
+    // legAltFt an den Wegpunkten; das Profil macht daraus einmalig Hoehenpunkte
+    // (vpConvertRouteLegAltsToAnchors in profile.js).
+    window._vpRouteAltAnchors = null;
+    if (typeof vpAltWaypoints !== 'undefined') { vpAltWaypoints = []; vpSegmentAlts = []; }
     routeWaypoints = newRoute;
     currentStartICAO = startIcao;
     currentDestICAO = destIcao;
