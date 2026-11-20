@@ -9245,6 +9245,7 @@ function normalizeRouteWaypointForStorage(point) {
     if (typeof point.simHoldAction === 'string' && point.simHoldAction.trim()) out.simHoldAction = point.simHoldAction.trim();
     if (Number.isFinite(Number(point.simHoldSec))) out.simHoldSec = Math.max(0, Math.round(Number(point.simHoldSec)));
     if (Number.isFinite(Number(point.altFt))) out.altFt = Math.round(Number(point.altFt));
+    if (Number.isFinite(Number(point.legAltFt)) && Number(point.legAltFt) >= 500) out.legAltFt = Math.round(Number(point.legAltFt));
     if (typeof point.icao === 'string' && point.icao.trim()) out.icao = point.icao.trim().toUpperCase();
     if (typeof point.rppAirportIcao === 'string' && point.rppAirportIcao.trim()) out.rppAirportIcao = point.rppAirportIcao.trim();
     return out;
@@ -10013,6 +10014,7 @@ function compactRouteWaypointsForQuotaStorage(points = []) {
         if (point?.simHoldAction) out.simHoldAction = String(point.simHoldAction).slice(0, 80);
         if (Number.isFinite(Number(point?.simHoldSec))) out.simHoldSec = Math.max(0, Math.round(Number(point.simHoldSec)));
         if (Number.isFinite(Number(point?.altFt))) out.altFt = Math.round(Number(point.altFt));
+        if (Number.isFinite(Number(point?.legAltFt)) && Number(point.legAltFt) >= 500) out.legAltFt = Math.round(Number(point.legAltFt));
         if (!out.name && idx === 0) out.name = 'Start';
         return out;
     }).filter(Boolean);

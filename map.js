@@ -5358,7 +5358,9 @@ window.gaGetNavigationRoute = () => routeWaypoints;
 let navigationApplying = false;
 window.gaApplyNavigationRoute = function(nav) {
     if (navigationApplying || nav.points.length < 2) return;
-    const next = normalizeMapRouteWaypoints(nav.points);
+    let next = normalizeMapRouteWaypoints(nav.points);
+    // Kennt der Tracker die Hoehen der Teilstrecken noch nicht, bleiben die bisherigen erhalten.
+    if (window.GAMapRouteEditCore?.carryLegAlts) next = window.GAMapRouteEditCore.carryLegAlts(routeWaypoints, next);
     if (JSON.stringify(normalizeMapRouteWaypoints(routeWaypoints)) === JSON.stringify(next)) return;
     navigationApplying = true;
     try {
@@ -5390,6 +5392,8 @@ function normalizeMapRouteWaypoint(point) {
     if (point.isPoiChainReturnHome === true) out.isPoiChainReturnHome = true;
     if (point.poiChainPointId) out.poiChainPointId = String(point.poiChainPointId).trim();
     if (typeof point.rppAirportIcao === 'string' && point.rppAirportIcao.trim()) out.rppAirportIcao = point.rppAirportIcao.trim();
+    const legAlt = window.GAMapRouteEditCore?.legAltFt?.(point.legAltFt);
+    if (legAlt !== null && legAlt !== undefined) out.legAltFt = legAlt;
     return out;
 }
 
