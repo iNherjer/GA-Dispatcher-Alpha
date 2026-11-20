@@ -3001,6 +3001,17 @@ window.cancelMSFSImport = function() {
     pendingMSFSImport = null;
 };
 
+// Importierte Fluege brauchen wie generierte eine eigene Flug-ID; ohne sie lehnt der Cloud-Abgleich
+// das Annehmen ab (mission_change_invalid), weil er den aktiven Flug nicht zuordnen kann.
+function importMissionIdentity(title) {
+    const createdAt = Date.now();
+    return {
+        missionId: `mission-${createdAt.toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+        missionKey: [currentStartICAO, currentDestICAO, title, 'import'].filter(Boolean).join('|'),
+        generatedAt: createdAt
+    };
+}
+
 window.executeMSFSImport = async function(mode) {
     document.getElementById('importActionModalOverlay').style.display = 'none';
     if (!pendingMSFSImport) return;
@@ -3069,12 +3080,12 @@ window.executeMSFSImport = async function(mode) {
         let finalPax = m.pax || paxText;
         let finalCargo = m.cargo || cargoText;
         
-        currentMissionData = { start: startIcao, dest: destIcao, poiName: isPOI ? currentDName : null, mission: missionTitle, dist: totalDist, ac: typeof selectedAC !== 'undefined' ? selectedAC : "N/A", heading: nav.brng };
+        currentMissionData = { ...importMissionIdentity(missionTitle), start: startIcao, dest: destIcao, poiName: isPOI ? currentDName : null, mission: missionTitle, dist: totalDist, ac: typeof selectedAC !== 'undefined' ? selectedAC : "N/A", heading: nav.brng };
         populateBriefingUI(missionTitle, missionStory, finalPax, finalCargo, isPOI, newRoute, sData, dData);
         
     } else {
         const isPOI = (startIcao === destIcao);
-        currentMissionData = { start: startIcao, dest: destIcao, poiName: isPOI ? currentDName : null, mission: "Privater Import-Flug", dist: totalDist, ac: typeof selectedAC !== 'undefined' ? selectedAC : "N/A", heading: nav.brng };
+        currentMissionData = { ...importMissionIdentity("Privater Import-Flug"), start: startIcao, dest: destIcao, poiName: isPOI ? currentDName : null, mission: "Privater Import-Flug", dist: totalDist, ac: typeof selectedAC !== 'undefined' ? selectedAC : "N/A", heading: nav.brng };
         populateBriefingUI("Privater Flugplan", (!format || format === 'MSFS .pln') ? "Externer Flugplan importiert aus Microsoft Flight Simulator." : `Externer Flugplan importiert (${format}).`, "N/A", "N/A", isPOI, newRoute, sData, dData);
     }
 };
