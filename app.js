@@ -7655,7 +7655,7 @@ function bootAppOnce() {
         localStorage.setItem('ga_pinboard_init', 'true');
     }
 
-    const activeMission = localStorage.getItem('ga_active_mission');
+    const activeMission = (typeof gaActiveMissionRead === 'function' ? gaActiveMissionRead() : localStorage.getItem('ga_active_mission'));
     if (activeMission || window.gaMissionDraftActive?.()) {
         setTimeout(async () => {
             try {
@@ -7668,7 +7668,7 @@ function bootAppOnce() {
                 if (window.gaCloudOpeningPromise) await window.gaCloudOpeningPromise;
                 if (window.gaMissionDraftActive?.()) return;
                 if (window.__gaCloudActiveMissionAppliedAt && Date.now() - window.__gaCloudActiveMissionAppliedAt < 1500) return;
-                const latestActiveMission = localStorage.getItem('ga_active_mission');
+                const latestActiveMission = (typeof gaActiveMissionRead === 'function' ? gaActiveMissionRead() : localStorage.getItem('ga_active_mission'));
                 if (!latestActiveMission) return;
                 const parsedMission = JSON.parse(latestActiveMission);
                 const restored = restoreMissionState(parsedMission, { allowDraft: true, resumeRuntime: true });
@@ -10289,7 +10289,7 @@ window.resolveActiveMissionStorageState = async function(state) {
         return JSON.parse(JSON.stringify(window.__gaActiveMissionStorageFallback));
     const full = await missionFullVault().load(token);
     // Never install an obsolete read over a newer save or a reset.
-    const current = JSON.parse(localStorage.getItem('ga_active_mission') || 'null');
+    const current = JSON.parse((typeof gaActiveMissionRead === 'function' ? gaActiveMissionRead() : localStorage.getItem('ga_active_mission')) || 'null');
     if (current?.localStorageFallbackId !== token) throw new Error('Missionsstand waehrend Wiederherstellung geaendert.');
     rememberActiveMissionStateMemoryFallback(full);
     window.__gaActiveMissionStorageFallbackToken = token;
@@ -10305,7 +10305,7 @@ function storeActiveMissionStateSafely(state = {}, options = {}) {
     for (let attempt = 0; attempt < 2; attempt++) {
         try {
             if (attempt) pruneLocalStorageBeforeActiveMissionRetry({ removeContract: false });
-            localStorage.setItem('ga_active_mission', raw);
+            (typeof gaActiveMissionWrite === 'function' ? gaActiveMissionWrite(raw) : localStorage.setItem('ga_active_mission', raw));
             rememberActiveMissionStateMemoryFallback(null);
             window.__gaActiveMissionStorageFallbackToken = null;
             activeMissionStoragePreferCompact = false;
@@ -10328,10 +10328,10 @@ function storeActiveMissionStateSafely(state = {}, options = {}) {
     });
     const compact = { ...compactActiveMissionStateForQuotaStorage(stampedState), localStorageFallbackId: backup.token };
     try {
-        localStorage.setItem('ga_active_mission', JSON.stringify(compact));
+        (typeof gaActiveMissionWrite === 'function' ? gaActiveMissionWrite(JSON.stringify(compact)) : localStorage.setItem('ga_active_mission', JSON.stringify(compact)));
     } catch (_) {
         // Even at extreme pressure retain a small durable locator, not an old mission.
-        try { localStorage.setItem('ga_active_mission', JSON.stringify({ localStorageFallbackId: backup.token })); } catch (_) {}
+        try { (typeof gaActiveMissionWrite === 'function' ? gaActiveMissionWrite(JSON.stringify({ localStorageFallbackId: backup.token })) : localStorage.setItem('ga_active_mission', JSON.stringify({ localStorageFallbackId: backup.token }))); } catch (_) {}
     }
     return false;
 }
@@ -10346,7 +10346,9 @@ function missionDraftSession() {
     if (!_localMissionDraftSession || _localMissionDraftPilot !== pilot) {
         _localMissionDraftPilot = pilot;
         _localMissionDraftSession = window.GAMissionDraftCore.create({
-            storage: localStorage, key: 'ga_local_mission_draft_v1:' + pilot,
+            // Stored text deduplicated like ga_active_mission (mission-storage-dedupe-core.js); the draft core sees plain JSON.
+            storage: typeof GAMissionStorageDedupe !== 'undefined' ? GAMissionStorageDedupe.wrapStorage(localStorage, 'ga_local_mission_draft_v1:' + pilot) : localStorage,
+            key: 'ga_local_mission_draft_v1:' + pilot,
             vault: window.GAMissionStorageCore.createVault(window.indexedDB, { databaseName: 'ga-local-mission-drafts-v1-' + pilot })
         });
     }
@@ -10400,7 +10402,7 @@ window.gaOpenLoadedMissionAsDraft = async function(state, source = 'pinboard') {
     const md = state?.currentMissionData;
     if (!md || typeof md !== 'object' || window.missionIsFreeflightOnly?.(state)) return { handled: false };
     let accepted = null;
-    try { accepted = JSON.parse(localStorage.getItem('ga_active_mission') || 'null'); } catch (_) {}
+    try { accepted = JSON.parse((typeof gaActiveMissionRead === 'function' ? gaActiveMissionRead() : localStorage.getItem('ga_active_mission')) || 'null'); } catch (_) {}
     const acceptedId = accepted?.currentMissionData?.missionId || null;
     const session = missionDraftSession();
     if (!session.active() && acceptedId && md.missionId && acceptedId === md.missionId) return { handled: false };
@@ -10438,7 +10440,7 @@ window.rejectMissionDraft = async function() {
     const restored = await window.gaReloadAcceptedMissionAfterDraft?.();
     if (_dispatchRunId !== rejectionEpoch || window.gaMissionDraftActive?.()) return false;
     if (!restored) {
-        const state = JSON.parse(localStorage.getItem('ga_active_mission') || 'null');
+        const state = JSON.parse((typeof gaActiveMissionRead === 'function' ? gaActiveMissionRead() : localStorage.getItem('ga_active_mission')) || 'null');
         if (state) await restoreMissionState(state, { source: 'draft-return-local', allowDraft: true, resumeRuntime: true });
         else clearAppMissionState({ skipRuntimeReset: true, complianceReleased: true, abortDispatch: false });
     }

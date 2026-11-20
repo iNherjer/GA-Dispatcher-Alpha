@@ -35,7 +35,7 @@ function _syncMissionRestoreBlocked(epoch = null, incomingMission = null) {
 }
 function _syncStoredAcceptedMission() {
     if (window.__gaActiveMissionStorageFallback) return window.__gaActiveMissionStorageFallback;
-    try { return JSON.parse(localStorage.getItem('ga_active_mission') || 'null'); } catch (_) { return null; }
+    try { return JSON.parse((typeof gaActiveMissionRead === 'function' ? gaActiveMissionRead() : localStorage.getItem('ga_active_mission')) || 'null'); } catch (_) { return null; }
 }
 function _syncTrackerRestoreBlocked(mission) {
     if (window.gaCloudOpeningPending) return true;
@@ -3781,12 +3781,12 @@ function _mutateStoredActiveMissionRuntimeMarker(mutator) {
     try {
         state = window.__gaActiveMissionStorageFallback
             ? JSON.parse(JSON.stringify(window.__gaActiveMissionStorageFallback))
-            : JSON.parse(localStorage.getItem('ga_active_mission') || 'null');
+            : JSON.parse((typeof gaActiveMissionRead === 'function' ? gaActiveMissionRead() : localStorage.getItem('ga_active_mission')) || 'null');
         if (!state || typeof state !== 'object' || state.localStorageFallbackId) return false;
         mutator(state);
         if (typeof window.storeActiveMissionStateSafely === 'function') {
             window.storeActiveMissionStateSafely(state, { refreshActiveMissionTimestamp: false });
-        } else localStorage.setItem('ga_active_mission', JSON.stringify(state));
+        } else (typeof gaActiveMissionWrite === 'function' ? gaActiveMissionWrite(JSON.stringify(state)) : localStorage.setItem('ga_active_mission', JSON.stringify(state)));
         return true;
     } catch (_) { return false; }
 }
@@ -5006,7 +5006,7 @@ function _persistMissionSmokeState() {
         if (typeof saveMissionState === 'function') saveMissionState();
         else if (typeof currentMissionData !== 'undefined' && currentMissionData) {
             if (_syncMissionStateIsDraft({ currentMissionData })) return;
-            localStorage.setItem('ga_active_mission', JSON.stringify({ currentMissionData }));
+            (typeof gaActiveMissionWrite === 'function' ? gaActiveMissionWrite(JSON.stringify({ currentMissionData })) : localStorage.setItem('ga_active_mission', JSON.stringify({ currentMissionData })));
         }
     } catch (_) {}
 }
@@ -5955,7 +5955,7 @@ window.resumeTrackerMissionOnThisDevice = async function(options = {}) {
         // Phase, Manifest und erlaubte Aktionen anschliessend wieder vom Tracker.
         _missionAuthorityRecoverExecutionShadow(bundle);
         try {
-            localStorage.setItem('ga_active_mission', JSON.stringify(bundle.missionState));
+            (typeof gaActiveMissionWrite === 'function' ? gaActiveMissionWrite(JSON.stringify(bundle.missionState)) : localStorage.setItem('ga_active_mission', JSON.stringify(bundle.missionState)));
             localStorage.setItem(MISSION_RUNTIME_RESUME_KEY, JSON.stringify(bundle.runtime));
         } catch (_) {}
         let restoredObserver = false;
@@ -6090,7 +6090,7 @@ window.resumeTrackerMissionOnThisDevice = async function(options = {}) {
     if (_syncMissionRestoreBlocked(restoreEpoch, authoritativeRun) || _syncTrackerRestoreBlocked(authoritativeRun)) return false;
     _missionAuthorityRecoverExecutionShadow(bundle);
     try {
-        localStorage.setItem('ga_active_mission', JSON.stringify(bundle.missionState));
+        (typeof gaActiveMissionWrite === 'function' ? gaActiveMissionWrite(JSON.stringify(bundle.missionState)) : localStorage.setItem('ga_active_mission', JSON.stringify(bundle.missionState)));
         localStorage.setItem(MISSION_RUNTIME_RESUME_KEY, JSON.stringify(bundle.runtime));
     } catch (_) {}
     let restored = false;
@@ -16873,7 +16873,7 @@ function _syncResetExpiredActiveMissionToPlanned(reason = 'sync-active-mission-r
     clear(state.activeMissionContract);
     clear(state.currentMissionData?.missionContract);
     try { localStorage.removeItem(MISSION_RUNTIME_RESUME_KEY); } catch (_) {}
-    try { localStorage.setItem('ga_active_mission', JSON.stringify(state)); } catch (_) {}
+    try { (typeof gaActiveMissionWrite === 'function' ? gaActiveMissionWrite(JSON.stringify(state)) : localStorage.setItem('ga_active_mission', JSON.stringify(state))); } catch (_) {}
     return state;
 }
 
@@ -16888,11 +16888,11 @@ function _syncActiveMissionPayload() {
         }
         return full;
     }
-    const storedRaw = localStorage.getItem('ga_active_mission');
+    const storedRaw = (typeof gaActiveMissionRead === 'function' ? gaActiveMissionRead() : localStorage.getItem('ga_active_mission'));
     let stored; try { stored = JSON.parse(storedRaw || 'null'); } catch (_) {}
     if (stored?.localStorageFallbackId) throw new Error('Cloud-Schutz: Vollstaendigen Missionsstand zuerst aus lokalem Backup oder Cloud laden.');
     try {
-        const state = JSON.parse(localStorage.getItem('ga_active_mission') || 'null');
+        const state = JSON.parse((typeof gaActiveMissionRead === 'function' ? gaActiveMissionRead() : localStorage.getItem('ga_active_mission')) || 'null');
         if (_missionIsFreeflightOnly(state)) {
             return null;
         }
@@ -16921,7 +16921,7 @@ function _syncActiveMissionPayload() {
 
 function _syncFreeflightNavigationPayload() {
     let state = window.__gaActiveMissionStorageFallback;
-    if (!state) { try { state = JSON.parse(localStorage.getItem('ga_active_mission') || 'null'); } catch (_) {} }
+    if (!state) { try { state = JSON.parse((typeof gaActiveMissionRead === 'function' ? gaActiveMissionRead() : localStorage.getItem('ga_active_mission')) || 'null'); } catch (_) {} }
     if (state?.localStorageFallbackId) throw new Error('Freiflug: vollstaendigen lokalen Stand zuerst laden.');
     return window.GAFreeflightNavigationCore?.build(state) || null;
 }
@@ -17010,7 +17010,7 @@ function _syncShouldPreserveLocalMissionWithoutCloud(state = null) {
 
 function _syncHasLocalDraftMission() {
     try {
-        return _syncMissionStateIsDraft(JSON.parse(localStorage.getItem('ga_active_mission') || 'null'));
+        return _syncMissionStateIsDraft(JSON.parse((typeof gaActiveMissionRead === 'function' ? gaActiveMissionRead() : localStorage.getItem('ga_active_mission')) || 'null'));
     } catch (_) {
         return false;
     }
@@ -17063,7 +17063,7 @@ async function _syncApplyActiveMissionFromCloud(activeMission = null, options = 
     let localMission = null;
     window.gaLastCloudMissionPullOutcome = null;
     try {
-        localMission = JSON.parse(localStorage.getItem('ga_active_mission') || 'null');
+        localMission = JSON.parse((typeof gaActiveMissionRead === 'function' ? gaActiveMissionRead() : localStorage.getItem('ga_active_mission')) || 'null');
     } catch (_) {
         localMission = null;
     }
@@ -17139,7 +17139,7 @@ async function _syncApplyActiveMissionFromCloud(activeMission = null, options = 
             const stored = typeof window.storeActiveMissionStateSafely === 'function'
                 ? window.storeActiveMissionStateSafely(missionToApply, { refreshActiveMissionTimestamp: false })
                 : (() => {
-                    localStorage.setItem('ga_active_mission', JSON.stringify(missionToApply));
+                    (typeof gaActiveMissionWrite === 'function' ? gaActiveMissionWrite(JSON.stringify(missionToApply)) : localStorage.setItem('ga_active_mission', JSON.stringify(missionToApply)));
                     return true;
                 })();
             if (stored === false) {
@@ -17730,7 +17730,7 @@ async function triggerCloudSave(immediate = false, options = {}) {
         ? Promise.resolve({ ok: true, skipped: true })
         : _syncHomebasePush(immediate === 'manual' ? 'app-manual-push' : 'app-close-push');
     try {
-        const storedMission = JSON.parse(localStorage.getItem('ga_active_mission') || 'null');
+        const storedMission = JSON.parse((typeof gaActiveMissionRead === 'function' ? gaActiveMissionRead() : localStorage.getItem('ga_active_mission')) || 'null');
         if (storedMission?.localStorageFallbackId) await window.resolveActiveMissionStorageState(storedMission);
     } catch (error) {
         await homebasePushPromise;

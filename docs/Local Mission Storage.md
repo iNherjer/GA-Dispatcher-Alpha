@@ -67,3 +67,28 @@ GA_STORAGE_TEST_IDB=/tmp/ga-storage-test-runtime/node_modules/fake-indexeddb nod
 
 Zusaetzlich Cloud-Storage-, Mission-Update-Sync- und Route-Restore-Selftests.
 Kein realer Safari/iPhone-Quotentest auf dem Entwicklungsrechner.
+
+## Doppelte Teile im gespeicherten Text zusammengelegt (20.11.2026, Web v2482)
+
+Ein Missionsstand traegt dieselben grossen Objekte mehrfach (`activeMissionContract` neben
+`currentMissionData.missionContract`, `missionPlanV4` neben `missionContractV4`, Vertragsfelder neben
+denselben Feldern in `currentMissionData`, `currentMissionData.passenger` neben `activePassenger`).
+Die App arbeitet weiter mit diesen getrennten Kopien. Nur der gespeicherte Text von
+`ga_active_mission` und `ga_local_mission_draft_v1:<Pilot>` ersetzt spaetere identische Objekte
+(ab 512 Zeichen) durch einen Verweis auf das erste: `{"__gaDedupe":1,"data":...}` mit
+`{"$gaRef":[pfad]}` (`mission-storage-dedupe-core.js`).
+
+- Lesen nur ueber `gaActiveMissionRead()`, Schreiben nur ueber `gaActiveMissionWrite(text)` (wirft wie
+  `localStorage.setItem` bei vollem Speicher, Quoten-Rueckfaelle bleiben). Alle 17 Lese- und 10
+  Schreibstellen in app.js, sync.js, board.js, profile.js, crew-presence-client.js rufen sie mit
+  `typeof`-Rueckfall auf `localStorage` auf (Test-Harnesses ohne die Datei). Der Entwurf laeuft ueber
+  `GAMissionStorageDedupe.wrapStorage()`.
+- Der wiederhergestellte Text ist byte-identisch: `packText` entpackt das eigene Ergebnis und speichert
+  sonst ungepackt (auch bei Daten, die zufaellig wie ein Verweis aussehen). Ungepackte Staende bleiben
+  lesbar und werden beim naechsten Speichern zusammengelegt.
+- Echter Stand (Tracker-Resume 11.11.): 269 KB → 105 KB; im Browser 25 ms Packen inkl. Pruefung,
+  10 ms Lesen. Gespeichert wird nur bei Ereignissen, nicht je Telemetrietakt.
+- Cloud-Upload, Export, Pinnwand und Crew-Brett sehen denselben Text wie vorher (A/B-Pruefung: gleiche
+  Missionsdaten in der App mit und ohne Zusammenlegung). Debug-Aufschluesselung zeigt zusaetzlich die
+  gespeicherte Groesse.
+- Tests: `tools/mission-storage-dedupe.test.cjs`.

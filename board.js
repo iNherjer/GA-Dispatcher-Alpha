@@ -185,7 +185,7 @@ function pinboardStoreActiveMissionStateForRestore(state) {
 
     for (let i = 0; i < candidates.length; i++) {
         try {
-            localStorage.setItem('ga_active_mission', JSON.stringify(candidates[i]));
+            (typeof gaActiveMissionWrite === 'function' ? gaActiveMissionWrite(JSON.stringify(candidates[i])) : localStorage.setItem('ga_active_mission', JSON.stringify(candidates[i])));
             try { delete window.__gaActiveMissionStorageFallback; } catch (_) { window.__gaActiveMissionStorageFallback = null; }
             return true;
         } catch (err) {
@@ -1345,7 +1345,7 @@ window.exportMission = async function() {
         alert(_boardUiPhrase('Mission ist noch ein Entwurf. Bitte erst akzeptieren, dann exportieren.'));
         return;
     }
-    const data = localStorage.getItem('ga_active_mission');
+    const data = (typeof gaActiveMissionRead === 'function' ? gaActiveMissionRead() : localStorage.getItem('ga_active_mission'));
     if (!data) { alert(_boardUiPhrase('Kein aktiver Flug zum Exportieren.')); return; }
     let fullState;
     try {
@@ -2232,7 +2232,7 @@ function _bugGetMissionSnapshot() {
 
     if (!mission) {
         try {
-            const raw = localStorage.getItem('ga_active_mission');
+            const raw = (typeof gaActiveMissionRead === 'function' ? gaActiveMissionRead() : localStorage.getItem('ga_active_mission'));
             const parsed = raw ? JSON.parse(raw) : null;
             if (parsed && typeof parsed.currentMissionData === 'object') {
                 mission = parsed.currentMissionData;

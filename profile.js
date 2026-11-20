@@ -4306,7 +4306,7 @@ function vpBuildActiveMissionStorageBreakdownLines() {
     let raw = '';
     let state = null;
     try {
-        raw = localStorage.getItem('ga_active_mission') || '';
+        raw = (typeof gaActiveMissionRead === 'function' ? gaActiveMissionRead() : localStorage.getItem('ga_active_mission')) || '';
         state = raw ? JSON.parse(raw) : null;
     } catch (error) {
         lines.push(`  * nicht lesbar: ${String(error?.message || error).slice(0, 120)}`);
@@ -4327,6 +4327,11 @@ function vpBuildActiveMissionStorageBreakdownLines() {
         .map(item => `${item.key} ${vpFormatBytes(item.bytes)}`)
         .join(' | ');
     lines.push(`  * gesamt ${vpFormatBytes(raw.length * 2)} | Felder: ${top(state, 10) || '-'}`);
+    try {
+        const storedRaw = localStorage.getItem('ga_active_mission') || '';
+        const dedupe = typeof GAMissionStorageDedupe !== 'undefined' && GAMissionStorageDedupe.isPackedText(storedRaw);
+        lines.push(`  * gespeichert ${vpFormatBytes(storedRaw.length * 2)} | ${dedupe ? 'doppelte Teile zusammengelegt' : 'ungepackt'}`);
+    } catch (_) { }
     const md = state.currentMissionData && typeof state.currentMissionData === 'object' ? state.currentMissionData : null;
     if (md) {
         lines.push(`  * currentMissionData: ${top(md, 12) || '-'}`);

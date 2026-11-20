@@ -322,7 +322,7 @@
                 return;
             }
             const busy = typeof window.gaMissionDraftActive === 'function' && window.gaMissionDraftActive();
-            const active = !!localStorage.getItem('ga_active_mission');
+            const active = !!(typeof gaActiveMissionRead === 'function' ? gaActiveMissionRead() : localStorage.getItem('ga_active_mission'));
             if ((busy || active) && !confirm(tr('crew.fly.replaceConfirm', 'Dein aktueller Auftrag wird durch diesen Auftrag ersetzt. Fortfahren?'))) return;
             closeDetail();
             if (typeof pinboardRestoreFlightData === 'function') await pinboardRestoreFlightData(core.restoreSharedMissionState(state));
