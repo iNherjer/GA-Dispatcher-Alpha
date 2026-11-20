@@ -2848,8 +2848,10 @@ function gaParseSkyDemon(xmlDoc) {
     };
     const route = [];
     const legLevels = [];
+    // Hoehe je Teilstrecke, Index = Zielpunkt der Strecke; null = Reiseflughoehe der Route ("MSL").
+    const routeLegLevels = [];
     const start = gaParseSkyDemonCoord(primary.getAttribute('Start'));
-    if (start) { start.sdType = primary.getAttribute('StartType') || ''; route.push(start); }
+    if (start) { start.sdType = primary.getAttribute('StartType') || ''; route.push(start); routeLegLevels.push(null); }
     // Teilstrecken (RhumbLineRoute, GreatCircleRoute ...) tragen den Zielpunkt im Attribut "To".
     // <Alternate> hat ebenfalls "To", ist aber der Ausweichplatz und gehoert nicht zur Route.
     let alternate = null;
@@ -2864,6 +2866,7 @@ function gaParseSkyDemon(xmlDoc) {
         if (label) point.name = label.trim();
         route.push(point);
         const level = readLevel(leg);
+        routeLegLevels.push(level);
         if (level) legLevels.push(level);
     });
     // SkyDemon speichert keine Namen: Flugplaetze bekommen ihren ICAO-Code, der Rest WPn.
@@ -2885,6 +2888,7 @@ function gaParseSkyDemon(xmlDoc) {
         startIcao: first ? gaExtFplEndpointIcao(first, first.sdType === 'Aerodrome') : '',
         destIcao: last ? gaExtFplEndpointIcao(last, last.sdType === 'Aerodrome') : '',
         cruiseAlt: cruiseLevel ? Math.round(cruiseLevel / 500) * 500 : null,
+        legLevels: routeLegLevels.length === route.length && legLevels.length ? routeLegLevels : null,
         droppedTail: alternate ? [alternate.name] : []
     };
 }
@@ -2970,8 +2974,8 @@ window.importMSFS = function(event) {
             else alert(_boardUiPhrase('Dateiformat nicht erkannt. Unterstützt: MSFS .pln, Garmin .fpl, SkyDemon .flightplan, .gpx, Little Navmap .lnmpln.'));
             return;
         }
-        const { newRoute, startIcao, destIcao, cruiseAlt, format } = plan;
-        pendingMSFSImport = { newRoute, startIcao, destIcao, cruiseAlt, format };
+        const { newRoute, startIcao, destIcao, cruiseAlt, format, legLevels } = plan;
+        pendingMSFSImport = { newRoute, startIcao, destIcao, cruiseAlt, format, legLevels };
         
         closeTransferModal();
         let importText = _boardUiText('importModal.detected', { count: newRoute.length }, 'Externe Route ({count} Wegpunkte) erkannt!\nWie möchtest du diesen Flugplan laden?');
@@ -2992,10 +2996,15 @@ window.executeMSFSImport = async function(mode) {
     document.getElementById('importActionModalOverlay').style.display = 'none';
     if (!pendingMSFSImport) return;
     
-    const { newRoute, startIcao, destIcao, cruiseAlt, format } = pendingMSFSImport;
+    const { newRoute, startIcao, destIcao, cruiseAlt, format, legLevels } = pendingMSFSImport;
     pendingMSFSImport = null;
     
     routeWaypoints = newRoute;
+    // Geplante Hoehen je Teilstrecke (SkyDemon) setzt das Hoehenprofil einmalig als Hoehenpunkte,
+    // sobald das Gelaende dieser Route geladen ist (vpApplyImportedLegLevels in profile.js).
+    window._vpImportedLegLevels = Array.isArray(legLevels) && legLevels.length === newRoute.length
+        ? { routeKey: newRoute.map(p => `${(p.lat || 0).toFixed(4)},${((p.lng || p.lon) || 0).toFixed(4)}`).join('|'), legLevels: legLevels.slice() }
+        : null;
     currentStartICAO = startIcao;
     currentDestICAO = destIcao;
     

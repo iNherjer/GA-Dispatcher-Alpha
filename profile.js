@@ -2458,6 +2458,74 @@ function vpApplySarHeliAltitudeConstraints(cacheKey = '') {
     return true;
 }
 
+// Importierter Flugplan mit Hoehe je Teilstrecke (z. B. SkyDemon): einmalig als Hoehenpunkte
+// setzen, sobald das Gelaende genau dieser Route geladen ist. Greift nur, wenn noch keine
+// Hoehenpunkte bestehen (manuell, SAR-Heli oder aus einem gespeicherten Flug) und die Route
+// seit dem Import unveraendert ist. Danach verhalten sich die Punkte wie manuell gesetzte.
+function vpApplyImportedLegLevels(cacheKey = '') {
+    const imported = window._vpImportedLegLevels;
+    if (!imported || imported.routeKey !== cacheKey) return false;
+    if (!Array.isArray(routeWaypoints) || routeWaypoints.length < 2 || !Array.isArray(vpElevationData) || vpElevationData.length < 2) return false;
+    window._vpImportedLegLevels = null;
+    if (Array.isArray(vpAltWaypoints) && vpAltWaypoints.length > 0) return false;
+    const levels = Array.isArray(imported.legLevels) ? imported.legLevels : [];
+    if (levels.length !== routeWaypoints.length) return false;
+
+    const cruiseAlt = parseInt(document.getElementById('altSlider')?.value || document.getElementById('altMapInput')?.textContent || 4500, 10) || 4500;
+    const distances = vpRouteWaypointDistances(routeWaypoints);
+    const totalDist = Number(vpElevationData[vpElevationData.length - 1]?.distNM || distances[distances.length - 1] || 0);
+    if (!(totalDist > 1) || distances.length !== routeWaypoints.length) return false;
+
+    // Hoehe je Strecke; ohne Angabe Reiseflughoehe, nur die letzte Strecke zum Ziel behaelt
+    // die Hoehe davor (sonst ginge es vor der Landung noch einmal auf Reiseflughoehe).
+    const legAlts = [];
+    for (let i = 1; i < routeWaypoints.length; i++) {
+        const level = Number(levels[i]);
+        const isLast = i === routeWaypoints.length - 1;
+        legAlts.push(Number.isFinite(level) && level > 0 ? level : (isLast && legAlts.length ? legAlts[legAlts.length - 1] : cruiseAlt));
+    }
+    // Aufeinanderfolgende Strecken gleicher Hoehe zu Abschnitten zusammenfassen.
+    const runs = [];
+    legAlts.forEach((alt, idx) => {
+        const from = Number(distances[idx]), to = Number(distances[idx + 1]);
+        const last = runs[runs.length - 1];
+        if (last && last.alt === alt) last.to = to;
+        else runs.push({ alt, from, to });
+    });
+    if (runs.length < 2) return false;
+
+    const tas = typeof vpGetProfileTas === 'function' ? vpGetProfileTas() : 100;
+    const depElev = Number(vpElevationData[0]?.elevFt) || 0;
+    const destElev = Number(vpElevationData[vpElevationData.length - 1]?.elevFt) || 0;
+    const climbNm = Math.max(0.5, (Math.max(0, runs[0].alt - depElev) / 500 / 60) * tas * 0.85);
+    const descentNm = Math.max(0.5, (Math.max(0, runs[runs.length - 1].alt - destElev) / 500 / 60) * tas * 0.9);
+
+    // Punkte: Ende des Steigflugs im ersten Abschnitt, jede Abschnittsgrenze (auf der tieferen der
+    // beiden Hoehen, so ist man an der Grenze schon unten bzw. steigt erst danach), Beginn des
+    // Sinkflugs im letzten Abschnitt. Zwischen den Punkten gilt die Hoehe des Abschnitts.
+    const points = [];
+    const firstRun = runs[0];
+    const tocDist = Math.min(climbNm + 0.5, firstRun.from + (firstRun.to - firstRun.from) * 0.8);
+    if (tocDist > 0.1 && tocDist < firstRun.to - 0.1) points.push({ distNM: tocDist, altFt: firstRun.alt, segAfter: firstRun.alt });
+    for (let r = 1; r < runs.length; r++) {
+        points.push({ distNM: runs[r].from, altFt: Math.min(runs[r - 1].alt, runs[r].alt), segAfter: runs[r].alt });
+    }
+    const lastRun = runs[runs.length - 1];
+    const todDist = Math.max(totalDist - descentNm - 0.5, lastRun.from + (lastRun.to - lastRun.from) * 0.2);
+    if (todDist > lastRun.from + 0.1 && todDist < totalDist - 0.1) points.push({ distNM: todDist, altFt: lastRun.alt, segAfter: lastRun.alt });
+
+    const anchors = points
+        .filter(p => Number.isFinite(p.distNM) && p.distNM > 0 && p.distNM < totalDist)
+        .sort((a, b) => a.distNM - b.distNM)
+        .filter((p, idx, arr) => idx === 0 || Math.abs(p.distNM - arr[idx - 1].distNM) > 0.05);
+    if (anchors.length < 2) return false;
+    vpAltWaypoints = anchors.map(p => ({ distNM: Math.round(p.distNM * 100) / 100, altFt: Math.round(p.altFt) }));
+    vpSegmentAlts = anchors.slice(0, -1).map(p => Math.round(p.segAfter));
+    window.vpBgNeedsUpdate = true;
+    if (window.gaDebugPush) window.gaDebugPush('profile', 'Imported leg levels applied', { anchors: vpAltWaypoints.length });
+    return true;
+}
+
 function vpRouteWaypointLabel(index, point = null) {
     const wp = point || (Array.isArray(routeWaypoints) ? routeWaypoints[index] : null) || {};
     const isLast = Array.isArray(routeWaypoints) && index === routeWaypoints.length - 1;
@@ -2576,6 +2644,9 @@ function triggerVerticalProfileUpdate() {
             }
             if (typeof vpApplySarHeliAltitudeConstraints === 'function') {
                 vpApplySarHeliAltitudeConstraints(cacheKey);
+            }
+            if (typeof vpApplyImportedLegLevels === 'function') {
+                vpApplyImportedLegLevels(cacheKey);
             }
             if (document.getElementById('verticalProfileCanvas') && typeof renderVerticalProfile === 'function') {
                 renderVerticalProfile('verticalProfileCanvas');
