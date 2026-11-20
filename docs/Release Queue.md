@@ -27,6 +27,13 @@ liefert alles Offene mit aus.
 
 ## Offen
 
+### 2026-11-20 · Hindernis-Cache gepackt (EFB-Kopie von profile.js)
+- **Artefakt:** Tracker (EFB-Web-Assets)
+- **Dateien:** `ga-tracker-client/efb-web-assets/profile.js` (Sync aus `profile.js`, Web v2481)
+- **Was:** Hindernis-Pool und Routen-Cache gzip-gepackt (`gz1:<ts>:<base64>`), synchrone Aufrufer lesen aus dem Speicher. Ohne `CompressionStream` (vermutlich Coherent im EFB) bleibt es ungepackt wie bisher.
+- **Tests:** `tracker-efb-asset-syntax.test.js`, `tracker-efb-web-client.test.js`.
+- **Pruefen im Feld:** EFB-Karte zeigt Hindernisse/Fluesse wie vorher.
+
 ## Ausgeliefert
 
 ### 2026-11-20 · EFB: OSM-, OSM.de-, OSM-Swiss-, CyclOSM- und NASA-Karten — ausgeliefert in Tracker v655 Alpha (20.11.2026)

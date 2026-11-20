@@ -258,6 +258,106 @@ const VP_OBS_COMBO_MAX_ENTRIES = (() => {
     } catch (_) { }
     return 8;
 })();
+// Obstacle cache entries (pool + route combos) are stored gzip-packed when the browser can
+// ('gz1:<ts>:<base64>', ~5-10x smaller); the callers stay synchronous: a decoded copy lives in
+// memory, writes land there first and are packed in the background, packed entries from the last
+// session are unpacked right after load. Where CompressionStream is missing (e.g. the MSFS EFB),
+// entries stay plain JSON as before, and plain entries are always readable.
+const VP_OBS_PACK_PREFIX = 'gz1:';
+const vpObsPackedMemo = new Map();
+const vpObsPackPending = new Map();
+let vpObsPackPrimeDone = false;
+function vpObsPackAvailable() {
+    return typeof CompressionStream === 'function' && typeof DecompressionStream === 'function';
+}
+async function vpObsGzipBase64(text) {
+    const bytes = new Uint8Array(await new Response(new Blob([text]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer());
+    let binary = '';
+    for (let i = 0; i < bytes.length; i += 32768) binary += String.fromCharCode.apply(null, bytes.subarray(i, i + 32768));
+    return btoa(binary);
+}
+async function vpObsGunzipBase64(data) {
+    const bytes = Uint8Array.from(atob(String(data || '')), function(c) { return c.charCodeAt(0); });
+    return new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+}
+function vpObsPackedParts(raw) {
+    if (typeof raw !== 'string' || raw.indexOf(VP_OBS_PACK_PREFIX) !== 0) return null;
+    const sep = raw.indexOf(':', VP_OBS_PACK_PREFIX.length);
+    if (sep < 0) return null;
+    return { ts: Number(raw.slice(VP_OBS_PACK_PREFIX.length, sep)) || 0, data: raw.slice(sep + 1) };
+}
+// JSON text of an obstacle cache entry, or null (missing, or packed and not unpacked yet).
+function vpObsStoreRead(key) {
+    if (vpObsPackedMemo.has(key)) return vpObsPackedMemo.get(key);
+    let raw = null;
+    try { raw = localStorage.getItem(key); } catch (_) { return null; }
+    if (!raw) return null;
+    if (!vpObsPackedParts(raw)) return raw;
+    void vpObsUnpackKey(key);
+    return null;
+}
+// Timestamp without unpacking (route combo pruning).
+function vpObsStoreTs(key) {
+    let raw = null;
+    try { raw = localStorage.getItem(key); } catch (_) { return 0; }
+    const packed = vpObsPackedParts(raw);
+    if (packed) return packed.ts;
+    try { const parsed = JSON.parse(raw || 'null'); return Number(parsed && parsed.ts) || 0; } catch (_) { return 0; }
+}
+async function vpObsUnpackKey(key) {
+    if (vpObsPackPending.has(key)) return vpObsPackPending.get(key);
+    const job = (async function() {
+        try {
+            const packed = vpObsPackedParts(localStorage.getItem(key));
+            if (packed && vpObsPackAvailable() && !vpObsPackedMemo.has(key)) vpObsPackedMemo.set(key, await vpObsGunzipBase64(packed.data));
+        } catch (_) { }
+        vpObsPackPending.delete(key);
+        return vpObsPackedMemo.has(key) ? vpObsPackedMemo.get(key) : null;
+    })();
+    vpObsPackPending.set(key, job);
+    return job;
+}
+// Synchronous like localStorage.setItem: throws on a full store when it cannot pack (callers
+// keep their quota fallbacks); packed writes report a full store through onQuota.
+function vpObsStoreWrite(key, json, ts, onQuota) {
+    if (!vpObsPackAvailable()) {
+        vpObsPackedMemo.delete(key);
+        localStorage.setItem(key, json);
+        return;
+    }
+    vpObsPackedMemo.set(key, json);
+    void vpObsGzipBase64(json).then(function(data) {
+        if (vpObsPackedMemo.get(key) !== json) return; // newer write or removed meanwhile
+        const value = VP_OBS_PACK_PREFIX + Math.round(Number(ts) || Date.now()) + ':' + data;
+        try { localStorage.setItem(key, value); }
+        catch (e) {
+            if (typeof onQuota === 'function') {
+                try { onQuota(); localStorage.setItem(key, value); } catch (_) { }
+            }
+        }
+    }).catch(function() { });
+}
+function vpObsStoreRemove(key) {
+    vpObsPackedMemo.delete(key);
+    try { localStorage.removeItem(key); } catch (_) { }
+}
+// Unpack the entries of the last session right after load, then hydrate the pool if a caller
+// asked for it before.
+async function vpObsPackPrime() {
+    if (!vpObsPackAvailable()) { vpObsPackPrimeDone = true; return; }
+    const keys = [];
+    try {
+        for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (k && (k === VP_OBS_POOL_STORAGE_KEY || k.indexOf(VP_OBS_COMBO_PREFIX) === 0)) keys.push(k);
+        }
+    } catch (_) { }
+    await Promise.all(keys.map(vpObsUnpackKey));
+    vpObsPackPrimeDone = true;
+    if (vpObsPoolHydrateDeferred) { vpObsPoolHydrateDeferred = false; vpHydrateObsPool(); }
+}
+let vpObsPoolHydrateDeferred = false;
+setTimeout(function() { void vpObsPackPrime(); }, 0);
 const VP_OBS_TILE_COVERAGE_KEY = 'ga_obs_tile_cov_v1';
 const VP_OBS_TILE_EDGE_NM = 25;
 const VP_OBS_TILE_STEP_LAT = VP_OBS_TILE_EDGE_NM / 60; // ~0.4167°
@@ -757,9 +857,15 @@ function vpEncodeObsPoolWithBudget() {
 
 function vpHydrateObsPool() {
     if (vpObsPoolHydrated) return;
+    // Packed snapshot not unpacked yet (first moments after load): hydrate once it is.
+    if (!vpObsPackPrimeDone && vpObsStoreRead(VP_OBS_POOL_STORAGE_KEY) === null) {
+        let hasStored = false;
+        try { hasStored = !!localStorage.getItem(VP_OBS_POOL_STORAGE_KEY); } catch (_) { }
+        if (hasStored) { vpObsPoolHydrateDeferred = true; return; }
+    }
     vpObsPoolHydrated = true;
     try {
-        const raw = localStorage.getItem(VP_OBS_POOL_STORAGE_KEY);
+        const raw = vpObsStoreRead(VP_OBS_POOL_STORAGE_KEY);
         if (!raw) return;
         const parsed = JSON.parse(raw);
         const obs = Array.isArray(parsed && parsed.obs) ? parsed.obs : [];
@@ -814,7 +920,7 @@ function vpPersistObsPoolSoon() {
             // Wichtig: Nur die persistierte Snapshot-Groesse begrenzen.
             // Den RAM-Pool nicht auf Persist-Größe zusammenschrumpfen, sonst
             // verschwinden nach Routenwechseln visuell Features "zufaellig".
-            localStorage.setItem(VP_OBS_POOL_STORAGE_KEY, packed.raw);
+            vpObsStoreWrite(VP_OBS_POOL_STORAGE_KEY, packed.raw, Date.now());
             if (window.vpWeatherDebug) window.vpWeatherDebug.overpassTileCoverageEntries = vpObsTileCoverage.size;
             if (window.gaPerfEnd) window.gaPerfEnd(perf, { ok: true, bytes: packed.raw.length, obs: packed.obsCount, lin: packed.linCount });
         } catch (_) {
@@ -831,7 +937,7 @@ function vpPersistObsPoolSoon() {
                     lin: linSnapshot,
                     partialTiles: vpObsPoolPartialTileKeys(obsSnapshot, linSnapshot)
                 });
-                localStorage.setItem(VP_OBS_POOL_STORAGE_KEY, fallbackRaw);
+                vpObsStoreWrite(VP_OBS_POOL_STORAGE_KEY, fallbackRaw, Date.now());
                 if (window.gaPerfEnd) window.gaPerfEnd(perf, { ok: true, fallback: true, bytes: fallbackRaw.length });
             } catch (_) {
                 if (window.gaPerfEnd) window.gaPerfEnd(perf, { ok: false });
@@ -852,14 +958,7 @@ function vpListObsComboKeys() {
 }
 
 function vpReadObsComboTs(key) {
-    try {
-        const raw = localStorage.getItem(key);
-        if (!raw) return 0;
-        const parsed = JSON.parse(raw);
-        return Number(parsed && parsed.ts) || 0;
-    } catch (_) {
-        return 0;
-    }
+    return vpObsStoreTs(key);
 }
 
 function vpPruneObsComboRouteCache(maxEntries = VP_OBS_COMBO_MAX_ENTRIES) {
@@ -871,10 +970,8 @@ function vpPruneObsComboRouteCache(maxEntries = VP_OBS_COMBO_MAX_ENTRIES) {
         .slice(0, Math.max(0, keys.length - maxEntries));
     let removed = 0;
     for (const v of victims) {
-        try {
-            localStorage.removeItem(v.k);
-            removed++;
-        } catch (_) { }
+        vpObsStoreRemove(v.k);
+        removed++;
     }
     return removed;
 }
@@ -885,18 +982,20 @@ function vpStoreObsComboRouteCache(cacheKey, obs, lin) {
         lin: Array.isArray(lin) ? lin.length : 0
     }) : null;
     const key = `${VP_OBS_COMBO_PREFIX}${cacheKey}`;
-    const payload = JSON.stringify({ ts: Date.now(), obs: obs || [], lin: lin || [] });
+    const storedAt = Date.now();
+    const payload = JSON.stringify({ ts: storedAt, obs: obs || [], lin: lin || [] });
+    const pruneHard = () => vpPruneObsComboRouteCache(Math.min(6, VP_OBS_COMBO_MAX_ENTRIES - 1));
     try {
         vpPruneObsComboRouteCache(VP_OBS_COMBO_MAX_ENTRIES - 1);
-        localStorage.setItem(key, payload);
+        vpObsStoreWrite(key, payload, storedAt, pruneHard);
         vpPruneObsComboRouteCache(VP_OBS_COMBO_MAX_ENTRIES);
         if (window.gaPerfEnd) window.gaPerfEnd(perf, { ok: true, bytes: payload.length });
         return true;
     } catch (e) {
         // Quota voll: alte Route-Caches aggressiv aufraeumen und einmal retry.
         try {
-            vpPruneObsComboRouteCache(Math.min(6, VP_OBS_COMBO_MAX_ENTRIES - 1));
-            localStorage.setItem(key, payload);
+            pruneHard();
+            vpObsStoreWrite(key, payload, storedAt);
             vpPruneObsComboRouteCache(VP_OBS_COMBO_MAX_ENTRIES);
             if (window.gaPerfEnd) window.gaPerfEnd(perf, { ok: true, retry: true, bytes: payload.length });
             return true;
@@ -2590,7 +2689,7 @@ function triggerVerticalProfileUpdate() {
                 const tileProbe = vpGetRouteTileCoverageProbe(vpElevationData);
                 let hasRouteComboCache = false;
                 try {
-                    const comboRaw = localStorage.getItem('ga_obs_combo_' + cacheKey);
+                    const comboRaw = vpObsStoreRead('ga_obs_combo_' + cacheKey);
                     if (comboRaw) {
                         const combo = JSON.parse(comboRaw);
                         const obs = Array.isArray(combo && combo.obs) ? combo.obs : [];
@@ -2607,7 +2706,7 @@ function triggerVerticalProfileUpdate() {
 
                 if (!forceOverpassReload && tileProbe.total > 0 && tileProbe.missing.length === 0) {
                     if (window.vpSetObsTileDeferred) window.vpSetObsTileDeferred('__RESET__', false);
-                    const comboRawFast = localStorage.getItem('ga_obs_combo_' + cacheKey);
+                    const comboRawFast = vpObsStoreRead('ga_obs_combo_' + cacheKey);
                     if (comboRawFast) {
                         try {
                             const comboFast = JSON.parse(comboRawFast);
@@ -2683,7 +2782,7 @@ function triggerVerticalProfileUpdate() {
                     };
 
                     // FIX: Kombinierter Cache für Hindernisse UND Flüsse/Autobahnen
-                    const obStr = localStorage.getItem('ga_obs_combo_' + cacheKey);
+                    const obStr = vpObsStoreRead('ga_obs_combo_' + cacheKey);
                     let hasUsableCache = false;
                     if (obStr) {
                         try { 
@@ -5548,7 +5647,7 @@ window.vpCopyMissionPhaseDebugReport = async function() {
 
 window.vpClearObstacleRollingCache = function() {
     try {
-        localStorage.removeItem(VP_OBS_POOL_STORAGE_KEY);
+        vpObsStoreRemove(VP_OBS_POOL_STORAGE_KEY);
         localStorage.removeItem(VP_OBS_TILE_COVERAGE_KEY);
         localStorage.removeItem(VP_OBS_TILE_FAILED_KEY);
         localStorage.removeItem(VP_OVERPASS_STATE_STORAGE_KEY);
@@ -5558,7 +5657,7 @@ window.vpClearObstacleRollingCache = function() {
             if (!k) continue;
             if (k.startsWith('ga_obs_combo_')) toDelete.push(k);
         }
-        toDelete.forEach(k => localStorage.removeItem(k));
+        toDelete.forEach(k => vpObsStoreRemove(k));
     } catch (_) { }
 
     try {
