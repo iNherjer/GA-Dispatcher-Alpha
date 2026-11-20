@@ -1,5 +1,12 @@
 # EFB- und Toolbar-Panel-Community-Packages und Rollout
 
+## EFB 0.4.28 Alpha: Flugplan holen (20.11.2026)
+
+Offizieller Windows-SDK-Bau 1.7.2 von `2ac55247f`, Release `efb-app-v0.4.28` (461998 Bytes, SHA-256
+`4dbe51019a708246b2ff1ad68e5b533cc835593306f0ff863b3dccf394c6b088`), Download geprüft, Alpha aktiviert,
+Stable bleibt 0.4.27. Inhalt und Prüfpunkte: `docs/EFB-0.4.28-SDK-Handoff.md`. Braucht Tracker v651+.
+Simulatorabnahme durch User/Tester offen.
+
 ## SDK 0.4.22: freigegebener Alpha-Feldtest (07.10.2026)
 
 Offizielles SDK-Archiv unter `efb-app-v0.4.22` veröffentlicht, öffentlicher

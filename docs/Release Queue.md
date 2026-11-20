@@ -27,7 +27,9 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-### 2026-11-19 · EFB-/Toolbar-Paket 0.4.28: Flugplan aus Simulator holen
+## Ausgeliefert
+
+### 2026-11-19 · EFB-/Toolbar-Paket 0.4.28: Flugplan aus Simulator holen — ausgeliefert als EFB 0.4.28 Alpha (20.11.2026)
 - **Artefakt:** EFB-Paket (offizieller Windows-SDK-Bau, nicht auf dem Mac)
 - **Dateien:** `ga-tracker-client/efb-app/flightplan-bridge-core.js`, `ga-tracker-client/efb-app/native-flightplan-bridge.js` und die identischen Toolbar-Kopien unter `toolbar-panel/PackageSources/html_ui/InGamePanels/VfrMultitool/`; Version 0.4.28 in `PackageDefinitions/vfr-multitool-efb.xml`, `package.json`, `package-lock.json`.
 - **Was:** Route aus EFB-Planung (`GET_EFB_ROUTE`), Flugsicherung (`GET_ATC_ROUTE`) und Avionik (`REQUEST_AVIONICS_ROUTE` + Ereignis, Rückfall `AvionicsRouteSync`) lesen und als Navigationsroute melden; Fixe über die Facility-Datenbank aufgelöst, Verfahren/Airways nur als Hinweis. Neue Nachricht `ga-flightplan-fetch`, Fähigkeit `fetch`.
@@ -35,8 +37,6 @@ liefert alles Offene mit aus.
 - **Tests:** `efb-app/flightplan-bridge-core.test.js` (15), `efb-app/flightplan-native.test.js` (7), `tracker-efb-asset-syntax.test.js`.
 - **Doku beim Release:** `docs/EFB-0.4.28-SDK-Handoff.md` mit Build-Hash ergänzen, `docs/EFB-Community-Package.md`.
 - **Pruefen im Feld:** siehe Handoff (EFB und Toolbar, Avionik mit/ohne Antwort).
-
-## Ausgeliefert
 
 ### 2026-11-19 · Korrekturen der Losroll-Warnung — ausgeliefert in Tracker v654 Alpha (19.11.2026)
 - **Artefakt:** Tracker-EXE (Missions-Prozess). Web v2473 nur Cache.

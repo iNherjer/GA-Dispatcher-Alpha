@@ -9007,4 +9007,5 @@ Im Simulator noch nicht geprüft: Kacheln über den Tracker sichtbar (nicht schw
 Toolbar und VR; Holen/Senden wie im Handoff beschrieben.
 
 Ausgeliefert: Tracker v651 Alpha und Desktop 1.6.41 (`docs/Tracker-v651-Release.md`,
-`docs/Tracker-Desktop-1.6.41-Release.md`). EFB-/Toolbar-Paket 0.4.28 wartet auf den Windows-SDK-Bau.
+`docs/Tracker-Desktop-1.6.41-Release.md`). EFB-/Toolbar-Paket 0.4.28 am 20.11.2026 auf Windows gebaut, als `efb-app-v0.4.28` veröffentlicht
+und im Alpha-Kanal aktiviert (`docs/EFB-0.4.28-SDK-Handoff.md`, Abschnitt Ergebnis). Simulatortest offen.

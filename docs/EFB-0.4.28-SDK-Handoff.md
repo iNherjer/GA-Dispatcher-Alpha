@@ -1,7 +1,6 @@
 # EFB-/Toolbar-Paket 0.4.28 – Übergabe für den offiziellen Windows-SDK-Bau
 
-Stand 19.11.2026, Quelle auf `origin/main` (Commit siehe Release Queue). Noch kein SDK-Build,
-keine Veröffentlichung, kein Simulatortest.
+Stand 20.11.2026: gebaut, veröffentlicht und im Alpha-Kanal aktiviert (siehe „Ergebnis“). Kein Simulatortest.
 
 ## Was sich im Paket ändert
 
@@ -45,3 +44,17 @@ auf 0.4.28.
 - Avionik: G1000 NXi/G3000/GNS mit Flugplan, dann ohne; Meldung bei fehlender Antwort.
 - Übernehmen ersetzt die Route in EFB, Toolbar und Web-App; Verwerfen ändert nichts.
 - Während einer Mission: Holen gesperrt, Senden wie bisher.
+
+## Ergebnis (20.11.2026)
+
+- Windows-SDK-Bau von Quellcommit `2ac55247f`: MSFS-2024-SDK 1.7.2, JS-SDK 2.1.1,
+  `fspackagetool -forcesteam -rebuild -nopause`, Exitcode 0; App-Build, `tsc --noEmit` und 76 Tests bestanden.
+  SDK-Deklarationen bestätigen `RegisterViewListener(...).on`, `FacilityLoader.getFacility(IcaoValue)` und
+  `ICAO.getFacilityTypeFromValue`; `REQUEST_AVIONICS_ROUTE` liefert eine numerische Request-ID.
+- 22 Layout-Einträge, 21 Kopien, 24 ZIP-Dateien geprüft (Pfadtrenner Backslash wie 0.4.27).
+- Gegenprüfung auf dem Mac: beide Brückenmodule im ZIP byte-gleich mit `2ac55247f`
+  (`flightplan-bridge-core.js` `556e2f2f…`, `native-flightplan-bridge.js` `b5b72ff4…`), EFB-Bundle enthält
+  `REQUEST_AVIONICS_ROUTE`, `AvionicsRouteRequestResponse`, `ga-flightplan-fetch`, `getFacilityTypeFromValue`.
+- Release `efb-app-v0.4.28`, `vfr-multitool-efb-0.4.28.zip` 461998 Bytes, SHA-256
+  `4dbe51019a708246b2ff1ad68e5b533cc835593306f0ff863b3dccf394c6b088`; öffentlicher Download geprüft.
+- `ga-tracker-client/efb/channel/alpha.json` auf 0.4.28 aktiviert, `stable.json` unverändert (0.4.27).
