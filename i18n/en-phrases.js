@@ -1392,6 +1392,11 @@
         "Über Tracker (gespeichert)": "Via tracker (cached)",
         "Direkt aus dem Internet": "Directly from the internet",
         "Lädt Karten über den Tracker und speichert sie auf dem PC. Bleiben Kacheln schwarz, hier ausschalten.": "Loads maps through the tracker and keeps them on the PC. If tiles stay black, switch this off here.",
+        "Ausschalten": "Switch off",
+        "Einschalten": "Switch on",
+        "An: Karten über den Tracker, auf dem PC gespeichert": "On: maps through the tracker, kept on the PC",
+        "Aus: Karten direkt aus dem Internet": "Off: maps directly from the internet",
+        "Bleiben Kacheln schwarz, hier ausschalten. OpenStreetMap-Karten laden immer über den Tracker.": "If tiles stay black, switch this off here. OpenStreetMap maps always load through the tracker.",
 
         // API key check (app.js setApiKeyValidationStatus)
         'Pruefe API-Key...': 'Checking API key...',

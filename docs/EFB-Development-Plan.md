@@ -9027,3 +9027,6 @@ Online-Karten ohne Schlüssel, die FSPM anbietet, jetzt auch bei uns (Web-App li
   Typecheck möglich, SDK-Typen fehlen auf dem Mac).
 
 Voraussetzung im Feld: Kacheln über den Tracker sind in Coherent sichtbar (Feldtest v651+). Erst danach Tracker-Build.
+
+Feldtest 20.11.2026 (v654): Kacheln über den Tracker in Coherent sichtbar (`source=tracker-proxy`).
+Ausgeliefert mit Tracker v655 Alpha (`docs/Tracker-v655-Release.md`), dazu eindeutiger Kartenspeicher-Schalter.

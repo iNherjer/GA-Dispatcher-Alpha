@@ -27,7 +27,9 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-### 2026-11-20 · EFB: OSM-, OSM.de-, OSM-Swiss-, CyclOSM- und NASA-Karten
+## Ausgeliefert
+
+### 2026-11-20 · EFB: OSM-, OSM.de-, OSM-Swiss-, CyclOSM- und NASA-Karten — ausgeliefert in Tracker v655 Alpha (20.11.2026)
 - **Artefakt:** Tracker-EXE (EFB-Kartenkatalog, Host, Kachel-Proxy). Web live mit v2474.
 - **Dateien:** `ga-tracker-client/efb-app/map-shell-core.js` (+ Test), `ga-tracker-client/tracker-efb-kartentisch-host.js`, `ga-tracker-client/tracker-efb-tile-proxy.js`, `ga-tracker-client/tracker-efb-tile-loading.test.js`; für den nächsten EFB-Paket-Build `efb-app/PackageSources/VfrMultitool/src/VfrMultitool.tsx` (überspringt `proxyOnly`).
 - **Was:** Sechs neue globale Basiskarten; die vier OSM-Karten nur über den Tracker (App-Kennung mit Kontakt, Plattenspeicher), NASA bis Zoom 8 direkt mit Tracker-Rückfall.
@@ -36,8 +38,6 @@ liefert alles Offene mit aus.
 - **Freigabe:** erst nach dem Feldtest „Kartenspeicher“ (Kacheln über den Tracker in Coherent nicht schwarz), sonst sind die OSM-Karten im EFB leer.
 - **Doku beim Release:** `docs/EFB-Development-Plan.md` Abschnitt 20.11.2026 um Version ergänzen.
 - **Pruefen im Feld:** Jede neue Karte im EFB wählen; OSM-Karten nach Cache-Leeren neu laden; NASA ab Zoom 9 vergrößert.
-
-## Ausgeliefert
 
 ### 2026-11-19 · EFB-/Toolbar-Paket 0.4.28: Flugplan aus Simulator holen — ausgeliefert als EFB 0.4.28 Alpha (20.11.2026)
 - **Artefakt:** EFB-Paket (offizieller Windows-SDK-Bau, nicht auf dem Mac)

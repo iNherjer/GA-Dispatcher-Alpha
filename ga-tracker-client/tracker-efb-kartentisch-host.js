@@ -2428,11 +2428,13 @@
     button.className = 'ga-base-dim-btn ga-tile-cache-toggle';
     var state = document.createElement('span');
     state.className = 'ga-base-dim-value';
+    // State and action stay separate: the state reads "an/aus", the button names
+    // what it does (field test 20.11.2026: "Aus" was read as the current state).
     function render() {
       var on = tileCachePreferred();
-      button.textContent = on ? _hT('Aus') : _hT('Ein');
+      button.textContent = on ? _hT('Ausschalten') : _hT('Einschalten');
       button.setAttribute('aria-pressed', on ? 'true' : 'false');
-      state.textContent = on ? _hT('Über Tracker (gespeichert)') : _hT('Direkt aus dem Internet');
+      state.textContent = on ? _hT('An: Karten über den Tracker, auf dem PC gespeichert') : _hT('Aus: Karten direkt aus dem Internet');
     }
     button.addEventListener('click', function (event) {
       event.preventDefault();
@@ -2449,7 +2451,7 @@
     wrap.appendChild(row);
     var hint = document.createElement('div');
     hint.className = 'ga-base-dim-hint';
-    hint.textContent = _hT('Lädt Karten über den Tracker und speichert sie auf dem PC. Bleiben Kacheln schwarz, hier ausschalten.');
+    hint.textContent = _hT('Bleiben Kacheln schwarz, hier ausschalten. OpenStreetMap-Karten laden immer über den Tracker.');
     wrap.appendChild(hint);
     if (L.DomEvent) {
       L.DomEvent.disableClickPropagation(wrap);
