@@ -2842,39 +2842,50 @@ function gaParseSkyDemonCoord(value) {
 function gaParseSkyDemon(xmlDoc) {
     const primary = gaExtFplAll(xmlDoc, 'PrimaryRoute')[0];
     if (!primary) return { format: 'SkyDemon .flightplan', newRoute: [] };
-    const route = [];
-    const levels = [];
     const readLevel = (el) => {
         const level = Number(el?.getAttribute('Level'));
-        if (Number.isFinite(level) && level >= 500 && level <= 30000) levels.push(level);
+        return Number.isFinite(level) && level >= 500 && level <= 30000 ? level : null;
     };
+    const route = [];
+    const legLevels = [];
     const start = gaParseSkyDemonCoord(primary.getAttribute('Start'));
-    if (start) route.push(start);
-    readLevel(primary);
+    if (start) { start.sdType = primary.getAttribute('StartType') || ''; route.push(start); }
     // Teilstrecken (RhumbLineRoute, GreatCircleRoute ...) tragen den Zielpunkt im Attribut "To".
+    // <Alternate> hat ebenfalls "To", ist aber der Ausweichplatz und gehoert nicht zur Route.
+    let alternate = null;
     Array.from(primary.children || []).forEach(leg => {
+        const tag = String(leg.localName || leg.nodeName || '');
         const point = gaParseSkyDemonCoord(leg.getAttribute('To'));
         if (!point) return;
+        point.sdType = leg.getAttribute('ToType') || '';
+        if (tag === 'Alternate') { alternate = point; return; }
+        if (!/Route$/.test(tag)) return;
         const label = leg.getAttribute('Name') || leg.getAttribute('Ident') || leg.getAttribute('Identifier') || '';
         if (label) point.name = label.trim();
         route.push(point);
-        readLevel(leg);
+        const level = readLevel(leg);
+        if (level) legLevels.push(level);
     });
-    route.forEach((p, i) => {
+    // SkyDemon speichert keine Namen: Flugplaetze bekommen ihren ICAO-Code, der Rest WPn.
+    const nameFor = (p, i) => {
         if (p.name) return;
-        const airportHere = gaExtFplNearbyAirportIcao(p, 1);
+        const airportHere = gaExtFplNearbyAirportIcao(p, p.sdType === 'Aerodrome' ? 3 : 1);
         if (airportHere) p.name = airportHere;
         else { p.name = `WP${i + 1}`; p.userWaypoint = true; }
-    });
+    };
+    route.forEach(nameFor);
+    if (alternate) nameFor(alternate, route.length);
     const first = route[0], last = route[route.length - 1];
-    // Hoechste geplante Teilstrecke als Reiseflughoehe; in 500-ft-Schritten.
-    const cruiseAlt = levels.length ? Math.round(Math.max(...levels) / 500) * 500 : null;
+    // Reiseflughoehe der Route; nur ohne sie die hoechste Teilstrecke.
+    const routeLevel = readLevel(primary);
+    const cruiseLevel = routeLevel || (legLevels.length ? Math.max(...legLevels) : null);
     return {
         format: 'SkyDemon .flightplan',
         newRoute: route,
-        startIcao: first ? gaExtFplEndpointIcao(first, false) : '',
-        destIcao: last ? gaExtFplEndpointIcao(last, false) : '',
-        cruiseAlt
+        startIcao: first ? gaExtFplEndpointIcao(first, first.sdType === 'Aerodrome') : '',
+        destIcao: last ? gaExtFplEndpointIcao(last, last.sdType === 'Aerodrome') : '',
+        cruiseAlt: cruiseLevel ? Math.round(cruiseLevel / 500) * 500 : null,
+        droppedTail: alternate ? [alternate.name] : []
     };
 }
 
@@ -2965,7 +2976,7 @@ window.importMSFS = function(event) {
         closeTransferModal();
         let importText = _boardUiText('importModal.detected', { count: newRoute.length }, 'Externe Route ({count} Wegpunkte) erkannt!\nWie möchtest du diesen Flugplan laden?');
         importText += `\n${format}: ${startIcao} → ${destIcao}`;
-        if (plan.droppedTail?.length) importText += `\n${_boardUiText('importModal.droppedTail', { list: plan.droppedTail.join(', ') }, 'Angehängter Ausweichplatz nicht übernommen: {list}')}`;
+        if (plan.droppedTail?.length) importText += `\n${_boardUiText('importModal.droppedTail', { list: plan.droppedTail.join(', ') }, 'Ausweichplatz nicht in die Route übernommen: {list}')}`;
         document.getElementById('importActionText').innerText = importText;
         document.getElementById('importActionModalOverlay').style.display = 'flex';
     };

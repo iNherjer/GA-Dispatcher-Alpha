@@ -367,7 +367,7 @@
         'importModal.title': '📂 External flight plan',
         'importModal.blank': '📝 Import as blank flight',
         'importModal.ai': '🤖 Generate AI briefing',
-        'importModal.droppedTail': 'Appended alternate not taken over: {list}',
+        'importModal.droppedTail': 'Alternate not taken into the route: {list}',
         'importModal.detected': 'External route ({count} waypoints) detected!\nHow do you want to load this flight plan?',
         'common.cancel': '❌ Cancel',
         'common.close': '❌ Close',
