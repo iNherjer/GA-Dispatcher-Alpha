@@ -22,7 +22,7 @@ Zusammen mit Web v2475.
 
 ## Tests
 
-_wird nach Testlauf eingetragen_
+Tracker-Suite im sauberen Release-Worktree `973acfbfa`: 1625/1627 bestanden, 2 übersprungen, 0 Fehler.
 
 ## Im Feld prüfen
 
@@ -33,5 +33,6 @@ _wird nach Testlauf eingetragen_
 ## Artefakt
 
 - Release `v655`, Asset `VFR-Multitool-Tracker.exe`
-- Größe: _wird nach Build eingetragen_
-- SHA-256: _wird nach Build eingetragen_
+- Größe: 175357770 Bytes
+- SHA-256: `cb059db65b01f2e7da4508ee4cb5379b46ed3bc401a45f2363d6dee53e07b27e`
+- Öffentlicher Download geprüft (Größe und SHA-256 identisch), Alpha aktiviert, Stable unverändert.
