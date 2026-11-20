@@ -402,7 +402,8 @@
         scheduleVoice(5000); return;
       }
       if (Date.now() < playbackUnavailableUntil || listenForVoice() !== true || (!relayAvailable() && (!session || !session.sessionId)) || getAudioPlaybackEnabled() !== true || activeVoice) {
-        scheduleVoice(activeVoice ? 500 : 1200);
+        // Web ohne Tracker-Mission: nichts abzuspielen, seltener pruefen (Akku). EFB/Toolbar unveraendert.
+        scheduleVoice(activeVoice ? 500 : (role === 'web' && listenForVoice() !== true ? 5000 : 1200));
         return;
       }
       try {

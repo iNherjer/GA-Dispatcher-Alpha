@@ -424,7 +424,9 @@
     } else {
       enabled = isActive(); player.update(enabled ? state : null); render();
     }
-    if (!closed && epoch === lifecycleEpoch) tickTimer = setTimeout(tick, 1000);
+    // Web ohne Tracker-Audiostand: nichts zu aktualisieren, seltener pruefen (Akku); der Stand
+    // kommt per ga:tracker-audio-state und wird sofort angewendet.
+    if (!closed && epoch === lifecycleEpoch) tickTimer = setTimeout(tick, local || state ? 1000 : 5000);
   }
   root.addEventListener('pagehide', function () {
     closed = true; lifecycleEpoch++; clearTimeout(volumeTimer); clearTimeout(tickTimer);

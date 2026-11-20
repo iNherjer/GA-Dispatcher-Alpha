@@ -137,6 +137,8 @@
         }
         #bootSplash .boot-splash-dots span:nth-child(2) { animation-delay: 0.15s; }
         #bootSplash .boot-splash-dots span:nth-child(3) { animation-delay: 0.30s; }
+        /* Ausgeblendet: Punkte nicht endlos weiter animieren (kostet Akku). */
+        #bootSplash.is-hidden .boot-splash-dots span { animation: none; }
         #bootSplash .boot-splash-actions {
             display: none;
             gap: 10px;
@@ -161,7 +163,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="icon-dark-180.png">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="stylesheet" href="vendor/maplibre/maplibre-gl.css">
-    <link rel="preload" href="styles.css?v=ui-scale-panels-20261103-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=battery-idle-20261120-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="stylesheet" href="homebase-integration.css?v=homebase-foreground-20261014-01">
     <link rel="stylesheet" href="crew-presence.css?v=crew-fleet-20261103-01">
     <link rel="stylesheet" href="ppl-quiz.css?v=ppl-quiz-20261029-06">
@@ -173,7 +175,7 @@
     <link rel="stylesheet" href="glareshield.css?v=appearance-20261028-05">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=ui-scale-panels-20261103-01">
+        <link rel="stylesheet" href="styles.css?v=battery-idle-20261120-01">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -2607,15 +2609,15 @@
         };
 
         const FREEZE_WATCH_VISIBLE_INTERVAL_MS = 250;
-        const FREEZE_WATCH_HIDDEN_INTERVAL_MS = 1000;
         let lastFrameTs = performance && performance.now ? performance.now() : Date.now();
         let lastFreezeLogTs = 0;
         let freezeWatchTimer = null;
         let freezeWatchExpectedDelayMs = FREEZE_WATCH_VISIBLE_INTERVAL_MS;
         function scheduleFreezeWatch() {
-            freezeWatchExpectedDelayMs = document.hidden
-                ? FREEZE_WATCH_HIDDEN_INTERVAL_MS
-                : FREEZE_WATCH_VISIBLE_INTERVAL_MS;
+            // Im Hintergrund wird nichts geloggt: pausieren statt den Prozess sekuendlich zu wecken;
+            // visibilitychange startet den Waechter wieder.
+            if (document.hidden) return;
+            freezeWatchExpectedDelayMs = FREEZE_WATCH_VISIBLE_INTERVAL_MS;
             freezeWatchTimer = setTimeout(watchFrame, freezeWatchExpectedDelayMs);
         }
         function watchFrame() {
@@ -3007,7 +3009,7 @@
 <script defer src="sim-route.js?v=autozoom-20260613-03"></script>
 <script defer src="sim-manual-flight.js?v=cargo-left-behind-20260729-01"></script>
 <script defer src="ga-tracker-client/tracker-audio-player.js"></script>
-<script defer src="ga-tracker-client/tracker-cockpit-session-client.js?v=tracker-controller-20260818-01" data-role="web"></script>
+<script defer src="ga-tracker-client/tracker-cockpit-session-client.js?v=battery-idle-20261120-01" data-role="web"></script>
 <script defer src="tracker-voice-client.js?v=pax-menu-speed-20261005-01"></script>
 <script defer src="passenger-voice.js?v=premature-taxi-20261119-01"></script>
 <script defer src="ga-tracker-client/tracker-audio-client.js"></script>
