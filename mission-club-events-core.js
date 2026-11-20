@@ -4,6 +4,8 @@ const CACHE_KEY='ga_club_events_v3';
 // Veranstaltungen der Flugsimulator-Szene (z. B. FS Conference am Flughafen Paderborn/Lippstadt) gehören
 // zum Vereinsleben vieler Simmer und werden vor Fly-ins/Flugfesten angeboten (kind 'flightsim' vs. 'aviation').
 const KINDS=['flightsim','aviation'];
+// Veranstaltungsort höchstens 20 km vom Platz (Messe/Konferenz liegt oft in der Stadt, nicht am Vorfeld).
+const MATCH_KM=20;
 function kindOf(event){return String(event?.kind||'').trim().toLowerCase()==='flightsim'?'flightsim':'aviation';}
 // Belegprüfung über mission-grounded-events-core.js (Textliste + groundingSupports pro Zeile); der frühere
 // Abgleich sourceUrl gegen groundingChunks.uri konnte nie greifen, weil Google nur Weiterleitungs-URLs liefert.
@@ -16,6 +18,6 @@ async function search({start,maxNM,date,apiKey,storage,fetchImpl=fetch}){const p
 const body=await grounded().request({prompt:prompt(start,maxNM,period),apiKey,fetchImpl,maxOutputTokens:5000});const result={key,at:Date.now(),events:parse(body,period),usage:body.usageMetadata,cacheHit:false};try{storage?.setItem(CACHE_KEY,JSON.stringify(result));}catch{}return result;}
 // Sim-Szene zuerst; innerhalb einer Art bleibt die Belegreihenfolge aus parse (belegte Treffer vorn).
 function prioritized(events){return (Array.isArray(events)?events:[]).map((e,i)=>({e,i})).sort((a,b)=>(kindOf(a.e)==='flightsim'?0:1)-(kindOf(b.e)==='flightsim'?0:1)||a.i-b.i).map(x=>x.e);}
-function match(events,airports,distanceKm){for(const event of prioritized(events)){const candidates=airports.map(airport=>({airport,km:distanceKm(event,airport)})).filter(x=>x.km<=10).sort((a,b)=>a.km-b.km);if(candidates.length)return {event,airport:candidates[0].airport};}return null;}
-const api={KINDS,kindOf,prioritized,windowFor,prompt,parse,search,match};root.MissionClubEventsCore=api;if(typeof module!=='undefined')module.exports=api;
+function match(events,airports,distanceKm){for(const event of prioritized(events)){const candidates=airports.map(airport=>({airport,km:distanceKm(event,airport)})).filter(x=>x.km<=MATCH_KM).sort((a,b)=>a.km-b.km);if(candidates.length)return {event,airport:candidates[0].airport};}return null;}
+const api={KINDS,MATCH_KM,kindOf,prioritized,windowFor,prompt,parse,search,match};root.MissionClubEventsCore=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof window!=='undefined'?window:globalThis);

@@ -171,3 +171,17 @@ test('Festes Ziel ohne Picker sucht Events am Zielplatz und gibt den Treffer an 
  assert.equal(ideaInput.event.id,'fsc');assert.equal(mission.clubIdea.event.title,'FS Conference');
  assert.equal(ctx.window.gaClubEventSearch.mode,'destination');assert.equal(ctx.window.gaClubEventSearch.matched,'fsc');
 });
+
+test('Picker mit festem Ziel: drei Ideen zum selben Platz, genau eine mit dem Event am Ziel',async()=>{
+ assert.equal(events.MATCH_KM,20);
+ const dest={n:'Paderborn',icao:'EDLP',lat:51.614,lon:8.616};const event={id:'fsc',title:'FS Conference',kind:'flightsim',lat:51.70,lon:8.616,startsOn:'2026-11-21',endsOn:'2026-11-21',visitorInfo:'Eintritt frei'};
+ let searchArgs,inputs,resolves=0;
+ const ctx={window:{MissionClubIdeasCore:core,MissionClubEventsCore:{search:async a=>{searchArgs=a;return {events:[event]};},match:events.match},MissionPrivateContextCore:{resolveBrowser:async()=>{resolves++;return {places:[]};},distanceKm:(a,b)=>Math.hypot(a.lat-b.lat,a.lon-b.lon)*111}},localStorage:storage(),console:{warn(){}},Date,getSelectedAiProvider:()=> 'gemini',getSelectedAiApiKey:()=> 'test',missionProposalFormatRoute:()=>({label:'Route'}),missionProposalCompactTarget:x=>x,normalizeMissionProposalChoice:x=>x,
+  fetchGeminiJsonWithFallback:async prompt=>{inputs=JSON.parse(prompt.split('RAHMEN: ')[1]);return {parsed:{ideas:inputs.map(f=>({...raw,candidateId:f.candidateId,eventId:f.event?.id||null}))}};}};
+ vm.createContext(ctx);vm.runInContext(fs.readFileSync('mission-club-browser.js','utf8'),ctx);
+ const choices=await ctx.window.MissionClubBrowser.choices([],{start:{n:'Pattonville',icao:'EDTQ',lat:48.864,lon:9.225},searchMax:150,fixedTarget:dest});
+ assert.equal(choices.length,3);assert.equal(choices.map(c=>c.target.icao).join(),'EDLP,EDLP,EDLP');
+ assert.equal(searchArgs.start.icao,'EDLP');assert.equal(searchArgs.maxNM,20);assert.equal(resolves,2,'Ortskontext nur einmal für alle drei');
+ assert.equal(inputs.filter(f=>f.event).length,1);assert.equal(choices[0].clubProposal.idea.event.id,'fsc','Event in 9,5 km zählt mit 20-km-Radius');
+ assert.equal(ctx.window.gaClubEventSearch.mode,'destination-picker');
+});

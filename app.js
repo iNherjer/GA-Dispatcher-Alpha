@@ -44516,6 +44516,11 @@ async function buildMissionProposalAptChoices(context = {}) {
     const start = context.start;
     if (!config || !start) return [];
     const profile = getMissionTaskProfile(profileId, 'apt') || {};
+    if (missionProposalFixedTargetClub(context)) {
+        const fixed = await getAirportData(context.targetDest);
+        if (!fixed) return [];
+        return window.MissionClubBrowser.choices([], { ...context, fixedTarget: { ...fixed, icao: fixed.icao || context.targetDest } });
+    }
     let airports = await collectMissionProposalAirportCandidates({
         start,
         minNM: context.searchMin,
@@ -44764,10 +44769,17 @@ async function buildMissionProposalChoices(context = {}) {
     return [];
 }
 
+function missionProposalFixedTargetClub(context = {}) {
+    return !!context.targetDest && !context.mixedProfiles && context.aiModeEnabled && context.effectiveType === 'apt'
+        && String(context.dispatchProfileId || '').toLowerCase() === 'club_utility';
+}
+
 function missionProposalIsEligible(context = {}) {
     if (!missionProposalModeEnabled()) return false;
     if (context.missionProposalChoice) return false;
-    if (context.followupSeed || context.targetDest || context.isBushDispatch || context.isPlanningOnlyMode) return false;
+    if (context.followupSeed || context.isBushDispatch || context.isPlanningOnlyMode) return false;
+    // Festes Ziel: nur der Vereinsflug bietet drei Ideen zum selben Platz an (eine ggf. mit Event am Ziel).
+    if (context.targetDest) return missionProposalFixedTargetClub(context);
     if (context.mixedProfiles && missionProposalMixedPool(context).length) return true;
     const profileId = String(context.dispatchProfileId || '').toLowerCase();
     if (context.effectiveType === 'apt') {
@@ -45472,6 +45484,7 @@ async function generateMission(options = {}) {
             regionPref,
             rangePref,
             targetType,
+            targetDest,
             ensureAlive: _ensureDispatchAlive
         }), {
             profile: dispatchProfileId,

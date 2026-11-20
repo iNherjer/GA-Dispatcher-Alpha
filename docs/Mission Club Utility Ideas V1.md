@@ -47,6 +47,8 @@ Die archivierten Live-Texte unten stammen weiterhin aus v1.2. Für v1.3 sind 36 
 
 **Festes Ziel ohne Picker (20.11.2026, Web v2477):** Mit vorgegebenem Ziel überspringt die App den Picker (`missionProposalIsEligible`, `targetDest`); der Direktweg in `MissionClubBrowser.story` suchte bisher keine Events. Jetzt sucht er rund um den Zielplatz (`DEST_EVENT_NM` = 20 NM, Zuordnung nur zum Ziel, 10 km) und gibt einen Treffer als Eventbeleg an die Idee. Debug `gaClubEventSearch.mode` = `picker` bzw. `destination`. Anlass: Feldtest EDTQ → EDLP ohne Event; Live-Probe danach: FS Conference 2026 belegt gefunden und EDLP zugeordnet.
 
+**Picker mit festem Ziel, 20 km (20.11.2026, Web v2478):** Ist der Picker an und ein Ziel vorgegeben, bietet der Vereinsflug als einziger Strang trotzdem den Picker an (`missionProposalFixedTargetClub`, nur `club_utility`, KI an, kein Mischpool): drei verschiedene Ideen zum selben Platz, Eventsuche rund um das Ziel (20 NM), ein Treffer trägt genau die erste Idee; Ortskontext wird einmal für alle drei geholt; Debug-Modus `destination-picker`. Picker aus: Direktweg wie v2477, ein Event am Ziel hat Vorrang. Zuordnungsradius Event ↔ Platz von 10 auf 20 km (`MATCH_KM`), weil Messen/Konferenzen oft in der Stadt statt am Vorfeld liegen. Andere Stränge überspringen den Picker mit festem Ziel weiterhin.
+
 ## Ziel und Umfang
 
 `club_utility` umfasst Vereinsleben und gegenseitige fliegerische Hilfe. Der Anlass darf sozial, persönlich oder praktisch sein. Ein Lieferauftrag ist eine mögliche Ausprägung, keine Voraussetzung. Bestehende A-B-Lieferungen bleiben erhalten. Der Pilot kann selbst Interesse am Vorhaben haben, gemeinsam teilnehmen oder jemandem helfen. Ein Vereinskollege begleitet ihn immer als Teammitglied an Bord.

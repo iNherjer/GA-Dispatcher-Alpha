@@ -6,22 +6,23 @@ const date=()=>new Date().toLocaleDateString('en-CA');
 const DEST_EVENT_NM=20;
 const target=a=>({name:a.n||a.name||a.icao||'',icao:a.icao||'',lat:Number(a.lat),lon:Number(a.lon)});
 function route(start,dest){return {start:target(start),target:target(dest)};}
-async function enrichedFrame(start,dest,recent,event=null){
- const r=route(start,dest);
+async function regionPlaces(r){
  const midpoint={lat:(r.start.lat+r.target.lat)/2,lon:((r.start.lon+((((r.target.lon-r.start.lon)+540)%360)-180)/2+540)%360)-180};
  const results=await Promise.allSettled([midpoint,r.target].map(async p=>root.MissionPrivateContextCore.resolveBrowser(p)));
- const places=results.flatMap(r=>r.status==='fulfilled'?r.value.places||[]:[]);
- return core().frame(r,recent,event,date(),places);
+ return results.flatMap(r=>r.status==='fulfilled'?r.value.places||[]:[]);
 }
+async function enrichedFrame(start,dest,recent,event=null){const r=route(start,dest);return core().frame(r,recent,event,date(),await regionPlaces(r));}
 async function json(prompt,version){const response=await fetchGeminiJsonWithFallback(root.MissionOutputLanguage?root.MissionOutputLanguage.wrap(prompt):prompt,getSelectedAiApiKey(),{promptVersion:version,timeoutMs:40000});if(!response?.parsed)throw(root.createAiJsonFailure?root.createAiJsonFailure(response,'Vereinsidee'):Error('Vereinsidee konnte nicht erstellt werden. Bitte erneut versuchen.'));return response.parsed;}
 // Optionale Eventsuche (Sim-Szene vor Fly-ins); Fehler oder kein Treffer lassen normale Ideen zu.
 async function eventFor(center,maxNM,airports,mode){root.gaClubEventSearch={status:'searching',mode};
 try{if(getSelectedAiProvider()!=='gemini')throw Error('Eventsuche benötigt derzeit Gemini');const result=await root.MissionClubEventsCore.search({start:center,maxNM,date:date(),apiKey:getSelectedAiApiKey(),storage:localStorage});const m=root.MissionClubEventsCore.match(result.events,airports,root.MissionPrivateContextCore.distanceKm);root.gaClubEventSearch={status:'ready',mode,count:result.events.length,matched:m?.event.id||null,cacheHit:result.cacheHit};return m;}catch(error){root.gaClubEventSearch={status:'unavailable',mode,error:String(error.message)};console.warn('[CLUB] Optionale Veranstaltungssuche nicht verfügbar.');return null;}}
-async function choices(airports,context){if(airports.length<3)throw Error('Für drei Vereinsideen fehlen passende Flugplätze.');const recent=core().history(localStorage);
-const eventMatch=await eventFor(target(context.start),context.searchMax,airports,'picker');
+// Picker mit festem Ziel: drei verschiedene Ideen zum selben Platz, Eventsuche rund um das Ziel.
+async function choices(airports,context){const fixed=context.fixedTarget||null;if(!fixed&&airports.length<3)throw Error('Für drei Vereinsideen fehlen passende Flugplätze.');const recent=core().history(localStorage);
+const eventMatch=fixed?await eventFor(target(fixed),DEST_EVENT_NM,[fixed],'destination-picker'):await eventFor(target(context.start),context.searchMax,airports,'picker');
 context.ensureAlive?.();
-const selected=eventMatch?[eventMatch.airport,...airports.filter(a=>a!==eventMatch.airport).slice(0,2)]:airports.slice(0,3);
-const frames=await Promise.all(selected.map(async(airport,i)=>({candidateId:'club-'+i,...await enrichedFrame(context.start,airport,recent,i===0?eventMatch?.event||null:null)})));context.ensureAlive?.();
+const selected=fixed?[fixed,fixed,fixed]:eventMatch?[eventMatch.airport,...airports.filter(a=>a!==eventMatch.airport).slice(0,2)]:airports.slice(0,3);
+const fixedPlaces=fixed?regionPlaces(route(context.start,fixed)):null;
+const frames=await Promise.all(selected.map(async(airport,i)=>{const event=i===0?eventMatch?.event||null:null;const f=fixedPlaces?core().frame(route(context.start,airport),recent,event,date(),await fixedPlaces):await enrichedFrame(context.start,airport,recent,event);return {candidateId:'club-'+i,...f};}));context.ensureAlive?.();
 const result=await json(core().ideaPrompt(frames),'mission-club-ideas-v1');context.ensureAlive?.();if(!Array.isArray(result.ideas)||result.ideas.length!==3)throw Error('Drei vollständige Vereinsideen erwartet.');
 return frames.map((input,i)=>{const rows=result.ideas.filter(x=>x.candidateId===input.candidateId);const idea=rows.length===1&&core().validate(rows[0],input);if(!idea)throw Error('Eine Vereinsidee ist unvollständig.');const airport=selected[i];const r=missionProposalFormatRoute(context.start,airport,'apt');return normalizeMissionProposalChoice({id:input.candidateId+'-'+Date.now(),mode:'apt',profileId:'club_utility',selectedCategory:'club',requestedCategory:'club',target:missionProposalCompactTarget(airport,'apt'),title:idea.occasion,description:idea.groundPlan,subtitle:idea.event ? `${idea.event.startsOn} · ${idea.event.title}` : idea.passenger?.name||'Vereinsflug',routeLabel:r.label,clubProposal:{schema:'club-proposal.v1',input,idea}});});}
 async function story({start,dest,proposal=null,contract={}}){let input=core().frame(route(start,dest),core().history(localStorage),null,date());let idea;
