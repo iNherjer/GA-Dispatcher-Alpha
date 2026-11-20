@@ -914,6 +914,8 @@
         "❌ Der gespeicherte Dispatcher-Flug konnte nicht geladen werden.": "❌ The saved dispatcher flight could not be loaded.",
         "Keine gültigen Wegpunkte in dieser .pln gefunden.": "No valid waypoints found in this .pln.",
         "Koordinaten konnten nicht gelesen werden.": "Coordinates could not be read.",
+        "Keine gültigen Wegpunkte in dieser Datei gefunden.": "No valid waypoints found in this file.",
+        "Dateiformat nicht erkannt. Unterstützt: MSFS .pln, Garmin .fpl, SkyDemon .flightplan, .gpx, Little Navmap .lnmpln.": "File format not recognised. Supported: MSFS .pln, Garmin .fpl, SkyDemon .flightplan, .gpx, Little Navmap .lnmpln.",
         "Möchtest du das Ziel für den Rundflug an diese Position verschieben?": "Move the destination of the local flight to this position?",
         "Ohne bestehenden Flugplan brauche ich eine aktive Tracker-Verbindung, damit die aktuelle GPS-Position als Start gesetzt werden kann.": "Without an existing flight plan, an active tracker connection is needed to set the current GPS position as the start.",
         "Bitte zuerst im DEP-Feld einen Startflugplatz eintragen.": "Please enter a departure airport in the DEP field first.",

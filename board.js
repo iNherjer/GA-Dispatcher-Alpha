@@ -2651,6 +2651,254 @@ window.exportMSFS = function() {
     closeTransferModal();
 };
 
+// Externe Flugplaene: MSFS .pln, Garmin .fpl (Garmin Pilot, ForeFlight, Avionik), SkyDemon
+// .flightplan, GPX (Route, Wegpunkte oder Track) und Little Navmap .lnmpln. Liefert
+// { ok, newRoute, startIcao, destIcao, cruiseAlt, format, droppedTail } oder { ok:false, error }.
+const GA_EXT_FPL_MAX_TRACK_POINTS = 40;
+
+function gaExtFplChildText(el, name) {
+    if (!el) return '';
+    for (const child of Array.from(el.children || [])) {
+        if ((child.localName || child.nodeName) === name) return String(child.textContent || '').trim();
+    }
+    return '';
+}
+
+function gaExtFplAll(root, name) {
+    if (!root) return [];
+    const list = typeof root.getElementsByTagNameNS === 'function' ? root.getElementsByTagNameNS('*', name) : root.getElementsByTagName(name);
+    return Array.from(list || []);
+}
+
+function gaExtFplLooksIcao(value) {
+    return /^[A-Z]{2}[A-Z0-9]{2}$/.test(String(value || '').trim().toUpperCase());
+}
+
+function gaExtFplPoint(lat, lng, name) {
+    const la = Number(lat), lo = Number(lng);
+    if (!Number.isFinite(la) || !Number.isFinite(lo) || Math.abs(la) > 90 || Math.abs(lo) > 180) return null;
+    const point = { lat: parseFloat(la.toFixed(6)), lng: parseFloat(lo.toFixed(6)) };
+    if (name) point.name = String(name).trim();
+    return point;
+}
+
+function gaExtFplNearbyAirportIcao(point, maxNm = 3) {
+    if (!point || typeof globalAirports === 'undefined' || !globalAirports || typeof globalAirports !== 'object') return '';
+    let best = null;
+    Object.entries(globalAirports).forEach(([fallbackIcao, airport]) => {
+        const aptLat = Number(airport?.lat);
+        const aptLon = Number(airport?.lon ?? airport?.lng);
+        if (!Number.isFinite(aptLat) || !Number.isFinite(aptLon)) return;
+        const distance = homebaseDirectoryDistanceNm(point.lat, point.lng, aptLat, aptLon);
+        const icao = String(airport?.icao || fallbackIcao || '').toUpperCase();
+        if (gaExtFplLooksIcao(icao) && distance <= maxNm && (!best || distance < best.distance)) best = { icao, distance };
+    });
+    return best?.icao || '';
+}
+
+function gaExtFplEndpointIcao(point, isAirport) {
+    const name = String(point?.name || '').trim().toUpperCase();
+    if (gaExtFplLooksIcao(name) && isAirport) return name;
+    const known = typeof globalAirports !== 'undefined' && globalAirports && typeof globalAirports === 'object' && globalAirports[name];
+    if (gaExtFplLooksIcao(name) && !point.userWaypoint && known) return name;
+    return gaExtFplNearbyAirportIcao(point) || '';
+}
+
+function gaExtFplThinTrack(points) {
+    if (points.length <= GA_EXT_FPL_MAX_TRACK_POINTS) return points;
+    const out = [];
+    const step = (points.length - 1) / (GA_EXT_FPL_MAX_TRACK_POINTS - 1);
+    for (let i = 0; i < GA_EXT_FPL_MAX_TRACK_POINTS; i++) out.push(points[Math.round(i * step)]);
+    return out;
+}
+
+function gaParseMsfsPln(xmlDoc) {
+    const waypoints = gaExtFplAll(xmlDoc, 'ATCWaypoint');
+    const route = [];
+    waypoints.forEach((wp, i) => {
+        const posTag = gaExtFplAll(wp, 'WorldPosition')[0];
+        const coords = posTag ? parseMSFSCoords(posTag.textContent) : null;
+        if (coords) { coords.name = wp.getAttribute('id') || `WP${i}`; route.push(coords); }
+    });
+    const cruiseAlt = parseInt(gaExtFplAll(xmlDoc, 'CruisingAlt')[0]?.textContent, 10);
+    return {
+        format: 'MSFS .pln',
+        newRoute: route,
+        startIcao: gaExtFplAll(xmlDoc, 'DepartureID')[0]?.textContent?.trim() || '',
+        destIcao: gaExtFplAll(xmlDoc, 'DestinationID')[0]?.textContent?.trim() || '',
+        cruiseAlt: Number.isFinite(cruiseAlt) ? cruiseAlt : null
+    };
+}
+
+function gaParseGarminFpl(xmlDoc) {
+    const table = new Map();
+    gaExtFplAll(xmlDoc, 'waypoint').forEach(wp => {
+        const id = gaExtFplChildText(wp, 'identifier');
+        const type = gaExtFplChildText(wp, 'type').toUpperCase();
+        const country = gaExtFplChildText(wp, 'country-code');
+        const point = gaExtFplPoint(gaExtFplChildText(wp, 'lat'), gaExtFplChildText(wp, 'lon'), id);
+        if (!id || !point) return;
+        point.fplType = type;
+        if (type === 'USER WAYPOINT') point.userWaypoint = true;
+        table.set(`${id}|${type}|${country}`, point);
+        if (!table.has(`${id}|${type}|`)) table.set(`${id}|${type}|`, point);
+        if (!table.has(id)) table.set(id, point);
+    });
+    const routeEl = gaExtFplAll(xmlDoc, 'route')[0];
+    let route = gaExtFplAll(routeEl || xmlDoc, 'route-point').map(rp => {
+        const id = gaExtFplChildText(rp, 'waypoint-identifier');
+        const type = gaExtFplChildText(rp, 'waypoint-type').toUpperCase();
+        const country = gaExtFplChildText(rp, 'waypoint-country-code');
+        const hit = table.get(`${id}|${type}|${country}`) || table.get(`${id}|${type}|`) || table.get(id);
+        return hit ? { ...hit } : null;
+    }).filter(Boolean);
+    if (!route.length) route = Array.from(new Set(table.values())).map(p => ({ ...p }));
+
+    // Viele Planer haengen den Ausweichplatz hinten an (Routenname "EDTQ EDLP", danach EDGK).
+    // Steht das Ziel aus dem Routennamen weiter vorne als Flugplatz, endet die Route dort.
+    let droppedTail = [];
+    const nameParts = String(gaExtFplChildText(routeEl, 'route-name') || '').toUpperCase().split(/[\s\-–>/]+/).filter(gaExtFplLooksIcao);
+    const namedDest = nameParts.length >= 2 ? nameParts[nameParts.length - 1] : '';
+    if (namedDest && route.length > 2 && String(route[route.length - 1].name || '').toUpperCase() !== namedDest) {
+        let cut = -1;
+        for (let i = route.length - 2; i > 0; i--) {
+            if (String(route[i].name || '').toUpperCase() === namedDest && route[i].fplType === 'AIRPORT') { cut = i; break; }
+        }
+        if (cut > 0) { droppedTail = route.slice(cut + 1).map(p => p.name); route = route.slice(0, cut + 1); }
+    }
+    const first = route[0], last = route[route.length - 1];
+    return {
+        format: 'Garmin .fpl',
+        newRoute: route,
+        startIcao: first ? gaExtFplEndpointIcao(first, first.fplType === 'AIRPORT') : '',
+        destIcao: last ? gaExtFplEndpointIcao(last, last.fplType === 'AIRPORT') : '',
+        cruiseAlt: null,
+        droppedTail
+    };
+}
+
+function gaParseGpx(xmlDoc) {
+    const readPts = (els) => els.map(el => gaExtFplPoint(el.getAttribute('lat'), el.getAttribute('lon'), gaExtFplChildText(el, 'name'))).filter(Boolean);
+    let route = [];
+    let kind = 'Route';
+    const rte = gaExtFplAll(xmlDoc, 'rte')[0];
+    if (rte) route = readPts(gaExtFplAll(rte, 'rtept'));
+    if (route.length < 2) { route = readPts(gaExtFplAll(xmlDoc, 'wpt')); kind = 'Wegpunkte'; }
+    if (route.length < 2) {
+        route = gaExtFplThinTrack(readPts(gaExtFplAll(xmlDoc, 'trkpt')));
+        kind = 'Track';
+    }
+    route.forEach((p, i) => { if (!p.name) p.name = `WP${i + 1}`; });
+    const first = route[0], last = route[route.length - 1];
+    return {
+        format: `GPX (${kind})`,
+        newRoute: route,
+        startIcao: first ? gaExtFplEndpointIcao(first, false) : '',
+        destIcao: last ? gaExtFplEndpointIcao(last, false) : '',
+        cruiseAlt: null
+    };
+}
+
+function gaParseLittleNavmap(xmlDoc) {
+    const route = gaExtFplAll(xmlDoc, 'Waypoint').map(wp => {
+        const pos = Array.from(wp.children || []).find(c => (c.localName || c.nodeName) === 'Pos');
+        const point = pos ? gaExtFplPoint(pos.getAttribute('Lat'), pos.getAttribute('Lon'), gaExtFplChildText(wp, 'Ident') || gaExtFplChildText(wp, 'Name')) : null;
+        if (point) point.fplType = gaExtFplChildText(wp, 'Type').toUpperCase();
+        return point;
+    }).filter(Boolean);
+    const cruiseAlt = parseInt(gaExtFplAll(xmlDoc, 'CruisingAlt')[0]?.textContent, 10);
+    const first = route[0], last = route[route.length - 1];
+    return {
+        format: 'Little Navmap .lnmpln',
+        newRoute: route,
+        startIcao: first ? gaExtFplEndpointIcao(first, first.fplType === 'AIRPORT') : '',
+        destIcao: last ? gaExtFplEndpointIcao(last, last.fplType === 'AIRPORT') : '',
+        cruiseAlt: Number.isFinite(cruiseAlt) ? cruiseAlt : null
+    };
+}
+
+// SkyDemon: Koordinaten als "N514841.00 W0011744.00" (Grad/Minuten/Sekunden ohne Trenner),
+// zur Sicherheit auch "N51 48 41" oder Dezimalgrad.
+function gaParseSkyDemonCoord(value) {
+    const raw = String(value || '').trim().toUpperCase();
+    const dms = raw.match(/^([NS])\s*(\d{2})\s*(\d{2})\s*(\d{2}(?:\.\d+)?)[\s,]+([EW])\s*(\d{3})\s*(\d{2})\s*(\d{2}(?:\.\d+)?)$/);
+    if (dms) {
+        let lat = Number(dms[2]) + Number(dms[3]) / 60 + Number(dms[4]) / 3600;
+        let lon = Number(dms[6]) + Number(dms[7]) / 60 + Number(dms[8]) / 3600;
+        if (dms[1] === 'S') lat = -lat;
+        if (dms[5] === 'W') lon = -lon;
+        return gaExtFplPoint(lat, lon);
+    }
+    const dec = raw.match(/^([NS])?\s*(-?\d+(?:\.\d+)?)[\s,]+([EW])?\s*(-?\d+(?:\.\d+)?)$/);
+    if (dec) {
+        let lat = Number(dec[2]), lon = Number(dec[4]);
+        if (dec[1] === 'S') lat = -Math.abs(lat);
+        if (dec[3] === 'W') lon = -Math.abs(lon);
+        return gaExtFplPoint(lat, lon);
+    }
+    return null;
+}
+
+function gaParseSkyDemon(xmlDoc) {
+    const primary = gaExtFplAll(xmlDoc, 'PrimaryRoute')[0];
+    if (!primary) return { format: 'SkyDemon .flightplan', newRoute: [] };
+    const route = [];
+    const levels = [];
+    const readLevel = (el) => {
+        const level = Number(el?.getAttribute('Level'));
+        if (Number.isFinite(level) && level >= 500 && level <= 30000) levels.push(level);
+    };
+    const start = gaParseSkyDemonCoord(primary.getAttribute('Start'));
+    if (start) route.push(start);
+    readLevel(primary);
+    // Teilstrecken (RhumbLineRoute, GreatCircleRoute ...) tragen den Zielpunkt im Attribut "To".
+    Array.from(primary.children || []).forEach(leg => {
+        const point = gaParseSkyDemonCoord(leg.getAttribute('To'));
+        if (!point) return;
+        const label = leg.getAttribute('Name') || leg.getAttribute('Ident') || leg.getAttribute('Identifier') || '';
+        if (label) point.name = label.trim();
+        route.push(point);
+        readLevel(leg);
+    });
+    route.forEach((p, i) => {
+        if (p.name) return;
+        const airportHere = gaExtFplNearbyAirportIcao(p, 1);
+        if (airportHere) p.name = airportHere;
+        else { p.name = `WP${i + 1}`; p.userWaypoint = true; }
+    });
+    const first = route[0], last = route[route.length - 1];
+    // Hoechste geplante Teilstrecke als Reiseflughoehe; in 500-ft-Schritten.
+    const cruiseAlt = levels.length ? Math.round(Math.max(...levels) / 500) * 500 : null;
+    return {
+        format: 'SkyDemon .flightplan',
+        newRoute: route,
+        startIcao: first ? gaExtFplEndpointIcao(first, false) : '',
+        destIcao: last ? gaExtFplEndpointIcao(last, false) : '',
+        cruiseAlt
+    };
+}
+
+function gaParseExternalFlightPlan(content, fileName = '') {
+    const xmlDoc = new DOMParser().parseFromString(String(content || '').replace(/^﻿/, ''), 'text/xml');
+    if (gaExtFplAll(xmlDoc, 'parsererror').length) return { ok: false, error: 'unreadable' };
+    const rootName = String(xmlDoc.documentElement?.localName || '').toLowerCase();
+    let plan;
+    if (gaExtFplAll(xmlDoc, 'ATCWaypoint').length) plan = gaParseMsfsPln(xmlDoc);
+    else if (rootName === 'flight-plan' || gaExtFplAll(xmlDoc, 'route-point').length) plan = gaParseGarminFpl(xmlDoc);
+    else if (rootName === 'gpx') plan = gaParseGpx(xmlDoc);
+    else if (rootName === 'littlenavmap') plan = gaParseLittleNavmap(xmlDoc);
+    else if (rootName === 'divelementsflightplanner' || gaExtFplAll(xmlDoc, 'PrimaryRoute').length) plan = gaParseSkyDemon(xmlDoc);
+    else return { ok: false, error: 'unknown-format', fileName };
+    if (!plan.newRoute || plan.newRoute.length < 2) return { ok: false, error: 'no-waypoints', format: plan.format };
+    plan.newRoute = plan.newRoute.map(p => { const out = { lat: p.lat, lng: p.lng }; if (p.name) out.name = p.name; return out; });
+    plan.startIcao = String(plan.startIcao || '').trim().toUpperCase() || 'START';
+    plan.destIcao = String(plan.destIcao || '').trim().toUpperCase() || 'DEST';
+    if (!Number.isFinite(plan.cruiseAlt) || plan.cruiseAlt < 1000) plan.cruiseAlt = plan.format === 'MSFS .pln' ? 4500 : null;
+    plan.ok = true;
+    return plan;
+}
+window.gaParseExternalFlightPlan = gaParseExternalFlightPlan;
+
 let pendingMSFSImport = null;
 
 window.importMSFS = function(event) {
@@ -2705,38 +2953,20 @@ window.importMSFS = function(event) {
             }
         }
 
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(content, "text/xml");
-        const waypoints = xmlDoc.getElementsByTagName("ATCWaypoint");
-        if (!waypoints || waypoints.length < 2) { alert(_boardUiPhrase('Keine gültigen Wegpunkte in dieser .pln gefunden.')); return; }
-
-        let newRoute = [];
-        let startIcao = xmlDoc.getElementsByTagName("DepartureID")[0]?.textContent || "START";
-        let destIcao = xmlDoc.getElementsByTagName("DestinationID")[0]?.textContent || "DEST";
-        
-        for (let i = 0; i < waypoints.length; i++) {
-            const wp = waypoints[i];
-            const wpId = wp.getAttribute("id") || `WP${i}`;
-            const posTag = wp.getElementsByTagName("WorldPosition")[0];
-            if (posTag) {
-                const coords = parseMSFSCoords(posTag.textContent);
-                if (coords) {
-                    coords.name = wpId;
-                    newRoute.push(coords);
-                }
-            }
+        const plan = gaParseExternalFlightPlan(content, file.name);
+        if (!plan.ok) {
+            if (plan.error === 'no-waypoints') alert(_boardUiPhrase('Keine gültigen Wegpunkte in dieser Datei gefunden.'));
+            else alert(_boardUiPhrase('Dateiformat nicht erkannt. Unterstützt: MSFS .pln, Garmin .fpl, SkyDemon .flightplan, .gpx, Little Navmap .lnmpln.'));
+            return;
         }
-
-        if (newRoute.length < 2) { alert(_boardUiPhrase('Koordinaten konnten nicht gelesen werden.')); return; }
-
-        const cruiseAltTag = xmlDoc.getElementsByTagName("CruisingAlt")[0];
-        let cruiseAlt = cruiseAltTag ? parseInt(cruiseAltTag.textContent) : 4500;
-        if (isNaN(cruiseAlt) || cruiseAlt < 1000) cruiseAlt = 4500;
-
-        pendingMSFSImport = { newRoute, startIcao, destIcao, cruiseAlt };
+        const { newRoute, startIcao, destIcao, cruiseAlt, format } = plan;
+        pendingMSFSImport = { newRoute, startIcao, destIcao, cruiseAlt, format };
         
         closeTransferModal();
-        document.getElementById('importActionText').innerText = _boardUiText('importModal.detected', { count: newRoute.length }, 'Externe Route ({count} Wegpunkte) erkannt!\nWie möchtest du diesen Flugplan laden?');
+        let importText = _boardUiText('importModal.detected', { count: newRoute.length }, 'Externe Route ({count} Wegpunkte) erkannt!\nWie möchtest du diesen Flugplan laden?');
+        importText += `\n${format}: ${startIcao} → ${destIcao}`;
+        if (plan.droppedTail?.length) importText += `\n${_boardUiText('importModal.droppedTail', { list: plan.droppedTail.join(', ') }, 'Angehängter Ausweichplatz nicht übernommen: {list}')}`;
+        document.getElementById('importActionText').innerText = importText;
         document.getElementById('importActionModalOverlay').style.display = 'flex';
     };
     reader.readAsText(file);
@@ -2751,7 +2981,7 @@ window.executeMSFSImport = async function(mode) {
     document.getElementById('importActionModalOverlay').style.display = 'none';
     if (!pendingMSFSImport) return;
     
-    const { newRoute, startIcao, destIcao, cruiseAlt } = pendingMSFSImport;
+    const { newRoute, startIcao, destIcao, cruiseAlt, format } = pendingMSFSImport;
     pendingMSFSImport = null;
     
     routeWaypoints = newRoute;
@@ -2776,7 +3006,7 @@ window.executeMSFSImport = async function(mode) {
         document.getElementById('startLoc').value = startIcao;
         document.getElementById('destLoc').value = destIcao;
     }
-    if (document.getElementById('altSlider')) {
+    if (Number.isFinite(cruiseAlt) && document.getElementById('altSlider')) {
         document.getElementById('altSlider').value = cruiseAlt;
         handleSliderChange('alt', cruiseAlt);
     }
@@ -2816,7 +3046,7 @@ window.executeMSFSImport = async function(mode) {
     } else {
         const isPOI = (startIcao === destIcao);
         currentMissionData = { start: startIcao, dest: destIcao, poiName: isPOI ? currentDName : null, mission: "Privater Import-Flug", dist: totalDist, ac: typeof selectedAC !== 'undefined' ? selectedAC : "N/A", heading: nav.brng };
-        populateBriefingUI("Privater Flugplan", "Externer Flugplan importiert aus Microsoft Flight Simulator.", "N/A", "N/A", isPOI, newRoute, sData, dData);
+        populateBriefingUI("Privater Flugplan", (!format || format === 'MSFS .pln') ? "Externer Flugplan importiert aus Microsoft Flight Simulator." : `Externer Flugplan importiert (${format}).`, "N/A", "N/A", isPOI, newRoute, sData, dData);
     }
 };
 
