@@ -2131,6 +2131,8 @@ muss zurück.
 - `taxi_again` braucht einen Stand, den die aktuelle Beobachtung selbst gesehen hat. Nach
   einem Tracker- oder Simulator-Neustart während des Rollens kommt also nicht sofort die
   zweite Warnung.
-- Bekannt und unverändert: Vor dem Start gibt es keine Entfernungsprüfung zur Parkposition.
-  Nach einer Landung an einem anderen Platz kann dort fertig verladen und gestartet werden.
-  Eine 200-m-Regel zum Szenenplatz ist vorgeschlagen, aber noch nicht freigegeben.
+- Bewusst so belassen (User-Entscheidung 20.11.2026): Vor dem Start gibt es keine
+  Entfernungsprüfung zur Parkposition. Nach dem Losrollen oder einer Landung an einem
+  anderen Platz kann dort fertig verladen, unterschrieben und gestartet werden, denn meist
+  ist nur noch Papierkram offen. Die vorgeschlagene 200-m-Regel zum Szenenplatz wird nicht
+  gebaut.
