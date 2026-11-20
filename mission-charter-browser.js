@@ -10,34 +10,52 @@ async function frame(start,dest,occasion,event=null){const route={start:target(s
 function today(){return new Date().toLocaleDateString('en-CA');}
 // Veranstaltungssuche am Zielort: nur mit Gemini, Fehler oder kein Treffer blockieren den Picker nicht.
 async function findEvent(airport,occasion,recent){
- const api=root.MissionCharterEventsCore,t=target(airport);root.gaCharterEventSearch={status:'searching',airport:t.icao,occasion:occasion.id};
+ const api=root.MissionCharterEventsCore,t=target(airport),any=!occasion,mode=any?'fixed-target':'occasion';root.gaCharterEventSearch={status:'searching',mode,airport:t.icao,occasion:occasion?.id||null};
  try{
   if(getSelectedAiProvider()!=='gemini')throw Error('Eventsuche benötigt derzeit Gemini');
   const place={name:api.placeName(airport)||t.name,lat:t.lat,lon:t.lon};
-  const result=await api.search({place,date:today(),kinds:api.FITS[occasion.id],apiKey:getSelectedAiApiKey(),storage:localStorage});
-  const m=api.pick(result.events,t,occasion.id,root.MissionPrivateContextCore.distanceKm,recent);
-  root.gaCharterEventSearch={status:'ready',airport:t.icao,place:place.name,occasion:occasion.id,count:result.events.length,queries:result.queries,matched:m?.event.id||null,matchedTitle:m?.event.title||null,verification:m?.event.verification||null,cacheHit:result.cacheHit};
+  const result=await api.search({place,date:today(),kinds:any?api.KINDS:api.FITS[occasion.id],apiKey:getSelectedAiApiKey(),storage:localStorage});
+  const m=any?api.pickKinds(result.events,t,api.KINDS,root.MissionPrivateContextCore.distanceKm,recent):api.pick(result.events,t,occasion.id,root.MissionPrivateContextCore.distanceKm,recent);
+  root.gaCharterEventSearch={status:'ready',mode,airport:t.icao,place:place.name,occasion:occasion?.id||null,count:result.events.length,queries:result.queries,matched:m?.event.id||null,matchedTitle:m?.event.title||null,verification:m?.event.verification||null,cacheHit:result.cacheHit};
   return m;
- }catch(error){root.gaCharterEventSearch={status:'unavailable',airport:t.icao,error:String(error.message)};console.warn('[Charter] Optionale Veranstaltungssuche nicht verfügbar.');return null;}
+ }catch(error){root.gaCharterEventSearch={status:'unavailable',mode,airport:t.icao,error:String(error.message)};console.warn('[Charter] Optionale Veranstaltungssuche nicht verfügbar.');return null;}
+}
+// Fester Zielplatz: Der Pilot hat oft einen Termin am Ziel im Kopf. Deshalb sucht die App dort alle
+// Veranstaltungsarten ohne Taktung; ein Treffer bekommt eine dazu passende Reiseart, die übrigen Vorschläge
+// bleiben frei und verschieden.
+function occasionsForEvent(recent,count,event){
+ const api=root.MissionCharterEventsCore,all=core().OCCASIONS.map(o=>o.id);
+ if(!event)return core().pickOccasions(recent,count);
+ const fitting=all.filter(id=>(api.FITS[id]||[]).includes(event.kind));
+ const first=core().pickOccasions(recent,1,Math.random,all.filter(id=>!fitting.includes(id)))[0];
+ return first?[first,...core().pickOccasions(recent,count-1,Math.random,[first.id])]:core().pickOccasions(recent,count);
 }
 async function json(prompt){const r=await fetchGeminiJsonWithFallback(root.MissionOutputLanguage?root.MissionOutputLanguage.wrap(prompt):prompt,getSelectedAiApiKey(),{promptVersion:'charter-v1',timeoutMs:40000});if(!r?.parsed)throw(root.createAiJsonFailure?root.createAiJsonFailure(r,'Charterauftrag'):Error('Charterauftrag konnte nicht erstellt werden. Bitte erneut versuchen.'));return r.parsed;}
 async function choices(airports,context){if(airports.length<3)throw Error('Für Chartervorschläge fehlen passende Zielflugplätze.');
  // Ziele und Reisearten stehen zuerst fest. Danach höchstens eine Veranstaltungssuche am Ziel des ersten
  // Platzes, dessen Reiseart eine Veranstaltung tragen kann; ein Treffer muss zu dieser Reiseart passen.
- const recent=core().history(localStorage),selected=airports.slice(0,3),occasions=core().pickOccasions(recent,selected.length);
+ const recent=core().history(localStorage),selected=airports.slice(0,3);
+ if(context.fixedTarget){
+  const m=await findEvent(context.fixedTarget,null,recent);context.ensureAlive?.();
+  const occasions=occasionsForEvent(recent,3,m?.event);
+  return proposalsFrom(context,selected,occasions,m?0:-1,m);
+ }
+ const occasions=core().pickOccasions(recent,selected.length);
  const due=root.MissionGroundedEventsCore?.eventDue?root.MissionGroundedEventsCore.eventDue(recent,root.MissionCharterEventsCore?.EVENT_EVERY?.charter||2):true;
  const slot=root.MissionCharterEventsCore&&due?root.MissionCharterEventsCore.searchSlot(occasions):-1;
  if(!due)root.gaCharterEventSearch={status:'skipped',reason:'event-cadence'};
  else if(slot<0)root.gaCharterEventSearch={status:'skipped',reason:'no-event-occasion'};
  const eventMatch=slot>=0?await findEvent(selected[slot],occasions[slot],recent):null;context.ensureAlive?.();
+ return proposalsFrom(context,selected,occasions,slot,eventMatch);}
+async function proposalsFrom(context,selected,occasions,slot,eventMatch){
  const frames=await Promise.all(selected.map(async(a,i)=>({candidateId:'charter-'+i,...await frame(context.start,a,occasions[i],i===slot&&eventMatch?root.MissionCharterEventsCore.anchor(eventMatch.event):null)})));context.ensureAlive?.();
  if(!frames[0].maxPassengers)throw Error('Das Flugzeug bietet keinen freien Passagierplatz.');
  const raw=await json(core().ideaPrompt(frames));context.ensureAlive?.();
  return frames.map((input,i)=>{const rows=raw.ideas?.filter(x=>x.candidateId===input.candidateId)||[];const idea=rows.length===1&&core().validate(rows[0],input);if(!idea)throw Error('Ein Chartervorschlag ist unvollständig.');return normalizeMissionProposalChoice({id:input.candidateId+'-'+Date.now(),mode:'apt',profileId:context.dispatchProfileId||'auto',selectedCategory:'charter',requestedCategory:'charter',target:missionProposalCompactTarget(selected[i],'apt'),title:idea.reason,description:idea.background,subtitle:idea.event?`${idea.event.startsOn} · ${idea.event.title}`:idea.groupLabel,paxText:`${idea.passengerCount} PAX (${idea.groupLabel})`,cargoText:`${idea.luggageLabel} (${idea.luggageWeightLbs} lbs)`,routeLabel:missionProposalFormatRoute(context.start,selected[i],'apt').label,charterProposal:{schema:'charter-proposal.v1',input,idea}});});}
-async function story({start,dest,proposal,contract={}}){
+async function story({start,dest,proposal,contract={},fixedTarget=false}){
  let input,idea;
  if(proposal){if(proposal.idea?.event&&proposal.idea.event.endsOn<today())throw Error('Der Veranstaltungstermin ist abgelaufen. Bitte neue Vorschläge erstellen.');input={...proposal.input,maxPassengers:capacity(),recent:core().history(localStorage)};if(proposal.schema!=='charter-proposal.v1'||!root.MissionClubIdeasCore.sameRoute(input.route,{start:target(start),target:target(dest)}))throw Error('Charterauswahl passt nicht mehr zur Route.');idea=core().validate(proposal.idea,input);}
- else{input=await frame(start,dest);if(!input.maxPassengers)throw Error('Das Flugzeug bietet keinen freien Passagierplatz.');const prompt=core().ideaPrompt([{candidateId:'direct',...input}]);let result=await json(prompt);idea=core().validate(result.ideas?.[0],input);if(!idea){result=await json(prompt+'\nFORMATKORREKTUR: Behalte den Reiseanlass und die Personen des Entwurfs bei. Prüfe alle Feldlängen, Passagierkapazität und Trigger. Geo darf nur eine exakt gelieferte anchorId samt Koordinaten verwenden; andernfalls einen passenden Prozenttrigger verwenden oder den Moment weglassen. Liefere erneut das vollständige JSON.\nENTWURF: '+JSON.stringify(result));idea=core().validate(result.ideas?.[0],input);}}
+ else{let m=null,occasion;if(fixedTarget){const recent=core().history(localStorage);m=await findEvent(dest,null,recent);occasion=m?occasionsForEvent(recent,1,m.event)[0]:undefined;}input=await frame(start,dest,occasion,m?root.MissionCharterEventsCore.anchor(m.event):null);if(!input.maxPassengers)throw Error('Das Flugzeug bietet keinen freien Passagierplatz.');const prompt=core().ideaPrompt([{candidateId:'direct',...input}]);let result=await json(prompt);idea=core().validate(result.ideas?.[0],input);if(!idea){result=await json(prompt+'\nFORMATKORREKTUR: Behalte den Reiseanlass und die Personen des Entwurfs bei. Prüfe alle Feldlängen, Passagierkapazität und Trigger. Geo darf nur eine exakt gelieferte anchorId samt Koordinaten verwenden; andernfalls einen passenden Prozenttrigger verwenden oder den Moment weglassen. Liefere erneut das vollständige JSON.\nENTWURF: '+JSON.stringify(result));idea=core().validate(result.ideas?.[0],input);}}
  if(!idea)throw Error('Charterauftrag ist unvollständig oder die Gruppe passt nicht zur aktuellen Kapazität. Bitte neu auswählen.');
  return write(idea,input,contract);
 }

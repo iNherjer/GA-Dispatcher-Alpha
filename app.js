@@ -44435,11 +44435,12 @@ function missionProposalAptChoiceText(config = {}, params = {}) {
 
 // Privat-Picker: eine Veranstaltungssuche am ersten Ziel (gemeinsames System mit Charter/Verein),
 // nur mit Gemini und wenn die Taktung es erlaubt. Liefert einen Ortsfakt oder null.
-async function findPrivateMissionEvent(airport, missionDate, recent) {
+async function findPrivateMissionEvent(airport, missionDate, recent, { fixedTarget = false } = {}) {
     const api = window.MissionCharterEventsCore, grounded = window.MissionGroundedEventsCore, geo = window.MissionPrivateContextCore;
     const outing = window.MissionPrivateOutingCore;
     if (!api || !grounded || !geo || !outing?.eventWindowFor || !airport) return null;
-    if (!grounded.eventDue(recent, api.EVENT_EVERY.private)) { window.gaPrivateEventSearch = { status: 'skipped', reason: 'event-cadence' }; return null; }
+    // Fester Zielplatz: keine Taktung, der Pilot hat den Termin am Ziel womöglich gezielt im Kopf.
+    if (!fixedTarget && !grounded.eventDue(recent, api.EVENT_EVERY.private)) { window.gaPrivateEventSearch = { status: 'skipped', reason: 'event-cadence' }; return null; }
     const target = missionProposalCompactTarget(airport, 'apt');
     const window_ = outing.eventWindowFor(missionDate);
     window.gaPrivateEventSearch = { status: 'searching', airport: target.icao };
@@ -44472,7 +44473,7 @@ async function buildPrivateMissionProposalChoices(airports, context = {}) {
     // Optional: recherchierte Veranstaltung am ersten Ziel als zusätzlicher Ortsfakt, höchstens jeder dritte
     // tatsächlich geflogene Privatentwurf (Taktung über die History); verdrängt keine anderen Ideen.
     const missionDate = new Date().toLocaleDateString('en-CA');
-    const privateEvent = await findPrivateMissionEvent(airports[0], missionDate, recent).catch(() => null);
+    const privateEvent = await findPrivateMissionEvent(airports[0], missionDate, recent, { fixedTarget: !!context.fixedTarget }).catch(() => null);
     context.ensureAlive?.();
     const candidates = await Promise.all(airports.map(async (airport, index) => {
         const target = missionProposalCompactTarget(airport, 'apt');
@@ -44516,12 +44517,15 @@ async function buildMissionProposalAptChoices(context = {}) {
     const start = context.start;
     if (!config || !start) return [];
     const profile = getMissionTaskProfile(profileId, 'apt') || {};
-    if (missionProposalFixedTargetClub(context)) {
-        const fixed = await getAirportData(context.targetDest);
-        if (!fixed) return [];
-        return window.MissionClubBrowser.choices([], { ...context, fixedTarget: { ...fixed, icao: fixed.icao || context.targetDest } });
+    let fixedTarget = null;
+    if (context.targetDest) {
+        if (!missionProposalFixedTargetEligible(context)) return [];
+        const record = await getAirportData(context.targetDest);
+        if (!record) return [];
+        fixedTarget = { ...record, icao: record.icao || context.targetDest };
+        context = { ...context, fixedTarget };
     }
-    let airports = await collectMissionProposalAirportCandidates({
+    let airports = fixedTarget ? [fixedTarget, fixedTarget, fixedTarget] : await collectMissionProposalAirportCandidates({
         start,
         minNM: context.searchMin,
         maxNM: context.searchMax,
@@ -44539,7 +44543,7 @@ async function buildMissionProposalAptChoices(context = {}) {
     if (profileId === 'club_utility' && context.aiModeEnabled) {
         return window.MissionClubBrowser.choices(airports, context);
     }
-    if (airports.length < 3) {
+    if (!fixedTarget && airports.length < 3) {
         airports = airports.concat(await collectMissionProposalAirportCandidates({
             start,
             minNM: Math.max(5, Number(context.searchMin || 0) * 0.5),
@@ -44550,7 +44554,7 @@ async function buildMissionProposalAptChoices(context = {}) {
         }));
     }
     const seen = new Set();
-    airports = airports.filter(apt => {
+    if (!fixedTarget) airports = airports.filter(apt => {
         const key = normalizeAirportIdent(apt.icao || missionProposalTargetKey(apt));
         if (!key || seen.has(key)) return false;
         seen.add(key);
@@ -44769,17 +44773,21 @@ async function buildMissionProposalChoices(context = {}) {
     return [];
 }
 
-function missionProposalFixedTargetClub(context = {}) {
-    return !!context.targetDest && !context.mixedProfiles && context.aiModeEnabled && context.effectiveType === 'apt'
-        && String(context.dispatchProfileId || '').toLowerCase() === 'club_utility';
+// Festes Ziel mit Picker: drei verschiedene KI-Vorschläge zum selben Platz; ein Event am Ziel wird angeboten
+// (Charter/Privat/Verein suchen dort ohne Taktung). Ohne KI oder im Mischpool bleibt es beim Einzelauftrag.
+function missionProposalFixedTargetEligible(context = {}) {
+    if (!context.targetDest || context.mixedProfiles || !context.aiModeEnabled || context.effectiveType !== 'apt') return false;
+    const profileId = String(context.dispatchProfileId || '').toLowerCase();
+    return !!missionProposalAptProfileConfig(profileId)
+        || (context.selectedAptCategory === 'cargo' && ['auto', ''].includes(profileId))
+        || (context.selectedAptCategory === 'charter' && ['auto', 'apt_charter', ''].includes(profileId));
 }
 
 function missionProposalIsEligible(context = {}) {
     if (!missionProposalModeEnabled()) return false;
     if (context.missionProposalChoice) return false;
     if (context.followupSeed || context.isBushDispatch || context.isPlanningOnlyMode) return false;
-    // Festes Ziel: nur der Vereinsflug bietet drei Ideen zum selben Platz an (eine ggf. mit Event am Ziel).
-    if (context.targetDest) return missionProposalFixedTargetClub(context);
+    if (context.targetDest) return missionProposalFixedTargetEligible(context);
     if (context.mixedProfiles && missionProposalMixedPool(context).length) return true;
     const profileId = String(context.dispatchProfileId || '').toLowerCase();
     if (context.effectiveType === 'apt') {
@@ -46012,7 +46020,7 @@ async function generateMission(options = {}) {
                 // Direkter Privat-Dispatch: dieselbe Veranstaltungssuche und Taktung wie im Picker (V6).
                 if (!planned && window.MissionPrivateEpisodeV6?.mode(localStorage) === 'v6') {
                     const directEvent = await findPrivateMissionEvent(dest, new Date().toLocaleDateString('en-CA'),
-                        window.MissionPrivateEpisodeV6.recent(localStorage)).catch(() => null);
+                        window.MissionPrivateEpisodeV6.recent(localStorage), { fixedTarget: !!targetDest }).catch(() => null);
                     if (directEvent) plannerKnowledgeContext = { ...plannerKnowledgeContext, status: 'accept', ok: true,
                         facts: [directEvent, ...(plannerKnowledgeContext.facts || [])].slice(0, 10) };
                 }
@@ -46943,7 +46951,7 @@ async function generateMission(options = {}) {
             missionContractV4=m._missionContractV4; paxText=m.pax; cargoText=m.cargo;
         } else if (useCharterIdeas) {
             missionContractV4 = {...missionContractV4,route:{startIcao:currentStartICAO,targetIcao:currentDestICAO,startName:start.n,targetName:dest.n,distanceNm:totalDist},weather:_missionPipelineV3WeatherBundle(missionWeather)};
-            m = await window.MissionCharterBrowser.story({start:{...start,icao:currentStartICAO},dest:{...dest,icao:currentDestICAO},proposal:missionProposalChoice?.charterProposal,contract:missionContractV4});
+            m = await window.MissionCharterBrowser.story({start:{...start,icao:currentStartICAO},dest:{...dest,icao:currentDestICAO},proposal:missionProposalChoice?.charterProposal,contract:missionContractV4,fixedTarget:!!targetDest&&!missionProposalChoice});
             missionContractV4=m._missionContractV4; paxText=m.pax; cargoText=m.cargo;
         } else if (useClubIdeas) {
             missionContractV4 = { ...missionContractV4,

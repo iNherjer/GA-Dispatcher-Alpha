@@ -19,7 +19,7 @@ function setup(overrides = {}) {
     vm.createContext(c);
     for (const name of ['missionProposalAptProfileConfig', 'missionProposalPoiProfileConfig',
         'missionProposalMixedPool', 'buildMixedMissionProposalChoices', 'buildMissionProposalChoices',
-        'missionProposalIsEligible', 'missionProposalFixedTargetClub', 'missionProposalFamilyIntro']) {
+        'missionProposalIsEligible', 'missionProposalFixedTargetEligible', 'missionProposalFamilyIntro']) {
         const at = source.indexOf('function ' + name + '(');
         const begin = source.slice(at - 6, at) === 'async ' ? at - 6 : at;
         vm.runInContext(source.slice(begin, source.indexOf('\n}', at) + 2), c);
@@ -73,6 +73,8 @@ test('explicit PICK keeps its generator and eligibility guards still apply', asy
         assert.equal(c.missionProposalIsEligible({...base, [field]: true}), false);
     const club = {...base, mixedProfiles: false, effectiveType: 'apt', aiModeEnabled: true, dispatchProfileId: 'club_utility', targetDest: 'EDLP'};
     assert.equal(c.missionProposalIsEligible(club), true, 'Verein bietet mit festem Ziel den Picker an');
-    assert.equal(c.missionProposalIsEligible({...club, dispatchProfileId: 'apt_charter'}), false, 'andere Stränge bleiben ohne Picker');
+    assert.equal(c.missionProposalIsEligible({...club, dispatchProfileId: 'apt_charter', selectedAptCategory: 'charter'}), true, 'Charter mit festem Ziel');
+    assert.equal(c.missionProposalIsEligible({...club, dispatchProfileId: 'cargo_fragile'}), true, 'Fracht mit festem Ziel');
+    assert.equal(c.missionProposalIsEligible({...club, mixedProfiles: true, dispatchProfileId: 'auto'}), false, 'Mischpool bleibt Einzelauftrag');
     assert.equal(c.missionProposalIsEligible({...club, aiModeEnabled: false}), false);
 });
