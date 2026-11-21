@@ -34,12 +34,20 @@
     }
 
     root.createOpenFreeMapLayer = function(style) {
-        if (!['positron', 'dark', 'fiord'].includes(style)) throw new Error('unknown_vector_basemap');
+        if (!['positron', 'dark', 'fiord', 'liberty', 'bright', 'vfr'].includes(style)) throw new Error('unknown_vector_basemap');
+        // Own VFR style (data/map-styles/vfr-vector.json, built by
+        // tools/build-vfr-vector-style.mjs) on the same OpenFreeMap tiles.
+        const styleUrl = style === 'vfr'
+            ? new URL('data/map-styles/vfr-vector.json', assetBase).href
+            : `https://tiles.openfreemap.org/styles/${style}`;
+        const layerAttribution = style === 'vfr'
+            ? attribution + ' · Höhendaten <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noopener noreferrer">AWS Terrain Tiles</a>'
+            : attribution;
         const L = root.L;
         const OpenFreeMapLayer = L.Layer.extend({
             // L.Layer defaults to overlayPane; base maps belong in tilePane
             // unless the caller assigns a base-map group pane.
-            options: { attribution, pane: 'tilePane' },
+            options: { attribution: layerAttribution, pane: 'tilePane' },
             onAdd(map) {
                 const generation = this._generation = (this._generation || 0) + 1;
                 const current = () => this._generation === generation && map.hasLayer(this);
@@ -71,7 +79,7 @@
                         }
                     });
                     this._inner = new Renderer({
-                        style: `https://tiles.openfreemap.org/styles/${style}`,
+                        style: styleUrl,
                         pane: this.options.pane || 'tilePane',
                         interactive: false,
                         attributionControl: false,

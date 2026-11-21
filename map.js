@@ -8454,6 +8454,9 @@ function initMapBase() {
     const positronMap = createOpenFreeMapLayer('positron');
     const darkMap = createOpenFreeMapLayer('dark');
     const fiordMap = createOpenFreeMapLayer('fiord');
+    const vfrVectorMap = createOpenFreeMapLayer('vfr');
+    const libertyMap = createOpenFreeMapLayer('liberty');
+    const brightMap = createOpenFreeMapLayer('bright');
     const globalBaseEntries = [
         { id: 'topo', label: "⛰️ Topografie (Mit Text)", layer: topoMap },
         ...createGaExtraGlobalBaseMaps(osmAttribution),
@@ -8461,7 +8464,10 @@ function initMapBase() {
         { id: 'satellite', label: "🛰️ Satellit", layer: satMap },
         { id: 'positron', label: "📝 Positron (Hell)", layer: positronMap },
         { id: 'dark', label: "🌑 Dark", layer: darkMap },
-        { id: 'fiord', label: "🌊 Fiord", layer: fiordMap }
+        { id: 'fiord', label: "🌊 Fiord", layer: fiordMap },
+        { id: 'vfr-vector', label: "✈️ VFR Vektor (OSM)", layer: vfrVectorMap },
+        { id: 'liberty', label: "🗺️ Liberty (OSM Vektor)", layer: libertyMap },
+        { id: 'bright', label: "🗺️ Bright (OSM Vektor)", layer: brightMap }
     ];
     const initialGlobalBaseId = gaReadStoredGlobalBaseId(globalBaseEntries, 'topo');
     const initialGlobalBaseLayer = globalBaseEntries.find(entry => entry.id === initialGlobalBaseId).layer;
