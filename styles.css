@@ -20944,6 +20944,14 @@ html[lang="en"] #mapTableOverlay .ga-layer-groups .leaflet-control-layers-base::
 #mapTableOverlay .ga-openaip-select-row {
     grid-template-columns: minmax(0, 1fr) auto auto;
 }
+#mapTableOverlay .ga-openaip-airport-kind-row {
+    grid-template-columns: 20px minmax(0, 1fr) auto;
+}
+#mapTableOverlay .ga-openaip-kind-glyph {
+    display: block;
+    width: 20px;
+    height: 20px;
+}
 #mapTableOverlay .leaflet-control-layers .ga-openaip-airspace-row input[type="color"] {
     grid-column: auto;
 }

@@ -52,6 +52,19 @@
         airportLabels: true
     });
 
+    // Airfield kinds (airportKind) that can be shown or hidden in the panel.
+    const AIRPORT_KINDS = [
+        { id: 'intl', label: 'Verkehrsflughäfen' },
+        { id: 'civil', label: 'Flugplätze' },
+        { id: 'glider', label: 'Segelfluggelände' },
+        { id: 'ul', label: 'UL-Gelände' },
+        { id: 'strip', label: 'Landestreifen' },
+        { id: 'heli', label: 'Hubschrauberlandeplätze' },
+        { id: 'water', label: 'Wasserflugplätze' },
+        { id: 'military', label: 'Militärflugplätze' },
+        { id: 'closed', label: 'Geschlossene Plätze' }
+    ];
+
     function storageGet() { try { return localStorage.getItem(STORAGE_KEY); } catch (_) { return null; } }
     function storageSet(value) { try { localStorage.setItem(STORAGE_KEY, value); } catch (_) {} }
     const isColor = value => typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value);
@@ -89,7 +102,11 @@
             airportSymbols: stored.airportSymbols === 'dots' ? 'dots' : 'icao',
             airportColor: isColor(stored.airportColor) ? stored.airportColor.toLowerCase() : DEFAULTS.airportColor,
             airportSize: percent(stored.airportSize, DEFAULTS.airportSize, 60, 300),
-            airportLabels: stored.airportLabels !== false
+            airportLabels: stored.airportLabels !== false,
+            airportKinds: AIRPORT_KINDS.reduce((out, kind) => {
+                out[kind.id] = !(stored.airportKinds && stored.airportKinds[kind.id] === false);
+                return out;
+            }, {})
         };
     }
 
@@ -395,8 +412,12 @@
     }
 
     // ---- Airfield symbols (simplified ICAO chart symbols) ----
+    // OurAirports type names in the stored airport base (airports.json).
+    const OURAIRPORTS_TYPES = { large_airport: 3, medium_airport: 2, small_airport: 2, heliport: 7, seaplane_base: 10, closed: 8 };
+
     function airportKind(airport) {
-        const type = Number(airport && (airport.type ?? airport.openAipType));
+        const raw = airport && (airport.type ?? airport.openAipType);
+        const type = typeof raw === 'string' && OURAIRPORTS_TYPES[raw] !== undefined ? OURAIRPORTS_TYPES[raw] : Number(raw);
         if (type === 3 || type === 9) return 'intl';
         if (type === 1) return 'glider';
         if (type === 6) return 'ul';
@@ -443,6 +464,10 @@
     }
 
     // Marker for one airfield; the caller keeps tooltip and click handling.
+    function airportVisible(airport) {
+        return settings().airportKinds[airportKind(airport)] !== false;
+    }
+
     function airportMarker(L, latlng, airport, zoom, pane, className) {
         const s = settings();
         const scale = s.airportSize / 100;
@@ -610,6 +635,17 @@
         const labels = input('checkbox', {}, (s) => s.airportLabels, (s, node) => { s.airportLabels = node.checked; });
         labels.setAttribute('aria-label', phrase('Kennung anzeigen'));
         line('Kennung anzeigen', [labels]).classList.add('ga-openaip-check-row');
+        AIRPORT_KINDS.forEach((kind) => {
+            const visible = input('checkbox', { className: 'ga-openaip-visible' },
+                (s) => s.airportKinds[kind.id], (s, node) => { s.airportKinds[kind.id] = node.checked; });
+            visible.setAttribute('aria-label', phrase(kind.label) + ' ' + phrase('anzeigen'));
+            const row = line(kind.label, [visible]);
+            row.classList.add('ga-openaip-check-row', 'ga-openaip-airport-kind-row');
+            const glyph = document.createElement('span');
+            glyph.className = 'ga-openaip-kind-glyph';
+            glyph.innerHTML = symbolSvg(kind.id, '#1d4ed8', kind.id === 'heli' || kind.id === 'water' ? null : 45);
+            row.insertBefore(glyph, row.firstChild);
+        });
 
         const reset = document.createElement('button');
         reset.type = 'button';
@@ -662,6 +698,8 @@
         settings,
         airspaceStyle,
         airportKind,
+        airportVisible,
+        AIRPORT_KINDS,
         airportMarker,
         runwayHeading,
         symbolSvg,

@@ -7893,6 +7893,8 @@ function buildStoredAirportOverlayEntries(bounds) {
             _gaAirportOverlaySource: 'stored',
             icaoCode: icao,
             name,
+            // OpenAIP code or OurAirports name; the overlay symbol set maps both.
+            type: airport?.type,
             country: String(airport?.country || airport?.iso_country || '').trim().toUpperCase(),
             elevation: Number.isFinite(elevationFt) ? { value: elevationFt, unit: 1 } : null,
             geometry: { type: 'Point', coordinates: [lon, lat] }
@@ -8091,6 +8093,8 @@ function renderOpenAipAirports(airports, layer) {
     const candidates = (Array.isArray(airports) ? airports : [])
         .map((airport) => ({ airport, position: getOpenAipAirportOverlayCoordinates(airport) }))
         .filter(({ position }) => position && visibleBounds.contains([position.lat, position.lon]))
+        // Airfield kinds hidden in the layer menu (heliports, water etc.).
+        .filter(({ airport }) => !window.gaOpenAipOverlayStyle?.airportVisible || window.gaOpenAipOverlayStyle.airportVisible(airport))
         .sort((a, b) => {
             const aLat = a.position.lat - center.lat;
             const aLon = (a.position.lon - center.lng) * Math.cos(center.lat * Math.PI / 180);
