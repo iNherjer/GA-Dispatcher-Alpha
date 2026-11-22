@@ -310,7 +310,9 @@ function applyGaLayerGroupCollapse(list) {
         }
         if (!title) return;
         child.style.display = collapsed ? 'none' : '';
-        const input = child.querySelector && child.querySelector('input');
+        // Only layer entries (<label>) name the active map; settings panels
+        // also hold checked inputs but must not end up in the title.
+        const input = child.tagName === 'LABEL' && child.querySelector('input');
         if (input && input.checked) {
             const text = String(child.textContent || '').trim();
             title._gaActiveLabel = title._gaActiveLabel ? title._gaActiveLabel + ', ' + text : text;
