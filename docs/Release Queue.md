@@ -34,6 +34,7 @@ liefert alles Offene mit aus.
 - **Tests:** `desktop/tests/*.test.js` (154), `tracker-efb-tile-proxy.test.js`, `efb-app/map-shell-core.test.js`, `efb-app/map-shell-source.test.js`, `tracker-efb-http-server.test.js`, `tracker-efb-asset-syntax.test.js`; Electron-Ende-zu-Ende am Mac (Renderer → Tracker-Server → EFB-Host, Menü mit/ohne Dienst, Nahtstellen geprüft; Block 0,2–1,9 s, Kachel ~25 KB).
 - **Doku beim Release:** `docs/EFB-Development-Plan.md` (Abschnitt steht schon), Release-Notiz Tracker/Desktop.
 - **Pruefen im Feld:** Windows-GPU/Offscreen-WebGL in der installierten Desktop-App, Darstellung und Ladezeit im EFB (2D/VR), RAM der Desktop-App.
+- **Nachtrag 22.11.2026 · Farben lokal im EFB:** Abschnitt „VFR Vektor: Farben“ im EFB-Kartenmenü (aufklappbar, nur mit Desktop-Dienst): Orte/Wald/Gewässer/Autobahn/Bundesstraße/Bahn per Farbfeld aus kleiner Palette (kein Farbwähler in Coherent), Deckkraft Orte/Wald, Relief, Schriftgröße per −/+, „Standardfarben“. Gespeichert in den EFB-Einstellungen des Geräts (`vectorStyle`, `efb-app/map-shell-core.js` normalizeVectorStyle/encodeVectorStyle); als `?s=` an der Kachel-URL, Tracker validiert und legt je Farbsatz einen eigenen Cache-Ordner `vfr-vector~<satz>` an, Desktop wendet die Farben wie die Web-App an (`gaVectorApplyStyle`).
 
 ### 2026-11-20 · Hindernis-Cache gepackt (EFB-Kopie von profile.js)
 - **Artefakt:** Tracker (EFB-Web-Assets)

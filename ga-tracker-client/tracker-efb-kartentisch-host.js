@@ -2339,6 +2339,8 @@
       .map(function (definition) { return definition.id; });
     if (!ids.length) return;
     function withdraw() {
+      var colours = document.querySelector('.ga-vector-style-control');
+      if (colours && colours.parentNode) colours.parentNode.removeChild(colours);
       ids.forEach(function (id) {
         var layer = baseLayers[id];
         if (!layer || !layerControl) return;
@@ -2437,6 +2439,152 @@
     section.appendChild(wrap);
     updateBaseOpacity();
     installTileCacheControl(section);
+    installVectorStyleControl(section);
+  }
+
+  // Colours of the desktop-rendered "VFR Vektor (OSM)" map, stored with the
+  // EFB preferences on this device. Coherent has no colour input: a swatch
+  // button steps through a small palette, numbers use -/+ buttons. Each colour
+  // set is a ?s= variant of the tile URL with its own tracker cache folder.
+  var vectorStyleTimer = 0;
+  function vectorTileUrl() {
+    var definition = API.BASE_LAYERS.filter(function (entry) { return entry.id === 'vfr-vector'; })[0];
+    if (!definition) return '';
+    var encoded = API.encodeVectorStyle ? API.encodeVectorStyle(preferences.vectorStyle) : '';
+    return definition.localUrl + (encoded ? '?s=' + encoded : '');
+  }
+  function applyVectorStyleUrl(delayMs) {
+    clearTimeout(vectorStyleTimer);
+    vectorStyleTimer = setTimeout(function () {
+      var layer = baseLayers['vfr-vector'];
+      var url = vectorTileUrl();
+      if (layer && url && typeof layer.setUrl === 'function' && layer._url !== url) layer.setUrl(url);
+    }, delayMs || 0);
+  }
+
+  function installVectorStyleControl(section) {
+    if (!baseLayers['vfr-vector'] || !API.VECTOR_STYLE_KEYS || !API.normalizeVectorStyle) return;
+    preferences.vectorStyle = API.normalizeVectorStyle(preferences.vectorStyle);
+    var wrap = document.createElement('div');
+    wrap.className = 'ga-base-dim-control ga-vector-style-control';
+    var header = document.createElement('div');
+    header.className = 'ga-base-dim-row ga-vector-style-header';
+    var title = createLayerGroupTitle('VFR Vektor: Farben');
+    var toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'ga-base-dim-btn ga-vector-style-toggle';
+    header.appendChild(title);
+    header.appendChild(toggle);
+    wrap.appendChild(header);
+    var body = document.createElement('div');
+    body.className = 'ga-vector-style-body';
+    wrap.appendChild(body);
+    var open = false;
+    function showOpen() {
+      body.style.display = open ? '' : 'none';
+      toggle.textContent = open ? '-' : '+';
+      toggle.setAttribute('aria-label', _hT(open ? 'Farben zuklappen' : 'Farben aufklappen'));
+    }
+    toggle.addEventListener('click', function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      open = !open;
+      showOpen();
+    });
+    var refreshers = [];
+    function changed() {
+      savePreferences();
+      refreshers.forEach(function (refresh) { refresh(); });
+      applyVectorStyleUrl(500);
+    }
+    function row(label) {
+      var node = document.createElement('div');
+      node.className = 'ga-base-dim-row ga-vector-style-row';
+      var name = document.createElement('span');
+      name.className = 'ga-vector-style-name';
+      name.textContent = _hT(label);
+      node.appendChild(name);
+      body.appendChild(node);
+      return node;
+    }
+    function colourRow(label, key) {
+      var node = row(label);
+      var swatch = document.createElement('button');
+      swatch.type = 'button';
+      swatch.className = 'ga-base-dim-btn ga-vector-style-swatch';
+      swatch.setAttribute('aria-label', _hT(label) + ': ' + _hT('nächste Farbe'));
+      swatch.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        var palette = API.VECTOR_STYLE_PALETTES[key];
+        var index = palette.indexOf(preferences.vectorStyle[key]);
+        preferences.vectorStyle[key] = palette[(index + 1) % palette.length];
+        changed();
+      });
+      node.appendChild(swatch);
+      refreshers.push(function () { swatch.style.backgroundColor = preferences.vectorStyle[key]; });
+    }
+    function numberRow(label, key) {
+      var range = API.VECTOR_STYLE_RANGES[key];
+      var node = row(label);
+      var value = document.createElement('span');
+      value.className = 'ga-base-dim-value ga-vector-style-value';
+      function step(text, delta, aria) {
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'ga-base-dim-btn';
+        button.textContent = text;
+        button.setAttribute('aria-label', _hT(label) + ' ' + _hT(aria));
+        button.addEventListener('click', function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+          var next = Number(preferences.vectorStyle[key]) + delta * range.step;
+          preferences.vectorStyle[key] = Math.max(range.min, Math.min(range.max, next));
+          changed();
+        });
+        return button;
+      }
+      node.appendChild(step('-', -1, 'verringern'));
+      node.appendChild(value);
+      node.appendChild(step('+', 1, 'erhöhen'));
+      refreshers.push(function () { value.textContent = preferences.vectorStyle[key] + ' %'; });
+    }
+    colourRow('Orte', 'settlement');
+    numberRow('Orte Deckkraft', 'settlementOpacity');
+    colourRow('Wald', 'wood');
+    numberRow('Wald Deckkraft', 'woodOpacity');
+    colourRow('Gewässer', 'water');
+    colourRow('Autobahn', 'motorway');
+    colourRow('Bundesstraße', 'trunk');
+    colourRow('Bahn', 'rail');
+    numberRow('Relief', 'hillshade');
+    numberRow('Schriftgröße', 'labelSize');
+    var resetRow = document.createElement('div');
+    resetRow.className = 'ga-base-dim-row';
+    var reset = document.createElement('button');
+    reset.type = 'button';
+    reset.className = 'ga-base-dim-btn ga-tile-cache-toggle';
+    reset.textContent = _hT('Standardfarben');
+    reset.addEventListener('click', function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      preferences.vectorStyle = API.normalizeVectorStyle({});
+      changed();
+    });
+    resetRow.appendChild(reset);
+    body.appendChild(resetRow);
+    var hint = document.createElement('div');
+    hint.className = 'ga-base-dim-hint';
+    hint.textContent = _hT('Nur für „VFR Vektor (OSM, über Desktop-App)“. Gespeichert auf diesem Gerät.');
+    body.appendChild(hint);
+    if (L.DomEvent) {
+      L.DomEvent.disableClickPropagation(wrap);
+      L.DomEvent.disableScrollPropagation(wrap);
+    }
+    section.appendChild(wrap);
+    refreshers.forEach(function (refresh) { refresh(); });
+    showOpen();
+    applyVectorStyleUrl(0);
   }
 
   function redrawTileLayers() {

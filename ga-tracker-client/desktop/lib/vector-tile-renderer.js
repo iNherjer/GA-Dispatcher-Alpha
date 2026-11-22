@@ -16,6 +16,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const TILE_PATTERN = /^\/vector-tile\/(vfr)\/(\d{1,2})\/(\d{1,8})\/(\d{1,8})\.png$/;
+// Colour set from the EFB (efb-app/map-shell-core.js encodeVectorStyle).
+const STYLE_VARIANT_PATTERN = /^[0-9a-f]{6}\.\d{1,3}\.[0-9a-f]{6}\.\d{1,3}\.[0-9a-f]{6}\.[0-9a-f]{6}\.[0-9a-f]{6}\.[0-9a-f]{6}\.\d{1,3}\.\d{1,3}$/;
 const MIN_ZOOM = 3;
 const MAX_ZOOM = 16;
 // Tiles per block side and margin in px: one render gives 16 tiles, labels at
@@ -27,20 +29,23 @@ const MAX_QUEUE = 24;
 const IDLE_CLOSE_MS = 10 * 60 * 1000;
 const TILE_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 
-function blockFor(z, x, y) {
+function blockFor(z, x, y, variant = '') {
   const n = Math.min(BLOCK_TILES, 2 ** z);
   const x0 = Math.floor(x / n) * n;
   const y0 = Math.floor(y / n) * n;
-  return { z, x0, y0, n, index: (y - y0) * n + (x - x0), key: `${z}/${x0}/${y0}` };
+  return { z, x0, y0, n, variant, index: (y - y0) * n + (x - x0), key: `${variant || 'default'}/${z}/${x0}/${y0}` };
 }
 
 function parseTilePath(url) {
-  const match = TILE_PATTERN.exec(String(url || '').split('?')[0]);
+  const [pathname, query = ''] = String(url || '').split('?');
+  const match = TILE_PATTERN.exec(pathname);
   if (!match) return null;
   const z = Number(match[2]), x = Number(match[3]), y = Number(match[4]);
   const limit = 2 ** z;
   if (z < MIN_ZOOM || z > MAX_ZOOM || x >= limit || y >= limit) return null;
-  return { style: match[1], z, x, y };
+  const variantMatch = /(?:^|&)s=([^&]*)/.exec(query);
+  const variant = variantMatch && STYLE_VARIANT_PATTERN.test(variantMatch[1]) ? variantMatch[1] : '';
+  return { style: match[1], z, x, y, variant };
 }
 
 function createVectorTileRenderer({ BrowserWindow, log = () => {}, styleFile, pageFile } = {}) {
@@ -55,6 +60,7 @@ function createVectorTileRenderer({ BrowserWindow, log = () => {}, styleFile, pa
   const blocks = new Map();
   const queue = [];
   let busy = false;
+  let appliedVariant = '';
 
   function closeWindow(reason) {
     clearTimeout(idleTimer);
@@ -98,6 +104,7 @@ function createVectorTileRenderer({ BrowserWindow, log = () => {}, styleFile, pa
       closeWindow('');
     });
     const current = win;
+    appliedVariant = '';
     ready = (async () => {
       await current.loadFile(pagePath);
       const style = JSON.parse(await fs.promises.readFile(stylePath, 'utf8'));
@@ -115,6 +122,10 @@ function createVectorTileRenderer({ BrowserWindow, log = () => {}, styleFile, pa
   async function renderBlock(block) {
     const target = await ensureWindow();
     const started = Date.now();
+    if (block.variant !== appliedVariant) {
+      await target.webContents.executeJavaScript(`window.gaVectorApplyStyle(${JSON.stringify(block.variant)})`, true);
+      appliedVariant = block.variant;
+    }
     const result = await target.webContents.executeJavaScript(
       `window.gaVectorRenderBlock(${block.z}, ${block.x0}, ${block.y0}, ${block.n}, ${BLOCK_MARGIN})`, true);
     if (!result || !Array.isArray(result.tiles) || result.tiles.length !== block.n * block.n) throw new Error('vector_render_empty');
@@ -164,8 +175,8 @@ function createVectorTileRenderer({ BrowserWindow, log = () => {}, styleFile, pa
     return pending;
   }
 
-  async function tile(z, x, y) {
-    const block = blockFor(z, x, y);
+  async function tile(z, x, y, variant = '') {
+    const block = blockFor(z, x, y, variant);
     const value = await getBlock(block);
     return { body: value.tiles[block.index], complete: value.complete };
   }
@@ -193,7 +204,7 @@ function createVectorTileRenderer({ BrowserWindow, log = () => {}, styleFile, pa
         const requested = parseTilePath(request.url);
         if (!requested) return fail(404, 'vector_tile_unknown');
         try {
-          const result = await tile(requested.z, requested.x, requested.y);
+          const result = await tile(requested.z, requested.x, requested.y, requested.variant);
           response.writeHead(200, {
             'Content-Type': 'image/jpeg',
             'Content-Length': result.body.length,

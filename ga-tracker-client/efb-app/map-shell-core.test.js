@@ -27,6 +27,7 @@ test('map preferences reject unknown layers and keep the Alpha default overlay',
     regionalBases: [],
     baseDimPercent: 50,
     tileCache: true,
+    vectorStyle: { ...core.VECTOR_STYLE_DEFAULTS },
     follow: true,
     theme: 'classic',
     toolbarCollapsed: false,
@@ -42,6 +43,7 @@ test('map preferences reject unknown layers and keep the Alpha default overlay',
     regionalBases: [],
     baseDimPercent: 50,
     tileCache: true,
+    vectorStyle: { ...core.VECTOR_STYLE_DEFAULTS },
     follow: false,
     theme: 'classic',
     toolbarCollapsed: false,
@@ -248,4 +250,16 @@ test('the desktop-rendered vector map is proxy-only and known to the tracker pro
   assert.equal(layer.desktopRender, true);
   assert.equal(proxy.TILE_SOURCES['vfr-vector'].desktopRender, 'vfr');
   assert.equal(core.normalizePreferences({ baseLayer: 'vfr-vector' }).baseLayer, 'vfr-vector');
+});
+
+test('vector map colours are stored locally, clamped and encoded for the tile URL', () => {
+  assert.equal(core.encodeVectorStyle({}), '');
+  const style = core.normalizeVectorStyle({ wood: '#6AA35A', hillshade: 999, labelSize: 10, water: 'blue' });
+  assert.equal(style.wood, '#6aa35a');
+  assert.equal(style.hillshade, 200);
+  assert.equal(style.labelSize, 60);
+  assert.equal(style.water, core.VECTOR_STYLE_DEFAULTS.water);
+  assert.equal(core.encodeVectorStyle(style), 'f2cf4a.100.6aa35a.100.9cc3ee.d9472b.ee7a3c.555555.200.60');
+  for (const key of Object.keys(core.VECTOR_STYLE_PALETTES)) assert.equal(core.VECTOR_STYLE_PALETTES[key][0], core.VECTOR_STYLE_DEFAULTS[key]);
+  assert.deepEqual(core.normalizePreferences({ vectorStyle: { rail: '#222222' } }).vectorStyle.rail, '#222222');
 });

@@ -182,3 +182,26 @@ test('without the desktop app the vector source is unavailable and never fetched
   await assert.rejects(proxy.get({ layer: 'vfr-vector', z: 11, x: 1075, y: 704 }), /desktop_renderer_unavailable/);
   assert.equal(fetched, false);
 });
+
+test('colour sets of the vector map travel to the renderer and are cached apart', async () => {
+  const variant = 'f2cf4a.100.6aa35a.100.9cc3ee.d9472b.ee7a3c.555555.75.100';
+  const tile = parseTrackerEfbTilePath('/api/v1/map-tile/vfr-vector/11/1075/704.png', '?s=' + variant);
+  assert.equal(tile.variant, variant);
+  assert.equal(parseTrackerEfbTilePath('/api/v1/map-tile/vfr-vector/11/1075/704.png', '?s=evil').variant, undefined);
+  assert.equal(parseTrackerEfbTilePath('/api/v1/map-tile/topo/11/1075/704.png', '?s=' + variant).variant, undefined);
+  const urls = [];
+  const proxy = createTrackerEfbTileProxy({
+    renderEndpoint: { port: 41234, token: 'b'.repeat(64) },
+    fetchRemote: async (url) => {
+      urls.push(url);
+      return { ok: true, status: 200, headers: { get: (name) => (name === 'content-type' ? 'image/jpeg' : '') }, arrayBuffer: async () => Buffer.from([1]) };
+    }
+  });
+  await proxy.get(tile);
+  await proxy.get({ layer: 'vfr-vector', z: 11, x: 1075, y: 704 });
+  await proxy.get(tile);
+  assert.deepEqual(urls, [
+    'http://127.0.0.1:41234/vector-tile/vfr/11/1075/704.png?s=' + variant,
+    'http://127.0.0.1:41234/vector-tile/vfr/11/1075/704.png'
+  ]);
+});

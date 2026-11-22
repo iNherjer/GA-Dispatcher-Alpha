@@ -113,7 +113,17 @@ function sanitize(value, limit = 180) {
   return String(value == null ? '' : value).replace(/[\r\n\t]+/g, ' ').slice(0, limit);
 }
 
-function parseTrackerEfbTilePath(pathname = '') {
+// Colour set of the desktop-rendered vector map (efb-app/map-shell-core.js
+// encodeVectorStyle): six colours and four numbers in fixed order.
+const VECTOR_STYLE_VARIANT_PATTERN = /^[0-9a-f]{6}\.\d{1,3}\.[0-9a-f]{6}\.\d{1,3}\.[0-9a-f]{6}\.[0-9a-f]{6}\.[0-9a-f]{6}\.[0-9a-f]{6}\.\d{1,3}\.\d{1,3}$/;
+
+function vectorStyleVariant(search = '') {
+  const match = /(?:^|[?&])s=([^&]*)/.exec(String(search || ''));
+  const value = match ? decodeURIComponent(match[1]).toLowerCase() : '';
+  return VECTOR_STYLE_VARIANT_PATTERN.test(value) ? value : '';
+}
+
+function parseTrackerEfbTilePath(pathname = '', search = '') {
   const match = String(pathname || '').match(/^\/api\/v1\/map-tile\/([a-z][a-z0-9-]*)\/(\d{1,2})\/(\d{1,8})\/(\d{1,8})\.png$/);
   if (!match || !Object.hasOwn(TILE_SOURCES, match[1])) return null;
   const z = Number(match[2]);
@@ -125,7 +135,11 @@ function parseTrackerEfbTilePath(pathname = '') {
   if (!Number.isSafeInteger(z) || z < minZoom || z > maxZoom
     || !Number.isSafeInteger(x) || x < 0 || x >= limit
     || !Number.isSafeInteger(y) || y < 0 || y >= limit) return null;
-  return { layer: match[1], z, x, y };
+  const tile = { layer: match[1], z, x, y };
+  // Only desktop-rendered maps know colour sets; anything else is ignored.
+  const variant = TILE_SOURCES[match[1]].desktopRender ? vectorStyleVariant(search) : '';
+  if (variant) tile.variant = variant;
+  return tile;
 }
 
 function tileUrl(template, tile) {
@@ -172,7 +186,9 @@ function createTrackerEfbTileProxy(options = {}) {
   }
 
   function diskPaths(tile) {
-    const dir = path.join(diskDir, tile.layer, String(tile.z), String(tile.x));
+    // Every colour set of the vector map has its own folder.
+    const folder = tile.variant ? `${tile.layer}~${tile.variant}` : tile.layer;
+    const dir = path.join(diskDir, folder, String(tile.z), String(tile.x));
     return { dir, body: path.join(dir, `${tile.y}.tile`), meta: path.join(dir, `${tile.y}.json`) };
   }
 
@@ -303,7 +319,7 @@ function createTrackerEfbTileProxy(options = {}) {
       ? [`http://127.0.0.1:${local.port}/vector-tile/${source.desktopRender}/{z}/{x}/{y}.png`]
       : source.urls;
     for (const template of templates) {
-      const upstreamUrl = tileUrl(template, tile);
+      const upstreamUrl = tileUrl(template, tile) + (local && tile.variant ? `?s=${tile.variant}` : '');
       const controller = typeof AbortController === 'function' ? new AbortController() : null;
       const timer = controller ? setTimeout(() => controller.abort(), local ? renderTimeoutMs : timeoutMs) : null;
       try {
@@ -351,7 +367,7 @@ function createTrackerEfbTileProxy(options = {}) {
   }
 
   async function get(tile) {
-    const key = `${tile.layer}/${tile.z}/${tile.x}/${tile.y}`;
+    const key = `${tile.layer}${tile.variant ? '~' + tile.variant : ''}/${tile.z}/${tile.x}/${tile.y}`;
     const cached = cache.get(key);
     if (cached) {
       touch(key, cached);

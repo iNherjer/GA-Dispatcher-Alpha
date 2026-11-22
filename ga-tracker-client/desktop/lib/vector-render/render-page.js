@@ -38,6 +38,74 @@
     return [lng, lat];
   }
 
+  function shade(hex, factor) {
+    var value = parseInt(String(hex).slice(1), 16);
+    var out = '#';
+    [16, 8, 0].forEach(function (shift) {
+      var channel = Math.max(0, Math.min(255, Math.round(((value >> shift) & 255) * factor))).toString(16);
+      out += channel.length < 2 ? '0' + channel : channel;
+    });
+    return out;
+  }
+
+  // Colour set from the EFB (efb-app/map-shell-core.js encodeVectorStyle), ''
+  // for the default style. Same paint changes as the web app's
+  // gaApplyVfrStyleSettings (map-basemap-catalog.js).
+  var DEFAULT_STYLE = 'f2cf4a.100.8fc67a.100.9cc3ee.d9472b.ee7a3c.555555.100.100';
+  window.gaVectorApplyStyle = function (encoded) {
+    var parts = String(encoded || DEFAULT_STYLE).split('.');
+    var s = {
+      settlement: '#' + parts[0], settlementOpacity: Number(parts[1]), wood: '#' + parts[2], woodOpacity: Number(parts[3]),
+      water: '#' + parts[4], motorway: '#' + parts[5], trunk: '#' + parts[6], rail: '#' + parts[7],
+      hillshade: Number(parts[8]), labelSize: Number(parts[9])
+    };
+    function set(id, property, value) {
+      if (!map.getLayer(id)) return;
+      try { map.setPaintProperty(id, property, value); } catch (_) {}
+    }
+    function scale(stops, factor) {
+      var out = ['interpolate', ['linear'], ['zoom']];
+      for (var i = 0; i < stops.length; i += 2) out.push(stops[i], Math.min(1, stops[i + 1] * factor));
+      return out;
+    }
+    var settlement = s.settlementOpacity / 100;
+    var wood = s.woodOpacity / 100;
+    set('landuse_residential', 'fill-color', s.settlement);
+    set('landuse_residential', 'fill-opacity', scale([6, 0.75, 12, 0.6, 15, 0.35], settlement));
+    set('landuse_urban', 'fill-color', shade(s.settlement, 0.93));
+    set('landuse_urban', 'fill-opacity', scale([6, 0.6, 15, 0.3], settlement));
+    set('landcover_wood', 'fill-color', s.wood);
+    set('landcover_wood', 'fill-opacity', scale([5, 0.65, 13, 0.55], wood));
+    set('water', 'fill-color', s.water);
+    ['waterway_river', 'waterway_other', 'waterway_tunnel'].forEach(function (id) { set(id, 'line-color', shade(s.water, 0.62)); });
+    ['road', 'bridge', 'tunnel'].forEach(function (prefix) {
+      set(prefix + '_motorway', 'line-color', s.motorway);
+      set(prefix + '_motorway_link', 'line-color', s.motorway);
+      set(prefix + '_motorway_casing', 'line-color', shade(s.motorway, 0.72));
+      set(prefix + '_motorway_link_casing', 'line-color', shade(s.motorway, 0.72));
+      set(prefix + '_trunk_primary', 'line-color', s.trunk);
+      set(prefix + '_trunk_primary_casing', 'line-color', shade(s.trunk, 0.75));
+      set(prefix + '_major_rail', 'line-color', s.rail);
+      set(prefix + '_major_rail_hatching', 'line-color', s.rail);
+    });
+    var shading = s.hillshade / 100;
+    if (map.getLayer('vfr_hillshade')) {
+      try { map.setLayoutProperty('vfr_hillshade', 'visibility', shading > 0 ? 'visible' : 'none'); } catch (_) {}
+      set('vfr_hillshade', 'hillshade-exaggeration', scale([5, 0.45, 10, 0.35, 14, 0.2], shading));
+    }
+    var size = s.labelSize / 100;
+    function textSize(id, stops) {
+      if (!map.getLayer(id)) return;
+      var out = ['interpolate', ['linear'], ['zoom']];
+      for (var i = 0; i < stops.length; i += 2) out.push(stops[i], Math.round(stops[i + 1] * size * 10) / 10);
+      try { map.setLayoutProperty(id, 'text-size', out); } catch (_) {}
+    }
+    textSize('label_village', [9, 11, 12, 14, 15, 16]);
+    textSize('label_town', [6, 11, 9, 14, 12, 17]);
+    textSize('label_city', [4, 12, 8, 16, 12, 20]);
+    return true;
+  };
+
   window.gaVectorInit = function (style) {
     if (map) return Promise.resolve(true);
     container.style.width = '512px';

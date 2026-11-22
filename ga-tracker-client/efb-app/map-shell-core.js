@@ -222,6 +222,66 @@ const OVERLAY_LAYERS = Object.freeze([
   })
 ]);
 
+// Colours of the desktop-rendered "VFR Vektor (OSM)" map, set and stored in
+// the EFB itself (defaults equal the web app's VFR vector style). Colours are
+// picked from small palettes (no colour input in Coherent), the numbers in
+// steps. The encoded form travels as ?s= on the tile URL, so every colour set
+// gets its own tiles in the tracker cache.
+const VECTOR_STYLE_DEFAULTS = Object.freeze({
+  settlement: '#f2cf4a',
+  settlementOpacity: 100,
+  wood: '#8fc67a',
+  woodOpacity: 100,
+  water: '#9cc3ee',
+  motorway: '#d9472b',
+  trunk: '#ee7a3c',
+  rail: '#555555',
+  hillshade: 100,
+  labelSize: 100
+});
+const VECTOR_STYLE_KEYS = Object.freeze(['settlement', 'settlementOpacity', 'wood', 'woodOpacity', 'water',
+  'motorway', 'trunk', 'rail', 'hillshade', 'labelSize']);
+const VECTOR_STYLE_PALETTES = Object.freeze({
+  settlement: Object.freeze(['#f2cf4a', '#f7e08a', '#e8b23a', '#f4a3a3', '#d6d6d6']),
+  wood: Object.freeze(['#8fc67a', '#b5dca5', '#6aa35a', '#c9d9b2']),
+  water: Object.freeze(['#9cc3ee', '#7fb1e8', '#b9d6f5', '#5c9bd9']),
+  motorway: Object.freeze(['#d9472b', '#c2185b', '#8e44ad', '#f39c12']),
+  trunk: Object.freeze(['#ee7a3c', '#f1c40f', '#d35400', '#8a8f94']),
+  rail: Object.freeze(['#555555', '#222222', '#8a8a8a', '#8e44ad'])
+});
+const VECTOR_STYLE_RANGES = Object.freeze({
+  settlementOpacity: Object.freeze({ min: 0, max: 150, step: 25 }),
+  woodOpacity: Object.freeze({ min: 0, max: 150, step: 25 }),
+  hillshade: Object.freeze({ min: 0, max: 200, step: 25 }),
+  labelSize: Object.freeze({ min: 60, max: 180, step: 20 })
+});
+
+function normalizeVectorStyle(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const result = {};
+  VECTOR_STYLE_KEYS.forEach((key) => {
+    const fallback = VECTOR_STYLE_DEFAULTS[key];
+    const raw = source[key];
+    if (typeof fallback === 'string') {
+      result[key] = typeof raw === 'string' && /^#[0-9a-f]{6}$/i.test(raw) ? raw.toLowerCase() : fallback;
+      return;
+    }
+    const range = VECTOR_STYLE_RANGES[key];
+    const number = finite(raw);
+    result[key] = number === null ? fallback : Math.max(range.min, Math.min(range.max, Math.round(number)));
+  });
+  return result;
+}
+
+// '' for the default style, otherwise the values in key order joined by '.'
+// (colours without '#'), e.g. f2cf4a.100.8fc67a.100.9cc3ee.d9472b.ee7a3c.555555.100.100
+function encodeVectorStyle(value) {
+  const style = normalizeVectorStyle(value);
+  const isDefault = VECTOR_STYLE_KEYS.every((key) => style[key] === VECTOR_STYLE_DEFAULTS[key]);
+  if (isDefault) return '';
+  return VECTOR_STYLE_KEYS.map((key) => String(style[key]).replace('#', '')).join('.');
+}
+
 const BASE_IDS = new Set(BASE_LAYERS.map((layer) => layer.id));
 const OVERLAY_IDS = new Set(OVERLAY_LAYERS.map((layer) => layer.id));
 const REGIONAL_BASE_IDS = new Set(REGIONAL_BASE_LAYERS.map((layer) => layer.id));
@@ -258,6 +318,7 @@ function normalizePreferences(value = {}) {
       : Math.max(0, Math.min(BASE_DIM_MAX_PERCENT, Math.round(dimValue))),
     // Load tiles through the tracker disk cache first (switchable in the layer menu).
     tileCache: source.tileCache !== false,
+    vectorStyle: normalizeVectorStyle(source.vectorStyle),
     follow: source.follow !== false,
     theme: 'classic',
     toolbarCollapsed: source.toolbarCollapsed === true,
@@ -577,7 +638,13 @@ const mapShellCoreApi = Object.freeze({
   MISSION_SNAPSHOT_GAP_GRACE_MS,
   OVERLAY_LAYERS,
   THEMES,
+  VECTOR_STYLE_DEFAULTS,
+  VECTOR_STYLE_KEYS,
+  VECTOR_STYLE_PALETTES,
+  VECTOR_STYLE_RANGES,
   advanceMissionDisplay,
+  encodeVectorStyle,
+  normalizeVectorStyle,
   baseLayerOpacity,
   formatCoordinateLine,
   formatFlightLine,

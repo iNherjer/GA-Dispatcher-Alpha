@@ -1789,3 +1789,22 @@ body.ga-efb-tracker-host:not(.theme-win95) #mapDrawFloatingBtn {
 body.ga-efb-tracker-host.theme-retro .pinboard-header,
 body.ga-efb-tracker-host.theme-navcom .pinboard-header { background: #1a1a1a !important; }
 body.ga-efb-tracker-host.theme-ops1940 .pinboard-header { background: #0e0b08 !important; }
+
+/* EFB: Farben der Desktop-Vektorkarte (installVectorStyleControl). */
+#mapTableOverlay .leaflet-control-layers .ga-vector-style-header .ga-layer-group-title {
+  flex: 1 1 auto;
+  margin: 0;
+}
+#mapTableOverlay .leaflet-control-layers .ga-vector-style-name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+#mapTableOverlay .leaflet-control-layers .ga-base-dim-btn ~ .ga-vector-style-value {
+  flex: 0 0 auto !important;
+  min-width: 3.6em;
+  text-align: center;
+}
+#mapTableOverlay .leaflet-control-layers .ga-base-dim-btn.ga-vector-style-swatch {
+  width: 52px;
+  border: 2px solid rgba(255, 255, 255, 0.55);
+}

@@ -812,7 +812,7 @@ function createTrackerEfbHttpServer(options = {}) {
       }
       return;
     }
-    const tileRequest = parseTrackerEfbTilePath(pathname);
+    const tileRequest = parseTrackerEfbTilePath(pathname, requestUrl ? requestUrl.search : '');
     if (tileRequest) {
       try {
         tileResponse(response, await tileProxy.get(tileRequest));
