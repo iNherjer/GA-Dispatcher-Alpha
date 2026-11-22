@@ -7798,6 +7798,8 @@ function getOpenAipOverlayBBoxString() {
 }
 
 function getOpenAipOverlayStyle(airspace) {
+    // Customisable in the layer menu (map-aviation-overlay-style.js); null = hidden category.
+    if (window.gaOpenAipOverlayStyle) return window.gaOpenAipOverlayStyle.airspaceStyle(airspace);
     const t = Number(airspace && airspace.type);
     if (t === 3) return { color: '#ef4444', fillOpacity: 0.16, weight: 2 };
     if (t === 1 || t === 2) return { color: '#f97316', fillOpacity: 0.12, weight: 2 };
@@ -8038,6 +8040,7 @@ function renderOpenAipAirspaces(airspaces, layer) {
         const geometry = airspace.geometry;
         if (!geometry || (geometry.type !== 'Polygon' && geometry.type !== 'MultiPolygon')) return;
         const style = getOpenAipOverlayStyle(airspace);
+        if (!style) return;
         const tooltip = getOpenAipOverlayAirspaceLabel(airspace);
         const coords = geometry.type === 'Polygon'
             ? [geometry.coordinates]
@@ -8052,8 +8055,9 @@ function renderOpenAipAirspaces(airspaces, layer) {
             const polygonLayer = L.polygon(latlngs, {
                 pane: GA_MAP_OVERLAY_PANES.localAviation.name,
                 color: style.color,
+                opacity: style.opacity ?? 1,
                 weight: style.weight,
-                fillColor: style.color,
+                fillColor: style.fillColor || style.color,
                 fillOpacity: style.fillOpacity,
                 dashArray: style.dashArray || null,
                 interactive: false
@@ -8092,18 +8096,22 @@ function renderOpenAipAirports(airports, layer) {
         const airportSource = airport?._gaAirportOverlaySource === 'stored' ? 'stored' : 'openaip';
         const airportLabel = getOpenAipAirportLabel(airport);
         const airportIcao = String(airport?.icaoCode || airport?.icao || airport?.designator || '').trim().toUpperCase();
-        const marker = L.circleMarker([lat, lon], {
-            pane: GA_MAP_OVERLAY_PANES.localAviation.name,
-            radius: zoom >= 12 ? 7 : (zoom >= 10 ? 6.2 : 5.5),
-            color: '#fde047',
-            fillColor: '#07131d',
-            fillOpacity: 0.96,
-            weight: 2,
-            className: `ga-airport-overlay-marker is-${airportSource}`,
-            gaAirportSource: airportSource,
-            interactive: true,
-            bubblingMouseEvents: false
-        }).bindTooltip(getOpenAipAirportTooltip(airport), {
+        // ICAO symbol set or the previous dots (layer menu "OpenAIP: Darstellung anpassen").
+        const marker = (window.gaOpenAipOverlayStyle
+            ? window.gaOpenAipOverlayStyle.airportMarker(L, [lat, lon], airport, zoom,
+                GA_MAP_OVERLAY_PANES.localAviation.name, `ga-airport-overlay-marker is-${airportSource}`)
+            : L.circleMarker([lat, lon], {
+                pane: GA_MAP_OVERLAY_PANES.localAviation.name,
+                radius: zoom >= 12 ? 7 : (zoom >= 10 ? 6.2 : 5.5),
+                color: '#fde047',
+                fillColor: '#07131d',
+                fillOpacity: 0.96,
+                weight: 2,
+                className: `ga-airport-overlay-marker is-${airportSource}`,
+                gaAirportSource: airportSource,
+                interactive: true,
+                bubblingMouseEvents: false
+            })).bindTooltip(getOpenAipAirportTooltip(airport), {
             sticky: true,
             direction: 'top',
             offset: [0, -5],
@@ -8176,8 +8184,18 @@ function renderOpenAipNavaids(navaids, layer) {
     });
 }
 
+let openAipLastOverlayPayload = null;
+// Settings changed in the layer menu: redraw airspaces and airfields from the last data.
+window.gaOpenAipOverlayRestyle = function () {
+    openAipOverlayRenderState.airspaceKey = '';
+    openAipOverlayRenderState.airportKey = '';
+    if (openAipLastOverlayPayload) renderOpenAipOverlayData(openAipLastOverlayPayload);
+    else renderKnownAirportOverlaySources();
+};
+
 function renderOpenAipOverlayData(payload) {
     if (!ensureOpenAipOverlayLayer()) return;
+    openAipLastOverlayPayload = payload;
     setOpenAipOverlaySublayerVisible(openAipAirspaceLayer, true);
     const airspaces = Array.isArray(payload?.airspaces) ? payload.airspaces : [];
     const airports = Array.isArray(payload?.airports) ? payload.airports : [];
@@ -8618,7 +8636,10 @@ function initMapBase() {
     configureMapLayerControl(map, layerControl);
     installGaGlobalBaseMapMemory(map, globalBaseEntries);
     installGaRegionalBaseMaps(map, layerControl, regionalBaseEntries);
-    installGaBaseMapMenu(layerControl, globalBaseEntries);
+    installGaBaseMapMenu(layerControl, globalBaseEntries, window.gaOpenAipOverlayStyle && openAipVectorOverlay ? [{
+        layer: openAipVectorOverlay,
+        panel: window.gaOpenAipOverlayStyle.createPanel(createGaLayerGroupTitle, () => window.gaOpenAipOverlayRestyle())
+    }] : []);
     baseMapDimmer = installGaBaseMapDimming(map, layerControl, () => {
         if (!map.hasLayer(aeroOverlay)) return false;
         const zoom = Number(map.getZoom());

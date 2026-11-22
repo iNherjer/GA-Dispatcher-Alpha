@@ -266,7 +266,7 @@ function gaLayerGroupState() {
 // Groups start expanded; the VFR style settings start collapsed.
 function gaLayerGroupCollapsed(key) {
     const value = gaLayerGroupState()[key];
-    return value === undefined ? key === 'vfr-style' : value === true;
+    return value === undefined ? /-style$/.test(String(key)) : value === true;
 }
 
 function gaSetLayerGroupCollapsed(key, collapsed) {
@@ -496,7 +496,7 @@ function createGaVfrStylePanel(getGlMap) {
 // Global base maps in two collapsible groups (vector maps first, then tile
 // maps), the VFR vector settings below their entry, and collapsible regional
 // and overlay groups (titles from installGaRegionalBaseMaps).
-function installGaBaseMapMenu(layerControl, entries) {
+function installGaBaseMapMenu(layerControl, entries, overlayPanels = []) {
     if (!layerControl || typeof layerControl._update !== 'function') return;
     const kindByStamp = {};
     entries.forEach((entry) => { kindByStamp[L.stamp(entry.layer)] = entry.kind === 'vector' ? 'vector' : 'raster'; });
@@ -530,7 +530,20 @@ function installGaBaseMapMenu(layerControl, entries) {
             applyGaLayerGroupCollapse(base);
             if (vfrPanel) applyGaLayerGroupCollapse(vfrPanel);
         }
-        applyGaLayerGroupCollapse(this._overlaysList);
+        const overlays = this._overlaysList;
+        if (overlays) {
+            overlayPanels.forEach(({ layer, panel }) => {
+                if (panel.parentNode) panel.parentNode.removeChild(panel);
+                const stamp = L.stamp(layer);
+                const label = Array.from(overlays.children).find((child) => {
+                    const input = child.querySelector && child.querySelector('input');
+                    return input && input.layerId === stamp;
+                });
+                if (label) overlays.insertBefore(panel, label.nextSibling);
+                applyGaLayerGroupCollapse(panel);
+            });
+        }
+        applyGaLayerGroupCollapse(overlays);
     };
     layerControl._update = function () {
         const result = originalUpdate.apply(this, arguments);
@@ -549,6 +562,7 @@ function installGaBaseMapMenu(layerControl, entries) {
             applyGaLayerGroupCollapse(layerControl._baseLayersList);
             applyGaLayerGroupCollapse(layerControl._overlaysList);
             if (vfrPanel) applyGaLayerGroupCollapse(vfrPanel);
+            overlayPanels.forEach(({ panel }) => applyGaLayerGroupCollapse(panel));
         });
         // A new selection updates the "· active" hint of collapsed groups.
         container.addEventListener('change', () => {
