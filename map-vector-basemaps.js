@@ -94,6 +94,8 @@
                         if (current()) {
                             this._loaded = true;
                             this._status.remove();
+                            // Own style settings (VFR vector colors etc.).
+                            if (typeof root.gaOnVectorStyleLoaded === 'function') root.gaOnVectorStyleLoaded(style, glMap);
                         }
                     });
                     glMap.on('error', event => {

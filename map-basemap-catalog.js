@@ -232,10 +232,10 @@ function installGaRegionalBaseMaps(map, layerControl, entries) {
                 const isRegional = regionalStamps.has(input.layerId);
                 label.classList.toggle('ga-layer-regional', isRegional);
                 if (isRegional && !regionalTitleDone) {
-                    list.insertBefore(createGaLayerGroupTitle('Regionale Basiskarten'), label);
+                    list.insertBefore(createGaLayerGroupTitle('Regionale Basiskarten', 'regional'), label);
                     regionalTitleDone = true;
                 } else if (!isRegional && !overlayTitleDone) {
-                    list.insertBefore(createGaLayerGroupTitle('Overlays'), label);
+                    list.insertBefore(createGaLayerGroupTitle('Overlays', 'overlays'), label);
                     overlayTitleDone = true;
                 }
             });
@@ -253,11 +253,310 @@ function installGaRegionalBaseMaps(map, layerControl, entries) {
     };
 }
 
-function createGaLayerGroupTitle(text) {
-    const node = document.createElement('div');
-    node.className = 'ga-layer-group-title';
+// Group titles with a key can be collapsed; the state is remembered per group.
+const GA_LAYER_GROUP_STATE_KEY = 'ga_layer_menu_groups_v1';
+
+function gaLayerGroupState() {
+    try {
+        const parsed = JSON.parse(gaBaseMapStorageGet(GA_LAYER_GROUP_STATE_KEY) || '{}');
+        return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (_) { return {}; }
+}
+
+// Groups start expanded; the VFR style settings start collapsed.
+function gaLayerGroupCollapsed(key) {
+    const value = gaLayerGroupState()[key];
+    return value === undefined ? key === 'vfr-style' : value === true;
+}
+
+function gaSetLayerGroupCollapsed(key, collapsed) {
+    const state = gaLayerGroupState();
+    state[key] = !!collapsed;
+    gaBaseMapStorageSet(GA_LAYER_GROUP_STATE_KEY, JSON.stringify(state));
+}
+
+function createGaLayerGroupTitle(text, groupKey) {
+    const node = document.createElement(groupKey ? 'button' : 'div');
+    node.className = 'ga-layer-group-title' + (groupKey ? ' ga-layer-group-toggle' : '');
+    if (groupKey) {
+        node.type = 'button';
+        node.dataset.group = groupKey;
+        node.dataset.label = gaBaseMapPhrase(text);
+    }
     node.textContent = gaBaseMapPhrase(text);
     return node;
+}
+
+// Hides the entries below a collapsed title up to the next title. A collapsed
+// group names its selected entry so the active map stays visible.
+function applyGaLayerGroupCollapse(list) {
+    if (!list) return;
+    let collapsed = false;
+    let title = null;
+    const finishTitle = () => {
+        if (!title) return;
+        const active = title._gaActiveLabel;
+        title.textContent = title.dataset.label + (collapsed && active ? ' · ' + active : '');
+    };
+    Array.from(list.children).forEach((child) => {
+        if (child.classList && child.classList.contains('ga-layer-group-toggle')) {
+            finishTitle();
+            title = child;
+            title._gaActiveLabel = '';
+            collapsed = gaLayerGroupCollapsed(child.dataset.group);
+            child.classList.toggle('is-collapsed', collapsed);
+            child.setAttribute('aria-expanded', String(!collapsed));
+            return;
+        }
+        if (!title) return;
+        child.style.display = collapsed ? 'none' : '';
+        const input = child.querySelector && child.querySelector('input');
+        if (input && input.checked) {
+            const text = String(child.textContent || '').trim();
+            title._gaActiveLabel = title._gaActiveLabel ? title._gaActiveLabel + ', ' + text : text;
+        }
+    });
+    finishTitle();
+}
+
+// ---- VFR vector style settings (colors, opacity, shading, label size) ----
+const GA_VFR_STYLE_STORAGE_KEY = 'ga_vfr_vector_style_v1';
+const GA_VFR_STYLE_DEFAULTS = Object.freeze({
+    settlement: '#f2cf4a', settlementOpacity: 100,
+    wood: '#8fc67a', woodOpacity: 100,
+    water: '#9cc3ee',
+    motorway: '#d9472b',
+    trunk: '#ee7a3c',
+    rail: '#555555',
+    hillshade: 100,
+    labelSize: 100
+});
+
+function gaReadVfrStyleSettings() {
+    let stored = {};
+    try { stored = JSON.parse(gaBaseMapStorageGet(GA_VFR_STYLE_STORAGE_KEY) || '{}') || {}; } catch (_) { stored = {}; }
+    const result = { ...GA_VFR_STYLE_DEFAULTS };
+    Object.keys(GA_VFR_STYLE_DEFAULTS).forEach((key) => {
+        const value = stored[key];
+        if (typeof GA_VFR_STYLE_DEFAULTS[key] === 'string') {
+            if (typeof value === 'string' && /^#[0-9a-f]{6}$/i.test(value)) result[key] = value.toLowerCase();
+        } else if (Number.isFinite(Number(value))) {
+            result[key] = Math.max(0, Math.min(200, Math.round(Number(value))));
+        }
+    });
+    return result;
+}
+
+function gaShadeColor(hex, factor) {
+    const value = parseInt(String(hex).slice(1), 16);
+    const channel = (shift) => Math.max(0, Math.min(255, Math.round(((value >> shift) & 255) * factor)));
+    return '#' + [16, 8, 0].map((shift) => channel(shift).toString(16).padStart(2, '0')).join('');
+}
+
+// Applies the settings to a loaded MapLibre map of the "vfr" style.
+function gaApplyVfrStyleSettings(glMap, settings = gaReadVfrStyleSettings()) {
+    if (!glMap || typeof glMap.getLayer !== 'function') return;
+    const set = (id, property, value) => {
+        if (!glMap.getLayer(id)) return;
+        try { glMap.setPaintProperty(id, property, value); } catch (_) { /* style still loading */ }
+    };
+    const scale = (stops, factor) => {
+        const out = ['interpolate', ['linear'], ['zoom']];
+        for (let i = 0; i < stops.length; i += 2) out.push(stops[i], Math.min(1, stops[i + 1] * factor));
+        return out;
+    };
+    const s = settings;
+    const settlement = s.settlementOpacity / 100;
+    const wood = s.woodOpacity / 100;
+    set('landuse_residential', 'fill-color', s.settlement);
+    set('landuse_residential', 'fill-opacity', scale([6, 0.75, 12, 0.6, 15, 0.35], settlement));
+    set('landuse_urban', 'fill-color', gaShadeColor(s.settlement, 0.93));
+    set('landuse_urban', 'fill-opacity', scale([6, 0.6, 15, 0.3], settlement));
+    set('landcover_wood', 'fill-color', s.wood);
+    set('landcover_wood', 'fill-opacity', scale([5, 0.65, 13, 0.55], wood));
+    set('water', 'fill-color', s.water);
+    ['waterway_river', 'waterway_other', 'waterway_tunnel'].forEach((id) => set(id, 'line-color', gaShadeColor(s.water, 0.62)));
+    ['road', 'bridge', 'tunnel'].forEach((prefix) => {
+        set(`${prefix}_motorway`, 'line-color', s.motorway);
+        set(`${prefix}_motorway_link`, 'line-color', s.motorway);
+        set(`${prefix}_motorway_casing`, 'line-color', gaShadeColor(s.motorway, 0.72));
+        set(`${prefix}_motorway_link_casing`, 'line-color', gaShadeColor(s.motorway, 0.72));
+        set(`${prefix}_trunk_primary`, 'line-color', s.trunk);
+        set(`${prefix}_trunk_primary_casing`, 'line-color', gaShadeColor(s.trunk, 0.75));
+        set(`${prefix}_major_rail`, 'line-color', s.rail);
+        set(`${prefix}_major_rail_hatching`, 'line-color', s.rail);
+    });
+    const shading = s.hillshade / 100;
+    if (glMap.getLayer('vfr_hillshade')) {
+        try { glMap.setLayoutProperty('vfr_hillshade', 'visibility', shading > 0 ? 'visible' : 'none'); } catch (_) {}
+        set('vfr_hillshade', 'hillshade-exaggeration', scale([5, 0.45, 10, 0.35, 14, 0.2], shading));
+    }
+    const size = s.labelSize / 100;
+    const textSize = (id, stops) => {
+        if (!glMap.getLayer(id)) return;
+        const out = ['interpolate', ['linear'], ['zoom']];
+        for (let i = 0; i < stops.length; i += 2) out.push(stops[i], Math.round(stops[i + 1] * size * 10) / 10);
+        try { glMap.setLayoutProperty(id, 'text-size', out); } catch (_) {}
+    };
+    textSize('label_village', [9, 11, 12, 14, 15, 16]);
+    textSize('label_town', [6, 11, 9, 14, 12, 17]);
+    textSize('label_city', [4, 12, 8, 16, 12, 20]);
+}
+
+// map-vector-basemaps.js calls this once a vector style has loaded.
+if (typeof window !== 'undefined') {
+    window.gaOnVectorStyleLoaded = function (style, glMap) {
+        if (style === 'vfr') gaApplyVfrStyleSettings(glMap);
+    };
+}
+
+function createGaVfrStylePanel(getGlMap) {
+    const wrap = document.createElement('div');
+    wrap.className = 'ga-vfr-style';
+    const toggle = createGaLayerGroupTitle('VFR Vektor: Darstellung anpassen', 'vfr-style');
+    toggle.classList.add('ga-vfr-style-toggle');
+    const panel = document.createElement('div');
+    panel.className = 'ga-vfr-style-panel';
+    wrap.appendChild(toggle);
+    wrap.appendChild(panel);
+    const controls = {};
+    const save = (settings) => gaBaseMapStorageSet(GA_VFR_STYLE_STORAGE_KEY, JSON.stringify(settings));
+    const current = () => {
+        const settings = gaReadVfrStyleSettings();
+        Object.keys(controls).forEach((key) => {
+            settings[key] = controls[key].type === 'color' ? controls[key].value : Number(controls[key].value);
+        });
+        return settings;
+    };
+    const apply = () => {
+        const settings = current();
+        save(settings);
+        Object.keys(controls).forEach((key) => {
+            if (controls[key]._gaValue) controls[key]._gaValue.textContent = controls[key].value + ' %';
+        });
+        gaApplyVfrStyleSettings(getGlMap(), settings);
+    };
+    const row = (label, key, kind, min, max) => {
+        const line = document.createElement('div');
+        line.className = 'ga-vfr-style-row';
+        const name = document.createElement('span');
+        name.className = 'ga-vfr-style-name';
+        name.textContent = gaBaseMapPhrase(label);
+        const input = document.createElement('input');
+        input.type = kind;
+        input.setAttribute('aria-label', gaBaseMapPhrase(label));
+        if (kind === 'range') { input.min = String(min); input.max = String(max); input.step = '5'; }
+        input.addEventListener('input', apply);
+        controls[key] = input;
+        line.appendChild(name);
+        line.appendChild(input);
+        if (kind === 'range') {
+            const value = document.createElement('span');
+            value.className = 'ga-vfr-style-value';
+            input._gaValue = value;
+            line.appendChild(value);
+        }
+        panel.appendChild(line);
+    };
+    row('Ortsflächen', 'settlement', 'color');
+    row('Deckkraft Orte', 'settlementOpacity', 'range', 0, 150);
+    row('Wald', 'wood', 'color');
+    row('Deckkraft Wald', 'woodOpacity', 'range', 0, 150);
+    row('Gewässer', 'water', 'color');
+    row('Autobahn', 'motorway', 'color');
+    row('Bundesstraße', 'trunk', 'color');
+    row('Bahn', 'rail', 'color');
+    row('Relief', 'hillshade', 'range', 0, 200);
+    row('Schriftgröße', 'labelSize', 'range', 70, 150);
+    const reset = document.createElement('button');
+    reset.type = 'button';
+    reset.className = 'ga-vfr-style-reset';
+    reset.textContent = gaBaseMapPhrase('Standard wiederherstellen');
+    reset.addEventListener('click', () => {
+        gaBaseMapStorageSet(GA_VFR_STYLE_STORAGE_KEY, '{}');
+        load();
+        apply();
+    });
+    panel.appendChild(reset);
+    function load() {
+        const settings = gaReadVfrStyleSettings();
+        Object.keys(controls).forEach((key) => {
+            controls[key].value = String(settings[key]);
+            if (controls[key]._gaValue) controls[key]._gaValue.textContent = settings[key] + ' %';
+        });
+    }
+    load();
+    if (typeof L !== 'undefined' && L.DomEvent) {
+        L.DomEvent.disableClickPropagation(wrap);
+        L.DomEvent.disableScrollPropagation(wrap);
+    }
+    return wrap;
+}
+
+// Global base maps in two collapsible groups (vector maps first, then tile
+// maps), the VFR vector settings below their entry, and collapsible regional
+// and overlay groups (titles from installGaRegionalBaseMaps).
+function installGaBaseMapMenu(layerControl, entries) {
+    if (!layerControl || typeof layerControl._update !== 'function') return;
+    const kindByStamp = {};
+    entries.forEach((entry) => { kindByStamp[L.stamp(entry.layer)] = entry.kind === 'vector' ? 'vector' : 'raster'; });
+    const vfrEntry = entries.find((entry) => entry.id === 'vfr-vector');
+    const vfrStamp = vfrEntry ? L.stamp(vfrEntry.layer) : null;
+    const getGlMap = () => {
+        const inner = vfrEntry && vfrEntry.layer && vfrEntry.layer._inner;
+        return inner && typeof inner.getMaplibreMap === 'function' ? inner.getMaplibreMap() : null;
+    };
+    const vfrPanel = vfrEntry ? createGaVfrStylePanel(getGlMap) : null;
+    const originalUpdate = layerControl._update;
+    const decorate = function () {
+        const base = this._baseLayersList;
+        if (base) {
+            base.querySelectorAll('.ga-layer-group-title').forEach((node) => node.remove());
+            if (vfrPanel && vfrPanel.parentNode) vfrPanel.parentNode.removeChild(vfrPanel);
+            const labels = Array.from(base.children);
+            const firstOf = (kind) => labels.find((label) => {
+                const input = label.querySelector('input');
+                return input && kindByStamp[input.layerId] === kind;
+            });
+            const vector = firstOf('vector');
+            const raster = firstOf('raster');
+            if (vector) base.insertBefore(createGaLayerGroupTitle('Vektorkarten (OSM)', 'base-vector'), vector);
+            if (raster) base.insertBefore(createGaLayerGroupTitle('Kachelkarten', 'base-raster'), raster);
+            const vfrLabel = labels.find((label) => {
+                const input = label.querySelector('input');
+                return input && input.layerId === vfrStamp;
+            });
+            if (vfrPanel && vfrLabel) base.insertBefore(vfrPanel, vfrLabel.nextSibling);
+            applyGaLayerGroupCollapse(base);
+            if (vfrPanel) applyGaLayerGroupCollapse(vfrPanel);
+        }
+        applyGaLayerGroupCollapse(this._overlaysList);
+    };
+    layerControl._update = function () {
+        const result = originalUpdate.apply(this, arguments);
+        decorate.call(this);
+        return result;
+    };
+    const container = layerControl._container;
+    if (container && !container._gaGroupClicks) {
+        container._gaGroupClicks = true;
+        container.addEventListener('click', (event) => {
+            const toggle = event.target && event.target.closest && event.target.closest('.ga-layer-group-toggle');
+            if (!toggle || !container.contains(toggle)) return;
+            event.preventDefault();
+            event.stopPropagation();
+            gaSetLayerGroupCollapsed(toggle.dataset.group, !gaLayerGroupCollapsed(toggle.dataset.group));
+            applyGaLayerGroupCollapse(layerControl._baseLayersList);
+            applyGaLayerGroupCollapse(layerControl._overlaysList);
+            if (vfrPanel) applyGaLayerGroupCollapse(vfrPanel);
+        });
+        // A new selection updates the "· active" hint of collapsed groups.
+        container.addEventListener('change', () => {
+            applyGaLayerGroupCollapse(layerControl._baseLayersList);
+            applyGaLayerGroupCollapse(layerControl._overlaysList);
+        });
+    }
+    layerControl._update();
 }
 
 function gaReadStoredDimPercent() {

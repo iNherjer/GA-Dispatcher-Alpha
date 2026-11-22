@@ -20786,6 +20786,92 @@ html[lang="en"] #mapTableOverlay .ga-layer-groups .leaflet-control-layers-base::
     padding-top: 10px;
     border-top: 1px solid var(--layer-border);
 }
+/* Aufklappbare Gruppen im Kartenmenue (Web) */
+#mapTableOverlay .leaflet-control-layers .ga-layer-group-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    margin: 0;
+    border: 0;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    min-height: 0;
+    box-shadow: none;
+}
+#mapTableOverlay .leaflet-control-layers .ga-layer-group-toggle::before {
+    content: "▾";
+    display: inline-block;
+    width: 1em;
+    text-align: center;
+    letter-spacing: 0;
+}
+#mapTableOverlay .leaflet-control-layers .ga-layer-group-toggle.is-collapsed::before { content: "▸"; }
+#mapTableOverlay .leaflet-control-layers .ga-layer-group-toggle:hover { color: var(--layer-accent); }
+#mapTableOverlay .leaflet-control-layers-base .ga-layer-group-toggle ~ .ga-layer-group-toggle {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--layer-border);
+}
+/* VFR-Vektor-Einstellungen direkt unter dem Eintrag */
+#mapTableOverlay .ga-vfr-style {
+    margin: 2px 0 8px 26px;
+    border-left: 2px solid var(--layer-border);
+    padding-left: 6px;
+}
+#mapTableOverlay .leaflet-control-layers .ga-vfr-style-toggle {
+    padding: 4px 4px;
+    letter-spacing: .02em;
+    text-transform: none;
+    font-weight: 600;
+}
+#mapTableOverlay .ga-vfr-style-panel {
+    display: grid;
+    gap: 4px;
+    padding: 4px 4px 6px;
+}
+#mapTableOverlay .ga-vfr-style-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
+    gap: 8px;
+    font: 12px/1.3 var(--layer-font);
+}
+#mapTableOverlay .leaflet-control-layers .ga-vfr-style-row input[type="color"] {
+    width: 40px !important;
+    height: 22px !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: 1px solid var(--layer-border);
+    border-radius: 4px;
+    background: none;
+    grid-column: 2 / span 2;
+    justify-self: end;
+}
+#mapTableOverlay .leaflet-control-layers .ga-vfr-style-row input[type="range"] {
+    width: 96px !important;
+    height: 18px !important;
+    min-height: 0 !important;
+    accent-color: var(--layer-accent);
+}
+#mapTableOverlay .ga-vfr-style-value {
+    min-width: 3.4em;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--layer-muted);
+}
+#mapTableOverlay .leaflet-control-layers .ga-vfr-style-reset {
+    justify-self: start;
+    margin-top: 4px;
+    padding: 4px 10px;
+    border: 1px solid var(--layer-border);
+    border-radius: 6px;
+    background: var(--layer-hover);
+    color: inherit;
+    font: 12px/1.3 var(--layer-font);
+    cursor: pointer;
+}
 #mapTableOverlay .ga-base-dim-control {
     margin-top: 10px;
     padding-top: 10px;

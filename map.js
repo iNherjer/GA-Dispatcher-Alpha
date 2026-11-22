@@ -8457,17 +8457,18 @@ function initMapBase() {
     const vfrVectorMap = createOpenFreeMapLayer('vfr');
     const libertyMap = createOpenFreeMapLayer('liberty');
     const brightMap = createOpenFreeMapLayer('bright');
+    // Vector maps first, then tile maps (grouped and collapsible in the layer menu).
     const globalBaseEntries = [
-        { id: 'topo', label: "⛰️ Topografie (Mit Text)", layer: topoMap },
-        ...createGaExtraGlobalBaseMaps(osmAttribution),
-        { id: 'relief', label: "🗺️ Terrain (Ohne Text)", layer: topoLightMap },
-        { id: 'satellite', label: "🛰️ Satellit", layer: satMap },
-        { id: 'positron', label: "📝 Positron (Hell)", layer: positronMap },
-        { id: 'dark', label: "🌑 Dark", layer: darkMap },
-        { id: 'fiord', label: "🌊 Fiord", layer: fiordMap },
-        { id: 'vfr-vector', label: "✈️ VFR Vektor (OSM)", layer: vfrVectorMap },
-        { id: 'liberty', label: "🗺️ Liberty (OSM Vektor)", layer: libertyMap },
-        { id: 'bright', label: "🗺️ Bright (OSM Vektor)", layer: brightMap }
+        { id: 'vfr-vector', kind: 'vector', label: "✈️ VFR Vektor (OSM)", layer: vfrVectorMap },
+        { id: 'liberty', kind: 'vector', label: "🗺️ Liberty", layer: libertyMap },
+        { id: 'bright', kind: 'vector', label: "🗺️ Bright", layer: brightMap },
+        { id: 'positron', kind: 'vector', label: "📝 Positron (Hell)", layer: positronMap },
+        { id: 'dark', kind: 'vector', label: "🌑 Dark", layer: darkMap },
+        { id: 'fiord', kind: 'vector', label: "🌊 Fiord", layer: fiordMap },
+        { id: 'topo', kind: 'raster', label: "⛰️ Topografie (Mit Text)", layer: topoMap },
+        ...createGaExtraGlobalBaseMaps(osmAttribution).map(entry => ({ ...entry, kind: 'raster' })),
+        { id: 'relief', kind: 'raster', label: "🗺️ Terrain (Ohne Text)", layer: topoLightMap },
+        { id: 'satellite', kind: 'raster', label: "🛰️ Satellit", layer: satMap }
     ];
     const initialGlobalBaseId = gaReadStoredGlobalBaseId(globalBaseEntries, 'topo');
     const initialGlobalBaseLayer = globalBaseEntries.find(entry => entry.id === initialGlobalBaseId).layer;
@@ -8617,6 +8618,7 @@ function initMapBase() {
     configureMapLayerControl(map, layerControl);
     installGaGlobalBaseMapMemory(map, globalBaseEntries);
     installGaRegionalBaseMaps(map, layerControl, regionalBaseEntries);
+    installGaBaseMapMenu(layerControl, globalBaseEntries);
     baseMapDimmer = installGaBaseMapDimming(map, layerControl, () => {
         if (!map.hasLayer(aeroOverlay)) return false;
         const zoom = Number(map.getZoom());
