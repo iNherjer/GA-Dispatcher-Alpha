@@ -60,8 +60,8 @@ function dismissMapContextInfo({ closePopup = false, clearHighlight = true } = {
 }
 
 // Mobile layout (phone/tablet up to 1024 px, not the EFB): the popup is a fixed sheet at
-// the right edge above toolbar and profile panel (1.5 x the classic popup width, at most 80 %
-// of the screen; styles.css). Its arrow tip sits at the sheet's left edge, half screen height, and
+// the right edge above toolbar and profile panel (classic popup width, at most 80 % of the
+// screen; styles.css). Its arrow tip sits at the sheet's left edge, half screen height, and
 // the map is panned so the pressed point lies under it.
 // While it is open the map is frozen; a tap beside the sheet or the X closes it and
 // brings back the earlier map view.

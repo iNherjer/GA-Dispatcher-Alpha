@@ -13173,16 +13173,16 @@ body.theme-win95.win95-main-minimized .mission-main-notification {
 }
 /* Mobile "Was ist hier?" sheet (map-context-popup.js, up to 1024 px, not the EFB):
    right edge of the screen, above toolbar and profile panel, small gap to the edges.
-   Width 1.5 x the classic popup (468 px, from 760 px screen width 693 px), at most 80 %
-   of the screen. The arrow tip sits at the sheet's left edge, half screen height; the map is
+   Width as the classic popup (312 px, from 760 px screen width 462 px), at most 80 % of
+   the screen. The arrow tip sits at the sheet's left edge, half screen height; the map is
    panned so the pressed point lies under it. The scrim freezes the map. */
 :root {
-    --ga-map-context-sheet-width: min(468px, 80vw);
+    --ga-map-context-sheet-width: min(312px, 80vw);
     --ga-map-context-sheet-right: calc(8px + env(safe-area-inset-right, 0px));
 }
 @media (min-width: 760px) {
     :root {
-        --ga-map-context-sheet-width: min(693px, 80vw);
+        --ga-map-context-sheet-width: min(462px, 80vw);
     }
 }
 .ga-map-context-sheet-scrim {
