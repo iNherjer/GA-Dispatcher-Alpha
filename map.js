@@ -8486,6 +8486,8 @@ function initMapBase() {
     const awcSigmetActive = localStorage.getItem('ga_awc_sigmet_active') === 'true';
     const openAipOverlayActive = localStorage.getItem('ga_openaip_overlay_active') === 'true';
     const usaVfrOverlayActive = localStorage.getItem('ga_usa_vfr_overlay_active') === 'true';
+    // VFR overlay tiles: on by default, the user's choice in the layer menu is remembered.
+    const aeroOverlayActive = localStorage.getItem('ga_vfr_tile_overlay_active') !== 'false';
 
     // Base Maps
     const osmAttribution = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a>';
@@ -8602,7 +8604,7 @@ function initMapBase() {
     // Airport-Basis auch dann bereit, wenn ein zuvor aktiver Overlay-Layer erst
     // nach der Leaflet-Initialisierung wiederhergestellt wird.
     void loadStoredAirportOverlayDatabase();
-    aeroOverlay.addTo(map);
+    if (aeroOverlayActive) aeroOverlay.addTo(map);
     if (dwdWarningsActive) dwdWarningsOverlay.addTo(map);
     if (awcSigmetActive) awcSigmetOverlay.addTo(map);
     if (usaVfrOverlayActive) usaVfrSectionalOverlay.addTo(map);
@@ -8701,6 +8703,7 @@ function initMapBase() {
 
     map.on('overlayadd', function (e) {
         if (e.name === "🛩️ VFR Lufträume (Overlay)") {
+            localStorage.setItem('ga_vfr_tile_overlay_active', 'true');
             updateAeroOverlayZoomVisibility();
         }
         if (e.name === "🌧️ Wetterradar (Niederschlag)") localStorage.setItem('ga_radar_active', 'true');
@@ -8727,6 +8730,7 @@ function initMapBase() {
 
     map.on('overlayremove', function (e) {
         if (e.name === "🛩️ VFR Lufträume (Overlay)") {
+            localStorage.setItem('ga_vfr_tile_overlay_active', 'false');
             // Leaflet hat den Tile-Layer zu diesem Zeitpunkt bereits entfernt;
             // setOpacity() würde auf dessen nicht mehr existierenden Container
             // zugreifen und in Safari als "null ... t.style" abbrechen.
