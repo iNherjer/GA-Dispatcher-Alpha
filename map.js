@@ -8192,6 +8192,17 @@ function renderOpenAipNavaids(navaids, layer) {
     });
 }
 
+// VFR reporting points (open flightmaps, OpenAIP as fallback) in the OpenAIP overlay.
+function refreshOpenAipReportingPointSymbols() {
+    if (!window.gaOpenAipOverlayStyle || !openAipOverlayLayer) return;
+    const draw = () => window.gaOpenAipOverlayStyle.updateReportingPoints(L, map, openAipOverlayLayer,
+        GA_MAP_OVERLAY_PANES.localAviation.name, openAipStaticReportingPointState.items);
+    if (!Array.isArray(openAipStaticReportingPointState.items)) {
+        void loadOpenAipStaticReportingPoints().then(draw).catch(() => draw());
+    }
+    draw();
+}
+
 let openAipLastOverlayPayload = null;
 // Settings changed in the layer menu: redraw airspaces and airfields from the last data.
 window.gaOpenAipOverlayRestyle = function () {
@@ -8199,6 +8210,7 @@ window.gaOpenAipOverlayRestyle = function () {
     openAipOverlayRenderState.airportKey = '';
     if (openAipLastOverlayPayload) renderOpenAipOverlayData(openAipLastOverlayPayload);
     else renderKnownAirportOverlaySources();
+    refreshOpenAipReportingPointSymbols();
 };
 
 function renderOpenAipOverlayData(payload) {
@@ -8711,6 +8723,7 @@ function initMapBase() {
         if (openAipAirspaceLayer?._gaAirspaces && isOpenAipOverlayEnabled()) {
             window.gaOpenAipOverlayStyle?.updateAirspaceLabels(L, map, openAipAirspaceLayer, openAipAirspaceLayer._gaAirspaces, GA_MAP_OVERLAY_PANES.localAviation.name);
         }
+        if (isOpenAipOverlayEnabled()) refreshOpenAipReportingPointSymbols();
         scheduleAirportTooltipRender();
         if (snapMode) void ensureGlobalAirportsForMapClicks();
         if (isOpenAipRegionMode()) {

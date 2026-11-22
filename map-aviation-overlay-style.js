@@ -38,6 +38,12 @@
         fill: 100,
         lineWidth: 100,
         labels: true,
+        labelSize: 100,
+        labelMinZoom: 10,
+        labelPlacement: 'border',
+        vrpVisible: true,
+        vrpColor: '#1d4ed8',
+        vrpMinZoom: 9,
         airportSymbols: 'icao',
         airportColor: '#1d4ed8',
         airportSize: 100,
@@ -70,6 +76,12 @@
             fill: percent(stored.fill, DEFAULTS.fill, 0, 300),
             lineWidth: percent(stored.lineWidth, DEFAULTS.lineWidth, 50, 500),
             labels: stored.labels !== false,
+            labelSize: percent(stored.labelSize, DEFAULTS.labelSize, 60, 220),
+            labelMinZoom: percent(stored.labelMinZoom, DEFAULTS.labelMinZoom, 7, 14),
+            labelPlacement: stored.labelPlacement === 'center' ? 'center' : 'border',
+            vrpVisible: stored.vrpVisible !== false,
+            vrpColor: isColor(stored.vrpColor) ? stored.vrpColor.toLowerCase() : DEFAULTS.vrpColor,
+            vrpMinZoom: percent(stored.vrpMinZoom, DEFAULTS.vrpMinZoom, 7, 14),
             airportSymbols: stored.airportSymbols === 'dots' ? 'dots' : 'icao',
             airportColor: isColor(stored.airportColor) ? stored.airportColor.toLowerCase() : DEFAULTS.airportColor,
             airportSize: percent(stored.airportSize, DEFAULTS.airportSize, 60, 300),
@@ -185,15 +197,53 @@
         return L.latLng(y / (3 * area), x / (3 * area));
     }
 
+    function pointInRing(point, ring) {
+        let inside = false;
+        for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+            const a = ring[i], b = ring[j];
+            if ((a.y > point.y) !== (b.y > point.y)
+                && point.x < (b.x - a.x) * (point.y - a.y) / ((b.y - a.y) || 1e-9) + a.x) inside = !inside;
+        }
+        return inside;
+    }
+
+    // Point on the boundary nearest to the view centre, with the segment angle
+    // and the inward normal (screen coordinates).
+    function borderAnchor(ring, centre, width, height, margin) {
+        let best = null;
+        for (let i = 0; i < ring.length - 1; i++) {
+            const a = ring[i], b = ring[i + 1];
+            const dx = b.x - a.x, dy = b.y - a.y;
+            const length2 = dx * dx + dy * dy;
+            if (length2 < 400) continue;
+            const t = Math.max(0.1, Math.min(0.9, ((centre.x - a.x) * dx + (centre.y - a.y) * dy) / length2));
+            const p = { x: a.x + dx * t, y: a.y + dy * t };
+            if (p.x < margin || p.y < margin || p.x > width - margin || p.y > height - margin) continue;
+            const distance = (p.x - centre.x) ** 2 + (p.y - centre.y) ** 2;
+            if (!best || distance < best.distance) best = { p, dx, dy, distance };
+        }
+        if (!best) return null;
+        const length = Math.sqrt(best.dx * best.dx + best.dy * best.dy);
+        let normal = { x: -best.dy / length, y: best.dx / length };
+        if (!pointInRing({ x: best.p.x + normal.x * 6, y: best.p.y + normal.y * 6 }, ring)) normal = { x: -normal.x, y: -normal.y };
+        let angle = Math.atan2(best.dy, best.dx) * 180 / Math.PI;
+        if (angle > 90) angle -= 180;
+        if (angle <= -90) angle += 180;
+        return { p: best.p, normal, angle };
+    }
+
     // Keeps the label markers inside the airspace layer group (toggles with the overlay).
     function updateAirspaceLabels(L, map, group, airspaces, pane) {
         if (!map || !group) return;
         (group._gaLabels || []).forEach(marker => group.removeLayer(marker));
         group._gaLabels = [];
         const s = settings();
-        if (!s.labels || !Array.isArray(airspaces) || map.getZoom() < 8) return;
+        if (!s.labels || !Array.isArray(airspaces) || map.getZoom() < s.labelMinZoom) return;
+        const size = map.getSize();
+        const centre = { x: size.x / 2, y: size.y / 2 };
         const view = map.getBounds();
-        const center = map.getCenter();
+        const scale = s.labelSize / 100;
+        const placed = [];
         const candidates = [];
         airspaces.forEach((airspace) => {
             const type = Number(airspace && airspace.type);
@@ -201,26 +251,46 @@
             const style = airspaceStyle(airspace);
             if (!style) return;
             const geometry = airspace.geometry;
-            const ring = geometry && (geometry.type === 'Polygon' ? geometry.coordinates[0] : geometry.type === 'MultiPolygon' ? geometry.coordinates[0][0] : null);
-            if (!Array.isArray(ring) || ring.length < 3) return;
-            const latlngs = ring.map(p => [Number(p[1]), Number(p[0])]).filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+            const coords = geometry && (geometry.type === 'Polygon' ? geometry.coordinates[0] : geometry.type === 'MultiPolygon' ? geometry.coordinates[0][0] : null);
+            if (!Array.isArray(coords) || coords.length < 3) return;
+            const latlngs = coords.map(p => [Number(p[1]), Number(p[0])]).filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
             const bounds = L.latLngBounds(latlngs);
             if (!view.intersects(bounds)) return;
-            const nw = map.latLngToContainerPoint(bounds.getNorthWest());
-            const se = map.latLngToContainerPoint(bounds.getSouthEast());
-            if (Math.abs(se.x - nw.x) < 90 || Math.abs(se.y - nw.y) < 45) return;
-            let anchor = ringCentroid(L, latlngs) || bounds.getCenter();
-            if (!view.contains(anchor)) anchor = view.getCenter().lat >= bounds.getSouth() && view.getCenter().lat <= bounds.getNorth() ? L.latLng(center.lat, Math.max(bounds.getWest(), Math.min(bounds.getEast(), center.lng))) : anchor;
-            candidates.push({ airspace, style, anchor, distance: center.distanceTo(anchor) });
+            const ring = latlngs.map(ll => map.latLngToContainerPoint(ll));
+            const xs = ring.map(p => p.x), ys = ring.map(p => p.y);
+            const boxW = Math.max(...xs) - Math.min(...xs), boxH = Math.max(...ys) - Math.min(...ys);
+            if (boxW < 50 || boxH < 30) return;
+            const label = airspaceLabel(airspace, categoryFor(airspace));
+            const textWidth = Math.max(label.title.length, label.limits.length) * 6.6 * scale + 12;
+            const textHeight = 28 * scale;
+            let anchorPoint = null, angle = 0;
+            if (s.labelPlacement === 'border') {
+                const anchor = borderAnchor(ring, centre, size.x, size.y, 24);
+                if (!anchor) return;
+                const offset = textHeight / 2 + 2;
+                anchorPoint = { x: anchor.p.x + anchor.normal.x * offset, y: anchor.p.y + anchor.normal.y * offset };
+                angle = anchor.angle;
+            } else {
+                const c = ringCentroid(L, latlngs) || bounds.getCenter();
+                anchorPoint = map.latLngToContainerPoint(c);
+                if (anchorPoint.x < 0 || anchorPoint.y < 0 || anchorPoint.x > size.x || anchorPoint.y > size.y) return;
+            }
+            const distance = (anchorPoint.x - centre.x) ** 2 + (anchorPoint.y - centre.y) ** 2;
+            candidates.push({ airspace, style, label, anchorPoint, angle, textWidth, textHeight, distance });
         });
-        candidates.sort((a, b) => a.distance - b.distance).slice(0, 60).forEach(({ airspace, style, anchor }) => {
-            const category = categoryFor(airspace);
-            const label = airspaceLabel(airspace, category);
-            const marker = L.marker(anchor, {
+        candidates.sort((a, b) => a.distance - b.distance);
+        candidates.forEach((candidate) => {
+            if (group._gaLabels.length >= 60) return;
+            // Simple collision check on the (unrotated) box radius.
+            const radius = Math.max(candidate.textWidth, candidate.textHeight) / 2;
+            if (placed.some(p => Math.hypot(p.x - candidate.anchorPoint.x, p.y - candidate.anchorPoint.y) < (p.r + radius) * 0.8)) return;
+            placed.push({ x: candidate.anchorPoint.x, y: candidate.anchorPoint.y, r: radius });
+            const marker = L.marker(map.containerPointToLatLng(L.point(candidate.anchorPoint.x, candidate.anchorPoint.y)), {
                 pane, interactive: false, keyboard: false,
                 icon: L.divIcon({
                     className: 'ga-airspace-label',
-                    html: '<span style="--ga-airspace-color:' + style.color + '"><b>' + escapeText(label.title) + '</b><i>' + escapeText(label.limits) + '</i></span>',
+                    html: '<span style="--ga-airspace-color:' + candidate.style.color + ';font-size:' + Math.round(11 * scale * 10) / 10 + 'px;transform:translate(-50%,-50%) rotate(' + Math.round(candidate.angle) + 'deg)"><b>'
+                        + escapeText(candidate.label.title) + '</b><i>' + escapeText(candidate.label.limits) + '</i></span>',
                     iconSize: null
                 })
             });
@@ -229,7 +299,96 @@
         });
     }
 
+    // ---- VFR reporting points: open flightmaps (with type and aerodrome) where
+    // published, OpenAIP names elsewhere. OFMA licence: attribution and a way
+    // to report errors (popup link); not a primary navigation source.
+    const OFM_POINTS_URL = './data/ofm-reporting-points.json';
+    const OFM_ATTRIBUTION = 'Meldepunkte &copy; <a href="https://www.openflightmaps.org/" target="_blank" rel="noopener noreferrer">open flightmaps</a>';
+    const KIND_LABEL = { compulsory: 'Pflichtmeldepunkt', request: 'Bedarfsmeldepunkt', enroute: 'Streckenmeldepunkt' };
+    const ofmState = { points: null, promise: null, meta: null };
 
+    function loadOfmPoints(onLoaded) {
+        if (ofmState.points) return Promise.resolve(ofmState.points);
+        if (!ofmState.promise) {
+            ofmState.promise = fetch(OFM_POINTS_URL).then(r => r.ok ? r.json() : null).then((data) => {
+                ofmState.points = data && Array.isArray(data.points) ? data.points : [];
+                ofmState.meta = data ? { airac: data.airac, regions: data.regions } : null;
+                if (typeof onLoaded === 'function') onLoaded();
+                return ofmState.points;
+            }).catch(() => { ofmState.points = []; return ofmState.points; });
+        }
+        return ofmState.promise;
+    }
+
+    function vrpSvg(kind, color, source) {
+        const filled = kind === 'compulsory';
+        const small = kind === 'enroute' || source === 'openaip';
+        const points = small ? '14,7 20.5,19 7.5,19' : '14,5 22,20 6,20';
+        return '<svg viewBox="0 0 28 28" width="100%" height="100%" aria-hidden="true"><polygon points="' + points + '" fill="' + (filled ? color : '#ffffff')
+            + '" fill-opacity="' + (filled ? 1 : 0.85) + '" stroke="' + color + '" stroke-width="2.2" stroke-linejoin="round"/>'
+            + (filled ? '' : '<circle cx="14" cy="15.5" r="1.8" fill="' + color + '"/>') + '</svg>';
+    }
+
+    function updateReportingPoints(L, map, overlayGroup, pane, openAipPoints) {
+        if (!map || !overlayGroup) return;
+        if (!overlayGroup._gaVrpLayer) {
+            overlayGroup._gaVrpLayer = L.layerGroup();
+            overlayGroup._gaVrpLayer.on('remove', function (event) {
+                const layer = event.target;
+                if (layer._gaAttribution && map.attributionControl) map.attributionControl.removeAttribution(OFM_ATTRIBUTION);
+                layer._gaAttribution = false;
+            });
+            overlayGroup.addLayer(overlayGroup._gaVrpLayer);
+        }
+        const layer = overlayGroup._gaVrpLayer;
+        layer.clearLayers();
+        const s = settings();
+        const attribution = map.attributionControl;
+        const showOfm = (on) => {
+            if (!attribution) return;
+            if (on && !layer._gaAttribution) { attribution.addAttribution(OFM_ATTRIBUTION); layer._gaAttribution = true; }
+            if (!on && layer._gaAttribution) { attribution.removeAttribution(OFM_ATTRIBUTION); layer._gaAttribution = false; }
+        };
+        if (!s.vrpVisible || map.getZoom() < s.vrpMinZoom) { showOfm(false); return; }
+        if (!ofmState.points) {
+            loadOfmPoints(() => updateReportingPoints(L, map, overlayGroup, pane, openAipPoints));
+            return;
+        }
+        const view = map.getBounds().pad(0.05);
+        const ofm = ofmState.points.filter(p => view.contains([p.lat, p.lon]));
+        const near = (p) => ofm.some(o => Math.abs(o.lat - p.lat) < 0.02 && Math.abs(o.lon - p.lon) < 0.03);
+        const fallback = (Array.isArray(openAipPoints) ? openAipPoints : [])
+            .filter(p => Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lon)) && view.contains([Number(p.lat), Number(p.lon)]) && !near(p))
+            .map(p => ({ id: '', name: String(p.name || ''), kind: 'request', airport: '', lat: Number(p.lat), lon: Number(p.lon), source: 'openaip' }));
+        const scale = s.airportSize / 100;
+        const zoom = map.getZoom();
+        const size = Math.round((zoom >= 11 ? 24 : 20) * scale);
+        const entries = ofm.map(p => ({ ...p, source: 'ofm' })).concat(fallback).slice(0, 400);
+        entries.forEach((point) => {
+            const short = point.id || point.name;
+            const label = zoom >= 10 && short
+                ? '<span class="ga-vrp-label" style="color:' + s.vrpColor + '">' + escapeText(short.length > 10 ? short.slice(0, 10) : short) + '</span>' : '';
+            const marker = L.marker([point.lat, point.lon], {
+                pane, keyboard: false, bubblingMouseEvents: false,
+                icon: L.divIcon({
+                    className: 'ga-vrp-symbol',
+                    html: '<span class="ga-airport-symbol-glyph" style="width:' + size + 'px;height:' + size + 'px">' + vrpSvg(point.kind, s.vrpColor, point.source) + '</span>' + label,
+                    iconSize: [size, size], iconAnchor: [size / 2, size / 2]
+                })
+            });
+            const kind = point.source === 'ofm' ? phrase(KIND_LABEL[point.kind] || 'Meldepunkt') : phrase('Meldepunkt');
+            const lines = ['<b>' + escapeText(point.name || point.id) + (point.id && point.name && point.id !== point.name ? ' (' + escapeText(point.id) + ')' : '') + '</b>',
+                escapeText(kind) + (point.airport ? ' · ' + escapeText(point.airport) : '')];
+            lines.push(point.source === 'ofm'
+                ? phrase('Quelle') + ': open flightmaps · <a href="https://www.openflightmaps.org/contact/" target="_blank" rel="noopener noreferrer">' + phrase('Fehler melden') + '</a>'
+                : phrase('Quelle') + ': OpenAIP');
+            lines.push('<small>' + phrase('Nicht zur realen Navigation verwenden.') + '</small>');
+            marker.bindPopup(lines.join('<br>'), { className: 'ga-vrp-popup' });
+            marker.bindTooltip(escapeText(point.name || point.id) + (point.airport ? ' · ' + escapeText(point.airport) : ''), { direction: 'top', offset: [0, -size / 2], className: 'airspace-tooltip' });
+            layer.addLayer(marker);
+        });
+        showOfm(ofm.length > 0);
+    }
 
     // ---- Airfield symbols (simplified ICAO chart symbols) ----
     function airportKind(airport) {
@@ -395,6 +554,27 @@
         const airspaceLabels = input('checkbox', {}, (s) => s.labels, (s, node) => { s.labels = node.checked; });
         airspaceLabels.setAttribute('aria-label', phrase('Bezeichnung und Höhen'));
         line('Bezeichnung und Höhen', [airspaceLabels]).classList.add('ga-openaip-check-row');
+        select('Beschriftung', 'labelPlacement', [['border', 'An der Grenzlinie'], ['center', 'In der Mitte']]);
+        slider('Schriftgröße', 'labelSize', 60, 220);
+        const zoomSlider = input('range', { min: '7', max: '14', step: '1' }, (s) => s.labelMinZoom, (s, el) => { s.labelMinZoom = Number(el.value); });
+        zoomSlider.setAttribute('aria-label', phrase('Ab Zoomstufe'));
+        const zoomValue = valueLabel();
+        zoomSlider._gaValue = zoomValue;
+        zoomSlider._gaUnit = '';
+        line('Ab Zoomstufe', [zoomSlider, zoomValue]);
+
+        heading('Meldepunkte');
+        const vrpVisible = input('checkbox', {}, (s) => s.vrpVisible, (s, node) => { s.vrpVisible = node.checked; });
+        vrpVisible.setAttribute('aria-label', phrase('Meldepunkte anzeigen'));
+        const vrpColor = input('color', {}, (s) => s.vrpColor, (s, node) => { s.vrpColor = node.value; });
+        vrpColor.setAttribute('aria-label', phrase('Farbe Meldepunkte'));
+        line('Meldepunkte anzeigen', [vrpColor, vrpVisible]).classList.add('ga-openaip-airspace-row');
+        const vrpZoom = input('range', { min: '7', max: '14', step: '1' }, (s) => s.vrpMinZoom, (s, el) => { s.vrpMinZoom = Number(el.value); });
+        vrpZoom.setAttribute('aria-label', phrase('Meldepunkte ab Zoomstufe'));
+        const vrpZoomValue = valueLabel();
+        vrpZoom._gaValue = vrpZoomValue;
+        vrpZoom._gaUnit = '';
+        line('Ab Zoomstufe', [vrpZoom, vrpZoomValue]);
 
         heading('Flugplätze');
         const symbols = input('select', {}, (s) => s.airportSymbols, (s, node) => { s.airportSymbols = node.value; });
@@ -460,6 +640,8 @@
         categoryFor,
         formatLimit,
         updateAirspaceLabels,
+        updateReportingPoints,
+        loadOfmPoints,
         settings,
         airspaceStyle,
         airportKind,
