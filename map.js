@@ -7966,9 +7966,16 @@ function mergeOpenAipAirportOverlayEntries(airports, bounds = getOpenAipVisibleB
         const identity = getOpenAipAirportOverlayIdentity(airport);
         if (identity && !merged.has(identity)) merged.set(identity, airport);
     });
+    // Stored entries (airports.json) only fill gaps: one within ~1 km of an
+    // OpenAIP airfield is the same place under another identifier.
+    const live = [...merged.values()].map(getOpenAipAirportOverlayCoordinates).filter(Boolean);
     buildStoredAirportOverlayEntries(bounds).forEach((airport) => {
         const identity = getOpenAipAirportOverlayIdentity(airport);
-        if (identity && !merged.has(identity)) merged.set(identity, airport);
+        if (!identity || merged.has(identity)) return;
+        const position = getOpenAipAirportOverlayCoordinates(airport);
+        if (position && live.some(p => Math.abs(p.lat - position.lat) < 0.009
+            && Math.abs(p.lon - position.lon) < 0.009 / Math.max(0.2, Math.cos(position.lat * Math.PI / 180)))) return;
+        merged.set(identity, airport);
     });
     return [...merged.values()];
 }

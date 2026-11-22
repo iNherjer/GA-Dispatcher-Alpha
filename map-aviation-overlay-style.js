@@ -417,7 +417,17 @@
 
     function airportKind(airport) {
         const raw = airport && (airport.type ?? airport.openAipType);
-        const type = typeof raw === 'string' && OURAIRPORTS_TYPES[raw] !== undefined ? OURAIRPORTS_TYPES[raw] : Number(raw);
+        let type = typeof raw === 'string' && OURAIRPORTS_TYPES[raw] !== undefined ? OURAIRPORTS_TYPES[raw] : Number(raw);
+        // OurAirports has no glider/UL/military kinds and some stored entries
+        // carry no type: take the kind from the name there (symbol only).
+        if (typeof raw === 'string' || raw === undefined || raw === null || raw === '') {
+            const name = String(airport && airport.name || '');
+            if (/glider|segelflug|gliding/i.test(name)) type = 1;
+            else if (/ultra ?light|\bUL[- ]|ultraleicht|microlight/i.test(name)) type = 6;
+            else if (/heli(port|pad)|hubschrauber|klinik|hospital/i.test(name)) type = 7;
+            else if (/air base|air force|army|military|fliegerhorst|\bAB\b|\bAAF\b/i.test(name)) type = 5;
+            else if (/seaplane|wasserflug/i.test(name)) type = 10;
+        }
         if (type === 3 || type === 9) return 'intl';
         if (type === 1) return 'glider';
         if (type === 6) return 'ul';
