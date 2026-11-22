@@ -27,6 +27,14 @@ liefert alles Offene mit aus.
 
 ## Offen
 
+### 2026-11-22 · EFB: „VFR Vektor (OSM)“ über die Desktop-App
+- **Artefakt:** Desktop-Installer **und** Tracker-EXE (Kachel-Proxy, HTTP-Server, EFB-Katalog/Host). Ohne neue Desktop-App bleibt der Eintrag im EFB unsichtbar; ohne neuen Tracker bleibt die Desktop-Neuerung ungenutzt.
+- **Dateien:** `ga-tracker-client/desktop/lib/vector-tile-renderer.js`, `desktop/lib/vector-render/*` (render.html, render-page.js, per Sync: maplibre-gl.js, MAPLIBRE-LICENSE.txt, vfr-vector.json), `desktop/main.js`, `desktop/lib/tracker-process.js`, `desktop/scripts/sync-audio-player.js`, `desktop/tests/vector-tile-renderer.test.js`, `ga-tracker-client/tracker-efb-tile-proxy.js`, `tracker-efb-http-server.js`, `tracker-efb-kartentisch-host.js`, `efb-app/map-shell-core.js` (+ Tests).
+- **Was:** Die Desktop-App zeichnet den Web-Stil „VFR Vektor (OSM)“ in einem unsichtbaren Offscreen-Fenster mit MapLibre/WebGL (eigene Session `vector-render`) in 4×4-Blöcken mit 256 px Rand und liefert 256-px-JPEG-Kacheln über einen Loopback-Server (Port/Token per Umgebung `VFR_MULTITOOL_MAP_RENDER_PORT/_TOKEN` an den Tracker, wie die Media-Bridge). Der Tracker holt sie als Kachelquelle `vfr-vector` (Zoom 3–16) mit Plattenspeicher; unvollständige Bilder (`no-store`) werden nicht gespeichert. `GET /api/v1/map-render/status` meldet `vfrVector`; das EFB listet „VFR Vektor (OSM, über Desktop-App)“ nur dann und fällt sonst auf Topo zurück. Fenster schließt nach 10 min ohne Abruf.
+- **Tests:** `desktop/tests/*.test.js` (154), `tracker-efb-tile-proxy.test.js`, `efb-app/map-shell-core.test.js`, `efb-app/map-shell-source.test.js`, `tracker-efb-http-server.test.js`, `tracker-efb-asset-syntax.test.js`; Electron-Ende-zu-Ende am Mac (Renderer → Tracker-Server → EFB-Host, Menü mit/ohne Dienst, Nahtstellen geprüft; Block 0,2–1,9 s, Kachel ~25 KB).
+- **Doku beim Release:** `docs/EFB-Development-Plan.md` (Abschnitt steht schon), Release-Notiz Tracker/Desktop.
+- **Pruefen im Feld:** Windows-GPU/Offscreen-WebGL in der installierten Desktop-App, Darstellung und Ladezeit im EFB (2D/VR), RAM der Desktop-App.
+
 ### 2026-11-20 · Hindernis-Cache gepackt (EFB-Kopie von profile.js)
 - **Artefakt:** Tracker (EFB-Web-Assets)
 - **Dateien:** `ga-tracker-client/efb-web-assets/profile.js` (Sync aus `profile.js`, Web v2481)

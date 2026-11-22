@@ -41,6 +41,10 @@ zwischen `Stable` und `Alpha` gewechselt werden.
   Release installieren und im Hintergrund starten/stoppen
 - vollständige Bridge-Einstellungen aus dem Tracker öffnen, ohne eine zweite
   Telemetrieinstanz oder einen zweiten UDP-Sender zu erzeugen
+- zeichnet im Hintergrund die Vektorkarte „VFR Vektor (OSM)“ fuer das EFB
+  (unsichtbares Offscreen-Fenster mit MapLibre/WebGL, Loopback-Kacheldienst nur
+  fuer den eigenen Tracker; Coherent im Sim hat kein WebGL). Ohne laufende
+  Desktop-App fehlt der Eintrag im EFB-Kartenmenue.
 - optionales Modul `Autostart` (standardmäßig aus): Programme (.exe, .lnk,
   .bat, .cmd) per Drag & Drop oder Dateiauswahl sammeln, sortieren, einzeln
   aktivieren, mit Wartezeit und optional als Admin (UAC) starten. Die

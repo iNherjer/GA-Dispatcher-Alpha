@@ -36,6 +36,10 @@ const windowsMedia = new WindowsMedia();
 const { createMediaServer } = require('./lib/media-server');
 const mediaServer = createMediaServer(windowsMedia);
 let mediaEndpoint = null;
+// Vector map tiles for the EFB, drawn in a hidden window (lib/vector-tile-renderer.js).
+const { createVectorTileRenderer } = require('./lib/vector-tile-renderer');
+let vectorTileRenderer = null;
+let vectorTileEndpoint = null;
 const { WindowsInput, bindingKey, normalizeProcessName, MAX_BINDINGS } = require('./lib/windows-input');
 const { RadioHold, createMusicHold, detectionMeterRules, MAX_PROGRAMS } = require('./lib/radio-hold');
 // Diagnose-Log der Funk-Pause im Tracker-Datenordner; wird ab 512 KB neu begonnen.
@@ -732,6 +736,7 @@ async function startApplication() {
       await windowsInput.close();
       await windowsMedia.close();
       await mediaServer.close();
+      await vectorTileRenderer?.close();
       trackerProcess?.stop();
       bridgeManager?.stopPolling();
       if (bridgeManager) await bridgeManager.shutdownOwned();
@@ -795,11 +800,16 @@ async function startApplication() {
   if (process.platform === 'win32') {
     try { mediaEndpoint = await mediaServer.start(); } catch (_) { mediaEndpoint = null; }
   }
+  try {
+    vectorTileRenderer = createVectorTileRenderer({ BrowserWindow, log: (line) => console.log(line) });
+    vectorTileEndpoint = await vectorTileRenderer.start();
+  } catch (_) { vectorTileEndpoint = null; }
   trackerProcess = new TrackerProcess({
     electronApp: app,
     dataDirectory: configStore.dataDirectory,
     runtimeManager,
     getMediaEndpoint: () => mediaEndpoint,
+    getVectorTileEndpoint: () => vectorTileEndpoint,
     getCredentials: () => {
       const credentials = configStore.credentials();
       if (!credentials) return null;
@@ -947,6 +957,7 @@ if (!singleInstanceLock) {
       windowsInput.close(),
       windowsMedia.close(),
       mediaServer.close(),
+      vectorTileRenderer ? vectorTileRenderer.close() : Promise.resolve(),
       shouldStopBridge && bridgeManager ? bridgeManager.shutdownOwned() : Promise.resolve(),
       autostartLauncher ? autostartLauncher.shutdownOwned() : Promise.resolve()
     ]).finally(() => {

@@ -22,12 +22,13 @@ function cleanLogLine(line) {
 }
 
 class TrackerProcess extends EventEmitter {
-  constructor({ electronApp, dataDirectory, runtimeManager, getCredentials, getRuntimeChannel, getMediaEndpoint, getUiLanguage }) {
+  constructor({ electronApp, dataDirectory, runtimeManager, getCredentials, getRuntimeChannel, getMediaEndpoint, getVectorTileEndpoint, getUiLanguage }) {
     super();
     this.app = electronApp;
     this.dataDirectory = dataDirectory;
     this.runtimeManager = runtimeManager;
     this.getMediaEndpoint = typeof getMediaEndpoint === 'function' ? getMediaEndpoint : () => null;
+    this.getVectorTileEndpoint = typeof getVectorTileEndpoint === 'function' ? getVectorTileEndpoint : () => null;
     this.getCredentials = typeof getCredentials === 'function' ? getCredentials : () => null;
     this.getRuntimeChannel = typeof getRuntimeChannel === 'function' ? getRuntimeChannel : () => 'stable';
     this.getUiLanguage = typeof getUiLanguage === 'function' ? getUiLanguage : () => 'de';
@@ -74,6 +75,11 @@ class TrackerProcess extends EventEmitter {
     delete sharedEnvironment.VFR_MULTITOOL_MEDIA_TOKEN;
     const media = this.getMediaEndpoint();
     if (media) { sharedEnvironment.VFR_MULTITOOL_MEDIA_PORT = String(media.port); sharedEnvironment.VFR_MULTITOOL_MEDIA_TOKEN = media.token; }
+    // Vector map tiles for the EFB, drawn by this app (lib/vector-tile-renderer.js).
+    delete sharedEnvironment.VFR_MULTITOOL_MAP_RENDER_PORT;
+    delete sharedEnvironment.VFR_MULTITOOL_MAP_RENDER_TOKEN;
+    const vectorTiles = this.getVectorTileEndpoint();
+    if (vectorTiles) { sharedEnvironment.VFR_MULTITOOL_MAP_RENDER_PORT = String(vectorTiles.port); sharedEnvironment.VFR_MULTITOOL_MAP_RENDER_TOKEN = vectorTiles.token; }
     if (this.app.isPackaged) {
       const executable = this.runtimeManager?.currentExecutablePath() || '';
       return { command: executable, args: [], cwd: path.dirname(executable), env: sharedEnvironment, credentials };

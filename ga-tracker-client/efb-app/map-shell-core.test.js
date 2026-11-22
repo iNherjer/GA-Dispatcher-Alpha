@@ -9,7 +9,11 @@ test('map layer catalog keeps stable unique ids and secure endpoints', () => {
   assert.equal(new Set(layers.map((layer) => layer.id)).size, layers.length);
   for (const layer of layers) {
     assert.match(layer.id, /^[a-z][a-z0-9-]*$/);
-    assert.match(layer.url, /^https:\/\//);
+    // Desktop-rendered maps exist only behind the tracker (no remote source).
+    if (layer.desktopRender === true) {
+      assert.equal(layer.proxyOnly, true);
+      assert.equal(layer.url, layer.localUrl);
+    } else assert.match(layer.url, /^https:\/\//);
     if (layer.fallbackUrl) assert.match(layer.fallbackUrl, /^https:\/\//);
     if (layer.localUrl) assert.match(layer.localUrl, /^\/api\/v1\/map-tile\/[a-z][a-z0-9-]*\/\{z\}\/\{x\}\/\{y\}\.png$/);
     assert.ok(layer.label);
@@ -235,4 +239,13 @@ test('OSM community maps are proxy-only and every proxied layer is known to the 
   assert.match(proxy.TILE_USER_AGENT, /^VFR-Multitool-Tracker-EFB\/[0-9.]+ \(\+https:\/\//);
   assert.equal(proxy.parseTrackerEfbTilePath('/api/v1/map-tile/nasa-night/9/1/1.png'), null, 'NASA tiles stop at zoom 8');
   assert.ok(proxy.parseTrackerEfbTilePath('/api/v1/map-tile/nasa-night/8/1/1.png'));
+});
+
+test('the desktop-rendered vector map is proxy-only and known to the tracker proxy', () => {
+  const proxy = require('../tracker-efb-tile-proxy');
+  const layer = core.BASE_LAYERS.find((entry) => entry.id === 'vfr-vector');
+  assert.ok(layer);
+  assert.equal(layer.desktopRender, true);
+  assert.equal(proxy.TILE_SOURCES['vfr-vector'].desktopRender, 'vfr');
+  assert.equal(core.normalizePreferences({ baseLayer: 'vfr-vector' }).baseLayer, 'vfr-vector');
 });

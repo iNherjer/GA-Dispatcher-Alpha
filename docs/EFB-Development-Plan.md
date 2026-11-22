@@ -1,3 +1,20 @@
+## EFB-Vektorkarte „VFR Vektor (OSM)“ über die Desktop-App – vorbereitet (22.11.2026)
+
+Hintergrund: Coherent GT hat kein WebGL (Chrome-49-Basis); der Canvas-Vektorrenderer aus
+v553 (OpenLayers 6) fror ein und führte zum CTD (v554 zurückgenommen). Neuer Weg wie bei
+FSPM: gerendert wird außerhalb des Sims. Die Desktop-App (Electron, WebGL) zeichnet den
+Web-Stil `data/map-styles/vfr-vector.json` mit derselben MapLibre-Version in einem
+Offscreen-Fenster (`desktop/lib/vector-tile-renderer.js`, Seite `desktop/lib/vector-render/`)
+und liefert 256-px-JPEG-Kacheln (4×4-Blöcke mit 256 px Rand gegen abgeschnittene Beschriftung)
+über einen Loopback-Server mit Zufallstoken. Der Tracker bekommt Port/Token per Umgebung
+(`VFR_MULTITOOL_MAP_RENDER_PORT/_TOKEN`) und bedient sie als Kachelquelle `vfr-vector`
+über den bestehenden Proxy samt Plattenspeicher. Das EFB sieht nur Rasterkacheln; der Eintrag
+„VFR Vektor (OSM, über Desktop-App)“ erscheint nur, wenn `GET /api/v1/map-render/status`
+`vfrVector: true` meldet (Tracker von der Desktop-App gestartet). Eigene VFR-Farbeinstellungen
+der Web-App werden noch nicht übernommen (Standardstil). Ausgeliefert mit dem nächsten
+Desktop-Installer + Tracker-Build, siehe `docs/Release Queue.md`. Offen: Windows-GPU/Offscreen,
+Ladezeit und RAM im Feld.
+
 ## Media-Player-Zoom je Ansicht – Alpha-Rollout Tracker v592 / Web v2212 (26.10.2026)
 
 Zoom des Media Players je Instanz (Oberfläche physical/popout/toolbar/unknown plus 2D/VR) und

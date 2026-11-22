@@ -45,6 +45,23 @@ const BASE_LAYERS = Object.freeze([
   // OpenStreetMap community servers: only through the tracker (own app
   // identification, disk cache of at least 7 days, no prefetching) as their
   // tile usage policies require; never fetched directly by Coherent.
+  // "VFR Vektor (OSM)" of the web app, drawn by the desktop app with WebGL and
+  // served as ordinary tiles by the tracker (Coherent has no WebGL). Listed in
+  // the layer menu only while the tracker reports the desktop renderer.
+  Object.freeze({
+    id: 'vfr-vector',
+    label: 'VFR Vektor (OSM, über Desktop-App)',
+    proxyOnly: true,
+    desktopRender: true,
+    url: '/api/v1/map-tile/vfr-vector/{z}/{x}/{y}.png',
+    localUrl: '/api/v1/map-tile/vfr-vector/{z}/{x}/{y}.png',
+    options: Object.freeze({
+      attribution: '&copy; OpenStreetMap-Mitwirkende, OpenMapTiles, OpenFreeMap, H&ouml;hen AWS Terrain Tiles',
+      minNativeZoom: 3,
+      maxNativeZoom: 16,
+      maxZoom: 18
+    })
+  }),
   Object.freeze({
     id: 'osm',
     label: 'OpenStreetMap',

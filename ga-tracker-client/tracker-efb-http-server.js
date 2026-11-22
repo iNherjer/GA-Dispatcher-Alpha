@@ -38,6 +38,7 @@ const EFB_COCKPIT_SESSION_RELEASE_PATH = '/api/v1/cockpit/sessions/release';
 const EFB_MISSION_INTENT_PATH = '/api/v1/mission/intents';
 const TRACKER_MISSION_HARD_RESET_PATH = '/api/v1/tracker/mission/hard-reset';
 const TRACKER_MAP_TILE_CACHE_PATH = '/api/v1/tracker/map-tile-cache';
+const TRACKER_MAP_RENDER_STATUS_PATH = '/api/v1/map-render/status';
 const TRACKER_MAP_TILE_CACHE_CLEAR_PATH = '/api/v1/tracker/map-tile-cache/clear';
 const TRACKER_SHUTDOWN_PATH = '/api/v1/tracker/shutdown';
 const MAX_EFB_CLIENT_LOG_BYTES = 8192;
@@ -504,6 +505,12 @@ function createTrackerEfbHttpServer(options = {}) {
       }
       jsonResponse(response, 202, { hello, message: createMessage('tracker.shutdown', { accepted: true }) });
       setImmediate(() => { void shutdown(); });
+      return;
+    }
+    // EFB layer menu: the desktop-rendered vector map is listed only when the
+    // desktop app started this tracker with its renderer.
+    if (request.method === 'GET' && pathname === TRACKER_MAP_RENDER_STATUS_PATH) {
+      jsonResponse(response, 200, { hello, message: createMessage('tracker.map-render', { vfrVector: tileProxy.desktopRenderAvailable() }) });
       return;
     }
     // Local map tile cache: size for the desktop app, clearing only with its control token.

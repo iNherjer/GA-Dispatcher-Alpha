@@ -146,3 +146,39 @@ test('disk cache evicts the oldest tiles above its limit and clear removes every
   assert.equal(limited.cacheSize, 0);
   fs.rmSync(dir, { recursive: true, force: true });
 });
+
+test('desktop-rendered vector tiles come from the desktop loopback renderer with its token', async () => {
+  const token = 'a'.repeat(64);
+  const calls = [];
+  let cacheControl = 'public, max-age=604800';
+  const proxy = createTrackerEfbTileProxy({
+    renderEndpoint: { port: 41234, token },
+    fetchRemote: async (url, init) => {
+      calls.push({ url, token: init.headers['X-GA-Render-Token'] });
+      return {
+        ok: true, status: 200,
+        headers: { get: (name) => (name === 'content-type' ? 'image/jpeg' : name === 'cache-control' ? cacheControl : '') },
+        arrayBuffer: async () => Buffer.from([1, 2, 3])
+      };
+    }
+  });
+  assert.equal(proxy.desktopRenderAvailable(), true);
+  const first = await proxy.get({ layer: 'vfr-vector', z: 11, x: 1075, y: 704 });
+  assert.equal(first.contentType, 'image/jpeg');
+  assert.deepEqual(calls[0], { url: 'http://127.0.0.1:41234/vector-tile/vfr/11/1075/704.png', token });
+  // An incomplete picture (no-store) is served but not kept.
+  cacheControl = 'no-store';
+  assert.equal((await proxy.get({ layer: 'vfr-vector', z: 11, x: 1076, y: 704 })).cache, 'no-store');
+  await proxy.get({ layer: 'vfr-vector', z: 11, x: 1076, y: 704 });
+  assert.equal(calls.length, 3);
+  assert.equal(parseTrackerEfbTilePath('/api/v1/map-tile/vfr-vector/2/1/1.png'), null);
+  assert.equal(parseTrackerEfbTilePath('/api/v1/map-tile/vfr-vector/17/1/1.png'), null);
+});
+
+test('without the desktop app the vector source is unavailable and never fetched', async () => {
+  let fetched = false;
+  const proxy = createTrackerEfbTileProxy({ renderEndpoint: null, fetchRemote: async () => { fetched = true; } });
+  assert.equal(proxy.desktopRenderAvailable(), false);
+  await assert.rejects(proxy.get({ layer: 'vfr-vector', z: 11, x: 1075, y: 704 }), /desktop_renderer_unavailable/);
+  assert.equal(fetched, false);
+});

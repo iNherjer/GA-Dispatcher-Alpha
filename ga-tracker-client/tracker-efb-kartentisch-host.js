@@ -2331,6 +2331,37 @@
 
   // Group titles inside Leaflet's overlay list: regional base maps first,
   // then the real overlays. Leaflet rebuilds the list on _update().
+  // Maps drawn by the desktop app (catalog flag desktopRender) are listed only
+  // when the tracker was started by the desktop app with its renderer; a saved
+  // selection falls back to the topographic map otherwise.
+  function applyDesktopRenderAvailability() {
+    var ids = API.BASE_LAYERS.filter(function (definition) { return definition.desktopRender === true; })
+      .map(function (definition) { return definition.id; });
+    if (!ids.length) return;
+    function withdraw() {
+      ids.forEach(function (id) {
+        var layer = baseLayers[id];
+        if (!layer || !layerControl) return;
+        layerControl.removeLayer(layer);
+        if (map && map.hasLayer(layer)) {
+          map.removeLayer(layer);
+          if (baseLayers.topo) baseLayers.topo.addTo(map);
+          preferences.baseLayer = 'topo';
+          updateBaseOpacity();
+          savePreferences();
+        }
+      });
+      report('info', 'map-tile', 'desktop-render', 'Desktop-Vektorkarte nicht verfügbar', 'source=status');
+    }
+    if (typeof fetch !== 'function') { withdraw(); return; }
+    fetch('/api/v1/map-render/status', { cache: 'no-store' }).then(function (response) {
+      return response && response.ok ? response.json() : null;
+    }).then(function (data) {
+      var payload = data && data.message && data.message.payload;
+      if (!payload || payload.vfrVector !== true) withdraw();
+    }).catch(function () { withdraw(); });
+  }
+
   function decorateLayerControlGroups(control) {
     if (!control || typeof control._update !== 'function') return;
     var container = control.getContainer ? control.getContainer() : control._container;
@@ -2540,6 +2571,7 @@
     preferences.regionalBases.forEach(function (id) { stackRegionalLayer(id); });
     decorateLayerControlGroups(layerControl);
     installBaseDimControl(layerControl);
+    applyDesktopRenderAvailability();
     routeLayer = L.layerGroup().addTo(map);
     geometryLayer = L.layerGroup().addTo(map);
     previewLayer = L.layerGroup().addTo(map);

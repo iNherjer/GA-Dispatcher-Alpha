@@ -82,8 +82,32 @@ const TILE_SOURCES = Object.freeze({
   }),
   dfs: Object.freeze({
     urls: Object.freeze(['https://secais.dfs.de/static-maps/icao500/tiles/{z}/{x}/{y}.png'])
+  }),
+  // "VFR Vektor (OSM)" drawn by the desktop app (desktop/lib/vector-tile-renderer.js):
+  // Coherent has no WebGL, the desktop app does. Only available while the desktop
+  // app started this tracker and handed over its loopback port and token.
+  'vfr-vector': Object.freeze({
+    desktopRender: 'vfr',
+    urls: Object.freeze([]),
+    minZoom: 3,
+    maxZoom: 16
   })
 });
+
+// Desktop vector renderer endpoint from the environment the desktop app sets
+// for its tracker child process (like the media bridge).
+function desktopRenderEndpoint(env = process.env) {
+  const port = Number(env.VFR_MULTITOOL_MAP_RENDER_PORT);
+  const token = String(env.VFR_MULTITOOL_MAP_RENDER_TOKEN || '').trim();
+  if (!Number.isInteger(port) || port <= 0 || port > 65535 || !/^[0-9a-f]{64}$/.test(token)) return null;
+  return { port, token };
+}
+
+// A renderer answer marked no-store (a source timed out while drawing) is
+// served once but kept neither in memory nor on disk.
+function isNoStore(cacheControl) {
+  return /(^|,)\s*no-store\s*(,|$)/i.test(String(cacheControl || ''));
+}
 
 function sanitize(value, limit = 180) {
   return String(value == null ? '' : value).replace(/[\r\n\t]+/g, ' ').slice(0, limit);
@@ -97,7 +121,8 @@ function parseTrackerEfbTilePath(pathname = '') {
   const y = Number(match[4]);
   const limit = 2 ** z;
   const maxZoom = Number(TILE_SOURCES[match[1]].maxZoom) || 20;
-  if (!Number.isSafeInteger(z) || z < 0 || z > maxZoom
+  const minZoom = Number(TILE_SOURCES[match[1]].minZoom) || 0;
+  if (!Number.isSafeInteger(z) || z < minZoom || z > maxZoom
     || !Number.isSafeInteger(x) || x < 0 || x >= limit
     || !Number.isSafeInteger(y) || y < 0 || y >= limit) return null;
   return { layer: match[1], z, x, y };
@@ -136,6 +161,9 @@ function createTrackerEfbTileProxy(options = {}) {
   let evicting = null;
   let diskErrorLogged = false;
   const diskStats = { hits: 0, revalidated: 0, stale: 0, writes: 0 };
+  const renderEndpoint = options.renderEndpoint === undefined ? desktopRenderEndpoint() : options.renderEndpoint;
+  // Drawing a 4×4 block takes about a second, a few more when the queue is long.
+  const renderTimeoutMs = Math.max(timeoutMs, 25000);
 
   function diskError(stage, error) {
     if (diskErrorLogged) return;
@@ -269,15 +297,21 @@ function createTrackerEfbTileProxy(options = {}) {
   async function fetchTile(tile, previous) {
     const source = TILE_SOURCES[tile.layer];
     let lastError = null;
-    for (const template of source.urls) {
+    const local = source.desktopRender ? renderEndpoint : null;
+    if (source.desktopRender && !local) throw new Error('desktop_renderer_unavailable');
+    const templates = local
+      ? [`http://127.0.0.1:${local.port}/vector-tile/${source.desktopRender}/{z}/{x}/{y}.png`]
+      : source.urls;
+    for (const template of templates) {
       const upstreamUrl = tileUrl(template, tile);
       const controller = typeof AbortController === 'function' ? new AbortController() : null;
-      const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+      const timer = controller ? setTimeout(() => controller.abort(), local ? renderTimeoutMs : timeoutMs) : null;
       try {
         const headers = {
           Accept: 'image/avif,image/webp,image/apng,image/png,image/*,*/*;q=0.8',
           'User-Agent': TILE_USER_AGENT
         };
+        if (local) headers['X-GA-Render-Token'] = local.token;
         // Expired disk copy: ask the server whether it is still current.
         if (previous && previous.meta.etag) headers['If-None-Match'] = previous.meta.etag;
         if (previous && previous.meta.lastModified) headers['If-Modified-Since'] = previous.meta.lastModified;
@@ -344,6 +378,7 @@ function createTrackerEfbTileProxy(options = {}) {
         return { ...stale, cache: 'stale' };
       }
       const fresh = { body: result.body, contentType: result.contentType, upstreamUrl: result.upstreamUrl };
+      if (isNoStore(result.headerInfo && result.headerInfo.cacheControl)) return { ...fresh, cache: 'no-store' };
       touch(key, fresh);
       if (result.notModified) {
         diskStats.revalidated += 1;
@@ -384,6 +419,8 @@ function createTrackerEfbTileProxy(options = {}) {
     get,
     stats,
     clear,
+    // EFB menu: the desktop vector map is offered only with a renderer.
+    desktopRenderAvailable: () => !!renderEndpoint,
     ready: () => scanned,
     get cacheSize() { return cache.size; },
     get cacheBytes() { return cacheBytes; },
@@ -402,6 +439,7 @@ module.exports = {
   TILE_SOURCES,
   cacheTtlMs,
   createTrackerEfbTileProxy,
+  desktopRenderEndpoint,
   defaultTileCacheDirectory,
   parseTrackerEfbTilePath,
   tileUrl

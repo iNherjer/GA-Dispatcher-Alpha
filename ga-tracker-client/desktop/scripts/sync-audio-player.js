@@ -17,3 +17,10 @@ fs.copyFileSync(path.resolve(__dirname, '../../../i18n-core.js'), path.resolve(_
 for (const name of ['wili-fleet-core.js', 'cloud-sync-client.js', 'cloud-sync-core.js', 'mission-cloud-control-core.js']) {
   fs.copyFileSync(path.resolve(__dirname, '../../../' + name), path.resolve(__dirname, '../lib/' + name));
 }
+
+// Vector map tiles for the EFB (lib/vector-tile-renderer.js): the web app's
+// MapLibre build and its "VFR Vektor (OSM)" style.
+fs.mkdirSync(path.resolve(__dirname, '../lib/vector-render'), { recursive: true });
+fs.copyFileSync(path.resolve(__dirname, '../../../vendor/maplibre/maplibre-gl.js'), path.resolve(__dirname, '../lib/vector-render/maplibre-gl.js'));
+fs.copyFileSync(path.resolve(__dirname, '../../../vendor/maplibre/LICENSE.txt'), path.resolve(__dirname, '../lib/vector-render/MAPLIBRE-LICENSE.txt'));
+fs.copyFileSync(path.resolve(__dirname, '../../../data/map-styles/vfr-vector.json'), path.resolve(__dirname, '../lib/vector-render/vfr-vector.json'));
