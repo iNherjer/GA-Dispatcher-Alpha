@@ -56,6 +56,176 @@ function dismissMapContextInfo({ closePopup = false, clearHighlight = true } = {
     if (closePopup && map && mapContextPopupLayer) {
         map.closePopup(mapContextPopupLayer);
     }
+    if (mapContextSheet?.open) closeMapContextSheet({ restoreView: true, fromDismiss: true });
+}
+
+// Mobile layout (phone/tablet up to 1024 px, not the EFB): the popup is a fixed sheet at
+// the right edge above toolbar and profile panel (1.5 x the classic popup width, at most 80 %
+// of the screen; styles.css). Its arrow tip sits at the sheet's left edge, half screen height, and
+// the map is panned so the pressed point lies under it.
+// While it is open the map is frozen; a tap beside the sheet or the X closes it and
+// brings back the earlier map view.
+const MAP_CONTEXT_SHEET_MAX_WIDTH_PX = 1024;
+let mapContextSheet = null;
+
+function isMapContextSheetMode() {
+    if (typeof window === 'undefined' || !document.body) return false;
+    if (document.body.classList.contains('ga-efb-tracker-host')) return false;
+    if (typeof window.matchMedia === 'function') {
+        return window.matchMedia(`(max-width: ${MAP_CONTEXT_SHEET_MAX_WIDTH_PX}px)`).matches;
+    }
+    return window.innerWidth <= MAP_CONTEXT_SHEET_MAX_WIDTH_PX;
+}
+
+function ensureMapContextSheet() {
+    if (mapContextSheet) return mapContextSheet;
+    const scrim = document.createElement('div');
+    scrim.className = 'ga-map-context-sheet-scrim';
+    scrim.setAttribute('aria-hidden', 'true');
+    const sheet = document.createElement('div');
+    sheet.className = 'ga-map-context-sheet ga-map-context-popup';
+    sheet.setAttribute('role', 'dialog');
+    sheet.setAttribute('aria-modal', 'true');
+    sheet.setAttribute('aria-label', _mcT('WAS IST HIER?'));
+    const closeButton = document.createElement('button');
+    closeButton.type = 'button';
+    closeButton.className = 'ga-map-context-sheet-close';
+    closeButton.setAttribute('aria-label', _mcT('Schließen'));
+    closeButton.textContent = '×';
+    const scroll = document.createElement('div');
+    scroll.className = 'ga-map-context-sheet-scroll';
+    sheet.append(closeButton, scroll);
+    const arrow = document.createElement('div');
+    arrow.className = 'ga-map-context-sheet-arrow';
+    arrow.setAttribute('aria-hidden', 'true');
+    scrim.hidden = true;
+    sheet.hidden = true;
+    arrow.hidden = true;
+    document.body.append(scrim, sheet, arrow);
+    const ref = { scrim, sheet, arrow, scroll, closeButton, open: false, openedAt: 0, scrimPressed: false, sheetPressed: false, view: null, resizeTimer: 0 };
+    // A long press opens the sheet while the finger is still down: its release must not
+    // close the sheet or hit a button in it, so only presses that start on it count.
+    scrim.addEventListener('pointerdown', () => { ref.scrimPressed = true; });
+    scrim.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (!ref.scrimPressed) return;
+        ref.scrimPressed = false;
+        closeMapContextSheet({ restoreView: true });
+    });
+    scrim.addEventListener('wheel', (event) => event.preventDefault(), { passive: false });
+    scrim.addEventListener('touchmove', (event) => event.preventDefault(), { passive: false });
+    sheet.addEventListener('pointerdown', () => { ref.sheetPressed = true; }, true);
+    sheet.addEventListener('click', (event) => {
+        if (ref.sheetPressed) return;
+        event.preventDefault();
+        event.stopPropagation();
+    }, true);
+    closeButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        closeMapContextSheet({ restoreView: true });
+    });
+    ref.onKeyDown = (event) => {
+        if (event.key === 'Escape' && ref.open) closeMapContextSheet({ restoreView: true });
+    };
+    ref.onResize = () => {
+        if (!ref.open) return;
+        window.clearTimeout(ref.resizeTimer);
+        ref.resizeTimer = window.setTimeout(() => {
+            if (!ref.open) return;
+            if (!isMapContextSheetMode()) {
+                closeMapContextSheet({ restoreView: true });
+                return;
+            }
+            map?.invalidateSize?.({ pan: false });
+            alignMapContextSheetToAnchor(mapContextInfoState, false);
+        }, 140);
+    };
+    mapContextSheet = ref;
+    return ref;
+}
+
+function setMapContextSheetMapFrozen(ref, frozen) {
+    if (!map) return;
+    const handlerNames = ['dragging', 'touchZoom', 'doubleClickZoom', 'scrollWheelZoom', 'boxZoom', 'keyboard', 'tap'];
+    if (frozen) {
+        ref.disabledHandlers = handlerNames.filter((name) => map[name]?.enabled?.());
+        ref.disabledHandlers.forEach((name) => map[name].disable());
+    } else {
+        (ref.disabledHandlers || []).forEach((name) => map[name]?.enable?.());
+        ref.disabledHandlers = [];
+    }
+}
+
+function alignMapContextSheetToAnchor(state, animate = true) {
+    const ref = mapContextSheet;
+    if (!ref?.open || !state?.latlng || !map) return;
+    const mapElement = map.getContainer?.();
+    const mapRect = mapElement?.getBoundingClientRect?.();
+    const arrowRect = ref.arrow.getBoundingClientRect();
+    if (!mapRect || !mapRect.width || !mapRect.height || !arrowRect.height) return;
+    // Client pixels -> map container pixels (the container may be scaled).
+    const scaleX = mapElement.clientWidth ? mapRect.width / mapElement.clientWidth : 1;
+    const scaleY = mapElement.clientHeight ? mapRect.height / mapElement.clientHeight : 1;
+    const target = L.point(
+        (arrowRect.left - mapRect.left) / (scaleX || 1),
+        (arrowRect.top + (arrowRect.height / 2) - mapRect.top) / (scaleY || 1)
+    );
+    const current = map.latLngToContainerPoint(state.latlng);
+    const delta = current.subtract(target);
+    if (Math.abs(delta.x) < 0.5 && Math.abs(delta.y) < 0.5) return;
+    map.panBy(delta.round(), animate ? { animate: true, duration: 0.35, easeLinearity: 0.3 } : { animate: false });
+}
+
+function openMapContextSheet(state) {
+    const ref = ensureMapContextSheet();
+    if (!ref.open) {
+        ref.view = { center: map.getCenter(), zoom: map.getZoom() };
+        setMapContextSheetMapFrozen(ref, true);
+        window.addEventListener('keydown', ref.onKeyDown);
+        window.addEventListener('resize', ref.onResize);
+        window.addEventListener('orientationchange', ref.onResize);
+    }
+    ref.open = true;
+    ref.openedAt = Date.now();
+    ref.scrimPressed = false;
+    ref.sheetPressed = false;
+    window.gaMapContextSheetActive = true;
+    ref.scroll.replaceChildren(state.content);
+    ref.scroll.scrollTop = 0;
+    ref.scrim.hidden = false;
+    ref.sheet.hidden = false;
+    ref.arrow.hidden = false;
+    document.body.classList.add('ga-map-context-sheet-open');
+    map.getContainer?.()?.classList.add('ga-map-context-open');
+    window.requestAnimationFrame(() => alignMapContextSheetToAnchor(state, true));
+}
+
+function closeMapContextSheet({ restoreView = true, fromDismiss = false } = {}) {
+    const ref = mapContextSheet;
+    if (!ref?.open) return;
+    ref.open = false;
+    window.clearTimeout(ref.resizeTimer);
+    window.removeEventListener('keydown', ref.onKeyDown);
+    window.removeEventListener('resize', ref.onResize);
+    window.removeEventListener('orientationchange', ref.onResize);
+    ref.scrim.hidden = true;
+    ref.sheet.hidden = true;
+    ref.arrow.hidden = true;
+    ref.scroll.replaceChildren();
+    document.body.classList.remove('ga-map-context-sheet-open');
+    window.gaMapContextSheetActive = false;
+    setMapContextSheetMapFrozen(ref, false);
+    const view = ref.view;
+    ref.view = null;
+    if (map) {
+        map.getContainer?.()?.classList.remove('ga-map-context-open');
+        if (restoreView && view?.center && Number.isFinite(view.zoom)) {
+            map.setView(view.center, view.zoom, { animate: true, duration: 0.35 });
+        }
+    }
+    if (!fromDismiss) dismissMapContextInfo();
 }
 
 function mapContextPointInRing(lat, lon, ring) {
@@ -1465,8 +1635,10 @@ function renderMapContextInfoPopup(state, options = {}) {
             </div>
         </div>`;
     hydrateMapContextAirportWidget(state);
-    mapContextPopupLayer?.update?.();
-    positionMapContextPopupBesideAnchor(state);
+    if (!state.sheetMode) {
+        mapContextPopupLayer?.update?.();
+        positionMapContextPopupBesideAnchor(state);
+    }
     if (preserveDetailsScroll && Number.isFinite(previousDetailsScrollTop)) {
         const restoreDetailsScroll = () => {
             if (state !== mapContextInfoState || !state.content) return;
@@ -1548,7 +1720,7 @@ function highlightMapContextFeature(featureId) {
 
 window.gaUpdateMapContextOwnAltitude = function(altitudeFt) {
     const state = mapContextInfoState;
-    if (!state || mapContextPopupLayer?._map !== map) return;
+    if (!state || (!state.sheetMode && mapContextPopupLayer?._map !== map)) return;
     const value = Number(altitudeFt);
     const hasValue = altitudeFt !== null && altitudeFt !== undefined && altitudeFt !== '';
     state.currentAltitudeFt = hasValue && Number.isFinite(value) && value >= 0 ? Math.round(value) : null;
@@ -1578,6 +1750,9 @@ function openMapContextInfo(latlng, source = 'longpress') {
     if (duplicate) return;
     mapContextLastOpen = { at: now, lat: latlng.lat, lon: latlng.lng };
     mapContextSuppressClickUntil = now + 900;
+    const sheetMode = isMapContextSheetMode();
+    if (sheetMode && mapContextPopupLayer?._map === map) map.closePopup(mapContextPopupLayer);
+    if (!sheetMode && mapContextSheet?.open) closeMapContextSheet({ restoreView: false, fromDismiss: true });
     mapContextRequestSeq += 1;
     const requestSeq = mapContextRequestSeq;
     clearMapContextPointLayer();
@@ -1601,7 +1776,8 @@ function openMapContextInfo(latlng, source = 'longpress') {
         selectedAirspaceId: '',
         selectedFeatureId: '',
         popupPositioned: false,
-        popupPositionScheduled: false
+        popupPositionScheduled: false,
+        sheetMode
     };
     mapContextInfoState = state;
     content.addEventListener('click', (event) => {
@@ -1627,29 +1803,34 @@ function openMapContextInfo(latlng, source = 'longpress') {
         interactive: false,
         className: 'ga-map-context-point'
     }).addTo(map);
-    if (!mapContextPopupLayer) {
-        mapContextPopupLayer = L.popup({
-            className: 'ga-map-context-popup',
-            minWidth: 248,
-            maxWidth: 500,
-            maxHeight: 680,
-            offset: [160, 190],
-            autoPan: false,
-            autoPanPadding: [18, 18]
-        });
+    if (sheetMode) {
+        openMapContextSheet(state);
+        renderMapContextInfoPopup(state);
+    } else {
+        if (!mapContextPopupLayer) {
+            mapContextPopupLayer = L.popup({
+                className: 'ga-map-context-popup',
+                minWidth: 248,
+                maxWidth: 500,
+                maxHeight: 680,
+                offset: [160, 190],
+                autoPan: false,
+                autoPanPadding: [18, 18]
+            });
+        }
+        mapContextPopupLayer
+            .setLatLng(state.latlng)
+            .setContent(content)
+            .openOn(map);
+        map.getContainer?.()?.classList.add('ga-map-context-open');
+        renderMapContextInfoPopup(state);
+        window.setTimeout(() => {
+            if (state !== mapContextInfoState || mapContextPopupLayer?._map !== map) return;
+            state.popupPositioned = false;
+            state.popupPositionScheduled = false;
+            positionMapContextPopupBesideAnchor(state);
+        }, 800);
     }
-    mapContextPopupLayer
-        .setLatLng(state.latlng)
-        .setContent(content)
-        .openOn(map);
-    map.getContainer?.()?.classList.add('ga-map-context-open');
-    renderMapContextInfoPopup(state);
-    window.setTimeout(() => {
-        if (state !== mapContextInfoState || mapContextPopupLayer?._map !== map) return;
-        state.popupPositioned = false;
-        state.popupPositionScheduled = false;
-        positionMapContextPopupBesideAnchor(state);
-    }, 800);
 
     const settle = (section, value) => {
         if (!mapContextInfoState || mapContextInfoState.requestSeq !== requestSeq) return;

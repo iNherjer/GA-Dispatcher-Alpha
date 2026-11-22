@@ -1022,6 +1022,8 @@ function toggleAutoFollow(forceState = null) {
 
 // Shared telemetry-time pan gates, including the original low-FPS distance gate.
 function updateAutoFollowFromTelemetry({lat, lon, alt, gs: autoFollowGs, hdg, now, lowFpsMode}) {
+    // The mobile "Was ist hier?" sheet freezes the map; following resumes once it closes.
+    if (window.gaMapContextSheetActive) return;
     if (isAutoFollow) {
         const autoFollowViewApplied = applyAutoFollowViewNow({
             sample: { lat, lon, alt, gs: autoFollowGs, hdg, now, lowFpsMode },

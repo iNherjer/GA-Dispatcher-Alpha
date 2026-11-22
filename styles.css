@@ -13171,6 +13171,144 @@ body.theme-win95.win95-main-minimized .mission-main-notification {
         min-height: 190px;
     }
 }
+/* Mobile "Was ist hier?" sheet (map-context-popup.js, up to 1024 px, not the EFB):
+   right edge of the screen, above toolbar and profile panel, small gap to the edges.
+   Width 1.5 x the classic popup (468 px, from 760 px screen width 693 px), at most 80 %
+   of the screen. The arrow tip sits at the sheet's left edge, half screen height; the map is
+   panned so the pressed point lies under it. The scrim freezes the map. */
+:root {
+    --ga-map-context-sheet-width: min(468px, 80vw);
+    --ga-map-context-sheet-right: calc(8px + env(safe-area-inset-right, 0px));
+}
+@media (min-width: 760px) {
+    :root {
+        --ga-map-context-sheet-width: min(693px, 80vw);
+    }
+}
+.ga-map-context-sheet-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 131000;
+    background: transparent;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+}
+.ga-map-context-sheet {
+    position: fixed;
+    z-index: 131001;
+    top: calc(8px + env(safe-area-inset-top, 0px));
+    right: var(--ga-map-context-sheet-right);
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    width: var(--ga-map-context-sheet-width);
+    display: flex;
+    flex-direction: column;
+    /* top/bottom are the outer limit; with fit-content height and auto margins a
+       shorter sheet sits vertically centred, a longer one fills the space and scrolls. */
+    box-sizing: border-box;
+    height: -webkit-fit-content;
+    height: fit-content;
+    max-height: calc(100% - 16px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    margin: auto 0 !important;
+    color: #ecf7ff;
+    background: rgba(7, 14, 22, 0.97);
+    border: 1px solid rgba(83, 211, 255, 0.72);
+    border-radius: 11px;
+    box-shadow: 0 16px 42px rgba(0, 0, 0, 0.55);
+    animation: gaMapContextSheetIn 0.22s ease-out;
+}
+.ga-map-context-sheet[hidden],
+.ga-map-context-sheet-scrim[hidden],
+.ga-map-context-sheet-arrow[hidden] {
+    display: none !important;
+}
+@keyframes gaMapContextSheetIn {
+    from { opacity: 0; transform: translateX(24px); }
+    to { opacity: 1; transform: none; }
+}
+.ga-map-context-sheet-scroll {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 10px 11px 11px;
+}
+.ga-map-context-sheet-close {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    z-index: 2;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    color: #9cb4c4;
+    font: 400 24px/1 system-ui, sans-serif;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+.ga-map-context-sheet-close:hover,
+.ga-map-context-sheet-close:focus-visible {
+    color: #fff;
+    outline: none;
+}
+.ga-map-context-sheet-arrow {
+    position: fixed;
+    z-index: 131002;
+    right: calc(var(--ga-map-context-sheet-right) + var(--ga-map-context-sheet-width) - 1px);
+    top: 50%;
+    width: 12px;
+    height: 24px;
+    margin-top: -12px;
+    pointer-events: none;
+}
+.ga-map-context-sheet-arrow::before,
+.ga-map-context-sheet-arrow::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    clip-path: polygon(0 50%, 100% 0, 100% 100%);
+}
+.ga-map-context-sheet-arrow::before {
+    background: rgba(83, 211, 255, 0.72);
+}
+.ga-map-context-sheet-arrow::after {
+    left: 1.6px;
+    right: -1px;
+    top: 1.5px;
+    bottom: 1.5px;
+    background: rgb(7, 14, 22);
+}
+.ga-map-context-sheet-scroll,
+.ga-map-context-sheet-scroll > div {
+    display: flex;
+    flex-direction: column;
+}
+.ga-map-context-sheet-scroll > div {
+    flex: 0 1 auto;
+    min-height: 0;
+}
+.ga-map-context-sheet .ga-map-context-panel {
+    display: flex;
+    flex: 0 1 auto;
+    flex-direction: column;
+    min-height: 0;
+}
+.ga-map-context-sheet .ga-map-context-heading {
+    padding-right: 34px;
+}
+.ga-map-context-sheet .ga-map-context-body {
+    flex: 0 1 auto;
+    grid-template-rows: minmax(0, 1fr);
+    height: auto;
+    /* The details column sets the height; the band only stretches along. */
+    min-height: 180px;
+}
+.ga-map-context-sheet .ga-map-context-details {
+    min-height: 0;
+}
 .ff-toast {
     position: absolute;
     top: 50px;
