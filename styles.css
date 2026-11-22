@@ -13044,6 +13044,8 @@ body.theme-win95.win95-main-minimized .mission-main-notification {
     pointer-events: none;
     text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff;
 }
+/* OpenAIP -> VFR-Overlay beim Reinzoomen (map.js updateOpenAipVfrHandoff) */
+.ga-openaip-handoff-hidden { display: none; }
 /* VFR-Meldepunkte (open flightmaps / OpenAIP) */
 .leaflet-marker-icon.ga-vrp-symbol {
     background: none;

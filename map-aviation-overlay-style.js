@@ -41,6 +41,8 @@
         labelSize: 100,
         labelMinZoom: 10,
         labelPlacement: 'border',
+        vfrHandoff: true,
+        vfrHandoffZoom: 12,
         vrpVisible: true,
         vrpColor: '#1d4ed8',
         vrpMinZoom: 9,
@@ -79,6 +81,8 @@
             labelSize: percent(stored.labelSize, DEFAULTS.labelSize, 60, 220),
             labelMinZoom: percent(stored.labelMinZoom, DEFAULTS.labelMinZoom, 7, 14),
             labelPlacement: stored.labelPlacement === 'center' ? 'center' : 'border',
+            vfrHandoff: stored.vfrHandoff !== false,
+            vfrHandoffZoom: percent(stored.vfrHandoffZoom, DEFAULTS.vfrHandoffZoom, 9, 14),
             vrpVisible: stored.vrpVisible !== false,
             vrpColor: isColor(stored.vrpColor) ? stored.vrpColor.toLowerCase() : DEFAULTS.vrpColor,
             vrpMinZoom: percent(stored.vrpMinZoom, DEFAULTS.vrpMinZoom, 7, 14),
@@ -508,6 +512,19 @@
             return node;
         };
         const valueLabel = () => { const span = document.createElement('span'); span.className = 'ga-vfr-style-value'; return span; };
+
+        // Close in, the VFR overlay tiles show circuits and approach routes that
+        // OpenAIP lacks: hide the OpenAIP drawing there and show those tiles.
+        heading('Nahbereich');
+        const handoff = input('checkbox', {}, (s) => s.vfrHandoff, (s, node) => { s.vfrHandoff = node.checked; });
+        handoff.setAttribute('aria-label', phrase('Beim Reinzoomen auf VFR-Overlay umschalten'));
+        line('Beim Reinzoomen auf VFR-Overlay umschalten', [handoff]).classList.add('ga-openaip-check-row');
+        const handoffZoom = input('range', { min: '9', max: '14', step: '1' }, (s) => s.vfrHandoffZoom, (s, el) => { s.vfrHandoffZoom = Number(el.value); });
+        handoffZoom.setAttribute('aria-label', phrase('Umschalten ab Zoomstufe'));
+        const handoffZoomValue = valueLabel();
+        handoffZoom._gaValue = handoffZoomValue;
+        handoffZoom._gaUnit = '';
+        line('Ab Zoomstufe', [handoffZoom, handoffZoomValue]);
 
         heading('Lufträume');
         AIRSPACE_CATEGORIES.forEach((category) => {

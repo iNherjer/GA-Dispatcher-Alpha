@@ -8211,6 +8211,7 @@ window.gaOpenAipOverlayRestyle = function () {
     if (openAipLastOverlayPayload) renderOpenAipOverlayData(openAipLastOverlayPayload);
     else renderKnownAirportOverlaySources();
     refreshOpenAipReportingPointSymbols();
+    window.gaUpdateOpenAipVfrHandoff?.();
 };
 
 function renderOpenAipOverlayData(payload) {
@@ -8660,11 +8661,39 @@ function initMapBase() {
         layer: openAipVectorOverlay,
         panel: window.gaOpenAipOverlayStyle.createPanel(createGaLayerGroupTitle, () => window.gaOpenAipOverlayRestyle())
     }] : []);
+    // OpenAIP -> VFR overlay handoff: from the set zoom level the OpenAIP
+    // drawing (own pane) is hidden and the VFR overlay tiles, which show
+    // circuits and approach routes, take over. A separate tile layer keeps the
+    // user's VFR overlay choice in the layer menu untouched. Above the VFR
+    // overlay's own auto-hide zoom, OpenAIP comes back.
+    const vfrHandoffOverlay = L.tileLayer('https://nwy-tiles-api.prod.newaydata.com/tiles/{z}/{x}/{y}.png?path=latest/aero/latest', {
+        pane: GA_MAP_OVERLAY_PANES.vfr.name,
+        attribution: 'AeroData / NewayData', opacity: 0.65, maxNativeZoom: 12
+    });
+    const isOpenAipVfrHandoffActive = () => {
+        const style = window.gaOpenAipOverlayStyle?.settings?.();
+        if (!style || !style.vfrHandoff || !isOpenAipOverlayEnabled()) return false;
+        const zoom = Number(map.getZoom());
+        return Number.isFinite(zoom) && zoom >= style.vfrHandoffZoom && zoom < VP_VFR_OVERLAY_AUTO_HIDE_ZOOM;
+    };
+    const updateOpenAipVfrHandoff = () => {
+        const active = isOpenAipVfrHandoffActive();
+        map.getPane(GA_MAP_OVERLAY_PANES.localAviation.name)?.classList.toggle('ga-openaip-handoff-hidden', active);
+        const needTiles = active && !map.hasLayer(aeroOverlay);
+        if (needTiles && !map.hasLayer(vfrHandoffOverlay)) vfrHandoffOverlay.addTo(map);
+        if (!needTiles && map.hasLayer(vfrHandoffOverlay)) map.removeLayer(vfrHandoffOverlay);
+        baseMapDimmer?.update();
+    };
+    window.gaUpdateOpenAipVfrHandoff = updateOpenAipVfrHandoff;
+    map.on('zoomend overlayadd overlayremove', updateOpenAipVfrHandoff);
+
     baseMapDimmer = installGaBaseMapDimming(map, layerControl, () => {
+        if (map.hasLayer(vfrHandoffOverlay)) return true;
         if (!map.hasLayer(aeroOverlay)) return false;
         const zoom = Number(map.getZoom());
         return !(Number.isFinite(zoom) && zoom >= VP_VFR_OVERLAY_AUTO_HIDE_ZOOM);
     });
+    updateOpenAipVfrHandoff();
 
     map.on('overlayadd', function (e) {
         if (e.name === "🛩️ VFR Lufträume (Overlay)") {
