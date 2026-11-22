@@ -20831,9 +20831,10 @@ html[lang="en"] #mapTableOverlay .ga-layer-groups .leaflet-control-layers-base::
     gap: 4px;
     padding: 4px 4px 6px;
 }
+/* Name | Regler (volle Restbreite) | Wert; Farbfelder rechtsbuendig. */
 #mapTableOverlay .ga-vfr-style-row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: 6.8em minmax(0, 1fr) 3.4em;
     align-items: center;
     gap: 8px;
     font: 12px/1.3 var(--layer-font);
@@ -20850,7 +20851,9 @@ html[lang="en"] #mapTableOverlay .ga-layer-groups .leaflet-control-layers-base::
     justify-self: end;
 }
 #mapTableOverlay .leaflet-control-layers .ga-vfr-style-row input[type="range"] {
-    width: 96px !important;
+    flex: none;
+    width: 100% !important;
+    min-width: 0 !important;
     height: 18px !important;
     min-height: 0 !important;
     accent-color: var(--layer-accent);
