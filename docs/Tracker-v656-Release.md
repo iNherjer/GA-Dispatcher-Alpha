@@ -24,3 +24,17 @@ Details: `docs/EFB-Development-Plan.md` Abschnitt 22.11.2026.
   je Gegend 1–2 s, danach aus dem Speicher), auch in VR.
 - Farben ändern: Kacheln werden neu gezeichnet und bleiben nach Neustart erhalten.
 - RAM der Desktop-App während des Flugs; Fenster schließt sich 10 min nach dem letzten Abruf.
+
+## Tests
+
+Tracker-Suite vor dem Release-Commit: 1626/1630 bestanden, 2 übersprungen; die 2 Fehler waren die noch nicht
+synchronisierten EFB-Web-Assets und sind nach `sync-efb-web-assets.js` grün (Asset-Sync-, Syntax- und
+Web-Client-Tests). Electron-Ende-zu-Ende am Mac: Renderer → Tracker-Server → EFB-Host, Menü mit/ohne Dienst,
+Farbwechsel (`?s=`) und Speicherung.
+
+## Artefakt
+
+- Release `v656` (Commit `54720ef6b`, sauberer Worktree), Asset `VFR-Multitool-Tracker.exe`
+- Größe: 175434120 Bytes
+- SHA-256: `d91d6264c9d0abf280883b86081246e545e1fa35cdbc211799f091d17df7edbd`
+- Öffentlicher Download geprüft; Alpha-Kanal aktiviert, Stable unverändert.

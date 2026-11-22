@@ -13,3 +13,12 @@
 ## Im Feld prüfen
 
 - Windows-GPU/Offscreen-WebGL, RAM, Start/Beenden der App, Autoupdate.
+
+## Aktivierung
+
+Release `tracker-desktop-v1.6.42` (Release-Commit `54720ef6b`, Worktree-Build mit kopierten `node_modules`),
+Installer 100567060 Bytes, SHA-512 `RGe6LFKq…OML17BA==` wie `latest.yml`, öffentlicher Download geprüft. App-Paket
+enthält `lib/vector-tile-renderer.js` und `lib/vector-render/*`, Version 1.6.42. Tests: Desktop 155 bestanden
+(3 übersprungen). `channel/desktop/latest.yml` und `alpha.yml` aktiviert (Autoupdate).
+
+Nicht geprüft: Installation, Start, Offscreen-WebGL und Update auf Windows (kein Windows-System hier).
