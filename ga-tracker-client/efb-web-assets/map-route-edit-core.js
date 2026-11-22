@@ -21,6 +21,44 @@
     ['isPOI', 'isPoiChainEndpoint', 'isPoiChainReturnHome'].forEach(k => {
       if (p[k] === true) out[k] = true;
     });
+    var legAlt = legAltFt(p.legAltFt);
+    if (legAlt !== null) out.legAltFt = legAlt;
+    return out;
+  }
+  // Geplante Hoehe der Teilstrecke, die zu diesem Wegpunkt fuehrt (ft). Fehlt sie, gilt die Reiseflughoehe.
+  function legAltFt(value) {
+    var n = Number(value);
+    return value !== null && value !== '' && Number.isFinite(n) && n >= 500 && n <= 30000 ? Math.round(n) : null;
+  }
+  // Hoehen der Teilstrecken auf eine neue Punktliste uebertragen, deren Quelle sie nicht kennt
+  // (z. B. eine aeltere Tracker-Version): gleiche Koordinaten behalten ihre Hoehe, neu
+  // eingefuegte Punkte uebernehmen die Hoehe der Strecke, die sie geteilt haben.
+  function carryLegAlts(previous, next) {
+    if (!Array.isArray(previous) || !Array.isArray(next)) return next;
+    var key = p => {
+      var _p$lng3;
+      return Number(p.lat).toFixed(6) + ',' + Number((_p$lng3 = p.lng) !== null && _p$lng3 !== void 0 ? _p$lng3 : p.lon).toFixed(6);
+    };
+    var known = new Map();
+    previous.forEach(p => {
+      if (p && legAltFt(p.legAltFt) !== null) known.set(key(p), legAltFt(p.legAltFt));
+    });
+    if (!known.size) return next;
+    var prevKeys = new Set(previous.filter(Boolean).map(key));
+    var out = next.map(p => {
+      if (!p || legAltFt(p.legAltFt) !== null || !known.has(key(p))) return p;
+      return Object.assign({}, p, {
+        legAltFt: known.get(key(p))
+      });
+    });
+    for (var i = out.length - 2; i >= 1; i--) {
+      var p = out[i];
+      if (!p || prevKeys.has(key(p)) || legAltFt(p.legAltFt) !== null) continue;
+      var after = legAltFt(out[i + 1] && out[i + 1].legAltFt);
+      if (after !== null) out[i] = Object.assign({}, p, {
+        legAltFt: after
+      });
+    }
     return out;
   }
   function normalize(points) {
@@ -69,6 +107,10 @@
     if (edit.action === 'remove') next.splice(index, 1);else if (edit.action === 'insert' || edit.action === 'move') {
       var value = point(edit.point);
       if (!value || value.isPOI || value.isPoiChainEndpoint || value.isPoiChainReturnHome) throw new Error('navigation_point_invalid');
+      // Ein eingefuegter Punkt teilt eine Strecke: beide Teile behalten deren Hoehe.
+      // Ein verschobener Punkt behaelt die Hoehe seiner Strecke.
+      var inheritedLegAlt = legAltFt(next[index] && next[index].legAltFt);
+      if (value.legAltFt === undefined && inheritedLegAlt !== null) value.legAltFt = inheritedLegAlt;
       if (edit.action === 'insert') next.splice(index, 0, value);else next[index] = value;
     } else throw new Error('navigation_action_invalid');
     return normalize(next);
@@ -105,6 +147,8 @@
     snap,
     apply,
     popup,
-    markerOptions
+    markerOptions,
+    legAltFt,
+    carryLegAlts
   };
 });

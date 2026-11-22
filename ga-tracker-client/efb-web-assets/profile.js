@@ -1,5 +1,5 @@
 // Generated from profile.js by sync-efb-web-assets.js. Do not edit.
-var _ref41, _localStorage$getItem, _ref42, _localStorage$getItem2, _ref43, _localStorage$getItem3;
+var _ref43, _localStorage$getItem, _ref44, _localStorage$getItem2, _ref45, _localStorage$getItem3;
 function _regeneratorValues(e) { if (null != e) { var t = e["function" == typeof Symbol && Symbol.iterator || "@@iterator"], r = 0; if (t) return t.call(e); if ("function" == typeof e.next) return e; if (!isNaN(e.length)) return { next: function next() { return e && r >= e.length && (e = void 0), { value: e && e[r++], done: !e }; } }; } throw new TypeError(typeof e + " is not iterable"); }
 function _regeneratorKeys(e) { var n = Object(e), r = []; for (var t in n) r.unshift(t); return function e() { for (; r.length;) if ((t = r.pop()) in n) return e.value = t, e.done = !1, e; return e.done = !0, e; }; }
 function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i.return) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
@@ -2804,7 +2804,7 @@ function _vpFetchHostedTilesParallel() {
           results = new Map();
           cursor = 0;
           worker = /*#__PURE__*/function () {
-            var _ref49 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20() {
+            var _ref51 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20() {
               var idx, tileKey, res, _t19;
               return _regenerator().w(function (_context23) {
                 while (1) switch (_context23.p = _context23.n) {
@@ -2868,7 +2868,7 @@ function _vpFetchHostedTilesParallel() {
               }, _callee20, null, [[3, 5, 7, 8]]);
             }));
             return function worker() {
-              return _ref49.apply(this, arguments);
+              return _ref51.apply(this, arguments);
             };
           }();
           workers = [];
@@ -3703,6 +3703,306 @@ function vpApplySarHeliAltitudeConstraints() {
   window._vpAutoSarHeliAltRouteKey = cacheKey;
   return true;
 }
+
+// Hoehe je Teilstrecke (legAltFt an Wegpunkt i = Strecke i-1 -> i) bringt nur noch der Import
+// (z. B. SkyDemon) mit. Beim ersten Laden werden daraus normale Hoehenpunkte; danach gilt nur
+// noch die Verankerung unten.
+function vpRouteLegAltFt(point) {
+  var n = Number(point === null || point === void 0 ? void 0 : point.legAltFt);
+  return point && point.legAltFt !== null && point.legAltFt !== '' && Number.isFinite(n) && n >= 500 && n <= 30000 ? Math.round(n) : null;
+}
+function vpRouteHasLegAlts() {
+  var points = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : routeWaypoints;
+  return Array.isArray(points) && points.some((p, i) => i > 0 && vpRouteLegAltFt(p) !== null);
+}
+function vpBuildRouteLegAnchors(points, elevationData, cruiseAlt) {
+  var _elevationData, _elevationData$, _elevationData2;
+  if (!Array.isArray(points) || points.length < 2 || !Array.isArray(elevationData) || elevationData.length < 2) return null;
+  var distances = vpRouteWaypointDistances(points);
+  var totalDist = Number(((_elevationData = elevationData[elevationData.length - 1]) === null || _elevationData === void 0 ? void 0 : _elevationData.distNM) || distances[distances.length - 1] || 0);
+  if (!(totalDist > 1) || distances.length !== points.length) return null;
+  // Massstab: Wegpunkt-Entfernungen auf die Laenge der Gelaendedaten bringen.
+  var scale = distances[distances.length - 1] > 0 ? totalDist / distances[distances.length - 1] : 1;
+  var legAlts = [];
+  for (var i = 1; i < points.length; i++) {
+    var _vpRouteLegAltFt;
+    legAlts.push((_vpRouteLegAltFt = vpRouteLegAltFt(points[i])) !== null && _vpRouteLegAltFt !== void 0 ? _vpRouteLegAltFt : cruiseAlt);
+  }
+  var runs = [];
+  legAlts.forEach((alt, idx) => {
+    var from = Number(distances[idx]) * scale,
+      to = Number(distances[idx + 1]) * scale;
+    var last = runs[runs.length - 1];
+    if (last && last.alt === alt) last.to = to;else runs.push({
+      alt,
+      from,
+      to
+    });
+  });
+  var tas = typeof vpGetProfileTas === 'function' ? vpGetProfileTas() : 100;
+  var depElev = Number((_elevationData$ = elevationData[0]) === null || _elevationData$ === void 0 ? void 0 : _elevationData$.elevFt) || 0;
+  var destElev = Number((_elevationData2 = elevationData[elevationData.length - 1]) === null || _elevationData2 === void 0 ? void 0 : _elevationData2.elevFt) || 0;
+  var climbNm = Math.max(0.5, Math.max(0, runs[0].alt - depElev) / 500 / 60 * tas * 0.85);
+  var descentNm = Math.max(0.5, Math.max(0, runs[runs.length - 1].alt - destElev) / 500 / 60 * tas * 0.9);
+
+  // Punkte: Ende des Steigflugs im ersten Abschnitt, jede Abschnittsgrenze (auf der tieferen der
+  // beiden Hoehen: an der Grenze ist man schon unten bzw. steigt erst danach), Beginn des
+  // Sinkflugs im letzten Abschnitt. Zwischen den Punkten gilt die Hoehe des Abschnitts.
+  var pts = [];
+  var firstRun = runs[0];
+  var tocDist = Math.min(climbNm + 0.5, firstRun.from + (firstRun.to - firstRun.from) * 0.8);
+  if (tocDist > 0.1 && tocDist < firstRun.to - 0.1) pts.push({
+    distNM: tocDist,
+    altFt: firstRun.alt,
+    segAfter: firstRun.alt
+  });
+  for (var r = 1; r < runs.length; r++) {
+    pts.push({
+      distNM: runs[r].from,
+      altFt: Math.min(runs[r - 1].alt, runs[r].alt),
+      segAfter: runs[r].alt
+    });
+  }
+  var lastRun = runs[runs.length - 1];
+  var todDist = Math.max(totalDist - descentNm - 0.5, lastRun.from + (lastRun.to - lastRun.from) * 0.2);
+  if (todDist > lastRun.from + 0.1 && todDist < totalDist - 0.1) pts.push({
+    distNM: todDist,
+    altFt: lastRun.alt,
+    segAfter: lastRun.alt
+  });
+  var anchors = pts.filter(p => Number.isFinite(p.distNM) && p.distNM > 0 && p.distNM < totalDist).sort((a, b) => a.distNM - b.distNM).filter((p, idx, arr) => idx === 0 || Math.abs(p.distNM - arr[idx - 1].distNM) > 0.05);
+  if (anchors.length < 2) return null;
+  return {
+    altWaypoints: anchors.map(p => ({
+      distNM: Math.round(p.distNM * 100) / 100,
+      altFt: Math.round(p.altFt)
+    })),
+    segmentAlts: anchors.slice(0, -1).map(p => Math.round(p.segAfter))
+  };
+}
+
+// === Hoehenpunkte an der Route verankert ===
+// Jeder Hoehenpunkt merkt sich seine Teilstrecke und den Anteil darauf (window._vpRouteAltAnchors,
+// gespeichert mit dem Flug). Wird die Route neu gezeichnet, geaendert oder nach einem Neustart
+// geladen, rechnet das Profil die Punkte auf die aktuelle Route um, statt sie zu verwerfen:
+// verschobener Wegpunkt -> Punkt bleibt beim gleichen Anteil seiner Strecke; eingefuegter oder
+// geloeschter Wegpunkt -> Punkt bleibt an seiner Stelle auf der Route. Andere Route (Start oder
+// Ziel anders) -> Punkte verfallen. Bedienung der Punkte bleibt unveraendert.
+function vpRouteAnchorPoint(p) {
+  var _p$lng;
+  return {
+    lat: Number(p === null || p === void 0 ? void 0 : p.lat),
+    lng: Number((_p$lng = p === null || p === void 0 ? void 0 : p.lng) !== null && _p$lng !== void 0 ? _p$lng : p === null || p === void 0 ? void 0 : p.lon)
+  };
+}
+function vpRouteAnchorKey(p) {
+  var q = vpRouteAnchorPoint(p);
+  return `${q.lat.toFixed(6)},${q.lng.toFixed(6)}`;
+}
+function vpRouteAnchorNm(a, b) {
+  if (typeof calcNav !== 'function') return Infinity;
+  return calcNav(a.lat, a.lng, b.lat, b.lng).dist;
+}
+
+// Profil-Entfernung -> Teilstrecke + Anteil auf points (Profil-Massstab totalDist).
+function vpRouteAltAnchorsFromDistances(altWaypoints, segmentAlts, points, totalDist) {
+  if (!Array.isArray(altWaypoints) || !altWaypoints.length || !Array.isArray(points) || points.length < 2) return null;
+  var dists = vpRouteWaypointDistances(points);
+  var routeTotal = Number(dists[dists.length - 1] || 0);
+  if (!(routeTotal > 0) || !(Number(totalDist) > 0) || dists.length !== points.length) return null;
+  var scale = Number(totalDist) / routeTotal;
+  var pts = altWaypoints.map(a => {
+    var d = Math.max(0, Math.min(routeTotal, Number(a.distNM) / scale));
+    var leg = points.length - 2;
+    for (var i = 0; i < points.length - 1; i++) {
+      if (d <= dists[i + 1]) {
+        leg = i;
+        break;
+      }
+    }
+    var len = dists[leg + 1] - dists[leg];
+    var f = len > 0 ? (d - dists[leg]) / len : 0;
+    return {
+      leg,
+      f: Math.round(Math.max(0, Math.min(1, f)) * 1e5) / 1e5,
+      altFt: Math.round(Number(a.altFt) || 0)
+    };
+  });
+  return {
+    v: 1,
+    owner: vpRouteAltOwner(),
+    route: points.map(p => {
+      var q = vpRouteAnchorPoint(p);
+      return [Math.round(q.lat * 1e6) / 1e6, Math.round(q.lng * 1e6) / 1e6];
+    }),
+    pts,
+    segs: Array.isArray(segmentAlts) ? segmentAlts.map(v => Math.round(Number(v) || 0)) : []
+  };
+}
+
+// Zu welchem Flug die Punkte gehoeren: ein neuer Flug mit denselben Plaetzen uebernimmt sie nicht.
+function vpRouteAltOwner() {
+  var md = typeof currentMissionData !== 'undefined' && currentMissionData && typeof currentMissionData === 'object' ? currentMissionData : null;
+  return String((md === null || md === void 0 ? void 0 : md.missionId) || (md === null || md === void 0 ? void 0 : md.missionKey) || (md === null || md === void 0 ? void 0 : md.mission) || '').slice(0, 160);
+}
+function vpRouteProfileReady() {
+  if (!Array.isArray(routeWaypoints) || routeWaypoints.length < 2 || !Array.isArray(vpElevationData) || vpElevationData.length < 2) return false;
+  var key = routeWaypoints.map(p => `${(p.lat || 0).toFixed(4)},${(p.lng || p.lon || 0).toFixed(4)}`).join('|');
+  return window._lastVpRouteKey === key;
+}
+
+// Nach jeder Bearbeitung der Hoehenpunkte: Verankerung zur aktuellen Route merken.
+function vpCaptureRouteAltAnchors() {
+  var _vpElevationData2;
+  if (!vpRouteProfileReady()) return false;
+  if (typeof vpMode !== 'undefined' && vpMode === 'HDG') return false;
+  if (!Array.isArray(vpAltWaypoints) || vpAltWaypoints.length === 0) {
+    window._vpRouteAltAnchors = null;
+    return true;
+  }
+  var totalDist = Number(((_vpElevationData2 = vpElevationData[vpElevationData.length - 1]) === null || _vpElevationData2 === void 0 ? void 0 : _vpElevationData2.distNM) || 0);
+  window._vpRouteAltAnchors = vpRouteAltAnchorsFromDistances(vpAltWaypoints, vpSegmentAlts, routeWaypoints, totalDist);
+  return !!window._vpRouteAltAnchors;
+}
+
+// Punkt P auf die Route projizieren, nur zwischen den Wegpunkten from..to; liefert Routen-Entfernung.
+function vpRouteProjectDist(points, dists, from, to, P) {
+  var best = null;
+  var kx = Math.cos(P.lat * Math.PI / 180);
+  for (var k = Math.max(0, from); k < Math.min(points.length - 1, to); k++) {
+    var A = vpRouteAnchorPoint(points[k]),
+      B = vpRouteAnchorPoint(points[k + 1]);
+    var ax = A.lng * kx,
+      ay = A.lat,
+      bx = B.lng * kx,
+      by = B.lat,
+      px = P.lng * kx,
+      py = P.lat;
+    var dx = bx - ax,
+      dy = by - ay,
+      len2 = dx * dx + dy * dy;
+    var t = len2 > 0 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len2)) : 0;
+    var ex = ax + t * dx - px,
+      ey = ay + t * dy - py,
+      err = ex * ex + ey * ey;
+    if (!best || err < best.err) best = {
+      err,
+      dist: dists[k] + t * (dists[k + 1] - dists[k])
+    };
+  }
+  return best ? best.dist : null;
+}
+
+// Nach dem Laden des Gelaendes: gemerkte Punkte auf die aktuelle Route umrechnen.
+function vpRestoreRouteAltAnchors() {
+  var _vpElevationData3, _document$getElementB4;
+  var stored = window._vpRouteAltAnchors;
+  if (!stored || !Array.isArray(stored.pts) || !stored.pts.length || !Array.isArray(stored.route) || stored.route.length < 2) return false;
+  if (Array.isArray(vpAltWaypoints) && vpAltWaypoints.length > 0) return false;
+  if (!vpRouteProfileReady()) return false;
+  if (typeof vpMode !== 'undefined' && vpMode === 'HDG') return false;
+  var owner = vpRouteAltOwner();
+  if (stored.owner && owner && stored.owner !== owner) {
+    window._vpRouteAltAnchors = null;
+    return false;
+  }
+  var old = stored.route.map(_ref8 => {
+    var _ref9 = _slicedToArray(_ref8, 2),
+      lat = _ref9[0],
+      lng = _ref9[1];
+    return {
+      lat: Number(lat),
+      lng: Number(lng)
+    };
+  });
+  var cur = routeWaypoints.map(vpRouteAnchorPoint);
+  // Andere Route: Start oder Ziel um mehr als 1 NM anders -> Punkte verfallen.
+  if (vpRouteAnchorNm(old[0], cur[0]) > 1 || vpRouteAnchorNm(old[old.length - 1], cur[cur.length - 1]) > 1) {
+    window._vpRouteAltAnchors = null;
+    return false;
+  }
+  var dists = vpRouteWaypointDistances(routeWaypoints);
+  var routeTotal = Number(dists[dists.length - 1] || 0);
+  var totalDist = Number(((_vpElevationData3 = vpElevationData[vpElevationData.length - 1]) === null || _vpElevationData3 === void 0 ? void 0 : _vpElevationData3.distNM) || 0);
+  if (!(routeTotal > 0) || !(totalDist > 0) || dists.length !== cur.length) return false;
+  var scale = totalDist / routeTotal;
+  var curIndex = new Map();
+  cur.forEach((p, i) => {
+    var k = vpRouteAnchorKey(p);
+    if (!curIndex.has(k)) curIndex.set(k, i);
+  });
+  var idxOf = p => {
+    var i = curIndex.get(vpRouteAnchorKey(p));
+    return i === undefined ? -1 : i;
+  };
+  var mapped = stored.pts.map((pt, n) => {
+    var leg = Math.max(0, Math.min(old.length - 2, Number(pt.leg) || 0));
+    var f = Math.max(0, Math.min(1, Number(pt.f) || 0));
+    var A = old[leg],
+      B = old[leg + 1];
+    var P = {
+      lat: A.lat + (B.lat - A.lat) * f,
+      lng: A.lng + (B.lng - A.lng) * f
+    };
+    var ia = idxOf(A),
+      ib = idxOf(B);
+    var routeDist;
+    if (ia >= 0 && ib === ia + 1) routeDist = dists[ia] + f * (dists[ib] - dists[ia]);else if (cur.length === old.length) routeDist = dists[leg] + f * (dists[leg + 1] - dists[leg]);else {
+      var lo = leg;
+      while (lo >= 0 && idxOf(old[lo]) < 0) lo--;
+      var hi = leg + 1;
+      while (hi < old.length && idxOf(old[hi]) < 0) hi++;
+      var from = lo >= 0 ? idxOf(old[lo]) : 0;
+      var to = hi < old.length ? idxOf(old[hi]) : cur.length - 1;
+      routeDist = vpRouteProjectDist(routeWaypoints, dists, from, to > from ? to : cur.length - 1, P);
+      if (routeDist === null) routeDist = vpRouteProjectDist(routeWaypoints, dists, 0, cur.length - 1, P);
+    }
+    return {
+      distNM: Math.round(routeDist * scale * 100) / 100,
+      altFt: pt.altFt,
+      n
+    };
+  }).filter(p => Number.isFinite(p.distNM) && p.distNM > 0.05 && p.distNM < totalDist - 0.05);
+  if (!mapped.length) return false;
+  mapped.sort((a, b) => a.distNM - b.distNM);
+  var kept = mapped.filter((p, i, arr) => i === 0 || Math.abs(p.distNM - arr[i - 1].distNM) > 0.05);
+  vpAltWaypoints = kept.map(p => ({
+    distNM: p.distNM,
+    altFt: p.altFt
+  }));
+  // Hoehen der Abschnitte: Abschnitt nach Punkt n behaelt seine Hoehe.
+  var cruise = parseInt(((_document$getElementB4 = document.getElementById('altSlider')) === null || _document$getElementB4 === void 0 ? void 0 : _document$getElementB4.value) || 4500, 10) || 4500;
+  vpSegmentAlts = kept.slice(0, -1).map(p => {
+    var _stored$segs;
+    var v = Number((_stored$segs = stored.segs) === null || _stored$segs === void 0 ? void 0 : _stored$segs[p.n]);
+    return Number.isFinite(v) && v > 0 ? v : cruise;
+  });
+  window.vpBgNeedsUpdate = true;
+  vpCaptureRouteAltAnchors();
+  // Auf eine geaenderte Route umgerechnet: neuen Stand speichern.
+  var routeChanged = old.length !== cur.length || old.some((p, i) => vpRouteAnchorKey(p) !== vpRouteAnchorKey(cur[i]));
+  if (routeChanged && typeof window.debouncedSaveMissionState === 'function') window.debouncedSaveMissionState();
+  return true;
+}
+
+// Einmalig: Hoehen je Teilstrecke aus einem Import in normale Hoehenpunkte umwandeln.
+function vpConvertRouteLegAltsToAnchors() {
+  var _document$getElementB5;
+  if (!vpRouteHasLegAlts() || !vpRouteProfileReady()) return false;
+  if (Array.isArray(vpAltWaypoints) && vpAltWaypoints.length > 0) return false;
+  var cruise = parseInt(((_document$getElementB5 = document.getElementById('altSlider')) === null || _document$getElementB5 === void 0 ? void 0 : _document$getElementB5.value) || 4500, 10) || 4500;
+  var built = vpBuildRouteLegAnchors(routeWaypoints, vpElevationData, cruise);
+  routeWaypoints.forEach(p => {
+    if (p && p.legAltFt !== undefined) delete p.legAltFt;
+  });
+  if (!built) return false;
+  vpAltWaypoints = built.altWaypoints;
+  vpSegmentAlts = built.segmentAlts;
+  window.vpBgNeedsUpdate = true;
+  vpCaptureRouteAltAnchors();
+  if (typeof window.debouncedSaveMissionState === 'function') window.debouncedSaveMissionState();
+  return true;
+}
 function vpRouteWaypointLabel(index) {
   var _currentMissionData;
   var point = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : null;
@@ -3819,6 +4119,9 @@ function triggerVerticalProfileUpdate() {
           if (vpElevationData.length >= 2 && typeof window.gaPushMissionAuthorityProfile === 'function') {
             window.gaPushMissionAuthorityProfile('terrain-profile-ready');
           }
+          // Gemerkte Hoehenpunkte auf diese Route umrechnen (vor SAR-Heli, das nur leere Profile fuellt).
+          if (typeof vpRestoreRouteAltAnchors === 'function') vpRestoreRouteAltAnchors();
+          if (typeof vpConvertRouteLegAltsToAnchors === 'function') vpConvertRouteLegAltsToAnchors();
           if (typeof vpApplySarHeliAltitudeConstraints === 'function') {
             vpApplySarHeliAltitudeConstraints(cacheKey);
           }
@@ -3869,7 +4172,7 @@ function triggerVerticalProfileUpdate() {
 
           // 3. PARALLELER FETCH: Wetter & Overpass
           fetchWetter = /*#__PURE__*/function () {
-            var _ref9 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
+            var _ref1 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee() {
               var needsProfileWeather, weatherRouteKey, weatherCoveragePoints, weatherCoverageKey, weatherSrcCacheKey, nowTs, maxAgeMs, isFresh, currentRouteNm, lastRouteNm, routeDeltaNm, sameCoverage, sameExactRoute, canReuseByCoverage, weatherCacheReusable, btnCl, prevWeatherData, nextWeatherData;
               return _regenerator().w(function (_context) {
                 while (1) switch (_context.n) {
@@ -3884,10 +4187,10 @@ function triggerVerticalProfileUpdate() {
                   case 1:
                     weatherRouteKey = vpBuildElevationRouteKey(routeWaypoints, 5);
                     weatherCoveragePoints = routeWaypoints.map(p => {
-                      var _p$lng;
+                      var _p$lng2;
                       return {
                         lat: Number(p && p.lat),
-                        lon: Number(p && ((_p$lng = p.lng) !== null && _p$lng !== void 0 ? _p$lng : p.lon))
+                        lon: Number(p && ((_p$lng2 = p.lng) !== null && _p$lng2 !== void 0 ? _p$lng2 : p.lon))
                       };
                     }).filter(p => Number.isFinite(p.lat) && Number.isFinite(p.lon));
                     weatherCoverageKey = vpBuildCoverageKeyFromPoints(weatherCoveragePoints, 0.1);
@@ -3946,11 +4249,11 @@ function triggerVerticalProfileUpdate() {
               }, _callee);
             }));
             return function fetchWetter() {
-              return _ref9.apply(this, arguments);
+              return _ref1.apply(this, arguments);
             };
           }();
           fetchOverpass = /*#__PURE__*/function () {
-            var _ref0 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
+            var _ref10 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3() {
               var needsObsNow, needsLinNow, now, tileProbe, hasRouteComboCache, comboRaw, combo, obs, lin, lastSuccessAt, comboRawFast, comboFast, cObs, cLin, comboSparseLin, routeTileCount, linTileSet, comboFastUsable, inflightKey, runner, _t;
               return _regenerator().w(function (_context3) {
                 while (1) switch (_context3.p = _context3.n) {
@@ -4214,7 +4517,7 @@ function triggerVerticalProfileUpdate() {
               }, _callee3, null, [[17,, 18, 19], [3, 5]]);
             }));
             return function fetchOverpass() {
-              return _ref0.apply(this, arguments);
+              return _ref10.apply(this, arguments);
             };
           }(); // Führe beide schweren Netzwerk-Tasks parallel aus
           _context4.n = 8;
@@ -4630,11 +4933,11 @@ function _fetchRouteWeatherMetar() {
           safeFetchMetarJson = function _safeFetchMetarJson2(_x61) {
             return _safeFetchMetarJson.apply(this, arguments);
           };
-          vpBuildMetarBboxUrl = function _vpBuildMetarBboxUrl(_ref50) {
-            var minLat = _ref50.minLat,
-              minLon = _ref50.minLon,
-              maxLat = _ref50.maxLat,
-              maxLon = _ref50.maxLon;
+          vpBuildMetarBboxUrl = function _vpBuildMetarBboxUrl(_ref52) {
+            var minLat = _ref52.minLat,
+              minLon = _ref52.minLon,
+              maxLat = _ref52.maxLat,
+              maxLon = _ref52.maxLon;
             // AviationWeather rejects bounding boxes with raw floating-point coordinates.
             var bbox = [minLat, minLon, maxLat, maxLon].map(coord => coord.toFixed(5)).join(',');
             return `https://aviationweather.gov/api/data/metar?bbox=${bbox}&format=json`;
@@ -4876,7 +5179,7 @@ function _fetchRouteWeatherMetar() {
         case 5:
           nowTs = Date.now();
           fetchChunkData = /*#__PURE__*/function () {
-            var _ref51 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee26(chunk) {
+            var _ref53 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee26(chunk) {
               var bypassCache,
                 cached,
                 url,
@@ -4959,11 +5262,11 @@ function _fetchRouteWeatherMetar() {
               }, _callee26);
             }));
             return function fetchChunkData(_x62) {
-              return _ref51.apply(this, arguments);
+              return _ref53.apply(this, arguments);
             };
           }();
           promises = chunkDefs.map(/*#__PURE__*/function () {
-            var _ref52 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee27(chunk) {
+            var _ref54 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee27(chunk) {
               var cached;
               return _regenerator().w(function (_context32) {
                 while (1) switch (_context32.n) {
@@ -4983,7 +5286,7 @@ function _fetchRouteWeatherMetar() {
               }, _callee27);
             }));
             return function (_x63) {
-              return _ref52.apply(this, arguments);
+              return _ref54.apply(this, arguments);
             };
           }());
           _context38.n = 6;
@@ -5034,7 +5337,7 @@ function _fetchRouteWeatherMetar() {
               prefetchDefs = farDefs.filter(d => !primaryKeys.has(d.key)).filter(d => !Array.isArray(vpGetMetarChunkCache(d.key, nowPrefetch))).filter(d => !vpMetarPrefetchInFlight.has(d.key)).slice(0, VP_METAR_PREFETCH_MAX_CHUNKS);
               if (prefetchDefs.length > 0) {
                 runPrefetch = /*#__PURE__*/function () {
-                  var _ref53 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee28() {
+                  var _ref55 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee28() {
                     var _iterator84, _step84, _d3, url, arr, safeArr, _t26, _t27;
                     return _regenerator().w(function (_context33) {
                       while (1) switch (_context33.p = _context33.n) {
@@ -5109,7 +5412,7 @@ function _fetchRouteWeatherMetar() {
                     }, _callee28, null, [[5, 8, 9, 10], [1, 13, 14, 15]]);
                   }));
                   return function runPrefetch() {
-                    return _ref53.apply(this, arguments);
+                    return _ref55.apply(this, arguments);
                   };
                 }();
                 setTimeout(() => {
@@ -5157,7 +5460,7 @@ function _fetchRouteWeatherMetar() {
           stepNM = 15;
           zones = [];
           _loop12 = /*#__PURE__*/_regenerator().m(function _loop12() {
-            var bestPt, minDiff, _iterator86, _step86, pt, diff, closestMetar, minMetarDist, _ref54, _closestMetar$mslp, clouds, raw, stnElevFt, cloudRegex, match, lowestBase, agl, msl, hasRain, hasSnow, hasTS, metarFltCat, estimatedCloud, mslPressureRaw, mslPressureHpa, pressureProfile, pressureAnomalyFt, base1000, wkt, wdir, visuals, _c, _d4, f;
+            var bestPt, minDiff, _iterator86, _step86, pt, diff, closestMetar, minMetarDist, _ref56, _closestMetar$mslp, clouds, raw, stnElevFt, cloudRegex, match, lowestBase, agl, msl, hasRain, hasSnow, hasTS, metarFltCat, estimatedCloud, mslPressureRaw, mslPressureHpa, pressureProfile, pressureAnomalyFt, base1000, wkt, wdir, visuals, _c, _d4, f;
             return _regenerator().w(function (_context37) {
               while (1) switch (_context37.n) {
                 case 0:
@@ -5223,7 +5526,7 @@ function _fetchRouteWeatherMetar() {
                         lowestBase = estimatedCloud.baseMsl;
                       }
                     }
-                    mslPressureRaw = Number((_ref54 = (_closestMetar$mslp = closestMetar.mslp) !== null && _closestMetar$mslp !== void 0 ? _closestMetar$mslp : closestMetar.slp) !== null && _ref54 !== void 0 ? _ref54 : closestMetar.altim);
+                    mslPressureRaw = Number((_ref56 = (_closestMetar$mslp = closestMetar.mslp) !== null && _closestMetar$mslp !== void 0 ? _closestMetar$mslp : closestMetar.slp) !== null && _ref56 !== void 0 ? _ref56 : closestMetar.altim);
                     mslPressureHpa = Number.isFinite(mslPressureRaw) && mslPressureRaw >= 850 && mslPressureRaw <= 1100 ? mslPressureRaw : null;
                     pressureProfile = [];
                     if (Number.isFinite(mslPressureHpa)) {
@@ -5803,7 +6106,7 @@ function vpRecordOpenMeteo429Text() {
   }
 }
 window.vpRecordOpenMeteo429FromResponse = /*#__PURE__*/function () {
-  var _ref10 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(res) {
+  var _ref12 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(res) {
     var context,
       text,
       _args5 = arguments,
@@ -5830,7 +6133,7 @@ window.vpRecordOpenMeteo429FromResponse = /*#__PURE__*/function () {
     }, _callee5, null, [[1, 3]]);
   }));
   return function (_x24) {
-    return _ref10.apply(this, arguments);
+    return _ref12.apply(this, arguments);
   };
 }();
 window.vpIsOpenMeteoDailyLimited = function () {
@@ -6061,9 +6364,9 @@ function vpAppendGroundComposerDiagnostics(lines, flattenText) {
   var candidates = [];
   keys.forEach(key => candidates.push([key, md === null || md === void 0 ? void 0 : md[key]], [`missionContract.${key}`, contract[key]]));
   candidates.push(['privateReturn.outing', md === null || md === void 0 || (_md$privateReturn = md.privateReturn) === null || _md$privateReturn === void 0 ? void 0 : _md$privateReturn.outing], ['missionContract.privateReturn.outing', (_contract$privateRetu = contract.privateReturn) === null || _contract$privateRetu === void 0 ? void 0 : _contract$privateRetu.outing]);
-  var found = candidates.find(_ref11 => {
-    var _ref12 = _slicedToArray(_ref11, 2),
-      idea = _ref12[1];
+  var found = candidates.find(_ref13 => {
+    var _ref14 = _slicedToArray(_ref13, 2),
+      idea = _ref14[1];
     return idea && typeof idea === 'object' && idea.groundVisual && typeof idea.groundVisual === 'object';
   });
   lines.push('Boden-Composer');
@@ -6241,10 +6544,10 @@ function vpCollectLocalStorageInventory() {
     }
   } catch (_) {}
   entries.sort((a, b) => b.bytes - a.bytes || a.key.localeCompare(b.key));
-  var groupEntries = Array.from(groups.entries()).map(_ref13 => {
-    var _ref14 = _slicedToArray(_ref13, 2),
-      category = _ref14[0],
-      bytes = _ref14[1];
+  var groupEntries = Array.from(groups.entries()).map(_ref15 => {
+    var _ref16 = _slicedToArray(_ref15, 2),
+      category = _ref16[0],
+      bytes = _ref16[1];
     return {
       category,
       bytes
@@ -6312,14 +6615,14 @@ function vpBuildStorageDiagnosticsLines() {
     } else {
       lines.push(`- Cloud-Upload: ${cloudUpload.status || '-'} | raw=${fmtChars(cloudUpload.rawChars)} | kompakt=${fmtChars(cloudUpload.uploadChars)} | Limit=${fmtChars(cloudUpload.limitChars)} | Zeitpunkt=${vpFormatDebugTs(cloudUpload.at)}`);
     }
-    var componentText = Object.entries(cloudUpload.rawComponents || cloudUpload.uploadComponents || {}).filter(_ref15 => {
-      var _ref16 = _slicedToArray(_ref15, 2),
-        value = _ref16[1];
-      return Number(value) >= 0;
-    }).sort((a, b) => Number(b[1]) - Number(a[1])).slice(0, 8).map(_ref17 => {
+    var componentText = Object.entries(cloudUpload.rawComponents || cloudUpload.uploadComponents || {}).filter(_ref17 => {
       var _ref18 = _slicedToArray(_ref17, 2),
-        key = _ref18[0],
         value = _ref18[1];
+      return Number(value) >= 0;
+    }).sort((a, b) => Number(b[1]) - Number(a[1])).slice(0, 8).map(_ref19 => {
+      var _ref20 = _slicedToArray(_ref19, 2),
+        key = _ref20[0],
+        value = _ref20[1];
       return `${key}=${fmtChars(value)}`;
     }).join(' | ');
     if (componentText) lines.push(`- Cloud-Komponenten: ${componentText}`);
@@ -6490,7 +6793,7 @@ window.vpBuildDisplayDiagnosticsReport = function () {
   return vpBuildDisplayDiagnosticsLines().join('\n');
 };
 window.vpBuildWeatherDebugReport = function () {
-  var _proposalDebug, _missionSnap, _missionSnap2, _missionSnap3, _missionSnap4, _missionSnap5, _sceneDbg$lastTargetS, _window$missionAptArr, _window$missionTarget, _window$missionSceneS, _ref31, _ref32, _activeSceneMission$s, _missionSnap6, _missionSnap7, _cargoManifest, _runtimeSnapshot$runt, _runtimeSnapshot$runt2, _runtimeSnapshot$runt3, _window$GAMissionCont, _window$missionSceneS2, _window$missionSceneS3, _window$missionSceneS4, _window$missionSceneS5, _window$missionSceneS6, _window$missionSceneS7, _window$missionSceneS8, _window$missionSceneS9, _window$missionSceneS0, _window$missionSceneS1, _window$missionSceneS10, _window$missionSceneS11, _window$missionSceneS12, _window$missionSceneS13, _window$missionSceneS14, _window$missionSceneS15, _window$missionSceneS16;
+  var _proposalDebug, _missionSnap, _missionSnap2, _missionSnap3, _missionSnap4, _missionSnap5, _sceneDbg$lastTargetS, _window$missionAptArr, _window$missionTarget, _window$missionSceneS, _ref33, _ref34, _activeSceneMission$s, _missionSnap6, _missionSnap7, _cargoManifest, _runtimeSnapshot$runt, _runtimeSnapshot$runt2, _runtimeSnapshot$runt3, _window$GAMissionCont, _window$missionSceneS2, _window$missionSceneS3, _window$missionSceneS4, _window$missionSceneS5, _window$missionSceneS6, _window$missionSceneS7, _window$missionSceneS8, _window$missionSceneS9, _window$missionSceneS0, _window$missionSceneS1, _window$missionSceneS10, _window$missionSceneS11, _window$missionSceneS12, _window$missionSceneS13, _window$missionSceneS14, _window$missionSceneS15, _window$missionSceneS16;
   vpHydrateObsTileCoverage();
   vpHydrateObsTileFailed();
   var dbg = window.vpWeatherDebug || {};
@@ -6600,10 +6903,10 @@ window.vpBuildWeatherDebugReport = function () {
   lines.push(`- POI Tiles Req/Hit/Miss/Err: ${poiDbg.requests || 0}/${poiDbg.hits || 0}/${poiDbg.misses || 0}/${poiDbg.errors || 0} | split/legacy ${poiDbg.splitHits || 0}/${poiDbg.legacyHits || 0} | fallback ${poiDbg.fallbackHits || 0}${poiDbg.lastSource ? ` last=${poiDbg.lastSource}` : ''}`);
   lines.push(`- Tile Cache: coverage ${vpObsTileCoverage.size}, failed ${vpObsTileFailed.size}, POI RAM ${poiDbg.cacheEntries || 0}, route-guard skips ${dbg.overpassRouteThrottleSkips || 0}`);
   if (vpObsTileFailed.size > 0) {
-    var sample = Array.from(vpObsTileFailed.entries()).sort((a, b) => Number(b[1] && b[1].ts || 0) - Number(a[1] && a[1].ts || 0)).slice(0, 6).map(_ref19 => {
-      var _ref20 = _slicedToArray(_ref19, 2),
-        k = _ref20[0],
-        v = _ref20[1];
+    var sample = Array.from(vpObsTileFailed.entries()).sort((a, b) => Number(b[1] && b[1].ts || 0) - Number(a[1] && a[1].ts || 0)).slice(0, 6).map(_ref21 => {
+      var _ref22 = _slicedToArray(_ref21, 2),
+        k = _ref22[0],
+        v = _ref22[1];
       return `${k}${v && v.status ? `:${v.status}` : ''}`;
     }).join(', ');
     lines.push(`- Failed Sample: ${sample}`);
@@ -6688,18 +6991,18 @@ window.vpBuildWeatherDebugReport = function () {
     if (['apt', 'poi'].includes(bushData === null || bushData === void 0 ? void 0 : bushData.missionType)) {
       var _bushData$poiInformat;
       for (var _i5 = 0, _arr2 = [['Start', bushData.departureAirportInfoContext, bushData.departureAirportInformation, 'departureInfo', 'wikiDepImageContainer'], ['Ziel', bushData.airportInfoContext, bushData.airportInformation, 'destinationInfo', 'wikiDestImageContainer']]; _i5 < _arr2.length; _i5++) {
-        var _info$textKey, _document$getElementB4;
+        var _info$textKey, _document$getElementB6;
         var _arr2$_i = _slicedToArray(_arr2[_i5], 5),
           label = _arr2$_i[0],
           context = _arr2$_i[1],
           info = _arr2$_i[2],
           textKey = _arr2$_i[3],
           imageId = _arr2$_i[4];
-        lines.push(`- Briefingseite ${label}: Text=${info !== null && info !== void 0 && info.generated ? 'KI' : info ? 'Basisdaten-Fallback' : 'fehlt'} | ${(info === null || info === void 0 || (_info$textKey = info[textKey]) === null || _info$textKey === void 0 ? void 0 : _info$textKey.length) || 0} Zeichen | Bildcontainer=${((_document$getElementB4 = document.getElementById(imageId)) === null || _document$getElementB4 === void 0 ? void 0 : _document$getElementB4.style.display) || 'nicht gesetzt'}`);
-        if (context !== null && context !== void 0 && context.retrieval) lines.push(`- Briefingquellen ${label}: ${Object.entries(context.retrieval.sources || {}).map(_ref21 => {
-          var _ref22 = _slicedToArray(_ref21, 2),
-            key = _ref22[0],
-            value = _ref22[1];
+        lines.push(`- Briefingseite ${label}: Text=${info !== null && info !== void 0 && info.generated ? 'KI' : info ? 'Basisdaten-Fallback' : 'fehlt'} | ${(info === null || info === void 0 || (_info$textKey = info[textKey]) === null || _info$textKey === void 0 ? void 0 : _info$textKey.length) || 0} Zeichen | Bildcontainer=${((_document$getElementB6 = document.getElementById(imageId)) === null || _document$getElementB6 === void 0 ? void 0 : _document$getElementB6.style.display) || 'nicht gesetzt'}`);
+        if (context !== null && context !== void 0 && context.retrieval) lines.push(`- Briefingquellen ${label}: ${Object.entries(context.retrieval.sources || {}).map(_ref23 => {
+          var _ref24 = _slicedToArray(_ref23, 2),
+            key = _ref24[0],
+            value = _ref24[1];
           return `${key}=${value.status}`;
         }).join(', ')} | ${context.retrieval.elapsedMs} ms`);
       }
@@ -6711,10 +7014,10 @@ window.vpBuildWeatherDebugReport = function () {
       var airportContext = bushData.airportInfoContext;
       var _info = bushData.airportInformation;
       lines.push(`- Bush-Platztext: ${airportContext ? ((_airportContext$airpo = airportContext.airport) === null || _airportContext$airpo === void 0 ? void 0 : _airportContext$airpo.ident) || 'ohne Kennung' : 'kein Kontext'} | Text=${_info !== null && _info !== void 0 && _info.generated ? 'KI' : _info ? 'Basisdaten' : 'fehlt'} | Flughinweise=${(_info === null || _info === void 0 || (_info$flightBriefing = _info.flightBriefing) === null || _info$flightBriefing === void 0 ? void 0 : _info$flightBriefing.length) || 0} Zeichen | Zielseite=${(_info === null || _info === void 0 || (_info$destinationInfo = _info.destinationInfo) === null || _info$destinationInfo === void 0 ? void 0 : _info$destinationInfo.length) || 0} Zeichen`);
-      if (airportContext !== null && airportContext !== void 0 && airportContext.retrieval) lines.push(`- Bush-Platzquellen: ${Object.entries(airportContext.retrieval.sources || {}).map(_ref23 => {
-        var _ref24 = _slicedToArray(_ref23, 2),
-          key = _ref24[0],
-          value = _ref24[1];
+      if (airportContext !== null && airportContext !== void 0 && airportContext.retrieval) lines.push(`- Bush-Platzquellen: ${Object.entries(airportContext.retrieval.sources || {}).map(_ref25 => {
+        var _ref26 = _slicedToArray(_ref25, 2),
+          key = _ref26[0],
+          value = _ref26[1];
         return `${key}=${value.status}`;
       }).join(', ')} | ${airportContext.retrieval.elapsedMs} ms`);
       var departureContext = bushData.departureAirportInfoContext,
@@ -6779,10 +7082,10 @@ window.vpBuildWeatherDebugReport = function () {
       var totalTokens = Number(aiUsage.totalTokens || 0);
       var tokenBits = [`calls=${Number(aiUsage.calls)}`, Number(aiUsage.openaiTextCalls || 0) ? `openai=${Number(aiUsage.openaiTextCalls)}` : '', totalTokens ? `tokens=${totalTokens}` : '', promptTokens || completionTokens ? `in/out=${promptTokens}/${completionTokens}` : '', Number(aiUsage.cachedTokens || 0) ? `cached=${Number(aiUsage.cachedTokens)}` : '', Number(aiUsage.reasoningTokens || 0) ? `reasoning=${Number(aiUsage.reasoningTokens)}` : ''].filter(Boolean);
       lines.push(`- AI Usage: ${tokenBits.join(' | ')} | Kosten: Tokenbasis, kein Rechnungsbetrag in API-Antwort`);
-      var modelBits = Object.entries(aiUsage.models || {}).map(_ref25 => {
-        var _ref26 = _slicedToArray(_ref25, 2),
-          model = _ref26[0],
-          count = _ref26[1];
+      var modelBits = Object.entries(aiUsage.models || {}).map(_ref27 => {
+        var _ref28 = _slicedToArray(_ref27, 2),
+          model = _ref28[0],
+          count = _ref28[1];
         return `${flattenText(model, 36)}×${count}`;
       }).slice(0, 6);
       if (modelBits.length) lines.push(`- AI Usage Modelle: ${modelBits.join(' | ')}`);
@@ -7042,17 +7345,17 @@ window.vpBuildWeatherDebugReport = function () {
       if (Array.isArray(geoCtx.visualLandmarks) && geoCtx.visualLandmarks.length) geoBits.push(`landmarks=${geoCtx.visualLandmarks.slice(0, 4).map(x => (x === null || x === void 0 ? void 0 : x.name) || (x === null || x === void 0 ? void 0 : x.kind) || x).join(',')}`);
       if (geoBits.length) lines.push(`- TargetGeoContext: ${geoBits.join(' | ')}`);
       if (geoCtx.anchors && typeof geoCtx.anchors === 'object') {
-        var anchorSummary = Object.entries(geoCtx.anchors).filter(_ref27 => {
-          var _ref28 = _slicedToArray(_ref27, 2),
-            a = _ref28[1];
+        var anchorSummary = Object.entries(geoCtx.anchors).filter(_ref29 => {
+          var _ref30 = _slicedToArray(_ref29, 2),
+            a = _ref30[1];
           return a === null || a === void 0 ? void 0 : a.present;
         }).sort((a, b) => {
           var _a$, _b$;
           return Number(((_a$ = a[1]) === null || _a$ === void 0 ? void 0 : _a$.distM) || 999999) - Number(((_b$ = b[1]) === null || _b$ === void 0 ? void 0 : _b$.distM) || 999999);
-        }).slice(0, 8).map(_ref29 => {
-          var _ref30 = _slicedToArray(_ref29, 2),
-            k = _ref30[0],
-            a = _ref30[1];
+        }).slice(0, 8).map(_ref31 => {
+          var _ref32 = _slicedToArray(_ref31, 2),
+            k = _ref32[0],
+            a = _ref32[1];
           return `${k}:${Math.round(Number(a.distM) || 0)}m/${Math.round(Number(a.bearingDeg) || 0)}deg${a.name ? `:${flattenText(a.name, 34)}` : ''}`;
         }).join(' | ');
         if (anchorSummary) lines.push(`- TargetGeoContext Anchors: ${anchorSummary}`);
@@ -7086,7 +7389,7 @@ window.vpBuildWeatherDebugReport = function () {
   var lastEndCommand = sceneDbg.lastEndSceneCommand || null;
   var lastSmokeCommand = sceneDbg.lastSmokeCommand || null;
   var lastAck = sceneDbg.lastAck || ((_window$missionAptArr = window.missionAptArrivalSceneStatus) === null || _window$missionAptArr === void 0 ? void 0 : _window$missionAptArr.lastAck) || ((_window$missionTarget = window.missionTargetSceneStatus) === null || _window$missionTarget === void 0 ? void 0 : _window$missionTarget.lastAck) || ((_window$missionSceneS = window.missionSceneStatus) === null || _window$missionSceneS === void 0 ? void 0 : _window$missionSceneS.lastAck) || null;
-  var sceneAccepted = (_ref31 = (_ref32 = (_activeSceneMission$s = activeSceneMission === null || activeSceneMission === void 0 ? void 0 : activeSceneMission.sceneAccepted) !== null && _activeSceneMission$s !== void 0 ? _activeSceneMission$s : sceneDbg.sceneAccepted) !== null && _ref32 !== void 0 ? _ref32 : (_missionSnap6 = missionSnap) === null || _missionSnap6 === void 0 ? void 0 : _missionSnap6.sceneAccepted) !== null && _ref31 !== void 0 ? _ref31 : null;
+  var sceneAccepted = (_ref33 = (_ref34 = (_activeSceneMission$s = activeSceneMission === null || activeSceneMission === void 0 ? void 0 : activeSceneMission.sceneAccepted) !== null && _activeSceneMission$s !== void 0 ? _activeSceneMission$s : sceneDbg.sceneAccepted) !== null && _ref34 !== void 0 ? _ref34 : (_missionSnap6 = missionSnap) === null || _missionSnap6 === void 0 ? void 0 : _missionSnap6.sceneAccepted) !== null && _ref33 !== void 0 ? _ref33 : null;
   var sceneStatus = (activeSceneMission === null || activeSceneMission === void 0 ? void 0 : activeSceneMission.sceneCompositionStatus) || sceneDbg.sceneCompositionStatus || ((_missionSnap7 = missionSnap) === null || _missionSnap7 === void 0 ? void 0 : _missionSnap7.sceneCompositionStatus) || '-';
   lines.push(`- Plan/Sim Status: accepted=${sceneAccepted === null ? '-' : sceneAccepted ? 'ja' : 'nein'} | composition=${sceneStatus} | targetCommand=${lastTargetCommand ? 'ja' : 'nein'} | ack=${lastAck ? 'ja' : 'nein'}${!lastTargetCommand ? ' | Modus=Plan/Preview' : ''}`);
   if (sceneComposer && typeof sceneComposer === 'object') {
@@ -7404,7 +7707,7 @@ window.vpRefreshWeatherDebugReport = function () {
   }
 };
 window.vpCopyWeatherDebugReport = /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
-  var btn, oldText, text, _document$getElementB5, body, ta, ok, _t4;
+  var btn, oldText, text, _document$getElementB7, body, ta, ok, _t4;
   return _regenerator().w(function (_context7) {
     while (1) switch (_context7.p = _context7.n) {
       case 0:
@@ -7412,7 +7715,7 @@ window.vpCopyWeatherDebugReport = /*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_r
         oldText = btn ? btn.textContent : '';
         text = '';
         _context7.p = 1;
-        text = window.vpBuildWeatherDebugReport ? window.vpBuildWeatherDebugReport() : ((_document$getElementB5 = document.getElementById('weatherDebugBody')) === null || _document$getElementB5 === void 0 ? void 0 : _document$getElementB5.textContent) || '';
+        text = window.vpBuildWeatherDebugReport ? window.vpBuildWeatherDebugReport() : ((_document$getElementB7 = document.getElementById('weatherDebugBody')) === null || _document$getElementB7 === void 0 ? void 0 : _document$getElementB7.textContent) || '';
         body = document.getElementById('weatherDebugBody');
         if (body && text) body.textContent = text;
         if (text.trim()) {
@@ -7939,10 +8242,10 @@ function vpSchedulePersistOpenMeteoCache() {
     vpOmCachePersistTimer = null;
     try {
       vpPruneOpenMeteoCache();
-      var entries = Array.from(vpOpenMeteoPointCache.entries()).slice(-VP_OM_CACHE_MAX_ENTRIES).map(_ref35 => {
-        var _ref36 = _slicedToArray(_ref35, 2),
-          key = _ref36[0],
-          v = _ref36[1];
+      var entries = Array.from(vpOpenMeteoPointCache.entries()).slice(-VP_OM_CACHE_MAX_ENTRIES).map(_ref37 => {
+        var _ref38 = _slicedToArray(_ref37, 2),
+          key = _ref38[0],
+          v = _ref38[1];
         return {
           key,
           ts: v.ts,
@@ -7989,9 +8292,9 @@ function vpFetchOpenMeteoPoint(_x28, _x29) {
 }
 function _vpFetchOpenMeteoPoint() {
   _vpFetchOpenMeteoPoint = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee35(lat, lon) {
-    var _ref55,
+    var _ref57,
       signal,
-      _ref55$includePressur,
+      _ref57$includePressur,
       includePressure,
       cacheKey,
       keyParts,
@@ -8005,7 +8308,7 @@ function _vpFetchOpenMeteoPoint() {
     return _regenerator().w(function (_context42) {
       while (1) switch (_context42.p = _context42.n) {
         case 0:
-          _ref55 = _args41.length > 2 && _args41[2] !== undefined ? _args41[2] : {}, signal = _ref55.signal, _ref55$includePressur = _ref55.includePressure, includePressure = _ref55$includePressur === void 0 ? false : _ref55$includePressur;
+          _ref57 = _args41.length > 2 && _args41[2] !== undefined ? _args41[2] : {}, signal = _ref57.signal, _ref57$includePressur = _ref57.includePressure, includePressure = _ref57$includePressur === void 0 ? false : _ref57$includePressur;
           if (!(!Number.isFinite(lat) || !Number.isFinite(lon))) {
             _context42.n = 1;
             break;
@@ -8189,12 +8492,12 @@ function _vpFetchOpenMeteoPoint() {
   return _vpFetchOpenMeteoPoint.apply(this, arguments);
 }
 window.fetchOpenMeteoWeatherPoints = /*#__PURE__*/function () {
-  var _ref37 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(points) {
-    var _ref38,
+  var _ref39 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(points) {
+    var _ref40,
       signal,
-      _ref38$includePressur,
+      _ref40$includePressur,
       includePressure,
-      _ref38$maxConcurrency,
+      _ref40$maxConcurrency,
       maxConcurrency,
       out,
       cursor,
@@ -8205,7 +8508,7 @@ window.fetchOpenMeteoWeatherPoints = /*#__PURE__*/function () {
     return _regenerator().w(function (_context0) {
       while (1) switch (_context0.n) {
         case 0:
-          _ref38 = _args9.length > 1 && _args9[1] !== undefined ? _args9[1] : {}, signal = _ref38.signal, _ref38$includePressur = _ref38.includePressure, includePressure = _ref38$includePressur === void 0 ? false : _ref38$includePressur, _ref38$maxConcurrency = _ref38.maxConcurrency, maxConcurrency = _ref38$maxConcurrency === void 0 ? 6 : _ref38$maxConcurrency;
+          _ref40 = _args9.length > 1 && _args9[1] !== undefined ? _args9[1] : {}, signal = _ref40.signal, _ref40$includePressur = _ref40.includePressure, includePressure = _ref40$includePressur === void 0 ? false : _ref40$includePressur, _ref40$maxConcurrency = _ref40.maxConcurrency, maxConcurrency = _ref40$maxConcurrency === void 0 ? 6 : _ref40$maxConcurrency;
           if (!(!Array.isArray(points) || points.length === 0)) {
             _context0.n = 1;
             break;
@@ -8282,7 +8585,7 @@ window.fetchOpenMeteoWeatherPoints = /*#__PURE__*/function () {
     }, _callee9);
   }));
   return function (_x30) {
-    return _ref37.apply(this, arguments);
+    return _ref39.apply(this, arguments);
   };
 }();
 function vpDeriveCloudLayersFromPressureProfile(pressureProfile) {
@@ -10852,7 +11155,7 @@ function getCachedAirspaceIntersections(elevData, totalDist) {
   return items;
 }
 function renderVerticalProfile(canvasId) {
-  var _document$getElementB6, _document$getElementB7;
+  var _document$getElementB8, _document$getElementB9;
   var canvas = document.getElementById(canvasId);
   if (!canvas || !vpElevationData || vpElevationData.length < 2) return;
   var container = canvas.parentElement;
@@ -10879,7 +11182,7 @@ function renderVerticalProfile(canvasId) {
     padBottom = 30;
   var plotW = displayWidth - padLeft - padRight;
   var plotH = displayHeight - padTop - padBottom;
-  var cruiseAlt = parseInt(((_document$getElementB6 = document.getElementById('altMapInput')) === null || _document$getElementB6 === void 0 ? void 0 : _document$getElementB6.textContent) || ((_document$getElementB7 = document.getElementById('altSlider')) === null || _document$getElementB7 === void 0 ? void 0 : _document$getElementB7.value) || 4500);
+  var cruiseAlt = parseInt(((_document$getElementB8 = document.getElementById('altMapInput')) === null || _document$getElementB8 === void 0 ? void 0 : _document$getElementB8.textContent) || ((_document$getElementB9 = document.getElementById('altSlider')) === null || _document$getElementB9 === void 0 ? void 0 : _document$getElementB9.value) || 4500);
   var tas = vpGetProfileTas();
   var totalDist = vpElevationData[vpElevationData.length - 1].distNM;
   var maxTerrain = Math.max.apply(Math, _toConsumableArray(vpElevationData.map(p => p.elevFt)));
@@ -11421,8 +11724,8 @@ function _fetchHighResElevation() {
           return _context46.a(2);
         case 1:
           routeKey = () => routeWaypoints.map(p => {
-            var _p$lng2;
-            return `${p.lat},${(_p$lng2 = p.lng) !== null && _p$lng2 !== void 0 ? _p$lng2 : p.lon}`;
+            var _p$lng3;
+            return `${p.lat},${(_p$lng3 = p.lng) !== null && _p$lng3 !== void 0 ? _p$lng3 : p.lon}`;
           }).join('|');
           requestedRoute = routeKey();
           isCurrent = () => vpZoomLevel < 100 && routeKey() === requestedRoute;
@@ -11701,11 +12004,11 @@ function vpProjectTrafficOnHeading() {
 
 // ─── TRAFFIC IM VERTIKALPROFIL ZEICHNEN ──────────────────────────────────────
 function vpDrawTrafficInProfile(fgCtx, xOf, yOf, elevData, isHdgMode, viewMinX, viewMaxX) {
-  var _ref40, _window$lastLiveGpsPo4, _window$lastLiveGpsPo5;
+  var _ref42, _window$lastLiveGpsPo4, _window$lastLiveGpsPo5;
   if (!window.vpTrafficProfileVisible) return;
   var traffic = isHdgMode ? vpProjectTrafficOnHeading() : vpProjectTrafficOnRoute(elevData);
   if (!traffic.length) return;
-  var ownAlt = (_ref40 = (_window$lastLiveGpsPo4 = (_window$lastLiveGpsPo5 = window.lastLiveGpsPos) === null || _window$lastLiveGpsPo5 === void 0 ? void 0 : _window$lastLiveGpsPo5.alt) !== null && _window$lastLiveGpsPo4 !== void 0 ? _window$lastLiveGpsPo4 : vpLiveAltFt) !== null && _ref40 !== void 0 ? _ref40 : 0;
+  var ownAlt = (_ref42 = (_window$lastLiveGpsPo4 = (_window$lastLiveGpsPo5 = window.lastLiveGpsPos) === null || _window$lastLiveGpsPo5 === void 0 ? void 0 : _window$lastLiveGpsPo5.alt) !== null && _window$lastLiveGpsPo4 !== void 0 ? _window$lastLiveGpsPo4 : vpLiveAltFt) !== null && _ref42 !== void 0 ? _ref42 : 0;
   var pres = window.GAMapLivePresentation;
   var pos = window.lastLiveGpsPos || {},
     flight = window.lastLiveFlightData || {};
@@ -11807,7 +12110,7 @@ window.vpToggleTrafficProfile = function () {
   updateTrafficProfileBtn();
 };
 function renderMapProfileFrames(timeMs) {
-  var _document$getElementB8, _document$getElementB9, _window$vpLiveRouteDi;
+  var _document$getElementB0, _document$getElementB1, _window$vpLiveRouteDi;
   var frameT0 = performance && performance.now ? performance.now() : Date.now();
   if (!vpCanRunVisibleMapProfileWork()) {
     vpStopMapProfileFrameLoop();
@@ -11869,7 +12172,7 @@ function renderMapProfileFrames(timeMs) {
     padBottom = _vpMapProfilePadding.padBottom;
   var plotW = virtualWidth - padLeft - padRight;
   var plotH = containerHeight - padTop - padBottom;
-  var cruiseAlt = parseInt(((_document$getElementB8 = document.getElementById('altMapInput')) === null || _document$getElementB8 === void 0 ? void 0 : _document$getElementB8.textContent) || ((_document$getElementB9 = document.getElementById('altSlider')) === null || _document$getElementB9 === void 0 ? void 0 : _document$getElementB9.value) || 4500);
+  var cruiseAlt = parseInt(((_document$getElementB0 = document.getElementById('altMapInput')) === null || _document$getElementB0 === void 0 ? void 0 : _document$getElementB0.textContent) || ((_document$getElementB1 = document.getElementById('altSlider')) === null || _document$getElementB1 === void 0 ? void 0 : _document$getElementB1.value) || 4500);
   var tas = vpGetProfileTas();
   var totalDist = elevData[elevData.length - 1].distNM;
   var maxTerrain = Math.max.apply(Math, _toConsumableArray(elevData.map(p => p.elevFt)));
@@ -12804,7 +13107,7 @@ function initAltWaypoints() {
 
   // === SHARED HELPERS for mouse & touch ===
   function vpGetCanvasMetrics() {
-    var _document$getElementB0, _document$getElementB1;
+    var _document$getElementB10, _document$getElementB11;
     var elevData = vpZoomLevel < 100 && vpHighResData ? vpHighResData : vpElevationData;
     if (!elevData || elevData.length < 2) return null;
     var rect = canvas.getBoundingClientRect();
@@ -12820,7 +13123,7 @@ function initAltWaypoints() {
     var zoomFactor = 100 / vpZoomLevel;
     var virtualWidth = Math.round(baseWidth * zoomFactor);
     var totalDist = elevData[elevData.length - 1].distNM;
-    var cruiseAlt = parseInt(((_document$getElementB0 = document.getElementById('altMapInput')) === null || _document$getElementB0 === void 0 ? void 0 : _document$getElementB0.textContent) || ((_document$getElementB1 = document.getElementById('altSlider')) === null || _document$getElementB1 === void 0 ? void 0 : _document$getElementB1.value) || 4500);
+    var cruiseAlt = parseInt(((_document$getElementB10 = document.getElementById('altMapInput')) === null || _document$getElementB10 === void 0 ? void 0 : _document$getElementB10.textContent) || ((_document$getElementB11 = document.getElementById('altSlider')) === null || _document$getElementB11 === void 0 ? void 0 : _document$getElementB11.value) || 4500);
     var maxTerrain = Math.max.apply(Math, _toConsumableArray(elevData.map(p => p.elevFt)));
     var autoMaxAlt = Math.max(cruiseAlt + 2500, maxTerrain + 1000);
     var maxAlt = vpMaxAltOverride > 0 ? vpMaxAltOverride : autoMaxAlt;
@@ -12930,6 +13233,7 @@ function initAltWaypoints() {
         }
       }
       if (vpAltWaypoints.length < 2) vpSegmentAlts = [];
+      if (typeof vpCaptureRouteAltAnchors === 'function') vpCaptureRouteAltAnchors();
       renderMapProfile(); // Zeichnet sofort!
 
       // FIX: Schwere DOM/Luftraum-Berechnungen asynchron ausführen, damit der Klick nicht einfriert!
@@ -12975,6 +13279,7 @@ function initAltWaypoints() {
         vpSegmentAlts.push(exactAlt);
       }
     }
+    if (typeof vpCaptureRouteAltAnchors === 'function') vpCaptureRouteAltAnchors();
     renderMapProfile(); // Zeichnet sofort!
 
     // FIX: Entkoppeln, um Ruckler zu vermeiden!
@@ -13050,6 +13355,8 @@ function initAltWaypoints() {
         syncAltFromInput(finalAlt);
       }
       if (vpDraggingWP >= 0) vpAltWaypoints.sort((a, b) => a.distNM - b.distNM);
+      // Verankerung an der Route merken, damit Routenaenderung und Neustart die Punkte nicht loeschen.
+      if (needsSave && typeof vpCaptureRouteAltAnchors === 'function') vpCaptureRouteAltAnchors();
       vpDraggingWP = -1;
       vpDraggingSegment = null;
       window.vpDraggingPosMarker = false;
@@ -13447,9 +13754,9 @@ var vpWeatherLastAutoRefreshAt = 0;
 var vpShowLandmarks = localStorage.getItem('ga_show_landmarks') !== 'false';
 var vpShowObstacles = localStorage.getItem('ga_show_obstacles') !== 'false';
 var _legacyShowLinear = localStorage.getItem('ga_show_linear');
-var vpShowRoads = ((_ref41 = (_localStorage$getItem = localStorage.getItem('ga_show_roads')) !== null && _localStorage$getItem !== void 0 ? _localStorage$getItem : _legacyShowLinear) !== null && _ref41 !== void 0 ? _ref41 : 'true') !== 'false';
-var vpShowRivers = ((_ref42 = (_localStorage$getItem2 = localStorage.getItem('ga_show_rivers')) !== null && _localStorage$getItem2 !== void 0 ? _localStorage$getItem2 : _legacyShowLinear) !== null && _ref42 !== void 0 ? _ref42 : 'true') !== 'false';
-var vpShowPowerInfra = ((_ref43 = (_localStorage$getItem3 = localStorage.getItem('ga_show_power')) !== null && _localStorage$getItem3 !== void 0 ? _localStorage$getItem3 : _legacyShowLinear) !== null && _ref43 !== void 0 ? _ref43 : 'true') !== 'false';
+var vpShowRoads = ((_ref43 = (_localStorage$getItem = localStorage.getItem('ga_show_roads')) !== null && _localStorage$getItem !== void 0 ? _localStorage$getItem : _legacyShowLinear) !== null && _ref43 !== void 0 ? _ref43 : 'true') !== 'false';
+var vpShowRivers = ((_ref44 = (_localStorage$getItem2 = localStorage.getItem('ga_show_rivers')) !== null && _localStorage$getItem2 !== void 0 ? _localStorage$getItem2 : _legacyShowLinear) !== null && _ref44 !== void 0 ? _ref44 : 'true') !== 'false';
+var vpShowPowerInfra = ((_ref45 = (_localStorage$getItem3 = localStorage.getItem('ga_show_power')) !== null && _localStorage$getItem3 !== void 0 ? _localStorage$getItem3 : _legacyShowLinear) !== null && _ref45 !== void 0 ? _ref45 : 'true') !== 'false';
 var vpShowLinear = vpShowRoads || vpShowRivers || vpShowPowerInfra;
 var vpAirspaceMode = parseInt(localStorage.getItem('ga_show_airspaces') || '1'); // 0=Off, 1=Bg, 2=Fg
 
@@ -13625,10 +13932,10 @@ function syncRateFromInput(val) {
 function vpChangeYAxis(delta) {
   window.activateFastRender();
   if (vpMaxAltOverride === 0) {
-    var _document$getElementB10;
+    var _document$getElementB12;
     var _elevData = vpGetMapProfileElevationData(typeof vpMode !== 'undefined' && vpMode === 'HDG');
     if (!_elevData) return;
-    var cruiseAlt = parseInt(((_document$getElementB10 = document.getElementById('altMapInput')) === null || _document$getElementB10 === void 0 ? void 0 : _document$getElementB10.textContent) || 4500);
+    var cruiseAlt = parseInt(((_document$getElementB12 = document.getElementById('altMapInput')) === null || _document$getElementB12 === void 0 ? void 0 : _document$getElementB12.textContent) || 4500);
     var maxTerrain = Math.max.apply(Math, _toConsumableArray(_elevData.map(p => p.elevFt)));
     vpMaxAltOverride = Math.max(cruiseAlt + 2500, maxTerrain + 1000);
     vpMaxAltOverride = Math.ceil(vpMaxAltOverride / 1000) * 1000;
@@ -13917,7 +14224,7 @@ window.promptForRate = function () {
    2D SIMULATOR EXPORT (Vollständige Welt)
    ========================================================= */
 window.exportFor2DSim = function () {
-  var _document$getElementB11;
+  var _document$getElementB13;
   if (!vpElevationData || vpElevationData.length < 2) {
     alert(_vpUiPhrase('Bitte generiere zuerst eine Route im Dispatcher!'));
     return;
@@ -13953,7 +14260,7 @@ window.exportFor2DSim = function () {
   });
 
   // 3b. Höhenprofil berechnen und zu jedem Wegpunkt hinzufügen
-  var _exportCruiseAlt = parseInt(((_document$getElementB11 = document.getElementById('altMapInput')) === null || _document$getElementB11 === void 0 ? void 0 : _document$getElementB11.textContent) || 4500);
+  var _exportCruiseAlt = parseInt(((_document$getElementB13 = document.getElementById('altMapInput')) === null || _document$getElementB13 === void 0 ? void 0 : _document$getElementB13.textContent) || 4500);
   var _exportTas = vpGetProfileTas();
   var _exportProf = typeof computeFlightProfile === 'function' ? computeFlightProfile(vpElevationData, _exportCruiseAlt, vpClimbRate, vpDescentRate, _exportTas) : null;
   if (_exportProf && _exportProf.profile && _exportProf.profile.length > 0) {
@@ -14367,9 +14674,9 @@ function vpSetHdgWeatherChunkCache(key, zones) {
   });
   if (vpHdgWeatherChunkCache.size <= VP_HDG_WEATHER_CHUNK_CACHE_MAX) return;
   var stale = Array.from(vpHdgWeatherChunkCache.entries()).sort((a, b) => Number(a[1] && a[1].ts || 0) - Number(b[1] && b[1].ts || 0)).slice(0, Math.max(1, vpHdgWeatherChunkCache.size - VP_HDG_WEATHER_CHUNK_CACHE_MAX));
-  stale.forEach(_ref45 => {
-    var _ref46 = _slicedToArray(_ref45, 1),
-      k = _ref46[0];
+  stale.forEach(_ref47 => {
+    var _ref48 = _slicedToArray(_ref47, 1),
+      k = _ref48[0];
     return vpHdgWeatherChunkCache.delete(k);
   });
 }

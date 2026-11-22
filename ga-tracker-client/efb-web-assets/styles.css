@@ -181,6 +181,7 @@ body.boot-splash-active {
 
 .boot-splash-dots span:nth-child(2) { animation-delay: 0.15s; }
 .boot-splash-dots span:nth-child(3) { animation-delay: 0.30s; }
+.boot-splash.is-hidden .boot-splash-dots span { animation: none; }
 
 .boot-splash-actions {
     display: none;
@@ -3469,58 +3470,105 @@ body.theme-retro .api-fuel-meter .api-scale {
     pointer-events: auto;
 }
 
-.map-side-drawer-handle {
+/* Map-edge tabs: "Menü" on top, up to four favourite menus below, centred as a stack. */
+.map-side-drawer-tabs {
     position: absolute;
     top: 50%;
     right: 0;
-    width: var(--checklist-handle-hit);
-    height: 88px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    max-height: calc(100% - 16px);
     transform: translate3d(0, -50%, 0);
-    border: 0;
-    background: transparent;
-    color: var(--drawer-accent);
-    cursor: pointer;
-    pointer-events: auto;
-    padding: 0;
-    transition: right var(--drawer-duration) var(--drawer-ease),
-        color 160ms ease;
+    pointer-events: none;
+    transition: right var(--drawer-duration) var(--drawer-ease);
 }
 
-.map-side-drawer.is-open .map-side-drawer-handle {
+.map-side-drawer.is-open .map-side-drawer-tabs {
     right: var(--checklist-panel-width);
-    color: var(--drawer-heading);
 }
 
-.map-side-drawer-handle::before {
-    content: '';
-    position: absolute;
-    top: 18px;
-    right: 0;
-    width: 18px;
-    height: 52px;
+.map-side-drawer-handle {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    flex: 0 1 auto;
+    min-height: 44px;
+    width: 34px;
+    box-sizing: border-box;
+    padding: 9px 0 10px;
     border: 1px solid var(--drawer-border-soft);
     border-right: 0;
-    border-radius: 8px 0 0 8px;
+    border-radius: 10px 0 0 10px;
     background: var(--drawer-panel-bg);
+    color: var(--drawer-accent);
     box-shadow: -7px 0 16px rgba(0, 0, 0, 0.28);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
+    cursor: pointer;
+    pointer-events: auto;
+    overflow: hidden;
+    transition: color 160ms ease, background 160ms ease;
 }
 
-.map-side-drawer.is-open .map-side-drawer-handle::before {
+/* Wider invisible touch target to the left of each tab. */
+.map-side-drawer-handle::after {
+    content: '';
+    position: absolute;
+    top: -4px;
+    bottom: -4px;
+    left: -10px;
+    width: 10px;
+}
+
+.map-side-drawer.is-open #mapSideDrawerHandle,
+.map-side-drawer.is-open .map-side-drawer-fav-tab.is-current {
+    color: var(--drawer-heading);
     background: color-mix(in srgb, var(--drawer-accent) 22%, var(--drawer-panel-bg));
 }
 
-.map-side-drawer-handle span {
-    position: absolute;
-    top: 50%;
-    right: 5px;
+.map-side-drawer-handle-lines {
+    position: relative;
     display: block;
-    width: 7px;
+    flex: 0 0 auto;
+    width: 14px;
     height: 2px;
+    margin: 7px 0;
     background: currentColor;
     border-radius: 2px;
-    box-shadow: 0 -7px 0 currentColor, 0 7px 0 currentColor;
+    box-shadow: 0 -6px 0 currentColor, 0 6px 0 currentColor;
+}
+
+/* Rotated 90°: reads from top to bottom. */
+.map-side-drawer-tab-label {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    font: 700 12px/1 var(--drawer-font);
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    min-height: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--drawer-heading);
+}
+
+.map-side-drawer-tab-icon {
+    flex: 0 0 auto;
+    font-size: 17px;
+    line-height: 1;
+}
+
+.map-side-drawer-tab-icon.is-text {
+    font: 700 9px/1 var(--drawer-font-mono);
+    letter-spacing: 0.02em;
+}
+
+.map-side-drawer-fav-tab {
+    color: var(--drawer-accent-2);
 }
 
 .map-side-drawer-head {
@@ -5752,7 +5800,7 @@ body.theme-ops1940 .route-weather-source {
     }
 
     .map-side-drawer-handle {
-        height: 82px;
+        width: 32px;
     }
 
     .checklist-tool-tile {
@@ -12995,6 +13043,74 @@ body.theme-win95.win95-main-minimized .mission-main-notification {
     stroke: #fff7b2;
     stroke-width: 3;
 }
+/* Luftraum-Beschriftung (Art/Name + Hoehen) */
+.leaflet-marker-icon.ga-airspace-label {
+    background: none;
+    border: 0;
+    pointer-events: none;
+    width: auto !important;
+    height: auto !important;
+}
+.ga-airspace-label span {
+    position: absolute;
+    left: 0;
+    top: 0;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    transform: translate(-50%, -50%);
+    padding: 1px 5px;
+    border: 1.5px solid var(--ga-airspace-color, #2563eb);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.82);
+    color: var(--ga-airspace-color, #2563eb);
+    font: 700 11px/1.2 Arial, sans-serif;
+    white-space: nowrap;
+}
+.ga-airspace-label i { font-style: normal; font-weight: 700; font-size: 0.95em; }
+/* ICAO-Flugplatzsymbole (map-aviation-overlay-style.js) */
+.leaflet-marker-icon.ga-airport-symbol {
+    background: none;
+    border: 0;
+    overflow: visible;
+    cursor: help;
+}
+.ga-airport-symbol-glyph {
+    display: block;
+    filter: drop-shadow(0 0 1px rgba(255, 255, 255, 0.9));
+    transition: transform 120ms ease;
+}
+.ga-airport-symbol:hover .ga-airport-symbol-glyph { transform: scale(1.18); }
+.ga-airport-symbol-label {
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    transform: translate(-50%, 1px);
+    font: 700 11px/1 Arial, sans-serif;
+    white-space: nowrap;
+    pointer-events: none;
+    text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff;
+}
+/* OpenAIP -> VFR-Overlay beim Reinzoomen (map.js updateOpenAipVfrHandoff) */
+.ga-openaip-handoff-hidden { display: none; }
+/* VFR-Meldepunkte (open flightmaps / OpenAIP) */
+.leaflet-marker-icon.ga-vrp-symbol {
+    background: none;
+    border: 0;
+    overflow: visible;
+    cursor: help;
+}
+.ga-vrp-symbol:hover .ga-airport-symbol-glyph { transform: scale(1.18); }
+.ga-vrp-label {
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    transform: translate(1px, -50%);
+    font: 700 10px/1 Arial, sans-serif;
+    white-space: nowrap;
+    pointer-events: none;
+    text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 3px #fff;
+}
 .ga-map-context-weather-source {
     margin-top: 5px;
     color: #6b675d;
@@ -13054,6 +13170,144 @@ body.theme-win95.win95-main-minimized .mission-main-notification {
         height: calc(100dvh - 145px);
         min-height: 190px;
     }
+}
+/* Mobile "Was ist hier?" sheet (map-context-popup.js, up to 1024 px, not the EFB):
+   right edge of the screen, above toolbar and profile panel, small gap to the edges.
+   Width as the classic popup (312 px, from 760 px screen width 462 px), at most 80 % of
+   the screen. The arrow tip sits at the sheet's left edge, half screen height; the map is
+   panned so the pressed point lies under it. The scrim freezes the map. */
+:root {
+    --ga-map-context-sheet-width: min(312px, 80vw);
+    --ga-map-context-sheet-right: calc(8px + env(safe-area-inset-right, 0px));
+}
+@media (min-width: 760px) {
+    :root {
+        --ga-map-context-sheet-width: min(462px, 80vw);
+    }
+}
+.ga-map-context-sheet-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 131000;
+    background: transparent;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+}
+.ga-map-context-sheet {
+    position: fixed;
+    z-index: 131001;
+    top: calc(8px + env(safe-area-inset-top, 0px));
+    right: var(--ga-map-context-sheet-right);
+    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    width: var(--ga-map-context-sheet-width);
+    display: flex;
+    flex-direction: column;
+    /* top/bottom are the outer limit; with fit-content height and auto margins a
+       shorter sheet sits vertically centred, a longer one fills the space and scrolls. */
+    box-sizing: border-box;
+    height: -webkit-fit-content;
+    height: fit-content;
+    max-height: calc(100% - 16px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    margin: auto 0 !important;
+    color: #ecf7ff;
+    background: rgba(7, 14, 22, 0.97);
+    border: 1px solid rgba(83, 211, 255, 0.72);
+    border-radius: 11px;
+    box-shadow: 0 16px 42px rgba(0, 0, 0, 0.55);
+    animation: gaMapContextSheetIn 0.22s ease-out;
+}
+.ga-map-context-sheet[hidden],
+.ga-map-context-sheet-scrim[hidden],
+.ga-map-context-sheet-arrow[hidden] {
+    display: none !important;
+}
+@keyframes gaMapContextSheetIn {
+    from { opacity: 0; transform: translateX(24px); }
+    to { opacity: 1; transform: none; }
+}
+.ga-map-context-sheet-scroll {
+    flex: 0 1 auto;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding: 10px 11px 11px;
+}
+.ga-map-context-sheet-close {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    z-index: 2;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    color: #9cb4c4;
+    font: 400 24px/1 system-ui, sans-serif;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+.ga-map-context-sheet-close:hover,
+.ga-map-context-sheet-close:focus-visible {
+    color: #fff;
+    outline: none;
+}
+.ga-map-context-sheet-arrow {
+    position: fixed;
+    z-index: 131002;
+    right: calc(var(--ga-map-context-sheet-right) + var(--ga-map-context-sheet-width) - 1px);
+    top: 50%;
+    width: 12px;
+    height: 24px;
+    margin-top: -12px;
+    pointer-events: none;
+}
+.ga-map-context-sheet-arrow::before,
+.ga-map-context-sheet-arrow::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    clip-path: polygon(0 50%, 100% 0, 100% 100%);
+}
+.ga-map-context-sheet-arrow::before {
+    background: rgba(83, 211, 255, 0.72);
+}
+.ga-map-context-sheet-arrow::after {
+    left: 1.6px;
+    right: -1px;
+    top: 1.5px;
+    bottom: 1.5px;
+    background: rgb(7, 14, 22);
+}
+.ga-map-context-sheet-scroll,
+.ga-map-context-sheet-scroll > div {
+    display: flex;
+    flex-direction: column;
+}
+.ga-map-context-sheet-scroll > div {
+    flex: 0 1 auto;
+    min-height: 0;
+}
+.ga-map-context-sheet .ga-map-context-panel {
+    display: flex;
+    flex: 0 1 auto;
+    flex-direction: column;
+    min-height: 0;
+}
+.ga-map-context-sheet .ga-map-context-heading {
+    padding-right: 34px;
+}
+.ga-map-context-sheet .ga-map-context-body {
+    flex: 0 1 auto;
+    grid-template-rows: minmax(0, 1fr);
+    height: auto;
+    /* The details column sets the height; the band only stretches along. */
+    min-height: 180px;
+}
+.ga-map-context-sheet .ga-map-context-details {
+    min-height: 0;
 }
 .ff-toast {
     position: absolute;
@@ -20785,6 +21039,129 @@ html[lang="en"] #mapTableOverlay .ga-layer-groups .leaflet-control-layers-base::
     padding-top: 10px;
     border-top: 1px solid var(--layer-border);
 }
+/* Aufklappbare Gruppen im Kartenmenue (Web) */
+#mapTableOverlay .leaflet-control-layers .ga-layer-group-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    margin: 0;
+    border: 0;
+    background: none;
+    text-align: left;
+    cursor: pointer;
+    min-height: 0;
+    box-shadow: none;
+}
+#mapTableOverlay .leaflet-control-layers .ga-layer-group-toggle::before {
+    content: "▾";
+    display: inline-block;
+    width: 1em;
+    text-align: center;
+    letter-spacing: 0;
+}
+#mapTableOverlay .leaflet-control-layers .ga-layer-group-toggle.is-collapsed::before { content: "▸"; }
+#mapTableOverlay .leaflet-control-layers .ga-layer-group-toggle:hover { color: var(--layer-accent); }
+#mapTableOverlay .leaflet-control-layers-base .ga-layer-group-toggle ~ .ga-layer-group-toggle {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--layer-border);
+}
+/* VFR-Vektor-Einstellungen direkt unter dem Eintrag */
+#mapTableOverlay .ga-vfr-style {
+    margin: 2px 0 8px 26px;
+    border-left: 2px solid var(--layer-border);
+    padding-left: 6px;
+}
+#mapTableOverlay .leaflet-control-layers .ga-vfr-style-toggle {
+    padding: 4px 4px;
+    letter-spacing: .02em;
+    text-transform: none;
+    font-weight: 600;
+}
+#mapTableOverlay .ga-vfr-style-panel {
+    display: grid;
+    gap: 4px;
+    padding: 4px 4px 6px;
+}
+/* Name | Regler (volle Restbreite) | Wert; Farbfelder rechtsbuendig. */
+#mapTableOverlay .ga-vfr-style-row {
+    display: grid;
+    grid-template-columns: 6.8em minmax(0, 1fr) 3.4em;
+    align-items: center;
+    gap: 8px;
+    font: 12px/1.3 var(--layer-font);
+}
+#mapTableOverlay .leaflet-control-layers .ga-vfr-style-row input[type="color"] {
+    width: 40px !important;
+    height: 22px !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: 1px solid var(--layer-border);
+    border-radius: 4px;
+    background: none;
+    grid-column: 2 / span 2;
+    justify-self: end;
+}
+#mapTableOverlay .leaflet-control-layers .ga-vfr-style-row input[type="range"] {
+    flex: none;
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 18px !important;
+    min-height: 0 !important;
+    accent-color: var(--layer-accent);
+}
+#mapTableOverlay .ga-vfr-style-value {
+    min-width: 3.4em;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    color: var(--layer-muted);
+}
+#mapTableOverlay .ga-vfr-style-heading {
+    margin-top: 6px;
+    color: var(--layer-muted);
+    font: 600 11px/1.4 var(--layer-font);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+}
+#mapTableOverlay .ga-openaip-airspace-row,
+#mapTableOverlay .ga-openaip-check-row,
+#mapTableOverlay .ga-openaip-select-row {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+}
+#mapTableOverlay .ga-openaip-airport-kind-row {
+    grid-template-columns: 20px minmax(0, 1fr) auto;
+}
+#mapTableOverlay .ga-openaip-kind-glyph {
+    display: block;
+    width: 20px;
+    height: 20px;
+}
+#mapTableOverlay .leaflet-control-layers .ga-openaip-airspace-row input[type="color"] {
+    grid-column: auto;
+}
+#mapTableOverlay .leaflet-control-layers .ga-vfr-style-row input[type="checkbox"] {
+    width: 18px !important;
+    height: 18px !important;
+    justify-self: end;
+}
+#mapTableOverlay .leaflet-control-layers .ga-openaip-select-row select {
+    grid-column: 2 / span 2;
+    justify-self: end;
+    max-width: 100%;
+    font: 12px/1.3 var(--layer-font);
+}
+#mapTableOverlay .leaflet-control-layers .ga-vfr-style-reset {
+    justify-self: start;
+    margin-top: 4px;
+    padding: 4px 10px;
+    border: 1px solid var(--layer-border);
+    border-radius: 6px;
+    background: var(--layer-hover);
+    color: inherit;
+    font: 12px/1.3 var(--layer-font);
+    cursor: pointer;
+}
 #mapTableOverlay .ga-base-dim-control {
     margin-top: 10px;
     padding-top: 10px;
@@ -21005,6 +21382,9 @@ body.theme-win95 .mission-accept-btn:focus-visible { outline: 1px dotted #000; o
     background: var(--drawer-surface-strong); color: var(--drawer-heading); font-size: 18px;
 }
 .map-side-drawer-pin.is-active { background: var(--drawer-accent); color: #101820; }
+.map-side-drawer-fav { color: var(--drawer-accent-2); font-size: 21px; }
+.map-side-drawer-fav.is-active { background: var(--drawer-surface-strong); color: #ffd35a; border-color: #ffd35a; }
+.map-side-drawer-fav[hidden] { display: none; }
 .route-tool-nearest-main > span:first-child { flex: 1 1 auto; min-width: 0; }
 .route-tool-nearest-details { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 6px 12px; margin-top: 6px; font-size: 20px; line-height: 1.4; }
 .route-tool-nearest-runways { flex: 1 1 140px; min-width: 0; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }

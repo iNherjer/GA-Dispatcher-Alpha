@@ -73,6 +73,7 @@ function clearMapContextObjectHighlight() {
   mapContextObjectHighlightLayer = null;
 }
 function dismissMapContextInfo() {
+  var _mapContextSheet;
   var _ref = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
     _ref$closePopup = _ref.closePopup,
     closePopup = _ref$closePopup === void 0 ? false : _ref$closePopup,
@@ -89,6 +90,228 @@ function dismissMapContextInfo() {
   if (closePopup && map && mapContextPopupLayer) {
     map.closePopup(mapContextPopupLayer);
   }
+  if ((_mapContextSheet = mapContextSheet) !== null && _mapContextSheet !== void 0 && _mapContextSheet.open) closeMapContextSheet({
+    restoreView: true,
+    fromDismiss: true
+  });
+}
+
+// Mobile layout (phone/tablet up to 1024 px, not the EFB): the popup is a fixed sheet at
+// the right edge above toolbar and profile panel (classic popup width, at most 80 % of the
+// screen; styles.css). Its arrow tip sits at the sheet's left edge, half screen height, and
+// the map is panned so the pressed point lies under it.
+// While it is open the map is frozen; a tap beside the sheet or the X closes it and
+// brings back the earlier map view.
+var MAP_CONTEXT_SHEET_MAX_WIDTH_PX = 1024;
+var mapContextSheet = null;
+function isMapContextSheetMode() {
+  if (typeof window === 'undefined' || !document.body) return false;
+  if (document.body.classList.contains('ga-efb-tracker-host')) return false;
+  if (typeof window.matchMedia === 'function') {
+    return window.matchMedia(`(max-width: ${MAP_CONTEXT_SHEET_MAX_WIDTH_PX}px)`).matches;
+  }
+  return window.innerWidth <= MAP_CONTEXT_SHEET_MAX_WIDTH_PX;
+}
+function ensureMapContextSheet() {
+  if (mapContextSheet) return mapContextSheet;
+  var scrim = document.createElement('div');
+  scrim.className = 'ga-map-context-sheet-scrim';
+  scrim.setAttribute('aria-hidden', 'true');
+  var sheet = document.createElement('div');
+  sheet.className = 'ga-map-context-sheet ga-map-context-popup';
+  sheet.setAttribute('role', 'dialog');
+  sheet.setAttribute('aria-modal', 'true');
+  sheet.setAttribute('aria-label', _mcT('WAS IST HIER?'));
+  var closeButton = document.createElement('button');
+  closeButton.type = 'button';
+  closeButton.className = 'ga-map-context-sheet-close';
+  closeButton.setAttribute('aria-label', _mcT('Schließen'));
+  closeButton.textContent = '×';
+  var scroll = document.createElement('div');
+  scroll.className = 'ga-map-context-sheet-scroll';
+  sheet.append(closeButton, scroll);
+  var arrow = document.createElement('div');
+  arrow.className = 'ga-map-context-sheet-arrow';
+  arrow.setAttribute('aria-hidden', 'true');
+  scrim.hidden = true;
+  sheet.hidden = true;
+  arrow.hidden = true;
+  document.body.append(scrim, sheet, arrow);
+  var ref = {
+    scrim,
+    sheet,
+    arrow,
+    scroll,
+    closeButton,
+    open: false,
+    openedAt: 0,
+    scrimPressed: false,
+    sheetPressed: false,
+    view: null,
+    resizeTimer: 0
+  };
+  // A long press opens the sheet while the finger is still down: its release must not
+  // close the sheet or hit a button in it, so only presses that start on it count.
+  scrim.addEventListener('pointerdown', () => {
+    ref.scrimPressed = true;
+  });
+  scrim.addEventListener('click', event => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!ref.scrimPressed) return;
+    ref.scrimPressed = false;
+    closeMapContextSheet({
+      restoreView: true
+    });
+  });
+  scrim.addEventListener('wheel', event => event.preventDefault(), {
+    passive: false
+  });
+  scrim.addEventListener('touchmove', event => event.preventDefault(), {
+    passive: false
+  });
+  sheet.addEventListener('pointerdown', () => {
+    ref.sheetPressed = true;
+  }, true);
+  sheet.addEventListener('click', event => {
+    if (ref.sheetPressed) return;
+    event.preventDefault();
+    event.stopPropagation();
+  }, true);
+  closeButton.addEventListener('click', event => {
+    event.preventDefault();
+    event.stopPropagation();
+    closeMapContextSheet({
+      restoreView: true
+    });
+  });
+  ref.onKeyDown = event => {
+    if (event.key === 'Escape' && ref.open) closeMapContextSheet({
+      restoreView: true
+    });
+  };
+  ref.onResize = () => {
+    if (!ref.open) return;
+    window.clearTimeout(ref.resizeTimer);
+    ref.resizeTimer = window.setTimeout(() => {
+      var _map, _map$invalidateSize;
+      if (!ref.open) return;
+      if (!isMapContextSheetMode()) {
+        closeMapContextSheet({
+          restoreView: true
+        });
+        return;
+      }
+      (_map = map) === null || _map === void 0 || (_map$invalidateSize = _map.invalidateSize) === null || _map$invalidateSize === void 0 || _map$invalidateSize.call(_map, {
+        pan: false
+      });
+      alignMapContextSheetToAnchor(mapContextInfoState, false);
+    }, 140);
+  };
+  mapContextSheet = ref;
+  return ref;
+}
+function setMapContextSheetMapFrozen(ref, frozen) {
+  if (!map) return;
+  var handlerNames = ['dragging', 'touchZoom', 'doubleClickZoom', 'scrollWheelZoom', 'boxZoom', 'keyboard', 'tap'];
+  if (frozen) {
+    ref.disabledHandlers = handlerNames.filter(name => {
+      var _map$name, _map$name$enabled;
+      return (_map$name = map[name]) === null || _map$name === void 0 || (_map$name$enabled = _map$name.enabled) === null || _map$name$enabled === void 0 ? void 0 : _map$name$enabled.call(_map$name);
+    });
+    ref.disabledHandlers.forEach(name => map[name].disable());
+  } else {
+    (ref.disabledHandlers || []).forEach(name => {
+      var _map$name2, _map$name2$enable;
+      return (_map$name2 = map[name]) === null || _map$name2 === void 0 || (_map$name2$enable = _map$name2.enable) === null || _map$name2$enable === void 0 ? void 0 : _map$name2$enable.call(_map$name2);
+    });
+    ref.disabledHandlers = [];
+  }
+}
+function alignMapContextSheetToAnchor(state) {
+  var _map$getContainer, _map2, _mapElement$getBoundi;
+  var animate = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
+  var ref = mapContextSheet;
+  if (!(ref !== null && ref !== void 0 && ref.open) || !(state !== null && state !== void 0 && state.latlng) || !map) return;
+  var mapElement = (_map$getContainer = (_map2 = map).getContainer) === null || _map$getContainer === void 0 ? void 0 : _map$getContainer.call(_map2);
+  var mapRect = mapElement === null || mapElement === void 0 || (_mapElement$getBoundi = mapElement.getBoundingClientRect) === null || _mapElement$getBoundi === void 0 ? void 0 : _mapElement$getBoundi.call(mapElement);
+  var arrowRect = ref.arrow.getBoundingClientRect();
+  if (!mapRect || !mapRect.width || !mapRect.height || !arrowRect.height) return;
+  // Client pixels -> map container pixels (the container may be scaled).
+  var scaleX = mapElement.clientWidth ? mapRect.width / mapElement.clientWidth : 1;
+  var scaleY = mapElement.clientHeight ? mapRect.height / mapElement.clientHeight : 1;
+  var target = L.point((arrowRect.left - mapRect.left) / (scaleX || 1), (arrowRect.top + arrowRect.height / 2 - mapRect.top) / (scaleY || 1));
+  var current = map.latLngToContainerPoint(state.latlng);
+  var delta = current.subtract(target);
+  if (Math.abs(delta.x) < 0.5 && Math.abs(delta.y) < 0.5) return;
+  map.panBy(delta.round(), animate ? {
+    animate: true,
+    duration: 0.35,
+    easeLinearity: 0.3
+  } : {
+    animate: false
+  });
+}
+function openMapContextSheet(state) {
+  var _map$getContainer2, _map3;
+  var ref = ensureMapContextSheet();
+  if (!ref.open) {
+    ref.view = {
+      center: map.getCenter(),
+      zoom: map.getZoom()
+    };
+    setMapContextSheetMapFrozen(ref, true);
+    window.addEventListener('keydown', ref.onKeyDown);
+    window.addEventListener('resize', ref.onResize);
+    window.addEventListener('orientationchange', ref.onResize);
+  }
+  ref.open = true;
+  ref.openedAt = Date.now();
+  ref.scrimPressed = false;
+  ref.sheetPressed = false;
+  window.gaMapContextSheetActive = true;
+  ref.scroll.replaceChildren(state.content);
+  ref.scroll.scrollTop = 0;
+  ref.scrim.hidden = false;
+  ref.sheet.hidden = false;
+  ref.arrow.hidden = false;
+  document.body.classList.add('ga-map-context-sheet-open');
+  (_map$getContainer2 = (_map3 = map).getContainer) === null || _map$getContainer2 === void 0 || (_map$getContainer2 = _map$getContainer2.call(_map3)) === null || _map$getContainer2 === void 0 || _map$getContainer2.classList.add('ga-map-context-open');
+  window.requestAnimationFrame(() => alignMapContextSheetToAnchor(state, true));
+}
+function closeMapContextSheet() {
+  var _ref2 = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
+    _ref2$restoreView = _ref2.restoreView,
+    restoreView = _ref2$restoreView === void 0 ? true : _ref2$restoreView,
+    _ref2$fromDismiss = _ref2.fromDismiss,
+    fromDismiss = _ref2$fromDismiss === void 0 ? false : _ref2$fromDismiss;
+  var ref = mapContextSheet;
+  if (!(ref !== null && ref !== void 0 && ref.open)) return;
+  ref.open = false;
+  window.clearTimeout(ref.resizeTimer);
+  window.removeEventListener('keydown', ref.onKeyDown);
+  window.removeEventListener('resize', ref.onResize);
+  window.removeEventListener('orientationchange', ref.onResize);
+  ref.scrim.hidden = true;
+  ref.sheet.hidden = true;
+  ref.arrow.hidden = true;
+  ref.scroll.replaceChildren();
+  document.body.classList.remove('ga-map-context-sheet-open');
+  window.gaMapContextSheetActive = false;
+  setMapContextSheetMapFrozen(ref, false);
+  var view = ref.view;
+  ref.view = null;
+  if (map) {
+    var _map$getContainer3, _map4;
+    (_map$getContainer3 = (_map4 = map).getContainer) === null || _map$getContainer3 === void 0 || (_map$getContainer3 = _map$getContainer3.call(_map4)) === null || _map$getContainer3 === void 0 || _map$getContainer3.classList.remove('ga-map-context-open');
+    if (restoreView && view !== null && view !== void 0 && view.center && Number.isFinite(view.zoom)) {
+      map.setView(view.center, view.zoom, {
+        animate: true,
+        duration: 0.35
+      });
+    }
+  }
+  if (!fromDismiss) dismissMapContextInfo();
 }
 function mapContextPointInRing(lat, lon, ring) {
   if (!Array.isArray(ring) || ring.length < 3) return false;
@@ -372,12 +595,12 @@ function getMapContextAirportFrequencies(airport, icao) {
   }).filter(Boolean).filter((value, index, values) => values.indexOf(value) === index);
 }
 function normalizeMapContextAirportFeature(airport) {
-  var _raw$geometry, _ref2, _raw$lat, _ref3, _ref4, _ref5, _raw$lon, _raw$elevation;
+  var _raw$geometry, _ref3, _raw$lat, _ref4, _ref5, _ref6, _raw$lon, _raw$elevation;
   if (!airport) return null;
   var raw = airport !== null && airport !== void 0 && airport.airportData && typeof airport.airportData === 'object' ? airport.airportData : airport;
   var coords = raw === null || raw === void 0 || (_raw$geometry = raw.geometry) === null || _raw$geometry === void 0 ? void 0 : _raw$geometry.coordinates;
-  var lat = Number((_ref2 = (_raw$lat = raw === null || raw === void 0 ? void 0 : raw.lat) !== null && _raw$lat !== void 0 ? _raw$lat : airport === null || airport === void 0 ? void 0 : airport.lat) !== null && _ref2 !== void 0 ? _ref2 : coords === null || coords === void 0 ? void 0 : coords[1]);
-  var lon = Number((_ref3 = (_ref4 = (_ref5 = (_raw$lon = raw === null || raw === void 0 ? void 0 : raw.lon) !== null && _raw$lon !== void 0 ? _raw$lon : raw === null || raw === void 0 ? void 0 : raw.lng) !== null && _ref5 !== void 0 ? _ref5 : airport === null || airport === void 0 ? void 0 : airport.lon) !== null && _ref4 !== void 0 ? _ref4 : airport === null || airport === void 0 ? void 0 : airport.lng) !== null && _ref3 !== void 0 ? _ref3 : coords === null || coords === void 0 ? void 0 : coords[0]);
+  var lat = Number((_ref3 = (_raw$lat = raw === null || raw === void 0 ? void 0 : raw.lat) !== null && _raw$lat !== void 0 ? _raw$lat : airport === null || airport === void 0 ? void 0 : airport.lat) !== null && _ref3 !== void 0 ? _ref3 : coords === null || coords === void 0 ? void 0 : coords[1]);
+  var lon = Number((_ref4 = (_ref5 = (_ref6 = (_raw$lon = raw === null || raw === void 0 ? void 0 : raw.lon) !== null && _raw$lon !== void 0 ? _raw$lon : raw === null || raw === void 0 ? void 0 : raw.lng) !== null && _ref6 !== void 0 ? _ref6 : airport === null || airport === void 0 ? void 0 : airport.lon) !== null && _ref5 !== void 0 ? _ref5 : airport === null || airport === void 0 ? void 0 : airport.lng) !== null && _ref4 !== void 0 ? _ref4 : coords === null || coords === void 0 ? void 0 : coords[0]);
   if (![lat, lon].every(Number.isFinite)) return null;
   var icao = String((raw === null || raw === void 0 ? void 0 : raw.icaoCode) || (raw === null || raw === void 0 ? void 0 : raw.icao) || (raw === null || raw === void 0 ? void 0 : raw.designator) || (airport === null || airport === void 0 ? void 0 : airport.icao) || (airport === null || airport === void 0 ? void 0 : airport.airportIcao) || '').trim().toUpperCase();
   var name = String((raw === null || raw === void 0 ? void 0 : raw.name) || (airport === null || airport === void 0 ? void 0 : airport.name) || (airport === null || airport === void 0 ? void 0 : airport.airportName) || icao || 'Flugplatz').trim();
@@ -425,12 +648,12 @@ function normalizeMapContextNavaidFeature(navaid) {
   };
 }
 function normalizeMapContextReportingPointFeature(point) {
-  var _raw$geometry2, _ref6, _raw$lat2, _ref7, _ref8, _ref9, _raw$lon2;
+  var _raw$geometry2, _ref7, _raw$lat2, _ref8, _ref9, _ref0, _raw$lon2;
   if (!point) return null;
   var raw = point !== null && point !== void 0 && point.rppData && typeof point.rppData === 'object' ? point.rppData : point;
   var coords = raw === null || raw === void 0 || (_raw$geometry2 = raw.geometry) === null || _raw$geometry2 === void 0 ? void 0 : _raw$geometry2.coordinates;
-  var lat = Number((_ref6 = (_raw$lat2 = raw === null || raw === void 0 ? void 0 : raw.lat) !== null && _raw$lat2 !== void 0 ? _raw$lat2 : point === null || point === void 0 ? void 0 : point.lat) !== null && _ref6 !== void 0 ? _ref6 : coords === null || coords === void 0 ? void 0 : coords[1]);
-  var lon = Number((_ref7 = (_ref8 = (_ref9 = (_raw$lon2 = raw === null || raw === void 0 ? void 0 : raw.lon) !== null && _raw$lon2 !== void 0 ? _raw$lon2 : raw === null || raw === void 0 ? void 0 : raw.lng) !== null && _ref9 !== void 0 ? _ref9 : point === null || point === void 0 ? void 0 : point.lon) !== null && _ref8 !== void 0 ? _ref8 : point === null || point === void 0 ? void 0 : point.lng) !== null && _ref7 !== void 0 ? _ref7 : coords === null || coords === void 0 ? void 0 : coords[0]);
+  var lat = Number((_ref7 = (_raw$lat2 = raw === null || raw === void 0 ? void 0 : raw.lat) !== null && _raw$lat2 !== void 0 ? _raw$lat2 : point === null || point === void 0 ? void 0 : point.lat) !== null && _ref7 !== void 0 ? _ref7 : coords === null || coords === void 0 ? void 0 : coords[1]);
+  var lon = Number((_ref8 = (_ref9 = (_ref0 = (_raw$lon2 = raw === null || raw === void 0 ? void 0 : raw.lon) !== null && _raw$lon2 !== void 0 ? _raw$lon2 : raw === null || raw === void 0 ? void 0 : raw.lng) !== null && _ref0 !== void 0 ? _ref0 : point === null || point === void 0 ? void 0 : point.lon) !== null && _ref9 !== void 0 ? _ref9 : point === null || point === void 0 ? void 0 : point.lng) !== null && _ref8 !== void 0 ? _ref8 : coords === null || coords === void 0 ? void 0 : coords[0]);
   if (![lat, lon].every(Number.isFinite)) return null;
   var name = String((raw === null || raw === void 0 ? void 0 : raw.name) || (point === null || point === void 0 ? void 0 : point.name) || 'VFR-Meldepunkt').replace(/^RPP\s+/i, '').trim();
   var airportIcao = String((raw === null || raw === void 0 ? void 0 : raw.airportIcao) || (point === null || point === void 0 ? void 0 : point.rppAirportIcao) || (typeof extractRppAirportIcao === 'function' ? extractRppAirportIcao(raw) : '') || '').trim().toUpperCase();
@@ -889,9 +1112,9 @@ function getMapContextHeightScaleTicks(bands, maxFt) {
     }, {
       valueFt: band.upperFt,
       limit: band.upperLimit
-    }].forEach(_ref0 => {
-      var valueFt = _ref0.valueFt,
-        limit = _ref0.limit;
+    }].forEach(_ref1 => {
+      var valueFt = _ref1.valueFt,
+        limit = _ref1.limit;
       if (!Number.isFinite(valueFt) || valueFt <= 0 || valueFt >= maxFt) return;
       var isFlightLevel = Number(limit === null || limit === void 0 ? void 0 : limit.unit) === 6 && Number.isFinite(Number(limit === null || limit === void 0 ? void 0 : limit.value));
       transitions.push({
@@ -1431,11 +1654,11 @@ function positionMapContextPopupBesideAnchor(state) {
     mapContextPopupLayer.options.offset = L.point(Math.round(width / 2 + 16), Math.round(height / 2));
     (_mapContextPopupLayer2 = (_mapContextPopupLayer3 = mapContextPopupLayer).update) === null || _mapContextPopupLayer2 === void 0 || _mapContextPopupLayer2.call(_mapContextPopupLayer3);
     window.requestAnimationFrame(() => {
-      var _map$getContainer, _map, _mapContextPopupLayer4, _mapContextPopupLayer5, _mapElement$getBoundi;
+      var _map$getContainer4, _map5, _mapContextPopupLayer4, _mapContextPopupLayer5, _mapElement$getBoundi2;
       if (state !== mapContextInfoState || !mapContextPopupLayer) return;
-      var mapElement = (_map$getContainer = (_map = map).getContainer) === null || _map$getContainer === void 0 ? void 0 : _map$getContainer.call(_map);
+      var mapElement = (_map$getContainer4 = (_map5 = map).getContainer) === null || _map$getContainer4 === void 0 ? void 0 : _map$getContainer4.call(_map5);
       var popupRect = (_mapContextPopupLayer4 = mapContextPopupLayer._container) === null || _mapContextPopupLayer4 === void 0 || (_mapContextPopupLayer5 = _mapContextPopupLayer4.getBoundingClientRect) === null || _mapContextPopupLayer5 === void 0 ? void 0 : _mapContextPopupLayer5.call(_mapContextPopupLayer4);
-      var mapRect = mapElement === null || mapElement === void 0 || (_mapElement$getBoundi = mapElement.getBoundingClientRect) === null || _mapElement$getBoundi === void 0 ? void 0 : _mapElement$getBoundi.call(mapElement);
+      var mapRect = mapElement === null || mapElement === void 0 || (_mapElement$getBoundi2 = mapElement.getBoundingClientRect) === null || _mapElement$getBoundi2 === void 0 ? void 0 : _mapElement$getBoundi2.call(mapElement);
       if (!popupRect || !mapRect) return;
       var padding = 4;
       var panX = 0;
@@ -1460,7 +1683,7 @@ function positionMapContextPopupBesideAnchor(state) {
   });
 }
 function renderMapContextInfoPopup(state) {
-  var _mapContextPopupLayer6, _state$content$queryS, _state$content, _map2, _map2$getContainer, _mapContextPopupLayer7, _mapContextPopupLayer8;
+  var _mapContextPopupLayer6, _state$content$queryS, _state$content, _map6, _map6$getContainer;
   var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
   if (!state || state !== mapContextInfoState || !state.content) return;
   if (document.body.classList.contains('ga-efb-tracker-host') && (_mapContextPopupLayer6 = mapContextPopupLayer) !== null && _mapContextPopupLayer6 !== void 0 && _mapContextPopupLayer6._container) {
@@ -1479,7 +1702,7 @@ function renderMapContextInfoPopup(state) {
   var preserveDetailsScroll = Boolean(options.preserveDetailsScroll);
   var previousDetailsScrollTop = preserveDetailsScroll ? Number((_state$content$queryS = (_state$content = state.content).querySelector) === null || _state$content$queryS === void 0 || (_state$content$queryS = _state$content$queryS.call(_state$content, '.ga-map-context-details')) === null || _state$content$queryS === void 0 ? void 0 : _state$content$queryS.scrollTop) : null;
   captureMapContextAirportWidgetState(state);
-  var mapHeight = Number((_map2 = map) === null || _map2 === void 0 || (_map2$getContainer = _map2.getContainer) === null || _map2$getContainer === void 0 || (_map2$getContainer = _map2$getContainer.call(_map2)) === null || _map2$getContainer === void 0 ? void 0 : _map2$getContainer.clientHeight);
+  var mapHeight = Number((_map6 = map) === null || _map6 === void 0 || (_map6$getContainer = _map6.getContainer) === null || _map6$getContainer === void 0 || (_map6$getContainer = _map6$getContainer.call(_map6)) === null || _map6$getContainer === void 0 ? void 0 : _map6$getContainer.clientHeight);
   if (Number.isFinite(mapHeight) && mapHeight > 0) {
     state.content.style.setProperty('--ga-map-context-map-height', `${Math.round(mapHeight)}px`);
   }
@@ -1510,8 +1733,11 @@ function renderMapContextInfoPopup(state) {
             </div>
         </div>`;
   hydrateMapContextAirportWidget(state);
-  (_mapContextPopupLayer7 = mapContextPopupLayer) === null || _mapContextPopupLayer7 === void 0 || (_mapContextPopupLayer8 = _mapContextPopupLayer7.update) === null || _mapContextPopupLayer8 === void 0 || _mapContextPopupLayer8.call(_mapContextPopupLayer7);
-  positionMapContextPopupBesideAnchor(state);
+  if (!state.sheetMode) {
+    var _mapContextPopupLayer7, _mapContextPopupLayer8;
+    (_mapContextPopupLayer7 = mapContextPopupLayer) === null || _mapContextPopupLayer7 === void 0 || (_mapContextPopupLayer8 = _mapContextPopupLayer7.update) === null || _mapContextPopupLayer8 === void 0 || _mapContextPopupLayer8.call(_mapContextPopupLayer7);
+    positionMapContextPopupBesideAnchor(state);
+  }
   if (preserveDetailsScroll && Number.isFinite(previousDetailsScrollTop)) {
     var restoreDetailsScroll = () => {
       var _state$content$queryS2, _state$content2;
@@ -1602,7 +1828,7 @@ function highlightMapContextFeature(featureId) {
 window.gaUpdateMapContextOwnAltitude = function (altitudeFt) {
   var _mapContextPopupLayer9, _state$content3, _state$content3$query;
   var state = mapContextInfoState;
-  if (!state || ((_mapContextPopupLayer9 = mapContextPopupLayer) === null || _mapContextPopupLayer9 === void 0 ? void 0 : _mapContextPopupLayer9._map) !== map) return;
+  if (!state || !state.sheetMode && ((_mapContextPopupLayer9 = mapContextPopupLayer) === null || _mapContextPopupLayer9 === void 0 ? void 0 : _mapContextPopupLayer9._map) !== map) return;
   var value = Number(altitudeFt);
   var hasValue = altitudeFt !== null && altitudeFt !== undefined && altitudeFt !== '';
   state.currentAltitudeFt = hasValue && Number.isFinite(value) && value >= 0 ? Math.round(value) : null;
@@ -1621,7 +1847,7 @@ window.gaUpdateMapContextOwnAltitude = function (altitudeFt) {
   marker.title = `${_mcT('Eigene Flughöhe')} · ${Math.round(nextBandData.currentAltitudeFt).toLocaleString(_mcLocale())} ft MSL`;
 };
 function openMapContextInfo(latlng) {
-  var _map$getContainer2, _map3;
+  var _mapContextPopupLayer0, _mapContextSheet2;
   var source = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 'longpress';
   if (!map || !latlng || !Number.isFinite(latlng.lat) || !Number.isFinite(latlng.lng)) return;
   var now = Date.now();
@@ -1633,6 +1859,12 @@ function openMapContextInfo(latlng) {
     lon: latlng.lng
   };
   mapContextSuppressClickUntil = now + 900;
+  var sheetMode = isMapContextSheetMode();
+  if (sheetMode && ((_mapContextPopupLayer0 = mapContextPopupLayer) === null || _mapContextPopupLayer0 === void 0 ? void 0 : _mapContextPopupLayer0._map) === map) map.closePopup(mapContextPopupLayer);
+  if (!sheetMode && (_mapContextSheet2 = mapContextSheet) !== null && _mapContextSheet2 !== void 0 && _mapContextSheet2.open) closeMapContextSheet({
+    restoreView: false,
+    fromDismiss: true
+  });
   mapContextRequestSeq += 1;
   var requestSeq = mapContextRequestSeq;
   clearMapContextPointLayer();
@@ -1660,7 +1892,8 @@ function openMapContextInfo(latlng) {
     selectedAirspaceId: '',
     selectedFeatureId: '',
     popupPositioned: false,
-    popupPositionScheduled: false
+    popupPositionScheduled: false,
+    sheetMode
   };
   mapContextInfoState = state;
   content.addEventListener('click', event => {
@@ -1686,27 +1919,33 @@ function openMapContextInfo(latlng) {
     interactive: false,
     className: 'ga-map-context-point'
   }).addTo(map);
-  if (!mapContextPopupLayer) {
-    mapContextPopupLayer = L.popup({
-      className: 'ga-map-context-popup',
-      minWidth: 248,
-      maxWidth: 500,
-      maxHeight: 680,
-      offset: [160, 190],
-      autoPan: false,
-      autoPanPadding: [18, 18]
-    });
+  if (sheetMode) {
+    openMapContextSheet(state);
+    renderMapContextInfoPopup(state);
+  } else {
+    var _map$getContainer5, _map7;
+    if (!mapContextPopupLayer) {
+      mapContextPopupLayer = L.popup({
+        className: 'ga-map-context-popup',
+        minWidth: 248,
+        maxWidth: 500,
+        maxHeight: 680,
+        offset: [160, 190],
+        autoPan: false,
+        autoPanPadding: [18, 18]
+      });
+    }
+    mapContextPopupLayer.setLatLng(state.latlng).setContent(content).openOn(map);
+    (_map$getContainer5 = (_map7 = map).getContainer) === null || _map$getContainer5 === void 0 || (_map$getContainer5 = _map$getContainer5.call(_map7)) === null || _map$getContainer5 === void 0 || _map$getContainer5.classList.add('ga-map-context-open');
+    renderMapContextInfoPopup(state);
+    window.setTimeout(() => {
+      var _mapContextPopupLayer1;
+      if (state !== mapContextInfoState || ((_mapContextPopupLayer1 = mapContextPopupLayer) === null || _mapContextPopupLayer1 === void 0 ? void 0 : _mapContextPopupLayer1._map) !== map) return;
+      state.popupPositioned = false;
+      state.popupPositionScheduled = false;
+      positionMapContextPopupBesideAnchor(state);
+    }, 800);
   }
-  mapContextPopupLayer.setLatLng(state.latlng).setContent(content).openOn(map);
-  (_map$getContainer2 = (_map3 = map).getContainer) === null || _map$getContainer2 === void 0 || (_map$getContainer2 = _map$getContainer2.call(_map3)) === null || _map$getContainer2 === void 0 || _map$getContainer2.classList.add('ga-map-context-open');
-  renderMapContextInfoPopup(state);
-  window.setTimeout(() => {
-    var _mapContextPopupLayer0;
-    if (state !== mapContextInfoState || ((_mapContextPopupLayer0 = mapContextPopupLayer) === null || _mapContextPopupLayer0 === void 0 ? void 0 : _mapContextPopupLayer0._map) !== map) return;
-    state.popupPositioned = false;
-    state.popupPositionScheduled = false;
-    positionMapContextPopupBesideAnchor(state);
-  }, 800);
   var settle = (section, value) => {
     if (!mapContextInfoState || mapContextInfoState.requestSeq !== requestSeq) return;
     state.loading[section] = false;
@@ -1744,8 +1983,8 @@ function refreshEfbContextPopupLayout() {
 window.addEventListener('resize', refreshEfbContextPopupLayout);
 window.addEventListener('ga-efb-layout-change', refreshEfbContextPopupLayout);
 window.gaMapContextPopupClosed = function (event) {
-  var _map$getContainer3;
+  var _map$getContainer6;
   if (event.popup !== mapContextPopupLayer) return;
   dismissMapContextInfo();
-  (_map$getContainer3 = map.getContainer()) === null || _map$getContainer3 === void 0 || _map$getContainer3.classList.remove('ga-map-context-open');
+  (_map$getContainer6 = map.getContainer()) === null || _map$getContainer6 === void 0 || _map$getContainer6.classList.remove('ga-map-context-open');
 };

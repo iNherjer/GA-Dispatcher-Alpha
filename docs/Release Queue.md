@@ -27,7 +27,11 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-### 2026-11-22 · EFB: „VFR Vektor (OSM)“ über die Desktop-App
+(leer)
+
+## Ausgeliefert
+
+### 2026-11-22 · EFB: „VFR Vektor (OSM)“ über die Desktop-App — ausgeliefert in Tracker v656 Alpha + Desktop 1.6.42 (22.11.2026)
 - **Artefakt:** Desktop-Installer **und** Tracker-EXE (Kachel-Proxy, HTTP-Server, EFB-Katalog/Host). Ohne neue Desktop-App bleibt der Eintrag im EFB unsichtbar; ohne neuen Tracker bleibt die Desktop-Neuerung ungenutzt.
 - **Dateien:** `ga-tracker-client/desktop/lib/vector-tile-renderer.js`, `desktop/lib/vector-render/*` (render.html, render-page.js, per Sync: maplibre-gl.js, MAPLIBRE-LICENSE.txt, vfr-vector.json), `desktop/main.js`, `desktop/lib/tracker-process.js`, `desktop/scripts/sync-audio-player.js`, `desktop/tests/vector-tile-renderer.test.js`, `ga-tracker-client/tracker-efb-tile-proxy.js`, `tracker-efb-http-server.js`, `tracker-efb-kartentisch-host.js`, `efb-app/map-shell-core.js` (+ Tests).
 - **Was:** Die Desktop-App zeichnet den Web-Stil „VFR Vektor (OSM)“ in einem unsichtbaren Offscreen-Fenster mit MapLibre/WebGL (eigene Session `vector-render`) in 4×4-Blöcken mit 256 px Rand und liefert 256-px-JPEG-Kacheln über einen Loopback-Server (Port/Token per Umgebung `VFR_MULTITOOL_MAP_RENDER_PORT/_TOKEN` an den Tracker, wie die Media-Bridge). Der Tracker holt sie als Kachelquelle `vfr-vector` (Zoom 3–16) mit Plattenspeicher; unvollständige Bilder (`no-store`) werden nicht gespeichert. `GET /api/v1/map-render/status` meldet `vfrVector`; das EFB listet „VFR Vektor (OSM, über Desktop-App)“ nur dann und fällt sonst auf Topo zurück. Fenster schließt nach 10 min ohne Abruf.
@@ -36,14 +40,12 @@ liefert alles Offene mit aus.
 - **Pruefen im Feld:** Windows-GPU/Offscreen-WebGL in der installierten Desktop-App, Darstellung und Ladezeit im EFB (2D/VR), RAM der Desktop-App.
 - **Nachtrag 22.11.2026 · Farben lokal im EFB:** Abschnitt „VFR Vektor: Farben“ im EFB-Kartenmenü (aufklappbar, nur mit Desktop-Dienst): Orte/Wald/Gewässer/Autobahn/Bundesstraße/Bahn per Farbfeld aus kleiner Palette (kein Farbwähler in Coherent), Deckkraft Orte/Wald, Relief, Schriftgröße per −/+, „Standardfarben“. Gespeichert in den EFB-Einstellungen des Geräts (`vectorStyle`, `efb-app/map-shell-core.js` normalizeVectorStyle/encodeVectorStyle); als `?s=` an der Kachel-URL, Tracker validiert und legt je Farbsatz einen eigenen Cache-Ordner `vfr-vector~<satz>` an, Desktop wendet die Farben wie die Web-App an (`gaVectorApplyStyle`).
 
-### 2026-11-20 · Hindernis-Cache gepackt (EFB-Kopie von profile.js)
+### 2026-11-20 · Hindernis-Cache gepackt (EFB-Kopie von profile.js) — ausgeliefert in Tracker v656 Alpha (22.11.2026)
 - **Artefakt:** Tracker (EFB-Web-Assets)
 - **Dateien:** `ga-tracker-client/efb-web-assets/profile.js` (Sync aus `profile.js`, Web v2481)
 - **Was:** Hindernis-Pool und Routen-Cache gzip-gepackt (`gz1:<ts>:<base64>`), synchrone Aufrufer lesen aus dem Speicher. Ohne `CompressionStream` (vermutlich Coherent im EFB) bleibt es ungepackt wie bisher.
 - **Tests:** `tracker-efb-asset-syntax.test.js`, `tracker-efb-web-client.test.js`.
 - **Pruefen im Feld:** EFB-Karte zeigt Hindernisse/Fluesse wie vorher.
-
-## Ausgeliefert
 
 ### 2026-11-20 · EFB: OSM-, OSM.de-, OSM-Swiss-, CyclOSM- und NASA-Karten — ausgeliefert in Tracker v655 Alpha (20.11.2026)
 - **Artefakt:** Tracker-EXE (EFB-Kartenkatalog, Host, Kachel-Proxy). Web live mit v2474.

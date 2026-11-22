@@ -995,6 +995,8 @@ function updateAutoFollowFromTelemetry(_ref1) {
     hdg = _ref1.hdg,
     now = _ref1.now,
     lowFpsMode = _ref1.lowFpsMode;
+  // The mobile "Was ist hier?" sheet freezes the map; following resumes once it closes.
+  if (window.gaMapContextSheetActive) return;
   if (isAutoFollow) {
     var autoFollowViewApplied = applyAutoFollowViewNow({
       sample: {

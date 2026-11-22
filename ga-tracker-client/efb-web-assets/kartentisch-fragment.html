@@ -326,9 +326,12 @@
     <div class="pinboard-scroll-area">
         <div class="maptable-content" style="flex-direction: column;">
             <div id="mapSideDrawer" class="map-side-drawer" aria-label="Kartenwerkzeuge">
-                <button id="mapSideDrawerHandle" class="map-side-drawer-handle" type="button" onclick="window.gaChecklistToggleDrawer && gaChecklistToggleDrawer()" aria-expanded="false" title="Kartenwerkzeuge">
-                    <span aria-hidden="true"></span>
-                </button>
+                <div id="mapSideDrawerTabs" class="map-side-drawer-tabs">
+                    <button id="mapSideDrawerHandle" class="map-side-drawer-handle" type="button" onclick="window.gaChecklistToggleDrawer && gaChecklistToggleDrawer()" aria-expanded="false" title="Kartenwerkzeuge">
+                        <span class="map-side-drawer-handle-lines" aria-hidden="true"></span>
+                        <span class="map-side-drawer-tab-label" data-i18n="cl.drawer.menuTab">Menü</span>
+                    </button>
+                </div>
                 <div class="map-side-drawer-panel">
                     <div class="map-side-drawer-head">
                         <div>
@@ -337,6 +340,7 @@
                         </div>
                         <div class="map-side-drawer-actions">
                             <button type="button" class="settings-help-btn map-side-help-btn" onclick="showSettingsHelp('map-side-drawer', event)" aria-label="Hilfe zu Seitenmenue und Checklisten" data-i18n-aria-label="map.drawer.help" aria-expanded="false">?</button>
+                            <button id="mapSideDrawerFav" class="map-side-drawer-pin map-side-drawer-fav" type="button" aria-label="Als Favorit an den Kartenrand" aria-pressed="false" title="Als Favorit an den Kartenrand" hidden>☆</button>
                             <button id="mapSideDrawerPin" class="map-side-drawer-pin" type="button" aria-label="Menü offen halten" aria-pressed="false" title="Menü offen halten">📌</button>
                             <button class="map-side-drawer-close" type="button" onclick="window.gaChecklistToggleDrawer && gaChecklistToggleDrawer(false)" title="Schließen" data-i18n-title="map.closeShort" data-i18n="map.closeShort">Schließen</button>
                         </div>
