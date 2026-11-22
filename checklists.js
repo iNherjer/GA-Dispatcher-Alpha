@@ -22,6 +22,8 @@
     const NEAREST_RADIUS_NM = 50;
     const NEAREST_MOVE_REFRESH_NM = 3;
     const PLACE_MAP_MODE_KEY = 'ga_route_tool_place_map_mode';
+    const DRAWER_FAVORITES_KEY = 'ga_map_drawer_favorites_v1';
+    const DRAWER_FAVORITES_MAX = 4;
     const COMMUNITY_POLL_INTERVAL_MS = 30 * 60 * 1000;
     const COMMUNITY_POLL_TIMER_MS = 60 * 1000;
     const COMMUNITY_POLL_LOCK_TTL_MS = 2 * 60 * 1000;
@@ -816,6 +818,150 @@
         pin.title = drawerPinned ? tx('cl.drawer.pinned', 'Menü bleibt offen') : tx('cl.drawer.pin', 'Menü offen halten');
     }
 
+    // Favourite menus: up to four extra tabs at the map edge below the main menu tab.
+    const DRAWER_FAVORITE_TOOLS = {
+        checklists: { icon: '✅', key: 'cl.drawer.fav.checklists', label: 'Checklist' },
+        mission: { icon: '🎯', key: 'cl.drawer.fav.mission', label: 'Mission' },
+        weather: { icon: '🌦️', key: 'cl.tool.weather', label: 'Wetter' },
+        radio: { icon: '📻', key: 'cl.drawer.fav.radio', label: 'Radio' },
+        warnings: { icon: '⚠️', key: 'cl.tool.warnings', label: 'Warnungen' },
+        place: { icon: '🛬', key: 'cl.tool.place', label: 'Platz' },
+        nearest: { icon: '📍', key: 'cl.drawer.fav.nearest', label: 'Nearest' },
+        cargo: { icon: 'LDG', key: 'cl.tool.cargo', label: 'Ladung', text: true }
+    };
+    const CHECKLIST_VIEWS = new Set(['list', 'viewer', 'editor', 'manager', 'import']);
+
+    function readDrawerFavorites() {
+        const raw = readJson(DRAWER_FAVORITES_KEY, []);
+        const list = Array.isArray(raw) ? raw : [];
+        const out = [];
+        list.forEach(id => {
+            if (DRAWER_FAVORITE_TOOLS[id] && out.indexOf(id) < 0 && out.length < DRAWER_FAVORITES_MAX) out.push(id);
+        });
+        return out;
+    }
+
+    function favoriteIdForView(view) {
+        if (CHECKLIST_VIEWS.has(view)) return 'checklists';
+        return DRAWER_FAVORITE_TOOLS[view] ? view : '';
+    }
+
+    function toggleDrawerFavorite(id) {
+        if (!DRAWER_FAVORITE_TOOLS[id]) return;
+        const list = readDrawerFavorites();
+        const index = list.indexOf(id);
+        if (index >= 0) {
+            list.splice(index, 1);
+        } else if (list.length >= DRAWER_FAVORITES_MAX) {
+            setStatus(tx('cl.drawer.favLimit', 'Maximal 4 Favoriten – erst einen anderen Stern lösen.'), 'warn');
+            return;
+        } else {
+            list.push(id);
+        }
+        writeJson(DRAWER_FAVORITES_KEY, list);
+        syncDrawerFavorites();
+        // Web: personal profile sync (field mapDrawerFavorites in sync.js).
+        if (!window.gaChecklistHost && typeof window.triggerCloudSave === 'function') {
+            try { window.triggerCloudSave(); } catch (_) {}
+        }
+    }
+
+    window.GAMapDrawerFavorites = {
+        list: () => readDrawerFavorites(),
+        forSync: () => {
+            const list = readDrawerFavorites();
+            return list.length ? list : null;
+        },
+        // Cloud data replaces the local choice without echoing a save.
+        replace: (list, source) => {
+            const next = [];
+            (Array.isArray(list) ? list : []).forEach(id => {
+                if (DRAWER_FAVORITE_TOOLS[id] && next.indexOf(id) < 0 && next.length < DRAWER_FAVORITES_MAX) next.push(id);
+            });
+            if (JSON.stringify(next) === JSON.stringify(readDrawerFavorites())) return false;
+            writeJson(DRAWER_FAVORITES_KEY, next);
+            syncDrawerFavorites();
+            return true;
+        }
+    };
+    window.addEventListener('storage', event => {
+        if (event.key === DRAWER_FAVORITES_KEY) syncDrawerFavorites();
+    });
+
+    function syncDrawerFavorites() {
+        const favorites = readDrawerFavorites();
+        const currentId = favoriteIdForView(state.view);
+        const open = isDrawerOpen();
+        const star = document.getElementById('mapSideDrawerFav');
+        if (star) {
+            const active = !!currentId && favorites.indexOf(currentId) >= 0;
+            star.hidden = !currentId;
+            star.textContent = active ? '★' : '☆';
+            star.classList.toggle('is-active', active);
+            star.setAttribute('aria-pressed', String(active));
+            const label = active
+                ? tx('cl.drawer.favRemove', 'Favorit vom Kartenrand entfernen')
+                : tx('cl.drawer.favAdd', 'Als Favorit an den Kartenrand');
+            star.title = label;
+            star.setAttribute('aria-label', label);
+        }
+        const tabs = document.getElementById('mapSideDrawerTabs');
+        if (!tabs) return;
+        tabs.querySelectorAll('.map-side-drawer-fav-tab').forEach(el => {
+            if (favorites.indexOf(el.dataset.favTool) < 0) el.remove();
+        });
+        favorites.forEach(id => {
+            const tool = DRAWER_FAVORITE_TOOLS[id];
+            let tab = tabs.querySelector(`.map-side-drawer-fav-tab[data-fav-tool="${id}"]`);
+            if (!tab) {
+                tab = document.createElement('button');
+                tab.type = 'button';
+                tab.className = 'map-side-drawer-handle map-side-drawer-fav-tab';
+                tab.dataset.favTool = id;
+                tab.innerHTML = `<span class="map-side-drawer-tab-icon${tool.text ? ' is-text' : ''}" aria-hidden="true"></span><span class="map-side-drawer-tab-label"></span>`;
+            }
+            tabs.appendChild(tab); // keeps the stored order below the main tab
+            const label = tx(tool.key, tool.label);
+            tab.querySelector('.map-side-drawer-tab-icon').textContent = tool.icon;
+            tab.querySelector('.map-side-drawer-tab-label').textContent = label;
+            tab.title = label;
+            tab.setAttribute('aria-label', label);
+            const isCurrent = open && currentId === id;
+            tab.classList.toggle('is-current', isCurrent);
+            tab.setAttribute('aria-pressed', String(isCurrent));
+        });
+        tabs.classList.toggle('has-favorites', favorites.length > 0);
+        positionDrawerTabs();
+    }
+
+    // The drawer reaches below the visible map (profile panel), so centre the tab
+    // stack on the visible map and let it shrink to that height.
+    function positionDrawerTabs() {
+        const tabs = document.getElementById('mapSideDrawerTabs');
+        const mapEl = document.getElementById('map');
+        if (!tabs || !drawerEl || !mapEl) return;
+        const drawerRect = drawerEl.getBoundingClientRect();
+        const mapRect = mapEl.getBoundingClientRect();
+        const top = Math.max(drawerRect.top, mapRect.top);
+        const bottom = Math.min(drawerRect.bottom, mapRect.bottom);
+        if (!(bottom - top > 120)) {
+            tabs.style.top = '';
+            tabs.style.maxHeight = '';
+            return;
+        }
+        tabs.style.top = `${Math.round((top + bottom) / 2 - drawerRect.top)}px`;
+        tabs.style.maxHeight = `${Math.round(bottom - top - 16)}px`;
+    }
+
+    function openDrawerFavorite(id) {
+        if (!DRAWER_FAVORITE_TOOLS[id]) return;
+        if (isDrawerOpen() && favoriteIdForView(state.view) === id) {
+            setDrawerOpen(false);
+            return;
+        }
+        window.gaChecklistOpen(id);
+    }
+
     function setDrawerOpen(open) {
         if (!drawerEl) return;
         if (!open) closeExpandedPlaceMap();
@@ -824,6 +970,7 @@
         if (!isDrawerOpen() || !open) drawerPinned = false;
         drawerEl.classList.toggle('is-open', !!open);
         syncDrawerPin();
+        syncDrawerFavorites();
         resetDrawerIdleTimer();
         if (open && typeof window.gaBringMapOverlayToFront === 'function') {
             window.gaBringMapOverlayToFront(drawerEl);
@@ -903,6 +1050,7 @@
                 button.title = tx('cl.efb.actionNotAvailable', 'Diese Aktion ist im EFB noch nicht verfügbar.');
             });
         }
+        syncDrawerFavorites();
     }
 
     function renderHome() {
@@ -5038,6 +5186,21 @@ ${routeLines}`;
             syncDrawerPin();
             resetDrawerIdleTimer();
         });
+        const star = document.getElementById('mapSideDrawerFav');
+        if (star) star.addEventListener('click', () => {
+            toggleDrawerFavorite(favoriteIdForView(state.view));
+            resetDrawerIdleTimer();
+        });
+        const tabs = document.getElementById('mapSideDrawerTabs');
+        if (tabs) tabs.addEventListener('click', event => {
+            const tab = event.target.closest('.map-side-drawer-fav-tab');
+            if (tab) openDrawerFavorite(tab.dataset.favTool);
+        });
+        const mapEl = document.getElementById('map');
+        if (tabs && mapEl && typeof ResizeObserver === 'function') {
+            new ResizeObserver(() => positionDrawerTabs()).observe(mapEl);
+        }
+        window.addEventListener('resize', positionDrawerTabs);
         bodyEl.addEventListener('click', handleClick);
         bodyEl.addEventListener('input', handleInput);
         bodyEl.addEventListener('change', handleChange);
@@ -5144,7 +5307,7 @@ ${routeLines}`;
     // Language switch (web): redraw the open drawer. gaChecklistRefresh skips editor and import,
     // so typed text is never lost.
     if (window.GAI18n && typeof window.GAI18n.onChange === 'function') {
-        window.GAI18n.onChange(() => { try { window.gaChecklistRefresh(); } catch (_) {} });
+        window.GAI18n.onChange(() => { try { window.gaChecklistRefresh(); syncDrawerFavorites(); } catch (_) {} });
     }
 
     document.addEventListener('DOMContentLoaded', init);

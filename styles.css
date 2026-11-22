@@ -3470,58 +3470,105 @@ body.theme-retro .api-fuel-meter .api-scale {
     pointer-events: auto;
 }
 
-.map-side-drawer-handle {
+/* Map-edge tabs: "Menü" on top, up to four favourite menus below, centred as a stack. */
+.map-side-drawer-tabs {
     position: absolute;
     top: 50%;
     right: 0;
-    width: var(--checklist-handle-hit);
-    height: 88px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+    max-height: calc(100% - 16px);
     transform: translate3d(0, -50%, 0);
-    border: 0;
-    background: transparent;
-    color: var(--drawer-accent);
-    cursor: pointer;
-    pointer-events: auto;
-    padding: 0;
-    transition: right var(--drawer-duration) var(--drawer-ease),
-        color 160ms ease;
+    pointer-events: none;
+    transition: right var(--drawer-duration) var(--drawer-ease);
 }
 
-.map-side-drawer.is-open .map-side-drawer-handle {
+.map-side-drawer.is-open .map-side-drawer-tabs {
     right: var(--checklist-panel-width);
-    color: var(--drawer-heading);
 }
 
-.map-side-drawer-handle::before {
-    content: '';
-    position: absolute;
-    top: 18px;
-    right: 0;
-    width: 18px;
-    height: 52px;
+.map-side-drawer-handle {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 6px;
+    flex: 0 1 auto;
+    min-height: 44px;
+    width: 34px;
+    box-sizing: border-box;
+    padding: 9px 0 10px;
     border: 1px solid var(--drawer-border-soft);
     border-right: 0;
-    border-radius: 8px 0 0 8px;
+    border-radius: 10px 0 0 10px;
     background: var(--drawer-panel-bg);
+    color: var(--drawer-accent);
     box-shadow: -7px 0 16px rgba(0, 0, 0, 0.28);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
+    cursor: pointer;
+    pointer-events: auto;
+    overflow: hidden;
+    transition: color 160ms ease, background 160ms ease;
 }
 
-.map-side-drawer.is-open .map-side-drawer-handle::before {
+/* Wider invisible touch target to the left of each tab. */
+.map-side-drawer-handle::after {
+    content: '';
+    position: absolute;
+    top: -4px;
+    bottom: -4px;
+    left: -10px;
+    width: 10px;
+}
+
+.map-side-drawer.is-open #mapSideDrawerHandle,
+.map-side-drawer.is-open .map-side-drawer-fav-tab.is-current {
+    color: var(--drawer-heading);
     background: color-mix(in srgb, var(--drawer-accent) 22%, var(--drawer-panel-bg));
 }
 
-.map-side-drawer-handle span {
-    position: absolute;
-    top: 50%;
-    right: 5px;
+.map-side-drawer-handle-lines {
+    position: relative;
     display: block;
-    width: 7px;
+    flex: 0 0 auto;
+    width: 14px;
     height: 2px;
+    margin: 7px 0;
     background: currentColor;
     border-radius: 2px;
-    box-shadow: 0 -7px 0 currentColor, 0 7px 0 currentColor;
+    box-shadow: 0 -6px 0 currentColor, 0 6px 0 currentColor;
+}
+
+/* Rotated 90°: reads from top to bottom. */
+.map-side-drawer-tab-label {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    font: 700 12px/1 var(--drawer-font);
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+    min-height: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--drawer-heading);
+}
+
+.map-side-drawer-tab-icon {
+    flex: 0 0 auto;
+    font-size: 17px;
+    line-height: 1;
+}
+
+.map-side-drawer-tab-icon.is-text {
+    font: 700 9px/1 var(--drawer-font-mono);
+    letter-spacing: 0.02em;
+}
+
+.map-side-drawer-fav-tab {
+    color: var(--drawer-accent-2);
 }
 
 .map-side-drawer-head {
@@ -5753,7 +5800,7 @@ body.theme-ops1940 .route-weather-source {
     }
 
     .map-side-drawer-handle {
-        height: 82px;
+        width: 32px;
     }
 
     .checklist-tool-tile {
@@ -21197,6 +21244,9 @@ body.theme-win95 .mission-accept-btn:focus-visible { outline: 1px dotted #000; o
     background: var(--drawer-surface-strong); color: var(--drawer-heading); font-size: 18px;
 }
 .map-side-drawer-pin.is-active { background: var(--drawer-accent); color: #101820; }
+.map-side-drawer-fav { color: var(--drawer-accent-2); font-size: 21px; }
+.map-side-drawer-fav.is-active { background: var(--drawer-surface-strong); color: #ffd35a; border-color: #ffd35a; }
+.map-side-drawer-fav[hidden] { display: none; }
 .route-tool-nearest-main > span:first-child { flex: 1 1 auto; min-width: 0; }
 .route-tool-nearest-details { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 6px 12px; margin-top: 6px; font-size: 20px; line-height: 1.4; }
 .route-tool-nearest-runways { flex: 1 1 140px; min-width: 0; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }

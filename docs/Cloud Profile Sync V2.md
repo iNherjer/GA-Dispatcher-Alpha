@@ -381,3 +381,12 @@ Aktivierung: Der Tracker beendet einen laufenden Lauf und lädt die Mission neu 
 Vermerk (außer `clear` nach abgeschlossenem Flug) und lässt laufende Flüge unberührt. Bewusst beibehalten als
 Rettungsweg, wenn sich etwas verschluckt hat; die Bestätigung warnt jetzt, wenn gerade eine Mission läuft (Tracker
 meldet einen begonnenen Lauf oder ein gemerkter Lauf passt zur aktiven Mission).
+
+## Seitenmenü-Favoriten (22.11.2026)
+
+Profilfeld `mapDrawerFavorites`: bis zu 4 Untermenüs des Kartenseitenmenüs (`checklists.js`, Stern neben der
+Stecknadel), die als eigene Reiter unter „Menü“ am Kartenrand stehen. Lokal `ga_map_drawer_favorites_v1`, Liste
+von IDs (`checklists`, `mission`, `weather`, `radio`, `warnings`, `place`, `nearest`, `cargo`) in gesetzter Reihenfolge.
+Feldweise zusammengeführt wie `favoriteAirports` (in `SYNC_MERGE_FIELDS`). `null` heißt keine Favoriten (kein
+Upload für Profile ohne Favoriten); ein Cloud-Profil ohne das Feld lässt die lokale Wahl unberührt. Nur Web; das
+EFB (`gaChecklistHost`) speichert lokal und löst keinen Upload aus.
