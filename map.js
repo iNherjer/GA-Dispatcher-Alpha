@@ -8030,7 +8030,7 @@ function getOpenAipPayloadRenderToken(payload) {
 }
 
 function renderOpenAipAirspaces(airspaces, layer) {
-    const relevantTypes = new Set([0, 1, 2, 3, 4, 5, 6, 7, 26, 27, 28, 33]);
+    const relevantTypes = new Set(window.gaOpenAipOverlayStyle ? window.gaOpenAipOverlayStyle.RENDERED_TYPES : [0, 1, 2, 3, 4, 5, 6, 7, 26, 27, 28, 33]);
     const seenAirspaceIds = new Set();
     const nextLayers = [];
     airspaces.forEach((airspace, index) => {
@@ -8052,6 +8052,11 @@ function renderOpenAipAirspaces(airspaces, layer) {
                 .map((p) => [Number(p[1]), Number(p[0])])
                 .filter((p) => Number.isFinite(p[0]) && Number.isFinite(p[1]));
             if (latlngs.length < 3) return;
+            // Outline plus optional inner border band (map-aviation-overlay-style.js).
+            if (window.gaOpenAipOverlayStyle) {
+                nextLayers.push(...window.gaOpenAipOverlayStyle.airspaceLayers(L, latlngs, style, GA_MAP_OVERLAY_PANES.localAviation.name, tooltip));
+                return;
+            }
             const polygonLayer = L.polygon(latlngs, {
                 pane: GA_MAP_OVERLAY_PANES.localAviation.name,
                 color: style.color,
@@ -8069,7 +8074,10 @@ function renderOpenAipAirspaces(airspaces, layer) {
     // Erst nach vollständig erfolgreichem Aufbau austauschen. Ein beschädigtes
     // Polygon oder ein Renderfehler darf den letzten gültigen Layer nicht leeren.
     layer.clearLayers();
+    layer._gaLabels = [];
     nextLayers.forEach(polygonLayer => polygonLayer.addTo(layer));
+    layer._gaAirspaces = airspaces;
+    window.gaOpenAipOverlayStyle?.updateAirspaceLabels(L, map, layer, airspaces, GA_MAP_OVERLAY_PANES.localAviation.name);
     return nextLayers.length;
 }
 
@@ -8699,6 +8707,10 @@ function initMapBase() {
     let openAipOverlayFetchTimeout = null;
     let openAipRegionFetchTimeout = null;
     map.on('moveend', function () {
+        // Airspace labels follow the view (size filter and anchors depend on zoom).
+        if (openAipAirspaceLayer?._gaAirspaces && isOpenAipOverlayEnabled()) {
+            window.gaOpenAipOverlayStyle?.updateAirspaceLabels(L, map, openAipAirspaceLayer, openAipAirspaceLayer._gaAirspaces, GA_MAP_OVERLAY_PANES.localAviation.name);
+        }
         scheduleAirportTooltipRender();
         if (snapMode) void ensureGlobalAirportsForMapClicks();
         if (isOpenAipRegionMode()) {
