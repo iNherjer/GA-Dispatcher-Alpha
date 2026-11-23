@@ -33,7 +33,7 @@ liefert alles Offene mit aus.
 
 ### 2026-11-23 · Routen-Höhenband und Vektorkarte – Tracker v657 Alpha und Desktop 1.6.43 Alpha
 
-- **Artefakte:** Tracker-EXE (EFB-Assets 65701), Desktop-Installer für den manuellen Alpha-Feldtest und Web v2508.
+- **Artefakte:** Tracker-EXE (EFB-Assets 65701), Desktop-Installer mit Freigabe über den gemeinsamen Autoupdater und Web v2508.
 - **Änderungen:** Statische Wolkenbasis bei normaler Profilrate. Das Desktop-Renderfenster schließt nach dem Wechsel der letzten Vektoransicht, sobald die laufenden Aufträge fertig sind.
 - **Im Feld prüfen:** Simulator-FPS mit sichtbarer Wolkenbasis sowie Fensterschluss und RAM nach Kartenwechsel auf Windows.
 - **Details:** [Tracker v657](Tracker-v657-Release.md), [Desktop 1.6.43](Tracker-Desktop-1.6.43-Release.md).

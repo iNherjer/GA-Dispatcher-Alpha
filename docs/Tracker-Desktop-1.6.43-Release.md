@@ -4,7 +4,7 @@
   wenn alle aktiven Cockpit-Ansichten eine andere Basiskarte gewählt haben.
 - Die normale Leerlaufzeit beträgt zehn Minuten. Der Leerlauf-Timer pausiert
   bei einem laufenden Auftrag. Fertige JPEG-Kacheln bleiben im Cache.
-- Der Alpha-Installer ist für den manuellen Feldtest vorgesehen.
+- Desktop 1.6.43 ist über den gemeinsamen Desktop-Autoupdater verfügbar.
 
 ## Tests
 
@@ -21,5 +21,6 @@ den Wechsel von der Vektorkarte auf eine andere Basiskarte prüfen.
   aus Commit `4dad33ba3`. NSIS-Installer für Windows x64 mit 100567263 Bytes.
 - SHA-256 `10971d8d4441f638ac48523833fb943d1080145454e67d354178c513c8226c41`.
 - Öffentliche Downloads von Installer, Blockmap und Update-Metadaten bytegenau
-  geprüft. Der manuelle Download ist für den Alpha-Feldtest verfügbar.
-- Installation und Laufzeit auf Windows stehen als Feldtest aus.
+  geprüft. Der gemeinsame Autoupdate-Zeiger verweist auf denselben Installer.
+- Der allgemeine Rollout wurde am 23.11.2026 ausdrücklich freigegeben.
+  Windows-Installation, Start und Update stehen als Feldtest aus.
