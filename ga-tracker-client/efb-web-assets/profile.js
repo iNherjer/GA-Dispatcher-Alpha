@@ -10040,6 +10040,8 @@ function vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, isDarkTheme, elev
     var x = Math.sin(s) * 10000;
     return x - Math.floor(x);
   };
+  // Keep the Classic cloud shapes in Coherent without blurring each puff.
+  var drawCloudShadows = !window.GAEfbUiScale && !(typeof vpDraggingWP !== 'undefined' && vpDraggingWP >= 0) && !(typeof vpDraggingSegment !== 'undefined' && vpDraggingSegment) && !(typeof vpResizeActive !== 'undefined' && vpResizeActive) && window.vpUIInteractionActive !== true && window.vpIsFastRendering !== true;
   ctx.save();
   var _loop = function _loop(i) {
     var zone = vpWeatherData[i];
@@ -10100,6 +10102,10 @@ function vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, isDarkTheme, elev
         var maxR = Math.max(2, Math.min(maxRadiusY, maxRadiusX)) * radiusMult;
         var seedBase = i * 100 + cIdx * 10;
         ctx.save();
+        if (!drawCloudShadows) {
+          ctx.shadowColor = 'transparent';
+          ctx.shadowBlur = 0;
+        }
         ctx.beginPath();
         ctx.rect(startX - 2000, 0, width + 4000, baseY);
         ctx.clip();
@@ -10128,15 +10134,9 @@ function vpDrawClouds(ctx, xOf, yOf, padTop, plotH, totalDist, isDarkTheme, elev
           ctx.beginPath();
           ctx.arc(px, py, pr, 0, Math.PI * 2);
           ctx.fillStyle = `rgba(${cVal},${cVal},${cVal},${alpha})`;
-
-          // Performance-Fix: Weiche Ränder deaktivieren, während UI-Interaktion ODER Fast-Render-Modus aktiv ist!
-          var isDragging = typeof vpDraggingWP !== 'undefined' && vpDraggingWP >= 0 || typeof vpDraggingSegment !== 'undefined' && !!vpDraggingSegment || typeof vpResizeActive !== 'undefined' && vpResizeActive || window.vpUIInteractionActive === true || window.vpIsFastRendering === true;
-          if (!isDragging) {
+          if (drawCloudShadows) {
             ctx.shadowColor = `rgba(${cVal},${cVal},${cVal},${alpha})`;
             ctx.shadowBlur = 4 + prRand * 8;
-          } else {
-            ctx.shadowColor = 'transparent';
-            ctx.shadowBlur = 0;
           }
           ctx.fill();
         }

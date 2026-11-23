@@ -31,6 +31,13 @@ liefert alles Offene mit aus.
 
 ## Ausgeliefert
 
+### 2026-11-23 · Classic-Wolken im EFB ohne weiche Schatten – Tracker v658 Alpha
+
+- **Artefakte:** Tracker-EXE mit EFB-Assets 65801, Web-Cache v2509.
+- **Änderung:** Classic zeichnet seine Wolkenformen im EFB ohne weiche Canvas-Schatten pro Element.
+- **Im Feld prüfen:** Im selben Simulator-Menü mit identischer Wetterlage Classic und Abstrakt bei sichtbaren Wolken vergleichen.
+- **Details:** [Tracker v658](Tracker-v658-Release.md).
+
 ### 2026-11-23 · Routen-Höhenband und Vektorkarte – Tracker v657 Alpha und Desktop 1.6.43 Alpha
 
 - **Artefakte:** Tracker-EXE (EFB-Assets 65701), Desktop-Installer mit Freigabe über den gemeinsamen Autoupdater und Web v2508.

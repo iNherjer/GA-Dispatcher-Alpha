@@ -3,7 +3,11 @@
 Die gemeinsame Profilquelle zeichnet die Wolkenbasis im statischen Hintergrund.
 Die höhere Profil-Zeichenrate und der animierte Wetter-Layer werden nur bei
 animierbarem Regen, Schnee oder Gewitter aktiv. Der Abgleich der Simulator-FPS
-mit dem Alpha-Feldtest bleibt offen.
+im Alpha-Feldtest ergab bei sichtbaren Wolken etwa 25 FPS im Wetterstil
+Classic und etwa 60 FPS in Abstrakt. Tracker v658 Alpha deaktiviert den
+weichen Canvas-Schatten pro Wolkenelement in Classic im EFB. Wolkenbasis und
+Classic-Geometrie bleiben erhalten. Ob der Schattenpfad den Unterschied
+erklärt, wird mit EFB-Assetrevision 65801 im Simulator geprüft.
 
 Beim Wechsel von „VFR Vektor (OSM)“ auf eine andere Basiskarte meldet der
 Kartentisch die Layer-Auswahl über seine authentifizierte Cockpit-Sitzung.
