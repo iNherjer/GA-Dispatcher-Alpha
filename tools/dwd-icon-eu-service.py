@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Loopback JSON adapter for the DWD ICON-EU regular latitude/longitude grid."""
+"""JSON adapter for the native DWD ICON-EU grid."""
 
 import argparse
-import bz2
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from functools import partial
@@ -33,21 +32,19 @@ try:
 except (ImportError, OSError):
     ec = np = None
 
-BASE = "https://opendata.dwd.de/weather/nwp/icon-eu/grib"
+BASE = "https://opendata.dwd.de/weather/nwp/v1/m/icon-eu/p"
 UTC = timezone.utc
 LEVELS = (1000, 950, 925, 900, 875, 850, 825, 800, 775, 700, 600, 500, 400)
 PROFILE = tuple((key, level) for level in LEVELS for key in ("clc", "fi", "t", "u", "v"))
 PROFILE_SURFACE = (("ww", None), ("t_2m", None))
 SURFACE = tuple((key, None) for key in (
-    "clcl", "clcm", "clch", "clct", "u_10m", "v_10m", "pmsl", "ceiling", "vis", "hsurf"
+    "clcl", "clcm", "clch", "clct", "u_10m", "v_10m", "pmsl", "ceiling", "hsurf"
 ))
 GRID = {
-    "gridType": "regular_ll", "Ni": 1377, "Nj": 657,
-    "latitudeOfFirstGridPointInDegrees": 29.5, "longitudeOfFirstGridPointInDegrees": 336.5,
-    "iDirectionIncrementInDegrees": 0.0625, "jDirectionIncrementInDegrees": 0.0625,
-    "iScansNegatively": 0, "jScansPositively": 1, "jPointsAreConsecutive": 0,
-    "alternativeRowScanning": 0,
+    "gridType": "unstructured_grid", "numberOfDataPoints": 768608,
+    "uuidOfHGrid": "832c1507fbc73eb384139890094d2c60",
 }
+CONSTANT_FIELDS = {"hsurf", "clat", "clon"}
 FT_PER_M = 3.280839895
 KT_PER_MS = 3600 / 1852
 CACHE_HOURS = 4
@@ -60,26 +57,13 @@ class PrefetchDeferred(Exception):
 
 def url_for(run, valid, field):
     key, level = field
-    step = (valid - run) // timedelta(hours=1)
-    if key == "hsurf":
-        name = f"icon-eu_europe_regular-lat-lon_time-invariant_{run:%Y%m%d%H}_HSURF"
-    else:
-        suffix = f"_{level}" if level else ""
-        kind = "pressure-level" if level else "single-level"
-        name = f"icon-eu_europe_regular-lat-lon_{kind}_{run:%Y%m%d%H}_{step:03d}{suffix}_{key.upper()}"
-    return f"{BASE}/{run:%H}/{key}/{name}.grib2.bz2"
-
-
-def grid_index(lat, lon):
-    if not (29.5 <= lat <= 70.5 and -23.5 <= lon <= 62.5):
-        return None
-    row = round((lat - 29.5) * 16)
-    col = round((lon + 23.5) * 16)
-    return row * GRID["Ni"] + col
+    step = 0 if key in CONSTANT_FIELDS else (valid - run) // timedelta(hours=1)
+    pressure = f"/lvt1/100/lv1/{level * 100}" if level is not None else ""
+    return f"{BASE}/{key.upper()}{pressure}/r/{run:%Y-%m-%dT%H}%3A00/s/PT{step:03d}H00M.grib2"
 
 
 def decode_field(body, run, valid, field):
-    gid = ec.codes_new_from_message(bz2.decompress(body))
+    gid = ec.codes_new_from_message(body)
     try:
         if any(ec.codes_get(gid, key) != value for key, value in GRID.items()):
             raise ValueError("Unexpected ICON-EU grid")
@@ -87,7 +71,7 @@ def decode_field(body, run, valid, field):
         hour = ec.codes_get(gid, "dataTime")
         if date != int(run.strftime("%Y%m%d")) or hour != run.hour * 100:
             raise ValueError("Unexpected ICON-EU run")
-        if field[0] != "hsurf":
+        if field[0] not in CONSTANT_FIELDS:
             valid_date = ec.codes_get(gid, "validityDate")
             valid_time = ec.codes_get(gid, "validityTime")
             if valid_date != int(valid.strftime("%Y%m%d")) or valid_time != valid.hour * 100:
@@ -118,7 +102,7 @@ def model_sample(lat, lon, fields, profile):
         "cloudLowPct": scalar(fields["clcl", None]), "cloudMidPct": scalar(fields["clcm", None]),
         "cloudHighPct": scalar(fields["clch", None]), "cloudTotalPct": scalar(fields["clct", None]),
         "wspd": speed, "wdir": direction, "mslPressureHpa": scalar(fields["pmsl", None], 0.01),
-        "visibilityM": scalar(fields["vis", None]),
+        "visibilityM": None,
         "ceilingMslM": scalar(fields["ceiling", None]),
         "modelTerrainMslM": scalar(fields["hsurf", None]),
         "weatherCode": scalar(fields.get(("ww", None), np.nan)),
@@ -139,6 +123,8 @@ class IconEu:
         self.cache.mkdir(parents=True, exist_ok=True)
         self.lock = threading.Lock()
         self.prefetch_lock = threading.Lock()
+        self.grid_lock = threading.Lock()
+        self.grid = None
         self.warming_folder = None
         self.pool = ThreadPoolExecutor(max_workers=8)
         self.choice = None
@@ -153,7 +139,7 @@ class IconEu:
         for hours_back in (0, 3, 6, 9):
             run = candidate - timedelta(hours=hours_back)
             try:
-                for field in (("fi", LEVELS[-1]), ("vis", None), ("hsurf", None)):
+                for field in (("fi", LEVELS[-1]), ("pmsl", None), ("hsurf", None)):
                     req = Request(url_for(run, valid, field), method="HEAD")
                     with urlopen(req, timeout=8):
                         pass
@@ -165,15 +151,41 @@ class IconEu:
                 return run
         raise ValueError("No published ICON-EU run for forecast hour")
 
+    def download_field(self, run, valid, field):
+        with urlopen(url_for(run, valid, field), timeout=20) as response:
+            body = response.read(8 * 1024 * 1024 + 1)
+        if len(body) > 8 * 1024 * 1024:
+            raise ValueError("ICON-EU field exceeded size limit")
+        return decode_field(body, run, valid, field)
+
+    def point_indices(self, run, points):
+        with self.grid_lock:
+            if self.grid is None:
+                lat = self.download_field(run, run, ("clat", None))
+                lon = self.download_field(run, run, ("clon", None))
+                order = np.argsort(lat).astype(np.int32)
+                self.grid = lat[order], lon[order], order
+        latitudes, longitudes, order = self.grid
+        indices = []
+        # Only use nearby grid cells. Points outside the native nest must not
+        # inherit distant weather from the closest boundary cell.
+        for lat, lon in points:
+            lo, hi = latitudes.searchsorted([lat - 0.15, lat + 0.15])
+            nearest = -1
+            if lo < hi:
+                distance = ((latitudes[lo:hi] - lat) ** 2 +
+                            ((longitudes[lo:hi] - lon) * math.cos(math.radians(lat))) ** 2)
+                offset = np.argmin(distance)
+                if distance[offset] < 0.15 ** 2:
+                    nearest = order[lo + offset]
+            indices.append(nearest)
+        return indices
+
     def field(self, folder, run, valid, field):
         key, level = field
         target = folder / f"{key}-{level or 'surface'}.npy"
         if not target.exists():
-            with urlopen(url_for(run, valid, field), timeout=20) as response:
-                body = response.read(8 * 1024 * 1024 + 1)
-            if len(body) > 8 * 1024 * 1024:
-                raise ValueError("ICON-EU field exceeded size limit")
-            data = decode_field(body, run, valid, field)
+            data = self.download_field(run, valid, field)
             with tempfile.NamedTemporaryFile(dir=folder, suffix=".pending", delete=False) as stream:
                 pending = Path(stream.name)
                 try:
@@ -189,7 +201,7 @@ class IconEu:
         oldest_term = (datetime.now(UTC) - timedelta(hours=3)).strftime("%Y%m%d%H")
         protected = {keep, self.warming_folder} - {None}
         entries = []
-        for folder in self.cache.glob("v1-*-*"):
+        for folder in self.cache.glob("v[12]-*-*"):
             if not folder.is_dir() or folder.is_symlink() or folder in protected:
                 continue
             try:
@@ -223,7 +235,7 @@ class IconEu:
             stop.wait(60)
 
     def prepare_snapshot(self, run, valid):
-        folder = self.cache / f"v1-{valid:%Y%m%d%H}-{run:%Y%m%d%H}"
+        folder = self.cache / f"v2-{valid:%Y%m%d%H}-{run:%Y%m%d%H}"
         lease_path = folder / ".lease"
         while True:
             folder.mkdir(exist_ok=True)
@@ -259,7 +271,7 @@ class IconEu:
                 return np.full(len(indices), np.nan)
             raise
 
-    def prefetch(self, valid, fields, indices, cancelled):
+    def prefetch(self, valid, fields, points, cancelled):
         if not self.prefetch_lock.acquire(blocking=False):
             raise PrefetchDeferred()
         lease = None
@@ -267,6 +279,9 @@ class IconEu:
             if self.lock.locked() or cancelled() or time.monotonic() < self.retry_after:
                 raise PrefetchDeferred()
             run = self.choose(valid)
+            indices = self.point_indices(run, points)
+            if max(indices) < 0:
+                return run, {}, indices
             if not self.lock.acquire(blocking=False):
                 raise PrefetchDeferred()
             try:
@@ -281,7 +296,7 @@ class IconEu:
                 if self.lock.locked() or cancelled():
                     raise PrefetchDeferred()
                 vectors[field] = self.sample_field(self.warming_folder, run, valid, field, indices)
-            return run, vectors
+            return run, vectors, indices
         finally:
             if lease is not None:
                 lease.close()
@@ -290,29 +305,33 @@ class IconEu:
 
     def query(self, points, profile, valid=None, prefetch=False, cancelled=lambda: False):
         valid = valid or datetime.now(UTC).replace(minute=0, second=0, microsecond=0)
-        locations = [(i, grid_index(lat, lon)) for i, (lat, lon) in enumerate(points)]
-        locations = [(i, index) for i, index in locations if index is not None]
+        locations = [i for i, (lat, lon) in enumerate(points) if 24 <= lat <= 72 and -26 <= lon <= 65]
         samples = [None] * len(points)
         if not locations:
             return {"source": "dwd-icon-eu", "runAt": None, "validAt": None, "samples": samples}
-        indices = [index for _, index in locations]
+        candidates = [points[i] for i in locations]
         fields = SURFACE + (PROFILE + PROFILE_SURFACE if profile else ())
         if prefetch:
-            run, vectors = self.prefetch(valid, fields, indices, cancelled)
+            run, vectors, indices = self.prefetch(valid, fields, candidates, cancelled)
         else:
-            run, vectors = self.query_foreground(valid, fields, indices)
-        for row, (i, _) in enumerate(locations):
+            run, vectors, indices = self.query_foreground(valid, fields, candidates)
+        for row, (i, index) in enumerate(zip(locations, indices)):
+            if index < 0:
+                continue
             values = {field: column[row] for field, column in vectors.items()}
             samples[i] = model_sample(*points[i], values, profile)
         return {"source": "dwd-icon-eu", "runAt": int(run.timestamp()) * 1000,
                 "validAt": int(valid.timestamp()) * 1000, "samples": samples}
 
-    def query_foreground(self, valid, fields, indices):
+    def query_foreground(self, valid, fields, points):
         with self.lock:
             if time.monotonic() < self.retry_after:
                 raise ValueError("ICON-EU download cooling down")
             try:
                 run = self.choose(valid)
+                indices = self.point_indices(run, points)
+                if max(indices) < 0:
+                    return run, {}, indices
                 folder, lease = self.prepare_snapshot(run, valid)
                 with lease:
                     futures = {field: self.pool.submit(self.sample_field, folder, run, valid, field, indices)
@@ -330,7 +349,7 @@ class IconEu:
                 self.retry_after = time.monotonic() + 60
                 self.choice = None
                 raise
-        return run, vectors
+        return run, vectors, indices
 
 
 class LocalWeatherServer(ThreadingHTTPServer):
@@ -339,6 +358,14 @@ class LocalWeatherServer(ThreadingHTTPServer):
 
 
 class Handler(SimpleHTTPRequestHandler):
+    def end_headers(self):
+        if self.server.allowed_origins and urlsplit(self.path).path == "/api/dwd-icon-eu":
+            self.send_header("Vary", "Origin")
+            origin = self.headers.get("Origin")
+            if origin in self.server.allowed_origins:
+                self.send_header("Access-Control-Allow-Origin", origin)
+        super().end_headers()
+
     def do_GET(self):
         url = urlsplit(self.path)
         if url.path != "/api/dwd-icon-eu":
@@ -438,8 +465,14 @@ def main():
     parser.add_argument("--port", default=54582, type=int)
     parser.add_argument("--bind", default="127.0.0.1")
     parser.add_argument("--web-root", type=Path)
+    parser.add_argument("--allow-origin", action="append", default=[], metavar="HTTPS_ORIGIN",
+                        help="Browser origin allowed to read the API from a different HTTPS site")
     parser.add_argument("--cache-dir", type=Path, default=Path(tempfile.gettempdir()) / "ga-dwd-icon-eu")
     args = parser.parse_args()
+    for origin in args.allow_origin:
+        parsed = urlsplit(origin)
+        if parsed.scheme != "https" or not parsed.hostname or parsed.username is not None or origin != f"https://{parsed.netloc}":
+            parser.error("--allow-origin requires an HTTPS origin without a path, query or fragment")
     if ec is None and args.web_root is None:
         parser.error("DWD ICON-EU requires eccodes and numpy")
     if args.web_root:
@@ -449,6 +482,7 @@ def main():
     handler = partial(Handler, directory=args.web_root)
     with LocalWeatherServer((args.bind, args.port), handler) as server:
         server.web_root = args.web_root
+        server.allowed_origins = frozenset(args.allow_origin)
         server.icon = IconEu(args.cache_dir) if ec is not None else None
         stop = threading.Event()
         if server.icon:

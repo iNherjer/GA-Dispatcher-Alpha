@@ -31,8 +31,11 @@ bis zu zwei Stunden nach Abruf erneut genutzt werden. Der vorhandene
 
 „DWD ICON-EU“ steht im lokalen Web-Kandidaten separat als Quelle für
 Höhenband und Kartenwetter zur Verfügung. Der Adapter
-`tools/dwd-icon-eu-service.py` liefert entlang der Route 13 Druckstufen und
-für das Kartenraster Wolkenbedeckung je Schicht sowie 10-m-Wind. Laufzeit und
+`tools/dwd-icon-eu-service.py` liest das native ICON-EU-Gitter aus
+`/weather/nwp/v1/m/icon-eu/`. Er liefert entlang der Route 13 Druckstufen
+und für das Kartenraster Wolkenbedeckung je Schicht sowie 10-m-Wind.
+Das neue DWD-Verzeichnis stellt kein Sichtweitenfeld bereit. Im
+DWD-Punktwetter bleibt die Sichtweite deshalb leer. Laufzeit und
 Gültigkeit erscheinen in den Tooltips. Der VFR-Index verwendet
 Open-Meteo und MOSMIX. Der lokale ICON-EU-Versuch für den VFR-Index wurde
 wegen der angekündigten Einstellung des öffentlichen ICON-Sichtfelds
@@ -86,6 +89,13 @@ mit `eccodes` und `numpy` auf demselben Rechner laufen. Mit
 Die Quellenauswahl prüft die Verfügbarkeit beim Laden. Open-Meteo und
 METAR stehen auch ohne den Dienst bereit. Das EFB lädt gewählte
 Profilstunden bei Bedarf.
+
+Die öffentliche Alpha-Webapp auf GitHub Pages benötigt für DWD einen
+separaten HTTPS-API-Endpunkt. Der Wetterdienst kann dazu ohne `--web-root`
+hinter einem HTTPS-Proxy betrieben werden. Für direkte Browserabrufe von
+Alpha Pages kann `--allow-origin https://inherjer.github.io` gesetzt werden.
+Der öffentliche Endpunkt ist noch einzurichten. Die DWD-Auswahl bleibt
+bis zur Einbindung des Endpunkts in der öffentlichen Webapp ausgeblendet.
 
 Im Layer-Menü schalten vier Symbole Satellit, Radar, VFR-Index und
 Modellwolken mit Windbarben. Satellitenbilder kommen im EFB vom Tracker
