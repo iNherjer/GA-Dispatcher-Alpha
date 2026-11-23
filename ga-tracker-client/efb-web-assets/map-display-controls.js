@@ -202,6 +202,7 @@ window.toggleMapHintSubmenu = function (key, evt) {
   positionMapHintsMenuInViewport();
 };
 function refreshMapHintMenuUi() {
+  var _window$refreshMapWea, _window;
   document.body.classList.toggle('map-drag-zoom-enabled', window.mapHints.zoomControl === true);
   var labels = {
     magentaLine: '🟣 Direkt-Linie',
@@ -270,6 +271,7 @@ function refreshMapHintMenuUi() {
   if (typeof updateRouteLegLabelModeButton === 'function') updateRouteLegLabelModeButton();
   if (typeof window.refreshMapAutoZoomUi === 'function') window.refreshMapAutoZoomUi();
   if (window.gaMapDisplayAdapter) window.gaMapDisplayAdapter.refreshUi();
+  (_window$refreshMapWea = (_window = window).refreshMapWeatherQuickControls) === null || _window$refreshMapWea === void 0 || _window$refreshMapWea.call(_window);
   positionMapHintsMenuInViewport();
 }
 window.toggleMapHint = function (key) {

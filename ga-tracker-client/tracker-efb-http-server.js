@@ -844,6 +844,23 @@ function createTrackerEfbHttpServer(options = {}) {
       });
       return;
     }
+    if (pathname.startsWith('/api/v1/weather-satellite/')) {
+      const coords = /^\/api\/v1\/weather-satellite\/(clouds|infrared)\/(\d{1,2})\/(\d{1,3})\/(\d{1,3})\.png$/.exec(pathname);
+      if (!coords) {
+        jsonResponse(response, 400, { error: 'invalid_profile_satellite_tile' });
+      } else if (!options.profileData?.satelliteTile) {
+        jsonResponse(response, 503, { error: 'satellite_unavailable' });
+      } else {
+        try {
+          const body = await options.profileData.satelliteTile(coords[1], requestUrl.searchParams.get('time'),
+            ...coords.slice(2).map(Number));
+          tileResponse(response, { body });
+        } catch (error) {
+          jsonResponse(response, error.message === 'invalid_profile_satellite_tile' ? 400 : 502, { error: 'satellite_tile_unavailable' });
+        }
+      }
+      return;
+    }
     if (pathname.startsWith('/api/v1/terrain-tiles/')) {
       const coords = /^\/api\/v1\/terrain-tiles\/(\d{1,2})\/(\d{1,4})\/(\d{1,4})\.png$/.exec(pathname);
       const [z, x, y] = coords ? coords.slice(1).map(Number) : [];

@@ -2025,7 +2025,7 @@
     });
     window.gaMapDisplayAdapter = {
       supports: function(key) {
-        return ['magentaLine', 'telemetry', 'currentInfo', 'nextLeg', 'routeProgress', 'compass', 'lowFps', 'autoZoom', 'zoomControl', 'terrainAvoid', 'favoriteAirports', 'traffic'].indexOf(key) >= 0;
+        return ['magentaLine', 'telemetry', 'currentInfo', 'nextLeg', 'routeProgress', 'compass', 'lowFps', 'autoZoom', 'zoomControl', 'terrainAvoid', 'favoriteAirports', 'traffic', 'weather', 'windBarbs', 'cloudFields', 'vfrIndex'].indexOf(key) >= 0;
       },
       apply: function(key) {
         if (['telemetry', 'currentInfo', 'nextLeg'].indexOf(key) >= 0) {
@@ -2042,6 +2042,7 @@
         if (key === 'magentaLine') renderProgress();
         if (key === 'traffic') renderTraffic(true);
         if (key === 'favoriteAirports' && window.gaRenderFavoriteAirportStars) window.gaRenderFavoriteAirportStars();
+        if (['weather', 'windBarbs', 'cloudFields', 'vfrIndex'].indexOf(key) >= 0 && window.gaRefreshEfbMapWeather) window.gaRefreshEfbMapWeather();
         if (key === 'autoZoom') {
           window.resetMapAutoZoomState();
           window.refreshMapAutoZoomUi();
@@ -2059,18 +2060,13 @@
         }
       },
       refreshUi: function() {
-        // These original renderers still need migration. Never expose a working-
-        // looking toggle that only changes its label or invent a replacement.
-        ['hintToggleWeather',
-          'btnToggleWeatherMenu'
-        ].forEach(function(id) {
-          var control = byId(id);
-          if (!control) return;
-          control.disabled = true;
-          control.title = _hT('Die Standalone-Funktion ist im EFB noch nicht übernommen.');
-        });
+        var vfrOptions = byId('btnToggleVfrIndexMenu');
+        if (vfrOptions) vfrOptions.style.display = 'none';
       }
     };
+    ['windBarbs', 'cloudFields'].forEach(function(key) {
+      if (localStorage.getItem('ga_map_hint_' + key) === null) localStorage.setItem('ga_map_hint_' + key, 'false');
+    });
     loadMapHintSettings();
     loadTerrainAvoidSettings();
     initPlaneIconSettingsUi();
@@ -2700,6 +2696,7 @@
     createStablePane('gaBasePane', 200);
     createStablePane('gaVfrPane', 280);
     createStablePane('gaOfficialChartPane', 310);
+    createStablePane('gaSatelliteWeatherPane', 330);
     createStablePane('gaWeatherPane', 340);
     createStablePane('gaRoutePane', 430);
     createStablePane('gaGeometryPane', 440);
@@ -2724,7 +2721,6 @@
       overlayControl[definition.label] = layer;
     });
     overlayLayers.radar = createMapRadarOverlay(map, 'gaWeatherPane');
-    overlayControl['🌧️ Wetterradar (Niederschlag)'] = overlayLayers.radar;
     // Regional base maps share the base pane and are listed before overlays.
     var layerMenuOverlays = {};
     (API.REGIONAL_BASE_LAYERS || []).forEach(function (definition) {
@@ -2739,10 +2735,16 @@
       stackRegionalLayer(id);
       regionalLayers[id].addTo(map);
     });
-    preferences.overlays.forEach(function (id) { if (overlayLayers[id]) overlayLayers[id].addTo(map); });
+    preferences.overlays.forEach(function (id) {
+      if (overlayLayers[id] && (id !== 'radar' || localStorage.getItem('ga_radar_active') !== 'false')) overlayLayers[id].addTo(map);
+    });
     updateBaseOpacity();
     layerControl = L.control.layers(baseControl, layerMenuOverlays, { collapsed: true, position: 'topright' }).addTo(map);
     configureMapLayerControl(map, layerControl);
+    var weatherRenderer = presentation.createEfbSvgRenderer(L, { pane: 'gaWeatherPane' });
+    var weatherControls = window.gaInstallEfbMapWeather(map, weatherRenderer);
+    weatherControls.vfrTitle = _hT('VFR-Index: Eigenes Modell (Kacheln), sichtbar ab Zoomstufe 8');
+    installMapWeatherQuickControls(map, layerControl, overlayLayers.radar, 'gaSatelliteWeatherPane', weatherControls);
     // L.control.layers assigns its own auto zIndex to every listed layer;
     // restore the regional stacking afterwards in the saved order.
     preferences.regionalBases.forEach(function (id) { stackRegionalLayer(id); });

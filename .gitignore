@@ -29,6 +29,9 @@ tools/cloudflare-relay/.wrangler/
 tools/workbench-cache/
 workbench-cache/
 
+# Lokale Python-Umgebung für den DWD-Adapter
+.venv-dwd/
+
 # Lokale MSFS-2024-EFB-SDK-Abhängigkeiten und Buildausgaben
 ga-tracker-client/efb-app/PackageSources/efb_api/
 ga-tracker-client/efb-app/PackageSources/vendor/

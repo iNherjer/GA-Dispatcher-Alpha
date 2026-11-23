@@ -43,7 +43,7 @@
     </script>
     <script src="i18n-core.js"></script>
     <script src="i18n/de.js"></script>
-    <script src="i18n/en.js"></script>
+    <script src="i18n/en.js?v=efb-weather-20261123"></script>
     <script src="i18n/en-help.js"></script>
     <script src="i18n/en-phrases.js"></script>
     <script src="i18n/en-picker.js"></script>
@@ -163,7 +163,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="icon-dark-180.png">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="stylesheet" href="vendor/maplibre/maplibre-gl.css">
-    <link rel="preload" href="styles.css?v=context-sheet-20261122-02" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=efb-weather-20261123" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="stylesheet" href="homebase-integration.css?v=homebase-foreground-20261014-01">
     <link rel="stylesheet" href="crew-presence.css?v=crew-fleet-20261103-01">
     <link rel="stylesheet" href="ppl-quiz.css?v=ppl-quiz-20261029-06">
@@ -175,7 +175,7 @@
     <link rel="stylesheet" href="glareshield.css?v=appearance-20261028-05">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=context-sheet-20261122-02">
+        <link rel="stylesheet" href="styles.css?v=efb-weather-20261123">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -1605,7 +1605,7 @@
                         </div>
                         <div class="map-side-drawer-actions">
                             <button type="button" class="settings-help-btn map-side-help-btn" onclick="showSettingsHelp('map-side-drawer', event)" aria-label="Hilfe zu Seitenmenue und Checklisten" data-i18n-aria-label="map.drawer.help" aria-expanded="false">?</button>
-                            <button id="mapSideDrawerFav" class="map-side-drawer-pin map-side-drawer-fav" type="button" aria-label="Als Favorit an den Kartenrand" aria-pressed="false" title="Als Favorit an den Kartenrand" hidden>☆</button>
+                            <button id="mapSideDrawerFav" class="map-side-drawer-pin map-side-drawer-fav" type="button" aria-label="Als Favorit an den Kartenrand" aria-pressed="false" title="Als Favorit an den Kartenrand" hidden><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.9-6.2-3.3-6.2 3.3 1.2-6.9-5-4.9 6.9-1z"/></svg></button>
                             <button id="mapSideDrawerPin" class="map-side-drawer-pin" type="button" aria-label="Menü offen halten" aria-pressed="false" title="Menü offen halten">📌</button>
                             <button class="map-side-drawer-close" type="button" onclick="window.gaChecklistToggleDrawer && gaChecklistToggleDrawer(false)" title="Schließen" data-i18n-title="map.closeShort" data-i18n="map.closeShort">Schließen</button>
                         </div>
@@ -1948,7 +1948,11 @@
             </div>
             <div id="profileResizeHandle" class="profile-resize-handle" title="Ziehen zum Ändern der Profilhöhe" data-i18n-title="map.profile.resize"></div>
             <div id="mapProfileStrip" class="map-profile-strip">
+                <div class="map-profile-toolbar">
                 <div class="map-profile-controls" style="gap: 4px; overflow-x: auto; white-space: nowrap; -webkit-overflow-scrolling: touch; padding-bottom: 2px; scrollbar-width: none;">
+                    <span class="vp-weather-disclosure-slot">
+                        <button id="btnToggleProfileWeatherTimeline" type="button" class="vp-toggle-cloud vp-weather-disclosure" hidden onclick="vpToggleWeatherTimeline()" aria-label="Wettersteuerung" title="Wettersteuerung" data-i18n-aria-label="map.profile.weatherControls" data-i18n-title="map.profile.weatherControls" aria-expanded="false" aria-controls="vpWeatherTimeline"><span aria-hidden="true">🌦️</span></button>
+                    </span>
                     <span style="color:#aaa; font-size:10px; font-family:monospace; margin-left:4px;">ZOOM</span>
                     <button class="vp-ctrl-btn" onclick="vpZoom(10)" title="Horizontal rauszoomen" data-i18n-title="a11y.031">−</button>
                     <span id="vpZoomDisplay" class="vp-ctrl-label" style="min-width:24px;" title="Aktueller Zoom-Level" data-i18n-title="a11y.032">0%</span>
@@ -1979,6 +1983,8 @@
                                 <button id="btnToggleClouds" class="pb-btn active" onclick="vpToggleClouds()" title="Wetter-Wolkenbasis aus METAR an/aus" data-i18n-title="map.profile.cloudsTitle" style="display:block; width:100%; margin:0; text-align:left;">⛅ Wolken</button>
                                 <button id="btnToggleWeatherSource" class="pb-btn" onclick="vpToggleWeatherSource()" title="Datenquelle für Wetter: METAR oder Open-Meteo" data-i18n-title="a11y.036" style="display:block; width:100%; margin:0; text-align:left;">🌐 Quelle: METAR</button>
                                 <button id="btnToggleWeatherRenderMode" class="pb-btn" onclick="vpToggleWeatherRenderMode()" title="Darstellungsstil für Wetter im Höhenband wechseln" data-i18n-title="a11y.037" style="display:block; width:100%; margin:0; text-align:left;">🌦️ Wetterstil: Classic</button>
+                                <button id="btnToggleFaintCloudContours" type="button" class="pb-btn" hidden onclick="vpToggleFaintCloudContours()" aria-pressed="false" data-i18n="map.profile.faintCloudContours">Leichte Bewölkung ab 10 %</button>
+                                <button id="btnToggleProfileWeatherMarkers" class="pb-btn" hidden onclick="vpToggleWeatherMarkers()" title="WMO-Wetterzeichen · OGC WorldWeatherSymbols · CC BY 4.0" data-i18n-title="map.profile.weatherMarkerLegend"><span data-i18n="map.profile.weatherMarkers">Signifikantes Wetter</span> <span id="vpWeatherMarkerState">(Aus)</span></button>
                                 <button id="btnToggleIsobars" class="pb-btn active" onclick="vpToggleIsobars()" title="Isobaren (hPa) im Höhenband ein-/ausblenden" data-i18n-title="a11y.038" style="display:block; width:100%; margin:0; text-align:left;">🧭 Isobaren</button>
                                 <button id="btnToggleWindComponents" class="pb-btn active" onclick="vpToggleWindComponents()" title="Head-/Tailwind-Komponenten je Höhe ein-/ausblenden" data-i18n-title="a11y.039" style="display:block; width:100%; margin:0; text-align:left;">💨 Windkomponenten</button>
                                 <button id="btnToggleLandmarks" class="pb-btn active" onclick="vpToggleLandmarks()" title="Städte & Sehenswürdigkeiten an/aus" data-i18n-title="map.profile.landmarksTitle" style="display:block; width:100%; margin:0; text-align:left;">🏙️ Städte</button>
@@ -1996,6 +2002,14 @@
                     <button id="btnSimMode" class="vp-toggle-cloud" onclick="window.startSimMode && startSimMode()" title="Route simulieren" style="min-width:40px; font-size:9px; font-family:monospace; letter-spacing:0.5px; background:#1a3a1a; color:#6f6;">▶&thinsp;SIM</button>
                     <button id="btnManualSimMode" class="vp-toggle-cloud manual-sim-toggle" onclick="window.toggleManualSimMode && toggleManualSimMode(event)" title="Manueller Sim" style="display:none; min-width:34px; font-size:9px; font-family:monospace; letter-spacing:0.5px; background:#17253a; color:#8ec5ff; border-color:#33506d;">MAN</button>
                 </div>
+                <div id="vpWeatherTimeline" class="map-profile-weather-controls" hidden>
+                    <button id="vpWeatherEarlier" type="button" class="vp-ctrl-btn" onclick="vpChangeWeatherHour(-1)" aria-label="Wetter eine Stunde zurück" data-i18n-aria-label="map.profile.weatherEarlier">−1h</button>
+                    <output id="vpWeatherTerm" class="vp-ctrl-label" aria-live="polite"></output>
+                    <button id="vpWeatherLater" type="button" class="vp-ctrl-btn" onclick="vpChangeWeatherHour(1)" aria-label="Wetter eine Stunde vor" data-i18n-aria-label="map.profile.weatherLater">+1h</button>
+                    <button id="vpWeatherNow" type="button" class="vp-ctrl-btn" onclick="vpChangeWeatherHour(0)" aria-label="Aktuelles Wetter anzeigen" data-i18n-aria-label="map.profile.weatherLive">Live</button>
+                    <button id="vpWeatherSig" type="button" class="vp-ctrl-btn" onclick="vpToggleWeatherMarkers()" aria-label="Signifikantes Wetter" data-i18n-aria-label="map.profile.weatherMarkers" aria-pressed="false">SIG</button>
+                </div>
+                </div>
                 <!-- Time-Warp Leiste – nur im Sim-Modus sichtbar -->
                 <div id="simSpeedStrip" style="display:none; align-items:center; gap:4px; padding:3px 6px; background:rgba(0,40,0,0.6); border-top:1px solid #1a4a1a;">
                     <span style="font-size:9px; color:#6f6; font-family:monospace; margin-right:2px;">WARP</span>
@@ -2010,6 +2024,8 @@
                     <div id="vpCanvasWrapper" style="height: 100%; position: relative; overflow: hidden;">
                         <canvas id="mapProfileCanvasBg" style="position: absolute; left: 0; top: 0; z-index: 1; pointer-events: none;"></canvas>
                         <canvas id="mapProfileCanvas" style="position: absolute; left: 0; top: 0; z-index: 2; touch-action: none;"></canvas>
+                        <div id="vpWeatherMarkerTargets" class="vp-weather-marker-targets"></div>
+                        <div id="vpWeatherMarkerTooltip" class="vp-weather-marker-tooltip" role="tooltip" hidden></div>
                     </div>
                 </div>
             </div>
@@ -2984,10 +3000,11 @@
 <script defer src="homebase-scene-core.js?v=homebase-pack-people-20261112-01"></script>
 <script defer src="homebase-integration.js?v=homebase-pack-people-20261112-01"></script>
 <script defer src="mission-training-guidance-ui.js?v=tracker-training-guidance-20261118-01"></script>
-<script defer src="checklists.js?v=tracker-live-condition-20261115-01"></script>
-<script defer src="profile.js?v=alt-anchors-20261120-02"></script>
+<script defer src="checklists.js?v=efb-weather-20261123"></script>
+<script defer src="profile.js?v=efb-weather-20261123"></script>
 <script defer src="map-zoom-control.js?v=drag-zoom-control-20261018-04"></script>
-<script defer src="map.js?v=alt-anchors-20261120-01"></script>
+<script defer src="map-weather-fields.js?v=efb-weather-20261123"></script>
+<script defer src="map.js?v=efb-weather-20261123"></script>
 <script defer src="map-utility-tools.js?v=e6b-prewarm-20261029-01"></script>
 <script defer src="aircraft-mission-capability-core.js?v=aircraft-mission-party-20260817-01"></script>
 <script defer src="aircraft-mission-profile-core.js?v=aircraft-mission-capability-20260817-01"></script>
@@ -3028,7 +3045,7 @@
 <script defer src="tutorial.js?v=mission-airport-types-20260728-01"></script>
 <script src="map-profile-controls.js"></script>
 <script src="display-clock.js"></script>
-<script src="map-display-controls.js?v=favorite-airports-20261019-01"></script>
+<script src="map-display-controls.js?v=map-weather-quick-20261123"></script>
 <script src="map-favorite-airports.js?v=20261019-01"></script>
 <script src="radio-tuning-core.js"></script>
 <script src="radio-tuning-ui.js"></script>
@@ -3039,13 +3056,13 @@
 <script src="airport-aip.js"></script>
 <script src="airport-weather.js"></script>
 <script src="map-airport-popup.js"></script>
-<script src="map-context-popup.js"></script>
+<script src="map-context-popup.js?v=efb-weather-20261123"></script>
 <script src="map-direct-to-core.js"></script>
 <script src="map-route-edit-core.js?v=alt-anchors-20261120-01"></script>
 <script src="freeflight-navigation-core.js"></script>
 <script src="map-navpoint-core.js"></script>
 <script src="map-navigation-client.js"></script>
-<script src="map-layer-controls.js"></script>
+<script src="map-layer-controls.js?v=efb-weather-20261123"></script>
 <script src="map-tool-focus.js"></script>
 <script src="map-autozoom.js?v=context-sheet-20261122-01"></script>
 <script src="map-terrain-avoid.js"></script>

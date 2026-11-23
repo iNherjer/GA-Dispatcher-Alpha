@@ -45,9 +45,10 @@ echo "[GA Dispatcher] URL: $URL"
 echo "[GA Dispatcher] Tipp: Diese localhost-URL statt file:// nutzen, damit DEP/DEST-Vorschlaege funktionieren."
 echo "[GA Dispatcher] Lokaler Fresh-Start: Service Worker und Cache werden fuer diese Sitzung umgangen."
 
-if command -v python3 >/dev/null 2>&1; then
+WEB_PYTHON="$ROOT_DIR/.venv-dwd/bin/python"
+if [[ -x "$WEB_PYTHON" ]] || WEB_PYTHON="$(command -v python3)"; then
   open_browser
-  exec python3 -m http.server "$PORT" --bind "$BIND_HOST"
+  exec "$WEB_PYTHON" "$ROOT_DIR/tools/dwd-icon-eu-service.py" --web-root "$ROOT_DIR" --port "$PORT" --bind "$BIND_HOST"
 elif command -v python >/dev/null 2>&1; then
   open_browser
   exec python -m SimpleHTTPServer "$PORT"

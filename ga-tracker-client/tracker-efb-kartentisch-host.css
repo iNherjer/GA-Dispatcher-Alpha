@@ -1639,8 +1639,8 @@ body.ga-efb-tracker-host .ga-popup-frequency-label { flex: 1 1 0; }
 /* Explicit edges: older Coherent leaves inset-only absolute layers unsized. */
 body.ga-efb-tracker-host .ga-map-context-height-sky { top:0; right:0; bottom:0; left:0; }
 body.ga-efb-tracker-host .ga-map-context-height-scale { top:5px; right:auto; bottom:5px; left:2px; }
-body.ga-efb-tracker-host .ga-map-context-height-stack,
-body.ga-efb-tracker-host .ga-map-context-height-atmosphere { top:5px; right:3px; bottom:5px; left:30px; }
+body.ga-efb-tracker-host .ga-map-context-height-stack { top:5px; right:3px; bottom:5px; left:30px; }
+body.ga-efb-tracker-host .ga-map-context-height-atmosphere { top:5px; right:0; bottom:5px; left:0; }
 body.ga-efb-tracker-host .ga-map-context-height-band { flex:0 0 104px; width:104px; box-sizing:border-box; }
 
 /* Coherent-safe clouds: no filter/blur, no elliptical radii, no isolation or animation.
@@ -1674,6 +1674,20 @@ body.ga-efb-tracker-host .ga-map-context-height-airspace { background:var(--ga-e
 body.ga-efb-tracker-host .ga-map-context-height-airspace:hover,
 body.ga-efb-tracker-host .ga-map-context-height-airspace:focus,
 body.ga-efb-tracker-host .ga-map-context-height-airspace.is-selected { background:var(--ga-efb-band-selected, rgba(77,166,255,.88)); }
+body.ga-efb-tracker-host .ga-map-weather-tiles { display:flex; }
+body.ga-efb-tracker-host .ga-map-weather-tiles button {
+  display:flex; flex:1 1 0; flex-direction:column; justify-content:center; align-items:center;
+  min-width:0; margin:0 2px;
+}
+body.ga-efb-tracker-host .ga-map-weather-tiles button span { margin-top:3px; }
+body.ga-efb-tracker-host .wx-cloudfield-icon > div,
+body.ga-efb-tracker-host .wx-windbarb-icon svg { filter:none!important; }
+body.ga-efb-tracker-host .vp-weather-disclosure-slot { display:block; flex:0 0 auto; }
+body.ga-efb-tracker-host .map-profile-weather-controls { flex:0 0 auto; }
+body.ga-efb-tracker-host .map-profile-weather-controls:not([hidden]) { display:flex; flex-wrap:wrap; }
+body.ga-efb-tracker-host #vpSettingsMenu button[hidden],
+body.ga-efb-tracker-host #vpWeatherTimeline[hidden] { display:none!important; }
+body.ga-efb-tracker-host .map-side-drawer-fav svg { vertical-align:middle; }
 body.ga-efb-tracker-host .ga-map-context-height-class-letter.is-ctr { font-size:18px; }
 body.ga-efb-tracker-host .ga-map-context-airport-full .ga-weather-layout-responsive { flex-direction:column !important; }
 

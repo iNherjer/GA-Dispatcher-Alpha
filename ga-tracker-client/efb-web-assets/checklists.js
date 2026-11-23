@@ -1135,7 +1135,8 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
     if (star) {
       var active = !!currentId && favorites.indexOf(currentId) >= 0;
       star.hidden = !currentId;
-      star.textContent = active ? '★' : '☆';
+      var icon = star.querySelector('svg');
+      if (icon) icon.setAttribute('fill', active ? 'currentColor' : 'none');
       star.classList.toggle('is-active', active);
       star.setAttribute('aria-pressed', String(active));
       var label = active ? tx('cl.drawer.favRemove', 'Favorit vom Kartenrand entfernen') : tx('cl.drawer.favAdd', 'Als Favorit an den Kartenrand');
@@ -1186,8 +1187,9 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
       tabs.style.maxHeight = '';
       return;
     }
-    tabs.style.top = `${Math.round((top + bottom) / 2 - drawerRect.top)}px`;
-    tabs.style.maxHeight = `${Math.round(bottom - top - 16)}px`;
+    var logical = value => window.GAEfbUiScale ? window.GAEfbUiScale.delta(value) : value;
+    tabs.style.top = `${Math.round(logical((top + bottom) / 2 - drawerRect.top))}px`;
+    tabs.style.maxHeight = `${Math.round(logical(bottom - top) - 16)}px`;
   }
   function openDrawerFavorite(id) {
     if (!DRAWER_FAVORITE_TOOLS[id]) return;
@@ -6720,6 +6722,7 @@ ${routeLines}`;
       new ResizeObserver(() => positionDrawerTabs()).observe(mapEl);
     }
     window.addEventListener('resize', positionDrawerTabs);
+    window.addEventListener('ga-efb-layout-change', positionDrawerTabs);
     bodyEl.addEventListener('click', handleClick);
     bodyEl.addEventListener('input', handleInput);
     bodyEl.addEventListener('change', handleChange);

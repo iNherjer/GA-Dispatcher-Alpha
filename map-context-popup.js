@@ -702,14 +702,92 @@ async function fetchMapContextTerrainFt(latlng) {
     return Number.isFinite(meters) ? Math.round(meters * 3.28084) : null;
 }
 
-async function fetchMapContextWeather(latlng) {
-    if (typeof window.fetchOpenMeteoWeatherPoints !== 'function') return null;
-    const samples = await window.fetchOpenMeteoWeatherPoints(
+async function fetchMapContextMetar({ lat, lng }) {
+    const maxDistanceNm = 45;
+    const latPad = maxDistanceNm / 60;
+    const lonPad = latPad / Math.max(0.01, Math.cos(lat * Math.PI / 180));
+    const bounds = {
+        latMin: Math.max(-90, lat - latPad), lonMin: Math.max(-180, lng - lonPad),
+        latMax: Math.min(90, lat + latPad), lonMax: Math.min(180, lng + lonPad)
+    };
+    const select = candidates => {
+        const station = _selectMetarForAirport(candidates, null, lat, lng)?.station;
+        return station && calcNav(lat, lng, Number(station.lat), Number(station.lon)).dist <= maxDistanceNm
+            ? station : null;
+    };
+    let station = select(_getCachedMetarRegionForPoint(lat, lng)?.data);
+    if (!station) {
+        const bbox = Object.values(bounds).map(value => value.toFixed(5)).join(',');
+        const observations = await _fetchMetarArrayViaVariants(
+            'https://aviationweather.gov/api/data/metar?bbox=' + bbox + '&format=json',
+            { includeCodeTabs: true, timeoutMs: 3500 }
+        );
+        _storeMetarRegion(observations, bounds);
+        station = select(observations);
+    }
+    if (!station) return null;
+
+    const stationElevationFt = (Number(station.elev) || 0) * 3.28084;
+    const reports = Array.isArray(station.clouds) ? station.clouds.filter(Boolean) : [];
+    const clouds = reports.filter(({ cover, base }) => /^(FEW|SCT|BKN|OVC|VV)$/.test(cover)
+        && base != null && Number.isFinite(Number(base)))
+        .map(({ cover, base }) => ({ type: cover, baseMsl: Math.round(Number(base) + stationElevationFt) }));
+    const conditions = String(station.wxString || '');
+    const visibility = String(station.visib ?? '').trim();
+    const observation = String(station.rawOb || '').split(/\b(?:TEMPO|BECMG|NOSIG|RMK)\b/, 1)[0];
+    return {
+        wxSource: 'metar',
+        stationIcao: station.icaoId || station.icao,
+        observedAt: Number(station.obsTime) || null,
+        wdir: station.wdir,
+        wspd: station.wspd,
+        temp2mC: station.temp,
+        visibilityText: /\b(?:9999|CAVOK)\b/.test(observation) ? '≥ 10 km' : visibility ? visibility + ' SM' : '',
+        cloudCoverText: [...new Set(reports.map(layer => layer.cover).filter(Boolean))].join(' / ')
+            || (/\bCAVOK\b/.test(observation) ? 'CAVOK' : ''),
+        clouds,
+        hasRain: /RA|DZ/.test(conditions),
+        hasSnow: /SN|SG|PL/.test(conditions),
+        hasTS: /TS/.test(conditions)
+    };
+}
+
+async function fetchMapContextWeather(latlng, source) {
+    if (source === 'metar') return fetchMapContextMetar(latlng);
+    const fetchWeather = source === 'dwd' ? window.fetchDwdWeatherPoints : window.fetchOpenMeteoWeatherPoints;
+    if (typeof fetchWeather !== 'function') return null;
+    const samples = await fetchWeather(
         [{ lat: latlng.lat, lon: latlng.lng }],
         { includePressure: true, maxConcurrency: 1 }
     );
-    return Array.isArray(samples) ? (samples[0] || null) : null;
+    const sample = Array.isArray(samples) ? samples[0] : null;
+    return sample ? { ...sample, wxSource: source } : null;
 }
+
+window.refreshMapContextWeather = function() {
+    const state = mapContextInfoState;
+    if (!state) return;
+    const source = vpNormalizeWeatherSource(window.vpWeatherSource || localStorage.getItem('ga_weather_source'));
+    if (state.weatherSource === source) return;
+    const switchingSource = Boolean(state.weatherSource);
+    state.weatherSource = source;
+    state.weather = null;
+    state.loading.weather = true;
+    if (switchingSource) renderMapContextInfoPopup(state, { preserveDetailsScroll: true });
+    const request = fetchMapContextWeather(state.latlng, source);
+    state.weatherRequest = request;
+    request.catch(error => {
+        if (state === mapContextInfoState && state.weatherRequest === request) {
+            console.warn('[Map Context] Wetterabfrage fehlgeschlagen:', error);
+        }
+        return null;
+    }).then(weather => {
+        if (state !== mapContextInfoState || state.weatherRequest !== request) return;
+        state.weather = weather;
+        state.loading.weather = false;
+        renderMapContextInfoPopup(state, { preserveDetailsScroll: true });
+    });
+};
 
 function getMapContextRunwayWindroseData(feature) {
     const runwayText = Array.isArray(feature?.runways)
@@ -726,6 +804,40 @@ function getMapContextRunwayWindroseData(feature) {
     };
 }
 
+function renderMapContextDwdDetails(state) {
+    const weather = state.weather;
+    if (weather?.wxSource !== 'dwd') return '';
+    const terrain = Number(state.terrainFt ?? NaN);
+    const modelTerrain = Number(weather.modelTerrainMslM ?? NaN) * 3.28084;
+    const ground = Number.isFinite(terrain) ? terrain : modelTerrain;
+    const atmosphere = getMapContextAtmosphereData(state, Number.isFinite(ground) ? ground : 0);
+    const formatFeet = ft => Math.round(ft).toLocaleString(_mcLocale());
+    const bases = atmosphere.clouds.map(cloud => {
+        const base = Number.isFinite(ground) ? Math.max(cloud.baseMsl, ground) : cloud.baseMsl;
+        return formatFeet(base) + ' ft MSL' +
+            (Number.isFinite(ground) ? ' (' + formatFeet(base - ground) + ' ft AGL)' : '');
+    });
+    const ceiling = Number(weather.ceilingMslM ?? NaN) * 3.28084;
+    const ceilingText = Number.isFinite(ceiling)
+        ? formatFeet(ceiling) + ' ft MSL' +
+            (Number.isFinite(ground) && ceiling >= ground ? ' (' + formatFeet(ceiling - ground) + ' ft AGL)' : '')
+        : '';
+    const code = Number(weather.weatherCode ?? NaN);
+    const symbol = vpSignificantWeatherSymbol(code);
+    const condition = symbol
+        ? _mcK('map.profile.weatherMarker.' + symbol, VP_WEATHER_MARKER_NAMES[symbol])
+        : !Number.isFinite(code) ? _mcK('mapContext.wx.notAvailable', 'Keine Angabe')
+            : code <= 3 ? _mcK('mapContext.wx.noSignificantWeather', 'Kein signifikantes Wetter im Modell')
+                : 'WMO ' + code;
+    const baseText = bases.length ? bases.join(' · ')
+        : _mcK('mapContext.wx.noCloudBase', 'Keine Wolkenuntergrenze im Druckprofil erkennbar');
+    return `<div class="ga-map-context-dwd-details">
+        <div><small>${_mcK('mapContext.wx.significantWeather', 'Signifikantes Wetter (DWD)')}</small><b>${escapePopupText(condition)}</b></div>
+        <div><small>${_mcK('mapContext.wx.cloudBases', 'Wolkenuntergrenzen (Modellprofil)')}</small><b>${escapePopupText(baseText)}</b></div>
+        ${ceilingText ? `<div><small>${_mcK('mapContext.wx.modelCeiling', 'DWD-Untergrenze bei über 50 % Bedeckung')}</small><b>${ceilingText}</b></div>` : ''}
+    </div>`;
+}
+
 function renderMapContextWeather(state, options = {}) {
     const runway = options?.runway || null;
     if (state.loading.weather && !runway) {
@@ -735,20 +847,24 @@ function renderMapContextWeather(state, options = {}) {
     if (!weather && !runway) {
         return '<div class="ga-map-context-muted">' + _mcT('Punktwetter derzeit nicht verfügbar.') + '</div>';
     }
-    const windDir = Number(weather?.wdir);
-    const windKt = Number(weather?.wspd);
-    const totalCloud = Number(weather?.cloudTotalPct);
-    const lowCloud = Number(weather?.cloudLowPct);
-    const midCloud = Number(weather?.cloudMidPct);
-    const highCloud = Number(weather?.cloudHighPct);
-    const tempC = Number(weather?.temp2mC);
-    const visibilityM = Number(weather?.visibilityM);
-    const windText = Number.isFinite(windDir) && Number.isFinite(windKt)
+    const windDir = Number(weather?.wdir ?? NaN);
+    const windKt = Number(weather?.wspd ?? NaN);
+    const totalCloud = Number(weather?.cloudTotalPct ?? NaN);
+    const lowCloud = Number(weather?.cloudLowPct ?? NaN);
+    const midCloud = Number(weather?.cloudMidPct ?? NaN);
+    const highCloud = Number(weather?.cloudHighPct ?? NaN);
+    const tempC = Number(weather?.temp2mC ?? NaN);
+    const visibilityM = Number(weather?.visibilityM ?? NaN);
+    const variableWind = weather?.wdir === 'VRB';
+    const windText = Number.isFinite(windKt) && (Number.isFinite(windDir) || variableWind || windKt <= 0.4)
         ? (windKt <= 0.4
             ? 'CALM · 0 kt'
-            : `${Math.round(windDir).toString().padStart(3, '0')}° / ${Math.round(windKt)} kt`)
+            : `${variableWind ? 'VRB' : Math.round(windDir).toString().padStart(3, '0') + '°'} / ${Math.round(windKt)} kt`)
         : (state.loading.weather ? _mcT('WIRD GELADEN') : '–');
     const visibilityKm = Number.isFinite(visibilityM) ? visibilityM / 1000 : null;
+    const visibilityLabel = weather?.visibilityText || (Number.isFinite(visibilityKm)
+        ? `${visibilityKm >= 10 ? Math.round(visibilityKm) : visibilityKm.toFixed(1)} km` : '–');
+    const cloudCoverLabel = weather?.cloudCoverText || (Number.isFinite(totalCloud) ? `${Math.round(totalCloud)} %` : '–');
     let roseTicks = '';
     for (let heading = 0; heading < 360; heading += 30) {
         const angleRad = (heading - 90) * Math.PI / 180;
@@ -783,11 +899,15 @@ function renderMapContextWeather(state, options = {}) {
             <text x="80" y="126" font-family="sans-serif" font-size="10" fill="#fff" font-weight="900"
                   text-anchor="middle">${escapePopupText(runway.end1)}</text>
         </g>` : '';
+    const metar = weather?.wxSource === 'metar';
+    const observationTime = metar && weather.observedAt
+        ? new Date(weather.observedAt * 1000).toISOString().slice(11, 16) + ' UTC' : '';
+    const stationText = metar ? [weather.stationIcao, observationTime].filter(Boolean).join(' · ') : '';
     const sourceText = runway
         ? _mcK('mapContext.wx.runwaySource', 'Piste {end1}/{end2} aus internen Daten · {wind}', { end1: runway.end1, end2: runway.end2, wind: weather
-            ? _mcT('Wind am Kartenpunkt')
+            ? (stationText || _mcT('Wind am Kartenpunkt'))
             : (state.loading.weather ? _mcT('Wind wird ergänzt…') : _mcT('Wind derzeit nicht verfügbar')) })
-        : _mcT('Aktueller Stundenwert am Kartenpunkt');
+        : (metar ? stationText : _mcT('Aktueller Stundenwert am Kartenpunkt'));
     const ariaLabel = runway
         ? _mcK('mapContext.wx.runwayAria', 'Piste {end1}/{end2}; Wind {wind}', { end1: runway.end1, end2: runway.end2, wind: windText })
         : _mcK('mapContext.wx.roseAria', 'Windrose {wind}', { wind: windText });
@@ -795,17 +915,17 @@ function renderMapContextWeather(state, options = {}) {
         <div class="ga-map-context-weather-card">
             <div class="ga-map-context-weather-header">
                 <b>${runway ? _mcT('PISTE · PUNKTWETTER') : _mcT('PUNKTWETTER')}</b>
-                <span>OPEN‑METEO</span>
+                <span>${vpWeatherSourceLabel(weather?.wxSource || state.weatherSource) || ''}</span>
             </div>
             <div class="ga-map-context-weather-layout">
                 <div class="ga-map-context-weather-values">
                     <span><small>WIND</small><b class="is-wind">${escapePopupText(windText)}</b></span>
-                    <span><small>${_mcT('SICHT')}</small><b>${Number.isFinite(visibilityKm) ? `${visibilityKm >= 10 ? Math.round(visibilityKm) : visibilityKm.toFixed(1)} km` : '–'}</b></span>
+                    <span><small>${_mcT('SICHT')}</small><b>${escapePopupText(visibilityLabel)}</b></span>
                     <span><small>TEMP</small><b>${Number.isFinite(tempC) ? `${Math.round(tempC)} °C` : '–'}</b></span>
-                    <span><small>${_mcT('BEDECKUNG')}</small><b>${Number.isFinite(totalCloud) ? `${Math.round(totalCloud)} %` : '–'}</b></span>
-                    <span class="is-wide"><small>${_mcT('WOLKEN L/M/H')}</small><b>${[lowCloud, midCloud, highCloud].some(Number.isFinite)
+                    <span><small>${_mcT('BEDECKUNG')}</small><b>${escapePopupText(cloudCoverLabel)}</b></span>
+                    ${metar ? '' : `<span class="is-wide"><small>${_mcT('WOLKEN L/M/H')}</small><b>${[lowCloud, midCloud, highCloud].some(Number.isFinite)
                         ? `${Number.isFinite(lowCloud) ? Math.round(lowCloud) : '–'}/${Number.isFinite(midCloud) ? Math.round(midCloud) : '–'}/${Number.isFinite(highCloud) ? Math.round(highCloud) : '–'} %`
-                        : '–'}</b></span>
+                        : '–'}</b></span>`}
                 </div>
                 <div class="ga-map-context-windrose" aria-label="${escapePopupText(ariaLabel)}">
                     <svg viewBox="0 0 160 160" aria-hidden="true">
@@ -816,6 +936,7 @@ function renderMapContextWeather(state, options = {}) {
                     </svg>
                 </div>
             </div>
+            ${renderMapContextDwdDetails(state)}
             <div class="ga-map-context-weather-source">${escapePopupText(sourceText)}</div>
         </div>`;
 }
@@ -1071,8 +1192,8 @@ function getMapContextAtmosphereData(state, terrainFt) {
     }
 
     const pressureProfile = Array.isArray(weather.pressureProfile) ? weather.pressureProfile : [];
-    let clouds = [];
-    if (typeof vpDeriveCloudLayersFromPressureProfile === 'function') {
+    let clouds = Array.isArray(weather.clouds) ? [...weather.clouds] : [];
+    if (!clouds.length && typeof vpDeriveCloudLayersFromPressureProfile === 'function') {
         try {
             clouds = vpDeriveCloudLayersFromPressureProfile(pressureProfile, terrainFt);
         } catch (_) {
@@ -1085,10 +1206,10 @@ function getMapContextAtmosphereData(state, terrainFt) {
         Number(weather.precipitationMm) || 0,
         Number(weather.rainMm) || 0
     );
-    const hasTS = [95, 96, 99].includes(Number(weather.weatherCode));
-    const hasRain = (Number(weather.rainMm) || 0) > 0.1 || precipitationMm > 0.25;
-    const hasSnow = (Number(weather.snowfallCm) || 0) > 0.05;
-    const estimatedCloud = typeof vpBuildTempDewCloudLayer === 'function'
+    const hasTS = weather.hasTS || [95, 96, 99].includes(Number(weather.weatherCode));
+    const hasRain = weather.hasRain || (Number(weather.rainMm) || 0) > 0.1 || precipitationMm > 0.25;
+    const hasSnow = weather.hasSnow || (Number(weather.snowfallCm) || 0) > 0.05;
+    const estimatedCloud = weather.wxSource === 'openmeteo' && typeof vpBuildTempDewCloudLayer === 'function'
         ? vpBuildTempDewCloudLayer({
             temp2mC: weather.temp2mC,
             dewPoint2mC: weather.dewPoint2mC,
@@ -1270,7 +1391,7 @@ function renderMapContextHeightBand(state) {
         const colorValue = parseInt(colorHex ? colorHex[1] : '4da6ff', 16);
         const rgb = [(colorValue >> 16) & 255, (colorValue >> 8) & 255, colorValue & 255].join(',');
         const efbPaint = document.body.classList.contains('ga-efb-tracker-host')
-            ? `--ga-efb-band-fill:rgba(${rgb},0.38);--ga-efb-band-selected:rgba(${rgb},0.88);`
+            ? `--ga-efb-band-fill:rgba(${rgb},0.20);--ga-efb-band-selected:rgba(${rgb},0.34);`
             : '';
         return `
             <button type="button"
@@ -1837,7 +1958,6 @@ function openMapContextInfo(latlng, source = 'longpress') {
         state.loading[section] = false;
         if (section === 'airspaces') state.airspaces = Array.isArray(value) ? value : [];
         if (section === 'terrain') state.terrainFt = value != null && Number.isFinite(Number(value)) ? Number(value) : null;
-        if (section === 'weather') state.weather = value || null;
         if (section === 'feature') state.feature = value || state.feature || null;
         renderMapContextInfoPopup(state);
     };
@@ -1853,12 +1973,7 @@ function openMapContextInfo(latlng, source = 'longpress') {
             console.warn('[Map Context] Terrainabfrage fehlgeschlagen:', error);
             settle('terrain', null);
         });
-    Promise.resolve(fetchMapContextWeather(state.latlng))
-        .then(value => settle('weather', value))
-        .catch((error) => {
-            console.warn('[Map Context] Wetterabfrage fehlgeschlagen:', error);
-            settle('weather', null);
-        });
+    window.refreshMapContextWeather();
     Promise.resolve(fetchMapContextNearbyFeature(state.latlng))
         .then(value => settle('feature', value))
         .catch((error) => {

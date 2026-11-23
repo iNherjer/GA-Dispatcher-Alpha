@@ -53,7 +53,8 @@ function formatAsLimit(lim) {
             }
             function abort(){var error=new Error('Aborted');error.name='AbortError';finish(error);xhr.abort();}
             if(signal&&signal.aborted){abort();return;}
-            xhr.open('POST','/api/v1/profile-data',true);xhr.timeout=20000;
+            xhr.open('POST','/api/v1/profile-data',true);
+            xhr.timeout=payload.kind === 'resource' && /^http:\/\/127\.0\.0\.1:54582\/api\/dwd-icon-eu\?/.test(payload.url) ? 90000 : 20000;
             xhr.setRequestHeader('Content-Type','application/json');
             xhr.onload=function(){finish(null,{ok:xhr.status>=200&&xhr.status<300,status:xhr.status,
                 headers:{get:function(name){return xhr.getResponseHeader(name);}},
@@ -146,6 +147,24 @@ function formatAsLimit(lim) {
     window.gaChecklistHost.fetch = window.gaProfileDataProvider.fetch;
     window.gaChecklistHost.createAbortController = createAbortController;
     window.gaMapRadarFetch = window.gaProfileDataProvider.fetch;
+    window.gaMapSatelliteFetch = window.gaProfileDataProvider.fetch;
+    window.gaMapSatelliteTileUrl = function(mode, time, z, x, y) {
+        return '/api/v1/weather-satellite/' + mode + '/' + z + '/' + x + '/' + y + '.png?time=' + encodeURIComponent(time);
+    };
+    window.gaCheckDwdWeather = function() {
+        var url = 'http://127.0.0.1:54582/api/dwd-icon-eu';
+        return request('resource', {url: url + '?points=0,0'}).then(function(data) {
+            if (data && data.source === 'dwd-icon-eu' && Array.isArray(data.samples)) {
+                window.GA_DWD_WEATHER_URL = url;
+                if (localStorage.getItem('ga_weather_source') === 'dwd' && vpWeatherSource !== 'dwd') {
+                    vpWeatherSource = window.vpWeatherSource = 'dwd';
+                    updateWeatherSourceBtn();
+                    if (routeWaypoints.length >= 2) triggerVerticalProfileUpdate();
+                }
+            }
+            return !!window.GA_DWD_WEATHER_URL;
+        }, function() { return false; });
+    };
     window.fetchRouteAirspaces = function(points) {
         return request('airspaces', {points: points.map(function(p,i) {return {lat:p.lat,lon:p.lon == null ? p.lng : p.lon,distNM:i};})})
             .then(function(value) {activeAirspaces=Array.isArray(value)?value:[];window._activeAirspacesVersion=(window._activeAirspacesVersion||0)+1;window._vpAsCache=null;});

@@ -242,6 +242,7 @@ function refreshMapHintMenuUi() {
     if (typeof updateRouteLegLabelModeButton === 'function') updateRouteLegLabelModeButton();
     if (typeof window.refreshMapAutoZoomUi === 'function') window.refreshMapAutoZoomUi();
     if (window.gaMapDisplayAdapter) window.gaMapDisplayAdapter.refreshUi();
+    window.refreshMapWeatherQuickControls?.();
     positionMapHintsMenuInViewport();
 }
 

@@ -1,0 +1,229 @@
+<?xml version='1.0' encoding='utf-8'?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1320" height="55" viewBox="0 0 1320 55">
+  <title>WMO Present Weather symbols from OGC WorldWeatherSymbols</title>
+  <desc>WMO CBS IPET-DR&amp;C and OGC Meteorology and Oceanography DWG, CC BY 4.0. Original glyph shapes combined into a sprite. See LICENSE.md.</desc>
+  <g id="code-45" transform="translate(27.5 27.5)">
+    <g id="ww45-ww_45">
+      <path d="m -17.5,-9.5 h 35 m -35,9.5 h 35 m -35,9.5 h 35" id="ww45-path6" style="fill:none;stroke:#000000;stroke-width:3" />
+    </g>
+  </g>
+  <g id="code-48" transform="translate(82.5 27.5)">
+    <g id="ww48-ww_48">
+      <path d="M -2,0 0,4 2,0" id="ww48-path6" style="fill:none;stroke:#000000;stroke-width:3;stroke-linejoin:miter" />
+      <path d="m -17.5,-9.5 9,0 8.5,17 8.5,-17 9,0 m -35,9.5 h 35 m -35,9.5 h 35" id="ww48-path8" style="fill:none;stroke:#000000;stroke-width:3;stroke-linejoin:miter" />
+    </g>
+  </g>
+  <g id="code-51" transform="translate(137.5 27.5)">
+    <g id="ww51-ww_51">
+      <g transform="translate(-9.5,0)" id="ww51-ww_50">
+        <circle cx="0" cy="0" r="5.5" id="ww51-circle6" style="fill:#000000" />
+        <path d="M 4,0 C 4,3.7 1.9,7.1 -1,9.2" id="ww51-path8" style="fill:none;stroke:#000000;stroke-width:3;stroke-linecap:round" />
+      </g>
+      <use transform="translate(19,0)" id="ww51-use10" x="0" y="0" width="1" height="1" xlink:href="#ww51-ww_50" />
+    </g>
+  </g>
+  <g id="code-53" transform="translate(192.5 27.5)">
+    <g id="ww53-ww_53">
+      <g transform="translate(0,-11)" id="ww53-g5">
+        <g id="ww53-ww_50">
+          <circle cx="0" cy="0" r="5.5" id="ww53-circle8" style="fill:#000000" />
+          <path d="M 4,0 C 4,3.7 1.9,7.1 -1,9.2" id="ww53-path10" style="fill:none;stroke:#000000;stroke-width:3;stroke-linecap:round" />
+        </g>
+      </g>
+      <use transform="translate(9.5262794,5.5)" id="ww53-use12" x="0" y="0" width="1" height="1" xlink:href="#ww53-ww_50" />
+      <use transform="translate(-9.5262794,5.5)" id="ww53-use14" x="0" y="0" width="1" height="1" xlink:href="#ww53-ww_50" />
+    </g>
+  </g>
+  <g id="code-55" transform="translate(247.5 27.5)">
+    <g id="ww55-ww_55">
+      <g transform="translate(11,0)" id="ww55-g5">
+        <g id="ww55-ww_50">
+          <circle cx="0" cy="0" r="5.5" id="ww55-circle8" style="fill:#000000" />
+          <path d="M 4,0 C 4,3.7 1.9,7.1 -1,9.2" id="ww55-path10" style="fill:none;stroke:#000000;stroke-width:3;stroke-linecap:round" />
+        </g>
+      </g>
+      <use id="ww55-use12" x="-11" y="0" width="1" height="1" xlink:href="#ww55-ww_50" />
+      <use id="ww55-use14" x="0" y="-11" width="1" height="1" xlink:href="#ww55-ww_50" />
+      <use id="ww55-use16" x="0" y="11" width="1" height="1" xlink:href="#ww55-ww_50" />
+    </g>
+  </g>
+  <g id="code-56" transform="translate(302.5 27.5)">
+    <g id="ww56-ww_56">
+      <g transform="matrix(0.7,0,0,0.7,-10,0)" id="ww56-g5">
+        <circle cx="0" cy="0" r="5.5" id="ww56-circle7" style="fill:#000000" />
+        <path d="M 4,0 C 4,3.7 1.9,7.1 -1,9.2" id="ww56-path9" style="fill:none;stroke:#000000;stroke-width:3;stroke-linecap:round" />
+      </g>
+      <path d="M 0,0 A 10,10 0 0 0 20,0 V -2" id="ww56-arc" style="fill:none;stroke:#000000;stroke-width:3;stroke-linecap:round" />
+      <use transform="scale(-1,-1)" id="ww56-use12" x="0" y="0" width="1" height="1" xlink:href="#ww56-arc" />
+    </g>
+  </g>
+  <g id="code-57" transform="translate(357.5 27.5)">
+    <g id="ww57-ww_57">
+      <g transform="matrix(0.7,0,0,0.7,-10,0)" id="ww57-g5">
+        <circle cx="0" cy="0" r="5.5" id="ww57-circle7" style="fill:#000000" />
+        <path d="M 4,0 C 4,3.7 1.9,7.1 -1,9.2" id="ww57-path9" style="fill:none;stroke:#000000;stroke-width:3;stroke-linecap:round" />
+      </g>
+      <g transform="matrix(0.7,0,0,0.7,10,0)" id="ww57-g11">
+        <circle cx="0" cy="0" r="5.5" id="ww57-circle13" style="fill:#000000" />
+        <path d="M 4,0 C 4,3.7 1.9,7.1 -1,9.2" id="ww57-path15" style="fill:none;stroke:#000000;stroke-width:3;stroke-linecap:round" />
+      </g>
+      <path d="M 0,0 A 10,10 0 0 0 20,0 V -2" id="ww57-arc" style="fill:none;stroke:#000000;stroke-width:3;stroke-linecap:round" />
+      <use transform="scale(-1,-1)" id="ww57-use20" x="0" y="0" width="1" height="1" xlink:href="#ww57-arc" />
+    </g>
+  </g>
+  <g id="code-61" transform="translate(412.5 27.5)">
+    <g id="ww61-ww_61">
+      <circle cx="-9.5" cy="0" r="5.5" id="ww61-circle5" style="fill:#000000" />
+      <circle cx="9.5" cy="0" r="5.5" id="ww61-circle7" style="fill:#000000" />
+    </g>
+  </g>
+  <g id="code-63" transform="translate(467.5 27.5)">
+    <g id="ww63-ww_63">
+      <circle cx="0" cy="-9" r="5.5" id="ww63-point" style="fill:#000000" />
+      <use transform="matrix(-0.5,0.8660254,-0.8660254,-0.5,0,0)" id="ww63-use6" x="0" y="0" width="1" height="1" xlink:href="#ww63-point" />
+      <use transform="matrix(-0.5,-0.8660254,0.8660254,-0.5,0,0)" id="ww63-use8" x="0" y="0" width="1" height="1" xlink:href="#ww63-point" />
+    </g>
+  </g>
+  <g id="code-65" transform="translate(522.5 27.5)">
+    <g id="ww65-ww_65">
+      <circle cx="0" cy="-9.5" r="5.5" id="ww65-point" style="fill:#000000" />
+      <use transform="matrix(0,1,-1,0,0,0)" id="ww65-use6" x="0" y="0" width="1" height="1" xlink:href="#ww65-point" />
+      <use transform="scale(-1,-1)" id="ww65-use8" x="0" y="0" width="1" height="1" xlink:href="#ww65-point" />
+      <use transform="matrix(0,-1,1,0,0,0)" id="ww65-use10" x="0" y="0" width="1" height="1" xlink:href="#ww65-point" />
+    </g>
+  </g>
+  <g id="code-66" transform="translate(577.5 27.5)">
+    <g id="ww66-ww_66">
+      <circle cx="-10" cy="0" r="4.5" id="ww66-circle5" style="fill:#000000" />
+      <path d="M 0,0 A 10,10 0 0 0 20,0 V -2" id="ww66-arc" style="fill:none;stroke:#000000;stroke-width:3;stroke-linecap:round" />
+      <use transform="scale(-1,-1)" id="ww66-use8" x="0" y="0" width="1" height="1" xlink:href="#ww66-arc" />
+    </g>
+  </g>
+  <g id="code-67" transform="translate(632.5 27.5)">
+    <g id="ww67-ww_67">
+      <g id="ww67-half">
+        <circle cx="10" cy="0" r="4.5" id="ww67-circle6" style="fill:#000000" />
+        <path d="M 0,0 A 10,10 0 0 0 20,0 V -2" id="ww67-arc" style="fill:none;stroke:#000000;stroke-width:3;stroke-linecap:round" />
+      </g>
+      <use transform="scale(-1,-1)" id="ww67-use9" x="0" y="0" width="1" height="1" xlink:href="#ww67-half" />
+    </g>
+  </g>
+  <g id="code-71" transform="translate(687.5 27.5)">
+    <g id="ww71-ww_71">
+      <g transform="translate(-9.5,0)" id="ww71-g5">
+        <g id="ww71-ww_70">
+          <path d="m 0,-5.5 v 11" id="ww71-ww70arm" style="stroke:#000000;stroke-width:3;stroke-linecap:round" />
+          <use transform="matrix(0.5,0.8660254,-0.8660254,0.5,0,0)" id="ww71-use9" x="0" y="0" width="1" height="1" xlink:href="#ww71-ww70arm" />
+          <use transform="matrix(-0.5,0.8660254,-0.8660254,-0.5,0,0)" id="ww71-use11" x="0" y="0" width="1" height="1" xlink:href="#ww71-ww70arm" />
+        </g>
+      </g>
+      <use id="ww71-use13" x="9.5" y="0" width="1" height="1" xlink:href="#ww71-ww_70" />
+    </g>
+  </g>
+  <g id="code-73" transform="translate(742.5 27.5)">
+    <g id="ww73-ww_73">
+      <g transform="matrix(0.8660254,0.5,-0.5,0.8660254,0,-9.5)" id="ww73-g5">
+        <g id="ww73-ww_70">
+          <path d="m 0,-5.5 v 11" id="ww73-ww70arm" style="stroke:#000000;stroke-width:3;stroke-linecap:round" />
+          <use transform="matrix(0.5,0.8660254,-0.8660254,0.5,0,0)" id="ww73-use9" x="0" y="0" width="1" height="1" xlink:href="#ww73-ww70arm" />
+          <use transform="matrix(-0.5,0.8660254,-0.8660254,-0.5,0,0)" id="ww73-use11" x="0" y="0" width="1" height="1" xlink:href="#ww73-ww70arm" />
+        </g>
+      </g>
+      <use transform="matrix(-0.5,0.8660254,-0.8660254,-0.5,8.2272413,4.75)" id="ww73-use13" x="0" y="0" width="1" height="1" xlink:href="#ww73-ww_70" />
+      <use transform="matrix(-0.5,-0.8660254,0.8660254,-0.5,-8.2272413,4.75)" id="ww73-use15" x="0" y="0" width="1" height="1" xlink:href="#ww73-ww_70" />
+    </g>
+  </g>
+  <g id="code-75" transform="translate(797.5 27.5)">
+    <g id="ww75-ww_75">
+      <g transform="translate(-12,0)" id="ww75-g5">
+        <g id="ww75-ww_70">
+          <path d="m -5.5,0 h 11" id="ww75-ww70arm" style="stroke:#000000;stroke-width:3;stroke-linecap:round" />
+          <use transform="matrix(0.5,0.8660254,-0.8660254,0.5,0,0)" id="ww75-use9" x="0" y="0" width="1" height="1" xlink:href="#ww75-ww70arm" />
+          <use transform="matrix(-0.5,0.8660254,-0.8660254,-0.5,0,0)" id="ww75-use11" x="0" y="0" width="1" height="1" xlink:href="#ww75-ww70arm" />
+        </g>
+      </g>
+      <use id="ww75-use13" x="0" y="-12" width="1" height="1" xlink:href="#ww75-ww_70" />
+      <use id="ww75-use15" x="0" y="12" width="1" height="1" xlink:href="#ww75-ww_70" />
+      <use id="ww75-use17" x="12" y="0" width="1" height="1" xlink:href="#ww75-ww_70" />
+    </g>
+  </g>
+  <g id="code-77" transform="translate(852.5 27.5)">
+    <g id="ww77-ww_77">
+      <g id="ww77-g5" style="fill:none;stroke:#000000;stroke-width:3;stroke-linejoin:miter">
+        <path d="M 0,-8 8.7,6.6 H -8.7 z" id="ww77-ww_77_triangle" />
+        <path d="M -18,0 H 18" id="ww77-ww_77_line" />
+      </g>
+    </g>
+  </g>
+  <g id="code-80" transform="translate(907.5 27.5)">
+    <g id="ww80-ww_80">
+      <circle cx="0" cy="-15.5" r="5.5" id="ww80-circle6" style="fill:#000000" />
+      <path d="M 0,-5.5 H 8.5 L 0,14.5 -8.5,-5.5 z" id="ww80-path8" style="fill:none;stroke:#000000;stroke-width:3" />
+    </g>
+  </g>
+  <g id="code-81" transform="translate(962.5 27.5)">
+    <g id="ww81-ww_81">
+      <circle cx="0" cy="-15.5" r="5.5" id="ww81-circle6" style="fill:#000000" />
+      <path d="M 0,-5.5 H 8.5 L 0,14.5 -8.5,-5.5 z" id="ww81-path8" style="fill:none;stroke:#000000;stroke-width:3" />
+      <path d="M -6,0.5 H 6" id="ww81-path10" style="fill:none;stroke:#000000;stroke-width:3" />
+    </g>
+  </g>
+  <g id="code-82" transform="translate(1017.5 27.5)">
+    <g id="ww82-ww_82">
+      <circle cx="0" cy="-20.5" r="5.5" id="ww82-circle6" style="fill:#000000" />
+      <circle cx="0" cy="-8" r="5.5" id="ww82-circle8" style="fill:#000000" />
+      <path d="M 0,0.5 H 8.5 L 0,20.5 -8.5,0.5 z" id="ww82-path10" style="fill:none;stroke:#000000;stroke-width:3" />
+    </g>
+  </g>
+  <g id="code-85" transform="translate(1072.5 27.5)">
+    <g id="ww85-ww_85">
+      <g transform="translate(0,-15.5)" id="ww85-g6">
+        <path d="m -5.5,0 h 11" id="ww85-ww70arm" style="stroke:#000000;stroke-width:3;stroke-linecap:round" />
+        <use transform="matrix(0.5,0.8660254,-0.8660254,0.5,0,0)" id="ww85-use9" x="0" y="0" width="1" height="1" xlink:href="#ww85-ww70arm" />
+        <use transform="matrix(-0.5,0.8660254,-0.8660254,-0.5,0,0)" id="ww85-use11" x="0" y="0" width="1" height="1" xlink:href="#ww85-ww70arm" />
+      </g>
+      <path d="M 0,-5.5 H 8.5 L 0,14.5 -8.5,-5.5 z" id="ww85-path13" style="fill:none;stroke:#000000;stroke-width:3" />
+    </g>
+  </g>
+  <g id="code-86" transform="translate(1127.5 27.5)">
+    <g id="ww86-ww_86">
+      <g transform="translate(0,-15.5)" id="ww86-g6">
+        <path d="m -5.5,0 h 11" id="ww86-ww70arm" style="stroke:#000000;stroke-width:3;stroke-linecap:round" />
+        <use transform="matrix(0.5,0.8660254,-0.8660254,0.5,0,0)" id="ww86-use9" x="0" y="0" width="1" height="1" xlink:href="#ww86-ww70arm" />
+        <use transform="matrix(-0.5,0.8660254,-0.8660254,-0.5,0,0)" id="ww86-use11" x="0" y="0" width="1" height="1" xlink:href="#ww86-ww70arm" />
+      </g>
+      <path d="M 0,-5.5 H 8.5 L 0,14.5 -8.5,-5.5 z" id="ww86-path13" style="fill:none;stroke:#000000;stroke-width:3" />
+      <path d="M -6,0.5 H 6" id="ww86-path15" style="fill:none;stroke:#000000;stroke-width:3" />
+    </g>
+  </g>
+  <g id="code-95" transform="translate(1182.5 27.5)">
+    <g id="ww95-ww_95">
+      <circle cx="0" cy="-19" r="4.5" transform="matrix(0.89642185,0,0,0.87052731,-6.5254237,-2.1104049)" id="ww95-circle3194" style="fill:#000000" />
+      <path d="m -10.5,-10 h 20 L -2,6.5 l 12,12" id="ww95-path3196" style="fill:none;stroke:#000000;stroke-width:3" />
+      <path d="M -6.5,-10 V 21.5" id="ww95-path3198" style="fill:none;stroke:#000000;stroke-width:3" />
+      <path d="m 9,18.5 h 1 v -1 z" id="ww95-path3200" style="fill:#000000;stroke:#000000;stroke-width:3" />
+    </g>
+    <path d="m -2.6806396,-13.624647 c 6.060433,-9.10664 6.060433,-9.10664 6.060433,-9.10664" id="ww95-path3042" style="fill:none;stroke:#000000;stroke-width:1.71067965;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+    <g transform="matrix(0.66788182,0,0,0.64854999,8.575893,-18.527543)" id="ww95-g3014">
+      <path d="m -5.5,0 h 11" id="ww95-ww70arm" style="stroke:#000000;stroke-width:3;stroke-linecap:round" />
+      <use transform="matrix(0.5,0.8660254,-0.8660254,0.5,0,0)" id="ww95-use3017" x="0" y="0" width="55" height="55" xlink:href="#ww95-ww70arm" />
+      <use transform="matrix(-0.5,0.8660254,-0.8660254,-0.5,0,0)" id="ww95-use3019" x="0" y="0" width="55" height="55" xlink:href="#ww95-ww70arm" />
+    </g>
+  </g>
+  <g id="code-96" transform="translate(1237.5 27.5)">
+    <g id="ww96-ww_96">
+      <path d="M -4,-14 H 4 L 0,-20.93 z" id="ww96-path6" style="fill:none;stroke:#000000;stroke-width:2.5" />
+      <path d="m -10.5,-8 h 20 L -2,8.5 l 12,12" id="ww96-path8" style="fill:none;stroke:#000000;stroke-width:3" />
+      <path d="M -6.5,-8 V 23.5" id="ww96-path10" style="fill:none;stroke:#000000;stroke-width:3" />
+      <path d="m 9,20.5 h 1 v -1 z" id="ww96-path12" style="fill:#000000;stroke:#000000;stroke-width:3" />
+    </g>
+  </g>
+  <g id="code-99" transform="translate(1292.5 27.5)">
+    <g id="ww99-ww_99">
+      <path d="M -4,-14 H 4 L 0,-20.93 z" id="ww99-path6" style="fill:none;stroke:#000000;stroke-width:2.5" />
+      <path d="m -10.5,-8 h 20 L 2,6.5 8.5,13 2,19.5" id="ww99-path8" style="fill:none;stroke:#000000;stroke-width:3" />
+      <path d="M -6.5,-8 V 23.5" id="ww99-path10" style="fill:none;stroke:#000000;stroke-width:3" />
+      <path d="M 2,20.5 H 1 v -1 z" id="ww99-path12" style="fill:#000000;stroke:#000000;stroke-width:3" />
+    </g>
+  </g>
+</svg>

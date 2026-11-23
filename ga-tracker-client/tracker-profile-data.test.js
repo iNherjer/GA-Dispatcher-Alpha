@@ -28,6 +28,39 @@ test('hosted gzip is decoded exactly once before crossing the local JSON boundar
   assert.deepEqual(await profile.resource('./obstacles/core-tiles/331/450.json.gz'), expected);
 });
 
+test('satellite bridge extracts the advertised frame and restricts raster requests to the known products', async () => {
+  const time = '2026-11-23T15:30:00Z';
+  const calls = [];
+  const profile = createProfileData({ cache: { async get(input, options) {
+    const url = new URL(input);
+    calls.push(url);
+    if (url.searchParams.get('request') === 'GetCapabilities') {
+      const xml = Buffer.from('<Layer><Name>clm</Name><Dimension name="time" units="ISO8601" default="' + time + '"/></Layer>');
+      options.validate(xml);
+      return xml;
+    }
+    return Buffer.alloc(33);
+  }}});
+  const meta = await profile.resource('https://view.eumetsat.int/geoserver/msg_fes/wms?request=GetCapabilities');
+  assert.deepEqual(meta, { time });
+  await profile.satelliteTile('clouds', time, 6, 33, 21);
+  assert.equal(calls[1].origin, 'https://view.eumetsat.int');
+  assert.equal(calls[1].searchParams.get('layers'), 'msg_fes:clm');
+  assert.equal(calls[1].searchParams.get('time'), time);
+  assert.equal(calls[1].searchParams.get('bbox').split(',').every(value => Number.isFinite(Number(value))), true);
+  await assert.rejects(profile.satelliteTile('clouds', time, 7, 33, 21), /invalid_profile_satellite_tile/);
+  await assert.rejects(profile.satelliteTile('other', time, 6, 33, 21), /invalid_profile_satellite_tile/);
+  assert.throws(() => resourceUrl('https://view.eumetsat.int/geoserver/msg_fes/wms?request=GetMap'), /invalid_profile_resource/);
+});
+
+test('DWD companion requests are restricted to the loopback weather route and bounded point lists', () => {
+  const url = 'http://127.0.0.1:54582/api/dwd-icon-eu?points=52.52544%2C13.39233&profile=1';
+  assert.equal(resourceUrl(url).localDwd, true);
+  assert.throws(() => resourceUrl(url.replace('54582', '8080')), /invalid_profile_resource/);
+  assert.throws(() => resourceUrl(url.replace('52.52544%2C13.39233', 'invalid')), /invalid_profile_resource/);
+  assert.throws(() => resourceUrl(url + '&url=https://example.com'), /invalid_profile_resource/);
+});
+
 test('terrain batches preserve sample order and reserve network capacity even on failures', async () => {
   let active = 0, maximum = 0, calls = 0;
   const releases = [];

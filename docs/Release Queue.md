@@ -31,6 +31,13 @@ liefert alles Offene mit aus.
 
 ## Ausgeliefert
 
+### 2026-11-23 · Kartenwetter und Höhenband – Tracker v659 Alpha
+
+- **Artefakte:** Tracker-EXE mit EFB-Assets 65901, Web-Cache v2510.
+- **Änderung:** Wetter-Schnellschalter, Stundenwahl und SIG, DWD-Punktwetter mit Wolkenuntergrenzen, Favoritenstern als SVG.
+- **Im Feld prüfen:** Coherent-Darstellung und FPS mit sichtbarem Wetterprofil, Kartenwetter und DWD-Wetterdienst.
+- **Details:** [Tracker v659](Tracker-v659-Release.md).
+
 ### 2026-11-23 · Classic-Wolken im EFB ohne weiche Schatten – Tracker v658 Alpha
 
 - **Artefakte:** Tracker-EXE mit EFB-Assets 65801, Web-Cache v2509.

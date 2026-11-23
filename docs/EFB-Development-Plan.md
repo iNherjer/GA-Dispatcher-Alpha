@@ -7,7 +7,96 @@ im Alpha-Feldtest ergab bei sichtbaren Wolken etwa 25 FPS im Wetterstil
 Classic und etwa 60 FPS in Abstrakt. Tracker v658 Alpha deaktiviert den
 weichen Canvas-Schatten pro Wolkenelement in Classic im EFB. Wolkenbasis und
 Classic-Geometrie bleiben erhalten. Ob der Schattenpfad den Unterschied
-erklärt, wird mit EFB-Assetrevision 65801 im Simulator geprüft.
+erklärt, wurde mit EFB-Assetrevision 65801 im Simulator bestätigt. Classic
+lief im Folgeversuch wieder flüssig.
+
+Lokaler Prototyp „Wetterstil: Kontur (Test)“ für Web und EFB. Vier
+Bedeckungsstufen werden als gefüllte Canvas-Pfade aus den vorhandenen
+Druckprofilen gezeichnet. Bei METAR stammen die Näherungsflächen aus den
+vorhandenen Wolkenschichten mit geschätzten Obergrenzen. Die Darstellung
+nutzt das bestehende statische Profil. Mit Profilquelle Open-Meteo lädt dieser
+Stil zehn Druckstufen inklusive Temperatur im gleichen Forecast-Abruf pro
+Routenpunkt. Isothermen mit grüner 0-°C-Linie und Windfiedern sind separat
+über die Profil-Schaltflächen schaltbar. Daten mit fehlenden Temperaturwerten
+erzeugen keine Isothermen an diesen Stellen. Der Wetterstil-Tooltip zeigt den
+Modelltermin und markiert beim Cooldown wiederverwendete Profile.
+Im lokalen Web-Kandidaten ergänzt „Leichte Bewölkung ab 10 %“ optional
+eine schwache Konturstufe für vorhandene DWD- und Open-Meteo-Modellwerte.
+Die Stufe ist standardmäßig aus und löst keinen eigenen Datenabruf aus.
+
+Kontur-Profile nutzen einen eigenen Schlüssel im lokalen Open-Meteo-Cache.
+Sie bleiben 30 Minuten frisch und können bei einem laufenden 429-Cooldown
+bis zu zwei Stunden nach Abruf erneut genutzt werden. Der vorhandene
+15-Minuten-Cooldown und die Sperre bei erkanntem Tageslimit gelten weiter.
+
+„DWD ICON-EU“ steht im lokalen Web-Kandidaten separat als Quelle für
+Höhenband und Kartenwetter zur Verfügung. Der Adapter
+`tools/dwd-icon-eu-service.py` liefert entlang der Route 13 Druckstufen und
+für das Kartenraster Wolkenbedeckung je Schicht sowie 10-m-Wind. Laufzeit und
+Gültigkeit erscheinen in den Tooltips. Der VFR-Index verwendet
+Open-Meteo und MOSMIX. Der lokale ICON-EU-Versuch für den VFR-Index wurde
+wegen der angekündigten Einstellung des öffentlichen ICON-Sichtfelds
+zurückgenommen.
+
+Im lokalen Web-Höhenband lassen sich „Wetter-Zeitleiste“ und
+„Signifikantes Wetter“ separat einblenden. Für eine geplante Route zeigen
+Open-Meteo und ICON-EU die tatsächlich geladene Uhrzeit in UTC. Die
+Zeitleiste lässt sich über das Wettersymbol in der ersten Zeile der
+Profilsteuerung aufklappen. Auf schmalen Ansichten steht sie in einer
+zweiten Zeile. „SIG“ schaltet die Wettermarker direkt
+um und übernimmt den An-/Aus-Zustand aus dem Profilmenü.
+Die Zeitleiste des Routen-Höhenbands ruft feste UTC-Stunden im Bereich
+von −3 bis +12 Stunden ab. „Live“ stellt auf die automatische Wahl des
+Modelltermins zurück. Satellit und Radar zeigen die jeweils jüngste
+verfügbare Aufnahme. Die Höhenband-Zeitleiste ändert ihre Zeiten nicht.
+Die statischen Wettermarker verwenden Open-Meteo `weather_code` oder
+ICON-EU `WW` mit WMO-Wetterzeichen aus OGC WorldWeatherSymbols
+(CC BY 4.0, siehe `vendor/wmo-weather/LICENSE.md`). Ein Tooltip zeigt
+die Bedeutung beim Überfahren mit der Maus oder per Antippen.
+Die Höhenvereisung und Turbulenz in der FlugWetter-App
+stammen aus separaten WAWFOR-Daten. Das Punktprofil „Was ist hier?“
+verwendet in der lokalen Webapp die Wetterquelle des Höhenbands. Bei
+METAR zeigt es die Beobachtung der nächstgelegenen Meldestation.
+
+Für die lokalen Web-Starter `start-local.command` und
+`start-network.command` die Umgebung einmalig mit
+`python3 -m venv .venv-dwd` und
+`.venv-dwd/bin/python -m pip install eccodes numpy` einrichten.
+Die Starter liefern dann Webapp und `GET /api/dwd-icon-eu` auf demselben
+Port aus. Der Server setzt `window.GA_DWD_WEATHER_URL` vor dem Laden von
+`profile.js`. Ohne die Abhängigkeiten läuft der Webserver mit den
+bisherigen Quellen. Die Route und die Karte
+fragen Koordinaten gesammelt ab. Nur der Adapter lädt per Lauf, Termin und
+Feld vom DWD. Auf Platte bleiben bis zu vier zuletzt benutzte Termine.
+Ein Hintergrundlauf räumt unbenutzte Termine nach 20 Minuten sowie
+Termine außerhalb des Rückblicks auf. Fehlgeschlagene Vordergrundabrufe
+lösen für den Adapter eine Pause von 60 Sekunden aus.
+
+Bei sichtbarer DWD-Zeitleiste werden die Nachbarstunden nach einer kurzen
+Pause einzeln vorgeladen. Der Adapter lädt dafür je ein Feld gleichzeitig
+und stellt das Vorladen zurück, sobald ein Vordergrundabruf läuft. Der
+Browser hält höchstens vier Stunden derselben Route für jeweils zehn
+Minuten im RAM. Beim Schließen der Zeitleiste oder Karte, beim Verbergen
+des Tabs oder beim Quellenwechsel wird dieser Cache geleert.
+
+Der Tracker v659 Alpha mit EFB-Assetrevision 65901 verwendet die
+Tracker-HTTP-Brücke. Für DWD ICON-EU muss `tools/dwd-icon-eu-service.py`
+mit `eccodes` und `numpy` auf demselben Rechner laufen. Mit
+`--bind 127.0.0.1 --port 54582` ist der Dienst für den Tracker erreichbar.
+Die Quellenauswahl prüft die Verfügbarkeit beim Laden. Open-Meteo und
+METAR stehen auch ohne den Dienst bereit. Das EFB lädt gewählte
+Profilstunden bei Bedarf.
+
+Im Layer-Menü schalten vier Symbole Satellit, Radar, VFR-Index und
+Modellwolken mit Windbarben. Satellitenbilder kommen im EFB vom Tracker
+als PNG derselben Origin. Wolkenmaske und IR stehen zur Wahl. Der
+VFR-Index zeigt das interne Kachelmodell ab Zoomstufe 8. Das Höhenband
+bietet die stundenweise Auswahl und statische WMO-Symbole. Das DWD-
+Punktwetter zeigt die modellierte Wettererscheinung und Wolkenbasen in
+ft MSL sowie bei bekannter Geländehöhe in ft AGL. Die DWD-Wolkenuntergrenze
+wird separat angezeigt, sofern sie vorliegt. Der Favoritenstern im
+Seitenmenü ist ein eingebettetes SVG. Die tatsächliche Darstellung und
+die Bildrate in Coherent GT sind im Simulator zu prüfen.
 
 Beim Wechsel von „VFR Vektor (OSM)“ auf eine andere Basiskarte meldet der
 Kartentisch die Layer-Auswahl über seine authentifizierte Cockpit-Sitzung.

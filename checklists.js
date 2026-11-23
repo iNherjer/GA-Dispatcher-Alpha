@@ -896,7 +896,8 @@
         if (star) {
             const active = !!currentId && favorites.indexOf(currentId) >= 0;
             star.hidden = !currentId;
-            star.textContent = active ? '★' : '☆';
+            const icon = star.querySelector('svg');
+            if (icon) icon.setAttribute('fill', active ? 'currentColor' : 'none');
             star.classList.toggle('is-active', active);
             star.setAttribute('aria-pressed', String(active));
             const label = active
@@ -949,8 +950,9 @@
             tabs.style.maxHeight = '';
             return;
         }
-        tabs.style.top = `${Math.round((top + bottom) / 2 - drawerRect.top)}px`;
-        tabs.style.maxHeight = `${Math.round(bottom - top - 16)}px`;
+        const logical = value => window.GAEfbUiScale ? window.GAEfbUiScale.delta(value) : value;
+        tabs.style.top = `${Math.round(logical((top + bottom) / 2 - drawerRect.top))}px`;
+        tabs.style.maxHeight = `${Math.round(logical(bottom - top) - 16)}px`;
     }
 
     function openDrawerFavorite(id) {
@@ -5201,6 +5203,7 @@ ${routeLines}`;
             new ResizeObserver(() => positionDrawerTabs()).observe(mapEl);
         }
         window.addEventListener('resize', positionDrawerTabs);
+        window.addEventListener('ga-efb-layout-change', positionDrawerTabs);
         bodyEl.addEventListener('click', handleClick);
         bodyEl.addEventListener('input', handleInput);
         bodyEl.addEventListener('change', handleChange);

@@ -2,6 +2,8 @@
 const { validatePng } = require('./tracker-navigation-data');
 const { gunzipSync } = require('node:zlib');
 const ROOT = 'https://inherjer.github.io/GA-Dispatcher-Alpha/';
+const EUMET_VIEW = 'https://view.eumetsat.int';
+const SATELLITE_PRODUCTS = { clouds: ['msg_fes', 'clm'], infrared: ['mtg_fd', 'ir105_hrfi'] };
 // The local profile transport accepts only the standalone's public datasets.
 // Neither relay commands nor arbitrary network/filesystem destinations enter here.
 function resourceUrl(input, body) {
@@ -16,6 +18,23 @@ function resourceUrl(input, body) {
   const metar = url.origin === 'https://aviationweather.gov' && url.pathname === '/api/data/metar';
   const hostedProxy = url.origin === 'https://ga-proxy.einherjer.workers.dev' && url.pathname === '/api/obstacles/tile';
   const radar = url.origin === 'https://api.rainviewer.com' && url.pathname === '/public/weather-maps.json';
+  const satellite = url.origin === EUMET_VIEW && Object.values(SATELLITE_PRODUCTS)
+    .find(([workspace]) => url.pathname === '/geoserver/' + workspace + '/wms');
+  if (satellite) {
+    if (url.searchParams.get('request') !== 'GetCapabilities') throw new Error('invalid_profile_resource');
+    const [workspace, layer] = satellite;
+    return { url: EUMET_VIEW + '/geoserver/' + workspace + '/wms?service=WMS&version=1.3.0&request=GetCapabilities',
+      ttlMs: 300000, satelliteLayer: layer };
+  }
+  if (url.origin === 'http://127.0.0.1:54582' && url.pathname === '/api/dwd-icon-eu') {
+    const points = (url.searchParams.get('points') || '').split(';');
+    if (!points.length || points.length > 96 || points.some(point =>
+      !/^-?\d{1,2}(?:\.\d{1,5})?,-?\d{1,3}(?:\.\d{1,5})?$/.test(point))
+      || [...url.searchParams.keys()].some(key => !['points', 'profile', 'valid', 'prefetch'].includes(key))) {
+      throw new Error('invalid_profile_resource');
+    }
+    return { url: url.href, localDwd: true };
+  }
   const airportData = url.origin === 'https://ga-proxy.einherjer.workers.dev' && ['/api/airports', '/api/navaids'].includes(url.pathname);
   const overpass = ['https://overpass-api.de', 'https://lz4.overpass-api.de', 'https://z.overpass-api.de'].includes(url.origin) && url.pathname === '/api/interpreter';
   if (!hosted && !hostedProxy && !weather && !metar && !overpass && !radar && !airportData) throw new Error('invalid_profile_resource');
@@ -48,8 +67,43 @@ function createProfileData(data) {
     },
     async resource(input, options = {}) {
       const request = resourceUrl(input, options.body);
+      if (request.localDwd) {
+        const response = await fetch(request.url, { redirect: 'error', signal: options.signal });
+        if (!response.ok) throw new Error('http_' + response.status);
+        return response.status === 204 ? { source: 'dwd-icon-eu', samples: [] } : response.json();
+      }
+      if (request.satelliteLayer) {
+        const decode = (bytes) => {
+          const xml = bytes.toString('utf8');
+          const name = new RegExp('<Name>(?:[a-z_]+:)?' + request.satelliteLayer + '</Name>').exec(xml);
+          const layer = name && xml.slice(name.index).split('</Layer>', 1)[0];
+          const match = layer && /<Dimension\b[^>]*\bname="time"[^>]*\bdefault="([^"]+)"/.exec(layer);
+          if (!match || !Number.isFinite(Date.parse(match[1]))) throw new Error('satellite_time_unavailable');
+          return { time: match[1] };
+        };
+        return decode(await data.cache.get(request.url, { ttlMs: request.ttlMs, limit: 512 * 1024, validate: decode }));
+      }
       const decode = bytes => JSON.parse((bytes[0] === 31 && bytes[1] === 139 ? gunzipSync(bytes, { maxOutputLength: 32 * 1024 ** 2 }) : bytes).toString('utf8'));
       return decode(await data.cache.get(request.url, { ttlMs: request.ttlMs, limit: 32 * 1024 ** 2, validate: decode }));
+    },
+    async satelliteTile(mode, time, z, x, y) {
+      const product = Object.hasOwn(SATELLITE_PRODUCTS, mode) && SATELLITE_PRODUCTS[mode];
+      if (!product || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{3})?Z$/.test(time || '')
+        || !Number.isFinite(Date.parse(time)) || ![z, x, y].every(Number.isInteger)
+        || z < 0 || z > (mode === 'clouds' ? 6 : 7) || x < 0 || y < 0 || x >= 2 ** z || y >= 2 ** z) {
+        throw new Error('invalid_profile_satellite_tile');
+      }
+      const edge = Math.PI * 6378137;
+      const side = 2 * edge / 2 ** z;
+      const bbox = [-edge + x * side, edge - (y + 1) * side, -edge + (x + 1) * side, edge - y * side];
+      const params = new URLSearchParams({
+        service: 'WMS', request: 'GetMap', version: '1.3.0', layers: product.join(':'), styles: '',
+        crs: 'EPSG:3857', bbox: bbox.join(','), width: '256', height: '256', format: 'image/png',
+        transparent: 'true', time
+      });
+      return data.cache.get(EUMET_VIEW + '/geoserver/wms?' + params, {
+        ttlMs: 3600000, limit: 1024 * 1024, validate: validatePng
+      });
     },
     async terrain(input, options = {}) {
       const points = profilePoints(input);
