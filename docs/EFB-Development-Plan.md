@@ -90,8 +90,9 @@ Die Quellenauswahl prüft die Verfügbarkeit beim Laden. Open-Meteo und
 METAR stehen auch ohne den Dienst bereit. Das EFB lädt gewählte
 Profilstunden bei Bedarf.
 
-Die Alpha-Webapp auf GitHub Pages kann DWD-Daten statisch laden. Der
-Versuch lässt sich über `?dwdAlpha=1` lokal und auf Alpha Pages aktivieren.
+Die Alpha-Webapp auf GitHub Pages bietet DWD als reguläre Wetterquelle an.
+Lokal lässt sich der statische Datenpfad über `?dwdAlpha=1` testen. Mit
+`?dwdAlpha=0` lässt er sich auf Alpha Pages für eine Sitzung ausblenden.
 Karte, Routenprofil und Punktwetter lesen denselben Datenstand aus den
 kostenlosen Cloudflare Static Assets von `ga-dwd-alpha`. Der Browser lädt
 höchstens sechs Kacheln eines Abrufs gleichzeitig und hält bis zu 24

@@ -3002,7 +3002,10 @@
 <script defer src="mission-training-guidance-ui.js?v=tracker-training-guidance-20261118-01"></script>
 <script defer src="checklists.js?v=efb-weather-20261123"></script>
 <script>
-    if (new URLSearchParams(location.search).get('dwdAlpha') === '1') {
+    const dwdAlphaOverride = new URLSearchParams(location.search).get('dwdAlpha');
+    const isAlphaPages = location.hostname === 'inherjer.github.io' &&
+        location.pathname.split('/')[1] === 'GA-Dispatcher-Alpha';
+    if (dwdAlphaOverride !== '0' && (isAlphaPages || dwdAlphaOverride === '1')) {
         window.GA_DWD_STATIC_URL = 'https://ga-dwd-alpha.einherjer.workers.dev';
     }
 </script>
