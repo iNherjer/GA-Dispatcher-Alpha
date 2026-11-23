@@ -70,6 +70,25 @@ function vpNormalizeWeatherSource(source) {
     return value === 'openmeteo' ? 'openmeteo' : 'metar';
 }
 
+function vpInitialWeatherSource(forMap = false) {
+    const saved = (forMap && localStorage.getItem('ga_map_weather_source')) || localStorage.getItem('ga_weather_source');
+    return vpNormalizeWeatherSource(saved || (window.fetchStaticDwdWeatherPoints ? 'dwd' : 'metar'));
+}
+
+async function vpFetchWeatherModelPoints(source, points, options, forMap = false) {
+    if (source === 'dwd') {
+        const usesDefault = window.fetchStaticDwdWeatherPoints && !options.prefetch &&
+            !localStorage.getItem('ga_weather_source') && (!forMap || !localStorage.getItem('ga_map_weather_source'));
+        try {
+            const samples = await window.fetchDwdWeatherPoints(points, options);
+            if (!usesDefault || (samples.length === points.length && samples.every(Boolean))) return { source, samples };
+        } catch (error) {
+            if (!usesDefault || options.signal?.aborted || error?.name === 'AbortError') throw error;
+        }
+    }
+    return { source: 'openmeteo', samples: await window.fetchOpenMeteoWeatherPoints(points, options) };
+}
+
 function vpNextWeatherSource(source) {
     if (source === 'metar') return 'openmeteo';
     return source === 'openmeteo' ? vpNormalizeWeatherSource('dwd') : 'metar';
@@ -2953,7 +2972,9 @@ function triggerVerticalProfileUpdate() {
                 vpRememberDwdTimelineHour(weatherRouteKey, nextWeatherData);
                 vpScheduleDwdTimelinePrefetch();
                 if (btnCl) btnCl.classList.remove('vp-loading-pulse');
-                if (status && vpWeatherSource === 'openmeteo') {
+                if (status && vpWeatherSource === 'dwd' && vpWeatherData?.[0]?.wxSource === 'openmeteo') {
+                    status.textContent = _vpUiText('map.weatherSource.dwdFallback', 'DWD ICON-EU nicht verfügbar · Open-Meteo aktiv');
+                } else if (status && vpWeatherSource === 'openmeteo') {
                     status.textContent = (window.vpWeatherFallbackMode === 'openmeteo_to_metar')
                         ? _vpUiText('profile.status.openMeteoFallback', 'Open-Meteo nicht verfügbar – Fallback: METAR')
                         : ((window.vpWeatherFallbackMode === 'metar_to_openmeteo')
@@ -6481,10 +6502,10 @@ async function fetchRouteWeatherModel(routePts, elevData, signal, source = 'open
     const sampled = vpSampleRouteWeatherPoints(elevData, 5);
     if (!sampled || sampled.length < 3) return null;
 
-    const isDwd = source === 'dwd';
-    const includeContour = isDwd || vpWeatherRenderMode === 'kontur';
-    const fetchPoints = isDwd ? window.fetchDwdWeatherPoints : window.fetchOpenMeteoWeatherPoints;
-    const samples = await fetchPoints(sampled, { signal, includePressure: true, includeContour, maxConcurrency: 6, validAt, prefetch });
+    const includeContour = source === 'dwd' || vpWeatherRenderMode === 'kontur';
+    const { source: activeSource, samples } = await vpFetchWeatherModelPoints(source, sampled,
+        { signal, includePressure: true, includeContour, maxConcurrency: 6, validAt, prefetch });
+    const isDwd = activeSource === 'dwd';
     if (signal && signal.aborted) throw new DOMException('Aborted', 'AbortError');
 
     const zones = [];
@@ -6545,7 +6566,7 @@ async function fetchRouteWeatherModel(routePts, elevData, signal, source = 'open
             contourValidAt: sample.contourValidAt,
             contourStale: sample.contourStale === true,
             ...(isDwd ? { modelRunAt: sample.modelRunAt } : {}),
-            wxSource: source
+            wxSource: activeSource
         });
     }
 
@@ -11224,7 +11245,7 @@ setTimeout(() => initAltWaypoints(), 2000);
 // === VERTICAL PROFILE CONTROLS (V49) ===
 let vpMaxAltOverride = 0; // 0 = Auto-Scaling
 let vpShowClouds = localStorage.getItem('ga_show_clouds') !== 'false'; // Default: true
-let vpWeatherSource = vpNormalizeWeatherSource(localStorage.getItem('ga_weather_source'));
+let vpWeatherSource = vpInitialWeatherSource();
 window.vpWeatherSource = vpWeatherSource;
 const VP_WEATHER_HOUR_MS = 60 * 60 * 1000;
 const VP_DWD_TIMELINE_TTL_MS = 10 * 60 * 1000;
@@ -11239,7 +11260,8 @@ let vpWeatherTimelineStatus = '';
 const _storedWeatherRenderMode = localStorage.getItem('ga_weather_render_mode');
 const VP_WEATHER_RENDER_MODES = ['classic', 'abstrakt', 'kontur'];
 let vpWeatherRenderMode = _storedWeatherRenderMode === 'pro' ? 'abstrakt'
-    : VP_WEATHER_RENDER_MODES.includes(_storedWeatherRenderMode) ? _storedWeatherRenderMode : 'classic';
+    : VP_WEATHER_RENDER_MODES.includes(_storedWeatherRenderMode) ? _storedWeatherRenderMode
+        : window.fetchStaticDwdWeatherPoints ? 'kontur' : 'classic';
 let vpShowIsobars = localStorage.getItem('ga_show_isobars') !== 'false';
 let vpShowWindComponents = localStorage.getItem('ga_show_wind_components') !== 'false';
 let vpWeatherRefreshTimer = null;
@@ -11416,7 +11438,7 @@ function updateWeatherRenderModeBtn() {
     const labels = {
         classic: 'Classic',
         abstrakt: _vpUiText('map.profile.weatherAbstract', 'Abstrakt'),
-        kontur: _vpUiText('map.profile.weatherContour', 'Kontur (Test)')
+        kontur: _vpUiText('map.profile.weatherContour', 'Kontur')
     };
     btn.classList.toggle('active', vpWeatherRenderMode !== 'classic');
     const buttonText = '🌦️ ' + _vpUiText('map.profile.weatherStyle', 'Wetterstil: {style}', { style: labels[vpWeatherRenderMode] });

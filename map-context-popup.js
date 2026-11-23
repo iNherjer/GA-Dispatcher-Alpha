@@ -754,14 +754,12 @@ async function fetchMapContextMetar({ lat, lng }) {
 
 async function fetchMapContextWeather(latlng, source) {
     if (source === 'metar') return fetchMapContextMetar(latlng);
-    const fetchWeather = source === 'dwd' ? window.fetchDwdWeatherPoints : window.fetchOpenMeteoWeatherPoints;
-    if (typeof fetchWeather !== 'function') return null;
-    const samples = await fetchWeather(
+    const { source: activeSource, samples } = await vpFetchWeatherModelPoints(source,
         [{ lat: latlng.lat, lon: latlng.lng }],
         { includePressure: true, maxConcurrency: 1 }
     );
     const sample = Array.isArray(samples) ? samples[0] : null;
-    return sample ? { ...sample, wxSource: source } : null;
+    return sample ? { ...sample, wxSource: activeSource } : null;
 }
 
 window.refreshMapContextWeather = function() {

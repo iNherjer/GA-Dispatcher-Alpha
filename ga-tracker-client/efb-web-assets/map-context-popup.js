@@ -921,7 +921,7 @@ function fetchMapContextWeather(_x5, _x6) {
 }
 function _fetchMapContextWeather() {
   _fetchMapContextWeather = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(latlng, source) {
-    var fetchWeather, samples, sample;
+    var _yield$vpFetchWeather, activeSource, samples, sample;
     return _regenerator().w(function (_context5) {
       while (1) switch (_context5.n) {
         case 0:
@@ -931,26 +931,21 @@ function _fetchMapContextWeather() {
           }
           return _context5.a(2, fetchMapContextMetar(latlng));
         case 1:
-          fetchWeather = source === 'dwd' ? window.fetchDwdWeatherPoints : window.fetchOpenMeteoWeatherPoints;
-          if (!(typeof fetchWeather !== 'function')) {
-            _context5.n = 2;
-            break;
-          }
-          return _context5.a(2, null);
-        case 2:
-          _context5.n = 3;
-          return fetchWeather([{
+          _context5.n = 2;
+          return vpFetchWeatherModelPoints(source, [{
             lat: latlng.lat,
             lon: latlng.lng
           }], {
             includePressure: true,
             maxConcurrency: 1
           });
-        case 3:
-          samples = _context5.v;
+        case 2:
+          _yield$vpFetchWeather = _context5.v;
+          activeSource = _yield$vpFetchWeather.source;
+          samples = _yield$vpFetchWeather.samples;
           sample = Array.isArray(samples) ? samples[0] : null;
           return _context5.a(2, sample ? _objectSpread(_objectSpread({}, sample), {}, {
-            wxSource: source
+            wxSource: activeSource
           }) : null);
       }
     }, _callee5);

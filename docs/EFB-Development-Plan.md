@@ -91,6 +91,10 @@ METAR stehen auch ohne den Dienst bereit. Das EFB lädt gewählte
 Profilstunden bei Bedarf.
 
 Die Alpha-Webapp auf GitHub Pages bietet DWD als reguläre Wetterquelle an.
+Ohne gespeicherte Wetterquelle verwendet sie DWD auf Karte und Höhenband
+und ohne gespeicherten Wetterstil die Konturwolken. Außerhalb der
+DWD-Abdeckung oder bei einem Ausfall nutzt die automatische Voreinstellung
+Open-Meteo. Manuell gewählte Quellen und Wetterstile bleiben gespeichert.
 Lokal lässt sich der statische Datenpfad über `?dwdAlpha=1` testen. Mit
 `?dwdAlpha=0` lässt er sich auf Alpha Pages für eine Sitzung ausblenden.
 Karte, Routenprofil und Punktwetter lesen denselben Datenstand aus den

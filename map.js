@@ -986,7 +986,7 @@ function normalizeMapWeatherSource(value) {
 }
 
 function getMapWeatherSource() {
-    return normalizeMapWeatherSource(window.vpMapWeatherSource || localStorage.getItem('ga_map_weather_source') || localStorage.getItem('ga_weather_source'));
+    return window.vpMapWeatherSource ? normalizeMapWeatherSource(window.vpMapWeatherSource) : vpInitialWeatherSource(true);
 }
 
 function updateMapWeatherSourceBtn() {
@@ -9352,7 +9352,7 @@ async function fetchOpenAIPData() {
    WETTER MARKER AUF DER KARTE (VFR / IFR)
    ========================================================= */
 window.vpShowMapMetar = localStorage.getItem('ga_show_map_metar') !== 'false';
-window.vpMapWeatherSource = normalizeMapWeatherSource(localStorage.getItem('ga_map_weather_source') || localStorage.getItem('ga_weather_source') || 'metar');
+window.vpMapWeatherSource = vpInitialWeatherSource(true);
 let wxMapWeatherData = null;
 let wxMapMetarRequest = null;
 let wxMapMetarRetry = null;
@@ -9604,8 +9604,6 @@ window.renderMapWeatherOverlays = async function(forceFetch = false) {
         clearMapOpenMeteoOverlays();
         return;
     }
-    const fetchPoints = source === 'dwd' ? window.fetchDwdWeatherPoints : window.fetchOpenMeteoWeatherPoints;
-    if (typeof fetchPoints !== 'function') return;
     if (source === 'openmeteo' && typeof window.vpIsOpenMeteoCoolingDown === 'function' && window.vpIsOpenMeteoCoolingDown()) return;
 
     const grid = getMapWeatherGridPoints(8, 6);
@@ -9628,7 +9626,8 @@ window.renderMapWeatherOverlays = async function(forceFetch = false) {
 
     try {
         if (window.vpWeatherDebug) window.vpWeatherDebug.mapOverlayFetches += 1;
-        const samples = await fetchPoints(points, { signal, includePressure: false, maxConcurrency: 4 });
+        const { source: activeSource, samples } = await vpFetchWeatherModelPoints(source, points,
+            { signal, includePressure: false, maxConcurrency: 4 }, true);
         if (signal.aborted) return;
         if (!isMapWeatherMasterEnabled() || getMapWeatherSource() !== source) {
             clearMapOpenMeteoOverlays();
@@ -9639,7 +9638,9 @@ window.renderMapWeatherOverlays = async function(forceFetch = false) {
             updateMapWeatherSourceBtn();
             const first = samples.find(sample => sample && Number.isFinite(sample.contourValidAt));
             const button = document.getElementById('btnToggleMapWeatherSource');
-            if (button && first) button.title += ' ' + vpModelForecastTime(first);
+            if (button && activeSource === 'openmeteo') {
+                button.title += ' ' + _mapUiText('map.weatherSource.dwdFallback', 'DWD ICON-EU nicht verfügbar · Open-Meteo aktiv');
+            } else if (button && first) button.title += ' ' + vpModelForecastTime(first);
         }
 
         clearMapOpenMeteoOverlays();
@@ -9650,7 +9651,7 @@ window.renderMapWeatherOverlays = async function(forceFetch = false) {
             if (!sample || !Number.isFinite(sample.lat) || !Number.isFinite(sample.lon)) return;
             const lat = sample.lat, lon = sample.lon;
 
-            if (showCloud && (source !== 'dwd' || [sample.cloudLowPct, sample.cloudMidPct, sample.cloudHighPct].every(Number.isFinite))) {
+            if (showCloud && (activeSource !== 'dwd' || [sample.cloudLowPct, sample.cloudMidPct, sample.cloudHighPct].every(Number.isFinite))) {
                 const low = Number(sample.cloudLowPct || 0);
                 const mid = Number(sample.cloudMidPct || 0);
                 const high = Number(sample.cloudHighPct || 0);
@@ -9659,8 +9660,8 @@ window.renderMapWeatherOverlays = async function(forceFetch = false) {
             }
 
             if (showWind) {
-                const dir = source === 'dwd' ? sample.wdir : Number(sample.wdir);
-                const spd = source === 'dwd' ? sample.wspd : Number(sample.wspd);
+                const dir = activeSource === 'dwd' ? sample.wdir : Number(sample.wdir);
+                const spd = activeSource === 'dwd' ? sample.wspd : Number(sample.wspd);
                 if (Number.isFinite(dir) && Number.isFinite(spd)) {
                     const icon = buildWindBarbIcon(dir, spd);
                     const m = L.marker([lat, lon], { icon, interactive: false, keyboard: false, opacity: 1 }).addTo(map);
