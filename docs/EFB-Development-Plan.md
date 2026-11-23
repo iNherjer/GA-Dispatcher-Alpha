@@ -99,16 +99,24 @@ dekodierte Kacheln für zehn Minuten. Beim Verbergen des Tabs wird dieser
 Cache geleert. Das Kartenprodukt enthält nur Cloud-Layer und Bodenwind.
 Das Profilprodukt enthält zusätzlich alle 13 Modellschichten und die
 Punktwetterfelder. Die erste Abdeckung reicht von 45° bis 57° N und 3° bis
-18° E bei 0,125° Rasterweite sowie von −3 bis +12 Stunden. Die Oberfläche
-zeigt den tatsächlich geladenen UTC-Termin.
+18° E bei 0,125° Rasterweite. Die Webapp zeigt −3 bis +12 Stunden. Der
+Export reicht bis +16 Stunden und hält so vier Stunden Reserve bereit.
+Bei sichtbarer Zeitleiste lädt die App die vorherige und nächste Stunde
+der aktiven Route nach einer kurzen Pause vor. Die Oberfläche zeigt den
+tatsächlich geladenen UTC-Termin.
 
 `tools/export-dwd-weather-assets.py` exportiert den rollierenden Zeitraum.
-Der GitHub-Workflow `DWD weather assets (Alpha)` kann manuell einen
-Messlauf ausführen und das Ergebnis als kurzlebiges Artefakt hinterlegen.
+Der GitHub-Workflow `DWD weather assets (Alpha)` prüft stündlich, ob ein
+neuer Modelllauf verfügbar ist oder die Reserve knapp wird. Bestehende
+Kacheln desselben Modelllaufs und Gültigkeitstermins werden von Cloudflare
+übernommen. Ohne Änderung endet der Check ohne Veröffentlichung. Bei
+einem verspäteten DWD-Lauf gilt die vorhandene Ausgabe weiter, solange sie
+das UI-Zeitfenster abdeckt. Ein manueller Lauf mit `force_export` erzeugt
+einen vollständigen Export für Messungen oder Wiederherstellung.
 Für regelmäßige Auslieferung braucht das Alpha-Repository das Secret
 `GA_DWD_CLOUDFLARE_API_TOKEN` und die Variable
 `GA_DWD_CLOUDFLARE_ACCOUNT_ID`. `GA_DWD_STATIC_PUBLISH=true` aktiviert
-den stündlichen Export mit Cloudflare-Deployment. Der lokale
+den stündlichen Check mit Cloudflare-Deployment bei Änderungen. Der lokale
 Wrangler-Login eignet sich für manuelle Veröffentlichungen. Aus einem
 fehlerhaften Export entsteht kein Deployment. Das EFB verwendet weiterhin
 seine lokale Tracker-Brücke.

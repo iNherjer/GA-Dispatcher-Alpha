@@ -145,4 +145,5 @@
     document.addEventListener('visibilitychange', () => { if (document.hidden) tiles.clear(); });
     setInterval(pruneTiles, TILE_TTL);
     window.fetchStaticDwdWeatherPoints = read;
+    window.GA_DWD_WEATHER_PREFETCH = true;
 }());

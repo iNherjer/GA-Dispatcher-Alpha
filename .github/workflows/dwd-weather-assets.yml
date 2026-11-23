@@ -2,6 +2,11 @@ name: DWD weather assets (Alpha)
 
 on:
   workflow_dispatch:
+    inputs:
+      force_export:
+        description: Build a fresh snapshot even if the published window is current
+        type: boolean
+        default: false
   schedule:
     - cron: '22 * * * *'
 
@@ -23,21 +28,31 @@ jobs:
         with:
           python-version: '3.12'
       - run: python -m pip install eccodes numpy
+      - run: python tools/test_dwd_weather_export.py
       - name: Generate and measure the rolling forecast window
+        id: snapshot
         shell: bash
-        run: python tools/export-dwd-weather-assets.py "$RUNNER_TEMP/dwd-assets" | tee -a "$GITHUB_STEP_SUMMARY"
+        env:
+          FORCE_EXPORT: ${{ inputs.force_export }}
+        run: |
+          options=()
+          if [[ "$FORCE_EXPORT" != 'true' ]]; then options+=(--check-published); fi
+          python tools/export-dwd-weather-assets.py "$RUNNER_TEMP/dwd-assets" "${options[@]}" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [[ -f "$RUNNER_TEMP/dwd-assets/manifest.json" ]]; then
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: dwd-alpha-weather
           path: ${{ runner.temp }}/dwd-assets
           retention-days: 1
-        if: vars.GA_DWD_STATIC_PUBLISH != 'true'
+        if: steps.snapshot.outputs.ready == 'true' && vars.GA_DWD_STATIC_PUBLISH != 'true'
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-        if: vars.GA_DWD_STATIC_PUBLISH == 'true'
+        if: steps.snapshot.outputs.ready == 'true' && vars.GA_DWD_STATIC_PUBLISH == 'true'
       - name: Publish static files to Cloudflare
-        if: vars.GA_DWD_STATIC_PUBLISH == 'true'
+        if: steps.snapshot.outputs.ready == 'true' && vars.GA_DWD_STATIC_PUBLISH == 'true'
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ vars.GA_DWD_CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.GA_DWD_CLOUDFLARE_API_TOKEN }}
