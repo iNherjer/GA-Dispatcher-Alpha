@@ -27,7 +27,13 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-(leer)
+### 2026-11-23 · Kompaktes DWD-Punktwetter
+
+- **Artefakt:** Tracker-EXE (EFB-Web-Assets). Web-Cache v2514.
+- **Was:** Modelliertes Wetter mit WMO-Symbol, eine Wolkenbasis und keine Platzhalter für fehlende Werte.
+- **Tests:** Gemeinsame Web- und Tracker-Asset-Tests und Browserprüfung des Tracker-Hosts.
+- **Doku beim Release:** `docs/EFB-Development-Plan.md`, DWD-Punktwetter.
+- **Im Feld prüfen:** WMO-Symbol und Wolkenbasis in „Was ist hier?“ im MSFS-EFB.
 
 ## Ausgeliefert
 

@@ -126,9 +126,11 @@ Modellwolken mit Windbarben. Satellitenbilder kommen im EFB vom Tracker
 als PNG derselben Origin. Wolkenmaske und IR stehen zur Wahl. Der
 VFR-Index zeigt das interne Kachelmodell ab Zoomstufe 8. Das Höhenband
 bietet die stundenweise Auswahl und statische WMO-Symbole. Das DWD-
-Punktwetter zeigt die modellierte Wettererscheinung und Wolkenbasen in
-ft MSL sowie bei bekannter Geländehöhe in ft AGL. Die DWD-Wolkenuntergrenze
-wird separat angezeigt, sofern sie vorliegt. Der Favoritenstern im
+Punktwetter zeigt vorhandene modellierte Wettererscheinungen mit denselben
+WMO-Symbolen wie im Höhenband. Die niedrigste Wolkenbasis erscheint in
+ft MSL und, bei bekannter Geländehöhe, in ft AGL. Der DWD-Ceiling-Wert
+dient bei fehlender Profilbasis als Ersatz mit erklärendem Tooltip.
+Leere Angaben und ihre Überschriften entfallen. Der Favoritenstern im
 Seitenmenü ist ein eingebettetes SVG. Die tatsächliche Darstellung und
 die Bildrate in Coherent GT sind im Simulator zu prüfen.
 

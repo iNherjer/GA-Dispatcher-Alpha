@@ -996,7 +996,7 @@ function getMapContextRunwayWindroseData(feature) {
   };
 }
 function renderMapContextDwdDetails(state) {
-  var _state$terrainFt, _weather$modelTerrain, _weather$ceilingMslM, _weather$weatherCode;
+  var _state$terrainFt, _weather$modelTerrain, _weather$ceilingMslM, _weather$cloudTotalPc, _weather$weatherCode;
   var weather = state.weather;
   if ((weather === null || weather === void 0 ? void 0 : weather.wxSource) !== 'dwd') return '';
   var terrain = Number((_state$terrainFt = state.terrainFt) !== null && _state$terrainFt !== void 0 ? _state$terrainFt : NaN);
@@ -1004,24 +1004,29 @@ function renderMapContextDwdDetails(state) {
   var ground = Number.isFinite(terrain) ? terrain : modelTerrain;
   var atmosphere = getMapContextAtmosphereData(state, Number.isFinite(ground) ? ground : 0);
   var formatFeet = ft => Math.round(ft).toLocaleString(_mcLocale());
-  var bases = atmosphere.clouds.map(cloud => {
-    var base = Number.isFinite(ground) ? Math.max(cloud.baseMsl, ground) : cloud.baseMsl;
-    return formatFeet(base) + ' ft MSL' + (Number.isFinite(ground) ? ' (' + formatFeet(base - ground) + ' ft AGL)' : '');
-  });
-  var ceiling = Number((_weather$ceilingMslM = weather.ceilingMslM) !== null && _weather$ceilingMslM !== void 0 ? _weather$ceilingMslM : NaN) * 3.28084;
-  var ceilingText = Number.isFinite(ceiling) ? formatFeet(ceiling) + ' ft MSL' + (Number.isFinite(ground) && ceiling >= ground ? ' (' + formatFeet(ceiling - ground) + ' ft AGL)' : '') : '';
+  var lowestBase = atmosphere.lowestBaseFt;
+  var ceiling = Number((_weather$ceilingMslM = weather.ceilingMslM) !== null && _weather$ceilingMslM !== void 0 ? _weather$ceilingMslM : NaN);
+  var cover = Number((_weather$cloudTotalPc = weather.cloudTotalPct) !== null && _weather$cloudTotalPc !== void 0 ? _weather$cloudTotalPc : NaN);
+  var useCeiling = !Number.isFinite(lowestBase) && Number.isFinite(ceiling) && ceiling > 0 && (!Number.isFinite(cover) || cover > 50);
+  var base = useCeiling ? ceiling * 3.28084 : Number.isFinite(lowestBase) && Number.isFinite(ground) ? Math.max(lowestBase, ground) : lowestBase;
+  var baseText = Number.isFinite(base) ? formatFeet(base) + ' ft MSL' + (Number.isFinite(ground) && base >= ground ? ' · ' + formatFeet(base - ground) + ' ft AGL' : '') : '';
   var code = Number((_weather$weatherCode = weather.weatherCode) !== null && _weather$weatherCode !== void 0 ? _weather$weatherCode : NaN);
+  var column = VP_WMO_WEATHER_CODES.indexOf(code);
   var symbol = vpSignificantWeatherSymbol(code);
-  var condition = symbol ? _mcK('map.profile.weatherMarker.' + symbol, VP_WEATHER_MARKER_NAMES[symbol]) : !Number.isFinite(code) ? _mcK('mapContext.wx.notAvailable', 'Keine Angabe') : code <= 3 ? _mcK('mapContext.wx.noSignificantWeather', 'Kein signifikantes Wetter im Modell') : 'WMO ' + code;
-  var baseText = bases.length ? bases.join(' · ') : _mcK('mapContext.wx.noCloudBase', 'Keine Wolkenuntergrenze im Druckprofil erkennbar');
+  var iconSize = 22;
+  var event = column >= 0 && symbol ? `<div class="ga-map-context-dwd-event">
+        <span class="ga-map-context-dwd-symbol" aria-hidden="true" style="background-image:url('${vpWmoWeatherSpriteUrl()}');background-size:${VP_WMO_WEATHER_CODES.length * iconSize}px ${iconSize}px;background-position:${-column * iconSize}px 0"></span>
+        <b>${escapePopupText(_mcK('map.profile.weatherMarker.' + symbol, VP_WEATHER_MARKER_NAMES[symbol]))}</b>
+    </div>` : '';
+  var baseTitle = useCeiling ? _mcK('mapContext.wx.modelCeiling', 'Niedrigste Höhe mit mehr als 50 % Wolkenbedeckung in einer Modellschicht') : '';
+  if (!event && !baseText) return '';
   return `<div class="ga-map-context-dwd-details">
-        <div><small>${_mcK('mapContext.wx.significantWeather', 'Signifikantes Wetter (DWD)')}</small><b>${escapePopupText(condition)}</b></div>
-        <div><small>${_mcK('mapContext.wx.cloudBases', 'Wolkenuntergrenzen (Modellprofil)')}</small><b>${escapePopupText(baseText)}</b></div>
-        ${ceilingText ? `<div><small>${_mcK('mapContext.wx.modelCeiling', 'DWD-Untergrenze bei über 50 % Bedeckung')}</small><b>${ceilingText}</b></div>` : ''}
+        ${event}
+        ${baseText ? `<div${baseTitle ? ` title="${escapePopupText(baseTitle)}"` : ''}><small>${_mcK('mapContext.wx.cloudBase', 'Wolkenbasis')}</small> <b>${escapePopupText(baseText)}</b></div>` : ''}
     </div>`;
 }
 function renderMapContextWeather(state) {
-  var _weather$wdir, _weather$wspd, _weather$cloudTotalPc, _weather$cloudLowPct, _weather$cloudMidPct, _weather$cloudHighPct, _weather$temp2mC, _weather$visibilityM;
+  var _weather$wdir, _weather$wspd, _weather$cloudTotalPc2, _weather$cloudLowPct, _weather$cloudMidPct, _weather$cloudHighPct, _weather$temp2mC, _weather$visibilityM;
   var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
   var runway = (options === null || options === void 0 ? void 0 : options.runway) || null;
   if (state.loading.weather && !runway) {
@@ -1033,7 +1038,7 @@ function renderMapContextWeather(state) {
   }
   var windDir = Number((_weather$wdir = weather === null || weather === void 0 ? void 0 : weather.wdir) !== null && _weather$wdir !== void 0 ? _weather$wdir : NaN);
   var windKt = Number((_weather$wspd = weather === null || weather === void 0 ? void 0 : weather.wspd) !== null && _weather$wspd !== void 0 ? _weather$wspd : NaN);
-  var totalCloud = Number((_weather$cloudTotalPc = weather === null || weather === void 0 ? void 0 : weather.cloudTotalPct) !== null && _weather$cloudTotalPc !== void 0 ? _weather$cloudTotalPc : NaN);
+  var totalCloud = Number((_weather$cloudTotalPc2 = weather === null || weather === void 0 ? void 0 : weather.cloudTotalPct) !== null && _weather$cloudTotalPc2 !== void 0 ? _weather$cloudTotalPc2 : NaN);
   var lowCloud = Number((_weather$cloudLowPct = weather === null || weather === void 0 ? void 0 : weather.cloudLowPct) !== null && _weather$cloudLowPct !== void 0 ? _weather$cloudLowPct : NaN);
   var midCloud = Number((_weather$cloudMidPct = weather === null || weather === void 0 ? void 0 : weather.cloudMidPct) !== null && _weather$cloudMidPct !== void 0 ? _weather$cloudMidPct : NaN);
   var highCloud = Number((_weather$cloudHighPct = weather === null || weather === void 0 ? void 0 : weather.cloudHighPct) !== null && _weather$cloudHighPct !== void 0 ? _weather$cloudHighPct : NaN);

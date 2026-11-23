@@ -812,29 +812,29 @@ function renderMapContextDwdDetails(state) {
     const ground = Number.isFinite(terrain) ? terrain : modelTerrain;
     const atmosphere = getMapContextAtmosphereData(state, Number.isFinite(ground) ? ground : 0);
     const formatFeet = ft => Math.round(ft).toLocaleString(_mcLocale());
-    const bases = atmosphere.clouds.map(cloud => {
-        const base = Number.isFinite(ground) ? Math.max(cloud.baseMsl, ground) : cloud.baseMsl;
-        return formatFeet(base) + ' ft MSL' +
-            (Number.isFinite(ground) ? ' (' + formatFeet(base - ground) + ' ft AGL)' : '');
-    });
-    const ceiling = Number(weather.ceilingMslM ?? NaN) * 3.28084;
-    const ceilingText = Number.isFinite(ceiling)
-        ? formatFeet(ceiling) + ' ft MSL' +
-            (Number.isFinite(ground) && ceiling >= ground ? ' (' + formatFeet(ceiling - ground) + ' ft AGL)' : '')
-        : '';
+    const lowestBase = atmosphere.lowestBaseFt;
+    const ceiling = Number(weather.ceilingMslM ?? NaN);
+    const cover = Number(weather.cloudTotalPct ?? NaN);
+    const useCeiling = !Number.isFinite(lowestBase) && Number.isFinite(ceiling) && ceiling > 0 &&
+        (!Number.isFinite(cover) || cover > 50);
+    const base = useCeiling ? ceiling * 3.28084
+        : Number.isFinite(lowestBase) && Number.isFinite(ground) ? Math.max(lowestBase, ground) : lowestBase;
+    const baseText = Number.isFinite(base) ? formatFeet(base) + ' ft MSL' +
+        (Number.isFinite(ground) && base >= ground ? ' · ' + formatFeet(base - ground) + ' ft AGL' : '') : '';
     const code = Number(weather.weatherCode ?? NaN);
+    const column = VP_WMO_WEATHER_CODES.indexOf(code);
     const symbol = vpSignificantWeatherSymbol(code);
-    const condition = symbol
-        ? _mcK('map.profile.weatherMarker.' + symbol, VP_WEATHER_MARKER_NAMES[symbol])
-        : !Number.isFinite(code) ? _mcK('mapContext.wx.notAvailable', 'Keine Angabe')
-            : code <= 3 ? _mcK('mapContext.wx.noSignificantWeather', 'Kein signifikantes Wetter im Modell')
-                : 'WMO ' + code;
-    const baseText = bases.length ? bases.join(' · ')
-        : _mcK('mapContext.wx.noCloudBase', 'Keine Wolkenuntergrenze im Druckprofil erkennbar');
+    const iconSize = 22;
+    const event = column >= 0 && symbol ? `<div class="ga-map-context-dwd-event">
+        <span class="ga-map-context-dwd-symbol" aria-hidden="true" style="background-image:url('${vpWmoWeatherSpriteUrl()}');background-size:${VP_WMO_WEATHER_CODES.length * iconSize}px ${iconSize}px;background-position:${-column * iconSize}px 0"></span>
+        <b>${escapePopupText(_mcK('map.profile.weatherMarker.' + symbol, VP_WEATHER_MARKER_NAMES[symbol]))}</b>
+    </div>` : '';
+    const baseTitle = useCeiling
+        ? _mcK('mapContext.wx.modelCeiling', 'Niedrigste Höhe mit mehr als 50 % Wolkenbedeckung in einer Modellschicht') : '';
+    if (!event && !baseText) return '';
     return `<div class="ga-map-context-dwd-details">
-        <div><small>${_mcK('mapContext.wx.significantWeather', 'Signifikantes Wetter (DWD)')}</small><b>${escapePopupText(condition)}</b></div>
-        <div><small>${_mcK('mapContext.wx.cloudBases', 'Wolkenuntergrenzen (Modellprofil)')}</small><b>${escapePopupText(baseText)}</b></div>
-        ${ceilingText ? `<div><small>${_mcK('mapContext.wx.modelCeiling', 'DWD-Untergrenze bei über 50 % Bedeckung')}</small><b>${ceilingText}</b></div>` : ''}
+        ${event}
+        ${baseText ? `<div${baseTitle ? ` title="${escapePopupText(baseTitle)}"` : ''}><small>${_mcK('mapContext.wx.cloudBase', 'Wolkenbasis')}</small> <b>${escapePopupText(baseText)}</b></div>` : ''}
     </div>`;
 }
 

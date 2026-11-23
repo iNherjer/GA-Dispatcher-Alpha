@@ -11044,6 +11044,9 @@ function vpSignificantWeatherSymbol(code) {
 var VP_WMO_WEATHER_CODES = [45, 48, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 99];
 var VP_WMO_CELL_PX = 55;
 var vpWmoWeatherSprite = null;
+function vpWmoWeatherSpriteUrl() {
+  return window.gaProfileDataProvider ? '/efb/v1/assets/vendor/wmo-weather/present-weather.svg' : './vendor/wmo-weather/present-weather.svg';
+}
 function vpDrawSignificantWeather(ctx, xOf, yOf, elevations, left, right, top) {
   var _vpWeatherData3;
   var targets = arguments.length > 7 && arguments[7] !== undefined ? arguments[7] : null;
@@ -11063,7 +11066,7 @@ function vpDrawSignificantWeather(ctx, xOf, yOf, elevations, left, right, top) {
       if (!vpWmoWeatherSprite) {
         vpWmoWeatherSprite = new Image();
         vpWmoWeatherSprite.onload = () => window.vpScheduleProfileRender('wmo-weather-symbols', 0);
-        vpWmoWeatherSprite.src = window.gaProfileDataProvider ? '/efb/v1/assets/vendor/wmo-weather/present-weather.svg' : './vendor/wmo-weather/present-weather.svg';
+        vpWmoWeatherSprite.src = vpWmoWeatherSpriteUrl();
       }
       var ready = vpWmoWeatherSprite.complete && vpWmoWeatherSprite.naturalWidth > 0;
       var fallback = ready ? '' : vpSignificantWeatherSymbol(zone.weatherCode);
