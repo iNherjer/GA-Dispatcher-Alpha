@@ -20,3 +20,10 @@ Kartenwechsel wurde über den Tracker-Loopback bis zum Renderer geprüft.
   Bewölkung. Web-Framezeiten und Akkueffekt bleiben ebenfalls Feldmessungen.
 - Vektorkarte in EFB und Toolbar gemeinsam verwenden, nacheinander auf Topo
   wechseln und das Schließen des Desktop-Renderfensters bestätigen.
+
+## Artefakt und Aktivierung
+
+- Release [v657](https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/tag/v657)
+  aus Commit `4dad33ba3`. Windows-x64-EXE mit 175352899 Bytes.
+- SHA-256 `8dd1716c6c615263be2df1c8c252a178274fe142eac58ca7ae1df6bd3dd020ba`.
+- Öffentlicher Download bytegenau geprüft. Aktivierung im Tracker-Alpha-Kanal.
