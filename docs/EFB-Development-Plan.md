@@ -90,12 +90,28 @@ Die Quellenauswahl prüft die Verfügbarkeit beim Laden. Open-Meteo und
 METAR stehen auch ohne den Dienst bereit. Das EFB lädt gewählte
 Profilstunden bei Bedarf.
 
-Die öffentliche Alpha-Webapp auf GitHub Pages benötigt für DWD einen
-separaten HTTPS-API-Endpunkt. Der Wetterdienst kann dazu ohne `--web-root`
-hinter einem HTTPS-Proxy betrieben werden. Für direkte Browserabrufe von
-Alpha Pages kann `--allow-origin https://inherjer.github.io` gesetzt werden.
-Der öffentliche Endpunkt ist noch einzurichten. Die DWD-Auswahl bleibt
-bis zur Einbindung des Endpunkts in der öffentlichen Webapp ausgeblendet.
+Die Alpha-Webapp auf GitHub Pages kann DWD-Daten statisch laden. Der
+Versuch lässt sich über `?dwdAlpha=1` lokal und auf Alpha Pages aktivieren.
+Karte, Routenprofil und Punktwetter lesen denselben Datenstand aus den
+kostenlosen Cloudflare Static Assets von `ga-dwd-alpha`. Der Browser lädt
+höchstens sechs Kacheln eines Abrufs gleichzeitig und hält bis zu 24
+dekodierte Kacheln für zehn Minuten. Beim Verbergen des Tabs wird dieser
+Cache geleert. Das Kartenprodukt enthält nur Cloud-Layer und Bodenwind.
+Das Profilprodukt enthält zusätzlich alle 13 Modellschichten und die
+Punktwetterfelder. Die erste Abdeckung reicht von 45° bis 57° N und 3° bis
+18° E bei 0,125° Rasterweite sowie von −3 bis +12 Stunden. Die Oberfläche
+zeigt den tatsächlich geladenen UTC-Termin.
+
+`tools/export-dwd-weather-assets.py` exportiert den rollierenden Zeitraum.
+Der GitHub-Workflow `DWD weather assets (Alpha)` kann manuell einen
+Messlauf ausführen und das Ergebnis als kurzlebiges Artefakt hinterlegen.
+Für regelmäßige Auslieferung braucht das Alpha-Repository das Secret
+`GA_DWD_CLOUDFLARE_API_TOKEN` und die Variable
+`GA_DWD_CLOUDFLARE_ACCOUNT_ID`. `GA_DWD_STATIC_PUBLISH=true` aktiviert
+den stündlichen Export mit Cloudflare-Deployment. Der lokale
+Wrangler-Login eignet sich für manuelle Veröffentlichungen. Aus einem
+fehlerhaften Export entsteht kein Deployment. Das EFB verwendet weiterhin
+seine lokale Tracker-Brücke.
 
 Im Layer-Menü schalten vier Symbole Satellit, Radar, VFR-Index und
 Modellwolken mit Windbarben. Satellitenbilder kommen im EFB vom Tracker

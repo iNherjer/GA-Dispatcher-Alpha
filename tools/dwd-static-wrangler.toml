@@ -1,0 +1,6 @@
+name = "ga-dwd-alpha"
+compatibility_date = "2026-11-23"
+workers_dev = true
+
+[assets]
+not_found_handling = "none"

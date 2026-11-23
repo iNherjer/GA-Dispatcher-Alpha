@@ -1,0 +1,47 @@
+name: DWD weather assets (Alpha)
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '22 * * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dwd-weather-assets-alpha
+  cancel-in-progress: false
+
+jobs:
+  export:
+    if: github.event_name == 'workflow_dispatch' || vars.GA_DWD_STATIC_PUBLISH == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install eccodes numpy
+      - name: Generate and measure the rolling forecast window
+        shell: bash
+        run: python tools/export-dwd-weather-assets.py "$RUNNER_TEMP/dwd-assets" | tee -a "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dwd-alpha-weather
+          path: ${{ runner.temp }}/dwd-assets
+          retention-days: 1
+        if: vars.GA_DWD_STATIC_PUBLISH != 'true'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+        if: vars.GA_DWD_STATIC_PUBLISH == 'true'
+      - name: Publish static files to Cloudflare
+        if: vars.GA_DWD_STATIC_PUBLISH == 'true'
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.GA_DWD_CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.GA_DWD_CLOUDFLARE_API_TOKEN }}
+        run: |
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          test -n "$CLOUDFLARE_API_TOKEN"
+          npx --yes wrangler@4.165.0 deploy --config tools/dwd-static-wrangler.toml --assets "$RUNNER_TEMP/dwd-assets"

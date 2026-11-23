@@ -110,7 +110,7 @@ function vpFetchResource(url, options) {
 }
 function vpNormalizeWeatherSource(source) {
   var value = String(source || '').toLowerCase();
-  if (value === 'dwd' && typeof window.GA_DWD_WEATHER_URL === 'string' && window.GA_DWD_WEATHER_URL) return 'dwd';
+  if (value === 'dwd' && (window.fetchStaticDwdWeatherPoints || window.GA_DWD_WEATHER_URL)) return 'dwd';
   return value === 'openmeteo' ? 'openmeteo' : 'metar';
 }
 function vpNextWeatherSource(source) {
@@ -155,44 +155,54 @@ window.fetchDwdWeatherPoints = /*#__PURE__*/function () {
           }
           return _context.a(2, []);
         case 1:
+          if (!window.fetchStaticDwdWeatherPoints) {
+            _context.n = 2;
+            break;
+          }
+          return _context.a(2, window.fetchStaticDwdWeatherPoints(points, {
+            signal,
+            includePressure,
+            validAt
+          }));
+        case 2:
           query = ['points=' + encodeURIComponent(points.map(point => `${point.lat.toFixed(5)},${point.lon.toFixed(5)}`).join(';'))];
           if (includePressure) query.push('profile=1');
           if (validAt !== null) query.push('valid=' + encodeURIComponent(validAt / 1000));
           if (prefetch) query.push('prefetch=1');
-          _context.n = 2;
+          _context.n = 3;
           return vpFetchResource(window.GA_DWD_WEATHER_URL + '?' + query.join('&'), {
             signal
           });
-        case 2:
+        case 3:
           response = _context.v;
           if (!(prefetch && response.status === 204)) {
-            _context.n = 3;
-            break;
-          }
-          return _context.a(2, []);
-        case 3:
-          if (response.ok) {
             _context.n = 4;
             break;
           }
-          throw new Error(`DWD ICON-EU HTTP ${response.status}`);
+          return _context.a(2, []);
         case 4:
-          _context.n = 5;
-          return response.json();
-        case 5:
-          data = _context.v;
-          if (!(prefetch && data.source === 'dwd-icon-eu' && Array.isArray(data.samples) && !data.samples.length)) {
-            _context.n = 6;
+          if (response.ok) {
+            _context.n = 5;
             break;
           }
-          return _context.a(2, []);
+          throw new Error(`DWD ICON-EU HTTP ${response.status}`);
+        case 5:
+          _context.n = 6;
+          return response.json();
         case 6:
-          if (!(data.source !== 'dwd-icon-eu' || !Array.isArray(data.samples) || data.samples.length !== points.length || data.samples.some(Boolean) && (!Number.isFinite(data.runAt) || !Number.isFinite(data.validAt) || validAt !== null && data.validAt !== validAt))) {
+          data = _context.v;
+          if (!(prefetch && data.source === 'dwd-icon-eu' && Array.isArray(data.samples) && !data.samples.length)) {
             _context.n = 7;
             break;
           }
-          throw new Error('DWD ICON-EU: invalid forecast');
+          return _context.a(2, []);
         case 7:
+          if (!(data.source !== 'dwd-icon-eu' || !Array.isArray(data.samples) || data.samples.length !== points.length || data.samples.some(Boolean) && (!Number.isFinite(data.runAt) || !Number.isFinite(data.validAt) || validAt !== null && data.validAt !== validAt))) {
+            _context.n = 8;
+            break;
+          }
+          throw new Error('DWD ICON-EU: invalid forecast');
+        case 8:
           return _context.a(2, data.samples.map(sample => sample && _objectSpread(_objectSpread({}, sample), {}, {
             contourValidAt: data.validAt,
             modelRunAt: data.runAt

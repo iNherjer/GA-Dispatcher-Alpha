@@ -66,7 +66,7 @@ function vpFetchResource(url, options) {
 
 function vpNormalizeWeatherSource(source) {
     const value = String(source || '').toLowerCase();
-    if (value === 'dwd' && typeof window.GA_DWD_WEATHER_URL === 'string' && window.GA_DWD_WEATHER_URL) return 'dwd';
+    if (value === 'dwd' && (window.fetchStaticDwdWeatherPoints || window.GA_DWD_WEATHER_URL)) return 'dwd';
     return value === 'openmeteo' ? 'openmeteo' : 'metar';
 }
 
@@ -88,6 +88,7 @@ function vpModelForecastTime(sample) {
 
 window.fetchDwdWeatherPoints = async function(points, { signal, includePressure = false, validAt = null, prefetch = false } = {}) {
     if (!points.length) return [];
+    if (window.fetchStaticDwdWeatherPoints) return window.fetchStaticDwdWeatherPoints(points, { signal, includePressure, validAt });
     const query = ['points=' + encodeURIComponent(points.map(point =>
         `${point.lat.toFixed(5)},${point.lon.toFixed(5)}`).join(';'))];
     if (includePressure) query.push('profile=1');
