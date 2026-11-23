@@ -39,6 +39,7 @@ const EFB_MISSION_INTENT_PATH = '/api/v1/mission/intents';
 const TRACKER_MISSION_HARD_RESET_PATH = '/api/v1/tracker/mission/hard-reset';
 const TRACKER_MAP_TILE_CACHE_PATH = '/api/v1/tracker/map-tile-cache';
 const TRACKER_MAP_RENDER_STATUS_PATH = '/api/v1/map-render/status';
+const TRACKER_MAP_RENDER_VIEW_PATH = '/api/v1/map-render/view';
 const TRACKER_MAP_TILE_CACHE_CLEAR_PATH = '/api/v1/tracker/map-tile-cache/clear';
 const TRACKER_SHUTDOWN_PATH = '/api/v1/tracker/shutdown';
 const MAX_EFB_CLIENT_LOG_BYTES = 8192;
@@ -319,9 +320,12 @@ function createTrackerEfbHttpServer(options = {}) {
   let clientLogRateLimitReported = false;
   const tileProxy = createTrackerEfbTileProxy({
     fetchRemote: options.fetchRemote,
+    renderEndpoint: options.renderEndpoint,
     cacheDir: options.tileCacheDir || '',
     log
   });
+  const vectorMapViews = new Map();
+  let vectorMapInUse = null;
   const mapContextProvider = options.mapContextProvider || createTrackerEfbMapContextProvider({
     fetchRemote: options.fetchRemote,
     getCurrentAltitudeFt: () => safeObject(getSnapshot()).alt,
@@ -511,6 +515,47 @@ function createTrackerEfbHttpServer(options = {}) {
     // desktop app started this tracker with its renderer.
     if (request.method === 'GET' && pathname === TRACKER_MAP_RENDER_STATUS_PATH) {
       jsonResponse(response, 200, { hello, message: createMessage('tracker.map-render', { vfrVector: tileProxy.desktopRenderAvailable() }) });
+      return;
+    }
+    if (request.method === 'POST' && pathname === TRACKER_MAP_RENDER_VIEW_PATH) {
+      if (!cockpitControl || !isTrustedCockpitOrigin(request)) {
+        request.resume();
+        jsonResponse(response, 403, { error: 'cockpit_origin_rejected' });
+        return;
+      }
+      try {
+        const view = await readJsonBody(request, 1024);
+        const auth = cockpitControl.authenticate(view);
+        if (!auth.ok || !['efb', 'toolbar'].includes(auth.session.role)) {
+          jsonResponse(response, 401, { error: 'cockpit_session_invalid' });
+          return;
+        }
+        if (typeof view.active !== 'boolean' || !Number.isSafeInteger(view.revision) || view.revision < 1) {
+          jsonResponse(response, 400, { error: 'invalid_map_view' });
+          return;
+        }
+        const sessionId = auth.session.sessionId;
+        if (view.revision > (vectorMapViews.get(sessionId)?.revision || 0)) {
+          vectorMapViews.set(sessionId, { active: view.active, revision: view.revision });
+        }
+        const liveViews = cockpitControl.publicState().sessions
+          .filter(session => session.role === 'efb' || session.role === 'toolbar');
+        const liveIds = new Set(liveViews.map(session => session.sessionId));
+        for (const id of vectorMapViews.keys()) {
+          if (!liveIds.has(id)) vectorMapViews.delete(id);
+        }
+        // An EFB view that has registered but has not reported its layer may
+        // already be loading the vector map. Defer to the normal idle timeout.
+        const hasVectorView = liveViews.some(session => vectorMapViews.get(session.sessionId)?.active === true);
+        const allViewsInactive = liveViews.every(session => vectorMapViews.get(session.sessionId)?.active === false);
+        if ((vectorMapInUse !== true && hasVectorView) || (vectorMapInUse !== false && allViewsInactive)) {
+          vectorMapInUse = hasVectorView;
+          tileProxy.setDesktopRenderActive(vectorMapInUse);
+        }
+        jsonResponse(response, 200, { ok: true });
+      } catch (error) {
+        jsonResponse(response, Number(error?.statusCode) || 400, { error: error?.code || 'invalid_request' });
+      }
       return;
     }
     // Local map tile cache: size for the desktop app, clearing only with its control token.

@@ -176,8 +176,21 @@ function createTrackerEfbTileProxy(options = {}) {
   let diskErrorLogged = false;
   const diskStats = { hits: 0, revalidated: 0, stale: 0, writes: 0 };
   const renderEndpoint = options.renderEndpoint === undefined ? desktopRenderEndpoint() : options.renderEndpoint;
+  let renderActivityRequest = Promise.resolve();
   // Drawing a 4×4 block takes about a second, a few more when the queue is long.
   const renderTimeoutMs = Math.max(timeoutMs, 25000);
+
+  function setDesktopRenderActive(active) {
+    if (!renderEndpoint) return;
+    renderActivityRequest = renderActivityRequest.then(() => fetchRemote(
+      `http://127.0.0.1:${renderEndpoint.port}/vector-tile/active/${active ? 1 : 0}`, {
+        method: 'POST',
+        headers: { 'X-GA-Render-Token': renderEndpoint.token },
+        redirect: 'error',
+        signal: AbortSignal.timeout(2000)
+      }
+    )).catch(error => log(`EFB_VECTOR_ACTIVITY_ERROR error=${sanitize(error?.message || error)}`));
+  }
 
   function diskError(stage, error) {
     if (diskErrorLogged) return;
@@ -437,6 +450,7 @@ function createTrackerEfbTileProxy(options = {}) {
     clear,
     // EFB menu: the desktop vector map is offered only with a renderer.
     desktopRenderAvailable: () => !!renderEndpoint,
+    setDesktopRenderActive,
     ready: () => scanned,
     get cacheSize() { return cache.size; },
     get cacheBytes() { return cacheBytes; },

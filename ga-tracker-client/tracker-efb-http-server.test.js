@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
 const test = require('node:test');
+const { setTimeout: delay } = require('node:timers/promises');
 const boardingVoiceCore = require('../mission-boarding-voice-core.js');
 const {
   MAX_EFB_CLIENT_LOG_BYTES,
@@ -15,6 +16,7 @@ const {
 } = require('./tracker-efb-http-server');
 const { createTrackerVoiceService } = require('./tracker-voice-service');
 const { createTrackerCockpitControl } = require('./tracker-cockpit-control-core');
+const { createVectorTileRenderer } = require('./desktop/lib/vector-tile-renderer');
 
 const trackerSource = fs.readFileSync(path.join(__dirname, 'tracker.js'), 'utf8');
 
@@ -494,6 +496,71 @@ test('loopback voice API deduplicates synthesis, streams audio and leases playba
   });
   assert.equal(JSON.parse(release.body).message.payload.completed, true);
   assert.equal(JSON.parse((await request(address, '/api/v1/voice/playback/next')).body).message.payload.available, false);
+});
+
+test('switching the last cockpit view off vector closes the renderer and preserves cached tiles', { timeout: 10000 }, async (t) => {
+  const rendered = { complete: true, tiles: Array(16).fill('AQID') };
+  let finishBlock;
+  let resolveDrawing;
+  const drawing = new Promise(resolve => { resolveDrawing = resolve; });
+  let resolveDestroyed;
+  const destroyed = new Promise(resolve => { resolveDestroyed = resolve; });
+  let starts = 0;
+  class BrowserWindow {
+    constructor() {
+      starts++;
+      this.webContents = {
+        setFrameRate() {},
+        setWindowOpenHandler() {},
+        on() {},
+        executeJavaScript(script) {
+          if (!script.startsWith('window.gaVectorRenderBlock')) return Promise.resolve(true);
+          if (script.includes('(10, 8,')) {
+            return new Promise(resolve => {
+              finishBlock = () => resolve(rendered);
+              resolveDrawing();
+            });
+          }
+          return Promise.resolve(rendered);
+        }
+      };
+    }
+    loadFile() {}
+    isDestroyed() { return false; }
+    destroy() { resolveDestroyed(); }
+  }
+  const renderer = createVectorTileRenderer({ BrowserWindow });
+  const renderEndpoint = await renderer.start();
+  t.after(() => renderer.close());
+  const cockpitControl = createTrackerCockpitControl();
+  const hello = createTrackerEfbHttpHello({ trackerVersion: 'v656', trackerVersionCode: 656 });
+  const tracker = createTrackerEfbHttpServer({ host: '127.0.0.1', port: 0, hello, cockpitControl, renderEndpoint });
+  const address = await tracker.start();
+  t.after(() => tracker.stop());
+  const efb = cockpitControl.register({ clientId: 'efb-map', role: 'efb' });
+  const toolbar = cockpitControl.register({ clientId: 'toolbar-map', role: 'toolbar' });
+  const report = (view, active, revision) => request(address, '/api/v1/map-render/view', {
+    method: 'POST',
+    body: JSON.stringify({ sessionId: view.session.sessionId, sessionToken: view.sessionToken, active, revision })
+  });
+  const tilePath = '/api/v1/map-tile/vfr-vector/10/4/4.png';
+  assert.equal((await report(efb, true, 1)).statusCode, 200);
+  assert.equal((await report(toolbar, true, 1)).statusCode, 200);
+  assert.equal((await request(address, tilePath)).statusCode, 200);
+  assert.equal(starts, 1);
+  assert.equal((await report(efb, false, 2)).statusCode, 200);
+  assert.equal(await Promise.race([destroyed.then(() => true), delay(850, false)]), false);
+
+  const pendingTile = request(address, '/api/v1/map-tile/vfr-vector/10/8/4.png');
+  await drawing;
+  assert.equal((await report(toolbar, false, 2)).statusCode, 200);
+  assert.equal((await report(toolbar, true, 1)).statusCode, 200);
+  assert.equal(await Promise.race([destroyed.then(() => true), delay(850, false)]), false);
+  finishBlock();
+  assert.equal((await pendingTile).statusCode, 200);
+  assert.equal(await Promise.race([destroyed.then(() => true), delay(3000, false, { ref: false })]), true);
+  assert.equal((await request(address, tilePath)).statusCode, 200);
+  assert.equal(starts, 1);
 });
 
 test('cockpit sessions synchronize device presence while mission intents remain revision-bound and read-only', async (t) => {

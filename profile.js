@@ -9029,7 +9029,20 @@ function vpIsProfileLowFpsMode() {
     }
 }
 
-function vpGetMapProfileTargetFps(isHdgMode) {
+function vpHasAnimatedProfileWeather() {
+    if (!vpShowClouds || !Array.isArray(vpWeatherData)) return false;
+    const isAbstract = vpWeatherRenderMode === 'abstrakt' || vpWeatherRenderMode === 'pro';
+    return vpWeatherData.some(zone => {
+        const weather = zone.weather;
+        if (!weather) return false;
+        const hasPrecipitation = weather.hasRain || weather.hasSnow;
+        if (isAbstract) return hasPrecipitation || weather.hasTS;
+        return (hasPrecipitation && zone.visuals?.drops?.length) ||
+            (weather.hasTS && zone.visuals?.flashes?.length);
+    });
+}
+
+function vpGetMapProfileTargetFps(isHdgMode, hasWeatherAnim) {
     const lowFpsMode = vpIsProfileLowFpsMode();
     const isInteracting = !!(
         window.vpIsFastRendering ||
@@ -9044,7 +9057,6 @@ function vpGetMapProfileTargetFps(isHdgMode) {
 
     const obsSrc = isHdgMode ? vpHdgObstacles : vpObstacles;
     const hasObstacleAnim = vpShowObstacles && Array.isArray(obsSrc) && obsSrc.length > 0;
-    const hasWeatherAnim = !!vpShowClouds;
     const hasAirspacePulse = (typeof vpHighlightPulseIdx !== 'undefined' && vpHighlightPulseIdx >= 0);
     const hasTrafficAnim = !!(window.vpTrafficProfileVisible && window.vpTrafficData && window.vpTrafficData.length);
     const hasPrediction = !!(window.vpPredictionData && window.vpPredictionData.length);
@@ -9194,7 +9206,8 @@ function renderMapProfileFrames(timeMs) {
     if (viewport.width <= 0 || viewport.height <= 0) { vpScheduleMapProfileFrame(250); return; }
     const isHdgMode = (typeof vpMode !== 'undefined' && vpMode === 'HDG');
     const perfMeta = window.vpAnimFrameMeta || (window.vpAnimFrameMeta = { lastPaintMs: 0, lastTargetFps: 0 });
-    const targetFps = vpGetMapProfileTargetFps(isHdgMode);
+    const hasWeatherAnim = vpHasAnimatedProfileWeather();
+    const targetFps = vpGetMapProfileTargetFps(isHdgMode, hasWeatherAnim);
     const frameIntervalMs = 1000 / Math.max(1, targetFps);
     const nowMs = Number.isFinite(timeMs) ? timeMs : performance.now();
     const elapsedMs = nowMs - (Number(perfMeta.lastPaintMs) || 0);
@@ -9528,7 +9541,7 @@ function renderMapProfileFrames(timeMs) {
             }
         }
     }
-    if (vpShowClouds) {
+    if (hasWeatherAnim) {
         if (vpWeatherRenderMode === 'abstrakt' || vpWeatherRenderMode === 'pro') vpDrawAnimatedWeatherPro(fgCtx, xOf, yOf, totalDist, elevData, timeMs, viewMinX, viewMaxX);
         else vpDrawAnimatedWeather(fgCtx, xOf, yOf, totalDist, elevData, timeMs, viewMinX, viewMaxX);
     }

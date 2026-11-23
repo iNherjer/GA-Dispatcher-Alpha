@@ -27,6 +27,7 @@ const BLOCK_MARGIN = 256;
 const MAX_CACHED_BLOCKS = 48;
 const MAX_QUEUE = 24;
 const IDLE_CLOSE_MS = 10 * 60 * 1000;
+const MAP_SWITCH_CLOSE_MS = 750;
 const TILE_MAX_AGE_SECONDS = 7 * 24 * 60 * 60;
 
 function blockFor(z, x, y, variant = '') {
@@ -61,6 +62,7 @@ function createVectorTileRenderer({ BrowserWindow, log = () => {}, styleFile, pa
   const queue = [];
   let busy = false;
   let appliedVariant = '';
+  let vectorMapInactive = false;
 
   function closeWindow(reason) {
     clearTimeout(idleTimer);
@@ -73,7 +75,11 @@ function createVectorTileRenderer({ BrowserWindow, log = () => {}, styleFile, pa
 
   function scheduleIdleClose() {
     clearTimeout(idleTimer);
-    idleTimer = setTimeout(() => closeWindow('idle'), IDLE_CLOSE_MS);
+    idleTimer = null;
+    if (!win || busy || queue.length > 0) return;
+    idleTimer = setTimeout(() => {
+      closeWindow(vectorMapInactive ? 'map-layer' : 'idle');
+    }, vectorMapInactive ? MAP_SWITCH_CLOSE_MS : IDLE_CLOSE_MS);
   }
 
   function ensureWindow() {
@@ -135,6 +141,8 @@ function createVectorTileRenderer({ BrowserWindow, log = () => {}, styleFile, pa
 
   function pump() {
     if (busy || !queue.length) return;
+    clearTimeout(idleTimer);
+    idleTimer = null;
     busy = true;
     const job = queue.shift();
     renderBlock(job.block).then((value) => {
@@ -195,7 +203,15 @@ function createVectorTileRenderer({ BrowserWindow, log = () => {}, styleFile, pa
           response.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
           response.end(JSON.stringify({ ok: false, error }));
         };
-        if (request.method !== 'GET' || !authorised(request)) return fail(403, 'vector_render_access_denied');
+        if (!authorised(request)) return fail(403, 'vector_render_access_denied');
+        if (request.method === 'POST' && /^\/vector-tile\/active\/[01]$/.test(request.url)) {
+          vectorMapInactive = request.url.endsWith('/0');
+          scheduleIdleClose();
+          response.writeHead(204, { 'Cache-Control': 'no-store' });
+          response.end();
+          return;
+        }
+        if (request.method !== 'GET') return fail(403, 'vector_render_access_denied');
         if (request.url === '/vector-tile/status') {
           response.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
           response.end(JSON.stringify({ ok: true, styles: ['vfr'], minZoom: MIN_ZOOM, maxZoom: MAX_ZOOM }));

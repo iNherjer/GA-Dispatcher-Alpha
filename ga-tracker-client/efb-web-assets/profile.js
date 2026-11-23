@@ -11893,13 +11893,24 @@ function vpIsProfileLowFpsMode() {
     return false;
   }
 }
-function vpGetMapProfileTargetFps(isHdgMode) {
+function vpHasAnimatedProfileWeather() {
+  if (!vpShowClouds || !Array.isArray(vpWeatherData)) return false;
+  var isAbstract = vpWeatherRenderMode === 'abstrakt' || vpWeatherRenderMode === 'pro';
+  return vpWeatherData.some(zone => {
+    var _zone$visuals, _zone$visuals2;
+    var weather = zone.weather;
+    if (!weather) return false;
+    var hasPrecipitation = weather.hasRain || weather.hasSnow;
+    if (isAbstract) return hasPrecipitation || weather.hasTS;
+    return hasPrecipitation && ((_zone$visuals = zone.visuals) === null || _zone$visuals === void 0 || (_zone$visuals = _zone$visuals.drops) === null || _zone$visuals === void 0 ? void 0 : _zone$visuals.length) || weather.hasTS && ((_zone$visuals2 = zone.visuals) === null || _zone$visuals2 === void 0 || (_zone$visuals2 = _zone$visuals2.flashes) === null || _zone$visuals2 === void 0 ? void 0 : _zone$visuals2.length);
+  });
+}
+function vpGetMapProfileTargetFps(isHdgMode, hasWeatherAnim) {
   var lowFpsMode = vpIsProfileLowFpsMode();
   var isInteracting = !!(window.vpIsFastRendering || window.vpUIInteractionActive === true || window.vpProfilePanActive === true || window.vpDraggingPosMarker === true || typeof vpResizeActive !== 'undefined' && vpResizeActive || typeof vpDraggingWP !== 'undefined' && vpDraggingWP >= 0 || typeof vpDraggingSegment !== 'undefined' && !!vpDraggingSegment);
   if (isInteracting) return lowFpsMode ? VP_PROFILE_FPS_INTERACT_LOW : VP_PROFILE_FPS_INTERACT;
   var obsSrc = isHdgMode ? vpHdgObstacles : vpObstacles;
   var hasObstacleAnim = vpShowObstacles && Array.isArray(obsSrc) && obsSrc.length > 0;
-  var hasWeatherAnim = !!vpShowClouds;
   var hasAirspacePulse = typeof vpHighlightPulseIdx !== 'undefined' && vpHighlightPulseIdx >= 0;
   var hasTrafficAnim = !!(window.vpTrafficProfileVisible && window.vpTrafficData && window.vpTrafficData.length);
   var hasPrediction = !!(window.vpPredictionData && window.vpPredictionData.length);
@@ -12134,7 +12145,8 @@ function renderMapProfileFrames(timeMs) {
     lastPaintMs: 0,
     lastTargetFps: 0
   });
-  var targetFps = vpGetMapProfileTargetFps(isHdgMode);
+  var hasWeatherAnim = vpHasAnimatedProfileWeather();
+  var targetFps = vpGetMapProfileTargetFps(isHdgMode, hasWeatherAnim);
   var frameIntervalMs = 1000 / Math.max(1, targetFps);
   var nowMs = Number.isFinite(timeMs) ? timeMs : performance.now();
   var elapsedMs = nowMs - (Number(perfMeta.lastPaintMs) || 0);
@@ -12519,7 +12531,7 @@ function renderMapProfileFrames(timeMs) {
       }
     }
   }
-  if (vpShowClouds) {
+  if (hasWeatherAnim) {
     if (vpWeatherRenderMode === 'abstrakt' || vpWeatherRenderMode === 'pro') vpDrawAnimatedWeatherPro(fgCtx, xOf, yOf, totalDist, elevData, timeMs, viewMinX, viewMaxX);else vpDrawAnimatedWeather(fgCtx, xOf, yOf, totalDist, elevData, timeMs, viewMinX, viewMaxX);
   }
   if (!isHdgMode) vpDrawWindComponentsOnIsobars(fgCtx, xOf, yOf, elevData, viewMinX, viewMaxX, padTop, plotH);

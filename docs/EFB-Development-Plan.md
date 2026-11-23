@@ -1,3 +1,19 @@
+## Performance von Routenprofil und Vektorkarte – Tracker v657 / Desktop 1.6.43 Alpha (23.11.2026)
+
+Die gemeinsame Profilquelle zeichnet die Wolkenbasis im statischen Hintergrund.
+Die höhere Profil-Zeichenrate und der animierte Wetter-Layer werden nur bei
+animierbarem Regen, Schnee oder Gewitter aktiv. Der Abgleich der Simulator-FPS
+mit dem Alpha-Feldtest bleibt offen.
+
+Beim Wechsel von „VFR Vektor (OSM)“ auf eine andere Basiskarte meldet der
+Kartentisch die Layer-Auswahl über seine authentifizierte Cockpit-Sitzung.
+Sobald alle aktiven Cockpit-Sitzungen eine andere Basiskarte gemeldet haben,
+schließt der Desktop-Renderer das Offscreen-Fenster nach dem letzten
+Renderauftrag mit einer kurzen Verzögerung. Die normale Leerlaufzeit beträgt
+weiter zehn Minuten. Der Kartenwechsel benötigt Tracker v657 und Desktop
+1.6.43. Der Host mit Assetrevision 65701 läuft über das vorhandene
+Community-Paket. Die Web-Version ist v2508.
+
 ## EFB-Vektorkarte „VFR Vektor (OSM)“ über die Desktop-App – Alpha-Rollout Tracker v656 / Desktop 1.6.42 (22.11.2026)
 
 Hintergrund: Coherent GT hat kein WebGL (Chrome-49-Basis); der Canvas-Vektorrenderer aus

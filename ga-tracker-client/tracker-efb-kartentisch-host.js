@@ -2361,7 +2361,36 @@
     }).then(function (data) {
       var payload = data && data.message && data.message.payload;
       if (!payload || payload.vfrVector !== true) withdraw();
+      else {
+        desktopVectorAvailable = true;
+        reportVectorMapView();
+      }
     }).catch(function () { withdraw(); });
+  }
+
+  var desktopVectorAvailable = false;
+  var vectorMapViewKey = '';
+  var vectorMapViewRevision = 0;
+  function reportVectorMapView() {
+    if (!desktopVectorAvailable || !map) return;
+    var client = window.gaCockpitSessionClient;
+    var auth = client && client.authEnvelope();
+    if (!auth) return;
+    var active = !!baseLayers['vfr-vector'] && map.hasLayer(baseLayers['vfr-vector']);
+    var key = auth.sessionId + ':' + active;
+    if (key === vectorMapViewKey) return;
+    vectorMapViewKey = key;
+    var revision = ++vectorMapViewRevision;
+    window.GATrackerCockpitSessionClient.requestJson(fetch, '/api/v1/map-render/view', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId: auth.sessionId, sessionToken: auth.sessionToken,
+        active: active, revision: revision })
+    }, 3000).then(function (result) {
+      if (!result.response.ok && revision === vectorMapViewRevision) vectorMapViewKey = '';
+    }).catch(function () {
+      if (revision === vectorMapViewRevision) vectorMapViewKey = '';
+    });
   }
 
   function decorateLayerControlGroups(control) {
@@ -2731,6 +2760,7 @@
       });
       updateBaseOpacity();
       savePreferences();
+      reportVectorMapView();
     });
     map.on('overlayadd overlayremove', function (event) {
       var regionalId = regionalIdForLayer(event && event.layer);
@@ -4693,6 +4723,7 @@
       notifyParentState('ready', { stage: 'host-ready' });
       poll();
       pollAuxiliary('/api/v1/status', function (status) {
+        reportVectorMapView();
         if (status && status.display) applyUiPreferences(status.display);
         if (status) renderFleetNotice(status.crewFleetNotice);
         if (trackerOnline) setTrackerState(status && status.simulatorConnected ? 'Tracker + Simulator verbunden' : 'Tracker verbunden | warte auf Simulator', false);

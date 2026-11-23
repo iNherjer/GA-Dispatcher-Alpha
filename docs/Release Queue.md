@@ -31,6 +31,13 @@ liefert alles Offene mit aus.
 
 ## Ausgeliefert
 
+### 2026-11-23 · Routen-Höhenband und Vektorkarte – Tracker v657 Alpha und Desktop 1.6.43 Alpha
+
+- **Artefakte:** Tracker-EXE (EFB-Assets 65701), Desktop-Installer für den manuellen Alpha-Feldtest und Web v2508.
+- **Änderungen:** Statische Wolkenbasis bei normaler Profilrate. Das Desktop-Renderfenster schließt nach dem Wechsel der letzten Vektoransicht, sobald die laufenden Aufträge fertig sind.
+- **Im Feld prüfen:** Simulator-FPS mit sichtbarer Wolkenbasis sowie Fensterschluss und RAM nach Kartenwechsel auf Windows.
+- **Details:** [Tracker v657](Tracker-v657-Release.md), [Desktop 1.6.43](Tracker-Desktop-1.6.43-Release.md).
+
 ### 2026-11-22 · EFB: „VFR Vektor (OSM)“ über die Desktop-App — ausgeliefert in Tracker v656 Alpha + Desktop 1.6.42 (22.11.2026)
 - **Artefakt:** Desktop-Installer **und** Tracker-EXE (Kachel-Proxy, HTTP-Server, EFB-Katalog/Host). Ohne neue Desktop-App bleibt der Eintrag im EFB unsichtbar; ohne neuen Tracker bleibt die Desktop-Neuerung ungenutzt.
 - **Dateien:** `ga-tracker-client/desktop/lib/vector-tile-renderer.js`, `desktop/lib/vector-render/*` (render.html, render-page.js, per Sync: maplibre-gl.js, MAPLIBRE-LICENSE.txt, vfr-vector.json), `desktop/main.js`, `desktop/lib/tracker-process.js`, `desktop/scripts/sync-audio-player.js`, `desktop/tests/vector-tile-renderer.test.js`, `ga-tracker-client/tracker-efb-tile-proxy.js`, `tracker-efb-http-server.js`, `tracker-efb-kartentisch-host.js`, `efb-app/map-shell-core.js` (+ Tests).
