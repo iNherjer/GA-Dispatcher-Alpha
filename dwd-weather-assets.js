@@ -14,9 +14,9 @@
     let currentManifest = null;
     let manifestRequest = null;
 
-    async function fetchAsset(path, refresh = false) {
+    async function fetchAsset(path, cache = 'default') {
         const response = await fetch(root + path, {
-            cache: refresh ? 'reload' : 'default', signal: AbortSignal.timeout(15000)
+            cache, signal: AbortSignal.timeout(15000)
         });
         if (response.status === 404) return null;
         if (!response.ok) throw new Error('DWD ICON-EU HTTP ' + response.status);
@@ -26,7 +26,9 @@
     async function manifest(force = false) {
         if (!force && currentManifest && Date.now() < currentManifest.expires) return currentManifest.data;
         if (!manifestRequest) {
-            manifestRequest = fetchAsset('/manifest.json', force).then(async response => {
+            // URL variant also bypasses previously installed cache-first service workers.
+            const stamp = force ? 'retry-' + Date.now() : Math.floor(Date.now() / MANIFEST_TTL);
+            manifestRequest = fetchAsset('/manifest.json?dwd=' + stamp, 'no-store').then(async response => {
                 if (!response) throw new Error('DWD ICON-EU: forecast index is unavailable');
                 const data = await response.json();
                 if (data.version !== 1 || data.source !== 'dwd-icon-eu' || !Array.isArray(data.terms)) {
@@ -142,7 +144,11 @@
         return missing && !refresh ? read(points, { signal, includePressure, validAt }, true) : results;
     }
 
-    document.addEventListener('visibilitychange', () => { if (document.hidden) tiles.clear(); });
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) return;
+        tiles.clear();
+        currentManifest = null;
+    });
     setInterval(pruneTiles, TILE_TTL);
     window.fetchStaticDwdWeatherPoints = read;
     window.GA_DWD_WEATHER_PREFETCH = true;

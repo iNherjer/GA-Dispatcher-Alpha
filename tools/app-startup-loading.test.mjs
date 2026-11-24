@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
+import { gzipSync } from 'node:zlib';
 
 function workerHarness() {
     const listeners = {}, requests = [], entries = new Map();
@@ -45,6 +46,44 @@ test('live APIs and map tiles retain their network path; current datasets remain
     await h.request('./data/gafor-sector-dataset-de.json');
     await h.request('./data/gafor-sector-dataset-de.json');
     assert.equal(h.requests.length, 2);
+});
+
+test('DWD forecast manifest and tiles bypass even an existing app cache entry', async () => {
+    const h = workerHarness();
+    const root = 'https://ga-dwd-alpha.einherjer.workers.dev';
+    const urls = [root + '/manifest.json', root + '/manifest.json?dwd=retry-42', root + '/v1/forecast/48-6-profile.bin.gz'];
+    for (const url of urls) {
+        h.entries.set(url, { cached: true });
+        assert.equal((await h.request(url)).intercepted, false);
+    }
+});
+
+test('DWD retries a retired tile with a fresh manifest URL and the new model run', async () => {
+    const requests = [];
+    const validAt = Math.floor(Date.now() / 3600000) * 3600000;
+    const window = { GA_DWD_STATIC_URL: 'https://ga-dwd-alpha.einherjer.workers.dev' };
+    const sample = Buffer.alloc(2);
+    sample.writeInt16LE(61);
+    const context = {
+        window, document: { addEventListener() {} }, setInterval() {}, Response, DecompressionStream, AbortSignal,
+        fetch: async (url, { cache }) => {
+            requests.push({ url, cache });
+            if (url.includes('/manifest.json')) {
+                const key = url.includes('dwd=retry-') ? 'current' : 'retired';
+                return Response.json({ version: 1, source: 'dwd-icon-eu', bounds: [48, 6, 49, 7],
+                    tileDegrees: 1, samplesPerDegree: 1, encoding: {}, fields: { map: [['clcl', null]] },
+                    terms: [{ key, validAt, runAt: validAt - 3600000 }] });
+            }
+            return url.includes('/current/') ? new Response(gzipSync(sample)) : new Response(null, { status: 404 });
+        }
+    };
+    vm.runInNewContext(fs.readFileSync('dwd-weather-assets.js', 'utf8'), context);
+    const [weather] = await window.fetchStaticDwdWeatherPoints([{ lat: 48.2, lon: 6.2 }], { validAt });
+    assert.equal(weather.cloudLowPct, 61);
+    assert.equal(requests.length, 4);
+    assert.equal(requests[0].cache, 'no-store');
+    assert.equal(requests[2].cache, 'no-store');
+    assert.notEqual(requests[0].url, requests[2].url);
 });
 
 function audioHarness() {

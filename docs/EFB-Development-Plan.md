@@ -101,7 +101,10 @@ Karte, Routenprofil und Punktwetter lesen denselben Datenstand aus den
 kostenlosen Cloudflare Static Assets von `ga-dwd-alpha`. Der Browser lädt
 höchstens sechs Kacheln eines Abrufs gleichzeitig und hält bis zu 24
 dekodierte Kacheln für zehn Minuten. Beim Verbergen des Tabs wird dieser
-Cache geleert. Das Kartenprodukt enthält nur Cloud-Layer und Bodenwind.
+Cache geleert. Wetterindex und Wetterkacheln umgehen den Service-Worker-
+Cache der Webapp. Bei einer 404 lädt der Browser den Wetterindex über eine
+neue URL und versucht den Abruf einmal mit dem dort gemeldeten Modelllauf.
+Das Kartenprodukt enthält nur Cloud-Layer und Bodenwind.
 Das Profilprodukt enthält zusätzlich alle 13 Modellschichten und die
 Punktwetterfelder. Die erste Abdeckung reicht von 45° bis 57° N und 3° bis
 18° E bei 0,125° Rasterweite. Die Webapp zeigt −3 bis +12 Stunden. Der

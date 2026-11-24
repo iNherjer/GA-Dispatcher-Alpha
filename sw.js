@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v2516';
+const CACHE = 'ga-dispatcher-v2517';
 
 const STATIC = [
     './',
@@ -326,6 +326,7 @@ const STATIC = [
 // API-Domains – immer vom Netz holen, nie cachen
 const NETWORK_ONLY = [
     'ga-proxy.einherjer.workers.dev',
+    'ga-dwd-alpha.einherjer.workers.dev',
     'inherjer.github.io',
     'aviationweather.gov',
     'api.codetabs.com',
