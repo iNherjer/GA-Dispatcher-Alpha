@@ -27,14 +27,17 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-### 2026-11-24 · Wetterseite und Favoritenleiste im EFB
+(leer)
+
+## Ausgeliefert
+
+### 2026-11-24 · Wetterseite und Favoritenleiste im EFB – Tracker v662 Alpha
 
 - **Artefakt:** Tracker-EXE mit gemeinsam genutzten EFB-Webassets.
 - **Änderungen:** Routenwetter im Seitenmenü mit DWD, Open-Meteo, METAR und DWD-Stundenwahl. Der Menübutton sitzt mit den Favoriten in derselben Leiste.
 - **Tests:** EFB-Webasset-Synchronisierung, Coherent-Syntax und Wettertransport. Browser-Selbsttest für Wetterseite und Favoritenleiste.
 - **Im Feld prüfen:** Wetterdaten und Stundenwahl in Coherent, Menüleiste mit verschiedenen Skalierungen im EFB und Toolbar-Panel.
-
-## Ausgeliefert
+- **Details:** [Tracker v662](Tracker-v662-Release.md).
 
 ### 2026-11-24 · Satellit, GAFOR und METAR im EFB – Tracker v661 Alpha
 
