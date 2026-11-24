@@ -101,6 +101,7 @@
       "efb-web-assets/flight-debrief.js",
       "efb-web-assets/map-layer-controls.js",
       "efb-web-assets/map-weather-fields.js",
+      "../data/gafor-sector-dataset-de.json",
       "tracker-efb-map-weather.js",
       "efb-web-assets/vendor/wmo-weather/*",
       "efb-web-assets/map-tool-focus.js",

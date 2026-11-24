@@ -2743,7 +2743,6 @@
     configureMapLayerControl(map, layerControl);
     var weatherRenderer = presentation.createEfbSvgRenderer(L, { pane: 'gaWeatherPane' });
     var weatherControls = window.gaInstallEfbMapWeather(map, weatherRenderer);
-    weatherControls.vfrTitle = _hT('VFR-Index: Eigenes Modell (Kacheln), sichtbar ab Zoomstufe 8');
     installMapWeatherQuickControls(map, layerControl, overlayLayers.radar, 'gaSatelliteWeatherPane', weatherControls);
     // L.control.layers assigns its own auto zIndex to every listed layer;
     // restore the regional stacking afterwards in the saved order.

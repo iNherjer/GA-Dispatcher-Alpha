@@ -397,6 +397,270 @@ function vpAdjustedSectorRefFt() {
   if (!Number.isFinite(ref)) return ref;
   return ref + vpRefFineTrimFt(parts);
 }
+function vpClassifyGaforLike() {
+  var parts = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
+  var mosmixVisibilityM = Number(parts.mosmixVisibilityM);
+  var visMRaw = Number.isFinite(mosmixVisibilityM) && mosmixVisibilityM > 0 ? mosmixVisibilityM : Number(parts.visibility);
+  var visKm = Number.isFinite(visMRaw) && visMRaw > 0 ? visMRaw / 1000 : null;
+  var cloudBaseResolved = vpResolveCloudBaseFtAgl(parts);
+  var cloudBaseFtAgl = Number(cloudBaseResolved.valueFt);
+  var cloudBaseSource = cloudBaseResolved.source;
+  var sectorRefFtRaw = Number(parts.sectorRefFt);
+  var sectorRefFt = vpAdjustedSectorRefFt(parts);
+  var terrainPointFt = Number(parts.terrainPointFt);
+  var cloudLow = Number(parts.cloudLow || 0);
+  var cloudMid = Number(parts.cloudMid || 0);
+  var cloudTotal = Number(parts.cloudTotal || 0);
+  var mosmixN05Pct = Number(parts.mosmixN05Pct);
+  var mosmixLowCloudPct = Number(parts.mosmixLowCloudPct);
+  var coverForCeiling = Math.max(cloudLow, cloudMid, cloudTotal);
+  var lowCoverForCeiling = Number.isFinite(mosmixLowCloudPct) ? mosmixLowCloudPct : cloudLow;
+  var wxForN05 = [Number(parts.weatherCode), Number(parts.mosmixWeatherCode)].filter(Number.isFinite);
+  var precipForN05 = Math.max(0, Number(parts.precipitation || parts.rain || 0), Number(parts.mosmixPrecipitationMm || 0));
+  var mosmixHasBknBelow500 = vpHasReliableMosmixN05(parts, visKm, precipForN05, wxForN05, lowCoverForCeiling);
+  var fogRisk = vpEstimateFogRiskMajor(parts, visKm);
+  // Ceiling erst ab BKN/OVC (>=5/8) bewerten.
+  var hasCeilingCondition = Number.isFinite(coverForCeiling) && coverForCeiling >= 62.5;
+  // Open-Meteo liefert cloud_base oft leer. Ein sichtbares '?' nur setzen,
+  // wenn wirklich die tiefe Wolkenschicht dicht genug ist; Mid-Cloud allein
+  // ist fuer Ceiling-Bewertung als Unsicherheitsausloeser zu breit.
+  var hasDenseLowWithoutBase = Number.isFinite(lowCoverForCeiling) && lowCoverForCeiling >= 75 && !Number.isFinite(cloudBaseFtAgl) && !mosmixHasBknBelow500;
+  var cloudAboveRefFt = cloudBaseFtAgl;
+  if (Number.isFinite(cloudBaseFtAgl) && hasCeilingCondition && Number.isFinite(sectorRefFt) && Number.isFinite(terrainPointFt)) {
+    cloudAboveRefFt = cloudBaseFtAgl + terrainPointFt - sectorRefFt;
+  }
+  var labels = {
+    UNKNOWN: {
+      key: 'gafor_unknown',
+      label: 'VFR-Index unklar',
+      color: '#9aa3ad',
+      letter: '?',
+      code: '?'
+    },
+    C: {
+      key: 'gafor_c',
+      label: 'VFR-Index C (frei)',
+      color: '#6aaeff',
+      letter: 'C',
+      code: 'C'
+    },
+    O: {
+      key: 'gafor_o',
+      label: 'VFR-Index O (offen)',
+      color: '#8ecb4b',
+      letter: 'O',
+      code: 'O'
+    },
+    D1: {
+      key: 'gafor_d',
+      label: 'VFR-Index D1 (schwierig)',
+      color: '#e0c93b',
+      letter: 'D',
+      code: 'D1'
+    },
+    D3: {
+      key: 'gafor_d',
+      label: 'VFR-Index D3 (schwierig)',
+      color: '#e0c93b',
+      letter: 'D',
+      code: 'D3'
+    },
+    D4: {
+      key: 'gafor_d',
+      label: 'VFR-Index D4 (schwierig)',
+      color: '#e0c93b',
+      letter: 'D',
+      code: 'D4'
+    },
+    M2: {
+      key: 'gafor_m',
+      label: 'VFR-Index M2 (kritisch)',
+      color: '#e08a3b',
+      letter: 'M',
+      code: 'M2'
+    },
+    M5: {
+      key: 'gafor_m',
+      label: 'VFR-Index M5 (kritisch)',
+      color: '#e08a3b',
+      letter: 'M',
+      code: 'M5'
+    },
+    M6: {
+      key: 'gafor_m',
+      label: 'VFR-Index M6 (kritisch)',
+      color: '#e08a3b',
+      letter: 'M',
+      code: 'M6'
+    },
+    M7: {
+      key: 'gafor_m',
+      label: 'VFR-Index M7 (kritisch)',
+      color: '#e08a3b',
+      letter: 'M',
+      code: 'M7'
+    },
+    M8: {
+      key: 'gafor_m',
+      label: 'VFR-Index M8 (kritisch)',
+      color: '#e08a3b',
+      letter: 'M',
+      code: 'M8'
+    },
+    X: {
+      key: 'gafor_x',
+      label: 'VFR-Index X (geschlossen)',
+      color: '#d14a4a',
+      letter: 'X',
+      code: 'X'
+    }
+  };
+  var majorRank = {
+    C: 0,
+    O: 1,
+    D: 2,
+    M: 3,
+    X: 4
+  };
+  var visKnown = Number.isFinite(visKm);
+  var cloudKnown = mosmixHasBknBelow500 || hasCeilingCondition && Number.isFinite(cloudAboveRefFt);
+  if (!visKnown && !cloudKnown) {
+    var neutral = labels.UNKNOWN;
+    return _objectSpread(_objectSpread({}, neutral), {}, {
+      score: null,
+      mode: 'gafor_like',
+      dataQuality: 'unknown',
+      ceilingQuality: hasDenseLowWithoutBase ? 'unknown_dense_low_cloud' : 'unknown',
+      displayCode: '?',
+      dataWarning: hasDenseLowWithoutBase ? 'Sicht und Wolkenbasis fehlen; dichte Low-Bewoelkung erkannt.' : 'Sicht und Wolkenbasis fehlen.',
+      visKm,
+      cloudBaseFtAgl,
+      cloudAboveRefFt,
+      cloudBaseSource: cloudBaseSource || null,
+      sectorRefFt: Number.isFinite(sectorRefFt) ? sectorRefFt : null,
+      sectorRefFtRaw: Number.isFinite(sectorRefFtRaw) ? sectorRefFtRaw : null,
+      sectorRefTrimFt: vpRefFineTrimFt(parts),
+      terrainPointFt: Number.isFinite(terrainPointFt) ? terrainPointFt : null,
+      coverForCeiling,
+      lowCoverForCeiling,
+      mosmixN05Pct: Number.isFinite(mosmixN05Pct) ? mosmixN05Pct : null,
+      mosmixLowCloudPct: Number.isFinite(mosmixLowCloudPct) ? mosmixLowCloudPct : null,
+      visSource: Number.isFinite(mosmixVisibilityM) ? 'mosmix' : 'openmeteo',
+      cloudSource: null,
+      hasCeilingCondition,
+      visClass: null,
+      cloudClass: null
+    });
+  }
+  var visBand = !visKnown ? null : visKm < 1.5 ? 'x' : visKm < 5 ? 'v15_5' : visKm < 8 ? 'v5_8' : visKm < 10 ? 'v8_10' : 'v10_plus';
+  var cloudBand = !cloudKnown ? null : mosmixHasBknBelow500 ? 'c_below_500' : cloudAboveRefFt < 500 ? 'c_below_500' : cloudAboveRefFt < 1000 ? 'c500_1000' : cloudAboveRefFt < 2000 ? 'c1000_2000' : cloudAboveRefFt >= 5000 ? 'c5000_plus' : 'c2000_5000';
+  var fullMatrix = {
+    v15_5: {
+      c_below_500: 'X',
+      c500_1000: 'M8',
+      c1000_2000: 'M7',
+      c2000_5000: 'M6',
+      c5000_plus: 'M6'
+    },
+    v5_8: {
+      c_below_500: 'X',
+      c500_1000: 'M5',
+      c1000_2000: 'D4',
+      c2000_5000: 'D3',
+      c5000_plus: 'D3'
+    },
+    v8_10: {
+      c_below_500: 'X',
+      c500_1000: 'M2',
+      c1000_2000: 'D1',
+      c2000_5000: 'O',
+      c5000_plus: 'O'
+    },
+    v10_plus: {
+      c_below_500: 'X',
+      c500_1000: 'M2',
+      c1000_2000: 'D1',
+      c2000_5000: 'O',
+      c5000_plus: 'C'
+    }
+  };
+  var code = null;
+  if (visBand === 'x' || cloudBand === 'c_below_500') {
+    code = 'X';
+  } else if (visBand && cloudBand && fullMatrix[visBand] && fullMatrix[visBand][cloudBand]) {
+    code = fullMatrix[visBand][cloudBand];
+  } else if (visBand && !cloudBand) {
+    if (visBand === 'v10_plus') code = 'C';else if (visBand === 'v8_10') code = 'O';else if (visBand === 'v5_8') code = 'D3';else if (visBand === 'v15_5') code = 'M6';
+  } else if (!visBand && cloudBand) {
+    if (cloudBand === 'c5000_plus') code = 'C';else if (cloudBand === 'c2000_5000') code = 'O';else if (cloudBand === 'c1000_2000') code = 'D1';else if (cloudBand === 'c500_1000') code = 'M2';else code = 'X';
+  }
+  if (!code || !labels[code]) code = 'D4';
+  if (fogRisk && fogRisk.major) {
+    var curMajor = vpMajorFromGaforCode(code);
+    if (vpMajorSeverity(fogRisk.major) > vpMajorSeverity(curMajor)) {
+      code = vpRepresentativeCodeFromMajor(fogRisk.major);
+    }
+  }
+  var cat = labels[code];
+  var major = String(cat.letter || 'D');
+  var dataQuality = hasDenseLowWithoutBase ? 'estimated' : 'valid';
+  var displayCode = dataQuality === 'valid' ? cat.code : String(cat.code || cat.letter || '?').length > 1 ? `${String(cat.letter || cat.code || '?').slice(0, 1)}?` : `${String(cat.code || cat.letter || '?').slice(0, 1)}?`;
+  var dataWarning = hasDenseLowWithoutBase ? 'Wolkenbasis fehlt trotz dichter Low-Bewoelkung; Klasse nur aus Sicht/Restdaten abgeleitet.' : cloudBaseSource === 'temp_dew_spread' ? 'Wolkenbasis aus Temperatur/Taupunkt geschaetzt.' : fogRisk && fogRisk.reason ? fogRisk.reason : '';
+  var cloudSource = mosmixHasBknBelow500 ? 'mosmix_n05' : Number.isFinite(cloudAboveRefFt) ? cloudBaseSource || 'openmeteo_cloud_base' : null;
+  return _objectSpread(_objectSpread({}, cat), {}, {
+    label: dataQuality === 'valid' ? cat.label : `${cat.label} (unsicher)`,
+    score: Math.max(0, 100 - (majorRank[major] || 2) * 25),
+    mode: 'gafor_like',
+    dataQuality,
+    ceilingQuality: mosmixHasBknBelow500 ? 'mosmix_n05' : cloudKnown ? 'valid' : hasDenseLowWithoutBase ? 'unknown_dense_low_cloud' : 'not_relevant',
+    displayCode,
+    dataWarning,
+    visKm,
+    cloudBaseFtAgl,
+    cloudAboveRefFt,
+    cloudBaseSource: cloudBaseSource || null,
+    sectorRefFt: Number.isFinite(sectorRefFt) ? sectorRefFt : null,
+    sectorRefFtRaw: Number.isFinite(sectorRefFtRaw) ? sectorRefFtRaw : null,
+    sectorRefTrimFt: vpRefFineTrimFt(parts),
+    terrainPointFt: Number.isFinite(terrainPointFt) ? terrainPointFt : null,
+    coverForCeiling,
+    lowCoverForCeiling,
+    mosmixN05Pct: Number.isFinite(mosmixN05Pct) ? mosmixN05Pct : null,
+    mosmixLowCloudPct: Number.isFinite(mosmixLowCloudPct) ? mosmixLowCloudPct : null,
+    visSource: Number.isFinite(mosmixVisibilityM) ? 'mosmix' : 'openmeteo',
+    cloudSource,
+    hasCeilingCondition,
+    visClass: visBand,
+    cloudClass: cloudBand
+  });
+}
+function vpMajorFromGaforCode(code) {
+  var c = String(code || '').toUpperCase();
+  if (c === 'C' || c === 'O' || c === 'X') return c;
+  if (c.startsWith('D')) return 'D';
+  if (c.startsWith('M')) return 'M';
+  return '?';
+}
+function vpRepresentativeCodeFromMajor(major) {
+  var m = String(major || '').toUpperCase();
+  if (m === 'C') return 'C';
+  if (m === 'O') return 'O';
+  if (m === 'D') return 'D3';
+  if (m === 'M') return 'M5';
+  if (m === 'X') return 'X';
+  return '?';
+}
+function vpMajorSeverity(major) {
+  var m = String(major || '').toUpperCase();
+  var map = {
+    C: 0,
+    O: 1,
+    D: 2,
+    M: 3,
+    X: 4
+  };
+  return Object.prototype.hasOwnProperty.call(map, m) ? map[m] : 2;
+}
 function vpSampleToParts() {
   var sample = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {};
   return {

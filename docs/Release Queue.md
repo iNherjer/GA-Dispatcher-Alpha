@@ -31,6 +31,13 @@ liefert alles Offene mit aus.
 
 ## Ausgeliefert
 
+### 2026-11-24 · Satellit, GAFOR und METAR im EFB – Tracker v661 Alpha
+
+- **Artefakte:** Tracker-EXE mit EFB-Assets 66101, Web-Cache v2521.
+- **Änderungen:** Transparente Satelliten-Wolkenkacheln aus dem Tracker, GAFOR-Sektoren für Deutschland im VFR-Index und METAR als Kartenwetterquelle.
+- **Im Feld prüfen:** Sichtbarkeit von „Nur Wolken“ und Infrarot, Wechsel zwischen Sektoren und Kacheln sowie METAR-Wetterfelder im MSFS-EFB.
+- **Details:** [Tracker v661](Tracker-v661-Release.md).
+
 ### 2026-11-24 · Cloudflare-DWD-Wetter und Touch-Höhenlinie – Tracker v660 Alpha
 
 - **Artefakte:** Tracker-EXE mit EFB-Assets 66001, Web-Cache v2520.

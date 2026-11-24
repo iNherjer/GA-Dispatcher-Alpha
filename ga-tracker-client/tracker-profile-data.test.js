@@ -31,6 +31,10 @@ test('hosted gzip is decoded exactly once before crossing the local JSON boundar
 
 test('satellite bridge extracts the advertised frame and restricts raster requests to the known products', async () => {
   const time = '2026-11-23T15:30:00Z';
+  const { PNG } = require('pngjs');
+  const raster = new PNG({width:256, height:256});
+  raster.data.set([255,255,255,255, 0,130,60,255, 128,128,128,128]);
+  const inputRaster = PNG.sync.write(raster);
   const calls = [];
   const profile = createProfileData({ cache: { async get(input, options) {
     const url = new URL(input);
@@ -40,15 +44,18 @@ test('satellite bridge extracts the advertised frame and restricts raster reques
       options.validate(xml);
       return xml;
     }
-    return Buffer.alloc(33);
+    options.validate(inputRaster);
+    return inputRaster;
   }}});
   const meta = await profile.resource('https://view.eumetsat.int/geoserver/msg_fes/wms?request=GetCapabilities');
   assert.deepEqual(meta, { time });
-  await profile.satelliteTile('clouds', time, 6, 33, 21);
+  const clouds = PNG.sync.read(await profile.satelliteTile('clouds', time, 6, 33, 21));
+  assert.deepEqual([...clouds.data.subarray(0,12)], [255,255,255,255, 255,255,255,0, 255,255,255,64]);
   assert.equal(calls[1].origin, 'https://view.eumetsat.int');
   assert.equal(calls[1].searchParams.get('layers'), 'msg_fes:clm');
   assert.equal(calls[1].searchParams.get('time'), time);
   assert.equal(calls[1].searchParams.get('bbox').split(',').every(value => Number.isFinite(Number(value))), true);
+  assert.deepEqual(await profile.satelliteTile('infrared', time, 7, 66, 42), inputRaster);
   await assert.rejects(profile.satelliteTile('clouds', time, 7, 33, 21), /invalid_profile_satellite_tile/);
   await assert.rejects(profile.satelliteTile('other', time, 6, 33, 21), /invalid_profile_satellite_tile/);
   assert.throws(() => resourceUrl('https://view.eumetsat.int/geoserver/msg_fes/wms?request=GetMap'), /invalid_profile_resource/);

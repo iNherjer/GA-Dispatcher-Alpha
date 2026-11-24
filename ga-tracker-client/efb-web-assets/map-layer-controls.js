@@ -312,7 +312,7 @@ function createMapSatelliteOverlay(map, pane, onChange) {
       tile.width = size.x;
       tile.height = size.y;
       var image = new Image();
-      if (!window.gaMapSatelliteTileUrl) image.crossOrigin = 'anonymous';
+      image.crossOrigin = 'anonymous';
       var releaseImage = () => {
         image.onload = image.onerror = null;
         delete tile.cancelSatelliteTile;
@@ -347,7 +347,7 @@ function createMapSatelliteOverlay(map, pane, onChange) {
         releaseImage();
         if (!image.complete) image.removeAttribute('src');
       };
-      image.src = window.gaMapSatelliteTileUrl ? window.gaMapSatelliteTileUrl(mode, time, coords.z, coords.x, coords.y) : this.getTileUrl(coords);
+      image.src = this.getTileUrl(coords);
       return tile;
     }
   });
@@ -378,7 +378,7 @@ function createMapSatelliteOverlay(map, pane, onChange) {
       attribution: 'Satellit © EUMETSAT'
     };
     var endpoint = GA_SAT_WMS + '/wms';
-    var tiles = mode === 'clouds' ? new CloudTile(endpoint, options) : window.gaMapSatelliteTileUrl ? L.tileLayer(window.gaMapSatelliteTileUrl(mode, stamp, '{z}', '{x}', '{y}'), options) : L.tileLayer.wms(endpoint, options);
+    var tiles = window.gaMapSatelliteTileUrl ? L.tileLayer(window.gaMapSatelliteTileUrl(mode, stamp, '{z}', '{x}', '{y}'), options) : mode === 'clouds' ? new CloudTile(endpoint, options) : L.tileLayer.wms(endpoint, options);
     layer = tiles;
     time = stamp;
     state = 'loading';
@@ -594,9 +594,11 @@ function installMapWeatherQuickControls(map, layerControl, _radar, satellitePane
   mode.addEventListener('change', () => _satellite.setMode(mode.value));
   var status = document.createElement('span');
   status.setAttribute('role', 'status');
-  options.append(mode, status);
+  options.appendChild(mode);
+  options.appendChild(status);
   panel.appendChild(options);
-  list.prepend(panel);
+  if (_weather.installOptions) _weather.installOptions(panel);
+  list.insertBefore(panel, list.firstChild);
   function refresh() {
     var states = {
       satellite: _satellite.enabled,

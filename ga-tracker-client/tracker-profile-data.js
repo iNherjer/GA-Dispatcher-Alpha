@@ -1,6 +1,7 @@
 'use strict';
 const { validatePng } = require('./tracker-navigation-data');
 const { gunzipSync } = require('node:zlib');
+const { PNG } = require('pngjs');
 const { createTrackerDwdWeather } = require('./tracker-dwd-weather');
 const ROOT = 'https://inherjer.github.io/GA-Dispatcher-Alpha/';
 const EUMET_VIEW = 'https://view.eumetsat.int';
@@ -122,9 +123,19 @@ function createProfileData(data) {
         crs: 'EPSG:3857', bbox: bbox.join(','), width: '256', height: '256', format: 'image/png',
         transparent: 'true', time
       });
-      return data.cache.get(EUMET_VIEW + '/geoserver/wms?' + params, {
+      const bytes = await data.cache.get(EUMET_VIEW + '/geoserver/wms?' + params, {
         ttlMs: 3600000, limit: 1024 * 1024, validate: validatePng
       });
+      if (mode === 'infrared') return bytes;
+      // Match the web mask, but serve an ordinary transparent image to Coherent.
+      validatePng(bytes);
+      const image = PNG.sync.read(bytes);
+      const pixels = image.data;
+      for (let i = 0; i < pixels.length; i += 4) {
+        pixels[i + 3] = Math.round(pixels[i + 3] * Math.min(pixels[i], pixels[i + 1], pixels[i + 2]) / 255);
+        pixels[i] = pixels[i + 1] = pixels[i + 2] = 255;
+      }
+      return PNG.sync.write(image);
     },
     async terrain(input, options = {}) {
       const points = profilePoints(input);

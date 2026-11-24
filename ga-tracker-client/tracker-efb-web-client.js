@@ -6,7 +6,7 @@ const { fontDeclarations, htmlFontDeclarations, clientFontSource } = require('./
 
 const EFB_WEB_CLIENT_PATH = '/efb/v1/';
 const EFB_WEB_CLIENT_PROBE_PATH = '/efb/v1/probe/';
-const EFB_WEB_ASSET_REVISION = '66001';
+const EFB_WEB_ASSET_REVISION = '66101';
 const fileCache = new Map();
 
 const STATIC_ASSETS = Object.freeze({
@@ -68,6 +68,7 @@ const STATIC_ASSETS = Object.freeze({
   '/efb/v1/assets/airport-radio.js': [path.join(__dirname, 'efb-web-assets', 'airport-radio.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/map-layer-controls.js': [path.join(__dirname, 'efb-web-assets', 'map-layer-controls.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/map-weather-fields.js': [path.join(__dirname, 'efb-web-assets', 'map-weather-fields.js'), 'text/javascript; charset=utf-8'],
+  '/efb/v1/assets/data/gafor-sector-dataset-de.json': [path.join(__dirname, '..', 'data', 'gafor-sector-dataset-de.json'), 'application/json; charset=utf-8'],
   '/efb/v1/assets/map-weather.js': [path.join(__dirname, 'tracker-efb-map-weather.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/vendor/wmo-weather/present-weather.svg': [path.join(__dirname, 'efb-web-assets/vendor/wmo-weather/present-weather.svg'), 'image/svg+xml'],
   '/efb/v1/assets/vendor/wmo-weather/LICENSE.md': [path.join(__dirname, 'efb-web-assets/vendor/wmo-weather/LICENSE.md'), 'text/plain; charset=utf-8'],

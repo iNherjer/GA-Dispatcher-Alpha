@@ -248,7 +248,7 @@ function createMapSatelliteOverlay(map, pane, onChange) {
             tile.width = size.x;
             tile.height = size.y;
             const image = new Image();
-            if (!window.gaMapSatelliteTileUrl) image.crossOrigin = 'anonymous';
+            image.crossOrigin = 'anonymous';
             const releaseImage = () => {
                 image.onload = image.onerror = null;
                 delete tile.cancelSatelliteTile;
@@ -281,9 +281,7 @@ function createMapSatelliteOverlay(map, pane, onChange) {
                 releaseImage();
                 if (!image.complete) image.removeAttribute('src');
             };
-            image.src = window.gaMapSatelliteTileUrl
-                ? window.gaMapSatelliteTileUrl(mode, time, coords.z, coords.x, coords.y)
-                : this.getTileUrl(coords);
+            image.src = this.getTileUrl(coords);
             return tile;
         }
     });
@@ -307,10 +305,9 @@ function createMapSatelliteOverlay(map, pane, onChange) {
             bounds: [[-64, -72], [68, 72]], attribution: 'Satellit © EUMETSAT'
         };
         const endpoint = GA_SAT_WMS + '/wms';
-        const tiles = mode === 'clouds' ? new CloudTile(endpoint, options)
-            : window.gaMapSatelliteTileUrl
-                ? L.tileLayer(window.gaMapSatelliteTileUrl(mode, stamp, '{z}', '{x}', '{y}'), options)
-                : L.tileLayer.wms(endpoint, options);
+        const tiles = window.gaMapSatelliteTileUrl
+            ? L.tileLayer(window.gaMapSatelliteTileUrl(mode, stamp, '{z}', '{x}', '{y}'), options)
+            : mode === 'clouds' ? new CloudTile(endpoint, options) : L.tileLayer.wms(endpoint, options);
         layer = tiles;
         time = stamp;
         state = 'loading';
@@ -441,9 +438,11 @@ function installMapWeatherQuickControls(map, layerControl, radar, satellitePane,
     mode.addEventListener('change', () => satellite.setMode(mode.value));
     const status = document.createElement('span');
     status.setAttribute('role', 'status');
-    options.append(mode, status);
+    options.appendChild(mode);
+    options.appendChild(status);
     panel.appendChild(options);
-    list.prepend(panel);
+    if (weather.installOptions) weather.installOptions(panel);
+    list.insertBefore(panel, list.firstChild);
 
     function refresh() {
         const states = {

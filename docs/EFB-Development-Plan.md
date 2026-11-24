@@ -9218,3 +9218,29 @@ Voraussetzung im Feld: Kacheln über den Tracker sind in Coherent sichtbar (Feld
 
 Feldtest 20.11.2026 (v654): Kacheln über den Tracker in Coherent sichtbar (`source=tracker-proxy`).
 Ausgeliefert mit Tracker v655 Alpha (`docs/Tracker-v655-Release.md`), dazu eindeutiger Kartenspeicher-Schalter.
+
+## 24.11.2026 – Satellit, GAFOR-Sektoren und METAR im EFB-Kartenwetter
+
+Feldtest mit Tracker v660: DWD-Höhenband bleibt mit sichtbaren Wolken performant.
+Radar ist sichtbar. Satellit fehlt, der VFR-Index zeigt nur Kacheln und die
+Kartenwetterquelle lässt sich nicht auf METAR stellen.
+
+Tracker v661 Alpha mit Host-Assetrevision 66101:
+
+- Der Tracker wandelt die EUMETSAT-Wolkenmaske in transparente PNG-Kacheln um.
+  Coherent lädt Wolkenmaske und Infrarot als normale Leaflet-Bildkacheln.
+  Das Schnellmenü verwendet DOM-Methoden, die auch in Chrome 49 verfügbar
+  sind. Der Standalone-Pfad verwendet weiterhin seinen Canvas.
+- Der VFR-Index erhält im Karten-Layermenü GAFOR-Sektoren (DE) und Kacheln.
+  Die Sektoren verwenden das gemeinsame Polygon-Dataset und die klassische
+  Einstufung für die aktuelle Open-Meteo-Stunde. Der Tracker fragt nur Sektoren
+  im sichtbaren Bereich in Gruppen von bis zu 20 Punkten ab. Die Ansicht hat
+  zunächst keine Zeitampel und gibt keine amtliche GAFOR-Meldung wieder.
+- Die Kartenquelle wechselt zwischen DWD, Open-Meteo und METAR. Die METAR-Ansicht
+  zeigt gemeldete Wolkenschichten und Wind an Stationen im Kartenausschnitt.
+  Höhenband und Punktwetter behalten ihre eigene Wetterquellenauswahl.
+
+EUMETSAT lieferte beide Bildmodi als gültige 256-Pixel-PNGs. Der lokale
+Browsertest bei 440 und 665 CSS-Pixeln deckt beide Satellitenmodi, Radar,
+Sektoren, Kacheln, METAR und DWD-Punktwetter ab. Sichtbarkeit und Performance
+im echten Coherent sind im nächsten Tracker-Feldtest zu prüfen.
