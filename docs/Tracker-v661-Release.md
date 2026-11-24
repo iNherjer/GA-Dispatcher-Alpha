@@ -18,3 +18,13 @@ Web-Cache v2521 gehören zu diesem Release-Stand.
 Satellit mit „Nur Wolken“ und „Infrarotbild“ testen. Den VFR-Index in
 Deutschland zwischen Sektoren und Kacheln umschalten. METAR über die
 Kartenwetterquelle wählen und Radar sowie das DWD-Höhenband gegenprüfen.
+
+## Tests und Artefakt
+
+- 1633 Tracker-Tests bestanden, zwei übersprungen. Der EFB-Browserhost bei
+  440 und 665 CSS-Pixeln zeigte beide Satellitenmodi, Radar, GAFOR, Kacheln,
+  METAR und DWD-Punktwetter. Beide EUMETSAT-Produkte lieferten echte PNGs.
+- [Tracker v661 Alpha](https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/tag/v661)
+  aus Commit `c8d33de4f`. Windows-x64-EXE mit 175596233 Bytes.
+- SHA-256 `4117cb7180c8db3267669f60e00f74b85ce737240a50ed9ed64a1512831a20d5`.
+- Öffentlicher Download bytegenau geprüft. Aktivierung im Tracker-Alpha-Kanal.
