@@ -330,11 +330,12 @@ window.renderAirportMetarLoadingWidget = function(icao, runwayText, options = {}
         </div>`;
 };
 
-async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false, options = {}) {
+async function awLoadMetarWidget(icao, containerId, lat, lon, forceModern = false, options = {}) {
     let container = document.getElementById(containerId);
     if (!container) return;
     const loadOptions = options && typeof options === 'object' ? options : {};
-    const commitAllowed = () => typeof _dispatchUiCommitAllowed !== 'function' || _dispatchUiCommitAllowed(loadOptions);
+    const commitAllowed = () => (!loadOptions.weatherCommit || loadOptions.weatherCommit()) &&
+        (typeof _dispatchUiCommitAllowed !== 'function' || _dispatchUiCommitAllowed(loadOptions));
     if (!commitAllowed()) return;
     const requestedRunwayIcao = String(loadOptions.runwayIcao || '').trim().toUpperCase();
 
@@ -511,6 +512,7 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false,
             container.innerHTML = `<div style="padding:10px; text-align:center; color:#d93829; font-size:12px; background:#1a1a1a;">${_awText('airportWx.noUsable', 'Kein verwertbares METAR für {icao} gefunden.', { icao })}</div>`;
             return;
         }
+        if (loadOptions.onMetar) loadOptions.onMetar(metar);
         const raw = typeof metar.rawOb === 'string'
             ? metar.rawOb
             : (typeof metar.raw === 'string' ? metar.raw : "");
@@ -526,10 +528,7 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false,
         let cover = metar.cover || "--";
         if (cover === "Clear") cover = "CLR";
 
-        let visib = metar.visib !== undefined && metar.visib !== null ? metar.visib + ' sm' : '--';
-        const visMatch = raw.match(/\s(\d{4})\s/);
-        if (raw.includes(' 9999 ')) visib = '> 10 km';
-        else if (visMatch && !visMatch[1].startsWith('0000')) visib = parseInt(visMatch[1], 10) + ' m';
+        const visib = awMetarVisibility(metar) || '--';
         let wx = metar.wxString ? metar.wxString.replace(/,/g, ' ') : 'NIL';
 
         let qnhStr = "--";
@@ -562,59 +561,11 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false,
         container = document.getElementById(containerId);
         if (!container) return;
 
-        let rwyHdg = 0; let rwy1 = ""; let rwy2 = "";
-        {
-            const rData = runwayIcao ? runwayCache[runwayIcao] : null;
-            if (rData && !rData.includes('Keine Daten')) {
-                const match = rData.match(/(?:^|\s|\n|<br\s*\/?>)(0[1-9]|[12]\d|3[0-6])([LRC]?)\s*\/\s*((?:0[1-9]|[12]\d|3[0-6])[LRC]?)/);
-                if (match) { rwyHdg = parseInt(match[1], 10) * 10; rwy1 = match[1] + match[2]; rwy2 = match[3]; }
-            }
-        }
-
         const headerText = isFallback ? `Nearest: ${foundIcao}` : `Station: ${icaoNorm}`;
         const modernHeaderText = isFallback ? `▶ NEAREST: ${foundIcao}` : `▶ STATION: ${icaoNorm}`;
+        const runwayText = runwayIcao ? runwayCache[runwayIcao] : '';
 
         if (isRetro) {
-            let svgTicks = `
-                <circle cx="80" cy="80" r="70" stroke="#444" stroke-width="1.5" fill="none" stroke-dasharray="30.65 6" transform="rotate(2.45 80 80)"/>
-                <circle cx="80" cy="80" r="3" fill="#444" />`;
-
-            // Füge N, O, S, W und 30-Grad-Schritte rotierend hinzu
-            for (let i = 0; i < 360; i += 30) {
-                const angleRad = (i - 90) * Math.PI / 180;
-                const radius = 61;
-                const tx = 80 + radius * Math.cos(angleRad);
-                const ty = 80 + radius * Math.sin(angleRad);
-
-                // dx="-2" gleicht den kursiven Schwung (Slant) von Caveat aus, der sonst wie eine Rechtsrotation wirkt
-                if (i % 90 === 0) {
-                    let letter = i === 0 ? 'N' : (i === 90 ? _awText('mapContext.compass.east', 'O') : (i === 180 ? 'S' : 'W'));
-                    svgTicks += `<text x="${tx}" y="${ty}" dx="-2" font-family="'Caveat', cursive" font-size="22" fill="#222" font-weight="bold" text-anchor="middle" dominant-baseline="central" transform="rotate(${i} ${tx} ${ty})">${letter}</text>`;
-                } else {
-                    svgTicks += `<text x="${tx}" y="${ty}" dx="-1.5" font-family="'Caveat', cursive" font-size="14" fill="#666" font-weight="bold" text-anchor="middle" dominant-baseline="central" transform="rotate(${i} ${tx} ${ty})">${i / 10}</text>`;
-                }
-            }
-
-            let rwyHtml = '';
-            if (rwy1 && rwy2) {
-                // Piste wurde oben und unten gekürzt (y="29", height="102") um Abstand zu den Zahlen zu gewinnen
-                rwyHtml = `
-                    <g transform="translate(80,80) rotate(${rwyHdg}) translate(-80,-80)">
-                        <rect x="68" y="29" width="24" height="102" fill="none" stroke="#222" stroke-width="1.5" stroke-dasharray="30 4 15 4"/>
-                        <text x="80" y="43" font-family="'Caveat', cursive" font-size="14" fill="#111" font-weight="bold" text-anchor="middle" transform="rotate(180 80 39)">${rwy2}</text>
-                        <text x="80" y="125" font-family="'Caveat', cursive" font-size="14" fill="#111" font-weight="bold" text-anchor="middle">${rwy1}</text>
-                    </g>`;
-            }
-
-            let arrowHtml = '';
-            if (!isVRB && wspd > 0 && wdir !== null && wdir !== "VRB") {
-                arrowHtml = `
-                <g transform="rotate(${wdir} 80 80)">
-                    <path d="M 80 10 C 77 30, 83 50, 80 65" stroke="#1a73e8" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-                    <path d="M 74 54 L 80 68 L 86 52" stroke="#1a73e8" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                </g>`;
-            }
-
             container.innerHTML = `
                 <div style="font-family: 'Caveat', cursive; color: #222; padding: 5px; position:relative;">
                     <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid rgba(0,0,0,0.5); padding-bottom: 2px; margin-bottom: 12px;">
@@ -631,14 +582,11 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false,
                             <div><span style="color:#666; font-size: 16px;">Temp:</span> <b>${temp}</b> <span style="color:#666; font-size: 16px; margin-left:8px;">Dew:</span> <b>${dewp}</b></div>
                             <div><span style="color:#666; font-size: 16px;">QNH:</span> <b>${qnhStr}</b> <span style="color:#666; font-size: 16px; margin-left:8px;">Cloud:</span> <b>${cover}</b></div>
                         </div>
-                        <div style="position:relative; width: 130px; height: 130px; flex-shrink: 0;">
-                            <svg viewBox="0 0 160 160" style="width:100%; height:100%; overflow:visible;">
-                                ${svgTicks}${rwyHtml}${arrowHtml}
-                            </svg>
-                        </div>
+                        ${awPaperWindRose(isVRB ? null : wdir,wspd,runwayText,windText)}
                     </div>
                 </div>`;
         } else {
+            const {headingDeg:rwyHdg,end1:rwy1,end2:rwy2} = _getMetarRunwayVisualData(runwayText) || {};
             let svgTicks = '';
             for (let i = 0; i < 360; i += 5) {
                 const isCard = i % 90 === 0, isLong = i % 10 === 0;
@@ -761,6 +709,607 @@ async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false,
             container.innerHTML = `<div style="padding:10px; text-align:center; color:#d93829; font-family: 'Caveat', cursive; font-size:20px; transform: rotate(-1deg);">${_awText('airportWx.loadError', 'Fehler beim Laden des METARs:')} <br/>${err.message || err}</div>`;
         } else {
             container.innerHTML = `<div style="padding:10px; text-align:center; color:#d93829; font-size:12px; background:#1a1a1a;">${_awText('airportWx.loadError', 'Fehler beim Laden des METARs:')} <br/>${err.message || err}</div>`;
+        }
+    }
+}
+
+// Shared weather source and forecast cursor for all weather widgets.
+const AW_SOURCE_KEY = 'ga_briefing_weather_source';
+const AW_SOURCES = { dwd:'DWD ICON-EU', openmeteo:'Open-Meteo', metar:'METAR' };
+const AW_HOUR = 3600000;
+const awWidgetLoads = new Map();
+let awWeatherHour = null;
+let awWeatherReloadTimer = null;
+const awSigmetCache = new Map();
+const AW_SIGMET_ROOT = 'https://mapservices.weather.noaa.gov/vector/rest/services/aviation/awc_aviation_weather/MapServer/';
+const AW_SIGMET_FIELDS = {
+    111: 'hazard,severity,valid_time_from,valid_time_to,min_ft_msl,max_ft_msl,raw_text',
+    112: 'hazard,qualifier,validtimef,validtimet,base,top,rawsigmet'
+};
+
+function awWeatherSource() {
+    const saved = localStorage.getItem(AW_SOURCE_KEY);
+    return Object.prototype.hasOwnProperty.call(AW_SOURCES, saved) ? saved : 'dwd';
+}
+
+function awWeatherValidAt() {
+    return awWeatherSource() === 'dwd' ? awWeatherHour : null;
+}
+
+function awWeatherSourceControl(observedAt) {
+    const source = awWeatherSource();
+    const sources = Object.keys(AW_SOURCES);
+    const next = AW_SOURCES[sources[(sources.indexOf(source) + 1) % sources.length]];
+    const change = _awText('airportWx.nextSource','Wetterquelle wechseln zu {source}',{source:next});
+    const term = awWeatherValidAt() ?? (Number.isFinite(observedAt) && observedAt > 1e12 ? observedAt : Math.floor(Date.now() / AW_HOUR) * AW_HOUR);
+    const clock = new Date(term).toISOString().slice(11,16) + ' UTC';
+    return '<div class="ga-briefing-weather-source"><button type="button" class="ga-skin-control ga-weather-source-cycle" data-aw-source title="' +
+        _escapeMetarWidgetText(change) + '" aria-label="' + _escapeMetarWidgetText(AW_SOURCES[source] + ' · ' + change) +
+        '">' + AW_SOURCES[source] + '</button>' + (source === 'dwd'
+            ? '<span class="ga-weather-stepper" data-aw-term="' + term + '">' +
+                '<button type="button" class="ga-skin-control" data-aw-step="-1" aria-label="' +
+                _escapeMetarWidgetText(_awText('airportWx.hourEarlier','Eine Stunde zurück')) + '">−</button>' +
+                '<button type="button" class="ga-skin-control ga-weather-step-clock' + (awWeatherHour !== null ? ' is-preview' : '') +
+                '" data-aw-step="0" title="' + _escapeMetarWidgetText(_awText('airportWx.backToLive','Zurück zu Live')) + '">' + clock + '</button>' +
+                '<button type="button" class="ga-skin-control" data-aw-step="1" aria-label="' +
+                _escapeMetarWidgetText(_awText('airportWx.hourLater','Eine Stunde vor')) + '">+</button></span>' : '') + '</div>';
+}
+
+function awReloadWidgets() {
+    window.dispatchEvent(new Event('ga:briefing-weather-source'));
+    awWidgetLoads.forEach((state,id) => {
+        if (state.container === document.getElementById(id)) loadMetarWidget(...state.args);
+        else {
+            state.controller.abort();
+            awWidgetLoads.delete(id);
+        }
+    });
+}
+
+document.addEventListener('click', event => {
+    const button = event.target?.closest?.('[data-aw-source], [data-aw-step]');
+    if (!button) return;
+    if (button.hasAttribute('data-aw-source')) {
+        clearTimeout(awWeatherReloadTimer);
+        const sources = Object.keys(AW_SOURCES);
+        localStorage.setItem(AW_SOURCE_KEY, sources[(sources.indexOf(awWeatherSource()) + 1) % sources.length]);
+        awWeatherReloadTimer = setTimeout(awReloadWidgets, 0);
+        return;
+    }
+    if (awWeatherSource() !== 'dwd') return;
+    const step = Number(button.dataset.awStep);
+    if (step === 0) {
+        clearTimeout(awWeatherReloadTimer);
+        awWeatherHour = null;
+        awWeatherReloadTimer = setTimeout(awReloadWidgets, 0);
+        return;
+    }
+    const current = Math.floor(Date.now() / AW_HOUR) * AW_HOUR;
+    const shown = awNumber(button.parentElement.dataset.awTerm) ?? current;
+    const target = (awWeatherHour ?? shown) + step * AW_HOUR;
+    const validAt = Math.max(current - 3 * AW_HOUR, Math.min(current + 12 * AW_HOUR, target));
+    if (validAt === awWeatherHour) return;
+    clearTimeout(awWeatherReloadTimer);
+    awWeatherHour = validAt;
+    const label = new Date(validAt).toISOString().slice(11,16) + ' UTC';
+    document.querySelectorAll('.ga-weather-step-clock').forEach(clock => {
+        clock.textContent = label;
+        clock.classList.add('is-preview');
+    });
+    awWeatherReloadTimer = setTimeout(awReloadWidgets, 240);
+}, true); // The map drawer stops clicks from bubbling to the document.
+
+function awNumber(value) {
+    return value === '' || value == null || !Number.isFinite(Number(value)) ? null : Number(value);
+}
+
+function awMetarVisibility(metar) {
+    const raw = metar.rawOb || metar.raw || '';
+    const metric = /(?:^|\s)(?:\d{3}|VRB)\d{2,3}(?:G\d{2,3})?(?:KT|MPS|KMH)\s+(?:\d{3}V\d{3}\s+)?(\d{4})(?:NDV)?(?=\s|$)/.exec(raw);
+    if (metric?.[1] === '9999' || /\bCAVOK\b/.test(raw)) return '≥10 km';
+    if (metric) return (Number(metric[1]) / 1000).toFixed(1) + ' km';
+    return metar.visib != null ? metar.visib + ' sm' : '';
+}
+
+function awMetarCloudBases(metar) {
+    const layers = new Map();
+    (Array.isArray(metar.clouds) ? metar.clouds : []).forEach(layer => {
+        const base = awNumber(layer.base);
+        if (/^(FEW|SCT|BKN|OVC|VV)$/.test(layer.cover) && base !== null && base >= 0) {
+            layers.set(layer.cover + base, { cover: layer.cover, base });
+        }
+    });
+    const raw = metar.rawOb || metar.raw || '';
+    const matches = /\b(FEW|SCT|BKN|OVC|VV)(\d{3})(?:CB|TCU)?\b/g;
+    let match;
+    while ((match = matches.exec(raw))) {
+        const base = Number(match[2]) * 100;
+        layers.set(match[1] + base, { cover: match[1], base });
+    }
+    return Array.from(layers.values()).sort((a,b) => a.base - b.base);
+}
+
+function awModelCloudBases(sample, elevationFt) {
+    const ground = awNumber(elevationFt) ?? (awNumber(sample.modelTerrainMslM) === null ? null : sample.modelTerrainMslM * 3.28084);
+    const profile = (sample.pressureProfile || []).filter(row => Number.isFinite(row.cloudPct) &&
+        Number.isFinite(row.geopotentialFt) && (ground === null || row.geopotentialFt >= ground));
+    const layers = vpDeriveCloudLayersFromPressureProfile(profile, ground ?? 0);
+    const height = mslFt => Number.isFinite(mslFt)
+        ? { mslFt, aglFt: ground !== null && mslFt >= ground ? mslFt - ground : null } : null;
+    const ceilingM = awNumber(sample.ceilingMslM);
+    const ceilingFt = ceilingM !== null && ceilingM > 0 && ceilingM < 15000 &&
+        (sample.cloudTotalPct == null || sample.cloudTotalPct > 50) ? ceilingM * 3.28084 : null;
+    const profileBaseFt = layers[0]?.baseMsl;
+    // A higher sampled layer cannot establish the lowest base when CEILING is below it.
+    const hasDistinctBase = ceilingFt === null || profileBaseFt <= ceilingFt - 10;
+    return {
+        base: hasDistinctBase ? height(profileBaseFt) : null,
+        ceiling: height(ceilingFt)
+    };
+}
+
+function awMetarCloudHeights(metar) {
+    const layers = awMetarCloudBases(metar);
+    const base = layers.find(layer => layer.cover !== 'VV');
+    const ceiling = layers.find(layer => /^(BKN|OVC|VV)$/.test(layer.cover));
+    return { base: base ? { aglFt:base.base } : null, ceiling: ceiling ? { aglFt:ceiling.base } : null };
+}
+
+function awEstimateFlightCategory(visibilityM, ceilingFtAgl, hasNoCeiling) {
+    if (!Number.isFinite(visibilityM) || visibilityM < 0 ||
+        (!Number.isFinite(ceilingFtAgl) && !hasNoCeiling)) return '';
+    // AWC categories use statute miles for visibility and feet AGL for ceiling.
+    const miles = visibilityM / 1609.344;
+    const ceiling = Number.isFinite(ceilingFtAgl) ? ceilingFtAgl : Infinity;
+    return awFlightCategoryThresholds(miles, ceiling);
+}
+
+function awFlightCategoryThresholds(miles, ceiling) {
+    if (miles < 1 || ceiling < 500) return 'LIFR';
+    if (miles < 3 || ceiling < 1000) return 'IFR';
+    if (miles <= 5 || ceiling <= 3000) return 'MVFR';
+    return 'VFR';
+}
+
+function awModelFlightCategory(sample, ceiling) {
+    const visibility = awNumber(sample.visibilityM);
+    const totalCover = awNumber(sample.cloudTotalPct);
+    const cat = awEstimateFlightCategory(visibility, ceiling?.aglFt, !ceiling && totalCover !== null && totalCover <= 50);
+    const limit = visibility === null && Number.isFinite(ceiling?.aglFt)
+        ? awFlightCategoryThresholds(Infinity, ceiling.aglFt) : '';
+    return { cat, ceilingCategory: limit === 'VFR' ? '' : limit };
+}
+
+function awFlightCategoryBadge(category, estimated, ceilingCategory) {
+    const cat = String(category || ceilingCategory || '').toUpperCase();
+    if (!/^(VFR|MVFR|IFR|LIFR)$/.test(cat)) return '';
+    const ceilingOnly = !category && !!ceilingCategory;
+    const text = ceilingOnly && cat !== 'LIFR' ? '≤ ' + cat : cat;
+    const label = ceilingOnly
+        ? _awText('airportWx.categoryCeilingOnly', 'Obergrenze anhand des Ceilings. Sichtweite fehlt.')
+        : estimated
+        ? _awText('airportWx.categoryEstimate', 'Aus Sichtweite und Ceiling geschätzt')
+        : _awText('airportWx.categoryMetar', 'Wetterkategorie aus METAR');
+    return '<span class="route-weather-badge is-' + cat.toLowerCase() + '" title="' +
+        _escapeMetarWidgetText(label) + '" aria-label="' + text + ' · ' + _escapeMetarWidgetText(label) + '">' +
+        text + '</span>';
+}
+
+async function awReadModelWeather(source, points, signal, validAt = null) {
+    const options = { signal, includePressure:true, includeContour:true, maxConcurrency:2, validAt };
+    const output = points.map(() => null);
+    if (source === 'dwd' && (window.GA_DWD_WEATHER_URL || window.fetchStaticDwdWeatherPoints)) {
+        try {
+            const samples = await window.fetchDwdWeatherPoints(points, options);
+            samples.forEach((sample, i) => { if (sample) output[i] = { source:'dwd', sample }; });
+        } catch (error) {
+            if (signal?.aborted || error?.name === 'AbortError') throw error;
+        }
+    }
+    if (source === 'dwd' && validAt !== null) return output;
+    const missing = points.map((point,i) => output[i] ? null : {point,i}).filter(Boolean);
+    if (missing.length) {
+        const samples = await window.fetchOpenMeteoWeatherPoints(missing.map(row => row.point), options);
+        samples.forEach((sample,i) => { if (sample) output[missing[i].i] = { source:'openmeteo', sample }; });
+    }
+    return output;
+}
+
+function awWeatherSymbols(code, metarWx = '') {
+    const symbols = [];
+    const add = (weatherCode, prefix) => {
+        const name = vpSignificantWeatherSymbol(weatherCode);
+        if (!name || symbols.some(item => item.name === name)) return;
+        const label = _awText('map.profile.weatherMarker.' + name, VP_WEATHER_MARKER_NAMES[name]);
+        const column = VP_WMO_WEATHER_CODES.indexOf(weatherCode);
+        symbols.push({ name, label: prefix + label,
+            icon: '<span aria-hidden="true" class="ga-briefing-wmo" style="background-image:url(\'' +
+                vpWmoWeatherSpriteUrl() + '\');background-size:' + VP_WMO_WEATHER_CODES.length * 22 +
+                'px 22px;background-position:' + (-column * 22) + 'px 0"></span>' });
+    };
+    if (code != null) add(Number(code), '');
+    const codes = { TS:95,FZDZ:56,FZRA:66,FZFG:48,SHSN:85,SHRA:81,SN:73,RA:63,DZ:53,FG:45,SG:77 };
+    const other = { BR:'Dunst', HZ:'Trockener Dunst', FU:'Rauch', DU:'Staub', SA:'Sand', VA:'Vulkanasche', GR:'Hagel', GS:'Graupel oder kleiner Hagel', PL:'Eiskörner', IC:'Eiskristalle', SQ:'Böenlinie', FC:'Trichterwolke', UP:'Unbekannter Niederschlag', DS:'Staubsturm', SS:'Sandsturm', PO:'Staub- oder Sandwirbel' };
+    String(metarWx).split(/[\s,]+/).filter(Boolean).forEach(group => {
+        const parts = group.match(/FZDZ|FZRA|FZFG|SHSN|SHRA|TS|[A-Z]{2}/g) || [];
+        parts.forEach(part => {
+            if (Object.prototype.hasOwnProperty.call(codes, part)) add(codes[part], group + ' · ');
+            else if (Object.prototype.hasOwnProperty.call(other, part) && !symbols.some(item => item.name === part)) {
+                symbols.push({name:part, label: group + ' · ' + other[part], text:part});
+            }
+        });
+    });
+    return symbols;
+}
+
+function awWarningTime(value) {
+    if (typeof value === 'number') return value < 1e12 ? value * 1000 : value;
+    return Date.parse(String(value || '').replace(/^(\d{4})\/(\d\d)\/(\d\d) (\d\d:\d\d:\d\d)\+00$/, '$1-$2-$3T$4Z'));
+}
+
+function awFetchSigmetLayer(id) {
+    const cached = awSigmetCache.get(id);
+    if (cached && cached.until > Date.now()) return cached.promise;
+    const url = AW_SIGMET_ROOT + id + '/query?where=1%3D1&outFields=' + AW_SIGMET_FIELDS[id] + '&f=geojson&outSR=4326';
+    const entry = { until: Date.now() + 5 * 60000 };
+    entry.promise = _fetchWithTimeout(url, 6500).then(async response => {
+        if (!response.ok) throw new Error('SIGMET HTTP ' + response.status);
+        const data = await response.json();
+        if (!Array.isArray(data.features)) throw new Error('SIGMET GeoJSON');
+        return data.features;
+    }).catch(() => {
+        entry.until = Date.now() + 60000;
+        return [];
+    });
+    awSigmetCache.set(id, entry);
+    return entry.promise;
+}
+
+function awWarningContains(geometry, lat, lon) {
+    function contains(ring) {
+        if (!Array.isArray(ring) || ring.length < 3) return false;
+        const wrap = delta => ((delta + 540) % 360) - 180;
+        const origin = ring[0][0];
+        const targetX = wrap(lon - origin);
+        let inside = false;
+        let previous = ring[ring.length - 1];
+        for (const point of ring) {
+            const x1 = wrap(previous[0] - origin);
+            const x2 = wrap(point[0] - origin);
+            const y1 = previous[1], y2 = point[1];
+            if ((y1 > lat) !== (y2 > lat) && x1 + (x2 - x1) * (lat - y1) / (y2 - y1) > targetX) inside = !inside;
+            previous = point;
+        }
+        return inside;
+    }
+    const polygons = geometry?.type === 'Polygon' ? [geometry.coordinates]
+        : geometry?.type === 'MultiPolygon' ? geometry.coordinates : [];
+    return polygons.some(rings => rings.length && contains(rings[0]) && !rings.slice(1).some(contains));
+}
+
+async function awReadPointSigmets(points) {
+    if (!points.length) return [];
+    const isConus = p => p.lat >= 24 && p.lat <= 50 && p.lon >= -127 && p.lon <= -65;
+    const international = awFetchSigmetLayer(112);
+    const conus = points.some(isConus)
+        ? awFetchSigmetLayer(111) : Promise.resolve([]);
+    const [world, us] = await Promise.all([international, conus]);
+    const now = Date.now();
+    const active = world.concat(us).filter(feature => {
+        const p = feature.properties || {};
+        return awWarningTime(p.validtimef ?? p.valid_time_from) <= now && now < awWarningTime(p.validtimet ?? p.valid_time_to);
+    });
+    return points.map(point => {
+        const seen = new Set();
+        return active.filter(feature => awWarningContains(feature.geometry, point.lat, point.lon)).map(feature => {
+            const p = feature.properties;
+            return { hazard:p.hazard, qualifier:p.qualifier || p.severity, message:p.rawsigmet || p.raw_text,
+                base:p.base ?? p.min_ft_msl, top:p.top ?? p.max_ft_msl, end:awWarningTime(p.validtimet ?? p.valid_time_to) };
+        }).filter(item => {
+            const key = item.message || [item.hazard,item.qualifier,item.base,item.top,item.end].join('|');
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+        });
+    });
+}
+
+function awWeatherWarnings(symbols, sigmets) {
+    const names = { ICE:'Vereisung', ICING:'Vereisung', TURB:'Turbulenz', TS:'Gewitter', CONV:'Gewitter', VA:'Vulkanasche', TC:'Tropischer Wirbelsturm', DS:'Staubsturm', SS:'Sandsturm', MTW:'Gebirgswelle' };
+    const icons = { ICE:'❄', ICING:'❄', TURB:'↝', TS:'ϟ', CONV:'ϟ', VA:'▲', TC:'↻', DS:'◌', SS:'◌', MTW:'≈' };
+    const details = (icon, name, label, text) => '<details class="ga-briefing-weather-warning"><summary title="' +
+        _escapeMetarWidgetText(label) + '" aria-label="' + _escapeMetarWidgetText(label) + '">' +
+        icon + '<span>' + _escapeMetarWidgetText(name) + '</span></summary><span>' +
+        _escapeMetarWidgetText(text || label) + '</span></details>';
+    const rows = (symbols || []).map(item => details(item.icon || '⚠', item.label, item.label));
+    (sigmets || []).forEach(warning => {
+        const code = String(warning.hazard || '').trim().toUpperCase();
+        const band = [warning.base,warning.top].map(awNumber);
+        const levels = band.every(value => value !== null) ? ' · ' + band[0] + '–' + band[1] + ' ft MSL' : '';
+        const name = 'SIGMET · ' + (names[code] || code || '⚠');
+        const label = name + levels + ' · bis ' +
+            new Date(warning.end).toISOString().slice(11,16) + ' UTC';
+        rows.push(details(icons[code] || '⚠', name, label, [label, warning.message || warning.qualifier].filter(Boolean).join(' · ')));
+    });
+    return rows.length ? '<div class="ga-briefing-weather-warnings">' + rows.join('') + '</div>' : '';
+}
+
+function awPaperWindRose(wdir, wspd, runwayText, windText) {
+    const runway = _getMetarRunwayVisualData(runwayText);
+    let svgTicks = `
+        <circle cx="80" cy="80" r="70" stroke="#444" stroke-width="1.5" fill="none" stroke-dasharray="30.65 6" transform="rotate(2.45 80 80)"/>
+        <circle cx="80" cy="80" r="3" fill="#444" />`;
+
+    // Füge N, O, S, W und 30-Grad-Schritte rotierend hinzu
+    for (let i = 0; i < 360; i += 30) {
+        const angleRad = (i - 90) * Math.PI / 180;
+        const radius = 61;
+        const tx = 80 + radius * Math.cos(angleRad);
+        const ty = 80 + radius * Math.sin(angleRad);
+
+        // dx="-2" gleicht den kursiven Schwung (Slant) von Caveat aus, der sonst wie eine Rechtsrotation wirkt
+        if (i % 90 === 0) {
+            let letter = i === 0 ? 'N' : (i === 90 ? _awText('mapContext.compass.east', 'O') : (i === 180 ? 'S' : 'W'));
+            svgTicks += `<text x="${tx}" y="${ty}" dx="-2" font-family="'Caveat', cursive" font-size="22" fill="#222" font-weight="bold" text-anchor="middle" dominant-baseline="central" transform="rotate(${i} ${tx} ${ty})">${letter}</text>`;
+        } else {
+            svgTicks += `<text x="${tx}" y="${ty}" dx="-1.5" font-family="'Caveat', cursive" font-size="14" fill="#666" font-weight="bold" text-anchor="middle" dominant-baseline="central" transform="rotate(${i} ${tx} ${ty})">${i / 10}</text>`;
+        }
+    }
+
+    let rwyHtml = '';
+    if (runway) {
+        // Piste wurde oben und unten gekürzt (y="29", height="102") um Abstand zu den Zahlen zu gewinnen
+        rwyHtml = `
+            <g transform="translate(80,80) rotate(${runway.headingDeg}) translate(-80,-80)">
+                <rect x="68" y="29" width="24" height="102" fill="none" stroke="#222" stroke-width="1.5" stroke-dasharray="30 4 15 4"/>
+                <text x="80" y="43" font-family="'Caveat', cursive" font-size="14" fill="#111" font-weight="bold" text-anchor="middle" transform="rotate(180 80 39)">${runway.end2}</text>
+                <text x="80" y="125" font-family="'Caveat', cursive" font-size="14" fill="#111" font-weight="bold" text-anchor="middle">${runway.end1}</text>
+            </g>`;
+    }
+
+    let arrowHtml = '';
+    if (awNumber(wdir) !== null && wspd > 0) {
+        arrowHtml = `
+        <g transform="rotate(${wdir} 80 80)">
+            <path d="M 80 10 C 77 30, 83 50, 80 65" stroke="#1a73e8" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+            <path d="M 74 54 L 80 68 L 86 52" stroke="#1a73e8" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>`;
+    }
+
+    const label = [windText || 'Windrose', runway && _awText('airportWx.runway','Piste {rwy}', {rwy:runway.end1 + '/' + runway.end2})].filter(Boolean).join(' · ');
+    return `<div class="ga-paper-windrose" role="img" aria-label="${_escapeMetarWidgetText(label)}">
+        <svg viewBox="0 0 160 160" aria-hidden="true">${svgTicks}${rwyHtml}${arrowHtml}</svg>
+    </div>`;
+}
+
+function awBriefingWindRose(wdir, speed, runwayText, windText) {
+    const runway = _getMetarRunwayVisualData(runwayText);
+    const dir = awNumber(wdir);
+    const arrow = dir !== null && speed > 0.4 ? '<g transform="rotate(' + dir +
+        ' 80 80)"><path d="M80 6V66" stroke="#1a73e8" stroke-width="4"/><path d="M72 54L80 79L88 54Z" fill="#1a73e8"/></g>' : '';
+    const label = [windText || 'Windrose', runway && _awText('airportWx.runway','Piste {rwy}', {rwy:runway.end1 + '/' + runway.end2})].filter(Boolean).join(' · ');
+    return '<div class="ga-briefing-windrose" role="img" aria-label="' + _escapeMetarWidgetText(label) + '">' +
+        _renderMetarRunwayLayer(runway, true) + '<svg viewBox="0 0 160 160" aria-hidden="true">' +
+        _renderMetarCompassTicks() + arrow + '</svg></div>';
+}
+
+function awModelFields(result, elevationFt) {
+    const {source, sample} = result;
+    const dir = awNumber(sample.wdir);
+    const speed = awNumber(sample.wspd);
+    const value = (n, unit) => awNumber(n) !== null ? Math.round(n) + ' ' + unit : '';
+    const cloudParts = [sample.cloudLowPct,sample.cloudMidPct,sample.cloudHighPct];
+    const clouds = cloudParts.some(pct => awNumber(pct) !== null)
+        ? cloudParts.map(pct => value(pct, '%') || '–').join(' / ') : '';
+    const visibility = awNumber(sample.visibilityM);
+    const precipitation = awNumber(sample.precipitationMm);
+    const {base, ceiling} = awModelCloudBases(sample, elevationFt);
+    const {cat, ceilingCategory} = awModelFlightCategory(sample, ceiling);
+    const symbols = awWeatherSymbols(sample.weatherCode);
+    return {
+        source:AW_SOURCES[source], observedAt:sample.contourValidAt, windDeg:dir, windKt:speed,
+        wind:speed === 0 ? '0 kt' : [value(dir,'°'),value(speed,'kt')].filter(Boolean).join(' / '),
+        vis:visibility === null ? '' : (visibility / 1000).toFixed(1) + ' km',
+        temp:value(sample.temp2mC,'°C'), dew:value(sample.dewPoint2mC,'°C'), rh:value(sample.rh2mPct,'%'),
+        pressure:value(sample.mslPressureHpa,'hPa'), clouds, base, ceiling, cat, ceilingCategory,
+        wx:symbols.map(item => item.label).join(' · '),
+        precipitation:precipitation > 0 ? precipitation + ' mm/h' : '', symbols
+    };
+}
+
+function awCloudHeightValue(feet) {
+    return Number.isFinite(feet) ? String(Math.round(feet / 10) * 10) : '';
+}
+
+function awCloudHeightText(height) {
+    return [['MSL',height?.mslFt],['AGL',height?.aglFt]].filter(([, feet]) => Number.isFinite(feet))
+        .map(([reference,feet]) => awCloudHeightValue(feet) + ' ft ' + reference).join(' · ');
+}
+
+const AW_HEIGHT_REFERENCE_KEY = 'ga_briefing_cloud_height_reference';
+
+function awCloudHeightToggleLabel(reference) {
+    return _awText('airportWx.heightReferenceToggle', '{current} · zu {next} wechseln', {
+        current: reference.toUpperCase(), next: reference === 'msl' ? 'AGL' : 'MSL'
+    });
+}
+
+function awCloudHeightBlock(weather) {
+    const rows = [
+        [_awText('airportWx.base','Wolkenbasis'),weather.base],
+        [_awText('airportWx.ceiling','Ceiling'),weather.ceiling]
+    ];
+    const preferred = localStorage.getItem(AW_HEIGHT_REFERENCE_KEY) === 'agl' ? 'agl' : 'msl';
+    const content = rows.map(([label,height]) => {
+        const msl = awCloudHeightValue(height?.mslFt);
+        const agl = awCloudHeightValue(height?.aglFt);
+        if (!msl && !agl) return '';
+        const active = msl && agl ? preferred : msl ? 'msl' : 'agl';
+        const unit = active.toUpperCase();
+        const toggleLabel = _escapeMetarWidgetText(awCloudHeightToggleLabel(active));
+        const control = msl && agl
+            ? '<button type="button" class="ga-skin-control ga-cloud-height-toggle" data-cloud-height-reference="' + active +
+                '" title="' + toggleLabel + '" aria-label="' + toggleLabel + '">' + unit + '</button>'
+            : unit;
+        return '<div class="ga-briefing-cloud-height-row"><span>' + _escapeMetarWidgetText(label) +
+            '</span><b data-cloud-height-msl="' + msl + '" data-cloud-height-agl="' + agl + '"><span>' +
+            (active === 'msl' ? msl : agl) + ' ft</span> ' + control + '</b></div>';
+    }).join('');
+    return content ? '<div class="ga-briefing-cloud-heights">' + content + '</div>' : '';
+}
+
+document.addEventListener('click', event => {
+    const button = event.target?.closest?.('[data-cloud-height-reference]');
+    if (!button) return;
+    const reference = button.dataset.cloudHeightReference === 'msl' ? 'agl' : 'msl';
+    localStorage.setItem(AW_HEIGHT_REFERENCE_KEY, reference);
+    const label = awCloudHeightToggleLabel(reference);
+    document.querySelectorAll('[data-cloud-height-reference]').forEach(control => {
+        const field = control.parentElement;
+        field.firstElementChild.textContent = field.getAttribute('data-cloud-height-' + reference) + ' ft';
+        control.dataset.cloudHeightReference = reference;
+        control.textContent = reference.toUpperCase();
+        control.title = label;
+        control.setAttribute('aria-label', label);
+    });
+}, true); // The map drawer stops clicks from bubbling to the document.
+
+function awBoardFacts(rows) {
+    return rows.filter(row => row[1]).map(row => '<div><small>' + _escapeMetarWidgetText(row[0]) +
+        '</small> <b>' + _escapeMetarWidgetText(row[1]) + '</b></div>').join('');
+}
+
+function awBriefingAirport(icao) {
+    if (!/^[A-Z0-9]{4}$/.test(icao || '')) return null;
+    return typeof globalAirports !== 'undefined' && globalAirports ? globalAirports[icao] : null;
+}
+
+function awBriefingRunwayText(icao, airport) {
+    if (!/^[A-Z0-9]{4}$/.test(icao || '')) return '';
+    return (typeof formatOpenAipAirportRunways === 'function' && formatOpenAipAirportRunways(airport)) ||
+        (typeof runwayCache !== 'undefined' && runwayCache[icao]) || '';
+}
+
+async function loadMetarWidget(icao, containerId, lat, lon, forceModern = false, options = {}) {
+    const container = document.getElementById(containerId);
+    if (!container || (typeof _dispatchUiCommitAllowed === 'function' && !_dispatchUiCommitAllowed(options))) return;
+    awWidgetLoads.forEach((load,id) => {
+        if (load.container !== document.getElementById(id)) {
+            load.controller.abort();
+            awWidgetLoads.delete(id);
+        }
+    });
+    const airportCode = String(icao || '').toUpperCase();
+    const airport = options.airport || awBriefingAirport(airportCode);
+    const latValue = awNumber(lat) ?? awNumber(airport?.lat);
+    const lonValue = awNumber(lon) ?? awNumber(airport?.lon);
+    const hasPoint = latValue !== null && lonValue !== null;
+    if (icao === 'POI' || (!icao && !hasPoint)) {
+        awWidgetLoads.get(containerId)?.controller.abort();
+        awWidgetLoads.delete(containerId);
+        container.style.display = 'none';
+        return;
+    }
+    const source = awWeatherSource();
+    const validAt = awWeatherValidAt();
+    const prior = awWidgetLoads.get(containerId);
+    prior?.controller?.abort();
+    const controller = window.gaProfileDataProvider?.createAbortController?.() || new AbortController();
+    const paper = !forceModern && (document.body.classList.contains('theme-retro') ||
+        document.body.classList.contains('theme-ops1940'));
+    const compact = Boolean(options.contextCompact);
+    const pointKey = JSON.stringify([airportCode,latValue,lonValue,forceModern,paper,compact]);
+    const reuse = prior?.container === container && prior.pointKey === pointKey;
+    const state = {container,controller,pointKey,args:[icao,containerId,lat,lon,forceModern,options]};
+    awWidgetLoads.set(containerId, state);
+    const isCurrent = () => awWidgetLoads.get(containerId) === state && container === document.getElementById(containerId) &&
+        source === awWeatherSource() && validAt === awWeatherValidAt() &&
+        (typeof _dispatchUiCommitAllowed !== 'function' || _dispatchUiCommitAllowed(options));
+    const contentId = containerId + 'Content';
+    container.style.display = 'block';
+    container.style.boxShadow = paper ? 'none' : '';
+    container.style.background = paper ? 'transparent' : '';
+    if (!reuse || !container.querySelector('.ga-briefing-weather-widget')) {
+        const layout = paper ? ' is-paper' : compact ? ' is-context ga-map-context-weather-card' : '';
+        container.innerHTML = '<div class="ga-briefing-weather-widget' + layout + '">' + awWeatherSourceControl() +
+            '<div id="' + contentId + '"></div><div class="ga-briefing-weather-details"></div>' +
+            '<div class="ga-briefing-weather-alerts"></div></div>';
+    }
+    const widget = container.firstElementChild;
+    const content = document.getElementById(contentId);
+    const details = container.querySelector('.ga-briefing-weather-details');
+    const alerts = container.querySelector('.ga-briefing-weather-alerts');
+    const point = {lat:latValue,lon:lonValue};
+    let symbols = [], sigmets = null, committed = false;
+    const updateAlerts = () => {
+        if (committed && isCurrent()) alerts.innerHTML = awWeatherWarnings(symbols,sigmets);
+    };
+    const finish = (observedAt) => {
+        widget.querySelector('.ga-briefing-weather-source').outerHTML = awWeatherSourceControl(observedAt);
+        widget.removeAttribute('aria-busy');
+        committed = true;
+        updateAlerts();
+    };
+    widget.setAttribute('aria-busy', 'true');
+    if (hasPoint && validAt === null) awReadPointSigmets([point]).then(rows => { sigmets = rows[0]; updateAlerts(); });
+
+    if (source === 'metar') {
+        let heights = '';
+        await awLoadMetarWidget(icao,contentId,lat,lon,forceModern,{
+            ...options, weatherCommit:isCurrent, preserveLoadingContent:true,
+            onMetar(metar) {
+                heights = awCloudHeightBlock(awMetarCloudHeights(metar));
+                symbols = awWeatherSymbols(null,metar.wxString);
+            }
+        });
+        if (isCurrent()) {
+            details.innerHTML = heights;
+            finish();
+        }
+        return;
+    }
+
+    if (!content.firstChild) content.textContent = _awText('airportWx.searching','Sucht lokales Wetter...');
+    try {
+        const [result] = hasPoint ? await awReadModelWeather(source,[point],controller.signal,validAt) : [];
+        if (!isCurrent()) return;
+        details.innerHTML = '';
+        if (!result) {
+            content.textContent = validAt === null ? _awText('airportWx.noAuto','Kein automatisches Wetter verfügbar.')
+                : _awText('airportWx.noForecastHour','Für diese Stunde fehlen DWD-Daten.');
+            finish();
+            return;
+        }
+        const weather = awModelFields(result, airport?.elevation);
+        const hours = Number.isFinite(weather.observedAt) ? ' · ' + new Date(weather.observedAt).toISOString().slice(11,16) + ' UTC' : '';
+        const title = source === result.source ? (source === 'dwd' ? '' : hours.slice(3)) : weather.source + hours + ' · Fallback';
+        const fields = [['Wind',weather.wind],[_awText('mapContext.wx.visibility','Sicht'),weather.vis],
+            [_awText('cl.wx.temperature','Temperatur'),[weather.temp,weather.dew,weather.rh].filter(Boolean).join(' / ')],
+            [_awText('cl.wx.pressure','Luftdruck'),weather.pressure],
+            [_awText('mapContext.wx.cloudLevels','Wolken L/M/H'),weather.clouds],
+            [_awText('airportWx.precipitation','Niederschlag'),weather.precipitation],
+            ['WX',weather.wx]];
+        const badge = awFlightCategoryBadge(weather.cat,true,weather.ceilingCategory);
+        const heading = title || badge ? '<div class="ga-briefing-model-heading"><b>' +
+            _escapeMetarWidgetText(title) + '</b>' + badge + '</div>' : '';
+        content.innerHTML = '<div class="ga-briefing-model-weather">' + heading +
+            '<div class="ga-briefing-weather-layout"><div>' + awBoardFacts(fields) + '</div><div data-aw-board-rose></div></div>' +
+            awCloudHeightBlock(weather) + '</div>';
+        symbols = weather.symbols;
+        const rose = content.querySelector('[data-aw-board-rose]');
+        const renderRose = paper ? awPaperWindRose : awBriefingWindRose;
+        const updateRose = () => { rose.innerHTML = renderRose(weather.windDeg,weather.windKt,awBriefingRunwayText(airportCode,airport),weather.wind); };
+        updateRose();
+        finish(weather.observedAt);
+        if (/^[A-Z0-9]{4}$/.test(airportCode) && !awBriefingRunwayText(airportCode,airport) && typeof readAirportRunwayDetails === 'function') {
+            await readAirportRunwayDetails(latValue,lonValue,airportCode).catch(() => null);
+            if (isCurrent()) updateRose();
+        }
+    } catch (_) {
+        if (isCurrent()) {
+            content.textContent = _awText('airportWx.noAuto','Kein automatisches Wetter verfügbar.');
+            details.innerHTML = '';
+            finish();
         }
     }
 }

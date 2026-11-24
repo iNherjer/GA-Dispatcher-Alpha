@@ -38,7 +38,6 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
   var MAX_TEXT_LENGTH = 220;
   var ROUTE_TOOLS_PROXY = 'https://ga-proxy.einherjer.workers.dev';
   var TOOL_CACHE_TTL_MS = 4 * 60 * 1000;
-  var WEATHER_AI_CACHE_TTL_MS = 12 * 60 * 1000;
   var WEATHER_METAR_RADIUS_NM = 70;
   var NEAREST_CACHE_TTL_MS = 2 * 60 * 1000;
   var NEAREST_RADIUS_NM = 50;
@@ -293,9 +292,7 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
       data: null,
       error: '',
       controller: null,
-      aiKey: '',
-      aiUpdatedAt: 0,
-      aiLoading: false
+      aiController: null
     },
     radio: {
       key: '',
@@ -718,7 +715,8 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
           return {
             lat: Number(wp === null || wp === void 0 ? void 0 : wp.lat),
             lon: Number((_wp$lng = wp === null || wp === void 0 ? void 0 : wp.lng) !== null && _wp$lng !== void 0 ? _wp$lng : wp === null || wp === void 0 ? void 0 : wp.lon),
-            name: (wp === null || wp === void 0 ? void 0 : wp.name) || ''
+            name: (wp === null || wp === void 0 ? void 0 : wp.name) || '',
+            icao: (wp === null || wp === void 0 ? void 0 : wp.icao) || (wp === null || wp === void 0 ? void 0 : wp.airportIcao) || ''
           };
         }).filter(wp => Number.isFinite(wp.lat) && Number.isFinite(wp.lon));
       }
@@ -830,7 +828,7 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
     var lon = Number((_ref2 = (_ref3 = (_input$lon = input.lon) !== null && _input$lon !== void 0 ? _input$lon : input.lng) !== null && _ref3 !== void 0 ? _ref3 : input.longitude) !== null && _ref2 !== void 0 ? _ref2 : Array.isArray(coords) ? coords[0] : NaN);
     var icao = String(input.icao || input.icaoCode || input.ident || input.code || input.designator || '').trim().toUpperCase();
     var elevRaw = input.elevation;
-    var elev = typeof elevRaw === 'object' && elevRaw ? elevRaw.unit === 1 ? Number(elevRaw.value) : Math.round(Number(elevRaw.value) * 3.28084) : Number(elevRaw);
+    var elev = typeof elevRaw === 'object' && elevRaw ? elevRaw.unit === 1 ? Number(elevRaw.value) : Math.round(Number(elevRaw.value) * 3.28084) : elevRaw == null ? NaN : Number(elevRaw);
     return {
       icao,
       name: input.name || input.n || input.title || icao || 'Flugplatz',
@@ -965,7 +963,13 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
         entry.controller.abort();
       } catch (_) {}
     }
-    if (entry) entry.controller = null;
+    if (entry) {
+      var _entry$aiController, _entry$data;
+      entry.controller = null;
+      (_entry$aiController = entry.aiController) === null || _entry$aiController === void 0 || _entry$aiController.abort();
+      if (entry.aiController) entry.aiController = null;
+      if ((_entry$data = entry.data) !== null && _entry$data !== void 0 && (_entry$data = _entry$data.ai) !== null && _entry$data !== void 0 && _entry$data.loading) entry.data.ai.loading = false;
+    }
   }
   function abortOtherToolRequests(activeName) {
     Object.keys(toolState).forEach(name => {
@@ -1247,6 +1251,7 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
   function render() {
     var _window$gaChecklistHo3, _window$gaChecklistHo4, _window$gaChecklistHo5, _window$gaChecklistHo6;
     if (!bodyEl) return;
+    bodyEl.classList.toggle('is-route-weather-loading', state.view === 'weather' && !!toolState.weather.loading);
     if (state.view === 'list' && lastRenderedView !== 'list') refreshHostChecklists('open');
     lastRenderedView = state.view;
     if (((_window$gaChecklistHo3 = window.gaChecklistHost) === null || _window$gaChecklistHo3 === void 0 || (_window$gaChecklistHo4 = _window$gaChecklistHo3.supportsTool) === null || _window$gaChecklistHo4 === void 0 ? void 0 : _window$gaChecklistHo4.call(_window$gaChecklistHo3, state.view)) === false) {
@@ -2322,36 +2327,47 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
     if (!metar || typeof metar !== 'object') return null;
     var code = String(metar.icaoId || fallbackCode || '').trim().toUpperCase();
     var raw = metar.rawOb || metar.raw || '';
-    var temp = Number(metar.temp);
-    var dew = Number((_metar$dewp = metar.dewp) !== null && _metar$dewp !== void 0 ? _metar$dewp : metar.dewpoint);
+    var temp = awNumber(metar.temp);
+    var dew = awNumber((_metar$dewp = metar.dewp) !== null && _metar$dewp !== void 0 ? _metar$dewp : metar.dewpoint);
     var rh = Number.isFinite(temp) && Number.isFinite(dew) ? relativeHumidityFromTempDew(temp, dew) : null;
     var hasWindDir = metar.wdir !== undefined && metar.wdir !== null && String(metar.wdir).trim() !== '';
     var windDir = hasWindDir ? String(metar.wdir).toUpperCase() : '';
     var wind = windDir ? `${windDir === 'VRB' ? 'VRB' : `${metar.wdir}°`}/${metar.wspd || 0}${metar.wgst ? `G${metar.wgst}` : ''} kt` : '';
-    var source = Number.isFinite(Number(distNm)) ? `METAR nahe ${fmtNm(distNm)} NM` : 'METAR';
-    return {
+    var source = Number.isFinite(distNm) ? `METAR nahe ${fmtNm(distNm)} NM` : 'METAR';
+    return _objectSpread(_objectSpread({
       source,
       station: code,
       raw,
       cat: metar.fltCat || metar.fltcat || '',
       observedAt: metar.obsTime || metar.reportTime || metar.receiptTime || Date.now(),
       wind,
-      vis: /\b9999\b/.test(raw) ? '>10 km' : metar.visib ? `${metar.visib} sm` : '',
-      clouds: formatMetarClouds(raw) || metar.cover || '',
+      vis: awMetarVisibility(metar),
+      clouds: formatMetarClouds(raw) || metar.cover || ''
+    }, awMetarCloudHeights(metar)), {}, {
+      windDeg: awNumber(metar.wdir),
+      windKt: awNumber(metar.wspd),
+      symbols: awWeatherSymbols(null, metar.wxString),
       wx: metar.wxString || 'NIL',
       temp: Number.isFinite(temp) ? `${Math.round(temp)}°C` : '',
       dew: Number.isFinite(dew) ? `${Math.round(dew)}°C` : '',
       rh: Number.isFinite(rh) ? `${rh}%` : '',
       pressure: parseQnhFromMetar(raw) || formatMetarPressure(metar)
-    };
+    });
   }
-  function weatherFromMetarCache(icao) {
+  function weatherFromMetarCache(icao, point) {
     var code = String(icao || '').trim().toUpperCase();
     if (!code) return null;
     try {
       var _gpsState;
       var entry = typeof gpsState !== 'undefined' && (_gpsState = gpsState) !== null && _gpsState !== void 0 && _gpsState.metarCache ? gpsState.metarCache[code] : null;
       var metar = Array.isArray(entry === null || entry === void 0 ? void 0 : entry.data) ? entry.data[0] : null;
+      if (!metar || metar.icaoId && metar.icaoId !== code) {
+        var lat = awNumber(metar === null || metar === void 0 ? void 0 : metar.lat),
+          lon = awNumber(metar === null || metar === void 0 ? void 0 : metar.lon);
+        if (lat === null || lon === null) return null;
+        var distance = navBetween(point.lat, point.lon, lat, lon).dist;
+        return distance <= WEATHER_METAR_RADIUS_NM ? metarToWeather(metar, code, distance) : null;
+      }
       return metarToWeather(metar, code);
     } catch (_) {
       return null;
@@ -2455,36 +2471,6 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
     if (!best || bestDist > maxNm) return null;
     return metarToWeather(best, best.icaoId, bestDist);
   }
-  function nearestCachedWeatherPoint(lat, lon) {
-    try {
-      if (typeof vpWeatherData === 'undefined' || !Array.isArray(vpWeatherData)) return null;
-      var best = null;
-      var bestDist = Infinity;
-      vpWeatherData.forEach(zone => {
-        var zLat = Number(zone === null || zone === void 0 ? void 0 : zone.stnLat),
-          zLon = Number(zone === null || zone === void 0 ? void 0 : zone.stnLon);
-        if (!Number.isFinite(zLat) || !Number.isFinite(zLon)) return;
-        var nav = navBetween(lat, lon, zLat, zLon);
-        if (nav.dist < bestDist) {
-          bestDist = nav.dist;
-          best = {
-            source: 'Kartenwetter',
-            station: zone.icao || '',
-            cat: zone.fltCat || '',
-            observedAt: zone.obsTime || zone.reportTime || Date.now(),
-            wind: zone.wdir ? `${zone.wdir}°/${zone.wspd || 0} kt` : '',
-            vis: zone.visib ? `${zone.visib}` : '',
-            clouds: formatKnownCloudLayers(zone.clouds) || (Array.isArray(zone.clouds) ? `${zone.clouds.length} Layer` : ''),
-            wx: zone.wxString || '',
-            distNm: bestDist
-          };
-        }
-      });
-      return best && bestDist <= 45 ? best : null;
-    } catch (_) {
-      return null;
-    }
-  }
   function cloudCoverToOctas(cover) {
     var c = String(cover || '').toUpperCase();
     if (c === 'SKC' || c === 'CLR' || c === 'NSC' || c === 'NCD') return '0/8';
@@ -2493,11 +2479,6 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
     if (c === 'BKN') return '5-7/8';
     if (c === 'OVC' || c === 'VV') return '8/8';
     return '';
-  }
-  function pctToOctas(value) {
-    var pct = Number(value);
-    if (!Number.isFinite(pct)) return null;
-    return Math.max(0, Math.min(8, Math.round(pct / 12.5)));
   }
   function relativeHumidityFromTempDew(tempC, dewC) {
     var t = Number(tempC);
@@ -2538,145 +2519,15 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
     if (!layers.length && /\b(SKC|CLR|NSC|NCD)\b/.test(text)) return '0/8 keine relevanten Wolken';
     return layers.join(' · ');
   }
-  function formatKnownCloudLayers(clouds) {
-    if (!Array.isArray(clouds) || !clouds.length) return '';
-    return clouds.slice(0, 3).map(c => {
-      var _ref10, _c$baseAgl;
-      var cover = String(c.type || c.cover || '').toUpperCase();
-      var octas = cloudCoverToOctas(cover) || (Number.isFinite(Number(c.cloudPct)) ? `${pctToOctas(c.cloudPct)}/8` : '');
-      var base = Number((_ref10 = (_c$baseAgl = c.baseAgl) !== null && _c$baseAgl !== void 0 ? _c$baseAgl : c.baseFt) !== null && _ref10 !== void 0 ? _ref10 : c.baseMsl);
-      var suffix = Number.isFinite(base) ? ` ca. ${Math.round(base / 100) * 100} ft` : '';
-      return `${cover || 'Layer'} ${octas}${suffix}`.trim();
-    }).join(' · ');
-  }
-  function wxCodeText(code) {
-    var precipMm = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 0;
-    var rainMm = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : 0;
-    var snowCm = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : 0;
-    var c = Number(code);
-    if (!Number.isFinite(c)) {
-      if (Number(precipMm) > 0 || Number(rainMm) > 0) return 'Niederschlag';
-      if (Number(snowCm) > 0) return 'Schnee';
-      return '';
-    }
-    var map = {
-      0: 'NIL',
-      1: 'überwiegend klar',
-      2: 'teilweise bewölkt',
-      3: 'bedeckt',
-      45: 'Nebel',
-      48: 'Nebel/Reif',
-      51: 'leichter Sprühregen',
-      53: 'Sprühregen',
-      55: 'starker Sprühregen',
-      56: 'gefrierender Sprühregen',
-      57: 'starker gefrierender Sprühregen',
-      61: 'leichter Regen',
-      63: 'Regen',
-      65: 'starker Regen',
-      66: 'gefrierender Regen',
-      67: 'starker gefrierender Regen',
-      71: 'leichter Schnee',
-      73: 'Schnee',
-      75: 'starker Schnee',
-      77: 'Schneekörner',
-      80: 'leichte Schauer',
-      81: 'Schauer',
-      82: 'starke Schauer',
-      85: 'leichte Schneeschauer',
-      86: 'Schneeschauer',
-      95: 'Gewitter',
-      96: 'Gewitter/Hagel',
-      99: 'starkes Gewitter/Hagel'
-    };
-    return map[c] || `Wx ${c}`;
-  }
-  function formatOpenMeteoClouds(om) {
-    if (!om) return '';
-    if (Array.isArray(om.pressureProfile) && om.pressureProfile.length) {
-      var pts = om.pressureProfile.filter(p => Number.isFinite(Number(p.geopotentialFt)) && Number.isFinite(Number(p.cloudPct))).sort((a, b) => Number(a.geopotentialFt) - Number(b.geopotentialFt));
-      var layers = [];
-      var start = null;
-      var cover = [];
-      pts.forEach((p, idx) => {
-        var cloudy = Number(p.cloudPct) >= 20;
-        if (cloudy && !start) {
-          start = {
-            idx,
-            baseFt: Number(p.geopotentialFt)
-          };
-          cover = [Number(p.cloudPct)];
-        } else if (cloudy) {
-          cover.push(Number(p.cloudPct));
-        } else if (start) {
-          var avg = cover.reduce((a, b) => a + b, 0) / Math.max(1, cover.length);
-          layers.push(`${pctToOctas(avg)}/8 ca. ${Math.round(start.baseFt / 100) * 100} ft MSL`);
-          start = null;
-          cover = [];
-        }
-      });
-      if (start) {
-        var avg = cover.reduce((a, b) => a + b, 0) / Math.max(1, cover.length);
-        layers.push(`${pctToOctas(avg)}/8 ca. ${Math.round(start.baseFt / 100) * 100} ft MSL`);
-      }
-      if (layers.length) return layers.slice(0, 3).join(' · ');
-    }
-    var parts = [['low', om.cloudLowPct, '< 6500 ft'], ['mid', om.cloudMidPct, '6500-20000 ft'], ['high', om.cloudHighPct, '> 20000 ft']].filter(_ref11 => {
-      var _ref12 = _slicedToArray(_ref11, 2),
-        pct = _ref12[1];
-      return Number.isFinite(Number(pct)) && Number(pct) >= 10;
-    });
-    return parts.length ? parts.map(_ref13 => {
-      var _ref14 = _slicedToArray(_ref13, 3),
-        name = _ref14[0],
-        pct = _ref14[1],
-        band = _ref14[2];
-      return `${name} ${pctToOctas(pct)}/8 ${band}`;
-    }).join(' · ') : '0/8 kaum Wolken';
-  }
-  function weatherFromOpenMeteo(om) {
-    if (!om) return null;
-    var temp = Number(om.temp2mC);
-    var dew = Number(om.dewPoint2mC);
-    var rh = Number(om.rh2mPct);
-    var pressure = Number(om.mslPressureHpa);
-    return {
-      source: 'Open-Meteo',
-      station: '',
-      cat: '',
-      observedAt: om.time || Date.now(),
-      wind: Number.isFinite(Number(om.wspd)) ? `${Math.round(Number(om.wdir || 0))}°/${Math.round(Number(om.wspd))} kt` : '',
-      vis: Number.isFinite(Number(om.visibilityM)) ? `${Math.round(Number(om.visibilityM) / 1000)} km` : '',
-      clouds: formatOpenMeteoClouds(om),
-      wx: wxCodeText(om.weatherCode, om.precipitationMm, om.rainMm, om.snowfallCm),
-      temp: Number.isFinite(temp) ? `${Math.round(temp)}°C` : '',
-      dew: Number.isFinite(dew) ? `${Math.round(dew)}°C` : '',
-      rh: Number.isFinite(rh) ? `${Math.round(rh)}%` : '',
-      pressure: Number.isFinite(pressure) ? `${Math.round(pressure)} hPa` : ''
-    };
-  }
-  function mergeWeatherSources(cached, openMeteo) {
-    if (!cached && !openMeteo) return {
-      source: 'Keine Daten'
-    };
-    if (!cached) return openMeteo;
-    if (!openMeteo) return cached;
-    var merged = _objectSpread(_objectSpread({}, openMeteo), cached);
-    ['wind', 'vis', 'clouds', 'wx', 'temp', 'dew', 'rh', 'pressure', 'observedAt'].forEach(key => {
-      if (!merged[key] || merged[key] === 'NIL' || merged[key] === '—') merged[key] = openMeteo[key] || merged[key];
-    });
-    if (openMeteo.source && cached.source && cached.source !== openMeteo.source) {
-      merged.source = `${cached.source} + ${openMeteo.source}`;
-    }
-    return merged;
-  }
   function weatherRiskRank(sample) {
     var cat = String((sample === null || sample === void 0 ? void 0 : sample.cat) || '').toUpperCase();
     if (cat === 'LIFR' || cat === 'IFR') return 3;
-    if (cat === 'MVFR') return 2;
+    var codes = ((sample === null || sample === void 0 ? void 0 : sample.symbols) || []).map(item => item.name);
+    if (codes.some(code => /^(TS|FZ|FG|SN|FC|GR)/.test(code))) return 3;
+    if (codes.some(code => /^(RA|SH|BR|HZ|DZ)/.test(code))) return 2;
     var raw = `${(sample === null || sample === void 0 ? void 0 : sample.wx) || ''} ${(sample === null || sample === void 0 ? void 0 : sample.raw) || ''}`.toUpperCase();
     if (/TS|FZ|SN|FG|BKN00|OVC00/.test(raw)) return 3;
-    if (/RA|SH|BR|HZ|BKN0[0-2]|OVC0[0-2]/.test(raw)) return 2;
+    if (cat === 'MVFR' || /RA|SH|BR|HZ|BKN0[0-2]|OVC0[0-2]/.test(raw)) return 2;
     if (/BKN|OVC|SCT0[0-3]/.test(raw)) return 1;
     return 0;
   }
@@ -2751,15 +2602,6 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
     if (rank === 1) return 'watch';
     return 'good';
   }
-  function weatherBadgeLabel(row) {
-    if (!(row !== null && row !== void 0 && row.source) || row.source === 'Keine Daten') return '?';
-    var cat = String((row === null || row === void 0 ? void 0 : row.cat) || '').toUpperCase();
-    if (cat) return cat === 'VFR' ? 'V' : cat.slice(0, 1);
-    var tone = weatherCardTone(row);
-    if (tone === 'good') return 'V';
-    if (tone === 'watch') return '?';
-    return '!';
-  }
   function weatherStationTitle(row) {
     var station = String((row === null || row === void 0 ? void 0 : row.station) || '').trim().toUpperCase();
     var name = txPhrase(String((row === null || row === void 0 ? void 0 : row.name) || (row === null || row === void 0 ? void 0 : row.label) || station || tx('cl.wx.point', 'Wetterpunkt')).trim());
@@ -2769,7 +2611,8 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
   function weatherSourceTitle(row) {
     var source = String((row === null || row === void 0 ? void 0 : row.source) || 'Wetter').split('+')[0].trim().toUpperCase();
     var label = source.includes('METAR') ? 'METAR' : source.includes('OPEN') ? tx('cl.wx.model', 'Modell') : source || tx('cl.tool.weather', 'Wetter');
-    return `${label} from ${formatUtcWeatherTime(row === null || row === void 0 ? void 0 : row.observedAt)}`;
+    if (!(row !== null && row !== void 0 && row.observedAt)) return (row === null || row === void 0 ? void 0 : row.source) || 'Keine Daten';
+    return `${source.includes('METAR') ? label : row.source} · ${formatUtcWeatherTime(row.observedAt)}`;
   }
   function renderWeatherFact(label, value) {
     var options = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {};
@@ -2794,24 +2637,29 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
                 <article class="route-weather-card is-${escapeAttr(tone)}">
                     <div class="route-weather-card-head">
                         <div>
-                            <div class="route-weather-card-title">${escapeHtml(weatherSourceTitle(row))}</div>
+                            ${awWeatherSourceControl(weatherDateMs(row.observedAt))}
+                            ${awWeatherSource() !== 'dwd' || row.fallback || !row.observedAt ? `<div class="route-weather-card-title">${escapeHtml(weatherSourceTitle(row))}</div>` : ''}
                             ${formatWeatherAge(observedAt) ? `<div class="route-weather-card-age">${escapeHtml(formatWeatherAge(observedAt))}</div>` : ''}
                         </div>
-                        <span class="route-weather-badge">${escapeHtml(weatherBadgeLabel(row))}</span>
+                        ${awFlightCategoryBadge(row.cat, row.model, row.ceilingCategory)}
                     </div>
-                    <div class="route-weather-facts">
-                        ${renderWeatherFact('Wind', (row === null || row === void 0 ? void 0 : row.wind) || '—')}
-                        ${renderWeatherFact(tx('cl.wx.temperature', 'Temperatur'), tempLine)}
-                        ${renderWeatherFact(tx('cl.wx.pressure', 'Luftdruck'), row === null || row === void 0 ? void 0 : row.pressure)}
-                        ${renderWeatherFact(tx('cl.wx.visibility', 'Sichtweite'), (row === null || row === void 0 ? void 0 : row.vis) || '—')}
-                        ${renderWeatherFact(tx('cl.wx.clouds', 'Wolken'), wxShow((row === null || row === void 0 ? void 0 : row.clouds) || '—'), {
-      danger: wxDanger && /BKN|OVC|VV|8\/8|5-7\/8/i.test(String((row === null || row === void 0 ? void 0 : row.clouds) || ''))
+                    <div class="ga-briefing-weather-layout">
+                        <div class="route-weather-facts">
+                            ${renderWeatherFact('Wind', row === null || row === void 0 ? void 0 : row.wind)}
+                            ${renderWeatherFact(tx('cl.wx.temperature', 'Temperatur'), tempLine)}
+                            ${renderWeatherFact(tx('cl.wx.pressure', 'Luftdruck'), row === null || row === void 0 ? void 0 : row.pressure)}
+                            ${renderWeatherFact(tx('cl.wx.visibility', 'Sichtweite'), row === null || row === void 0 ? void 0 : row.vis)}
+                            ${renderWeatherFact(row !== null && row !== void 0 && row.model ? 'Wolken L/M/H' : tx('cl.wx.clouds', 'Wolken'), wxShow((row === null || row === void 0 ? void 0 : row.clouds) || ''), {
+      danger: wxDanger
     })}
-                        ${renderWeatherFact('WX', row !== null && row !== void 0 && row.wx && row.wx !== 'NIL' ? wxShow(row.wx) : 'NIL', {
-      danger: wxDanger && (row === null || row === void 0 ? void 0 : row.wx) && row.wx !== 'NIL'
-    })}
+                            ${renderWeatherFact(tx('airportWx.precipitation', 'Niederschlag'), row.precipitation)}
+                            ${renderWeatherFact('WX', row !== null && row !== void 0 && row.wx && row.wx !== 'NIL' ? wxShow(row.wx) : '')}
+                        </div>
+                        ${row !== null && row !== void 0 && row.wind || row !== null && row !== void 0 && row.runwayText ? awBriefingWindRose(row.windDeg, row.windKt, row.runwayText, row.wind) : ''}
                     </div>
-                    <div class="route-weather-source">${escapeHtml(txPhrase((row === null || row === void 0 ? void 0 : row.source) || 'Keine Daten'))}${row !== null && row !== void 0 && row.station ? ` · ${escapeHtml(row.station)}` : ''}</div>
+                    ${awCloudHeightBlock(row)}
+                    ${awWeatherWarnings(row.symbols, row.sigmets)}
+                    <div class="route-weather-source">${escapeHtml(txPhrase((row === null || row === void 0 ? void 0 : row.source) || 'Keine Daten'))}${row !== null && row !== void 0 && row.station ? ` · ${escapeHtml(row.station)}` : ''}${row.fallback ? ' · Fallback' : ''}</div>
                 </article>
             </section>
         `;
@@ -2824,16 +2672,19 @@ function _toPrimitive(t, r) { if ("object" != typeof t || !t) return t; var e = 
       return '';
     }
   }
-  function weatherAiCacheKey(routeKey, rows) {
-    var compact = (rows || []).map(r => [r.label, r.name, r.source, r.station, r.wind, r.vis, r.clouds, r.wx, r.cat].map(v => String(v || '').slice(0, 80)).join('/')).join('|');
-    return `wx-ai:${routeKey}:${compact}`;
-  }
-  function weatherAiPrompt(rows, assessment) {
-    var routeLines = rows.map(r => `${r.label} ${r.name || ''}: Quelle ${r.source || 'keine'}, Station ${r.station || '-'}, Wind ${r.wind || '-'}, Sicht ${r.vis || '-'}, Wolken ${r.clouds || '-'}, Wx ${r.wx || '-'}, Kategorie ${r.cat || '-'}`).join('\n');
+  function weatherAiPrompt(rows, assessment, validAt) {
+    var formatTerm = value => {
+      var time = weatherDateMs(value);
+      return time ? new Date(time).toISOString().slice(0, 16).replace('T', ' ') + ' UTC' : 'unbekannt';
+    };
+    var routeLines = rows.map(r => `${r.label} ${r.name || ''}: Quelle ${r.source || 'keine'}, Station ${r.station || '-'}, ${r.model ? 'Vorhersage gültig' : 'Beobachtung von'} ${formatTerm(r.observedAt)}, Wind ${r.wind || '-'}, Sicht ${r.vis || '-'}, Wolken ${r.clouds || '-'}, Wolkenbasis ${awCloudHeightText(r.base) || '-'}, Ceiling ${awCloudHeightText(r.ceiling) || '-'}, Niederschlag ${r.precipitation || '-'}, Wx ${r.wx || '-'}, Kategorie ${r.cat || '-'}`).join('\n');
     return `Du bist der Wetter-Briefer in einem VFR-Flugsimulator. Schreibe auf Deutsch ein kompaktes, pilotisch klingendes Sim-Wetterbriefing entlang der geplanten Route.
 
+Zeitauswahl: ${validAt === null ? 'Live-Ansicht mit den unten genannten Beobachtungs- und Prognosezeiten.' : 'Modellvorhersage für ' + formatTerm(validAt) + '.'}
+
 Regeln:
-- 4 bis 6 kurze Sätze, keine Markdown-Liste.
+- 4 bis 6 kurze Sätze, keine Markdown-Liste. Beginne direkt mit der Wetterlage, ohne Gruß oder Anrede.
+- Formuliere Modellwerte als Vorhersage für den genannten Gültigkeitstermin und METAR-Werte als Beobachtung. Verwende den gewählten UTC-Termin im Text und leite daraus keine Ankunftszeit ab.
 - Klinge wie ein Briefing vor dem virtuellen Abflug: Gesamtbild, Start, Enroute, Ziel, Auffälligkeiten.
 - Nenne konkrete fliegerische Punkte: Wind, Sicht, Wolkenbasis/Bedeckung, Niederschlag/WX, kritische Abschnitte.
 - Gib eine einfache Sim-Empfehlung, z.B. Route entspannt, Wolken/Schauer im Auge behalten, Ausweichplatz im Kopf behalten, Höhe anpassen.
@@ -2846,11 +2697,11 @@ Regelbasierte Vorbewertung: ${(assessment === null || assessment === void 0 ? vo
 Daten:
 ${routeLines}`;
   }
-  function fetchGeminiWeatherText(_x6, _x7, _x8) {
+  function fetchGeminiWeatherText(_x6, _x7, _x8, _x9) {
     return _fetchGeminiWeatherText.apply(this, arguments);
   }
   function _fetchGeminiWeatherText() {
-    _fetchGeminiWeatherText = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(rows, assessment, signal) {
+    _fetchGeminiWeatherText = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(rows, assessment, validAt, signal) {
       var apiKey, payload, options, models, _i, _models, model, _data$candidates, res, data, text, _t3;
       return _regenerator().w(function (_context4) {
         while (1) switch (_context4.p = _context4.n) {
@@ -2865,7 +2716,7 @@ ${routeLines}`;
             payload = {
               contents: [{
                 parts: [{
-                  text: weatherAiPrompt(rows, assessment)
+                  text: weatherAiPrompt(rows, assessment, validAt)
                 }]
               }],
               generationConfig: {
@@ -2903,7 +2754,7 @@ ${routeLines}`;
             return res.json();
           case 6:
             data = _context4.v;
-            text = String((data === null || data === void 0 || (_data$candidates = data.candidates) === null || _data$candidates === void 0 || (_data$candidates = _data$candidates[0]) === null || _data$candidates === void 0 || (_data$candidates = _data$candidates.content) === null || _data$candidates === void 0 || (_data$candidates = _data$candidates.parts) === null || _data$candidates === void 0 || (_data$candidates = _data$candidates[0]) === null || _data$candidates === void 0 ? void 0 : _data$candidates.text) || '').trim();
+            text = String((data === null || data === void 0 || (_data$candidates = data.candidates) === null || _data$candidates === void 0 || (_data$candidates = _data$candidates[0]) === null || _data$candidates === void 0 || (_data$candidates = _data$candidates.content) === null || _data$candidates === void 0 || (_data$candidates = _data$candidates.parts) === null || _data$candidates === void 0 || (_data$candidates = _data$candidates[0]) === null || _data$candidates === void 0 ? void 0 : _data$candidates.text) || '').trim().replace(/^Hallo[,]?\s+Pilot(?:in)?\s*[!,.–—:\-]+\s*/i, '');
             if (!text) {
               _context4.n = 7;
               break;
@@ -2939,263 +2790,345 @@ ${routeLines}`;
     }));
     return _fetchGeminiWeatherText.apply(this, arguments);
   }
-  function maybeGenerateWeatherAi(_x9, _x0, _x1, _x10, _x11) {
-    return _maybeGenerateWeatherAi.apply(this, arguments);
+  function weatherAiMatchesSelection(data) {
+    return data && data.source === awWeatherSource() && data.validAt === awWeatherValidAt();
   }
-  function _maybeGenerateWeatherAi() {
-    _maybeGenerateWeatherAi = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(entry, routeKey, rows, assessment, signal) {
-      var _entry$data2;
-      var force,
-        apiKey,
-        aiKey,
-        ai,
-        result,
-        _entry$data3,
-        _args5 = arguments,
-        _t4;
+  function refreshWeatherAi() {
+    return _refreshWeatherAi.apply(this, arguments);
+  }
+  function _refreshWeatherAi() {
+    _refreshWeatherAi = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5() {
+      var _window$gaChecklistHo17, _window$gaChecklistHo18;
+      var entry, data, rows, controller, current, result, _data$ai, _t4;
       return _regenerator().w(function (_context5) {
         while (1) switch (_context5.p = _context5.n) {
           case 0:
-            force = _args5.length > 5 && _args5[5] !== undefined ? _args5[5] : false;
-            apiKey = getGeminiApiKey();
-            if (!(!apiKey || !(rows !== null && rows !== void 0 && rows.length))) {
+            entry = toolState.weather;
+            data = entry.data;
+            if (!(entry.aiController || !getGeminiApiKey() || !weatherAiMatchesSelection(data))) {
               _context5.n = 1;
               break;
             }
             return _context5.a(2);
           case 1:
-            aiKey = weatherAiCacheKey(routeKey, rows);
-            ai = ((_entry$data2 = entry.data) === null || _entry$data2 === void 0 ? void 0 : _entry$data2.ai) || {};
-            if (!(!force && entry.aiKey === aiKey && Date.now() - entry.aiUpdatedAt < WEATHER_AI_CACHE_TTL_MS && (ai.text || ai.error))) {
+            rows = data.rows.filter(row => row.source && row.source !== 'Keine Daten');
+            if (rows.length) {
               _context5.n = 2;
               break;
             }
             return _context5.a(2);
           case 2:
-            entry.aiKey = aiKey;
-            entry.aiLoading = true;
-            entry.data.ai = _objectSpread(_objectSpread({}, ai), {}, {
-              loading: true,
-              error: '',
-              text: force ? '' : ai.text || '',
-              source: ai.source || ''
-            });
+            controller = ((_window$gaChecklistHo17 = window.gaChecklistHost) === null || _window$gaChecklistHo17 === void 0 || (_window$gaChecklistHo18 = _window$gaChecklistHo17.createAbortController) === null || _window$gaChecklistHo18 === void 0 ? void 0 : _window$gaChecklistHo18.call(_window$gaChecklistHo17)) || new AbortController();
+            entry.aiController = controller;
+            current = () => entry.aiController === controller && entry.data === data && !controller.signal.aborted && weatherAiMatchesSelection(data);
+            data.ai = {
+              loading: true
+            };
             if (state.view === 'weather') render();
             _context5.p = 3;
             _context5.n = 4;
-            return fetchGeminiWeatherText(rows, assessment, signal);
+            return fetchGeminiWeatherText(rows, data.assessment, data.validAt, controller.signal);
           case 4:
             result = _context5.v;
-            if (result !== null && result !== void 0 && result.text) {
-              entry.data.ai = {
-                loading: false,
-                error: '',
-                text: result.text,
-                source: result.source
+            if (current()) {
+              data.ai = result !== null && result !== void 0 && result.text ? result : {
+                error: 'KI-Einschätzung nicht verfügbar.'
               };
-              entry.aiUpdatedAt = Date.now();
-            } else {
-              entry.data.ai = {
-                loading: false,
-                error: 'KI-Einschätzung nicht verfügbar.',
-                text: '',
-                source: ''
-              };
-              entry.aiUpdatedAt = Date.now();
             }
             _context5.n = 6;
             break;
           case 5:
             _context5.p = 5;
             _t4 = _context5.v;
-            if ((_t4 === null || _t4 === void 0 ? void 0 : _t4.name) !== 'AbortError') {
-              entry.data.ai = {
-                loading: false,
-                error: 'KI-Einschätzung konnte nicht geladen werden.',
-                text: '',
-                source: ''
-              };
-              entry.aiUpdatedAt = Date.now();
-            }
+            if (current()) data.ai = {
+              error: 'KI-Einschätzung konnte nicht geladen werden.'
+            };
           case 6:
             _context5.p = 6;
-            entry.aiLoading = false;
-            if ((_entry$data3 = entry.data) !== null && _entry$data3 !== void 0 && (_entry$data3 = _entry$data3.ai) !== null && _entry$data3 !== void 0 && _entry$data3.loading) entry.data.ai.loading = false;
-            if (state.view === 'weather') render();
+            if (entry.aiController === controller) {
+              entry.aiController = null;
+              if ((_data$ai = data.ai) !== null && _data$ai !== void 0 && _data$ai.loading) data.ai = null;
+              if (entry.data === data && state.view === 'weather') render();
+            }
             return _context5.f(6);
           case 7:
             return _context5.a(2);
         }
       }, _callee5, null, [[3, 5, 6, 7]]);
     }));
-    return _maybeGenerateWeatherAi.apply(this, arguments);
+    return _refreshWeatherAi.apply(this, arguments);
+  }
+  function hasBriefingWeather() {
+    return typeof awWeatherValidAt === 'function' && typeof awWeatherSourceControl === 'function';
   }
   function ensureWeatherTool() {
     return _ensureWeatherTool.apply(this, arguments);
   }
   function _ensureWeatherTool() {
-    _ensureWeatherTool = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6() {
-      var _window$gaChecklistHo17, _window$gaChecklistHo18;
+    _ensureWeatherTool = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
+      var _entry$data3, _window$gaChecklistHo19, _window$gaChecklistHo20, _entry$data4;
       var force,
-        key,
-        entry,
-        _entry$data4,
-        _entry$data5,
-        _entry$controller,
-        samples,
-        routeMetars,
-        openMeteo,
+        autoAi,
+        source,
+        route,
         dep,
         dest,
+        validAt,
+        routeKey,
+        key,
+        entry,
+        generateLiveBriefing,
+        controller,
+        signal,
+        _bodyEl,
+        samples,
+        points,
+        sigmets,
+        hasPoints,
+        weather,
         rows,
         assessment,
-        _args6 = arguments,
+        _data,
+        display,
+        enrich,
+        _args7 = arguments,
         _t5,
         _t6,
         _t7;
-      return _regenerator().w(function (_context6) {
-        while (1) switch (_context6.p = _context6.n) {
+      return _regenerator().w(function (_context7) {
+        while (1) switch (_context7.p = _context7.n) {
           case 0:
-            force = _args6.length > 0 && _args6[0] !== undefined ? _args6[0] : false;
-            key = getRouteKey();
-            entry = toolState.weather;
-            if (!(!force && isCacheFresh(entry, key))) {
-              _context6.n = 2;
+            force = _args7.length > 0 && _args7[0] !== undefined ? _args7[0] : false;
+            autoAi = _args7.length > 1 && _args7[1] !== undefined ? _args7[1] : true;
+            if (hasBriefingWeather()) {
+              _context7.n = 1;
               break;
             }
-            _context6.n = 1;
-            return maybeGenerateWeatherAi(entry, key, ((_entry$data4 = entry.data) === null || _entry$data4 === void 0 ? void 0 : _entry$data4.rows) || [], ((_entry$data5 = entry.data) === null || _entry$data5 === void 0 ? void 0 : _entry$data5.assessment) || null, null, false);
+            return _context7.a(2);
           case 1:
-            return _context6.a(2);
-          case 2:
-            if (!(entry.loading && entry.key === key && !force)) {
-              _context6.n = 3;
+            source = awWeatherSource();
+            route = getRoutePoints();
+            dep = getCurrentAirport('dep'), dest = getCurrentAirport('dest');
+            validAt = awWeatherValidAt();
+            routeKey = [getRouteKey(), dep.icao, dest.icao, route.map(p => p.icao).join(',')].join('|');
+            key = [source, validAt, routeKey].join('|');
+            entry = toolState.weather;
+            if (!(!force && ((_entry$data3 = entry.data) === null || _entry$data3 === void 0 ? void 0 : _entry$data3.key) === key && isCacheFresh(entry, key))) {
+              _context7.n = 2;
               break;
             }
-            return _context6.a(2);
+            return _context7.a(2);
+          case 2:
+            generateLiveBriefing = autoAi && validAt === null && !entry.key;
+            if (!(entry.loading && entry.controller && entry.key === key && !force)) {
+              _context7.n = 3;
+              break;
+            }
+            return _context7.a(2);
           case 3:
             abortToolRequest('weather');
+            controller = ((_window$gaChecklistHo19 = window.gaChecklistHost) === null || _window$gaChecklistHo19 === void 0 || (_window$gaChecklistHo20 = _window$gaChecklistHo19.createAbortController) === null || _window$gaChecklistHo20 === void 0 ? void 0 : _window$gaChecklistHo20.call(_window$gaChecklistHo19)) || new AbortController();
+            signal = controller.signal;
+            entry.controller = controller;
             entry.loading = true;
+            if (((_entry$data4 = entry.data) === null || _entry$data4 === void 0 ? void 0 : _entry$data4.routeKey) !== routeKey) entry.data = null;
             entry.key = key;
             entry.error = '';
-            entry.controller = ((_window$gaChecklistHo17 = window.gaChecklistHost) === null || _window$gaChecklistHo17 === void 0 || (_window$gaChecklistHo18 = _window$gaChecklistHo17.createAbortController) === null || _window$gaChecklistHo18 === void 0 ? void 0 : _window$gaChecklistHo18.call(_window$gaChecklistHo17)) || new AbortController();
-            if (state.view === 'weather') render();
-            _context6.p = 4;
+            if (state.view === 'weather') {
+              if (entry.data) (_bodyEl = bodyEl) === null || _bodyEl === void 0 || _bodyEl.classList.add('is-route-weather-loading');else render();
+            }
+            _context7.p = 4;
             samples = pickRouteSamplePoints(5);
-            routeMetars = [];
-            if (!samples.length) {
-              _context6.n = 8;
+            points = samples.map((p, idx) => {
+              var endpoint = idx === 0 ? dep : idx === samples.length - 1 ? dest : null;
+              var candidate = String((endpoint === null || endpoint === void 0 ? void 0 : endpoint.icao) || p.icao || '').toUpperCase();
+              var apt = endpoint || airportFromGlobal(candidate) || airportFromGlobal(p.name);
+              var icao = /^[A-Z0-9]{4}$/.test(candidate) ? candidate : apt !== null && apt !== void 0 && apt.icao && Number.isFinite(apt.lat) && navBetween(p.lat, p.lon, apt.lat, apt.lon).dist < 1 ? apt.icao : '';
+              return _objectSpread(_objectSpread({}, p), {}, {
+                icao,
+                airport: apt,
+                label: idx === 0 ? 'Start' : idx === samples.length - 1 ? 'Ziel' : `WP ${idx + 1}`
+              });
+            });
+            sigmets = validAt === null ? awReadPointSigmets(points) : Promise.resolve([]);
+            hasPoints = points.length > 0;
+            if (hasPoints) {
+              _context7.n = 5;
               break;
             }
-            _context6.p = 5;
-            _context6.n = 6;
-            return fetchRouteMetarsForWeather(samples, entry.controller.signal);
+            _t5 = [];
+            _context7.n = 10;
+            break;
+          case 5:
+            if (!(source === 'metar')) {
+              _context7.n = 7;
+              break;
+            }
+            _context7.n = 6;
+            return fetchRouteMetarsForWeather(points, signal).catch(() => []);
           case 6:
-            routeMetars = _context6.v;
-            _context6.n = 8;
+            _t6 = _context7.v;
+            _context7.n = 9;
             break;
           case 7:
-            _context6.p = 7;
-            _t5 = _context6.v;
-            routeMetars = [];
+            _context7.n = 8;
+            return awReadModelWeather(source, points, signal, validAt);
           case 8:
-            openMeteo = [];
-            if (!(samples.length && typeof window.fetchOpenMeteoWeatherPoints === 'function')) {
-              _context6.n = 12;
+            _t6 = _context7.v;
+          case 9:
+            _t5 = _t6;
+          case 10:
+            weather = _t5;
+            if (!(entry.controller !== controller || signal.aborted || source !== awWeatherSource() || validAt !== awWeatherValidAt())) {
+              _context7.n = 11;
               break;
             }
-            _context6.p = 9;
-            _context6.n = 10;
-            return window.fetchOpenMeteoWeatherPoints(samples.map(p => ({
-              lat: p.lat,
-              lon: p.lon
-            })), {
-              signal: entry.controller.signal,
-              includePressure: true,
-              maxConcurrency: 2
-            });
-          case 10:
-            openMeteo = _context6.v;
-            _context6.n = 12;
-            break;
+            return _context7.a(2);
           case 11:
-            _context6.p = 11;
-            _t6 = _context6.v;
-            openMeteo = [];
-          case 12:
-            dep = getCurrentAirport('dep');
-            dest = getCurrentAirport('dest');
-            rows = samples.map((p, idx) => {
-              var label = idx === 0 ? 'Start' : idx === samples.length - 1 ? 'Ziel' : `Route ${idx}`;
-              var icao = idx === 0 ? dep.icao : idx === samples.length - 1 ? dest.icao : '';
-              var cached = weatherFromMetarCache(icao) || nearestMetarWeatherPoint(p.lat, p.lon, routeMetars) || nearestCachedWeatherPoint(p.lat, p.lon);
-              var fromOm = weatherFromOpenMeteo(openMeteo[idx]);
-              return _objectSpread({
-                label,
-                name: p.name || icao || label,
-                lat: p.lat,
-                lon: p.lon,
-                generatedAt: Date.now()
-              }, mergeWeatherSources(cached, fromOm));
+            rows = points.map((p, idx) => {
+              var _p$airport, _weather$idx;
+              var report = source === 'metar' ? weatherFromMetarCache(p.icao, p) || nearestMetarWeatherPoint(p.lat, p.lon, weather) : weather[idx] && awModelFields(weather[idx], (_p$airport = p.airport) === null || _p$airport === void 0 ? void 0 : _p$airport.elevation);
+              return _objectSpread(_objectSpread({
+                label: p.label,
+                name: p.name || p.icao || p.label,
+                generatedAt: Date.now(),
+                source: 'Keine Daten'
+              }, report), {}, {
+                model: source !== 'metar',
+                fallback: source === 'dwd' && ((_weather$idx = weather[idx]) === null || _weather$idx === void 0 ? void 0 : _weather$idx.source) === 'openmeteo',
+                runwayText: awBriefingRunwayText(p.icao, p.airport)
+              });
             });
             assessment = buildWeatherAssessment(rows);
-            entry.data = {
+            _data = {
+              key,
+              routeKey,
               rows,
               assessment,
+              source,
+              validAt,
               generatedAt: Date.now(),
               ai: null
             };
+            entry.data = _data;
             entry.updatedAt = Date.now();
             entry.loading = false;
-            if (state.view === 'weather') render();
-            _context6.n = 13;
-            return maybeGenerateWeatherAi(entry, key, rows, assessment, (_entry$controller = entry.controller) === null || _entry$controller === void 0 ? void 0 : _entry$controller.signal, force);
-          case 13:
-            _context6.n = 15;
+            display = () => {
+              if (entry.data === _data && state.view === 'weather') render();
+            };
+            display();
+            enrich = [sigmets.then(matches => {
+              rows.forEach((row, i) => {
+                row.sigmets = matches[i];
+              });
+              display();
+            })].concat(_toConsumableArray(points.map(/*#__PURE__*/function () {
+              var _ref12 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(p, i) {
+                var row, result;
+                return _regenerator().w(function (_context6) {
+                  while (1) switch (_context6.n) {
+                    case 0:
+                      row = rows[i];
+                      if (!(!p.icao || row.runwayText)) {
+                        _context6.n = 1;
+                        break;
+                      }
+                      return _context6.a(2);
+                    case 1:
+                      _context6.n = 2;
+                      return readAirportRunwayDetails(p.lat, p.lon, p.icao);
+                    case 2:
+                      result = _context6.v;
+                      if ((result === null || result === void 0 ? void 0 : result.status) === 'ok') {
+                        row.runwayText = result.text;
+                        display();
+                      }
+                    case 3:
+                      return _context6.a(2);
+                  }
+                }, _callee6);
+              }));
+              return function (_x34, _x35) {
+                return _ref12.apply(this, arguments);
+              };
+            }())));
+            if (generateLiveBriefing) enrich.push(refreshWeatherAi());
+            _context7.n = 12;
+            return Promise.allSettled(enrich);
+          case 12:
+            _context7.n = 14;
             break;
+          case 13:
+            _context7.p = 13;
+            _t7 = _context7.v;
+            if (entry.controller === controller && !signal.aborted) {
+              entry.data = null;
+              entry.error = 'Wetterdaten konnten nicht geladen werden.';
+            }
           case 14:
-            _context6.p = 14;
-            _t7 = _context6.v;
-            if ((_t7 === null || _t7 === void 0 ? void 0 : _t7.name) !== 'AbortError') entry.error = 'Wetterdaten konnten nicht geladen werden.';
+            _context7.p = 14;
+            if (entry.controller === controller) {
+              entry.loading = false;
+              entry.controller = null;
+              if (state.view === 'weather') render();
+            }
+            return _context7.f(14);
           case 15:
-            _context6.p = 15;
-            entry.loading = false;
-            entry.controller = null;
-            if (state.view === 'weather') render();
-            return _context6.f(15);
-          case 16:
-            return _context6.a(2);
+            return _context7.a(2);
         }
-      }, _callee6, null, [[9, 11], [5, 7], [4, 14, 15, 16]]);
+      }, _callee7, null, [[4, 13, 14, 15]]);
     }));
     return _ensureWeatherTool.apply(this, arguments);
   }
+  window.addEventListener('ga:briefing-weather-source', () => {
+    if (state.view === 'weather') void ensureWeatherTool(false, false);
+  });
   function renderWeatherTool() {
     setTitle('Wetter');
+    if (!hasBriefingWeather()) {
+      bodyEl.innerHTML = toolTopline('weather') + renderToolEmpty('Wetteransicht konnte nicht vollständig geladen werden. Lade die App neu.');
+      return;
+    }
     var entry = toolState.weather;
     var data = entry.data;
     var rows = (data === null || data === void 0 ? void 0 : data.rows) || [];
     var assessment = data === null || data === void 0 ? void 0 : data.assessment;
-    var ai = (data === null || data === void 0 ? void 0 : data.ai) || null;
-    var body = rows.length ? rows.map(row => renderWeatherStation(row)).join('') : renderToolEmpty(entry.loading ? 'Wetter wird sparsam geladen...' : 'Keine Route für Wetterübersicht gefunden.');
+    var ai = weatherAiMatchesSelection(data) ? data.ai : null;
+    var aiReady = weatherAiMatchesSelection(data) && rows.some(row => row.source && row.source !== 'Keine Daten');
+    var hasApiKey = Boolean(getGeminiApiKey());
+    var aiTitle = (data === null || data === void 0 ? void 0 : data.validAt) != null ? tx('cl.wx.aiForecast', 'KI-Prognose · {time}', {
+      time: formatUtcWeatherTime(data.validAt)
+    }) : tx('cl.wx.aiTitle', 'KI-Einschätzung');
+    var body = rows.length ? rows.map(row => renderWeatherStation(row)).join('') : renderToolEmpty(entry.loading ? 'Wetter wird geladen…' : entry.error || 'Keine Route für Wetterübersicht gefunden.');
+    var scrollTop = bodyEl.scrollTop;
     bodyEl.innerHTML = `
             ${toolTopline('weather')}
+            ${rows.length ? '' : awWeatherSourceControl()}
             ${assessment ? `
                 <div class="route-tool-summary is-${escapeAttr(assessment.tone)}">
                     <div class="route-tool-summary-label">${escapeHtml(txPhrase(assessment.label))}</div>
                     <div class="route-tool-summary-text">${escapeHtml(txPhrase(assessment.text))}</div>
                 </div>
             ` : ''}
-            ${ai && (ai.loading || ai.text || ai.error) ? `
+            ${aiReady ? `
                 <div class="route-tool-ai">
-                    <div class="route-tool-summary-label">${tx('cl.wx.aiTitle', 'KI-Einschätzung')}</div>
-                    <div class="route-tool-summary-text">${escapeHtml(ai.loading ? tx('cl.wx.aiLoading', 'KI formuliert die Lage...') : ai.text || txPhrase(ai.error || ''))}</div>
-                    ${ai.source ? `<div class="route-tool-row-meta">${escapeHtml(ai.source)}</div>` : ''}
+                    <div class="route-tool-ai-head">
+                        <div class="route-tool-summary-label">${escapeHtml(aiTitle)}</div>
+                        <button type="button" class="checklist-action-btn" data-action="weather-ai-refresh"
+                            ${!hasApiKey || ai !== null && ai !== void 0 && ai.loading ? 'disabled' : ''}
+                            ${!hasApiKey ? `title="${escapeAttr(tx('cl.wx.aiKeyMissing', 'Gemini-API-Key fehlt'))}"` : ''}>
+                            ${escapeHtml(tx('cl.wx.aiRefresh', 'Briefing aktualisieren'))}
+                        </button>
+                    </div>
+                    ${ai && (ai.loading || ai.text || ai.error) ? `
+                        <div class="route-tool-summary-text">${escapeHtml(ai.loading ? tx('cl.wx.aiLoading', 'KI formuliert die Lage...') : ai.text || txPhrase(ai.error || ''))}</div>
+                        ${ai.source ? `<div class="route-tool-row-meta">${escapeHtml(ai.source)}</div>` : ''}
+                    ` : ''}
                 </div>
             ` : ''}
-            ${entry.error ? `<div class="route-tool-warning">${escapeHtml(txPhrase(entry.error))}</div>` : ''}
             <div class="route-tool-list">${body}</div>
         `;
+    bodyEl.scrollTop = scrollTop;
   }
   function radioCtrAirport(as) {
     var _window$GANavigationW;
@@ -3414,55 +3347,55 @@ ${routeLines}`;
     return _ensureWarningsTool.apply(this, arguments);
   }
   function _ensureWarningsTool() {
-    _ensureWarningsTool = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7() {
+    _ensureWarningsTool = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8() {
       var force,
         route,
         entry,
         key,
         hasAirspaces,
-        _args7 = arguments,
+        _args8 = arguments,
         _t8;
-      return _regenerator().w(function (_context7) {
-        while (1) switch (_context7.p = _context7.n) {
+      return _regenerator().w(function (_context8) {
+        while (1) switch (_context8.p = _context8.n) {
           case 0:
-            force = _args7.length > 0 && _args7[0] !== undefined ? _args7[0] : false;
+            force = _args8.length > 0 && _args8[0] !== undefined ? _args8[0] : false;
             route = getRoutePoints();
             entry = toolState.warnings;
             key = `warnings:${getRouteKey()}:${window._activeAirspacesVersion || 0}`;
             if (!(!route.length || route.length < 2)) {
-              _context7.n = 1;
+              _context8.n = 1;
               break;
             }
             entry.data = null;
             entry.error = 'Keine Route. Warnungen werden entlang der geplanten Route bewertet.';
             entry.loading = false;
             if (state.view === 'warnings') render();
-            return _context7.a(2);
+            return _context8.a(2);
           case 1:
             if (!(!force && isCacheFresh(entry, key))) {
-              _context7.n = 2;
+              _context8.n = 2;
               break;
             }
-            return _context7.a(2);
+            return _context8.a(2);
           case 2:
             if (!(entry.loading && !force)) {
-              _context7.n = 3;
+              _context8.n = 3;
               break;
             }
-            return _context7.a(2);
+            return _context8.a(2);
           case 3:
             abortToolRequest('warnings');
             entry.loading = true;
             entry.key = key;
             entry.error = '';
             if (state.view === 'warnings') render();
-            _context7.p = 4;
+            _context8.p = 4;
             hasAirspaces = typeof activeAirspaces !== 'undefined' && Array.isArray(activeAirspaces) && activeAirspaces.length;
             if (!((force || !hasAirspaces) && typeof fetchRouteAirspaces === 'function')) {
-              _context7.n = 5;
+              _context8.n = 5;
               break;
             }
-            _context7.n = 5;
+            _context8.n = 5;
             return fetchRouteAirspaces(route.map(p => ({
               lat: p.lat,
               lng: p.lon
@@ -3474,21 +3407,21 @@ ${routeLines}`;
             };
             entry.updatedAt = Date.now();
             entry.key = `warnings:${getRouteKey()}:${window._activeAirspacesVersion || 0}`;
-            _context7.n = 7;
+            _context8.n = 7;
             break;
           case 6:
-            _context7.p = 6;
-            _t8 = _context7.v;
+            _context8.p = 6;
+            _t8 = _context8.v;
             entry.error = 'Luftraum-Warnungen konnten nicht geladen werden.';
           case 7:
-            _context7.p = 7;
+            _context8.p = 7;
             entry.loading = false;
             if (state.view === 'warnings') render();
-            return _context7.f(7);
+            return _context8.f(7);
           case 8:
-            return _context7.a(2);
+            return _context8.a(2);
         }
-      }, _callee7, null, [[4, 6, 7, 8]]);
+      }, _callee8, null, [[4, 6, 7, 8]]);
     }));
     return _ensureWarningsTool.apply(this, arguments);
   }
@@ -3538,26 +3471,26 @@ ${routeLines}`;
     }
     return best;
   }
-  function fetchRouteOpenAip(_x12, _x13, _x14, _x15) {
+  function fetchRouteOpenAip(_x0, _x1, _x10, _x11) {
     return _fetchRouteOpenAip.apply(this, arguments);
   }
   function _fetchRouteOpenAip() {
-    _fetchRouteOpenAip = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee8(path, bounds, limit, signal) {
+    _fetchRouteOpenAip = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9(path, bounds, limit, signal) {
       var bbox, data;
-      return _regenerator().w(function (_context8) {
-        while (1) switch (_context8.n) {
+      return _regenerator().w(function (_context9) {
+        while (1) switch (_context9.n) {
           case 0:
             if (bounds) {
-              _context8.n = 1;
+              _context9.n = 1;
               break;
             }
-            return _context8.a(2, []);
+            return _context9.a(2, []);
           case 1:
             if (!(['airspaces', 'navaids'].includes(path) && typeof window.gaGetAviationCollectionForBounds === 'function')) {
-              _context8.n = 2;
+              _context9.n = 2;
               break;
             }
-            return _context8.a(2, window.gaGetAviationCollectionForBounds(path, {
+            return _context9.a(2, window.gaGetAviationCollectionForBounds(path, {
               west: bounds.minLon,
               south: bounds.minLat,
               east: bounds.maxLon,
@@ -3565,13 +3498,13 @@ ${routeLines}`;
             }));
           case 2:
             bbox = `${bounds.minLon},${bounds.minLat},${bounds.maxLon},${bounds.maxLat}`;
-            _context8.n = 3;
+            _context9.n = 3;
             return fetchJson(`${ROUTE_TOOLS_PROXY}/api/${path}?bbox=${encodeURIComponent(bbox)}&limit=${limit}&t=${Date.now()}`, signal);
           case 3:
-            data = _context8.v;
-            return _context8.a(2, Array.isArray(data === null || data === void 0 ? void 0 : data.items) ? data.items : []);
+            data = _context9.v;
+            return _context9.a(2, Array.isArray(data === null || data === void 0 ? void 0 : data.items) ? data.items : []);
         }
-      }, _callee8);
+      }, _callee9);
     }));
     return _fetchRouteOpenAip.apply(this, arguments);
   }
@@ -3579,8 +3512,8 @@ ${routeLines}`;
     return _ensureRadioTool.apply(this, arguments);
   }
   function _ensureRadioTool() {
-    _ensureRadioTool = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee9() {
-      var _window$gaChecklistHo19, _window$gaChecklistHo20;
+    _ensureRadioTool = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
+      var _window$gaChecklistHo21, _window$gaChecklistHo22;
       var force,
         key,
         entry,
@@ -3602,45 +3535,45 @@ ${routeLines}`;
         navItems,
         airspaceItems,
         airportsForRadio,
-        _args9 = arguments,
+        _args0 = arguments,
         _t9,
         _t0;
-      return _regenerator().w(function (_context9) {
-        while (1) switch (_context9.p = _context9.n) {
+      return _regenerator().w(function (_context0) {
+        while (1) switch (_context0.p = _context0.n) {
           case 0:
-            force = _args9.length > 0 && _args9[0] !== undefined ? _args9[0] : false;
+            force = _args0.length > 0 && _args0[0] !== undefined ? _args0[0] : false;
             key = getRouteKey();
             entry = toolState.radio;
             if (!(!force && isCacheFresh(entry, key))) {
-              _context9.n = 1;
+              _context0.n = 1;
               break;
             }
-            return _context9.a(2);
+            return _context0.a(2);
           case 1:
             if (!(entry.loading && entry.key === key && !force)) {
-              _context9.n = 2;
+              _context0.n = 2;
               break;
             }
-            return _context9.a(2);
+            return _context0.a(2);
           case 2:
             abortToolRequest('radio');
             entry.loading = true;
             if (entry.key !== key) entry.data = null;
             entry.key = key;
             entry.error = '';
-            entry.controller = ((_window$gaChecklistHo19 = window.gaChecklistHost) === null || _window$gaChecklistHo19 === void 0 || (_window$gaChecklistHo20 = _window$gaChecklistHo19.createAbortController) === null || _window$gaChecklistHo20 === void 0 ? void 0 : _window$gaChecklistHo20.call(_window$gaChecklistHo19)) || new AbortController();
+            entry.controller = ((_window$gaChecklistHo21 = window.gaChecklistHost) === null || _window$gaChecklistHo21 === void 0 || (_window$gaChecklistHo22 = _window$gaChecklistHo21.createAbortController) === null || _window$gaChecklistHo22 === void 0 ? void 0 : _window$gaChecklistHo22.call(_window$gaChecklistHo21)) || new AbortController();
             controller = entry.controller;
             commitAllowed = () => entry.key === key && entry.controller === controller && getRouteKey() === key;
             if (state.view === 'radio') render();
-            _context9.p = 3;
+            _context0.p = 3;
             route = getRoutePoints();
             dep = getCurrentAirport('dep');
             dest = getCurrentAirport('dest');
             if (!(typeof fetchAirportFreq === 'function')) {
-              _context9.n = 4;
+              _context0.n = 4;
               break;
             }
-            _context9.n = 4;
+            _context0.n = 4;
             return Promise.all([{
               airport: dep,
               type: 'dep'
@@ -3650,43 +3583,43 @@ ${routeLines}`;
             }].filter(row => radioAirportNeedsFrequencyLoad(row.airport.icao)).map(row => loadRadioAirportFrequencies(row.airport.icao, row.type)));
           case 4:
             if (!(route.length >= 2 && typeof fetchRouteAirspaces === 'function')) {
-              _context9.n = 8;
+              _context0.n = 8;
               break;
             }
-            _context9.p = 5;
+            _context0.p = 5;
             hasAirspaces = typeof activeAirspaces !== 'undefined' && Array.isArray(activeAirspaces) && activeAirspaces.length;
             if (!(force || !hasAirspaces)) {
-              _context9.n = 6;
+              _context0.n = 6;
               break;
             }
-            _context9.n = 6;
+            _context0.n = 6;
             return fetchRouteAirspaces(route.map(p => ({
               lat: p.lat,
               lng: p.lon
             })));
           case 6:
-            _context9.n = 8;
+            _context0.n = 8;
             break;
           case 7:
-            _context9.p = 7;
-            _t9 = _context9.v;
+            _context0.p = 7;
+            _t9 = _context0.v;
           case 8:
             if (!(typeof activeAirspaces !== 'undefined' && Array.isArray(activeAirspaces) && typeof fetchAirportFreq === 'function')) {
-              _context9.n = 10;
+              _context0.n = 10;
               break;
             }
             if (!(typeof globalAirports !== 'undefined' && !globalAirports && typeof loadGlobalAirports === 'function')) {
-              _context9.n = 9;
+              _context0.n = 9;
               break;
             }
-            _context9.n = 9;
+            _context0.n = 9;
             return loadGlobalAirports();
           case 9:
             ctrAirports = new Set(activeAirspaces.filter(as => Number(as === null || as === void 0 ? void 0 : as.type) === 4 || /\bCTR\b/i.test((as === null || as === void 0 ? void 0 : as.name) || '')).map(as => {
               var _radioCtrAirport;
               return (_radioCtrAirport = radioCtrAirport(as)) === null || _radioCtrAirport === void 0 ? void 0 : _radioCtrAirport.icao;
             }).filter(Boolean));
-            _context9.n = 10;
+            _context0.n = 10;
             return Promise.all(Array.from(ctrAirports).filter(icao => radioAirportNeedsFrequencyLoad(icao)).map(icao => loadRadioAirportFrequencies(icao)));
           case 10:
             bounds = routeBounds(route, 10);
@@ -3694,31 +3627,31 @@ ${routeLines}`;
             navaids = [];
             radioAirspaces = null;
             if (!(bounds && route.length >= 2)) {
-              _context9.n = 13;
+              _context0.n = 13;
               break;
             }
-            _context9.n = 11;
+            _context0.n = 11;
             return Promise.all([fetchRouteOpenAip('airports', bounds, 120, controller.signal).catch(() => []), fetchRouteOpenAip('navaids', bounds, 120, controller.signal).catch(() => []), fetchRouteOpenAip('airspaces', bounds, 800, controller.signal).catch(() => null)]);
           case 11:
-            _yield$Promise$all = _context9.v;
+            _yield$Promise$all = _context0.v;
             _yield$Promise$all2 = _slicedToArray(_yield$Promise$all, 3);
             aptItems = _yield$Promise$all2[0];
             navItems = _yield$Promise$all2[1];
             airspaceItems = _yield$Promise$all2[2];
             if (!(Array.isArray(airspaceItems) && (_window$GANavigationW2 = window.GANavigationWarnings) !== null && _window$GANavigationW2 !== void 0 && _window$GANavigationW2.prepareAirspaces)) {
-              _context9.n = 12;
+              _context0.n = 12;
               break;
             }
             radioAirspaces = window.GANavigationWarnings.prepareAirspaces(airspaceItems.filter(as => radioAirspaceRouteOrder(as, route) !== null));
             if (!(typeof fetchAirportFreq === 'function')) {
-              _context9.n = 12;
+              _context0.n = 12;
               break;
             }
             airportsForRadio = new Set(radioAirspaces.filter(as => Number(as === null || as === void 0 ? void 0 : as.type) === 4 || /\bCTR\b/i.test((as === null || as === void 0 ? void 0 : as.name) || '')).map(as => {
               var _radioCtrAirport2;
               return (_radioCtrAirport2 = radioCtrAirport(as)) === null || _radioCtrAirport2 === void 0 ? void 0 : _radioCtrAirport2.icao;
             }).filter(Boolean));
-            _context9.n = 12;
+            _context0.n = 12;
             return Promise.all(Array.from(airportsForRadio).filter(icao => radioAirportNeedsFrequencyLoad(icao)).map(icao => loadRadioAirportFrequencies(icao)));
           case 12:
             airports = aptItems.map(normalizeToolAirport).filter(a => (a === null || a === void 0 ? void 0 : a.icao) && Number.isFinite(a.lat) && Number.isFinite(a.lon) && a.icao !== dep.icao && a.icao !== dest.icao).map(a => _objectSpread(_objectSpread({}, a), {}, {
@@ -3756,10 +3689,10 @@ ${routeLines}`;
             }).filter(n => n.radioKind && Number.isFinite(n.lat) && Number.isFinite(n.lon) && n.routeDist <= 12).sort((a, b) => a.routeDist - b.routeDist);
           case 13:
             if (commitAllowed()) {
-              _context9.n = 14;
+              _context0.n = 14;
               break;
             }
-            return _context9.a(2);
+            return _context0.a(2);
           case 14:
             entry.data = {
               dep,
@@ -3770,24 +3703,24 @@ ${routeLines}`;
               generatedAt: Date.now()
             };
             entry.updatedAt = Date.now();
-            _context9.n = 16;
+            _context0.n = 16;
             break;
           case 15:
-            _context9.p = 15;
-            _t0 = _context9.v;
+            _context0.p = 15;
+            _t0 = _context0.v;
             if (commitAllowed() && (_t0 === null || _t0 === void 0 ? void 0 : _t0.name) !== 'AbortError') entry.error = 'Radio-Daten konnten nicht geladen werden.';
           case 16:
-            _context9.p = 16;
+            _context0.p = 16;
             if (commitAllowed()) {
               entry.loading = false;
               entry.controller = null;
               if (state.view === 'radio') render();
             }
-            return _context9.f(16);
+            return _context0.f(16);
           case 17:
-            return _context9.a(2);
+            return _context0.a(2);
         }
-      }, _callee9, null, [[5, 7], [3, 15, 16, 17]]);
+      }, _callee0, null, [[5, 7], [3, 15, 16, 17]]);
     }));
     return _ensureRadioTool.apply(this, arguments);
   }
@@ -3818,10 +3751,10 @@ ${routeLines}`;
     }).join('');
   }
   function radioNavigationBadge(target) {
-    var _globalAirports, _airport$lat, _ref15, _ref16, _airport$lon;
+    var _globalAirports, _airport$lat, _ref10, _ref11, _airport$lon;
     var airport = typeof globalAirports !== 'undefined' && target !== null && target !== void 0 && target.icao ? (_globalAirports = globalAirports) === null || _globalAirports === void 0 ? void 0 : _globalAirports[target.icao] : null;
     var lat = (_airport$lat = airport === null || airport === void 0 ? void 0 : airport.lat) !== null && _airport$lat !== void 0 ? _airport$lat : target === null || target === void 0 ? void 0 : target.lat,
-      lon = (_ref15 = (_ref16 = (_airport$lon = airport === null || airport === void 0 ? void 0 : airport.lon) !== null && _airport$lon !== void 0 ? _airport$lon : airport === null || airport === void 0 ? void 0 : airport.lng) !== null && _ref16 !== void 0 ? _ref16 : target === null || target === void 0 ? void 0 : target.lon) !== null && _ref15 !== void 0 ? _ref15 : target === null || target === void 0 ? void 0 : target.lng;
+      lon = (_ref10 = (_ref11 = (_airport$lon = airport === null || airport === void 0 ? void 0 : airport.lon) !== null && _airport$lon !== void 0 ? _airport$lon : airport === null || airport === void 0 ? void 0 : airport.lng) !== null && _ref11 !== void 0 ? _ref11 : target === null || target === void 0 ? void 0 : target.lon) !== null && _ref10 !== void 0 ? _ref10 : target === null || target === void 0 ? void 0 : target.lng;
     if (lat == null || lon == null || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon))) return '';
     return `<span class="radio-target-nav" data-target-lat="${Number(lat)}" data-target-lon="${Number(lon)}"><span class="radio-target-distance">– NM</span><svg width="22" height="22" viewBox="0 0 20 20" aria-hidden="true" hidden><g><path d="M10 18 V2 M6.5 6 L10 2 L13.5 6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"></path></g></svg></span>`;
   }
@@ -4243,7 +4176,7 @@ ${routeLines}`;
                     </div>
                 <div class="route-tool-place-block">
                     <div class="route-tool-place-block-title">${tx('cl.tool.weather', 'Wetter')}</div>
-                    <div id="${escapeAttr(wxId)}" class="route-tool-weather-widget">${tx('cl.place.weatherOnDemand', 'Wetter lädt bei Bedarf…')}</div>
+                    <div id="${escapeAttr(wxId)}" class="route-tool-weather-widget" data-airport="${escapeAttr(encoded)}">${tx('cl.place.weatherOnDemand', 'Wetter lädt bei Bedarf…')}</div>
                 </div>
                 ${aip ? `<a class="route-tool-link" data-action="airport-aip" data-airport="${escapeAttr(encoded)}" href="${escapeAttr(aip)}" target="_blank" rel="noopener noreferrer">${tx('cl.place.openAip', 'AIP öffnen ↗')}</a>` : ''}
             </div>
@@ -4252,17 +4185,15 @@ ${routeLines}`;
   function renderPlaceEnhancements() {
     initPlaceMiniMaps();
     Array.from(bodyEl.querySelectorAll('.route-tool-weather-widget')).forEach(el => {
-      var _card$querySelector;
       if (el.dataset.loaded === 'true') return;
-      var card = el.closest('.route-tool-place-card');
-      var title = (card === null || card === void 0 || (_card$querySelector = card.querySelector('.route-tool-place-title')) === null || _card$querySelector === void 0 ? void 0 : _card$querySelector.textContent) || '';
-      var code = (title.match(/\b[A-Z0-9]{4}\b/) || [''])[0];
-      var mapEl = card === null || card === void 0 ? void 0 : card.querySelector('.route-tool-mini-map');
-      var lat = Number(mapEl === null || mapEl === void 0 ? void 0 : mapEl.dataset.lat);
-      var lon = Number(mapEl === null || mapEl === void 0 ? void 0 : mapEl.dataset.lon);
+      var airport = decodeAirportDataset(el);
       if (typeof loadMetarWidget === 'function') {
         el.dataset.loaded = 'true';
-        loadMetarWidget(code || null, el.id, lat, lon, true);
+        loadMetarWidget((airport === null || airport === void 0 ? void 0 : airport.icao) || null, el.id, airport === null || airport === void 0 ? void 0 : airport.lat, airport === null || airport === void 0 ? void 0 : airport.lon, true, {
+          airport,
+          responsiveEmbed: true,
+          skipRunwayWait: true
+        });
       }
     });
   }
@@ -4304,8 +4235,8 @@ ${routeLines}`;
     return _ensureNearestTool.apply(this, arguments);
   }
   function _ensureNearestTool() {
-    _ensureNearestTool = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee0() {
-      var _window$gaChecklistHo21, _window$gaChecklistHo22;
+    _ensureNearestTool = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1() {
+      var _window$gaChecklistHo23, _window$gaChecklistHo24;
       var force,
         origin,
         entry,
@@ -4315,16 +4246,16 @@ ${routeLines}`;
         b,
         items,
         airports,
-        _args0 = arguments,
+        _args1 = arguments,
         _t1;
-      return _regenerator().w(function (_context0) {
-        while (1) switch (_context0.p = _context0.n) {
+      return _regenerator().w(function (_context1) {
+        while (1) switch (_context1.p = _context1.n) {
           case 0:
-            force = _args0.length > 0 && _args0[0] !== undefined ? _args0[0] : false;
+            force = _args1.length > 0 && _args1[0] !== undefined ? _args1[0] : false;
             origin = getLiveAircraftPosition();
             entry = toolState.nearest;
             if (origin) {
-              _context0.n = 1;
+              _context1.n = 1;
               break;
             }
             abortToolRequest('nearest');
@@ -4332,39 +4263,39 @@ ${routeLines}`;
             entry.error = 'Keine frische Live-Position. Nearest nutzt bewusst nicht die Karte als Ersatz für das Flugzeug.';
             entry.loading = false;
             if (state.view === 'nearest') render();
-            return _context0.a(2);
+            return _context1.a(2);
           case 1:
             originKey = `${origin.lat.toFixed(2)},${origin.lon.toFixed(2)}`;
             movedNm = entry.origin ? navBetween(entry.origin.lat, entry.origin.lon, origin.lat, origin.lon).dist : Infinity;
             key = `nearest:${originKey}`;
             if (!(!force && isCacheFresh(entry, entry.key, NEAREST_CACHE_TTL_MS) && movedNm < NEAREST_MOVE_REFRESH_NM)) {
-              _context0.n = 2;
+              _context1.n = 2;
               break;
             }
-            return _context0.a(2);
+            return _context1.a(2);
           case 2:
             if (!(entry.loading && !force)) {
-              _context0.n = 3;
+              _context1.n = 3;
               break;
             }
-            return _context0.a(2);
+            return _context1.a(2);
           case 3:
             abortToolRequest('nearest');
             entry.loading = true;
             entry.key = key;
             entry.origin = origin;
             entry.error = '';
-            entry.controller = ((_window$gaChecklistHo21 = window.gaChecklistHost) === null || _window$gaChecklistHo21 === void 0 || (_window$gaChecklistHo22 = _window$gaChecklistHo21.createAbortController) === null || _window$gaChecklistHo22 === void 0 ? void 0 : _window$gaChecklistHo22.call(_window$gaChecklistHo21)) || new AbortController();
+            entry.controller = ((_window$gaChecklistHo23 = window.gaChecklistHost) === null || _window$gaChecklistHo23 === void 0 || (_window$gaChecklistHo24 = _window$gaChecklistHo23.createAbortController) === null || _window$gaChecklistHo24 === void 0 ? void 0 : _window$gaChecklistHo24.call(_window$gaChecklistHo23)) || new AbortController();
             if (state.view === 'nearest') render();
-            _context0.p = 4;
+            _context1.p = 4;
             b = routeBounds([{
               lat: origin.lat,
               lon: origin.lon
             }], NEAREST_RADIUS_NM);
-            _context0.n = 5;
+            _context1.n = 5;
             return fetchRouteOpenAip('airports', b, 250, entry.controller.signal);
           case 5:
-            items = _context0.v;
+            items = _context1.v;
             airports = items.map(normalizeToolAirport).filter(a => (a === null || a === void 0 ? void 0 : a.icao) && Number.isFinite(a.lat) && Number.isFinite(a.lon)).map(a => _objectSpread(_objectSpread({}, a), {}, {
               nav: navBetween(origin.lat, origin.lon, a.lat, a.lon)
             })).filter(a => a.nav.dist <= NEAREST_RADIUS_NM).sort((a, b) => a.nav.dist - b.nav.dist).slice(0, 30);
@@ -4374,22 +4305,22 @@ ${routeLines}`;
               generatedAt: Date.now()
             };
             entry.updatedAt = Date.now();
-            _context0.n = 7;
+            _context1.n = 7;
             break;
           case 6:
-            _context0.p = 6;
-            _t1 = _context0.v;
+            _context1.p = 6;
+            _t1 = _context1.v;
             if ((_t1 === null || _t1 === void 0 ? void 0 : _t1.name) !== 'AbortError') entry.error = 'Nearest konnte nicht geladen werden.';
           case 7:
-            _context0.p = 7;
+            _context1.p = 7;
             entry.loading = false;
             entry.controller = null;
             if (state.view === 'nearest') render();
-            return _context0.f(7);
+            return _context1.f(7);
           case 8:
-            return _context0.a(2);
+            return _context1.a(2);
         }
-      }, _callee0, null, [[4, 6, 7, 8]]);
+      }, _callee1, null, [[4, 6, 7, 8]]);
     }));
     return _ensureNearestTool.apply(this, arguments);
   }
@@ -4478,10 +4409,10 @@ ${routeLines}`;
     return true;
   };
   function renderNearestTool() {
-    var _entry$data;
+    var _entry$data2;
     setTitle('Nearest');
     var entry = toolState.nearest;
-    var airports = ((_entry$data = entry.data) === null || _entry$data === void 0 ? void 0 : _entry$data.airports) || [];
+    var airports = ((_entry$data2 = entry.data) === null || _entry$data2 === void 0 ? void 0 : _entry$data2.airports) || [];
     var list = entry.error && !entry.loading ? '' : airports.length ? airports.map((apt, index) => {
       var key = `${apt.icao}_${index}`;
       var open = state.nearestMenuKey === key;
@@ -4813,34 +4744,34 @@ ${routeLines}`;
     maybePullKvChecklists();
     maybePullCommunity(false);
   }
-  function openChecklist(_x16) {
+  function openChecklist(_x12) {
     return _openChecklist.apply(this, arguments);
   }
   function _openChecklist() {
-    _openChecklist = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1(id) {
+    _openChecklist = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10(id) {
       var _checklist$chapters$;
       var chapterId,
         communityId,
         checklist,
-        _args1 = arguments;
-      return _regenerator().w(function (_context1) {
-        while (1) switch (_context1.n) {
+        _args10 = arguments;
+      return _regenerator().w(function (_context10) {
+        while (1) switch (_context10.n) {
           case 0:
-            chapterId = _args1.length > 1 && _args1[1] !== undefined ? _args1[1] : '';
+            chapterId = _args10.length > 1 && _args10[1] !== undefined ? _args10[1] : '';
             if (!String(id).startsWith('community:')) {
-              _context1.n = 1;
+              _context10.n = 1;
               break;
             }
             communityId = String(id).slice('community:'.length);
-            _context1.n = 1;
+            _context10.n = 1;
             return ensureCommunityDetail(communityId);
           case 1:
             checklist = getChecklist(id);
             if (checklist) {
-              _context1.n = 2;
+              _context10.n = 2;
               break;
             }
-            return _context1.a(2);
+            return _context10.a(2);
           case 2:
             state.selectedId = checklist.id;
             state.activeChapterId = chapterId || state.activeChapterId || ((_checklist$chapters$ = checklist.chapters[0]) === null || _checklist$chapters$ === void 0 ? void 0 : _checklist$chapters$.id) || '';
@@ -4851,9 +4782,9 @@ ${routeLines}`;
             setStatus('');
             render();
           case 3:
-            return _context1.a(2);
+            return _context10.a(2);
         }
-      }, _callee1);
+      }, _callee10);
     }));
     return _openChecklist.apply(this, arguments);
   }
@@ -4951,26 +4882,26 @@ ${routeLines}`;
     return _saveEditorDraft.apply(this, arguments);
   }
   function _saveEditorDraft() {
-    _saveEditorDraft = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee10() {
+    _saveEditorDraft = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11() {
       var _sanitized$chapters$;
       var draft, error, previous, now, sanitized, result, _t10;
-      return _regenerator().w(function (_context10) {
-        while (1) switch (_context10.p = _context10.n) {
+      return _regenerator().w(function (_context11) {
+        while (1) switch (_context11.p = _context11.n) {
           case 0:
             draft = state.editorDraft;
             if (draft) {
-              _context10.n = 1;
+              _context11.n = 1;
               break;
             }
-            return _context10.a(2);
+            return _context11.a(2);
           case 1:
             error = validateDraft(draft);
             if (!error) {
-              _context10.n = 2;
+              _context11.n = 2;
               break;
             }
             setStatus(error, 'error');
-            return _context10.a(2);
+            return _context11.a(2);
           case 2:
             previous = customLists.find(item => item.id === draft.id);
             now = Date.now();
@@ -4993,39 +4924,39 @@ ${routeLines}`;
             persistUiState();
             setStatus('Lokal gespeichert.', 'good');
             render();
-            _context10.p = 3;
+            _context11.p = 3;
             if (!sanitized.published) {
-              _context10.n = 5;
+              _context11.n = 5;
               break;
             }
-            _context10.n = 4;
+            _context11.n = 4;
             return publishCommunityChecklist(sanitized);
           case 4:
-            _context10.n = 6;
+            _context11.n = 6;
             break;
           case 5:
             if (!(previous !== null && previous !== void 0 && previous.published)) {
-              _context10.n = 6;
+              _context11.n = 6;
               break;
             }
-            _context10.n = 6;
+            _context11.n = 6;
             return unpublishCommunityChecklist(previous);
           case 6:
-            _context10.n = 7;
+            _context11.n = 7;
             return backupChecklistToKv(sanitized);
           case 7:
-            result = _context10.v;
+            result = _context11.v;
             if (result === 'synced') setStatus(sanitized.published ? 'Gespeichert und veröffentlicht.' : 'Gespeichert und gesichert.', 'good');
-            _context10.n = 9;
+            _context11.n = 9;
             break;
           case 8:
-            _context10.p = 8;
-            _t10 = _context10.v;
+            _context11.p = 8;
+            _t10 = _context11.v;
             setStatus(`${txPhrase('Lokal gespeichert.')} ${txPhrase(communityStatusMessage(_t10))}`, 'warn');
           case 9:
-            return _context10.a(2);
+            return _context11.a(2);
         }
-      }, _callee10, null, [[3, 8]]);
+      }, _callee11, null, [[3, 8]]);
     }));
     return _saveEditorDraft.apply(this, arguments);
   }
@@ -5034,29 +4965,29 @@ ${routeLines}`;
     if (idx >= 0) customLists[idx] = checklist;else customLists.push(checklist);
     saveCustomLists();
   }
-  function deleteChecklist(_x17) {
+  function deleteChecklist(_x13) {
     return _deleteChecklist.apply(this, arguments);
   }
   function _deleteChecklist() {
-    _deleteChecklist = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee11(id) {
+    _deleteChecklist = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12(id) {
       var checklist, _t11, _t12;
-      return _regenerator().w(function (_context11) {
-        while (1) switch (_context11.p = _context11.n) {
+      return _regenerator().w(function (_context12) {
+        while (1) switch (_context12.p = _context12.n) {
           case 0:
             checklist = getChecklist(id);
             if (!(!checklist || !checklist.editable)) {
-              _context11.n = 1;
+              _context12.n = 1;
               break;
             }
-            return _context11.a(2);
+            return _context12.a(2);
           case 1:
             if (confirm(tx('cl.confirmDelete', 'Checkliste "{title}" löschen?', {
               title: checklist.title
             }))) {
-              _context11.n = 2;
+              _context12.n = 2;
               break;
             }
-            return _context11.a(2);
+            return _context12.a(2);
           case 2:
             customLists = customLists.filter(item => item.id !== id);
             delete progressByChecklist[id];
@@ -5065,18 +4996,18 @@ ${routeLines}`;
             saveProgress();
             writeJson(VISIBLE_STORAGE_KEY, visibilityPrefs);
             if (!checklist.published) {
-              _context11.n = 6;
+              _context12.n = 6;
               break;
             }
-            _context11.p = 3;
-            _context11.n = 4;
+            _context12.p = 3;
+            _context12.n = 4;
             return unpublishCommunityChecklist(checklist);
           case 4:
-            _context11.n = 6;
+            _context12.n = 6;
             break;
           case 5:
-            _context11.p = 5;
-            _t11 = _context11.v;
+            _context12.p = 5;
+            _t11 = _context12.v;
           case 6:
             if (state.selectedId === id) {
               state.selectedId = '';
@@ -5086,20 +5017,20 @@ ${routeLines}`;
             }
             setStatus('Gelöscht.', 'good');
             render();
-            _context11.p = 7;
-            _context11.n = 8;
+            _context12.p = 7;
+            _context12.n = 8;
             return saveKvIndex();
           case 8:
-            _context11.n = 10;
+            _context12.n = 10;
             break;
           case 9:
-            _context11.p = 9;
-            _t12 = _context11.v;
+            _context12.p = 9;
+            _t12 = _context12.v;
             setStatus('Lokal gelöscht, Cloud-Index nicht aktualisiert.', 'warn');
           case 10:
-            return _context11.a(2);
+            return _context12.a(2);
         }
-      }, _callee11, null, [[7, 9], [3, 5]]);
+      }, _callee12, null, [[7, 9], [3, 5]]);
     }));
     return _deleteChecklist.apply(this, arguments);
   }
@@ -5236,45 +5167,45 @@ ${routeLines}`;
       }
     };
   }
-  function exportChecklist(_x18) {
+  function exportChecklist(_x14) {
     return _exportChecklist.apply(this, arguments);
   }
   function _exportChecklist() {
-    _exportChecklist = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee12(id) {
+    _exportChecklist = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13(id) {
       var checklist, code, _t13;
-      return _regenerator().w(function (_context12) {
-        while (1) switch (_context12.p = _context12.n) {
+      return _regenerator().w(function (_context13) {
+        while (1) switch (_context13.p = _context13.n) {
           case 0:
             checklist = getChecklist(id);
             if (checklist) {
-              _context12.n = 1;
+              _context13.n = 1;
               break;
             }
-            return _context12.a(2);
+            return _context13.a(2);
           case 1:
             code = SHARE_PREFIX + encodeUtf8Base64(JSON.stringify(sharePayload(checklist)));
-            _context12.p = 2;
+            _context13.p = 2;
             if (!(!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function')) {
-              _context12.n = 3;
+              _context13.n = 3;
               break;
             }
             throw new Error('clipboard_unavailable');
           case 3:
-            _context12.n = 4;
+            _context13.n = 4;
             return navigator.clipboard.writeText(code);
           case 4:
             setStatus('Share-Code kopiert.', 'good');
-            _context12.n = 6;
+            _context13.n = 6;
             break;
           case 5:
-            _context12.p = 5;
-            _t13 = _context12.v;
+            _context13.p = 5;
+            _t13 = _context13.v;
             window.prompt(txPhrase('Share-Code'), code);
             setStatus('Share-Code bereit.', 'good');
           case 6:
-            return _context12.a(2);
+            return _context13.a(2);
         }
-      }, _callee12, null, [[2, 5]]);
+      }, _callee13, null, [[2, 5]]);
     }));
     return _exportChecklist.apply(this, arguments);
   }
@@ -5294,13 +5225,13 @@ ${routeLines}`;
     return _importChecklist.apply(this, arguments);
   }
   function _importChecklist() {
-    _importChecklist = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee13() {
+    _importChecklist = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14() {
       var textarea, _fresh$chapters$, incoming, now, fresh, result, _t14, _t15;
-      return _regenerator().w(function (_context13) {
-        while (1) switch (_context13.p = _context13.n) {
+      return _regenerator().w(function (_context14) {
+        while (1) switch (_context14.p = _context14.n) {
           case 0:
             textarea = document.getElementById('checklistImportText');
-            _context13.p = 1;
+            _context14.p = 1;
             incoming = decodeShareCode((textarea === null || textarea === void 0 ? void 0 : textarea.value) || '');
             now = Date.now();
             fresh = sanitizeChecklist(incoming, {
@@ -5314,7 +5245,7 @@ ${routeLines}`;
             fresh.published = false;
             fresh.communityId = '';
             if (fresh.chapters.length) {
-              _context13.n = 2;
+              _context14.n = 2;
               break;
             }
             throw new Error('empty_checklist');
@@ -5326,29 +5257,29 @@ ${routeLines}`;
             persistUiState();
             setStatus('Importiert.', 'good');
             render();
-            _context13.p = 3;
-            _context13.n = 4;
+            _context14.p = 3;
+            _context14.n = 4;
             return backupChecklistToKv(fresh);
           case 4:
-            result = _context13.v;
+            result = _context14.v;
             if (result === 'synced') setStatus('Importiert und gesichert.', 'good');
-            _context13.n = 6;
+            _context14.n = 6;
             break;
           case 5:
-            _context13.p = 5;
-            _t14 = _context13.v;
+            _context14.p = 5;
+            _t14 = _context14.v;
             setStatus('Importiert, Cloud nicht erreichbar.', 'warn');
           case 6:
-            _context13.n = 8;
+            _context14.n = 8;
             break;
           case 7:
-            _context13.p = 7;
-            _t15 = _context13.v;
+            _context14.p = 7;
+            _t15 = _context14.v;
             setStatus('Import-Code ungültig.', 'error');
           case 8:
-            return _context13.a(2);
+            return _context14.a(2);
         }
-      }, _callee13, null, [[3, 5], [1, 7]]);
+      }, _callee14, null, [[3, 5], [1, 7]]);
     }));
     return _importChecklist.apply(this, arguments);
   }
@@ -5387,68 +5318,68 @@ ${routeLines}`;
     var credentials = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : getCredentials();
     return credentials ? `CHK_${encodedSyncId(credentials.id)}_${safeId(checklistId, 'custom')}` : '';
   }
-  function kvFetch(_x19, _x20) {
+  function kvFetch(_x15, _x16) {
     return _kvFetch.apply(this, arguments);
   }
   function _kvFetch() {
-    _kvFetch = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee14(key, credentials) {
+    _kvFetch = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15(key, credentials) {
       var url;
-      return _regenerator().w(function (_context14) {
-        while (1) switch (_context14.n) {
+      return _regenerator().w(function (_context15) {
+        while (1) switch (_context15.n) {
           case 0:
             url = `${getSyncBaseUrl()}${encodeURIComponent(key)}?pin=${encodeURIComponent(credentials.pin)}`;
-            return _context14.a(2, fetch(url, {
+            return _context15.a(2, fetch(url, {
               headers: {
                 'X-Pilot-PIN': credentials.pin
               }
             }));
         }
-      }, _callee14);
+      }, _callee15);
     }));
     return _kvFetch.apply(this, arguments);
   }
-  function kvGet(_x21, _x22) {
+  function kvGet(_x17, _x18) {
     return _kvGet.apply(this, arguments);
   }
   function _kvGet() {
-    _kvGet = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee15(key, credentials) {
+    _kvGet = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16(key, credentials) {
       var res;
-      return _regenerator().w(function (_context15) {
-        while (1) switch (_context15.n) {
+      return _regenerator().w(function (_context16) {
+        while (1) switch (_context16.n) {
           case 0:
-            _context15.n = 1;
+            _context16.n = 1;
             return kvFetch(key, credentials);
           case 1:
-            res = _context15.v;
+            res = _context16.v;
             if (!(res.status === 404)) {
-              _context15.n = 2;
+              _context16.n = 2;
               break;
             }
-            return _context15.a(2, null);
+            return _context16.a(2, null);
           case 2:
             if (res.ok) {
-              _context15.n = 3;
+              _context16.n = 3;
               break;
             }
             throw new Error(`kv_get_${res.status}`);
           case 3:
-            return _context15.a(2, res.json());
+            return _context16.a(2, res.json());
         }
-      }, _callee15);
+      }, _callee16);
     }));
     return _kvGet.apply(this, arguments);
   }
-  function kvPut(_x23, _x24, _x25) {
+  function kvPut(_x19, _x20, _x21) {
     return _kvPut.apply(this, arguments);
   }
   function _kvPut() {
-    _kvPut = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee16(key, payload, credentials) {
+    _kvPut = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17(key, payload, credentials) {
       var url, res;
-      return _regenerator().w(function (_context16) {
-        while (1) switch (_context16.n) {
+      return _regenerator().w(function (_context17) {
+        while (1) switch (_context17.n) {
           case 0:
             url = `${getSyncBaseUrl()}${encodeURIComponent(key)}?pin=${encodeURIComponent(credentials.pin)}`;
-            _context16.n = 1;
+            _context17.n = 1;
             return fetch(url, {
               method: 'POST',
               headers: {
@@ -5461,16 +5392,16 @@ ${routeLines}`;
               keepalive: true
             });
           case 1:
-            res = _context16.v;
+            res = _context17.v;
             if (res.ok) {
-              _context16.n = 2;
+              _context17.n = 2;
               break;
             }
             throw new Error(`kv_put_${res.status}`);
           case 2:
-            return _context16.a(2, res.json());
+            return _context17.a(2, res.json());
         }
-      }, _callee16);
+      }, _callee17);
     }));
     return _kvPut.apply(this, arguments);
   }
@@ -5494,32 +5425,7 @@ ${routeLines}`;
     return _saveKvIndex.apply(this, arguments);
   }
   function _saveKvIndex() {
-    _saveKvIndex = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee17() {
-      var credentials;
-      return _regenerator().w(function (_context17) {
-        while (1) switch (_context17.n) {
-          case 0:
-            credentials = getCredentials();
-            if (credentials) {
-              _context17.n = 1;
-              break;
-            }
-            return _context17.a(2, 'local');
-          case 1:
-            _context17.n = 2;
-            return kvPut(kvIndexKey(credentials), kvIndexPayload(credentials), credentials);
-          case 2:
-            return _context17.a(2, 'synced');
-        }
-      }, _callee17);
-    }));
-    return _saveKvIndex.apply(this, arguments);
-  }
-  function backupChecklistToKv(_x26) {
-    return _backupChecklistToKv.apply(this, arguments);
-  }
-  function _backupChecklistToKv() {
-    _backupChecklistToKv = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18(checklist) {
+    _saveKvIndex = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee18() {
       var credentials;
       return _regenerator().w(function (_context18) {
         while (1) switch (_context18.n) {
@@ -5532,18 +5438,43 @@ ${routeLines}`;
             return _context18.a(2, 'local');
           case 1:
             _context18.n = 2;
+            return kvPut(kvIndexKey(credentials), kvIndexPayload(credentials), credentials);
+          case 2:
+            return _context18.a(2, 'synced');
+        }
+      }, _callee18);
+    }));
+    return _saveKvIndex.apply(this, arguments);
+  }
+  function backupChecklistToKv(_x22) {
+    return _backupChecklistToKv.apply(this, arguments);
+  }
+  function _backupChecklistToKv() {
+    _backupChecklistToKv = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19(checklist) {
+      var credentials;
+      return _regenerator().w(function (_context19) {
+        while (1) switch (_context19.n) {
+          case 0:
+            credentials = getCredentials();
+            if (credentials) {
+              _context19.n = 1;
+              break;
+            }
+            return _context19.a(2, 'local');
+          case 1:
+            _context19.n = 2;
             return kvPut(kvChecklistKey(checklist.id, credentials), {
               kind: 'checklist-v1',
               checklist,
               lastModified: Date.now()
             }, credentials);
           case 2:
-            _context18.n = 3;
+            _context19.n = 3;
             return saveKvIndex();
           case 3:
-            return _context18.a(2, 'synced');
+            return _context19.a(2, 'synced');
         }
-      }, _callee18);
+      }, _callee19);
     }));
     return _backupChecklistToKv.apply(this, arguments);
   }
@@ -5551,7 +5482,7 @@ ${routeLines}`;
     return _maybePullKvChecklists.apply(this, arguments);
   }
   function _maybePullKvChecklists() {
-    _maybePullKvChecklists = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee19() {
+    _maybePullKvChecklists = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20() {
       var force,
         credentials,
         now,
@@ -5572,45 +5503,45 @@ ${routeLines}`;
         _checklist,
         entrySignature,
         nextIndex,
-        _args19 = arguments,
+        _args20 = arguments,
         _t16,
         _t17,
         _t18,
         _t19,
         _t20;
-      return _regenerator().w(function (_context19) {
-        while (1) switch (_context19.p = _context19.n) {
+      return _regenerator().w(function (_context20) {
+        while (1) switch (_context20.p = _context20.n) {
           case 0:
-            force = _args19.length > 0 && _args19[0] !== undefined ? _args19[0] : false;
+            force = _args20.length > 0 && _args20[0] !== undefined ? _args20[0] : false;
             if (!window.gaChecklistHost) {
-              _context19.n = 1;
+              _context20.n = 1;
               break;
             }
-            return _context19.a(2);
+            return _context20.a(2);
           case 1:
             credentials = getCredentials();
             if (!(!credentials || kvPullInProgress)) {
-              _context19.n = 2;
+              _context20.n = 2;
               break;
             }
-            return _context19.a(2);
+            return _context20.a(2);
           case 2:
             now = Date.now();
             if (!(!force && now - lastKvPullAt < 60000)) {
-              _context19.n = 3;
+              _context20.n = 3;
               break;
             }
-            return _context19.a(2);
+            return _context20.a(2);
           case 3:
             kvPullInProgress = true;
             lastKvPullAt = now;
-            _context19.p = 4;
-            _context19.n = 5;
+            _context20.p = 4;
+            _context20.n = 5;
             return kvGet(kvIndexKey(credentials), credentials);
           case 5:
-            _t16 = _context19.v;
+            _t16 = _context20.v;
             if (_t16) {
-              _context19.n = 6;
+              _context20.n = 6;
               break;
             }
             _t16 = {
@@ -5621,53 +5552,53 @@ ${routeLines}`;
           case 6:
             index = _t16;
             if (Array.isArray(index.entries)) {
-              _context19.n = 7;
+              _context20.n = 7;
               break;
             }
-            return _context19.a(2);
+            return _context20.a(2);
           case 7:
             remoteLists = [];
             fetchedRemoteIds = new Set();
             failedRemoteIds = new Set();
             _iterator4 = _createForOfIteratorHelper(index.entries.slice(0, 80));
-            _context19.p = 8;
+            _context20.p = 8;
             _iterator4.s();
           case 9:
             if ((_step4 = _iterator4.n()).done) {
-              _context19.n = 14;
+              _context20.n = 14;
               break;
             }
             _entry = _step4.value;
-            _context19.p = 10;
-            _context19.n = 11;
+            _context20.p = 10;
+            _context20.n = 11;
             return kvGet(kvChecklistKey(_entry.id, credentials), credentials);
           case 11:
-            payload = _context19.v;
+            payload = _context20.v;
             checklist = sanitizeCustomList((payload === null || payload === void 0 ? void 0 : payload.checklist) || payload);
             if (checklist) {
               remoteLists.push(checklist);
               fetchedRemoteIds.add(checklist.id);
             }
-            _context19.n = 13;
+            _context20.n = 13;
             break;
           case 12:
-            _context19.p = 12;
-            _t17 = _context19.v;
+            _context20.p = 12;
+            _t17 = _context20.v;
             failedRemoteIds.add(String((_entry === null || _entry === void 0 ? void 0 : _entry.id) || ''));
           case 13:
-            _context19.n = 9;
+            _context20.n = 9;
             break;
           case 14:
-            _context19.n = 16;
+            _context20.n = 16;
             break;
           case 15:
-            _context19.p = 15;
-            _t18 = _context19.v;
+            _context20.p = 15;
+            _t18 = _context20.v;
             _iterator4.e(_t18);
           case 16:
-            _context19.p = 16;
+            _context20.p = 16;
             _iterator4.f();
-            return _context19.f(16);
+            return _context20.f(16);
           case 17:
             changed = false;
             remoteLists.forEach(remote => {
@@ -5698,34 +5629,34 @@ ${routeLines}`;
               return Number(checklist.updatedAt || 0) > Number(remote.updatedAt || 0);
             });
             _iterator5 = _createForOfIteratorHelper(pendingUploads);
-            _context19.p = 18;
+            _context20.p = 18;
             _iterator5.s();
           case 19:
             if ((_step5 = _iterator5.n()).done) {
-              _context19.n = 21;
+              _context20.n = 21;
               break;
             }
             _checklist = _step5.value;
-            _context19.n = 20;
+            _context20.n = 20;
             return kvPut(kvChecklistKey(_checklist.id, credentials), {
               kind: 'checklist-v1',
               checklist: _checklist,
               lastModified: Date.now()
             }, credentials);
           case 20:
-            _context19.n = 19;
+            _context20.n = 19;
             break;
           case 21:
-            _context19.n = 23;
+            _context20.n = 23;
             break;
           case 22:
-            _context19.p = 22;
-            _t19 = _context19.v;
+            _context20.p = 22;
+            _t19 = _context20.v;
             _iterator5.e(_t19);
           case 23:
-            _context19.p = 23;
+            _context20.p = 23;
             _iterator5.f();
-            return _context19.f(23);
+            return _context20.f(23);
           case 24:
             entrySignature = entries => JSON.stringify((entries || []).map(entry => ({
               id: String((entry === null || entry === void 0 ? void 0 : entry.id) || ''),
@@ -5737,30 +5668,30 @@ ${routeLines}`;
             })).sort((a, b) => a.id.localeCompare(b.id)));
             nextIndex = kvIndexPayload(credentials);
             if (!(pendingUploads.length || entrySignature(index.entries) !== entrySignature(nextIndex.entries))) {
-              _context19.n = 26;
+              _context20.n = 26;
               break;
             }
-            _context19.n = 25;
+            _context20.n = 25;
             return kvPut(kvIndexKey(credentials), nextIndex, credentials);
           case 25:
             if (!changed && (state.view === 'list' || state.view === 'manager')) {
               setStatus('Lokale Listen in der Cloud ergänzt.', 'good');
             }
           case 26:
-            _context19.n = 28;
+            _context20.n = 28;
             break;
           case 27:
-            _context19.p = 27;
-            _t20 = _context19.v;
+            _context20.p = 27;
+            _t20 = _context20.v;
             if (state.view === 'list' || state.view === 'manager') setStatus('Cloud-Listen nicht erreichbar.', 'warn');
           case 28:
-            _context19.p = 28;
+            _context20.p = 28;
             kvPullInProgress = false;
-            return _context19.f(28);
+            return _context20.f(28);
           case 29:
-            return _context19.a(2);
+            return _context20.a(2);
         }
-      }, _callee19, null, [[18, 22, 23, 24], [10, 12], [8, 15, 16, 17], [4, 27, 28, 29]]);
+      }, _callee20, null, [[18, 22, 23, 24], [10, 12], [8, 15, 16, 17], [4, 27, 28, 29]]);
     }));
     return _maybePullKvChecklists.apply(this, arguments);
   }
@@ -5768,79 +5699,79 @@ ${routeLines}`;
     return _maybePullCommunity.apply(this, arguments);
   }
   function _maybePullCommunity() {
-    _maybePullCommunity = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee20() {
+    _maybePullCommunity = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21() {
       var force,
         now,
         _window$gaRunWhenAwak,
         _window12,
         res,
-        data,
+        _data2,
         nextMeta,
         known,
-        _args20 = arguments,
+        _args21 = arguments,
         _t21;
-      return _regenerator().w(function (_context20) {
-        while (1) switch (_context20.p = _context20.n) {
+      return _regenerator().w(function (_context21) {
+        while (1) switch (_context21.p = _context21.n) {
           case 0:
-            force = _args20.length > 0 && _args20[0] !== undefined ? _args20[0] : false;
+            force = _args21.length > 0 && _args21[0] !== undefined ? _args21[0] : false;
             if (!window.gaChecklistHost) {
-              _context20.n = 1;
+              _context21.n = 1;
               break;
             }
-            return _context20.a(2);
+            return _context21.a(2);
           case 1:
             if (!communityPullInProgress) {
-              _context20.n = 2;
+              _context21.n = 2;
               break;
             }
-            return _context20.a(2);
+            return _context21.a(2);
           case 2:
             now = Date.now();
             if (!(!force && !isCommunityUiActive())) {
-              _context20.n = 3;
+              _context21.n = 3;
               break;
             }
-            return _context20.a(2);
+            return _context21.a(2);
           case 3:
             if (!isNetworkSleeping('checklists.community')) {
-              _context20.n = 4;
+              _context21.n = 4;
               break;
             }
             (_window$gaRunWhenAwak = (_window12 = window).gaRunWhenAwake) === null || _window$gaRunWhenAwak === void 0 || _window$gaRunWhenAwak.call(_window12, 'checklists-community', () => maybePullCommunity(true));
-            return _context20.a(2);
+            return _context21.a(2);
           case 4:
             if (!(!force && now - lastCommunityPullAt < COMMUNITY_POLL_INTERVAL_MS)) {
-              _context20.n = 5;
+              _context21.n = 5;
               break;
             }
-            return _context20.a(2);
+            return _context21.a(2);
           case 5:
             if (acquireCommunityPollLock(force)) {
-              _context20.n = 6;
+              _context21.n = 6;
               break;
             }
-            return _context20.a(2);
+            return _context21.a(2);
           case 6:
             communityPullInProgress = true;
             lastCommunityPullAt = now;
-            _context20.p = 7;
-            _context20.n = 8;
+            _context21.p = 7;
+            _context21.n = 8;
             return fetch(`${getCommunityApiUrl()}?limit=120&t=${Date.now()}`, {
               cache: 'no-store'
             });
           case 8:
-            res = _context20.v;
+            res = _context21.v;
             if (res.ok) {
-              _context20.n = 9;
+              _context21.n = 9;
               break;
             }
             throw new Error(`community_${res.status}`);
           case 9:
-            _context20.n = 10;
+            _context21.n = 10;
             return res.json();
           case 10:
-            data = _context20.v;
-            nextMeta = Array.isArray(data.items) ? data.items.map(sanitizeCommunityMeta).filter(Boolean) : [];
+            _data2 = _context21.v;
+            nextMeta = Array.isArray(_data2.items) ? _data2.items.map(sanitizeCommunityMeta).filter(Boolean) : [];
             known = new Set(nextMeta.map(meta => meta.id));
             Object.keys(communitySubscriptions).forEach(id => {
               if (!known.has(id)) {
@@ -5850,63 +5781,63 @@ ${routeLines}`;
             });
             communityMeta = nextMeta;
             saveCommunityState();
-            _context20.n = 11;
+            _context21.n = 11;
             return refreshSubscribedCommunityContent(false);
           case 11:
             if (state.view === 'manager' || state.view === 'list' || state.view === 'home') render();
-            _context20.n = 13;
+            _context21.n = 13;
             break;
           case 12:
-            _context20.p = 12;
-            _t21 = _context20.v;
+            _context21.p = 12;
+            _t21 = _context21.v;
             if (state.view === 'manager') setStatus('Community nicht erreichbar.', 'warn');
           case 13:
-            _context20.p = 13;
+            _context21.p = 13;
             communityPullInProgress = false;
-            return _context20.f(13);
+            return _context21.f(13);
           case 14:
-            return _context20.a(2);
+            return _context21.a(2);
         }
-      }, _callee20, null, [[7, 12, 13, 14]]);
+      }, _callee21, null, [[7, 12, 13, 14]]);
     }));
     return _maybePullCommunity.apply(this, arguments);
   }
-  function ensureCommunityDetail(_x27) {
+  function ensureCommunityDetail(_x23) {
     return _ensureCommunityDetail.apply(this, arguments);
   }
   function _ensureCommunityDetail() {
-    _ensureCommunityDetail = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee21(id) {
+    _ensureCommunityDetail = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22(id) {
       var meta, cached, res, data, checklist;
-      return _regenerator().w(function (_context21) {
-        while (1) switch (_context21.n) {
+      return _regenerator().w(function (_context22) {
+        while (1) switch (_context22.n) {
           case 0:
             meta = communityMeta.find(item => item.id === id);
             cached = communityCache[id];
             if (!(cached && (!meta || Number(cached.communityUpdatedAt || 0) >= Number(meta.updatedAt || 0)))) {
-              _context21.n = 1;
+              _context22.n = 1;
               break;
             }
-            return _context21.a(2, cached);
+            return _context22.a(2, cached);
           case 1:
-            _context21.n = 2;
+            _context22.n = 2;
             return fetch(`${getCommunityApiUrl(`/${encodeURIComponent(id)}`)}?t=${Date.now()}`, {
               cache: 'no-store'
             });
           case 2:
-            res = _context21.v;
+            res = _context22.v;
             if (res.ok) {
-              _context21.n = 3;
+              _context22.n = 3;
               break;
             }
             throw new Error(`community_detail_${res.status}`);
           case 3:
-            _context21.n = 4;
+            _context22.n = 4;
             return res.json();
           case 4:
-            data = _context21.v;
+            data = _context22.v;
             checklist = communityChecklistFromRecord(data.checklist || data);
             if (checklist) {
-              _context21.n = 5;
+              _context22.n = 5;
               break;
             }
             throw new Error('community_detail_invalid');
@@ -5914,9 +5845,9 @@ ${routeLines}`;
             communityCache[id] = checklist;
             saveCommunityState();
             pruneProgress(checklist);
-            return _context21.a(2, checklist);
+            return _context22.a(2, checklist);
         }
-      }, _callee21);
+      }, _callee22);
     }));
     return _ensureCommunityDetail.apply(this, arguments);
   }
@@ -5924,112 +5855,112 @@ ${routeLines}`;
     return _refreshSubscribedCommunityContent.apply(this, arguments);
   }
   function _refreshSubscribedCommunityContent() {
-    _refreshSubscribedCommunityContent = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee22() {
+    _refreshSubscribedCommunityContent = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23() {
       var force,
         ids,
         _iterator6,
         _step6,
         _loop3,
-        _args23 = arguments,
+        _args24 = arguments,
         _t23;
-      return _regenerator().w(function (_context23) {
-        while (1) switch (_context23.p = _context23.n) {
+      return _regenerator().w(function (_context24) {
+        while (1) switch (_context24.p = _context24.n) {
           case 0:
-            force = _args23.length > 0 && _args23[0] !== undefined ? _args23[0] : false;
+            force = _args24.length > 0 && _args24[0] !== undefined ? _args24[0] : false;
             ids = Object.keys(communitySubscriptions).filter(id => communitySubscriptions[id]);
             _iterator6 = _createForOfIteratorHelper(ids);
-            _context23.p = 1;
+            _context24.p = 1;
             _loop3 = /*#__PURE__*/_regenerator().m(function _loop3() {
               var id, meta, cached, _t22;
-              return _regenerator().w(function (_context22) {
-                while (1) switch (_context22.p = _context22.n) {
+              return _regenerator().w(function (_context23) {
+                while (1) switch (_context23.p = _context23.n) {
                   case 0:
                     id = _step6.value;
                     meta = communityMeta.find(item => item.id === id);
                     cached = communityCache[id];
                     if (!(!force && cached && meta && Number(cached.communityUpdatedAt || 0) >= Number(meta.updatedAt || 0))) {
-                      _context22.n = 1;
+                      _context23.n = 1;
                       break;
                     }
-                    return _context22.a(2, 1);
+                    return _context23.a(2, 1);
                   case 1:
-                    _context22.p = 1;
-                    _context22.n = 2;
+                    _context23.p = 1;
+                    _context23.n = 2;
                     return ensureCommunityDetail(id);
                   case 2:
-                    _context22.n = 4;
+                    _context23.n = 4;
                     break;
                   case 3:
-                    _context22.p = 3;
-                    _t22 = _context22.v;
+                    _context23.p = 3;
+                    _t22 = _context23.v;
                   case 4:
-                    return _context22.a(2);
+                    return _context23.a(2);
                 }
               }, _loop3, null, [[1, 3]]);
             });
             _iterator6.s();
           case 2:
             if ((_step6 = _iterator6.n()).done) {
-              _context23.n = 5;
+              _context24.n = 5;
               break;
             }
-            return _context23.d(_regeneratorValues(_loop3()), 3);
+            return _context24.d(_regeneratorValues(_loop3()), 3);
           case 3:
-            if (!_context23.v) {
-              _context23.n = 4;
+            if (!_context24.v) {
+              _context24.n = 4;
               break;
             }
-            return _context23.a(3, 4);
+            return _context24.a(3, 4);
           case 4:
-            _context23.n = 2;
+            _context24.n = 2;
             break;
           case 5:
-            _context23.n = 7;
+            _context24.n = 7;
             break;
           case 6:
-            _context23.p = 6;
-            _t23 = _context23.v;
+            _context24.p = 6;
+            _t23 = _context24.v;
             _iterator6.e(_t23);
           case 7:
-            _context23.p = 7;
+            _context24.p = 7;
             _iterator6.f();
-            return _context23.f(7);
+            return _context24.f(7);
           case 8:
-            return _context23.a(2);
+            return _context24.a(2);
         }
-      }, _callee22, null, [[1, 6, 7, 8]]);
+      }, _callee23, null, [[1, 6, 7, 8]]);
     }));
     return _refreshSubscribedCommunityContent.apply(this, arguments);
   }
-  function setCommunitySubscribed(_x28, _x29) {
+  function setCommunitySubscribed(_x24, _x25) {
     return _setCommunitySubscribed.apply(this, arguments);
   }
   function _setCommunitySubscribed() {
-    _setCommunitySubscribed = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23(id, subscribed) {
+    _setCommunitySubscribed = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee24(id, subscribed) {
       var _t24;
-      return _regenerator().w(function (_context24) {
-        while (1) switch (_context24.p = _context24.n) {
+      return _regenerator().w(function (_context25) {
+        while (1) switch (_context25.p = _context25.n) {
           case 0:
             if (!subscribed) {
-              _context24.n = 5;
+              _context25.n = 5;
               break;
             }
             communitySubscriptions[id] = true;
             setStatus('Lade Community-Liste...', '');
-            _context24.p = 1;
-            _context24.n = 2;
+            _context25.p = 1;
+            _context25.n = 2;
             return ensureCommunityDetail(id);
           case 2:
             setStatus('Community-Liste abonniert.', 'good');
-            _context24.n = 4;
+            _context25.n = 4;
             break;
           case 3:
-            _context24.p = 3;
-            _t24 = _context24.v;
+            _context25.p = 3;
+            _t24 = _context25.v;
             delete communitySubscriptions[id];
             setStatus('Community-Liste nicht erreichbar.', 'error');
           case 4:
-            _context24.n = 6;
+            _context25.n = 6;
             break;
           case 5:
             delete communitySubscriptions[id];
@@ -6039,57 +5970,57 @@ ${routeLines}`;
             saveCommunityState();
             render();
           case 7:
-            return _context24.a(2);
+            return _context25.a(2);
         }
-      }, _callee23, null, [[1, 3]]);
+      }, _callee24, null, [[1, 3]]);
     }));
     return _setCommunitySubscribed.apply(this, arguments);
   }
-  function copyCommunity(_x30) {
+  function copyCommunity(_x26) {
     return _copyCommunity.apply(this, arguments);
   }
   function _copyCommunity() {
-    _copyCommunity = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee24(id) {
+    _copyCommunity = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee25(id) {
       var checklist, _t25;
-      return _regenerator().w(function (_context25) {
-        while (1) switch (_context25.p = _context25.n) {
-          case 0:
-            _context25.p = 0;
-            _context25.n = 1;
-            return ensureCommunityDetail(id);
-          case 1:
-            checklist = _context25.v;
-            _context25.n = 2;
-            return copyChecklistToCustom(checklist);
-          case 2:
-            _context25.n = 4;
-            break;
-          case 3:
-            _context25.p = 3;
-            _t25 = _context25.v;
-            setStatus('Community-Kopie nicht möglich.', 'error');
-          case 4:
-            return _context25.a(2);
-        }
-      }, _callee24, null, [[0, 3]]);
-    }));
-    return _copyCommunity.apply(this, arguments);
-  }
-  function copyChecklistToCustom(_x31) {
-    return _copyChecklistToCustom.apply(this, arguments);
-  }
-  function _copyChecklistToCustom() {
-    _copyChecklistToCustom = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee25(source) {
-      var _copy$chapters$;
-      var copy, _t26;
       return _regenerator().w(function (_context26) {
         while (1) switch (_context26.p = _context26.n) {
           case 0:
+            _context26.p = 0;
+            _context26.n = 1;
+            return ensureCommunityDetail(id);
+          case 1:
+            checklist = _context26.v;
+            _context26.n = 2;
+            return copyChecklistToCustom(checklist);
+          case 2:
+            _context26.n = 4;
+            break;
+          case 3:
+            _context26.p = 3;
+            _t25 = _context26.v;
+            setStatus('Community-Kopie nicht möglich.', 'error');
+          case 4:
+            return _context26.a(2);
+        }
+      }, _callee25, null, [[0, 3]]);
+    }));
+    return _copyCommunity.apply(this, arguments);
+  }
+  function copyChecklistToCustom(_x27) {
+    return _copyChecklistToCustom.apply(this, arguments);
+  }
+  function _copyChecklistToCustom() {
+    _copyChecklistToCustom = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee26(source) {
+      var _copy$chapters$;
+      var copy, _t26;
+      return _regenerator().w(function (_context27) {
+        while (1) switch (_context27.p = _context27.n) {
+          case 0:
             if (source) {
-              _context26.n = 1;
+              _context27.n = 1;
               break;
             }
-            return _context26.a(2);
+            return _context27.a(2);
           case 1:
             copy = copyChecklistForEditing(source);
             upsertCustom(copy);
@@ -6100,19 +6031,19 @@ ${routeLines}`;
             persistUiState();
             setStatus('Als eigene Kopie hinzugefügt.', 'good');
             render();
-            _context26.p = 2;
-            _context26.n = 3;
+            _context27.p = 2;
+            _context27.n = 3;
             return backupChecklistToKv(copy);
           case 3:
-            _context26.n = 5;
+            _context27.n = 5;
             break;
           case 4:
-            _context26.p = 4;
-            _t26 = _context26.v;
+            _context27.p = 4;
+            _t26 = _context27.v;
           case 5:
-            return _context26.a(2);
+            return _context27.a(2);
         }
-      }, _callee25, null, [[2, 4]]);
+      }, _callee26, null, [[2, 4]]);
     }));
     return _copyChecklistToCustom.apply(this, arguments);
   }
@@ -6131,44 +6062,44 @@ ${routeLines}`;
       }))
     };
   }
-  function communityResponseError(_x32, _x33) {
+  function communityResponseError(_x28, _x29) {
     return _communityResponseError.apply(this, arguments);
   }
   function _communityResponseError() {
-    _communityResponseError = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee26(res, fallback) {
-      var message, data, text, error, _t27, _t28;
-      return _regenerator().w(function (_context27) {
-        while (1) switch (_context27.p = _context27.n) {
+    _communityResponseError = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee27(res, fallback) {
+      var message, _data3, text, error, _t27, _t28;
+      return _regenerator().w(function (_context28) {
+        while (1) switch (_context28.p = _context28.n) {
           case 0:
             message = fallback || `community_${res.status}`;
-            _context27.p = 1;
-            _context27.n = 2;
+            _context28.p = 1;
+            _context28.n = 2;
             return res.json();
           case 2:
-            data = _context27.v;
-            message = (data === null || data === void 0 ? void 0 : data.error) || (data === null || data === void 0 ? void 0 : data.message) || message;
-            _context27.n = 7;
+            _data3 = _context28.v;
+            message = (_data3 === null || _data3 === void 0 ? void 0 : _data3.error) || (_data3 === null || _data3 === void 0 ? void 0 : _data3.message) || message;
+            _context28.n = 7;
             break;
           case 3:
-            _context27.p = 3;
-            _t27 = _context27.v;
-            _context27.p = 4;
-            _context27.n = 5;
+            _context28.p = 3;
+            _t27 = _context28.v;
+            _context28.p = 4;
+            _context28.n = 5;
             return res.text();
           case 5:
-            text = _context27.v;
+            text = _context28.v;
             if (text) message = text.slice(0, 180);
-            _context27.n = 7;
+            _context28.n = 7;
             break;
           case 6:
-            _context27.p = 6;
-            _t28 = _context27.v;
+            _context28.p = 6;
+            _t28 = _context28.v;
           case 7:
             error = new Error(message);
             error.status = res.status;
-            return _context27.a(2, error);
+            return _context28.a(2, error);
         }
-      }, _callee26, null, [[4, 6], [1, 3]]);
+      }, _callee27, null, [[4, 6], [1, 3]]);
     }));
     return _communityResponseError.apply(this, arguments);
   }
@@ -6183,23 +6114,23 @@ ${routeLines}`;
     if (/failed to fetch|network/i.test(message)) return 'Community nicht erreichbar.';
     return 'Community-Änderung fehlgeschlagen.';
   }
-  function publishCommunityChecklist(_x34) {
+  function publishCommunityChecklist(_x30) {
     return _publishCommunityChecklist.apply(this, arguments);
   }
   function _publishCommunityChecklist() {
-    _publishCommunityChecklist = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee27(checklist) {
+    _publishCommunityChecklist = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee28(checklist) {
       var credentials, res, data, communityId, idx;
-      return _regenerator().w(function (_context28) {
-        while (1) switch (_context28.n) {
+      return _regenerator().w(function (_context29) {
+        while (1) switch (_context29.n) {
           case 0:
             credentials = getCredentials();
             if (credentials) {
-              _context28.n = 1;
+              _context29.n = 1;
               break;
             }
             throw new Error('publish_requires_login');
           case 1:
-            _context28.n = 2;
+            _context29.n = 2;
             return fetch(getCommunityApiUrl(), {
               method: 'POST',
               headers: {
@@ -6213,20 +6144,20 @@ ${routeLines}`;
               })
             });
           case 2:
-            res = _context28.v;
+            res = _context29.v;
             if (res.ok) {
-              _context28.n = 4;
+              _context29.n = 4;
               break;
             }
-            _context28.n = 3;
+            _context29.n = 3;
             return communityResponseError(res, `publish_${res.status}`);
           case 3:
-            throw _context28.v;
+            throw _context29.v;
           case 4:
-            _context28.n = 5;
+            _context29.n = 5;
             return res.json();
           case 5:
-            data = _context28.v;
+            data = _context29.v;
             communityId = data.id || checklist.communityId || checklist.id;
             idx = customLists.findIndex(item => item.id === checklist.id);
             if (idx >= 0) {
@@ -6235,33 +6166,33 @@ ${routeLines}`;
               customLists[idx].communityUpdatedAt = data.updatedAt ? Number(data.updatedAt) : Date.now();
               saveCustomLists();
             }
-            _context28.n = 6;
+            _context29.n = 6;
             return maybePullCommunity(true);
           case 6:
-            return _context28.a(2, data);
+            return _context29.a(2, data);
         }
-      }, _callee27);
+      }, _callee28);
     }));
     return _publishCommunityChecklist.apply(this, arguments);
   }
-  function unpublishCommunityChecklist(_x35) {
+  function unpublishCommunityChecklist(_x31) {
     return _unpublishCommunityChecklist.apply(this, arguments);
   }
   function _unpublishCommunityChecklist() {
-    _unpublishCommunityChecklist = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee28(checklist) {
+    _unpublishCommunityChecklist = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee29(checklist) {
       var credentials, id, res;
-      return _regenerator().w(function (_context29) {
-        while (1) switch (_context29.n) {
+      return _regenerator().w(function (_context30) {
+        while (1) switch (_context30.n) {
           case 0:
             credentials = getCredentials();
             if (!(!credentials || !(checklist.communityId || checklist.id))) {
-              _context29.n = 1;
+              _context30.n = 1;
               break;
             }
             throw new Error('unpublish_requires_login');
           case 1:
             id = checklist.communityId || checklist.id;
-            _context29.n = 2;
+            _context30.n = 2;
             return fetch(getCommunityApiUrl(), {
               method: 'POST',
               headers: {
@@ -6275,98 +6206,98 @@ ${routeLines}`;
               })
             });
           case 2:
-            res = _context29.v;
+            res = _context30.v;
             if (res.ok) {
-              _context29.n = 4;
+              _context30.n = 4;
               break;
             }
-            _context29.n = 3;
+            _context30.n = 3;
             return communityResponseError(res, `unpublish_${res.status}`);
           case 3:
-            throw _context29.v;
+            throw _context30.v;
           case 4:
             delete communitySubscriptions[id];
             delete communityCache[id];
             communityMeta = communityMeta.filter(meta => meta.id !== id);
             saveCommunityState();
-            return _context29.a(2, res.json());
+            return _context30.a(2, res.json());
         }
-      }, _callee28);
+      }, _callee29);
     }));
     return _unpublishCommunityChecklist.apply(this, arguments);
   }
-  function setCustomPublished(_x36, _x37) {
+  function setCustomPublished(_x32, _x33) {
     return _setCustomPublished.apply(this, arguments);
   }
   function _setCustomPublished() {
-    _setCustomPublished = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee29(id, published) {
+    _setCustomPublished = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee30(id, published) {
       var checklist, idx, previous, _t29;
-      return _regenerator().w(function (_context30) {
-        while (1) switch (_context30.p = _context30.n) {
+      return _regenerator().w(function (_context31) {
+        while (1) switch (_context31.p = _context31.n) {
           case 0:
             checklist = getChecklist(id);
             if (!(!checklist || checklist.source !== 'custom')) {
-              _context30.n = 1;
+              _context31.n = 1;
               break;
             }
-            return _context30.a(2);
+            return _context31.a(2);
           case 1:
             if (!(published && !getCredentials())) {
-              _context30.n = 2;
+              _context31.n = 2;
               break;
             }
             setStatus('Veröffentlichen braucht Pilot-ID/PIN Login.', 'error');
             render();
-            return _context30.a(2);
+            return _context31.a(2);
           case 2:
             idx = customLists.findIndex(item => item.id === id);
             if (!(idx < 0)) {
-              _context30.n = 3;
+              _context31.n = 3;
               break;
             }
-            return _context30.a(2);
+            return _context31.a(2);
           case 3:
             previous = clone(customLists[idx]);
             customLists[idx].published = !!published;
             if (published && !customLists[idx].communityId) customLists[idx].communityId = customLists[idx].id;
             customLists[idx].updatedAt = Date.now();
             saveCustomLists();
-            _context30.p = 4;
+            _context31.p = 4;
             if (!published) {
-              _context30.n = 6;
+              _context31.n = 6;
               break;
             }
-            _context30.n = 5;
+            _context31.n = 5;
             return publishCommunityChecklist(customLists[idx]);
           case 5:
             setStatus('Veröffentlicht.', 'good');
-            _context30.n = 8;
+            _context31.n = 8;
             break;
           case 6:
-            _context30.n = 7;
+            _context31.n = 7;
             return unpublishCommunityChecklist(previous);
           case 7:
             customLists[idx].published = false;
             saveCustomLists();
             setStatus('Veröffentlichung entfernt.', 'good');
           case 8:
-            _context30.n = 9;
+            _context31.n = 9;
             return backupChecklistToKv(customLists[idx]);
           case 9:
-            _context30.n = 11;
+            _context31.n = 11;
             break;
           case 10:
-            _context30.p = 10;
-            _t29 = _context30.v;
+            _context31.p = 10;
+            _t29 = _context31.v;
             customLists[idx] = previous;
             saveCustomLists();
             setStatus(communityStatusMessage(_t29), 'error');
           case 11:
             render();
           case 12:
-            return _context30.a(2);
+            return _context31.a(2);
         }
-      }, _callee29, null, [[4, 10]]);
+      }, _callee30, null, [[4, 10]]);
     }));
     return _setCustomPublished.apply(this, arguments);
   }
@@ -6376,6 +6307,10 @@ ${routeLines}`;
     if (!button || !bodyEl.contains(button)) return;
     if (button.disabled || button.getAttribute('aria-disabled') === 'true') return;
     var action = button.dataset.action;
+    if (action === 'weather-ai-refresh') {
+      void refreshWeatherAi();
+      return;
+    }
     if (action === 'checklist-cloud-refresh') {
       refreshHostChecklists('button');
       return;

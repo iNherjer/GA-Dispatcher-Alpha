@@ -224,30 +224,23 @@ function renderRunwayDetailsResult(domEl, result, icaoCode) {
     }
 }
 
-async function fetchRunwayDetails(lat, lon, elementId, icaoCode, options = {}) {
-    let domEl = document.getElementById(elementId);
-    if (!domEl) return;
-    const commitAllowed = () => typeof _dispatchUiCommitAllowed !== 'function' || _dispatchUiCommitAllowed(options);
-    if (!commitAllowed()) return;
+async function readAirportRunwayDetails(lat, lon, icaoCode) {
     const normalizedIcao = String(icaoCode || '').trim().toUpperCase();
     const lookupKey = normalizedIcao || `${Number(lat).toFixed(4)},${Number(lon).toFixed(4)}`;
 
     const cachedText = normalizedIcao ? String(runwayCache[normalizedIcao] || '') : '';
     if (cachedText && cachedText !== 'Keine Daten gefunden') {
-        renderRunwayDetailsResult(domEl, { status: 'ok', text: cachedText, source: 'memory' }, normalizedIcao);
-        return;
+        return { status: 'ok', text: cachedText, source: 'memory' };
     }
 
     const emptyCachedAt = Number(runwayEmptyCache.get(lookupKey)) || 0;
     if (emptyCachedAt && (Date.now() - emptyCachedAt) < RUNWAY_EMPTY_CACHE_MS) {
-        renderRunwayDetailsResult(domEl, { status: 'empty', text: '', source: 'memory' }, normalizedIcao);
-        return;
+        return { status: 'empty', text: '', source: 'memory' };
     }
     if (emptyCachedAt) runwayEmptyCache.delete(lookupKey);
     const temporaryCachedAt = Number(runwayTemporaryCache.get(lookupKey)) || 0;
     if (temporaryCachedAt && (Date.now() - temporaryCachedAt) < RUNWAY_TEMPORARY_RETRY_MS) {
-        renderRunwayDetailsResult(domEl, { status: 'temporary', text: '', source: 'memory' }, normalizedIcao);
-        return;
+        return { status: 'temporary', text: '', source: 'memory' };
     }
     if (temporaryCachedAt) runwayTemporaryCache.delete(lookupKey);
 
@@ -274,9 +267,18 @@ async function fetchRunwayDetails(lat, lon, elementId, icaoCode, options = {}) {
         runwayTemporaryCache.set(lookupKey, Date.now());
         console.warn('[Runway] Quelle vorübergehend nicht verfügbar:', normalizedIcao || lookupKey, result.error || result.source);
     }
+    return result;
+}
+
+async function fetchRunwayDetails(lat, lon, elementId, icaoCode, options = {}) {
+    if (!document.getElementById(elementId)) return;
+    const commitAllowed = () => typeof _dispatchUiCommitAllowed !== 'function' || _dispatchUiCommitAllowed(options);
     if (!commitAllowed()) return;
-    domEl = document.getElementById(elementId);
+    const normalizedIcao = String(icaoCode || '').trim().toUpperCase();
+    const result = await readAirportRunwayDetails(lat, lon, normalizedIcao);
+    if (!commitAllowed()) return;
+    const domEl = document.getElementById(elementId);
     if (!domEl) return;
     renderRunwayDetailsResult(domEl, result, normalizedIcao);
-    window.gaChecklistHost?.airportUpdated?.();
+    if (result?.source !== 'memory') window.gaChecklistHost?.airportUpdated?.();
 }

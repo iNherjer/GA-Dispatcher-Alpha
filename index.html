@@ -43,7 +43,7 @@
     </script>
     <script src="i18n-core.js"></script>
     <script src="i18n/de.js"></script>
-    <script src="i18n/en.js?v=profile-touch-edit-1"></script>
+    <script src="i18n/en.js?v=weather-units-20261124"></script>
     <script src="i18n/en-help.js"></script>
     <script src="i18n/en-phrases.js"></script>
     <script src="i18n/en-picker.js"></script>
@@ -163,7 +163,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="icon-dark-180.png">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="stylesheet" href="vendor/maplibre/maplibre-gl.css">
-    <link rel="preload" href="styles.css?v=profile-touch-edit-1" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=weather-units-20261124" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="stylesheet" href="homebase-integration.css?v=homebase-foreground-20261014-01">
     <link rel="stylesheet" href="crew-presence.css?v=crew-fleet-20261103-01">
     <link rel="stylesheet" href="ppl-quiz.css?v=ppl-quiz-20261029-06">
@@ -175,7 +175,7 @@
     <link rel="stylesheet" href="glareshield.css?v=appearance-20261028-05">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=profile-touch-edit-1">
+        <link rel="stylesheet" href="styles.css?v=weather-units-20261124">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -3001,24 +3001,25 @@
 <script defer src="homebase-scene-core.js?v=homebase-pack-people-20261112-01"></script>
 <script defer src="homebase-integration.js?v=homebase-pack-people-20261112-01"></script>
 <script defer src="mission-training-guidance-ui.js?v=tracker-training-guidance-20261118-01"></script>
-<script defer src="checklists.js?v=efb-weather-20261123"></script>
+<script defer src="checklists.js?v=weather-units-20261124"></script>
 <script>
     const dwdAlphaOverride = new URLSearchParams(location.search).get('dwdAlpha');
     const isAlphaPages = location.hostname === 'inherjer.github.io' &&
         location.pathname.split('/')[1] === 'GA-Dispatcher-Alpha';
-    if (dwdAlphaOverride !== '0' && (isAlphaPages || dwdAlphaOverride === '1')) {
+    const hasLocalDwd = window.GA_DWD_WEATHER_URL === '/api/dwd-icon-eu';
+    if (dwdAlphaOverride !== '0' && (isAlphaPages || hasLocalDwd || dwdAlphaOverride === '1')) {
         window.GA_DWD_STATIC_URL = 'https://ga-dwd-alpha.einherjer.workers.dev';
     }
 </script>
 <script defer src="dwd-weather-assets.js?v=dwd-static-4"></script>
-<script defer src="profile.js?v=profile-touch-edit-1"></script>
+<script defer src="profile.js?v=weather-loading-20261124"></script>
 <script defer src="map-zoom-control.js?v=drag-zoom-control-20261018-04"></script>
 <script defer src="map-weather-fields.js?v=efb-weather-20261123"></script>
 <script defer src="map.js?v=dwd-default-1"></script>
 <script defer src="map-utility-tools.js?v=e6b-prewarm-20261029-01"></script>
 <script defer src="aircraft-mission-capability-core.js?v=aircraft-mission-party-20260817-01"></script>
 <script defer src="aircraft-mission-profile-core.js?v=aircraft-mission-capability-20260817-01"></script>
-<script defer src="app.js?v=accept-notice-20261120-01"></script>
+<script defer src="app.js?v=briefing-weather-20261124-06"></script>
 <script defer src="briefing-envelope.js?v=briefing-envelope-20261029-11"></script>
 <script defer src="navcom-skins.js?v=navcom-skins-20261022-04"></script>
 <script defer src="analog-skins.js?v=quick-slot-touch-20261023-01"></script>
@@ -3062,17 +3063,17 @@
 <script src="navcom-preferences-core.js"></script>
 <script src="navcom-preferences-client.js?v=field-merge-20261028-01"></script>
 <script src="airport-radio.js"></script>
-<script src="airport-details.js"></script>
+<script src="airport-details.js?v=briefing-weather-20261124-06"></script>
 <script src="airport-aip.js"></script>
-<script src="airport-weather.js"></script>
+<script src="airport-weather.js?v=weather-units-20261124"></script>
 <script src="map-airport-popup.js"></script>
-<script src="map-context-popup.js?v=dwd-default-1"></script>
+<script src="map-context-popup.js?v=weather-units-20261124"></script>
 <script src="map-direct-to-core.js"></script>
 <script src="map-route-edit-core.js?v=alt-anchors-20261120-01"></script>
 <script src="freeflight-navigation-core.js"></script>
 <script src="map-navpoint-core.js"></script>
 <script src="map-navigation-client.js"></script>
-<script src="map-layer-controls.js?v=efb-weather-20261123"></script>
+<script src="map-layer-controls.js?v=weather-loading-20261124"></script>
 <script src="map-tool-focus.js"></script>
 <script src="map-autozoom.js?v=context-sheet-20261122-01"></script>
 <script src="map-terrain-avoid.js"></script>

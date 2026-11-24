@@ -302,96 +302,68 @@ function renderRunwayDetailsResult(domEl, result, icaoCode) {
     document.getElementById('wikiDestRwyText').innerHTML = `Pisten:<br>${summaryText.replace(/\n/g, '<br>')}`;
   }
 }
-function fetchRunwayDetails(_x7, _x8, _x9, _x0) {
-  return _fetchRunwayDetails.apply(this, arguments);
+function readAirportRunwayDetails(_x7, _x8, _x9) {
+  return _readAirportRunwayDetails.apply(this, arguments);
 }
-function _fetchRunwayDetails() {
-  _fetchRunwayDetails = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(lat, lon, elementId, icaoCode) {
-    var _result, _result2, _result3, _window$gaChecklistHo, _window$gaChecklistHo2;
-    var options,
-      domEl,
-      commitAllowed,
-      normalizedIcao,
-      lookupKey,
-      cachedText,
-      emptyCachedAt,
-      temporaryCachedAt,
-      request,
-      result,
-      _args3 = arguments;
+function _readAirportRunwayDetails() {
+  _readAirportRunwayDetails = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(lat, lon, icaoCode) {
+    var _result, _result2, _result3;
+    var normalizedIcao, lookupKey, cachedText, emptyCachedAt, temporaryCachedAt, request, result;
     return _regenerator().w(function (_context3) {
       while (1) switch (_context3.p = _context3.n) {
         case 0:
-          options = _args3.length > 4 && _args3[4] !== undefined ? _args3[4] : {};
-          domEl = document.getElementById(elementId);
-          if (domEl) {
-            _context3.n = 1;
-            break;
-          }
-          return _context3.a(2);
-        case 1:
-          commitAllowed = () => typeof _dispatchUiCommitAllowed !== 'function' || _dispatchUiCommitAllowed(options);
-          if (commitAllowed()) {
-            _context3.n = 2;
-            break;
-          }
-          return _context3.a(2);
-        case 2:
           normalizedIcao = String(icaoCode || '').trim().toUpperCase();
           lookupKey = normalizedIcao || `${Number(lat).toFixed(4)},${Number(lon).toFixed(4)}`;
           cachedText = normalizedIcao ? String(runwayCache[normalizedIcao] || '') : '';
           if (!(cachedText && cachedText !== 'Keine Daten gefunden')) {
-            _context3.n = 3;
+            _context3.n = 1;
             break;
           }
-          renderRunwayDetailsResult(domEl, {
+          return _context3.a(2, {
             status: 'ok',
             text: cachedText,
             source: 'memory'
-          }, normalizedIcao);
-          return _context3.a(2);
-        case 3:
+          });
+        case 1:
           emptyCachedAt = Number(runwayEmptyCache.get(lookupKey)) || 0;
           if (!(emptyCachedAt && Date.now() - emptyCachedAt < RUNWAY_EMPTY_CACHE_MS)) {
-            _context3.n = 4;
+            _context3.n = 2;
             break;
           }
-          renderRunwayDetailsResult(domEl, {
+          return _context3.a(2, {
             status: 'empty',
             text: '',
             source: 'memory'
-          }, normalizedIcao);
-          return _context3.a(2);
-        case 4:
+          });
+        case 2:
           if (emptyCachedAt) runwayEmptyCache.delete(lookupKey);
           temporaryCachedAt = Number(runwayTemporaryCache.get(lookupKey)) || 0;
           if (!(temporaryCachedAt && Date.now() - temporaryCachedAt < RUNWAY_TEMPORARY_RETRY_MS)) {
-            _context3.n = 5;
+            _context3.n = 3;
             break;
           }
-          renderRunwayDetailsResult(domEl, {
+          return _context3.a(2, {
             status: 'temporary',
             text: '',
             source: 'memory'
-          }, normalizedIcao);
-          return _context3.a(2);
-        case 5:
+          });
+        case 3:
           if (temporaryCachedAt) runwayTemporaryCache.delete(lookupKey);
           request = runwayLookupInflight.get(lookupKey);
           if (!request) {
             request = lookupRunwayDetails(Number(lat), Number(lon), normalizedIcao);
             runwayLookupInflight.set(lookupKey, request);
           }
-          _context3.p = 6;
-          _context3.n = 7;
+          _context3.p = 4;
+          _context3.n = 5;
           return request;
-        case 7:
+        case 5:
           result = _context3.v;
-        case 8:
-          _context3.p = 8;
+        case 6:
+          _context3.p = 6;
           if (runwayLookupInflight.get(lookupKey) === request) runwayLookupInflight.delete(lookupKey);
-          return _context3.f(8);
-        case 9:
+          return _context3.f(6);
+        case 7:
           if (((_result = result) === null || _result === void 0 ? void 0 : _result.status) === 'ok' && result.text && normalizedIcao) {
             runwayCache[normalizedIcao] = result.text;
             runwayEmptyCache.delete(lookupKey);
@@ -403,25 +375,65 @@ function _fetchRunwayDetails() {
             runwayTemporaryCache.set(lookupKey, Date.now());
             console.warn('[Runway] Quelle vorübergehend nicht verfügbar:', normalizedIcao || lookupKey, result.error || result.source);
           }
-          if (commitAllowed()) {
-            _context3.n = 10;
+          return _context3.a(2, result);
+      }
+    }, _callee3, null, [[4,, 6, 7]]);
+  }));
+  return _readAirportRunwayDetails.apply(this, arguments);
+}
+function fetchRunwayDetails(_x0, _x1, _x10, _x11) {
+  return _fetchRunwayDetails.apply(this, arguments);
+}
+function _fetchRunwayDetails() {
+  _fetchRunwayDetails = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(lat, lon, elementId, icaoCode) {
+    var _window$gaChecklistHo, _window$gaChecklistHo2;
+    var options,
+      commitAllowed,
+      normalizedIcao,
+      result,
+      domEl,
+      _args4 = arguments;
+    return _regenerator().w(function (_context4) {
+      while (1) switch (_context4.n) {
+        case 0:
+          options = _args4.length > 4 && _args4[4] !== undefined ? _args4[4] : {};
+          if (document.getElementById(elementId)) {
+            _context4.n = 1;
             break;
           }
-          return _context3.a(2);
-        case 10:
+          return _context4.a(2);
+        case 1:
+          commitAllowed = () => typeof _dispatchUiCommitAllowed !== 'function' || _dispatchUiCommitAllowed(options);
+          if (commitAllowed()) {
+            _context4.n = 2;
+            break;
+          }
+          return _context4.a(2);
+        case 2:
+          normalizedIcao = String(icaoCode || '').trim().toUpperCase();
+          _context4.n = 3;
+          return readAirportRunwayDetails(lat, lon, normalizedIcao);
+        case 3:
+          result = _context4.v;
+          if (commitAllowed()) {
+            _context4.n = 4;
+            break;
+          }
+          return _context4.a(2);
+        case 4:
           domEl = document.getElementById(elementId);
           if (domEl) {
-            _context3.n = 11;
+            _context4.n = 5;
             break;
           }
-          return _context3.a(2);
-        case 11:
+          return _context4.a(2);
+        case 5:
           renderRunwayDetailsResult(domEl, result, normalizedIcao);
-          (_window$gaChecklistHo = window.gaChecklistHost) === null || _window$gaChecklistHo === void 0 || (_window$gaChecklistHo2 = _window$gaChecklistHo.airportUpdated) === null || _window$gaChecklistHo2 === void 0 || _window$gaChecklistHo2.call(_window$gaChecklistHo);
-        case 12:
-          return _context3.a(2);
+          if ((result === null || result === void 0 ? void 0 : result.source) !== 'memory') (_window$gaChecklistHo = window.gaChecklistHost) === null || _window$gaChecklistHo === void 0 || (_window$gaChecklistHo2 = _window$gaChecklistHo.airportUpdated) === null || _window$gaChecklistHo2 === void 0 || _window$gaChecklistHo2.call(_window$gaChecklistHo);
+        case 6:
+          return _context4.a(2);
       }
-    }, _callee3, null, [[6,, 8, 9]]);
+    }, _callee4);
   }));
   return _fetchRunwayDetails.apply(this, arguments);
 }

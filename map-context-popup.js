@@ -737,6 +737,7 @@ async function fetchMapContextMetar({ lat, lng }) {
     const observation = String(station.rawOb || '').split(/\b(?:TEMPO|BECMG|NOSIG|RMK)\b/, 1)[0];
     return {
         wxSource: 'metar',
+        flightCategory: station.fltCat || station.fltcat,
         stationIcao: station.icaoId || station.icao,
         observedAt: Number(station.obsTime) || null,
         wdir: station.wdir,
@@ -752,27 +753,23 @@ async function fetchMapContextMetar({ lat, lng }) {
     };
 }
 
-async function fetchMapContextWeather(latlng, source) {
+async function fetchMapContextWeather(latlng, source, validAt = null) {
     if (source === 'metar') return fetchMapContextMetar(latlng);
-    const { source: activeSource, samples } = await vpFetchWeatherModelPoints(source,
-        [{ lat: latlng.lat, lon: latlng.lng }],
-        { includePressure: true, maxConcurrency: 1 }
-    );
-    const sample = Array.isArray(samples) ? samples[0] : null;
-    return sample ? { ...sample, wxSource: activeSource } : null;
+    const [result] = await awReadModelWeather(source, [{ lat:latlng.lat, lon:latlng.lng }], undefined, validAt);
+    return result ? { ...result.sample, wxSource:result.source } : null;
 }
 
 window.refreshMapContextWeather = function() {
     const state = mapContextInfoState;
-    if (!state) return;
-    const source = vpNormalizeWeatherSource(window.vpWeatherSource || localStorage.getItem('ga_weather_source'));
-    if (state.weatherSource === source) return;
-    const switchingSource = Boolean(state.weatherSource);
+    if (!state || typeof awWeatherSource !== 'function') return;
+    const source = awWeatherSource();
+    const validAt = awWeatherValidAt();
+    if (state.weatherSource === source && state.weatherValidAt === validAt) return;
     state.weatherSource = source;
-    state.weather = null;
+    state.weatherValidAt = validAt;
     state.loading.weather = true;
-    if (switchingSource) renderMapContextInfoPopup(state, { preserveDetailsScroll: true });
-    const request = fetchMapContextWeather(state.latlng, source);
+    state.content?.querySelector('[data-map-context-weather]')?.setAttribute('aria-busy', 'true');
+    const request = fetchMapContextWeather(state.latlng, source, validAt);
     state.weatherRequest = request;
     request.catch(error => {
         if (state === mapContextInfoState && state.weatherRequest === request) {
@@ -780,12 +777,30 @@ window.refreshMapContextWeather = function() {
         }
         return null;
     }).then(weather => {
-        if (state !== mapContextInfoState || state.weatherRequest !== request) return;
+        if (state !== mapContextInfoState || state.weatherRequest !== request ||
+            source !== awWeatherSource() || validAt !== awWeatherValidAt()) return;
         state.weather = weather;
         state.loading.weather = false;
-        renderMapContextInfoPopup(state, { preserveDetailsScroll: true });
+        const weatherSlot = state.content?.querySelector('[data-map-context-weather]');
+        if (weatherSlot) {
+            const details = weatherSlot.closest('.ga-map-context-details');
+            const scrollTop = details.scrollTop;
+            weatherSlot.innerHTML = renderMapContextWeather(state);
+            weatherSlot.removeAttribute('aria-busy');
+            details.scrollTop = scrollTop;
+        }
+        const sky = state.content?.querySelector('.ga-map-context-height-sky');
+        if (sky) {
+            const terrainFt = Math.max(0, Number(state.terrainFt) || 0);
+            sky.parentNode.querySelector('.ga-map-context-height-atmosphere')?.remove();
+            sky.insertAdjacentHTML('afterend', renderMapContextAtmosphere(
+                getMapContextAtmosphereData(state, terrainFt), state.heightBandMaxFt, terrainFt
+            ));
+        }
     });
 };
+
+window.addEventListener('ga:briefing-weather-source', window.refreshMapContextWeather);
 
 function getMapContextRunwayWindroseData(feature) {
     const runwayText = Array.isArray(feature?.runways)
@@ -802,23 +817,10 @@ function getMapContextRunwayWindroseData(feature) {
     };
 }
 
-function renderMapContextDwdDetails(state) {
+function renderMapContextDwdDetails(state, heights) {
     const weather = state.weather;
     if (weather?.wxSource !== 'dwd') return '';
-    const terrain = Number(state.terrainFt ?? NaN);
-    const modelTerrain = Number(weather.modelTerrainMslM ?? NaN) * 3.28084;
-    const ground = Number.isFinite(terrain) ? terrain : modelTerrain;
-    const atmosphere = getMapContextAtmosphereData(state, Number.isFinite(ground) ? ground : 0);
-    const formatFeet = ft => Math.round(ft).toLocaleString(_mcLocale());
-    const lowestBase = atmosphere.lowestBaseFt;
-    const ceiling = Number(weather.ceilingMslM ?? NaN);
-    const cover = Number(weather.cloudTotalPct ?? NaN);
-    const useCeiling = !Number.isFinite(lowestBase) && Number.isFinite(ceiling) && ceiling > 0 &&
-        (!Number.isFinite(cover) || cover > 50);
-    const base = useCeiling ? ceiling * 3.28084
-        : Number.isFinite(lowestBase) && Number.isFinite(ground) ? Math.max(lowestBase, ground) : lowestBase;
-    const baseText = Number.isFinite(base) ? formatFeet(base) + ' ft MSL' +
-        (Number.isFinite(ground) && base >= ground ? ' · ' + formatFeet(base - ground) + ' ft AGL' : '') : '';
+    const cloudHeights = awCloudHeightBlock(heights);
     const code = Number(weather.weatherCode ?? NaN);
     const column = VP_WMO_WEATHER_CODES.indexOf(code);
     const symbol = vpSignificantWeatherSymbol(code);
@@ -827,23 +829,21 @@ function renderMapContextDwdDetails(state) {
         <span class="ga-map-context-dwd-symbol" aria-hidden="true" style="background-image:url('${vpWmoWeatherSpriteUrl()}');background-size:${VP_WMO_WEATHER_CODES.length * iconSize}px ${iconSize}px;background-position:${-column * iconSize}px 0"></span>
         <b>${escapePopupText(_mcK('map.profile.weatherMarker.' + symbol, VP_WEATHER_MARKER_NAMES[symbol]))}</b>
     </div>` : '';
-    const baseTitle = useCeiling
-        ? _mcK('mapContext.wx.modelCeiling', 'Niedrigste Höhe mit mehr als 50 % Wolkenbedeckung in einer Modellschicht') : '';
-    if (!event && !baseText) return '';
+    if (!event && !cloudHeights) return '';
     return `<div class="ga-map-context-dwd-details">
         ${event}
-        ${baseText ? `<div${baseTitle ? ` title="${escapePopupText(baseTitle)}"` : ''}><small>${_mcK('mapContext.wx.cloudBase', 'Wolkenbasis')}</small> <b>${escapePopupText(baseText)}</b></div>` : ''}
+        ${cloudHeights}
     </div>`;
 }
 
 function renderMapContextWeather(state, options = {}) {
     const runway = options?.runway || null;
-    if (state.loading.weather && !runway) {
-        return '<div class="ga-map-context-loading">' + _mcT('Punktwetter wird geladen…') + '</div>';
+    if (state.loading.weather && !state.weather && !runway) {
+        return awWeatherSourceControl() + '<div class="ga-map-context-loading">' + _mcT('Punktwetter wird geladen…') + '</div>';
     }
     const weather = state.weather;
     if (!weather && !runway) {
-        return '<div class="ga-map-context-muted">' + _mcT('Punktwetter derzeit nicht verfügbar.') + '</div>';
+        return awWeatherSourceControl() + '<div class="ga-map-context-muted">' + _mcT('Punktwetter derzeit nicht verfügbar.') + '</div>';
     }
     const windDir = Number(weather?.wdir ?? NaN);
     const windKt = Number(weather?.wspd ?? NaN);
@@ -861,7 +861,7 @@ function renderMapContextWeather(state, options = {}) {
         : (state.loading.weather ? _mcT('WIRD GELADEN') : '–');
     const visibilityKm = Number.isFinite(visibilityM) ? visibilityM / 1000 : null;
     const visibilityLabel = weather?.visibilityText || (Number.isFinite(visibilityKm)
-        ? `${visibilityKm >= 10 ? Math.round(visibilityKm) : visibilityKm.toFixed(1)} km` : '–');
+        ? `${visibilityKm >= 10 ? Math.round(visibilityKm) : visibilityKm.toFixed(1)} km` : '');
     const cloudCoverLabel = weather?.cloudCoverText || (Number.isFinite(totalCloud) ? `${Math.round(totalCloud)} %` : '–');
     let roseTicks = '';
     for (let heading = 0; heading < 360; heading += 30) {
@@ -898,6 +898,9 @@ function renderMapContextWeather(state, options = {}) {
                   text-anchor="middle">${escapePopupText(runway.end1)}</text>
         </g>` : '';
     const metar = weather?.wxSource === 'metar';
+    const heights = weather && !metar ? awModelCloudBases(weather, state.terrainFt) : null;
+    const category = heights ? awModelFlightCategory(weather, heights.ceiling) : {cat:weather?.flightCategory};
+    const badge = awFlightCategoryBadge(category.cat, !metar, category.ceilingCategory);
     const observationTime = metar && weather.observedAt
         ? new Date(weather.observedAt * 1000).toISOString().slice(11, 16) + ' UTC' : '';
     const stationText = metar ? [weather.stationIcao, observationTime].filter(Boolean).join(' · ') : '';
@@ -905,20 +908,22 @@ function renderMapContextWeather(state, options = {}) {
         ? _mcK('mapContext.wx.runwaySource', 'Piste {end1}/{end2} aus internen Daten · {wind}', { end1: runway.end1, end2: runway.end2, wind: weather
             ? (stationText || _mcT('Wind am Kartenpunkt'))
             : (state.loading.weather ? _mcT('Wind wird ergänzt…') : _mcT('Wind derzeit nicht verfügbar')) })
-        : (metar ? stationText : _mcT('Aktueller Stundenwert am Kartenpunkt'));
+        : (metar ? stationText : state.weatherValidAt === null ? _mcT('Aktueller Stundenwert am Kartenpunkt') : '');
     const ariaLabel = runway
         ? _mcK('mapContext.wx.runwayAria', 'Piste {end1}/{end2}; Wind {wind}', { end1: runway.end1, end2: runway.end2, wind: windText })
         : _mcK('mapContext.wx.roseAria', 'Windrose {wind}', { wind: windText });
     return `
         <div class="ga-map-context-weather-card">
             <div class="ga-map-context-weather-header">
-                <b>${runway ? _mcT('PISTE · PUNKTWETTER') : _mcT('PUNKTWETTER')}</b>
-                <span>${vpWeatherSourceLabel(weather?.wxSource || state.weatherSource) || ''}</span>
+                ${awWeatherSourceControl(weather?.contourValidAt)}
+                ${weather?.wxSource && weather.wxSource !== state.weatherSource
+                    ? '<span>' + escapePopupText(vpWeatherSourceLabel(weather.wxSource) || '') + ' · Fallback</span>' : ''}
+                ${badge}
             </div>
             <div class="ga-map-context-weather-layout">
                 <div class="ga-map-context-weather-values">
                     <span><small>WIND</small><b class="is-wind">${escapePopupText(windText)}</b></span>
-                    <span><small>${_mcT('SICHT')}</small><b>${escapePopupText(visibilityLabel)}</b></span>
+                    ${visibilityLabel ? `<span><small>${_mcT('SICHT')}</small><b>${escapePopupText(visibilityLabel)}</b></span>` : ''}
                     <span><small>TEMP</small><b>${Number.isFinite(tempC) ? `${Math.round(tempC)} °C` : '–'}</b></span>
                     <span><small>${_mcT('BEDECKUNG')}</small><b>${escapePopupText(cloudCoverLabel)}</b></span>
                     ${metar ? '' : `<span class="is-wide"><small>${_mcT('WOLKEN L/M/H')}</small><b>${[lowCloud, midCloud, highCloud].some(Number.isFinite)
@@ -934,7 +939,7 @@ function renderMapContextWeather(state, options = {}) {
                     </svg>
                 </div>
             </div>
-            ${renderMapContextDwdDetails(state)}
+            ${renderMapContextDwdDetails(state, heights)}
             <div class="ga-map-context-weather-source">${escapePopupText(sourceText)}</div>
         </div>`;
 }
@@ -1531,31 +1536,6 @@ function buildMapContextAirportWidget(state, selected) {
         </div>`;
 }
 
-function captureMapContextAirportWidgetState(state) {
-    const config = getMapContextAirportWidgetConfig(state);
-    if (!config) return;
-    const weatherElement = document.getElementById(config.wxId);
-    if (!weatherElement) return;
-    if (weatherElement.querySelector('[data-ga-metar-loading="true"]')) return;
-    const html = String(weatherElement.innerHTML || '').trim();
-    if (html && !/(Wetter lädt|Sucht lokales Wetter|Punktwetter wird geladen|Weather loading|Searching local weather|Loading point weather)/i.test(html)) {
-        state.airportWidgetWeatherHtml = html;
-    }
-}
-
-function renderMapContextAirportWeatherPlaceholder(state) {
-    const feature = state?.feature;
-    const runwayText = Array.isArray(feature?.runways) ? feature.runways.join('\n') : '';
-    if (typeof window.renderAirportMetarLoadingWidget === 'function') {
-        return window.renderAirportMetarLoadingWidget(
-            feature?.icao,
-            runwayText,
-            { responsiveEmbed: true }
-        );
-    }
-    return '<div class="ga-map-context-loading" data-ga-metar-loading="true">' + _mcT('METAR wird geladen…') + '</div>';
-}
-
 function hydrateMapContextAirportWidget(state) {
     const feature = state?.feature;
     const config = getMapContextAirportWidgetConfig(state);
@@ -1568,11 +1548,6 @@ function hydrateMapContextAirportWidget(state) {
         && !runwayCache[feature.icao]
     ) {
         runwayCache[feature.icao] = feature.runways.join('\n');
-    }
-    if (state.airportWidgetWeatherHtml) {
-        if (weatherElement) weatherElement.innerHTML = state.airportWidgetWeatherHtml;
-    } else if (weatherElement) {
-        weatherElement.innerHTML = renderMapContextAirportWeatherPlaceholder(state);
     }
     if (typeof updatePopupFrequencyBlock === 'function') {
         updatePopupFrequencyBlock(config.freqId, feature.icao);
@@ -1599,7 +1574,7 @@ function hydrateMapContextAirportWidget(state) {
                 });
         }
     }
-    if (typeof loadMetarWidget === 'function' && !state.airportWidgetWeatherHtml) {
+    if (typeof loadMetarWidget === 'function' && weatherElement) {
         loadMetarWidget(
             feature.icao,
             config.wxId,
@@ -1607,9 +1582,10 @@ function hydrateMapContextAirportWidget(state) {
             feature.lon,
             true,
             {
-                preserveLoadingContent: true,
+                airport: { elevation:feature.elevationFt },
                 skipRunwayWait: true,
                 responsiveEmbed: true,
+                contextCompact: true,
                 runwayIcao: feature.icao
             }
         );
@@ -1718,7 +1694,8 @@ function renderMapContextInfoPopup(state, options = {}) {
     const previousDetailsScrollTop = preserveDetailsScroll
         ? Number(state.content.querySelector?.('.ga-map-context-details')?.scrollTop)
         : null;
-    captureMapContextAirportWidgetState(state);
+    const widgetConfig = getMapContextAirportWidgetConfig(state);
+    const previousWeatherWidget = widgetConfig && document.getElementById(widgetConfig.wxId);
     const mapHeight = Number(map?.getContainer?.()?.clientHeight);
     if (Number.isFinite(mapHeight) && mapHeight > 0) {
         state.content.style.setProperty('--ga-map-context-map-height', `${Math.round(mapHeight)}px`);
@@ -1748,11 +1725,13 @@ function renderMapContextInfoPopup(state, options = {}) {
                     </section>
                     <section>
                         <h4>${_mcT('Wetter')}</h4>
-                        ${renderMapContextWeather(state)}
+                        <div data-map-context-weather${state.loading.weather ? ' aria-busy="true"' : ''}>${renderMapContextWeather(state)}</div>
                     </section>
                 </div>
             </div>
         </div>`;
+    const nextWeatherWidget = previousWeatherWidget && document.getElementById(widgetConfig.wxId);
+    if (nextWeatherWidget) nextWeatherWidget.parentNode.replaceChild(previousWeatherWidget, nextWeatherWidget);
     hydrateMapContextAirportWidget(state);
     if (!state.sheetMode) {
         mapContextPopupLayer?.update?.();

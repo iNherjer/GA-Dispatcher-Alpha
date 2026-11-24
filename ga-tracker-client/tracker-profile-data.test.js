@@ -21,6 +21,21 @@ test('profile transport uses the original public datasets and canonical cache UR
   assert.throws(() => profilePoints([{ ...point, lat: NaN }]), /invalid_profile_points/);
 });
 
+test('weather briefing transport only accepts the two fixed SIGMET layers', () => {
+  const root = 'https://mapservices.weather.noaa.gov/vector/rest/services/aviation/awc_aviation_weather/MapServer/';
+  for (const [id, rawField] of [[111, 'raw_text'], [112, 'rawsigmet']]) {
+    const request = resourceUrl(root + id + '/query?where=objectid%3D5&outFields=*');
+    const url = new URL(request.url);
+    assert.equal(url.searchParams.get('where'), '1=1');
+    assert.equal(url.searchParams.get('f'), 'geojson');
+    assert.equal(url.searchParams.get('outSR'), '4326');
+    assert.ok(url.searchParams.get('outFields').split(',').includes(rawField));
+    assert.equal(request.ttlMs, 300000);
+  }
+  assert.throws(() => resourceUrl(root + '113/query'), /invalid_profile_resource/);
+  assert.throws(() => resourceUrl(root + '112/attachments'), /invalid_profile_resource/);
+});
+
 test('hosted gzip is decoded exactly once before crossing the local JSON boundary', async () => {
   const expected = { obs: [{ lat: 48.4, lon: 7.8, hFt: 300 }], lin: [] };
   const profile = createProfileData({ cache: { get: async (_url, options) => {
@@ -47,11 +62,13 @@ test('satellite bridge extracts the advertised frame and restricts raster reques
     options.validate(inputRaster);
     return inputRaster;
   }}});
-  const meta = await profile.resource('https://view.eumetsat.int/geoserver/msg_fes/wms?request=GetCapabilities');
+  const meta = await profile.resource('https://view.eumetsat.int/geoserver/msg_fes/clm/wms?request=GetCapabilities');
   assert.deepEqual(meta, { time });
+  assert.equal(calls[0].pathname, '/geoserver/msg_fes/clm/wms');
   const clouds = PNG.sync.read(await profile.satelliteTile('clouds', time, 6, 33, 21));
   assert.deepEqual([...clouds.data.subarray(0,12)], [255,255,255,255, 255,255,255,0, 255,255,255,64]);
   assert.equal(calls[1].origin, 'https://view.eumetsat.int');
+  assert.equal(calls[1].pathname, '/geoserver/msg_fes/clm/wms');
   assert.equal(calls[1].searchParams.get('layers'), 'msg_fes:clm');
   assert.equal(calls[1].searchParams.get('time'), time);
   assert.equal(calls[1].searchParams.get('bbox').split(',').every(value => Number.isFinite(Number(value))), true);

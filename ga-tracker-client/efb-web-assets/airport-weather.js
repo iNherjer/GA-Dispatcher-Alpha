@@ -1,4 +1,8 @@
 // Generated from airport-weather.js by sync-efb-web-assets.js. Do not edit.
+function _slicedToArray(r, e) { return _arrayWithHoles(r) || _iterableToArrayLimit(r, e) || _unsupportedIterableToArray(r, e) || _nonIterableRest(); }
+function _nonIterableRest() { throw new TypeError("Invalid attempt to destructure non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
+function _iterableToArrayLimit(r, l) { var t = null == r ? null : "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (null != t) { var e, n, i, u, a = [], f = !0, o = !1; try { if (i = (t = t.call(r)).next, 0 === l) { if (Object(t) !== t) return; f = !1; } else for (; !(f = (e = i.call(t)).done) && (a.push(e.value), a.length !== l); f = !0); } catch (r) { o = !0, n = r; } finally { try { if (!f && null != t.return && (u = t.return(), Object(u) !== u)) return; } finally { if (o) throw n; } } return a; } }
+function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
 function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t.return || t.return(); } finally { if (u) throw o; } } }; }
 function _regenerator() { /*! regenerator-runtime -- Copyright (c) 2014-present, Facebook, Inc. -- license (MIT): https://github.com/babel/babel/blob/main/packages/babel-helpers/LICENSE */ var e, t, r = "function" == typeof Symbol ? Symbol : {}, n = r.iterator || "@@iterator", o = r.toStringTag || "@@toStringTag"; function i(r, n, o, i) { var c = n && n.prototype instanceof Generator ? n : Generator, u = Object.create(c.prototype); return _regeneratorDefine2(u, "_invoke", function (r, n, o) { var i, c, u, f = 0, p = o || [], y = !1, G = { p: 0, n: 0, v: e, a: d, f: d.bind(e, 4), d: function d(t, r) { return i = t, c = 0, u = e, G.n = r, a; } }; function d(r, n) { for (c = r, u = n, t = 0; !y && f && !o && t < p.length; t++) { var o, i = p[t], d = G.p, l = i[2]; r > 3 ? (o = l === n) && (u = i[(c = i[4]) ? 5 : (c = 3, 3)], i[4] = i[5] = e) : i[0] <= d && ((o = r < 2 && d < i[1]) ? (c = 0, G.v = n, G.n = i[1]) : d < l && (o = r < 3 || i[0] > n || n > l) && (i[4] = r, i[5] = n, G.n = l, c = 0)); } if (o || r > 1) return a; throw y = !0, n; } return function (o, p, l) { if (f > 1) throw TypeError("Generator is already running"); for (y && 1 === p && d(p, l), c = p, u = l; (t = c < 2 ? e : u) || !y;) { i || (c ? c < 3 ? (c > 1 && (G.n = -1), d(c, u)) : G.n = u : G.v = u); try { if (f = 2, i) { if (c || (o = "next"), t = i[o]) { if (!(t = t.call(i, u))) throw TypeError("iterator result is not an object"); if (!t.done) return t; u = t.value, c < 2 && (c = 0); } else 1 === c && (t = i.return) && t.call(i), c < 2 && (u = TypeError("The iterator does not provide a '" + o + "' method"), c = 1); i = e; } else if ((t = (y = G.n < 0) ? u : r.call(n, G)) !== a) break; } catch (t) { i = e, c = 1, u = t; } finally { f = 1; } } return { value: t, done: y }; }; }(r, o, i), !0), u; } var a = {}; function Generator() {} function GeneratorFunction() {} function GeneratorFunctionPrototype() {} t = Object.getPrototypeOf; var c = [][n] ? t(t([][n]())) : (_regeneratorDefine2(t = {}, n, function () { return this; }), t), u = GeneratorFunctionPrototype.prototype = Generator.prototype = Object.create(c); function f(e) { return Object.setPrototypeOf ? Object.setPrototypeOf(e, GeneratorFunctionPrototype) : (e.__proto__ = GeneratorFunctionPrototype, _regeneratorDefine2(e, o, "GeneratorFunction")), e.prototype = Object.create(u), e; } return GeneratorFunction.prototype = GeneratorFunctionPrototype, _regeneratorDefine2(u, "constructor", GeneratorFunctionPrototype), _regeneratorDefine2(GeneratorFunctionPrototype, "constructor", GeneratorFunction), GeneratorFunction.displayName = "GeneratorFunction", _regeneratorDefine2(GeneratorFunctionPrototype, o, "GeneratorFunction"), _regeneratorDefine2(u), _regeneratorDefine2(u, o, "Generator"), _regeneratorDefine2(u, n, function () { return this; }), _regeneratorDefine2(u, "toString", function () { return "[object Generator]"; }), (_regenerator = function _regenerator() { return { w: i, m: f }; })(); }
 function _regeneratorDefine2(e, r, n, t) { var i = Object.defineProperty; try { i({}, "", {}); } catch (e) { i = 0; } _regeneratorDefine2 = function _regeneratorDefine(e, r, n, t) { function o(r, n) { _regeneratorDefine2(e, r, function (e) { return this._invoke(r, n, e); }); } r ? i ? i(e, r, { value: n, enumerable: !t, configurable: !t, writable: !t }) : e[r] = n : (o("next", 0), o("throw", 1), o("return", 2)); }, _regeneratorDefine2(e, r, n, t); }
@@ -48,39 +52,39 @@ function _fetchWithTimeout(_x) {
   return _fetchWithTimeout2.apply(this, arguments);
 }
 function _fetchWithTimeout2() {
-  _fetchWithTimeout2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(url) {
+  _fetchWithTimeout2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(url) {
     var _window$gaAirportWeat2;
     var timeoutMs,
       controller,
       timeoutId,
-      _args = arguments;
-    return _regenerator().w(function (_context) {
-      while (1) switch (_context.p = _context.n) {
+      _args2 = arguments;
+    return _regenerator().w(function (_context2) {
+      while (1) switch (_context2.p = _context2.n) {
         case 0:
-          timeoutMs = _args.length > 1 && _args[1] !== undefined ? _args[1] : 2500;
+          timeoutMs = _args2.length > 1 && _args2[1] !== undefined ? _args2[1] : 2500;
           if (!((_window$gaAirportWeat2 = window.gaAirportWeatherHost) !== null && _window$gaAirportWeat2 !== void 0 && _window$gaAirportWeat2.fetchWithTimeout)) {
-            _context.n = 1;
+            _context2.n = 1;
             break;
           }
-          return _context.a(2, window.gaAirportWeatherHost.fetchWithTimeout(url, timeoutMs));
+          return _context2.a(2, window.gaAirportWeatherHost.fetchWithTimeout(url, timeoutMs));
         case 1:
           controller = new AbortController();
           timeoutId = setTimeout(() => controller.abort(), Math.max(250, Number(timeoutMs) || 2500));
-          _context.p = 2;
-          _context.n = 3;
+          _context2.p = 2;
+          _context2.n = 3;
           return fetch(url, {
             signal: controller.signal
           });
         case 3:
-          return _context.a(2, _context.v);
+          return _context2.a(2, _context2.v);
         case 4:
-          _context.p = 4;
+          _context2.p = 4;
           clearTimeout(timeoutId);
-          return _context.f(4);
+          return _context2.f(4);
         case 5:
-          return _context.a(2);
+          return _context2.a(2);
       }
-    }, _callee, null, [[2,, 4, 5]]);
+    }, _callee2, null, [[2,, 4, 5]]);
   }));
   return _fetchWithTimeout2.apply(this, arguments);
 }
@@ -88,37 +92,37 @@ function _fetchMetarArrayViaVariants(_x2) {
   return _fetchMetarArrayViaVariants2.apply(this, arguments);
 }
 function _fetchMetarArrayViaVariants2() {
-  _fetchMetarArrayViaVariants2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee2(sourceUrl) {
-    var _ref,
-      _ref$includeCodeTabs,
+  _fetchMetarArrayViaVariants2 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(sourceUrl) {
+    var _ref8,
+      _ref8$includeCodeTabs,
       includeCodeTabs,
-      _ref$includeDirect,
+      _ref8$includeDirect,
       includeDirect,
-      _ref$retries,
+      _ref8$retries,
       retries,
-      _ref$timeoutMs,
+      _ref8$timeoutMs,
       timeoutMs,
-      _ref$retryDelayMs,
+      _ref8$retryDelayMs,
       retryDelayMs,
-      _ref$retryErrorsOnly,
+      _ref8$retryErrorsOnly,
       retryErrorsOnly,
       variants,
       maxRetries,
       attempt,
       retryable,
-      _iterator,
-      _step,
+      _iterator2,
+      _step2,
       url,
       res,
       txt,
       arr,
-      _args2 = arguments,
+      _args3 = arguments,
       _t,
       _t2;
-    return _regenerator().w(function (_context2) {
-      while (1) switch (_context2.p = _context2.n) {
+    return _regenerator().w(function (_context3) {
+      while (1) switch (_context3.p = _context3.n) {
         case 0:
-          _ref = _args2.length > 1 && _args2[1] !== undefined ? _args2[1] : {}, _ref$includeCodeTabs = _ref.includeCodeTabs, includeCodeTabs = _ref$includeCodeTabs === void 0 ? false : _ref$includeCodeTabs, _ref$includeDirect = _ref.includeDirect, includeDirect = _ref$includeDirect === void 0 ? false : _ref$includeDirect, _ref$retries = _ref.retries, retries = _ref$retries === void 0 ? 1 : _ref$retries, _ref$timeoutMs = _ref.timeoutMs, timeoutMs = _ref$timeoutMs === void 0 ? 2500 : _ref$timeoutMs, _ref$retryDelayMs = _ref.retryDelayMs, retryDelayMs = _ref$retryDelayMs === void 0 ? 0 : _ref$retryDelayMs, _ref$retryErrorsOnly = _ref.retryErrorsOnly, retryErrorsOnly = _ref$retryErrorsOnly === void 0 ? false : _ref$retryErrorsOnly;
+          _ref8 = _args3.length > 1 && _args3[1] !== undefined ? _args3[1] : {}, _ref8$includeCodeTabs = _ref8.includeCodeTabs, includeCodeTabs = _ref8$includeCodeTabs === void 0 ? false : _ref8$includeCodeTabs, _ref8$includeDirect = _ref8.includeDirect, includeDirect = _ref8$includeDirect === void 0 ? false : _ref8$includeDirect, _ref8$retries = _ref8.retries, retries = _ref8$retries === void 0 ? 1 : _ref8$retries, _ref8$timeoutMs = _ref8.timeoutMs, timeoutMs = _ref8$timeoutMs === void 0 ? 2500 : _ref8$timeoutMs, _ref8$retryDelayMs = _ref8.retryDelayMs, retryDelayMs = _ref8$retryDelayMs === void 0 ? 0 : _ref8$retryDelayMs, _ref8$retryErrorsOnly = _ref8.retryErrorsOnly, retryErrorsOnly = _ref8$retryErrorsOnly === void 0 ? false : _ref8$retryErrorsOnly;
           variants = [];
           if (includeDirect) variants.push(sourceUrl);
           variants.push(`https://ga-proxy.einherjer.workers.dev/api/metar?src=${encodeURIComponent(sourceUrl)}`);
@@ -127,83 +131,83 @@ function _fetchMetarArrayViaVariants2() {
           attempt = 0;
         case 1:
           if (!(attempt < maxRetries)) {
-            _context2.n = 17;
+            _context3.n = 17;
             break;
           }
           retryable = false;
-          _iterator = _createForOfIteratorHelper(variants);
-          _context2.p = 2;
-          _iterator.s();
+          _iterator2 = _createForOfIteratorHelper(variants);
+          _context3.p = 2;
+          _iterator2.s();
         case 3:
-          if ((_step = _iterator.n()).done) {
-            _context2.n = 11;
+          if ((_step2 = _iterator2.n()).done) {
+            _context3.n = 11;
             break;
           }
-          url = _step.value;
-          _context2.p = 4;
-          _context2.n = 5;
+          url = _step2.value;
+          _context3.p = 4;
+          _context3.n = 5;
           return _fetchWithTimeout(url, timeoutMs);
         case 5:
-          res = _context2.v;
+          res = _context3.v;
           if (!(!res.ok || res.status === 204)) {
-            _context2.n = 6;
+            _context3.n = 6;
             break;
           }
           if (res.status >= 500) retryable = true;
-          return _context2.a(3, 10);
+          return _context3.a(3, 10);
         case 6:
-          _context2.n = 7;
+          _context3.n = 7;
           return res.text();
         case 7:
-          txt = _context2.v;
+          txt = _context3.v;
           arr = _parseMetarPayloadToArray(txt);
           if (!(Array.isArray(arr) && arr.length)) {
-            _context2.n = 8;
+            _context3.n = 8;
             break;
           }
-          return _context2.a(2, arr);
+          return _context3.a(2, arr);
         case 8:
-          _context2.n = 10;
+          _context3.n = 10;
           break;
         case 9:
-          _context2.p = 9;
-          _t = _context2.v;
+          _context3.p = 9;
+          _t = _context3.v;
           retryable = true;
         case 10:
-          _context2.n = 3;
+          _context3.n = 3;
           break;
         case 11:
-          _context2.n = 13;
+          _context3.n = 13;
           break;
         case 12:
-          _context2.p = 12;
-          _t2 = _context2.v;
-          _iterator.e(_t2);
+          _context3.p = 12;
+          _t2 = _context3.v;
+          _iterator2.e(_t2);
         case 13:
-          _context2.p = 13;
-          _iterator.f();
-          return _context2.f(13);
+          _context3.p = 13;
+          _iterator2.f();
+          return _context3.f(13);
         case 14:
           if (!(retryErrorsOnly && !retryable)) {
-            _context2.n = 15;
+            _context3.n = 15;
             break;
           }
-          return _context2.a(3, 17);
+          return _context3.a(3, 17);
         case 15:
           if (!(attempt < maxRetries - 1 && retryDelayMs > 0)) {
-            _context2.n = 16;
+            _context3.n = 16;
             break;
           }
-          _context2.n = 16;
+          _context3.n = 16;
           return new Promise(resolve => setTimeout(resolve, retryDelayMs));
         case 16:
           attempt++;
-          _context2.n = 1;
+          _context3.n = 1;
           break;
         case 17:
-          return _context2.a(2, null);
+          return _context3.a(2, null);
       }
-    }, _callee2, null, [[4, 9], [2, 12, 13, 14]]);
+    }, _callee3, null, [[4, 9], [2, 12, 13, 14]]);
   }));
   return _fetchMetarArrayViaVariants2.apply(this, arguments);
 }
@@ -423,11 +427,11 @@ window.renderAirportMetarLoadingWidget = function (icao, runwayText) {
             </div>
         </div>`;
 };
-function loadMetarWidget(_x3, _x4, _x5, _x6) {
-  return _loadMetarWidget.apply(this, arguments);
-}
-function _loadMetarWidget() {
-  _loadMetarWidget = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee3(icao, containerId, lat, lon) {
+function awLoadMetarWidget(_x3, _x4, _x5, _x6) {
+  return _awLoadMetarWidget.apply(this, arguments);
+} // Shared weather source and forecast cursor for all weather widgets.
+function _awLoadMetarWidget() {
+  _awLoadMetarWidget = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee4(icao, containerId, lat, lon) {
     var forceModern,
       options,
       container,
@@ -471,7 +475,6 @@ function _loadMetarWidget() {
       catText,
       cover,
       visib,
-      visMatch,
       wx,
       qnhStr,
       qMatch,
@@ -485,38 +488,29 @@ function _loadMetarWidget() {
       isResponsiveEmbed,
       runwayIcao,
       retries,
+      headerText,
+      modernHeaderText,
+      runwayText,
+      _window$gaAirportPopu2,
+      _ref9,
       rwyHdg,
       rwy1,
       rwy2,
-      rData,
-      match,
-      headerText,
-      modernHeaderText,
       svgTicks,
       i,
-      angleRad,
-      radius,
-      tx,
-      ty,
-      letter,
-      rwyHtml,
-      arrowHtml,
-      _window$gaAirportPopu2,
-      _svgTicks,
-      _i,
       isCard,
       isLong,
       len,
       sw,
       col,
+      angleRad,
+      tx,
+      ty,
       _angleRad,
       _tx,
       _ty,
-      _angleRad2,
-      _tx2,
-      _ty2,
-      _letter,
-      _arrowHtml,
+      letter,
+      arrowHtml,
       rwyHtmlModern,
       rwyW,
       rwyH,
@@ -539,27 +533,27 @@ function _loadMetarWidget() {
       _windValue,
       _isRetro,
       _isOps,
-      _args3 = arguments,
+      _args4 = arguments,
       _t3;
-    return _regenerator().w(function (_context3) {
-      while (1) switch (_context3.p = _context3.n) {
+    return _regenerator().w(function (_context4) {
+      while (1) switch (_context4.p = _context4.n) {
         case 0:
-          forceModern = _args3.length > 4 && _args3[4] !== undefined ? _args3[4] : false;
-          options = _args3.length > 5 && _args3[5] !== undefined ? _args3[5] : {};
+          forceModern = _args4.length > 4 && _args4[4] !== undefined ? _args4[4] : false;
+          options = _args4.length > 5 && _args4[5] !== undefined ? _args4[5] : {};
           container = document.getElementById(containerId);
           if (container) {
-            _context3.n = 1;
+            _context4.n = 1;
             break;
           }
-          return _context3.a(2);
+          return _context4.a(2);
         case 1:
           loadOptions = options && typeof options === 'object' ? options : {};
-          commitAllowed = () => typeof _dispatchUiCommitAllowed !== 'function' || _dispatchUiCommitAllowed(loadOptions);
+          commitAllowed = () => (!loadOptions.weatherCommit || loadOptions.weatherCommit()) && (typeof _dispatchUiCommitAllowed !== 'function' || _dispatchUiCommitAllowed(loadOptions));
           if (commitAllowed()) {
-            _context3.n = 2;
+            _context4.n = 2;
             break;
           }
-          return _context3.a(2);
+          return _context4.a(2);
         case 2:
           requestedRunwayIcao = String(loadOptions.runwayIcao || '').trim().toUpperCase(); // Zwingt das Widget ins "Modern"-Design, auch wenn das Retro-Theme aktiv ist (wichtig für Karten-Popups)
           isRetro = !forceModern && document.body.classList.contains('theme-retro');
@@ -577,17 +571,17 @@ function _loadMetarWidget() {
           }
           hasCoordinates = Number.isFinite(Number(lat)) && Number.isFinite(Number(lon));
           if (!(icao === 'POI' || !icao && !hasCoordinates)) {
-            _context3.n = 3;
+            _context4.n = 3;
             break;
           }
           container.style.display = 'none';
-          return _context3.a(2);
+          return _context4.a(2);
         case 3:
           icaoNorm = String(icao || '').trim().toUpperCase();
           looksLikeIcao = /^[A-Z0-9]{4}$/.test(icaoNorm);
           weatherLocationLabel = icaoNorm || 'diesem Platz';
           container.style.display = 'block';
-          _context3.p = 4;
+          _context4.p = 4;
           metarDataList = [];
           isFallback = false;
           foundIcao = icaoNorm; // Zehn Minuten gültiger In-Memory-Cache. Neben exakten Platz-/Koordinaten-
@@ -597,33 +591,33 @@ function _loadMetarWidget() {
           cacheKey = (icaoNorm || 'COORDS') + (hasCoordinates ? `_${Number(lat).toFixed(2)}_${Number(lon).toFixed(2)}` : '');
           cachedEntry = _getMetarMemoryEntry(cacheKey) || _getMetarMemoryEntry(icaoNorm);
           if (!cachedEntry) {
-            _context3.n = 5;
+            _context4.n = 5;
             break;
           }
           metarDataList = cachedEntry.data;
           isFallback = cachedEntry.isFallback;
           foundIcao = cachedEntry.foundIcao;
-          _context3.n = 13;
+          _context4.n = 13;
           break;
         case 5:
           cachedRegion = hasCoordinates ? _getCachedMetarRegionForPoint(lat, lon) : null;
           cachedRegionSelection = cachedRegion ? _selectMetarForAirport(cachedRegion.data, icaoNorm, lat, lon) : null;
           if (!(cachedRegionSelection !== null && cachedRegionSelection !== void 0 && cachedRegionSelection.station)) {
-            _context3.n = 6;
+            _context4.n = 6;
             break;
           }
           metarDataList = [cachedRegionSelection.station];
           isFallback = cachedRegionSelection.isFallback;
           foundIcao = String(cachedRegionSelection.station.icaoId || cachedRegionSelection.station.icao || icaoNorm).trim().toUpperCase();
-          _context3.n = 9;
+          _context4.n = 9;
           break;
         case 6:
           if (!looksLikeIcao) {
-            _context3.n = 9;
+            _context4.n = 9;
             break;
           }
           directUrl = `https://aviationweather.gov/api/data/metar?ids=${icaoNorm}&format=json`;
-          _context3.n = 7;
+          _context4.n = 7;
           return _fetchMetarArrayViaVariants(directUrl, {
             includeCodeTabs: true,
             includeDirect: false,
@@ -632,24 +626,24 @@ function _loadMetarWidget() {
             retryDelayMs: 350
           });
         case 7:
-          mainData = _context3.v;
+          mainData = _context4.v;
           if (commitAllowed()) {
-            _context3.n = 8;
+            _context4.n = 8;
             break;
           }
-          return _context3.a(2);
+          return _context4.a(2);
         case 8:
           if (Array.isArray(mainData)) metarDataList = mainData;
         case 9:
           if (!((!metarDataList || metarDataList.length === 0) && hasCoordinates)) {
-            _context3.n = 12;
+            _context4.n = 12;
             break;
           }
           latMin = lat - 0.6, latMax = lat + 0.6;
           lonMin = lon - 0.8, lonMax = lon + 0.8;
           bbox = [latMin, lonMin, latMax, lonMax].map(coord => coord.toFixed(5)).join(',');
           fbUrl = `https://aviationweather.gov/api/data/metar?bbox=${bbox}&format=json`;
-          _context3.n = 10;
+          _context4.n = 10;
           return _fetchMetarArrayViaVariants(fbUrl, {
             includeCodeTabs: true,
             includeDirect: false,
@@ -658,12 +652,12 @@ function _loadMetarWidget() {
             retryDelayMs: 350
           });
         case 10:
-          fbData = _context3.v;
+          fbData = _context4.v;
           if (commitAllowed()) {
-            _context3.n = 11;
+            _context4.n = 11;
             break;
           }
-          return _context3.a(2);
+          return _context4.a(2);
         case 11:
           if (Array.isArray(fbData)) {
             _storeMetarRegion(fbData, {
@@ -708,27 +702,27 @@ function _loadMetarWidget() {
           }
         case 13:
           if (commitAllowed()) {
-            _context3.n = 14;
+            _context4.n = 14;
             break;
           }
-          return _context3.a(2);
+          return _context4.a(2);
         case 14:
           container = document.getElementById(containerId);
           if (container) {
-            _context3.n = 15;
+            _context4.n = 15;
             break;
           }
-          return _context3.a(2);
+          return _context4.a(2);
         case 15:
           if (!Array.isArray(metarDataList)) metarDataList = [];
           metarDataList = metarDataList.filter(m => m && typeof m === 'object');
           if (!(!metarDataList || metarDataList.length === 0)) {
-            _context3.n = 17;
+            _context4.n = 17;
             break;
           }
           loadingCard = (_container$querySelec = (_container = container).querySelector) === null || _container$querySelec === void 0 ? void 0 : _container$querySelec.call(_container, '[data-ga-metar-loading="true"]');
           if (!(loadOptions.preserveLoadingContent && loadingCard)) {
-            _context3.n = 16;
+            _context4.n = 16;
             break;
           }
           status = loadingCard.querySelector('.ga-weather-loading-status');
@@ -743,7 +737,7 @@ function _loadMetarWidget() {
             windValue.style.color = '#555';
           }
           loadingCard.removeAttribute('data-ga-metar-loading');
-          return _context3.a(2);
+          return _context4.a(2);
         case 16:
           if (isRetro) {
             container.innerHTML = `
@@ -764,18 +758,19 @@ function _loadMetarWidget() {
                         ${looksLikeIcao ? `<a data-ga-airport-weather="${icaoNorm}" href="https://metar-taf.com/de/${icaoNorm}" target="_blank" style="display:inline-block; background:#4da6ff; color:#111; padding:6px 12px; border-radius:4px; text-decoration:none; font-size:12px; font-weight:bold; transition: background 0.2s;">${_awText('airportWx.manualSearch', 'Manuell suchen ➔')}</a>` : ''}
                     </div>`;
           }
-          return _context3.a(2);
+          return _context4.a(2);
         case 17:
           metar = metarDataList[0];
           if (!(!metar || typeof metar !== 'object')) {
-            _context3.n = 18;
+            _context4.n = 18;
             break;
           }
           container.innerHTML = `<div style="padding:10px; text-align:center; color:#d93829; font-size:12px; background:#1a1a1a;">${_awText('airportWx.noUsable', 'Kein verwertbares METAR für {icao} gefunden.', {
             icao
           })}</div>`;
-          return _context3.a(2);
+          return _context4.a(2);
         case 18:
+          if (loadOptions.onMetar) loadOptions.onMetar(metar);
           raw = typeof metar.rawOb === 'string' ? metar.rawOb : typeof metar.raw === 'string' ? metar.raw : "";
           temp = metar.temp != null ? metar.temp + '°C' : '--';
           dewp = metar.dewp != null ? metar.dewp + '°C' : '--';
@@ -784,9 +779,7 @@ function _loadMetarWidget() {
           if (catText === "VFR") catColor = "#33ff33";else if (catText === "MVFR") catColor = "#4da6ff";else if (catText === "IFR") catColor = "#ff3333";else if (catText === "LIFR") catColor = "#ff33ff";
           cover = metar.cover || "--";
           if (cover === "Clear") cover = "CLR";
-          visib = metar.visib !== undefined && metar.visib !== null ? metar.visib + ' sm' : '--';
-          visMatch = raw.match(/\s(\d{4})\s/);
-          if (raw.includes(' 9999 ')) visib = '> 10 km';else if (visMatch && !visMatch[1].startsWith('0000')) visib = parseInt(visMatch[1], 10) + ' m';
+          visib = awMetarVisibility(metar) || '--';
           wx = metar.wxString ? metar.wxString.replace(/,/g, ' ') : 'NIL';
           qnhStr = "--";
           qMatch = raw.match ? raw.match(/Q(\d{4})/) : null;
@@ -802,88 +795,44 @@ function _loadMetarWidget() {
           runwayIcao = requestedRunwayIcao || (looksLikeIcao ? icaoNorm : foundIcao); // Für Vollansicht: auf Pisten-Daten warten; für Mini-Popup direkt aus Cache lesen
           retries = 0;
           if (!(!isMini && !loadOptions.skipRunwayWait)) {
-            _context3.n = 22;
+            _context4.n = 22;
             break;
           }
         case 19:
           if (!(runwayIcao && !runwayCache[runwayIcao] && retries < 15)) {
-            _context3.n = 22;
+            _context4.n = 22;
             break;
           }
-          _context3.n = 20;
+          _context4.n = 20;
           return new Promise(r => setTimeout(r, 200));
         case 20:
           if (commitAllowed()) {
-            _context3.n = 21;
+            _context4.n = 21;
             break;
           }
-          return _context3.a(2);
+          return _context4.a(2);
         case 21:
           retries++;
-          _context3.n = 19;
+          _context4.n = 19;
           break;
         case 22:
           if (commitAllowed()) {
-            _context3.n = 23;
+            _context4.n = 23;
             break;
           }
-          return _context3.a(2);
+          return _context4.a(2);
         case 23:
           container = document.getElementById(containerId);
           if (container) {
-            _context3.n = 24;
+            _context4.n = 24;
             break;
           }
-          return _context3.a(2);
+          return _context4.a(2);
         case 24:
-          rwyHdg = 0;
-          rwy1 = "";
-          rwy2 = "";
-          rData = runwayIcao ? runwayCache[runwayIcao] : null;
-          if (rData && !rData.includes('Keine Daten')) {
-            match = rData.match(/(?:^|\s|\n|<br\s*\/?>)(0[1-9]|[12]\d|3[0-6])([LRC]?)\s*\/\s*((?:0[1-9]|[12]\d|3[0-6])[LRC]?)/);
-            if (match) {
-              rwyHdg = parseInt(match[1], 10) * 10;
-              rwy1 = match[1] + match[2];
-              rwy2 = match[3];
-            }
-          }
           headerText = isFallback ? `Nearest: ${foundIcao}` : `Station: ${icaoNorm}`;
           modernHeaderText = isFallback ? `▶ NEAREST: ${foundIcao}` : `▶ STATION: ${icaoNorm}`;
+          runwayText = runwayIcao ? runwayCache[runwayIcao] : '';
           if (isRetro) {
-            svgTicks = `
-                <circle cx="80" cy="80" r="70" stroke="#444" stroke-width="1.5" fill="none" stroke-dasharray="30.65 6" transform="rotate(2.45 80 80)"/>
-                <circle cx="80" cy="80" r="3" fill="#444" />`; // Füge N, O, S, W und 30-Grad-Schritte rotierend hinzu
-            for (i = 0; i < 360; i += 30) {
-              angleRad = (i - 90) * Math.PI / 180;
-              radius = 61;
-              tx = 80 + radius * Math.cos(angleRad);
-              ty = 80 + radius * Math.sin(angleRad); // dx="-2" gleicht den kursiven Schwung (Slant) von Caveat aus, der sonst wie eine Rechtsrotation wirkt
-              if (i % 90 === 0) {
-                letter = i === 0 ? 'N' : i === 90 ? _awText('mapContext.compass.east', 'O') : i === 180 ? 'S' : 'W';
-                svgTicks += `<text x="${tx}" y="${ty}" dx="-2" font-family="'Caveat', cursive" font-size="22" fill="#222" font-weight="bold" text-anchor="middle" dominant-baseline="central" transform="rotate(${i} ${tx} ${ty})">${letter}</text>`;
-              } else {
-                svgTicks += `<text x="${tx}" y="${ty}" dx="-1.5" font-family="'Caveat', cursive" font-size="14" fill="#666" font-weight="bold" text-anchor="middle" dominant-baseline="central" transform="rotate(${i} ${tx} ${ty})">${i / 10}</text>`;
-              }
-            }
-            rwyHtml = '';
-            if (rwy1 && rwy2) {
-              // Piste wurde oben und unten gekürzt (y="29", height="102") um Abstand zu den Zahlen zu gewinnen
-              rwyHtml = `
-                    <g transform="translate(80,80) rotate(${rwyHdg}) translate(-80,-80)">
-                        <rect x="68" y="29" width="24" height="102" fill="none" stroke="#222" stroke-width="1.5" stroke-dasharray="30 4 15 4"/>
-                        <text x="80" y="43" font-family="'Caveat', cursive" font-size="14" fill="#111" font-weight="bold" text-anchor="middle" transform="rotate(180 80 39)">${rwy2}</text>
-                        <text x="80" y="125" font-family="'Caveat', cursive" font-size="14" fill="#111" font-weight="bold" text-anchor="middle">${rwy1}</text>
-                    </g>`;
-            }
-            arrowHtml = '';
-            if (!isVRB && wspd > 0 && wdir !== null && wdir !== "VRB") {
-              arrowHtml = `
-                <g transform="rotate(${wdir} 80 80)">
-                    <path d="M 80 10 C 77 30, 83 50, 80 65" stroke="#1a73e8" stroke-width="2.5" fill="none" stroke-linecap="round"/>
-                    <path d="M 74 54 L 80 68 L 86 52" stroke="#1a73e8" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
-                </g>`;
-            }
             container.innerHTML = `
                 <div style="font-family: 'Caveat', cursive; color: #222; padding: 5px; position:relative;">
                     <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid rgba(0,0,0,0.5); padding-bottom: 2px; margin-bottom: 12px;">
@@ -900,31 +849,28 @@ function _loadMetarWidget() {
                             <div><span style="color:#666; font-size: 16px;">Temp:</span> <b>${temp}</b> <span style="color:#666; font-size: 16px; margin-left:8px;">Dew:</span> <b>${dewp}</b></div>
                             <div><span style="color:#666; font-size: 16px;">QNH:</span> <b>${qnhStr}</b> <span style="color:#666; font-size: 16px; margin-left:8px;">Cloud:</span> <b>${cover}</b></div>
                         </div>
-                        <div style="position:relative; width: 130px; height: 130px; flex-shrink: 0;">
-                            <svg viewBox="0 0 160 160" style="width:100%; height:100%; overflow:visible;">
-                                ${svgTicks}${rwyHtml}${arrowHtml}
-                            </svg>
-                        </div>
+                        ${awPaperWindRose(isVRB ? null : wdir, wspd, runwayText, windText)}
                     </div>
                 </div>`;
           } else {
-            _svgTicks = '';
-            for (_i = 0; _i < 360; _i += 5) {
-              isCard = _i % 90 === 0, isLong = _i % 10 === 0;
+            _ref9 = _getMetarRunwayVisualData(runwayText) || {}, rwyHdg = _ref9.headingDeg, rwy1 = _ref9.end1, rwy2 = _ref9.end2;
+            svgTicks = '';
+            for (i = 0; i < 360; i += 5) {
+              isCard = i % 90 === 0, isLong = i % 10 === 0;
               len = isCard ? 8 : isLong ? 5 : 3, sw = isCard ? 2 : 1, col = isCard ? '#111' : '#888';
-              _svgTicks += `<line x1="80" y1="2" x2="80" y2="${2 + len}" stroke="${col}" stroke-width="${sw}" transform="rotate(${_i} 80 80)" />`;
-              if (_i % 30 === 0 && !isCard) {
-                _angleRad = (_i - 90) * Math.PI / 180, _tx = 80 + 61 * Math.cos(_angleRad), _ty = 80 + 61 * Math.sin(_angleRad);
-                _svgTicks += `<text x="${_tx}" y="${_ty}" font-family="sans-serif" font-size="10" fill="#333" font-weight="bold" text-anchor="middle" dominant-baseline="central" transform="rotate(${_i} ${_tx} ${_ty})">${_i / 10}</text>`;
+              svgTicks += `<line x1="80" y1="2" x2="80" y2="${2 + len}" stroke="${col}" stroke-width="${sw}" transform="rotate(${i} 80 80)" />`;
+              if (i % 30 === 0 && !isCard) {
+                angleRad = (i - 90) * Math.PI / 180, tx = 80 + 61 * Math.cos(angleRad), ty = 80 + 61 * Math.sin(angleRad);
+                svgTicks += `<text x="${tx}" y="${ty}" font-family="sans-serif" font-size="10" fill="#333" font-weight="bold" text-anchor="middle" dominant-baseline="central" transform="rotate(${i} ${tx} ${ty})">${i / 10}</text>`;
               } else if (isCard) {
-                _angleRad2 = (_i - 90) * Math.PI / 180, _tx2 = 80 + 61 * Math.cos(_angleRad2), _ty2 = 80 + 61 * Math.sin(_angleRad2);
-                _letter = _i === 0 ? 'N' : _i === 90 ? _awText('mapContext.compass.east', 'O') : _i === 180 ? 'S' : 'W';
-                _svgTicks += `<text x="${_tx2}" y="${_ty2}" font-family="sans-serif" font-size="14" fill="#111" font-weight="bold" text-anchor="middle" dominant-baseline="central" transform="rotate(${_i} ${_tx2} ${_ty2})">${_letter}</text>`;
+                _angleRad = (i - 90) * Math.PI / 180, _tx = 80 + 61 * Math.cos(_angleRad), _ty = 80 + 61 * Math.sin(_angleRad);
+                letter = i === 0 ? 'N' : i === 90 ? _awText('mapContext.compass.east', 'O') : i === 180 ? 'S' : 'W';
+                svgTicks += `<text x="${_tx}" y="${_ty}" font-family="sans-serif" font-size="14" fill="#111" font-weight="bold" text-anchor="middle" dominant-baseline="central" transform="rotate(${i} ${_tx} ${_ty})">${letter}</text>`;
               }
             }
-            _arrowHtml = '';
+            arrowHtml = '';
             if (!isVRB && wspd > 0 && wdir !== null && wdir !== "VRB") {
-              _arrowHtml = `
+              arrowHtml = `
                 <svg viewBox="0 0 160 160" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:10; pointer-events:none;">
                     <g transform="rotate(${wdir} 80 80)">
                         <line x1="80" y1="6" x2="80" y2="70" stroke="#1a73e8" stroke-width="4" stroke-linecap="round"/>
@@ -995,36 +941,36 @@ function _loadMetarWidget() {
                         </div>
                         <div class="ga-weather-windrose" style="position:relative; width:${cSize}; height:${cHeight}; aspect-ratio:1; flex:${isResponsiveEmbed ? '0 1 auto' : '0 0 auto'}; align-self:${isResponsiveEmbed ? 'center' : 'auto'}; ${isMini ? 'margin-left:auto;' : isResponsiveEmbed ? 'margin:2px auto 0;' : ''} border:4px solid #a8a291; border-radius:50%; background:#fcfaf5; box-shadow:inset 0 2px 8px rgba(0,0,0,0.1), 0 2px 6px rgba(0,0,0,0.2);">
                             <svg viewBox="0 0 160 160" style="position:absolute; top:0; left:0; width:100%; height:100%; z-index:1; pointer-events:none;">
-                                ${_svgTicks}
+                                ${svgTicks}
                             </svg>
                             ${rwyHtmlModern}
-                            ${_arrowHtml}
+                            ${arrowHtml}
                         </div>
                     </div>
                 </div>`;
           }
-          _context3.n = 29;
+          _context4.n = 29;
           break;
         case 25:
-          _context3.p = 25;
-          _t3 = _context3.v;
+          _context4.p = 25;
+          _t3 = _context4.v;
           console.error("METAR fetch error:", _t3);
           if (commitAllowed()) {
-            _context3.n = 26;
+            _context4.n = 26;
             break;
           }
-          return _context3.a(2);
+          return _context4.a(2);
         case 26:
           container = document.getElementById(containerId);
           if (container) {
-            _context3.n = 27;
+            _context4.n = 27;
             break;
           }
-          return _context3.a(2);
+          return _context4.a(2);
         case 27:
           _loadingCard = (_container$querySelec2 = (_container2 = container).querySelector) === null || _container$querySelec2 === void 0 ? void 0 : _container$querySelec2.call(_container2, '[data-ga-metar-loading="true"]');
           if (!(loadOptions.preserveLoadingContent && _loadingCard)) {
-            _context3.n = 28;
+            _context4.n = 28;
             break;
           }
           _status = _loadingCard.querySelector('.ga-weather-loading-status');
@@ -1039,7 +985,7 @@ function _loadMetarWidget() {
             _windValue.style.color = '#555';
           }
           _loadingCard.removeAttribute('data-ga-metar-loading');
-          return _context3.a(2);
+          return _context4.a(2);
         case 28:
           _isRetro = document.body.classList.contains('theme-retro');
           _isOps = document.body.classList.contains('theme-ops1940');
@@ -1049,9 +995,884 @@ function _loadMetarWidget() {
             container.innerHTML = `<div style="padding:10px; text-align:center; color:#d93829; font-size:12px; background:#1a1a1a;">${_awText('airportWx.loadError', 'Fehler beim Laden des METARs:')} <br/>${_t3.message || _t3}</div>`;
           }
         case 29:
-          return _context3.a(2);
+          return _context4.a(2);
       }
-    }, _callee3, null, [[4, 25]]);
+    }, _callee4, null, [[4, 25]]);
+  }));
+  return _awLoadMetarWidget.apply(this, arguments);
+}
+var AW_SOURCE_KEY = 'ga_briefing_weather_source';
+var AW_SOURCES = {
+  dwd: 'DWD ICON-EU',
+  openmeteo: 'Open-Meteo',
+  metar: 'METAR'
+};
+var AW_HOUR = 3600000;
+var awWidgetLoads = new Map();
+var awWeatherHour = null;
+var awWeatherReloadTimer = null;
+var awSigmetCache = new Map();
+var AW_SIGMET_ROOT = 'https://mapservices.weather.noaa.gov/vector/rest/services/aviation/awc_aviation_weather/MapServer/';
+var AW_SIGMET_FIELDS = {
+  111: 'hazard,severity,valid_time_from,valid_time_to,min_ft_msl,max_ft_msl,raw_text',
+  112: 'hazard,qualifier,validtimef,validtimet,base,top,rawsigmet'
+};
+function awWeatherSource() {
+  var saved = localStorage.getItem(AW_SOURCE_KEY);
+  return Object.prototype.hasOwnProperty.call(AW_SOURCES, saved) ? saved : 'dwd';
+}
+function awWeatherValidAt() {
+  return awWeatherSource() === 'dwd' ? awWeatherHour : null;
+}
+function awWeatherSourceControl(observedAt) {
+  var _awWeatherValidAt;
+  var source = awWeatherSource();
+  var sources = Object.keys(AW_SOURCES);
+  var next = AW_SOURCES[sources[(sources.indexOf(source) + 1) % sources.length]];
+  var change = _awText('airportWx.nextSource', 'Wetterquelle wechseln zu {source}', {
+    source: next
+  });
+  var term = (_awWeatherValidAt = awWeatherValidAt()) !== null && _awWeatherValidAt !== void 0 ? _awWeatherValidAt : Number.isFinite(observedAt) && observedAt > 1e12 ? observedAt : Math.floor(Date.now() / AW_HOUR) * AW_HOUR;
+  var clock = new Date(term).toISOString().slice(11, 16) + ' UTC';
+  return '<div class="ga-briefing-weather-source"><button type="button" class="ga-skin-control ga-weather-source-cycle" data-aw-source title="' + _escapeMetarWidgetText(change) + '" aria-label="' + _escapeMetarWidgetText(AW_SOURCES[source] + ' · ' + change) + '">' + AW_SOURCES[source] + '</button>' + (source === 'dwd' ? '<span class="ga-weather-stepper" data-aw-term="' + term + '">' + '<button type="button" class="ga-skin-control" data-aw-step="-1" aria-label="' + _escapeMetarWidgetText(_awText('airportWx.hourEarlier', 'Eine Stunde zurück')) + '">−</button>' + '<button type="button" class="ga-skin-control ga-weather-step-clock' + (awWeatherHour !== null ? ' is-preview' : '') + '" data-aw-step="0" title="' + _escapeMetarWidgetText(_awText('airportWx.backToLive', 'Zurück zu Live')) + '">' + clock + '</button>' + '<button type="button" class="ga-skin-control" data-aw-step="1" aria-label="' + _escapeMetarWidgetText(_awText('airportWx.hourLater', 'Eine Stunde vor')) + '">+</button></span>' : '') + '</div>';
+}
+function awReloadWidgets() {
+  window.dispatchEvent(new Event('ga:briefing-weather-source'));
+  awWidgetLoads.forEach((state, id) => {
+    if (state.container === document.getElementById(id)) loadMetarWidget.apply(void 0, _toConsumableArray(state.args));else {
+      state.controller.abort();
+      awWidgetLoads.delete(id);
+    }
+  });
+}
+document.addEventListener('click', event => {
+  var _event$target, _event$target$closest, _awNumber;
+  var button = (_event$target = event.target) === null || _event$target === void 0 || (_event$target$closest = _event$target.closest) === null || _event$target$closest === void 0 ? void 0 : _event$target$closest.call(_event$target, '[data-aw-source], [data-aw-step]');
+  if (!button) return;
+  if (button.hasAttribute('data-aw-source')) {
+    clearTimeout(awWeatherReloadTimer);
+    var sources = Object.keys(AW_SOURCES);
+    localStorage.setItem(AW_SOURCE_KEY, sources[(sources.indexOf(awWeatherSource()) + 1) % sources.length]);
+    awWeatherReloadTimer = setTimeout(awReloadWidgets, 0);
+    return;
+  }
+  if (awWeatherSource() !== 'dwd') return;
+  var step = Number(button.dataset.awStep);
+  if (step === 0) {
+    clearTimeout(awWeatherReloadTimer);
+    awWeatherHour = null;
+    awWeatherReloadTimer = setTimeout(awReloadWidgets, 0);
+    return;
+  }
+  var current = Math.floor(Date.now() / AW_HOUR) * AW_HOUR;
+  var shown = (_awNumber = awNumber(button.parentElement.dataset.awTerm)) !== null && _awNumber !== void 0 ? _awNumber : current;
+  var target = (awWeatherHour !== null && awWeatherHour !== void 0 ? awWeatherHour : shown) + step * AW_HOUR;
+  var validAt = Math.max(current - 3 * AW_HOUR, Math.min(current + 12 * AW_HOUR, target));
+  if (validAt === awWeatherHour) return;
+  clearTimeout(awWeatherReloadTimer);
+  awWeatherHour = validAt;
+  var label = new Date(validAt).toISOString().slice(11, 16) + ' UTC';
+  document.querySelectorAll('.ga-weather-step-clock').forEach(clock => {
+    clock.textContent = label;
+    clock.classList.add('is-preview');
+  });
+  awWeatherReloadTimer = setTimeout(awReloadWidgets, 240);
+}, true); // The map drawer stops clicks from bubbling to the document.
+
+function awNumber(value) {
+  return value === '' || value == null || !Number.isFinite(Number(value)) ? null : Number(value);
+}
+function awMetarVisibility(metar) {
+  var raw = metar.rawOb || metar.raw || '';
+  var metric = /(?:^|\s)(?:\d{3}|VRB)\d{2,3}(?:G\d{2,3})?(?:KT|MPS|KMH)\s+(?:\d{3}V\d{3}\s+)?(\d{4})(?:NDV)?(?=\s|$)/.exec(raw);
+  if ((metric === null || metric === void 0 ? void 0 : metric[1]) === '9999' || /\bCAVOK\b/.test(raw)) return '≥10 km';
+  if (metric) return (Number(metric[1]) / 1000).toFixed(1) + ' km';
+  return metar.visib != null ? metar.visib + ' sm' : '';
+}
+function awMetarCloudBases(metar) {
+  var layers = new Map();
+  (Array.isArray(metar.clouds) ? metar.clouds : []).forEach(layer => {
+    var base = awNumber(layer.base);
+    if (/^(FEW|SCT|BKN|OVC|VV)$/.test(layer.cover) && base !== null && base >= 0) {
+      layers.set(layer.cover + base, {
+        cover: layer.cover,
+        base
+      });
+    }
+  });
+  var raw = metar.rawOb || metar.raw || '';
+  var matches = /\b(FEW|SCT|BKN|OVC|VV)(\d{3})(?:CB|TCU)?\b/g;
+  var match;
+  while (match = matches.exec(raw)) {
+    var base = Number(match[2]) * 100;
+    layers.set(match[1] + base, {
+      cover: match[1],
+      base
+    });
+  }
+  return Array.from(layers.values()).sort((a, b) => a.base - b.base);
+}
+function awModelCloudBases(sample, elevationFt) {
+  var _awNumber2, _layers$;
+  var ground = (_awNumber2 = awNumber(elevationFt)) !== null && _awNumber2 !== void 0 ? _awNumber2 : awNumber(sample.modelTerrainMslM) === null ? null : sample.modelTerrainMslM * 3.28084;
+  var profile = (sample.pressureProfile || []).filter(row => Number.isFinite(row.cloudPct) && Number.isFinite(row.geopotentialFt) && (ground === null || row.geopotentialFt >= ground));
+  var layers = vpDeriveCloudLayersFromPressureProfile(profile, ground !== null && ground !== void 0 ? ground : 0);
+  var height = mslFt => Number.isFinite(mslFt) ? {
+    mslFt,
+    aglFt: ground !== null && mslFt >= ground ? mslFt - ground : null
+  } : null;
+  var ceilingM = awNumber(sample.ceilingMslM);
+  var ceilingFt = ceilingM !== null && ceilingM > 0 && ceilingM < 15000 && (sample.cloudTotalPct == null || sample.cloudTotalPct > 50) ? ceilingM * 3.28084 : null;
+  var profileBaseFt = (_layers$ = layers[0]) === null || _layers$ === void 0 ? void 0 : _layers$.baseMsl;
+  // A higher sampled layer cannot establish the lowest base when CEILING is below it.
+  var hasDistinctBase = ceilingFt === null || profileBaseFt <= ceilingFt - 10;
+  return {
+    base: hasDistinctBase ? height(profileBaseFt) : null,
+    ceiling: height(ceilingFt)
+  };
+}
+function awMetarCloudHeights(metar) {
+  var layers = awMetarCloudBases(metar);
+  var base = layers.find(layer => layer.cover !== 'VV');
+  var ceiling = layers.find(layer => /^(BKN|OVC|VV)$/.test(layer.cover));
+  return {
+    base: base ? {
+      aglFt: base.base
+    } : null,
+    ceiling: ceiling ? {
+      aglFt: ceiling.base
+    } : null
+  };
+}
+function awEstimateFlightCategory(visibilityM, ceilingFtAgl, hasNoCeiling) {
+  if (!Number.isFinite(visibilityM) || visibilityM < 0 || !Number.isFinite(ceilingFtAgl) && !hasNoCeiling) return '';
+  // AWC categories use statute miles for visibility and feet AGL for ceiling.
+  var miles = visibilityM / 1609.344;
+  var ceiling = Number.isFinite(ceilingFtAgl) ? ceilingFtAgl : Infinity;
+  return awFlightCategoryThresholds(miles, ceiling);
+}
+function awFlightCategoryThresholds(miles, ceiling) {
+  if (miles < 1 || ceiling < 500) return 'LIFR';
+  if (miles < 3 || ceiling < 1000) return 'IFR';
+  if (miles <= 5 || ceiling <= 3000) return 'MVFR';
+  return 'VFR';
+}
+function awModelFlightCategory(sample, ceiling) {
+  var visibility = awNumber(sample.visibilityM);
+  var totalCover = awNumber(sample.cloudTotalPct);
+  var cat = awEstimateFlightCategory(visibility, ceiling === null || ceiling === void 0 ? void 0 : ceiling.aglFt, !ceiling && totalCover !== null && totalCover <= 50);
+  var limit = visibility === null && Number.isFinite(ceiling === null || ceiling === void 0 ? void 0 : ceiling.aglFt) ? awFlightCategoryThresholds(Infinity, ceiling.aglFt) : '';
+  return {
+    cat,
+    ceilingCategory: limit === 'VFR' ? '' : limit
+  };
+}
+function awFlightCategoryBadge(category, estimated, ceilingCategory) {
+  var cat = String(category || ceilingCategory || '').toUpperCase();
+  if (!/^(VFR|MVFR|IFR|LIFR)$/.test(cat)) return '';
+  var ceilingOnly = !category && !!ceilingCategory;
+  var text = ceilingOnly && cat !== 'LIFR' ? '≤ ' + cat : cat;
+  var label = ceilingOnly ? _awText('airportWx.categoryCeilingOnly', 'Obergrenze anhand des Ceilings. Sichtweite fehlt.') : estimated ? _awText('airportWx.categoryEstimate', 'Aus Sichtweite und Ceiling geschätzt') : _awText('airportWx.categoryMetar', 'Wetterkategorie aus METAR');
+  return '<span class="route-weather-badge is-' + cat.toLowerCase() + '" title="' + _escapeMetarWidgetText(label) + '" aria-label="' + text + ' · ' + _escapeMetarWidgetText(label) + '">' + text + '</span>';
+}
+function awReadModelWeather(_x7, _x8, _x9) {
+  return _awReadModelWeather.apply(this, arguments);
+}
+function _awReadModelWeather() {
+  _awReadModelWeather = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee5(source, points, signal) {
+    var validAt,
+      options,
+      output,
+      samples,
+      missing,
+      _samples,
+      _args5 = arguments,
+      _t4;
+    return _regenerator().w(function (_context5) {
+      while (1) switch (_context5.p = _context5.n) {
+        case 0:
+          validAt = _args5.length > 3 && _args5[3] !== undefined ? _args5[3] : null;
+          options = {
+            signal,
+            includePressure: true,
+            includeContour: true,
+            maxConcurrency: 2,
+            validAt
+          };
+          output = points.map(() => null);
+          if (!(source === 'dwd' && (window.GA_DWD_WEATHER_URL || window.fetchStaticDwdWeatherPoints))) {
+            _context5.n = 4;
+            break;
+          }
+          _context5.p = 1;
+          _context5.n = 2;
+          return window.fetchDwdWeatherPoints(points, options);
+        case 2:
+          samples = _context5.v;
+          samples.forEach((sample, i) => {
+            if (sample) output[i] = {
+              source: 'dwd',
+              sample
+            };
+          });
+          _context5.n = 4;
+          break;
+        case 3:
+          _context5.p = 3;
+          _t4 = _context5.v;
+          if (!(signal !== null && signal !== void 0 && signal.aborted || (_t4 === null || _t4 === void 0 ? void 0 : _t4.name) === 'AbortError')) {
+            _context5.n = 4;
+            break;
+          }
+          throw _t4;
+        case 4:
+          if (!(source === 'dwd' && validAt !== null)) {
+            _context5.n = 5;
+            break;
+          }
+          return _context5.a(2, output);
+        case 5:
+          missing = points.map((point, i) => output[i] ? null : {
+            point,
+            i
+          }).filter(Boolean);
+          if (!missing.length) {
+            _context5.n = 7;
+            break;
+          }
+          _context5.n = 6;
+          return window.fetchOpenMeteoWeatherPoints(missing.map(row => row.point), options);
+        case 6:
+          _samples = _context5.v;
+          _samples.forEach((sample, i) => {
+            if (sample) output[missing[i].i] = {
+              source: 'openmeteo',
+              sample
+            };
+          });
+        case 7:
+          return _context5.a(2, output);
+      }
+    }, _callee5, null, [[1, 3]]);
+  }));
+  return _awReadModelWeather.apply(this, arguments);
+}
+function awWeatherSymbols(code) {
+  var metarWx = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : '';
+  var symbols = [];
+  var add = (weatherCode, prefix) => {
+    var name = vpSignificantWeatherSymbol(weatherCode);
+    if (!name || symbols.some(item => item.name === name)) return;
+    var label = _awText('map.profile.weatherMarker.' + name, VP_WEATHER_MARKER_NAMES[name]);
+    var column = VP_WMO_WEATHER_CODES.indexOf(weatherCode);
+    symbols.push({
+      name,
+      label: prefix + label,
+      icon: '<span aria-hidden="true" class="ga-briefing-wmo" style="background-image:url(\'' + vpWmoWeatherSpriteUrl() + '\');background-size:' + VP_WMO_WEATHER_CODES.length * 22 + 'px 22px;background-position:' + -column * 22 + 'px 0"></span>'
+    });
+  };
+  if (code != null) add(Number(code), '');
+  var codes = {
+    TS: 95,
+    FZDZ: 56,
+    FZRA: 66,
+    FZFG: 48,
+    SHSN: 85,
+    SHRA: 81,
+    SN: 73,
+    RA: 63,
+    DZ: 53,
+    FG: 45,
+    SG: 77
+  };
+  var other = {
+    BR: 'Dunst',
+    HZ: 'Trockener Dunst',
+    FU: 'Rauch',
+    DU: 'Staub',
+    SA: 'Sand',
+    VA: 'Vulkanasche',
+    GR: 'Hagel',
+    GS: 'Graupel oder kleiner Hagel',
+    PL: 'Eiskörner',
+    IC: 'Eiskristalle',
+    SQ: 'Böenlinie',
+    FC: 'Trichterwolke',
+    UP: 'Unbekannter Niederschlag',
+    DS: 'Staubsturm',
+    SS: 'Sandsturm',
+    PO: 'Staub- oder Sandwirbel'
+  };
+  String(metarWx).split(/[\s,]+/).filter(Boolean).forEach(group => {
+    var parts = group.match(/FZDZ|FZRA|FZFG|SHSN|SHRA|TS|[A-Z]{2}/g) || [];
+    parts.forEach(part => {
+      if (Object.prototype.hasOwnProperty.call(codes, part)) add(codes[part], group + ' · ');else if (Object.prototype.hasOwnProperty.call(other, part) && !symbols.some(item => item.name === part)) {
+        symbols.push({
+          name: part,
+          label: group + ' · ' + other[part],
+          text: part
+        });
+      }
+    });
+  });
+  return symbols;
+}
+function awWarningTime(value) {
+  if (typeof value === 'number') return value < 1e12 ? value * 1000 : value;
+  return Date.parse(String(value || '').replace(/^(\d{4})\/(\d\d)\/(\d\d) (\d\d:\d\d:\d\d)\+00$/, '$1-$2-$3T$4Z'));
+}
+function awFetchSigmetLayer(id) {
+  var cached = awSigmetCache.get(id);
+  if (cached && cached.until > Date.now()) return cached.promise;
+  var url = AW_SIGMET_ROOT + id + '/query?where=1%3D1&outFields=' + AW_SIGMET_FIELDS[id] + '&f=geojson&outSR=4326';
+  var entry = {
+    until: Date.now() + 5 * 60000
+  };
+  entry.promise = _fetchWithTimeout(url, 6500).then(/*#__PURE__*/function () {
+    var _ref = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(response) {
+      var data;
+      return _regenerator().w(function (_context) {
+        while (1) switch (_context.n) {
+          case 0:
+            if (response.ok) {
+              _context.n = 1;
+              break;
+            }
+            throw new Error('SIGMET HTTP ' + response.status);
+          case 1:
+            _context.n = 2;
+            return response.json();
+          case 2:
+            data = _context.v;
+            if (Array.isArray(data.features)) {
+              _context.n = 3;
+              break;
+            }
+            throw new Error('SIGMET GeoJSON');
+          case 3:
+            return _context.a(2, data.features);
+        }
+      }, _callee);
+    }));
+    return function (_x0) {
+      return _ref.apply(this, arguments);
+    };
+  }()).catch(() => {
+    entry.until = Date.now() + 60000;
+    return [];
+  });
+  awSigmetCache.set(id, entry);
+  return entry.promise;
+}
+function awWarningContains(geometry, lat, lon) {
+  function contains(ring) {
+    if (!Array.isArray(ring) || ring.length < 3) return false;
+    var wrap = delta => (delta + 540) % 360 - 180;
+    var origin = ring[0][0];
+    var targetX = wrap(lon - origin);
+    var inside = false;
+    var previous = ring[ring.length - 1];
+    var _iterator = _createForOfIteratorHelper(ring),
+      _step;
+    try {
+      for (_iterator.s(); !(_step = _iterator.n()).done;) {
+        var point = _step.value;
+        var x1 = wrap(previous[0] - origin);
+        var x2 = wrap(point[0] - origin);
+        var y1 = previous[1],
+          y2 = point[1];
+        if (y1 > lat !== y2 > lat && x1 + (x2 - x1) * (lat - y1) / (y2 - y1) > targetX) inside = !inside;
+        previous = point;
+      }
+    } catch (err) {
+      _iterator.e(err);
+    } finally {
+      _iterator.f();
+    }
+    return inside;
+  }
+  var polygons = (geometry === null || geometry === void 0 ? void 0 : geometry.type) === 'Polygon' ? [geometry.coordinates] : (geometry === null || geometry === void 0 ? void 0 : geometry.type) === 'MultiPolygon' ? geometry.coordinates : [];
+  return polygons.some(rings => rings.length && contains(rings[0]) && !rings.slice(1).some(contains));
+}
+function awReadPointSigmets(_x1) {
+  return _awReadPointSigmets.apply(this, arguments);
+}
+function _awReadPointSigmets() {
+  _awReadPointSigmets = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee6(points) {
+    var isConus, international, conus, _yield$Promise$all, _yield$Promise$all2, world, us, now, active;
+    return _regenerator().w(function (_context6) {
+      while (1) switch (_context6.n) {
+        case 0:
+          if (points.length) {
+            _context6.n = 1;
+            break;
+          }
+          return _context6.a(2, []);
+        case 1:
+          isConus = p => p.lat >= 24 && p.lat <= 50 && p.lon >= -127 && p.lon <= -65;
+          international = awFetchSigmetLayer(112);
+          conus = points.some(isConus) ? awFetchSigmetLayer(111) : Promise.resolve([]);
+          _context6.n = 2;
+          return Promise.all([international, conus]);
+        case 2:
+          _yield$Promise$all = _context6.v;
+          _yield$Promise$all2 = _slicedToArray(_yield$Promise$all, 2);
+          world = _yield$Promise$all2[0];
+          us = _yield$Promise$all2[1];
+          now = Date.now();
+          active = world.concat(us).filter(feature => {
+            var _p$validtimef, _p$validtimet;
+            var p = feature.properties || {};
+            return awWarningTime((_p$validtimef = p.validtimef) !== null && _p$validtimef !== void 0 ? _p$validtimef : p.valid_time_from) <= now && now < awWarningTime((_p$validtimet = p.validtimet) !== null && _p$validtimet !== void 0 ? _p$validtimet : p.valid_time_to);
+          });
+          return _context6.a(2, points.map(point => {
+            var seen = new Set();
+            return active.filter(feature => awWarningContains(feature.geometry, point.lat, point.lon)).map(feature => {
+              var _p$base, _p$top, _p$validtimet2;
+              var p = feature.properties;
+              return {
+                hazard: p.hazard,
+                qualifier: p.qualifier || p.severity,
+                message: p.rawsigmet || p.raw_text,
+                base: (_p$base = p.base) !== null && _p$base !== void 0 ? _p$base : p.min_ft_msl,
+                top: (_p$top = p.top) !== null && _p$top !== void 0 ? _p$top : p.max_ft_msl,
+                end: awWarningTime((_p$validtimet2 = p.validtimet) !== null && _p$validtimet2 !== void 0 ? _p$validtimet2 : p.valid_time_to)
+              };
+            }).filter(item => {
+              var key = item.message || [item.hazard, item.qualifier, item.base, item.top, item.end].join('|');
+              if (seen.has(key)) return false;
+              seen.add(key);
+              return true;
+            });
+          }));
+      }
+    }, _callee6);
+  }));
+  return _awReadPointSigmets.apply(this, arguments);
+}
+function awWeatherWarnings(symbols, sigmets) {
+  var names = {
+    ICE: 'Vereisung',
+    ICING: 'Vereisung',
+    TURB: 'Turbulenz',
+    TS: 'Gewitter',
+    CONV: 'Gewitter',
+    VA: 'Vulkanasche',
+    TC: 'Tropischer Wirbelsturm',
+    DS: 'Staubsturm',
+    SS: 'Sandsturm',
+    MTW: 'Gebirgswelle'
+  };
+  var icons = {
+    ICE: '❄',
+    ICING: '❄',
+    TURB: '↝',
+    TS: 'ϟ',
+    CONV: 'ϟ',
+    VA: '▲',
+    TC: '↻',
+    DS: '◌',
+    SS: '◌',
+    MTW: '≈'
+  };
+  var details = (icon, name, label, text) => '<details class="ga-briefing-weather-warning"><summary title="' + _escapeMetarWidgetText(label) + '" aria-label="' + _escapeMetarWidgetText(label) + '">' + icon + '<span>' + _escapeMetarWidgetText(name) + '</span></summary><span>' + _escapeMetarWidgetText(text || label) + '</span></details>';
+  var rows = (symbols || []).map(item => details(item.icon || '⚠', item.label, item.label));
+  (sigmets || []).forEach(warning => {
+    var code = String(warning.hazard || '').trim().toUpperCase();
+    var band = [warning.base, warning.top].map(awNumber);
+    var levels = band.every(value => value !== null) ? ' · ' + band[0] + '–' + band[1] + ' ft MSL' : '';
+    var name = 'SIGMET · ' + (names[code] || code || '⚠');
+    var label = name + levels + ' · bis ' + new Date(warning.end).toISOString().slice(11, 16) + ' UTC';
+    rows.push(details(icons[code] || '⚠', name, label, [label, warning.message || warning.qualifier].filter(Boolean).join(' · ')));
+  });
+  return rows.length ? '<div class="ga-briefing-weather-warnings">' + rows.join('') + '</div>' : '';
+}
+function awPaperWindRose(wdir, wspd, runwayText, windText) {
+  var runway = _getMetarRunwayVisualData(runwayText);
+  var svgTicks = `
+        <circle cx="80" cy="80" r="70" stroke="#444" stroke-width="1.5" fill="none" stroke-dasharray="30.65 6" transform="rotate(2.45 80 80)"/>
+        <circle cx="80" cy="80" r="3" fill="#444" />`;
+
+  // Füge N, O, S, W und 30-Grad-Schritte rotierend hinzu
+  for (var i = 0; i < 360; i += 30) {
+    var angleRad = (i - 90) * Math.PI / 180;
+    var radius = 61;
+    var tx = 80 + radius * Math.cos(angleRad);
+    var ty = 80 + radius * Math.sin(angleRad);
+
+    // dx="-2" gleicht den kursiven Schwung (Slant) von Caveat aus, der sonst wie eine Rechtsrotation wirkt
+    if (i % 90 === 0) {
+      var letter = i === 0 ? 'N' : i === 90 ? _awText('mapContext.compass.east', 'O') : i === 180 ? 'S' : 'W';
+      svgTicks += `<text x="${tx}" y="${ty}" dx="-2" font-family="'Caveat', cursive" font-size="22" fill="#222" font-weight="bold" text-anchor="middle" dominant-baseline="central" transform="rotate(${i} ${tx} ${ty})">${letter}</text>`;
+    } else {
+      svgTicks += `<text x="${tx}" y="${ty}" dx="-1.5" font-family="'Caveat', cursive" font-size="14" fill="#666" font-weight="bold" text-anchor="middle" dominant-baseline="central" transform="rotate(${i} ${tx} ${ty})">${i / 10}</text>`;
+    }
+  }
+  var rwyHtml = '';
+  if (runway) {
+    // Piste wurde oben und unten gekürzt (y="29", height="102") um Abstand zu den Zahlen zu gewinnen
+    rwyHtml = `
+            <g transform="translate(80,80) rotate(${runway.headingDeg}) translate(-80,-80)">
+                <rect x="68" y="29" width="24" height="102" fill="none" stroke="#222" stroke-width="1.5" stroke-dasharray="30 4 15 4"/>
+                <text x="80" y="43" font-family="'Caveat', cursive" font-size="14" fill="#111" font-weight="bold" text-anchor="middle" transform="rotate(180 80 39)">${runway.end2}</text>
+                <text x="80" y="125" font-family="'Caveat', cursive" font-size="14" fill="#111" font-weight="bold" text-anchor="middle">${runway.end1}</text>
+            </g>`;
+  }
+  var arrowHtml = '';
+  if (awNumber(wdir) !== null && wspd > 0) {
+    arrowHtml = `
+        <g transform="rotate(${wdir} 80 80)">
+            <path d="M 80 10 C 77 30, 83 50, 80 65" stroke="#1a73e8" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+            <path d="M 74 54 L 80 68 L 86 52" stroke="#1a73e8" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        </g>`;
+  }
+  var label = [windText || 'Windrose', runway && _awText('airportWx.runway', 'Piste {rwy}', {
+    rwy: runway.end1 + '/' + runway.end2
+  })].filter(Boolean).join(' · ');
+  return `<div class="ga-paper-windrose" role="img" aria-label="${_escapeMetarWidgetText(label)}">
+        <svg viewBox="0 0 160 160" aria-hidden="true">${svgTicks}${rwyHtml}${arrowHtml}</svg>
+    </div>`;
+}
+function awBriefingWindRose(wdir, speed, runwayText, windText) {
+  var runway = _getMetarRunwayVisualData(runwayText);
+  var dir = awNumber(wdir);
+  var arrow = dir !== null && speed > 0.4 ? '<g transform="rotate(' + dir + ' 80 80)"><path d="M80 6V66" stroke="#1a73e8" stroke-width="4"/><path d="M72 54L80 79L88 54Z" fill="#1a73e8"/></g>' : '';
+  var label = [windText || 'Windrose', runway && _awText('airportWx.runway', 'Piste {rwy}', {
+    rwy: runway.end1 + '/' + runway.end2
+  })].filter(Boolean).join(' · ');
+  return '<div class="ga-briefing-windrose" role="img" aria-label="' + _escapeMetarWidgetText(label) + '">' + _renderMetarRunwayLayer(runway, true) + '<svg viewBox="0 0 160 160" aria-hidden="true">' + _renderMetarCompassTicks() + arrow + '</svg></div>';
+}
+function awModelFields(result, elevationFt) {
+  var source = result.source,
+    sample = result.sample;
+  var dir = awNumber(sample.wdir);
+  var speed = awNumber(sample.wspd);
+  var value = (n, unit) => awNumber(n) !== null ? Math.round(n) + ' ' + unit : '';
+  var cloudParts = [sample.cloudLowPct, sample.cloudMidPct, sample.cloudHighPct];
+  var clouds = cloudParts.some(pct => awNumber(pct) !== null) ? cloudParts.map(pct => value(pct, '%') || '–').join(' / ') : '';
+  var visibility = awNumber(sample.visibilityM);
+  var precipitation = awNumber(sample.precipitationMm);
+  var _awModelCloudBases = awModelCloudBases(sample, elevationFt),
+    base = _awModelCloudBases.base,
+    ceiling = _awModelCloudBases.ceiling;
+  var _awModelFlightCategor = awModelFlightCategory(sample, ceiling),
+    cat = _awModelFlightCategor.cat,
+    ceilingCategory = _awModelFlightCategor.ceilingCategory;
+  var symbols = awWeatherSymbols(sample.weatherCode);
+  return {
+    source: AW_SOURCES[source],
+    observedAt: sample.contourValidAt,
+    windDeg: dir,
+    windKt: speed,
+    wind: speed === 0 ? '0 kt' : [value(dir, '°'), value(speed, 'kt')].filter(Boolean).join(' / '),
+    vis: visibility === null ? '' : (visibility / 1000).toFixed(1) + ' km',
+    temp: value(sample.temp2mC, '°C'),
+    dew: value(sample.dewPoint2mC, '°C'),
+    rh: value(sample.rh2mPct, '%'),
+    pressure: value(sample.mslPressureHpa, 'hPa'),
+    clouds,
+    base,
+    ceiling,
+    cat,
+    ceilingCategory,
+    wx: symbols.map(item => item.label).join(' · '),
+    precipitation: precipitation > 0 ? precipitation + ' mm/h' : '',
+    symbols
+  };
+}
+function awCloudHeightValue(feet) {
+  return Number.isFinite(feet) ? String(Math.round(feet / 10) * 10) : '';
+}
+function awCloudHeightText(height) {
+  return [['MSL', height === null || height === void 0 ? void 0 : height.mslFt], ['AGL', height === null || height === void 0 ? void 0 : height.aglFt]].filter(_ref2 => {
+    var _ref3 = _slicedToArray(_ref2, 2),
+      feet = _ref3[1];
+    return Number.isFinite(feet);
+  }).map(_ref4 => {
+    var _ref5 = _slicedToArray(_ref4, 2),
+      reference = _ref5[0],
+      feet = _ref5[1];
+    return awCloudHeightValue(feet) + ' ft ' + reference;
+  }).join(' · ');
+}
+var AW_HEIGHT_REFERENCE_KEY = 'ga_briefing_cloud_height_reference';
+function awCloudHeightToggleLabel(reference) {
+  return _awText('airportWx.heightReferenceToggle', '{current} · zu {next} wechseln', {
+    current: reference.toUpperCase(),
+    next: reference === 'msl' ? 'AGL' : 'MSL'
+  });
+}
+function awCloudHeightBlock(weather) {
+  var rows = [[_awText('airportWx.base', 'Wolkenbasis'), weather.base], [_awText('airportWx.ceiling', 'Ceiling'), weather.ceiling]];
+  var preferred = localStorage.getItem(AW_HEIGHT_REFERENCE_KEY) === 'agl' ? 'agl' : 'msl';
+  var content = rows.map(_ref6 => {
+    var _ref7 = _slicedToArray(_ref6, 2),
+      label = _ref7[0],
+      height = _ref7[1];
+    var msl = awCloudHeightValue(height === null || height === void 0 ? void 0 : height.mslFt);
+    var agl = awCloudHeightValue(height === null || height === void 0 ? void 0 : height.aglFt);
+    if (!msl && !agl) return '';
+    var active = msl && agl ? preferred : msl ? 'msl' : 'agl';
+    var unit = active.toUpperCase();
+    var toggleLabel = _escapeMetarWidgetText(awCloudHeightToggleLabel(active));
+    var control = msl && agl ? '<button type="button" class="ga-skin-control ga-cloud-height-toggle" data-cloud-height-reference="' + active + '" title="' + toggleLabel + '" aria-label="' + toggleLabel + '">' + unit + '</button>' : unit;
+    return '<div class="ga-briefing-cloud-height-row"><span>' + _escapeMetarWidgetText(label) + '</span><b data-cloud-height-msl="' + msl + '" data-cloud-height-agl="' + agl + '"><span>' + (active === 'msl' ? msl : agl) + ' ft</span> ' + control + '</b></div>';
+  }).join('');
+  return content ? '<div class="ga-briefing-cloud-heights">' + content + '</div>' : '';
+}
+document.addEventListener('click', event => {
+  var _event$target2, _event$target2$closes;
+  var button = (_event$target2 = event.target) === null || _event$target2 === void 0 || (_event$target2$closes = _event$target2.closest) === null || _event$target2$closes === void 0 ? void 0 : _event$target2$closes.call(_event$target2, '[data-cloud-height-reference]');
+  if (!button) return;
+  var reference = button.dataset.cloudHeightReference === 'msl' ? 'agl' : 'msl';
+  localStorage.setItem(AW_HEIGHT_REFERENCE_KEY, reference);
+  var label = awCloudHeightToggleLabel(reference);
+  document.querySelectorAll('[data-cloud-height-reference]').forEach(control => {
+    var field = control.parentElement;
+    field.firstElementChild.textContent = field.getAttribute('data-cloud-height-' + reference) + ' ft';
+    control.dataset.cloudHeightReference = reference;
+    control.textContent = reference.toUpperCase();
+    control.title = label;
+    control.setAttribute('aria-label', label);
+  });
+}, true); // The map drawer stops clicks from bubbling to the document.
+
+function awBoardFacts(rows) {
+  return rows.filter(row => row[1]).map(row => '<div><small>' + _escapeMetarWidgetText(row[0]) + '</small> <b>' + _escapeMetarWidgetText(row[1]) + '</b></div>').join('');
+}
+function awBriefingAirport(icao) {
+  if (!/^[A-Z0-9]{4}$/.test(icao || '')) return null;
+  return typeof globalAirports !== 'undefined' && globalAirports ? globalAirports[icao] : null;
+}
+function awBriefingRunwayText(icao, airport) {
+  if (!/^[A-Z0-9]{4}$/.test(icao || '')) return '';
+  return typeof formatOpenAipAirportRunways === 'function' && formatOpenAipAirportRunways(airport) || typeof runwayCache !== 'undefined' && runwayCache[icao] || '';
+}
+function loadMetarWidget(_x10, _x11, _x12, _x13) {
+  return _loadMetarWidget.apply(this, arguments);
+}
+function _loadMetarWidget() {
+  _loadMetarWidget = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee7(icao, containerId, lat, lon) {
+    var _awNumber3, _awNumber4, _prior$controller, _window$gaProfileData, _window$gaProfileData2;
+    var forceModern,
+      options,
+      container,
+      airportCode,
+      airport,
+      latValue,
+      lonValue,
+      hasPoint,
+      _awWidgetLoads$get,
+      source,
+      validAt,
+      prior,
+      controller,
+      paper,
+      compact,
+      pointKey,
+      reuse,
+      state,
+      isCurrent,
+      contentId,
+      layout,
+      widget,
+      content,
+      details,
+      alerts,
+      point,
+      symbols,
+      sigmets,
+      committed,
+      updateAlerts,
+      finish,
+      heights,
+      _ref0,
+      _ref1,
+      result,
+      weather,
+      hours,
+      title,
+      fields,
+      badge,
+      heading,
+      rose,
+      renderRose,
+      updateRose,
+      _args7 = arguments,
+      _t5,
+      _t6;
+    return _regenerator().w(function (_context7) {
+      while (1) switch (_context7.p = _context7.n) {
+        case 0:
+          forceModern = _args7.length > 4 && _args7[4] !== undefined ? _args7[4] : false;
+          options = _args7.length > 5 && _args7[5] !== undefined ? _args7[5] : {};
+          container = document.getElementById(containerId);
+          if (!(!container || typeof _dispatchUiCommitAllowed === 'function' && !_dispatchUiCommitAllowed(options))) {
+            _context7.n = 1;
+            break;
+          }
+          return _context7.a(2);
+        case 1:
+          awWidgetLoads.forEach((load, id) => {
+            if (load.container !== document.getElementById(id)) {
+              load.controller.abort();
+              awWidgetLoads.delete(id);
+            }
+          });
+          airportCode = String(icao || '').toUpperCase();
+          airport = options.airport || awBriefingAirport(airportCode);
+          latValue = (_awNumber3 = awNumber(lat)) !== null && _awNumber3 !== void 0 ? _awNumber3 : awNumber(airport === null || airport === void 0 ? void 0 : airport.lat);
+          lonValue = (_awNumber4 = awNumber(lon)) !== null && _awNumber4 !== void 0 ? _awNumber4 : awNumber(airport === null || airport === void 0 ? void 0 : airport.lon);
+          hasPoint = latValue !== null && lonValue !== null;
+          if (!(icao === 'POI' || !icao && !hasPoint)) {
+            _context7.n = 2;
+            break;
+          }
+          (_awWidgetLoads$get = awWidgetLoads.get(containerId)) === null || _awWidgetLoads$get === void 0 || _awWidgetLoads$get.controller.abort();
+          awWidgetLoads.delete(containerId);
+          container.style.display = 'none';
+          return _context7.a(2);
+        case 2:
+          source = awWeatherSource();
+          validAt = awWeatherValidAt();
+          prior = awWidgetLoads.get(containerId);
+          prior === null || prior === void 0 || (_prior$controller = prior.controller) === null || _prior$controller === void 0 || _prior$controller.abort();
+          controller = ((_window$gaProfileData = window.gaProfileDataProvider) === null || _window$gaProfileData === void 0 || (_window$gaProfileData2 = _window$gaProfileData.createAbortController) === null || _window$gaProfileData2 === void 0 ? void 0 : _window$gaProfileData2.call(_window$gaProfileData)) || new AbortController();
+          paper = !forceModern && (document.body.classList.contains('theme-retro') || document.body.classList.contains('theme-ops1940'));
+          compact = Boolean(options.contextCompact);
+          pointKey = JSON.stringify([airportCode, latValue, lonValue, forceModern, paper, compact]);
+          reuse = (prior === null || prior === void 0 ? void 0 : prior.container) === container && prior.pointKey === pointKey;
+          state = {
+            container,
+            controller,
+            pointKey,
+            args: [icao, containerId, lat, lon, forceModern, options]
+          };
+          awWidgetLoads.set(containerId, state);
+          isCurrent = () => awWidgetLoads.get(containerId) === state && container === document.getElementById(containerId) && source === awWeatherSource() && validAt === awWeatherValidAt() && (typeof _dispatchUiCommitAllowed !== 'function' || _dispatchUiCommitAllowed(options));
+          contentId = containerId + 'Content';
+          container.style.display = 'block';
+          container.style.boxShadow = paper ? 'none' : '';
+          container.style.background = paper ? 'transparent' : '';
+          if (!reuse || !container.querySelector('.ga-briefing-weather-widget')) {
+            layout = paper ? ' is-paper' : compact ? ' is-context ga-map-context-weather-card' : '';
+            container.innerHTML = '<div class="ga-briefing-weather-widget' + layout + '">' + awWeatherSourceControl() + '<div id="' + contentId + '"></div><div class="ga-briefing-weather-details"></div>' + '<div class="ga-briefing-weather-alerts"></div></div>';
+          }
+          widget = container.firstElementChild;
+          content = document.getElementById(contentId);
+          details = container.querySelector('.ga-briefing-weather-details');
+          alerts = container.querySelector('.ga-briefing-weather-alerts');
+          point = {
+            lat: latValue,
+            lon: lonValue
+          };
+          symbols = [], sigmets = null, committed = false;
+          updateAlerts = () => {
+            if (committed && isCurrent()) alerts.innerHTML = awWeatherWarnings(symbols, sigmets);
+          };
+          finish = observedAt => {
+            widget.querySelector('.ga-briefing-weather-source').outerHTML = awWeatherSourceControl(observedAt);
+            widget.removeAttribute('aria-busy');
+            committed = true;
+            updateAlerts();
+          };
+          widget.setAttribute('aria-busy', 'true');
+          if (hasPoint && validAt === null) awReadPointSigmets([point]).then(rows => {
+            sigmets = rows[0];
+            updateAlerts();
+          });
+          if (!(source === 'metar')) {
+            _context7.n = 4;
+            break;
+          }
+          heights = '';
+          _context7.n = 3;
+          return awLoadMetarWidget(icao, contentId, lat, lon, forceModern, _objectSpread(_objectSpread({}, options), {}, {
+            weatherCommit: isCurrent,
+            preserveLoadingContent: true,
+            onMetar(metar) {
+              heights = awCloudHeightBlock(awMetarCloudHeights(metar));
+              symbols = awWeatherSymbols(null, metar.wxString);
+            }
+          }));
+        case 3:
+          if (isCurrent()) {
+            details.innerHTML = heights;
+            finish();
+          }
+          return _context7.a(2);
+        case 4:
+          if (!content.firstChild) content.textContent = _awText('airportWx.searching', 'Sucht lokales Wetter...');
+          _context7.p = 5;
+          if (!hasPoint) {
+            _context7.n = 7;
+            break;
+          }
+          _context7.n = 6;
+          return awReadModelWeather(source, [point], controller.signal, validAt);
+        case 6:
+          _t5 = _context7.v;
+          _context7.n = 8;
+          break;
+        case 7:
+          _t5 = [];
+        case 8:
+          _ref0 = _t5;
+          _ref1 = _slicedToArray(_ref0, 1);
+          result = _ref1[0];
+          if (isCurrent()) {
+            _context7.n = 9;
+            break;
+          }
+          return _context7.a(2);
+        case 9:
+          details.innerHTML = '';
+          if (result) {
+            _context7.n = 10;
+            break;
+          }
+          content.textContent = validAt === null ? _awText('airportWx.noAuto', 'Kein automatisches Wetter verfügbar.') : _awText('airportWx.noForecastHour', 'Für diese Stunde fehlen DWD-Daten.');
+          finish();
+          return _context7.a(2);
+        case 10:
+          weather = awModelFields(result, airport === null || airport === void 0 ? void 0 : airport.elevation);
+          hours = Number.isFinite(weather.observedAt) ? ' · ' + new Date(weather.observedAt).toISOString().slice(11, 16) + ' UTC' : '';
+          title = source === result.source ? source === 'dwd' ? '' : hours.slice(3) : weather.source + hours + ' · Fallback';
+          fields = [['Wind', weather.wind], [_awText('mapContext.wx.visibility', 'Sicht'), weather.vis], [_awText('cl.wx.temperature', 'Temperatur'), [weather.temp, weather.dew, weather.rh].filter(Boolean).join(' / ')], [_awText('cl.wx.pressure', 'Luftdruck'), weather.pressure], [_awText('mapContext.wx.cloudLevels', 'Wolken L/M/H'), weather.clouds], [_awText('airportWx.precipitation', 'Niederschlag'), weather.precipitation], ['WX', weather.wx]];
+          badge = awFlightCategoryBadge(weather.cat, true, weather.ceilingCategory);
+          heading = title || badge ? '<div class="ga-briefing-model-heading"><b>' + _escapeMetarWidgetText(title) + '</b>' + badge + '</div>' : '';
+          content.innerHTML = '<div class="ga-briefing-model-weather">' + heading + '<div class="ga-briefing-weather-layout"><div>' + awBoardFacts(fields) + '</div><div data-aw-board-rose></div></div>' + awCloudHeightBlock(weather) + '</div>';
+          symbols = weather.symbols;
+          rose = content.querySelector('[data-aw-board-rose]');
+          renderRose = paper ? awPaperWindRose : awBriefingWindRose;
+          updateRose = () => {
+            rose.innerHTML = renderRose(weather.windDeg, weather.windKt, awBriefingRunwayText(airportCode, airport), weather.wind);
+          };
+          updateRose();
+          finish(weather.observedAt);
+          if (!(/^[A-Z0-9]{4}$/.test(airportCode) && !awBriefingRunwayText(airportCode, airport) && typeof readAirportRunwayDetails === 'function')) {
+            _context7.n = 12;
+            break;
+          }
+          _context7.n = 11;
+          return readAirportRunwayDetails(latValue, lonValue, airportCode).catch(() => null);
+        case 11:
+          if (isCurrent()) updateRose();
+        case 12:
+          _context7.n = 14;
+          break;
+        case 13:
+          _context7.p = 13;
+          _t6 = _context7.v;
+          if (isCurrent()) {
+            content.textContent = _awText('airportWx.noAuto', 'Kein automatisches Wetter verfügbar.');
+            details.innerHTML = '';
+            finish();
+          }
+        case 14:
+          return _context7.a(2);
+      }
+    }, _callee7, null, [[5, 13]]);
   }));
   return _loadMetarWidget.apply(this, arguments);
 }

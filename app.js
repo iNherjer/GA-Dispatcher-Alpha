@@ -5571,14 +5571,7 @@ function turnOpsBriefingPage(event, direction = 1) {
 }
 
 function toggleNotes(event) {
-    // Wenn wir auf einen Link, Button oder ein Pin-Icon klicken, umblättern hart blockieren
-    if (event && event.target && (
-        event.target.tagName === 'A' ||
-        event.target.tagName === 'BUTTON' ||
-        event.target.classList.contains('briefing-save-pin') ||
-        event.target.classList.contains('briefing-export-pin') ||
-        event.target.classList.contains('briefing-pdf-pin')
-    )) return;
+    if (event?.target?.closest?.('a, button, select, .ga-briefing-weather-widget, .briefing-save-pin, .briefing-export-pin, .briefing-pdf-pin')) return;
 
     let forward = true;
     if (event && event.target && event.target.classList.contains('paperclip')) {

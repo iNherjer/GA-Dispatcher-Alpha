@@ -3,9 +3,7 @@
 var map = null, routeWaypoints = [], activeAirspaces = [], globalAirports = null;
 var currentDepElev = null, currentDestElev = null, currentStartICAO = '', currentDestICAO = '';
 var freqCache = {}, runwayCache = {}, currentDepFreq = '', currentDestFreq = '', currentSName = '', currentDName = '';
-window.gaChecklistHost = {
-    supportsTool: function(tool) { return tool !== 'weather'; }
-};
+window.gaChecklistHost = {};
 var vpProfileLockIdx = -1, vpProfileLockSig = '';
 var currentMissionData = null, smoothedGS = 0, smoothedVS = 0, gpsState = 'connected';
 var isAutoFollow = true, lastAutoFollowPanAt = 0, lastAutoFollowPanPos = null;

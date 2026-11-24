@@ -16,7 +16,6 @@
     const MAX_TEXT_LENGTH = 220;
     const ROUTE_TOOLS_PROXY = 'https://ga-proxy.einherjer.workers.dev';
     const TOOL_CACHE_TTL_MS = 4 * 60 * 1000;
-    const WEATHER_AI_CACHE_TTL_MS = 12 * 60 * 1000;
     const WEATHER_METAR_RADIUS_NM = 70;
     const NEAREST_CACHE_TTL_MS = 2 * 60 * 1000;
     const NEAREST_RADIUS_NM = 50;
@@ -167,7 +166,7 @@
     };
 
     const toolState = {
-        weather: { key: '', updatedAt: 0, loading: false, data: null, error: '', controller: null, aiKey: '', aiUpdatedAt: 0, aiLoading: false },
+        weather: { key: '', updatedAt: 0, loading: false, data: null, error: '', controller: null, aiController: null },
         radio: { key: '', updatedAt: 0, loading: false, data: null, error: '', controller: null },
         warnings: { key: '', updatedAt: 0, loading: false, data: null, error: '', controller: null },
         place: { key: '', updatedAt: 0, loading: false, data: null, error: '', controller: null },
@@ -570,7 +569,8 @@
                     .map(wp => ({
                         lat: Number(wp?.lat),
                         lon: Number(wp?.lng ?? wp?.lon),
-                        name: wp?.name || ''
+                        name: wp?.name || '',
+                        icao: wp?.icao || wp?.airportIcao || ''
                     }))
                     .filter(wp => Number.isFinite(wp.lat) && Number.isFinite(wp.lon));
             }
@@ -663,7 +663,7 @@
         const elevRaw = input.elevation;
         const elev = typeof elevRaw === 'object' && elevRaw
             ? (elevRaw.unit === 1 ? Number(elevRaw.value) : Math.round(Number(elevRaw.value) * 3.28084))
-            : Number(elevRaw);
+            : elevRaw == null ? NaN : Number(elevRaw);
         return {
             icao,
             name: input.name || input.n || input.title || icao || 'Flugplatz',
@@ -776,7 +776,12 @@
         if (entry?.controller) {
             try { entry.controller.abort(); } catch (_) {}
         }
-        if (entry) entry.controller = null;
+        if (entry) {
+            entry.controller = null;
+            entry.aiController?.abort();
+            if (entry.aiController) entry.aiController = null;
+            if (entry.data?.ai?.loading) entry.data.ai.loading = false;
+        }
     }
 
     function abortOtherToolRequests(activeName) {
@@ -1015,6 +1020,7 @@
     var lastRenderedView = ''; // var: setDrawerOpen may run before this line
     function render() {
         if (!bodyEl) return;
+        bodyEl.classList.toggle('is-route-weather-loading', state.view === 'weather' && !!toolState.weather.loading);
         if (state.view === 'list' && lastRenderedView !== 'list') refreshHostChecklists('open');
         lastRenderedView = state.view;
         if (window.gaChecklistHost?.supportsTool?.(state.view) === false) {
@@ -2157,15 +2163,15 @@
         if (!metar || typeof metar !== 'object') return null;
         const code = String(metar.icaoId || fallbackCode || '').trim().toUpperCase();
         const raw = metar.rawOb || metar.raw || '';
-        const temp = Number(metar.temp);
-        const dew = Number(metar.dewp ?? metar.dewpoint);
+        const temp = awNumber(metar.temp);
+        const dew = awNumber(metar.dewp ?? metar.dewpoint);
         const rh = Number.isFinite(temp) && Number.isFinite(dew) ? relativeHumidityFromTempDew(temp, dew) : null;
         const hasWindDir = metar.wdir !== undefined && metar.wdir !== null && String(metar.wdir).trim() !== '';
         const windDir = hasWindDir ? String(metar.wdir).toUpperCase() : '';
         const wind = windDir
             ? `${windDir === 'VRB' ? 'VRB' : `${metar.wdir}°`}/${metar.wspd || 0}${metar.wgst ? `G${metar.wgst}` : ''} kt`
             : '';
-        const source = Number.isFinite(Number(distNm)) ? `METAR nahe ${fmtNm(distNm)} NM` : 'METAR';
+        const source = Number.isFinite(distNm) ? `METAR nahe ${fmtNm(distNm)} NM` : 'METAR';
         return {
             source,
             station: code,
@@ -2173,8 +2179,11 @@
             cat: metar.fltCat || metar.fltcat || '',
             observedAt: metar.obsTime || metar.reportTime || metar.receiptTime || Date.now(),
             wind,
-            vis: /\b9999\b/.test(raw) ? '>10 km' : (metar.visib ? `${metar.visib} sm` : ''),
+            vis: awMetarVisibility(metar),
             clouds: formatMetarClouds(raw) || metar.cover || '',
+            ...awMetarCloudHeights(metar),
+            windDeg: awNumber(metar.wdir), windKt: awNumber(metar.wspd),
+            symbols: awWeatherSymbols(null, metar.wxString),
             wx: metar.wxString || 'NIL',
             temp: Number.isFinite(temp) ? `${Math.round(temp)}°C` : '',
             dew: Number.isFinite(dew) ? `${Math.round(dew)}°C` : '',
@@ -2183,13 +2192,19 @@
         };
     }
 
-    function weatherFromMetarCache(icao) {
+    function weatherFromMetarCache(icao, point) {
         const code = String(icao || '').trim().toUpperCase();
         if (!code) return null;
         try {
             const entry = (typeof gpsState !== 'undefined' && gpsState?.metarCache) ? gpsState.metarCache[code] : null;
             const metar = Array.isArray(entry?.data) ? entry.data[0] : null;
-            return metarToWeather(metar, code);
+            if (!metar || (metar.icaoId && metar.icaoId !== code)) {
+                const lat = awNumber(metar?.lat), lon = awNumber(metar?.lon);
+                if (lat === null || lon === null) return null;
+                const distance = navBetween(point.lat,point.lon,lat,lon).dist;
+                return distance <= WEATHER_METAR_RADIUS_NM ? metarToWeather(metar,code,distance) : null;
+            }
+            return metarToWeather(metar,code);
         } catch (_) {
             return null;
         }
@@ -2269,36 +2284,6 @@
         return metarToWeather(best, best.icaoId, bestDist);
     }
 
-    function nearestCachedWeatherPoint(lat, lon) {
-        try {
-            if (typeof vpWeatherData === 'undefined' || !Array.isArray(vpWeatherData)) return null;
-            let best = null;
-            let bestDist = Infinity;
-            vpWeatherData.forEach(zone => {
-                const zLat = Number(zone?.stnLat), zLon = Number(zone?.stnLon);
-                if (!Number.isFinite(zLat) || !Number.isFinite(zLon)) return;
-                const nav = navBetween(lat, lon, zLat, zLon);
-                if (nav.dist < bestDist) {
-                    bestDist = nav.dist;
-                    best = {
-                        source: 'Kartenwetter',
-                        station: zone.icao || '',
-                        cat: zone.fltCat || '',
-                        observedAt: zone.obsTime || zone.reportTime || Date.now(),
-                        wind: zone.wdir ? `${zone.wdir}°/${zone.wspd || 0} kt` : '',
-                        vis: zone.visib ? `${zone.visib}` : '',
-                        clouds: formatKnownCloudLayers(zone.clouds) || (Array.isArray(zone.clouds) ? `${zone.clouds.length} Layer` : ''),
-                        wx: zone.wxString || '',
-                        distNm: bestDist
-                    };
-                }
-            });
-            return best && bestDist <= 45 ? best : null;
-        } catch (_) {
-            return null;
-        }
-    }
-
     function cloudCoverToOctas(cover) {
         const c = String(cover || '').toUpperCase();
         if (c === 'SKC' || c === 'CLR' || c === 'NSC' || c === 'NCD') return '0/8';
@@ -2307,12 +2292,6 @@
         if (c === 'BKN') return '5-7/8';
         if (c === 'OVC' || c === 'VV') return '8/8';
         return '';
-    }
-
-    function pctToOctas(value) {
-        const pct = Number(value);
-        if (!Number.isFinite(pct)) return null;
-        return Math.max(0, Math.min(8, Math.round(pct / 12.5)));
     }
 
     function relativeHumidityFromTempDew(tempC, dewC) {
@@ -2357,121 +2336,15 @@
         return layers.join(' · ');
     }
 
-    function formatKnownCloudLayers(clouds) {
-        if (!Array.isArray(clouds) || !clouds.length) return '';
-        return clouds.slice(0, 3).map(c => {
-            const cover = String(c.type || c.cover || '').toUpperCase();
-            const octas = cloudCoverToOctas(cover) || (Number.isFinite(Number(c.cloudPct)) ? `${pctToOctas(c.cloudPct)}/8` : '');
-            const base = Number(c.baseAgl ?? c.baseFt ?? c.baseMsl);
-            const suffix = Number.isFinite(base) ? ` ca. ${Math.round(base / 100) * 100} ft` : '';
-            return `${cover || 'Layer'} ${octas}${suffix}`.trim();
-        }).join(' · ');
-    }
-
-    function wxCodeText(code, precipMm = 0, rainMm = 0, snowCm = 0) {
-        const c = Number(code);
-        if (!Number.isFinite(c)) {
-            if (Number(precipMm) > 0 || Number(rainMm) > 0) return 'Niederschlag';
-            if (Number(snowCm) > 0) return 'Schnee';
-            return '';
-        }
-        const map = {
-            0: 'NIL', 1: 'überwiegend klar', 2: 'teilweise bewölkt', 3: 'bedeckt',
-            45: 'Nebel', 48: 'Nebel/Reif',
-            51: 'leichter Sprühregen', 53: 'Sprühregen', 55: 'starker Sprühregen',
-            56: 'gefrierender Sprühregen', 57: 'starker gefrierender Sprühregen',
-            61: 'leichter Regen', 63: 'Regen', 65: 'starker Regen',
-            66: 'gefrierender Regen', 67: 'starker gefrierender Regen',
-            71: 'leichter Schnee', 73: 'Schnee', 75: 'starker Schnee',
-            77: 'Schneekörner', 80: 'leichte Schauer', 81: 'Schauer', 82: 'starke Schauer',
-            85: 'leichte Schneeschauer', 86: 'Schneeschauer',
-            95: 'Gewitter', 96: 'Gewitter/Hagel', 99: 'starkes Gewitter/Hagel'
-        };
-        return map[c] || `Wx ${c}`;
-    }
-
-    function formatOpenMeteoClouds(om) {
-        if (!om) return '';
-        if (Array.isArray(om.pressureProfile) && om.pressureProfile.length) {
-            const pts = om.pressureProfile
-                .filter(p => Number.isFinite(Number(p.geopotentialFt)) && Number.isFinite(Number(p.cloudPct)))
-                .sort((a, b) => Number(a.geopotentialFt) - Number(b.geopotentialFt));
-            const layers = [];
-            let start = null;
-            let cover = [];
-            pts.forEach((p, idx) => {
-                const cloudy = Number(p.cloudPct) >= 20;
-                if (cloudy && !start) {
-                    start = { idx, baseFt: Number(p.geopotentialFt) };
-                    cover = [Number(p.cloudPct)];
-                } else if (cloudy) {
-                    cover.push(Number(p.cloudPct));
-                } else if (start) {
-                    const avg = cover.reduce((a, b) => a + b, 0) / Math.max(1, cover.length);
-                    layers.push(`${pctToOctas(avg)}/8 ca. ${Math.round(start.baseFt / 100) * 100} ft MSL`);
-                    start = null;
-                    cover = [];
-                }
-            });
-            if (start) {
-                const avg = cover.reduce((a, b) => a + b, 0) / Math.max(1, cover.length);
-                layers.push(`${pctToOctas(avg)}/8 ca. ${Math.round(start.baseFt / 100) * 100} ft MSL`);
-            }
-            if (layers.length) return layers.slice(0, 3).join(' · ');
-        }
-        const parts = [
-            ['low', om.cloudLowPct, '< 6500 ft'],
-            ['mid', om.cloudMidPct, '6500-20000 ft'],
-            ['high', om.cloudHighPct, '> 20000 ft']
-        ].filter(([, pct]) => Number.isFinite(Number(pct)) && Number(pct) >= 10);
-        return parts.length
-            ? parts.map(([name, pct, band]) => `${name} ${pctToOctas(pct)}/8 ${band}`).join(' · ')
-            : '0/8 kaum Wolken';
-    }
-
-    function weatherFromOpenMeteo(om) {
-        if (!om) return null;
-        const temp = Number(om.temp2mC);
-        const dew = Number(om.dewPoint2mC);
-        const rh = Number(om.rh2mPct);
-        const pressure = Number(om.mslPressureHpa);
-        return {
-            source: 'Open-Meteo',
-            station: '',
-            cat: '',
-            observedAt: om.time || Date.now(),
-            wind: Number.isFinite(Number(om.wspd)) ? `${Math.round(Number(om.wdir || 0))}°/${Math.round(Number(om.wspd))} kt` : '',
-            vis: Number.isFinite(Number(om.visibilityM)) ? `${Math.round(Number(om.visibilityM) / 1000)} km` : '',
-            clouds: formatOpenMeteoClouds(om),
-            wx: wxCodeText(om.weatherCode, om.precipitationMm, om.rainMm, om.snowfallCm),
-            temp: Number.isFinite(temp) ? `${Math.round(temp)}°C` : '',
-            dew: Number.isFinite(dew) ? `${Math.round(dew)}°C` : '',
-            rh: Number.isFinite(rh) ? `${Math.round(rh)}%` : '',
-            pressure: Number.isFinite(pressure) ? `${Math.round(pressure)} hPa` : ''
-        };
-    }
-
-    function mergeWeatherSources(cached, openMeteo) {
-        if (!cached && !openMeteo) return { source: 'Keine Daten' };
-        if (!cached) return openMeteo;
-        if (!openMeteo) return cached;
-        const merged = { ...openMeteo, ...cached };
-        ['wind', 'vis', 'clouds', 'wx', 'temp', 'dew', 'rh', 'pressure', 'observedAt'].forEach(key => {
-            if (!merged[key] || merged[key] === 'NIL' || merged[key] === '—') merged[key] = openMeteo[key] || merged[key];
-        });
-        if (openMeteo.source && cached.source && cached.source !== openMeteo.source) {
-            merged.source = `${cached.source} + ${openMeteo.source}`;
-        }
-        return merged;
-    }
-
     function weatherRiskRank(sample) {
         const cat = String(sample?.cat || '').toUpperCase();
         if (cat === 'LIFR' || cat === 'IFR') return 3;
-        if (cat === 'MVFR') return 2;
+        const codes = (sample?.symbols || []).map(item => item.name);
+        if (codes.some(code => /^(TS|FZ|FG|SN|FC|GR)/.test(code))) return 3;
+        if (codes.some(code => /^(RA|SH|BR|HZ|DZ)/.test(code))) return 2;
         const raw = `${sample?.wx || ''} ${sample?.raw || ''}`.toUpperCase();
         if (/TS|FZ|SN|FG|BKN00|OVC00/.test(raw)) return 3;
-        if (/RA|SH|BR|HZ|BKN0[0-2]|OVC0[0-2]/.test(raw)) return 2;
+        if (cat === 'MVFR' || /RA|SH|BR|HZ|BKN0[0-2]|OVC0[0-2]/.test(raw)) return 2;
         if (/BKN|OVC|SCT0[0-3]/.test(raw)) return 1;
         return 0;
     }
@@ -2524,16 +2397,6 @@
         return 'good';
     }
 
-    function weatherBadgeLabel(row) {
-        if (!row?.source || row.source === 'Keine Daten') return '?';
-        const cat = String(row?.cat || '').toUpperCase();
-        if (cat) return cat === 'VFR' ? 'V' : cat.slice(0, 1);
-        const tone = weatherCardTone(row);
-        if (tone === 'good') return 'V';
-        if (tone === 'watch') return '?';
-        return '!';
-    }
-
     function weatherStationTitle(row) {
         const station = String(row?.station || '').trim().toUpperCase();
         const name = txPhrase(String(row?.name || row?.label || station || tx('cl.wx.point', 'Wetterpunkt')).trim());
@@ -2544,7 +2407,8 @@
     function weatherSourceTitle(row) {
         const source = String(row?.source || 'Wetter').split('+')[0].trim().toUpperCase();
         const label = source.includes('METAR') ? 'METAR' : (source.includes('OPEN') ? tx('cl.wx.model', 'Modell') : source || tx('cl.tool.weather', 'Wetter'));
-        return `${label} from ${formatUtcWeatherTime(row?.observedAt)}`;
+        if (!row?.observedAt) return row?.source || 'Keine Daten';
+        return `${source.includes('METAR') ? label : row.source} · ${formatUtcWeatherTime(row.observedAt)}`;
     }
 
     function renderWeatherFact(label, value, options = {}) {
@@ -2570,20 +2434,28 @@
                 <article class="route-weather-card is-${escapeAttr(tone)}">
                     <div class="route-weather-card-head">
                         <div>
-                            <div class="route-weather-card-title">${escapeHtml(weatherSourceTitle(row))}</div>
+                            ${awWeatherSourceControl(weatherDateMs(row.observedAt))}
+                            ${(awWeatherSource() !== 'dwd' || row.fallback || !row.observedAt)
+                                ? `<div class="route-weather-card-title">${escapeHtml(weatherSourceTitle(row))}</div>` : ''}
                             ${formatWeatherAge(observedAt) ? `<div class="route-weather-card-age">${escapeHtml(formatWeatherAge(observedAt))}</div>` : ''}
                         </div>
-                        <span class="route-weather-badge">${escapeHtml(weatherBadgeLabel(row))}</span>
+                        ${awFlightCategoryBadge(row.cat,row.model,row.ceilingCategory)}
                     </div>
-                    <div class="route-weather-facts">
-                        ${renderWeatherFact('Wind', row?.wind || '—')}
-                        ${renderWeatherFact(tx('cl.wx.temperature', 'Temperatur'), tempLine)}
-                        ${renderWeatherFact(tx('cl.wx.pressure', 'Luftdruck'), row?.pressure)}
-                        ${renderWeatherFact(tx('cl.wx.visibility', 'Sichtweite'), row?.vis || '—')}
-                        ${renderWeatherFact(tx('cl.wx.clouds', 'Wolken'), wxShow(row?.clouds || '—'), { danger: wxDanger && /BKN|OVC|VV|8\/8|5-7\/8/i.test(String(row?.clouds || '')) })}
-                        ${renderWeatherFact('WX', row?.wx && row.wx !== 'NIL' ? wxShow(row.wx) : 'NIL', { danger: wxDanger && row?.wx && row.wx !== 'NIL' })}
+                    <div class="ga-briefing-weather-layout">
+                        <div class="route-weather-facts">
+                            ${renderWeatherFact('Wind', row?.wind)}
+                            ${renderWeatherFact(tx('cl.wx.temperature', 'Temperatur'), tempLine)}
+                            ${renderWeatherFact(tx('cl.wx.pressure', 'Luftdruck'), row?.pressure)}
+                            ${renderWeatherFact(tx('cl.wx.visibility', 'Sichtweite'), row?.vis)}
+                            ${renderWeatherFact(row?.model ? 'Wolken L/M/H' : tx('cl.wx.clouds','Wolken'), wxShow(row?.clouds || ''), { danger: wxDanger })}
+                            ${renderWeatherFact(tx('airportWx.precipitation','Niederschlag'),row.precipitation)}
+                            ${renderWeatherFact('WX', row?.wx && row.wx !== 'NIL' ? wxShow(row.wx) : '')}
+                        </div>
+                        ${(row?.wind || row?.runwayText) ? awBriefingWindRose(row.windDeg,row.windKt,row.runwayText,row.wind) : ''}
                     </div>
-                    <div class="route-weather-source">${escapeHtml(txPhrase(row?.source || 'Keine Daten'))}${row?.station ? ` · ${escapeHtml(row.station)}` : ''}</div>
+                    ${awCloudHeightBlock(row)}
+                    ${awWeatherWarnings(row.symbols,row.sigmets)}
+                    <div class="route-weather-source">${escapeHtml(txPhrase(row?.source || 'Keine Daten'))}${row?.station ? ` · ${escapeHtml(row.station)}` : ''}${row.fallback ? ' · Fallback' : ''}</div>
                 </article>
             </section>
         `;
@@ -2598,21 +2470,21 @@
         }
     }
 
-    function weatherAiCacheKey(routeKey, rows) {
-        const compact = (rows || []).map(r => [
-            r.label, r.name, r.source, r.station, r.wind, r.vis, r.clouds, r.wx, r.cat
-        ].map(v => String(v || '').slice(0, 80)).join('/')).join('|');
-        return `wx-ai:${routeKey}:${compact}`;
-    }
-
-    function weatherAiPrompt(rows, assessment) {
+    function weatherAiPrompt(rows, assessment, validAt) {
+        const formatTerm = value => {
+            const time = weatherDateMs(value);
+            return time ? new Date(time).toISOString().slice(0,16).replace('T',' ') + ' UTC' : 'unbekannt';
+        };
         const routeLines = rows.map(r => (
-            `${r.label} ${r.name || ''}: Quelle ${r.source || 'keine'}, Station ${r.station || '-'}, Wind ${r.wind || '-'}, Sicht ${r.vis || '-'}, Wolken ${r.clouds || '-'}, Wx ${r.wx || '-'}, Kategorie ${r.cat || '-'}`
+            `${r.label} ${r.name || ''}: Quelle ${r.source || 'keine'}, Station ${r.station || '-'}, ${r.model ? 'Vorhersage gültig' : 'Beobachtung von'} ${formatTerm(r.observedAt)}, Wind ${r.wind || '-'}, Sicht ${r.vis || '-'}, Wolken ${r.clouds || '-'}, Wolkenbasis ${awCloudHeightText(r.base) || '-'}, Ceiling ${awCloudHeightText(r.ceiling) || '-'}, Niederschlag ${r.precipitation || '-'}, Wx ${r.wx || '-'}, Kategorie ${r.cat || '-'}`
         )).join('\n');
         return `Du bist der Wetter-Briefer in einem VFR-Flugsimulator. Schreibe auf Deutsch ein kompaktes, pilotisch klingendes Sim-Wetterbriefing entlang der geplanten Route.
 
+Zeitauswahl: ${validAt === null ? 'Live-Ansicht mit den unten genannten Beobachtungs- und Prognosezeiten.' : 'Modellvorhersage für ' + formatTerm(validAt) + '.'}
+
 Regeln:
-- 4 bis 6 kurze Sätze, keine Markdown-Liste.
+- 4 bis 6 kurze Sätze, keine Markdown-Liste. Beginne direkt mit der Wetterlage, ohne Gruß oder Anrede.
+- Formuliere Modellwerte als Vorhersage für den genannten Gültigkeitstermin und METAR-Werte als Beobachtung. Verwende den gewählten UTC-Termin im Text und leite daraus keine Ankunftszeit ab.
 - Klinge wie ein Briefing vor dem virtuellen Abflug: Gesamtbild, Start, Enroute, Ziel, Auffälligkeiten.
 - Nenne konkrete fliegerische Punkte: Wind, Sicht, Wolkenbasis/Bedeckung, Niederschlag/WX, kritische Abschnitte.
 - Gib eine einfache Sim-Empfehlung, z.B. Route entspannt, Wolken/Schauer im Auge behalten, Ausweichplatz im Kopf behalten, Höhe anpassen.
@@ -2626,11 +2498,11 @@ Daten:
 ${routeLines}`;
     }
 
-    async function fetchGeminiWeatherText(rows, assessment, signal) {
+    async function fetchGeminiWeatherText(rows, assessment, validAt, signal) {
         const apiKey = getGeminiApiKey();
         if (!apiKey || !rows?.length) return null;
         const payload = {
-            contents: [{ parts: [{ text: weatherAiPrompt(rows, assessment) }] }],
+            contents: [{ parts: [{ text: weatherAiPrompt(rows, assessment, validAt) }] }],
             generationConfig: {
                 maxOutputTokens: 260
             }
@@ -2647,7 +2519,8 @@ ${routeLines}`;
                 const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`, options);
                 if (!res.ok) continue;
                 const data = await res.json();
-                const text = String(data?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+                const text = String(data?.candidates?.[0]?.content?.parts?.[0]?.text || '').trim()
+                    .replace(/^Hallo[,]?\s+Pilot(?:in)?\s*[!,.–—:\-]+\s*/i, '');
                 if (text) {
                     if (typeof incrementApiUsage === 'function') {
                         try { incrementApiUsage(model.includes('lite') ? 'lite' : 'flash'); } catch (_) {}
@@ -2661,124 +2534,178 @@ ${routeLines}`;
         return null;
     }
 
-    async function maybeGenerateWeatherAi(entry, routeKey, rows, assessment, signal, force = false) {
-        const apiKey = getGeminiApiKey();
-        if (!apiKey || !rows?.length) return;
-        const aiKey = weatherAiCacheKey(routeKey, rows);
-        const ai = entry.data?.ai || {};
-        if (!force && entry.aiKey === aiKey && (Date.now() - entry.aiUpdatedAt) < WEATHER_AI_CACHE_TTL_MS && (ai.text || ai.error)) return;
-        entry.aiKey = aiKey;
-        entry.aiLoading = true;
-        entry.data.ai = { ...ai, loading: true, error: '', text: force ? '' : (ai.text || ''), source: ai.source || '' };
+    function weatherAiMatchesSelection(data) {
+        return data && data.source === awWeatherSource() && data.validAt === awWeatherValidAt();
+    }
+
+    async function refreshWeatherAi() {
+        const entry = toolState.weather;
+        const data = entry.data;
+        if (entry.aiController || !getGeminiApiKey() || !weatherAiMatchesSelection(data)) return;
+        const rows = data.rows.filter(row => row.source && row.source !== 'Keine Daten');
+        if (!rows.length) return;
+        const controller = window.gaChecklistHost?.createAbortController?.() || new AbortController();
+        entry.aiController = controller;
+        const current = () => entry.aiController === controller && entry.data === data &&
+            !controller.signal.aborted && weatherAiMatchesSelection(data);
+        data.ai = {loading:true};
         if (state.view === 'weather') render();
         try {
-            const result = await fetchGeminiWeatherText(rows, assessment, signal);
-            if (result?.text) {
-                entry.data.ai = { loading: false, error: '', text: result.text, source: result.source };
-                entry.aiUpdatedAt = Date.now();
-            } else {
-                entry.data.ai = { loading: false, error: 'KI-Einschätzung nicht verfügbar.', text: '', source: '' };
-                entry.aiUpdatedAt = Date.now();
+            const result = await fetchGeminiWeatherText(rows,data.assessment,data.validAt,controller.signal);
+            if (current()) {
+                data.ai = result?.text ? result : {error:'KI-Einschätzung nicht verfügbar.'};
             }
-        } catch (error) {
-            if (error?.name !== 'AbortError') {
-                entry.data.ai = { loading: false, error: 'KI-Einschätzung konnte nicht geladen werden.', text: '', source: '' };
-                entry.aiUpdatedAt = Date.now();
-            }
+        } catch (_) {
+            if (current()) data.ai = {error:'KI-Einschätzung konnte nicht geladen werden.'};
         } finally {
-            entry.aiLoading = false;
-            if (entry.data?.ai?.loading) entry.data.ai.loading = false;
-            if (state.view === 'weather') render();
+            if (entry.aiController === controller) {
+                entry.aiController = null;
+                if (data.ai?.loading) data.ai = null;
+                if (entry.data === data && state.view === 'weather') render();
+            }
         }
     }
 
-    async function ensureWeatherTool(force = false) {
-        const key = getRouteKey();
+    function hasBriefingWeather() {
+        return typeof awWeatherValidAt === 'function' && typeof awWeatherSourceControl === 'function';
+    }
+
+    async function ensureWeatherTool(force = false, autoAi = true) {
+        if (!hasBriefingWeather()) return;
+        const source = awWeatherSource();
+        const route = getRoutePoints();
+        const dep = getCurrentAirport('dep'), dest = getCurrentAirport('dest');
+        const validAt = awWeatherValidAt();
+        const routeKey = [getRouteKey(), dep.icao, dest.icao, route.map(p => p.icao).join(',')].join('|');
+        const key = [source, validAt, routeKey].join('|');
         const entry = toolState.weather;
-        if (!force && isCacheFresh(entry, key)) {
-            await maybeGenerateWeatherAi(entry, key, entry.data?.rows || [], entry.data?.assessment || null, null, false);
-            return;
-        }
-        if (entry.loading && entry.key === key && !force) return;
+        if (!force && entry.data?.key === key && isCacheFresh(entry,key)) return;
+        const generateLiveBriefing = autoAi && validAt === null && !entry.key;
+        if (entry.loading && entry.controller && entry.key === key && !force) return;
         abortToolRequest('weather');
+        const controller = window.gaChecklistHost?.createAbortController?.() || new AbortController();
+        const {signal} = controller;
+        entry.controller = controller;
         entry.loading = true;
+        if (entry.data?.routeKey !== routeKey) entry.data = null;
         entry.key = key;
         entry.error = '';
-        entry.controller = window.gaChecklistHost?.createAbortController?.() || new AbortController();
-        if (state.view === 'weather') render();
+        if (state.view === 'weather') {
+            if (entry.data) bodyEl?.classList.add('is-route-weather-loading');
+            else render();
+        }
         try {
             const samples = pickRouteSamplePoints(5);
-            let routeMetars = [];
-            if (samples.length) {
-                try {
-                    routeMetars = await fetchRouteMetarsForWeather(samples, entry.controller.signal);
-                } catch (_) {
-                    routeMetars = [];
-                }
-            }
-            let openMeteo = [];
-            if (samples.length && typeof window.fetchOpenMeteoWeatherPoints === 'function') {
-                try {
-                    openMeteo = await window.fetchOpenMeteoWeatherPoints(
-                        samples.map(p => ({ lat: p.lat, lon: p.lon })),
-                        { signal: entry.controller.signal, includePressure: true, maxConcurrency: 2 }
-                    );
-                } catch (_) {
-                    openMeteo = [];
-                }
-            }
-            const dep = getCurrentAirport('dep');
-            const dest = getCurrentAirport('dest');
-            const rows = samples.map((p, idx) => {
-                const label = idx === 0 ? 'Start' : (idx === samples.length - 1 ? 'Ziel' : `Route ${idx}`);
-                const icao = idx === 0 ? dep.icao : (idx === samples.length - 1 ? dest.icao : '');
-                const cached = weatherFromMetarCache(icao) || nearestMetarWeatherPoint(p.lat, p.lon, routeMetars) || nearestCachedWeatherPoint(p.lat, p.lon);
-                const fromOm = weatherFromOpenMeteo(openMeteo[idx]);
-                return { label, name: p.name || icao || label, lat: p.lat, lon: p.lon, generatedAt: Date.now(), ...mergeWeatherSources(cached, fromOm) };
+            const points = samples.map((p,idx) => {
+                const endpoint = idx === 0 ? dep : idx === samples.length - 1 ? dest : null;
+                const candidate = String(endpoint?.icao || p.icao || '').toUpperCase();
+                const apt = endpoint || airportFromGlobal(candidate) || airportFromGlobal(p.name);
+                const icao = /^[A-Z0-9]{4}$/.test(candidate) ? candidate
+                    : (apt?.icao && Number.isFinite(apt.lat) && navBetween(p.lat,p.lon,apt.lat,apt.lon).dist < 1 ? apt.icao : '');
+                return { ...p, icao, airport:apt, label:idx === 0 ? 'Start' : idx === samples.length - 1 ? 'Ziel' : `WP ${idx + 1}` };
+            });
+            const sigmets = validAt === null ? awReadPointSigmets(points) : Promise.resolve([]);
+            const hasPoints = points.length > 0;
+            const weather = !hasPoints ? [] : source === 'metar'
+                ? await fetchRouteMetarsForWeather(points,signal).catch(() => [])
+                : await awReadModelWeather(source,points,signal,validAt);
+            if (entry.controller !== controller || signal.aborted || source !== awWeatherSource() ||
+                validAt !== awWeatherValidAt()) return;
+            const rows = points.map((p,idx) => {
+                const report = source === 'metar'
+                    ? weatherFromMetarCache(p.icao,p) || nearestMetarWeatherPoint(p.lat,p.lon,weather)
+                    : (weather[idx] && awModelFields(weather[idx],p.airport?.elevation));
+                return {
+                    label:p.label, name:p.name || p.icao || p.label, generatedAt:Date.now(),
+                    source:'Keine Daten', ...report, model:source !== 'metar',
+                    fallback:source === 'dwd' && weather[idx]?.source === 'openmeteo',
+                    runwayText:awBriefingRunwayText(p.icao,p.airport)
+                };
             });
             const assessment = buildWeatherAssessment(rows);
-            entry.data = { rows, assessment, generatedAt: Date.now(), ai: null };
+            const data = {key,routeKey,rows,assessment,source,validAt,generatedAt:Date.now(),ai:null};
+            entry.data = data;
             entry.updatedAt = Date.now();
             entry.loading = false;
-            if (state.view === 'weather') render();
-            await maybeGenerateWeatherAi(entry, key, rows, assessment, entry.controller?.signal, force);
+            const display = () => { if (entry.data === data && state.view === 'weather') render(); };
+            display();
+            const enrich = [
+                sigmets.then(matches => { rows.forEach((row,i) => { row.sigmets = matches[i]; }); display(); }),
+                ...points.map(async (p,i) => {
+                    const row = rows[i];
+                    if (!p.icao || row.runwayText) return;
+                    const result = await readAirportRunwayDetails(p.lat,p.lon,p.icao);
+                    if (result?.status === 'ok') { row.runwayText = result.text; display(); }
+                })
+            ];
+            if (generateLiveBriefing) enrich.push(refreshWeatherAi());
+            await Promise.allSettled(enrich);
         } catch (error) {
-            if (error?.name !== 'AbortError') entry.error = 'Wetterdaten konnten nicht geladen werden.';
+            if (entry.controller === controller && !signal.aborted) {
+                entry.data = null;
+                entry.error = 'Wetterdaten konnten nicht geladen werden.';
+            }
         } finally {
-            entry.loading = false;
-            entry.controller = null;
-            if (state.view === 'weather') render();
+            if (entry.controller === controller) {
+                entry.loading = false;
+                entry.controller = null;
+                if (state.view === 'weather') render();
+            }
         }
     }
+
+    window.addEventListener('ga:briefing-weather-source', () => {
+        if (state.view === 'weather') void ensureWeatherTool(false,false);
+    });
 
     function renderWeatherTool() {
         setTitle('Wetter');
+        if (!hasBriefingWeather()) {
+            bodyEl.innerHTML = toolTopline('weather') + renderToolEmpty('Wetteransicht konnte nicht vollständig geladen werden. Lade die App neu.');
+            return;
+        }
         const entry = toolState.weather;
         const data = entry.data;
         const rows = data?.rows || [];
         const assessment = data?.assessment;
-        const ai = data?.ai || null;
+        const ai = weatherAiMatchesSelection(data) ? data.ai : null;
+        const aiReady = weatherAiMatchesSelection(data) && rows.some(row => row.source && row.source !== 'Keine Daten');
+        const hasApiKey = Boolean(getGeminiApiKey());
+        const aiTitle = data?.validAt != null
+            ? tx('cl.wx.aiForecast','KI-Prognose · {time}',{time:formatUtcWeatherTime(data.validAt)})
+            : tx('cl.wx.aiTitle','KI-Einschätzung');
         const body = rows.length
             ? rows.map(row => renderWeatherStation(row)).join('')
-            : renderToolEmpty(entry.loading ? 'Wetter wird sparsam geladen...' : 'Keine Route für Wetterübersicht gefunden.');
+            : renderToolEmpty(entry.loading ? 'Wetter wird geladen…' : entry.error || 'Keine Route für Wetterübersicht gefunden.');
+        const scrollTop = bodyEl.scrollTop;
         bodyEl.innerHTML = `
             ${toolTopline('weather')}
+            ${rows.length ? '' : awWeatherSourceControl()}
             ${assessment ? `
                 <div class="route-tool-summary is-${escapeAttr(assessment.tone)}">
                     <div class="route-tool-summary-label">${escapeHtml(txPhrase(assessment.label))}</div>
                     <div class="route-tool-summary-text">${escapeHtml(txPhrase(assessment.text))}</div>
                 </div>
             ` : ''}
-            ${ai && (ai.loading || ai.text || ai.error) ? `
+            ${aiReady ? `
                 <div class="route-tool-ai">
-                    <div class="route-tool-summary-label">${tx('cl.wx.aiTitle', 'KI-Einschätzung')}</div>
-                    <div class="route-tool-summary-text">${escapeHtml(ai.loading ? tx('cl.wx.aiLoading', 'KI formuliert die Lage...') : (ai.text || txPhrase(ai.error || '')))}</div>
-                    ${ai.source ? `<div class="route-tool-row-meta">${escapeHtml(ai.source)}</div>` : ''}
+                    <div class="route-tool-ai-head">
+                        <div class="route-tool-summary-label">${escapeHtml(aiTitle)}</div>
+                        <button type="button" class="checklist-action-btn" data-action="weather-ai-refresh"
+                            ${!hasApiKey || ai?.loading ? 'disabled' : ''}
+                            ${!hasApiKey ? `title="${escapeAttr(tx('cl.wx.aiKeyMissing','Gemini-API-Key fehlt'))}"` : ''}>
+                            ${escapeHtml(tx('cl.wx.aiRefresh','Briefing aktualisieren'))}
+                        </button>
+                    </div>
+                    ${ai && (ai.loading || ai.text || ai.error) ? `
+                        <div class="route-tool-summary-text">${escapeHtml(ai.loading ? tx('cl.wx.aiLoading', 'KI formuliert die Lage...') : (ai.text || txPhrase(ai.error || '')))}</div>
+                        ${ai.source ? `<div class="route-tool-row-meta">${escapeHtml(ai.source)}</div>` : ''}
+                    ` : ''}
                 </div>
             ` : ''}
-            ${entry.error ? `<div class="route-tool-warning">${escapeHtml(txPhrase(entry.error))}</div>` : ''}
             <div class="route-tool-list">${body}</div>
         `;
+        bodyEl.scrollTop = scrollTop;
     }
 
     function radioCtrAirport(as) {
@@ -3560,7 +3487,7 @@ ${routeLines}`;
                     </div>
                 <div class="route-tool-place-block">
                     <div class="route-tool-place-block-title">${tx('cl.tool.weather', 'Wetter')}</div>
-                    <div id="${escapeAttr(wxId)}" class="route-tool-weather-widget">${tx('cl.place.weatherOnDemand', 'Wetter lädt bei Bedarf…')}</div>
+                    <div id="${escapeAttr(wxId)}" class="route-tool-weather-widget" data-airport="${escapeAttr(encoded)}">${tx('cl.place.weatherOnDemand', 'Wetter lädt bei Bedarf…')}</div>
                 </div>
                 ${aip ? `<a class="route-tool-link" data-action="airport-aip" data-airport="${escapeAttr(encoded)}" href="${escapeAttr(aip)}" target="_blank" rel="noopener noreferrer">${tx('cl.place.openAip', 'AIP öffnen ↗')}</a>` : ''}
             </div>
@@ -3571,15 +3498,11 @@ ${routeLines}`;
         initPlaceMiniMaps();
         Array.from(bodyEl.querySelectorAll('.route-tool-weather-widget')).forEach(el => {
             if (el.dataset.loaded === 'true') return;
-            const card = el.closest('.route-tool-place-card');
-            const title = card?.querySelector('.route-tool-place-title')?.textContent || '';
-            const code = (title.match(/\b[A-Z0-9]{4}\b/) || [''])[0];
-            const mapEl = card?.querySelector('.route-tool-mini-map');
-            const lat = Number(mapEl?.dataset.lat);
-            const lon = Number(mapEl?.dataset.lon);
+            const airport = decodeAirportDataset(el);
             if (typeof loadMetarWidget === 'function') {
                 el.dataset.loaded = 'true';
-                loadMetarWidget(code || null, el.id, lat, lon, true);
+                loadMetarWidget(airport?.icao || null, el.id, airport?.lat, airport?.lon, true,
+                    { airport, responsiveEmbed:true, skipRunwayWait:true });
             }
         });
     }
@@ -4853,6 +4776,10 @@ ${routeLines}`;
         if (!button || !bodyEl.contains(button)) return;
         if (button.disabled || button.getAttribute('aria-disabled') === 'true') return;
         const action = button.dataset.action;
+        if (action === 'weather-ai-refresh') {
+            void refreshWeatherAi();
+            return;
+        }
         if (action === 'checklist-cloud-refresh') {
             refreshHostChecklists('button');
             return;

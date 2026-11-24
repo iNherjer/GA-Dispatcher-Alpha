@@ -229,6 +229,7 @@ function createMapRadarOverlay(map, pane) {
 // EUMETView provides georeferenced PNGs. The mask style codes clouds as white,
 // clear land/water as green/blue and missing observations as black.
 const GA_SAT_WMS = 'https://view.eumetsat.int/geoserver';
+const GA_SAT_RETRY_MS = 60000;
 const GA_SAT_PRODUCTS = {
     clouds: { workspace: 'msg_fes', layer: 'clm', maxNativeZoom: 6 },
     infrared: { workspace: 'mtg_fd', layer: 'ir105_hrfi', maxNativeZoom: 7 }
@@ -295,16 +296,16 @@ function createMapSatelliteOverlay(map, pane, onChange) {
 
     function showFrame(stamp) {
         if (!visible()) return;
-        if (stamp === time && state !== 'unavailable') return;
+        if (layer && stamp === time && state !== 'unavailable') return;
         removeLayer();
         const product = GA_SAT_PRODUCTS[mode];
         const options = {
             layers: product.workspace + ':' + product.layer, version: '1.3.0', format: 'image/png', transparent: true,
-            time: stamp, pane, opacity: mode === 'clouds' ? 0.58 : 0.46,
+            ...(stamp ? { time: stamp } : {}), pane, opacity: mode === 'clouds' ? 0.58 : 0.46,
             maxNativeZoom: product.maxNativeZoom, noWrap: true, updateWhenIdle: true,
             bounds: [[-64, -72], [68, 72]], attribution: 'Satellit © EUMETSAT'
         };
-        const endpoint = GA_SAT_WMS + '/wms';
+        const endpoint = GA_SAT_WMS + '/' + product.workspace + '/' + product.layer + '/wms';
         const tiles = window.gaMapSatelliteTileUrl
             ? L.tileLayer(window.gaMapSatelliteTileUrl(mode, stamp, '{z}', '{x}', '{y}'), options)
             : mode === 'clouds' ? new CloudTile(endpoint, options) : L.tileLayer.wms(endpoint, options);
@@ -317,6 +318,10 @@ function createMapSatelliteOverlay(map, pane, onChange) {
         tiles.on('load', () => {
             if (layer !== tiles) return;
             state = loadedTile ? 'ready' : 'unavailable';
+            if (!loadedTile && visible() && !request) {
+                clearTimeout(timer);
+                timer = setTimeout(refresh, GA_SAT_RETRY_MS);
+            }
             onChange();
         });
         tiles.addTo(map);
@@ -331,7 +336,8 @@ function createMapSatelliteOverlay(map, pane, onChange) {
         const timeout = setTimeout(() => controller.abort(), 12000);
         request = controller;
         try {
-            const url = GA_SAT_WMS + '/' + product.workspace + '/wms?service=WMS&version=1.3.0&request=GetCapabilities';
+            const url = GA_SAT_WMS + '/' + product.workspace + '/' + product.layer +
+                '/wms?service=WMS&version=1.3.0&request=GetCapabilities';
             const fetchMetadata = window.gaMapSatelliteFetch || fetch;
             const response = await fetchMetadata(url, { signal: controller.signal, cache: 'no-cache' });
             if (!response.ok) throw new Error('EUMETView HTTP ' + response.status);
@@ -353,14 +359,15 @@ function createMapSatelliteOverlay(map, pane, onChange) {
             if (!Number.isFinite(Date.parse(stamp))) throw new Error('EUMETView time unavailable');
             showFrame(stamp);
         } catch (error) {
-            if (request !== controller) return;
+            if (request !== controller || !visible()) return;
+            if (!window.gaMapSatelliteTileUrl && (!layer || state === 'unavailable')) showFrame('');
             if (!layer) state = 'unavailable';
             console.warn('[EUMETView]', error);
         } finally {
             clearTimeout(timeout);
             if (request === controller) {
                 request = null;
-                if (visible()) timer = setTimeout(refresh, GA_MAP_WEATHER_REFRESH_MS);
+                if (visible()) timer = setTimeout(refresh, time && state !== 'unavailable' ? GA_MAP_WEATHER_REFRESH_MS : GA_SAT_RETRY_MS);
                 onChange();
             }
         }
@@ -464,8 +471,8 @@ function installMapWeatherQuickControls(map, layerControl, radar, satellitePane,
         options.hidden = !satellite.enabled;
         const timeLabel = satellite.time ? satellite.time.slice(11, 16) + ' UTC' : '';
         status.title = satellite.time;
-        status.textContent = satellite.state === 'unavailable'
-            ? text('unavailable', 'Nicht verfügbar') : timeLabel || text('loading', 'Lädt …');
+        status.textContent = satellite.state === 'unavailable' ? text('unavailable', 'Nicht verfügbar')
+            : satellite.state === 'loading' ? text('loading', 'Lädt …') : timeLabel || text('latest', 'Letztes Bild');
     }
     const satellite = createMapSatelliteOverlay(map, satellitePane, refresh);
     radar.on('add remove', refresh);

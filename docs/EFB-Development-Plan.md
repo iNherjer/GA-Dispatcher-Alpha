@@ -9244,3 +9244,67 @@ EUMETSAT lieferte beide Bildmodi als gültige 256-Pixel-PNGs. Der lokale
 Browsertest bei 440 und 665 CSS-Pixeln deckt beide Satellitenmodi, Radar,
 Sektoren, Kacheln, METAR und DWD-Punktwetter ab. Sichtbarkeit und Performance
 im echten Coherent sind im nächsten Tracker-Feldtest zu prüfen.
+
+## 24.11.2026 – Wetterquelle für Seitenmenü und Start-/Zieltafel
+
+Lokaler Kandidat mit Host-Assetrevision 66102. Die Tafeln und die Wetteransicht
+im Seitenmenü teilen eine Geräteeinstellung für METAR, DWD ICON-EU und
+Open-Meteo. DWD verwendet den vorhandenen Profilkachelcache. Open-Meteo
+ergänzt im Live-Modus ganze Punkte bei fehlender DWD-Abdeckung. Der Quellenname
+wechselt zwischen DWD (Standard), Open-Meteo und METAR. Auch Platz, Flughafen-
+Widgets und Punktpopup folgen dieser Auswahl. Die DWD-Zeitsteuerung bündelt
+schnell aufeinanderfolgende Tippereignisse, lädt die gewählte UTC-Stunde und
+kehrt beim Tipp auf die Uhrzeit zu Live zurück. Kartenlayer und Höhenband
+haben weiterhin eigene Bedienelemente.
+
+METAR übernimmt gemeldete Wolkenschichten und die Höhe der niedrigsten
+BKN-/OVC-/VV-Schicht. Modellprofile liefern eine geschätzte Wolkenbasis,
+DWD zusätzlich das eigene CEILING-Feld. Die Windrose im Seitenmenü
+verwendet Wind und, für einen bekannten Flugplatz, die dortige Piste.
+Modellereignisse nutzen die WMO-Symbole. Zeitlich und räumlich passende
+AWC-SIGMETs erscheinen separat. Hover zeigt die Kurzbeschreibung und
+Antippen öffnet die Details. Die Wetteransicht ist damit auch im lokalen
+Tracker-Host auswählbar. Abnahme in MSFS Coherent steht noch aus.
+
+Anpassung nach dem lokalen Mobiltest: Ein niedrigeres DWD-CEILING erscheint
+allein, falls das Profil die tiefere Schicht überspringt. Eine Wolkenbasis
+steht separat, wenn das Profil sie in niedrigerer Höhe auflöst.
+Die Briefing-Widgets rahmen Quelle, Werte und Warnungen gemeinsam
+ein. Klicks in diesem Rahmen blättern die Briefingseite nicht um. Fehlende
+Wolkenhöhen und SIGMETs lassen die entsprechenden Zeilen entfallen.
+Der lokale WebKit-Test bei 440 CSS-Pixeln prüft den Fall 18.320/2.440 ft,
+eine fehlende Modellbasis, Warnsymbole und das Blättern außerhalb des Widgets.
+
+Wetterkarten und Briefing-Widgets zeigen VFR, MVFR, IFR oder LIFR.
+METAR liefert die Stationskategorie. Bei Modellwerten gelten die AWC-Grenzen
+für Sichtweite und Ceiling über Grund. Bei ausreichender Sicht und höchstens
+50 % Gesamtbedeckung kann das Modell ohne Ceiling eingestuft werden. Fehlt
+die Sichtweite oder bleibt das Ceiling unklar, entfällt das Abzeichen.
+Die WX- und SIGMET-Symbole zeigen weiterhin einzelne Wetterereignisse.
+
+Beim Stunden- oder Quellenwechsel lädt das Wetter-Seitenmenü die neuen Werte
+ohne KI-Aufruf. „Briefing aktualisieren“ startet die Einschätzung manuell für
+die gerade angezeigten Daten. Der Prompt nennt die gewählte UTC-Stunde und
+kennzeichnet Modellwerte als Prognose und METAR-Werte als Beobachtung. Beim
+ersten Öffnen in Live kann die bisherige automatische Einschätzung laufen.
+
+Assetrevision 66103: Das Punktpopup behält seine kompakte Typografie auch
+im Papier-Theme. Die Papier-Windrose mit gezeichneter Piste erscheint auf
+der Start- und Zieltafel für Modellwetter und METAR. Beim Stundenwechsel
+bleiben die vorhandenen Werte während des Abrufs sichtbar. Im Punktpopup
+werden Karte und Höhenband gezielt am Wetterinhalt aktualisiert.
+
+Assetrevision 66104: Wetterfelder markieren laufende Abrufe an der Uhrzeit
+bzw. an der Quelle. Die Windrose übernimmt die quadratische Größe des
+SVG. Der lokale Webserver bevorzugt den geteilten DWD-Kachelcache und
+fragt fehlende Punkte beim lokalen DWD-Dienst ab. Satellit verwendet die
+kleineren produktspezifischen EUMETView-WMS-Endpunkte. Die Webapp kann
+bei vorübergehend fehlenden Metadaten das WMS-Standardbild anzeigen.
+Bei einem fehlgeschlagenen Abruf wird nach einer Minute erneut geprüft.
+
+Assetrevision 66105: In Punktwetter, Flugplatz und Briefing steht der
+MSL-/AGL-Schalter direkt am Höhenwert. Der gewählte Bezug gilt für alle
+Wetterkarten. Höhen mit nur einem Bezug behalten ihre vorhandene Einheit.
+Fehlt die Sichtweite, kann das Ceiling eine obere Flugwetterkategorie
+bestimmen, die als Grenze erscheint. Ein VFR-Abzeichen setzt weiterhin
+eine bekannte Sichtweite voraus.

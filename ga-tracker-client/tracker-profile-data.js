@@ -18,14 +18,24 @@ function resourceUrl(input, body) {
     /^\/GA-Dispatcher-Alpha\/obstacles\/(core-tiles|tiles)\/\d+\/\d+\.json(?:\.gz)?$/.test(url.pathname));
   const weather = url.origin === 'https://api.open-meteo.com' && ['/v1/forecast', '/v1/elevation'].includes(url.pathname);
   const metar = url.origin === 'https://aviationweather.gov' && url.pathname === '/api/data/metar';
+  const sigmetLayer = url.origin === 'https://mapservices.weather.noaa.gov' &&
+    /^\/vector\/rest\/services\/aviation\/awc_aviation_weather\/MapServer\/(111|112)\/query$/.exec(url.pathname);
+  if (sigmetLayer) {
+    const fields = sigmetLayer[1] === '111'
+      ? 'hazard,severity,valid_time_from,valid_time_to,min_ft_msl,max_ft_msl,raw_text'
+      : 'hazard,qualifier,validtimef,validtimet,base,top,rawsigmet';
+    url.search = new URLSearchParams({ where:'1=1', outFields:fields, f:'geojson', outSR:'4326' });
+    return { url:url.href, ttlMs:300000 };
+  }
   const hostedProxy = url.origin === 'https://ga-proxy.einherjer.workers.dev' && url.pathname === '/api/obstacles/tile';
   const radar = url.origin === 'https://api.rainviewer.com' && url.pathname === '/public/weather-maps.json';
   const satellite = url.origin === EUMET_VIEW && Object.values(SATELLITE_PRODUCTS)
-    .find(([workspace]) => url.pathname === '/geoserver/' + workspace + '/wms');
+    .find(([workspace, layer]) => url.pathname === '/geoserver/' + workspace + '/' + layer + '/wms' ||
+      url.pathname === '/geoserver/' + workspace + '/wms');
   if (satellite) {
     if (url.searchParams.get('request') !== 'GetCapabilities') throw new Error('invalid_profile_resource');
     const [workspace, layer] = satellite;
-    return { url: EUMET_VIEW + '/geoserver/' + workspace + '/wms?service=WMS&version=1.3.0&request=GetCapabilities',
+    return { url: EUMET_VIEW + '/geoserver/' + workspace + '/' + layer + '/wms?service=WMS&version=1.3.0&request=GetCapabilities',
       ttlMs: 300000, satelliteLayer: layer };
   }
   const staticDwd = url.origin === new URL(ROOT).origin && url.pathname === '/api/v1/dwd-icon-eu';
@@ -123,7 +133,7 @@ function createProfileData(data) {
         crs: 'EPSG:3857', bbox: bbox.join(','), width: '256', height: '256', format: 'image/png',
         transparent: 'true', time
       });
-      const bytes = await data.cache.get(EUMET_VIEW + '/geoserver/wms?' + params, {
+      const bytes = await data.cache.get(EUMET_VIEW + '/geoserver/' + product.join('/') + '/wms?' + params, {
         ttlMs: 3600000, limit: 1024 * 1024, validate: validatePng
       });
       if (mode === 'infrared') return bytes;

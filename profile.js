@@ -107,7 +107,27 @@ function vpModelForecastTime(sample) {
 
 window.fetchDwdWeatherPoints = async function(points, { signal, includePressure = false, validAt = null, prefetch = false } = {}) {
     if (!points.length) return [];
-    if (window.fetchStaticDwdWeatherPoints) return window.fetchStaticDwdWeatherPoints(points, { signal, includePressure, validAt });
+    if (window.fetchStaticDwdWeatherPoints) {
+        const hasLocalFallback = window.GA_DWD_WEATHER_URL === '/api/dwd-icon-eu';
+        try {
+            const samples = await window.fetchStaticDwdWeatherPoints(points, { signal, includePressure, validAt });
+            if (prefetch || !hasLocalFallback || samples.every(Boolean)) return samples;
+            const missing = points.flatMap((point, index) => samples[index] ? [] : [{ point, index }]);
+            const extra = await vpFetchDwdServicePoints(missing.map(row => row.point), { signal, includePressure, validAt, prefetch })
+                .catch(error => {
+                    if (signal?.aborted || error?.name === 'AbortError') throw error;
+                    return [];
+                });
+            missing.forEach(({index}, i) => { if (extra[i]) samples[index] = extra[i]; });
+            return samples;
+        } catch (error) {
+            if (prefetch || !hasLocalFallback || signal?.aborted || error?.name === 'AbortError') throw error;
+        }
+    }
+    return vpFetchDwdServicePoints(points, { signal, includePressure, validAt, prefetch });
+};
+
+async function vpFetchDwdServicePoints(points, { signal, includePressure, validAt, prefetch }) {
     const query = ['points=' + encodeURIComponent(points.map(point =>
         `${point.lat.toFixed(5)},${point.lon.toFixed(5)}`).join(';'))];
     if (includePressure) query.push('profile=1');
@@ -126,7 +146,7 @@ window.fetchDwdWeatherPoints = async function(points, { signal, includePressure 
     return data.samples.map(sample => sample && {
         ...sample, contourValidAt: data.validAt, modelRunAt: data.runAt
     });
-};
+}
 
 if (!document.getElementById('vp-err-dot-style')) {
     const style = document.createElement('style');
@@ -6381,6 +6401,7 @@ async function vpFetchOpenMeteoPoint(lat, lon, { signal, includePressure = false
         lat: latQ,
         lon: lonQ,
         mslPressureHpa: mslPressureHpa,
+        modelTerrainMslM: Number.isFinite(data.elevation) ? data.elevation : null,
         cloudTotalPct: totalCloudPct,
         cloudLowPct: lowPct,
         cloudMidPct: midPct,
