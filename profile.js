@@ -10910,12 +10910,41 @@ function initAltWaypoints() {
     let vpWasDragging = false;
     window.vpDraggingPosMarker = false;
     let dragStartY = 0, dragStartX = 0, dragOrigWP = null;
-    let lastTapTime = 0;
+    let lastTap = null;
+    let touchPress = null;
+    let touchHoldTimer = null;
+    const touchHoldMs = 500;
+    const touchSlop = 6;
+    const editHint = document.getElementById('vpAltitudeEditHint');
     let vpIsPanning = false;
     let vpPanStartScrollLeft = 0;
     let vpPanStartX = 0;
     let initialPinchDist = null;
     let initialTwoFingerY = null;
+
+    function clearTouchHold() {
+        if (touchHoldTimer !== null) clearTimeout(touchHoldTimer);
+        touchHoldTimer = null;
+    }
+
+    function finishTouchDrag() {
+        if (editHint) editHint.hidden = true;
+        if (vpWasDragging || window.vpDraggingPosMarker) vpHandleDragEnd();
+        else {
+            vpDraggingWP = -1;
+            vpDraggingSegment = null;
+            dragOrigWP = null;
+        }
+    }
+
+    function startTouchPan() {
+        if (vpZoomLevel >= 100) return;
+        vpIsPanning = true;
+        window.vpProfilePanActive = true;
+        const scrollContainer = document.getElementById('mapProfileScroll');
+        vpPanStartScrollLeft = scrollContainer ? scrollContainer.scrollLeft : 0;
+        vpPanStartX = dragStartX;
+    }
 
     // === DOUBLE CLICK: remove/add waypoint ===
     canvas.addEventListener('dblclick', (e) => {
@@ -11000,6 +11029,12 @@ function initAltWaypoints() {
     canvas.addEventListener('touchstart', (e) => {
         if (e.touches.length === 2) {
             e.preventDefault();
+            clearTouchHold();
+            finishTouchDrag();
+            touchPress = null;
+            lastTap = null;
+            vpIsPanning = false;
+            window.vpProfilePanActive = false;
             initialPinchDist = Math.hypot(
                 e.touches[0].clientX - e.touches[1].clientX,
                 e.touches[0].clientY - e.touches[1].clientY
@@ -11007,6 +11042,7 @@ function initAltWaypoints() {
             initialTwoFingerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
             return;
         }
+        if (e.touches.length !== 1) return;
 
         const touch = e.touches[0];
         vpWasDragging = false;
@@ -11018,46 +11054,48 @@ function initAltWaypoints() {
         dragStartX = touch.clientX;
         dragStartY = touch.clientY;
 
-        const now = Date.now();
-        if (now - lastTapTime < 300) {
+        const isRoute = vpMode !== 'HDG';
+        const wpIdx = vpHitTestWaypoint(mx, my, m);
+        const lineDist = isRoute && wpIdx < 0 ? vpHitTestFlightLine(mx, my, m) : null;
+        if (wpIdx >= 0 || lineDist !== null) {
             e.preventDefault();
-            if (typeof vpMode === 'undefined' || vpMode !== 'HDG') { // Nur im RTE-Modus
-                if (vpHandleDoubleHit(mx, my, m)) window.debouncedSaveMissionState();
-            }
-            lastTapTime = 0;
+            const press = { id: touch.identifier, started: Date.now() };
+            touchPress = press;
+            const waypoint = vpAltWaypoints[wpIdx];
+            touchHoldTimer = setTimeout(() => {
+                touchHoldTimer = null;
+                if (touchPress !== press || vpMode === 'HDG') return;
+                const current = vpGetCanvasMetrics();
+                if (!current || current.elevData !== m.elevData || current.viewX !== m.viewX) return;
+                if (waypoint) {
+                    vpDraggingWP = vpAltWaypoints.indexOf(waypoint);
+                    if (vpDraggingWP < 0) return;
+                    dragOrigWP = { ...waypoint };
+                } else {
+                    const segIdx = vpFindSegmentIdx(lineDist);
+                    const endpoint = segIdx === -4 ? vpAltWaypoints[vpAltWaypoints.length - 1]
+                        : segIdx === -2 || segIdx === -3 ? vpAltWaypoints[0] : null;
+                    const origAlt = endpoint?.altFt ?? vpSegmentAlts[segIdx] ?? current.cruiseAlt;
+                    vpDraggingSegment = { segIdx, origAlt, origCruiseAlt: current.cruiseAlt };
+                }
+                lastTap = null;
+                if (editHint) {
+                    editHint.style.left = (current.viewX + current.padLeft) + 'px';
+                    editHint.hidden = false;
+                }
+            }, touchHoldMs);
             return;
         }
-        lastTapTime = now;
-
-        const _isHdgNow2 = (typeof vpMode !== 'undefined' && vpMode === 'HDG');
-        if (!_isHdgNow2 && vpHitTestMagenta(mx, m)) {
+        lastTap = null;
+        if (!isRoute) return;
+        if (vpHitTestMagenta(mx, m)) {
             e.preventDefault();
             window.vpDraggingPosMarker = true;
             return;
         }
-        const wpIdx = vpHitTestWaypoint(mx, my, m);
-        if (wpIdx >= 0) {
-            e.preventDefault();
-            vpDraggingWP = wpIdx;
-            dragOrigWP = { ...vpAltWaypoints[wpIdx] };
-            return;
-        }
-        if (typeof vpMode !== 'undefined' && vpMode === 'HDG') return; // Keine Höhenlinien-Interaktion im HDG-Modus
-        const mouseDistNM = vpHitTestFlightLine(mx, my, m);
-        if (mouseDistNM !== null) {
-            e.preventDefault();
-            const segIdx = vpFindSegmentIdx(mouseDistNM);
-            const origSegAlt = (segIdx >= 0 && segIdx < vpSegmentAlts.length) ? vpSegmentAlts[segIdx] : m.cruiseAlt;
-            vpDraggingSegment = { segIdx, origAlt: origSegAlt, origCruiseAlt: m.cruiseAlt };
-            return;
-        }
         if (vpZoomLevel < 100) {
             e.preventDefault();
-            vpIsPanning = true;
-            window.vpProfilePanActive = true;
-            const scrollContainer = document.getElementById('mapProfileScroll');
-            vpPanStartScrollLeft = scrollContainer ? scrollContainer.scrollLeft : 0;
-            vpPanStartX = touch.clientX;
+            startTouchPan();
         }
     }, { passive: false });
 
@@ -11090,9 +11128,21 @@ function initAltWaypoints() {
             return;
         }
 
+        if (e.touches.length !== 1) return;
+        const touch = e.touches[0];
+        if (touchPress && touch.identifier !== touchPress.id) return;
+        const dx = Math.abs(vpEfbLogicalDelta(touch.clientX - dragStartX));
+        const dy = Math.abs(vpEfbLogicalDelta(touch.clientY - dragStartY));
+        if (touchPress && vpDraggingWP < 0 && !vpDraggingSegment) {
+            if (dx < touchSlop && dy < touchSlop) return;
+            clearTouchHold();
+            touchPress = null;
+            lastTap = null;
+            startTouchPan();
+        }
+
         if (vpIsPanning) {
             e.preventDefault();
-            const touch = e.touches[0];
             const deltaX = vpEfbLogicalDelta(vpPanStartX - touch.clientX);
             const scrollContainer = document.getElementById('mapProfileScroll');
             if (scrollContainer) scrollContainer.scrollLeft = vpPanStartScrollLeft + deltaX;
@@ -11100,27 +11150,43 @@ function initAltWaypoints() {
         }
         if (vpDraggingWP < 0 && !vpDraggingSegment && !window.vpDraggingPosMarker) return;
         e.preventDefault();
-        const touch = e.touches[0];
-        if (Math.abs(touch.clientX - dragStartX) > 3 || Math.abs(touch.clientY - dragStartY) > 3) vpWasDragging = true;
+        if (dx > 3 || dy > 3) vpWasDragging = true;
+        if (!vpWasDragging && !window.vpDraggingPosMarker) return;
         vpHandleDragMove(touch.clientX, touch.clientY, dragStartX, dragStartY, dragOrigWP);
     }, { passive: false });
 
     canvas.addEventListener('touchend', (e) => {
         if (e.touches.length < 2) { initialPinchDist = null; initialTwoFingerY = null; }
-        if (vpIsPanning) {
-            vpIsPanning = false;
-            window.vpProfilePanActive = false;
-            return;
-        }
+        if (e.touches.length) return;
+        const press = touchPress;
+        clearTouchHold();
+        touchPress = null;
+        vpIsPanning = false;
         window.vpProfilePanActive = false;
-        if (vpDraggingWP >= 0 || vpDraggingSegment || window.vpDraggingPosMarker) vpHandleDragEnd();
+        const tapped = press && Date.now() - press.started < touchHoldMs && vpDraggingWP < 0 && !vpDraggingSegment;
+        if (tapped && vpMode !== 'HDG') {
+            const now = Date.now();
+            if (lastTap && now - lastTap.time < 300 && Math.abs(vpEfbLogicalDelta(lastTap.x - dragStartX)) < 24 &&
+                Math.abs(vpEfbLogicalDelta(lastTap.y - dragStartY)) < 24) {
+                lastTap = null;
+                const m = vpGetCanvasMetrics();
+                if (m) {
+                    const { mx, my } = vpClientToCanvas(dragStartX, dragStartY, m);
+                    if (vpHandleDoubleHit(mx, my, m)) window.debouncedSaveMissionState();
+                }
+            } else lastTap = { time: now, x: dragStartX, y: dragStartY };
+        }
+        finishTouchDrag();
     });
 
-    canvas.addEventListener('touchcancel', (e) => {
+    canvas.addEventListener('touchcancel', () => {
+        clearTouchHold();
+        finishTouchDrag();
+        touchPress = null;
+        lastTap = null;
         initialPinchDist = null; initialTwoFingerY = null;
         vpIsPanning = false; vpWasDragging = false;
         window.vpProfilePanActive = false;
-        if (vpDraggingWP >= 0 || vpDraggingSegment || window.vpDraggingPosMarker) vpHandleDragEnd();
     });
 
     // === MOUSE WHEEL ZOOM & PAN (Multi-Achsen) ===

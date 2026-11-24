@@ -1,5 +1,5 @@
 // Generated from profile.js by sync-efb-web-assets.js. Do not edit.
-var _ref45, _localStorage$getItem, _ref46, _localStorage$getItem2, _ref47, _localStorage$getItem3;
+var _ref46, _localStorage$getItem, _ref47, _localStorage$getItem2, _ref48, _localStorage$getItem3;
 function _regeneratorValues(e) { if (null != e) { var t = e["function" == typeof Symbol && Symbol.iterator || "@@iterator"], r = 0; if (t) return t.call(e); if ("function" == typeof e.next) return e; if (!isNaN(e.length)) return { next: function next() { return e && r >= e.length && (e = void 0), { value: e && e[r++], done: !e }; } }; } throw new TypeError(typeof e + " is not iterable"); }
 function _regeneratorKeys(e) { var n = Object(e), r = []; for (var t in n) r.unshift(t); return function e() { for (; r.length;) if ((t = r.pop()) in n) return e.value = t, e.done = !1, e; return e.done = !0, e; }; }
 function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
@@ -2975,7 +2975,7 @@ function _vpFetchHostedTilesParallel() {
           results = new Map();
           cursor = 0;
           worker = /*#__PURE__*/function () {
-            var _ref56 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23() {
+            var _ref57 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee23() {
               var idx, tileKey, res, _t23;
               return _regenerator().w(function (_context26) {
                 while (1) switch (_context26.p = _context26.n) {
@@ -3039,7 +3039,7 @@ function _vpFetchHostedTilesParallel() {
               }, _callee23, null, [[3, 5, 7, 8]]);
             }));
             return function worker() {
-              return _ref56.apply(this, arguments);
+              return _ref57.apply(this, arguments);
             };
           }();
           workers = [];
@@ -5132,11 +5132,11 @@ function _fetchRouteWeatherMetar() {
           safeFetchMetarJson = function _safeFetchMetarJson2(_x65) {
             return _safeFetchMetarJson.apply(this, arguments);
           };
-          vpBuildMetarBboxUrl = function _vpBuildMetarBboxUrl(_ref57) {
-            var minLat = _ref57.minLat,
-              minLon = _ref57.minLon,
-              maxLat = _ref57.maxLat,
-              maxLon = _ref57.maxLon;
+          vpBuildMetarBboxUrl = function _vpBuildMetarBboxUrl(_ref58) {
+            var minLat = _ref58.minLat,
+              minLon = _ref58.minLon,
+              maxLat = _ref58.maxLat,
+              maxLon = _ref58.maxLon;
             // AviationWeather rejects bounding boxes with raw floating-point coordinates.
             var bbox = [minLat, minLon, maxLat, maxLon].map(coord => coord.toFixed(5)).join(',');
             return `https://aviationweather.gov/api/data/metar?bbox=${bbox}&format=json`;
@@ -5378,7 +5378,7 @@ function _fetchRouteWeatherMetar() {
         case 5:
           nowTs = Date.now();
           fetchChunkData = /*#__PURE__*/function () {
-            var _ref58 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee29(chunk) {
+            var _ref59 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee29(chunk) {
               var bypassCache,
                 cached,
                 url,
@@ -5461,11 +5461,11 @@ function _fetchRouteWeatherMetar() {
               }, _callee29);
             }));
             return function fetchChunkData(_x66) {
-              return _ref58.apply(this, arguments);
+              return _ref59.apply(this, arguments);
             };
           }();
           promises = chunkDefs.map(/*#__PURE__*/function () {
-            var _ref59 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee30(chunk) {
+            var _ref60 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee30(chunk) {
               var cached;
               return _regenerator().w(function (_context35) {
                 while (1) switch (_context35.n) {
@@ -5485,7 +5485,7 @@ function _fetchRouteWeatherMetar() {
               }, _callee30);
             }));
             return function (_x67) {
-              return _ref59.apply(this, arguments);
+              return _ref60.apply(this, arguments);
             };
           }());
           _context41.n = 6;
@@ -5536,7 +5536,7 @@ function _fetchRouteWeatherMetar() {
               prefetchDefs = farDefs.filter(d => !primaryKeys.has(d.key)).filter(d => !Array.isArray(vpGetMetarChunkCache(d.key, nowPrefetch))).filter(d => !vpMetarPrefetchInFlight.has(d.key)).slice(0, VP_METAR_PREFETCH_MAX_CHUNKS);
               if (prefetchDefs.length > 0) {
                 runPrefetch = /*#__PURE__*/function () {
-                  var _ref60 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee31() {
+                  var _ref61 = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee31() {
                     var _iterator92, _step92, _d3, url, arr, safeArr, _t30, _t31;
                     return _regenerator().w(function (_context36) {
                       while (1) switch (_context36.p = _context36.n) {
@@ -5611,7 +5611,7 @@ function _fetchRouteWeatherMetar() {
                     }, _callee31, null, [[5, 8, 9, 10], [1, 13, 14, 15]]);
                   }));
                   return function runPrefetch() {
-                    return _ref60.apply(this, arguments);
+                    return _ref61.apply(this, arguments);
                   };
                 }();
                 setTimeout(() => {
@@ -5659,7 +5659,7 @@ function _fetchRouteWeatherMetar() {
           stepNM = 15;
           zones = [];
           _loop13 = /*#__PURE__*/_regenerator().m(function _loop13() {
-            var bestPt, minDiff, _iterator94, _step94, pt, diff, closestMetar, minMetarDist, _ref61, _closestMetar$mslp, clouds, raw, stnElevFt, cloudRegex, match, lowestBase, agl, msl, hasRain, hasSnow, hasTS, metarFltCat, estimatedCloud, mslPressureRaw, mslPressureHpa, pressureProfile, pressureAnomalyFt, base1000, wkt, wdir, visuals, _c, _d4, f;
+            var bestPt, minDiff, _iterator94, _step94, pt, diff, closestMetar, minMetarDist, _ref62, _closestMetar$mslp, clouds, raw, stnElevFt, cloudRegex, match, lowestBase, agl, msl, hasRain, hasSnow, hasTS, metarFltCat, estimatedCloud, mslPressureRaw, mslPressureHpa, pressureProfile, pressureAnomalyFt, base1000, wkt, wdir, visuals, _c, _d4, f;
             return _regenerator().w(function (_context40) {
               while (1) switch (_context40.n) {
                 case 0:
@@ -5725,7 +5725,7 @@ function _fetchRouteWeatherMetar() {
                         lowestBase = estimatedCloud.baseMsl;
                       }
                     }
-                    mslPressureRaw = Number((_ref61 = (_closestMetar$mslp = closestMetar.mslp) !== null && _closestMetar$mslp !== void 0 ? _closestMetar$mslp : closestMetar.slp) !== null && _ref61 !== void 0 ? _ref61 : closestMetar.altim);
+                    mslPressureRaw = Number((_ref62 = (_closestMetar$mslp = closestMetar.mslp) !== null && _closestMetar$mslp !== void 0 ? _closestMetar$mslp : closestMetar.slp) !== null && _ref62 !== void 0 ? _ref62 : closestMetar.altim);
                     mslPressureHpa = Number.isFinite(mslPressureRaw) && mslPressureRaw >= 850 && mslPressureRaw <= 1100 ? mslPressureRaw : null;
                     pressureProfile = [];
                     if (Number.isFinite(mslPressureHpa)) {
@@ -8499,13 +8499,13 @@ function vpFetchOpenMeteoPoint(_x32, _x33) {
 }
 function _vpFetchOpenMeteoPoint() {
   _vpFetchOpenMeteoPoint = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee38(lat, lon) {
-    var _ref62,
+    var _ref63,
       signal,
-      _ref62$includePressur,
+      _ref63$includePressur,
       includePressure,
-      _ref62$includeContour,
+      _ref63$includeContour,
       includeContour,
-      _ref62$validAt,
+      _ref63$validAt,
       validAt,
       pointKey,
       cacheKey,
@@ -8520,7 +8520,7 @@ function _vpFetchOpenMeteoPoint() {
     return _regenerator().w(function (_context46) {
       while (1) switch (_context46.p = _context46.n) {
         case 0:
-          _ref62 = _args45.length > 2 && _args45[2] !== undefined ? _args45[2] : {}, signal = _ref62.signal, _ref62$includePressur = _ref62.includePressure, includePressure = _ref62$includePressur === void 0 ? false : _ref62$includePressur, _ref62$includeContour = _ref62.includeContour, includeContour = _ref62$includeContour === void 0 ? false : _ref62$includeContour, _ref62$validAt = _ref62.validAt, validAt = _ref62$validAt === void 0 ? null : _ref62$validAt;
+          _ref63 = _args45.length > 2 && _args45[2] !== undefined ? _args45[2] : {}, signal = _ref63.signal, _ref63$includePressur = _ref63.includePressure, includePressure = _ref63$includePressur === void 0 ? false : _ref63$includePressur, _ref63$includeContour = _ref63.includeContour, includeContour = _ref63$includeContour === void 0 ? false : _ref63$includeContour, _ref63$validAt = _ref63.validAt, validAt = _ref63$validAt === void 0 ? null : _ref63$validAt;
           if (!(!Number.isFinite(lat) || !Number.isFinite(lon))) {
             _context46.n = 1;
             break;
@@ -14393,12 +14393,37 @@ function initAltWaypoints() {
   var dragStartY = 0,
     dragStartX = 0,
     dragOrigWP = null;
-  var lastTapTime = 0;
+  var lastTap = null;
+  var touchPress = null;
+  var touchHoldTimer = null;
+  var touchHoldMs = 500;
+  var touchSlop = 6;
+  var editHint = document.getElementById('vpAltitudeEditHint');
   var vpIsPanning = false;
   var vpPanStartScrollLeft = 0;
   var vpPanStartX = 0;
   var initialPinchDist = null;
   var initialTwoFingerY = null;
+  function clearTouchHold() {
+    if (touchHoldTimer !== null) clearTimeout(touchHoldTimer);
+    touchHoldTimer = null;
+  }
+  function finishTouchDrag() {
+    if (editHint) editHint.hidden = true;
+    if (vpWasDragging || window.vpDraggingPosMarker) vpHandleDragEnd();else {
+      vpDraggingWP = -1;
+      vpDraggingSegment = null;
+      dragOrigWP = null;
+    }
+  }
+  function startTouchPan() {
+    if (vpZoomLevel >= 100) return;
+    vpIsPanning = true;
+    window.vpProfilePanActive = true;
+    var scrollContainer = document.getElementById('mapProfileScroll');
+    vpPanStartScrollLeft = scrollContainer ? scrollContainer.scrollLeft : 0;
+    vpPanStartX = dragStartX;
+  }
 
   // === DOUBLE CLICK: remove/add waypoint ===
   canvas.addEventListener('dblclick', e => {
@@ -14493,10 +14518,17 @@ function initAltWaypoints() {
   canvas.addEventListener('touchstart', e => {
     if (e.touches.length === 2) {
       e.preventDefault();
+      clearTouchHold();
+      finishTouchDrag();
+      touchPress = null;
+      lastTap = null;
+      vpIsPanning = false;
+      window.vpProfilePanActive = false;
       initialPinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
       initialTwoFingerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
       return;
     }
+    if (e.touches.length !== 1) return;
     var touch = e.touches[0];
     vpWasDragging = false;
     vpIsPanning = false;
@@ -14508,50 +14540,55 @@ function initAltWaypoints() {
       my = _vpClientToCanvas5.my;
     dragStartX = touch.clientX;
     dragStartY = touch.clientY;
-    var now = Date.now();
-    if (now - lastTapTime < 300) {
+    var isRoute = vpMode !== 'HDG';
+    var wpIdx = vpHitTestWaypoint(mx, my, m);
+    var lineDist = isRoute && wpIdx < 0 ? vpHitTestFlightLine(mx, my, m) : null;
+    if (wpIdx >= 0 || lineDist !== null) {
       e.preventDefault();
-      if (typeof vpMode === 'undefined' || vpMode !== 'HDG') {
-        // Nur im RTE-Modus
-        if (vpHandleDoubleHit(mx, my, m)) window.debouncedSaveMissionState();
-      }
-      lastTapTime = 0;
+      var press = {
+        id: touch.identifier,
+        started: Date.now()
+      };
+      touchPress = press;
+      var waypoint = vpAltWaypoints[wpIdx];
+      touchHoldTimer = setTimeout(() => {
+        touchHoldTimer = null;
+        if (touchPress !== press || vpMode === 'HDG') return;
+        var current = vpGetCanvasMetrics();
+        if (!current || current.elevData !== m.elevData || current.viewX !== m.viewX) return;
+        if (waypoint) {
+          vpDraggingWP = vpAltWaypoints.indexOf(waypoint);
+          if (vpDraggingWP < 0) return;
+          dragOrigWP = _objectSpread({}, waypoint);
+        } else {
+          var _ref45, _endpoint$altFt;
+          var segIdx = vpFindSegmentIdx(lineDist);
+          var endpoint = segIdx === -4 ? vpAltWaypoints[vpAltWaypoints.length - 1] : segIdx === -2 || segIdx === -3 ? vpAltWaypoints[0] : null;
+          var origAlt = (_ref45 = (_endpoint$altFt = endpoint === null || endpoint === void 0 ? void 0 : endpoint.altFt) !== null && _endpoint$altFt !== void 0 ? _endpoint$altFt : vpSegmentAlts[segIdx]) !== null && _ref45 !== void 0 ? _ref45 : current.cruiseAlt;
+          vpDraggingSegment = {
+            segIdx,
+            origAlt,
+            origCruiseAlt: current.cruiseAlt
+          };
+        }
+        lastTap = null;
+        if (editHint) {
+          editHint.style.left = current.viewX + current.padLeft + 'px';
+          editHint.hidden = false;
+        }
+      }, touchHoldMs);
       return;
     }
-    lastTapTime = now;
-    var _isHdgNow2 = typeof vpMode !== 'undefined' && vpMode === 'HDG';
-    if (!_isHdgNow2 && vpHitTestMagenta(mx, m)) {
+    lastTap = null;
+    if (!isRoute) return;
+    if (vpHitTestMagenta(mx, m)) {
       e.preventDefault();
       window.vpDraggingPosMarker = true;
       return;
     }
-    var wpIdx = vpHitTestWaypoint(mx, my, m);
-    if (wpIdx >= 0) {
-      e.preventDefault();
-      vpDraggingWP = wpIdx;
-      dragOrigWP = _objectSpread({}, vpAltWaypoints[wpIdx]);
-      return;
-    }
-    if (typeof vpMode !== 'undefined' && vpMode === 'HDG') return; // Keine Höhenlinien-Interaktion im HDG-Modus
-    var mouseDistNM = vpHitTestFlightLine(mx, my, m);
-    if (mouseDistNM !== null) {
-      e.preventDefault();
-      var segIdx = vpFindSegmentIdx(mouseDistNM);
-      var origSegAlt = segIdx >= 0 && segIdx < vpSegmentAlts.length ? vpSegmentAlts[segIdx] : m.cruiseAlt;
-      vpDraggingSegment = {
-        segIdx,
-        origAlt: origSegAlt,
-        origCruiseAlt: m.cruiseAlt
-      };
-      return;
-    }
     if (vpZoomLevel < 100) {
       e.preventDefault();
-      vpIsPanning = true;
-      window.vpProfilePanActive = true;
-      var scrollContainer = document.getElementById('mapProfileScroll');
-      vpPanStartScrollLeft = scrollContainer ? scrollContainer.scrollLeft : 0;
-      vpPanStartX = touch.clientX;
+      startTouchPan();
     }
   }, {
     passive: false
@@ -14581,18 +14618,29 @@ function initAltWaypoints() {
       }
       return;
     }
+    if (e.touches.length !== 1) return;
+    var touch = e.touches[0];
+    if (touchPress && touch.identifier !== touchPress.id) return;
+    var dx = Math.abs(vpEfbLogicalDelta(touch.clientX - dragStartX));
+    var dy = Math.abs(vpEfbLogicalDelta(touch.clientY - dragStartY));
+    if (touchPress && vpDraggingWP < 0 && !vpDraggingSegment) {
+      if (dx < touchSlop && dy < touchSlop) return;
+      clearTouchHold();
+      touchPress = null;
+      lastTap = null;
+      startTouchPan();
+    }
     if (vpIsPanning) {
       e.preventDefault();
-      var _touch = e.touches[0];
-      var deltaX = vpEfbLogicalDelta(vpPanStartX - _touch.clientX);
+      var deltaX = vpEfbLogicalDelta(vpPanStartX - touch.clientX);
       var scrollContainer = document.getElementById('mapProfileScroll');
       if (scrollContainer) scrollContainer.scrollLeft = vpPanStartScrollLeft + deltaX;
       return;
     }
     if (vpDraggingWP < 0 && !vpDraggingSegment && !window.vpDraggingPosMarker) return;
     e.preventDefault();
-    var touch = e.touches[0];
-    if (Math.abs(touch.clientX - dragStartX) > 3 || Math.abs(touch.clientY - dragStartY) > 3) vpWasDragging = true;
+    if (dx > 3 || dy > 3) vpWasDragging = true;
+    if (!vpWasDragging && !window.vpDraggingPosMarker) return;
     vpHandleDragMove(touch.clientX, touch.clientY, dragStartX, dragStartY, dragOrigWP);
   }, {
     passive: false
@@ -14602,21 +14650,42 @@ function initAltWaypoints() {
       initialPinchDist = null;
       initialTwoFingerY = null;
     }
-    if (vpIsPanning) {
-      vpIsPanning = false;
-      window.vpProfilePanActive = false;
-      return;
-    }
+    if (e.touches.length) return;
+    var press = touchPress;
+    clearTouchHold();
+    touchPress = null;
+    vpIsPanning = false;
     window.vpProfilePanActive = false;
-    if (vpDraggingWP >= 0 || vpDraggingSegment || window.vpDraggingPosMarker) vpHandleDragEnd();
+    var tapped = press && Date.now() - press.started < touchHoldMs && vpDraggingWP < 0 && !vpDraggingSegment;
+    if (tapped && vpMode !== 'HDG') {
+      var now = Date.now();
+      if (lastTap && now - lastTap.time < 300 && Math.abs(vpEfbLogicalDelta(lastTap.x - dragStartX)) < 24 && Math.abs(vpEfbLogicalDelta(lastTap.y - dragStartY)) < 24) {
+        lastTap = null;
+        var m = vpGetCanvasMetrics();
+        if (m) {
+          var _vpClientToCanvas6 = vpClientToCanvas(dragStartX, dragStartY, m),
+            mx = _vpClientToCanvas6.mx,
+            my = _vpClientToCanvas6.my;
+          if (vpHandleDoubleHit(mx, my, m)) window.debouncedSaveMissionState();
+        }
+      } else lastTap = {
+        time: now,
+        x: dragStartX,
+        y: dragStartY
+      };
+    }
+    finishTouchDrag();
   });
-  canvas.addEventListener('touchcancel', e => {
+  canvas.addEventListener('touchcancel', () => {
+    clearTouchHold();
+    finishTouchDrag();
+    touchPress = null;
+    lastTap = null;
     initialPinchDist = null;
     initialTwoFingerY = null;
     vpIsPanning = false;
     vpWasDragging = false;
     window.vpProfilePanActive = false;
-    if (vpDraggingWP >= 0 || vpDraggingSegment || window.vpDraggingPosMarker) vpHandleDragEnd();
   });
 
   // === MOUSE WHEEL ZOOM & PAN (Multi-Achsen) ===
@@ -14774,9 +14843,9 @@ var vpDwdLastAutoRefreshAt = 0;
 var vpShowLandmarks = localStorage.getItem('ga_show_landmarks') !== 'false';
 var vpShowObstacles = localStorage.getItem('ga_show_obstacles') !== 'false';
 var _legacyShowLinear = localStorage.getItem('ga_show_linear');
-var vpShowRoads = ((_ref45 = (_localStorage$getItem = localStorage.getItem('ga_show_roads')) !== null && _localStorage$getItem !== void 0 ? _localStorage$getItem : _legacyShowLinear) !== null && _ref45 !== void 0 ? _ref45 : 'true') !== 'false';
-var vpShowRivers = ((_ref46 = (_localStorage$getItem2 = localStorage.getItem('ga_show_rivers')) !== null && _localStorage$getItem2 !== void 0 ? _localStorage$getItem2 : _legacyShowLinear) !== null && _ref46 !== void 0 ? _ref46 : 'true') !== 'false';
-var vpShowPowerInfra = ((_ref47 = (_localStorage$getItem3 = localStorage.getItem('ga_show_power')) !== null && _localStorage$getItem3 !== void 0 ? _localStorage$getItem3 : _legacyShowLinear) !== null && _ref47 !== void 0 ? _ref47 : 'true') !== 'false';
+var vpShowRoads = ((_ref46 = (_localStorage$getItem = localStorage.getItem('ga_show_roads')) !== null && _localStorage$getItem !== void 0 ? _localStorage$getItem : _legacyShowLinear) !== null && _ref46 !== void 0 ? _ref46 : 'true') !== 'false';
+var vpShowRivers = ((_ref47 = (_localStorage$getItem2 = localStorage.getItem('ga_show_rivers')) !== null && _localStorage$getItem2 !== void 0 ? _localStorage$getItem2 : _legacyShowLinear) !== null && _ref47 !== void 0 ? _ref47 : 'true') !== 'false';
+var vpShowPowerInfra = ((_ref48 = (_localStorage$getItem3 = localStorage.getItem('ga_show_power')) !== null && _localStorage$getItem3 !== void 0 ? _localStorage$getItem3 : _legacyShowLinear) !== null && _ref48 !== void 0 ? _ref48 : 'true') !== 'false';
 var vpShowLinear = vpShowRoads || vpShowRivers || vpShowPowerInfra;
 var vpAirspaceMode = parseInt(localStorage.getItem('ga_show_airspaces') || '1'); // 0=Off, 1=Bg, 2=Fg
 
@@ -14970,7 +15039,7 @@ function vpDisplayedWeatherTerm() {
   return times.length && times.every(time => time === times[0]) ? times[0] : null;
 }
 function vpUpdateWeatherDetailsUi() {
-  var _ref48;
+  var _ref49;
   var timelineButton = document.getElementById('btnToggleProfileWeatherTimeline');
   var markerButton = document.getElementById('btnToggleProfileWeatherMarkers');
   var controls = document.getElementById('vpWeatherTimeline');
@@ -14999,7 +15068,7 @@ function vpUpdateWeatherDetailsUi() {
   var displayedTerm = vpDisplayedWeatherTerm();
   var modelSource = vpWeatherSource !== 'metar';
   var hour = Math.floor(Date.now() / VP_WEATHER_HOUR_MS) * VP_WEATHER_HOUR_MS;
-  var from = (_ref48 = vpWeatherValidAt !== null && vpWeatherValidAt !== void 0 ? vpWeatherValidAt : displayedTerm) !== null && _ref48 !== void 0 ? _ref48 : hour;
+  var from = (_ref49 = vpWeatherValidAt !== null && vpWeatherValidAt !== void 0 ? vpWeatherValidAt : displayedTerm) !== null && _ref49 !== void 0 ? _ref49 : hour;
   document.getElementById('vpWeatherEarlier').disabled = !modelSource || from <= hour - 3 * VP_WEATHER_HOUR_MS;
   document.getElementById('vpWeatherLater').disabled = !modelSource || from >= hour + 12 * VP_WEATHER_HOUR_MS;
   document.getElementById('vpWeatherNow').disabled = vpWeatherValidAt === null;
@@ -15147,8 +15216,8 @@ function vpChangeWeatherHour(step) {
   if (vpMode !== 'ROUTE' || vpWeatherSource === 'metar' || !routeWaypoints || routeWaypoints.length < 2) return;
   var current = Math.floor(Date.now() / VP_WEATHER_HOUR_MS) * VP_WEATHER_HOUR_MS;
   if (step === 0) vpWeatherValidAt = null;else {
-    var _ref50;
-    var target = ((_ref50 = vpWeatherValidAt !== null && vpWeatherValidAt !== void 0 ? vpWeatherValidAt : vpDisplayedWeatherTerm()) !== null && _ref50 !== void 0 ? _ref50 : current) + step * VP_WEATHER_HOUR_MS;
+    var _ref51;
+    var target = ((_ref51 = vpWeatherValidAt !== null && vpWeatherValidAt !== void 0 ? vpWeatherValidAt : vpDisplayedWeatherTerm()) !== null && _ref51 !== void 0 ? _ref51 : current) + step * VP_WEATHER_HOUR_MS;
     vpWeatherValidAt = Math.max(current - 3 * VP_WEATHER_HOUR_MS, Math.min(current + 12 * VP_WEATHER_HOUR_MS, target));
   }
   vpStopDwdTimelinePrefetch(false);
@@ -16003,9 +16072,9 @@ function vpSetHdgWeatherChunkCache(key, zones) {
   });
   if (vpHdgWeatherChunkCache.size <= VP_HDG_WEATHER_CHUNK_CACHE_MAX) return;
   var stale = Array.from(vpHdgWeatherChunkCache.entries()).sort((a, b) => Number(a[1] && a[1].ts || 0) - Number(b[1] && b[1].ts || 0)).slice(0, Math.max(1, vpHdgWeatherChunkCache.size - VP_HDG_WEATHER_CHUNK_CACHE_MAX));
-  stale.forEach(_ref52 => {
-    var _ref53 = _slicedToArray(_ref52, 1),
-      k = _ref53[0];
+  stale.forEach(_ref53 => {
+    var _ref54 = _slicedToArray(_ref53, 1),
+      k = _ref54[0];
     return vpHdgWeatherChunkCache.delete(k);
   });
 }

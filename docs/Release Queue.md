@@ -27,6 +27,14 @@ liefert alles Offene mit aus.
 
 ## Offen
 
+### 2026-11-24 · Touch-Haltegeste für die Höhenlinie
+
+- **Artefakt:** Tracker-EXE (EFB-Web-Assets). Web-Cache v2518.
+- **Was:** Höhenlinie und Höhenpunkte werden nach 500 ms Halten zum Ziehen freigegeben. Ein Hinweis zeigt den Bearbeitungsmodus an.
+- **Tests:** Touch- und Mausgesten im Browser, EFB-Webasset-Tests.
+- **Doku beim Release:** `docs/EFB-Development-Plan.md`, Routenprofil.
+- **Im Feld prüfen:** Scrollen und Höhenbearbeitung auf dem MSFS-EFB-Touchscreen.
+
 ### 2026-11-23 · Kompaktes DWD-Punktwetter
 
 - **Artefakt:** Tracker-EXE (EFB-Web-Assets). Web-Cache v2514.

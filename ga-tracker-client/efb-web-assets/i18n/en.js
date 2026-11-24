@@ -919,6 +919,7 @@
     "map.profile.weatherTimeline": "Weather timeline",
     "map.profile.weatherControls": "Weather controls",
     "map.profile.weatherMarkers": "Significant weather",
+    "map.profile.altitudeEditHint": "↕ Drag altitude line",
     "map.profile.weatherMarkerLegend": "WMO weather symbols · OGC WorldWeatherSymbols · CC BY 4.0",
     "map.profile.weatherMarker.TS": "Thunderstorm",
     "map.profile.weatherMarker.FZDZ": "Freezing drizzle",

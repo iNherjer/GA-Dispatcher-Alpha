@@ -43,7 +43,7 @@
     </script>
     <script src="i18n-core.js"></script>
     <script src="i18n/de.js"></script>
-    <script src="i18n/en.js?v=dwd-default-1"></script>
+    <script src="i18n/en.js?v=profile-touch-edit-1"></script>
     <script src="i18n/en-help.js"></script>
     <script src="i18n/en-phrases.js"></script>
     <script src="i18n/en-picker.js"></script>
@@ -163,7 +163,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="icon-dark-180.png">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="stylesheet" href="vendor/maplibre/maplibre-gl.css">
-    <link rel="preload" href="styles.css?v=dwd-point-1" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=profile-touch-edit-1" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="stylesheet" href="homebase-integration.css?v=homebase-foreground-20261014-01">
     <link rel="stylesheet" href="crew-presence.css?v=crew-fleet-20261103-01">
     <link rel="stylesheet" href="ppl-quiz.css?v=ppl-quiz-20261029-06">
@@ -175,7 +175,7 @@
     <link rel="stylesheet" href="glareshield.css?v=appearance-20261028-05">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=dwd-point-1">
+        <link rel="stylesheet" href="styles.css?v=profile-touch-edit-1">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -2024,6 +2024,7 @@
                     <div id="vpCanvasWrapper" style="height: 100%; position: relative; overflow: hidden;">
                         <canvas id="mapProfileCanvasBg" style="position: absolute; left: 0; top: 0; z-index: 1; pointer-events: none;"></canvas>
                         <canvas id="mapProfileCanvas" style="position: absolute; left: 0; top: 0; z-index: 2; touch-action: none;"></canvas>
+                        <div id="vpAltitudeEditHint" class="vp-altitude-edit-hint" role="status" data-i18n="map.profile.altitudeEditHint" hidden>↕ Höhenlinie ziehen</div>
                         <div id="vpWeatherMarkerTargets" class="vp-weather-marker-targets"></div>
                         <div id="vpWeatherMarkerTooltip" class="vp-weather-marker-tooltip" role="tooltip" hidden></div>
                     </div>
@@ -3010,7 +3011,7 @@
     }
 </script>
 <script defer src="dwd-weather-assets.js?v=dwd-static-3"></script>
-<script defer src="profile.js?v=dwd-default-1"></script>
+<script defer src="profile.js?v=profile-touch-edit-1"></script>
 <script defer src="map-zoom-control.js?v=drag-zoom-control-20261018-04"></script>
 <script defer src="map-weather-fields.js?v=efb-weather-20261123"></script>
 <script defer src="map.js?v=dwd-default-1"></script>

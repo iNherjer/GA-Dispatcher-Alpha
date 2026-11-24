@@ -6076,6 +6076,22 @@ body.theme-ops1940 .route-weather-source {
     height: 100%;
 }
 
+#mapProfileCanvas { -webkit-touch-callout: none; }
+
+.vp-altitude-edit-hint {
+    position: absolute;
+    top: 3px;
+    z-index: 4;
+    padding: 3px 7px;
+    border: 1px solid #ffd483;
+    border-radius: 4px;
+    background: #252117;
+    color: #fff1ce;
+    font: 600 11px/1.2 Arial, sans-serif;
+    white-space: nowrap;
+    pointer-events: none;
+}
+
 /* Resize Handle */
 .profile-resize-handle {
     width: 100%;

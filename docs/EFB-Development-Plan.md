@@ -1,5 +1,11 @@
 ## Performance von Routenprofil und Vektorkarte – Tracker v657 / Desktop 1.6.43 Alpha (23.11.2026)
 
+Auf Touchscreens wird das Ziehen der Höhenlinie und ihrer Höhenpunkte nach
+500 ms Halten freigegeben. Eine Einblendung kennzeichnet den aktiven
+Bearbeitungsmodus bis zum Loslassen. Eine vorher begonnene Wischbewegung
+scrollt im gezoomten Routenprofil. Mausziehen und die Zwei-Finger-Geste
+verwenden ihre bisherigen Eingabepfade.
+
 Die gemeinsame Profilquelle zeichnet die Wolkenbasis im statischen Hintergrund.
 Die höhere Profil-Zeichenrate und der animierte Wetter-Layer werden nur bei
 animierbarem Regen, Schnee oder Gewitter aktiv. Der Abgleich der Simulator-FPS
