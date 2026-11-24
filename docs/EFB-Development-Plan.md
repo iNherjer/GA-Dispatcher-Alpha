@@ -96,8 +96,8 @@ Die Quellenauswahl prüft die Verfügbarkeit beim Laden. Open-Meteo und
 METAR stehen auch ohne den Dienst bereit. Das EFB lädt gewählte
 Profilstunden bei Bedarf.
 
-Für die nächste Tracker-EXE ist der statische Cloudflare-DWD-Pfad
-angebunden. Karte, Höhenband und Punktwetter erhalten über die bestehende
+Tracker v660 Alpha (EFB-Assetrevision 66001) verwendet den statischen
+Cloudflare-DWD-Pfad. Karte, Höhenband und Punktwetter erhalten über die bestehende
 XHR-Brücke nur die gewünschten Wetterpunkte. Der Tracker verwendet den
 Decoder der Webapp mit nativer Gzip-Dekompression, ohne lokalen
 Python-Dienst. Der Tracker hält bis zu zwölf dekodierte Wetterkacheln

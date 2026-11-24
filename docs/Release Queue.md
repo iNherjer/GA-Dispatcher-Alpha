@@ -27,31 +27,16 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-### 2026-11-24 · Cloudflare-DWD-Wetter für das EFB
-
-- **Artefakt:** Tracker-EXE. Web-Cache v2519 enthält den gemeinsamen Wetterdecoder.
-- **Was:** Tracker lädt veröffentlichte ICON-EU-Kacheln und liefert die angefragten Wetterpunkte per bestehender EFB-JSON-Brücke. Kein Python-Wetterdienst nötig.
-- **Tests:** Tracker-Datenbrücke, Cache und Modelllaufwechsel sowie Browserhost mit Live-Wetter.
-- **Doku beim Release:** `docs/EFB-Development-Plan.md`, DWD-Wetter.
-- **Im Feld prüfen:** DWD-Kartenwetter, Höhenband und Punktwetter ohne lokalen Wetterdienst.
-
-### 2026-11-24 · Touch-Haltegeste für die Höhenlinie
-
-- **Artefakt:** Tracker-EXE (EFB-Web-Assets). Web-Cache v2518.
-- **Was:** Höhenlinie und Höhenpunkte werden nach 500 ms Halten zum Ziehen freigegeben. Ein Hinweis zeigt den Bearbeitungsmodus an.
-- **Tests:** Touch- und Mausgesten im Browser, EFB-Webasset-Tests.
-- **Doku beim Release:** `docs/EFB-Development-Plan.md`, Routenprofil.
-- **Im Feld prüfen:** Scrollen und Höhenbearbeitung auf dem MSFS-EFB-Touchscreen.
-
-### 2026-11-23 · Kompaktes DWD-Punktwetter
-
-- **Artefakt:** Tracker-EXE (EFB-Web-Assets). Web-Cache v2514.
-- **Was:** Modelliertes Wetter mit WMO-Symbol, eine Wolkenbasis und keine Platzhalter für fehlende Werte.
-- **Tests:** Gemeinsame Web- und Tracker-Asset-Tests und Browserprüfung des Tracker-Hosts.
-- **Doku beim Release:** `docs/EFB-Development-Plan.md`, DWD-Punktwetter.
-- **Im Feld prüfen:** WMO-Symbol und Wolkenbasis in „Was ist hier?“ im MSFS-EFB.
+(leer)
 
 ## Ausgeliefert
+
+### 2026-11-24 · Cloudflare-DWD-Wetter und Touch-Höhenlinie – Tracker v660 Alpha
+
+- **Artefakte:** Tracker-EXE mit EFB-Assets 66001, Web-Cache v2520.
+- **Änderungen:** DWD-Kartenwetter, Höhenband und Punktwetter aus Cloudflare-Kacheln ohne lokalen Python-Dienst. Kompaktes Punktwetter mit WMO-Symbol und Wolkenbasis. Höhenlinie und Höhenpunkte nach 500 ms Halten zum Ziehen freigeben.
+- **Im Feld prüfen:** DWD-Betrieb ohne Python, Punktwetter, Höhenband und Höhenbearbeitung im MSFS-EFB.
+- **Details:** [Tracker v660](Tracker-v660-Release.md).
 
 ### 2026-11-23 · Kartenwetter und Höhenband – Tracker v659 Alpha
 
