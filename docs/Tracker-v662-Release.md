@@ -25,3 +25,10 @@ Fenstergrößen und UI-Skalierungen prüfen. Community-Paket 0.4.28 verwenden.
 - Der EFB-Browsertest prüfte Wetterseite, DWD-Stundenwahl und Favoritenleiste
   mit den Originalquellen und den kompilierten Hostassets. Sechs Webtests
   zum App-Start und Cache bestanden.
+
+## Artefakt
+
+- [Tracker v662 Alpha](https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/tag/v662)
+  aus Commit `1384339f3`. Windows-x64-EXE mit 175640148 Bytes.
+- SHA-256 `4f43fb4a18c182636efeb88554ba11dea27f6adf019658ccf21e9e1d5162cd3c`.
+- Öffentlicher Download bytegenau geprüft. Aktivierung im Tracker-Alpha-Kanal.
