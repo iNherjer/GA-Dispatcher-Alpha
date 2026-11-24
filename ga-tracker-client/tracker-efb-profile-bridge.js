@@ -153,7 +153,10 @@ function formatAsLimit(lim) {
         var url = '/api/v1/dwd-icon-eu';
         return request('resource', {url: url + '?points=0,0'}).then(function(data) {
             if (data && data.source === 'dwd-icon-eu' && data.available === true) {
+                var firstDwdAccess = !window.GA_DWD_WEATHER_URL;
                 window.GA_DWD_WEATHER_URL = url;
+                if (firstDwdAccess && typeof awWeatherSource === 'function' && awWeatherSource() === 'dwd' &&
+                    window.gaChecklistRefreshRouteWeather) window.gaChecklistRefreshRouteWeather(true);
                 if (localStorage.getItem('ga_weather_source') === 'dwd' && vpWeatherSource !== 'dwd') {
                     vpWeatherSource = window.vpWeatherSource = 'dwd';
                     updateWeatherSourceBtn();
@@ -237,6 +240,7 @@ function formatAsLimit(lim) {
                 currentStartICAO=context.departureIcao || points[0] && points[0].name || '';currentDestICAO=context.destinationIcao || points.length && points[points.length-1].name || '';
                 currentSName=points[0] && points[0].name || '';currentDName=points.length && points[points.length-1].name || '';
                 currentDepElev=airportElevation(points[0],currentStartICAO);currentDestElev=airportElevation(points[points.length-1],currentDestICAO);
+                if(window.gaChecklistRefreshRouteWeather)window.gaChecklistRefreshRouteWeather();
                 var planned=snapshot && snapshot.profile;
                 var alt=document.getElementById('altMapInput');
                 if(alt)alt.textContent=Number(localStorage.getItem('ga_perf_alt')) || context.profileCruiseFt || planned && planned.cruiseAltitudeFt || 4500;

@@ -3054,7 +3054,7 @@ ${routeLines}`;
             }())));
             if (generateLiveBriefing) enrich.push(refreshWeatherAi());
             _context7.n = 12;
-            return Promise.allSettled(enrich);
+            return Promise.all(enrich.map(task => task.catch(() => {})));
           case 12:
             _context7.n = 14;
             break;
@@ -3083,6 +3083,10 @@ ${routeLines}`;
   window.addEventListener('ga:briefing-weather-source', () => {
     if (state.view === 'weather') void ensureWeatherTool(false, false);
   });
+  window.gaChecklistRefreshRouteWeather = function () {
+    var force = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : false;
+    if (isDrawerOpen() && state.view === 'weather') void ensureWeatherTool(force, false);
+  };
   function renderWeatherTool() {
     setTitle('Wetter');
     if (!hasBriefingWeather()) {

@@ -19,6 +19,13 @@ app.whenReady().then(async()=>{
    let text='';for await(const bytes of req)text+=bytes;const input=JSON.parse(text);requests.push(input);
    if(input.kind==='resource'){
     if(input.url.includes('rainviewer'))data={radar:{past:[{path:'/v2/radar/123456'}]}};
+    else if(input.url.startsWith('/api/v1/dwd-icon-eu?')){
+     const query=new URL(input.url,'http://localhost').searchParams;
+     const points=query.get('points').split(';');
+     const validAt=Number(query.get('valid'))*1000||Math.floor(Date.now()/3600000)*3600000;
+     data={source:'dwd-icon-eu',available:true,runAt:validAt-3600000,validAt,
+       samples:points.map(()=>({temp2mC:query.has('valid')?7:3,wspd:5,wdir:40,cloudTotalPct:20,visibilityM:15000}))};
+    }
     else if(input.url==='./airports.json')data={EDTL:{lat:48.36,lon:7.83,name:'Lahr'},EDTO:{lat:48.45,lon:7.92,name:'Offenburg'}};
     else if(input.url.includes('/api/airports'))data={items:airports};
     else data={items:[]};
@@ -53,6 +60,41 @@ app.whenReady().then(async()=>{
   })()`);
   await new Promise(r=>setTimeout(r,600));
   fs.writeFileSync(path.join(output,raw?'home-original.png':'home-compiled.png'),(await win.webContents.capturePage()).toPNG());
+  await win.webContents.executeJavaScript(`gaCheckDwdWeather().then(() => {
+    document.querySelector('[data-tool="weather"]').click();
+    document.querySelector('#mapSideDrawerFav').click();
+    gaEfbRefreshDrawerLayout();
+  })`);
+  await win.webContents.executeJavaScript(`new Promise((resolve,reject) => {
+    const body=document.getElementById('checklistDrawerBody');
+    const finish=() => {
+      if(!body.textContent.includes('3 °C'))return false;
+      observer.disconnect();clearTimeout(timeout);resolve();return true;
+    };
+    const observer=new MutationObserver(finish);
+    const timeout=setTimeout(() => {observer.disconnect();reject(Error(body.textContent));},3000);
+    observer.observe(body,{subtree:true,childList:true});
+    finish();
+  })`);
+  const weatherTabs=await win.webContents.executeJavaScript(`(() => {
+    const menu=document.getElementById('mapSideDrawerHandle');
+    const favorite=document.querySelector('[data-fav-tool="weather"]');
+    const menuRect=menu.getBoundingClientRect(), favoriteRect=favorite.getBoundingClientRect();
+    const mapRect=document.getElementById('map').getBoundingClientRect();
+    return {sameContainer:menu.parentNode===favorite.parentNode, gap:favoriteRect.top-menuRect.bottom,
+      inMap:menuRect.top>=mapRect.top&&favoriteRect.bottom<=mapRect.bottom, inlineTop:menu.style.top};
+  })()`);
+  assert.ok(weatherTabs.sameContainer && weatherTabs.inMap && Math.abs(weatherTabs.gap-6)<1,JSON.stringify(weatherTabs));
+  assert.equal(weatherTabs.inlineTop,'');
+  await win.webContents.executeJavaScript(`document.querySelector('#checklistDrawerBody [data-aw-step="1"]').click()`);
+  await win.webContents.executeJavaScript(`new Promise((resolve,reject) => {
+    const body=document.getElementById('checklistDrawerBody');
+    const observer=new MutationObserver(() => {
+      if(body.textContent.includes('7 °C')){observer.disconnect();clearTimeout(timeout);resolve();}
+    });
+    const timeout=setTimeout(() => {observer.disconnect();reject(Error(body.textContent));},3000);
+    observer.observe(body,{subtree:true,childList:true});
+  })`);
   await win.webContents.executeJavaScript(`gaChecklistOpen('radio')`);await new Promise(r=>setTimeout(r,1500));
   const radio=await win.webContents.executeJavaScript(`document.getElementById('checklistDrawerBody').textContent`);
   assert.match(radio,/125.180/);assert.match(radio,/128.950/);
@@ -98,10 +140,12 @@ app.whenReady().then(async()=>{
 
     const lc=document.querySelector('.leaflet-control-layers');
     const labels=Array.from(lc.querySelectorAll('label')).map(x=>x.textContent.trim());
-    const label=Array.from(lc.querySelectorAll('label')).find(x=>x.textContent.includes('Niederschlag'));if(!label)throw Error('Radar missing');label.querySelector('input').click();
-    if(!__test.map().hasLayer(__test.radar())||localStorage.ga_radar_active!=='true')throw Error('Radar selection failed '+JSON.stringify({on:__test.map().hasLayer(__test.radar()),saved:localStorage.ga_radar_active,checked:label.querySelector('input').checked,html:label.outerHTML,disabled:label.querySelector('input').disabled,connected:label.isConnected,inputs:__test.layers()._layerControlInputs.map(x=>({checked:x.checked,id:x.layerId})),radarId:L.stamp(__test.radar()),handler:__test.layers()._onInputClick.toString()}));
-    return {labels,color:getComputedStyle(label).color,rect:lc.getBoundingClientRect().toJSON(),errors:__errors};
-  })()`);assert.deepEqual(layers.errors,[]);assert.equal(layers.color,'rgb(51, 51, 51)');assert.ok(layers.rect.left>=0&&layers.rect.right<=440,JSON.stringify(layers));
+    const button=Array.from(lc.querySelectorAll('.ga-map-weather-tiles button')).find(x=>x.textContent.trim()==='Radar');
+    if(!button)throw Error('Radar tile missing');
+    button.click();
+    if(!__test.map().hasLayer(__test.radar())||localStorage.ga_radar_active!=='true'||button.getAttribute('aria-pressed')!=='true')throw Error('Radar selection failed');
+    return {labels,rect:lc.getBoundingClientRect().toJSON(),errors:__errors};
+  })()`);assert.deepEqual(layers.errors,[]);assert.ok(layers.rect.left>=0&&layers.rect.right<=440,JSON.stringify(layers));
   await new Promise(r=>setTimeout(r,600));
   fs.writeFileSync(path.join(output,raw?'layers-original.png':'layers-compiled.png'),(await win.webContents.capturePage()).toPNG());
   for(const size of [[894,440],[440,894]]){win.setSize(...size);await new Promise(r=>setTimeout(r,150));const rect=await win.webContents.executeJavaScript(`document.querySelector('.leaflet-control-layers').getBoundingClientRect().toJSON()`);assert.ok(rect.bottom<=size[1]&&rect.left>=0,JSON.stringify(rect));}
@@ -115,6 +159,6 @@ app.whenReady().then(async()=>{
   const result=gaE6BPrepareSvg('<svg xmlns="http://www.w3.org/2000/svg"><style>.trace-number{fill:#101418;stroke:rgba(229,233,236,.68);stroke-width:3px;paint-order:stroke}</style><text id="label" class="trace-number">Ö 120</text></svg>');CSS.supports=saved;
   const div=document.createElement('div');div.innerHTML=result;document.body.appendChild(div);const nodes=div.querySelectorAll('text');return {count:nodes.length,fill:getComputedStyle(nodes[1]).fill,stroke:getComputedStyle(nodes[1]).stroke,halo:getComputedStyle(nodes[0]).fill,idCount:div.querySelectorAll('#label').length};})()`);
  assert.deepEqual(svg,{count:2,fill:'rgb(16, 20, 24)',stroke:'none',halo:'none',idCount:1});
- console.log('PASS original/compiled sidebar, checklist input, radio/nearest transport, Direct To, payload, runway/AIP, map focus, radar selection, layer resize/close, E6B dark-label fallback.');
+ console.log('PASS original/compiled sidebar, weather forecast and favorite stack, checklist input, radio/nearest transport, Direct To, payload, runway/AIP, map focus, radar selection, layer resize/close, E6B dark-label fallback.');
  win.destroy();server.close();app.quit();
 }).catch(e=>{console.error(e);app.exit(1);});

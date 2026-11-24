@@ -121,6 +121,14 @@ body.ga-efb-tracker-host #mapSideDrawer {
   display: block;
 }
 
+/* Coherent needs explicit spacing between the flex items. */
+body.ga-efb-tracker-host .map-side-drawer-tabs {
+  gap: 0;
+}
+body.ga-efb-tracker-host .map-side-drawer-tabs > .map-side-drawer-handle + .map-side-drawer-handle {
+  margin-top: 6px;
+}
+
 body.ga-efb-tracker-host .ga-efb-drawer-tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -9308,3 +9308,10 @@ Wetterkarten. Höhen mit nur einem Bezug behalten ihre vorhandene Einheit.
 Fehlt die Sichtweite, kann das Ceiling eine obere Flugwetterkategorie
 bestimmen, die als Grenze erscheint. Ein VFR-Abzeichen setzt weiterhin
 eine bekannte Sichtweite voraus.
+
+Assetrevision 66106: Das Wetter-Seitenmenü im EFB nutzt dieselbe Ansicht
+wie die Webapp. Es übernimmt die Tracker-Route und aktualisiert die offene
+Wetterseite bei einem Routenwechsel oder sobald der DWD-Abruf verfügbar
+ist. Der Hauptbutton und die Favoriten bilden gemeinsam eine Tab-Leiste
+in der Mitte der sichtbaren Karte. Der EFB-Host setzt nur noch die
+Schubladenbreite. Eine Änderung des Community-Pakets ist dafür nicht nötig.
