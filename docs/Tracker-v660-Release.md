@@ -20,3 +20,12 @@ verwendet Cache v2520.
 DWD auf Karte und Höhenband wählen, mehrere UTC-Stunden laden und das
 Punktwetter öffnen. Seitliches Scrollen und Höhenbearbeitung auf einem
 Touchscreen testen. Die tatsächliche RAM-Ersparnis am Sim-PC ist offen.
+
+## Tests und Artefakt
+
+- 1633 Tracker-Tests bestanden, zwei übersprungen. Der EFB-Browserhost
+  wurde mit Live-DWD bei 440 und 665 CSS-Pixeln geprüft.
+- Release [v660](https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/tag/v660)
+  aus Commit `2345d9a9a`. Windows-x64-EXE mit 175527919 Bytes.
+- SHA-256 `80ee9d1084faadcf11e6931e2eef95067e30d1f22056628f873408844302aa4b`.
+- Öffentlicher Download bytegenau geprüft. Aktivierung im Tracker-Alpha-Kanal.
