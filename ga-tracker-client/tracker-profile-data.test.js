@@ -3,6 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { gzipSync } = require('node:zlib');
 const { createProfileData, resourceUrl, profilePoints } = require('./tracker-profile-data');
+const { createTrackerDwdWeather } = require('./tracker-dwd-weather');
 const point = { lat: 48.4, lon: 7.8, distNM: 0 };
 
 test('profile transport uses the original public datasets and canonical cache URLs', () => {
@@ -59,6 +60,44 @@ test('DWD companion requests are restricted to the loopback weather route and bo
   assert.throws(() => resourceUrl(url.replace('54582', '8080')), /invalid_profile_resource/);
   assert.throws(() => resourceUrl(url.replace('52.52544%2C13.39233', 'invalid')), /invalid_profile_resource/);
   assert.throws(() => resourceUrl(url + '&url=https://example.com'), /invalid_profile_resource/);
+});
+
+test('hosted DWD points use a fixed internal route and validate the forecast hour', () => {
+  const url = '/api/v1/dwd-icon-eu?points=48.4,7.8&profile=1';
+  assert.deepEqual(resourceUrl(url).staticDwd, { points: [{ lat: 48.4, lon: 7.8 }], profile: true, validAt: null, probe: false });
+  assert.equal(resourceUrl('/api/v1/dwd-icon-eu?points=0,0').staticDwd.probe, true);
+  for (const invalid of ['https://example.com' + url, url + '&valid=1', url + '&host=localhost', url.replace('48.4', '91')]) {
+    assert.throws(() => resourceUrl(invalid), /invalid_profile_resource/);
+  }
+});
+
+test('hosted DWD decoding shares tile requests and refreshes the manifest after publication', async () => {
+  const hour = Math.floor(Date.now() / 3600000) * 3600000;
+  const calls = [];
+  const stale = '2026112412-2026112400', fresh = '2026112412-2026112403';
+  const bytes = Buffer.alloc(2);
+  bytes.writeInt16LE(62);
+  const query = createTrackerDwdWeather(async (input, options) => {
+    const url = new URL(input);
+    calls.push(url.pathname);
+    assert.equal(url.origin, 'https://ga-dwd-alpha.einherjer.workers.dev');
+    assert.equal(options.redirect, 'error');
+    if (url.pathname === '/manifest.json') return Response.json({ version: 1, source: 'dwd-icon-eu',
+      bounds: [48, 7, 49, 8], tileDegrees: 1, samplesPerDegree: 1, levels: [], encoding: {},
+      fields: { map: [['clcl', null]], profile: [['clcl', null]] },
+      terms: [{ key: url.searchParams.get('dwd').startsWith('retry-') ? fresh : stale, validAt: hour, runAt: hour - 3600000 }] });
+    if (url.pathname.includes(stale)) return new Response(null, { status: 404 });
+    return new Response(gzipSync(bytes));
+  });
+  assert.equal((await query({ probe: true })).available, true);
+  const req = { points: [point, { lat: 0, lon: 0 }], profile: false, validAt: null };
+  const [first, second] = await Promise.all([query(req), query(req)]);
+  assert.deepEqual(first, second);
+  assert.equal(first.samples[0].cloudLowPct, 62);
+  assert.equal(first.samples[1], null);
+  assert.equal(first.validAt, hour);
+  await query(req);
+  assert.deepEqual(calls, ['/manifest.json', `/v1/${stale}/48-7-map.bin.gz`, '/manifest.json', `/v1/${fresh}/48-7-map.bin.gz`]);
 });
 
 test('terrain batches preserve sample order and reserve network capacity even on failures', async () => {

@@ -27,6 +27,14 @@ liefert alles Offene mit aus.
 
 ## Offen
 
+### 2026-11-24 · Cloudflare-DWD-Wetter für das EFB
+
+- **Artefakt:** Tracker-EXE. Web-Cache v2519 enthält den gemeinsamen Wetterdecoder.
+- **Was:** Tracker lädt veröffentlichte ICON-EU-Kacheln und liefert die angefragten Wetterpunkte per bestehender EFB-JSON-Brücke. Kein Python-Wetterdienst nötig.
+- **Tests:** Tracker-Datenbrücke, Cache und Modelllaufwechsel sowie Browserhost mit Live-Wetter.
+- **Doku beim Release:** `docs/EFB-Development-Plan.md`, DWD-Wetter.
+- **Im Feld prüfen:** DWD-Kartenwetter, Höhenband und Punktwetter ohne lokalen Wetterdienst.
+
 ### 2026-11-24 · Touch-Haltegeste für die Höhenlinie
 
 - **Artefakt:** Tracker-EXE (EFB-Web-Assets). Web-Cache v2518.

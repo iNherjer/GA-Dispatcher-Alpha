@@ -12,6 +12,7 @@
         var vfrLayer = L.layerGroup().addTo(map);
         var seenKey = '', loadedAt = 0, pending = null, timer = null;
         var visible = true;
+        var dwdCheckAt = 0;
         var updateSourceButton = function () {
             var button = document.getElementById('btnToggleMapWeatherSource');
             if (!button) return;
@@ -19,8 +20,16 @@
             var label = source === 'dwd' ? 'DWD ICON-EU' : 'Open-Meteo';
             button.textContent = '🌐 ' + label;
             button.disabled = !window.GA_DWD_WEATHER_URL;
-            button.title = window.GA_DWD_WEATHER_URL ? 'DWD ICON-EU / Open-Meteo' : 'DWD ICON-EU: lokaler Wetterdienst nicht erreichbar';
+            button.title = window.GA_DWD_WEATHER_URL ? 'DWD ICON-EU / Open-Meteo' : 'DWD ICON-EU derzeit nicht verfügbar';
         };
+        function checkDwdWeather() {
+            if (window.GA_DWD_WEATHER_URL || Date.now() < dwdCheckAt) return;
+            dwdCheckAt = Date.now() + 60000;
+            window.gaCheckDwdWeather().then(function(available) {
+                updateSourceButton();
+                if (available) schedule();
+            });
+        }
         function on(key) { return window.isMapHintEnabled(key); }
         function displayModelWeather(sample, wind, clouds) {
             if (!sample || !Number.isFinite(sample.lat) || !Number.isFinite(sample.lon)) return;
@@ -107,7 +116,10 @@
         }
         function schedule() {
             clearTimeout(timer);
-            if (visible && !document.hidden) timer = setTimeout(refresh, 450);
+            if (visible && !document.hidden) {
+                checkDwdWeather();
+                timer = setTimeout(refresh, 450);
+            }
             else {
                 if (pending) pending.abort();
                 pending = null;
@@ -136,10 +148,6 @@
             schedule();
         };
         updateSourceButton();
-        window.gaCheckDwdWeather().then(function(available) {
-            updateSourceButton();
-            if (available) schedule();
-        });
         schedule();
         return {
             isVfrOn:function(){ return on('vfrIndex'); },

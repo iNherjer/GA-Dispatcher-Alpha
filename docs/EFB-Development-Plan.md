@@ -96,6 +96,15 @@ Die Quellenauswahl prüft die Verfügbarkeit beim Laden. Open-Meteo und
 METAR stehen auch ohne den Dienst bereit. Das EFB lädt gewählte
 Profilstunden bei Bedarf.
 
+Für die nächste Tracker-EXE ist der statische Cloudflare-DWD-Pfad
+angebunden. Karte, Höhenband und Punktwetter erhalten über die bestehende
+XHR-Brücke nur die gewünschten Wetterpunkte. Der Tracker verwendet den
+Decoder der Webapp mit nativer Gzip-Dekompression, ohne lokalen
+Python-Dienst. Der Tracker hält bis zu zwölf dekodierte Wetterkacheln
+mit zehn Minuten Gültigkeit und räumt abgelaufene Kacheln minütlich aus. Der Cache
+liegt ausschließlich im RAM. Ein Modelllaufwechsel löst bei einer
+fehlenden Kachel einen erneuten Abruf des Wetterindex aus.
+
 Die Alpha-Webapp auf GitHub Pages bietet DWD als reguläre Wetterquelle an.
 Ohne gespeicherte Wetterquelle verwendet sie DWD auf Karte und Höhenband
 und ohne gespeicherten Wetterstil die Konturwolken. Außerhalb der
@@ -132,8 +141,8 @@ Für regelmäßige Auslieferung braucht das Alpha-Repository das Secret
 `GA_DWD_CLOUDFLARE_ACCOUNT_ID`. `GA_DWD_STATIC_PUBLISH=true` aktiviert
 den stündlichen Check mit Cloudflare-Deployment bei Änderungen. Der lokale
 Wrangler-Login eignet sich für manuelle Veröffentlichungen. Aus einem
-fehlerhaften Export entsteht kein Deployment. Das EFB verwendet weiterhin
-seine lokale Tracker-Brücke.
+fehlerhaften Export entsteht kein Deployment. Das EFB greift über seine
+Tracker-Brücke auf die Wetterdaten zu.
 
 Im Layer-Menü schalten vier Symbole Satellit, Radar, VFR-Index und
 Modellwolken mit Windbarben. Satellitenbilder kommen im EFB vom Tracker

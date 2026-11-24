@@ -1,6 +1,7 @@
 'use strict';
 const { validatePng } = require('./tracker-navigation-data');
 const { gunzipSync } = require('node:zlib');
+const { createTrackerDwdWeather } = require('./tracker-dwd-weather');
 const ROOT = 'https://inherjer.github.io/GA-Dispatcher-Alpha/';
 const EUMET_VIEW = 'https://view.eumetsat.int';
 const SATELLITE_PRODUCTS = { clouds: ['msg_fes', 'clm'], infrared: ['mtg_fd', 'ir105_hrfi'] };
@@ -26,12 +27,27 @@ function resourceUrl(input, body) {
     return { url: EUMET_VIEW + '/geoserver/' + workspace + '/wms?service=WMS&version=1.3.0&request=GetCapabilities',
       ttlMs: 300000, satelliteLayer: layer };
   }
-  if (url.origin === 'http://127.0.0.1:54582' && url.pathname === '/api/dwd-icon-eu') {
+  const staticDwd = url.origin === new URL(ROOT).origin && url.pathname === '/api/v1/dwd-icon-eu';
+  if (staticDwd || (url.origin === 'http://127.0.0.1:54582' && url.pathname === '/api/dwd-icon-eu')) {
     const points = (url.searchParams.get('points') || '').split(';');
     if (!points.length || points.length > 96 || points.some(point =>
       !/^-?\d{1,2}(?:\.\d{1,5})?,-?\d{1,3}(?:\.\d{1,5})?$/.test(point))
       || [...url.searchParams.keys()].some(key => !['points', 'profile', 'valid', 'prefetch'].includes(key))) {
       throw new Error('invalid_profile_resource');
+    }
+    if (staticDwd) {
+      const coordinates = points.map(point => {
+        const [lat, lon] = point.split(',').map(Number);
+        if (Math.abs(lat) > 90 || Math.abs(lon) > 180) throw new Error('invalid_profile_resource');
+        return { lat, lon };
+      });
+      const hour = Math.floor(Date.now() / 3600000) * 3600000;
+      const validAt = url.searchParams.has('valid') ? Number(url.searchParams.get('valid')) * 1000 : null;
+      if (validAt !== null && (!Number.isSafeInteger(validAt) || validAt % 3600000 || validAt < hour - 3 * 3600000 || validAt > hour + 12 * 3600000)) {
+        throw new Error('invalid_profile_resource');
+      }
+      return { staticDwd: { points: coordinates, profile: url.searchParams.get('profile') === '1', validAt,
+        probe: points.length === 1 && points[0] === '0,0' && Array.from(url.searchParams).length === 1 } };
     }
     return { url: url.href, localDwd: true };
   }
@@ -58,6 +74,7 @@ function profilePoints(value) {
 }
 function createProfileData(data) {
   let terrainTail = Promise.resolve();
+  let dwdWeather;
   return {
     async terrainTile(z, x, y) {
       if (![z, x, y].every(Number.isInteger) || z < 0 || z > 13 || x < 0 || y < 0 || x >= 2 ** z || y >= 2 ** z) throw new Error('invalid_terrain_tile_coordinates');
@@ -67,6 +84,10 @@ function createProfileData(data) {
     },
     async resource(input, options = {}) {
       const request = resourceUrl(input, options.body);
+      if (request.staticDwd) {
+        dwdWeather ??= createTrackerDwdWeather();
+        return dwdWeather(request.staticDwd, options.signal);
+      }
       if (request.localDwd) {
         const response = await fetch(request.url, { redirect: 'error', signal: options.signal });
         if (!response.ok) throw new Error('http_' + response.status);

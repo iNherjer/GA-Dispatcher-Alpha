@@ -54,7 +54,7 @@ function formatAsLimit(lim) {
             function abort(){var error=new Error('Aborted');error.name='AbortError';finish(error);xhr.abort();}
             if(signal&&signal.aborted){abort();return;}
             xhr.open('POST','/api/v1/profile-data',true);
-            xhr.timeout=payload.kind === 'resource' && /^http:\/\/127\.0\.0\.1:54582\/api\/dwd-icon-eu\?/.test(payload.url) ? 90000 : 20000;
+            xhr.timeout=payload.kind === 'resource' && /^\/api\/v1\/dwd-icon-eu\?/.test(payload.url) ? 35000 : 20000;
             xhr.setRequestHeader('Content-Type','application/json');
             xhr.onload=function(){finish(null,{ok:xhr.status>=200&&xhr.status<300,status:xhr.status,
                 headers:{get:function(name){return xhr.getResponseHeader(name);}},
@@ -152,9 +152,9 @@ function formatAsLimit(lim) {
         return '/api/v1/weather-satellite/' + mode + '/' + z + '/' + x + '/' + y + '.png?time=' + encodeURIComponent(time);
     };
     window.gaCheckDwdWeather = function() {
-        var url = 'http://127.0.0.1:54582/api/dwd-icon-eu';
+        var url = '/api/v1/dwd-icon-eu';
         return request('resource', {url: url + '?points=0,0'}).then(function(data) {
-            if (data && data.source === 'dwd-icon-eu' && Array.isArray(data.samples)) {
+            if (data && data.source === 'dwd-icon-eu' && data.available === true) {
                 window.GA_DWD_WEATHER_URL = url;
                 if (localStorage.getItem('ga_weather_source') === 'dwd' && vpWeatherSource !== 'dwd') {
                     vpWeatherSource = window.vpWeatherSource = 'dwd';
