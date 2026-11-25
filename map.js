@@ -7596,16 +7596,22 @@ function renderOpenAipNavaids(navaids, layer) {
         const frequency = nav.frequencyValue
             ? ` · ${nav.frequencyValue}${nav.frequencyUnit ? ` ${nav.frequencyUnit}` : ''}`
             : '';
-        const marker = L.circleMarker([nav.lat, nav.lon], {
-            pane: GA_MAP_OVERLAY_PANES.localAviation.name,
-            radius: map.getZoom() >= 12 ? 4 : 3,
-            color: '#67e8f9',
-            fillColor: '#083344',
-            fillOpacity: 0.95,
-            weight: 1.6,
-            interactive: true,
-            bubblingMouseEvents: false
-        }).bindTooltip(
+        // ICAO symbol per navaid type (map-aviation-overlay-style.js); null when hidden in the panel.
+        const style = window.gaOpenAipOverlayStyle;
+        const symbol = style && typeof style.navaidMarker === 'function'
+            ? style.navaidMarker(L, [nav.lat, nav.lon], nav, map.getZoom(), GA_MAP_OVERLAY_PANES.localAviation.name)
+            : L.circleMarker([nav.lat, nav.lon], {
+                pane: GA_MAP_OVERLAY_PANES.localAviation.name,
+                radius: map.getZoom() >= 12 ? 4 : 3,
+                color: '#67e8f9',
+                fillColor: '#083344',
+                fillOpacity: 0.95,
+                weight: 1.6,
+                interactive: true,
+                bubblingMouseEvents: false
+            });
+        if (!symbol) return;
+        const marker = symbol.bindTooltip(
             `${nav.identifier ? `${nav.identifier} · ` : ''}${nav.name} · ${typeLabel}${frequency}`,
             { sticky: true, className: 'airspace-tooltip' }
         );
@@ -7639,6 +7645,8 @@ let openAipLastOverlayPayload = null;
 window.gaOpenAipOverlayRestyle = function () {
     openAipOverlayRenderState.airspaceKey = '';
     openAipOverlayRenderState.airportKey = '';
+    openAipOverlayRenderState.navaidKey = '';
+    openAipOverlayRenderState.navaidZoomBand = '';
     if (openAipLastOverlayPayload) renderOpenAipOverlayData(openAipLastOverlayPayload);
     else renderKnownAirportOverlaySources();
     refreshOpenAipReportingPointSymbols();

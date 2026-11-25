@@ -27,6 +27,12 @@ liefert alles Offene mit aus.
 
 ## Offen
 
+### 2026-11-25 · Funkfeuer als ICAO-Symbole (EFB-Teil)
+- **Artefakt:** Tracker-EXE (`tracker-efb-kartentisch-host.js`) und EFB-Web-Assets (Sync von `map-aviation-overlay-style.js`, `styles.css`, `i18n/en-phrases.js`). Web live mit v2544.
+- **Was:** `navaidMarker`/`navaidSvg` im gemeinsamen Stil-Modul: VOR/DVOR Sechseck, DME Quadrat, VOR/DME Sechseck im Quadrat, VORTAC/TACAN mit drei Blöcken (TACAN ohne Mittelpunkt), NDB Punktkranz; Kennung ab Zoom 10. Panel-Abschnitt „Funkfeuer“ (an/aus, Farbe VOR/DME/TACAN, Farbe NDB, Kennung); Größe folgt „Symbolgröße“. EFB-Host nutzt `style.navaidMarker` statt Kreisen.
+- **Tests:** Web-Browser (Stuttgart: KRH/LBU/STG VOR/DME, SUL VOR, KBA/LUP NDB), `tracker-efb-asset-syntax.test.js` und Asset-Sync mit temporär synchronisierten Kopien grün.
+- **Pruefen im Feld:** Symbole im EFB (2D/VR), Farbfelder im EFB-Panel.
+
 ### 2026-11-25 · DWD-Stundenwahl nach veröffentlichtem Bestand (EFB-Teil)
 - **Artefakt:** Tracker-EXE (`tracker-dwd-weather.js`, `tracker-efb-profile-bridge.js`) und EFB-Web-Assets (Sync von `profile.js`, `airport-weather.js`, `i18n/en.js`). Web live mit v2543.
 - **Was:** DWD-Antworten des Trackers enthalten `firstValidAt`/`lastValidAt` des Manifests; `profile.js` merkt sie (`gaRememberDwdTermWindow`) und begrenzt über `gaDwdHourBounds` Höhenband-Zeitleiste, Nachbarstunden-Vorladen und die Stundenwahl von Seitenmenü/Tafeln/Punktwetter auf veröffentlichte Stunden (sonst fest −3..+12 h). Tooltips mit DWD-Quellenvermerk.

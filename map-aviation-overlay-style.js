@@ -52,7 +52,11 @@
         airportSymbols: 'icao',
         airportColor: '#1d4ed8',
         airportSize: 100,
-        airportLabels: true
+        airportLabels: true,
+        navaidVisible: true,
+        navaidVorColor: '#1d4ed8',
+        navaidNdbColor: '#9d174d',
+        navaidLabels: true
     });
 
     // Airfield kinds (airportKind) that can be shown or hidden in the panel.
@@ -109,7 +113,11 @@
             airportKinds: AIRPORT_KINDS.reduce((out, kind) => {
                 out[kind.id] = !(stored.airportKinds && stored.airportKinds[kind.id] === false);
                 return out;
-            }, {})
+            }, {}),
+            navaidVisible: stored.navaidVisible !== false,
+            navaidVorColor: isColor(stored.navaidVorColor) ? stored.navaidVorColor.toLowerCase() : DEFAULTS.navaidVorColor,
+            navaidNdbColor: isColor(stored.navaidNdbColor) ? stored.navaidNdbColor.toLowerCase() : DEFAULTS.navaidNdbColor,
+            navaidLabels: stored.navaidLabels !== false
         };
     }
 
@@ -509,6 +517,85 @@
         return L.marker(latlng, { pane, icon, interactive: true, bubblingMouseEvents: false, keyboard: false });
     }
 
+    // ---- Radio navigation aids: ICAO chart symbols by OpenAIP navaid type
+    // (0 DME, 1 TACAN, 2 NDB, 3 VOR, 4 VOR/DME, 5 VORTAC, 6 DVOR, 7 DVOR/DME, 8 DVORTAC).
+    const NAVAID_KINDS = { 0: 'dme', 1: 'tacan', 2: 'ndb', 3: 'vor', 4: 'vordme', 5: 'vortac', 6: 'vor', 7: 'vordme', 8: 'vortac' };
+
+    function navaidKind(type) {
+        // Unknown type: plain VOR symbol (Number(null) would read as DME).
+        if (type === null || type === undefined || type === '') return 'vor';
+        const kind = NAVAID_KINDS[Number(type)];
+        return kind || 'vor';
+    }
+
+    function hexagonPoints(radius) {
+        const points = [];
+        for (let i = 0; i < 6; i += 1) {
+            const angle = i * Math.PI / 3;
+            points.push((14 + radius * Math.cos(angle)).toFixed(2) + ',' + (14 + radius * Math.sin(angle)).toFixed(2));
+        }
+        return points.join(' ');
+    }
+
+    function navaidSvg(kind, color) {
+        const open = '<svg viewBox="0 0 28 28" width="100%" height="100%" aria-hidden="true">';
+        const dot = '<circle cx="14" cy="14" r="1.7" fill="' + color + '"/>';
+        if (kind === 'ndb') {
+            // Dotted rings around a centre dot.
+            let dots = '<circle cx="14" cy="14" r="2.3" fill="' + color + '"/>';
+            [[5.4, 10], [9, 16]].forEach(([radius, count]) => {
+                for (let i = 0; i < count; i += 1) {
+                    const angle = i * 2 * Math.PI / count;
+                    dots += '<circle cx="' + (14 + radius * Math.cos(angle)).toFixed(2) + '" cy="' + (14 + radius * Math.sin(angle)).toFixed(2)
+                        + '" r="' + (radius < 6 ? 0.95 : 0.85) + '" fill="' + color + '"/>';
+                }
+            });
+            return open + '<circle cx="14" cy="14" r="10" fill="#ffffff" fill-opacity="0.55"/>' + dots + '</svg>';
+        }
+        const back = '<polygon points="' + hexagonPoints(7) + '" fill="#ffffff" fill-opacity="0.85"/>';
+        const hexagon = '<polygon points="' + hexagonPoints(7) + '" fill="none" stroke="' + color + '" stroke-width="1.8" stroke-linejoin="round"/>';
+        if (kind === 'dme') {
+            return open + '<rect x="7.5" y="7.5" width="13" height="13" fill="#ffffff" fill-opacity="0.85" stroke="' + color
+                + '" stroke-width="1.8"/>' + dot + '</svg>';
+        }
+        if (kind === 'vordme') {
+            return open + '<rect x="5" y="5" width="18" height="18" fill="#ffffff" fill-opacity="0.85" stroke="' + color
+                + '" stroke-width="1.6"/>' + hexagon + dot + '</svg>';
+        }
+        if (kind === 'vortac' || kind === 'tacan') {
+            // Filled blocks on three alternate hexagon edges (bottom, upper left, upper right).
+            const edge = 7 * Math.sin(Math.PI / 3);
+            let blocks = '';
+            [0, 120, 240].forEach((angle) => {
+                blocks += '<rect x="10.5" y="' + (14 + edge).toFixed(2) + '" width="7" height="3.4" fill="' + color
+                    + '" transform="rotate(' + angle + ' 14 14)"/>';
+            });
+            return open + back + hexagon + blocks + (kind === 'vortac' ? dot : '') + '</svg>';
+        }
+        return open + back + hexagon + dot + '</svg>';
+    }
+
+    // Marker for one navaid (normalizeOpenAipNavaidForPopup shape), or null when hidden.
+    function navaidMarker(L, latlng, navaid, zoom, pane) {
+        const s = settings();
+        if (!s.navaidVisible) return null;
+        const kind = navaidKind(navaid && navaid.type);
+        const color = kind === 'ndb' ? s.navaidNdbColor : s.navaidVorColor;
+        const size = Math.round((zoom >= 12 ? 28 : (zoom >= 10 ? 24 : 20)) * s.airportSize / 100);
+        const ident = String(navaid && navaid.identifier || '').trim().toUpperCase();
+        const label = s.navaidLabels && zoom >= 10 && /^[A-Z0-9]{2,4}$/.test(ident)
+            ? '<span class="ga-airport-symbol-label ga-navaid-symbol-label" style="color:' + color + '">' + escapeText(ident) + '</span>' : '';
+        return L.marker(latlng, {
+            pane, interactive: true, bubblingMouseEvents: false, keyboard: false,
+            icon: L.divIcon({
+                className: 'ga-navaid-symbol ga-navaid-' + kind,
+                html: '<span class="ga-airport-symbol-glyph" style="width:' + size + 'px;height:' + size + 'px">' + navaidSvg(kind, color) + '</span>' + label,
+                iconSize: [size, size],
+                iconAnchor: [size / 2, size / 2]
+            })
+        });
+    }
+
     function phrase(text) {
         return root.GAI18n && typeof root.GAI18n.phrase === 'function' ? root.GAI18n.phrase(text) : text;
     }
@@ -553,7 +640,8 @@
             Object.keys(attrs || {}).forEach(key => { node[key] = attrs[key]; });
             node.addEventListener(type === 'checkbox' || type === 'select' ? 'change' : 'input', changed);
             if (tag === 'button') {
-                const palette = Array.from(new Set(AIRSPACE_CATEGORIES.map(category => category.color).concat(['#ffffff', '#263340'])));
+                const palette = Array.from(new Set(AIRSPACE_CATEGORIES.map(category => category.color)
+                    .concat([DEFAULTS.navaidVorColor, DEFAULTS.navaidNdbColor, '#ffffff', '#263340'])));
                 node.classList.add('ga-openaip-color-step');
                 node.addEventListener('click', () => {
                     node.value = palette[(palette.indexOf(node.value) + 1) % palette.length];
@@ -661,6 +749,20 @@
         vrpZoom._gaUnit = '';
         line('Ab Zoomstufe', [vrpZoom, vrpZoomValue]);
 
+        heading('Funkfeuer');
+        const navaidVisible = input('checkbox', {}, (s) => s.navaidVisible, (s, node) => { s.navaidVisible = node.checked; });
+        navaidVisible.setAttribute('aria-label', phrase('Funkfeuer anzeigen'));
+        line('Funkfeuer anzeigen', [navaidVisible]).classList.add('ga-openaip-check-row');
+        const vorColor = input('color', {}, (s) => s.navaidVorColor, (s, node) => { s.navaidVorColor = node.value; });
+        vorColor.setAttribute('aria-label', phrase('Farbe VOR/DME/TACAN'));
+        line('VOR/DME/TACAN', [vorColor]).classList.add('ga-openaip-navaid-row');
+        const ndbColor = input('color', {}, (s) => s.navaidNdbColor, (s, node) => { s.navaidNdbColor = node.value; });
+        ndbColor.setAttribute('aria-label', phrase('Farbe NDB'));
+        line('NDB', [ndbColor]).classList.add('ga-openaip-navaid-row');
+        const navaidLabels = input('checkbox', {}, (s) => s.navaidLabels, (s, node) => { s.navaidLabels = node.checked; });
+        navaidLabels.setAttribute('aria-label', phrase('Funkfeuer-Kennung anzeigen'));
+        line('Kennung anzeigen', [navaidLabels]).classList.add('ga-openaip-check-row');
+
         heading('Flugplätze');
         const symbols = input('select', {}, (s) => s.airportSymbols, (s, node) => { s.airportSymbols = node.value; });
         [['icao', 'ICAO-Symbole'], ['dots', 'Punkte (bisher)']].forEach(([value, text]) => {
@@ -750,6 +852,9 @@
         airportVisible,
         AIRPORT_KINDS,
         airportMarker,
+        navaidKind,
+        navaidMarker,
+        navaidSvg,
         runwayHeading,
         symbolSvg,
         createPanel

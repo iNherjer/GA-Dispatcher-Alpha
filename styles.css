@@ -13256,6 +13256,14 @@ body.low-fps-mode .ga-map-context-height-rain-splash {
 }
 /* OpenAIP -> VFR-Overlay beim Reinzoomen (map.js updateOpenAipVfrHandoff) */
 .ga-openaip-handoff-hidden { display: none; }
+/* Funkfeuer-Symbole (map-aviation-overlay-style.js navaidMarker) */
+.leaflet-marker-icon.ga-navaid-symbol {
+    background: none;
+    border: 0;
+    overflow: visible;
+    cursor: help;
+}
+.ga-navaid-symbol:hover .ga-airport-symbol-glyph { transform: scale(1.18); }
 /* VFR-Meldepunkte (open flightmaps / OpenAIP) */
 .leaflet-marker-icon.ga-vrp-symbol {
     background: none;

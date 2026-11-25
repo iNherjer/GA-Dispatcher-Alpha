@@ -2601,10 +2601,14 @@
           });
       }
       if (zoom >= 9) navaids.filter(inView).slice(0, zoom >= 11 ? 240 : 120).forEach(function (point) {
-        var marker = L.circleMarker([point.lat, point.lon], {
-          pane: pane, renderer: renderer, radius: zoom >= 12 ? 4 : 3, color: '#67e8f9',
-          fillColor: '#083344', fillOpacity: .95, weight: 1.6, bubblingMouseEvents: false
-        });
+        // ICAO symbol per navaid type from the shared style; null when hidden in the panel.
+        var marker = typeof style.navaidMarker === 'function'
+          ? style.navaidMarker(L, [point.lat, point.lon], point, zoom, pane)
+          : L.circleMarker([point.lat, point.lon], {
+            pane: pane, renderer: renderer, radius: zoom >= 12 ? 4 : 3, color: '#67e8f9',
+            fillColor: '#083344', fillOpacity: .95, weight: 1.6, bubblingMouseEvents: false
+          });
+        if (!marker) return;
         marker.bindTooltip(escapePopupText([point.identifier, point.name, point.frequencyValue].filter(Boolean).join(' / ')),
           {sticky: true, className: 'airspace-tooltip'});
         marker.on('click', function (event) {
