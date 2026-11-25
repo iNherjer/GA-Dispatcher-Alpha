@@ -26,3 +26,10 @@ prüfen. Die Wetterkarten im Seitenmenü und im Karten-Popup in Coherent öffnen
 - Der EFB-Browsertest bestätigte OpenAIP-Darstellung, Stiloptionen, den
   VFR-Kachelwechsel und helle Wetterkarten mit Original- und Hostassets.
   Sechs Webtests zu App-Start und Cache bestanden.
+
+## Artefakt
+
+- [Tracker v663 Alpha](https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/tag/v663)
+  aus Commit `bf403a0c6`. Windows-x64-EXE mit 175893895 Bytes.
+- SHA-256 `8c2883429064c6625920e17083b34882d258d4fc62ba9c898d969ff117a95099`.
+- Öffentlicher Download bytegenau geprüft. Aktivierung im Tracker-Alpha-Kanal.
