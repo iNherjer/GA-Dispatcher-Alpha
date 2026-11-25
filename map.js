@@ -7949,6 +7949,60 @@ function gaEnableTileRetry(targetMap) {
     });
 }
 
+// Raster tiles while panning (25.11.2026): Leaflet keeps only 2 tile rows beyond the view
+// and loads nothing ahead, so fast panning and direction changes showed short gaps.
+// For all L.TileLayer raster maps: one ring of tiles around the view is preloaded once the
+// visible tiles are complete (start and zoom stay as fast as before), and tiles are kept a
+// little longer. Retention = preload ring + keepBuffer: 4 rows on desktop, 3 on phones.
+// Phones keep Leaflet's "load after the swipe" behaviour (battery); desktop checks for new
+// tiles every 150 ms while dragging instead of 200 ms. Canvas grid layers (terrain, SIGMET)
+// and vector maps are not affected.
+const GA_RASTER_PRELOAD_RING = 1;
+let gaRasterTileTuningApplied = false;
+
+function gaApplyRasterTileTuning() {
+    if (gaRasterTileTuningApplied || typeof L === 'undefined' || !L.TileLayer || !L.GridLayer) return;
+    gaRasterTileTuningApplied = true;
+    const mobile = !!(L.Browser && L.Browser.mobile);
+    const tuning = { keepBuffer: mobile ? 2 : 3 };
+    if (!mobile) tuning.updateInterval = 150;
+    L.TileLayer.mergeOptions(tuning);
+
+    const originalTiledPixelBounds = L.GridLayer.prototype._getTiledPixelBounds;
+    L.TileLayer.include({
+        _getTiledPixelBounds(center) {
+            const bounds = originalTiledPixelBounds.call(this, center);
+            if (!this._gaPreloadArmed || this.options.gaPreload === false || !bounds) return bounds;
+            // Bounds are already in pixels of the tile zoom level: one ring = one tile size.
+            const tileSize = this.getTileSize();
+            const pad = L.point(tileSize.x, tileSize.y).multiplyBy(GA_RASTER_PRELOAD_RING);
+            return L.bounds(bounds.min.subtract(pad), bounds.max.add(pad));
+        }
+    });
+    L.TileLayer.addInitHook(function() {
+        this._gaPreloadArmed = false;
+        // Ring is requested only after the visible tiles are complete; a zoom disarms it,
+        // so the new zoom level again loads what is visible first.
+        this.on('load', () => {
+            if (this._gaPreloadArmed || this.options.gaPreload === false || !this._map) return;
+            if (this._map._animatingZoom) return;
+            this._gaPreloadArmed = true;
+            if (typeof this._update === 'function') this._update();
+        });
+        this.on('add', () => {
+            this._gaPreloadArmed = false;
+        });
+    });
+    // Disarm on zoom for every raster layer of the map the layer belongs to.
+    L.Map.addInitHook(function() {
+        this.on('zoomstart', () => {
+            this.eachLayer((layer) => {
+                if (layer instanceof L.TileLayer) layer._gaPreloadArmed = false;
+            });
+        });
+    });
+}
+
 window.getGaTileRetryStatus = function() {
     return { ...gaTileRetryState };
 };
@@ -8076,6 +8130,7 @@ window.getOpenTopoTileStatus = function() {
 
 function initMapBase() {
     if (map) return;
+    gaApplyRasterTileTuning();
     const dwdWarningsActive = localStorage.getItem('ga_dwd_warnings_active') === 'true';
     const awcSigmetActive = localStorage.getItem('ga_awc_sigmet_active') === 'true';
     const openAipOverlayActive = localStorage.getItem('ga_openaip_overlay_active') === 'true';
@@ -9134,6 +9189,7 @@ function updateMiniMap(attempt = 0) {
 
         if (!miniMap) {
             miniMap = L.map('miniMap', { zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, attributionControl: false });
+            gaApplyRasterTileTuning();
             gaEnableTileRetry(miniMap);
             createResilientOpenTopoLayer().addTo(miniMap);
             L.tileLayer('https://nwy-tiles-api.prod.newaydata.com/tiles/{z}/{x}/{y}.png?path=latest/aero/latest', {
