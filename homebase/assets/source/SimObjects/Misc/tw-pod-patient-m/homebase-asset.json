@@ -1,0 +1,72 @@
+{
+  "key": "tumbleweedPatientM",
+  "folder": "tw-pod-patient-m",
+  "title": "tw-pod-patient-m-01",
+  "label": "Älterer Mann mit Decke",
+  "version": "0.1.0",
+  "kind": "object",
+  "group": "Personen",
+  "homebasePlaceable": false,
+  "workbenchVisible": false,
+  "missionSpawnable": true,
+  "missionTags": [
+    "person",
+    "outdoor",
+    "blanket"
+  ],
+  "missionRoles": [
+    "passenger",
+    "scene-person"
+  ],
+  "person": {
+    "schemaVersion": 1,
+    "gender": "male",
+    "heightM": 1.702,
+    "footprintRadiusM": 0.498,
+    "locomotion": {
+      "type": "waypoint-ground",
+      "maxWalkKts": 3,
+      "cleanWalkKts": [
+        1.5,
+        2.8
+      ],
+      "testedWalkKts": [
+        1.5,
+        2.5,
+        3
+      ],
+      "accelerationConstants": [
+        1.8,
+        0.4
+      ],
+      "decelerationConstants": [
+        2.4,
+        0.4
+      ],
+      "stopDistanceM": 0.9
+    },
+    "clips": [
+      "idle",
+      "walk",
+      "locomotion"
+    ],
+    "lodCount": 3,
+    "appearance": {
+      "look": "outdoor",
+      "ageBand": "senior",
+      "season": "all",
+      "props": [],
+      "uses": [
+        "patient"
+      ],
+      "description": "Älterer Mann mit grauem Haar, dunkler Kleidung und gelber Decke über den Schultern"
+    }
+  },
+  "controls": [],
+  "animation": null,
+  "footprint": null,
+  "headingCorrectionDeg": 0,
+  "collisionProfile": null,
+  "vegetationExclusion": null,
+  "updatedAt": "2026-11-25T06:40:37.498Z"
+}

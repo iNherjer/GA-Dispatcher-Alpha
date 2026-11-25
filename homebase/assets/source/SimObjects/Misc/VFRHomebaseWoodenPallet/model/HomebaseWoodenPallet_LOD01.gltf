@@ -1,0 +1,211 @@
+{
+  "asset": {
+    "generator": "VFR woodenPallet raw glTF exporter; create-homebase-wooden-pallet.py",
+    "version": "2.0",
+    "extras": {
+      "homebase_asset_key": "woodenPallet",
+      "homebase_asset_version": "1.0.0",
+      "homebase_source_model_id": "2535670",
+      "homebase_no_ai_training": true
+    }
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "extras": {
+        "homebase_status": "ROHMODELL",
+        "homebase_asset_key": "woodenPallet",
+        "homebase_asset_version": "1.0.0",
+        "homebase_master_source": "C:\\RohDaten\\VFR-Multitool-Homebase-Asset-Publisher\\asset-library\\VFRHomebaseWoodenPallet\\editable-source\\HomebaseWoodenPallet.blend",
+        "homebase_publisher_handoff": "C:\\Users\\einhe\\Desktop\\VFR-Multitool-Homebase-Prototype-v0.2.1\\VFR-Multitool-Homebase-Prototype-v0.2.1\\Quellen\\VFRHomebaseWoodenPallet",
+        "homebase_source_creator": "otto-m",
+        "homebase_source_url": "https://www.cgtrader.com/free-3d-models/industrial/tool/wooden-pallet-low-poly-8d761873-ab03-459b-bbc0-b53d122cccfa",
+        "homebase_source_model_id": "2535670",
+        "homebase_source_license": "CGTrader Royalty Free License (No AI)",
+        "homebase_no_ai_training": true,
+        "homebase_placeable": true,
+        "mission_spawnable": true,
+        "mission_roles": "cargo,scene-prop",
+        "homebase_texture_variant": "mid",
+        "homebase_dimensions_m": "1.20 x 0.80 x 0.14; origin on ground; long axis Blender X"
+      },
+      "name": "HomebaseWoodenPallet",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "extras": {
+        "homebase_export": true,
+        "homebase_lod": 1,
+        "homebase_grounded": true,
+        "homebase_asset_key": "woodenPallet",
+        "homebase_source_creator": "otto-m",
+        "homebase_no_ai_training": true
+      },
+      "mesh": 0,
+      "name": "HomebaseWoodenPallet_LOD01_node"
+    }
+  ],
+  "materials": [
+    {
+      "doubleSided": true,
+      "extras": {
+        "homebase_source_creator": "otto-m",
+        "homebase_source_license": "CGTrader Royalty Free License (No AI)"
+      },
+      "name": "HomebaseWoodenPallet_WeatheredWood_PBR",
+      "normalTexture": {
+        "index": 0
+      },
+      "pbrMetallicRoughness": {
+        "baseColorTexture": {
+          "index": 1
+        },
+        "metallicRoughnessTexture": {
+          "index": 2
+        }
+      },
+      "occlusionTexture": {
+        "index": 2,
+        "strength": 1
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "HomebaseWoodenPallet_LOD01_mesh",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0,
+            "NORMAL": 1,
+            "TEXCOORD_0": 2,
+            "TANGENT": 3
+          },
+          "indices": 4,
+          "material": 0
+        }
+      ]
+    }
+  ],
+  "textures": [
+    {
+      "sampler": 0,
+      "source": 0
+    },
+    {
+      "sampler": 0,
+      "source": 1
+    },
+    {
+      "sampler": 0,
+      "source": 2
+    }
+  ],
+  "images": [
+    {
+      "mimeType": "image/png",
+      "name": "HomebaseWoodenPallet_Normal",
+      "uri": "../texture/HomebaseWoodenPallet_Normal.png"
+    },
+    {
+      "mimeType": "image/png",
+      "name": "HomebaseWoodenPallet_BaseColor",
+      "uri": "../texture/HomebaseWoodenPallet_BaseColor.png"
+    },
+    {
+      "mimeType": "image/png",
+      "name": "HomebaseWoodenPallet_MetalRoughAO",
+      "uri": "../texture/HomebaseWoodenPallet_MetalRoughAO.png"
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 308,
+      "max": [
+        0.6000000238418579,
+        0.14000000059604645,
+        0.4000000059604645
+      ],
+      "min": [
+        -0.6000000238418579,
+        0,
+        -0.4000000059604645
+      ],
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5126,
+      "count": 308,
+      "type": "VEC3"
+    },
+    {
+      "bufferView": 2,
+      "componentType": 5126,
+      "count": 308,
+      "type": "VEC2"
+    },
+    {
+      "bufferView": 3,
+      "componentType": 5126,
+      "count": 308,
+      "type": "VEC4"
+    },
+    {
+      "bufferView": 4,
+      "componentType": 5123,
+      "count": 792,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteLength": 3696,
+      "byteOffset": 0,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 3696,
+      "byteOffset": 3696,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 2464,
+      "byteOffset": 7392,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 4928,
+      "byteOffset": 9856,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteLength": 1584,
+      "byteOffset": 14784,
+      "target": 34963
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987
+    }
+  ],
+  "buffers": [
+    {
+      "byteLength": 16368,
+      "uri": "HomebaseWoodenPallet_LOD01.bin"
+    }
+  ]
+}

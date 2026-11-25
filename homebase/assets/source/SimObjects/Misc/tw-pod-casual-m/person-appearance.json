@@ -1,0 +1,44 @@
+{
+  "schema": "person-appearance.v1",
+  "folder": "tw-pod-casual-m",
+  "figures": [
+    {
+      "title": "tw-pod-casual-m-01",
+      "workingName": "Mann in Freizeitkleidung",
+      "gender": "male",
+      "appearance": {
+        "look": "casual",
+        "ageBand": "adult",
+        "season": "summer",
+        "props": [],
+        "uses": [
+          "passenger",
+          "pickup",
+          "bystander",
+          "escort"
+        ],
+        "description": "Grauhaariger Mann mit Vollbart, grauem Kurzarmshirt und dunkler Hose"
+      },
+      "measured": {
+        "heightM": 1.877,
+        "footprintRadiusM": 0.371
+      },
+      "locomotion": {
+        "maxWalkKts": 3,
+        "cleanWalkKts": [
+          1.5,
+          2.8
+        ]
+      },
+      "clips": [
+        "look_around",
+        "walk",
+        "locomotion"
+      ],
+      "lodCount": 3,
+      "knownIssues": [
+        "Schrittstrecke aus bodennaher Fußbewegung geschätzt; im Simulator abgleichen."
+      ]
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "status": "LIVE-BESTÄTIGT",
+  "packageVersion": "0.6.27",
+  "date": "2026-11-25",
+  "visualAcceptance": {
+    "passed": true,
+    "date": "2026-11-25",
+    "userFeedback": "Alle fünf sehen gut aus",
+    "scope": [
+      "Antritt",
+      "Gang bei 1,5 / 2,5 / 3 kt Solltempo",
+      "Stopp und Standpose",
+      "Texturen",
+      "Modellwechsel"
+    ]
+  },
+  "liveReport": "C:\\RohDaten\\vfr-personen-sdk-20261124\\live-all-persons-20261125.json",
+  "persons": [
+    {
+      "key": "tumbleweedHiker",
+      "title": "tw-pod-hiker-f-01",
+      "missionSpawnable": true,
+      "testedWalkKts": [
+        1.5,
+        2.5,
+        3
+      ]
+    },
+    {
+      "key": "tumbleweedCasualM",
+      "title": "tw-pod-casual-m-01",
+      "missionSpawnable": true,
+      "testedWalkKts": [
+        1.5,
+        2.5,
+        3
+      ]
+    },
+    {
+      "key": "tumbleweedHikerM",
+      "title": "tw-pod-hiker-m-01",
+      "missionSpawnable": true,
+      "testedWalkKts": [
+        1.5,
+        2.5,
+        3
+      ]
+    },
+    {
+      "key": "tumbleweedPatientM",
+      "title": "tw-pod-patient-m-01",
+      "missionSpawnable": true,
+      "testedWalkKts": [
+        1.5,
+        2.5,
+        3
+      ]
+    },
+    {
+      "key": "tumbleweedWorkerM",
+      "title": "tw-pod-worker-m-01",
+      "missionSpawnable": true,
+      "testedWalkKts": [
+        1.5,
+        2.5,
+        3
+      ]
+    }
+  ],
+  "packageContentHash": "d5c4a4c6181f4f57c3cf2ce267a87d1f49be3f37c8dc347a6c7d99686b209ff3",
+  "packageIndex": "C:\\RohDaten\\VFR-Multitool-Homebase-Asset-Publisher\\Homebase-Asset-Publisher-Data\\releases\\0.6.27\\package-index.json",
+  "activeIndex": "C:/Users/einhe/Documents/VFR Multitool/Tracker/homebase-state/active-package-index.json",
+  "compiledPackageUnchanged": true
+}

@@ -1,0 +1,41 @@
+{
+  "schema": "person-appearance.v1",
+  "folder": "tw-pod-patient-m",
+  "figures": [
+    {
+      "title": "tw-pod-patient-m-01",
+      "workingName": "Älterer Mann mit Decke",
+      "gender": "male",
+      "appearance": {
+        "look": "outdoor",
+        "ageBand": "senior",
+        "season": "all",
+        "props": [],
+        "uses": [
+          "patient"
+        ],
+        "description": "Älterer Mann mit grauem Haar, dunkler Kleidung und gelber Decke über den Schultern"
+      },
+      "measured": {
+        "heightM": 1.702,
+        "footprintRadiusM": 0.498
+      },
+      "locomotion": {
+        "maxWalkKts": 3,
+        "cleanWalkKts": [
+          1.5,
+          2.8
+        ]
+      },
+      "clips": [
+        "idle",
+        "walk",
+        "locomotion"
+      ],
+      "lodCount": 3,
+      "knownIssues": [
+        "Schrittstrecke aus bodennaher Fußbewegung geschätzt; im Simulator abgleichen."
+      ]
+    }
+  ]
+}

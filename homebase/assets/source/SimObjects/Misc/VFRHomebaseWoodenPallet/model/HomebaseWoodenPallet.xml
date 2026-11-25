@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ModelInfo version="1.1" name="HomebaseWoodenPallet" guid="{FA2F49C9-8B64-49D1-A4CE-5C97B401B281}">
+  <LODS>
+    <LOD minSize="5" ModelFile="HomebaseWoodenPallet_LOD00.gltf"/>
+    <LOD minSize="0" ModelFile="HomebaseWoodenPallet_LOD01.gltf"/>
+  </LODS>
+</ModelInfo>

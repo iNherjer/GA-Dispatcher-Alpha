@@ -1,0 +1,1933 @@
+{
+  "packageName": "vfr-multitool-homebase-assets",
+  "packageVersion": "0.6.27",
+  "objectPath": "SimObjects/Misc",
+  "assetKey": "tumbleweedHiker",
+  "runs": [
+    {
+      "mode": "all",
+      "date": "2026-11-25T06:34:29.568Z",
+      "requestedSpeedKts": 2.5,
+      "passed": true,
+      "actors": [
+        {
+          "title": "tw-pod-hiker-f-01",
+          "objectId": 86065152,
+          "autonomousStop": true,
+          "start": {
+            "latitude": 48.28141042493718,
+            "longitude": 8.426014053827462,
+            "altitude": 2205.682884543655,
+            "heading": 323.49344483785245,
+            "speed": 0,
+            "onGround": true
+          },
+          "target": {
+            "latitude": 48.28149716857373,
+            "longitude": 8.425917577612855
+          },
+          "maxObservedMps": 1.1965421786276542,
+          "finalSample": {
+            "travelledM": 11.585325911445667,
+            "remainingM": 0.41468900156312094,
+            "speedMps": 0.009120123619126392
+          },
+          "samples": [
+            {
+              "travelledM": 0.024855592481679654,
+              "remainingM": 11.97513723615889,
+              "speedMps": 0.08505136291373559
+            },
+            {
+              "travelledM": 0.2091514721458293,
+              "remainingM": 11.79084148985705,
+              "speedMps": 0.27929657141662473
+            },
+            {
+              "travelledM": 0.5873780827942603,
+              "remainingM": 11.412615071884902,
+              "speedMps": 0.4605945003405952
+            },
+            {
+              "travelledM": 1.113620043320828,
+              "remainingM": 10.886373416104433,
+              "speedMps": 0.6079414161823659
+            },
+            {
+              "travelledM": 1.789591760381002,
+              "remainingM": 10.210402113434924,
+              "speedMps": 0.7324762218894814
+            },
+            {
+              "travelledM": 2.5860507653362608,
+              "remainingM": 9.413943647327816,
+              "speedMps": 0.83539644801747
+            },
+            {
+              "travelledM": 3.457330023325575,
+              "remainingM": 8.542665902804217,
+              "speedMps": 0.9168771676350577
+            },
+            {
+              "travelledM": 4.425096789266711,
+              "remainingM": 7.574900969347371,
+              "speedMps": 0.9854053310503041
+            },
+            {
+              "travelledM": 5.42379476309629,
+              "remainingM": 6.576205962247393,
+              "speedMps": 1.0397827119715357
+            },
+            {
+              "travelledM": 6.498493997658479,
+              "remainingM": 5.50151086567013,
+              "speedMps": 1.0852765208706763
+            },
+            {
+              "travelledM": 7.60379578839478,
+              "remainingM": 4.396212731230131,
+              "speedMps": 1.1219494298134445
+            },
+            {
+              "travelledM": 8.737069854055425,
+              "remainingM": 3.262943269744693,
+              "speedMps": 1.1519001167944674
+            },
+            {
+              "travelledM": 9.90831745824315,
+              "remainingM": 2.0916999493862583,
+              "speedMps": 1.1766928781723647
+            },
+            {
+              "travelledM": 11.08193226062392,
+              "remainingM": 0.9180861302530414,
+              "speedMps": 1.1965421786276542
+            },
+            {
+              "travelledM": 11.546718389776734,
+              "remainingM": 0.4532971468976174,
+              "speedMps": 0.10711503329852043
+            },
+            {
+              "travelledM": 11.585325911445667,
+              "remainingM": 0.41468900156312094,
+              "speedMps": 0.009120123619126392
+            }
+          ]
+        },
+        {
+          "title": "tw-pod-casual-m-01",
+          "objectId": 86081536,
+          "autonomousStop": true,
+          "start": {
+            "latitude": 48.281389024179155,
+            "longitude": 8.425970604220712,
+            "altitude": 2205.7208092119345,
+            "heading": 323.49344483785245,
+            "speed": 0,
+            "onGround": true
+          },
+          "target": {
+            "latitude": 48.28147576781571,
+            "longitude": 8.425874128046525
+          },
+          "maxObservedMps": 1.1933183373178142,
+          "finalSample": {
+            "travelledM": 11.575658511433202,
+            "remainingM": 0.4243412368391761,
+            "speedMps": 0.012403450544725489
+          },
+          "samples": [
+            {
+              "travelledM": 0.015211944849985427,
+              "remainingM": 11.984780859006296,
+              "speedMps": 0.06331258769370375
+            },
+            {
+              "travelledM": 0.17499206119291283,
+              "remainingM": 11.825000914154487,
+              "speedMps": 0.2546848238615803
+            },
+            {
+              "travelledM": 0.5300058303393096,
+              "remainingM": 11.469987295139449,
+              "speedMps": 0.439393297487682
+            },
+            {
+              "travelledM": 1.037365467401358,
+              "remainingM": 10.962628024551597,
+              "speedMps": 0.5903796375208824
+            },
+            {
+              "travelledM": 1.6972820974703302,
+              "remainingM": 10.302711764819412,
+              "speedMps": 0.717937462376998
+            },
+            {
+              "travelledM": 2.4803884804889806,
+              "remainingM": 9.519605865452304,
+              "speedMps": 0.8234120953426927
+            },
+            {
+              "travelledM": 3.3408132144110136,
+              "remainingM": 8.65918283533956,
+              "speedMps": 0.9068569554071635
+            },
+            {
+              "travelledM": 4.299256178086756,
+              "remainingM": 7.700742124456772,
+              "speedMps": 0.9769600905333626
+            },
+            {
+              "travelledM": 5.290196236549769,
+              "remainingM": 6.709804513408904,
+              "speedMps": 1.032468027097083
+            },
+            {
+              "travelledM": 6.3581433508020915,
+              "remainingM": 5.6418616307494265,
+              "speedMps": 1.0791876541821048
+            },
+            {
+              "travelledM": 7.4579057707834675,
+              "remainingM": 4.542103461930574,
+              "speedMps": 1.1168825140352965
+            },
+            {
+              "travelledM": 8.586535854177994,
+              "remainingM": 3.4134707091506753,
+              "speedMps": 1.1476027319528213
+            },
+            {
+              "travelledM": 9.753812355586325,
+              "remainingM": 2.2461890213565976,
+              "speedMps": 1.1730501003997489
+            },
+            {
+              "travelledM": 10.92407611945462,
+              "remainingM": 1.075923240509188,
+              "speedMps": 1.1933183373178142
+            },
+            {
+              "travelledM": 11.523150332788452,
+              "remainingM": 0.47684939969636725,
+              "speedMps": 0.14567741234286619
+            },
+            {
+              "travelledM": 11.575658511433202,
+              "remainingM": 0.4243412368391761,
+              "speedMps": 0.012403450544725489
+            }
+          ]
+        },
+        {
+          "title": "tw-pod-hiker-m-01",
+          "objectId": 86097920,
+          "autonomousStop": true,
+          "start": {
+            "latitude": 48.28136762342112,
+            "longitude": 8.425927154613962,
+            "altitude": 2205.7715208352765,
+            "heading": 323.49344483785245,
+            "speed": 0,
+            "onGround": true
+          },
+          "target": {
+            "latitude": 48.28145436705767,
+            "longitude": 8.425830678480192
+          },
+          "maxObservedMps": 1.1931062717020464,
+          "finalSample": {
+            "travelledM": 11.57248857917596,
+            "remainingM": 0.427517945470613,
+            "speedMps": 0.01315356313259922
+          },
+          "samples": [
+            {
+              "travelledM": 0,
+              "remainingM": 11.999992787883453,
+              "speedMps": 0
+            },
+            {
+              "travelledM": 0.013645251892976874,
+              "remainingM": 11.986347560805305,
+              "speedMps": 0.05924792224154869
+            },
+            {
+              "travelledM": 0.16859418158876088,
+              "remainingM": 11.831398756135671,
+              "speedMps": 0.24967847458187745
+            },
+            {
+              "travelledM": 0.5188976741617738,
+              "remainingM": 11.48109551443572,
+              "speedMps": 0.43514296880872366
+            },
+            {
+              "travelledM": 1.0223483679138705,
+              "remainingM": 10.977645195491343,
+              "speedMps": 0.5866398178669023
+            },
+            {
+              "travelledM": 1.678911976314966,
+              "remainingM": 10.321081851135599,
+              "speedMps": 0.714919410465774
+            },
+            {
+              "travelledM": 2.459278123958897,
+              "remainingM": 9.540716541183876,
+              "speedMps": 0.8209211900193103
+            },
+            {
+              "travelledM": 3.3174256486070295,
+              "remainingM": 8.682570908547325,
+              "speedMps": 0.9047431087416383
+            },
+            {
+              "travelledM": 4.273823805920922,
+              "remainingM": 7.726172438351437,
+              "speedMps": 0.9750424274110524
+            },
+            {
+              "travelledM": 5.26297441651403,
+              "remainingM": 6.737021546237914,
+              "speedMps": 1.0307435762444088
+            },
+            {
+              "travelledM": 6.329336675000086,
+              "remainingM": 5.670661748107626,
+              "speedMps": 1.077812340889163
+            },
+            {
+              "travelledM": 7.427965718975398,
+              "remainingM": 4.572038471329448,
+              "speedMps": 1.1159554264661085
+            },
+            {
+              "travelledM": 8.555852470425302,
+              "remainingM": 3.444157467282505,
+              "speedMps": 1.1470171064045942
+            },
+            {
+              "travelledM": 9.722677614601414,
+              "remainingM": 2.2773329183125286,
+              "speedMps": 1.1727155950772619
+            },
+            {
+              "travelledM": 10.892694142251637,
+              "remainingM": 1.10731698665212,
+              "speedMps": 1.1931062717020464
+            },
+            {
+              "travelledM": 11.516806353954772,
+              "remainingM": 0.48320101449891045,
+              "speedMps": 0.15448741851075326
+            },
+            {
+              "travelledM": 11.57248857917596,
+              "remainingM": 0.427517945470613,
+              "speedMps": 0.01315356313259922
+            }
+          ]
+        },
+        {
+          "title": "tw-pod-patient-m-01",
+          "objectId": 86114304,
+          "autonomousStop": true,
+          "start": {
+            "latitude": 48.281346222663096,
+            "longitude": 8.425883705007212,
+            "altitude": 2205.81016318721,
+            "heading": 323.49344483785245,
+            "speed": 0,
+            "onGround": true
+          },
+          "target": {
+            "latitude": 48.28143296629965,
+            "longitude": 8.425787228913862
+          },
+          "maxObservedMps": 1.1931062717020464,
+          "finalSample": {
+            "travelledM": 11.572488578533171,
+            "remainingM": 0.4275179460779147,
+            "speedMps": 0.01315356313259922
+          },
+          "samples": [
+            {
+              "travelledM": 0,
+              "remainingM": 11.999992787856085,
+              "speedMps": 0
+            },
+            {
+              "travelledM": 0.013645251174610636,
+              "remainingM": 11.986347561496853,
+              "speedMps": 0.05924792224154869
+            },
+            {
+              "travelledM": 0.16859418105885263,
+              "remainingM": 11.831398756637668,
+              "speedMps": 0.24967847458187745
+            },
+            {
+              "travelledM": 0.5188976736932784,
+              "remainingM": 11.481095514876195,
+              "speedMps": 0.43514296880872366
+            },
+            {
+              "travelledM": 1.022348367754966,
+              "remainingM": 10.97764519562176,
+              "speedMps": 0.5866398178669023
+            },
+            {
+              "travelledM": 1.6789119758104916,
+              "remainingM": 10.321081851611812,
+              "speedMps": 0.714919410465774
+            },
+            {
+              "travelledM": 2.459278124217718,
+              "remainingM": 9.540716540896803,
+              "speedMps": 0.8209211900193103
+            },
+            {
+              "travelledM": 3.317425648743487,
+              "remainingM": 8.682570908382237,
+              "speedMps": 0.9047431087416383
+            },
+            {
+              "travelledM": 4.273823805950903,
+              "remainingM": 7.726172438292198,
+              "speedMps": 0.9750424274110524
+            },
+            {
+              "travelledM": 5.262974416561262,
+              "remainingM": 6.737021546160929,
+              "speedMps": 1.0307435762444088
+            },
+            {
+              "travelledM": 6.329336673955524,
+              "remainingM": 5.670661749122029,
+              "speedMps": 1.077812340889163
+            },
+            {
+              "travelledM": 7.427965717740857,
+              "remainingM": 4.572038472533964,
+              "speedMps": 1.1159554264661085
+            },
+            {
+              "travelledM": 8.555852469034777,
+              "remainingM": 3.4441574686434238,
+              "speedMps": 1.1470171064045942
+            },
+            {
+              "travelledM": 9.722677614326981,
+              "remainingM": 2.2773329185564095,
+              "speedMps": 1.1727155950772619
+            },
+            {
+              "travelledM": 10.892694141343002,
+              "remainingM": 1.1073169875277789,
+              "speedMps": 1.1931062717020464
+            },
+            {
+              "travelledM": 11.516806353206354,
+              "remainingM": 0.48320101521268216,
+              "speedMps": 0.15448741851075326
+            },
+            {
+              "travelledM": 11.572488578533171,
+              "remainingM": 0.4275179460779147,
+              "speedMps": 0.01315356313259922
+            }
+          ]
+        },
+        {
+          "title": "tw-pod-worker-m-01",
+          "objectId": 86130688,
+          "autonomousStop": true,
+          "start": {
+            "latitude": 48.281324821905066,
+            "longitude": 8.425840255400464,
+            "altitude": 2205.838015387959,
+            "heading": 323.49344483785245,
+            "speed": 0,
+            "onGround": true
+          },
+          "target": {
+            "latitude": 48.28141156554162,
+            "longitude": 8.425743779347533
+          },
+          "maxObservedMps": 1.1931062986402885,
+          "finalSample": {
+            "travelledM": 11.572499345598061,
+            "remainingM": 0.42750408031735143,
+            "speedMps": 0.013153562949595066
+          },
+          "samples": [
+            {
+              "travelledM": 0,
+              "remainingM": 11.999992787826633,
+              "speedMps": 0
+            },
+            {
+              "travelledM": 0.013645252116722226,
+              "remainingM": 11.986347560525196,
+              "speedMps": 0.05924792224154869
+            },
+            {
+              "travelledM": 0.16859418195599177,
+              "remainingM": 11.831398755711088,
+              "speedMps": 0.24967847458187745
+            },
+            {
+              "travelledM": 0.518897674651638,
+              "remainingM": 11.481095513888171,
+              "speedMps": 0.43514296880872366
+            },
+            {
+              "travelledM": 1.0223483684758083,
+              "remainingM": 10.977645194871213,
+              "speedMps": 0.5866398178669023
+            },
+            {
+              "travelledM": 1.678911976654202,
+              "remainingM": 10.321081850737931,
+              "speedMps": 0.714919410465774
+            },
+            {
+              "travelledM": 2.4592781243978585,
+              "remainingM": 9.54071654068626,
+              "speedMps": 0.8209211900193103
+            },
+            {
+              "travelledM": 3.3174258455879917,
+              "remainingM": 8.682570566614567,
+              "speedMps": 0.9047431025772218
+            },
+            {
+              "travelledM": 4.273822464170446,
+              "remainingM": 7.726175520172926,
+              "speedMps": 0.9750424479085986
+            },
+            {
+              "travelledM": 5.2629724607059325,
+              "remainingM": 6.737025854051817,
+              "speedMps": 1.0307435845811777
+            },
+            {
+              "travelledM": 6.329333652269784,
+              "remainingM": 5.670663784959101,
+              "speedMps": 1.0778123128999795
+            },
+            {
+              "travelledM": 7.427961174624585,
+              "remainingM": 4.57203608803687,
+              "speedMps": 1.1159554019880238
+            },
+            {
+              "travelledM": 8.555847654975201,
+              "remainingM": 3.444150925377907,
+              "speedMps": 1.1470170947115599
+            },
+            {
+              "travelledM": 9.722678290647861,
+              "remainingM": 2.2773231311052236,
+              "speedMps": 1.1727155963803877
+            },
+            {
+              "travelledM": 10.892700602528548,
+              "remainingM": 1.1073045031932278,
+              "speedMps": 1.1931062986402885
+            },
+            {
+              "travelledM": 11.516816512696375,
+              "remainingM": 0.4831873055862291,
+              "speedMps": 0.15448741254675238
+            },
+            {
+              "travelledM": 11.572499345598061,
+              "remainingM": 0.42750408031735143,
+              "speedMps": 0.013153562949595066
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "all",
+      "date": "2026-11-25T06:35:12.051Z",
+      "requestedSpeedKts": 1.5,
+      "passed": true,
+      "actors": [
+        {
+          "title": "tw-pod-hiker-f-01",
+          "objectId": 86065152,
+          "autonomousStop": true,
+          "start": {
+            "latitude": 48.28149420471227,
+            "longitude": 8.425920930507354,
+            "altitude": 2205.717226813041,
+            "heading": 323.0592326376661,
+            "speed": 1.0377960095458257e-30,
+            "onGround": true
+          },
+          "target": {
+            "latitude": 48.281407461075716,
+            "longitude": 8.426017406880192
+          },
+          "maxObservedMps": 0.7577845909243746,
+          "finalSample": {
+            "travelledM": 11.404336854858267,
+            "remainingM": 0.5976032529855553,
+            "speedMps": 0.012546833951310067
+          },
+          "samples": [
+            {
+              "travelledM": 0.000042457242576259484,
+              "remainingM": 12.000032470560294,
+              "speedMps": 0.0035295346941688066
+            },
+            {
+              "travelledM": 0.045580461385188835,
+              "remainingM": 12.041367488997988,
+              "speedMps": 0.09837651677765359
+            },
+            {
+              "travelledM": 0.19045023493146912,
+              "remainingM": 12.098986898507956,
+              "speedMps": 0.21510644422355615
+            },
+            {
+              "travelledM": 0.3991252681323327,
+              "remainingM": 11.98855226479902,
+              "speedMps": 0.3155117940377924
+            },
+            {
+              "travelledM": 0.6649481721870945,
+              "remainingM": 11.689094571682299,
+              "speedMps": 0.3984409299315764
+            },
+            {
+              "travelledM": 1.0082181651365092,
+              "remainingM": 11.276778327474476,
+              "speedMps": 0.46634875597702435
+            },
+            {
+              "travelledM": 1.4328282557589782,
+              "remainingM": 10.787257527443256,
+              "speedMps": 0.5223389165745232
+            },
+            {
+              "travelledM": 1.9346151806345748,
+              "remainingM": 10.232756585230709,
+              "speedMps": 0.5686680453052274
+            },
+            {
+              "travelledM": 2.4820872047750866,
+              "remainingM": 9.646575204127542,
+              "speedMps": 0.6055645779699762
+            },
+            {
+              "travelledM": 3.064367687481291,
+              "remainingM": 9.035917995223706,
+              "speedMps": 0.6353628990014892
+            },
+            {
+              "travelledM": 3.7008452236635025,
+              "remainingM": 8.377168204918537,
+              "speedMps": 0.6603158263561388
+            },
+            {
+              "travelledM": 4.352890276957371,
+              "remainingM": 7.70863273710637,
+              "speedMps": 0.6804770900150077
+            },
+            {
+              "travelledM": 5.023345074091669,
+              "remainingM": 7.025717979940455,
+              "speedMps": 0.6969267923139828
+            },
+            {
+              "travelledM": 5.72755224155005,
+              "remainingM": 6.311582627338313,
+              "speedMps": 0.7110077980314021
+            },
+            {
+              "travelledM": 6.4331883870423905,
+              "remainingM": 5.598024105760142,
+              "speedMps": 0.721962054432598
+            },
+            {
+              "travelledM": 7.1467520006761704,
+              "remainingM": 4.877788655070183,
+              "speedMps": 0.731085332734997
+            },
+            {
+              "travelledM": 7.877920961779671,
+              "remainingM": 4.14101402473413,
+              "speedMps": 0.7379077338157435
+            },
+            {
+              "travelledM": 8.61971306012636,
+              "remainingM": 3.394484824404359,
+              "speedMps": 0.7432296877646628
+            },
+            {
+              "travelledM": 9.357396193268098,
+              "remainingM": 2.6527766406059294,
+              "speedMps": 0.7481984176745697
+            },
+            {
+              "travelledM": 10.106622808662031,
+              "remainingM": 1.9001019081217243,
+              "speedMps": 0.7531718519591831
+            },
+            {
+              "travelledM": 10.851461250514141,
+              "remainingM": 1.1523711071995355,
+              "speedMps": 0.7577845909243746
+            },
+            {
+              "travelledM": 11.350535601137459,
+              "remainingM": 0.6515877607782813,
+              "speedMps": 0.14836885824524396
+            },
+            {
+              "travelledM": 11.404336854858267,
+              "remainingM": 0.5976032529855553,
+              "speedMps": 0.012546833951310067
+            }
+          ]
+        },
+        {
+          "title": "tw-pod-casual-m-01",
+          "objectId": 86081536,
+          "autonomousStop": true,
+          "start": {
+            "latitude": 48.28147272486955,
+            "longitude": 8.42587751050002,
+            "altitude": 2205.7822087395866,
+            "heading": 323.574351921557,
+            "speed": 1.4114119922943659e-30,
+            "onGround": true
+          },
+          "target": {
+            "latitude": 48.281385981233,
+            "longitude": 8.42597398683229
+          },
+          "maxObservedMps": 0.7577845959837767,
+          "finalSample": {
+            "travelledM": 11.399885778334639,
+            "remainingM": 0.6017906133693119,
+            "speedMps": 0.012546833590433144
+          },
+          "samples": [
+            {
+              "travelledM": 0,
+              "remainingM": 12.000007211981945,
+              "speedMps": 0.0035295345715019204
+            },
+            {
+              "travelledM": 0.04560719888091882,
+              "remainingM": 12.04155551271314,
+              "speedMps": 0.09837651789037055
+            },
+            {
+              "travelledM": 0.19068263518580061,
+              "remainingM": 12.100688081879483,
+              "speedMps": 0.2151064412570015
+            },
+            {
+              "travelledM": 0.3989763682687784,
+              "remainingM": 11.992683967746851,
+              "speedMps": 0.3155117963904144
+            },
+            {
+              "travelledM": 0.6633705498684763,
+              "remainingM": 11.694653482539648,
+              "speedMps": 0.39844094517950723
+            },
+            {
+              "travelledM": 1.0052364387109225,
+              "remainingM": 11.28297845796946,
+              "speedMps": 0.46634878581398737
+            },
+            {
+              "travelledM": 1.4286007831428427,
+              "remainingM": 10.793618162460799,
+              "speedMps": 0.5223389151102298
+            },
+            {
+              "travelledM": 1.9296597581964943,
+              "remainingM": 10.239129906953348,
+              "speedMps": 0.5686680561510133
+            },
+            {
+              "travelledM": 2.4768283519138574,
+              "remainingM": 9.652891804693233,
+              "speedMps": 0.6055645969860055
+            },
+            {
+              "travelledM": 3.0589165589631295,
+              "remainingM": 9.042128091967966,
+              "speedMps": 0.6353629064390574
+            },
+            {
+              "travelledM": 3.695440748887473,
+              "remainingM": 8.383242963406161,
+              "speedMps": 0.6603158544874895
+            },
+            {
+              "travelledM": 4.347671587987015,
+              "remainingM": 7.714562222548056,
+              "speedMps": 0.680477107103201
+            },
+            {
+              "travelledM": 5.01818347052421,
+              "remainingM": 7.031491817750284,
+              "speedMps": 0.6969267907122468
+            },
+            {
+              "travelledM": 5.722393403548532,
+              "remainingM": 6.317189078441256,
+              "speedMps": 0.7110078136775014
+            },
+            {
+              "travelledM": 6.428042219072581,
+              "remainingM": 5.603457848110855,
+              "speedMps": 0.7219620550459445
+            },
+            {
+              "travelledM": 7.141765753056031,
+              "remainingM": 4.883044953495007,
+              "speedMps": 0.7310853188306219
+            },
+            {
+              "travelledM": 7.8729549418777305,
+              "remainingM": 4.1460854073136195,
+              "speedMps": 0.7379077526823796
+            },
+            {
+              "travelledM": 8.614820445503616,
+              "remainingM": 3.399368419224455,
+              "speedMps": 0.7432296973543441
+            },
+            {
+              "travelledM": 9.352586813242741,
+              "remainingM": 2.65747304918859,
+              "speedMps": 0.7481984060368961
+            },
+            {
+              "travelledM": 10.101910223870377,
+              "remainingM": 1.9046101641642732,
+              "speedMps": 0.7531718439809898
+            },
+            {
+              "travelledM": 10.846884747440056,
+              "remainingM": 1.1566944770852554,
+              "speedMps": 0.7577845959837767
+            },
+            {
+              "travelledM": 11.346065706739799,
+              "remainingM": 0.6557882175178181,
+              "speedMps": 0.14836886227875923
+            },
+            {
+              "travelledM": 11.399885778334639,
+              "remainingM": 0.6017906133693119,
+              "speedMps": 0.012546833590433144
+            }
+          ]
+        },
+        {
+          "title": "tw-pod-hiker-m-01",
+          "objectId": 86097920,
+          "autonomousStop": true,
+          "start": {
+            "latitude": 48.28145131547014,
+            "longitude": 8.425834109426924,
+            "altitude": 2205.8384698293758,
+            "heading": 323.11303329906883,
+            "speed": 1.496768718719507e-30,
+            "onGround": true
+          },
+          "target": {
+            "latitude": 48.28136457183359,
+            "longitude": 8.425930585718758
+          },
+          "maxObservedMps": 0.7576478105208102,
+          "finalSample": {
+            "travelledM": 11.408489365326114,
+            "remainingM": 0.5932693749155267,
+            "speedMps": 0.013744802813756252
+          },
+          "samples": [
+            {
+              "travelledM": 0,
+              "remainingM": 12.000007211968638,
+              "speedMps": 0.0024078850721996102
+            },
+            {
+              "travelledM": 0.0428172157580732,
+              "remainingM": 12.039210951939786,
+              "speedMps": 0.09502290657270929
+            },
+            {
+              "travelledM": 0.18521225279011905,
+              "remainingM": 12.099371696560208,
+              "speedMps": 0.2120327870811741
+            },
+            {
+              "travelledM": 0.3924918538005125,
+              "remainingM": 11.995806231205783,
+              "speedMps": 0.31289410592114036
+            },
+            {
+              "travelledM": 0.6560014497083818,
+              "remainingM": 11.700997553981617,
+              "speedMps": 0.39623526870109094
+            },
+            {
+              "travelledM": 0.9965146831902201,
+              "remainingM": 11.29143517961195,
+              "speedMps": 0.46444252652495416
+            },
+            {
+              "travelledM": 1.418457583983916,
+              "remainingM": 10.803724837526353,
+              "speedMps": 0.5209097306959399
+            },
+            {
+              "travelledM": 1.9182847766797695,
+              "remainingM": 10.250600594759801,
+              "speedMps": 0.5674643682906372
+            },
+            {
+              "travelledM": 2.4642470651425255,
+              "remainingM": 9.665549469073664,
+              "speedMps": 0.6045352862737354
+            },
+            {
+              "travelledM": 3.045164418549952,
+              "remainingM": 9.055807952638236,
+              "speedMps": 0.634527846956942
+            },
+            {
+              "travelledM": 3.6805957709736434,
+              "remainingM": 8.397789222388543,
+              "speedMps": 0.6596946229952225
+            },
+            {
+              "travelledM": 4.3320224476250475,
+              "remainingM": 7.729790495024813,
+              "speedMps": 0.6799820443214645
+            },
+            {
+              "travelledM": 5.001929703783969,
+              "remainingM": 7.047298965944152,
+              "speedMps": 0.6965823048123673
+            },
+            {
+              "travelledM": 5.705463740389003,
+              "remainingM": 6.333474392915412,
+              "speedMps": 0.7107155750736763
+            },
+            {
+              "travelledM": 6.410559422483631,
+              "remainingM": 5.620150022879202,
+              "speedMps": 0.7217565281861407
+            },
+            {
+              "travelledM": 7.1238730608401815,
+              "remainingM": 4.900110254905551,
+              "speedMps": 0.730894135193812
+            },
+            {
+              "travelledM": 7.854711149499251,
+              "remainingM": 4.163531242143956,
+              "speedMps": 0.737718909918921
+            },
+            {
+              "travelledM": 8.596343655260247,
+              "remainingM": 3.4171937376211274,
+              "speedMps": 0.7430412426812807
+            },
+            {
+              "travelledM": 9.334015813144916,
+              "remainingM": 2.67567105362558,
+              "speedMps": 0.7480099875303478
+            },
+            {
+              "travelledM": 10.083213746544567,
+              "remainingM": 1.9231830422809055,
+              "speedMps": 0.7529834407557738
+            },
+            {
+              "travelledM": 10.82800825167381,
+              "remainingM": 1.175630824334381,
+              "speedMps": 0.7576478105208102
+            },
+            {
+              "travelledM": 11.349536346777942,
+              "remainingM": 0.6524085999167215,
+              "speedMps": 0.16253508204494002
+            },
+            {
+              "travelledM": 11.408489365326114,
+              "remainingM": 0.5932693749155267,
+              "speedMps": 0.013744802813756252
+            }
+          ]
+        },
+        {
+          "title": "tw-pod-patient-m-01",
+          "objectId": 86114304,
+          "autonomousStop": true,
+          "start": {
+            "latitude": 48.28142991471211,
+            "longitude": 8.425790659859155,
+            "altitude": 2205.8837847042278,
+            "heading": 323.11303329906883,
+            "speed": 1.496768718719507e-30,
+            "onGround": true
+          },
+          "target": {
+            "latitude": 48.28134317107556,
+            "longitude": 8.425887136110571
+          },
+          "maxObservedMps": 0.7576478105208102,
+          "finalSample": {
+            "travelledM": 11.408489365008906,
+            "remainingM": 0.5932693753243499,
+            "speedMps": 0.013744802813756252
+          },
+          "samples": [
+            {
+              "travelledM": 0,
+              "remainingM": 12.000007212016769,
+              "speedMps": 0.0024078850721996102
+            },
+            {
+              "travelledM": 0.042817215585630834,
+              "remainingM": 12.039210951869599,
+              "speedMps": 0.09502290657270929
+            },
+            {
+              "travelledM": 0.18521225220699195,
+              "remainingM": 12.099371696255018,
+              "speedMps": 0.2120327870811741
+            },
+            {
+              "travelledM": 0.3924918531075123,
+              "remainingM": 11.995806231712722,
+              "speedMps": 0.31289410592114036
+            },
+            {
+              "travelledM": 0.6560014487566102,
+              "remainingM": 11.700997554290206,
+              "speedMps": 0.39623526870109094
+            },
+            {
+              "travelledM": 0.9965146823924729,
+              "remainingM": 11.291435180197134,
+              "speedMps": 0.46444252652495416
+            },
+            {
+              "travelledM": 1.418457583218299,
+              "remainingM": 10.803724838052421,
+              "speedMps": 0.5209097306959399
+            },
+            {
+              "travelledM": 1.9182847759058892,
+              "remainingM": 10.250600595434266,
+              "speedMps": 0.5674643682906372
+            },
+            {
+              "travelledM": 2.4642470652478043,
+              "remainingM": 9.66554946892457,
+              "speedMps": 0.6045352862737354
+            },
+            {
+              "travelledM": 3.0451644187057827,
+              "remainingM": 9.05580795243886,
+              "speedMps": 0.634527846956942
+            },
+            {
+              "travelledM": 3.6805957712305486,
+              "remainingM": 8.397789222068088,
+              "speedMps": 0.6596946229952225
+            },
+            {
+              "travelledM": 4.332022447862097,
+              "remainingM": 7.729790494757125,
+              "speedMps": 0.6799820443214645
+            },
+            {
+              "travelledM": 5.001929703813738,
+              "remainingM": 7.04729896596066,
+              "speedMps": 0.6965823048123673
+            },
+            {
+              "travelledM": 5.705463739785299,
+              "remainingM": 6.333474393482324,
+              "speedMps": 0.7107155750736763
+            },
+            {
+              "travelledM": 6.4105594217617465,
+              "remainingM": 5.620150023601302,
+              "speedMps": 0.7217565281861407
+            },
+            {
+              "travelledM": 7.123873060618434,
+              "remainingM": 4.900110255224639,
+              "speedMps": 0.730894135193812
+            },
+            {
+              "travelledM": 7.85471114905204,
+              "remainingM": 4.163531242720786,
+              "speedMps": 0.737718909918921
+            },
+            {
+              "travelledM": 8.596343653923492,
+              "remainingM": 3.417193739064114,
+              "speedMps": 0.7430412426812807
+            },
+            {
+              "travelledM": 9.334015812737782,
+              "remainingM": 2.675671054143665,
+              "speedMps": 0.7480099875303478
+            },
+            {
+              "travelledM": 10.083213746716677,
+              "remainingM": 1.9231830421459417,
+              "speedMps": 0.7529834407557738
+            },
+            {
+              "travelledM": 10.828008252203237,
+              "remainingM": 1.1756308238047275,
+              "speedMps": 0.7576478105208102
+            },
+            {
+              "travelledM": 11.349536346196174,
+              "remainingM": 0.6524086005120796,
+              "speedMps": 0.16253508204494002
+            },
+            {
+              "travelledM": 11.408489365008906,
+              "remainingM": 0.5932693753243499,
+              "speedMps": 0.013744802813756252
+            }
+          ]
+        },
+        {
+          "title": "tw-pod-worker-m-01",
+          "objectId": 86130688,
+          "autonomousStop": true,
+          "start": {
+            "latitude": 48.28140851074637,
+            "longitude": 8.425747203537583,
+            "altitude": 2205.9148096624917,
+            "heading": 323.2357715123235,
+            "speed": 1.4967687176469302e-30,
+            "onGround": true
+          },
+          "target": {
+            "latitude": 48.281321767109816,
+            "longitude": 8.425843679748574
+          },
+          "maxObservedMps": 0.7576477719702671,
+          "finalSample": {
+            "travelledM": 11.40841444852466,
+            "remainingM": 0.5934142034724251,
+            "speedMps": 0.013744802322894167
+          },
+          "samples": [
+            {
+              "travelledM": 0,
+              "remainingM": 12.000007212016722,
+              "speedMps": 0.002407885175018898
+            },
+            {
+              "travelledM": 0.042815708178272974,
+              "remainingM": 12.039222140732518,
+              "speedMps": 0.09502290591655543
+            },
+            {
+              "travelledM": 0.18520831868255647,
+              "remainingM": 12.09946436662754,
+              "speedMps": 0.21203279250866824
+            },
+            {
+              "travelledM": 0.3924524331108104,
+              "remainingM": 11.995998584243404,
+              "speedMps": 0.31289410820739494
+            },
+            {
+              "travelledM": 0.6558781194944602,
+              "remainingM": 11.701187444840409,
+              "speedMps": 0.396235279356057
+            },
+            {
+              "travelledM": 0.996326807831397,
+              "remainingM": 11.29161096963638,
+              "speedMps": 0.4644425328441684
+            },
+            {
+              "travelledM": 1.4182057617630257,
+              "remainingM": 10.803890321383815,
+              "speedMps": 0.5209097408701575
+            },
+            {
+              "travelledM": 1.9179748070333018,
+              "remainingM": 10.250749730401303,
+              "speedMps": 0.567464346830267
+            },
+            {
+              "travelledM": 2.463921683692972,
+              "remainingM": 9.66569179610689,
+              "speedMps": 0.6045352768595438
+            },
+            {
+              "travelledM": 3.0449982441633234,
+              "remainingM": 9.055958124616778,
+              "speedMps": 0.6345278488653262
+            },
+            {
+              "travelledM": 3.6805129039154036,
+              "remainingM": 8.397942455710185,
+              "speedMps": 0.6596946614361959
+            },
+            {
+              "travelledM": 4.331901934708595,
+              "remainingM": 7.72994345554441,
+              "speedMps": 0.6799820449077312
+            },
+            {
+              "travelledM": 5.001724277305858,
+              "remainingM": 7.047450714737106,
+              "speedMps": 0.6965822908597332
+            },
+            {
+              "travelledM": 5.705248224155456,
+              "remainingM": 6.333625741892929,
+              "speedMps": 0.710715568243596
+            },
+            {
+              "travelledM": 6.410443098213498,
+              "remainingM": 5.620300348915277,
+              "speedMps": 0.7217565601538529
+            },
+            {
+              "travelledM": 7.123891495379816,
+              "remainingM": 4.900258465130835,
+              "speedMps": 0.7308941374397196
+            },
+            {
+              "travelledM": 7.854830587521919,
+              "remainingM": 4.163675208324678,
+              "speedMps": 0.7377189123897221
+            },
+            {
+              "travelledM": 8.596504688725119,
+              "remainingM": 3.4173354155987385,
+              "speedMps": 0.7430412517306154
+            },
+            {
+              "travelledM": 9.334124053689338,
+              "remainingM": 2.6758128844623643,
+              "speedMps": 0.7480099793243763
+            },
+            {
+              "travelledM": 10.08324798168471,
+              "remainingM": 1.9233257801968568,
+              "speedMps": 0.7529834447163215
+            },
+            {
+              "travelledM": 10.827981603987809,
+              "remainingM": 1.1757745477128574,
+              "speedMps": 0.7576477719702671
+            },
+            {
+              "travelledM": 11.349468472265853,
+              "remainingM": 0.6525532948320816,
+              "speedMps": 0.16253508224208085
+            },
+            {
+              "travelledM": 11.40841444852466,
+              "remainingM": 0.5934142034724251,
+              "speedMps": 0.013744802322894167
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "all",
+      "date": "2026-11-25T06:36:00.423Z",
+      "requestedSpeedKts": 3,
+      "passed": true,
+      "actors": [
+        {
+          "title": "tw-pod-hiker-f-01",
+          "objectId": 86065152,
+          "autonomousStop": true,
+          "start": {
+            "latitude": 48.281411493954,
+            "longitude": 8.426012141324778,
+            "altitude": 2205.662588953111,
+            "heading": 138.9313486444754,
+            "speed": 2.589284962468926e-29,
+            "onGround": true
+          },
+          "target": {
+            "latitude": 48.281498237590554,
+            "longitude": 8.425915665108153
+          },
+          "maxObservedMps": 1.3914794785320468,
+          "finalSample": {
+            "travelledM": 11.658361732737895,
+            "remainingM": 0.3483828979329193,
+            "speedMps": 0.008143002007287656
+          },
+          "samples": [
+            {
+              "travelledM": 0,
+              "remainingM": 11.999992787806798,
+              "speedMps": 0.0002533724352943874
+            },
+            {
+              "travelledM": 0.06423831062641236,
+              "remainingM": 12.058718495312533,
+              "speedMps": 0.16091765989424975
+            },
+            {
+              "travelledM": 0.32728351865368427,
+              "remainingM": 12.174068786461362,
+              "speedMps": 0.39692563564116795
+            },
+            {
+              "travelledM": 0.729793765255816,
+              "remainingM": 11.99400597044677,
+              "speedMps": 0.6034709110484873
+            },
+            {
+              "travelledM": 1.2491697046094368,
+              "remainingM": 11.433241544847897,
+              "speedMps": 0.7752169071918956
+            },
+            {
+              "travelledM": 1.9242460547486093,
+              "remainingM": 10.628520429408313,
+              "speedMps": 0.915837377528286
+            },
+            {
+              "travelledM": 2.748197599535017,
+              "remainingM": 9.674475875923964,
+              "speedMps": 1.029979918479624
+            },
+            {
+              "travelledM": 3.716908239111037,
+              "remainingM": 8.59602750110164,
+              "speedMps": 1.1242374271643414
+            },
+            {
+              "travelledM": 4.784741152528251,
+              "remainingM": 7.443329283408494,
+              "speedMps": 1.2003559875392136
+            },
+            {
+              "travelledM": 5.9474668869525384,
+              "remainingM": 6.2153083427857645,
+              "speedMps": 1.262819415804704
+            },
+            {
+              "travelledM": 7.184801474458202,
+              "remainingM": 4.927110865757408,
+              "speedMps": 1.3141153804171073
+            },
+            {
+              "travelledM": 8.510893369571251,
+              "remainingM": 3.5602192130064574,
+              "speedMps": 1.357376210798798
+            },
+            {
+              "travelledM": 9.848885755111173,
+              "remainingM": 2.1909737819375326,
+              "speedMps": 1.3914794785320468
+            },
+            {
+              "travelledM": 11.223776600582832,
+              "remainingM": 0.7901642573525149,
+              "speedMps": 1.1463862011036514
+            },
+            {
+              "travelledM": 11.624293238695058,
+              "remainingM": 0.38300814782318515,
+              "speedMps": 0.09675608965850094
+            },
+            {
+              "travelledM": 11.658361732737895,
+              "remainingM": 0.3483828979329193,
+              "speedMps": 0.008143002007287656
+            }
+          ]
+        },
+        {
+          "title": "tw-pod-casual-m-01",
+          "objectId": 86081536,
+          "autonomousStop": true,
+          "start": {
+            "latitude": 48.28139052655095,
+            "longitude": 8.42596966194882,
+            "altitude": 2205.720898766178,
+            "heading": 147.74076424813796,
+            "speed": 2.5892849337533e-29,
+            "onGround": true
+          },
+          "target": {
+            "latitude": 48.2814772701875,
+            "longitude": 8.425873185771795
+          },
+          "maxObservedMps": 1.4093570623261154,
+          "finalSample": {
+            "travelledM": 11.690826817943206,
+            "remainingM": 0.3153963263615982,
+            "speedMps": 0.022200724004200013
+          },
+          "samples": [
+            {
+              "travelledM": 0,
+              "remainingM": 11.999992787803157,
+              "speedMps": 2.188244366233391e-30
+            },
+            {
+              "travelledM": 0.019792021163598187,
+              "remainingM": 12.019323927269362,
+              "speedMps": 0.0796701908394185
+            },
+            {
+              "travelledM": 0.2087499872609367,
+              "remainingM": 12.147339546734258,
+              "speedMps": 0.31135483528124497
+            },
+            {
+              "travelledM": 0.5688330812036011,
+              "remainingM": 12.115691149060432,
+              "speedMps": 0.5306026510325775
+            },
+            {
+              "travelledM": 1.037516717824365,
+              "remainingM": 11.683496054725339,
+              "speedMps": 0.7151385547315869
+            },
+            {
+              "travelledM": 1.6503588855504594,
+              "remainingM": 10.957574790664802,
+              "speedMps": 0.8667613354985981
+            },
+            {
+              "travelledM": 2.416664761326693,
+              "remainingM": 10.055823572084433,
+              "speedMps": 0.9897311660426207
+            },
+            {
+              "travelledM": 3.3361269449108657,
+              "remainingM": 9.016386987910098,
+              "speedMps": 1.091172101918556
+            },
+            {
+              "travelledM": 4.364135455767068,
+              "remainingM": 7.893898644502185,
+              "speedMps": 1.1730453243791077
+            },
+            {
+              "travelledM": 5.495033251499262,
+              "remainingM": 6.690180306984467,
+              "speedMps": 1.2405791096525876
+            },
+            {
+              "travelledM": 6.70765203720927,
+              "remainingM": 5.421581545544526,
+              "speedMps": 1.2959323554030038
+            },
+            {
+              "travelledM": 8.013959124563003,
+              "remainingM": 4.07092203370259,
+              "speedMps": 1.3423398968165408
+            },
+            {
+              "travelledM": 9.336320073078964,
+              "remainingM": 2.714588991353284,
+              "speedMps": 1.3790795188365617
+            },
+            {
+              "travelledM": 10.714301633844535,
+              "remainingM": 1.308436793425604,
+              "speedMps": 1.4093570623261154
+            },
+            {
+              "travelledM": 11.597870110658409,
+              "remainingM": 0.40984664127489717,
+              "speedMps": 0.2637915745354095
+            },
+            {
+              "travelledM": 11.690826817943206,
+              "remainingM": 0.3153963263615982,
+              "speedMps": 0.022200724004200013
+            }
+          ]
+        },
+        {
+          "title": "tw-pod-hiker-m-01",
+          "objectId": 86097920,
+          "autonomousStop": true,
+          "start": {
+            "latitude": 48.28136858339896,
+            "longitude": 8.425925382752373,
+            "altitude": 2205.773969856152,
+            "heading": 139.10232182649696,
+            "speed": 2.8365092572397155e-29,
+            "onGround": true
+          },
+          "target": {
+            "latitude": 48.28145532703551,
+            "longitude": 8.425828906616792
+          },
+          "maxObservedMps": 1.4085076599617536,
+          "finalSample": {
+            "travelledM": 11.664550178500313,
+            "remainingM": 0.34165951376874565,
+            "speedMps": 0.0233854385523267
+          },
+          "samples": [
+            {
+              "travelledM": 0,
+              "remainingM": 11.999992787831419,
+              "speedMps": 2.3971774295717764e-30
+            },
+            {
+              "travelledM": 0.016487736241061157,
+              "remainingM": 12.01614285014385,
+              "speedMps": 0.07155718247199765
+            },
+            {
+              "travelledM": 0.19665622753286274,
+              "remainingM": 12.141734037713595,
+              "speedMps": 0.3018458666379862
+            },
+            {
+              "travelledM": 0.5516458434917312,
+              "remainingM": 12.122736398241585,
+              "speedMps": 0.5222525111912867
+            },
+            {
+              "travelledM": 1.0167980667224303,
+              "remainingM": 11.704195850543188,
+              "speedMps": 0.7081836764061065
+            },
+            {
+              "travelledM": 1.6247662570811388,
+              "remainingM": 10.98700797164882,
+              "speedMps": 0.8608894697052998
+            },
+            {
+              "travelledM": 2.3854732433625707,
+              "remainingM": 10.091313095641961,
+              "speedMps": 0.9848201052188136
+            },
+            {
+              "travelledM": 3.299860009478784,
+              "remainingM": 9.05661045646119,
+              "speedMps": 1.0875513624067992
+            },
+            {
+              "travelledM": 4.323789211825501,
+              "remainingM": 7.937596746979251,
+              "speedMps": 1.1704189870251527
+            },
+            {
+              "travelledM": 5.451299273661207,
+              "remainingM": 6.736708261417495,
+              "speedMps": 1.2384748677246566
+            },
+            {
+              "travelledM": 6.6605899764103995,
+              "remainingM": 5.47051164379852,
+              "speedMps": 1.2942849492216717
+            },
+            {
+              "travelledM": 7.964123199720942,
+              "remainingM": 4.122002646838566,
+              "speedMps": 1.3410796288874312
+            },
+            {
+              "travelledM": 9.28462171048589,
+              "remainingM": 2.7674383920092773,
+              "speedMps": 1.378087024108918
+            },
+            {
+              "travelledM": 10.660772747487094,
+              "remainingM": 1.3629531433376365,
+              "speedMps": 1.4085076599617536
+            },
+            {
+              "travelledM": 11.566749346431125,
+              "remainingM": 0.44110979553380564,
+              "speedMps": 0.2778684737404251
+            },
+            {
+              "travelledM": 11.664550178500313,
+              "remainingM": 0.34165951376874565,
+              "speedMps": 0.0233854385523267
+            }
+          ]
+        },
+        {
+          "title": "tw-pod-patient-m-01",
+          "objectId": 86114304,
+          "autonomousStop": true,
+          "start": {
+            "latitude": 48.28134718264093,
+            "longitude": 8.425881933146357,
+            "altitude": 2205.811921018848,
+            "heading": 139.10232182649696,
+            "speed": 2.8365092572397155e-29,
+            "onGround": true
+          },
+          "target": {
+            "latitude": 48.28143392627748,
+            "longitude": 8.425785457051193
+          },
+          "maxObservedMps": 1.408507683673904,
+          "finalSample": {
+            "travelledM": 11.665320216228082,
+            "remainingM": 0.3418169495740717,
+            "speedMps": 0.023385438434652846
+          },
+          "samples": [
+            {
+              "travelledM": 0,
+              "remainingM": 11.999992787882345,
+              "speedMps": 2.3971774295717764e-30
+            },
+            {
+              "travelledM": 0.01648773605823157,
+              "remainingM": 12.016142850048686,
+              "speedMps": 0.07155718247199765
+            },
+            {
+              "travelledM": 0.19665622709080702,
+              "remainingM": 12.141734036943225,
+              "speedMps": 0.3018458666379862
+            },
+            {
+              "travelledM": 0.5516458434183897,
+              "remainingM": 12.122736398244964,
+              "speedMps": 0.5222525111912867
+            },
+            {
+              "travelledM": 1.0167980665462342,
+              "remainingM": 11.704195850393775,
+              "speedMps": 0.7081836764061065
+            },
+            {
+              "travelledM": 1.6247661310602821,
+              "remainingM": 10.98700790263327,
+              "speedMps": 0.8608894943162804
+            },
+            {
+              "travelledM": 2.385541384482631,
+              "remainingM": 10.091339817688787,
+              "speedMps": 0.9848201059853884
+            },
+            {
+              "travelledM": 3.299733026949466,
+              "remainingM": 9.056614798830976,
+              "speedMps": 1.0875513394687855
+            },
+            {
+              "travelledM": 4.323431575146346,
+              "remainingM": 7.937547775862964,
+              "speedMps": 1.1704189534812273
+            },
+            {
+              "travelledM": 5.451125061526215,
+              "remainingM": 6.736660764331894,
+              "speedMps": 1.2384748438051243
+            },
+            {
+              "travelledM": 6.661173590421274,
+              "remainingM": 5.470522950603714,
+              "speedMps": 1.2942849647244017
+            },
+            {
+              "travelledM": 7.964868318197369,
+              "remainingM": 4.122040464284329,
+              "speedMps": 1.3410796021681943
+            },
+            {
+              "travelledM": 9.285195897457916,
+              "remainingM": 2.767486239419105,
+              "speedMps": 1.3780869987180302
+            },
+            {
+              "travelledM": 10.661371562850933,
+              "remainingM": 1.3630228136519018,
+              "speedMps": 1.408507683673904
+            },
+            {
+              "travelledM": 11.5675009502182,
+              "remainingM": 0.441245133573833,
+              "speedMps": 0.2778684808220277
+            },
+            {
+              "travelledM": 11.665320216228082,
+              "remainingM": 0.3418169495740717,
+              "speedMps": 0.023385438434652846
+            }
+          ]
+        },
+        {
+          "title": "tw-pod-worker-m-01",
+          "objectId": 86130688,
+          "autonomousStop": true,
+          "start": {
+            "latitude": 48.281325774554894,
+            "longitude": 8.425838466636051,
+            "altitude": 2205.839778371204,
+            "heading": 139.04869291368516,
+            "speed": 2.8365092146239294e-29,
+            "onGround": true
+          },
+          "target": {
+            "latitude": 48.281412518191445,
+            "longitude": 8.42574199058132
+          },
+          "maxObservedMps": 1.4085076571268562,
+          "finalSample": {
+            "travelledM": 11.666738768568221,
+            "remainingM": 0.3402063928925575,
+            "speedMps": 0.023385437935741687
+          },
+          "samples": [
+            {
+              "travelledM": 0,
+              "remainingM": 11.999992787836664,
+              "speedMps": 2.397177393556523e-30
+            },
+            {
+              "travelledM": 0.016487692532382536,
+              "remainingM": 12.016138336611165,
+              "speedMps": 0.07155717980905436
+            },
+            {
+              "travelledM": 0.19665603111731333,
+              "remainingM": 12.141529828295203,
+              "speedMps": 0.30184586559692694
+            },
+            {
+              "travelledM": 0.5516403373401919,
+              "remainingM": 12.121899128095766,
+              "speedMps": 0.5222525049083913
+            },
+            {
+              "travelledM": 1.0169361357297828,
+              "remainingM": 11.702849093842445,
+              "speedMps": 0.7081836905127626
+            },
+            {
+              "travelledM": 1.6252812190425288,
+              "remainingM": 10.985529497134209,
+              "speedMps": 0.8608895006626103
+            },
+            {
+              "travelledM": 2.386182821820926,
+              "remainingM": 10.089749082804401,
+              "speedMps": 0.9848201071432339
+            },
+            {
+              "travelledM": 3.3007734449207375,
+              "remainingM": 9.055006513391117,
+              "speedMps": 1.0875513773765797
+            },
+            {
+              "travelledM": 4.325000670008157,
+              "remainingM": 7.9360066644458716,
+              "speedMps": 1.1704189618892604
+            },
+            {
+              "travelledM": 5.45266205471856,
+              "remainingM": 6.735121540137116,
+              "speedMps": 1.2384748314596203
+            },
+            {
+              "travelledM": 6.662288494548604,
+              "remainingM": 5.468946346058808,
+              "speedMps": 1.294284938542529
+            },
+            {
+              "travelledM": 7.966034980508209,
+              "remainingM": 4.120453112074984,
+              "speedMps": 1.341079626921055
+            },
+            {
+              "travelledM": 9.28650627373228,
+              "remainingM": 2.765897162279933,
+              "speedMps": 1.378086979384514
+            },
+            {
+              "travelledM": 10.662727569296743,
+              "remainingM": 1.3614274521065566,
+              "speedMps": 1.4085076571268562
+            },
+            {
+              "travelledM": 11.568938038540088,
+              "remainingM": 0.4396409114219246,
+              "speedMps": 0.2778684791825625
+            },
+            {
+              "travelledM": 11.666738768568221,
+              "remainingM": 0.3402063928925575,
+              "speedMps": 0.023385437935741687
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "regression",
+      "date": "2026-11-25T06:37:27.727Z",
+      "passed": true,
+      "actors": [
+        {
+          "title": "VFR Multitool Homebase Hangar",
+          "objectId": 86130689,
+          "objectAdded": true,
+          "objectRemoved": true,
+          "reappearedWithSameId": false,
+          "autonomousStop": false,
+          "samples": []
+        },
+        {
+          "title": "VFR Multitool Homebase Travel Suitcase",
+          "objectId": 86114305,
+          "objectAdded": true,
+          "objectRemoved": true,
+          "reappearedWithSameId": false,
+          "autonomousStop": false,
+          "samples": []
+        }
+      ]
+    }
+  ],
+  "lineup": [
+    {
+      "title": "tw-pod-hiker-f-01",
+      "objectId": 86065152,
+      "position": {
+        "latitude": 48.28141042493718,
+        "longitude": 8.426014053827462,
+        "altitude": 2205.682884543655,
+        "heading": 323.49344483785245,
+        "speed": 0,
+        "onGround": true
+      },
+      "objectAdded": true
+    },
+    {
+      "title": "tw-pod-casual-m-01",
+      "objectId": 86081536,
+      "position": {
+        "latitude": 48.281389024179155,
+        "longitude": 8.425970604220712,
+        "altitude": 2205.7208092119345,
+        "heading": 323.49344483785245,
+        "speed": 0,
+        "onGround": true
+      },
+      "objectAdded": true
+    },
+    {
+      "title": "tw-pod-hiker-m-01",
+      "objectId": 86097920,
+      "position": {
+        "latitude": 48.28136762342112,
+        "longitude": 8.425927154613962,
+        "altitude": 2205.7715208352765,
+        "heading": 323.49344483785245,
+        "speed": 0,
+        "onGround": true
+      },
+      "objectAdded": true
+    },
+    {
+      "title": "tw-pod-patient-m-01",
+      "objectId": 86114304,
+      "position": {
+        "latitude": 48.281346222663096,
+        "longitude": 8.425883705007212,
+        "altitude": 2205.7878123529085,
+        "heading": 323.49344483785245,
+        "speed": 0,
+        "onGround": true
+      },
+      "objectAdded": true
+    },
+    {
+      "title": "tw-pod-worker-m-01",
+      "objectId": 86130688,
+      "position": {
+        "latitude": 48.281324821905066,
+        "longitude": 8.425840255400464,
+        "altitude": 2205.8517234754354,
+        "heading": 323.49344483785245,
+        "speed": 0,
+        "onGround": true
+      },
+      "objectAdded": true
+    }
+  ],
+  "removal": [
+    {
+      "title": "tw-pod-hiker-f-01",
+      "objectId": 86065152,
+      "objectRemoved": true,
+      "reappearedWithSameId": false
+    },
+    {
+      "title": "tw-pod-casual-m-01",
+      "objectId": 86081536,
+      "objectRemoved": true,
+      "reappearedWithSameId": false
+    },
+    {
+      "title": "tw-pod-hiker-m-01",
+      "objectId": 86097920,
+      "objectRemoved": true,
+      "reappearedWithSameId": false
+    },
+    {
+      "title": "tw-pod-patient-m-01",
+      "objectId": 86114304,
+      "objectRemoved": true,
+      "reappearedWithSameId": false
+    },
+    {
+      "title": "tw-pod-worker-m-01",
+      "objectId": 86130688,
+      "objectRemoved": true,
+      "reappearedWithSameId": false
+    }
+  ],
+  "visualAcceptance": {
+    "passed": true,
+    "date": "2026-11-25",
+    "userFeedback": "Alle fünf sehen gut aus",
+    "scope": [
+      "Antritt",
+      "Gang bei 1,5 / 2,5 / 3 kt Solltempo",
+      "Stopp und Standpose",
+      "Texturen",
+      "Modellwechsel"
+    ]
+  }
+}

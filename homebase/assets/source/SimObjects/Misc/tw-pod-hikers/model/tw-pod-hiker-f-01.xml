@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModelInfo version="1.1" guid="{b3bfd9aa-2eee-4362-904d-15548d255e7a}">
-  <LODS><LOD ModelFile="tw-pod-hiker-f-01_LOD00.gltf"/></LODS>
+  <LODS>
+    <LOD minSize="5" ModelFile="tw-pod-hiker-f-01_LOD00.gltf"/>
+    <LOD minSize="1" ModelFile="tw-pod-hiker-f-01_LOD01.gltf"/>
+    <LOD minSize="0.1" ModelFile="tw-pod-hiker-f-01_LOD02.gltf"/>
+  </LODS>
   <Animation name="standing_relax" guid="{8e4727d7-523b-4746-a1bc-0e34af713c5c}" type="Standard"/>
   <Animation name="walk" guid="{0b91e4e3-11e7-4fcb-8b7e-7d13eae16aca}" type="Standard"/>
   <Animation name="walk_slow" guid="{79e353a5-ed53-4a2a-91c6-c7649a42fc73}" type="Standard"/>

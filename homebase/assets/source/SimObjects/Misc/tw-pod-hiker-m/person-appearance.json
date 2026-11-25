@@ -1,0 +1,46 @@
+{
+  "schema": "person-appearance.v1",
+  "folder": "tw-pod-hiker-m",
+  "figures": [
+    {
+      "title": "tw-pod-hiker-m-01",
+      "workingName": "Wanderer mit Rucksack",
+      "gender": "male",
+      "appearance": {
+        "look": "outdoor",
+        "ageBand": "adult",
+        "season": "all",
+        "props": [
+          "backpack_large"
+        ],
+        "uses": [
+          "passenger",
+          "pickup",
+          "bystander",
+          "escort"
+        ],
+        "description": "Bärtiger Mann in grüner Kapuzenjacke, dunkler Wanderhose und Stiefeln mit großem Trekkingrucksack"
+      },
+      "measured": {
+        "heightM": 1.792,
+        "footprintRadiusM": 0.427
+      },
+      "locomotion": {
+        "maxWalkKts": 3,
+        "cleanWalkKts": [
+          1.5,
+          2.8
+        ]
+      },
+      "clips": [
+        "standing_relax",
+        "walk",
+        "locomotion"
+      ],
+      "lodCount": 3,
+      "knownIssues": [
+        "Schrittstrecke aus bodennaher Fußbewegung geschätzt; im Simulator abgleichen."
+      ]
+    }
+  ]
+}

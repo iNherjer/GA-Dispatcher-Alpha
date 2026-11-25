@@ -1,0 +1,42 @@
+{
+  "schema": "person-appearance.v1",
+  "folder": "tw-pod-worker-m",
+  "figures": [
+    {
+      "title": "tw-pod-worker-m-01",
+      "workingName": "Arbeiter in blauer Latzhose",
+      "gender": "male",
+      "appearance": {
+        "look": "workwear",
+        "ageBand": "adult",
+        "season": "summer",
+        "props": [],
+        "uses": [
+          "ground_crew",
+          "homebase"
+        ],
+        "description": "Mann mit braunem Haar, schwarzem Kurzarmshirt und blauer Latzhose"
+      },
+      "measured": {
+        "heightM": 1.802,
+        "footprintRadiusM": 0.307
+      },
+      "locomotion": {
+        "maxWalkKts": 3,
+        "cleanWalkKts": [
+          1.5,
+          2.8
+        ]
+      },
+      "clips": [
+        "standing_relax",
+        "walk",
+        "locomotion"
+      ],
+      "lodCount": 3,
+      "knownIssues": [
+        "Schrittstrecke aus bodennaher Fußbewegung geschätzt; im Simulator abgleichen."
+      ]
+    }
+  ]
+}
