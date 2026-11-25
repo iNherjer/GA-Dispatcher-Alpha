@@ -100,10 +100,33 @@ function vpWeatherSourceLabel(source) {
 
 function vpModelForecastTime(sample) {
     const format = date => new Date(date).toISOString().slice(11, 16);
-    return _vpUiText('map.weatherSource.dwdTime', 'DWD ICON-EU · Lauf {run} UTC · gültig {time} UTC.', {
+    return _vpUiText('map.weatherSource.dwdTime', 'DWD ICON-EU · Lauf {run} UTC · gültig {time} UTC. Datenbasis: Deutscher Wetterdienst, eigene Verarbeitung.', {
         run: format(sample.modelRunAt), time: format(sample.contourValidAt)
     });
 }
+
+// Hours the DWD pickers offer: the fixed UI range (-3..+12 h) limited to the
+// published forecast hours. The static reader (dwd-weather-assets.js) or the
+// tracker answer (EFB) stores the published range in window.gaDwdTermWindow.
+// Without a fresh range the fixed UI range applies.
+const GA_DWD_TERM_WINDOW_MAX_AGE_MS = 15 * 60 * 1000;
+function gaRememberDwdTermWindow(data) {
+    if (!data || !Number.isFinite(data.firstValidAt) || !Number.isFinite(data.lastValidAt)) return;
+    window.gaDwdTermWindow = { first: data.firstValidAt, last: data.lastValidAt, at: Date.now() };
+}
+window.gaRememberDwdTermWindow = gaRememberDwdTermWindow;
+window.gaDwdHourBounds = function(current) {
+    const hour = 60 * 60 * 1000;
+    let min = current - 3 * hour;
+    let max = current + 12 * hour;
+    const range = window.gaDwdTermWindow;
+    if (range && Number.isFinite(range.first) && Number.isFinite(range.last) &&
+        Date.now() - range.at < GA_DWD_TERM_WINDOW_MAX_AGE_MS) {
+        min = Math.max(min, range.first);
+        max = Math.max(min, Math.min(max, range.last));
+    }
+    return { min: min, max: max };
+};
 
 window.fetchDwdWeatherPoints = async function(points, { signal, includePressure = false, validAt = null, prefetch = false } = {}) {
     if (!points.length) return [];
@@ -137,6 +160,7 @@ async function vpFetchDwdServicePoints(points, { signal, includePressure, validA
     if (prefetch && response.status === 204) return [];
     if (!response.ok) throw new Error(`DWD ICON-EU HTTP ${response.status}`);
     const data = await response.json();
+    gaRememberDwdTermWindow(data);
     if (prefetch && data.source === 'dwd-icon-eu' && Array.isArray(data.samples) && !data.samples.length) return [];
     if (data.source !== 'dwd-icon-eu' || !Array.isArray(data.samples) || data.samples.length !== points.length ||
         (data.samples.some(Boolean) && (!Number.isFinite(data.runAt) || !Number.isFinite(data.validAt) ||
@@ -11589,8 +11613,9 @@ function vpUpdateWeatherDetailsUi() {
     const modelSource = vpWeatherSource !== 'metar';
     const hour = Math.floor(Date.now() / VP_WEATHER_HOUR_MS) * VP_WEATHER_HOUR_MS;
     const from = vpWeatherValidAt ?? displayedTerm ?? hour;
-    document.getElementById('vpWeatherEarlier').disabled = !modelSource || from <= hour - 3 * VP_WEATHER_HOUR_MS;
-    document.getElementById('vpWeatherLater').disabled = !modelSource || from >= hour + 12 * VP_WEATHER_HOUR_MS;
+    const bounds = vpWeatherHourBounds(hour);
+    document.getElementById('vpWeatherEarlier').disabled = !modelSource || from <= bounds.min;
+    document.getElementById('vpWeatherLater').disabled = !modelSource || from >= bounds.max;
     document.getElementById('vpWeatherNow').disabled = vpWeatherValidAt === null;
     const label = document.getElementById('vpWeatherTerm');
     const format = date => new Date(date).toISOString().slice(11, 16) + ' UTC';
@@ -11600,6 +11625,12 @@ function vpUpdateWeatherDetailsUi() {
     label.textContent = status ? `${active} · ${status}` : active;
     label.title = status && vpWeatherValidAt !== null ? `${format(vpWeatherValidAt)} ${status}`
         : displayedTerm === null ? _vpUiText('map.profile.weatherNoTerm', 'Kein Modelltermin') : '';
+}
+
+// DWD: only published hours; Open-Meteo keeps the fixed range.
+function vpWeatherHourBounds(current) {
+    return vpWeatherSource === 'dwd' ? window.gaDwdHourBounds(current)
+        : { min: current - 3 * VP_WEATHER_HOUR_MS, max: current + 12 * VP_WEATHER_HOUR_MS };
 }
 
 function vpDwdTimelineActive() {
@@ -11645,8 +11676,9 @@ function vpScheduleDwdTimelinePrefetch() {
     if (window._lastWetterRouteKey !== routeKey || hour === null || vpWeatherData[0].wxSource !== 'dwd') return;
     if (vpDwdTimelineRouteKey !== routeKey) vpRememberDwdTimelineHour(routeKey, vpWeatherData);
     const current = Math.floor(Date.now() / VP_WEATHER_HOUR_MS) * VP_WEATHER_HOUR_MS;
+    const bounds = vpWeatherHourBounds(current);
     const neighbors = [hour + VP_WEATHER_HOUR_MS, hour - VP_WEATHER_HOUR_MS].filter(term =>
-        term >= current - 3 * VP_WEATHER_HOUR_MS && term <= current + 12 * VP_WEATHER_HOUR_MS && !vpDwdTimelineHours.has(term));
+        term >= bounds.min && term <= bounds.max && !vpDwdTimelineHours.has(term));
     if (!neighbors.length) return;
     vpDwdTimelineTimer = setTimeout(async () => {
         vpDwdTimelineTimer = null;
@@ -11676,7 +11708,8 @@ function vpChangeWeatherHour(step) {
     if (step === 0) vpWeatherValidAt = null;
     else {
         const target = (vpWeatherValidAt ?? vpDisplayedWeatherTerm() ?? current) + step * VP_WEATHER_HOUR_MS;
-        vpWeatherValidAt = Math.max(current - 3 * VP_WEATHER_HOUR_MS, Math.min(current + 12 * VP_WEATHER_HOUR_MS, target));
+        const bounds = vpWeatherHourBounds(current);
+        vpWeatherValidAt = Math.max(bounds.min, Math.min(bounds.max, target));
     }
     vpStopDwdTimelinePrefetch(false);
     vpPruneDwdTimelineHours();

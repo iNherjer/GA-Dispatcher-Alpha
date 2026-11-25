@@ -42,6 +42,12 @@ async function readManifest(response) {
   return data;
 }
 
+// First/last published hour for the EFB hour pickers (profile.js gaDwdHourBounds).
+function publishedHours(data) {
+  const times = data.terms.map(term => term.validAt);
+  return times.length ? { firstValidAt: Math.min(...times), lastValidAt: Math.max(...times) } : {};
+}
+
 function createTrackerDwdWeather(fetchRemote = fetch) {
   const weather = createDwdWeatherReader({
     root: DWD_ROOT,
@@ -59,11 +65,13 @@ function createTrackerDwdWeather(fetchRemote = fetch) {
     if (probe) {
       const data = await weather.manifest();
       const hour = Math.floor(Date.now() / HOUR) * HOUR;
-      return { source: 'dwd-icon-eu', available: data.terms.some(term => term.validAt >= hour - 2 * HOUR && term.validAt <= hour), samples: [null] };
+      return { source: 'dwd-icon-eu', available: data.terms.some(term => term.validAt >= hour - 2 * HOUR && term.validAt <= hour),
+        samples: [null], ...publishedHours(data) };
     }
     const samples = await weather.read(points, { signal, includePressure: profile, validAt });
     const current = samples.find(Boolean);
-    return { source: 'dwd-icon-eu', runAt: current?.modelRunAt ?? null, validAt: current?.contourValidAt ?? null, samples };
+    return { source: 'dwd-icon-eu', runAt: current?.modelRunAt ?? null, validAt: current?.contourValidAt ?? null, samples,
+      ...publishedHours(await weather.manifest()) };
   };
 }
 

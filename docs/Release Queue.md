@@ -27,7 +27,11 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-(leer)
+### 2026-11-25 · DWD-Stundenwahl nach veröffentlichtem Bestand (EFB-Teil)
+- **Artefakt:** Tracker-EXE (`tracker-dwd-weather.js`, `tracker-efb-profile-bridge.js`) und EFB-Web-Assets (Sync von `profile.js`, `airport-weather.js`, `i18n/en.js`). Web live mit v2543.
+- **Was:** DWD-Antworten des Trackers enthalten `firstValidAt`/`lastValidAt` des Manifests; `profile.js` merkt sie (`gaRememberDwdTermWindow`) und begrenzt über `gaDwdHourBounds` Höhenband-Zeitleiste, Nachbarstunden-Vorladen und die Stundenwahl von Seitenmenü/Tafeln/Punktwetter auf veröffentlichte Stunden (sonst fest −3..+12 h). Tooltips mit DWD-Quellenvermerk.
+- **Tests:** `tracker-dwd-weather.test.js`, `tracker-profile-data.test.js`, `tracker-efb-web-client.test.js`; Browser: beide Wähler stoppen am Manifestende.
+- **Pruefen im Feld:** EFB-Zeitleiste endet am veröffentlichten Bestand.
 
 ## Ausgeliefert
 

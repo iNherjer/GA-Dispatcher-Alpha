@@ -1,0 +1,12 @@
+# Cloudflare cron worker that starts the DWD weather workflow every hour.
+# Deploy:  npx wrangler deploy --config tools/dwd-dispatch-worker/wrangler.toml
+# Secret:  npx wrangler secret put GITHUB_TOKEN --config tools/dwd-dispatch-worker/wrangler.toml
+name = "ga-dwd-dispatch"
+main = "worker.js"
+compatibility_date = "2026-11-23"
+# No public URL: the worker only runs on its schedule.
+workers_dev = false
+
+[triggers]
+# Minute 7: away from the full hour, before the fallback schedule at :22.
+crons = ["7 * * * *"]

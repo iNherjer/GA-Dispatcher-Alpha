@@ -1,3 +1,21 @@
+## DWD-Wetter: zuverlässiger Auslöser, längere Reserve, Stundenwahl nach Bestand (25.11.2026)
+
+Review: Der GitHub-Zeitplan `22 * * * *` lief am 24./25.11.2026 nur viermal in 36 Stunden; der
+veröffentlichte Stand blieb auf Lauf 06Z mit Ende +7,6 h, die Zeitleiste bot aber +12 h an. Der
+Export brauchte 547–791 s bei `timeout-minutes: 15`.
+
+- Cloudflare-Cron-Worker `ga-dwd-dispatch` (`tools/dwd-dispatch-worker/`, Minute 7 jeder Stunde)
+  startet den Workflow per `workflow_dispatch`; der GitHub-Zeitplan bleibt Rückfall. Braucht das
+  Worker-Secret `GITHUB_TOKEN` (fein granular, nur dieses Repo, „Actions: Read and write“), gesetzt mit
+  `npx wrangler secret put GITHUB_TOKEN --config tools/dwd-dispatch-worker/wrangler.toml`.
+- Export bis +30 h (`HOURS_AHEAD`). Ein neuer Lauf kodiert nur das UI-Fenster bis +13 h neu; Reservestunden
+  behalten ihren veröffentlichten Lauf (Übernahme von Cloudflare) und neue Reservestunden nehmen den
+  neuesten Lauf, der sie erreicht (03/09/15/21Z reichen nur +30 h). Neu exportiert wird bei neuem Lauf
+  oder wenn die Reserve unter +24 h fällt. Workflow: Timeout 40 min, Sparse-Checkout `tools`.
+- Stundenwahl: Höhenband und Seitenmenü/Tafeln/Punktwetter bieten bei DWD nur veröffentlichte Stunden
+  (Manifest, im EFB über die Tracker-Antwort), sonst −3..+12 h. Tooltips nennen „Datenbasis: Deutscher
+  Wetterdienst, eigene Verarbeitung“.
+
 ## Performance von Routenprofil und Vektorkarte – Tracker v657 / Desktop 1.6.43 Alpha (23.11.2026)
 
 Auf Touchscreens wird das Ziehen der Höhenlinie und ihrer Höhenpunkte nach

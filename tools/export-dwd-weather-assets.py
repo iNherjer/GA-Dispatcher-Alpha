@@ -21,6 +21,10 @@ SAMPLES_PER_DEGREE = 8
 SIDE = TILE_DEGREES * SAMPLES_PER_DEGREE
 MISSING = -32768
 UI_HOURS_AHEAD = 12
+# Reserve beyond the UI window: a missed or late scheduled run (GitHub delays
+# schedules by hours) must not empty the timeline. Re-export when it shrinks.
+HOURS_AHEAD = 30
+MIN_RESERVE_HOURS = 24
 PUBLISHED_URL = "https://ga-dwd-alpha.einherjer.workers.dev"
 HTTP_HEADERS = {"User-Agent": "GA-Dispatcher-Weather-Export/1.0"}
 MAP_FIELDS = (("clcl", None), ("clcm", None), ("clch", None),
@@ -102,25 +106,32 @@ def reuse_term(pool, url, destination, tiles, profile_fields):
 
 
 def choose_runs(model, dates, current, previous, covered):
-    # Probe the last requested forecast hour first. A run may appear in the
-    # directory before all fields needed for the displayed window are ready.
+    # Probe the end of the UI window. A run may appear in the directory before
+    # all fields needed for the displayed window are ready. The 03/09/15/21 UTC
+    # runs reach only +30 h, so the reserve hours are chosen separately.
+    threshold = current + timedelta(hours=UI_HOURS_AHEAD + 1)
     try:
-        latest = model.choose(dates[-1])
+        latest = model.choose(threshold)
     except (URLError, TimeoutError, ValueError):
         if covered:
             return None
         raise
-    threshold = current + timedelta(hours=UI_HOURS_AHEAD + 1)
-    if covered and max(previous) >= threshold and latest <= previous[max(previous)]:
+    reserve = current + timedelta(hours=min(MIN_RESERVE_HOURS, (dates[-1] - current) // timedelta(hours=1)))
+    if (covered and previous and max(previous) >= reserve and threshold in previous
+            and latest <= previous[threshold]):
         return None
     runs = {}
     for valid in dates:
-        # Past hours already published stay stable. Future hours use the last
-        # run that covers the window, without regressing a published term.
+        # Past hours already published stay stable. The UI window uses the
+        # newest run without regressing a published term. Reserve hours keep
+        # their published run (cheap reuse) and are refreshed once they enter
+        # the UI window; new reserve hours take the newest run reaching them.
         if valid < current:
             runs[valid] = previous.get(valid) or model.choose(valid)
-        else:
+        elif valid <= threshold:
             runs[valid] = max(latest, previous.get(valid, latest))
+        else:
+            runs[valid] = previous.get(valid) or model.choose(valid)
     return runs
 
 
@@ -212,7 +223,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("output", type=Path)
     parser.add_argument("--hours-back", type=int, default=3, choices=range(4))
-    parser.add_argument("--hours-ahead", type=int, default=16, choices=range(17))
+    parser.add_argument("--hours-ahead", type=int, default=HOURS_AHEAD, choices=range(49))
     parser.add_argument("--check-published", action="store_true", help="Reuse the published files and skip unchanged covered windows")
     args = parser.parse_args()
     if args.output.exists():

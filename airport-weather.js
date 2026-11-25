@@ -743,8 +743,10 @@ function awWeatherSourceControl(observedAt) {
     const change = _awText('airportWx.nextSource','Wetterquelle wechseln zu {source}',{source:next});
     const term = awWeatherValidAt() ?? (Number.isFinite(observedAt) && observedAt > 1e12 ? observedAt : Math.floor(Date.now() / AW_HOUR) * AW_HOUR);
     const clock = new Date(term).toISOString().slice(11,16) + ' UTC';
+    // DWD open data terms: name the source and the own processing.
+    const attribution = source === 'dwd' ? ' · ' + _awText('airportWx.dwdAttribution','Datenbasis: Deutscher Wetterdienst, eigene Verarbeitung') : '';
     return '<div class="ga-briefing-weather-source"><button type="button" class="ga-skin-control ga-weather-source-cycle" data-aw-source title="' +
-        _escapeMetarWidgetText(change) + '" aria-label="' + _escapeMetarWidgetText(AW_SOURCES[source] + ' · ' + change) +
+        _escapeMetarWidgetText(change + attribution) + '" aria-label="' + _escapeMetarWidgetText(AW_SOURCES[source] + ' · ' + change) +
         '">' + AW_SOURCES[source] + '</button>' + (source === 'dwd'
             ? '<span class="ga-weather-stepper" data-aw-term="' + term + '">' +
                 '<button type="button" class="ga-skin-control" data-aw-step="-1" aria-label="' +
@@ -787,7 +789,10 @@ document.addEventListener('click', event => {
     const current = Math.floor(Date.now() / AW_HOUR) * AW_HOUR;
     const shown = awNumber(button.parentElement.dataset.awTerm) ?? current;
     const target = (awWeatherHour ?? shown) + step * AW_HOUR;
-    const validAt = Math.max(current - 3 * AW_HOUR, Math.min(current + 12 * AW_HOUR, target));
+    // DWD: only published hours (profile.js gaDwdHourBounds); models otherwise -3..+12 h.
+    const bounds = awWeatherSource() === 'dwd' && typeof window.gaDwdHourBounds === 'function'
+        ? window.gaDwdHourBounds(current) : { min: current - 3 * AW_HOUR, max: current + 12 * AW_HOUR };
+    const validAt = Math.max(bounds.min, Math.min(bounds.max, target));
     if (validAt === awWeatherHour) return;
     clearTimeout(awWeatherReloadTimer);
     awWeatherHour = validAt;

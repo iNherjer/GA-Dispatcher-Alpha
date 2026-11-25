@@ -7,6 +7,9 @@ on:
         description: Build a fresh snapshot even if the published window is current
         type: boolean
         default: false
+  # Primary trigger: the Cloudflare cron worker tools/dwd-dispatch-worker
+  # (workflow_dispatch every hour). GitHub delays or drops schedules under
+  # load, so this schedule is only the fallback.
   schedule:
     - cron: '22 * * * *'
 
@@ -21,9 +24,14 @@ jobs:
   export:
     if: github.event_name == 'workflow_dispatch' || vars.GA_DWD_STATIC_PUBLISH == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # A new model run re-encodes the 14 UI hours (about 11-13 min); a forced
+    # export of all 34 hours takes longer.
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
+        with:
+          sparse-checkout: tools
+          sparse-checkout-cone-mode: true
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'

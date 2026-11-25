@@ -157,6 +157,7 @@ function formatAsLimit(lim) {
     window.gaCheckDwdWeather = function() {
         var url = '/api/v1/dwd-icon-eu';
         return request('resource', {url: url + '?points=0,0'}).then(function(data) {
+            if (data && typeof window.gaRememberDwdTermWindow === 'function') window.gaRememberDwdTermWindow(data);
             if (data && data.source === 'dwd-icon-eu' && data.available === true) {
                 var firstDwdAccess = !window.GA_DWD_WEATHER_URL;
                 window.GA_DWD_WEATHER_URL = url;

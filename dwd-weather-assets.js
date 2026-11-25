@@ -2,7 +2,7 @@
     'use strict';
 
     function createDwdWeatherReader({ root, decodeTile, readManifest = response => response.json(),
-        fetchAssetResponse = fetch, tileLimit = 24, mayCache = () => true, timeoutMs = 15000 }) {
+        fetchAssetResponse = fetch, tileLimit = 24, mayCache = () => true, timeoutMs = 15000, onManifest = null }) {
 
         const HOUR = 3600000;
         const MANIFEST_TTL = 60000;
@@ -34,10 +34,17 @@
                         throw new Error('DWD ICON-EU: invalid forecast index');
                     }
                     currentManifest = { data, expires: Date.now() + MANIFEST_TTL };
+                    if (onManifest) onManifest(termWindow(data));
                     return data;
                 }).finally(() => { manifestRequest = null; });
             }
             return manifestRequest;
+        }
+
+        // First and last published forecast hour: the hour pickers offer only these.
+        function termWindow(data) {
+            const times = data.terms.map(term => term.validAt).filter(Number.isFinite);
+            return times.length ? { first: Math.min(...times), last: Math.max(...times) } : null;
         }
 
         function pruneTiles() {
@@ -142,7 +149,7 @@
             return missing && !refresh ? read(points, { signal, includePressure, validAt }, true) : results;
         }
 
-        return { read, manifest, pruneTiles, clear() { tiles.clear(); currentManifest = null; } };
+        return { read, manifest, termWindow, pruneTiles, clear() { tiles.clear(); currentManifest = null; } };
     }
 
     if (typeof module === 'object' && module.exports) {
@@ -152,6 +159,7 @@
     const root = window.GA_DWD_STATIC_URL;
     if (!root || typeof DecompressionStream !== 'function' || typeof AbortSignal.timeout !== 'function') return;
     const reader = createDwdWeatherReader({ root, mayCache: () => !document.hidden,
+        onManifest: range => { window.gaDwdTermWindow = range && { first: range.first, last: range.last, at: Date.now() }; },
         decodeTile: async response => new DataView(await new Response(
             response.body.pipeThrough(new DecompressionStream('gzip'))).arrayBuffer()) });
     document.addEventListener('visibilitychange', () => { if (document.hidden) reader.clear(); });
