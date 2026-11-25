@@ -1,3 +1,24 @@
+## Kartensuche und Was-ist-hier-Panel im EFB (25.11.2026, Release Queue)
+
+Die Lupe aus dem Web-Kartentisch (Web v2545) und „Was ist hier?“ als festes Panel
+(Web v2546) laufen auch im EFB. `map-search.js` wird wie die übrigen Kartentisch-
+Module kompiliert gespiegelt; weil das EFB weder `app.js` noch `map.js` lädt, stellt
+`tracker-efb-profile-bridge.js` die Datenquellen bereit: `gaMapSearchAirports`
+(Suche in `airports.json` über `loadGlobalAirports`, ICAO/IATA/Name/Ort, Favoriten
+zuerst), `gaMapSearchLoadNavaids` (gebündeltes `data/openaip-navaids.json` unter
+`/efb/v1/assets/openaip-navaids.json`) und `GA_MAP_SEARCH_OFM_URL`. OpenAIP-Plätze
+ohne ICAO findet das EFB nicht, weil `airports.json` sie nicht enthält.
+
+`map-context-popup.js` nutzt im EFB denselben Panelpfad wie das Web. Da der Body
+skaliert ist, rechnet `applyMapContextSheetFrame` den Rahmen in logischen Pixeln
+(Body-Rechteck / Skalierung, `padding-top` des Kartentischs für den Simulator-
+Streifen) und folgt `ga-efb-layout-change`. Das Panel nimmt im EFB die verfügbare
+Höhe (`--ga-efb-context-height`), die Detailspalte scrollt. Host-CSS ersetzt
+`inset`, Grid, `min()` und `clip-path` durch Coherent-taugliche Regeln; Panel und
+Pfeil erhalten eine eigene Ebene (`translateZ(0)`), ohne Schatten und Animation.
+Scrim, Panel und Suche reagieren zusätzlich auf mousedown/touchstart, weil
+Coherent keine Pointer-Events kennt. Coherent-/VR-Abnahme steht aus.
+
 ## DWD-Wetter: zuverlässiger Auslöser, längere Reserve, Stundenwahl nach Bestand (25.11.2026)
 
 Review: Der GitHub-Zeitplan `22 * * * *` lief am 24./25.11.2026 nur viermal in 36 Stunden; der

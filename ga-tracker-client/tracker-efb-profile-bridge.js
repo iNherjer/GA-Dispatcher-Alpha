@@ -182,6 +182,58 @@ function formatAsLimit(lim) {
             .catch(function(error){airportPromise=null;throw error;});
         return airportPromise;
     };
+    // Map search (map-search.js): the EFB has no app.js airport catalog and no map.js navaid
+    // loader. Airfields come from the same airports.json (ICAO list), navaids from the
+    // bundled OpenAIP file, reporting points from the bundled open flightmaps file.
+    window.GA_MAP_SEARCH_OFM_URL = '/efb/v1/assets/ofm-reporting-points.json';
+    function mapSearchNorm(value) {
+        return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/\u00df/g, 'ss').replace(/[^a-z0-9]+/g, ' ').trim();
+    }
+    function mapSearchWordStart(text, needle) {
+        var hay = mapSearchNorm(text);
+        return !!needle && !!hay && (hay.indexOf(needle) === 0 || (' ' + hay).indexOf(' ' + needle) !== -1);
+    }
+    window.gaMapSearchAirports = function(query, limit) {
+        var code = String(query || '').trim().toUpperCase().replace(/\s+/g, '');
+        var needle = mapSearchNorm(query);
+        if (needle.length < 2) return Promise.resolve([]);
+        return window.loadGlobalAirports().then(function() {
+            var favorites = window.GAFavoriteAirports;
+            var scored = [];
+            Object.keys(globalAirports || {}).forEach(function(key) {
+                var apt = globalAirports[key];
+                if (!apt) return;
+                var icao = String(apt.icao || key).toUpperCase();
+                var score = 0;
+                if (icao === code) score = 100;
+                else if (apt.iata && String(apt.iata).toUpperCase() === code) score = 80;
+                else if (code.length >= 2 && icao.indexOf(code) === 0) score = 60;
+                else if (needle.length >= 3 && mapSearchWordStart(apt.name, needle)) score = 40;
+                else if (needle.length >= 3 && mapSearchWordStart(apt.city, needle)) score = 30;
+                if (!score) return;
+                var favorite = !!(favorites && favorites.has && favorites.has(icao));
+                scored.push({score: score + (favorite ? 10 : 0), item: {
+                    code: icao, name: apt.name || icao, city: apt.city || '', country: apt.country || '',
+                    lat: apt.lat, lon: apt.lon, favorite: favorite
+                }});
+            });
+            scored.sort(function(a, b) { return b.score - a.score || (a.item.code < b.item.code ? -1 : 1); });
+            return scored.slice(0, limit || 6).map(function(entry) { return entry.item; });
+        });
+    };
+    var mapSearchNavaids = null, mapSearchNavaidPromise = null;
+    window.gaMapSearchLoadNavaids = function() {
+        if (mapSearchNavaids) return Promise.resolve(mapSearchNavaids);
+        if (!mapSearchNavaidPromise) mapSearchNavaidPromise = fetch('/efb/v1/assets/openaip-navaids.json')
+            .then(function(response) { return response.ok ? response.json() : null; })
+            .then(function(data) {
+                mapSearchNavaidPromise = null;
+                mapSearchNavaids = data && Array.isArray(data.navaids) ? data.navaids : [];
+                return mapSearchNavaids;
+            }, function(error) { mapSearchNavaidPromise = null; throw error; });
+        return mapSearchNavaidPromise;
+    };
     // Shared buttons require the same explicit, coalesced invalidation as the App.
     window.throttledRenderProfiles = function() { window.vpBgNeedsUpdate = true; vpRequestMapProfileFrameNow(); };
     window.handleSliderChange = function(kind,value) {

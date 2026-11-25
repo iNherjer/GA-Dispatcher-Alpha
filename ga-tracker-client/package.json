@@ -104,6 +104,7 @@
       "efb-web-assets/map-weather-fields.js",
       "../data/gafor-sector-dataset-de.json",
       "../data/ofm-reporting-points.json",
+      "../data/openaip-navaids.json",
       "tracker-efb-map-weather.js",
       "efb-web-assets/vendor/wmo-weather/*",
       "efb-web-assets/map-tool-focus.js",
@@ -120,6 +121,7 @@
       "../map-navigation-geometry.js",
       "efb-web-assets/map-navigation-geometry.js",
       "efb-web-assets/map-context-popup.js",
+      "efb-web-assets/map-search.js",
 
       "efb-web-assets/map-direct-to-core.js",
       "../map-direct-to-core.js",

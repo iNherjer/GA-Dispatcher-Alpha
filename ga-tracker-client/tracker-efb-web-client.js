@@ -65,10 +65,12 @@ const STATIC_ASSETS = Object.freeze({
   '/efb/v1/assets/map-navpoint-core.js': [path.join(__dirname, 'efb-web-assets', 'map-navpoint-core.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/map-single-click.js': [path.join(__dirname, 'efb-web-assets', 'map-single-click.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/map-context-popup.js': [path.join(__dirname, 'efb-web-assets', 'map-context-popup.js'), 'text/javascript; charset=utf-8'],
+  '/efb/v1/assets/map-search.js': [path.join(__dirname, 'efb-web-assets', 'map-search.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/airport-radio.js': [path.join(__dirname, 'efb-web-assets', 'airport-radio.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/map-layer-controls.js': [path.join(__dirname, 'efb-web-assets', 'map-layer-controls.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/map-aviation-overlay-style.js': [path.join(__dirname, 'efb-web-assets', 'map-aviation-overlay-style.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/ofm-reporting-points.json': [path.join(__dirname, '..', 'data', 'ofm-reporting-points.json'), 'application/json; charset=utf-8'],
+  '/efb/v1/assets/openaip-navaids.json': [path.join(__dirname, '..', 'data', 'openaip-navaids.json'), 'application/json; charset=utf-8'],
   '/efb/v1/assets/map-weather-fields.js': [path.join(__dirname, 'efb-web-assets', 'map-weather-fields.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/data/gafor-sector-dataset-de.json': [path.join(__dirname, '..', 'data', 'gafor-sector-dataset-de.json'), 'application/json; charset=utf-8'],
   '/efb/v1/assets/map-weather.js': [path.join(__dirname, 'tracker-efb-map-weather.js'), 'text/javascript; charset=utf-8'],
@@ -215,6 +217,7 @@ ${extractKartentischMarkup()}
 <script src="/efb/v1/assets/map-navpoint-core.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/map-single-click.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/map-context-popup.js?v=${EFB_WEB_ASSET_REVISION}"></script>
+<script src="/efb/v1/assets/map-search.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/profile-bridge.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/checklists.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/profile.js?v=${EFB_WEB_ASSET_REVISION}"></script>

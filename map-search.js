@@ -3,10 +3,12 @@
 // OpenAIP file (map.js loader), reporting points the open flightmaps file.
 // Selecting a hit centres the map with about 10 NM on screen and highlights the spot until
 // the next click on the map. Plain ES5-style syntax on purpose (EFB/Coherent safe).
+// The EFB has neither app.js nor map.js: its host provides window.gaMapSearchAirports
+// (query, limit) and window.gaMapSearchLoadNavaids(), plus window.GA_MAP_SEARCH_OFM_URL.
 (function () {
     'use strict';
 
-    var OFM_POINTS_URL = './data/ofm-reporting-points.json';
+    function ofmPointsUrl() { return window.GA_MAP_SEARCH_OFM_URL || './data/ofm-reporting-points.json'; }
     var VIEW_HALF_NM = 5;
     var MAX_AIRPORTS = 6;
     var MAX_NAVAIDS = 4;
@@ -76,8 +78,34 @@
 
     // ---- Data sources ------------------------------------------------------------------
 
+    function searchHostAirports(raw) {
+        return Promise.resolve(window.gaMapSearchAirports(raw, MAX_AIRPORTS)).then(function (items) {
+            var out = [];
+            (items || []).forEach(function (item) {
+                var lat = num(item && item.lat);
+                var lon = num(item && item.lon);
+                if (!Number.isFinite(lat) || !Number.isFinite(lon) || out.length >= MAX_AIRPORTS) return;
+                // Same rule as the web list: OpenAIP ids are not shown as a code.
+                var code = String(item.code || '');
+                if (code === 'OHNE ICAO' || /^OA-/i.test(code)) code = '';
+                out.push({
+                    kind: 'airport',
+                    code: code,
+                    name: item.name || item.code || '',
+                    meta: [item.typeLabel || t('map.search.kindAirport', 'Flugplatz'), item.city, item.country].filter(Boolean).join(' · '),
+                    lat: lat,
+                    lon: lon,
+                    favorite: !!item.favorite
+                });
+            });
+            return out;
+        }).catch(function () { return []; });
+    }
+
     function searchAirports(raw) {
-        if (typeof searchAirportCatalogCandidates !== 'function') return Promise.resolve([]);
+        if (typeof searchAirportCatalogCandidates !== 'function') {
+            return typeof window.gaMapSearchAirports === 'function' ? searchHostAirports(raw) : Promise.resolve([]);
+        }
         var codeLike = typeof isAirportCodeLike === 'function' ? isAirportCodeLike(raw) : false;
         return searchAirportCatalogCandidates(raw, 'mapSearch', MAX_AIRPORTS + 2, { allTypes: true, exact: codeLike })
             .then(function (results) {
@@ -111,12 +139,18 @@
             .catch(function () { return []; });
     }
 
+    function loadNavaids() {
+        if (typeof loadOpenAipStaticNavaids === 'function') return loadOpenAipStaticNavaids();
+        if (typeof window.gaMapSearchLoadNavaids === 'function') return Promise.resolve(window.gaMapSearchLoadNavaids());
+        return null;
+    }
+
     function searchNavaids(raw) {
-        if (typeof loadOpenAipStaticNavaids !== 'function') return Promise.resolve([]);
+        if (typeof loadOpenAipStaticNavaids !== 'function' && typeof window.gaMapSearchLoadNavaids !== 'function') return Promise.resolve([]);
         var needle = normText(raw);
         var ident = String(raw || '').trim().toUpperCase();
         if (needle.length < 2) return Promise.resolve([]);
-        return loadOpenAipStaticNavaids().then(function (items) {
+        return loadNavaids().then(function (items) {
             var scored = [];
             (items || []).forEach(function (item) {
                 var id = String(item && item.identifier || '').toUpperCase();
@@ -150,7 +184,7 @@
     function loadOfmPoints() {
         if (state.ofmPoints) return Promise.resolve(state.ofmPoints);
         if (state.ofmPromise) return state.ofmPromise;
-        state.ofmPromise = fetch(OFM_POINTS_URL, { cache: 'default' })
+        state.ofmPromise = fetch(ofmPointsUrl(), { cache: 'default' })
             .then(function (response) { return response.ok ? response.json() : null; })
             .then(function (data) {
                 state.ofmPoints = (data && Array.isArray(data.points)) ? data.points : [];
@@ -265,7 +299,8 @@
         try { state.input.focus(); state.input.select(); } catch (_) {}
         if (String(state.input.value || '').trim()) queueSearch();
         // Warm up the navaid and reporting point files while the user types.
-        if (typeof loadOpenAipStaticNavaids === 'function') loadOpenAipStaticNavaids();
+        var navaidLoad = loadNavaids();
+        if (navaidLoad && typeof navaidLoad.catch === 'function') navaidLoad.catch(function () {});
         loadOfmPoints();
     }
 
@@ -408,9 +443,14 @@
         state.mapBound = targetMap;
         var container = targetMap.getContainer();
         // A click (not a drag) anywhere on the map ends the highlight, markers included.
-        container.addEventListener('pointerdown', function (event) {
-            state.pointerStart = { x: event.clientX, y: event.clientY };
-        }, true);
+        // mousedown/touchstart as well: Coherent (EFB) has no pointer events.
+        function markStart(event) {
+            var point = event.touches && event.touches[0] ? event.touches[0] : event;
+            state.pointerStart = { x: point.clientX, y: point.clientY };
+        }
+        container.addEventListener('pointerdown', markStart, true);
+        container.addEventListener('mousedown', markStart, true);
+        container.addEventListener('touchstart', markStart, true);
         container.addEventListener('click', function (event) {
             if (!state.highlight) return;
             if (Date.now() - state.selectedAt < 400) return;

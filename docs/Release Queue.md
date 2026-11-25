@@ -27,6 +27,13 @@ liefert alles Offene mit aus.
 
 ## Offen
 
+### 2026-11-25 · Kartensuche und „Was ist hier?“ als Panel im EFB
+- **Artefakt:** Tracker-EXE (`tracker-efb-web-client.js`, `tracker-efb-profile-bridge.js`, `tracker-efb-kartentisch-host.css`, `package.json` pkg-Assets) und EFB-Web-Assets (Sync von `map-search.js` neu, `map-context-popup.js`, `styles.css`). Web live mit diesem Push.
+- **Was:** Lupe im Kartentisch-Kopf sucht auch im EFB: Flugplätze aus `airports.json` (ICAO/IATA/Name/Ort, Favoriten zuerst; OpenAIP-only-Plätze ohne ICAO fehlen dort), Funkfeuer aus dem neu gebündelten `data/openaip-navaids.json` (`/efb/v1/assets/openaip-navaids.json`), Meldepunkte aus der vorhandenen OFM-Datei. „Was ist hier?“ öffnet im EFB als Panel wie im Web: rechtsbündig im Kartentisch, vor Toolbar und Höhenprofil, Karte eingefroren, Tipp daneben/X/Escape schließt; Rahmen in logischen Pixeln (skalierter Body, UI-Zoom/VR), volle verfügbare Höhe mit scrollender Detailspalte. Coherent-Fallbacks: Kanten statt `inset`, kein Grid/`min()`, `-webkit-clip-path`, mousedown/touchstart statt Pointer-Events, eigene Ebene per `translateZ(0)`, kein Schatten.
+- **Tests:** `efb-web-assets-sync`, `tracker-efb-asset-syntax`, `tracker-efb-map-context`, `tracker-efb-web-client`, `tracker-efb-http-server`, `tracker-efb-ui-scale` grün (mit lokal synchronisierten Kopien). Browser mit EFB-Host-Seite: Suche EDTW/Frankfurt/SUL/„EDDF N“, Auswahl zentriert + markiert; Panel bei 900×700 und 440×596 logisch (Skala 1,5), Klick daneben schließt.
+- **Pruefen im Feld:** Coherent 2D und VR: Panel über Karte und Knöpfen, Pfeil/Dreieck sichtbar, Schließen per Tipp; Suche mit Sim-Tastatur, Ladezeit `airports.json` beim ersten Suchen.
+- **Doku beim Release:** `docs/EFB-Development-Plan.md` Abschnitt „Kartensuche und Was-ist-hier-Panel im EFB“ mit Version ergänzen; `EFB_WEB_ASSET_REVISION` wie üblich auf die neue Tracker-Version setzen.
+
 ### 2026-11-25 · Funkfeuer als ICAO-Symbole (EFB-Teil)
 - **Artefakt:** Tracker-EXE (`tracker-efb-kartentisch-host.js`) und EFB-Web-Assets (Sync von `map-aviation-overlay-style.js`, `styles.css`, `i18n/en-phrases.js`). Web live mit v2544.
 - **Was:** `navaidMarker`/`navaidSvg` im gemeinsamen Stil-Modul: VOR/DVOR Sechseck, DME Quadrat, VOR/DME Sechseck im Quadrat, VORTAC/TACAN mit drei Blöcken (TACAN ohne Mittelpunkt), NDB Punktkranz; Kennung ab Zoom 10. Panel-Abschnitt „Funkfeuer“ (an/aus, Farbe VOR/DME/TACAN, Farbe NDB, Kennung); Größe folgt „Symbolgröße“. EFB-Host nutzt `style.navaidMarker` statt Kreisen.

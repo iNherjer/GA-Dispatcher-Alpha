@@ -109,6 +109,7 @@ compileShared('map-navpoint-core.js');
 compileShared('flight-debrief.js');
 compileShared('map-single-click.js');
 compileShared('map-context-popup.js');
+compileShared('map-search.js');
 compileShared('map-direct-to-core.js');
 compileShared('map-navigation-client.js');
 compileShared('map-route-edit-core.js');

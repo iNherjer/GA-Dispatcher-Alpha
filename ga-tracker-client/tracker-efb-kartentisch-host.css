@@ -1847,3 +1847,52 @@ body.ga-efb-tracker-host.theme-ops1940 .pinboard-header { background: #0e0b08 !i
   width: 52px;
   border: 2px solid rgba(255, 255, 255, 0.55);
 }
+
+/* "Was ist hier?" as a fixed panel (map-context-popup.js sets width/edges in logical px).
+   Coherent fallbacks: explicit edges instead of inset, prefixed clip-path, own compositing
+   layer (VR: the map must not paint over it), no shadow or slide-in animation. */
+body.ga-efb-tracker-host .ga-map-context-sheet-scrim { top:0; right:0; bottom:0; left:0; }
+body.ga-efb-tracker-host .ga-map-context-sheet {
+  box-shadow: none;
+  animation: none;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+body.ga-efb-tracker-host .ga-map-context-sheet-arrow {
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+body.ga-efb-tracker-host .ga-map-context-sheet-arrow::before,
+body.ga-efb-tracker-host .ga-map-context-sheet-arrow::after {
+  -webkit-clip-path: polygon(0 50%, 100% 0, 100% 100%);
+}
+body.ga-efb-tracker-host .ga-map-context-sheet-arrow::before { top:0; right:0; bottom:0; left:0; }
+body.ga-efb-tracker-host .ga-map-context-sheet-scroll { display: block; }
+body.ga-efb-tracker-host .ga-map-context-sheet-scroll > div { display: block; }
+body.ga-efb-tracker-host .ga-map-context-sheet .ga-map-context-panel { display: block; }
+
+/* Map search (map-search.js): no grid, min(), inset or vw in Coherent. */
+body.ga-efb-tracker-host .map-search-panel {
+  max-width: 340px;
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+  box-shadow: none;
+}
+body.ga-efb-tracker-host .map-search-results { max-height: 300px; }
+body.ga-efb-tracker-host .map-search-option {
+  display: block;
+  position: relative;
+  padding-left: 30px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+body.ga-efb-tracker-host .map-search-icon {
+  position: absolute;
+  left: 7px;
+  top: 7px;
+  width: 16px;
+}
+body.ga-efb-tracker-host .map-search-code { margin-right: 8px; }
+body.ga-efb-tracker-host .map-search-code:empty { display: none; }
+body.ga-efb-tracker-host .map-search-meta { display: block; }
+body.ga-efb-tracker-host .map-search-highlight-ring { top:0; right:0; bottom:0; left:0; box-shadow:none; }

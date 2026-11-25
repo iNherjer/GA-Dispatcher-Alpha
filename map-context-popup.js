@@ -59,10 +59,10 @@ function dismissMapContextInfo({ closePopup = false, clearHighlight = true } = {
     if (mapContextSheet?.open) closeMapContextSheet({ restoreView: true, fromDismiss: true });
 }
 
-// "Was ist hier?" is a fixed sheet in every web view (not the EFB), above toolbar and
+// "Was ist hier?" is a fixed sheet in every view, EFB included, above toolbar and
 // profile panel (classic popup width, at most 80 % of the screen; styles.css).
-// Compact layout (phone/tablet up to 1024 px): right edge of the screen.
-// Wider screens: right edge of the map table window, vertically inside it.
+// Compact layout (phone/tablet up to 1024 px, browser only): right edge of the screen.
+// Wider screens and the EFB: right edge of the map table window, vertically inside it.
 // Its arrow tip sits at the sheet's left edge and the map is panned so the pressed
 // point lies under it. While it is open the map is frozen; a click beside the sheet,
 // the X or Escape closes it and brings back the earlier map view.
@@ -71,11 +71,17 @@ const MAP_CONTEXT_SHEET_EDGE_PX = 8;
 let mapContextSheet = null;
 
 function isMapContextSheetMode() {
-    if (typeof window === 'undefined' || !document.body) return false;
-    return !document.body.classList.contains('ga-efb-tracker-host');
+    return typeof window !== 'undefined' && !!document.body;
+}
+
+function isMapContextEfbHost() {
+    return !!document.body?.classList.contains('ga-efb-tracker-host');
 }
 
 function isMapContextSheetCompact() {
+    // The EFB scales its whole body (UI zoom, VR): CSS env()/min()/vw do not fit there,
+    // so it always uses the pixel frame below.
+    if (isMapContextEfbHost()) return false;
     if (typeof window.matchMedia === 'function') {
         return window.matchMedia(`(max-width: ${MAP_CONTEXT_SHEET_COMPACT_MAX_WIDTH_PX}px)`).matches;
     }
@@ -100,22 +106,38 @@ function applyMapContextSheetFrame(ref) {
     if (isMapContextSheetCompact()) { clear(); return; }
     const mapElement = map?.getContainer?.();
     const frameElement = document.getElementById('mapTableOverlay') || mapElement;
-    const rect = frameElement?.getBoundingClientRect?.();
-    if (!rect || !rect.width || !rect.height) { clear(); return; }
-    // Layout viewport (without scrollbars): what position:fixed right/bottom refer to.
-    const vw = document.documentElement.clientWidth || window.innerWidth || rect.right;
-    const vh = document.documentElement.clientHeight || window.innerHeight || rect.bottom;
+    const clientRect = frameElement?.getBoundingClientRect?.();
+    if (!clientRect || !clientRect.width || !clientRect.height) { clear(); return; }
+    // Fixed elements refer to the layout viewport (without scrollbars). In the EFB the
+    // body is transformed (scale), so fixed elements refer to the body in logical pixels.
+    const efb = isMapContextEfbHost();
+    const body = document.body;
+    const bodyRect = efb ? body.getBoundingClientRect() : { left: 0, top: 0 };
+    const scale = efb && body.offsetWidth ? (bodyRect.width / body.offsetWidth) || 1 : 1;
+    const toLocal = (r) => ({
+        left: (r.left - bodyRect.left) / scale,
+        right: (r.right - bodyRect.left) / scale,
+        top: (r.top - bodyRect.top) / scale,
+        bottom: (r.bottom - bodyRect.top) / scale,
+        height: r.height / scale
+    });
+    const rect = toLocal(clientRect);
+    const vw = efb ? body.offsetWidth : (document.documentElement.clientWidth || window.innerWidth || rect.right);
+    const vh = efb ? body.offsetHeight : (document.documentElement.clientHeight || window.innerHeight || rect.bottom);
+    // EFB: keep clear of the native title strip (padding-top of the map table).
+    const framePadTop = efb ? (parseFloat(window.getComputedStyle(frameElement).paddingTop) || 0) : 0;
     const edge = MAP_CONTEXT_SHEET_EDGE_PX;
     const left = Math.max(0, rect.left);
     const right = Math.min(vw, rect.right);
-    const top = Math.max(0, rect.top) + edge;
+    const top = Math.max(0, rect.top) + framePadTop + edge;
     const bottom = Math.max(0, vh - Math.min(vh, rect.bottom)) + edge;
     const rightGap = Math.max(0, vw - right) + edge;
     const width = Math.max(240, Math.min(462, Math.round((right - left) * 0.8)));
     const maxHeight = Math.max(160, vh - top - bottom);
     // Arrow: middle of the frame, kept on the visible map.
     let arrowTop = top + (maxHeight / 2);
-    const mapRect = mapElement?.getBoundingClientRect?.();
+    const mapClientRect = mapElement?.getBoundingClientRect?.();
+    const mapRect = mapClientRect ? toLocal(mapClientRect) : null;
     if (mapRect && mapRect.height > 80) {
         arrowTop = Math.min(Math.max(arrowTop, Math.max(0, mapRect.top) + 40), Math.min(vh, mapRect.bottom) - 40);
     }
@@ -127,7 +149,13 @@ function applyMapContextSheetFrame(ref) {
         '--ga-map-context-sheet-max-height': `${Math.round(maxHeight)}px`,
         '--ga-map-context-sheet-arrow-top': `${Math.round(arrowTop)}px`
     };
-    targets.forEach((el) => Object.entries(values).forEach(([name, value]) => el.style.setProperty(name, value)));
+    targets.forEach((el) => Object.keys(values).forEach((name) => el.style.setProperty(name, values[name])));
+    // EFB (no reliable fit-content/grid in Coherent): the panel takes the available
+    // height and the details column scrolls; the height band needs a fixed height.
+    if (efb && mapContextInfoState?.content) {
+        const contentHeight = Math.max(160, Math.round(maxHeight - 64));
+        mapContextInfoState.content.style.setProperty('--ga-efb-context-height', `${contentHeight}px`);
+    }
 }
 
 function ensureMapContextSheet() {
@@ -158,7 +186,10 @@ function ensureMapContextSheet() {
     const ref = { scrim, sheet, arrow, scroll, closeButton, open: false, openedAt: 0, scrimPressed: false, sheetPressed: false, view: null, resizeTimer: 0 };
     // A long press opens the sheet while the finger is still down: its release must not
     // close the sheet or hit a button in it, so only presses that start on it count.
-    scrim.addEventListener('pointerdown', () => { ref.scrimPressed = true; });
+    // Coherent (EFB) has no pointer events: mousedown/touchstart mark the press there.
+    ['pointerdown', 'mousedown', 'touchstart'].forEach((type) => {
+        scrim.addEventListener(type, () => { ref.scrimPressed = true; }, false);
+    });
     scrim.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -168,7 +199,9 @@ function ensureMapContextSheet() {
     });
     scrim.addEventListener('wheel', (event) => event.preventDefault(), { passive: false });
     scrim.addEventListener('touchmove', (event) => event.preventDefault(), { passive: false });
-    sheet.addEventListener('pointerdown', () => { ref.sheetPressed = true; }, true);
+    ['pointerdown', 'mousedown', 'touchstart'].forEach((type) => {
+        sheet.addEventListener(type, () => { ref.sheetPressed = true; }, true);
+    });
     sheet.addEventListener('click', (event) => {
         if (ref.sheetPressed) return;
         event.preventDefault();
@@ -240,6 +273,7 @@ function openMapContextSheet(state) {
         window.addEventListener('keydown', ref.onKeyDown);
         window.addEventListener('resize', ref.onResize);
         window.addEventListener('orientationchange', ref.onResize);
+        window.addEventListener('ga-efb-layout-change', ref.onResize);
         // The map table window may change size while the sheet is open (layout, docking).
         const frameElement = document.getElementById('mapTableOverlay');
         if (frameElement && typeof window.ResizeObserver === 'function') {
@@ -271,6 +305,7 @@ function closeMapContextSheet({ restoreView = true, fromDismiss = false } = {}) 
     window.removeEventListener('keydown', ref.onKeyDown);
     window.removeEventListener('resize', ref.onResize);
     window.removeEventListener('orientationchange', ref.onResize);
+    window.removeEventListener('ga-efb-layout-change', ref.onResize);
     ref.frameObserver?.disconnect?.();
     ref.frameObserver = null;
     ref.scrim.hidden = true;
