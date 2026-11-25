@@ -59,22 +59,75 @@ function dismissMapContextInfo({ closePopup = false, clearHighlight = true } = {
     if (mapContextSheet?.open) closeMapContextSheet({ restoreView: true, fromDismiss: true });
 }
 
-// Mobile layout (phone/tablet up to 1024 px, not the EFB): the popup is a fixed sheet at
-// the right edge above toolbar and profile panel (classic popup width, at most 80 % of the
-// screen; styles.css). Its arrow tip sits at the sheet's left edge, half screen height, and
-// the map is panned so the pressed point lies under it.
-// While it is open the map is frozen; a tap beside the sheet or the X closes it and
-// brings back the earlier map view.
-const MAP_CONTEXT_SHEET_MAX_WIDTH_PX = 1024;
+// "Was ist hier?" is a fixed sheet in every web view (not the EFB), above toolbar and
+// profile panel (classic popup width, at most 80 % of the screen; styles.css).
+// Compact layout (phone/tablet up to 1024 px): right edge of the screen.
+// Wider screens: right edge of the map table window, vertically inside it.
+// Its arrow tip sits at the sheet's left edge and the map is panned so the pressed
+// point lies under it. While it is open the map is frozen; a click beside the sheet,
+// the X or Escape closes it and brings back the earlier map view.
+const MAP_CONTEXT_SHEET_COMPACT_MAX_WIDTH_PX = 1024;
+const MAP_CONTEXT_SHEET_EDGE_PX = 8;
 let mapContextSheet = null;
 
 function isMapContextSheetMode() {
     if (typeof window === 'undefined' || !document.body) return false;
-    if (document.body.classList.contains('ga-efb-tracker-host')) return false;
+    return !document.body.classList.contains('ga-efb-tracker-host');
+}
+
+function isMapContextSheetCompact() {
     if (typeof window.matchMedia === 'function') {
-        return window.matchMedia(`(max-width: ${MAP_CONTEXT_SHEET_MAX_WIDTH_PX}px)`).matches;
+        return window.matchMedia(`(max-width: ${MAP_CONTEXT_SHEET_COMPACT_MAX_WIDTH_PX}px)`).matches;
     }
-    return window.innerWidth <= MAP_CONTEXT_SHEET_MAX_WIDTH_PX;
+    return window.innerWidth <= MAP_CONTEXT_SHEET_COMPACT_MAX_WIDTH_PX;
+}
+
+const MAP_CONTEXT_SHEET_FRAME_VARS = [
+    '--ga-map-context-sheet-width',
+    '--ga-map-context-sheet-right',
+    '--ga-map-context-sheet-top',
+    '--ga-map-context-sheet-bottom',
+    '--ga-map-context-sheet-max-height',
+    '--ga-map-context-sheet-arrow-top'
+];
+
+// Wider screens: frame the sheet by the map table window (it may be a movable,
+// resizable window), clipped to the screen. Compact layout keeps the CSS defaults.
+function applyMapContextSheetFrame(ref) {
+    if (!ref) return;
+    const targets = [ref.sheet, ref.arrow];
+    const clear = () => targets.forEach((el) => MAP_CONTEXT_SHEET_FRAME_VARS.forEach((name) => el.style.removeProperty(name)));
+    if (isMapContextSheetCompact()) { clear(); return; }
+    const mapElement = map?.getContainer?.();
+    const frameElement = document.getElementById('mapTableOverlay') || mapElement;
+    const rect = frameElement?.getBoundingClientRect?.();
+    if (!rect || !rect.width || !rect.height) { clear(); return; }
+    // Layout viewport (without scrollbars): what position:fixed right/bottom refer to.
+    const vw = document.documentElement.clientWidth || window.innerWidth || rect.right;
+    const vh = document.documentElement.clientHeight || window.innerHeight || rect.bottom;
+    const edge = MAP_CONTEXT_SHEET_EDGE_PX;
+    const left = Math.max(0, rect.left);
+    const right = Math.min(vw, rect.right);
+    const top = Math.max(0, rect.top) + edge;
+    const bottom = Math.max(0, vh - Math.min(vh, rect.bottom)) + edge;
+    const rightGap = Math.max(0, vw - right) + edge;
+    const width = Math.max(240, Math.min(462, Math.round((right - left) * 0.8)));
+    const maxHeight = Math.max(160, vh - top - bottom);
+    // Arrow: middle of the frame, kept on the visible map.
+    let arrowTop = top + (maxHeight / 2);
+    const mapRect = mapElement?.getBoundingClientRect?.();
+    if (mapRect && mapRect.height > 80) {
+        arrowTop = Math.min(Math.max(arrowTop, Math.max(0, mapRect.top) + 40), Math.min(vh, mapRect.bottom) - 40);
+    }
+    const values = {
+        '--ga-map-context-sheet-width': `${width}px`,
+        '--ga-map-context-sheet-right': `${Math.round(rightGap)}px`,
+        '--ga-map-context-sheet-top': `${Math.round(top)}px`,
+        '--ga-map-context-sheet-bottom': `${Math.round(bottom)}px`,
+        '--ga-map-context-sheet-max-height': `${Math.round(maxHeight)}px`,
+        '--ga-map-context-sheet-arrow-top': `${Math.round(arrowTop)}px`
+    };
+    targets.forEach((el) => Object.entries(values).forEach(([name, value]) => el.style.setProperty(name, value)));
 }
 
 function ensureMapContextSheet() {
@@ -138,6 +191,7 @@ function ensureMapContextSheet() {
                 closeMapContextSheet({ restoreView: true });
                 return;
             }
+            applyMapContextSheetFrame(ref);
             map?.invalidateSize?.({ pan: false });
             alignMapContextSheetToAnchor(mapContextInfoState, false);
         }, 140);
@@ -186,6 +240,12 @@ function openMapContextSheet(state) {
         window.addEventListener('keydown', ref.onKeyDown);
         window.addEventListener('resize', ref.onResize);
         window.addEventListener('orientationchange', ref.onResize);
+        // The map table window may change size while the sheet is open (layout, docking).
+        const frameElement = document.getElementById('mapTableOverlay');
+        if (frameElement && typeof window.ResizeObserver === 'function') {
+            ref.frameObserver = new window.ResizeObserver(() => ref.onResize());
+            ref.frameObserver.observe(frameElement);
+        }
     }
     ref.open = true;
     ref.openedAt = Date.now();
@@ -197,6 +257,7 @@ function openMapContextSheet(state) {
     ref.scrim.hidden = false;
     ref.sheet.hidden = false;
     ref.arrow.hidden = false;
+    applyMapContextSheetFrame(ref);
     document.body.classList.add('ga-map-context-sheet-open');
     map.getContainer?.()?.classList.add('ga-map-context-open');
     window.requestAnimationFrame(() => alignMapContextSheetToAnchor(state, true));
@@ -210,6 +271,8 @@ function closeMapContextSheet({ restoreView = true, fromDismiss = false } = {}) 
     window.removeEventListener('keydown', ref.onKeyDown);
     window.removeEventListener('resize', ref.onResize);
     window.removeEventListener('orientationchange', ref.onResize);
+    ref.frameObserver?.disconnect?.();
+    ref.frameObserver = null;
     ref.scrim.hidden = true;
     ref.sheet.hidden = true;
     ref.arrow.hidden = true;

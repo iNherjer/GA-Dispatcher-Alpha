@@ -13357,8 +13357,10 @@ body.low-fps-mode .ga-map-context-height-rain-splash {
         min-height: 190px;
     }
 }
-/* Mobile "Was ist hier?" sheet (map-context-popup.js, up to 1024 px, not the EFB):
-   right edge of the screen, above toolbar and profile panel, small gap to the edges.
+/* "Was ist hier?" sheet (map-context-popup.js, every web view, not the EFB):
+   above toolbar and profile panel, small gap to the edges. Up to 1024 px it sits at
+   the right edge of the screen; on wider screens map-context-popup.js sets the
+   variables below inline so it sits at the right edge of the map table window.
    Width is 80 % of the screen, up to 462 px. The arrow tip sits at the sheet's left
    edge, half screen height; the map is
    panned so the pressed point lies under it. The scrim freezes the map. */
@@ -13377,9 +13379,9 @@ body.low-fps-mode .ga-map-context-height-rain-splash {
 .ga-map-context-sheet {
     position: fixed;
     z-index: 131001;
-    top: calc(8px + env(safe-area-inset-top, 0px));
+    top: var(--ga-map-context-sheet-top, calc(8px + env(safe-area-inset-top, 0px)));
     right: var(--ga-map-context-sheet-right);
-    bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+    bottom: var(--ga-map-context-sheet-bottom, calc(8px + env(safe-area-inset-bottom, 0px)));
     width: var(--ga-map-context-sheet-width);
     display: flex;
     flex-direction: column;
@@ -13388,7 +13390,7 @@ body.low-fps-mode .ga-map-context-height-rain-splash {
     box-sizing: border-box;
     height: -webkit-fit-content;
     height: fit-content;
-    max-height: calc(100% - 16px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    max-height: var(--ga-map-context-sheet-max-height, calc(100% - 16px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)));
     margin: auto 0 !important;
     color: #ecf7ff;
     background: rgba(7, 14, 22, 0.97);
@@ -13439,7 +13441,7 @@ body.low-fps-mode .ga-map-context-height-rain-splash {
     position: fixed;
     z-index: 131002;
     right: calc(var(--ga-map-context-sheet-right) + var(--ga-map-context-sheet-width) - 1px);
-    top: 50%;
+    top: var(--ga-map-context-sheet-arrow-top, 50%);
     width: 12px;
     height: 24px;
     margin-top: -12px;
