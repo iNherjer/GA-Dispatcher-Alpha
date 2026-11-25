@@ -705,7 +705,7 @@ function createTrackerEfbHttpServer(options = {}) {
       response.once('close', onClose);
       try {
         const body = await readJsonBody(request, 256 * 1024);
-        if (!['terrain', 'airspaces', 'airports', 'aviation', 'navpoints', 'resource'].includes(body.kind)) throw new Error('invalid_profile_operation');
+        if (!['terrain', 'airspaces', 'airports', 'aviation', 'mapAviation', 'navpoints', 'resource'].includes(body.kind)) throw new Error('invalid_profile_operation');
         const value = await options.profileData[body.kind](body.kind === 'resource' ? body.url : body.points, { body: body.body, signal: controller.signal });
         jsonResponse(response, 200, value);
       } catch (error) {

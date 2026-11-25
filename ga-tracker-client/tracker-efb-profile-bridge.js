@@ -132,6 +132,11 @@ function formatAsLimit(lim) {
     // Point popups request the same raw snapshot for both independent sections;
     // coalesce them locally instead of fetching/normalizing separate UI models.
     var popupSnapshotPending = {};
+    window.gaGetEfbMapAviation = function(bounds, zoom, signal) {
+        return request('mapAviation', {body:{zoom:zoom},points:[
+            {lat:bounds.south,lon:bounds.west,distNM:0},{lat:bounds.north,lon:bounds.east,distNM:0}
+        ]}, signal);
+    };
     window.gaGetAviationSnapshotForBounds = function(bounds) {
         var key = JSON.stringify(bounds);
         if (!popupSnapshotPending[key]) popupSnapshotPending[key] = request('aviation', {points:[

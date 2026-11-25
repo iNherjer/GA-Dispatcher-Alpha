@@ -202,3 +202,24 @@ test('popup aviation transport preserves raw geometry and quantities and bounds 
   for(const points of [[bounds[0]],bounds.slice().reverse(),[bounds[0],{lat:51,lon:8,distNM:0}]])await assert.rejects(profile.aviation(points),/invalid_profile/);
   assert.equal(calls.length,1);
 });
+
+test('viewport aviation selects collections, splits wide views and deduplicates features', async () => {
+  const calls = [];
+  const profile = createProfileData({ aviation: { async getPopupSnapshot(request) {
+    calls.push(request);
+    return Object.fromEntries(request.collections.map(key => [key,[{ _id:key + '-1' }]]));
+  } } });
+  const sw = { lat:48, lon:7, distNM:0 };
+  const ne = { lat:49, lon:8, distNM:0 };
+  assert.deepEqual(await profile.mapAviation([sw,ne], {body:{zoom:7}}), {airspaces:[{_id:'airspaces-1'}]});
+  assert.deepEqual(calls[0].bounds,{ west:7, south:48, east:8, north:49 });
+  const wide = await profile.mapAviation([sw,{ ...ne, lon:13 }], {body:{zoom:9}});
+  assert.deepEqual(Object.keys(wide), ['airspaces','airports','navaids','reportingPoints']);
+  assert.equal(wide.airspaces.length,1);
+  assert.equal(calls.length,3);
+  assert.equal(calls[1].bounds.east,calls[2].bounds.west);
+  await assert.rejects(profile.mapAviation([sw,{ ...ne, lon:23 }], {body:{zoom:9}}), /invalid_profile_aviation_bounds/);
+  await assert.rejects(profile.mapAviation([ne,sw], {body:{zoom:9}}), /invalid_profile_aviation_bounds/);
+  await assert.rejects(profile.mapAviation([sw,ne], {body:{zoom:6}}), /invalid_profile_aviation_bounds/);
+  assert.equal(calls.length,3);
+});

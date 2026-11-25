@@ -283,7 +283,7 @@ function encodeVectorStyle(value) {
 }
 
 const BASE_IDS = new Set(BASE_LAYERS.map((layer) => layer.id));
-const OVERLAY_IDS = new Set(OVERLAY_LAYERS.map((layer) => layer.id));
+const OVERLAY_IDS = new Set(OVERLAY_LAYERS.map((layer) => layer.id).concat('openaip'));
 const REGIONAL_BASE_IDS = new Set(REGIONAL_BASE_LAYERS.map((layer) => layer.id));
 const THEME_IDS = new Set(THEMES.map((theme) => theme.id));
 

@@ -81,6 +81,8 @@
   var previewLine = null;
   var baseLayers = {};
   var overlayLayers = {};
+  var openAipHandoffTiles = null;
+  var aeroHideZoom = 15;
   var regionalLayers = {};
   var regionalStackCounter = 0;
   var baseDimValueNode = null;
@@ -2280,7 +2282,10 @@
   // as a whole keeps overlapping base maps from blending into each other; the
   // tile layers themselves stay fully opaque (no second opacity stage).
   function updateBaseOpacity() {
-    var opacity = API.baseLayerOpacity(preferences);
+    var overlays = preferences.overlays.filter(function (id) { return id !== 'aero'; });
+    if (map && map.getZoom() < aeroHideZoom && (map.hasLayer(overlayLayers.aero) ||
+        (openAipHandoffTiles && map.hasLayer(openAipHandoffTiles)))) overlays.push('aero');
+    var opacity = API.baseLayerOpacity(Object.assign({}, preferences, {overlays: overlays}));
     var pane = map ? map.getPane('gaBasePane') : null;
     if (pane) pane.style.opacity = opacity >= 1 ? '' : String(opacity);
     Object.keys(baseLayers).forEach(function (id) {
@@ -2417,6 +2422,15 @@
           overlayTitleDone = true;
         }
       });
+      if (this._gaOpenAipStylePanel && overlayLayers.openaip) {
+        var overlayId = L.stamp(overlayLayers.openaip);
+        Array.prototype.some.call(list.children, function (label) {
+          var input = label.querySelector('input');
+          if (!input || input.layerId !== overlayId) return false;
+          list.insertBefore(control._gaOpenAipStylePanel, label.nextSibling);
+          return true;
+        });
+      }
       return result;
     };
     control._update();
@@ -2465,6 +2479,277 @@
     updateBaseOpacity();
     installTileCacheControl(section);
     installVectorStyleControl(section);
+  }
+
+  function installOpenAipOverlay(control, layer) {
+    var style = window.gaOpenAipOverlayStyle;
+    var pane = 'gaOpenAipPane';
+    var renderer = presentation.createEfbSvgRenderer(L, {pane: pane});
+    var polygons = L.layerGroup();
+    var symbols = L.layerGroup();
+    var reporting = L.layerGroup();
+    var content = L.layerGroup([polygons, symbols, reporting]);
+    var aeroDefinition = API.OVERLAY_LAYERS.filter(function (item) { return item.id === 'aero'; })[0];
+    openAipHandoffTiles = createTileLayer(aeroDefinition, 'gaVfrPane');
+    var airspaces = [];
+    var airports = [];
+    var storedAirports = [];
+    var navaids = [];
+    var reportingPoints = [];
+    var loadedBand = 0;
+    var styleDirty = false;
+    var coverage = null;
+    var loadedAt = 0;
+    var pending = null;
+    var timer = 0;
+    var ttl = 5 * 60 * 1000;
+    var status = document.createElement('div');
+    status.className = 'ga-base-dim-hint';
+    status.setAttribute('role', 'status');
+    var mounted = observeMapWeatherVisibility(map, schedule);
+    var panel = style.createPanel(function (text) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'ga-layer-group-title ga-layer-group-toggle';
+      button.textContent = _hT(text);
+      button.setAttribute('aria-expanded', 'false');
+      button.addEventListener('click', function () {
+        var body = button.nextElementSibling;
+        body.hidden = !body.hidden;
+        button.setAttribute('aria-expanded', String(!body.hidden));
+      });
+      return button;
+    }, function () {
+      styleDirty = true;
+      schedule();
+      if (coverage && layer.hasLayer(content)) draw();
+    }, {stepControls: true});
+    panel.querySelector('.ga-vfr-style-panel').hidden = true;
+    panel.insertBefore(status, panel.firstChild);
+    control._gaOpenAipStylePanel = panel;
+    control._update();
+
+    function draw() {
+      var paths = [];
+      airspaces.forEach(function (airspace) {
+        var geometry = airspace && airspace.geometry;
+        if (!geometry || style.RENDERED_TYPES.indexOf(Number(airspace.type)) < 0) return;
+        var options = style.airspaceStyle(airspace);
+        if (!options) return;
+        var shapes = geometry.type === 'Polygon' ? [geometry.coordinates]
+          : geometry.type === 'MultiPolygon' ? geometry.coordinates : [];
+        var info = style.airspaceLabel(airspace, style.categoryFor(airspace));
+        var tooltip = escapePopupText(info.title + ' ' + info.limits);
+        (shapes || []).forEach(function (rings) {
+          if (!Array.isArray(rings) || !Array.isArray(rings[0])) return;
+          var coordinates = rings.map(function (ring) {
+            return (Array.isArray(ring) ? ring : []).filter(function (point) {
+              return point && Number.isFinite(point[0]) && Number.isFinite(point[1]);
+            }).map(function (point) { return [point[1], point[0]]; });
+          }).filter(function (ring) { return ring.length >= 3; });
+          if (!coordinates.length) return;
+          style.airspaceLayers(L, coordinates, options, pane, tooltip).forEach(function (path) {
+            path.options.renderer = renderer;
+            paths.push(path);
+          });
+        });
+      });
+      polygons.clearLayers();
+      polygons._gaLabels = [];
+      paths.forEach(function (path) { polygons.addLayer(path); });
+      styleDirty = false;
+      drawLabelsAndSymbols();
+    }
+
+    function loadStoredAirports() {
+      if (!coverage || loadedBand < 8 || !globalAirports) return;
+      var known = new Set(airports.map(function (item) { return item.point.icao; }));
+      storedAirports = Object.keys(globalAirports).reduce(function (entries, icao) {
+        var raw = globalAirports[icao];
+        var point = normalizeOpenAipAirportForPopup(Object.assign({}, raw, {icao: icao}));
+        if (point && !known.has(point.icao) && coverage.contains([point.lat, point.lon]) &&
+            !airports.some(function (item) {
+              return Math.abs(item.point.lat - point.lat) < .009 &&
+                Math.abs(item.point.lon - point.lon) < .009 / Math.max(.2, Math.cos(point.lat * Math.PI / 180));
+            })) entries.push({raw: Object.assign({}, raw, {icao: icao}), point: point});
+        return entries;
+      }, []);
+    }
+
+    function drawLabelsAndSymbols() {
+      style.updateAirspaceLabels(L, map, polygons, airspaces, pane);
+      symbols.clearLayers();
+      var zoom = map.getZoom();
+      var view = map.getBounds().pad(.12);
+      var center = map.getCenter();
+      var drawnCoverage = coverage;
+      function inView(point) { return view.contains([point.lat, point.lon]); }
+      function distance(point) { return Math.abs(point.lat - center.lat) + Math.abs(point.lon - center.lng); }
+      if (zoom >= 8) {
+        airports.concat(storedAirports).filter(function (item) {
+          return inView(item.point) && style.airportVisible(item.raw);
+        }).sort(function (a, b) { return distance(a.point) - distance(b.point); })
+          .slice(0, zoom >= 12 ? 260 : zoom >= 10 ? 200 : 140).forEach(function (item) {
+            var point = item.point;
+            var marker = style.airportMarker(L, [point.lat, point.lon], item.raw, zoom, pane, 'ga-airport-overlay-marker');
+            marker.bindTooltip(escapePopupText(point.name), {direction: 'top', className: 'airspace-tooltip'});
+            marker.on('click', function (event) {
+              if (event.originalEvent) L.DomEvent.stop(event.originalEvent);
+              window.openAirportInfoPopup(point);
+            });
+            symbols.addLayer(marker);
+          });
+      }
+      if (zoom >= 9) navaids.filter(inView).slice(0, zoom >= 11 ? 240 : 120).forEach(function (point) {
+        var marker = L.circleMarker([point.lat, point.lon], {
+          pane: pane, renderer: renderer, radius: zoom >= 12 ? 4 : 3, color: '#67e8f9',
+          fillColor: '#083344', fillOpacity: .95, weight: 1.6, bubblingMouseEvents: false
+        });
+        marker.bindTooltip(escapePopupText([point.identifier, point.name, point.frequencyValue].filter(Boolean).join(' / ')),
+          {sticky: true, className: 'airspace-tooltip'});
+        marker.on('click', function (event) {
+          if (event.originalEvent) L.DomEvent.stop(event.originalEvent);
+          openNavaidInfoPopup(point.raw);
+        });
+        symbols.addLayer(marker);
+      });
+      style.updateReportingPoints(L, map, reporting, pane, reportingPoints, {
+        ofmUrl: '/efb/v1/assets/ofm-reporting-points.json',
+        isActive: function () { return coverage === drawnCoverage && map.hasLayer(content) && mounted(); }
+      });
+    }
+
+    function cancel() {
+      if (!pending) return;
+      pending.controller.abort();
+      pending = null;
+    }
+    function clear() {
+      coverage = null;
+      airspaces = [];
+      airports = [];
+      storedAirports = [];
+      navaids = [];
+      reportingPoints = [];
+      polygons.clearLayers();
+      polygons._gaLabels = [];
+      symbols.clearLayers();
+      if (reporting._gaVrpLayer) {
+        reporting.removeLayer(reporting._gaVrpLayer);
+        reporting._gaVrpLayer = null;
+      }
+    }
+    function schedule() {
+      clearTimeout(timer);
+      panel.hidden = !map.hasLayer(layer);
+      var zoom = map.getZoom();
+      var settings = style.settings();
+      var handoff = !panel.hidden && mounted() && settings.vfrHandoff &&
+        zoom >= settings.vfrHandoffZoom && zoom < aeroHideZoom;
+      var manualAero = map.hasLayer(overlayLayers.aero);
+      var needTiles = handoff && !manualAero;
+      if (needTiles && !map.hasLayer(openAipHandoffTiles)) openAipHandoffTiles.addTo(map);
+      if (!needTiles && map.hasLayer(openAipHandoffTiles)) map.removeLayer(openAipHandoffTiles);
+      if (manualAero) overlayLayers.aero.setOpacity(zoom >= aeroHideZoom ? 0 : aeroDefinition.options.opacity);
+      updateBaseOpacity();
+      if (panel.hidden || !mounted()) {
+        cancel();
+        layer.removeLayer(content);
+        clear();
+        return;
+      }
+      if (handoff) {
+        cancel();
+        layer.removeLayer(content);
+        status.textContent = _hT('VFR-Kacheln im Nahbereich aktiv.');
+        return;
+      }
+      layer.addLayer(content);
+      timer = setTimeout(refresh, 240);
+    }
+    function supported(bounds) {
+      return bounds.getNorth() - bounds.getSouth() <= 8 && bounds.getEast() - bounds.getWest() <= 15 &&
+        bounds.getSouth() >= -85.051128 && bounds.getNorth() <= 85.051128 &&
+        bounds.getWest() >= -180 && bounds.getEast() <= 180;
+    }
+    function refresh() {
+      var view = map.getBounds();
+      var zoom = map.getZoom();
+      var band = Math.min(zoom, 9);
+      if (zoom < 7 || !supported(view)) {
+        cancel();
+        clear();
+        status.textContent = _hT('Für OpenAIP-Lufträume näher heranzoomen.');
+        return;
+      }
+      if (coverage && coverage.contains(view) && loadedBand >= band && Date.now() - loadedAt < ttl) {
+        cancel();
+        status.textContent = '';
+        if (styleDirty) draw();
+        else drawLabelsAndSymbols();
+        timer = setTimeout(refresh, Math.max(0, ttl - (Date.now() - loadedAt)));
+        return;
+      }
+      if (pending && pending.bounds.contains(view) && pending.band >= band) return;
+      cancel();
+      if (coverage && !coverage.contains(view)) clear();
+      var padded = view.pad(.2);
+      var bounds = supported(padded) ? padded : view;
+      var controller = window.gaProfileDataProvider.createAbortController();
+      var job = {bounds: bounds, band: band, controller: controller};
+      pending = job;
+      status.textContent = _hT('OpenAIP-Lufträume werden geladen \u2026');
+      window.gaGetEfbMapAviation({
+        west: bounds.getWest(), south: bounds.getSouth(), east: bounds.getEast(), north: bounds.getNorth()
+      }, zoom, controller.signal).then(function (snapshot) {
+        if (pending !== job) return;
+        if (!snapshot || !Array.isArray(snapshot.airspaces)) throw new Error('invalid_map_airspaces');
+        var seen = new Set();
+        airspaces = snapshot.airspaces.filter(function (item) {
+          var id = item && (item._id || item.id);
+          if (!item || !item.geometry || !Array.isArray(item.geometry.coordinates)) return false;
+          if (!id) return true;
+          if (seen.has(id)) return false;
+          seen.add(id);
+          return true;
+        });
+        airports = (snapshot.airports || []).map(function (raw) {
+          return {raw: raw, point: normalizeOpenAipAirportForPopup(raw)};
+        }).filter(function (item) { return !!item.point; });
+        navaids = (snapshot.navaids || []).map(function (raw) {
+          var point = normalizeOpenAipNavaidForPopup(raw, 'openaip');
+          if (point) point.raw = raw;
+          return point;
+        }).filter(Boolean);
+        reportingPoints = (snapshot.reportingPoints || []).map(function (raw) {
+          var coords = raw.geometry && raw.geometry.coordinates;
+          return {lat: coords ? coords[1] : raw.lat, lon: coords ? coords[0] : raw.lon, name: raw.name};
+        });
+        coverage = bounds;
+        loadedBand = band;
+        loadedAt = Date.now();
+        loadStoredAirports();
+        draw();
+        status.textContent = '';
+        pending = null;
+        timer = setTimeout(refresh, ttl);
+        if (zoom >= 8 && !globalAirports) window.loadGlobalAirports().then(function () {
+          if (coverage !== bounds || !map.hasLayer(content)) return;
+          loadStoredAirports();
+          drawLabelsAndSymbols();
+        }).catch(function () {});
+      }).catch(function (error) {
+        if (pending !== job) return;
+        pending = null;
+        report('warn', 'aviation', 'map-airspaces', 'OpenAIP-Lufträume derzeit nicht verfügbar.', String(error && error.message || error));
+        status.textContent = _hT('OpenAIP-Lufträume derzeit nicht verfügbar.');
+        timer = setTimeout(refresh, 60000);
+      });
+    }
+    layer.on('add remove', schedule);
+    overlayLayers.aero.on('add remove', schedule);
+    map.on('moveend zoomend', schedule);
+    schedule();
   }
 
   // Colours of the desktop-rendered "VFR Vektor (OSM)" map, stored with the
@@ -2613,6 +2898,7 @@
   }
 
   function redrawTileLayers() {
+    if (openAipHandoffTiles && map.hasLayer(openAipHandoffTiles)) openAipHandoffTiles.redraw();
     [baseLayers, regionalLayers, overlayLayers].forEach(function (group) {
       Object.keys(group).forEach(function (id) {
         var layer = group[id];
@@ -2695,6 +2981,7 @@
 
     createStablePane('gaBasePane', 200);
     createStablePane('gaVfrPane', 280);
+    createStablePane('gaOpenAipPane', 285);
     createStablePane('gaOfficialChartPane', 310);
     createStablePane('gaSatelliteWeatherPane', 330);
     createStablePane('gaWeatherPane', 340);
@@ -2720,6 +3007,10 @@
       overlayLayers[definition.id] = layer;
       overlayControl[definition.label] = layer;
     });
+    if (window.gaOpenAipOverlayStyle) {
+      overlayLayers.openaip = L.layerGroup([], {attribution: 'OpenAIP / GA Aviation DB'});
+      overlayControl[_hT('OpenAIP-Lufträume')] = overlayLayers.openaip;
+    }
     overlayLayers.radar = createMapRadarOverlay(map, 'gaWeatherPane');
     // Regional base maps share the base pane and are listed before overlays.
     var layerMenuOverlays = {};
@@ -2749,6 +3040,7 @@
     preferences.regionalBases.forEach(function (id) { stackRegionalLayer(id); });
     decorateLayerControlGroups(layerControl);
     installBaseDimControl(layerControl);
+    if (overlayLayers.openaip) installOpenAipOverlay(layerControl, overlayLayers.openaip);
     applyDesktopRenderAvailability();
     routeLayer = L.layerGroup().addTo(map);
     geometryLayer = L.layerGroup().addTo(map);

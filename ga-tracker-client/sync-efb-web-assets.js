@@ -113,6 +113,7 @@ compileShared('map-direct-to-core.js');
 compileShared('map-navigation-client.js');
 compileShared('map-route-edit-core.js');
 compileShared('map-layer-controls.js');
+compileShared('map-aviation-overlay-style.js');
 compileShared('map-weather-fields.js');
 copy('vendor/wmo-weather/present-weather.svg');
 copy('vendor/wmo-weather/LICENSE.md');

@@ -1296,6 +1296,23 @@ body.ga-efb-tracker-host .route-tool-row-main { flex:1 1 0; min-width:0; }
 body.ga-efb-tracker-host .route-tool-row-actions { flex:0 0 34px; width:34px; margin-left:8px; }
 /* Width is resolved from the shared min(vw, px) rule by the host on resize. */
 body.ga-efb-tracker-host .map-side-drawer-body { flex:1 1 0; min-height:0; overflow-y:auto; }
+/* Coherent GT cannot evaluate the shared color-mix() weather card background. */
+body.ga-efb-tracker-host .route-weather-card { background:#e1e2e3; }
+body.ga-efb-tracker-host .route-weather-label { color:#595959; }
+body.ga-efb-tracker-host .route-weather-source { border-top:1px solid rgba(0,0,0,.12); }
+body.ga-efb-tracker-host #mapTableOverlay .ga-openaip-style[hidden],
+body.ga-efb-tracker-host #mapTableOverlay .ga-openaip-style .ga-vfr-style-panel[hidden] { display:none; }
+body.ga-efb-tracker-host #mapTableOverlay .ga-openaip-style .ga-vfr-style-panel:not([hidden]) { display:block; }
+body.ga-efb-tracker-host #mapTableOverlay .ga-openaip-style .ga-vfr-style-row {
+  display:flex; justify-content:space-between; align-items:center; margin:4px 0;
+}
+body.ga-efb-tracker-host .ga-openaip-style .ga-vfr-style-name { flex:1 1 auto; margin-right:5px; }
+body.ga-efb-tracker-host .ga-openaip-style .ga-layer-group-toggle { cursor:pointer; }
+body.ga-efb-tracker-host .ga-openaip-style .ga-openaip-range-steps { display:inline-flex; }
+body.ga-efb-tracker-host .ga-openaip-style .ga-openaip-range-steps button,
+body.ga-efb-tracker-host .ga-openaip-style .ga-openaip-color-step {
+  width:26px; height:24px; margin-right:3px; border:1px solid #737c87; border-radius:4px; cursor:pointer;
+}
 
 /* Same clock tick geometry without conic gradients/masks unsupported by older Coherent. */
 body.ga-efb-tracker-host .stopwatch-tick-ring::before,

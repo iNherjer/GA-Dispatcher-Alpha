@@ -183,6 +183,47 @@ function createProfileData(data) {
       return data.aviation.getPopupSnapshot({ lat: (sw.lat + ne.lat) / 2, lon: (sw.lon + ne.lon) / 2,
         radiusNm: 30, bounds: { west: sw.lon, south: sw.lat, east: ne.lon, north: ne.lat } });
     },
+    async mapAviation(input, { body, signal } = {}) {
+      const points = profilePoints(input);
+      const zoom = body?.zoom;
+      if (points.length !== 2 || !Number.isInteger(zoom) || zoom < 7 || zoom > 18) throw new Error('invalid_profile_aviation_bounds');
+      const [sw, ne] = points;
+      const height = ne.lat - sw.lat;
+      const width = ne.lon - sw.lon;
+      if (height <= 0 || width <= 0 || height > 8 || width > 15) {
+        throw new Error('invalid_profile_aviation_bounds');
+      }
+      const collections = ['airspaces'];
+      if (zoom >= 8) collections.push('airports');
+      if (zoom >= 9) collections.push('navaids', 'reportingPoints');
+      const merged = Object.fromEntries(collections.map(key => [key, new Map()]));
+      // The hosted provider and its region-cache fallback cover at most 3 degrees per request.
+      const rows = Math.ceil(height / 2);
+      const columns = Math.ceil(width / 3);
+      const regions = [];
+      for (let row = 0; row < rows; row++) {
+        const south = sw.lat + row * height / rows;
+        const north = sw.lat + (row + 1) * height / rows;
+        for (let column = 0; column < columns; column++) {
+          const west = sw.lon + column * width / columns;
+          const east = sw.lon + (column + 1) * width / columns;
+          regions.push({ lat:(south + north) / 2, lon:(west + east) / 2, radiusNm:30,
+            collections, bounds:{ west, south, east, north } });
+        }
+      }
+      for (let offset = 0; offset < regions.length; offset += 2) {
+        signal?.throwIfAborted();
+        const snapshots = await Promise.all(regions.slice(offset, offset + 2).map(region => data.aviation.getPopupSnapshot(region)));
+        for (const snapshot of snapshots) for (const key of collections) {
+          if (!Array.isArray(snapshot?.[key])) throw new Error('aviation_overlay_invalid');
+          for (const item of snapshot[key]) {
+            if (item) merged[key].set(item._id || item.id || JSON.stringify(item), item);
+          }
+        }
+      }
+      signal?.throwIfAborted();
+      return Object.fromEntries(collections.map(key => [key, Array.from(merged[key].values())]));
+    },
     async airports(input) {
       const points = profilePoints(input);
       if (points.length !== 2) throw new Error('invalid_profile_airport_bounds');

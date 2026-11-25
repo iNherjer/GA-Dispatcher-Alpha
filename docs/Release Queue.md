@@ -31,6 +31,13 @@ liefert alles Offene mit aus.
 
 ## Ausgeliefert
 
+### 2026-11-25 · OpenAIP-Overlay und helle Wetterkarten im EFB – Tracker v663 Alpha
+
+- **Artefakt:** Tracker-EXE mit EFB-Assets 66301 und Web-Cache v2542.
+- **Änderungen:** Anpassbares OpenAIP-Overlay, automatischer VFR-Kachelwechsel und helle Wetterkarten im EFB.
+- **Im Feld prüfen:** Overlay-Stile, Zoomgrenzen und Wetterkarten im MSFS-EFB.
+- **Details:** [Tracker v663](Tracker-v663-Release.md).
+
 ### 2026-11-24 · Wetterseite und Favoritenleiste im EFB – Tracker v662 Alpha
 
 - **Artefakt:** Tracker-EXE mit gemeinsam genutzten EFB-Webassets.

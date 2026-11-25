@@ -9315,3 +9315,24 @@ Wetterseite bei einem Routenwechsel oder sobald der DWD-Abruf verfügbar
 ist. Der Hauptbutton und die Favoriten bilden gemeinsam eine Tab-Leiste
 in der Mitte der sichtbaren Karte. Der EFB-Host setzt nur noch die
 Schubladenbreite. Eine Änderung des Community-Pakets ist dafür nicht nötig.
+
+25.11.2026: Der EFB-Host verwendet für die Wetterkarten eine feste helle Farbe,
+da Coherent GT das `color-mix()` des Weblayouts nicht berechnet. Bei der
+Vektorkarte bestimmt weiterhin der Renderer-Status des laufenden Trackers,
+ob „VFR Vektor (OSM, über Desktop-App)“ angeboten wird.
+
+25.11.2026: Das separate OpenAIP-Overlay zeichnet Lufträume, Flugplätze,
+Funkfeuer und Meldepunkte. Das EFB nutzt Leaflet-SVG, die gemeinsamen
+Darstellungseinstellungen, Farbfelder und Schrittschalter. Der Tracker
+lädt Lufträume ab Zoom 7, Flugplätze ab Zoom 8 sowie Funkfeuer und
+OpenAIP-Meldepunkte ab Zoom 9. Weite Ausschnitte werden in begrenzte
+Regionen aufgeteilt. Die Flugplatzdatenbank ergänzt fehlende Plätze.
+Die mitgelieferten open-flightmaps-Meldepunkte haben Vorrang vor nahen
+OpenAIP-Treffern.
+
+Das EFB übernimmt die Nahbereichsautomatik der Webapp. Standardmäßig
+zeigen Zoom 12 bis 14 die Aero-Kacheln, ab Zoom 15 wieder das OpenAIP-
+Overlay. Die Automatik lässt sich abschalten und ihre Startzoomstufe
+ändern. Automatisch eingefügte Kacheln ändern die manuelle Aero-Auswahl
+nicht. Luftraumwarnungen verwenden weiterhin ihre bisherigen Daten und
+Farben. Die Prüfung im Simulator steht aus.

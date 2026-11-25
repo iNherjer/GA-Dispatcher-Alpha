@@ -30,7 +30,10 @@
     const RENDERED_TYPES = Object.freeze([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 21, 26, 27, 28, 33]);
 
     const DEFAULTS = Object.freeze({
-        airspaces: Object.freeze(Object.fromEntries(AIRSPACE_CATEGORIES.map(c => [c.id, Object.freeze({ color: c.color, visible: c.visible !== false })]))),
+        airspaces: Object.freeze(AIRSPACE_CATEGORIES.reduce((out, category) => {
+            out[category.id] = Object.freeze({ color: category.color, visible: category.visible !== false });
+            return out;
+        }, {})),
         borderStyle: 'band',
         borderOpacity: 100,
         bandWidth: 10,
@@ -168,6 +171,7 @@
             clip.id = id;
             const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
             use.setAttribute('href', '#' + source.id);
+            use.setAttributeNS('http://www.w3.org/1999/xlink', 'xlink:href', '#' + source.id);
             clip.appendChild(use);
             defs.appendChild(clip);
             path.setAttribute('clip-path', 'url(#' + id + ')');
@@ -328,17 +332,16 @@
     const KIND_LABEL = { compulsory: 'Pflichtmeldepunkt', request: 'Bedarfsmeldepunkt', enroute: 'Streckenmeldepunkt' };
     const ofmState = { points: null, promise: null, meta: null };
 
-    function loadOfmPoints(onLoaded) {
+    function loadOfmPoints(onLoaded, url = OFM_POINTS_URL) {
         if (ofmState.points) return Promise.resolve(ofmState.points);
         if (!ofmState.promise) {
-            ofmState.promise = fetch(OFM_POINTS_URL).then(r => r.ok ? r.json() : null).then((data) => {
+            ofmState.promise = fetch(url).then(r => r.ok ? r.json() : null).then((data) => {
                 ofmState.points = data && Array.isArray(data.points) ? data.points : [];
                 ofmState.meta = data ? { airac: data.airac, regions: data.regions } : null;
-                if (typeof onLoaded === 'function') onLoaded();
                 return ofmState.points;
             }).catch(() => { ofmState.points = []; return ofmState.points; });
         }
-        return ofmState.promise;
+        return typeof onLoaded === 'function' ? ofmState.promise.then(points => { onLoaded(); return points; }) : ofmState.promise;
     }
 
     function vrpSvg(kind, color, source) {
@@ -350,7 +353,7 @@
             + (filled ? '' : '<circle cx="14" cy="15.5" r="1.8" fill="' + color + '"/>') + '</svg>';
     }
 
-    function updateReportingPoints(L, map, overlayGroup, pane, openAipPoints) {
+    function updateReportingPoints(L, map, overlayGroup, pane, openAipPoints, options = {}) {
         if (!map || !overlayGroup) return;
         if (!overlayGroup._gaVrpLayer) {
             overlayGroup._gaVrpLayer = L.layerGroup();
@@ -372,7 +375,9 @@
         };
         if (!s.vrpVisible || map.getZoom() < s.vrpMinZoom) { showOfm(false); return; }
         if (!ofmState.points) {
-            loadOfmPoints(() => updateReportingPoints(L, map, overlayGroup, pane, openAipPoints));
+            loadOfmPoints(() => {
+                if (!options.isActive || options.isActive()) updateReportingPoints(L, map, overlayGroup, pane, openAipPoints, options);
+            }, options.ofmUrl);
             return;
         }
         const view = map.getBounds().pad(0.05);
@@ -510,7 +515,7 @@
 
     // Collapsible settings panel for the layer menu (title toggle handled by
     // map-basemap-catalog.js group logic, key "openaip-style").
-    function createPanel(createTitle, onChange) {
+    function createPanel(createTitle, onChange, { stepControls = false } = {}) {
         const wrap = document.createElement('div');
         wrap.className = 'ga-vfr-style ga-openaip-style';
         const toggle = createTitle('OpenAIP: Darstellung anpassen', 'openaip-style');
@@ -534,15 +539,43 @@
             name.className = 'ga-vfr-style-name';
             name.textContent = phrase(label);
             row.appendChild(name);
-            inputs.forEach(input => row.appendChild(input));
+            inputs.forEach(input => {
+                row.appendChild(input._gaControl || input);
+                if (input._gaControl) input._gaControl.setAttribute('aria-label', phrase(label));
+            });
             panel.appendChild(row);
             return row;
         };
         const input = (type, attrs, read, write) => {
-            const node = document.createElement(type === 'select' ? 'select' : 'input');
-            if (type !== 'select') node.type = type;
+            const tag = type === 'color' && stepControls ? 'button' : type === 'select' ? 'select' : 'input';
+            const node = document.createElement(tag);
+            if (tag !== 'select') node.type = tag === 'button' ? 'button' : type;
             Object.keys(attrs || {}).forEach(key => { node[key] = attrs[key]; });
             node.addEventListener(type === 'checkbox' || type === 'select' ? 'change' : 'input', changed);
+            if (tag === 'button') {
+                const palette = Array.from(new Set(AIRSPACE_CATEGORIES.map(category => category.color).concat(['#ffffff', '#263340'])));
+                node.classList.add('ga-openaip-color-step');
+                node.addEventListener('click', () => {
+                    node.value = palette[(palette.indexOf(node.value) + 1) % palette.length];
+                    changed();
+                });
+            }
+            if (type === 'range' && stepControls) {
+                const group = document.createElement('span');
+                group.className = 'ga-openaip-range-steps';
+                group.setAttribute('role', 'group');
+                [-1, 1].forEach(direction => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.textContent = direction < 0 ? '−' : '+';
+                    button.addEventListener('click', () => {
+                        node.value = Math.max(Number(node.min), Math.min(Number(node.max), Number(node.value) + direction * Number(node.step)));
+                        changed();
+                    });
+                    group.appendChild(button);
+                });
+                node._gaControl = group;
+            }
             controls.push({ node, read, write });
             return node;
         };
@@ -675,7 +708,13 @@
             return next;
         }
         function refreshValues() {
-            controls.forEach(({ node }) => { if (node._gaValue) node._gaValue.textContent = node.value + (node._gaUnit || ' %'); });
+            controls.forEach(({ node }) => {
+                if (node._gaValue) node._gaValue.textContent = node.value + (node._gaUnit === undefined ? ' %' : node._gaUnit);
+                if (stepControls && node.type === 'button') {
+                    node.style.backgroundColor = node.value;
+                    node.title = node.value;
+                }
+            });
         }
         function load() {
             const s = settings();
