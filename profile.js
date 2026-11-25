@@ -4926,6 +4926,17 @@ window.vpBuildWeatherDebugReport = function() {
             );
         } catch (_) { }
     }
+    if (typeof window.getGaTileRetryStatus === 'function') {
+        try {
+            const retryStatus = window.getGaTileRetryStatus();
+            lines.push(
+                `- Kachel-Neuversuche: Fehler ${Number(retryStatus?.errors) || 0}`
+                + ` | Versuche ${Number(retryStatus?.retries) || 0}`
+                + ` | erholt ${Number(retryStatus?.recovered) || 0}`
+                + ` | aufgegeben ${Number(retryStatus?.gaveUp) || 0}`
+            );
+        } catch (_) { }
+    }
     lines.push(`- Overpass Requests: ${dbg.overpassRequests || 0}, 429/504 ${dbg.overpass429Count || 0}/${dbg.overpass504Count || 0}, Cooldown-Skips ${dbg.overpassCooldownSkips || 0}, Inflight-Joins ${dbg.overpassInFlightJoins || 0}`);
     lines.push(`- Hosted Tiles Req/Hit/Miss/Err: ${dbg.hostedTileRequests || 0}/${dbg.hostedTileHits || 0}/${dbg.hostedTileMisses || 0}/${dbg.hostedTileErrors || 0} | CORE split/legacy ${dbg.hostedTileCoreHits || 0}/${dbg.hostedTileLegacyHits || 0}`);
     lines.push(`- POI Tiles Req/Hit/Miss/Err: ${poiDbg.requests || 0}/${poiDbg.hits || 0}/${poiDbg.misses || 0}/${poiDbg.errors || 0} | split/legacy ${poiDbg.splitHits || 0}/${poiDbg.legacyHits || 0} | fallback ${poiDbg.fallbackHits || 0}${poiDbg.lastSource ? ` last=${poiDbg.lastSource}` : ''}`);

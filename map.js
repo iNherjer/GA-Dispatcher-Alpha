@@ -5958,6 +5958,8 @@ const OPEN_TOPO_PRIMARY_TILE_URL = 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}
 const OPEN_TOPO_BACKUP_TILE_URL = 'https://backup.opentopomap.org/{z}/{x}/{y}.png';
 const OPEN_TOPO_PRIMARY_TIMEOUT_MS = 4500;
 const OPEN_TOPO_BACKUP_TIMEOUT_MS = 7000;
+// Hard limit per load attempt; afterwards the tile counts as failed and is retried later.
+const OPEN_TOPO_TILE_DEADLINE_MS = 25000;
 const OPENAIP_DATA_MODE_STORAGE_KEY = 'ga_aviation_data_mode_v3';
 const OPENAIP_LEGACY_DATA_MODE_STORAGE_KEY = 'ga_openaip_data_mode';
 const OPENAIP_DATA_MODE_HOSTED = 'hosted';
@@ -7838,6 +7840,119 @@ function configureMapAttributionControl(targetMap) {
     });
 }
 
+// Raster tiles that failed once are never requested again by Leaflet (it marks them as
+// done), so a short network hiccup left permanent holes in base maps and overlays
+// (25.11.2026). Failed tiles are retried after 2/6/15 s; tiles still missing are
+// retried again when the map moves, the browser comes back online or the tab is shown.
+const GA_TILE_RETRY_DELAYS_MS = [2000, 6000, 15000];
+const GA_TILE_RETRY_SWEEP_MIN_GAP_MS = 10000;
+const gaTileRetryState = {
+    errors: 0,
+    retries: 0,
+    recovered: 0,
+    gaveUp: 0,
+    sweeps: 0
+};
+
+function gaTileCanRetry(el) {
+    return !!el && (typeof el._gaRetryLoad === 'function' || el.tagName === 'IMG');
+}
+
+function gaRetryTile(layer, el, coords) {
+    if (!layer || !el) return false;
+    el._gaTileRetryTimer = null;
+    if (!layer._map || !layer._tiles || typeof layer._tileCoordsToKey !== 'function') return false;
+    const entry = layer._tiles[layer._tileCoordsToKey(coords)];
+    if (!entry || entry.el !== el) return false;
+    el._gaTileRetryCount = (Number(el._gaTileRetryCount) || 0) + 1;
+    el._gaTileRetryPending = true;
+    gaTileRetryState.retries += 1;
+    if (typeof el._gaRetryLoad === 'function') {
+        el._gaRetryLoad();
+    } else if (typeof layer.getTileUrl === 'function') {
+        el.src = layer.getTileUrl(coords);
+    } else {
+        el._gaTileRetryPending = false;
+        return false;
+    }
+    return true;
+}
+
+function gaEnableTileRetry(targetMap) {
+    if (!targetMap || targetMap._gaTileRetryEnabled || typeof L === 'undefined' || !L.GridLayer) return;
+    targetMap._gaTileRetryEnabled = true;
+
+    const onTileError = (event) => {
+        const layer = event.target;
+        const el = event.tile;
+        if (!gaTileCanRetry(el) || !event.coords) return;
+        gaTileRetryState.errors += 1;
+        el._gaTileError = true;
+        el._gaTileCoords = event.coords;
+        el._gaTileRetryPending = false;
+        const attempt = Number(el._gaTileRetryCount) || 0;
+        if (el._gaTileRetryTimer) clearTimeout(el._gaTileRetryTimer);
+        el._gaTileRetryTimer = null;
+        if (attempt >= GA_TILE_RETRY_DELAYS_MS.length) {
+            gaTileRetryState.gaveUp += 1;
+            return;
+        }
+        el._gaTileRetryTimer = setTimeout(
+            () => gaRetryTile(layer, el, event.coords),
+            GA_TILE_RETRY_DELAYS_MS[attempt]
+        );
+    };
+    const onTileLoad = (event) => {
+        const el = event.tile;
+        if (!el) return;
+        if (el._gaTileError) gaTileRetryState.recovered += 1;
+        el._gaTileError = false;
+        el._gaTileRetryPending = false;
+        el._gaTileRetryCount = 0;
+        if (el._gaTileRetryTimer) clearTimeout(el._gaTileRetryTimer);
+        el._gaTileRetryTimer = null;
+    };
+    const attach = (layer) => {
+        if (!layer || !(layer instanceof L.GridLayer) || layer._gaTileRetryBound) return;
+        layer._gaTileRetryBound = true;
+        layer.on('tileerror', onTileError);
+        layer.on('tileload', onTileLoad);
+    };
+    // Tiles that ran out of timed retries get another try when something suggests the
+    // network may work again; `force` (online/visible) also restarts the timed retries.
+    const sweep = (force) => {
+        const now = Date.now();
+        gaTileRetryState.sweeps += 1;
+        targetMap.eachLayer((layer) => {
+            if (!(layer instanceof L.GridLayer) || !layer._tiles) return;
+            Object.keys(layer._tiles).forEach((key) => {
+                const entry = layer._tiles[key];
+                const el = entry && entry.el;
+                if (!el || !el._gaTileError || el._gaTileRetryPending || !entry.current) return;
+                if (el._gaTileRetryTimer && !force) return;
+                if (!force && now - (Number(el._gaTileLastSweep) || 0) < GA_TILE_RETRY_SWEEP_MIN_GAP_MS) return;
+                el._gaTileLastSweep = now;
+                if (el._gaTileRetryTimer) clearTimeout(el._gaTileRetryTimer);
+                el._gaTileRetryTimer = null;
+                if (force) el._gaTileRetryCount = 0;
+                gaRetryTile(layer, el, entry.coords || el._gaTileCoords);
+            });
+        });
+    };
+
+    targetMap.eachLayer(attach);
+    targetMap.on('layeradd', (event) => attach(event.layer));
+    targetMap.on('moveend', () => sweep(false));
+    window.addEventListener('online', () => sweep(true));
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') sweep(true);
+    });
+}
+
+window.getGaTileRetryStatus = function() {
+    return { ...gaTileRetryState };
+};
+
 function createResilientOpenTopoLayer(options = {}) {
     const ResilientOpenTopoLayer = L.TileLayer.extend({
         createTile(coords, done) {
@@ -7845,66 +7960,110 @@ function createResilientOpenTopoLayer(options = {}) {
             tile.alt = '';
             tile.decoding = 'async';
             tile.setAttribute('role', 'presentation');
-            if (this.options.crossOrigin || this.options.crossOrigin === '') {
-                tile.crossOrigin = this.options.crossOrigin === true ? '' : this.options.crossOrigin;
-            }
-            if (typeof this.options.referrerPolicy === 'string') {
-                tile.referrerPolicy = this.options.referrerPolicy;
-            }
+            const crossOrigin = (this.options.crossOrigin || this.options.crossOrigin === '')
+                ? (this.options.crossOrigin === true ? '' : this.options.crossOrigin)
+                : null;
+            const referrerPolicy = typeof this.options.referrerPolicy === 'string' ? this.options.referrerPolicy : null;
+            if (crossOrigin !== null) tile.crossOrigin = crossOrigin;
+            if (referrerPolicy) tile.referrerPolicy = referrerPolicy;
 
-            let fallbackActive = false;
-            let settled = false;
-            let timeoutId = null;
-            const finish = (error = null) => {
-                if (settled) return;
-                settled = true;
-                if (timeoutId) clearTimeout(timeoutId);
-                tile.onload = null;
-                tile.onerror = null;
-                done(error, tile);
-            };
-            const fallbackUrl = L.Util.template(OPEN_TOPO_BACKUP_TILE_URL, {
+            const primaryUrl = this.getTileUrl(coords);
+            const backupUrl = L.Util.template(OPEN_TOPO_BACKUP_TILE_URL, {
                 z: typeof this._getZoomForUrl === 'function' ? this._getZoomForUrl() : coords.z,
                 x: coords.x,
                 y: coords.y
             });
-            const useFallback = (reason) => {
-                if (fallbackActive || settled) return;
-                fallbackActive = true;
-                if (timeoutId) clearTimeout(timeoutId);
-                if (reason === 'timeout') openTopoTileState.primaryTimeouts += 1;
-                else openTopoTileState.primaryErrors += 1;
-                openTopoTileState.fallbackRequests += 1;
-                tile.dataset.gaTopoSource = 'backup';
-                tile.src = fallbackUrl;
-                timeoutId = setTimeout(() => {
-                    openTopoTileState.fallbackErrors += 1;
-                    finish(new Error('opentopo_backup_timeout'));
-                }, OPEN_TOPO_BACKUP_TIMEOUT_MS);
+            let run = 0;
+
+            // The primary request is never cut off: on a busy page it may only be queued
+            // in the browser. After the timeout the backup is fetched alongside it and the
+            // first one to arrive is shown. The tile fails only when both have failed or
+            // the overall limit is reached; the map-wide retry then tries again later.
+            const load = () => {
+                run += 1;
+                const thisRun = run;
+                let settled = false;
+                let primaryFailed = false;
+                let backupFailed = false;
+                let backupStarted = false;
+                let backupImg = null;
+                let primaryTimer = null;
+                let backupTimer = null;
+                let deadlineTimer = null;
+                const cleanup = () => {
+                    clearTimeout(primaryTimer);
+                    clearTimeout(backupTimer);
+                    clearTimeout(deadlineTimer);
+                    if (backupImg) {
+                        backupImg.onload = null;
+                        backupImg.onerror = null;
+                    }
+                };
+                const finish = (error, source) => {
+                    if (settled || thisRun !== run) return;
+                    settled = true;
+                    cleanup();
+                    tile.onload = null;
+                    tile.onerror = null;
+                    if (error) openTopoTileState.fallbackErrors += backupStarted ? 1 : 0;
+                    else if (source === 'backup') openTopoTileState.fallbackLoaded += 1;
+                    else openTopoTileState.primaryLoaded += 1;
+                    done(error, tile);
+                };
+                const failIfBothFailed = () => {
+                    if (primaryFailed && backupStarted && backupFailed) {
+                        finish(new Error('opentopo_tile_failed'));
+                    }
+                };
+                const startBackup = (reason) => {
+                    if (backupStarted || settled || thisRun !== run) return;
+                    backupStarted = true;
+                    if (reason === 'timeout') openTopoTileState.primaryTimeouts += 1;
+                    else openTopoTileState.primaryErrors += 1;
+                    openTopoTileState.fallbackRequests += 1;
+                    backupImg = new Image();
+                    if (crossOrigin !== null) backupImg.crossOrigin = crossOrigin;
+                    if (referrerPolicy) backupImg.referrerPolicy = referrerPolicy;
+                    backupImg.onload = () => {
+                        if (settled || thisRun !== run) return;
+                        // Backup arrived first: show it (served from memory cache now).
+                        tile.dataset.gaTopoSource = 'backup';
+                        tile.onload = () => finish(null, 'backup');
+                        tile.onerror = () => {
+                            primaryFailed = true;
+                            backupFailed = true;
+                            failIfBothFailed();
+                        };
+                        tile.src = backupUrl;
+                    };
+                    backupImg.onerror = () => {
+                        backupFailed = true;
+                        failIfBothFailed();
+                    };
+                    backupTimer = setTimeout(() => {
+                        backupFailed = true;
+                        failIfBothFailed();
+                    }, OPEN_TOPO_BACKUP_TIMEOUT_MS);
+                    backupImg.src = backupUrl;
+                };
+
+                tile.onload = () => finish(null, 'primary');
+                tile.onerror = () => {
+                    primaryFailed = true;
+                    if (!backupStarted) startBackup('error');
+                    else failIfBothFailed();
+                };
+                tile.dataset.gaTopoSource = 'primary';
+                tile.src = primaryUrl;
+                primaryTimer = setTimeout(() => startBackup('timeout'), OPEN_TOPO_PRIMARY_TIMEOUT_MS);
+                deadlineTimer = setTimeout(
+                    () => finish(new Error('opentopo_tile_deadline')),
+                    OPEN_TOPO_TILE_DEADLINE_MS
+                );
             };
 
-            tile.onload = () => {
-                if (settled) return;
-                if (fallbackActive) openTopoTileState.fallbackLoaded += 1;
-                else openTopoTileState.primaryLoaded += 1;
-                finish();
-            };
-            tile.onerror = () => {
-                if (settled) return;
-                if (!fallbackActive) {
-                    useFallback('error');
-                    return;
-                }
-                openTopoTileState.fallbackErrors += 1;
-                finish(new Error('opentopo_backup_error'));
-            };
-
-            tile.dataset.gaTopoSource = 'primary';
-            tile.src = this.getTileUrl(coords);
-            timeoutId = setTimeout(
-                () => useFallback('timeout'),
-                OPEN_TOPO_PRIMARY_TIMEOUT_MS
-            );
+            tile._gaRetryLoad = load;
+            load();
             return tile;
         }
     });
@@ -8024,6 +8183,7 @@ function initMapBase() {
     ensureTerrainAvoidOverlayLayer();
 
     map = L.map('map', { attributionControl: true, maxZoom: 18, tapHold: false }).setView([51.1657, 10.4515], 6);
+    gaEnableTileRetry(map);
     // Basiskarten liegen in einer gemeinsamen Gruppe, die beim VFR-Overlay
     // als Ganzes abgeblendet wird (map-basemap-catalog.js).
     ensureGaBaseMapPanes(map);
@@ -8974,6 +9134,7 @@ function updateMiniMap(attempt = 0) {
 
         if (!miniMap) {
             miniMap = L.map('miniMap', { zoomControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, attributionControl: false });
+            gaEnableTileRetry(miniMap);
             createResilientOpenTopoLayer().addTo(miniMap);
             L.tileLayer('https://nwy-tiles-api.prod.newaydata.com/tiles/{z}/{x}/{y}.png?path=latest/aero/latest', {
                 opacity: 0.65,

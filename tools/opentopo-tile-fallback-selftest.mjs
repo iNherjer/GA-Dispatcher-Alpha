@@ -30,6 +30,7 @@ function extractFunctionDeclaration(source, name) {
 }
 
 let primaryMode = 'error';
+let backupMode = 'ok';
 class FakeImage {
     constructor() {
         this.alt = '';
@@ -44,6 +45,15 @@ class FakeImage {
         this._src = String(value);
         if (this._src.includes('primary') && primaryMode === 'error') {
             queueMicrotask(() => this.onerror?.(new Error('primary failed')));
+        } else if (this._src.includes('primary') && primaryMode === 'slow') {
+            // Arrives after the primary timeout, but before the backup.
+            setTimeout(() => this.onload?.(), 15);
+        } else if (this._src.includes('primary') && primaryMode === 'ok') {
+            queueMicrotask(() => this.onload?.());
+        } else if (this._src.includes('backup') && backupMode === 'error') {
+            queueMicrotask(() => this.onerror?.(new Error('backup failed')));
+        } else if (this._src.includes('backup') && backupMode === 'slow') {
+            setTimeout(() => this.onload?.(), 25);
         } else if (this._src.includes('backup')) {
             queueMicrotask(() => this.onload?.());
         }
@@ -89,6 +99,7 @@ const state = {
 };
 const context = vm.createContext({
     document: { createElement: () => new FakeImage() },
+    Image: FakeImage,
     window: {},
     L: {
         TileLayer: FakeTileLayer,
@@ -103,6 +114,7 @@ const context = vm.createContext({
     OPEN_TOPO_BACKUP_TILE_URL: 'https://backup/{z}/{x}/{y}.png',
     OPEN_TOPO_PRIMARY_TIMEOUT_MS: 10,
     OPEN_TOPO_BACKUP_TIMEOUT_MS: 30,
+    OPEN_TOPO_TILE_DEADLINE_MS: 200,
     openTopoTileState: state,
     setTimeout,
     clearTimeout,
@@ -110,8 +122,9 @@ const context = vm.createContext({
 });
 vm.runInContext(extractFunctionDeclaration(mapSource, 'createResilientOpenTopoLayer'), context);
 
-async function loadFixture(mode) {
+async function loadFixture(mode, backup = 'ok') {
     primaryMode = mode;
+    backupMode = backup;
     const layer = context.createResilientOpenTopoLayer();
     return new Promise((resolve, reject) => {
         const tile = layer.createTile({ z: 9, x: 270, y: 170 }, (error) => {
@@ -135,4 +148,35 @@ assert.equal(state.fallbackRequests, 2);
 assert.equal(state.fallbackLoaded, 2);
 assert.equal(state.fallbackErrors, 0);
 
-console.log('OpenTopoMap tile fallback ok: primary error and timeout recover through backup');
+// A slow primary is not cut off: when it arrives before the backup it is shown.
+const slowPrimaryTile = await loadFixture('slow', 'slow');
+assert.equal(slowPrimaryTile.dataset.gaTopoSource, 'primary');
+assert.match(slowPrimaryTile.src, /^https:\/\/primary\//);
+assert.equal(state.primaryTimeouts, 2);
+assert.equal(state.primaryLoaded, 1);
+
+// Both sources fail: the tile reports an error once, and _gaRetryLoad loads it again.
+primaryMode = 'error';
+backupMode = 'error';
+const failedLayer = context.createResilientOpenTopoLayer();
+const results = [];
+let failedTile = null;
+await new Promise((resolve) => {
+    failedTile = failedLayer.createTile({ z: 9, x: 271, y: 170 }, (error) => {
+        results.push(error ? 'error' : 'ok');
+        resolve();
+    });
+});
+assert.deepEqual(results, ['error']);
+assert.equal(typeof failedTile._gaRetryLoad, 'function');
+primaryMode = 'ok';
+backupMode = 'ok';
+await new Promise((resolve) => {
+    const check = () => (results.length >= 2 ? resolve() : setTimeout(check, 5));
+    failedTile._gaRetryLoad();
+    check();
+});
+assert.deepEqual(results, ['error', 'ok']);
+assert.equal(failedTile.dataset.gaTopoSource, 'primary');
+
+console.log('OpenTopoMap tile fallback ok: error/timeout recover through backup, slow primary kept, failed tile reloads');
