@@ -163,7 +163,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="icon-dark-180.png">
     <link rel="preload" href="vendor/leaflet/leaflet.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="stylesheet" href="vendor/maplibre/maplibre-gl.css">
-    <link rel="preload" href="styles.css?v=navaid-symbols-20261125" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <link rel="preload" href="styles.css?v=map-search-20261125-01" as="style" onload="this.onload=null;this.rel='stylesheet'">
     <link rel="stylesheet" href="homebase-integration.css?v=homebase-foreground-20261014-01">
     <link rel="stylesheet" href="crew-presence.css?v=crew-fleet-20261103-01">
     <link rel="stylesheet" href="ppl-quiz.css?v=ppl-quiz-20261029-06">
@@ -175,7 +175,7 @@
     <link rel="stylesheet" href="glareshield.css?v=appearance-20261028-05">
     <noscript>
         <link rel="stylesheet" href="vendor/leaflet/leaflet.css">
-        <link rel="stylesheet" href="styles.css?v=navaid-symbols-20261125">
+        <link rel="stylesheet" href="styles.css?v=map-search-20261125-01">
     </noscript>
 </head>
 <body class="boot-splash-active">
@@ -1284,6 +1284,9 @@
             <span id="navStationLabel" style="color: #fff; font-weight: bold; font-family: monospace;" data-i18n="map.header.title">NAV STATION (KARTENTISCH)</span>
         </div>
         <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <div id="mapSearchWrap" class="map-search-wrap">
+                <button type="button" class="pb-btn map-search-btn" id="mapSearchBtn" onclick="window.gaToggleMapSearch && gaToggleMapSearch()" aria-expanded="false" aria-controls="mapSearchPanel" title="Auf der Karte suchen" aria-label="Auf der Karte suchen" data-i18n-title="map.search.aria" data-i18n-aria-label="map.search.aria">🔍</button>
+            </div>
             <button class="pb-btn" onclick="resetMainRoute()">🔄 Route Reset</button>
             <button class="pb-btn" id="vpToggleBtn" onclick="toggleMapProfile()" style="background:#2E8B57; color:#fff; font-weight:bold;">📊 Profil (An)</button>
             <div style="position:relative; display:inline-flex; align-items:center;">
@@ -3016,6 +3019,7 @@
 <script defer src="map-zoom-control.js?v=drag-zoom-control-20261018-04"></script>
 <script defer src="map-weather-fields.js?v=efb-weather-20261123"></script>
 <script defer src="map.js?v=navaid-symbols-20261125"></script>
+<script defer src="map-search.js?v=map-search-20261125-01"></script>
 <script defer src="map-utility-tools.js?v=e6b-prewarm-20261029-01"></script>
 <script defer src="aircraft-mission-capability-core.js?v=aircraft-mission-party-20260817-01"></script>
 <script defer src="aircraft-mission-profile-core.js?v=aircraft-mission-capability-20260817-01"></script>
