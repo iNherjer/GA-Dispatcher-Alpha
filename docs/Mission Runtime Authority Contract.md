@@ -2136,3 +2136,32 @@ muss zurück.
   anderen Platz kann dort fertig verladen, unterschrieben und gestartet werden, denn meist
   ist nur noch Papierkram offen. Die vorgeschlagene 200-m-Regel zum Szenenplatz wird nicht
   gebaut.
+
+## 26.11.2026 – Direct-To bei laufender Mission: Verwerfen oder Umweg (Tracker unveröffentlicht, Fähigkeit `navigation.detour.v1`)
+
+Direct-To fragt bei vorhandener Mission nach (App: `gaDirectToAskMissionChoice`, EFB: `GADirectToChoice`).
+**Verwerfen** nutzt den normalen Löschpfad (`clearAppMissionState` bzw. `gaAbortTrackerMission` mit
+`forceLocalCleanup`) und wartet auf die Bestätigung. Danach läuft Direct-To wie bisher, und der erste Direct-To-Plan
+ist die Route-Reset-Basis.
+
+**Erhalten** legt einen Umweg neben den Run. Im Tracker liegt er in `navigation-detour-v1.json`, Schema
+`ga.navigation-detour.v1` mit `id`, `revision`, `runId`, `missionId` und `points`. Der Umweg ist reine Navigation:
+Run, Ausführungs-Hash, Manifest, Szenenanker und `navigationRevision` des Runs bleiben unverändert. Solange er
+existiert, gilt:
+- `navigation()` und `version()` liefern den Umweg: `detour: true`, `missionPoints`, `resetPoints` sind die
+  Missionsroute, `missionRevision`.
+- Der Karten-Snapshot projiziert den Umweg (Führung, Profil, Warnungen) mit `detour: true` und `missionRoute`
+  (blass), `missionGeometry` aus der Mission. `routeEdit.revision` ist die Umweg-Revision.
+- `navigation_edit` bearbeitet den Umweg (die ID bleibt). `reset` löscht den Umweg, danach gilt wieder die
+  Missionsroute.
+- Neue Intents: `navigation_detour_set` (App, beliebige Punkte, neue ID) und `airport_direct_to` mit
+  `keepMission: true` (EFB). Ohne `keepMission` bleibt `mission_authority_conflict`. Die Behördenkontrolle sperrt
+  auch den Umweg.
+- `flightplan_export` sendet den Umweg mit Missionsidentität (`detour: true`, Umweg-Revision).
+- Endet oder wechselt der Run, wird der Umweg gelöscht (`runId`-Bindung).
+
+App ohne Tracker-Run oder mit älterem Tracker: lokaler Umweg (`ga_detour_route_v1`, an die Missions-ID gebunden).
+`routeWaypoints` ist die Route im Vordergrund. Missionslogik, Speicherstand und Authority-Snapshot lesen über
+`gaMissionRouteWaypoints()` bzw. `_missionRouteForMissionLogic()`. Missionsänderungen an der Route (SAR-Wechsel zum
+Krankenhaus, Bush-Rückkehr) gehen über `gaSetMissionRouteWaypoints`. Ein lokaler Umweg zieht zum Tracker um, sobald
+dort ein Run mit `navigation.detour.v1` läuft.

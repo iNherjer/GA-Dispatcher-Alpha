@@ -58,6 +58,7 @@ const STATIC_ASSETS = Object.freeze({
   '/efb/v1/assets/map-route-edit-core.js': [path.join(__dirname, 'efb-web-assets', 'map-route-edit-core.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/map-navigation-client.js': [path.join(__dirname, 'efb-web-assets', 'map-navigation-client.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/map-direct-to-core.js': [path.join(__dirname, 'efb-web-assets', 'map-direct-to-core.js'), 'text/javascript; charset=utf-8'],
+  '/efb/v1/assets/direct-to-mission-choice.js': [path.join(__dirname, 'efb-web-assets', 'direct-to-mission-choice.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/airport-weather.js': [path.join(__dirname, 'efb-web-assets', 'airport-weather.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/map-airport-popup.js': [path.join(__dirname, 'efb-web-assets', 'map-airport-popup.js'), 'text/javascript; charset=utf-8'],
   '/efb/v1/assets/map-drawing.js': [path.join(__dirname, 'efb-web-assets', 'map-drawing.js'), 'text/javascript; charset=utf-8'],
@@ -202,6 +203,7 @@ ${extractKartentischMarkup()}
 <script src="/efb/v1/assets/airport-details.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/airport-aip.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/map-direct-to-core.js?v=${EFB_WEB_ASSET_REVISION}"></script>
+<script src="/efb/v1/assets/direct-to-mission-choice.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/map-route-edit-core.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/map-navigation-client.js?v=${EFB_WEB_ASSET_REVISION}"></script>
 <script src="/efb/v1/assets/map-layer-controls.js?v=${EFB_WEB_ASSET_REVISION}"></script>

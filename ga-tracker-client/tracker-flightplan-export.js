@@ -75,14 +75,17 @@ function createFreeFlightPlanExport(route, request = {}) {
 }
 
 // Read the private, complete route. Never export the bounded map projection.
-function createFlightPlanExport(run, request = {}) {
+// A detour (Direct-To with the mission kept) is flown instead of the mission
+// route while it exists; mission identity and checks stay the same.
+function createFlightPlanExport(run, request = {}, detour = null) {
   if (!run || run.missionId !== request.missionId || run.runId !== request.runId) throw new Error('flightplan_run_changed');
-  const navigationRevision = Number(run.navigationRoute?.revision || 0);
+  if (detour && (detour.runId !== run.runId || !Array.isArray(detour.points) || detour.points.length < 2)) throw new Error('flightplan_route_invalid');
+  const navigationRevision = Number((detour || run.navigationRoute)?.revision || 0);
   if (request.navigationRevision != null && request.navigationRevision !== navigationRevision) throw new Error('flightplan_route_changed');
   const bundle = run.resumeBundle || {}, state = bundle.missionState || {};
   const mission = state.currentMissionData || state.activeMissionContract || state;
   const contract = mission.missionContract || state.activeMissionContract || {};
-  const raw = missionRouteSource(run);
+  const raw = detour ? detour.points : missionRouteSource(run);
   if (!raw || raw.length > 512) throw new Error('flightplan_route_invalid');
   let points = raw.map(exportPoint);
   // Only the World Map air start uses the save point; everything else gets the
@@ -98,9 +101,12 @@ function createFlightPlanExport(run, request = {}) {
     .find(value => value != null && value !== '' && Number.isFinite(Number(value)) && Number(value) > 0);
   const plan = { schema: 'ga.flightplan-export.v1', missionId: run.missionId, runId: run.runId, navigationRevision,
     // An air start plan starts at the save point, not at an airport.
-    departureIcao: resume ? '' : String(context.departureIcao || state.currentStartICAO || state.mDepICAO || points[0].icao || '').toUpperCase(),
-    destinationIcao: String(context.destinationIcao || state.currentDestICAO || state.mDestICAO || points[points.length - 1].icao || '').toUpperCase(),
+    departureIcao: resume ? '' : (detour ? airportIdent(detour.departureIcao) || airportIdent(points[0].icao)
+      : String(context.departureIcao || state.currentStartICAO || state.mDepICAO || points[0].icao || '').toUpperCase()),
+    destinationIcao: detour ? airportIdent(detour.destinationIcao) || airportIdent(points[points.length - 1].icao)
+      : String(context.destinationIcao || state.currentDestICAO || state.mDestICAO || points[points.length - 1].icao || '').toUpperCase(),
     cruiseAltitudeFt: altitude == null ? null : Number(altitude), isVfr: true, points,
+    ...(detour ? { detour: true, routeId: String(detour.id || '') } : {}),
     ...(resume ? { resumeFrom: { lat: resume.lat, lon: resume.lon }, airStart: 'spawn-only' } : {}) };
   return { ...plan, routeHash: crypto.createHash('sha256').update(JSON.stringify(plan)).digest('hex') };
 }

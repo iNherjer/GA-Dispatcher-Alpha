@@ -124,6 +124,7 @@
       "efb-web-assets/map-search.js",
 
       "efb-web-assets/map-direct-to-core.js",
+      "efb-web-assets/direct-to-mission-choice.js",
       "../map-direct-to-core.js",
       "efb-web-assets/map-navigation-client.js",
       "../map-navigation-client.js",

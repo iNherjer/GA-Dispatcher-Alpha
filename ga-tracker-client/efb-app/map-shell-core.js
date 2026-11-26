@@ -406,6 +406,11 @@ function normalizeTrackerMapSnapshot(value) {
     version: MAP_SNAPSHOT_VERSION,
     routeEdit: source.routeEdit || null,
     navigationOnly: source.navigationOnly === true,
+    // Direct-To mit erhaltener Mission: Umweg im Vordergrund, Missionsroute nur blass.
+    detour: source.detour === true,
+    missionRoute: source.detour === true && source.missionRoute && Array.isArray(source.missionRoute.waypoints)
+      ? { waypoints: source.missionRoute.waypoints.slice(0, 128).map(normalizeMapPoint).filter(Boolean) }
+      : null,
     routeId: String(source.routeId || '').slice(0, 100),
     missionId: String(source.missionId || '').slice(0, 180),
     runId: String(source.runId || '').slice(0, 220),

@@ -1795,11 +1795,11 @@
 
   window.gaRadioTune = function(payload) { return submitCockpitTool('radio_tune',payload); };
 
-  function submitCockpitTool(intent, payload) {
+  function submitCockpitTool(intent, payload, expectedRevision) {
     var client = window.gaCockpitSessionClient;
     if (!client || !client.submitTool) return Promise.reject(new Error('Tracker nicht verbunden.'));
     return client.submitTool({ commandId: 'tool-' + intent + '-' + Date.now() + '-' + Math.random().toString(36).slice(2),
-      intent: intent, expectedRevision: mapSnapshot && mapSnapshot.navigationOnly ? mapSnapshot.revision : 0,
+      intent: intent, expectedRevision: expectedRevision != null ? expectedRevision : (mapSnapshot && mapSnapshot.navigationOnly ? mapSnapshot.revision : 0),
       payload: payload || {} });
   }
 
@@ -1820,20 +1820,61 @@
     return window.applyAirportDirectTo({icao:icao,name:name,lat:Number(lat),lon:Number(lon)},
       {forceGpsStart:!!(flight && Date.now() - flight.capturedAt <= 15000)});
   };
+  function directToDetour(airport, options) {
+    var revision = mapSnapshot && mapSnapshot.routeEdit ? mapSnapshot.routeEdit.revision : 0;
+    return submitCockpitTool('airport_direct_to', {airport: airport, keepMission: true, forceGpsStart: !!(options && options.forceGpsStart)}, revision).then(function(result) {
+      if (!result || !result.ok) {
+        var messages = { live_position_required: 'Für den Umweg brauche ich die aktuelle Position aus dem Simulator.',
+          navigation_mission_locked: 'Die laufende Behördenkontrolle muss zuerst abgeschlossen werden.',
+          navigation_revision_conflict: 'Die Route wurde in einer anderen Ansicht geändert. Bitte erneut auswählen.' };
+        window.alert(_hT(messages[result && result.error] || 'Direct To nicht verfügbar.'));
+        return false;
+      }
+      renderMapPayload(Object.assign({available: true}, result.map));
+      return true;
+    });
+  }
+  // After "discard" the run closes asynchronously; Direct-To follows as soon as the tracker allows it.
+  function directToAfterAbort(airport, options, attempt) {
+    return submitCockpitTool('airport_direct_to', {airport: airport, forceGpsStart: !!(options && options.forceGpsStart)}).then(function(result) {
+      if (result && result.error === 'mission_authority_conflict' && attempt < 8) {
+        return new Promise(function(resolve) { setTimeout(resolve, 750); }).then(function() { return directToAfterAbort(airport, options, attempt + 1); });
+      }
+      return result;
+    });
+  }
   window.applyAirportDirectTo = function(airport, options) {
     var control = missionSnapshot && missionSnapshot.control;
+    var directToRequest = null;
     if (control && control.runId && control.phase !== 'closed' && !missionSnapshot.cloudPending) {
       if (control.executionAuthority !== 'tracker') {
         window.alert(_hT('Auf dem Tracker läuft eine andere Mission. Übernimm oder beende diese Mission, bevor du eine neue Route startest.'));
         return Promise.resolve(false);
       }
-      if (!window.confirm(_hK('efb.directTo.abortMission', 'Mission {mission} läuft noch.\n\nMission ausdrücklich abbrechen und Direct-to starten?', { mission: control.missionId }))) return Promise.resolve(false);
-      return submitMissionIntent('abort_mission', {}).then(function(ok) {
-        if (ok) window.alert('Die Tracker-Mission wurde abgebrochen. Du kannst Direct-to jetzt erneut starten.');
-        return false;
+      // Ein weiterer Direct-To während eines Umwegs ersetzt nur den Umweg.
+      if (mapSnapshot && mapSnapshot.detour) return directToDetour(airport, options);
+      return window.GADirectToChoice.ask({
+        title: _hT('Direct To während einer Mission'),
+        body: _hK('efb.directTo.missionChoice', 'Mission {mission} läuft. Was soll mit ihr passieren?', { mission: control.missionId }),
+        keep: _hT('↪ Mission erhalten'),
+        keepHint: _hT('Direct To wird als Umweg geflogen. Die Mission läuft im Hintergrund weiter, ihre Route wird blass angezeigt. „Route zurücksetzen“ führt zurück zur Missionsroute.'),
+        discard: _hT('✖ Mission verwerfen'),
+        discardHint: _hT('Bricht die Mission ab und löscht Route, Szene und Ladung. „Route zurücksetzen“ führt danach auf den ersten Direct-To-Plan.'),
+        cancel: _hT('Abbrechen')
+      }).then(function(choice) {
+        if (choice === 'keep') return directToDetour(airport, options);
+        if (choice !== 'discard') return false;
+        return submitMissionIntent('abort_mission', {}).then(function(ok) {
+          if (!ok) return false;
+          return directToAfterAbort(airport, options, 0).then(handleDirectToResult);
+        });
       });
     }
-    return submitCockpitTool('airport_direct_to', {airport: airport, forceGpsStart: !!(options && options.forceGpsStart)}).then(function(result) {
+    directToRequest = submitCockpitTool('airport_direct_to', {airport: airport, forceGpsStart: !!(options && options.forceGpsStart)});
+    return directToRequest.then(handleDirectToResult);
+  };
+  function handleDirectToResult(result) {
+    return Promise.resolve(result).then(function(result) {
       if (!result || !result.ok) {
         var messages = { live_position_required: 'Ohne bestehenden Flugplan brauche ich eine aktive Tracker-Verbindung, damit die aktuelle GPS-Position als Start gesetzt werden kann.',
           mission_authority_conflict: 'Auf dem Tracker läuft eine Mission. Beende diese Mission, bevor du eine neue Route startest.',
@@ -1844,7 +1885,7 @@
       renderMapPayload(Object.assign({available: true}, result.map));
       return true;
     });
-  };
+  }
 
   function setupSideDrawer() {
     var drawer = byId('mapSideDrawer'), body = byId('checklistDrawerBody');
@@ -3502,7 +3543,17 @@
     try {
       var waypoints = snapshot.route.waypoints;
       var latlngs = waypoints.map(function (point) { return [point.lat, point.lng == null ? point.lon : point.lng]; });
-      var routeLine = L.polyline(latlngs, { color: '#ff4444', opacity: 1, weight: 7, dashArray: window.isMapHintEnabled('lowFps') ? null : '10,10', pane: 'gaRoutePane', renderer: routeRenderer || undefined, interactive: false }).addTo(routeLayer);
+      // Umweg: blasse, nicht bedienbare Missionsroute hinter der cyanfarbenen Umweg-Route.
+      var missionShadow = snapshot.detour && snapshot.missionRoute ? snapshot.missionRoute.waypoints : [];
+      if (missionShadow.length > 1) {
+        L.polyline(missionShadow.map(function (point) { return [point.lat, point.lng == null ? point.lon : point.lng]; }),
+          { color: '#ff4444', opacity: 0.42, weight: 5, dashArray: '6,10', pane: 'gaGeometryPane', renderer: geometryRenderer || undefined, interactive: false }).addTo(geometryLayer);
+        missionShadow.forEach(function (point, index) {
+          L.circleMarker([point.lat, point.lng == null ? point.lon : point.lng], { pane: 'gaGeometryPane', radius: index === 0 || index === missionShadow.length - 1 ? 6 : 4,
+            color: '#ff4444', weight: 2, opacity: 0.35, fillColor: point.isPOI ? '#b266ff' : '#ff4444', fillOpacity: 0.25, interactive: false, renderer: geometryRenderer || undefined }).addTo(geometryLayer);
+        });
+      }
+      var routeLine = L.polyline(latlngs, { color: snapshot.detour ? '#00c8ff' : '#ff4444', opacity: 1, weight: 7, dashArray: window.isMapHintEnabled('lowFps') ? null : '10,10', pane: 'gaRoutePane', renderer: routeRenderer || undefined, interactive: false }).addTo(routeLayer);
       var routeHitbox = null;
       if (!measureMode && !mapDrawState.enabled && snapshot.routeEdit && snapshot.routeEdit.editable) {
         routeHitbox = L.polyline(latlngs, { weight: 44, opacity: 0, interactive: true, bubblingMouseEvents: false, pane: 'gaRoutePane', renderer: routeRenderer || undefined }).addTo(routeLayer).on('click', routeInsert);
@@ -3581,7 +3632,10 @@
   }
 
   function mapRouteSignature(snapshot) {
-    var parts = [String(snapshot.missionId || ''), String(snapshot.routeEdit && snapshot.routeEdit.id), String(snapshot.routeEdit && snapshot.routeEdit.editable)];
+    var parts = [String(snapshot.missionId || ''), String(snapshot.routeEdit && snapshot.routeEdit.id), String(snapshot.routeEdit && snapshot.routeEdit.editable), snapshot.detour ? 'detour' : ''];
+    (snapshot.missionRoute && snapshot.missionRoute.waypoints || []).forEach(function (point) {
+      parts.push(['m', point.lat, point.lng == null ? point.lon : point.lng].join(':'));
+    });
     (snapshot.route && snapshot.route.waypoints || []).forEach(function (point) {
       parts.push(['w', point.id || '', point.name || '', point.lat, point.lng == null ? point.lon : point.lng, !!point.isPOI, !!point.isPoiChainEndpoint, !!point.isPoiChainReturnHome].join(':'));
     });
@@ -3597,6 +3651,7 @@
 
   function clearMapRoute() {
     if (!mapSnapshot) return;
+    updateDetourBand(null);
     mapSnapshot = null; mapRevision = null; routeSignature = ''; localNavigationState = {};
     previewWaypointIndex = null; previewLine = null;
     [routeLayer, geometryLayer, previewLayer].forEach(function(layer){if(layer)layer.clearLayers();});
@@ -3637,6 +3692,22 @@
     freeflightBriefingCard.querySelector('[data-role="freeflight-briefing-story"]').textContent = story;
     freeflightBriefingCard.style.display = 'block';
   }
+  // Kein eigenes Band: Route Reset führt während eines Umwegs zurück zur Missionsroute.
+  function updateDetourBand(snapshot) {
+    var control = document.querySelector('button[onclick="resetMainRoute()"]');
+    if (!control) return;
+    var detour = !!(snapshot && snapshot.detour);
+    if (detour) {
+      if (control.getAttribute('data-ga-detour-title') == null) control.setAttribute('data-ga-detour-title', control.getAttribute('title') || '');
+      control.setAttribute('title', _hT('Zurück zur Missionsroute (Umweg beenden)'));
+      control.classList.add('route-reset--detour');
+    } else if (control.getAttribute('data-ga-detour-title') != null) {
+      control.classList.remove('route-reset--detour');
+      var previous = control.getAttribute('data-ga-detour-title');
+      if (previous) control.setAttribute('title', previous); else control.removeAttribute('title');
+      control.removeAttribute('data-ga-detour-title');
+    }
+  }
   function renderMapPayload(payload) {
     if (payload && payload.available === false) { clearMapRoute(); return; }
     if (!payload || payload.available !== true) return;
@@ -3653,6 +3724,7 @@
     if (navigationClient.pending()) return;
     var resetControl = document.querySelector('button[onclick="resetMainRoute()"]');
     if (resetControl) resetControl.disabled = !(normalized.routeEdit && normalized.routeEdit.editable);
+    updateDetourBand(normalized);
     var nextRouteSignature = mapRouteSignature(normalized);
     if (!mapSnapshot || nextRouteSignature !== routeSignature) {
       previewWaypointIndex = null;
@@ -5027,7 +5099,11 @@
     renderProgress(); updateCompass(); renderProfile();
     report('info', 'waypoint-preview', 'select', 'Wegpunktvorschau umgeschaltet', String(previewWaypointIndex));
   };
-  window.resetMainRoute = function () { navigationClient.edit({ action: 'reset' }); };
+  window.resetMainRoute = function () {
+    // Umweg: erst fragen, dann zurück zur Missionsroute (der Tracker löscht den Umweg).
+    if (mapSnapshot && mapSnapshot.detour && !window.confirm(_hT('Umweg beenden und zurück zur Missionsroute?'))) return;
+    navigationClient.edit({ action: 'reset' });
+  };
   window.minimizeWin95OverlayWindow = function () {};
   window.closeWin95OverlayWindow = function () { return closeHost('window-close'); };
   window.toggleMapTable = function () { return closeHost('toggle-map-table'); };

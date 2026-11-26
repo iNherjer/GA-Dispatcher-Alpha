@@ -22656,6 +22656,24 @@ body.theme-retro .ga-briefing-weather-widget.is-paper .ga-briefing-model-weather
 }
 
 /* ── Kartensuche (Lupe im Kartentisch-Kopf, map-search.js) ───────────────── */
+/* Direct-To-Auswahl: Start/Ziel kann auch ein Suchtreffer sein. */
+#mapSearchBtn.map-search-btn--pick {
+    background: #00a6d6 !important;
+    color: #fff !important;
+    box-shadow: 0 0 0 2px #fff, 0 0 12px 3px rgba(0, 200, 255, 0.85);
+    animation: map-search-pick-pulse 1.6s ease-in-out infinite;
+}
+/* Umweg aktiv: Route Reset führt zurück zur Missionsroute. */
+.route-reset--detour {
+    background: #00a6d6 !important;
+    color: #fff !important;
+    box-shadow: 0 0 0 2px #fff, 0 0 12px 3px rgba(0, 200, 255, 0.85);
+    animation: map-search-pick-pulse 1.6s ease-in-out infinite;
+}
+@keyframes map-search-pick-pulse {
+    0%, 100% { box-shadow: 0 0 0 2px #fff, 0 0 6px 1px rgba(0, 200, 255, 0.55); }
+    50% { box-shadow: 0 0 0 2px #fff, 0 0 16px 5px rgba(0, 200, 255, 0.95); }
+}
 .map-search-wrap {
     position: relative;
     display: inline-flex;

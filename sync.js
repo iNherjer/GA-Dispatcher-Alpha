@@ -1613,9 +1613,16 @@ function _buildMissionAuthorityMapProfile() {
     };
 }
 
+// Missionslogik liest die Missionsroute; während eines Umwegs (Direct-To mit erhaltener
+// Mission) ist routeWaypoints die Umweg-Route im Vordergrund.
+function _missionRouteForMissionLogic() {
+    const points = (typeof window.gaMissionRouteWaypoints === 'function' ? window.gaMissionRouteWaypoints() : ((typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) ? routeWaypoints : null));
+    return Array.isArray(points) ? points : null;
+}
+
 function _missionAuthorityLiveRouteSnapshot() {
     const candidates = [
-        (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) ? routeWaypoints : null,
+        _missionRouteForMissionLogic(),
         Array.isArray(window._missionRouteWaypoints) ? window._missionRouteWaypoints : null,
         (typeof currentMissionData !== 'undefined' && Array.isArray(currentMissionData?.routeWaypoints))
             ? currentMissionData.routeWaypoints
@@ -1969,6 +1976,8 @@ function navigationRead() {
 window.gaNavigationRefresh = navigationRead;
 window.gaNavigationReceive = nav => navigationClient.receive(nav);
 window.gaNavigationEdit = function(edit) {
+    // Ein lokaler Umweg wird in der App bearbeitet, nie als Änderung der Tracker-Missionsroute.
+    if (window.gaDetourSource?.() === 'local') return false;
     if (!window.gaNavigationAvailable()) {
         // A previously shared route cannot silently become a local fork during a gap.
         if (navigationReceived?.points?.length && navigationCanDisplay(navigationReceived)) {
@@ -2020,6 +2029,74 @@ window.gaNavigationDirectTo = async function(airport, options) {
     }
     return result.navigation;
 };
+// Umweg (Direct-To mit erhaltener Mission) am Tracker-Run: nur mit navigation.detour.v1.
+window.gaNavigationDetourAvailable = () => window.gaNavigationAvailable()
+    && (window.liveTrackerCapabilities || []).includes('navigation.detour.v1')
+    && _missionExecutionAuthorityIsTracker() && !!_activeMissionRuntimeId('');
+window.gaNavigationDetourSet = async function(points, meta = {}) {
+    if (!window.gaNavigationDetourAvailable()) return null;
+    await navigationRead();
+    const nav = navigationClient.snapshot();
+    if (!nav?.runId) return null;
+    const result = await navigationRequest('navigation_detour_set', { routeId: nav.id, points,
+        departureIcao: meta.departureIcao || '', destinationIcao: meta.destinationIcao || '' }, nav.revision);
+    if (result.navigation) navigationClient.receive(result.navigation);
+    if (!result.ok) {
+        alert(_syncUiPhrase('Der Umweg konnte nicht übernommen werden. Bitte den aktuellen Tracker-Routenstand prüfen.'));
+        return null;
+    }
+    return result.navigation;
+};
+window.gaActiveMissionId = () => _activeMissionRuntimeId('');
+
+// Direct-To bei vorhandener Mission. Fragt nur: 'none' (keine Mission), 'keep' (Umweg),
+// 'discard' (noch nicht ausgeführt, siehe gaDirectToDiscardMission) oder 'cancel'.
+window.gaDirectToAskMissionChoice = async function() {
+    if (window.gaDetourActive?.()) return 'keep'; // Ein weiterer Direct-To ersetzt nur den Umweg.
+    const trackerConflict = window.missionRuntimeResumeConflict?.trackerActive === true;
+    const missionId = _activeMissionRuntimeId('');
+    if (!missionId && !trackerConflict) return 'none';
+    if (trackerConflict && !_missionExecutionAuthorityIsTracker()) {
+        try { alert(_syncUiPhrase('Auf dem Tracker läuft eine andere Mission. Übernimm oder beende diese Mission, bevor du eine neue Route startest.')); } catch (_) {}
+        return 'cancel';
+    }
+    const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
+    const title = String(md?.mission || md?.missionTitle || md?.title || missionId || '').trim();
+    const choice = await window.GADirectToChoice.ask({
+        title: _syncUiPhrase('Direct To während einer Mission'),
+        body: _syncUiText('dialog.sync.directToMissionChoice', { mission: title }, 'Mission „{mission}“ ist aktiv. Was soll mit ihr passieren?'),
+        keep: _syncUiPhrase('↪ Mission erhalten'),
+        keepHint: _syncUiPhrase('Direct To wird als Umweg geflogen. Die Mission läuft im Hintergrund weiter, ihre Route wird blass angezeigt. „Route zurücksetzen“ führt zurück zur Missionsroute.'),
+        discard: _syncUiPhrase('✖ Mission verwerfen'),
+        discardHint: _syncUiPhrase('Bricht die Mission ab und löscht Route, Szene und Ladung. „Route zurücksetzen“ führt danach auf den ersten Direct-To-Plan.'),
+        cancel: _syncUiPhrase('Abbrechen')
+    });
+    return ['keep', 'discard'].includes(choice) ? choice : 'cancel';
+};
+// Verwirft die Mission vollständig wie „Mission löschen“ (Runtime, Szene, Ladung, Route) und
+// wartet bei Tracker-Missionen auf den bestätigten Abbruch. true, wenn danach keine Mission mehr da ist.
+window.gaDirectToDiscardMission = async function(reason = 'direct-to') {
+    if (!_activeMissionRuntimeId('') && window.missionRuntimeResumeConflict?.trackerActive !== true) return true;
+    if (window.missionComplianceBlockReset?.()) {
+        try { alert(_syncUiPhrase('Die laufende Behördenkontrolle muss zuerst abgeschlossen werden.')); } catch (_) {}
+        return false;
+    }
+    if (_missionExecutionAuthorityIsTracker()) {
+        const result = await window.gaAbortTrackerMission?.({ skipConfirm: true, forceLocalCleanup: true, reason });
+        return result?.ok === true;
+    }
+    const cleared = typeof window.clearAppMissionState === 'function'
+        ? window.clearAppMissionState({ reason, authorityOutcome: 'aborted' })
+        : window.missionRuntimeReset?.({ respawnAfterClear: false, authorityOutcome: 'aborted', reason });
+    return cleared !== false;
+};
+// Fragen und bei „verwerfen“ sofort ausführen: 'none' | 'keep' | 'discard' | 'cancel'.
+window.gaDirectToMissionChoice = async function(reason = 'direct-to') {
+    const choice = await window.gaDirectToAskMissionChoice();
+    if (choice !== 'discard') return choice;
+    return (await window.gaDirectToDiscardMission(reason)) ? 'discard' : 'cancel';
+};
+
 window.addEventListener('gatrackercapabilitieschange', () => {
     if (!navigationReceived && window.gaNavigationAvailable()) navigationRead();
     else if (navigationReceived && navigationCanDisplay(navigationReceived)) navigationRender(navigationReceived);
@@ -6222,7 +6299,7 @@ function _missionSceneId() {
 }
 
 function _missionSceneRepresentativeRoutePoint(which = 'start') {
-    const wps = (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) ? routeWaypoints : [];
+    const wps = _missionRouteForMissionLogic() || [];
     if (!wps.length) return null;
     const isEnd = which === 'end';
     const idx = isEnd ? wps.length - 1 : 0;
@@ -9171,7 +9248,7 @@ function _missionTargetScenePoint(options = {}) {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     if(md?.sarScenario?.schema==='sar-search.v2' && !md.sarScenario.pending) return {lat:md.sarScenario.center.lat,lon:md.sarScenario.center.lon,altFt:Number.isFinite(md.sarScenario.source?.altFt)?md.sarScenario.source.altFt:md.poiTerrainFt||0,hdg:0,name:md.poiName};
     if (!md || !md.poiName || _activeFireScenario()) return null;
-    const wps = (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) ? routeWaypoints : [];
+    const wps = _missionRouteForMissionLogic() || [];
     const poiWp = wps.find(wp => wp && wp.isPOI) || (wps.length >= 2 ? wps[1] : null);
     const bridgeTarget = _missionTargetSceneIsBridgeTarget();
     let truthPoint = _missionTruthPoint(bridgeTarget ? ['mainTarget', 'sceneAnchor'] : ['sceneAnchor', 'mainTarget']);
@@ -9254,7 +9331,7 @@ function _missionTargetSceneAllowsWindTurbine(text = '') {
 function _missionTargetSceneRequestTerrain() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     if (!md || !md.poiName || Number.isFinite(Number(md.poiTerrainFt ?? md.targetAltFt))) return false;
-    const wps = (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) ? routeWaypoints : [];
+    const wps = _missionRouteForMissionLogic() || [];
     const poiWp = wps.find(wp => wp && wp.isPOI) || (wps.length >= 2 ? wps[1] : null);
     const truthPoint = _missionTruthPoint(['sceneAnchor', 'mainTarget']);
     const lat = Number(truthPoint?.lat ?? md.targetLat ?? poiWp?.lat);
@@ -14144,7 +14221,7 @@ function _distanceToMissionTargetNm(lat, lon) {
 function _missionRuntimeRouteWaypoints() {
     const md = (typeof currentMissionData !== 'undefined' && currentMissionData) ? currentMissionData : null;
     const candidates = [
-        (typeof routeWaypoints !== 'undefined' && Array.isArray(routeWaypoints)) ? routeWaypoints : null,
+        _missionRouteForMissionLogic(),
         Array.isArray(md?.routeWaypoints) ? md.routeWaypoints : null,
         Array.isArray(md?.missionRouteWaypoints) ? md.missionRouteWaypoints : null,
         (typeof window !== 'undefined' && Array.isArray(window._missionRouteWaypoints)) ? window._missionRouteWaypoints : null
@@ -14469,12 +14546,13 @@ window.missionSarHeliRewriteRouteToHospital = function(reason = 'sar-heli-patien
     if (!startWp || !targetWp || !hospitalWp) return false;
     const nextRoute = [startWp, targetWp, hospitalWp];
     try {
-        routeWaypoints = JSON.parse(JSON.stringify(nextRoute));
+        // Während eines Umwegs ändert sich nur die (blasse) Missionsroute.
+        if (!window.gaSetMissionRouteWaypoints?.(nextRoute)) routeWaypoints = JSON.parse(JSON.stringify(nextRoute));
         window._missionRouteWaypoints = JSON.parse(JSON.stringify(nextRoute));
         md.routeWaypoints = JSON.parse(JSON.stringify(nextRoute));
         md.missionRouteWaypoints = JSON.parse(JSON.stringify(nextRoute));
     } catch (_) {
-        routeWaypoints = nextRoute;
+        if (!window.gaSetMissionRouteWaypoints?.(nextRoute)) routeWaypoints = nextRoute;
         window._missionRouteWaypoints = nextRoute;
         md.routeWaypoints = nextRoute;
         md.missionRouteWaypoints = nextRoute;
@@ -14632,7 +14710,7 @@ function _restoreBushPickupOutboundRuntimeState() {
         ? JSON.parse(JSON.stringify(md.missionRouteWaypoints))
         : null;
     if (originalRoute) {
-        routeWaypoints = JSON.parse(JSON.stringify(originalRoute));
+        if (!window.gaSetMissionRouteWaypoints?.(originalRoute)) routeWaypoints = JSON.parse(JSON.stringify(originalRoute));
         window._missionRouteWaypoints = JSON.parse(JSON.stringify(originalRoute));
         md.routeWaypoints = JSON.parse(JSON.stringify(originalRoute));
     }
@@ -15670,6 +15748,7 @@ function _completeMissionCloseCleanupLocal(record = null, reason = 'debrief-clos
         localStorage.removeItem('ga_active_mission_contract');
         localStorage.removeItem('ga_active_passenger');
         localStorage.removeItem('ga_active_mission_runtime');
+        try { window.gaClearDetour?.(); } catch (_) {}
         try { currentMissionData = null; routeWaypoints = []; window._missionRouteWaypoints = null; window._routeResetWaypoints = null; } catch (_) {}
         window.activeMissionContract = null;
         window.activePassenger = null;
@@ -17204,6 +17283,7 @@ async function _syncApplyActiveMissionFromCloud(activeMission = null, options = 
     localStorage.removeItem('ga_active_mission_contract');
     localStorage.removeItem('ga_active_passenger');
     try { currentMissionData = null; } catch (_) {}
+    try { window.gaClearDetour?.(); } catch (_) {}
     try { routeWaypoints = []; } catch (_) {}
     try { window._missionRouteWaypoints = null; window._routeResetWaypoints = null; } catch (_) {}
     window.activeMissionContract = null;

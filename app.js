@@ -2556,20 +2556,22 @@ const SETTINGS_HELP_CONTENT = {
     'map-table': {
         kicker: 'Karte',
         title: 'Kartentisch',
-        intro: 'Der Kartentisch ist die grosse Planungs- und Flugkarte. Hier pruefst du Route, Wetter, Profil und Live-Position.',
+        intro: 'Der Kartentisch ist die große Planungs- und Flugkarte. Hier prüfst du Route, Wetter, Profil und Live-Position.',
         items: [
-            { term: 'Route Reset', text: 'Loescht manuelle Routenanpassungen und stellt die geplante Hauptroute wieder her.' },
-            { term: 'Profil', text: 'Blendet das Hoehenprofil ein oder aus. Dort siehst du Strecke, Hoehe, Terrain und Wolken.' },
-            { term: 'Anzeige', text: 'Oeffnet Optionen wie Snapping, Direkt-Linie, Wetter, VFR-Index, Terrain Avoid, Traffic, Autozoom und Kartenleisten.' },
-            { term: 'Einzelklick: Aus', text: 'Kurzes Antippen von Flugplaetzen, VRPs und Navaids loest keine Auswahl aus. Die Mausover-Tooltips am PC bleiben verfuegbar.' },
-            { term: 'Einzelklick: Tooltip', text: 'Ein kurzes Antippen zeigt nur die kompakte Objektinfo. Das ist besonders fuer Smartphone und Tablet gedacht.' },
-            { term: 'Einzelklick: Tafeln', text: 'Ein kurzes Antippen oeffnet die ausfuehrliche Flugplatz-, VRP- oder Navaid-Tafel. Long-Tap fuer „Was ist hier?“ bleibt davon unabhaengig.' },
-            { term: 'Audio', text: 'Oeffnet Warnstimmen, Audioeffekte und Passagier-Stimme fuer den Kartentisch.' },
-            { term: 'Direct To', text: 'Schaltet freien Flugmodus ein. Das ist fuer direkte Navigation ohne normalen Missionsablauf gedacht.' },
+            { term: 'Route Reset', text: 'Löscht manuelle Routenanpassungen und stellt die geplante Hauptroute wieder her. Während eines Umwegs (Direct To mit erhaltener Mission) beendet Route Reset den Umweg und führt zurück zur Missionsroute.' },
+            { term: 'Suche (Lupe)', text: 'Sucht Flugplätze, Funkfeuer und Meldepunkte und zeigt den Treffer auf der Karte. Im Direct-To-Modus leuchtet die Lupe: ein angeklickter Treffer wird dann Start bzw. Ziel.' },
+            { term: 'Profil', text: 'Blendet das Höhenprofil ein oder aus. Dort siehst du Strecke, Höhe, Terrain und Wolken.' },
+            { term: 'Anzeige', text: 'Öffnet Optionen wie Snapping, Direkt-Linie, Wetter, VFR-Index, Terrain Avoid, Traffic, Autozoom und Kartenleisten.' },
+            { term: 'Einzelklick: Aus', text: 'Kurzes Antippen von Flugplätzen, VRPs und Navaids löst keine Auswahl aus. Die Mouseover-Tooltips am PC bleiben verfügbar.' },
+            { term: 'Einzelklick: Tooltip', text: 'Ein kurzes Antippen zeigt nur die kompakte Objektinfo. Das ist besonders für Smartphone und Tablet gedacht.' },
+            { term: 'Einzelklick: Tafeln', text: 'Ein kurzes Antippen öffnet die ausführliche Flugplatz-, VRP- oder Navaid-Tafel. Long-Tap für „Was ist hier?“ bleibt davon unabhängig.' },
+            { term: 'Audio', text: 'Öffnet Warnstimmen, Audioeffekte und Passagier-Stimme für den Kartentisch.' },
+            { term: 'Direct To', text: 'Plant eine direkte Route. Start: eigene Position (Knopf „📍 Start hier“ neben dem Flugzeug), ein Punkt auf der Karte oder ein Suchtreffer. Ziel: ein Punkt auf der Karte oder ein Suchtreffer.' },
+            { term: 'Direct To mit Mission', text: 'Ist eine Mission aktiv, fragt die App zuerst. „Mission verwerfen“ bricht die Mission beim Festlegen des Ziels ab und löscht Route, Szene und Ladung; Route Reset führt danach auf den ersten Direct-To-Plan. „Mission erhalten“ fliegt Direct To als Umweg: die Mission läuft im Hintergrund weiter, ihre Route ist blass und gesperrt, der Umweg (cyan) ist frei bearbeitbar. Route Reset führt zurück zur Missionsroute; endet die Mission, verschwindet der Umweg.' },
             { term: 'Mission starten', text: 'Startet oder steuert die aktive Mission, wenn ein Missionsentwurf bereit ist.' },
             { term: 'Zeichenwerkzeuge', text: 'Die linke Werkzeugleiste erlaubt Markierungen, Notizen, Peilungen und Kartenhilfen.' },
             { term: 'Kartenprofil', text: 'Die Profil-Leiste zeigt Steigflug, Sinkflug und Hindernisse entlang der Route.' },
-            { term: 'Schliessen', text: 'Schliesst den Kartentisch und bringt dich zur Hauptansicht zurueck.' }
+            { term: 'Schließen', text: 'Schließt den Kartentisch und bringt dich zur Hauptansicht zurück.' }
         ]
     },
     'map-voice': {
@@ -9082,6 +9084,7 @@ function clearExpiredActiveMissionPersistence(reason = 'active-mission-expired',
     }
     rememberActiveMissionStateMemoryFallback(null);
     try { currentMissionData = null; } catch (_) {}
+    try { window.gaClearDetour?.(); } catch (_) {}
     try { routeWaypoints = []; } catch (_) {}
     try { window._missionRouteWaypoints = null; window._routeResetWaypoints = null; } catch (_) {}
     window.activeMissionContract = null;
@@ -10503,7 +10506,8 @@ function saveMissionState() {
     };
     const imgDepUrl = visibleBriefingPhoto("wikiDepImage", "wikiDepImageContainer");
     const imgDestUrl = visibleBriefingPhoto("wikiDestImage", "wikiDestImageContainer");
-    const storedRouteWaypoints = cloneRouteWaypointsForStorage(routeWaypoints);
+    // Während eines Umwegs wird die Missionsroute gespeichert, der Umweg separat (ga_detour_route_v1).
+    const storedRouteWaypoints = cloneRouteWaypointsForStorage(window.gaMissionRouteWaypoints ? window.gaMissionRouteWaypoints() : routeWaypoints);
     const storedMissionRouteWaypoints = cloneRouteWaypointsForStorage(
         (window._missionRouteWaypoints && window._missionRouteWaypoints.length >= 2)
             ? window._missionRouteWaypoints
@@ -11053,6 +11057,7 @@ async function restoreMissionState(state, options = {}) {
     if (typeof window.updateMissionAcceptanceUi === 'function') window.updateMissionAcceptanceUi();
     try { updateMissionLanguageHint(); } catch (_) {}
     renderMainRoute(); setDrumCounter('distDrum', currentMissionData?.dist || state.currentMissionData?.dist || 0);
+    try { window.gaRestoreDetour?.(); } catch (_) {}
     refreshMissionSurveyOverlaySoon(currentMissionData, window.activePassenger || null, 'mission-restore');
     refreshMissionPoiChainOverlaySoon(currentMissionData, window.activePassenger || null, 'mission-restore');
     if (typeof window.gaScheduleRouteMapLayoutRefresh === 'function') window.gaScheduleRouteMapLayoutRefresh('mission-restore');
@@ -11181,6 +11186,7 @@ function clearAppMissionState(options = {}) {
     const briefingBox = document.getElementById('briefingBox');
     if (briefingBox) briefingBox.style.display = 'none';
     rememberActiveMissionStateMemoryFallback(null);
+    try { window.gaClearDetour?.(); } catch (_) {}
     currentMissionData = null; routeWaypoints = []; window._missionRouteWaypoints = null; window._routeResetWaypoints = null;
     window.activeMissionContract = null;
     window.activePassenger = null;

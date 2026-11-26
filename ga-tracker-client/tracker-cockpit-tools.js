@@ -9,8 +9,12 @@ const { getAipPopupUrl } = require('../airport-aip');
 const { projectTrackerNavigationSnapshot, projectTrackerMapSnapshot } = require('./tracker-efb-map-snapshot-core');
 
 // Navigation-only state: never enters mission authority, manifest or scene execution.
+// A detour (Direct-To with the mission kept) is navigation-only as well: it sits
+// next to the mission run, is flown and edited instead of the mission route and
+// is dropped as soon as that run ends. The mission route stays untouched.
+const DETOUR_SCHEMA = 'ga.navigation-detour.v1';
 function createCockpitTools(options) {
-  let route = null, pendingPayload = null, cloudSource = '';
+  let route = null, pendingPayload = null, cloudSource = '', detour = null;
   let navigationState = {}, navigationIdentity = null;
   const now = options.now || Date.now;
   const validPoint = p => p && Number.isFinite(p.lat) && Math.abs(p.lat) <= 90
@@ -22,7 +26,48 @@ function createCockpitTools(options) {
       if (saved.schema === 'ga.navigation-route.v1' && saved.points?.length >= 2 && saved.points.length <= 128 && saved.points.every(validPoint)) route = saved;
     } catch (_) {}
   }
+  if (options.detourFilename) {
+    try {
+      const saved = JSON.parse(fs.readFileSync(options.detourFilename, 'utf8'));
+      if (saved.schema === DETOUR_SCHEMA && saved.runId && saved.points?.length >= 2 && saved.points.length <= 128 && saved.points.every(validPoint)) detour = saved;
+    } catch (_) {}
+  }
+  function commitDetour(next) {
+    detour = next && next.points?.length >= 2 ? next : null;
+    if (!options.detourFilename) return;
+    if (!detour) { fs.rmSync(options.detourFilename, { force: true }); return; }
+    fs.writeFileSync(options.detourFilename + '.tmp', JSON.stringify(detour), 'utf8');
+    fs.renameSync(options.detourFilename + '.tmp', options.detourFilename);
+  }
+  // The detour belongs to exactly one run: a finished or replaced mission removes it.
+  function activeDetour(run) {
+    if (!detour) return null;
+    const summary = options.getRunSummary ? options.getRunSummary() : run;
+    const runId = run?.runId || summary?.runId || '';
+    if (runId !== detour.runId) { commitDetour(null); return null; }
+    return detour;
+  }
+  function missionLocked() {
+    const compliance = options.getCompliance?.();
+    return !!(compliance?.selected && !['released', 'not_selected'].includes(compliance.phase));
+  }
+  // A new Direct-To gets a new id; edits keep the id so pending client edits stay in order.
+  function commitDetourPoints(run, points, departureIcao, destinationIcao, keepId = false) {
+    commitDetour({ schema: DETOUR_SCHEMA, id: keepId && detour?.id ? detour.id : randomUUID(), revision: Number(detour?.revision || 0) + 1,
+      runId: run.runId, missionId: run.missionId, updatedAt: now(), points,
+      departureIcao: String(departureIcao || points[0].icao || '').slice(0, 12),
+      destinationIcao: String(destinationIcao || points[points.length - 1].icao || '').slice(0, 12) });
+  }
   function navigation(run = options.getRun(), projectedMap = null) {
+    const runDetour = activeDetour(run);
+    if (runDetour) {
+      const missionMap = projectTrackerMapSnapshot(run, options.getFlight());
+      const missionPoints = missionMap?.route?.waypoints || [];
+      return { id: runDetour.id, revision: Number(runDetour.revision || 0), missionId: run.missionId, runId: run.runId,
+        detour: true, editable: !missionLocked(), points: runDetour.points, resetPoints: missionPoints, missionPoints,
+        missionRevision: Number(run.navigationRevision || 0),
+        context: { departureIcao: runDetour.departureIcao || '', destinationIcao: runDetour.destinationIcao || '' } };
+    }
     if (run) {
       const map = projectedMap || projectTrackerMapSnapshot(run, options.getFlight());
       const compliance = options.getCompliance?.();
@@ -36,12 +81,26 @@ function createCockpitTools(options) {
   }
   function version() {
     const run = options.getRunSummary ? options.getRunSummary() : options.getRun();
+    const runDetour = activeDetour(run);
+    if (runDetour) return { id: runDetour.id, revision: Number(runDetour.revision || 0) };
     return { id: run?.runId || route?.id || '', revision: run ? Number(run.navigationRevision || 0) : Number(route?.revision || 0) };
   }
   function snapshot() {
     const run = options.getRun();
-    const identity = run?.runId || route?.id || '';
+    const runDetour = activeDetour(run);
+    const identity = runDetour?.id || run?.runId || route?.id || '';
     if (identity !== navigationIdentity) { navigationIdentity = identity; navigationState = {}; }
+    if (runDetour) {
+      // Guidance, profile and warnings follow the detour; the mission route is only shown faded.
+      const missionMap = projectTrackerMapSnapshot(run, options.getFlight());
+      const detourMap = projectTrackerNavigationSnapshot({ ...runDetour, briefing: null }, options.getFlight(), {navigationState});
+      if (!detourMap) return null;
+      const nav = navigation(run);
+      return { ...detourMap, missionId: run.missionId, runId: run.runId, navigationOnly: false, briefing: null, detour: true,
+        missionRoute: missionMap?.route || null,
+        missionGeometry: missionMap?.missionGeometry || detourMap.missionGeometry,
+        routeEdit: { id: nav.id, revision: nav.revision, editable: nav.editable, resetPoints: nav.resetPoints, detour: true } };
+    }
     const map = run ? projectTrackerMapSnapshot(run, options.getFlight(), {navigationState}) : projectTrackerNavigationSnapshot(route, options.getFlight(), {navigationState});
     const nav = navigation(run, map);
     return map && { ...map, routeEdit: { id: nav.id, revision: nav.revision, editable: nav.editable, resetPoints: nav.resetPoints } };
@@ -69,7 +128,8 @@ function createCockpitTools(options) {
           if (options.getRun()) return { ok: false, status: 'conflict', error: 'mission_authority_conflict' };
           return { ok: true, status: 'ok', plan: exporter.createFreeFlightPlanExport(route, data) };
         }
-        return { ok: true, status: 'ok', plan: exporter.createFlightPlanExport(options.getRun(), data) };
+        const run = options.getRun();
+        return { ok: true, status: 'ok', plan: exporter.createFlightPlanExport(run, data, run && activeDetour(run)) };
       }
       catch (error) { return { ok: false, error: error.message }; }
     }
@@ -79,6 +139,19 @@ function createCockpitTools(options) {
       const fail = error => ({ ok: false, status: 'conflict', error, navigation: navigation(), map: snapshot() });
       if (!current.editable) return fail('navigation_mission_locked');
       if (data.routeId !== current.id || request.expectedRevision !== current.revision) return fail('navigation_revision_conflict');
+      if (current.detour) {
+        if (request.intent !== 'navigation_edit') return fail('mission_authority_conflict');
+        try {
+          // Route Reset leaves the detour: the mission route is flown again.
+          if (data.edit?.action === 'reset') commitDetour(null);
+          else {
+            const run = options.getRun();
+            commitDetourPoints(run, routeEdit.apply(current.points, data.edit, current.resetPoints),
+              detour.departureIcao, detour.destinationIcao, true);
+          }
+          return { ok: true, status: 'ok', navigation: navigation(), map: snapshot() };
+        } catch (error) { return fail(error.message); }
+      }
       if (options.getRun()) {
         if (request.intent !== 'navigation_edit') return fail('mission_authority_conflict');
         const result = await options.editMissionRoute({ routeId: current.id, expectedRevision: current.revision, edit: data.edit });
@@ -116,15 +189,50 @@ function createCockpitTools(options) {
       await options.openExternal(url);
       return { ok: true, status: 'ok' };
     }
+    if (request.intent === 'navigation_detour_set') {
+      // App map Direct-To (any map point) with the mission kept.
+      const run = options.getRun();
+      const current = navigation(run);
+      const fail = error => ({ ok: false, status: 'conflict', error, navigation: navigation(), map: snapshot() });
+      if (!run) return fail('navigation_detour_requires_mission');
+      if (missionLocked()) return fail('navigation_mission_locked');
+      if (data.routeId !== current.id || request.expectedRevision !== current.revision) return fail('navigation_revision_conflict');
+      try {
+        const points = routeEdit.normalize(data.points);
+        if (points.length < 2 || points.length > 128) throw new Error('navigation_point_invalid');
+        commitDetourPoints(run, points, data.departureIcao, data.destinationIcao);
+        return { ok: true, status: 'ok', navigation: navigation(), map: snapshot() };
+      } catch (error) { return fail(error.message); }
+    }
     if (request.intent !== 'airport_direct_to') return { ok: false, error: 'cockpit_tool_not_allowed' };
-    // Identical authority boundary to App: abort is a separate, explicit action.
-    if (options.getRun()) return { ok: false, status: 'conflict', error: 'mission_authority_conflict' };
+    const flight = options.getFlight();
+    const live = options.isSimulatorConnected() && validPoint(flight) && now() - Number(flight.capturedAt || 0) < 30000;
+    const missionRun = options.getRun();
+    if (missionRun) {
+      // Identical authority boundary to App: abort is a separate, explicit action.
+      // keepMission puts the Direct-To route next to the mission as a detour.
+      if (data.keepMission !== true) return { ok: false, status: 'conflict', error: 'mission_authority_conflict' };
+      if (missionLocked()) return { ok: false, status: 'conflict', error: 'navigation_mission_locked' };
+      const airport = data.airport || {};
+      const icao = String(airport.icao || '').trim().toUpperCase();
+      if (!/^[A-Z0-9]{4}$/.test(icao) || !validPoint(airport)) return { ok: false, error: 'invalid_airport' };
+      const current = navigation(missionRun);
+      if (Number(request.expectedRevision) !== Number(current.revision || 0)) return { ok: false, status: 'conflict', error: 'navigation_revision_conflict' };
+      const from = current.points?.[0];
+      const start = live ? { lat: flight.lat, lng: flight.lon, existing: false }
+        : (from && validPoint({ lat: Number(from.lat), lon: Number(from.lon ?? from.lng) })
+          ? { lat: Number(from.lat), lng: Number(from.lon ?? from.lng), existing: true, elevationFt: from.elevationFt } : null);
+      if (!start) return { ok: false, error: 'live_position_required' };
+      const startIcao = start.existing ? String(from.icao || current.context?.departureIcao || '') : 'GPS';
+      const startName = start.existing ? String(from.name || startIcao || 'Start') : 'Live GPS Position';
+      const destination = { ...airport, icao, name: String(airport.name || icao).slice(0, 100) };
+      commitDetourPoints(missionRun, routeEdit.normalize(buildRoute(start, destination, startName, startIcao)), startIcao, icao);
+      return { ok: true, status: 'ok', map: snapshot(), navigation: navigation() };
+    }
     const airport = data.airport || {};
     const icao = String(airport.icao || '').trim().toUpperCase();
     if (!/^[A-Z0-9]{4}$/.test(icao) || !validPoint(airport)) return { ok: false, error: 'invalid_airport' };
     if (Number(request.expectedRevision) !== Number(route?.revision || 0)) return { ok: false, status: 'conflict', error: 'navigation_revision_conflict' };
-    const flight = options.getFlight();
-    const live = options.isSimulatorConnected() && validPoint(flight) && now() - Number(flight.capturedAt || 0) < 30000;
     const start = selectStart({ route: route?.points, forceGpsStart: data.forceGpsStart === true,
       gpsLive: live, position: flight });
     if (!start) return { ok: false, error: 'live_position_required' };
@@ -169,7 +277,7 @@ function createNavigationRelay(cockpitTools, broadcastNavigation = () => {}) {
     const fingerprint = JSON.stringify([command.intent, command.expectedRevision, command.payload]);
     const previous = navigationRequests.get(key);
     if (previous) return previous.fingerprint === fingerprint ? previous.promise : Promise.resolve({ ok: false, error: 'command_id_conflict' });
-    if (!command.clientId || !command.commandId || !['navigation_get', 'navigation_edit', 'navigation_adopt', 'airport_direct_to'].includes(command.intent))
+    if (!command.clientId || !command.commandId || !['navigation_get', 'navigation_edit', 'navigation_adopt', 'navigation_detour_set', 'airport_direct_to'].includes(command.intent))
       return Promise.resolve({ ok: false, error: 'navigation_command_invalid' });
     const promise = cockpitTools.execute(command).then(result => {
       if (result.ok && command.intent !== 'navigation_get') broadcastNavigation();

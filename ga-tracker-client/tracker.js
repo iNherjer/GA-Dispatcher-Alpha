@@ -207,7 +207,7 @@ const TRACKER_PROTOCOL_HELLO = createTrackerRelayHello({
   clientId: 'ga-tracker',
   id: `tracker-hello-${TRACKER_VERSION}-${process.pid}`,
   timestamp: Date.now(),
-  extraCapabilities: [...TRACKER_EXECUTION_CAPABILITIES, 'navigation.route.v1', 'radio.tuning.v1', ...(mediaBridge.available ? ['media.control.v1'] : [])]
+  extraCapabilities: [...TRACKER_EXECUTION_CAPABILITIES, 'navigation.route.v1', 'navigation.detour.v1', 'radio.tuning.v1', ...(mediaBridge.available ? ['media.control.v1'] : [])]
 });
 const TRACKER_EFB_HTTP_HELLO = createTrackerEfbHttpHello({
   trackerVersion: TRACKER_VERSION,
@@ -216,7 +216,7 @@ const TRACKER_EFB_HTTP_HELLO = createTrackerEfbHttpHello({
   clientId: 'ga-tracker-local',
   id: `tracker-efb-http-hello-${TRACKER_VERSION}-${process.pid}`,
   timestamp: Date.now(),
-  extraCapabilities: [...TRACKER_EXECUTION_CAPABILITIES, 'navigation.route.v1', 'radio.tuning.v1', ...(mediaBridge.available ? ['media.control.v1'] : [])]
+  extraCapabilities: [...TRACKER_EXECUTION_CAPABILITIES, 'navigation.route.v1', 'navigation.detour.v1', 'radio.tuning.v1', ...(mediaBridge.available ? ['media.control.v1'] : [])]
 });
 const PA24_DEFAULT_FUEL_WEIGHT_PER_GALLON_LBS = 6;
 const PA24_FUEL_TANK_LVARS = [
@@ -5609,6 +5609,7 @@ async function startTracker(syncId, pin, voiceCredentials = null) {
   let tuneCockpitRadio = null;
   const cockpitTools = createCockpitTools({
     filename: path.join(TRACKER_DATA_DIR, 'navigation-route-v1.json'),
+    detourFilename: path.join(TRACKER_DATA_DIR, 'navigation-detour-v1.json'),
     getRun: () => readActiveRunView(missionAuthorityManager, { includeBundle: true }),
     editMissionRoute: request => missionAuthorityManager.editNavigationRoute(request),
     getCompliance: () => missionAuthorityManager.getPublicSnapshot()?.execution?.workflows?.complianceInspection,

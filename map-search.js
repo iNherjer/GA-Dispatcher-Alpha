@@ -464,6 +464,12 @@
         var targetMap = getMap();
         closePanel();
         if (!targetMap || !window.L || !result) return;
+        // Direct-To-Modus: der Treffer wird Start bzw. Ziel statt nur angezeigt.
+        if (typeof window.gaMapSearchPick === 'function') {
+            var picked = false;
+            try { picked = window.gaMapSearchPick(result) === true; } catch (_) {}
+            if (picked) { clearHighlight(); return; }
+        }
         var lat = result.lat;
         var lon = result.lon;
         // Searching means looking elsewhere: stop following the aircraft.

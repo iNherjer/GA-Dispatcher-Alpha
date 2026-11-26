@@ -4830,7 +4830,36 @@ window.removeRouteWaypoint = function(index) {
 window.gaGetNavigationRoute = () => routeWaypoints;
 let navigationApplying = false;
 window.gaApplyNavigationRoute = function(nav) {
-    if (navigationApplying || nav.points.length < 2) return;
+    if (navigationApplying) return;
+    const detour = mapDetourState();
+    // Tracker-Umweg: im Vordergrund fliegen, Missionsroute blass dahinter.
+    if (nav.detour === true) {
+        if (nav.points.length < 2) return;
+        const next = normalizeMapRouteWaypoints(nav.points);
+        const missionRoute = Array.isArray(nav.missionPoints) && nav.missionPoints.length >= 2 ? nav.missionPoints : null;
+        if (detour?.id === nav.id && JSON.stringify(normalizeMapRouteWaypoints(routeWaypoints)) === JSON.stringify(next)
+            && (!missionRoute || JSON.stringify(detour.missionRoute) === JSON.stringify(mapDetourClone(missionRoute)))) return;
+        navigationApplying = true;
+        try {
+            enterMapDetour(next, { id: nav.id, source: 'tracker', missionId: nav.missionId || undefined,
+                missionRoute: missionRoute || undefined, fit: detour?.id !== nav.id });
+        } finally { navigationApplying = false; }
+        return;
+    }
+    if (detour && nav.runId) {
+        navigationApplying = true;
+        try {
+            // Tracker hat den Umweg beendet (Route Reset, anderes Gerät): zurück zur Missionsroute.
+            if (detour.source === 'tracker') leaveMapDetour({ missionRoute: nav.points.length >= 2 ? nav.points : undefined });
+            // Lokaler Umweg: Änderungen der Missionsroute landen nur in der blassen Route.
+            else if (nav.points.length >= 2) {
+                window.gaSetMissionRouteWaypoints(nav.points);
+                if (window.gaNavigationDetourAvailable?.()) pushLocalDetourToTracker();
+            }
+        } finally { navigationApplying = false; }
+        return;
+    }
+    if (nav.points.length < 2) return;
     let next = normalizeMapRouteWaypoints(nav.points);
     // Kennt der Tracker die Hoehen der Teilstrecken noch nicht, bleiben die bisherigen erhalten.
     if (window.GAMapRouteEditCore?.carryLegAlts) next = window.GAMapRouteEditCore.carryLegAlts(routeWaypoints, next);
@@ -4927,7 +4956,7 @@ function mainRouteLineOptions(lowFpsMode = false) {
     return {
         pane: paneName || undefined,
         renderer: renderer || undefined,
-        color: '#ff4444',
+        color: mapDetourState() ? '#00c8ff' : '#ff4444',
         opacity: 1,
         weight: 7,
         lineCap: 'round',
@@ -5055,6 +5084,15 @@ function routeResetConfirmText(current, target) {
 }
 
 function resetMainRoute() {
+    // Umweg: Route Reset beendet nur den Umweg, die Missionsroute wird wieder normal.
+    const detour = mapDetourState();
+    if (detour) {
+        if (!window.confirm(_mapUiPhrase('Umweg beenden und zurück zur Missionsroute?'))) return;
+        if (detour.source === 'tracker' && window.gaNavigationEdit?.({ action: 'reset' })) return;
+        leaveMapDetour();
+        if (typeof showMapToast === 'function') showMapToast(_mapUiPhrase('Zurück zur Missionsroute'));
+        return;
+    }
     const target = routeResetTargetPoints();
     const current = Array.isArray(routeWaypoints) ? routeWaypoints : [];
     if (!target || mainRouteProfileRefreshKey(target) === mainRouteProfileRefreshKey(current)) {
@@ -5212,6 +5250,7 @@ function renderMainRoute() {
     if (routeWaypoints.length === 0) {
         if (polyline) { map.removeLayer(polyline); polyline = null; }
         if (window.hitBoxPolyline) { map.removeLayer(window.hitBoxPolyline); window.hitBoxPolyline = null; }
+        refreshMapDetourDecor();
         return;
     }
 
@@ -5467,6 +5506,7 @@ function renderMainRoute() {
     });
 
     notifyMainRouteChanged('route-render');
+    runMainRoutePostUpdate('detour decor', () => refreshMapDetourDecor());
     runMainRoutePostUpdate('route leg labels', () => renderRouteLegLabels());
     runMainRoutePostUpdate('route performance/minimap', () => {
         if (typeof updateRoutePerformance === 'function') updateRoutePerformance();
@@ -5659,10 +5699,27 @@ async function applyAirportDirectTo(airport, options = {}) {
         try { alert(_mapUiPhrase('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.')); } catch (_) {}
         return false;
     }
-    if (typeof window.confirmMissionAuthorityReplacement === 'function'
-        && !window.confirmMissionAuthorityReplacement('Direct-to', 'airport-direct-to')) return false;
     const destAirport = normalizeAirportForMap(airport);
     if (!destAirport || !destAirport.icao || !Number.isFinite(destAirport.lat) || !Number.isFinite(destAirport.lon)) return false;
+    // Vorhandene Mission: verwerfen oder als Umweg erhalten.
+    const missionStart = Array.isArray(routeWaypoints) && routeWaypoints[0] ? { ...routeWaypoints[0] } : null;
+    const missionStartIcao = currentStartICAO;
+    const choice = typeof window.gaDirectToMissionChoice === 'function'
+        ? await window.gaDirectToMissionChoice('airport-direct-to')
+        : 'none';
+    if (choice === 'cancel') return false;
+    if (choice === 'keep') {
+        const gps = isGpsLive() ? window.lastLiveGpsPos : null;
+        const from = gps ? { lat: gps.lat, lng: gps.lon, name: 'GPS' } : routeWaypoints[0];
+        if (!from) return false;
+        return startDetour(buildDetourPoints(from, destAirport), destAirport.icao);
+    }
+    if (typeof window.confirmMissionAuthorityReplacement === 'function'
+        && !window.confirmMissionAuthorityReplacement('Direct-to', 'airport-direct-to')) return false;
+    // Nach dem Verwerfen ohne GPS: vom bisherigen Missionsstart aus planen.
+    const discardStart = choice === 'discard' && !isGpsLive() && missionStart && missionStartIcao && missionStartIcao !== 'GPS'
+        ? missionStart : null;
+    if (discardStart) currentStartICAO = missionStartIcao;
 
     let sharedNavigation = null;
     if (window.gaNavigationAvailable?.()) {
@@ -5671,10 +5728,10 @@ async function applyAirportDirectTo(airport, options = {}) {
         if (!sharedNavigation) return false;
     }
     const forceGpsStart = Boolean(options.forceGpsStart);
-    const hadFlightPlan = hasActiveBriefingRoute();
+    const hadFlightPlan = hasActiveBriefingRoute() || !!discardStart;
     const useExistingStart = sharedNavigation ? sharedNavigation.context.departureIcao !== 'GPS' : hadFlightPlan && !forceGpsStart;
     const gpsLive = isGpsLive();
-    const selectedStart = window.GAMapDirectToCore.selectStart({ route: hadFlightPlan ? routeWaypoints : [], forceGpsStart, gpsLive, position: window.lastLiveGpsPos });
+    const selectedStart = window.GAMapDirectToCore.selectStart({ route: discardStart ? [discardStart, discardStart] : (hadFlightPlan ? routeWaypoints : []), forceGpsStart, gpsLive, position: window.lastLiveGpsPos });
     let startPoint = sharedNavigation ? { lat: sharedNavigation.points[0].lat, lng: sharedNavigation.points[0].lng ?? sharedNavigation.points[0].lon }
         : selectedStart && { lat: selectedStart.lat, lng: selectedStart.lng };
     if (sharedNavigation) currentStartICAO = sharedNavigation.context.departureIcao;
@@ -5773,7 +5830,11 @@ window.createCrewHomebaseVisitRoute = async function(homebase = {}) {
         try { alert(_mapUiPhrase('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.')); } catch (_) {}
         return false;
     }
-    if (typeof window.confirmMissionAuthorityReplacement === 'function'
+    const missionChoice = typeof window.gaDirectToMissionChoice === 'function'
+        ? await window.gaDirectToMissionChoice('crew-homebase-visit')
+        : 'none';
+    if (missionChoice === 'cancel') return false;
+    if (missionChoice !== 'keep' && typeof window.confirmMissionAuthorityReplacement === 'function'
         && !window.confirmMissionAuthorityReplacement('den Homebase-Besuch', 'crew-homebase-visit')) return false;
     const lat = Number(homebase.lat ?? homebase.spawn?.lat);
     const lon = Number(homebase.lon ?? homebase.spawn?.lon);
@@ -5795,6 +5856,13 @@ window.createCrewHomebaseVisitRoute = async function(homebase = {}) {
 
     const owner = String(homebase.nick || homebase.pilotId || 'Crew').trim().slice(0, 64);
     const targetName = `Homebase von ${owner}`;
+    if (missionChoice === 'keep') {
+        const startIcao = String(startData.icao || departureIcao).toUpperCase();
+        return startDetour(buildDetourPoints(
+            { lat: Number(startData.lat), lng: Number(startData.lon), name: startIcao, icao: startIcao },
+            { lat, lon, name: `🏠 ${targetName}` }
+        ), targetName);
+    }
     currentStartICAO = String(startData.icao || departureIcao).toUpperCase();
     currentDestICAO = 'HOMEBASE';
     currentSName = startData.n || startData.name || currentStartICAO;
@@ -8743,13 +8811,185 @@ window.gaGetRouteResetBaseline = function() {
     return Array.isArray(points) && points.length >= 2 ? JSON.parse(JSON.stringify(points)) : null;
 };
 
+/* --- UMWEG: Direct-To mit erhaltener Mission ---
+   routeWaypoints ist immer die Route im Vordergrund (Karte, Editor, Fortschritt, Profil, Export).
+   Während eines Umwegs liegt die Missionsroute in window._gaMapDetour.missionRoute; alle
+   Missions-Leser holen sie über gaMissionRouteWaypoints(). Der Umweg gehört genau einer
+   Mission und verschwindet mit ihr. Mit Tracker-Run (navigation.detour.v1) ist der Tracker
+   die Quelle (source 'tracker'), sonst hält die App den Umweg lokal (source 'local'). */
+const MAP_DETOUR_STORAGE_KEY = 'ga_detour_route_v1';
+let mapDetourShadowLayers = [];
+
+function mapDetourState() { return window._gaMapDetour || null; }
+function mapDetourMissionId() { return window.gaActiveMissionId?.() || ''; }
+function mapDetourClone(points) { return JSON.parse(JSON.stringify(normalizeMapRouteWaypoints(points))); }
+
+window.gaDetourActive = () => !!mapDetourState();
+window.gaDetourSource = () => mapDetourState()?.source || '';
+window.gaMissionRouteWaypoints = function() {
+    const detour = mapDetourState();
+    return detour ? detour.missionRoute : routeWaypoints;
+};
+// Missionslogik (z. B. SAR-Wechsel zum Krankenhaus), die ihre Route während eines Umwegs ändert.
+window.gaSetMissionRouteWaypoints = function(points) {
+    const detour = mapDetourState();
+    if (!detour) return false;
+    detour.missionRoute = mapDetourClone(points);
+    persistMapDetour();
+    renderMapDetourShadow();
+    return true;
+};
+
+function persistMapDetour() {
+    const detour = mapDetourState();
+    try {
+        if (!detour || detour.source !== 'local') { localStorage.removeItem(MAP_DETOUR_STORAGE_KEY); return; }
+        localStorage.setItem(MAP_DETOUR_STORAGE_KEY, JSON.stringify({
+            schema: 'ga.web-detour.v1', id: detour.id, missionId: detour.missionId,
+            points: mapDetourClone(routeWaypoints), missionRoute: detour.missionRoute, updatedAt: Date.now()
+        }));
+    } catch (_) {}
+}
+
+function clearMapDetourShadow() {
+    if (map) mapDetourShadowLayers.forEach(layer => { try { map.removeLayer(layer); } catch (_) {} });
+    mapDetourShadowLayers = [];
+}
+
+function renderMapDetourShadow() {
+    clearMapDetourShadow();
+    const detour = mapDetourState();
+    if (!detour || !map || typeof L === 'undefined') return;
+    const points = normalizeMapRouteWaypoints(detour.missionRoute);
+    if (points.length < 2) return;
+    const paneName = ensureMainRoutePane();
+    const latLngs = points.map(p => [p.lat, p.lng]);
+    // Blass und nicht bedienbar: die Mission läuft weiter, wird hier aber nicht bearbeitet.
+    mapDetourShadowLayers.push(L.polyline(latLngs, {
+        pane: paneName || undefined, color: '#ff4444', opacity: 0.42, weight: 5,
+        dashArray: '6,10', lineCap: 'round', interactive: false
+    }).addTo(map));
+    points.forEach((p, index) => {
+        const isEnd = index === 0 || index === points.length - 1;
+        mapDetourShadowLayers.push(L.circleMarker([p.lat, p.lng], {
+            pane: paneName || undefined, radius: isEnd ? 6 : 4, color: '#ff4444', weight: 2,
+            opacity: 0.35, fillColor: p.isPOI ? '#b266ff' : '#ff4444', fillOpacity: 0.25, interactive: false
+        }).addTo(map));
+    });
+    if (typeof polyline?.bringToFront === 'function') polyline.bringToFront();
+}
+
+// Kein eigenes Band: Route Reset führt während eines Umwegs zurück zur Missionsroute.
+function updateMapDetourBand() {
+    const detour = mapDetourState();
+    document.querySelectorAll('button[onclick="resetMainRoute()"]').forEach(btn => {
+        if (detour) {
+            if (!btn.dataset.gaDetourTitle) btn.dataset.gaDetourTitle = btn.getAttribute('title') || '';
+            btn.setAttribute('title', _mapUiPhrase('Zurück zur Missionsroute (Umweg beenden)'));
+            btn.classList.add('route-reset--detour');
+        } else if (btn.classList.contains('route-reset--detour')) {
+            btn.classList.remove('route-reset--detour');
+            if (btn.dataset.gaDetourTitle) btn.setAttribute('title', btn.dataset.gaDetourTitle); else btn.removeAttribute('title');
+            delete btn.dataset.gaDetourTitle;
+        }
+    });
+}
+
+function refreshMapDetourDecor() {
+    const detour = mapDetourState();
+    // Eine andere oder beendete Mission nimmt den Umweg mit.
+    if (detour && detour.missionId && detour.missionId !== mapDetourMissionId()) {
+        window._gaMapDetour = null;
+        persistMapDetour();
+    }
+    if (mapDetourState()) { renderMapDetourShadow(); persistMapDetour(); }
+    else clearMapDetourShadow();
+    updateMapDetourBand();
+}
+
+function enterMapDetour(points, options = {}) {
+    const next = normalizeMapRouteWaypoints(points);
+    if (next.length < 2) return false;
+    const detour = mapDetourState();
+    if (!detour) {
+        window._gaMapDetour = {
+            id: options.id || ('detour-' + Date.now().toString(36)),
+            missionId: options.missionId || mapDetourMissionId(),
+            source: options.source || 'local',
+            missionRoute: mapDetourClone(options.missionRoute || routeWaypoints)
+        };
+    } else {
+        if (options.source) detour.source = options.source;
+        if (options.id) detour.id = options.id;
+        if (options.missionRoute) detour.missionRoute = mapDetourClone(options.missionRoute);
+    }
+    if (typeof window.clearPinnedFlightReplay === 'function') window.clearPinnedFlightReplay();
+    routeWaypoints = next;
+    renderMainRoute();
+    if (options.fit !== false) fitMapToRouteWaypoints([60, 60]);
+    if (typeof scheduleRouteDerivedDataRefresh === 'function') {
+        scheduleRouteDerivedDataRefresh({ skipProfile: true, airspaceDelayMs: 800, profileDuringBusy: true });
+    }
+    return true;
+}
+window.gaEnterDetour = enterMapDetour;
+
+// Ein lokal begonnener Umweg zieht zum Tracker um, sobald dort der Run läuft.
+let mapDetourPushPending = false;
+function pushLocalDetourToTracker() {
+    const detour = mapDetourState();
+    if (!detour || detour.source !== 'local' || mapDetourPushPending) return;
+    const points = mapDetourClone(routeWaypoints);
+    mapDetourPushPending = true;
+    Promise.resolve(window.gaNavigationDetourSet?.(points, {
+        departureIcao: points[0]?.icao || '', destinationIcao: points[points.length - 1]?.icao || ''
+    })).catch(() => null).finally(() => { mapDetourPushPending = false; });
+}
+
+// restore:false beim Missionsende: die Route wird dort ohnehin geleert.
+function leaveMapDetour(options = {}) {
+    const detour = mapDetourState();
+    if (!detour) return false;
+    window._gaMapDetour = null;
+    persistMapDetour();
+    clearMapDetourShadow();
+    updateMapDetourBand();
+    if (options.restore !== false) {
+        routeWaypoints = mapDetourClone(options.missionRoute || detour.missionRoute);
+        renderMainRoute();
+        if (options.fit !== false) fitMapToRouteWaypoints([40, 40]);
+        if (typeof scheduleRouteDerivedDataRefresh === 'function') {
+            scheduleRouteDerivedDataRefresh({ skipProfile: true, airspaceDelayMs: 800, profileDuringBusy: true });
+        }
+    }
+    return true;
+}
+window.gaLeaveDetour = leaveMapDetour;
+window.gaClearDetour = () => leaveMapDetour({ restore: false });
+
+// Nach dem Wiederherstellen einer Mission: lokaler Umweg derselben Mission kommt zurück.
+window.gaRestoreDetour = function() {
+    if (mapDetourState()) return false;
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(MAP_DETOUR_STORAGE_KEY) || 'null'); } catch (_) {}
+    if (!saved || saved.schema !== 'ga.web-detour.v1') return false;
+    const missionId = mapDetourMissionId();
+    if (!missionId || saved.missionId !== missionId) {
+        try { localStorage.removeItem(MAP_DETOUR_STORAGE_KEY); } catch (_) {}
+        return false;
+    }
+    return enterMapDetour(saved.points, { id: saved.id, missionId, source: 'local', missionRoute: routeWaypoints, fit: false });
+};
+
 function _syncCurrentMissionRouteFromMap() {
-    const storedRoute = JSON.parse(JSON.stringify(routeWaypoints || []));
+    // Während eines Umwegs bleibt die Missionsroute unverändert im Missionsstand.
+    const missionRoute = window.gaMissionRouteWaypoints ? window.gaMissionRouteWaypoints() : routeWaypoints;
+    const storedRoute = JSON.parse(JSON.stringify(missionRoute || []));
     window._missionRouteWaypoints = storedRoute;
     if (typeof currentMissionData !== 'undefined' && currentMissionData && typeof currentMissionData === 'object') {
         currentMissionData.routeWaypoints = JSON.parse(JSON.stringify(storedRoute));
         currentMissionData.missionRouteWaypoints = JSON.parse(JSON.stringify(storedRoute));
-        const routeDist = _missionRouteDistanceNmForMap(routeWaypoints);
+        const routeDist = _missionRouteDistanceNmForMap(missionRoute);
         if (Number.isFinite(routeDist) && routeDist > 0) {
             currentMissionData.dist = Math.round(routeDist * 10) / 10;
         }
@@ -9388,6 +9628,10 @@ let ffPolyline = null;
 let ffMarkers = [];
 let ffContextPopup = null;
 let ffNeedsStart = false;
+// Antwort aus dem Missionsdialog beim Einschalten: 'none' | 'keep' | 'discard' (wird erst beim Ziel ausgeführt).
+let ffMissionChoice = null;
+let ffOwnPositionMarker = null;
+let ffOwnPositionTimer = null;
 
 function toggleSnapMode() {
     snapMode = !snapMode;
@@ -10079,7 +10323,15 @@ function isGpsLive(maxAgeMs = 15000) {
     return true;
 }
 
-function toggleFreeflightMode() {
+async function toggleFreeflightMode() {
+    if (!freeflightMode) {
+        // Vorhandene Mission: erst fragen (verwerfen / erhalten), verworfen wird erst beim Ziel.
+        const choice = typeof window.gaDirectToAskMissionChoice === 'function'
+            ? await window.gaDirectToAskMissionChoice()
+            : 'none';
+        if (choice === 'cancel' || freeflightMode) return;
+        ffMissionChoice = choice;
+    }
     freeflightMode = !freeflightMode;
     const btn = document.getElementById('freeflightBtn');
     if (freeflightMode) {
@@ -10088,15 +10340,15 @@ function toggleFreeflightMode() {
         btn.classList.add('active');
         if (measureMode) toggleMeasureMode();
         document.getElementById('map').style.cursor = 'crosshair';
-        // GPS als Start?
-        if (isGpsLive()) {
-            const gps = window.lastLiveGpsPos;
-            ffWaypoints = [{ lat: gps.lat, lng: gps.lon, name: 'GPS' }];
-            showMapToast('GPS-Position als Start gesetzt');
-        } else {
-            ffNeedsStart = true;
-            showMapToast('Tippe auf einen Flugplatz oder die Karte um den Startpunkt zu setzen');
-        }
+        // Start wählen: eigene Position (Knopf am Flugzeug), Kartenpunkt oder Suchtreffer.
+        ffWaypoints = [];
+        ffNeedsStart = true;
+        renderFreeflightRoute();
+        updateFreeflightOwnPositionButton();
+        document.getElementById('mapSearchBtn')?.classList.add('map-search-btn--pick');
+        showMapToast(isGpsLive()
+            ? _mapUiPhrase('Start wählen: 📍 am Flugzeug, Punkt auf der Karte oder Suche 🔍')
+            : _mapUiPhrase('Start wählen: Punkt auf der Karte oder Suche 🔍'));
         // Missions-Route abdimmen
         if (polyline) polyline.setStyle({ opacity: 0.15 });
         routeMarkers.forEach(m => { if (m.getElement) { const el = m.getElement(); if (el) el.style.opacity = '0.15'; } });
@@ -10109,11 +10361,79 @@ function toggleFreeflightMode() {
         clearFreeflightRoute();
         ffWaypoints = [];
         ffNeedsStart = false;
+        ffMissionChoice = null;
+        updateFreeflightOwnPositionButton();
+        document.getElementById('mapSearchBtn')?.classList.remove('map-search-btn--pick');
         // Missions-Route wiederherstellen
         if (polyline) polyline.setStyle({ opacity: 1 });
         routeMarkers.forEach(m => { if (m.getElement) { const el = m.getElement(); if (el) el.style.opacity = '1'; } });
     }
 }
+
+// Kleiner Knopf neben dem eigenen Flugzeug: eigene Position als Direct-To-Start.
+function updateFreeflightOwnPositionButton() {
+    const show = !!(freeflightMode && ffNeedsStart && map && isGpsLive());
+    if (!show) {
+        if (ffOwnPositionMarker) { try { map.removeLayer(ffOwnPositionMarker); } catch (_) {} ffOwnPositionMarker = null; }
+        if (!freeflightMode && ffOwnPositionTimer) { clearInterval(ffOwnPositionTimer); ffOwnPositionTimer = null; }
+        if (freeflightMode && ffNeedsStart && !ffOwnPositionTimer) ffOwnPositionTimer = setInterval(updateFreeflightOwnPositionButton, 1000);
+        return;
+    }
+    const gps = window.lastLiveGpsPos;
+    if (!ffOwnPositionMarker) {
+        const icon = L.divIcon({
+            className: 'ff-own-position-btn',
+            html: `<button type="button" title="${gaEscapeHtml(_mapUiPhrase('Eigene Position als Start'))}" style="display:flex;align-items:center;gap:4px;white-space:nowrap;padding:4px 8px;border:1px solid #fff;border-radius:14px;background:#00a6d6;color:#fff;font:700 12px Arial,sans-serif;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,.4);">📍 ${gaEscapeHtml(_mapUiPhrase('Start hier'))}</button>`,
+            iconSize: [0, 0],
+            iconAnchor: [-28, 14]
+        });
+        ffOwnPositionMarker = L.marker([gps.lat, gps.lon], { icon, zIndexOffset: 10050, keyboard: false, bubblingMouseEvents: false }).addTo(map);
+        ffOwnPositionMarker.on('click', event => {
+            if (event?.originalEvent) L.DomEvent.stop(event.originalEvent);
+            setFreeflightStartFromGps();
+        });
+    } else {
+        ffOwnPositionMarker.setLatLng([gps.lat, gps.lon]);
+    }
+    if (!ffOwnPositionTimer) ffOwnPositionTimer = setInterval(updateFreeflightOwnPositionButton, 1000);
+}
+
+function setFreeflightStartFromGps() {
+    if (!freeflightMode || !isGpsLive()) return false;
+    const gps = window.lastLiveGpsPos;
+    ffWaypoints = [{ lat: gps.lat, lng: gps.lon, name: 'GPS' }];
+    ffNeedsStart = false;
+    updateFreeflightOwnPositionButton();
+    renderFreeflightRoute();
+    showMapToast(_mapUiPhrase('Start: eigene Position. Jetzt Ziel wählen: Punkt auf der Karte oder Suche 🔍'));
+    return true;
+}
+
+function setFreeflightStartPoint(point) {
+    ffWaypoints = [point];
+    ffNeedsStart = false;
+    updateFreeflightOwnPositionButton();
+    renderFreeflightRoute();
+    showMapToast(_mapUiText('map.toast.startThenDest', 'Start: {name}. Jetzt Ziel wählen: Punkt auf der Karte oder Suche 🔍', { name: point.icao ? point.icao + (point.name && point.name !== point.icao ? ' — ' + point.name : '') : (point.name || 'Start') }));
+}
+
+// Suchtreffer der Lupe (map-search.js) als Start oder Ziel, solange Direct To an ist.
+window.gaMapSearchPick = function(result) {
+    if (!freeflightMode || !result) return false;
+    const lat = Number(result.lat), lon = Number(result.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return false;
+    const isAirport = result.kind === 'airport' && /^[A-Z0-9]{3,4}$/.test(String(result.code || '').toUpperCase());
+    const code = isAirport ? String(result.code).toUpperCase() : '';
+    const name = String(result.name || result.code || 'Suchpunkt').trim();
+    if (ffNeedsStart) {
+        setFreeflightStartPoint(code ? { lat, lng: lon, name: code, icao: code } : { lat, lng: lon, name });
+        if (map) map.panTo([lat, lon]);
+        return true;
+    }
+    if (!ffWaypoints.length) return false;
+    freeflightDirectTo(code || 'MAP', lat, lon, code ? name : (result.code ? `${result.code} ${name}`.trim() : name));
+    return true;
+};
 
 function clearFreeflightRoute() {
     if (ffPolyline) { map.removeLayer(ffPolyline); ffPolyline = null; }
@@ -10236,15 +10556,9 @@ function handleFreeflightMapClick(e) {
 
     if (ffNeedsStart) {
         const apt = findNearestAirport(e.latlng, getAirportTapRadiusPx(34));
-        if (apt) {
-            ffWaypoints = [{ lat: apt.lat, lng: apt.lon, name: apt.icao, icao: apt.icao }];
-            showMapToast(_mapUiText('map.toast.start', 'Start: {name}', { name: apt.icao + (apt.name && apt.name !== apt.icao ? ' — ' + apt.name : '') }));
-        } else {
-            ffWaypoints = [{ lat: e.latlng.lat, lng: e.latlng.lng, name: 'Start' }];
-            showMapToast('Startpunkt gesetzt');
-        }
-        ffNeedsStart = false;
-        renderFreeflightRoute();
+        setFreeflightStartPoint(apt
+            ? { lat: apt.lat, lng: apt.lon, name: apt.icao, icao: apt.icao }
+            : { lat: e.latlng.lat, lng: e.latlng.lng, name: 'Start' });
         return;
     }
 
@@ -10258,19 +10572,28 @@ function handleFreeflightMapClick(e) {
     }
 }
 
-window.freeflightDirectTo = function(icao, lat, lon, destName = '') {
+window.freeflightDirectTo = async function(icao, lat, lon, destName = '') {
+    if (!ffWaypoints.length) return false;
     if (window.missionComplianceBlockReset?.()) {
         try { alert(_mapUiPhrase('Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.')); } catch (_) {}
         return false;
     }
-    if (typeof window.confirmMissionAuthorityReplacement === 'function'
-        && !window.confirmMissionAuthorityReplacement('Direct-to', 'freeflight-direct-to')) return false;
-    if (ffContextPopup) { map.closePopup(ffContextPopup); ffContextPopup = null; }
-    // GPS-Start aktualisieren falls verfuegbar
-    if (isGpsLive()) {
+    // Als Start gewählte eigene Position auf den aktuellen Stand bringen.
+    if (ffWaypoints[0]?.name === 'GPS' && isGpsLive()) {
         const gps = window.lastLiveGpsPos;
         ffWaypoints[0] = { lat: gps.lat, lng: gps.lon, name: 'GPS' };
     }
+    let choice = ffMissionChoice;
+    if (!choice && typeof window.gaDirectToAskMissionChoice === 'function') choice = await window.gaDirectToAskMissionChoice();
+    if (choice === 'cancel') return false;
+    if (choice === 'keep' && (window.gaActiveMissionId?.() || window.gaDetourActive?.())) {
+        return freeflightDetourTo(icao, lat, lon, destName);
+    }
+    if (choice === 'discard' && window.gaDirectToDiscardMission
+        && !(await window.gaDirectToDiscardMission('freeflight-direct-to'))) return false;
+    if (typeof window.confirmMissionAuthorityReplacement === 'function'
+        && !window.confirmMissionAuthorityReplacement('Direct-to', 'freeflight-direct-to')) return false;
+    if (ffContextPopup) { map.closePopup(ffContextPopup); ffContextPopup = null; }
     const startWp = ffWaypoints[0];
     const startName = startWp.icao || startWp.name || 'Start';
 
@@ -10327,13 +10650,7 @@ window.freeflightDirectTo = function(icao, lat, lon, destName = '') {
     }
 
     // Freeflight-Modus sauber beenden (ohne Route wiederherzustellen)
-    clearFreeflightRoute();
-    ffWaypoints = [];
-    ffNeedsStart = false;
-    freeflightMode = false;
-    const btn = document.getElementById('freeflightBtn');
-    if (btn) { btn.innerText = `✈️ Direct To (${_mapUiOnOff(false)})`; btn.classList.remove('active'); btn.style.background = '#444'; btn.style.color = '#fff'; }
-    document.getElementById('map').style.cursor = '';
+    endFreeflightModeSilently();
 
     // Hauptroute rendern (regulaerer Bearbeitungsmodus)
     if (polyline) polyline.setStyle({ opacity: 1 });
@@ -10372,6 +10689,56 @@ window.freeflightDirectTo = function(icao, lat, lon, destName = '') {
 
     showMapToast('Direct to ' + icao);
 };
+
+function endFreeflightModeSilently() {
+    clearFreeflightRoute();
+    ffWaypoints = [];
+    ffNeedsStart = false;
+    ffMissionChoice = null;
+    freeflightMode = false;
+    updateFreeflightOwnPositionButton();
+    document.getElementById('mapSearchBtn')?.classList.remove('map-search-btn--pick');
+    const btn = document.getElementById('freeflightBtn');
+    if (btn) { btn.innerText = `✈️ Direct To (${_mapUiOnOff(false)})`; btn.classList.remove('active'); btn.style.background = '#444'; btn.style.color = '#fff'; }
+    const mapEl = document.getElementById('map');
+    if (mapEl) mapEl.style.cursor = '';
+}
+
+// Direct-To-Punkte (Start + Ziel) für einen Umweg; Missionsdaten bleiben unberührt.
+function buildDetourPoints(startWp, dest) {
+    const isGps = startWp.name === 'GPS';
+    return [
+        { lat: Number(startWp.lat), lng: Number(startWp.lng ?? startWp.lon), lon: Number(startWp.lng ?? startWp.lon),
+            name: isGps ? 'Live GPS Position' : (startWp.icao || startWp.name || 'Start'),
+            icao: isGps ? 'GPS' : (startWp.icao || undefined) },
+        { lat: Number(dest.lat), lng: Number(dest.lon), lon: Number(dest.lon),
+            name: dest.name || dest.icao || 'Ziel', icao: dest.icao && dest.icao !== 'MAP' ? dest.icao : undefined }
+    ];
+}
+
+async function startDetour(points, label) {
+    if (window.gaNavigationDetourAvailable?.()) {
+        // Tracker-Run: der Tracker führt den Umweg, EFB und Sim-GPS folgen ihm.
+        const nav = await window.gaNavigationDetourSet(points, {
+            departureIcao: points[0].icao || '', destinationIcao: points[points.length - 1].icao || ''
+        });
+        if (!nav) return false;
+        window.gaNavigationReceive?.(nav);
+    } else if (!enterMapDetour(points, { source: 'local' })) {
+        return false;
+    }
+    const efbNote = mapDetourState()?.source === 'local' && window.gaTrackerExecutionHandlesMission?.()
+        ? ' ' + _mapUiPhrase('(EFB und Sim-GPS zeigen weiter die Missionsroute)') : '';
+    showMapToast(_mapUiText('map.toast.detourTo', 'Umweg: Direct to {name} – Mission läuft weiter', { name: label }) + efbNote);
+    return true;
+}
+
+async function freeflightDetourTo(icao, lat, lon, destName = '') {
+    if (ffContextPopup) { map.closePopup(ffContextPopup); ffContextPopup = null; }
+    const points = buildDetourPoints(ffWaypoints[0], { lat, lon, icao, name: destName || icao });
+    endFreeflightModeSilently();
+    return startDetour(points, icao && icao !== 'MAP' ? icao : (destName || 'Kartenpunkt'));
+}
 
 function renderFreeflightRoute() {
     clearFreeflightRoute();
