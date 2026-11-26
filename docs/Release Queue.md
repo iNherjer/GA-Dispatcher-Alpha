@@ -27,19 +27,16 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-### 2026-11-26 · Crew-Live: Keepalive und Zustandszeilen im Tracker
-- **Artefakt:** Tracker-EXE (`ga-tracker-client/tracker-crew-live.js`). Relay `ga-relay` mit Pong (`setWebSocketAutoResponse`) und Beitritts-Warteschlange ist seit 26.11.2026 deployed (Version `d5276fad`, Pong live geprüft).
-- **Was:** Tracker pingt den Crew-Raum alle 30 s, trennt nach 75 s Stille (`CREW_LIVE_STALE`) und tritt neu bei. Neue Logzeilen `CREW_LIVE_STATE` (beim Start, dann alle 10 min), `CREW_LIVE_DISABLED` (fehlende PIN/ID), `CREW_LIVE_IDLE reason=no-crew`. Anlass: Ortis Log (v664, 26.11.): `CREW_LIVE_JOINED` 18:45 UTC, Zuschauer 18:56 noch gesehen, danach Stille ohne `CREW_LIVE_CLOSED`; die Zuschauer-Beitritte 20:32–20:48 UTC kamen nicht mehr an (App: „0 Tracker im Crew-Raum“). SALUD (19.11.) gleiches Bild.
-- **Tests:** `tracker-crew-live.test.js`, `tools/cloudflare-relay` (`relay-worker.test.mjs`, `crew-live-room.test.mjs`) grün.
-- **Pruefen im Feld:** Zwei Crew-Mitglieder: Web-Zuschauer sieht „1 Tracker“ im Crew-Raum und das grüne Flugzeug auf der Karte, auch nach langem Flug ohne Zuschauer. Tracker-Log: `CREW_LIVE_STATE … joined=1`, keine `CREW_LIVE_STALE`-Schleife.
-
-### 2026-11-26 · Höhenprofil: Umweg-Beschriftung und Lückenzähler (EFB-Kopie von `profile.js`)
-- **Artefakt:** EFB-Web-Assets (Sync von `profile.js`). Web live mit v2556/v2557.
-- **Was:** `vpRouteWaypointLabel` fragt zuerst `gaDetourEndpointLabel`. Das EFB definiert diese Funktion nicht, dort ändert sich nichts. Debug-Zeile „Lücken fehlend/unsichtbar/abgehängt | Tuning …“ (die Zähler gibt es nur im Web).
-- **Tests:** `tracker-efb-web-client`, `tracker-efb-asset-syntax`, `tracker-profile-data` grün.
-- **Pruefen im Feld:** nichts Neues im EFB.
+(leer)
 
 ## Ausgeliefert
+
+### 2026-11-26 · Crew-Live bleibt verbunden – Tracker v665 Alpha
+
+- **Artefakt:** Tracker-EXE mit EFB-Assets 66501 und Web-Cache v2565.
+- **Änderungen:** Crew-Live-Keepalive mit Pong vom Relay (ga-relay `d5276fad`), Neueintritt nach 75 s Stille, Zustandszeilen `CREW_LIVE_STATE`/`DISABLED`/`IDLE`. Dazu der Queue-Eintrag vom 26.11.: Umweg-Beschriftung im Höhenprofil (EFB-Kopie von `profile.js`).
+- **Im Feld prüfen:** Zwei Crew-Tracker v665, Zuschauer nach langer stiller Phase sieht „1 Tracker“ und den grünen Kontakt.
+- **Details:** [Tracker v665](Tracker-v665-Release.md).
 
 ### 2026-11-26 · Direct To bei Mission (Umweg), EFB-Kartenleistung, Kartensuche, Funkfeuer-Symbole, DWD-Stunden – Tracker v664 Alpha
 
