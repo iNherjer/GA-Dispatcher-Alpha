@@ -750,6 +750,9 @@ function createTrackerVoiceService(options = {}) {
       request = { ...request, text: resolvedText.text };
       record.text = resolvedText.text;
       record.textModel = resolvedText.textModel;
+      // Spoken text in the log (shortened), so passenger remarks can be checked against
+      // SIM_WEATHER lines of the same minute (diagnostics, 26.11.2026).
+      if (record.text) log(`VOICE_TEXT effectId=${record.effectId} kind=${request.kind || '-'} chars=${String(record.text).length} text="${String(record.text).replace(/\s+/g, ' ').replace(/"/g, "'").slice(0, 300)}"`);
       if (request.kind === 'poi' && typeof request.confirmTextReady === 'function') {
         // The mission owns this durable text checkpoint, before any audio work.
         // A failed commit retains the exact generated text for a later retry.

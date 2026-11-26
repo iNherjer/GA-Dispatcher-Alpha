@@ -277,6 +277,8 @@ const debugLog = (line) => {
   return written;
 };
 const environmentDiagnostics = require('./tracker-environment-diagnostics.js').createEnvironmentDiagnostics(debugLog);
+// Raw simulator weather + nearest METAR in the log (diagnostics only, 26.11.2026).
+const weatherDiagnostics = require('./tracker-weather-diagnostics.js').createWeatherDiagnostics({ log: debugLog });
 const logCostTimer = setInterval(() => {
   writeDebugLog(`TRACKER_LOG_COST totals=${JSON.stringify({ debug: writeDebugLog.metrics(), mission: missionTestLog.metrics() })}`);
 }, 10000);
@@ -7638,6 +7640,14 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                 lat,lon,mslFt:alt,tempC:raw.tempC,windKts:raw.windKts,
                 visKm:Number.isFinite(raw.visMeters)?raw.visMeters/1000:null,precipState:raw.precipState},
                 {hasMission:!!missionAuthorityManager?.getActiveRun?.()});
+              try {
+                weatherDiagnostics.observe({ lat, lon, altFt: alt, aglFt: agl, onGround: onGround === 1 || onGround === true ? true : (onGround === 0 || onGround === false ? false : null),
+                  visMeters: raw.visMeters, inCloud: Number.isFinite(raw.inCloud) ? raw.inCloud > 0.5 : null,
+                  precipState: precipitation.precipState, precipLabel: precipitation.precipLabel, precipRateRaw: precipitation.precipRateRaw,
+                  tempC: raw.tempC, windKts: raw.windKts, windDeg: raw.windDeg, windGustKts: raw.windGustKts, turbulencePct: raw.turbulencePct,
+                  weatherPreset: trackerCockpitControl?.weatherPreset?.() || null, hasMission: !!missionAuthorityManager?.getActiveRun?.(),
+                  inMenu: runtimeState.simRunning !== 1 || inMenuOrMap === true });
+              } catch (_) {}
               // DialogMode also means an open cockpit EFB. Use explicit camera
               // menu/loading states alongside SimStop, never DialogMode alone.
               const cameraState = cameraTelemetry.snapshot();

@@ -27,7 +27,12 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-(leer)
+### 2026-11-26 · Wetter-Diagnose im Tracker-Log
+- **Artefakt:** Tracker-EXE (`tracker-weather-diagnostics.js`, Anschluss in `tracker.js`, `tracker-voice-service.js`). Nur Logzeilen, keine Änderung an Voice, Mission oder UI. Keine neuen SimVars.
+- **Was:** `SIM_WEATHER` jede Minute bei Mission oder in der Luft und sofort bei Wechsel von Sichtband, Wolke oder Niederschlag (höchstens alle 10 s). Enthält rohes `AMBIENT VISIBILITY` in Metern, in Wolken, Niederschlag, Temperatur, Wind, Böen, Turbulenz, Höhe, Position auf 2 Stellen, Wetter-Preset aus dem EFB, Mission und `voiceHint`, also die Sichtzeile, die die Passagier-Prompts bauen. `SIM_WEATHER_METAR` alle 10 min mit dem nächsten METAR (aviationweather.gov, Ausschnitt ±0,6°/±0,9°): Station, Abstand, Sicht, Wettererscheinung, Flugkategorie, Temperatur/Taupunkt-Spread, Roh-METAR. `VOICE_TEXT` mit den ersten 300 Zeichen jedes gesprochenen Textes.
+- **Anlass:** Orti flog am 26.11. im Nebel. Der Sim meldete `AMBIENT VISIBILITY` 138,6 km, der Passagier lobte die Fernsicht. Mit den Zeilen lässt sich vergleichen, was der Sim liefert, was das echte Wetter sagt und was der Passagier daraus macht.
+- **Tests:** `tracker-weather-diagnostics.test.js`, Tracker-Gesamtlauf 1650 bestanden, 2 übersprungen. METAR-Abruf live geprüft.
+- **Pruefen im Feld:** Flug mit Live-Wetter in Nebel oder Dunst, und ein Flug mit Preset (z. B. Nebel). Im Log `SIM_WEATHER visM=…` gegen `SIM_WEATHER_METAR …` und `VOICE_TEXT` legen.
 
 ## Ausgeliefert
 
