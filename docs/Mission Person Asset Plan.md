@@ -279,11 +279,15 @@ Seit Pack 0.6.27 gibt es Figuren mit eigenem Einsatz: `tw-pod-patient-m-01`
   Anfrage mit `patient` – auch Rückfall-Pool und Ersatztitel lassen sie sonst weg.
   Eine passende Pack-Figur bleibt bevorzugt (User-Entscheidung 26.11.2026).
 - **Patiententransfer:** Der Onboard-Kern markiert den Patienten (`patient: true`),
-  der Composer-Plan trägt das Merkmal weiter. `resolveFigures` wählt die
-  Patientenfigur; erzählt der Composer eine Outdoor-Person, kommt auch eine passende
-  Outdoor-Figur in Frage (Wanderer). Ohne Patientenfigur dieses Geschlechts eine
-  Alltagsfigur. Boarding und Aussteigen nutzen dieselbe Figur; ältere Pläne ohne
-  Merkmal behalten die bisherige Wahl.
+  der Composer-Plan trägt das Merkmal weiter. Die Patientenfigur ist immer eine Option.
+  Hat der Composer aus der Geschichte einen Look gewählt, steht gleichberechtigt die
+  Figur daneben, die zu diesem Look am besten passt – aus jedem Einsatzbereich (z. B.
+  Arbeitskleidung bei einem Arbeitsunfall); der Losschlüssel entscheidet stabil (Web v2560).
+  Ohne Composer-Look die Patientenfigur, ohne Patientenfigur dieses Geschlechts die
+  Look-Figur bzw. eine Alltagsfigur. Keine Beispiele oder Figurennamen in den Prompts:
+  der Composer wählt nur den Look aus der Geschichte, die Figur folgt aus dem Katalog.
+  Boarding und Aussteigen nutzen dieselbe Figur; ältere Pläne ohne Merkmal behalten
+  die bisherige Wahl.
 - **Bodenpersonal:** Szenen-Personen mit Rolle `person.ground_crew` am Zielplatz nehmen
   eine Pack-Figur mit `ground_crew`, wenn ihr Look zur Rolle passt
   (`defaultLookForRole`, z. B. Fracht → workwear); sonst Tarmac wie bisher. Bringer und

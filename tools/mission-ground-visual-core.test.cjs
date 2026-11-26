@@ -239,22 +239,31 @@ test('Besetzung aus der Idee bleibt fest, auch wenn der Composer andere Personen
   assert.equal(plan.scenes.arrival.castSource, 'idea');
 });
 
-test('Patiententransfer: Patientenfigur, bei Outdoor-Geschichte auch Wanderer, nie als normaler Pax', () => {
+test('Patiententransfer: Patientenfigur oder Figur passend zur Geschichte, Patient nie als normaler Pax', () => {
   const medical = { schema: 'medical-transfer-idea.v1', purpose: 'Verlegung zur Reha', background: 'geplant', character: 'ruhig',
     arrival: 'Krankenwagen am Vorfeld', recipient: 'Reha-Klinik', transportKind: 'patient_transfer',
     passenger: { name: 'Dr. Lena Roth', role: 'Ärztin', gender: 'female' }, patient: { name: 'Karl Weiß', gender: 'male', mobility: 'seated_assisted' } };
   const onboard = onboardCore.fromIdea(medical);
-  const plan = core.validate({ passengers: [{ id: 'pax1', look: 'medical' }, { id: 'pax2', look: 'casual' }] }, onboard, {});
+  // Ohne Composer-Look für den Patienten (feste Liste): Patientenfigur.
+  const plan = core.validate({ passengers: [{ id: 'pax1', look: 'medical' }, { id: 'pax2' }] }, onboard, {});
   assert.equal(plan.passengers[1].patient, true);
+  assert.equal(plan.passengers[1].lookSource, 'role');
   const picks = core.resolveFigures(plan, { season: 'summer', seed: 'verlegung' });
   assert.equal(picks[1].title, 'tw-pod-patient-m-01');
   assert.equal(picks[1].patient, true);
   assert.ok(picks[1].candidates.length > 1, 'Ersatztitel nach der Patientenfigur');
-  const outdoor = { ...plan, passengers: [plan.passengers[0], { ...plan.passengers[1], look: 'outdoor', lookSource: 'composer' }] };
-  const titles = new Set(Array.from({ length: 30 }, (_, i) => core.resolveFigures(outdoor, { season: 'summer', seed: `o${i}` })[1].title));
-  assert.deepEqual([...titles].sort(), ['tw-pod-hiker-m-01', 'tw-pod-patient-m-01']);
+  // Composer-Look aus der Geschichte: Patientenfigur oder die passendste Figur dieses Looks.
+  const spread = (look) => {
+    const variant = { ...plan, passengers: [plan.passengers[0], { ...plan.passengers[1], look, lookSource: 'composer' }] };
+    return [...new Set(Array.from({ length: 30 }, (_, i) => core.resolveFigures(variant, { season: 'summer', seed: `o${i}` })[1].title))].sort();
+  };
+  assert.deepEqual(spread('outdoor'), ['tw-pod-hiker-m-01', 'tw-pod-patient-m-01']);
+  assert.deepEqual(spread('workwear'), ['tw-pod-patient-m-01', 'tw-pod-worker-m-01']);
+  assert.deepEqual(spread('casual'), ['tw-pod-casual-m-01', 'tw-pod-patient-m-01']);
   const female = { ...plan, passengers: [plan.passengers[0], { ...plan.passengers[1], gender: 'female' }] };
-  assert.match(core.resolveFigures(female, { season: 'summer', seed: 'f' })[1].title, /^Tarmac_Female_/, 'keine Patientin → Alltagsfigur, nicht die Wanderin');
+  assert.match(core.resolveFigures(female, { season: 'summer', seed: 'f' })[1].title, /^Tarmac_Female_/, 'keine Patientin, kein Composer-Look → Alltagsfigur');
+  const femaleOutdoor = { ...plan, passengers: [plan.passengers[0], { ...plan.passengers[1], gender: 'female', look: 'outdoor', lookSource: 'composer' }] };
+  assert.equal(core.resolveFigures(femaleOutdoor, { season: 'summer', seed: 'f' })[1].title, 'tw-pod-hiker-f-01');
   const group = { passengers: ['casual', 'outdoor', 'medical', 'workwear', 'business'].map((look, i) => ({ id: `pax${i + 1}`, lead: !i, gender: 'male', look })) };
   for (let i = 0; i < 60; i += 1) {
     for (const pick of core.resolveFigures(group, { season: i % 2 ? 'winter' : 'summer', seed: `g${i}` })) {

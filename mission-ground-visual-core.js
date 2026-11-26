@@ -307,23 +307,26 @@ function figureSeed() { return 'gv-' + Date.now().toString(36) + '-' + Math.rand
 
 // Konkrete Figuren je Pax aus dem Plan (oder Rückfall), Gruppe ohne Dopplung. Ein gespeicherter
 // Plan lost mit seinem eigenen Schlüssel, sonst mit dem übergebenen (Missionskennung).
-// Patient (Medizin-Verlegung): in der Regel die Patientenfigur. Erzählt der Composer eine
-// Outdoor-Person (lookSource composer), kommt auch eine passende Outdoor-Figur in Frage.
-// Gibt es keine Patientenfigur dieses Geschlechts, eine neutrale Alltagsfigur – nie eine
-// zufällige Figur mit Ausrüstung.
+// Patient (Medizin-Verlegung): Die Patientenfigur ist immer eine Option. Hat der Composer
+// aus der Geschichte einen Look gewählt (lookSource composer), steht gleichberechtigt die
+// Figur daneben, die zu diesem Look am besten passt – egal aus welchem Einsatzbereich; der
+// Losschlüssel entscheidet stabil. Ohne Composer-Look oder ohne passende Figur die
+// Patientenfigur; gibt es keine für dieses Geschlecht, eine Alltagsfigur.
 function pickPatientFigure(core, p, base) {
-  const outdoorStory = p.look === 'outdoor' && p.lookSource === 'composer';
-  const request = outdoorStory
-    ? { ...base, look: 'outdoor', use: ['patient', 'passenger'] }
-    : { ...base, look: '', use: 'patient' };
-  const pick = core.pickPersonFigure(request);
-  const figure = pick?.title && core.figureForTitle ? core.figureForTitle(pick.title) : null;
-  const fits = figure && (outdoorStory ? (figure.uses || []).some((use) => use === 'patient' || use === 'passenger') : (figure.uses || []).includes('patient'));
+  const storyLook = p.lookSource === 'composer' && p.look ? p.look : '';
+  const patientPick = core.pickPersonFigure({ ...base, look: '', use: 'patient' });
+  const patientFigure = patientPick?.title && core.figureForTitle ? core.figureForTitle(patientPick.title) : null;
+  const hasPatient = !!patientFigure && (patientFigure.uses || []).includes('patient');
+  const contextPick = storyLook ? core.pickPersonFigure({ ...base, look: storyLook }) : null;
+  const contextFits = !!contextPick?.title && contextPick.matched?.look === true;
   const everyday = core.pickPersonFigure({ ...base, look: 'casual', use: 'passenger' });
-  if (!fits) return everyday;
-  // Ersatztitel für Spawn-Fehler: nach der Patientenfigur neutrale Alltagsfiguren.
-  const candidates = [...new Set([...(pick.candidates || []), ...(everyday?.candidates || [])])].slice(0, 6);
-  return { ...pick, candidates };
+  let pick;
+  if (hasPatient && contextFits) pick = hash(`${base.seed}|patient-slot`) % 2 ? contextPick : patientPick;
+  else if (hasPatient) pick = patientPick;
+  else pick = contextFits ? contextPick : everyday;
+  // Ersatztitel für Spawn-Fehler: danach neutrale Alltagsfiguren.
+  const candidates = [...new Set([...(pick?.candidates || []), ...(everyday?.candidates || [])])].slice(0, 6);
+  return pick ? { ...pick, candidates } : everyday;
 }
 
 function resolveFigures(plan, { season = '', seed = '' } = {}) {
