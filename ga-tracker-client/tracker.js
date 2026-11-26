@@ -17,6 +17,7 @@ const executeMediaRelay = require('./tracker-media-core').createMediaRelay(paylo
 const { open, SimConnectDataType, SimConnectPeriod, InitPosition, RawBuffer, Waypoint, SimConnectConstants, EventFlag } = require('node-simconnect');
 const { createCameraTelemetry } = require('./tracker-camera-telemetry');
 const { createClockTelemetry } = require('./tracker-clock-telemetry.js');
+const { createWeatherExtraTelemetry } = require('./tracker-weather-extra-telemetry.js');
 const { createSlewTelemetry } = require('./tracker-slew-telemetry.js');
 const { createStartReadinessSource } = require('./tracker-start-readiness-source.js');
 const { createReadinessGapMonitor, createLoopDelayProbe } = require('./tracker-start-readiness-gap-monitor.js');
@@ -175,8 +176,8 @@ const HOMEBASE_ENABLED = true;
 const CONFIG_BASENAME = 'tracker-config.json';
 const CONFIG_FILE = path.join(TRACKER_DATA_DIR, CONFIG_BASENAME);
 const LEGACY_CONFIG_FILE = path.resolve(process.cwd(), CONFIG_BASENAME);
-const TRACKER_VERSION = 'v665';
-const TRACKER_VERSION_CODE = 665;
+const TRACKER_VERSION = 'v666';
+const TRACKER_VERSION_CODE = 666;
 const TRACKER_DISPLAY_NAME = `GA Tracker ${TRACKER_VERSION} (build ${TRACKER_VERSION_CODE})`;
 const EFB_HTTP_PORT_CONFLICT_EXIT_CODE = 12;
 const TRACKER_RUNTIME_CHANNEL = process.env.VFR_MULTITOOL_TRACKER_CHANNEL === 'alpha' ? 'alpha' : 'stable';
@@ -7462,6 +7463,10 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
         requestId: 210, float64Type: SimConnectDataType.FLOAT64,
         period: SimConnectPeriod.VISUAL_FRAME, intervalFrames: GPS_SOURCE_INTERVAL_FRAMES,
         log: debugLog});
+      // Extra weather values for SIM_WEATHER, each in its own definition (ids 230-235).
+      const weatherExtraTelemetry = createWeatherExtraTelemetry({ handle, firstId: 230,
+        float64Type: SimConnectDataType.FLOAT64, period: SimConnectPeriod.SECOND, log: debugLog });
+      teardown.push(() => weatherExtraTelemetry.dispose());
       teardown.push(() => slewTelemetry.dispose(), () => clockTelemetry.dispose(),
         () => cameraTelemetry.dispose(), () => aircraftIdentity.dispose());
       const gpsDefinitionSends = new Map();
@@ -7646,7 +7651,8 @@ function connectSimConnect(getWs, syncId, pin, setTrackerCommandHandler = null, 
                   precipState: precipitation.precipState, precipLabel: precipitation.precipLabel, precipRateRaw: precipitation.precipRateRaw,
                   tempC: raw.tempC, windKts: raw.windKts, windDeg: raw.windDeg, windGustKts: raw.windGustKts, turbulencePct: raw.turbulencePct,
                   weatherPreset: trackerCockpitControl?.weatherPreset?.() || null, hasMission: !!missionAuthorityManager?.getActiveRun?.(),
-                  inMenu: runtimeState.simRunning !== 1 || inMenuOrMap === true });
+                  inMenu: runtimeState.simRunning !== 1 || inMenuOrMap === true,
+                  extra: weatherExtraTelemetry.snapshot(now) });
               } catch (_) {}
               // DialogMode also means an open cockpit EFB. Use explicit camera
               // menu/loading states alongside SimStop, never DialogMode alone.

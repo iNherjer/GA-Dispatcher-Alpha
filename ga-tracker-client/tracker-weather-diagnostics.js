@@ -39,6 +39,14 @@ function voiceVisibilityHint(visKm) {
   return `Sicht ${visKm} km${desc}`;
 }
 
+// Values from tracker-weather-extra-telemetry.js (null = not delivered by the simulator).
+function extraFields(extra) {
+  if (!extra || typeof extra !== 'object') return '';
+  const v = (key, digits) => round(extra[key], digits) ?? '?';
+  return ` qnh=${v('qnhHpa', 1)} pressInHg=${v('pressInHg', 2)} density=${v('densitySlugFt3', 6)}`
+    + ` tat=${v('tatC', 1)} ice=${v('icePct', 2)} windVert=${v('windVertMs', 1)}`;
+}
+
 function distanceNm(a, b) {
   const toRad = d => d * Math.PI / 180;
   const dLat = toRad(b.lat - a.lat), dLon = toRad(b.lon - a.lon);
@@ -94,7 +102,7 @@ function createWeatherDiagnostics(options = {}) {
 
   // sample: raw telemetry fields (lat, lon, altFt, aglFt, onGround, visMeters, inCloud,
   // precipState, precipLabel, precipRateRaw, tempC, windKts, windDeg, windGustKts,
-  // turbulencePct, weatherPreset, hasMission, inMenu).
+  // turbulencePct, weatherPreset, hasMission, inMenu, extra).
   function observe(sample = {}) {
     if (!sample || sample.inMenu === true) return;
     const lat = finite(sample.lat), lon = finite(sample.lon);
@@ -120,6 +128,7 @@ function createWeatherDiagnostics(options = {}) {
       + ` gust=${round(sample.windGustKts, 0) ?? '?'} turb=${round(sample.turbulencePct, 0) ?? '?'}`
       + ` altFt=${round(sample.altFt, 0) ?? '?'} aglFt=${round(sample.aglFt, 0) ?? '?'} gnd=${sample.onGround ? 1 : 0}`
       + ` pos=${lat.toFixed(2)},${lon.toFixed(2)} preset=${preset} mission=${sample.hasMission ? 1 : 0}`
+      + extraFields(sample.extra)
       + ` voiceHint=${quote(voiceVisibilityHint(visKm), 60)}`);
     if (t - lastMetarAt >= metarIntervalMs) {
       lastMetarAt = t;

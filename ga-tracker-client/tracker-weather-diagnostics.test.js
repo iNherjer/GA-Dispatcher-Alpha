@@ -14,7 +14,8 @@ function harness(rows = []) {
 }
 const fog = { lat: 49.63, lon: 2.61, altFt: 3000, aglFt: 2700, onGround: false, visMeters: 138600, inCloud: false,
   precipState: 2, precipLabel: 'kein Niederschlag', tempC: -3.5, windKts: 4, windDeg: 270, hasMission: true,
-  weatherPreset: { index: 0, name: 'Live' } };
+  weatherPreset: { index: 0, name: 'Live' },
+  extra: { qnhHpa: 1031.24, pressInHg: 29.71, densitySlugFt3: 0.00241, tatC: -3.2, icePct: 0, windVertMs: null } };
 
 test('logs raw simulator weather with the passenger visibility hint and the nearest METAR', async () => {
   const h = harness([
@@ -23,7 +24,8 @@ test('logs raw simulator weather with the passenger visibility hint and the near
   ]);
   h.diag.observe(fog); await h.flush();
   assert.match(h.logs[0], /^SIM_WEATHER reason=interval visM=138600 visKm=138\.6 cloud=0 precip=2\(kein Niederschlag\)/);
-  assert.match(h.logs[0], /preset=0:"Live" mission=1 voiceHint="Sicht 138\.6 km \(ausgezeichnet\)"$/);
+  assert.match(h.logs[0], / qnh=1031\.2 pressInHg=29\.71 density=0\.00241 tat=-3\.2 ice=0 windVert=\? voiceHint/);
+  assert.match(h.logs[0], /preset=0:"Live" mission=1 qnh=.* voiceHint="Sicht 138\.6 km \(ausgezeichnet\)"$/);
   assert.match(h.urls[0], /bbox=49\.03,1\.71,50\.23,3\.51$/);
   assert.match(h.logs[1], /^SIM_WEATHER_METAR station=LFOB distNm=\d+(\.\d)? visib=1\/2sm wx=FG cat=LIFR temp=-3 dewp=-3 spread=0 raw="LFOB 262030Z/);
 });
