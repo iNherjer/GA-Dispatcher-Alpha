@@ -19,6 +19,9 @@
             <span id="navStationLabel" style="color: #fff; font-weight: bold; font-family: monospace;" data-i18n="map.header.title">NAV STATION (KARTENTISCH)</span>
         </div>
         <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <div id="mapSearchWrap" class="map-search-wrap">
+                <button type="button" class="pb-btn map-search-btn" id="mapSearchBtn" onclick="window.gaToggleMapSearch && gaToggleMapSearch()" aria-expanded="false" aria-controls="mapSearchPanel" title="Auf der Karte suchen" aria-label="Auf der Karte suchen" data-i18n-title="map.search.aria" data-i18n-aria-label="map.search.aria">🔍</button>
+            </div>
             <button class="pb-btn" onclick="resetMainRoute()">🔄 Route Reset</button>
             <button class="pb-btn" id="vpToggleBtn" onclick="toggleMapProfile()" style="background:#2E8B57; color:#fff; font-weight:bold;">📊 Profil (An)</button>
             <div style="position:relative; display:inline-flex; align-items:center;">

@@ -1,4 +1,4 @@
-## Kartensuche und Was-ist-hier-Panel im EFB (25.11.2026, Release Queue)
+## Kartensuche und Was-ist-hier-Panel im EFB (25.11.2026) – Tracker v664 Alpha (26.11.2026)
 
 Die Lupe aus dem Web-Kartentisch (Web v2545) und „Was ist hier?“ als festes Panel
 (Web v2546) laufen auch im EFB. `map-search.js` wird wie die übrigen Kartentisch-
@@ -204,6 +204,15 @@ Renderauftrag mit einer kurzen Verzögerung. Die normale Leerlaufzeit beträgt
 weiter zehn Minuten. Der Kartenwechsel benötigt Tracker v657 und Desktop
 1.6.43. Der Host mit Assetrevision 65701 läuft über das vorhandene
 Community-Paket. Die Web-Version ist v2508.
+
+Tracker v664 Alpha (26.11.2026, Assetrevision 66401): Der EFB-Host baut Flugplatz-
+und Funkfeuer-Symbole beim Verschieben nicht mehr komplett neu. Was im Bild bleibt,
+wird behalten, nur Hinzukommendes wird gebaut und Herausfallendes entfernt. Neue
+Daten oder eine Stiländerung bauen weiter alles neu. Bei Kartenbewegung
+(`window.gaMapMotionActive`) zeichnet das Höhenprofil höchstens 4-mal pro Sekunde
+und nutzt die letzte Streifenmessung bis zu 1 s weiter. Nach der Bewegung folgt ein
+volles Bild. `airports.json` wird zuerst über die Rohposition auf den
+Abdeckungsbereich vorgefiltert.
 
 ## EFB-Vektorkarte „VFR Vektor (OSM)“ über die Desktop-App – Alpha-Rollout Tracker v656 / Desktop 1.6.42 (22.11.2026)
 

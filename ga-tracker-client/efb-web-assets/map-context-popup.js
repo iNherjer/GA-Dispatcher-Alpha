@@ -100,21 +100,103 @@ function dismissMapContextInfo() {
   });
 }
 
-// Mobile layout (phone/tablet up to 1024 px, not the EFB): the popup is a fixed sheet at
-// the right edge above toolbar and profile panel (classic popup width, at most 80 % of the
-// screen; styles.css). Its arrow tip sits at the sheet's left edge, half screen height, and
-// the map is panned so the pressed point lies under it.
-// While it is open the map is frozen; a tap beside the sheet or the X closes it and
-// brings back the earlier map view.
-var MAP_CONTEXT_SHEET_MAX_WIDTH_PX = 1024;
+// "Was ist hier?" is a fixed sheet in every view, EFB included, above toolbar and
+// profile panel (classic popup width, at most 80 % of the screen; styles.css).
+// Compact layout (phone/tablet up to 1024 px, browser only): right edge of the screen.
+// Wider screens and the EFB: right edge of the map table window, vertically inside it.
+// Its arrow tip sits at the sheet's left edge and the map is panned so the pressed
+// point lies under it. While it is open the map is frozen; a click beside the sheet,
+// the X or Escape closes it and brings back the earlier map view.
+var MAP_CONTEXT_SHEET_COMPACT_MAX_WIDTH_PX = 1024;
+var MAP_CONTEXT_SHEET_EDGE_PX = 8;
 var mapContextSheet = null;
 function isMapContextSheetMode() {
-  if (typeof window === 'undefined' || !document.body) return false;
-  if (document.body.classList.contains('ga-efb-tracker-host')) return false;
+  return typeof window !== 'undefined' && !!document.body;
+}
+function isMapContextEfbHost() {
+  var _document$body;
+  return !!((_document$body = document.body) !== null && _document$body !== void 0 && _document$body.classList.contains('ga-efb-tracker-host'));
+}
+function isMapContextSheetCompact() {
+  // The EFB scales its whole body (UI zoom, VR): CSS env()/min()/vw do not fit there,
+  // so it always uses the pixel frame below.
+  if (isMapContextEfbHost()) return false;
   if (typeof window.matchMedia === 'function') {
-    return window.matchMedia(`(max-width: ${MAP_CONTEXT_SHEET_MAX_WIDTH_PX}px)`).matches;
+    return window.matchMedia(`(max-width: ${MAP_CONTEXT_SHEET_COMPACT_MAX_WIDTH_PX}px)`).matches;
   }
-  return window.innerWidth <= MAP_CONTEXT_SHEET_MAX_WIDTH_PX;
+  return window.innerWidth <= MAP_CONTEXT_SHEET_COMPACT_MAX_WIDTH_PX;
+}
+var MAP_CONTEXT_SHEET_FRAME_VARS = ['--ga-map-context-sheet-width', '--ga-map-context-sheet-right', '--ga-map-context-sheet-top', '--ga-map-context-sheet-bottom', '--ga-map-context-sheet-max-height', '--ga-map-context-sheet-arrow-top'];
+
+// Wider screens: frame the sheet by the map table window (it may be a movable,
+// resizable window), clipped to the screen. Compact layout keeps the CSS defaults.
+function applyMapContextSheetFrame(ref) {
+  var _map, _map$getContainer, _frameElement$getBoun, _mapElement$getBoundi, _mapContextInfoState;
+  if (!ref) return;
+  var targets = [ref.sheet, ref.arrow];
+  var clear = () => targets.forEach(el => MAP_CONTEXT_SHEET_FRAME_VARS.forEach(name => el.style.removeProperty(name)));
+  if (isMapContextSheetCompact()) {
+    clear();
+    return;
+  }
+  var mapElement = (_map = map) === null || _map === void 0 || (_map$getContainer = _map.getContainer) === null || _map$getContainer === void 0 ? void 0 : _map$getContainer.call(_map);
+  var frameElement = document.getElementById('mapTableOverlay') || mapElement;
+  var clientRect = frameElement === null || frameElement === void 0 || (_frameElement$getBoun = frameElement.getBoundingClientRect) === null || _frameElement$getBoun === void 0 ? void 0 : _frameElement$getBoun.call(frameElement);
+  if (!clientRect || !clientRect.width || !clientRect.height) {
+    clear();
+    return;
+  }
+  // Fixed elements refer to the layout viewport (without scrollbars). In the EFB the
+  // body is transformed (scale), so fixed elements refer to the body in logical pixels.
+  var efb = isMapContextEfbHost();
+  var body = document.body;
+  var bodyRect = efb ? body.getBoundingClientRect() : {
+    left: 0,
+    top: 0
+  };
+  var scale = efb && body.offsetWidth ? bodyRect.width / body.offsetWidth || 1 : 1;
+  var toLocal = r => ({
+    left: (r.left - bodyRect.left) / scale,
+    right: (r.right - bodyRect.left) / scale,
+    top: (r.top - bodyRect.top) / scale,
+    bottom: (r.bottom - bodyRect.top) / scale,
+    height: r.height / scale
+  });
+  var rect = toLocal(clientRect);
+  var vw = efb ? body.offsetWidth : document.documentElement.clientWidth || window.innerWidth || rect.right;
+  var vh = efb ? body.offsetHeight : document.documentElement.clientHeight || window.innerHeight || rect.bottom;
+  // EFB: keep clear of the native title strip (padding-top of the map table).
+  var framePadTop = efb ? parseFloat(window.getComputedStyle(frameElement).paddingTop) || 0 : 0;
+  var edge = MAP_CONTEXT_SHEET_EDGE_PX;
+  var left = Math.max(0, rect.left);
+  var right = Math.min(vw, rect.right);
+  var top = Math.max(0, rect.top) + framePadTop + edge;
+  var bottom = Math.max(0, vh - Math.min(vh, rect.bottom)) + edge;
+  var rightGap = Math.max(0, vw - right) + edge;
+  var width = Math.max(240, Math.min(462, Math.round((right - left) * 0.8)));
+  var maxHeight = Math.max(160, vh - top - bottom);
+  // Arrow: middle of the frame, kept on the visible map.
+  var arrowTop = top + maxHeight / 2;
+  var mapClientRect = mapElement === null || mapElement === void 0 || (_mapElement$getBoundi = mapElement.getBoundingClientRect) === null || _mapElement$getBoundi === void 0 ? void 0 : _mapElement$getBoundi.call(mapElement);
+  var mapRect = mapClientRect ? toLocal(mapClientRect) : null;
+  if (mapRect && mapRect.height > 80) {
+    arrowTop = Math.min(Math.max(arrowTop, Math.max(0, mapRect.top) + 40), Math.min(vh, mapRect.bottom) - 40);
+  }
+  var values = {
+    '--ga-map-context-sheet-width': `${width}px`,
+    '--ga-map-context-sheet-right': `${Math.round(rightGap)}px`,
+    '--ga-map-context-sheet-top': `${Math.round(top)}px`,
+    '--ga-map-context-sheet-bottom': `${Math.round(bottom)}px`,
+    '--ga-map-context-sheet-max-height': `${Math.round(maxHeight)}px`,
+    '--ga-map-context-sheet-arrow-top': `${Math.round(arrowTop)}px`
+  };
+  targets.forEach(el => Object.keys(values).forEach(name => el.style.setProperty(name, values[name])));
+  // EFB (no reliable fit-content/grid in Coherent): the panel takes the available
+  // height and the details column scrolls; the height band needs a fixed height.
+  if (efb && (_mapContextInfoState = mapContextInfoState) !== null && _mapContextInfoState !== void 0 && _mapContextInfoState.content) {
+    var contentHeight = Math.max(160, Math.round(maxHeight - 64));
+    mapContextInfoState.content.style.setProperty('--ga-efb-context-height', `${contentHeight}px`);
+  }
 }
 function ensureMapContextSheet() {
   if (mapContextSheet) return mapContextSheet;
@@ -156,8 +238,11 @@ function ensureMapContextSheet() {
   };
   // A long press opens the sheet while the finger is still down: its release must not
   // close the sheet or hit a button in it, so only presses that start on it count.
-  scrim.addEventListener('pointerdown', () => {
-    ref.scrimPressed = true;
+  // Coherent (EFB) has no pointer events: mousedown/touchstart mark the press there.
+  ['pointerdown', 'mousedown', 'touchstart'].forEach(type => {
+    scrim.addEventListener(type, () => {
+      ref.scrimPressed = true;
+    }, false);
   });
   scrim.addEventListener('click', event => {
     event.preventDefault();
@@ -174,9 +259,11 @@ function ensureMapContextSheet() {
   scrim.addEventListener('touchmove', event => event.preventDefault(), {
     passive: false
   });
-  sheet.addEventListener('pointerdown', () => {
-    ref.sheetPressed = true;
-  }, true);
+  ['pointerdown', 'mousedown', 'touchstart'].forEach(type => {
+    sheet.addEventListener(type, () => {
+      ref.sheetPressed = true;
+    }, true);
+  });
   sheet.addEventListener('click', event => {
     if (ref.sheetPressed) return;
     event.preventDefault();
@@ -198,7 +285,7 @@ function ensureMapContextSheet() {
     if (!ref.open) return;
     window.clearTimeout(ref.resizeTimer);
     ref.resizeTimer = window.setTimeout(() => {
-      var _map, _map$invalidateSize;
+      var _map2, _map2$invalidateSize;
       if (!ref.open) return;
       if (!isMapContextSheetMode()) {
         closeMapContextSheet({
@@ -206,7 +293,8 @@ function ensureMapContextSheet() {
         });
         return;
       }
-      (_map = map) === null || _map === void 0 || (_map$invalidateSize = _map.invalidateSize) === null || _map$invalidateSize === void 0 || _map$invalidateSize.call(_map, {
+      applyMapContextSheetFrame(ref);
+      (_map2 = map) === null || _map2 === void 0 || (_map2$invalidateSize = _map2.invalidateSize) === null || _map2$invalidateSize === void 0 || _map2$invalidateSize.call(_map2, {
         pan: false
       });
       alignMapContextSheetToAnchor(mapContextInfoState, false);
@@ -233,12 +321,12 @@ function setMapContextSheetMapFrozen(ref, frozen) {
   }
 }
 function alignMapContextSheetToAnchor(state) {
-  var _map$getContainer, _map2, _mapElement$getBoundi;
+  var _map$getContainer2, _map3, _mapElement$getBoundi2;
   var animate = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
   var ref = mapContextSheet;
   if (!(ref !== null && ref !== void 0 && ref.open) || !(state !== null && state !== void 0 && state.latlng) || !map) return;
-  var mapElement = (_map$getContainer = (_map2 = map).getContainer) === null || _map$getContainer === void 0 ? void 0 : _map$getContainer.call(_map2);
-  var mapRect = mapElement === null || mapElement === void 0 || (_mapElement$getBoundi = mapElement.getBoundingClientRect) === null || _mapElement$getBoundi === void 0 ? void 0 : _mapElement$getBoundi.call(mapElement);
+  var mapElement = (_map$getContainer2 = (_map3 = map).getContainer) === null || _map$getContainer2 === void 0 ? void 0 : _map$getContainer2.call(_map3);
+  var mapRect = mapElement === null || mapElement === void 0 || (_mapElement$getBoundi2 = mapElement.getBoundingClientRect) === null || _mapElement$getBoundi2 === void 0 ? void 0 : _mapElement$getBoundi2.call(mapElement);
   var arrowRect = ref.arrow.getBoundingClientRect();
   if (!mapRect || !mapRect.width || !mapRect.height || !arrowRect.height) return;
   // Client pixels -> map container pixels (the container may be scaled).
@@ -257,7 +345,7 @@ function alignMapContextSheetToAnchor(state) {
   });
 }
 function openMapContextSheet(state) {
-  var _map$getContainer2, _map3;
+  var _map$getContainer3, _map4;
   var ref = ensureMapContextSheet();
   if (!ref.open) {
     ref.view = {
@@ -268,6 +356,13 @@ function openMapContextSheet(state) {
     window.addEventListener('keydown', ref.onKeyDown);
     window.addEventListener('resize', ref.onResize);
     window.addEventListener('orientationchange', ref.onResize);
+    window.addEventListener('ga-efb-layout-change', ref.onResize);
+    // The map table window may change size while the sheet is open (layout, docking).
+    var frameElement = document.getElementById('mapTableOverlay');
+    if (frameElement && typeof window.ResizeObserver === 'function') {
+      ref.frameObserver = new window.ResizeObserver(() => ref.onResize());
+      ref.frameObserver.observe(frameElement);
+    }
   }
   ref.open = true;
   ref.openedAt = Date.now();
@@ -279,11 +374,13 @@ function openMapContextSheet(state) {
   ref.scrim.hidden = false;
   ref.sheet.hidden = false;
   ref.arrow.hidden = false;
+  applyMapContextSheetFrame(ref);
   document.body.classList.add('ga-map-context-sheet-open');
-  (_map$getContainer2 = (_map3 = map).getContainer) === null || _map$getContainer2 === void 0 || (_map$getContainer2 = _map$getContainer2.call(_map3)) === null || _map$getContainer2 === void 0 || _map$getContainer2.classList.add('ga-map-context-open');
+  (_map$getContainer3 = (_map4 = map).getContainer) === null || _map$getContainer3 === void 0 || (_map$getContainer3 = _map$getContainer3.call(_map4)) === null || _map$getContainer3 === void 0 || _map$getContainer3.classList.add('ga-map-context-open');
   window.requestAnimationFrame(() => alignMapContextSheetToAnchor(state, true));
 }
 function closeMapContextSheet() {
+  var _ref$frameObserver, _ref$frameObserver$di;
   var _ref2 = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : {},
     _ref2$restoreView = _ref2.restoreView,
     restoreView = _ref2$restoreView === void 0 ? true : _ref2$restoreView,
@@ -296,6 +393,9 @@ function closeMapContextSheet() {
   window.removeEventListener('keydown', ref.onKeyDown);
   window.removeEventListener('resize', ref.onResize);
   window.removeEventListener('orientationchange', ref.onResize);
+  window.removeEventListener('ga-efb-layout-change', ref.onResize);
+  (_ref$frameObserver = ref.frameObserver) === null || _ref$frameObserver === void 0 || (_ref$frameObserver$di = _ref$frameObserver.disconnect) === null || _ref$frameObserver$di === void 0 || _ref$frameObserver$di.call(_ref$frameObserver);
+  ref.frameObserver = null;
   ref.scrim.hidden = true;
   ref.sheet.hidden = true;
   ref.arrow.hidden = true;
@@ -306,8 +406,8 @@ function closeMapContextSheet() {
   var view = ref.view;
   ref.view = null;
   if (map) {
-    var _map$getContainer3, _map4;
-    (_map$getContainer3 = (_map4 = map).getContainer) === null || _map$getContainer3 === void 0 || (_map$getContainer3 = _map$getContainer3.call(_map4)) === null || _map$getContainer3 === void 0 || _map$getContainer3.classList.remove('ga-map-context-open');
+    var _map$getContainer4, _map5;
+    (_map$getContainer4 = (_map5 = map).getContainer) === null || _map$getContainer4 === void 0 || (_map$getContainer4 = _map$getContainer4.call(_map5)) === null || _map$getContainer4 === void 0 || _map$getContainer4.classList.remove('ga-map-context-open');
     if (restoreView && view !== null && view !== void 0 && view.center && Number.isFinite(view.zoom)) {
       map.setView(view.center, view.zoom, {
         animate: true,
@@ -1799,11 +1899,11 @@ function positionMapContextPopupBesideAnchor(state) {
     mapContextPopupLayer.options.offset = L.point(Math.round(width / 2 + 16), Math.round(height / 2));
     (_mapContextPopupLayer2 = (_mapContextPopupLayer3 = mapContextPopupLayer).update) === null || _mapContextPopupLayer2 === void 0 || _mapContextPopupLayer2.call(_mapContextPopupLayer3);
     window.requestAnimationFrame(() => {
-      var _map$getContainer4, _map5, _mapContextPopupLayer4, _mapContextPopupLayer5, _mapElement$getBoundi2;
+      var _map$getContainer5, _map6, _mapContextPopupLayer4, _mapContextPopupLayer5, _mapElement$getBoundi3;
       if (state !== mapContextInfoState || !mapContextPopupLayer) return;
-      var mapElement = (_map$getContainer4 = (_map5 = map).getContainer) === null || _map$getContainer4 === void 0 ? void 0 : _map$getContainer4.call(_map5);
+      var mapElement = (_map$getContainer5 = (_map6 = map).getContainer) === null || _map$getContainer5 === void 0 ? void 0 : _map$getContainer5.call(_map6);
       var popupRect = (_mapContextPopupLayer4 = mapContextPopupLayer._container) === null || _mapContextPopupLayer4 === void 0 || (_mapContextPopupLayer5 = _mapContextPopupLayer4.getBoundingClientRect) === null || _mapContextPopupLayer5 === void 0 ? void 0 : _mapContextPopupLayer5.call(_mapContextPopupLayer4);
-      var mapRect = mapElement === null || mapElement === void 0 || (_mapElement$getBoundi2 = mapElement.getBoundingClientRect) === null || _mapElement$getBoundi2 === void 0 ? void 0 : _mapElement$getBoundi2.call(mapElement);
+      var mapRect = mapElement === null || mapElement === void 0 || (_mapElement$getBoundi3 = mapElement.getBoundingClientRect) === null || _mapElement$getBoundi3 === void 0 ? void 0 : _mapElement$getBoundi3.call(mapElement);
       if (!popupRect || !mapRect) return;
       var padding = 4;
       var panX = 0;
@@ -1828,7 +1928,7 @@ function positionMapContextPopupBesideAnchor(state) {
   });
 }
 function renderMapContextInfoPopup(state) {
-  var _mapContextPopupLayer6, _state$content$queryS, _state$content4, _map6, _map6$getContainer;
+  var _mapContextPopupLayer6, _state$content$queryS, _state$content4, _map7, _map7$getContainer;
   var options = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : {};
   if (!state || state !== mapContextInfoState || !state.content) return;
   if (document.body.classList.contains('ga-efb-tracker-host') && (_mapContextPopupLayer6 = mapContextPopupLayer) !== null && _mapContextPopupLayer6 !== void 0 && _mapContextPopupLayer6._container) {
@@ -1848,7 +1948,7 @@ function renderMapContextInfoPopup(state) {
   var previousDetailsScrollTop = preserveDetailsScroll ? Number((_state$content$queryS = (_state$content4 = state.content).querySelector) === null || _state$content$queryS === void 0 || (_state$content$queryS = _state$content$queryS.call(_state$content4, '.ga-map-context-details')) === null || _state$content$queryS === void 0 ? void 0 : _state$content$queryS.scrollTop) : null;
   var widgetConfig = getMapContextAirportWidgetConfig(state);
   var previousWeatherWidget = widgetConfig && document.getElementById(widgetConfig.wxId);
-  var mapHeight = Number((_map6 = map) === null || _map6 === void 0 || (_map6$getContainer = _map6.getContainer) === null || _map6$getContainer === void 0 || (_map6$getContainer = _map6$getContainer.call(_map6)) === null || _map6$getContainer === void 0 ? void 0 : _map6$getContainer.clientHeight);
+  var mapHeight = Number((_map7 = map) === null || _map7 === void 0 || (_map7$getContainer = _map7.getContainer) === null || _map7$getContainer === void 0 || (_map7$getContainer = _map7$getContainer.call(_map7)) === null || _map7$getContainer === void 0 ? void 0 : _map7$getContainer.clientHeight);
   if (Number.isFinite(mapHeight) && mapHeight > 0) {
     state.content.style.setProperty('--ga-map-context-map-height', `${Math.round(mapHeight)}px`);
   }
@@ -2071,7 +2171,7 @@ function openMapContextInfo(latlng) {
     openMapContextSheet(state);
     renderMapContextInfoPopup(state);
   } else {
-    var _map$getContainer5, _map7;
+    var _map$getContainer6, _map8;
     if (!mapContextPopupLayer) {
       mapContextPopupLayer = L.popup({
         className: 'ga-map-context-popup',
@@ -2084,7 +2184,7 @@ function openMapContextInfo(latlng) {
       });
     }
     mapContextPopupLayer.setLatLng(state.latlng).setContent(content).openOn(map);
-    (_map$getContainer5 = (_map7 = map).getContainer) === null || _map$getContainer5 === void 0 || (_map$getContainer5 = _map$getContainer5.call(_map7)) === null || _map$getContainer5 === void 0 || _map$getContainer5.classList.add('ga-map-context-open');
+    (_map$getContainer6 = (_map8 = map).getContainer) === null || _map$getContainer6 === void 0 || (_map$getContainer6 = _map$getContainer6.call(_map8)) === null || _map$getContainer6 === void 0 || _map$getContainer6.classList.add('ga-map-context-open');
     renderMapContextInfoPopup(state);
     window.setTimeout(() => {
       var _mapContextPopupLayer1;
@@ -2127,8 +2227,8 @@ function refreshEfbContextPopupLayout() {
 window.addEventListener('resize', refreshEfbContextPopupLayout);
 window.addEventListener('ga-efb-layout-change', refreshEfbContextPopupLayout);
 window.gaMapContextPopupClosed = function (event) {
-  var _map$getContainer6;
+  var _map$getContainer7;
   if (event.popup !== mapContextPopupLayer) return;
   dismissMapContextInfo();
-  (_map$getContainer6 = map.getContainer()) === null || _map$getContainer6 === void 0 || _map$getContainer6.classList.remove('ga-map-context-open');
+  (_map$getContainer7 = map.getContainer()) === null || _map$getContainer7 === void 0 || _map$getContainer7.classList.remove('ga-map-context-open');
 };

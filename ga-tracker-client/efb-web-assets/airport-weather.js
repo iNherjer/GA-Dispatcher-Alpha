@@ -1034,7 +1034,9 @@ function awWeatherSourceControl(observedAt) {
   });
   var term = (_awWeatherValidAt = awWeatherValidAt()) !== null && _awWeatherValidAt !== void 0 ? _awWeatherValidAt : Number.isFinite(observedAt) && observedAt > 1e12 ? observedAt : Math.floor(Date.now() / AW_HOUR) * AW_HOUR;
   var clock = new Date(term).toISOString().slice(11, 16) + ' UTC';
-  return '<div class="ga-briefing-weather-source"><button type="button" class="ga-skin-control ga-weather-source-cycle" data-aw-source title="' + _escapeMetarWidgetText(change) + '" aria-label="' + _escapeMetarWidgetText(AW_SOURCES[source] + ' · ' + change) + '">' + AW_SOURCES[source] + '</button>' + (source === 'dwd' ? '<span class="ga-weather-stepper" data-aw-term="' + term + '">' + '<button type="button" class="ga-skin-control" data-aw-step="-1" aria-label="' + _escapeMetarWidgetText(_awText('airportWx.hourEarlier', 'Eine Stunde zurück')) + '">−</button>' + '<button type="button" class="ga-skin-control ga-weather-step-clock' + (awWeatherHour !== null ? ' is-preview' : '') + '" data-aw-step="0" title="' + _escapeMetarWidgetText(_awText('airportWx.backToLive', 'Zurück zu Live')) + '">' + clock + '</button>' + '<button type="button" class="ga-skin-control" data-aw-step="1" aria-label="' + _escapeMetarWidgetText(_awText('airportWx.hourLater', 'Eine Stunde vor')) + '">+</button></span>' : '') + '</div>';
+  // DWD open data terms: name the source and the own processing.
+  var attribution = source === 'dwd' ? ' · ' + _awText('airportWx.dwdAttribution', 'Datenbasis: Deutscher Wetterdienst, eigene Verarbeitung') : '';
+  return '<div class="ga-briefing-weather-source"><button type="button" class="ga-skin-control ga-weather-source-cycle" data-aw-source title="' + _escapeMetarWidgetText(change + attribution) + '" aria-label="' + _escapeMetarWidgetText(AW_SOURCES[source] + ' · ' + change) + '">' + AW_SOURCES[source] + '</button>' + (source === 'dwd' ? '<span class="ga-weather-stepper" data-aw-term="' + term + '">' + '<button type="button" class="ga-skin-control" data-aw-step="-1" aria-label="' + _escapeMetarWidgetText(_awText('airportWx.hourEarlier', 'Eine Stunde zurück')) + '">−</button>' + '<button type="button" class="ga-skin-control ga-weather-step-clock' + (awWeatherHour !== null ? ' is-preview' : '') + '" data-aw-step="0" title="' + _escapeMetarWidgetText(_awText('airportWx.backToLive', 'Zurück zu Live')) + '">' + clock + '</button>' + '<button type="button" class="ga-skin-control" data-aw-step="1" aria-label="' + _escapeMetarWidgetText(_awText('airportWx.hourLater', 'Eine Stunde vor')) + '">+</button></span>' : '') + '</div>';
 }
 function awReloadWidgets() {
   window.dispatchEvent(new Event('ga:briefing-weather-source'));
@@ -1067,7 +1069,12 @@ document.addEventListener('click', event => {
   var current = Math.floor(Date.now() / AW_HOUR) * AW_HOUR;
   var shown = (_awNumber = awNumber(button.parentElement.dataset.awTerm)) !== null && _awNumber !== void 0 ? _awNumber : current;
   var target = (awWeatherHour !== null && awWeatherHour !== void 0 ? awWeatherHour : shown) + step * AW_HOUR;
-  var validAt = Math.max(current - 3 * AW_HOUR, Math.min(current + 12 * AW_HOUR, target));
+  // DWD: only published hours (profile.js gaDwdHourBounds); models otherwise -3..+12 h.
+  var bounds = awWeatherSource() === 'dwd' && typeof window.gaDwdHourBounds === 'function' ? window.gaDwdHourBounds(current) : {
+    min: current - 3 * AW_HOUR,
+    max: current + 12 * AW_HOUR
+  };
+  var validAt = Math.max(bounds.min, Math.min(bounds.max, target));
   if (validAt === awWeatherHour) return;
   clearTimeout(awWeatherReloadTimer);
   awWeatherHour = validAt;

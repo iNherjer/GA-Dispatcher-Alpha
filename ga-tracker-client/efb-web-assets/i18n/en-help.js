@@ -26,6 +26,26 @@ function _arrayWithHoles(r) { if (Array.isArray(r)) return r; }
       if (text) entries[`${base}.${slug}.text`] = text;
     });
   };
+  section('map-table', {
+    kicker: 'Map',
+    title: 'Map table',
+    intro: 'The map table is the large planning and flight map. Check route, weather, profile and live position here.'
+  }, {
+    'route-reset': ['Route Reset', 'Removes manual route changes and restores the planned main route. During a detour (Direct To with the mission kept), Route Reset ends the detour and returns to the mission route.'],
+    'suche-lupe': ['Search (magnifier)', 'Searches airports, navaids and reporting points and shows the hit on the map. In Direct-To mode the magnifier lights up: a selected hit then becomes departure or destination.'],
+    'profil': ['Profile', 'Shows or hides the height profile with distance, altitude, terrain and clouds.'],
+    'anzeige': ['Display', 'Opens options such as snapping, direct line, weather, VFR index, terrain avoid, traffic, autozoom and map bars.'],
+    'einzelklick-aus': ['Single tap: off', 'A short tap on airports, VRPs and navaids selects nothing. Mouse-over tooltips on the PC stay available.'],
+    'einzelklick-tooltip': ['Single tap: tooltip', 'A short tap only shows the compact object info. Meant mainly for phones and tablets.'],
+    'einzelklick-tafeln': ['Single tap: panels', 'A short tap opens the detailed airport, VRP or navaid panel. Long tap for “What is here?” works independently.'],
+    'audio': ['Audio', 'Opens warning voices, audio effects and passenger voice for the map table.'],
+    'direct-to': ['Direct To', 'Plans a direct route. Departure: own position (“📍 Start here” button next to the aircraft), a point on the map or a search hit. Destination: a point on the map or a search hit.'],
+    'direct-to-mit-mission': ['Direct To with a mission', 'If a mission is active, the app asks first. “Discard mission” aborts the mission when the destination is set and clears route, scene and cargo; Route Reset then returns to the first Direct-To plan. “Keep mission” flies Direct To as a detour: the mission keeps running in the background, its route is faded and locked, the detour (cyan) can be edited freely. Route Reset returns to the mission route; when the mission ends, the detour is removed.'],
+    'mission-starten': ['Start mission', 'Starts or controls the active mission when a mission draft is ready.'],
+    'zeichenwerkzeuge': ['Drawing tools', 'The left toolbar offers markings, notes, bearings and map aids.'],
+    'kartenprofil': ['Map profile', 'The profile bar shows climb, descent and obstacles along the route.'],
+    'schliessen': ['Close', 'Closes the map table and returns to the main view.']
+  });
   section('dispatcher', {
     kicker: 'Jobs',
     title: 'AI Dispatcher',

@@ -27,34 +27,16 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-### 2026-11-26 · EFB-Karte: Symbole behalten, Höhenprofil entlasten, Flugplatz-Scan
-- **Artefakt:** Tracker-EXE (`tracker-efb-kartentisch-host.js`) und EFB-Web-Assets (Sync von `profile.js`). Web live mit diesem Push (Web v2553).
-- **Was:** Der EFB-Host baut Flugplatz- und Funkfeuer-Symbole beim Verschieben nicht mehr komplett neu. Symbole, die im Bild bleiben, werden behalten. Neu gebaut wird nur, was hinzukommt, entfernt wird, was herausfällt. Neue Daten oder eine Stiländerung bauen weiter alles neu. Der Host setzt `window.gaMapMotionActive` bei Kartenbewegung. Das gemeinsame Höhenprofil zeichnet dann höchstens 4-mal pro Sekunde und verwendet die letzte Messung des Profilstreifens wieder (spätestens nach 1 s neu gemessen). Nach dem Ende der Bewegung folgt ein volles Bild. Die gespeicherten Flugplätze (`airports.json`) werden zuerst über die Rohposition auf den Abdeckungsbereich gefiltert. Normalisiert und verglichen wird nur noch dieser Teil statt aller ca. 80.000 Einträge.
-- **Warum:** Safari-Zeitleisten im Web (26.11.2026) zeigten genau diese Muster als Hauptthread-Last (Marker-Neubau ~10 %, Profilmessung pro Bild). Coherent ist langsamer als Safari.
-- **Tests:** `efb-web-assets-sync`, `tracker-efb-asset-syntax`, `tracker-efb-map-context`, `tracker-efb-ui-scale`, `tracker-efb-web-client`, `tracker-efb-tile-loading`, `tracker-efb-layout-diagnostic`, `tracker-efb-symbol-punctuation`, `tracker-efb-map-snapshot-core`, `tracker-profile-data`, `tracker-efb-http-server` grün (mit lokal synchronisierten Kopien). EFB-Hostseite im Browser mit 240 Test-Flugplätzen und -Funkfeuern: nach kurzem Verschieben 233 von 260 Symbolen dieselben Elemente, kein Skriptfehler. Bewegungssignal an beim Ziehen, nach dem Auslaufen wieder aus.
-- **Doku beim Release:** `docs/EFB-Development-Plan.md` Abschnitt „Performance von Routenprofil und Vektorkarte“ um Symbol-Abgleich, Profil-Drosselung bei Kartenbewegung und Flugplatz-Vorfilter mit Version ergänzen.
-- **Pruefen im Feld:** Im Sim mit OpenAIP-Overlay verschieben und zoomen. Symbole dürfen nicht doppelt erscheinen oder an der falschen Stelle stehen bleiben. Klick auf Flugplatz und Funkfeuer öffnet weiter das Popup. Höhenprofil beim Verschieben ruhiger, nach dem Loslassen sofort aktuell. Bei Kartenfolgen im Flug läuft das Profil mit etwa 4 Bildern pro Sekunde weiter.
-
-### 2026-11-25 · Kartensuche und „Was ist hier?“ als Panel im EFB
-- **Artefakt:** Tracker-EXE (`tracker-efb-web-client.js`, `tracker-efb-profile-bridge.js`, `tracker-efb-kartentisch-host.css`, `package.json` pkg-Assets) und EFB-Web-Assets (Sync von `map-search.js` neu, `map-context-popup.js`, `styles.css`). Web live mit diesem Push.
-- **Was:** Lupe im Kartentisch-Kopf sucht auch im EFB: Flugplätze aus `airports.json` (ICAO/IATA/Name/Ort, Favoriten zuerst; OpenAIP-only-Plätze ohne ICAO fehlen dort), Funkfeuer aus dem neu gebündelten `data/openaip-navaids.json` (`/efb/v1/assets/openaip-navaids.json`), Meldepunkte aus der vorhandenen OFM-Datei. „Was ist hier?“ öffnet im EFB als Panel wie im Web: rechtsbündig im Kartentisch, vor Toolbar und Höhenprofil, Karte eingefroren, Tipp daneben/X/Escape schließt; Rahmen in logischen Pixeln (skalierter Body, UI-Zoom/VR), volle verfügbare Höhe mit scrollender Detailspalte. Coherent-Fallbacks: Kanten statt `inset`, kein Grid/`min()`, `-webkit-clip-path`, mousedown/touchstart statt Pointer-Events, eigene Ebene per `translateZ(0)`, kein Schatten.
-- **Tests:** `efb-web-assets-sync`, `tracker-efb-asset-syntax`, `tracker-efb-map-context`, `tracker-efb-web-client`, `tracker-efb-http-server`, `tracker-efb-ui-scale` grün (mit lokal synchronisierten Kopien). Browser mit EFB-Host-Seite: Suche EDTW/Frankfurt/SUL/„EDDF N“, Auswahl zentriert + markiert; Panel bei 900×700 und 440×596 logisch (Skala 1,5), Klick daneben schließt.
-- **Pruefen im Feld:** Coherent 2D und VR: Panel über Karte und Knöpfen, Pfeil/Dreieck sichtbar, Schließen per Tipp; Suche mit Sim-Tastatur, Ladezeit `airports.json` beim ersten Suchen.
-- **Doku beim Release:** `docs/EFB-Development-Plan.md` Abschnitt „Kartensuche und Was-ist-hier-Panel im EFB“ mit Version ergänzen; `EFB_WEB_ASSET_REVISION` wie üblich auf die neue Tracker-Version setzen.
-
-### 2026-11-25 · Funkfeuer als ICAO-Symbole (EFB-Teil)
-- **Artefakt:** Tracker-EXE (`tracker-efb-kartentisch-host.js`) und EFB-Web-Assets (Sync von `map-aviation-overlay-style.js`, `styles.css`, `i18n/en-phrases.js`). Web live mit v2544.
-- **Was:** `navaidMarker`/`navaidSvg` im gemeinsamen Stil-Modul: VOR/DVOR Sechseck, DME Quadrat, VOR/DME Sechseck im Quadrat, VORTAC/TACAN mit drei Blöcken (TACAN ohne Mittelpunkt), NDB Punktkranz; Kennung ab Zoom 10. Panel-Abschnitt „Funkfeuer“ (an/aus, Farbe VOR/DME/TACAN, Farbe NDB, Kennung); Größe folgt „Symbolgröße“. EFB-Host nutzt `style.navaidMarker` statt Kreisen.
-- **Tests:** Web-Browser (Stuttgart: KRH/LBU/STG VOR/DME, SUL VOR, KBA/LUP NDB), `tracker-efb-asset-syntax.test.js` und Asset-Sync mit temporär synchronisierten Kopien grün.
-- **Pruefen im Feld:** Symbole im EFB (2D/VR), Farbfelder im EFB-Panel.
-
-### 2026-11-25 · DWD-Stundenwahl nach veröffentlichtem Bestand (EFB-Teil)
-- **Artefakt:** Tracker-EXE (`tracker-dwd-weather.js`, `tracker-efb-profile-bridge.js`) und EFB-Web-Assets (Sync von `profile.js`, `airport-weather.js`, `i18n/en.js`). Web live mit v2543.
-- **Was:** DWD-Antworten des Trackers enthalten `firstValidAt`/`lastValidAt` des Manifests; `profile.js` merkt sie (`gaRememberDwdTermWindow`) und begrenzt über `gaDwdHourBounds` Höhenband-Zeitleiste, Nachbarstunden-Vorladen und die Stundenwahl von Seitenmenü/Tafeln/Punktwetter auf veröffentlichte Stunden (sonst fest −3..+12 h). Tooltips mit DWD-Quellenvermerk.
-- **Tests:** `tracker-dwd-weather.test.js`, `tracker-profile-data.test.js`, `tracker-efb-web-client.test.js`; Browser: beide Wähler stoppen am Manifestende.
-- **Pruefen im Feld:** EFB-Zeitleiste endet am veröffentlichten Bestand.
+(keine)
 
 ## Ausgeliefert
+
+### 2026-11-26 · Direct To bei Mission (Umweg), EFB-Kartenleistung, Kartensuche, Funkfeuer-Symbole, DWD-Stunden – Tracker v664 Alpha
+
+- **Artefakt:** Tracker-EXE mit EFB-Assets 66401 und Web-Cache v2555.
+- **Änderungen:** Direct To fragt bei aktiver Mission nach (verwerfen oder als Umweg erhalten, `navigation.detour.v1`). Dazu die vier Queue-Einträge vom 25./26.11.: EFB-Karte behält Symbole und entlastet das Höhenprofil, Kartensuche und „Was ist hier?“ als Panel im EFB, Funkfeuer als ICAO-Symbole, DWD-Stundenwahl nach veröffentlichtem Bestand.
+- **Im Feld prüfen:** Direct-To-Dialog und Umweg im EFB (blasse Missionsroute, Route Reset leuchtet und fragt nach), Sim-GPS-Export des Umwegs. Dazu die Feldpunkte der übernommenen Einträge in [Tracker v664](Tracker-v664-Release.md).
+- **Details:** [Tracker v664](Tracker-v664-Release.md).
 
 ### 2026-11-25 · OpenAIP-Overlay und helle Wetterkarten im EFB – Tracker v663 Alpha
 

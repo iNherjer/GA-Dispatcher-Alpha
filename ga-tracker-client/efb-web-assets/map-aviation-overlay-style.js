@@ -169,7 +169,11 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     airportSymbols: 'icao',
     airportColor: '#1d4ed8',
     airportSize: 100,
-    airportLabels: true
+    airportLabels: true,
+    navaidVisible: true,
+    navaidVorColor: '#1d4ed8',
+    navaidNdbColor: '#9d174d',
+    navaidLabels: true
   });
 
   // Airfield kinds (airportKind) that can be shown or hidden in the panel.
@@ -254,7 +258,11 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
       airportKinds: AIRPORT_KINDS.reduce((out, kind) => {
         out[kind.id] = !(stored.airportKinds && stored.airportKinds[kind.id] === false);
         return out;
-      }, {})
+      }, {}),
+      navaidVisible: stored.navaidVisible !== false,
+      navaidVorColor: isColor(stored.navaidVorColor) ? stored.navaidVorColor.toLowerCase() : DEFAULTS.navaidVorColor,
+      navaidNdbColor: isColor(stored.navaidNdbColor) ? stored.navaidNdbColor.toLowerCase() : DEFAULTS.navaidNdbColor,
+      navaidLabels: stored.navaidLabels !== false
     };
   }
   var cache = null;
@@ -765,6 +773,93 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
       keyboard: false
     });
   }
+
+  // ---- Radio navigation aids: ICAO chart symbols by OpenAIP navaid type
+  // (0 DME, 1 TACAN, 2 NDB, 3 VOR, 4 VOR/DME, 5 VORTAC, 6 DVOR, 7 DVOR/DME, 8 DVORTAC).
+  var NAVAID_KINDS = {
+    0: 'dme',
+    1: 'tacan',
+    2: 'ndb',
+    3: 'vor',
+    4: 'vordme',
+    5: 'vortac',
+    6: 'vor',
+    7: 'vordme',
+    8: 'vortac'
+  };
+  function navaidKind(type) {
+    // Unknown type: plain VOR symbol (Number(null) would read as DME).
+    if (type === null || type === undefined || type === '') return 'vor';
+    var kind = NAVAID_KINDS[Number(type)];
+    return kind || 'vor';
+  }
+  function hexagonPoints(radius) {
+    var points = [];
+    for (var i = 0; i < 6; i += 1) {
+      var angle = i * Math.PI / 3;
+      points.push((14 + radius * Math.cos(angle)).toFixed(2) + ',' + (14 + radius * Math.sin(angle)).toFixed(2));
+    }
+    return points.join(' ');
+  }
+  function navaidSvg(kind, color) {
+    var open = '<svg viewBox="0 0 28 28" width="100%" height="100%" aria-hidden="true">';
+    var dot = '<circle cx="14" cy="14" r="1.7" fill="' + color + '"/>';
+    if (kind === 'ndb') {
+      // Dotted rings around a centre dot.
+      var dots = '<circle cx="14" cy="14" r="2.3" fill="' + color + '"/>';
+      [[5.4, 10], [9, 16]].forEach(_ref => {
+        var _ref2 = _slicedToArray(_ref, 2),
+          radius = _ref2[0],
+          count = _ref2[1];
+        for (var i = 0; i < count; i += 1) {
+          var angle = i * 2 * Math.PI / count;
+          dots += '<circle cx="' + (14 + radius * Math.cos(angle)).toFixed(2) + '" cy="' + (14 + radius * Math.sin(angle)).toFixed(2) + '" r="' + (radius < 6 ? 0.95 : 0.85) + '" fill="' + color + '"/>';
+        }
+      });
+      return open + '<circle cx="14" cy="14" r="10" fill="#ffffff" fill-opacity="0.55"/>' + dots + '</svg>';
+    }
+    var back = '<polygon points="' + hexagonPoints(7) + '" fill="#ffffff" fill-opacity="0.85"/>';
+    var hexagon = '<polygon points="' + hexagonPoints(7) + '" fill="none" stroke="' + color + '" stroke-width="1.8" stroke-linejoin="round"/>';
+    if (kind === 'dme') {
+      return open + '<rect x="7.5" y="7.5" width="13" height="13" fill="#ffffff" fill-opacity="0.85" stroke="' + color + '" stroke-width="1.8"/>' + dot + '</svg>';
+    }
+    if (kind === 'vordme') {
+      return open + '<rect x="5" y="5" width="18" height="18" fill="#ffffff" fill-opacity="0.85" stroke="' + color + '" stroke-width="1.6"/>' + hexagon + dot + '</svg>';
+    }
+    if (kind === 'vortac' || kind === 'tacan') {
+      // Filled blocks on three alternate hexagon edges (bottom, upper left, upper right).
+      var edge = 7 * Math.sin(Math.PI / 3);
+      var blocks = '';
+      [0, 120, 240].forEach(angle => {
+        blocks += '<rect x="10.5" y="' + (14 + edge).toFixed(2) + '" width="7" height="3.4" fill="' + color + '" transform="rotate(' + angle + ' 14 14)"/>';
+      });
+      return open + back + hexagon + blocks + (kind === 'vortac' ? dot : '') + '</svg>';
+    }
+    return open + back + hexagon + dot + '</svg>';
+  }
+
+  // Marker for one navaid (normalizeOpenAipNavaidForPopup shape), or null when hidden.
+  function navaidMarker(L, latlng, navaid, zoom, pane) {
+    var s = settings();
+    if (!s.navaidVisible) return null;
+    var kind = navaidKind(navaid && navaid.type);
+    var color = kind === 'ndb' ? s.navaidNdbColor : s.navaidVorColor;
+    var size = Math.round((zoom >= 12 ? 28 : zoom >= 10 ? 24 : 20) * s.airportSize / 100);
+    var ident = String(navaid && navaid.identifier || '').trim().toUpperCase();
+    var label = s.navaidLabels && zoom >= 10 && /^[A-Z0-9]{2,4}$/.test(ident) ? '<span class="ga-airport-symbol-label ga-navaid-symbol-label" style="color:' + color + '">' + escapeText(ident) + '</span>' : '';
+    return L.marker(latlng, {
+      pane,
+      interactive: true,
+      bubblingMouseEvents: false,
+      keyboard: false,
+      icon: L.divIcon({
+        className: 'ga-navaid-symbol ga-navaid-' + kind,
+        html: '<span class="ga-airport-symbol-glyph" style="width:' + size + 'px;height:' + size + 'px">' + navaidSvg(kind, color) + '</span>' + label,
+        iconSize: [size, size],
+        iconAnchor: [size / 2, size / 2]
+      })
+    });
+  }
   function phrase(text) {
     return root.GAI18n && typeof root.GAI18n.phrase === 'function' ? root.GAI18n.phrase(text) : text;
   }
@@ -772,9 +867,9 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
   // Collapsible settings panel for the layer menu (title toggle handled by
   // map-basemap-catalog.js group logic, key "openaip-style").
   function createPanel(createTitle, onChange) {
-    var _ref = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {},
-      _ref$stepControls = _ref.stepControls,
-      stepControls = _ref$stepControls === void 0 ? false : _ref$stepControls;
+    var _ref3 = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : {},
+      _ref3$stepControls = _ref3.stepControls,
+      stepControls = _ref3$stepControls === void 0 ? false : _ref3$stepControls;
     var wrap = document.createElement('div');
     wrap.className = 'ga-vfr-style ga-openaip-style';
     var toggle = createTitle('OpenAIP: Darstellung anpassen', 'openaip-style');
@@ -819,7 +914,7 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
       });
       node.addEventListener(type === 'checkbox' || type === 'select' ? 'change' : 'input', changed);
       if (tag === 'button') {
-        var palette = Array.from(new Set(AIRSPACE_CATEGORIES.map(category => category.color).concat(['#ffffff', '#263340'])));
+        var palette = Array.from(new Set(AIRSPACE_CATEGORIES.map(category => category.color).concat([DEFAULTS.navaidVorColor, DEFAULTS.navaidNdbColor, '#ffffff', '#263340'])));
         node.classList.add('ga-openaip-color-step');
         node.addEventListener('click', () => {
           node.value = palette[(palette.indexOf(node.value) + 1) % palette.length];
@@ -907,10 +1002,10 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
       var node = input('select', {}, s => s[key], (s, el) => {
         s[key] = el.value;
       });
-      options.forEach(_ref2 => {
-        var _ref3 = _slicedToArray(_ref2, 2),
-          value = _ref3[0],
-          text = _ref3[1];
+      options.forEach(_ref4 => {
+        var _ref5 = _slicedToArray(_ref4, 2),
+          value = _ref5[0],
+          text = _ref5[1];
         var option = document.createElement('option');
         option.value = value;
         option.textContent = phrase(text);
@@ -980,14 +1075,35 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     vrpZoom._gaValue = vrpZoomValue;
     vrpZoom._gaUnit = '';
     line('Ab Zoomstufe', [vrpZoom, vrpZoomValue]);
+    heading('Funkfeuer');
+    var navaidVisible = input('checkbox', {}, s => s.navaidVisible, (s, node) => {
+      s.navaidVisible = node.checked;
+    });
+    navaidVisible.setAttribute('aria-label', phrase('Funkfeuer anzeigen'));
+    line('Funkfeuer anzeigen', [navaidVisible]).classList.add('ga-openaip-check-row');
+    var vorColor = input('color', {}, s => s.navaidVorColor, (s, node) => {
+      s.navaidVorColor = node.value;
+    });
+    vorColor.setAttribute('aria-label', phrase('Farbe VOR/DME/TACAN'));
+    line('VOR/DME/TACAN', [vorColor]).classList.add('ga-openaip-navaid-row');
+    var ndbColor = input('color', {}, s => s.navaidNdbColor, (s, node) => {
+      s.navaidNdbColor = node.value;
+    });
+    ndbColor.setAttribute('aria-label', phrase('Farbe NDB'));
+    line('NDB', [ndbColor]).classList.add('ga-openaip-navaid-row');
+    var navaidLabels = input('checkbox', {}, s => s.navaidLabels, (s, node) => {
+      s.navaidLabels = node.checked;
+    });
+    navaidLabels.setAttribute('aria-label', phrase('Funkfeuer-Kennung anzeigen'));
+    line('Kennung anzeigen', [navaidLabels]).classList.add('ga-openaip-check-row');
     heading('Flugplätze');
     var symbols = input('select', {}, s => s.airportSymbols, (s, node) => {
       s.airportSymbols = node.value;
     });
-    [['icao', 'ICAO-Symbole'], ['dots', 'Punkte (bisher)']].forEach(_ref4 => {
-      var _ref5 = _slicedToArray(_ref4, 2),
-        value = _ref5[0],
-        text = _ref5[1];
+    [['icao', 'ICAO-Symbole'], ['dots', 'Punkte (bisher)']].forEach(_ref6 => {
+      var _ref7 = _slicedToArray(_ref6, 2),
+        value = _ref7[0],
+        text = _ref7[1];
       var option = document.createElement('option');
       option.value = value;
       option.textContent = phrase(text);
@@ -1033,16 +1149,16 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     panel.appendChild(reset);
     function collect() {
       var next = JSON.parse(JSON.stringify(settings()));
-      controls.forEach(_ref6 => {
-        var node = _ref6.node,
-          write = _ref6.write;
+      controls.forEach(_ref8 => {
+        var node = _ref8.node,
+          write = _ref8.write;
         return write(next, node);
       });
       return next;
     }
     function refreshValues() {
-      controls.forEach(_ref7 => {
-        var node = _ref7.node;
+      controls.forEach(_ref9 => {
+        var node = _ref9.node;
         if (node._gaValue) node._gaValue.textContent = node.value + (node._gaUnit === undefined ? ' %' : node._gaUnit);
         if (stepControls && node.type === 'button') {
           node.style.backgroundColor = node.value;
@@ -1052,9 +1168,9 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     }
     function load() {
       var s = settings();
-      controls.forEach(_ref8 => {
-        var node = _ref8.node,
-          read = _ref8.read;
+      controls.forEach(_ref0 => {
+        var node = _ref0.node,
+          read = _ref0.read;
         var value = read(s);
         if (node.type === 'checkbox') node.checked = !!value;else node.value = String(value);
       });
@@ -1084,6 +1200,9 @@ function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length)
     airportVisible,
     AIRPORT_KINDS,
     airportMarker,
+    navaidKind,
+    navaidMarker,
+    navaidSvg,
     runwayHeading,
     symbolSvg,
     createPanel

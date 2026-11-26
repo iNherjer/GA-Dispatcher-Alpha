@@ -49,11 +49,54 @@ function vpCanvasFont(ctx, font) {
 
 // Coherent can retain the flex child's previous size after scaling its parent.
 // Derive the drawing budget from the visible strip, in logical CSS pixels.
+// Web: the size comes from a ResizeObserver instead of clientWidth per frame. Reading it during
+// a map pan forced a synchronous layout on every profile frame (Safari recording 26.11.2026).
+var vpMapProfileSizeObserved = null;
+var vpMapProfileSize = null;
+var vpMapProfileEfbViewport = null;
+function vpObservedMapProfileSize(scrollContainer) {
+  if (typeof ResizeObserver !== 'function') return null;
+  if (vpMapProfileSizeObserved !== scrollContainer) {
+    if (vpMapProfileSizeObserved && vpMapProfileSizeObserved._gaProfileRo) vpMapProfileSizeObserved._gaProfileRo.disconnect();
+    vpMapProfileSizeObserved = scrollContainer;
+    vpMapProfileSize = null;
+    var ro = new ResizeObserver(() => {
+      // Layout is clean inside the observer callback: this read costs nothing extra.
+      vpMapProfileSize = {
+        width: scrollContainer.clientWidth,
+        height: scrollContainer.clientHeight
+      };
+      window.vpBgNeedsUpdate = true;
+    });
+    scrollContainer._gaProfileRo = ro;
+    ro.observe(scrollContainer);
+    return null;
+  }
+  return vpMapProfileSize;
+}
 function vpMapProfileViewport(scrollContainer) {
-  if (!window.GAEfbUiScale) return {
-    width: scrollContainer.clientWidth || 600,
-    height: scrollContainer.clientHeight || 100
-  };
+  if (!window.GAEfbUiScale) {
+    var observed = vpObservedMapProfileSize(scrollContainer);
+    if (observed && observed.width > 0 && observed.height > 0) return {
+      width: observed.width,
+      height: observed.height
+    };
+    return {
+      width: scrollContainer.clientWidth || 600,
+      height: scrollContainer.clientHeight || 100
+    };
+  }
+  // EFB: measuring rects and computed styles every profile frame is expensive in Coherent.
+  // While the map pans or zooms the strip cannot change size: reuse the last result
+  // (re-measured at least once a second, e.g. while the map follows the aircraft).
+  var last = vpMapProfileEfbViewport;
+  var measuredAt = performance && performance.now ? performance.now() : Date.now();
+  if (window.gaMapMotionActive === true && last && last.container === scrollContainer && last.width > 0 && last.height > 0 && measuredAt - last.at < 1000) {
+    return {
+      width: last.width,
+      height: last.height
+    };
+  }
   var strip = document.getElementById('mapProfileStrip');
   var wrapper = document.getElementById('vpCanvasWrapper');
   if (!strip || !wrapper) return {
@@ -93,6 +136,12 @@ function vpMapProfileViewport(scrollContainer) {
       set(canvas, 'height', drawHeight + 'px');
     }
   }
+  vpMapProfileEfbViewport = {
+    container: scrollContainer,
+    width: drawWidth,
+    height: drawHeight,
+    at: measuredAt
+  };
   return {
     width: drawWidth,
     height: drawHeight
@@ -190,11 +239,40 @@ function vpWeatherSourceLabel(source) {
 }
 function vpModelForecastTime(sample) {
   var format = date => new Date(date).toISOString().slice(11, 16);
-  return _vpUiText('map.weatherSource.dwdTime', 'DWD ICON-EU · Lauf {run} UTC · gültig {time} UTC.', {
+  return _vpUiText('map.weatherSource.dwdTime', 'DWD ICON-EU · Lauf {run} UTC · gültig {time} UTC. Datenbasis: Deutscher Wetterdienst, eigene Verarbeitung.', {
     run: format(sample.modelRunAt),
     time: format(sample.contourValidAt)
   });
 }
+
+// Hours the DWD pickers offer: the fixed UI range (-3..+12 h) limited to the
+// published forecast hours. The static reader (dwd-weather-assets.js) or the
+// tracker answer (EFB) stores the published range in window.gaDwdTermWindow.
+// Without a fresh range the fixed UI range applies.
+var GA_DWD_TERM_WINDOW_MAX_AGE_MS = 15 * 60 * 1000;
+function gaRememberDwdTermWindow(data) {
+  if (!data || !Number.isFinite(data.firstValidAt) || !Number.isFinite(data.lastValidAt)) return;
+  window.gaDwdTermWindow = {
+    first: data.firstValidAt,
+    last: data.lastValidAt,
+    at: Date.now()
+  };
+}
+window.gaRememberDwdTermWindow = gaRememberDwdTermWindow;
+window.gaDwdHourBounds = function (current) {
+  var hour = 60 * 60 * 1000;
+  var min = current - 3 * hour;
+  var max = current + 12 * hour;
+  var range = window.gaDwdTermWindow;
+  if (range && Number.isFinite(range.first) && Number.isFinite(range.last) && Date.now() - range.at < GA_DWD_TERM_WINDOW_MAX_AGE_MS) {
+    min = Math.max(min, range.first);
+    max = Math.max(min, Math.min(max, range.last));
+  }
+  return {
+    min: min,
+    max: max
+  };
+};
 window.fetchDwdWeatherPoints = /*#__PURE__*/function () {
   var _ref = _asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee(points) {
     var _ref2,
@@ -320,6 +398,7 @@ function _vpFetchDwdServicePoints() {
           return response.json();
         case 4:
           data = _context13.v;
+          gaRememberDwdTermWindow(data);
           if (!(prefetch && data.source === 'dwd-icon-eu' && Array.isArray(data.samples) && !data.samples.length)) {
             _context13.n = 5;
             break;
@@ -7163,6 +7242,12 @@ window.vpBuildWeatherDebugReport = function () {
       lines.push(`- OpenTopoMap Tiles: Primary ok/Fehler/Timeout ${Number(topoStatus === null || topoStatus === void 0 ? void 0 : topoStatus.primaryLoaded) || 0}/${Number(topoStatus === null || topoStatus === void 0 ? void 0 : topoStatus.primaryErrors) || 0}/${Number(topoStatus === null || topoStatus === void 0 ? void 0 : topoStatus.primaryTimeouts) || 0}` + ` | Backup Abruf/ok/Fehler ${Number(topoStatus === null || topoStatus === void 0 ? void 0 : topoStatus.fallbackRequests) || 0}/${Number(topoStatus === null || topoStatus === void 0 ? void 0 : topoStatus.fallbackLoaded) || 0}/${Number(topoStatus === null || topoStatus === void 0 ? void 0 : topoStatus.fallbackErrors) || 0}`);
     } catch (_) {}
   }
+  if (typeof window.getGaTileRetryStatus === 'function') {
+    try {
+      var retryStatus = window.getGaTileRetryStatus();
+      lines.push(`- Kachel-Neuversuche: Fehler ${Number(retryStatus === null || retryStatus === void 0 ? void 0 : retryStatus.errors) || 0}` + ` | Versuche ${Number(retryStatus === null || retryStatus === void 0 ? void 0 : retryStatus.retries) || 0}` + ` | erholt ${Number(retryStatus === null || retryStatus === void 0 ? void 0 : retryStatus.recovered) || 0}` + ` | aufgegeben ${Number(retryStatus === null || retryStatus === void 0 ? void 0 : retryStatus.gaveUp) || 0}` + ` | unsichtbare nachgeblendet ${Number(retryStatus === null || retryStatus === void 0 ? void 0 : retryStatus.fadeRescued) || 0}`);
+    } catch (_) {}
+  }
   lines.push(`- Overpass Requests: ${dbg.overpassRequests || 0}, 429/504 ${dbg.overpass429Count || 0}/${dbg.overpass504Count || 0}, Cooldown-Skips ${dbg.overpassCooldownSkips || 0}, Inflight-Joins ${dbg.overpassInFlightJoins || 0}`);
   lines.push(`- Hosted Tiles Req/Hit/Miss/Err: ${dbg.hostedTileRequests || 0}/${dbg.hostedTileHits || 0}/${dbg.hostedTileMisses || 0}/${dbg.hostedTileErrors || 0} | CORE split/legacy ${dbg.hostedTileCoreHits || 0}/${dbg.hostedTileLegacyHits || 0}`);
   lines.push(`- POI Tiles Req/Hit/Miss/Err: ${poiDbg.requests || 0}/${poiDbg.hits || 0}/${poiDbg.misses || 0}/${poiDbg.errors || 0} | split/legacy ${poiDbg.splitHits || 0}/${poiDbg.legacyHits || 0} | fallback ${poiDbg.fallbackHits || 0}${poiDbg.lastSource ? ` last=${poiDbg.lastSource}` : ''}`);
@@ -13187,10 +13272,13 @@ function renderMapProfileFrames(timeMs) {
   });
   var hasWeatherAnim = vpHasAnimatedProfileWeather();
   var targetFps = vpGetMapProfileTargetFps(isHdgMode, hasWeatherAnim);
-  var frameIntervalMs = 1000 / Math.max(1, targetFps);
+  // While the map pans or zooms (and the profile itself is not being handled) the profile
+  // paints at most 4×/s; the map sends a final frame when the movement ends.
+  var mapMoving = window.gaMapMotionActive === true && targetFps !== VP_PROFILE_FPS_INTERACT && targetFps !== VP_PROFILE_FPS_INTERACT_LOW;
+  var frameIntervalMs = Math.max(1000 / Math.max(1, targetFps), mapMoving ? 250 : 0);
   var nowMs = Number.isFinite(timeMs) ? timeMs : performance.now();
   var elapsedMs = nowMs - (Number(perfMeta.lastPaintMs) || 0);
-  if (!window.vpBgNeedsUpdate && elapsedMs < frameIntervalMs) {
+  if ((!window.vpBgNeedsUpdate || mapMoving) && elapsedMs < frameIntervalMs) {
     vpScheduleMapProfileFrame(frameIntervalMs - elapsedMs);
     return;
   }
@@ -15133,8 +15221,9 @@ function vpUpdateWeatherDetailsUi() {
   var modelSource = vpWeatherSource !== 'metar';
   var hour = Math.floor(Date.now() / VP_WEATHER_HOUR_MS) * VP_WEATHER_HOUR_MS;
   var from = (_ref51 = vpWeatherValidAt !== null && vpWeatherValidAt !== void 0 ? vpWeatherValidAt : displayedTerm) !== null && _ref51 !== void 0 ? _ref51 : hour;
-  document.getElementById('vpWeatherEarlier').disabled = !modelSource || from <= hour - 3 * VP_WEATHER_HOUR_MS;
-  document.getElementById('vpWeatherLater').disabled = !modelSource || from >= hour + 12 * VP_WEATHER_HOUR_MS;
+  var bounds = vpWeatherHourBounds(hour);
+  document.getElementById('vpWeatherEarlier').disabled = !modelSource || from <= bounds.min;
+  document.getElementById('vpWeatherLater').disabled = !modelSource || from >= bounds.max;
   document.getElementById('vpWeatherNow').disabled = vpWeatherValidAt === null;
   var label = document.getElementById('vpWeatherTerm');
   var format = date => new Date(date).toISOString().slice(11, 16) + ' UTC';
@@ -15142,6 +15231,14 @@ function vpUpdateWeatherDetailsUi() {
   var status = vpWeatherTimelineStatus === 'loading' ? _vpUiText('map.profile.weatherLoadingTerm', 'lädt') : vpWeatherTimelineStatus === 'unavailable' ? _vpUiText('map.profile.weatherUnavailableTerm', 'nicht verfügbar') : '';
   label.textContent = status ? `${active} · ${status}` : active;
   label.title = status && vpWeatherValidAt !== null ? `${format(vpWeatherValidAt)} ${status}` : displayedTerm === null ? _vpUiText('map.profile.weatherNoTerm', 'Kein Modelltermin') : '';
+}
+
+// DWD: only published hours; Open-Meteo keeps the fixed range.
+function vpWeatherHourBounds(current) {
+  return vpWeatherSource === 'dwd' ? window.gaDwdHourBounds(current) : {
+    min: current - 3 * VP_WEATHER_HOUR_MS,
+    max: current + 12 * VP_WEATHER_HOUR_MS
+  };
 }
 function vpDwdTimelineActive() {
   return window.GA_DWD_WEATHER_PREFETCH === true && vpShowWeatherTimeline && vpWeatherSource === 'dwd' && vpMode === 'ROUTE' && vpCanRunVisibleMapProfileWork();
@@ -15196,7 +15293,8 @@ function vpScheduleDwdTimelinePrefetch() {
   if (window._lastWetterRouteKey !== routeKey || hour === null || vpWeatherData[0].wxSource !== 'dwd') return;
   if (vpDwdTimelineRouteKey !== routeKey) vpRememberDwdTimelineHour(routeKey, vpWeatherData);
   var current = Math.floor(Date.now() / VP_WEATHER_HOUR_MS) * VP_WEATHER_HOUR_MS;
-  var neighbors = [hour + VP_WEATHER_HOUR_MS, hour - VP_WEATHER_HOUR_MS].filter(term => term >= current - 3 * VP_WEATHER_HOUR_MS && term <= current + 12 * VP_WEATHER_HOUR_MS && !vpDwdTimelineHours.has(term));
+  var bounds = vpWeatherHourBounds(current);
+  var neighbors = [hour + VP_WEATHER_HOUR_MS, hour - VP_WEATHER_HOUR_MS].filter(term => term >= bounds.min && term <= bounds.max && !vpDwdTimelineHours.has(term));
   if (!neighbors.length) return;
   vpDwdTimelineTimer = setTimeout(/*#__PURE__*/_asyncToGenerator(/*#__PURE__*/_regenerator().m(function _callee1() {
     var controller, _iterator78, _step78, validAt, zones, _t10, _t11;
@@ -15282,7 +15380,8 @@ function vpChangeWeatherHour(step) {
   if (step === 0) vpWeatherValidAt = null;else {
     var _ref53;
     var target = ((_ref53 = vpWeatherValidAt !== null && vpWeatherValidAt !== void 0 ? vpWeatherValidAt : vpDisplayedWeatherTerm()) !== null && _ref53 !== void 0 ? _ref53 : current) + step * VP_WEATHER_HOUR_MS;
-    vpWeatherValidAt = Math.max(current - 3 * VP_WEATHER_HOUR_MS, Math.min(current + 12 * VP_WEATHER_HOUR_MS, target));
+    var bounds = vpWeatherHourBounds(current);
+    vpWeatherValidAt = Math.max(bounds.min, Math.min(bounds.max, target));
   }
   vpStopDwdTimelinePrefetch(false);
   vpPruneDwdTimelineHours();
