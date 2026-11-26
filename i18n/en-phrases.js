@@ -880,6 +880,8 @@
         "MISSION ERFUELLT": "MISSION COMPLETED",
 
         // Dialogs (alert/confirm/prompt in app, sync, board, map, profile, logbook, quiz, sim) and API key dialog
+        "Es ist bereits ein Auftrag geplant. Wirklich einen neuen Auftrag generieren? Der bisherige Auftrag bleibt in Cloud und Tracker erhalten, bis du den neuen annimmst.": "A mission is already planned. Really generate a new one? The current mission stays in the cloud and tracker until you accept the new one.",
+        "Geplanter Auftrag bleibt bestehen.": "Planned mission kept.",
         "Den aktuellen lokalen Entwurf verwerfen und eine neue Mission als Entwurf generieren? Die angenommene Mission in Cloud und Tracker bleibt bis zur Annahme erhalten.": "Discard the current local draft and generate a new mission as a draft? The accepted mission in the cloud and tracker stays until you accept the new one.",
         "Die laufende Behoerdenkontrolle muss zuerst abgeschlossen werden.": "The ongoing authority inspection must be completed first.",
         "Die laufende Behördenkontrolle muss zuerst abgeschlossen werden.": "The ongoing authority inspection must be completed first.",

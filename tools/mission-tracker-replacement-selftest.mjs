@@ -57,18 +57,34 @@ for (const trackerMission of [false,true]) {
     assert.equal(scenario.result,true);
     assert.deepEqual(scenario.calls,[], 'a follow-up preview must leave the accepted run intact');
 }
-const draftContext={window:{gaMissionDraftActive:()=>true},confirm:()=>false};
+const draftContext={window:{gaMissionDraftActive:()=>true},_appUiPhrase:text=>text,confirm:()=>false};
 vm.runInNewContext(`${overwriteSource}\nthis.run = confirmMissionOverwriteIfNeeded;`,draftContext);
 assert.equal(await draftContext.run(),false);
 draftContext.confirm=()=>true;
 assert.equal(await draftContext.run(),true);
 draftContext.window.gaMissionDraftPhase=()=> 'committing';
 assert.equal(await draftContext.run(),false);
+// Dispatch button: asks before generating over an accepted mission, but never aborts it.
+for (const [localMission, trackerMission, expectAsk] of [[true,false,true],[false,true,true],[false,false,false]]) {
+    const asked = [];
+    const dispatchContext = {
+        window: { gaTrackerExecutionHandlesMission: () => trackerMission, missionRuntimeResumeConflict: null },
+        isAcceptedOrActiveMissionPresent: () => localMission,
+        _appUiPhrase: text => text,
+        confirm: message => { asked.push(message); return false; }
+    };
+    vm.runInNewContext(`${overwriteSource}\nthis.run = () => confirmMissionOverwriteIfNeeded({ includeAccepted: true });`, dispatchContext);
+    assert.equal(await dispatchContext.run(), !expectAsk);
+    assert.equal(asked.length, expectAsk ? 1 : 0);
+}
+assert.match(appSource, /!dispatchOptions\.skipOverwriteConfirm && !missionProposalChoice && !followupSeed && !await confirmMissionOverwriteIfNeeded\(\{ includeAccepted: true \}\)/);
 
 const resetSource = functionSource(appSource, 'resetApp', 'async function');
 const resetCalls = [];
 const resetContext = {
     _dispatchRunId: 1,
+    _appUiPhrase: text => text,
+    _appUiText: (key, vars, german) => String(german).replace(/\{([a-zA-Z0-9_]+)\}/g, (m, n) => (vars && n in vars ? String(vars[n]) : m)),
     _abortDispatchRun: reason => resetCalls.push(['cancel-generation', reason]),
     window: { gaClearSharedMission: async () => { resetCalls.push(['shared-clear']); return {ok:true}; } },
     confirm: () => true,

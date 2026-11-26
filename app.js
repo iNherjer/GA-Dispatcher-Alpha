@@ -8507,11 +8507,19 @@ function isAcceptedOrActiveMissionPresent() {
 }
 window.isAcceptedOrActiveMissionPresent = isAcceptedOrActiveMissionPresent;
 
-async function confirmMissionOverwriteIfNeeded() {
+async function confirmMissionOverwriteIfNeeded(options = {}) {
     // Legacy follow-up callers confirm preview generation, never a shared replacement.
+    // The dispatch button (includeAccepted) also asks when a mission is already planned.
     if (window.gaMissionDraftPhase?.() === 'committing' || window.gaMissionDraftPhase?.() === 'preparing') return false;
-    if (!window.gaMissionDraftActive?.()) return true;
-    return confirm(_appUiPhrase('Den aktuellen lokalen Entwurf verwerfen und eine neue Mission als Entwurf generieren? Die angenommene Mission in Cloud und Tracker bleibt bis zur Annahme erhalten.'));
+    if (window.gaMissionDraftActive?.()) {
+        return confirm(_appUiPhrase('Den aktuellen lokalen Entwurf verwerfen und eine neue Mission als Entwurf generieren? Die angenommene Mission in Cloud und Tracker bleibt bis zur Annahme erhalten.'));
+    }
+    if (options?.includeAccepted !== true) return true;
+    const trackerExecutionActive = window.gaTrackerExecutionHandlesMission?.() === true
+        || window.missionRuntimeResumeConflict?.trackerActive === true;
+    if (!trackerExecutionActive && !isAcceptedOrActiveMissionPresent()) return true;
+    // Generating only builds a local draft; the accepted mission is replaced first at acceptance.
+    return confirm(_appUiPhrase('Es ist bereits ein Auftrag geplant. Wirklich einen neuen Auftrag generieren? Der bisherige Auftrag bleibt in Cloud und Tracker erhalten, bis du den neuen annimmst.'));
 }
 
 window.confirmMissionOverwriteIfNeeded = confirmMissionOverwriteIfNeeded;
@@ -20573,11 +20581,37 @@ function _missionSightseeingGuestInterestLine(missionLike = {}, target = 'Zielge
     return `Der Zielbereich ${target} soll für den Gast mehr sein als ein Punkt auf der Karte: ein persönlicher Blickmoment mit erkennbarem Bezug zur Landschaft.`;
 }
 
+// Visibility from planning weather hooks: 'poor' (fog, haze, low values), 'good' (CAVOK,
+// >= 10 km or explicit good visibility) or 'unknown'. A bare mention of "Sicht" or "VFR" is unknown.
+function _missionSightseeingVisibilityQuality(text = '') {
+    const t = normalizeMissionText(text);
+    if (!t) return 'unknown';
+    if (/nebel|dunst|diesig|\bfog\b|\bmist\b|\bhaze\b|\bbr\b|\bfg\b|schlechte sicht|sicht (?:ist |bleibt )?(?:stark |deutlich )?(?:eingeschr(?:ae|a)nkt|reduziert|gering|schlecht|ma(?:e)?(?:ss|ß)ig)|eingeschr(?:ae|a)nkte sicht|reduzierte sicht|geringe sicht|tiefe wolken|niedrige wolken|wolkenuntergrenze (?:tief|niedrig)|\bifr\b|\bmvfr\b|\blifr\b/.test(t)) return 'poor';
+    const kmValues = [];
+    const reKm = /(\d+(?:[.,]\d+)?)\s*km/g;
+    let m;
+    while ((m = reKm.exec(t))) {
+        const near = t.slice(Math.max(0, m.index - 24), m.index + m[0].length + 24);
+        if (/sicht|visib/.test(near)) kmValues.push(Number(m[1].replace(',', '.')));
+    }
+    const reM = /sicht\D{0,12}(\d{3,5})\s*m\b/g;
+    while ((m = reM.exec(t))) kmValues.push(Number(m[1]) / 1000);
+    if (/\b9999\b/.test(t)) kmValues.push(10);
+    const finiteKm = kmValues.filter(Number.isFinite);
+    if (finiteKm.length) return Math.min(...finiteKm) >= 10 ? 'good' : (Math.min(...finiteKm) < 5 ? 'poor' : 'unknown');
+    if (/cavok|fernsicht|weite sicht|klare sicht|gute sicht|sehr gute sicht|ausgezeichnete sicht|klarer himmel|wolkenlos/.test(t)) return 'good';
+    return 'unknown';
+}
+
 function _missionSightseeingWhyNowLine(missionLike = {}) {
     const plan = missionLike?._missionPlanV2?.plan || missionLike?.missionPlanV2?.plan || missionLike?.missionPlan?.plan || null;
     const weatherHooks = Array.isArray(plan?.weatherHooks) ? plan.weatherHooks.map(x => String(x || '').trim()).filter(Boolean) : [];
     const weatherText = normalizeMissionText(weatherHooks.join(' '));
-    if (/\bsicht\b|\bvfr\b|\bfern|klar|cavok/.test(weatherText)) {
+    const visibility = _missionSightseeingVisibilityQuality(weatherText);
+    if (visibility === 'poor') {
+        return 'Die Sicht ist heute begrenzt; ein ruhiger, eher naher Überflug hilft, damit der Blick auf das Ziel trotzdem gelingt.';
+    }
+    if (visibility === 'good') {
         return 'Das Sichtfenster spielt heute mit: genug Ruhe für einen weichen Überflug und genug Fernsicht, damit der Blick wirklich hängen bleibt.';
     }
     if (/\bgrad|hitze|warm|sommer/.test(weatherText)) {
@@ -20920,7 +20954,15 @@ function _missionSightseeingAptWeatherLine(missionLike = {}, fallback = '', vari
             ], variantSeed, 43);
         }
     }
-    if (/\bvfr|sicht|klar|cavok|gut\b/i.test(raw)) {
+    const visibility = _missionSightseeingVisibilityQuality(raw);
+    if (visibility === 'poor') {
+        return _missionSightseeingAptPickVariant([
+            'Die Sicht ist heute begrenzt; der Hinflug bleibt ruhig und sauber geplant, der eigentliche Ausflug beginnt ohnehin am Boden.',
+            'Bei eingeschraenkter Sicht zaehlt ein gelassener, gut vorbereiteter Hinflug; die Zielregion zeigt sich dann nach der Landung aus der Naehe.',
+            'Das Wetter ist heute eher grau; umso schoener wird das Ankommen, wenn der Besuch am Zielort beginnt.'
+        ], variantSeed, 49);
+    }
+    if (visibility === 'good') {
         return _missionSightseeingAptPickVariant([
             'Das Wetterfenster passt als freundlicher Auftakt: genug Ruhe fuer den Hinflug und genug Sicht, damit die Zielregion schon vor der Landung neugierig macht.',
             'Die Sicht macht den Hinflug zum passenden Einstieg in den Ausflug; schon vor der Landung laesst sich die Zielregion einordnen.',
@@ -45090,6 +45132,12 @@ async function generateMission(options = {}) {
         totalSeats: document.getElementById('maxSeats')?.value
     });
     if (missionDraftSession().status() === 'committing' || missionDraftSession().status() === 'preparing') return false;
+    if (!dispatchOptions.skipOverwriteConfirm && !missionProposalChoice && !followupSeed && !await confirmMissionOverwriteIfNeeded({ includeAccepted: true })) {
+        const indicator = document.getElementById('searchIndicator');
+        if (indicator) indicator.innerText = _appUiPhrase('Geplanter Auftrag bleibt bestehen.');
+        setMissionGenerationProgress({ visible: false, force: true });
+        return false;
+    }
     let preflightAircraftAutoResolution = null;
     if (!missionProposalChoice && !followupSeed) {
         const preflightPicker = parseMissionPickerValue(requestedPickerValueAtStart);
