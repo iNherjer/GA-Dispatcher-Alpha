@@ -41,16 +41,30 @@ function score(figure, want) {
   return points;
 }
 
-// Wählt eine Figur. Geschlecht ist Pflicht und wird nie getauscht; Einsatz (use) filtert,
-// solange es Treffer gibt. Unter gleich guten Figuren streut der Seed stabil.
+// Figuren, die nur als Patient gedacht sind, tauchen nie als gewöhnliche Person auf –
+// auch nicht über Rückfall oder Ersatztitel. Nur eine Anfrage mit use 'patient' erreicht sie.
+function patientOnly(figure) {
+  const uses = figure.uses || [];
+  return uses.length > 0 && uses.every((use) => use === 'patient');
+}
+
+function useList(use) {
+  return (Array.isArray(use) ? use : [use]).map((entry) => String(entry || '').trim()).filter(Boolean);
+}
+
+// Wählt eine Figur. Geschlecht ist Pflicht und wird nie getauscht; Einsatz (use, Text oder
+// Liste: eine der Angaben genügt) filtert, solange es Treffer gibt. Unter gleich guten Figuren
+// streut der Seed stabil.
 // Liefert { title, candidates, source, look, season, maxWalkKts, matched } oder null.
 function pickPersonFigure(request = {}, source = catalog()) {
   const gender = normGender(request.gender) || 'female';
   const exclude = new Set(Array.isArray(request.exclude) ? request.exclude : []);
-  const all = figures(source).filter((figure) => figure.gender === gender);
+  const uses = useList(request.use);
+  const everyone = figures(source).filter((figure) => figure.gender === gender);
+  const all = uses.includes('patient') ? everyone : everyone.filter((figure) => !patientOnly(figure));
   if (!all.length) return null;
   const want = { look: request.look || '', season: request.season || '', ageBand: request.ageBand || '' };
-  const byUse = request.use ? all.filter((figure) => (figure.uses || []).includes(request.use)) : all;
+  const byUse = uses.length ? all.filter((figure) => (figure.uses || []).some((use) => uses.includes(use))) : all;
   let pool = (byUse.length ? byUse : all).filter((figure) => !exclude.has(figure.title));
   if (!pool.length) pool = byUse.length ? byUse : all;
   // Saisonfalsche Kleidung nur, wenn es gar nichts anderes gibt.
@@ -62,7 +76,7 @@ function pickPersonFigure(request = {}, source = catalog()) {
   const top = pool.filter((figure) => score(figure, want) === best).sort((a, b) => a.title.localeCompare(b.title));
   const chosen = top[hash(`${request.seed || ''}|${gender}|${want.look}|${want.season}`) % top.length];
   // Ersatztitel für Spawn-Fehler: gleiche Saison/Geschlecht, Standardfiguren zuletzt.
-  const fallbackPool = all.filter((figure) => figure.title !== chosen.title
+  const fallbackPool = (byUse.length ? byUse : all).filter((figure) => figure.title !== chosen.title
     && (!want.season || figure.season === want.season || figure.season === 'all'))
     .sort((a, b) => score(b, want) - score(a, want) || a.title.localeCompare(b.title));
   return {

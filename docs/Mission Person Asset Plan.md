@@ -269,6 +269,28 @@ von Release-Katalog und `catalog.json`, alle Personen
 die Tests laufen. `--write-channel` schreibt `stable.json` erst nach OK. Kein
 Commit, kein Push.
 
+## 7c. Patient und Bodenpersonal (Pack 0.6.27, Web v2559)
+
+Seit Pack 0.6.27 gibt es Figuren mit eigenem Einsatz: `tw-pod-patient-m-01`
+(`uses: patient`) und `tw-pod-worker-m-01` (`uses: ground_crew, homebase`).
+
+- **Figurwahl** (`mission-person-figure-core.js`): `use` darf eine Liste sein, eine
+  Angabe genügt. Figuren, die nur `patient` tragen, erreicht ausschließlich eine
+  Anfrage mit `patient` – auch Rückfall-Pool und Ersatztitel lassen sie sonst weg.
+  Eine passende Pack-Figur bleibt bevorzugt (User-Entscheidung 26.11.2026).
+- **Patiententransfer:** Der Onboard-Kern markiert den Patienten (`patient: true`),
+  der Composer-Plan trägt das Merkmal weiter. `resolveFigures` wählt die
+  Patientenfigur; erzählt der Composer eine Outdoor-Person, kommt auch eine passende
+  Outdoor-Figur in Frage (Wanderer). Ohne Patientenfigur dieses Geschlechts eine
+  Alltagsfigur. Boarding und Aussteigen nutzen dieselbe Figur; ältere Pläne ohne
+  Merkmal behalten die bisherige Wahl.
+- **Bodenpersonal:** Szenen-Personen mit Rolle `person.ground_crew` am Zielplatz nehmen
+  eine Pack-Figur mit `ground_crew`, wenn ihr Look zur Rolle passt
+  (`defaultLookForRole`, z. B. Fracht → workwear); sonst Tarmac wie bisher. Bringer und
+  Empfänger aus dem Composer mit Look `workwear` dürfen zusätzlich `ground_crew`-Figuren
+  tragen. Feuer/SAR/Medizin bekommen den Arbeiter über den Look-Abzug nicht.
+- Kein Tracker-Build nötig. Sim-Test offen.
+
 ## 8. Offene Punkte
 
 - Wo genau die Bordliste je Ideen-Schema entsteht (eigenes Feld in den

@@ -83,7 +83,7 @@ test('Figuren je Pax: Geschlecht und Look umgesetzt, keine Dopplung', () => {
   const plan = { schema: core.SCHEMA, passengers: [
     { id: 'pax1', lead: true, look: 'outdoor', gender: 'female', ageBand: 'young_adult' },
     { id: 'pax2', lead: false, look: 'outdoor', gender: 'female', ageBand: '' },
-    { id: 'pax3', lead: false, look: 'casual', gender: 'male', ageBand: '' }
+    { id: 'pax3', lead: false, look: 'business', gender: 'male', ageBand: '' }
   ] };
   const figures = core.resolveFigures(plan, { season: 'summer', seed: 'm1' });
   assert.equal(figures[0].title, 'tw-pod-hiker-f-01');
@@ -108,7 +108,7 @@ test('Rückflug: gleiche Personen behalten Looks trotz neuem Anlass, kein neuer 
 });
 
 test('Losschlüssel: ohne gespeicherten Schlüssel lost die Missionskennung, mit Schlüssel nicht', () => {
-  const base = { schema: core.SCHEMA, passengers: [{ id: 'pax1', lead: true, look: 'casual', gender: 'male', ageBand: '' }] };
+  const base = { schema: core.SCHEMA, passengers: [{ id: 'pax1', lead: true, look: 'business', gender: 'male', ageBand: '' }] };
   const seeds = Array.from({ length: 12 }, (_, i) => 'm' + i);
   const unseeded = new Set(seeds.map((seed) => core.resolveFigures(base, { season: 'summer', seed })[0].title));
   assert.ok(unseeded.size > 1, 'Testannahme: mehrere passende Figuren im Pool');
@@ -237,4 +237,37 @@ test('Besetzung aus der Idee bleibt fest, auch wenn der Composer andere Personen
   const plan = core.validate({ passengers: [], scenes: { arrival: { persons: [{ id: 'a1', role: 'Taxifahrer', gender: 'male', look: 'casual' }] } } }, onboard, {});
   assert.deepEqual(plan.scenes.arrival.persons.map((p) => [p.role, p.gender, p.look]), [['Hochzeitsplanerin', 'female', 'casual']]);
   assert.equal(plan.scenes.arrival.castSource, 'idea');
+});
+
+test('Patiententransfer: Patientenfigur, bei Outdoor-Geschichte auch Wanderer, nie als normaler Pax', () => {
+  const medical = { schema: 'medical-transfer-idea.v1', purpose: 'Verlegung zur Reha', background: 'geplant', character: 'ruhig',
+    arrival: 'Krankenwagen am Vorfeld', recipient: 'Reha-Klinik', transportKind: 'patient_transfer',
+    passenger: { name: 'Dr. Lena Roth', role: 'Ärztin', gender: 'female' }, patient: { name: 'Karl Weiß', gender: 'male', mobility: 'seated_assisted' } };
+  const onboard = onboardCore.fromIdea(medical);
+  const plan = core.validate({ passengers: [{ id: 'pax1', look: 'medical' }, { id: 'pax2', look: 'casual' }] }, onboard, {});
+  assert.equal(plan.passengers[1].patient, true);
+  const picks = core.resolveFigures(plan, { season: 'summer', seed: 'verlegung' });
+  assert.equal(picks[1].title, 'tw-pod-patient-m-01');
+  assert.equal(picks[1].patient, true);
+  assert.ok(picks[1].candidates.length > 1, 'Ersatztitel nach der Patientenfigur');
+  const outdoor = { ...plan, passengers: [plan.passengers[0], { ...plan.passengers[1], look: 'outdoor', lookSource: 'composer' }] };
+  const titles = new Set(Array.from({ length: 30 }, (_, i) => core.resolveFigures(outdoor, { season: 'summer', seed: `o${i}` })[1].title));
+  assert.deepEqual([...titles].sort(), ['tw-pod-hiker-m-01', 'tw-pod-patient-m-01']);
+  const female = { ...plan, passengers: [plan.passengers[0], { ...plan.passengers[1], gender: 'female' }] };
+  assert.match(core.resolveFigures(female, { season: 'summer', seed: 'f' })[1].title, /^Tarmac_Female_/, 'keine Patientin → Alltagsfigur, nicht die Wanderin');
+  const group = { passengers: ['casual', 'outdoor', 'medical', 'workwear', 'business'].map((look, i) => ({ id: `pax${i + 1}`, lead: !i, gender: 'male', look })) };
+  for (let i = 0; i < 60; i += 1) {
+    for (const pick of core.resolveFigures(group, { season: i % 2 ? 'winter' : 'summer', seed: `g${i}` })) {
+      assert.ok(![pick.title, ...(pick.candidates || [])].includes('tw-pod-patient-m-01'), pick.title);
+    }
+  }
+});
+
+test('Bringer/Empfänger in Arbeitskleidung dürfen Bodenpersonal-Figuren tragen, andere nicht', () => {
+  const plan = { figureSeed: 'crew', scenes: { arrival: { persons: [
+    { id: 'a1', gender: 'male', look: 'workwear' }, { id: 'a2', gender: 'male', look: 'fire_rescue' }, { id: 'a3', gender: 'male', look: 'casual' }] } } };
+  const crew = core.resolveSceneCrew(plan, 'arrival', { season: 'summer' });
+  assert.equal(crew[0].title, 'tw-pod-worker-m-01');
+  assert.match(crew[1].title, /^Tarmac_Male_/);
+  assert.notEqual(crew[2].title, 'tw-pod-worker-m-01');
 });

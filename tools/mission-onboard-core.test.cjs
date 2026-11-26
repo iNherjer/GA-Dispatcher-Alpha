@@ -111,6 +111,8 @@ test('Medizin: Fachperson, beim Patiententransfer Patient mit Geschlecht aus der
   const patient = core.fromIdea({ ...base, transportKind: 'patient_transfer', patient: { name: 'Karl Weiß', gender: 'male', mobility: 'seated_assisted' } });
   assert.deepEqual(patient.passengers.map((p) => p.gender), ['female', 'male']);
   assert.match(patient.passengers[1].role, /Patient/);
+  assert.deepEqual(patient.passengers.map((p) => p.patient === true), [false, true], 'nur der Patient trägt das Merkmal');
+  assert.equal(staff.passengers.some((p) => p.patient), false);
 });
 
 test('Fracht, zerbrechliche Fracht und Tiertransport: Verpackung an den Composer, Tiere ohne Posten', () => {

@@ -6612,7 +6612,14 @@ function _missionAptArrivalAssetForItem(item = {}, index = 0, options = {}) {
         fallback = semanticTitle || 'Cardboard';
     } else if (role === 'person.ground_crew' || /^person\./.test(role)) {
         const gender = _missionScenePassengerGender();
-        if (options.movingPerson === true) {
+        const crewFigure = role === 'person.ground_crew' && options.movingPerson !== true
+            ? _missionSceneGroundCrewFigurePick(gender, `apt-arrival-${index}`)
+            : null;
+        if (crewFigure) {
+            pool = _sceneTitleCandidates(crewFigure.title, crewFigure.candidates || []);
+            fallback = crewFigure.title;
+            preferFirst = true;
+        } else if (options.movingPerson === true) {
             pool = _missionSceneMovingPersonPool(gender, true);
             fallback = _missionSceneMovingPersonTitle(gender, `apt-arrival-moving-${index}`);
         } else {
@@ -7905,6 +7912,13 @@ function _missionScenePersonFigurePick(gender = 'female', salt = 'person', overr
     });
 }
 
+// Bodenpersonal am Zielplatz: eigene Pack-Figur nur, wenn ihr Look zur Rolle passt
+// (Fracht/Verein/Technik → workwear); sonst null und es bleibt beim Tarmac-Pool.
+function _missionSceneGroundCrewFigurePick(gender = 'female', salt = 'ground-crew') {
+    const pick = _missionScenePersonFigurePick(gender, salt, { use: 'ground_crew' });
+    return pick?.title && pick.source === 'pack' && pick.matched?.look ? pick : null;
+}
+
 // Figuren je Pax der aktuellen Mission: aus dem Boden-Composer (groundVisual der Idee) oder
 // aus der festen Rollenliste. Reihenfolge = Pax-Reihenfolge, erste Figur = Hauptperson/Stimme.
 function _missionSceneGroundIdea() {
@@ -8273,7 +8287,10 @@ function _missionSceneBuildSpawnEffectCommand(reason = 'scene-spawn', position =
         : [];
     const personItems = groupPlan ? groupMembers.map((member, index) => {
         const patientIdea = _missionSceneIsPatientTransfer() ? ((typeof currentMissionData !== 'undefined' && currentMissionData) || window.currentMissionData)?.medicalTransferIdea : null;
-        const figure = !patientIdea ? (groundFigures?.[index] || null) : null;
+        // Patiententransfer: Figuren aus dem Plan nur, wenn er den Patienten kennt (patient-Merkmal
+        // seit Web v2559); ältere Pläne behalten die bisherige Rollenwahl.
+        const patientPlanned = !patientIdea || groundFigures?.some(entry => entry?.patient === true);
+        const figure = patientPlanned ? (groundFigures?.[index] || null) : null;
         const gender = figure?.gender || (patientIdea && index === 1 ? patientIdea.patient.gender : index % 2 === 0 ? primaryGender : secondaryGender);
         const title = figure?.title || _missionSceneMovingPersonTitle(gender, `boarding-group-${index + 1}`);
         return {

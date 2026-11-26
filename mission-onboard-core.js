@@ -26,7 +26,9 @@ function passengersFor({ lead = null, passengerCount = 1, groupLabel = '', compa
       role: text(isLead ? lead?.role : companion?.role, 100) || (total > 1 ? text(groupLabel, 100) : ''),
       gender: gender(isLead ? lead?.gender : companion?.gender),
       appearance: isLead ? text(lead?.appearance, 200) : '',
-      ageHint: ''
+      ageHint: '',
+      // Patient (Medizin-Verlegung): bekommt eine Patienten- statt einer Passagierfigur.
+      ...(companion?.patient === true ? { patient: true } : {})
     });
   }
   return list;
@@ -84,7 +86,7 @@ const ADAPTERS = {
     task: join([idea.arrival, idea.recipient], 300),
     groupLabel: idea.patient ? 'Patient mit medizinischer Begleitung' : '',
     passengers: passengersFor({ lead: idea.passenger, passengerCount: idea.patient ? 2 : 1,
-      companions: idea.patient ? [{ role: 'Patient, sitzend mit Begleitung', gender: idea.patient.gender }] : [] }),
+      companions: idea.patient ? [{ role: 'Patient, sitzend mit Begleitung', gender: idea.patient.gender, patient: true }] : [] }),
     cargo: []
   }),
   // Fracht: keine Person an Bord; Sendung mit Verpackung (entscheidet die Form) und Handhabung.
@@ -213,7 +215,8 @@ function normalize(raw = null) {
     role: text(pax?.role, 100),
     gender: gender(pax?.gender),
     appearance: text(pax?.appearance, 200),
-    ageHint: text(pax?.ageHint, 40)
+    ageHint: text(pax?.ageHint, 40),
+    ...(index > 0 && pax?.patient === true ? { patient: true } : {})
   }));
   const cargo = (Array.isArray(raw.cargo) ? raw.cargo : []).slice(0, 6)
     .map((post, index) => cargoPost(`c${index + 1}`, post || {})).filter(Boolean);

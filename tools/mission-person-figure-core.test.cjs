@@ -107,3 +107,14 @@ test('alle bekannten roleProfiles und taskDomains der App sind in der festen Lis
   assert.deepEqual(missingProfiles, [], 'roleProfile ohne Look');
   assert.deepEqual(missingDomains, [], 'taskDomain ohne Look');
 });
+
+test('Einsatz als Liste; reine Patientenfigur nie über Rückfall oder Ersatztitel', () => {
+  const crew = core.pickPersonFigure({ gender: 'male', use: ['pickup', 'ground_crew'], look: 'workwear', season: 'summer', seed: 'l' }, assets);
+  assert.equal(crew.title, 'tw-pod-worker-m-01');
+  for (let i = 0; i < 40; i += 1) {
+    for (const use of ['', 'homebase', 'bystander', 'nicht-vorhanden']) {
+      const pick = core.pickPersonFigure({ gender: 'male', use, look: 'outdoor', season: 'winter', seed: `r${i}` }, assets);
+      assert.ok(![pick.title, ...pick.candidates].includes('tw-pod-patient-m-01'), `${use}: ${pick.title}`);
+    }
+  }
+});

@@ -154,7 +154,8 @@ function validate(raw, onboard, { roleProfile = '', taskDomain = '', idea = null
       lookSource: looks[answer.look] ? 'composer' : 'role',
       ageBand: ageBands[answer.ageBand] ? answer.ageBand : '',
       gender: pax.gender || answeredGender || (hash(signature(onboard) + pax.id) % 2 ? 'male' : 'female'),
-      note: text(answer.note, 120)
+      note: text(answer.note, 120),
+      ...(pax.patient === true ? { patient: true } : {})
     };
   });
   const cargo = {};
@@ -306,13 +307,41 @@ function figureSeed() { return 'gv-' + Date.now().toString(36) + '-' + Math.rand
 
 // Konkrete Figuren je Pax aus dem Plan (oder Rückfall), Gruppe ohne Dopplung. Ein gespeicherter
 // Plan lost mit seinem eigenen Schlüssel, sonst mit dem übergebenen (Missionskennung).
+// Patient (Medizin-Verlegung): in der Regel die Patientenfigur. Erzählt der Composer eine
+// Outdoor-Person (lookSource composer), kommt auch eine passende Outdoor-Figur in Frage.
+// Gibt es keine Patientenfigur dieses Geschlechts, eine neutrale Alltagsfigur – nie eine
+// zufällige Figur mit Ausrüstung.
+function pickPatientFigure(core, p, base) {
+  const outdoorStory = p.look === 'outdoor' && p.lookSource === 'composer';
+  const request = outdoorStory
+    ? { ...base, look: 'outdoor', use: ['patient', 'passenger'] }
+    : { ...base, look: '', use: 'patient' };
+  const pick = core.pickPersonFigure(request);
+  const figure = pick?.title && core.figureForTitle ? core.figureForTitle(pick.title) : null;
+  const fits = figure && (outdoorStory ? (figure.uses || []).some((use) => use === 'patient' || use === 'passenger') : (figure.uses || []).includes('patient'));
+  const everyday = core.pickPersonFigure({ ...base, look: 'casual', use: 'passenger' });
+  if (!fits) return everyday;
+  // Ersatztitel für Spawn-Fehler: nach der Patientenfigur neutrale Alltagsfiguren.
+  const candidates = [...new Set([...(pick.candidates || []), ...(everyday?.candidates || [])])].slice(0, 6);
+  return { ...pick, candidates };
+}
+
 function resolveFigures(plan, { season = '', seed = '' } = {}) {
   const core = figureCore();
   if (!core || !plan?.passengers?.length) return [];
-  const picks = core.pickGroupFigures(plan.passengers.map((p) => ({ gender: p.gender, look: p.look, ageBand: p.ageBand, use: 'passenger' })), { season, seed: plan.figureSeed || seed });
+  const used = [];
+  const groupSeed = plan.figureSeed || seed;
+  const picks = plan.passengers.map((p, index) => {
+    const base = { gender: p.gender, ageBand: p.ageBand, season, seed: `${groupSeed}|${index}`, exclude: used.slice() };
+    const pick = p.patient === true
+      ? pickPatientFigure(core, p, base)
+      : core.pickPersonFigure({ ...base, look: p.look, use: 'passenger' });
+    if (pick?.title) used.push(pick.title);
+    return pick;
+  });
   return plan.passengers.map((p, index) => {
     const pick = picks[index] || {};
-    return { ...pick, id: p.id, lead: p.lead, look: p.look, figureLook: pick.look || '', gender: p.gender };
+    return { ...pick, id: p.id, lead: p.lead, look: p.look, figureLook: pick.look || '', gender: p.gender, ...(p.patient === true ? { patient: true } : {}) };
   });
 }
 
@@ -322,9 +351,11 @@ function resolveSceneCrew(plan, scene, { season = '', seed = '', exclude = [] } 
   const core = figureCore();
   const persons = plan?.scenes?.[scene]?.persons;
   if (!core || !Array.isArray(persons) || !persons.length) return [];
-  const use = scene === 'start' ? 'escort' : 'pickup';
+  const sceneUse = scene === 'start' ? 'escort' : 'pickup';
   const used = (Array.isArray(exclude) ? exclude : []).slice();
   return persons.map((person, index) => {
+    // Bringer/Empfänger in Arbeitskleidung (Lager, Werkstatt) dürfen auch Bodenpersonal-Figuren tragen.
+    const use = person.look === 'workwear' ? [sceneUse, 'ground_crew'] : sceneUse;
     const pick = core.pickPersonFigure({ gender: person.gender, look: person.look, ageBand: person.ageBand, use, season,
       seed: `${plan.figureSeed || seed}|${scene}|${index}`, exclude: used }) || {};
     if (pick.title) used.push(pick.title);
