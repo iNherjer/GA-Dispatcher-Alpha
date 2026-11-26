@@ -19323,6 +19323,8 @@ window.hideCompassRose = function() {
 function getWpDisplayName(idx) {
     if (typeof routeWaypoints === 'undefined' || !Array.isArray(routeWaypoints) || !routeWaypoints[idx]) return `WP ${idx}`;
     const isLast = idx === routeWaypoints.length - 1;
+    const detourLabel = window.gaDetourEndpointLabel?.(idx, routeWaypoints[idx]);
+    if (detourLabel) return detourLabel;
     if (idx === 0 && typeof currentStartICAO !== 'undefined' && currentStartICAO) return currentStartICAO;
     if (isLast) {
         if (typeof currentDestICAO !== 'undefined' && currentDestICAO) return currentDestICAO;

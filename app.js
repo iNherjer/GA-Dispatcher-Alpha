@@ -10506,6 +10506,7 @@ function saveMissionState() {
     };
     const imgDepUrl = visibleBriefingPhoto("wikiDepImage", "wikiDepImageContainer");
     const imgDestUrl = visibleBriefingPhoto("wikiDestImage", "wikiDestImageContainer");
+    const missionProfileState = window.gaMissionProfileState ? window.gaMissionProfileState() : null;
     // Während eines Umwegs wird die Missionsroute gespeichert, der Umweg separat (ga_detour_route_v1).
     const storedRouteWaypoints = cloneRouteWaypointsForStorage(window.gaMissionRouteWaypoints ? window.gaMissionRouteWaypoints() : routeWaypoints);
     const storedMissionRouteWaypoints = cloneRouteWaypointsForStorage(
@@ -10559,10 +10560,11 @@ function saveMissionState() {
         currentDepElev: currentDepElev,
         currentDestElev: currentDestElev,
         freqCache: freqCache,
-        vpAltWaypoints: typeof vpAltWaypoints !== 'undefined' ? vpAltWaypoints : [],
-        vpSegmentAlts: typeof vpSegmentAlts !== 'undefined' ? vpSegmentAlts : [],
-        vpRouteAltAnchors: window._vpRouteAltAnchors || null,
-        vpElevationData: typeof vpElevationData !== 'undefined' ? vpElevationData : null,
+        // Während eines Umwegs gehört das Höhenprofil im Missionsstand weiter der Mission.
+        vpAltWaypoints: missionProfileState ? missionProfileState.altWaypoints : (typeof vpAltWaypoints !== 'undefined' ? vpAltWaypoints : []),
+        vpSegmentAlts: missionProfileState ? missionProfileState.segmentAlts : (typeof vpSegmentAlts !== 'undefined' ? vpSegmentAlts : []),
+        vpRouteAltAnchors: missionProfileState ? missionProfileState.anchors : (window._vpRouteAltAnchors || null),
+        vpElevationData: missionProfileState ? missionProfileState.elevation : (typeof vpElevationData !== 'undefined' ? vpElevationData : null),
         activePassenger: window.activePassenger || null,
         activeMissionContract: window.activeMissionContract || currentMissionData?.missionContract || null
     };

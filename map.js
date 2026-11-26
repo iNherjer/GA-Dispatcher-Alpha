@@ -8208,6 +8208,62 @@ function gaApplyRasterTileTuning() {
                 if (layer instanceof L.TileLayer) layer._gaPreloadArmed = false;
             });
         });
+        // Gap check (Safari report 26.11.2026: whole rectangles of a raster layer stayed
+        // empty although every request succeeded and no tile was stuck in its fade).
+        // Shortly after the map comes to rest, every tile of the visible area must exist,
+        // be loaded and be shown; missing, invisible and detached tiles are repaired and
+        // counted separately so the debug report tells which case Safari hits.
+        let gapTimers = [];
+        const scheduleGapCheck = () => {
+            gapTimers.forEach(clearTimeout);
+            gapTimers = [1200, 4000].map(delay => setTimeout(() => gaRepairTileGaps(this, originalTiledPixelBounds), delay));
+        };
+        this.on('moveend zoomend resize', scheduleGapCheck);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') scheduleGapCheck();
+        });
+    });
+}
+
+function gaRepairTileGaps(map, visibleBoundsFn) {
+    if (!map || !map._loaded || map._animatingZoom || document.visibilityState === 'hidden') return;
+    map.eachLayer(layer => {
+        if (!(layer instanceof L.TileLayer) || !layer._map || !layer._tiles || layer._tileZoom == null) return;
+        if (layer._tileZoom !== layer._clampZoom(map.getZoom())) return;
+        let bounds;
+        try { bounds = visibleBoundsFn.call(layer, map.getCenter()); } catch (_) { return; }
+        const range = layer._pxBoundsToTileRange(bounds);
+        let missing = 0;
+        let hidden = 0;
+        let detached = 0;
+        for (let y = range.min.y; y <= range.max.y; y++) {
+            for (let x = range.min.x; x <= range.max.x; x++) {
+                const coords = new L.Point(x, y);
+                coords.z = layer._tileZoom;
+                if (!layer._isValidTile(coords)) continue;
+                const tile = layer._tiles[layer._tileCoordsToKey(coords)];
+                if (!tile) { missing += 1; continue; }
+                if (!tile.loaded || !tile.el) continue;
+                const level = layer._levels && layer._levels[layer._tileZoom];
+                if (level && tile.el.parentNode !== level.el) {
+                    level.el.appendChild(tile.el);
+                    detached += 1;
+                }
+                const opacity = parseFloat(tile.el.style.opacity);
+                if (!tile.active || (Number.isFinite(opacity) && opacity < 1) || tile.el.style.display === 'none') {
+                    tile.current = true;
+                    tile.active = true;
+                    tile.el.style.display = '';
+                    L.DomUtil.setOpacity(tile.el, 1);
+                    hidden += 1;
+                }
+            }
+        }
+        if (missing) gaTileRetryState.gapMissing = (gaTileRetryState.gapMissing || 0) + missing;
+        if (hidden) gaTileRetryState.gapHidden = (gaTileRetryState.gapHidden || 0) + hidden;
+        if (detached) gaTileRetryState.gapDetached = (gaTileRetryState.gapDetached || 0) + detached;
+        // Missing tiles: let Leaflet request the visible area again.
+        if (missing && typeof layer._update === 'function') layer._update();
     });
 }
 
@@ -8879,6 +8935,13 @@ function renderMapDetourShadow() {
     if (typeof polyline?.bringToFront === 'function') polyline.bringToFront();
 }
 
+// Hervorhebung direkt am Element: Skins setzen Knopffarben mit höherer Spezifität.
+function setMapButtonHighlight(btn, on) {
+    if (!btn) return;
+    const props = { background: '#00a6d6', color: '#fff', 'box-shadow': '0 0 0 2px #fff, 0 0 12px 3px rgba(0, 200, 255, 0.85)' };
+    Object.keys(props).forEach(k => { if (on) btn.style.setProperty(k, props[k], 'important'); else btn.style.removeProperty(k); });
+}
+
 // Kein eigenes Band: Route Reset führt während eines Umwegs zurück zur Missionsroute.
 function updateMapDetourBand() {
     const detour = mapDetourState();
@@ -8887,8 +8950,10 @@ function updateMapDetourBand() {
             if (!btn.dataset.gaDetourTitle) btn.dataset.gaDetourTitle = btn.getAttribute('title') || '';
             btn.setAttribute('title', _mapUiPhrase('Zurück zur Missionsroute (Umweg beenden)'));
             btn.classList.add('route-reset--detour');
+            setMapButtonHighlight(btn, true);
         } else if (btn.classList.contains('route-reset--detour')) {
             btn.classList.remove('route-reset--detour');
+            setMapButtonHighlight(btn, false);
             if (btn.dataset.gaDetourTitle) btn.setAttribute('title', btn.dataset.gaDetourTitle); else btn.removeAttribute('title');
             delete btn.dataset.gaDetourTitle;
         }
@@ -8907,6 +8972,43 @@ function refreshMapDetourDecor() {
     updateMapDetourBand();
 }
 
+// Höhenprofil der Mission (Höhenpunkte, Teilstrecken-Höhen, Gelände) während des Umwegs beiseitelegen.
+function mapDetourCloneOrNull(value) {
+    try { return value == null ? null : JSON.parse(JSON.stringify(value)); } catch (_) { return null; }
+}
+function stashMissionProfileForDetour(detour) {
+    detour.missionProfile = {
+        altWaypoints: mapDetourCloneOrNull(typeof vpAltWaypoints !== 'undefined' ? vpAltWaypoints : []) || [],
+        segmentAlts: mapDetourCloneOrNull(typeof vpSegmentAlts !== 'undefined' ? vpSegmentAlts : []) || [],
+        anchors: mapDetourCloneOrNull(window._vpRouteAltAnchors),
+        elevation: typeof vpElevationData !== 'undefined' ? vpElevationData : null
+    };
+    resetRouteProfileForRouteSwitch(null);
+}
+// Profil neu aufbauen lassen; mit gemerkten Höhenpunkten werden sie nach dem Geländeladen wieder angelegt.
+function resetRouteProfileForRouteSwitch(anchors) {
+    try { vpAltWaypoints = []; } catch (_) {}
+    try { vpSegmentAlts = []; } catch (_) {}
+    window._vpRouteAltAnchors = anchors || null;
+    try { vpElevationData = null; } catch (_) {}
+    window.vpElevationData = null;
+    window._lastVpRouteKey = null;
+    window.vpBgNeedsUpdate = true;
+}
+window.gaMissionProfileState = () => mapDetourState()?.missionProfile || null;
+
+// Beschriftung von Start und Ziel: während eines Umwegs dessen Endpunkte statt der Missionsplätze.
+window.gaDetourEndpointLabel = function(index, point) {
+    if (!mapDetourState() || !Array.isArray(routeWaypoints) || routeWaypoints.length < 2) return null;
+    const last = routeWaypoints.length - 1;
+    if (index !== 0 && index !== last) return null;
+    const wp = point || routeWaypoints[index] || {};
+    const icao = String(wp.icao || '').trim().toUpperCase();
+    if (icao === 'GPS') return 'GPS';
+    if (icao) return icao;
+    return String(wp.name || (index === 0 ? 'DEP' : 'DEST')).trim();
+};
+
 function enterMapDetour(points, options = {}) {
     const next = normalizeMapRouteWaypoints(points);
     if (next.length < 2) return false;
@@ -8918,6 +9020,7 @@ function enterMapDetour(points, options = {}) {
             source: options.source || 'local',
             missionRoute: mapDetourClone(options.missionRoute || routeWaypoints)
         };
+        stashMissionProfileForDetour(window._gaMapDetour);
     } else {
         if (options.source) detour.source = options.source;
         if (options.id) detour.id = options.id;
@@ -8955,6 +9058,8 @@ function leaveMapDetour(options = {}) {
     clearMapDetourShadow();
     updateMapDetourBand();
     if (options.restore !== false) {
+        // Missionsprofil zurück: Höhenpunkte werden nach dem Geländeladen wieder auf die Route gelegt.
+        resetRouteProfileForRouteSwitch(detour.missionProfile?.anchors || null);
         routeWaypoints = mapDetourClone(options.missionRoute || detour.missionRoute);
         renderMainRoute();
         if (options.fit !== false) fitMapToRouteWaypoints([40, 40]);
@@ -10345,7 +10450,7 @@ async function toggleFreeflightMode() {
         ffNeedsStart = true;
         renderFreeflightRoute();
         updateFreeflightOwnPositionButton();
-        document.getElementById('mapSearchBtn')?.classList.add('map-search-btn--pick');
+        document.getElementById('mapSearchBtn')?.classList.add('map-search-btn--pick'); setMapButtonHighlight(document.getElementById('mapSearchBtn'), true);
         showMapToast(isGpsLive()
             ? _mapUiPhrase('Start wählen: 📍 am Flugzeug, Punkt auf der Karte oder Suche 🔍')
             : _mapUiPhrase('Start wählen: Punkt auf der Karte oder Suche 🔍'));
@@ -10363,7 +10468,7 @@ async function toggleFreeflightMode() {
         ffNeedsStart = false;
         ffMissionChoice = null;
         updateFreeflightOwnPositionButton();
-        document.getElementById('mapSearchBtn')?.classList.remove('map-search-btn--pick');
+        document.getElementById('mapSearchBtn')?.classList.remove('map-search-btn--pick'); setMapButtonHighlight(document.getElementById('mapSearchBtn'), false);
         // Missions-Route wiederherstellen
         if (polyline) polyline.setStyle({ opacity: 1 });
         routeMarkers.forEach(m => { if (m.getElement) { const el = m.getElement(); if (el) el.style.opacity = '1'; } });
@@ -10697,7 +10802,7 @@ function endFreeflightModeSilently() {
     ffMissionChoice = null;
     freeflightMode = false;
     updateFreeflightOwnPositionButton();
-    document.getElementById('mapSearchBtn')?.classList.remove('map-search-btn--pick');
+    document.getElementById('mapSearchBtn')?.classList.remove('map-search-btn--pick'); setMapButtonHighlight(document.getElementById('mapSearchBtn'), false);
     const btn = document.getElementById('freeflightBtn');
     if (btn) { btn.innerText = `✈️ Direct To (${_mapUiOnOff(false)})`; btn.classList.remove('active'); btn.style.background = '#444'; btn.style.color = '#fff'; }
     const mapEl = document.getElementById('map');

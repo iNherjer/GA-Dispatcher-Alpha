@@ -4323,6 +4323,8 @@ function vpRouteWaypointLabel(index) {
   var isLast = Array.isArray(routeWaypoints) && index === routeWaypoints.length - 1;
   var missionLikePoi = !!(typeof currentMissionData !== 'undefined' && currentMissionData && (currentMissionData.poiName || currentMissionData.poiPresentation || typeof missionUsesPoiTaskRecipe === 'function' && missionUsesPoiTaskRecipe(currentMissionData)));
   var isSarHeliFinal = !!(isLast && (wp.isSarHeliHospital || vpIsSarHeliProfileMission()));
+  var detourLabel = typeof window.gaDetourEndpointLabel === 'function' ? window.gaDetourEndpointLabel(index, wp) : null;
+  if (detourLabel) return detourLabel;
   if (index === 0) return currentStartICAO || 'DEP';
   if (isSarHeliFinal) return String(wp.name || ((_currentMissionData = currentMissionData) === null || _currentMissionData === void 0 || (_currentMissionData = _currentMissionData.sarHeli) === null || _currentMissionData === void 0 || (_currentMissionData = _currentMissionData.hospitalRef) === null || _currentMissionData === void 0 ? void 0 : _currentMissionData.name) || currentDestICAO || 'HOSP').replace(/^🏥\s*/, '');
   if (isLast) return missionLikePoi ? currentStartICAO || 'HOME' : currentDestICAO || 'DEST';
@@ -7245,7 +7247,7 @@ window.vpBuildWeatherDebugReport = function () {
   if (typeof window.getGaTileRetryStatus === 'function') {
     try {
       var retryStatus = window.getGaTileRetryStatus();
-      lines.push(`- Kachel-Neuversuche: Fehler ${Number(retryStatus === null || retryStatus === void 0 ? void 0 : retryStatus.errors) || 0}` + ` | Versuche ${Number(retryStatus === null || retryStatus === void 0 ? void 0 : retryStatus.retries) || 0}` + ` | erholt ${Number(retryStatus === null || retryStatus === void 0 ? void 0 : retryStatus.recovered) || 0}` + ` | aufgegeben ${Number(retryStatus === null || retryStatus === void 0 ? void 0 : retryStatus.gaveUp) || 0}` + ` | unsichtbare nachgeblendet ${Number(retryStatus === null || retryStatus === void 0 ? void 0 : retryStatus.fadeRescued) || 0}`);
+      lines.push(`- Kachel-Neuversuche: Fehler ${Number(retryStatus === null || retryStatus === void 0 ? void 0 : retryStatus.errors) || 0}` + ` | Versuche ${Number(retryStatus === null || retryStatus === void 0 ? void 0 : retryStatus.retries) || 0}` + ` | erholt ${Number(retryStatus === null || retryStatus === void 0 ? void 0 : retryStatus.recovered) || 0}` + ` | aufgegeben ${Number(retryStatus === null || retryStatus === void 0 ? void 0 : retryStatus.gaveUp) || 0}` + ` | unsichtbare nachgeblendet ${Number(retryStatus === null || retryStatus === void 0 ? void 0 : retryStatus.fadeRescued) || 0}` + ` | Lücken fehlend/unsichtbar/abgehängt ${Number(retryStatus === null || retryStatus === void 0 ? void 0 : retryStatus.gapMissing) || 0}/${Number(retryStatus === null || retryStatus === void 0 ? void 0 : retryStatus.gapHidden) || 0}/${Number(retryStatus === null || retryStatus === void 0 ? void 0 : retryStatus.gapDetached) || 0}`);
     } catch (_) {}
   }
   lines.push(`- Overpass Requests: ${dbg.overpassRequests || 0}, 429/504 ${dbg.overpass429Count || 0}/${dbg.overpass504Count || 0}, Cooldown-Skips ${dbg.overpassCooldownSkips || 0}, Inflight-Joins ${dbg.overpassInFlightJoins || 0}`);

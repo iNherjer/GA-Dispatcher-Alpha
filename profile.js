@@ -2842,6 +2842,8 @@ function vpRouteWaypointLabel(index, point = null) {
         )
     );
     const isSarHeliFinal = !!(isLast && (wp.isSarHeliHospital || vpIsSarHeliProfileMission()));
+    const detourLabel = typeof window.gaDetourEndpointLabel === 'function' ? window.gaDetourEndpointLabel(index, wp) : null;
+    if (detourLabel) return detourLabel;
     if (index === 0) return currentStartICAO || 'DEP';
     if (isSarHeliFinal) return String(wp.name || currentMissionData?.sarHeli?.hospitalRef?.name || currentDestICAO || 'HOSP').replace(/^🏥\s*/, '');
     if (isLast) return missionLikePoi ? (currentStartICAO || 'HOME') : (currentDestICAO || 'DEST');
@@ -4971,6 +4973,7 @@ window.vpBuildWeatherDebugReport = function() {
                 + ` | erholt ${Number(retryStatus?.recovered) || 0}`
                 + ` | aufgegeben ${Number(retryStatus?.gaveUp) || 0}`
                 + ` | unsichtbare nachgeblendet ${Number(retryStatus?.fadeRescued) || 0}`
+                + ` | Lücken fehlend/unsichtbar/abgehängt ${Number(retryStatus?.gapMissing) || 0}/${Number(retryStatus?.gapHidden) || 0}/${Number(retryStatus?.gapDetached) || 0}`
             );
         } catch (_) { }
     }

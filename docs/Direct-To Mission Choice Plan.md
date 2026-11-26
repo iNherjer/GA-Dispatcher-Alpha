@@ -107,5 +107,9 @@ Würde die Umweg-Route dort hineingeschrieben, würde die Mission verfälscht.
 - Weitere Einstiege: Homebase-Besuch (Erhalten = Umweg). Die POI-Freiflugplanung bleibt unverändert.
 - Tests: `ga-tracker-client/tracker-navigation-detour.test.js`. Im Browser geprüft: Dialog, Start per Positions-Knopf,
   Ziel per Suche, Umweg editieren, Route Reset, Verwerfen, Wiederherstellen und Missionsende.
-- Offen: Feldtest im Sim (EFB-Dialog, Sim-GPS-Export des Umwegs). Die Startbeschriftung im Höhenprofil zeigt
-  während des Umwegs noch den Missionsstart.
+- Nachbesserung Web v2556: Das Höhenprofil schaltet komplett um. Start- und Zielbeschriftung kommen vom Umweg
+  (`gaDetourEndpointLabel`, auch in `getWpDisplayName`). Höhenpunkte, Teilstrecken-Höhen und Gelände der Mission
+  werden beim Einstieg beiseitegelegt (`missionProfile` im Umweg-Zustand) und beim Zurückkehren wieder angelegt.
+  Der Missionsstand speichert während des Umwegs das Missionsprofil. Die Hervorhebung von Lupe und Route Reset
+  wird zusätzlich direkt am Element gesetzt (Skins).
+- Offen: Feldtest im Sim (EFB-Dialog, Sim-GPS-Export des Umwegs).

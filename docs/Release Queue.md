@@ -27,7 +27,11 @@ liefert alles Offene mit aus.
 
 ## Offen
 
-(keine)
+### 2026-11-26 · Höhenprofil: Umweg-Beschriftung und Lückenzähler (EFB-Kopie von `profile.js`)
+- **Artefakt:** EFB-Web-Assets (Sync von `profile.js`). Web live mit v2556.
+- **Was:** `vpRouteWaypointLabel` fragt zuerst `gaDetourEndpointLabel`. Das EFB definiert diese Funktion nicht, dort ändert sich nichts. Neue Debug-Zeile „Lücken fehlend/unsichtbar/abgehängt“ (die Zähler gibt es nur im Web).
+- **Tests:** `tracker-efb-web-client`, `tracker-efb-asset-syntax`, `tracker-profile-data` grün.
+- **Pruefen im Feld:** nichts Neues im EFB.
 
 ## Ausgeliefert
 
