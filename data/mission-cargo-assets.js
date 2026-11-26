@@ -3,7 +3,7 @@
 'use strict';
 const assets={
   "schema": "mission-cargo-assets.v1",
-  "packageVersion": "0.6.26",
+  "packageVersion": "0.6.27",
   "forms": {
     "aircraft_logbook": {
       "id": "aircraft_logbook",

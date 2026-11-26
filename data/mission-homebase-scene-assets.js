@@ -2,7 +2,7 @@
 (function(root){
 'use strict';
 const pack={
-  "packageVersion": "0.6.26",
+  "packageVersion": "0.6.27",
   "features": {
     "homebase_aircraftwheelchocks": {
       "label": "Radkeile – 2 Paare",

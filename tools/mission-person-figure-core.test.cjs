@@ -26,9 +26,11 @@ test('Wanderin für outdoor/weiblich, im Winter weiterhin (season all)', () => {
 });
 
 test('Geschlecht wird nie getauscht, Saison nicht gemischt', () => {
-  const male = core.pickPersonFigure({ gender: 'male', look: 'outdoor', season: 'winter', seed: 'x' }, assets);
-  assert.match(male.title, /^Tarmac_Male_Winter_/);
-  assert.equal(male.matched.look, false, 'kein männlicher Outdoor-Look vorhanden');
+  const male = core.pickPersonFigure({ gender: 'male', look: 'outdoor', season: 'winter', use: 'passenger', seed: 'x' }, assets);
+  assert.equal(male.title, 'tw-pod-hiker-m-01', 'Wanderer (season all) auch im Winter');
+  assert.equal(male.matched.look, true);
+  const business = core.pickPersonFigure({ gender: 'male', look: 'business', season: 'winter', use: 'passenger', seed: 'x' }, assets);
+  assert.match(business.title, /^Tarmac_Male_Winter_/);
   for (let i = 0; i < 40; i += 1) {
     const pick = core.pickPersonFigure({ gender: 'female', look: 'business', season: 'summer', seed: `s${i}` }, assets);
     assert.match(pick.title, /Female_Summer_/);
@@ -40,15 +42,31 @@ test('stabile Streuung über den Seed', () => {
   const a = core.pickPersonFigure({ gender: 'male', look: 'casual', season: 'summer', seed: 'mission-1' }, assets);
   const b = core.pickPersonFigure({ gender: 'male', look: 'casual', season: 'summer', seed: 'mission-1' }, assets);
   assert.equal(a.title, b.title);
-  const titles = new Set(Array.from({ length: 30 }, (_, i) => core.pickPersonFigure({ gender: 'male', season: 'summer', seed: `m${i}` }, assets).title));
+  // Ohne passende Pack-Figur streut der Seed über die Standardfiguren.
+  const titles = new Set(Array.from({ length: 30 }, (_, i) => core.pickPersonFigure({ gender: 'male', look: 'business', season: 'summer', use: 'passenger', seed: `m${i}` }, assets).title));
   assert.ok(titles.size >= 4, `Streuung: ${[...titles]}`);
+  // Passt eine Pack-Figur, hat sie Vorrang (User-Entscheidung 26.11.2026; weitere Figuren folgen).
+  const pack = core.pickPersonFigure({ gender: 'male', look: 'casual', season: 'summer', use: 'passenger', seed: 'm1' }, assets);
+  assert.equal(pack.title, 'tw-pod-casual-m-01');
 });
 
 test('Einsatz filtert, solange es Treffer gibt', () => {
   const homebase = core.pickPersonFigure({ gender: 'female', use: 'homebase', season: 'summer', seed: 'h' }, assets);
   assert.equal(homebase.title, 'tw-pod-hiker-f-01', 'nur die Wanderin hat homebase');
   const patient = core.pickPersonFigure({ gender: 'male', use: 'patient', season: 'summer', seed: 'p' }, assets);
-  assert.ok(patient, 'ohne Treffer: ganzer Pool');
+  assert.equal(patient.title, 'tw-pod-patient-m-01', 'Patient nur über use patient');
+  const femalePatient = core.pickPersonFigure({ gender: 'female', use: 'patient', season: 'summer', seed: 'p' }, assets);
+  assert.ok(femalePatient, 'ohne Treffer: ganzer Pool');
+  const worker = core.pickPersonFigure({ gender: 'male', use: 'ground_crew', look: 'workwear', season: 'summer', seed: 'w' }, assets);
+  assert.equal(worker.title, 'tw-pod-worker-m-01');
+  for (const use of ['passenger', 'escort', 'pickup']) {
+    for (let i = 0; i < 40; i += 1) {
+      for (const look of ['', 'casual', 'outdoor', 'workwear', 'medical']) {
+        const pick = core.pickPersonFigure({ gender: 'male', use, look, season: i % 2 ? 'winter' : 'summer', seed: `u${i}` }, assets);
+        assert.ok(!['tw-pod-patient-m-01', 'tw-pod-worker-m-01'].includes(pick.title), `${use}/${look}: ${pick.title}`);
+      }
+    }
+  }
 });
 
 test('Gruppe: eigene Figuren ohne Dopplung, Geschlecht je Person', () => {

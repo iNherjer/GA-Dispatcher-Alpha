@@ -23,8 +23,9 @@ test('Wanderin mit Aussehen ist gültig', () => {
   assert.deepEqual(result, { errors: [], warnings: [] });
 });
 
-test('Wanderin im Pack 0.6.26 ohne Aussehen: nur Hinweis', () => {
-  const asset = catalog.assets.find((entry) => entry.key === 'tumbleweedHiker');
+test('Person ohne Aussehen (wie Wanderin im Pack 0.6.26): nur Hinweis', () => {
+  const asset = hiker();
+  delete asset.person.appearance;
   const result = checkPersonAsset(asset, vocabulary);
   assert.equal(result.errors.length, 0);
   assert.match(result.warnings[0], /appearance fehlt/);
@@ -61,7 +62,9 @@ test('Einsatzzweck in der Beschreibung gibt einen Hinweis', () => {
 
 test('Personen werden erkannt, Objekte nicht', () => {
   assert.equal(isPersonAsset(catalog.assets.find((entry) => entry.key === 'tumbleweedHiker')), true);
-  assert.equal(catalog.assets.filter(isPersonAsset).length, 1);
+  assert.deepEqual(catalog.assets.filter(isPersonAsset).map((entry) => entry.key).sort(),
+    ['tumbleweedCasualM', 'tumbleweedHiker', 'tumbleweedHikerM', 'tumbleweedPatientM', 'tumbleweedWorkerM']);
+  assert.equal(isPersonAsset(catalog.assets.find((entry) => entry.key === 'woodenPallet')), false);
 });
 
 test('Steckbrief-Datei: Beispiel gültig, Fehler erkannt, Schema passt zur Wortliste', async () => {

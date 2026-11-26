@@ -3,7 +3,7 @@
 'use strict';
 const assets={
   "schema": "mission-person-assets.v1",
-  "packageVersion": "0.6.26",
+  "packageVersion": "0.6.27",
   "vocabulary": "mission-person-vocabulary.v1",
   "looks": {
     "casual": "Freizeitkleidung, entspannt",
@@ -22,10 +22,31 @@ const assets={
   },
   "figures": [
     {
+      "title": "tw-pod-casual-m-01",
+      "key": "tumbleweedCasualM",
+      "source": "pack",
+      "appearanceSource": "catalog",
+      "gender": "male",
+      "look": "casual",
+      "ageBand": "adult",
+      "season": "summer",
+      "props": [],
+      "uses": [
+        "passenger",
+        "pickup",
+        "bystander",
+        "escort"
+      ],
+      "description": "Grauhaariger Mann mit Vollbart, grauem Kurzarmshirt und dunkler Hose",
+      "maxWalkKts": 3,
+      "heightM": 1.877,
+      "footprintRadiusM": 0.371
+    },
+    {
       "title": "tw-pod-hiker-f-01",
       "key": "tumbleweedHiker",
       "source": "pack",
-      "appearanceSource": "profile-fallback",
+      "appearanceSource": "catalog",
       "gender": "female",
       "look": "outdoor",
       "ageBand": "young_adult",
@@ -44,6 +65,66 @@ const assets={
       "maxWalkKts": 3,
       "heightM": 1.775,
       "footprintRadiusM": 0.279
+    },
+    {
+      "title": "tw-pod-hiker-m-01",
+      "key": "tumbleweedHikerM",
+      "source": "pack",
+      "appearanceSource": "catalog",
+      "gender": "male",
+      "look": "outdoor",
+      "ageBand": "adult",
+      "season": "all",
+      "props": [
+        "backpack_large"
+      ],
+      "uses": [
+        "passenger",
+        "pickup",
+        "bystander",
+        "escort"
+      ],
+      "description": "Bärtiger Mann in grüner Kapuzenjacke, dunkler Wanderhose und Stiefeln mit großem Trekkingrucksack",
+      "maxWalkKts": 3,
+      "heightM": 1.792,
+      "footprintRadiusM": 0.427
+    },
+    {
+      "title": "tw-pod-patient-m-01",
+      "key": "tumbleweedPatientM",
+      "source": "pack",
+      "appearanceSource": "catalog",
+      "gender": "male",
+      "look": "outdoor",
+      "ageBand": "senior",
+      "season": "all",
+      "props": [],
+      "uses": [
+        "patient"
+      ],
+      "description": "Älterer Mann mit grauem Haar, dunkler Kleidung und gelber Decke über den Schultern",
+      "maxWalkKts": 3,
+      "heightM": 1.702,
+      "footprintRadiusM": 0.498
+    },
+    {
+      "title": "tw-pod-worker-m-01",
+      "key": "tumbleweedWorkerM",
+      "source": "pack",
+      "appearanceSource": "catalog",
+      "gender": "male",
+      "look": "workwear",
+      "ageBand": "adult",
+      "season": "summer",
+      "props": [],
+      "uses": [
+        "ground_crew",
+        "homebase"
+      ],
+      "description": "Mann mit braunem Haar, schwarzem Kurzarmshirt und blauer Latzhose",
+      "maxWalkKts": 3,
+      "heightM": 1.802,
+      "footprintRadiusM": 0.307
     },
     {
       "title": "Tarmac_Female_Summer_African",
