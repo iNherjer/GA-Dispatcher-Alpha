@@ -10551,6 +10551,8 @@ function saveMissionState() {
         routeWaypoints: storedRouteWaypoints,
         missionRouteWaypoints: storedMissionRouteWaypoints,
         routeResetWaypoints: window.gaGetRouteResetBaseline?.() || null,
+        // Umweg (Direct-To mit erhaltener Mission) geht mit in die Cloud; null = kein Umweg.
+        detour: window.gaDetourStateForSave ? window.gaDetourStateForSave() : null,
         currentStartICAO: currentStartICAO,
         currentDestICAO: currentDestICAO,
         currentSName: currentSName,
@@ -10871,6 +10873,7 @@ async function restoreMissionState(state, options = {}) {
     currentMissionData = state.currentMissionData && typeof state.currentMissionData === 'object' ? state.currentMissionData : {};
     if (currentMissionData.departureAirport) rememberAirportLookupRecord(currentMissionData.departureAirport);
     if (currentMissionData.destinationAirport) rememberAirportLookupRecord(currentMissionData.destinationAirport);
+    window.gaSuspendDetourForRestore?.();
     routeWaypoints = resolveRouteWaypointsFromMissionState(state);
     const restoredMissionRouteSource = currentMissionData?.poiChain
         ? routeWaypoints
@@ -11059,7 +11062,7 @@ async function restoreMissionState(state, options = {}) {
     if (typeof window.updateMissionAcceptanceUi === 'function') window.updateMissionAcceptanceUi();
     try { updateMissionLanguageHint(); } catch (_) {}
     renderMainRoute(); setDrumCounter('distDrum', currentMissionData?.dist || state.currentMissionData?.dist || 0);
-    try { window.gaRestoreDetour?.(); } catch (_) {}
+    try { window.gaRestoreDetour?.(state); } catch (_) {}
     refreshMissionSurveyOverlaySoon(currentMissionData, window.activePassenger || null, 'mission-restore');
     refreshMissionPoiChainOverlaySoon(currentMissionData, window.activePassenger || null, 'mission-restore');
     if (typeof window.gaScheduleRouteMapLayoutRefresh === 'function') window.gaScheduleRouteMapLayoutRefresh('mission-restore');

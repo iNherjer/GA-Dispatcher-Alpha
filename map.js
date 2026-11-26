@@ -8911,25 +8911,55 @@ window.gaSetMissionRouteWaypoints = function(points) {
     return true;
 };
 
+let mapDetourPersistKey = '';
 function persistMapDetour() {
     const detour = mapDetourState();
+    if (detour?.suspended) return; // Missionsstand wird gerade eingespielt.
+    if (detour) detour.points = mapDetourClone(routeWaypoints);
+    const key = detour ? JSON.stringify([detour.id, detour.source, detour.points]) : '';
+    if (key === mapDetourPersistKey) return;
+    mapDetourPersistKey = key;
     try {
-        if (!detour || detour.source !== 'local') { localStorage.removeItem(MAP_DETOUR_STORAGE_KEY); return; }
-        localStorage.setItem(MAP_DETOUR_STORAGE_KEY, JSON.stringify({
+        if (!detour || detour.source !== 'local') localStorage.removeItem(MAP_DETOUR_STORAGE_KEY);
+        else localStorage.setItem(MAP_DETOUR_STORAGE_KEY, JSON.stringify({
             schema: 'ga.web-detour.v1', id: detour.id, missionId: detour.missionId,
-            points: mapDetourClone(routeWaypoints), missionRoute: detour.missionRoute, updatedAt: Date.now()
+            points: detour.points, missionRoute: detour.missionRoute, updatedAt: Date.now()
         }));
     } catch (_) {}
+    // Umweg gehört zum Missionsstand und geht mit ihm in die Cloud.
+    if (typeof window.debouncedSaveMissionState === 'function') window.debouncedSaveMissionState();
+}
+
+// Feld „detour“ im Missionsstand (Cloud): null heißt ausdrücklich kein Umweg.
+window.gaDetourStateForSave = function() {
+    const detour = mapDetourState();
+    if (!detour) return null;
+    return { schema: 'ga.web-detour.v1', id: detour.id, missionId: detour.missionId,
+        points: mapDetourClone(detour.suspended ? detour.points : routeWaypoints) };
+};
+// Vor dem Einspielen eines Missionsstands: Umweg-Punkte sichern, nichts schreiben.
+window.gaSuspendDetourForRestore = function() {
+    const detour = mapDetourState();
+    if (!detour || detour.suspended) return;
+    detour.points = mapDetourClone(routeWaypoints);
+    detour.suspended = true;
+    detour.suspendedAt = Date.now();
 }
 
 function clearMapDetourShadow() {
     if (map) mapDetourShadowLayers.forEach(layer => { try { map.removeLayer(layer); } catch (_) {} });
     mapDetourShadowLayers = [];
+    mapDetourShadowKey = '';
 }
 
+let mapDetourShadowKey = '';
 function renderMapDetourShadow() {
-    clearMapDetourShadow();
     const detour = mapDetourState();
+    const shadowKey = detour && map ? JSON.stringify(detour.missionRoute) : '';
+    // Beim Bearbeiten des Umwegs bleibt die blasse Missionsroute stehen.
+    if (shadowKey && shadowKey === mapDetourShadowKey && mapDetourShadowLayers.length && mapDetourShadowLayers[0]._map === map) return;
+    clearMapDetourShadow();
+    mapDetourShadowKey = shadowKey;
     if (!detour || !map || typeof L === 'undefined') return;
     const points = normalizeMapRouteWaypoints(detour.missionRoute);
     if (points.length < 2) return;
@@ -8982,6 +9012,10 @@ function refreshMapDetourDecor() {
         window._gaMapDetour = null;
         persistMapDetour();
     }
+    const current = mapDetourState();
+    // Abgebrochenes Einspielen: nach 10 s wieder normal weiterführen.
+    if (current?.suspended && Date.now() - (current.suspendedAt || 0) > 10000) current.suspended = false;
+    if (current?.suspended) return;
     if (mapDetourState()) { renderMapDetourShadow(); persistMapDetour(); }
     else clearMapDetourShadow();
     updateMapDetourBand();
@@ -9087,18 +9121,43 @@ function leaveMapDetour(options = {}) {
 window.gaLeaveDetour = leaveMapDetour;
 window.gaClearDetour = () => leaveMapDetour({ restore: false });
 
-// Nach dem Wiederherstellen einer Mission: lokaler Umweg derselben Mission kommt zurück.
-window.gaRestoreDetour = function() {
-    if (mapDetourState()) return false;
-    let saved = null;
-    try { saved = JSON.parse(localStorage.getItem(MAP_DETOUR_STORAGE_KEY) || 'null'); } catch (_) {}
-    if (!saved || saved.schema !== 'ga.web-detour.v1') return false;
+// Nach dem Einspielen eines Missionsstands (Start, Cloud-Abgleich, anderes Gerät): Umweg derselben
+// Mission wieder darüberlegen. Quelle: Feld „detour“ im Stand, sonst der gesicherte lokale Umweg.
+// Ein Stand mit detour:null beendet den Umweg (auf einem anderen Gerät beendet); ältere Stände
+// ohne das Feld lassen den lokalen Umweg stehen.
+window.gaRestoreDetour = function(state = null) {
     const missionId = mapDetourMissionId();
-    if (!missionId || saved.missionId !== missionId) {
-        try { localStorage.removeItem(MAP_DETOUR_STORAGE_KEY); } catch (_) {}
+    const active = mapDetourState();
+    const hasField = !!(state && Object.prototype.hasOwnProperty.call(state, 'detour'));
+    let source = null;
+    if (hasField && state.detour && state.detour.schema === 'ga.web-detour.v1') source = state.detour;
+    else if (!hasField && active?.points?.length >= 2) source = { id: active.id, missionId: active.missionId, points: active.points };
+    else if (!hasField && !active) {
+        try {
+            const saved = JSON.parse(localStorage.getItem(MAP_DETOUR_STORAGE_KEY) || 'null');
+            if (saved && saved.schema === 'ga.web-detour.v1') source = saved;
+        } catch (_) {}
+    }
+    const valid = !!(source && missionId && source.missionId === missionId && Array.isArray(source.points) && source.points.length >= 2);
+    if (!valid) {
+        if (active) {
+            // Missionsstand ist bereits eingespielt: nur den Umweg-Zustand fallen lassen.
+            window._gaMapDetour = null;
+            persistMapDetour();
+            clearMapDetourShadow();
+            updateMapDetourBand();
+            if (typeof renderMainRoute === 'function') renderMainRoute();
+        } else {
+            try { localStorage.removeItem(MAP_DETOUR_STORAGE_KEY); } catch (_) {}
+        }
         return false;
     }
-    return enterMapDetour(saved.points, { id: saved.id, missionId, source: 'local', missionRoute: routeWaypoints, fit: false });
+    // Frisch eingespielte Missionsroute und ihr Höhenprofil werden zur blassen Missionsseite.
+    window._gaMapDetour = null;
+    clearMapDetourShadow();
+    return enterMapDetour(source.points, {
+        id: source.id, missionId, source: active?.source || 'local', missionRoute: routeWaypoints, fit: false
+    });
 };
 
 function _syncCurrentMissionRouteFromMap() {

@@ -112,4 +112,11 @@ Würde die Umweg-Route dort hineingeschrieben, würde die Mission verfälscht.
   werden beim Einstieg beiseitegelegt (`missionProfile` im Umweg-Zustand) und beim Zurückkehren wieder angelegt.
   Der Missionsstand speichert während des Umwegs das Missionsprofil. Die Hervorhebung von Lupe und Route Reset
   wird zusätzlich direkt am Element gesetzt (Skins).
+- Cloud-Sync Web v2561: Der Missionsstand trägt den Umweg als Feld `detour` (`ga.web-detour.v1`, Punkte und
+  Missions-ID; `null` heißt ausdrücklich kein Umweg). Beim Einspielen eines Stands (Start, stiller Cloud-Abgleich
+  beim Öffnen, anderes Gerät) sichert `gaSuspendDetourForRestore` den laufenden Umweg. `gaRestoreDetour(state)` legt
+  ihn danach über die frisch eingespielte Missionsroute samt Höhenprofil. Stände ohne das Feld (ältere App) lassen
+  einen lokalen Umweg stehen. Vorher fiel die Karte nach einem Cloud-Abgleich auf die Missionsroute zurück,
+  obwohl der Umweg-Modus aktiv blieb. Die blasse Missionsroute wird nur bei einer Änderung neu gebaut, der Umweg
+  nur bei einer Änderung gespeichert (Ruckeln beim Bearbeiten).
 - Offen: Feldtest im Sim (EFB-Dialog, Sim-GPS-Export des Umwegs).
