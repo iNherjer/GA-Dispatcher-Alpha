@@ -4959,6 +4959,7 @@ window.vpBuildWeatherDebugReport = function() {
                 + ` | Versuche ${Number(retryStatus?.retries) || 0}`
                 + ` | erholt ${Number(retryStatus?.recovered) || 0}`
                 + ` | aufgegeben ${Number(retryStatus?.gaveUp) || 0}`
+                + ` | unsichtbare nachgeblendet ${Number(retryStatus?.fadeRescued) || 0}`
             );
         } catch (_) { }
     }

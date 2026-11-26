@@ -8103,6 +8103,36 @@ function gaApplyRasterTileTuning() {
             this._gaPreloadArmed = false;
         });
     });
+    // Leaflet fades a loaded tile in only while it is "current". A tile that finished
+    // loading just before a zoom/pan made it non-current keeps opacity 0 (or a partial
+    // fade); when it becomes current again no new tile loads, so nothing restarts the
+    // fade and the area stays empty without any request (Safari recording 26.11.2026,
+    // OpenTopoMap after fast zooming). After every grid update, finish such fades.
+    const originalGridUpdate = L.GridLayer.prototype._update;
+    L.GridLayer.include({
+        _update(center) {
+            const result = originalGridUpdate.call(this, center);
+            this._gaKickStuckFade();
+            return result;
+        },
+        _gaKickStuckFade() {
+            if (!this._map || !this._tiles || typeof this._updateOpacity !== 'function') return;
+            const now = Date.now();
+            let pending = false;
+            let stuck = 0;
+            for (const key in this._tiles) {
+                const tile = this._tiles[key];
+                if (!tile.current || !tile.loaded || tile.active) continue;
+                pending = true;
+                // A normal fade takes 200 ms; tiles loaded over a second ago were left behind.
+                if (now - tile.loaded > 1000) stuck += 1;
+            }
+            if (!pending) return;
+            if (stuck) gaTileRetryState.fadeRescued = (gaTileRetryState.fadeRescued || 0) + stuck;
+            if (this._fadeFrame) L.Util.cancelAnimFrame(this._fadeFrame);
+            this._fadeFrame = L.Util.requestAnimFrame(this._updateOpacity, this);
+        }
+    });
     // Disarm on zoom for every raster layer of the map the layer belongs to.
     L.Map.addInitHook(function() {
         this.on('zoomstart', () => {
