@@ -35,6 +35,6 @@ Passagier-Bausteine machen daraus „Sicht 138.6 km (ausgezeichnet)“, und der 
 ## Artefakt
 
 - [Tracker v666 Alpha](https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/tag/v666)
-  aus Commit `RELEASE_COMMIT`. Windows-x64-EXE mit EXE_SIZE Bytes.
-- SHA-256 `EXE_SHA`.
+  aus Commit `0b4f25e65`. Windows-x64-EXE mit 177251056 Bytes.
+- SHA-256 `b0e2b6b22960d7bbec1904a7cc81b04980527a970fa7a47ce8471b60b21a4f8e`.
 - Öffentlicher Download bytegenau geprüft. Aktivierung im Tracker-Alpha-Kanal.
