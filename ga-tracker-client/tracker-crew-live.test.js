@@ -2,7 +2,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
-const { createCrewLive, crewRoomKey, extrapolate, FAST_MS, SLOW_MS } = require('./tracker-crew-live');
+const { createCrewLive, crewRoomKey, extrapolate, FAST_MS, SLOW_MS, PING_MS, STALE_MS } = require('./tracker-crew-live');
 
 function ticketFor(pid, crew = 'EDTW') {
   const body = Buffer.from(JSON.stringify({ v: 1, crew, pid, nick: pid, exp: Date.now() + 3600000 })).toString('base64url');
@@ -11,21 +11,22 @@ function ticketFor(pid, crew = 'EDTW') {
 
 function harness({ crew = 'EDTW', share = true } = {}) {
   let t = 1000;
-  const sockets = [], requests = [];
+  const sockets = [], requests = [], logs = [];
   class FakeSocket extends EventEmitter {
     constructor(url) { super(); this.url = url; this.sent = []; sockets.push(this); }
     send(raw) { this.sent.push(JSON.parse(raw)); }
     close() { this.closed = true; }
+    terminate() { this.terminated = true; }
   }
   const state = { crew, share };
   const live = createCrewLive({
-    pilotId: 'Alice', pin: '1', WebSocketImpl: FakeSocket, now: () => t,
+    pilotId: 'Alice', pin: '1', WebSocketImpl: FakeSocket, now: () => t, log: line => logs.push(line),
     getCrew: () => state.crew, getShareFlight: () => state.share,
     request: async (url, init) => { requests.push({ url, init }); return { ok: true, status: 200, json: async () => ({ ticket: ticketFor('alice', state.crew), exp: Date.now() + 3600000 }) }; }
   });
   const flush = () => new Promise(resolve => setImmediate(resolve));
   const relay = (socket, data) => socket.emit('message', JSON.stringify(data));
-  return { live, sockets, requests, state, flush, relay, advance: ms => { t += ms; }, now: () => t };
+  return { live, sockets, requests, logs, state, flush, relay, advance: ms => { t += ms; }, now: () => t };
 }
 const own = { lat: 47.3, lon: 12.8, altFt: 5000, hdg: 270, gsKts: 120, vsFpm: 0, onGround: false, callsign: 'D-EABC', iconKind: 'single' };
 
@@ -83,4 +84,28 @@ test('crew change reconnects to the new room; closed socket retries with backoff
   h.advance(6000); h.live.maintain(); await h.flush();
   assert.equal(h.sockets.length, 3, 'reconnects after the backoff');
   assert.equal(extrapolate({ lat: 1, lon: 1, gnd: 1, gs: 50, hdg: 90 }, 10000).lon, 1, 'ground contacts are not moved');
+});
+
+test('keepalive: pings an idle room, keeps a living socket and rejoins after silence', async () => {
+  const h = harness();
+  h.live.maintain(); await h.flush();
+  const ws = h.sockets[0]; ws.readyState = 1; ws.emit('open'); h.relay(ws, { type: 'crew_joined' });
+  h.advance(PING_MS); h.live.maintain();
+  assert.equal(ws.sent.at(-1).type, 'crew_ping', 'idle and without audience: still a ping');
+  h.relay(ws, { type: 'crew_pong' });
+  h.advance(STALE_MS - 1000); h.live.maintain();
+  assert.equal(ws.terminated, undefined, 'the pong kept the socket alive');
+  h.advance(2000); h.live.maintain(); await h.flush();
+  assert.equal(ws.terminated, true, 'silent for too long: dropped');
+  assert.ok(h.logs.some(line => line.startsWith('CREW_LIVE_STALE crew=EDTW')));
+  assert.equal(h.sockets.length, 2, 'and rejoined right away');
+  assert.equal(h.live.state().connected, true);
+  assert.ok(h.logs.some(line => line.startsWith('CREW_LIVE_STATE crew=EDTW')), 'state line in the log');
+});
+
+test('without PIN the tracker says why crew live stays off', () => {
+  const logs = [];
+  const live = createCrewLive({ pilotId: 'Alice', pin: '', WebSocketImpl: class {}, log: line => logs.push(line) });
+  live.start();
+  assert.deepEqual(logs, ['CREW_LIVE_DISABLED pilotId=1 pin=0 websocket=1']);
 });

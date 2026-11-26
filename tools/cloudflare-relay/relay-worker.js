@@ -99,6 +99,10 @@ export class RelayRoom {
         this.ctx = ctx;
         this.env = env;
         this.pinChecks = new Map();
+        // Join checks wait for the account worker (fetch). Messages that arrive in the
+        // meantime (the app resends right after its join) wait for that check instead of
+        // being rejected with "Relay-Beitritt fehlt." and pushing the client to Render.
+        this.pendingJoins = new Map();
     }
 
     async checkPin(syncId, pin, pinHash, clientIp) {
@@ -144,8 +148,26 @@ export class RelayRoom {
             return;
         }
 
-        const attachment = safeAttachment(socket);
         if (data?.type === 'join') {
+            const job = this.handleJoin(socket, data);
+            this.pendingJoins.set(socket, job);
+            try { await job; } finally { if (this.pendingJoins.get(socket) === job) this.pendingJoins.delete(socket); }
+            return;
+        }
+        if (safeAttachment(socket).joined !== true && this.pendingJoins.has(socket)) {
+            try { await this.pendingJoins.get(socket); } catch (_) {}
+        }
+        const attachment = safeAttachment(socket);
+        if (attachment.joined !== true) {
+            closeWithError(socket, 'Relay-Beitritt fehlt.');
+            return;
+        }
+        await this.handleJoinedMessage(socket, data, attachment);
+    }
+
+    async handleJoin(socket, data) {
+        const attachment = safeAttachment(socket);
+        {
             const normalizedSyncId = normalizeSyncId(data.syncId);
             if (!normalizedSyncId || await sha256Hex(normalizedSyncId) !== attachment.roomKey) {
                 closeWithError(socket, 'Ungültiger Tracker-Raum.');
@@ -189,11 +211,9 @@ export class RelayRoom {
             });
             return;
         }
+    }
 
-        if (attachment.joined !== true) {
-            closeWithError(socket, 'Relay-Beitritt fehlt.');
-            return;
-        }
+    async handleJoinedMessage(socket, data, attachment) {
         if (normalizeSyncId(data?.syncId) && await sha256Hex(normalizeSyncId(data.syncId)) !== attachment.roomKey) {
             closeWithError(socket, 'Ungültiger Tracker-Raum.');
             return;

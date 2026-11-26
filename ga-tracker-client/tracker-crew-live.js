@@ -18,6 +18,13 @@ const CONTACT_TTL_MS = 15000;
 const TICKET_MARGIN_MS = 5 * 60 * 1000;
 const RECONNECT_MIN_MS = 5000;
 const RECONNECT_MAX_MS = 120000;
+// Keepalive: without audience the tracker sends nothing, and an idle socket can die
+// silently (no close event, no rejoin, room shows 0 trackers; field logs 19.11./26.11.2026).
+// The relay answers CREW_PING without waking the room (setWebSocketAutoResponse).
+const PING_MS = 30000;
+const STALE_MS = 75000;
+const STATE_LOG_MS = 10 * 60 * 1000;
+const CREW_PING = '{"type":"crew_ping"}';
 const NM_PER_DEG = 60;
 
 function crewRoomKey(crew) {
@@ -57,6 +64,7 @@ function createCrewLive(options = {}) {
   let crew = '', socket = null, joined = false, connecting = false, stopped = false;
   let ticket = null, ownPid = '', members = [], reconnectDelay = RECONNECT_MIN_MS, reconnectAt = 0;
   let lastSentAt = 0, sending = false, lastAudienceKey = '';
+  let lastRxAt = 0, lastPingAt = 0, lastStateLogAt = -Infinity, noCrewLogged = false;
   const contacts = new Map();
 
   function others() {
@@ -70,7 +78,13 @@ function createCrewLive(options = {}) {
   function close(reason) {
     const old = socket;
     socket = null; joined = false; members = []; sending = false;
-    if (old) { try { old.removeAllListeners?.(); old.close(1000, String(reason || 'close').slice(0, 60)); } catch (_) {} }
+    if (old) {
+      try { old.removeAllListeners?.(); } catch (_) {}
+      try {
+        if (reason === 'stale' && typeof old.terminate === 'function') old.terminate();
+        else old.close(1000, String(reason || 'close').slice(0, 60));
+      } catch (_) {}
+    }
   }
   function send(data) {
     if (!socket || !joined) return false;
@@ -100,7 +114,9 @@ function createCrewLive(options = {}) {
       if (stopped || crew !== forCrew) return;
       const ws = new WebSocketImpl(`${relayUrl}?room=${crewRoomKey(forCrew)}`, { handshakeTimeout: 10000 });
       socket = ws;
+      lastRxAt = now(); lastPingAt = now();
       ws.on('open', () => {
+        lastRxAt = now();
         try { ws.send(JSON.stringify({ type: 'crew_join', ticket: t.value, role: 'tracker', clientId: `tracker-${ownPid}` })); } catch (_) {}
       });
       ws.on('message', raw => onMessage(ws, raw));
@@ -123,6 +139,7 @@ function createCrewLive(options = {}) {
 
   function onMessage(ws, raw) {
     if (ws !== socket) return;
+    lastRxAt = now();
     let data;
     try { data = JSON.parse(String(raw)); } catch (_) { return; }
     if (data?.type === 'crew_joined') {
@@ -149,8 +166,28 @@ function createCrewLive(options = {}) {
       if (socket) close('crew-changed');
       crew = next; ticket = null; contacts.clear(); reconnectDelay = RECONNECT_MIN_MS; reconnectAt = 0;
     }
-    if (!crew) return;
-    if (!socket && !connecting && now() >= reconnectAt) void connect();
+    if (!crew) {
+      if (!noCrewLogged) { noCrewLogged = true; log('CREW_LIVE_IDLE reason=no-crew'); }
+      return;
+    }
+    noCrewLogged = false;
+    const t = now();
+    if (socket && !connecting) {
+      if (t - lastRxAt > STALE_MS) {
+        log(`CREW_LIVE_STALE crew=${crew} silentMs=${t - lastRxAt} joined=${joined ? 1 : 0}`);
+        close('stale');
+        reconnectDelay = RECONNECT_MIN_MS; reconnectAt = t;
+      } else if (t - lastPingAt >= PING_MS && Number(socket.readyState) === 1) {
+        lastPingAt = t;
+        try { socket.send(CREW_PING); } catch (_) {}
+      }
+    }
+    if (t - lastStateLogAt >= STATE_LOG_MS) {
+      lastStateLogAt = t;
+      const o = others();
+      log(`CREW_LIVE_STATE crew=${crew} connected=${socket ? 1 : 0} joined=${joined ? 1 : 0} trackers=${o.trackers} viewers=${o.viewers} sending=${sending ? 1 : 0} contacts=${contacts.size}`);
+    }
+    if (!socket && !connecting && t >= reconnectAt) void connect();
   }
 
   // Own position (every telemetry tick); sends at the rate the audience needs.
@@ -208,11 +245,14 @@ function createCrewLive(options = {}) {
   }
 
   return { available, maintain, observe, contacts: contactsAt, state, stop, start() {
-    if (!available) return;
+    if (!available) {
+      log(`CREW_LIVE_DISABLED pilotId=${pilotId ? 1 : 0} pin=${pin ? 1 : 0} websocket=${WebSocketImpl ? 1 : 0}`);
+      return;
+    }
     const timer = (options.setInterval || setInterval)(maintain, 5000);
     timer?.unref?.();
     later(maintain, 3000)?.unref?.();
   } };
 }
 
-module.exports = { createCrewLive, crewRoomKey, extrapolate, FAST_MS, SLOW_MS, CONTACT_TTL_MS };
+module.exports = { createCrewLive, crewRoomKey, extrapolate, FAST_MS, SLOW_MS, CONTACT_TTL_MS, PING_MS, STALE_MS, CREW_PING };

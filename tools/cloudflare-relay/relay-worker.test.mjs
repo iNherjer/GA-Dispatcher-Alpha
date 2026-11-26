@@ -137,3 +137,28 @@ assert.equal(otherViewer.messages.length, beforeTargeted, 'audio bytes go only t
     assert.equal(await unboundRoom.checkPin('X', '1', 'h', ''), 'unavailable');
     console.log('relay PIN check on join ok');
 }
+
+// A message that arrives while the join PIN check is still running waits for the join
+// instead of "Relay-Beitritt fehlt." (the app resends 300 ms after its join, 26.11.2026).
+{
+    let releaseVerify;
+    const env = { GA_PROXY: { fetch: () => new Promise(resolve => { releaseVerify = () => resolve(new Response('{}', { status: 200 })); }) } };
+    const room = await sha256Hex('SLOW-1');
+    const viewer = new MockSocket();
+    viewer.serializeAttachment({ joined: false, roomKey: room, role: 'unknown', pinHash: '', lastTelemetryAt: 0 });
+    const slowRoom = new RelayRoom(new MockContext([viewer]), env);
+    const join = slowRoom.webSocketMessage(viewer, JSON.stringify({ type: 'join', syncId: 'slow-1', pin: '1234', relayRole: 'viewer' }));
+    const early = slowRoom.webSocketMessage(viewer, JSON.stringify({ type: 'gps', syncId: 'slow-1', trackerStatusOnly: true }));
+    await new Promise(resolve => setTimeout(resolve, 10));
+    assert.equal(viewer.closed, null, 'nothing is rejected while the join check runs');
+    releaseVerify();
+    await Promise.all([join, early]);
+    assert.equal(viewer.closed, null, 'the early message is handled after the join');
+    assert.equal(viewer.attachment.joined, true);
+
+    const stranger = new MockSocket();
+    stranger.serializeAttachment({ joined: false, roomKey: room, role: 'unknown', pinHash: '', lastTelemetryAt: 0 });
+    await slowRoom.webSocketMessage(stranger, JSON.stringify({ type: 'gps', syncId: 'slow-1' }));
+    assert.match(stranger.closed?.reason || '', /Relay-Beitritt fehlt/, 'without any join the rule stays');
+    console.log('relay join queue ok');
+}

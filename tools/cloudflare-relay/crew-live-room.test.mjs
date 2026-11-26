@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { CrewLiveRoom, crewRoomKey, verifyCrewTicket, cleanCrewPosition } from './crew-live-room.js';
+import { CrewLiveRoom, crewRoomKey, verifyCrewTicket, cleanCrewPosition, CREW_PING, CREW_PONG } from './crew-live-room.js';
 import { signCrewLiveTicket } from '../cloudflare-worker/crew-presence.mjs';
 
 const SECRET = 's'.repeat(40);
@@ -78,4 +78,20 @@ test('unjoined sockets and oversize messages are closed; invalid positions are d
     assert.equal(cleanCrewPosition({ lat: 0, lon: 0 }), null);
     assert.equal(cleanCrewPosition({ lat: 95, lon: 1 }), null);
     assert.deepEqual(cleanCrewPosition({ lat: 1, lon: 2, alt: 'x', gnd: true, ic: 'heli' }), { lat: 1, lon: 2, gnd: 1, ic: 'heli' });
+});
+
+test('keepalive: the runtime auto-answers the exact ping, the room answers it as fallback', async () => {
+    const pairs = [];
+    globalThis.WebSocketRequestResponsePair = class { constructor(request, response) { this.request = request; this.response = response; } };
+    try {
+        const ctx = new MockContext();
+        ctx.setWebSocketAutoResponse = pair => pairs.push(pair);
+        new CrewLiveRoom(ctx, { CREW_LIVE_SECRET: SECRET });
+        assert.deepEqual(pairs.map(p => [p.request, p.response]), [[CREW_PING, CREW_PONG]]);
+    } finally { delete globalThis.WebSocketRequestResponsePair; }
+    const s = await setup();
+    const tracker = await s.connect('ALICE', 'tracker');
+    await s.room.webSocketMessage(tracker, CREW_PING);
+    assert.deepEqual(tracker.messages.at(-1), { type: 'crew_pong' });
+    assert.equal(tracker.closed, null);
 });

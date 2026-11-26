@@ -27,6 +27,12 @@ liefert alles Offene mit aus.
 
 ## Offen
 
+### 2026-11-26 · Crew-Live: Keepalive und Zustandszeilen im Tracker
+- **Artefakt:** Tracker-EXE (`ga-tracker-client/tracker-crew-live.js`). **Vorher** Relay `ga-relay` deployen (Pong per `setWebSocketAutoResponse`), sonst verbindet der Tracker alle 75 s neu.
+- **Was:** Tracker pingt den Crew-Raum alle 30 s, trennt nach 75 s Stille (`CREW_LIVE_STALE`) und tritt neu bei. Neue Logzeilen `CREW_LIVE_STATE` (beim Start, dann alle 10 min), `CREW_LIVE_DISABLED` (fehlende PIN/ID), `CREW_LIVE_IDLE reason=no-crew`. Anlass: Logs von SALUD (19.11.) ohne jede `CREW_LIVE_`-Zeile, Zuschauer sahen „0 Tracker im Crew-Raum“ (Orti 26.11.).
+- **Tests:** `tracker-crew-live.test.js`, `tools/cloudflare-relay` (`relay-worker.test.mjs`, `crew-live-room.test.mjs`) grün.
+- **Pruefen im Feld:** Zwei Crew-Mitglieder: Web-Zuschauer sieht „1 Tracker“ im Crew-Raum und das grüne Flugzeug auf der Karte, auch nach langem Flug ohne Zuschauer. Tracker-Log: `CREW_LIVE_STATE … joined=1`, keine `CREW_LIVE_STALE`-Schleife.
+
 ### 2026-11-26 · Höhenprofil: Umweg-Beschriftung und Lückenzähler (EFB-Kopie von `profile.js`)
 - **Artefakt:** EFB-Web-Assets (Sync von `profile.js`). Web live mit v2556/v2557.
 - **Was:** `vpRouteWaypointLabel` fragt zuerst `gaDetourEndpointLabel`. Das EFB definiert diese Funktion nicht, dort ändert sich nichts. Debug-Zeile „Lücken fehlend/unsichtbar/abgehängt | Tuning …“ (die Zähler gibt es nur im Web).

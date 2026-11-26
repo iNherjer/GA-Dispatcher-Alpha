@@ -11,10 +11,16 @@
 //   in  {type:'crew_off'}                                                    (tracker stops)
 //   out {type:'crew_joined'} · {type:'crew_audience', members:[{pid, role}]}
 //   out {type:'crew_pos', pid, nick, at, p} · {type:'crew_gone', pid}
+//   in  {"type":"crew_ping"} -> out {"type":"crew_pong"}  keepalive, answered by the runtime
+//       without waking the room (setWebSocketAutoResponse); exact text, see CREW_PING.
 
 const CREW_MAX_MESSAGE_BYTES = 2048;
 const CREW_POS_INTERVAL_MS = 800;
 const TAG = 'crew-live';
+// A tracker without audience sends nothing; without a keepalive the idle socket can die
+// silently and the tracker never rejoins (field logs 19.11./26.11.2026).
+const CREW_PING = '{"type":"crew_ping"}';
+const CREW_PONG = '{"type":"crew_pong"}';
 
 function text(message) {
     if (typeof message === 'string') return message;
@@ -94,6 +100,11 @@ export class CrewLiveRoom {
     constructor(ctx, env) {
         this.ctx = ctx;
         this.env = env || {};
+        try {
+            if (typeof this.ctx?.setWebSocketAutoResponse === 'function' && typeof WebSocketRequestResponsePair === 'function') {
+                this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair(CREW_PING, CREW_PONG));
+            }
+        } catch (_) {}
     }
 
     joined(except = null) {
@@ -135,6 +146,7 @@ export class CrewLiveRoom {
         try { data = JSON.parse(raw); } catch (_) { reject(socket, 'Ungültige Crew-Nachricht.'); return; }
         const attachment = attachmentOf(socket);
 
+        if (data?.type === 'crew_ping') { try { socket.send(CREW_PONG); } catch (_) {} return; }
         if (data?.type === 'crew_join') {
             const ticket = await verifyCrewTicket(this.env.CREW_LIVE_SECRET, data.ticket);
             if (!ticket || await crewRoomKey(ticket.crew) !== attachment.roomKey) { reject(socket, 'Ungültiges Crew-Ticket.'); return; }
@@ -178,4 +190,4 @@ export class CrewLiveRoom {
     }
 }
 
-export { CREW_POS_INTERVAL_MS, CREW_MAX_MESSAGE_BYTES };
+export { CREW_POS_INTERVAL_MS, CREW_MAX_MESSAGE_BYTES, CREW_PING, CREW_PONG };

@@ -20,6 +20,9 @@ Render bleibt als unabhaengiger Fallback bestehen.
   Ohne Antwort (kein Binding, keine Konto-ID, Timeout, 4xx ausser 401/429, 5xx) gilt die alte
   Regel „erster PIN im Raum“, wobei ein bestaetigter PIN Vorrang hat. Tracker ab dem naechsten
   Build nennt den Ablehnungsgrund und versucht es bei falschem PIN alle 30 s statt 5 s.
+- Nachrichten waehrend laufender PIN-Pruefung (26.11.2026) warten auf den Beitritt statt mit
+  „Relay-Beitritt fehlt.“ abgewiesen zu werden. Vorher warf das erneute Senden der App 300 ms
+  nach dem Beitritt sie bei langsamer Kontopruefung raus, und sie wechselte auf Render.
 
 ## Test und Deployment
 
@@ -50,4 +53,9 @@ Pfad `/crew?room=<sha256('crew:' + CREW)>`, Migration `v2`).
 - Tracker senden nur bei Zuhoerern: anderer Crew-Tracker 2 s, nur App-Zuschauer 5 s,
   sonst nichts; Freigabe „Flug teilen“ wird beachtet. Web-App hoert nur bei
   sichtbarer Karte bzw. offener Crew-Flug-Detailkarte zu.
+- Keepalive (26.11.2026): Tracker sendet alle 30 s exakt `{"type":"crew_ping"}`, die Laufzeit
+  antwortet `{"type":"crew_pong"}` per `setWebSocketAutoResponse` ohne das Durable Object zu wecken.
+  75 s ohne Eingang: Tracker trennt (`CREW_LIVE_STALE`) und tritt neu bei. Grund: ein Tracker ohne
+  Publikum sendet sonst nichts, die Leitung starb still, der Raum zeigte 0 Tracker. Relay muss
+  vor dem Tracker-Build ausgerollt sein, sonst fehlt der Pong und der Tracker verbindet alle 75 s neu.
 - Render-Relay: kein Crew-Raum (Server-Code nicht im Repository).
