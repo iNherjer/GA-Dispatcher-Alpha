@@ -2557,6 +2557,9 @@
       polygons.clearLayers();
       polygons._gaLabels = [];
       paths.forEach(function (path) { polygons.addLayer(path); });
+      // draw() runs for new data or a style change: symbols are built afresh.
+      symbols.clearLayers();
+      symbols._gaKept = null;
       styleDirty = false;
       drawLabelsAndSymbols();
     }
@@ -2564,22 +2567,47 @@
     function loadStoredAirports() {
       if (!coverage || loadedBand < 8 || !globalAirports) return;
       var known = new Set(airports.map(function (item) { return item.point.icao; }));
-      storedAirports = Object.keys(globalAirports).reduce(function (entries, icao) {
+      // Position check on the raw entry first: only the few hundred airfields in the coverage
+      // are normalized and compared (was: all ~80k normalized and copied on every load).
+      var south = coverage.getSouth() - .01, north = coverage.getNorth() + .01;
+      var west = coverage.getWest() - .01, east = coverage.getEast() + .01;
+      var entries = [];
+      for (var icao in globalAirports) {
         var raw = globalAirports[icao];
-        var point = normalizeOpenAipAirportForPopup(Object.assign({}, raw, {icao: icao}));
+        if (!raw) continue;
+        var rawLat = Number(raw.lat);
+        var rawLon = Number(raw.lon != null ? raw.lon : raw.lng);
+        if (!(rawLat >= south && rawLat <= north && rawLon >= west && rawLon <= east)) continue;
+        var copy = Object.assign({}, raw, {icao: icao});
+        var point = normalizeOpenAipAirportForPopup(copy);
         if (point && !known.has(point.icao) && coverage.contains([point.lat, point.lon]) &&
             !airports.some(function (item) {
               return Math.abs(item.point.lat - point.lat) < .009 &&
                 Math.abs(item.point.lon - point.lon) < .009 / Math.max(.2, Math.cos(point.lat * Math.PI / 180));
-            })) entries.push({raw: Object.assign({}, raw, {icao: icao}), point: point});
-        return entries;
-      }, []);
+            })) entries.push({raw: copy, point: point});
+      }
+      storedAirports = entries;
     }
 
     function drawLabelsAndSymbols() {
       style.updateAirspaceLabels(L, map, polygons, airspaces, pane);
-      symbols.clearLayers();
       var zoom = map.getZoom();
+      // Symbols that stay in view are kept: a pan builds only airfields and navaids that came
+      // into view and removes those that left (rebuilding every divIcon per pan is costly in
+      // Coherent). Reused per data object and symbol size band; a style change rebuilds all.
+      var band = zoom >= 12 ? 2 : zoom >= 10 ? 1 : 0;
+      var previous = symbols._gaKept instanceof Map ? symbols._gaKept : new Map();
+      var kept = new Map();
+      function reuse(item) {
+        var entry = previous.get(item);
+        if (!entry || entry.band !== band || kept.has(item) || !symbols.hasLayer(entry.marker)) return false;
+        kept.set(item, entry);
+        return true;
+      }
+      function keep(item, marker) {
+        kept.set(item, {marker: marker, band: band});
+        symbols.addLayer(marker);
+      }
       var view = map.getBounds().pad(.12);
       var center = map.getCenter();
       var drawnCoverage = coverage;
@@ -2590,6 +2618,7 @@
           return inView(item.point) && style.airportVisible(item.raw);
         }).sort(function (a, b) { return distance(a.point) - distance(b.point); })
           .slice(0, zoom >= 12 ? 260 : zoom >= 10 ? 200 : 140).forEach(function (item) {
+            if (reuse(item)) return;
             var point = item.point;
             var marker = style.airportMarker(L, [point.lat, point.lon], item.raw, zoom, pane, 'ga-airport-overlay-marker');
             marker.bindTooltip(escapePopupText(point.name), {direction: 'top', className: 'airspace-tooltip'});
@@ -2597,10 +2626,11 @@
               if (event.originalEvent) L.DomEvent.stop(event.originalEvent);
               window.openAirportInfoPopup(point);
             });
-            symbols.addLayer(marker);
+            keep(item, marker);
           });
       }
       if (zoom >= 9) navaids.filter(inView).slice(0, zoom >= 11 ? 240 : 120).forEach(function (point) {
+        if (reuse(point)) return;
         // ICAO symbol per navaid type from the shared style; null when hidden in the panel.
         var marker = typeof style.navaidMarker === 'function'
           ? style.navaidMarker(L, [point.lat, point.lon], point, zoom, pane)
@@ -2615,8 +2645,12 @@
           if (event.originalEvent) L.DomEvent.stop(event.originalEvent);
           openNavaidInfoPopup(point.raw);
         });
-        symbols.addLayer(marker);
+        keep(point, marker);
       });
+      var stillShown = new Set();
+      kept.forEach(function (entry) { stillShown.add(entry.marker); });
+      symbols.eachLayer(function (marker) { if (!stillShown.has(marker)) symbols.removeLayer(marker); });
+      symbols._gaKept = kept;
       style.updateReportingPoints(L, map, reporting, pane, reportingPoints, {
         ofmUrl: '/efb/v1/assets/ofm-reporting-points.json',
         isActive: function () { return coverage === drawnCoverage && map.hasLayer(content) && mounted(); }
@@ -2955,6 +2989,26 @@
     render();
   }
 
+  // window.gaMapMotionActive: true while the map pans or zooms. The shared height profile
+  // (profile.js) then paints at most 4x/s and reuses its last strip measurement; one full
+  // frame follows when the movement ends. A 2-s guard clears a flag whose end event is lost.
+  function trackMapMotion(targetMap) {
+    var guard = null;
+    function stop() {
+      clearTimeout(guard);
+      if (!window.gaMapMotionActive) return;
+      window.gaMapMotionActive = false;
+      window.vpBgNeedsUpdate = true;
+      if (typeof window.vpRequestMapProfileFrameNow === 'function') window.vpRequestMapProfileFrameNow();
+    }
+    targetMap.on('movestart zoomstart', function () {
+      window.gaMapMotionActive = true;
+      clearTimeout(guard);
+      guard = setTimeout(stop, 2000);
+    });
+    targetMap.on('moveend zoomend', stop);
+  }
+
   function initializeMap() {
     if (!L || !API || map) return;
     map = L.map('map', {
@@ -2970,6 +3024,7 @@
     });
 
     installMapDragZoomControl(map);
+    trackMapMotion(map);
 
     // Coherent has no browser back button: credits must never navigate the EFB.
     if (map.attributionControl) {

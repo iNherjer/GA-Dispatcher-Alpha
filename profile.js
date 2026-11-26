@@ -13,6 +13,7 @@ function vpCanvasFont(ctx, font) { return font; }
 // a map pan forced a synchronous layout on every profile frame (Safari recording 26.11.2026).
 let vpMapProfileSizeObserved = null;
 let vpMapProfileSize = null;
+let vpMapProfileEfbViewport = null;
 function vpObservedMapProfileSize(scrollContainer) {
     if (typeof ResizeObserver !== 'function') return null;
     if (vpMapProfileSizeObserved !== scrollContainer) {
@@ -35,6 +36,15 @@ function vpMapProfileViewport(scrollContainer) {
         const observed = vpObservedMapProfileSize(scrollContainer);
         if (observed && observed.width > 0 && observed.height > 0) return { width: observed.width, height: observed.height };
         return { width: scrollContainer.clientWidth || 600, height: scrollContainer.clientHeight || 100 };
+    }
+    // EFB: measuring rects and computed styles every profile frame is expensive in Coherent.
+    // While the map pans or zooms the strip cannot change size: reuse the last result
+    // (re-measured at least once a second, e.g. while the map follows the aircraft).
+    const last = vpMapProfileEfbViewport;
+    const measuredAt = performance && performance.now ? performance.now() : Date.now();
+    if (window.gaMapMotionActive === true && last && last.container === scrollContainer && last.width > 0 && last.height > 0
+        && measuredAt - last.at < 1000) {
+        return { width: last.width, height: last.height };
     }
     const strip = document.getElementById('mapProfileStrip');
     const wrapper = document.getElementById('vpCanvasWrapper');
@@ -71,6 +81,7 @@ function vpMapProfileViewport(scrollContainer) {
             set(canvas, 'height', drawHeight + 'px');
         }
     }
+    vpMapProfileEfbViewport = { container: scrollContainer, width: drawWidth, height: drawHeight, at: measuredAt };
     return { width: drawWidth, height: drawHeight };
 }
 
