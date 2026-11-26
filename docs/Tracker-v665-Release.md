@@ -34,6 +34,6 @@ Der Tracker liefert EFB-Webassets mit Revision 66501. Der zugehörige Web-Cache 
 ## Artefakt
 
 - [Tracker v665 Alpha](https://github.com/iNherjer/GA-Dispatcher-Alpha/releases/tag/v665)
-  aus Commit `RELEASE_COMMIT`. Windows-x64-EXE mit EXE_SIZE Bytes.
-- SHA-256 `EXE_SHA`.
+  aus Commit `275cf14fd`. Windows-x64-EXE mit 177237530 Bytes.
+- SHA-256 `2885a2946c962de624d39e00e4a39cde56215f96bdda662120f7e741559bcad3`.
 - Öffentlicher Download bytegenau geprüft. Aktivierung im Tracker-Alpha-Kanal.
