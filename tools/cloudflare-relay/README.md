@@ -58,4 +58,5 @@ Pfad `/crew?room=<sha256('crew:' + CREW)>`, Migration `v2`).
   75 s ohne Eingang: Tracker trennt (`CREW_LIVE_STALE`) und tritt neu bei. Grund: ein Tracker ohne
   Publikum sendet sonst nichts, die Leitung starb still, der Raum zeigte 0 Tracker. Relay muss
   vor dem Tracker-Build ausgerollt sein, sonst fehlt der Pong und der Tracker verbindet alle 75 s neu.
+  Deployed 26.11.2026 (Version `d5276fad`, zusammen mit der Beitritts-Warteschlange).
 - Render-Relay: kein Crew-Raum (Server-Code nicht im Repository).

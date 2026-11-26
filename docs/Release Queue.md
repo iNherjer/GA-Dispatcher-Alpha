@@ -28,8 +28,8 @@ liefert alles Offene mit aus.
 ## Offen
 
 ### 2026-11-26 · Crew-Live: Keepalive und Zustandszeilen im Tracker
-- **Artefakt:** Tracker-EXE (`ga-tracker-client/tracker-crew-live.js`). **Vorher** Relay `ga-relay` deployen (Pong per `setWebSocketAutoResponse`), sonst verbindet der Tracker alle 75 s neu.
-- **Was:** Tracker pingt den Crew-Raum alle 30 s, trennt nach 75 s Stille (`CREW_LIVE_STALE`) und tritt neu bei. Neue Logzeilen `CREW_LIVE_STATE` (beim Start, dann alle 10 min), `CREW_LIVE_DISABLED` (fehlende PIN/ID), `CREW_LIVE_IDLE reason=no-crew`. Anlass: Logs von SALUD (19.11.) ohne jede `CREW_LIVE_`-Zeile, Zuschauer sahen „0 Tracker im Crew-Raum“ (Orti 26.11.).
+- **Artefakt:** Tracker-EXE (`ga-tracker-client/tracker-crew-live.js`). Relay `ga-relay` mit Pong (`setWebSocketAutoResponse`) und Beitritts-Warteschlange ist seit 26.11.2026 deployed (Version `d5276fad`, Pong live geprüft).
+- **Was:** Tracker pingt den Crew-Raum alle 30 s, trennt nach 75 s Stille (`CREW_LIVE_STALE`) und tritt neu bei. Neue Logzeilen `CREW_LIVE_STATE` (beim Start, dann alle 10 min), `CREW_LIVE_DISABLED` (fehlende PIN/ID), `CREW_LIVE_IDLE reason=no-crew`. Anlass: Ortis Log (v664, 26.11.): `CREW_LIVE_JOINED` 18:45 UTC, Zuschauer 18:56 noch gesehen, danach Stille ohne `CREW_LIVE_CLOSED`; die Zuschauer-Beitritte 20:32–20:48 UTC kamen nicht mehr an (App: „0 Tracker im Crew-Raum“). SALUD (19.11.) gleiches Bild.
 - **Tests:** `tracker-crew-live.test.js`, `tools/cloudflare-relay` (`relay-worker.test.mjs`, `crew-live-room.test.mjs`) grün.
 - **Pruefen im Feld:** Zwei Crew-Mitglieder: Web-Zuschauer sieht „1 Tracker“ im Crew-Raum und das grüne Flugzeug auf der Karte, auch nach langem Flug ohne Zuschauer. Tracker-Log: `CREW_LIVE_STATE … joined=1`, keine `CREW_LIVE_STALE`-Schleife.
 
