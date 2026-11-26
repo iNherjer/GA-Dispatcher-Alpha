@@ -572,9 +572,17 @@ function installMapWeatherQuickControls(map, layerControl, _radar, satellitePane
     weather: '<path d="M3 8h12a2.5 2.5 0 1 0-2.5-2.5M3 12h16a2 2 0 1 1-2 2M3 16h8a2.5 2.5 0 1 1-2.5 2.5"/>'
   };
   var buttons = {};
+  var linked = false;
+  try {
+    linked = localStorage.getItem('ga_map_weather_sat_radar_linked') === 'true';
+  } catch (_) {}
+  function setPair(on) {
+    if (_satellite.enabled !== on) _satellite.toggle();
+    if (map.hasLayer(_radar) !== on) on ? _radar.addTo(map) : map.removeLayer(_radar);
+  }
   var actions = {
-    satellite: () => _satellite.toggle(),
-    radar: () => map.hasLayer(_radar) ? map.removeLayer(_radar) : _radar.addTo(map),
+    satellite: () => linked ? setPair(!_satellite.enabled) : _satellite.toggle(),
+    radar: () => linked ? setPair(!map.hasLayer(_radar)) : map.hasLayer(_radar) ? map.removeLayer(_radar) : _radar.addTo(map),
     vfr: _weather.toggleVfr,
     weather: () => _weather.toggleFields()
   };
@@ -599,6 +607,20 @@ function installMapWeatherQuickControls(map, layerControl, _radar, satellitePane
     tiles.appendChild(button);
     buttons[key] = button;
   }
+  var chainOpen = '<path d="M9.5 14.5 8 16a3 3 0 0 1-4.2-4.2l2.6-2.6a3 3 0 0 1 4 -.3"/><path d="M14.5 9.5 16 8a3 3 0 0 1 4.2 4.2l-2.6 2.6a3 3 0 0 1-4 .3"/>';
+  var chainClosed = '<path d="M10 13.5a3 3 0 0 0 4.2 0l2.6-2.6a3 3 0 0 0-4.2-4.2l-1 1"/><path d="M14 10.5a3 3 0 0 0-4.2 0l-2.6 2.6a3 3 0 0 0 4.2 4.2l1-1"/>';
+  var chain = document.createElement('button');
+  chain.type = 'button';
+  chain.className = 'ga-map-weather-link';
+  chain.addEventListener('click', () => {
+    linked = !linked;
+    try {
+      localStorage.setItem('ga_map_weather_sat_radar_linked', String(linked));
+    } catch (_) {}
+    if (linked && _satellite.enabled !== map.hasLayer(_radar)) setPair(true);
+    refresh();
+  });
+  tiles.appendChild(chain);
   var options = document.createElement('div');
   options.className = 'ga-map-satellite-options';
   var mode = document.createElement('select');
@@ -626,6 +648,10 @@ function installMapWeatherQuickControls(map, layerControl, _radar, satellitePane
       _button.lastElementChild.textContent = text(_key, labels[_key]);
       _button.setAttribute('aria-pressed', String(states[_key]));
     }
+    chain.setAttribute('aria-pressed', String(linked));
+    chain.title = linked ? text('linkOn', 'Satellit und Radar gekoppelt – Kette öffnen für Einzelschaltung') : text('linkOff', 'Satellit und Radar koppeln');
+    chain.setAttribute('aria-label', chain.title);
+    chain.innerHTML = '<svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">' + (linked ? chainClosed : chainOpen) + '</svg>';
     buttons.weather.title = text('weatherTitle', 'Windbarben und Wolkenfelder');
     if (_weather.vfrTitle) buttons.vfr.title = _weather.vfrTitle;
     mode.setAttribute('aria-label', text('mode', 'Satellitendarstellung'));

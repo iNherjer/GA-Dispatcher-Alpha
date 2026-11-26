@@ -1705,6 +1705,11 @@ body.ga-efb-tracker-host .ga-map-weather-tiles button {
   min-width:0; margin:0 2px;
 }
 body.ga-efb-tracker-host .ga-map-weather-tiles button span { margin-top:3px; }
+body.ga-efb-tracker-host .ga-map-weather-tiles { position:relative; }
+body.ga-efb-tracker-host .ga-map-weather-tiles .ga-map-weather-link {
+  position:absolute; flex:none; left:25%; top:50%; width:22px; height:22px; min-height:22px;
+  margin:-11px 0 0 -11px; padding:0; transform:none; border-radius:50%; z-index:1;
+}
 body.ga-efb-tracker-host .wx-cloudfield-icon > div,
 body.ga-efb-tracker-host .wx-windbarb-icon svg { filter:none!important; }
 body.ga-efb-tracker-host .vp-weather-disclosure-slot { display:block; flex:0 0 auto; }

@@ -21200,6 +21200,24 @@ body.theme-win95 #mapTableOverlay .leaflet-control-layers {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 5px;
+    position: relative;
+}
+#mapTableOverlay .ga-map-weather-tiles .ga-map-weather-link {
+    position: absolute;
+    top: 50%;
+    left: calc((100% - 15px) / 4 + 2.5px);
+    width: 22px;
+    min-height: 22px;
+    height: 22px;
+    padding: 0;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    color: var(--layer-muted);
+    z-index: 1;
+}
+#mapTableOverlay .ga-map-weather-tiles .ga-map-weather-link svg {
+    width: 15px;
+    height: 15px;
 }
 #mapTableOverlay .ga-map-weather-tiles button {
     display: grid;

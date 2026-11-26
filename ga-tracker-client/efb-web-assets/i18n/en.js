@@ -755,6 +755,8 @@
     'map.hint.weather': '🌤️ Weather',
     'map.quickWeather.satellite': 'Satellite',
     'map.quickWeather.radar': 'Radar',
+    'map.quickWeather.linkOn': 'Satellite and radar linked – open the chain to switch them separately',
+    'map.quickWeather.linkOff': 'Link satellite and radar',
     'map.quickWeather.vfr': 'VFR index',
     'map.quickWeather.weather': 'Weather',
     'map.quickWeather.weatherTitle': 'Wind barbs and cloud fields',
