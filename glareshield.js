@@ -369,9 +369,19 @@
         buildArc();
         if (open) renderSets();
     }
+    var TRANSIENT_BODY_CLASS = /^(leaflet-|win95-window-dragging$|win95-window-resizing$|e6b-view-gesturing$)/;
+    function transientClassChange(before, after) {
+        var a = String(before || '').split(/\s+/).filter(Boolean), b = String(after || '').split(/\s+/).filter(Boolean);
+        var changed = a.filter(function (c) { return b.indexOf(c) < 0; }).concat(b.filter(function (c) { return a.indexOf(c) < 0; }));
+        return changed.every(function (c) { return TRANSIENT_BODY_CLASS.test(c); });
+    }
     function init() {
         sync();
-        new MutationObserver(sync).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+        // Kurzlebige Interaktions-Klassen (Leaflet setzt leaflet-dragging bei jedem Kartenziehen,
+        // Fenster-/E6B-Gesten) ändern weder Theme noch Rahmen: kein Neuaufbau des Bogens dafür.
+        new MutationObserver(function (records) {
+            if (records.length && !transientClassChange(records[0].oldValue, document.body.className)) sync();
+        }).observe(document.body, { attributes: true, attributeFilter: ['class'], attributeOldValue: true });
         window.addEventListener('pointermove', move, { passive: false });
         window.addEventListener('pointerup', end);
         window.addEventListener('pointercancel', cancel);

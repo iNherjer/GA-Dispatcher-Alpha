@@ -2652,7 +2652,8 @@
             if (!document.hidden && stallMs > 350 && (now - lastFreezeLogTs) > 1500) {
                 lastFreezeLogTs = now;
                 const active = window.gaGetActivePerf ? window.gaGetActivePerf() : [];
-                const recent = buffer.slice(-8).map((entry) => ({
+                // Frühere FREEZE-Einträge nicht mitschleppen: sie enthalten ihrerseits recent → Verschachtelung.
+                const recent = buffer.filter((entry) => entry.level !== 'freeze').slice(-8).map((entry) => ({
                     ts: entry.ts,
                     level: entry.level,
                     msg: entry.msg,

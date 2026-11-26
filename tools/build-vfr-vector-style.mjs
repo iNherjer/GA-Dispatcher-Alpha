@@ -77,8 +77,11 @@ style.sources.terrain = {
   type: 'raster-dem',
   tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
   encoding: 'terrarium',
-  tileSize: 256,
-  maxzoom: 13,
+  // 256-px-Kacheln als 512 ausgeben: eine Zoomstufe gröber, ein Viertel der Höhenkacheln.
+  // Jede Kachel kostet beim Hillshade einen eigenen Zeichenpuffer (Safari-Aufnahme 26.11.2026);
+  // das Relief ist weich genug, dass die halbe Auflösung kaum auffällt.
+  tileSize: 512,
+  maxzoom: 12,
   attribution: 'Höhendaten: <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noopener noreferrer">AWS Terrain Tiles</a>'
 };
 const waterIndex = style.layers.findIndex((layer) => layer.id === 'waterway_tunnel');

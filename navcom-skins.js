@@ -288,7 +288,12 @@
         if (el.tagName === 'INPUT') return el.value || el.placeholder || '';
         return (el.textContent || '').trim();
     }
-    function syncState() {
+    // mode 'idle' = 400-ms-Takt: nur einpassen, wenn sich Text, Breite oder Fokus geändert hat.
+    // Das Einpassen setzt --nc-fit zurück und misst neu; das erzwingt jedes Mal ein Layout der
+    // ganzen Seite (bei offenem Kartentisch teuer, Safari-Aufnahme 26.11.2026: ~17 % Hauptthread).
+    var lastFitSig = null;
+    function setTextIfChanged(el, text) { if (el.textContent !== text) el.textContent = text; }
+    function syncState(mode) {
         var stack = stackEl();
         if (!stack || built === 'classic') return;
         var sw = $('navcomProposalModeSwitch');
@@ -299,9 +304,26 @@
             u.classList.toggle('nc-pick', pick);
             u.classList.toggle('nc-vs', vs);
         });
-        Array.prototype.forEach.call(stack.querySelectorAll('.nc-alt-leg'), function (el) { el.textContent = vs ? 'V/S FPM' : 'ALT FT'; });
-        Array.prototype.forEach.call(stack.querySelectorAll('.nc-alt-lbl'), function (el) { el.textContent = vs ? 'V/S' : 'ALT'; });
+        Array.prototype.forEach.call(stack.querySelectorAll('.nc-alt-leg'), function (el) { setTextIfChanged(el, vs ? 'V/S FPM' : 'ALT FT'); });
+        Array.prototype.forEach.call(stack.querySelectorAll('.nc-alt-lbl'), function (el) { setTextIfChanged(el, vs ? 'V/S' : 'ALT'); });
+        var sig = fitSignature(stack);
+        if (mode === 'idle' && sig === lastFitSig) return;
         fitDisplays(stack);
+        lastFitSig = fitSignature(stack);
+    }
+
+    function fitTargets(stack) {
+        return stack.querySelectorAll('.nc-unit .lcd-input, .nc-unit .agrid .audio-btn, .nc-unit .cmd-btns .audio-btn');
+    }
+    // Nur lesend (kein Stil-Schreiben dazwischen), damit höchstens ein Layout anfällt.
+    function fitSignature(stack) {
+        var parts = [stack.clientWidth, stack.className];
+        var active = document.activeElement;
+        Array.prototype.forEach.call(fitTargets(stack), function (el) {
+            var isKey = el.classList.contains('audio-btn');
+            parts.push((isKey ? (el.textContent || '').trim() : displayText(el)) + '|' + el.clientWidth + (el === active ? '*' : ''));
+        });
+        return parts.join('\u0001');
     }
 
     var fitCanvas = null;
@@ -309,7 +331,7 @@
         fitCanvas = fitCanvas || document.createElement('canvas');
         var ctx = fitCanvas.getContext('2d');
         if (!ctx) return;
-        var els = stack.querySelectorAll('.nc-unit .lcd-input, .nc-unit .agrid .audio-btn, .nc-unit .cmd-btns .audio-btn');
+        var els = fitTargets(stack);
         Array.prototype.forEach.call(els, function (el) {
             if (!el.offsetParent) return;
             var isKey = el.classList.contains('audio-btn');
@@ -496,7 +518,7 @@
         stack.addEventListener('change', function () { setTimeout(syncState, 0); }, true);
         if (document.fonts && document.fonts.ready) document.fonts.ready.then(syncState);
         // Werte werden auch per Code gesetzt (Drag-Knöpfe, Cloud-Load, Missionsstart): leise nachziehen.
-        setInterval(function () { if (!document.hidden) syncState(); }, 400);
+        setInterval(function () { if (!document.hidden) syncState('idle'); }, 400);
         setInterval(function () {
             Array.prototype.forEach.call(document.querySelectorAll('#navcomInputs .nc-unit .reply'), function (r) {
                 r.classList.add('on');

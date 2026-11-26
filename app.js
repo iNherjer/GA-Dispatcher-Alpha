@@ -12011,6 +12011,7 @@ function mergeFaaLocalAirportsSupplement(supplement = null) {
 
         globalAirports[code] = merged;
     }
+    window.gaInvalidateAirportGridIndex?.();
     airportSearchIndex = null;
     airportSearchIndexSourceSize = 0;
     notifyGlobalAirportsReady();

@@ -4732,10 +4732,64 @@ window.startAipChartCalibration = function(icao = '') {
     setAipOverlayStatus(key, getAipCalibrationInstruction(), false);
 };
 
+// for…in on the ~80k-key airport object enumerates every key in Safari before the first
+// iteration: remember a non-empty database by identity (it is only replaced or nulled).
+let gaNonEmptyAirportDb = null;
 function hasGlobalAirportsForMapClicks() {
     if (typeof globalAirports !== 'object' || !globalAirports) return false;
-    for (const _airportKey in globalAirports) return true;
+    if (globalAirports === gaNonEmptyAirportDb) return true;
+    for (const _airportKey in globalAirports) { gaNonEmptyAirportDb = globalAirports; return true; }
     return false;
+}
+
+// 1° grid over an airport database, so viewport lookups touch a few hundred entries instead
+// of every airport on each pan (Safari recording 26.11.2026). Rebuilt when the database object
+// changes or app.js adds entries in place (window.gaInvalidateAirportGridIndex).
+const GA_AIRPORT_GRID_MAX_PAD_DEG = 0.4;
+const GA_AIRPORT_GRID_MAX_CELLS = 2500;
+let gaAirportGrid = { db: null, version: -1, cells: null };
+let gaAirportGridVersion = 0;
+window.gaInvalidateAirportGridIndex = function() { gaAirportGridVersion += 1; };
+function gaAirportGridFor(database) {
+    if (gaAirportGrid.db === database && gaAirportGrid.version === gaAirportGridVersion) return gaAirportGrid.cells;
+    const cells = new Map();
+    let rank = 0;
+    for (const key in database) {
+        const airport = database[key];
+        const lat = Number(airport?.lat);
+        const lon = Number(airport?.lon ?? airport?.lng);
+        rank += 1;
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+        const cellKey = `${Math.floor(lat)}|${Math.floor(lon)}`;
+        let cell = cells.get(cellKey);
+        if (!cell) cells.set(cellKey, cell = []);
+        cell.push([rank, key]);
+    }
+    gaAirportGrid = { db: database, version: gaAirportGridVersion, cells };
+    return cells;
+}
+// Subset of the database around the bounds, keys in the database's own order (the callers'
+// first-wins de-duplication stays the same). Falls back to the full database for huge views.
+function gaAirportsNearBounds(database, bounds) {
+    if (!database || typeof database !== 'object' || !bounds) return database;
+    const west = Number(bounds.west), south = Number(bounds.south);
+    const east = Number(bounds.east), north = Number(bounds.north);
+    if (![west, south, east, north].every(Number.isFinite) || east <= west || north <= south) return database;
+    const lat0 = Math.floor(south - GA_AIRPORT_GRID_MAX_PAD_DEG), lat1 = Math.floor(north + GA_AIRPORT_GRID_MAX_PAD_DEG);
+    const lon0 = Math.floor(west - GA_AIRPORT_GRID_MAX_PAD_DEG), lon1 = Math.floor(east + GA_AIRPORT_GRID_MAX_PAD_DEG);
+    if ((lat1 - lat0 + 1) * (lon1 - lon0 + 1) > GA_AIRPORT_GRID_MAX_CELLS) return database;
+    const cells = gaAirportGridFor(database);
+    const hits = [];
+    for (let la = lat0; la <= lat1; la++) {
+        for (let lo = lon0; lo <= lon1; lo++) {
+            const cell = cells.get(`${la}|${lo}`);
+            if (cell) for (const hit of cell) hits.push(hit);
+        }
+    }
+    hits.sort((x, y) => x[0] - y[0]);
+    const subset = {};
+    for (const hit of hits) subset[hit[1]] = database[hit[1]];
+    return subset;
 }
 
 function getAirportDatabaseForMapClicks() {
@@ -6780,7 +6834,8 @@ function setOpenAipActiveReportingPointSource(source, count) {
 }
 
 function buildGlobalAirportSnapEntries(bounds) {
-    return window.GAMapNavpointCore.globalAirports(bounds, typeof globalAirports === 'object' ? globalAirports : null);
+    const database = typeof globalAirports === 'object' ? globalAirports : null;
+    return window.GAMapNavpointCore.globalAirports(bounds, gaAirportsNearBounds(database, bounds));
 }
 
 function mergeGlobalAirportSnapEntries(bounds = null) {
@@ -7272,12 +7327,9 @@ function getOpenAipAirportOverlayIdentity(airport) {
 }
 
 function buildStoredAirportOverlayEntries(bounds) {
-    const database = (
-        typeof globalAirports === 'object'
-        && globalAirports
-        && Object.keys(globalAirports).length > 0
-    ) ? globalAirports : storedAirportOverlayState.items;
-    if (!bounds || !database || typeof database !== 'object') return [];
+    const fullDatabase = hasGlobalAirportsForMapClicks() ? globalAirports : storedAirportOverlayState.items;
+    if (!bounds || !fullDatabase || typeof fullDatabase !== 'object') return [];
+    const database = gaAirportsNearBounds(fullDatabase, bounds);
     const west = Number(bounds.west);
     const south = Number(bounds.south);
     const east = Number(bounds.east);
@@ -7382,7 +7434,21 @@ async function loadStoredAirportOverlayDatabase() {
     return storedAirportOverlayState.loadPromise;
 }
 
+// moveend schedules the airfield render and the region snapshot renders again shortly after:
+// same source, same view, same database → reuse the merge instead of building it twice.
+let openAipAirportMergeMemo = null;
 function mergeOpenAipAirportOverlayEntries(airports, bounds = getOpenAipVisibleBounds()) {
+    const database = hasGlobalAirportsForMapClicks() ? globalAirports : storedAirportOverlayState.items;
+    const boundsKey = bounds ? [bounds.west, bounds.south, bounds.east, bounds.north].join(',') : '';
+    const memo = openAipAirportMergeMemo;
+    if (memo && memo.airports === airports && memo.boundsKey === boundsKey
+        && memo.database === database && memo.version === gaAirportGridVersion) return memo.result.slice();
+    const result = buildMergedOpenAipAirportOverlayEntries(airports, bounds);
+    openAipAirportMergeMemo = { airports, boundsKey, database, version: gaAirportGridVersion, result };
+    return result.slice();
+}
+
+function buildMergedOpenAipAirportOverlayEntries(airports, bounds) {
     const merged = new Map();
     (Array.isArray(airports) ? airports : []).forEach((airport) => {
         const identity = getOpenAipAirportOverlayIdentity(airport);
