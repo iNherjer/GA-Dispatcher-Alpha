@@ -7598,9 +7598,25 @@ function renderOpenAipAirports(airports, layer) {
             return ((aLat * aLat) + (aLon * aLon)) - ((bLat * bLat) + (bLon * bLon));
         })
         .slice(0, maxAirports);
+    // Markers that stay in view are kept: on a pan only new airfields are built and those that
+    // left are removed (rebuilding all ~200 divIcons per pan cost ~10 % main thread in Safari).
+    // A marker is reused for the same airfield and symbol size band; OpenAIP entries must also be
+    // the same object (stored entries are rebuilt per view, so their identity is enough).
+    const zoomBand = zoom >= 12 ? 'z12' : (zoom >= 10 ? 'z10' : 'z0');
+    const previous = layer._gaAirportMarkers instanceof Map ? layer._gaAirportMarkers : new Map();
+    const next = new Map();
+    const keepLayers = [];
     candidates.forEach(({ airport, position }) => {
         const { lat, lon } = position;
         const airportSource = airport?._gaAirportOverlaySource === 'stored' ? 'stored' : 'openaip';
+        const reuseKey = `${airportSource}|${getOpenAipAirportOverlayIdentity(airport)}|${lat.toFixed(5)},${lon.toFixed(5)}|${zoomBand}`;
+        const cached = previous.get(reuseKey);
+        if (cached && !next.has(reuseKey) && layer.hasLayer(cached.marker)
+            && (airportSource === 'stored' || cached.airport === airport)) {
+            next.set(reuseKey, cached);
+            keepLayers.push(cached.marker);
+            return;
+        }
         const airportLabel = getOpenAipAirportLabel(airport);
         const airportIcao = String(airport?.icaoCode || airport?.icao || airport?.designator || '').trim().toUpperCase();
         // ICAO symbol set or the previous dots (layer menu "OpenAIP: Darstellung anpassen").
@@ -7618,7 +7634,8 @@ function renderOpenAipAirports(airports, layer) {
                 gaAirportSource: airportSource,
                 interactive: true,
                 bubblingMouseEvents: false
-            })).bindTooltip(getOpenAipAirportTooltip(airport), {
+            // Built when shown: kept markers pick up runway/frequency data loaded later.
+            })).bindTooltip(() => getOpenAipAirportTooltip(airport), {
             sticky: true,
             direction: 'top',
             offset: [0, -5],
@@ -7644,13 +7661,16 @@ function renderOpenAipAirports(airports, layer) {
             if (normalized) openAirportInfoPopup(normalized);
         });
         nextLayers.push(marker);
+        if (!next.has(reuseKey)) next.set(reuseKey, { marker, airport });
     });
     // Den letzten gültigen Satz erst ersetzen, nachdem alle Marker aufgebaut
     // wurden. So bleibt der Layer bei einem Renderfehler oder während eines
     // verspäteten Hosted-Packs vollständig sichtbar.
-    layer.clearLayers();
+    const keep = new Set(keepLayers);
+    layer.eachLayer((existing) => { if (!keep.has(existing)) layer.removeLayer(existing); });
     nextLayers.forEach(marker => marker.addTo(layer));
-    return nextLayers.length;
+    layer._gaAirportMarkers = next;
+    return nextLayers.length + keepLayers.length;
 }
 
 function renderOpenAipNavaids(navaids, layer) {
@@ -7711,6 +7731,7 @@ function refreshOpenAipReportingPointSymbols() {
 let openAipLastOverlayPayload = null;
 // Settings changed in the layer menu: redraw airspaces and airfields from the last data.
 window.gaOpenAipOverlayRestyle = function () {
+    if (openAipAirportLayer) openAipAirportLayer._gaAirportMarkers = null;
     openAipOverlayRenderState.airspaceKey = '';
     openAipOverlayRenderState.airportKey = '';
     openAipOverlayRenderState.navaidKey = '';
@@ -8026,6 +8047,29 @@ function gaEnableTileRetry(targetMap) {
 const GA_RASTER_PRELOAD_RING = 1;
 let gaRasterTileTuningApplied = false;
 
+// window.gaMapMotionActive: true while the main map pans or zooms. The height profile paints
+// less often meanwhile and gets one frame when the movement ends. A 2-s guard clears the flag
+// if an end event never arrives.
+function gaTrackMapMotion(targetMap) {
+    if (!targetMap || targetMap._gaMotionTracked) return;
+    targetMap._gaMotionTracked = true;
+    let guard = null;
+    const start = () => {
+        window.gaMapMotionActive = true;
+        clearTimeout(guard);
+        guard = setTimeout(stop, 2000);
+    };
+    const stop = () => {
+        clearTimeout(guard);
+        if (!window.gaMapMotionActive) return;
+        window.gaMapMotionActive = false;
+        window.vpBgNeedsUpdate = true;
+        if (typeof window.vpRequestMapProfileFrameNow === 'function') window.vpRequestMapProfileFrameNow();
+    };
+    targetMap.on('movestart zoomstart', start);
+    targetMap.on('moveend zoomend', stop);
+}
+
 function gaApplyRasterTileTuning() {
     if (gaRasterTileTuningApplied || typeof L === 'undefined' || !L.TileLayer || !L.GridLayer) return;
     gaRasterTileTuningApplied = true;
@@ -8305,6 +8349,7 @@ function initMapBase() {
 
     map = L.map('map', { attributionControl: true, maxZoom: 18, tapHold: false }).setView([51.1657, 10.4515], 6);
     gaEnableTileRetry(map);
+    gaTrackMapMotion(map);
     // Basiskarten liegen in einer gemeinsamen Gruppe, die beim VFR-Overlay
     // als Ganzes abgeblendet wird (map-basemap-catalog.js).
     ensureGaBaseMapPanes(map);

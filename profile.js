@@ -9,8 +9,33 @@ function vpCanvasFont(ctx, font) { return font; }
 
 // Coherent can retain the flex child's previous size after scaling its parent.
 // Derive the drawing budget from the visible strip, in logical CSS pixels.
+// Web: the size comes from a ResizeObserver instead of clientWidth per frame. Reading it during
+// a map pan forced a synchronous layout on every profile frame (Safari recording 26.11.2026).
+let vpMapProfileSizeObserved = null;
+let vpMapProfileSize = null;
+function vpObservedMapProfileSize(scrollContainer) {
+    if (typeof ResizeObserver !== 'function') return null;
+    if (vpMapProfileSizeObserved !== scrollContainer) {
+        if (vpMapProfileSizeObserved && vpMapProfileSizeObserved._gaProfileRo) vpMapProfileSizeObserved._gaProfileRo.disconnect();
+        vpMapProfileSizeObserved = scrollContainer;
+        vpMapProfileSize = null;
+        const ro = new ResizeObserver(() => {
+            // Layout is clean inside the observer callback: this read costs nothing extra.
+            vpMapProfileSize = { width: scrollContainer.clientWidth, height: scrollContainer.clientHeight };
+            window.vpBgNeedsUpdate = true;
+        });
+        scrollContainer._gaProfileRo = ro;
+        ro.observe(scrollContainer);
+        return null;
+    }
+    return vpMapProfileSize;
+}
 function vpMapProfileViewport(scrollContainer) {
-    if (!window.GAEfbUiScale) return { width: scrollContainer.clientWidth || 600, height: scrollContainer.clientHeight || 100 };
+    if (!window.GAEfbUiScale) {
+        const observed = vpObservedMapProfileSize(scrollContainer);
+        if (observed && observed.width > 0 && observed.height > 0) return { width: observed.width, height: observed.height };
+        return { width: scrollContainer.clientWidth || 600, height: scrollContainer.clientHeight || 100 };
+    }
     const strip = document.getElementById('mapProfileStrip');
     const wrapper = document.getElementById('vpCanvasWrapper');
     if (!strip || !wrapper) return { width: 0, height: 0 };
@@ -9884,11 +9909,14 @@ function renderMapProfileFrames(timeMs) {
     const perfMeta = window.vpAnimFrameMeta || (window.vpAnimFrameMeta = { lastPaintMs: 0, lastTargetFps: 0 });
     const hasWeatherAnim = vpHasAnimatedProfileWeather();
     const targetFps = vpGetMapProfileTargetFps(isHdgMode, hasWeatherAnim);
-    const frameIntervalMs = 1000 / Math.max(1, targetFps);
+    // While the map pans or zooms (and the profile itself is not being handled) the profile
+    // paints at most 4×/s; the map sends a final frame when the movement ends.
+    const mapMoving = window.gaMapMotionActive === true && targetFps !== VP_PROFILE_FPS_INTERACT && targetFps !== VP_PROFILE_FPS_INTERACT_LOW;
+    const frameIntervalMs = Math.max(1000 / Math.max(1, targetFps), mapMoving ? 250 : 0);
     const nowMs = Number.isFinite(timeMs) ? timeMs : performance.now();
     const elapsedMs = nowMs - (Number(perfMeta.lastPaintMs) || 0);
 
-    if (!window.vpBgNeedsUpdate && elapsedMs < frameIntervalMs) {
+    if ((!window.vpBgNeedsUpdate || mapMoving) && elapsedMs < frameIntervalMs) {
         vpScheduleMapProfileFrame(frameIntervalMs - elapsedMs);
         return;
     }
