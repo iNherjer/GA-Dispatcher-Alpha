@@ -4974,6 +4974,7 @@ window.vpBuildWeatherDebugReport = function() {
                 + ` | aufgegeben ${Number(retryStatus?.gaveUp) || 0}`
                 + ` | unsichtbare nachgeblendet ${Number(retryStatus?.fadeRescued) || 0}`
                 + ` | Lücken fehlend/unsichtbar/abgehängt ${Number(retryStatus?.gapMissing) || 0}/${Number(retryStatus?.gapHidden) || 0}/${Number(retryStatus?.gapDetached) || 0}`
+                + ` | Tuning ${retryStatus?.tuning || '-'}`
             );
         } catch (_) { }
     }

@@ -8113,6 +8113,17 @@ function gaEnableTileRetry(targetMap) {
 // tiles every 150 ms while dragging instead of 200 ms. Canvas grid layers (terrain, SIGMET)
 // and vector maps are not affected.
 const GA_RASTER_PRELOAD_RING = 1;
+// Safari (Report 26.11.2026): whole rectangles of loaded tiles were not painted although
+// Leaflet held every visible tile loaded and fully opaque (gap check 0/0/0). Safari keeps
+// Leaflet's default buffer, no preload ring and synchronous image decoding; other browsers
+// keep the tuning. localStorage ga_tile_tuning = 'full' re-enables it in Safari for comparison.
+function gaTileTuningMode() {
+    let forced = '';
+    try { forced = String(localStorage.getItem('ga_tile_tuning') || ''); } catch (_) {}
+    if (forced === 'full' || forced === 'safe') return forced;
+    const safari = typeof L !== 'undefined' && L.Browser && L.Browser.safari && !L.Browser.chrome;
+    return safari ? 'safe' : 'full';
+}
 let gaRasterTileTuningApplied = false;
 
 // window.gaMapMotionActive: true while the main map pans or zooms. The height profile paints
@@ -8142,8 +8153,12 @@ function gaApplyRasterTileTuning() {
     if (gaRasterTileTuningApplied || typeof L === 'undefined' || !L.TileLayer || !L.GridLayer) return;
     gaRasterTileTuningApplied = true;
     const mobile = !!(L.Browser && L.Browser.mobile);
-    const tuning = { keepBuffer: mobile ? 2 : 3 };
+    const safe = gaTileTuningMode() === 'safe';
+    gaTileRetryState.tuning = safe ? 'safari-schonend' : 'voll';
+    const tuning = { keepBuffer: mobile || safe ? 2 : 3 };
     if (!mobile) tuning.updateInterval = 150;
+    // Preload ring off in the safe mode (one more ring of decoded images per layer).
+    if (safe) tuning.gaPreload = false;
     L.TileLayer.mergeOptions(tuning);
 
     const originalTiledPixelBounds = L.GridLayer.prototype._getTiledPixelBounds;
@@ -8276,7 +8291,7 @@ function createResilientOpenTopoLayer(options = {}) {
         createTile(coords, done) {
             const tile = document.createElement('img');
             tile.alt = '';
-            tile.decoding = 'async';
+            if (gaTileTuningMode() !== 'safe') tile.decoding = 'async';
             tile.setAttribute('role', 'presentation');
             const crossOrigin = (this.options.crossOrigin || this.options.crossOrigin === '')
                 ? (this.options.crossOrigin === true ? '' : this.options.crossOrigin)
