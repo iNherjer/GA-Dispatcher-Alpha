@@ -1,5 +1,5 @@
 // VFR Multitool – Service Worker
-const CACHE = 'ga-dispatcher-v2562';
+const CACHE = 'ga-dispatcher-v2563';
 
 const STATIC = [
     './',
@@ -256,6 +256,7 @@ const STATIC = [
     './checklists.js',
     './sim-route.js',
     './sim-manual-flight.js',
+    './device-gps-live.js',
     './profile.js',
     './airport-type-filter.js',
     './aviation-data-hosted.js',

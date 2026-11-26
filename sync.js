@@ -20446,6 +20446,8 @@ function _renderLiveTrailIfNeeded(now = Date.now(), force = false) {
 
 function _runLiveMissionTriggerTick(lat, lon, alt) {
     if (window.gaMissionDraftActive?.()) return;
+    // Hidden device-GPS mode (device-gps-live.js) only shows the position.
+    if (window.gaDeviceGpsLiveActive?.()) return;
     if (_missionExecutionAuthorityIsTracker()) return;
     updateFlightRecorder(lat, lon, alt);
     if (missionRuntime.active && typeof window.missionSmokeEnsureSpawned === 'function') {

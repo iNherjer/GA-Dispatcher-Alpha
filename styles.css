@@ -22829,3 +22829,17 @@ body.theme-retro .ga-briefing-weather-widget.is-paper .ga-briefing-model-weather
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
 }
 .leaflet-tooltip.map-search-highlight-label::before { border-top-color: #ff2fb4; }
+
+/* Hidden device-GPS live mode (device-gps-live.js): no iOS callout on the long press. */
+.map-toolbar-help-btn {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: manipulation;
+}
+.map-toolbar-help-btn.device-gps-hold-ready {
+    box-shadow: 0 0 0 2px #00e5ff;
+}
+body.device-gps-live .map-toolbar-help-btn {
+    color: #00e5ff;
+}
